@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package gurvy is an elliptic curve (+pairing) library. It currently generates efficient code for
-// bls381, bls377 and bn256 (see gurvy/generated/...)
+// bls381, bls377 and bn256
 package gurvy
 
 // do not modify the order of this enum
