@@ -1,0 +1,2 @@
+- bls381: we can speed up the scalar mul < 50 , via double & add, using the endo (x, y)->(u*x, y), where u is cube root of 1
+
