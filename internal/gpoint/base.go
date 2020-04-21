@@ -281,7 +281,7 @@ func (p *{{.Name}}Affine) String(curve *Curve) string {
 	var x, y {{.CType}}
 	x.Set(&p.X)
 	y.Set(&p.Y)
-	return "E([" + x.FromMont().String() + "," + y.FromMont().String() + "]),"
+	return "E([" + x.String() + "," + y.String() + "]),"
 }
 
 // IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))

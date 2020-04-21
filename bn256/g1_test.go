@@ -89,6 +89,33 @@ func TestG1JacDouble(t *testing.T) {
 	}
 }
 
+func TestG1ScalarMulEndo(t *testing.T) {
+
+	curve := BN256()
+
+	// s = s1*l+s2 where l = 4407920970296243842393367215006156084916469457145843978461
+	var s, s1, s2 fr.Element
+	s.SetString("21888242071839275222246405745257275088548364400416034343698204106575808495617").FromMont()
+	s1.SetString("4965661185701391709").FromMont()
+	s2.SetString("285383959352645800429349787908584380994614599990688515768").FromMont()
+
+	// correct result
+	var expectedRes G1Jac
+	expectedRes.Set(&curve.g1Gen)
+	expectedRes.ScalarMul(curve, &expectedRes, s)
+
+	// test
+	var testRes G1Jac
+	var p G1Affine
+	curve.g1Gen.ToAffineFromJac(&p)
+	<-testRes.ScalarMulEndo(curve, &p, s1, s2)
+
+	if !testRes.Equal(&expectedRes) {
+		t.Fatal("scalar Mul endo failed")
+	}
+
+}
+
 func TestG1JacScalarMul(t *testing.T) {
 
 	curve := BN256()
@@ -282,4 +309,25 @@ func BenchmarkMultiExpG1(b *testing.B) {
 			}
 		})
 	}
+}
+
+func BenchmarkEndo(b *testing.B) {
+	curve := BN256()
+
+	// s = s1*l+s2 where l = 4407920970296243842393367215006156084916469457145843978461
+	var s, s1, s2 fr.Element
+	s.SetString("21888242071839275222246405745257275088548364400416034343698204106575808495617").FromMont()
+	s1.SetString("4965661185701391709").FromMont()
+	s2.SetString("285383959352645800429349787908584380994614599990688515768").FromMont()
+
+	// test
+	var testRes G1Jac
+	var p G1Affine
+	curve.g1Gen.ToAffineFromJac(&p)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		<-testRes.ScalarMulEndo(curve, &p, s1, s2)
+	}
+
 }
