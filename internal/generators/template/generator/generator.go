@@ -8,11 +8,11 @@ import (
 
 	"github.com/consensys/bavard"
 
-	"github.com/consensys/gurvy/tmp/generators/template/gpoint"
-	"github.com/consensys/gurvy/tmp/generators/template/pairing"
-	"github.com/consensys/gurvy/tmp/generators/template/tower/fp12"
-	"github.com/consensys/gurvy/tmp/generators/template/tower/fp2"
-	"github.com/consensys/gurvy/tmp/generators/template/tower/fp6"
+	"github.com/consensys/gurvy/internal/generators/template/gpoint"
+	"github.com/consensys/gurvy/internal/generators/template/pairing"
+	"github.com/consensys/gurvy/internal/generators/template/tower/fp12"
+	"github.com/consensys/gurvy/internal/generators/template/tower/fp2"
+	"github.com/consensys/gurvy/internal/generators/template/tower/fp6"
 
 	"github.com/consensys/goff/cmd"
 )

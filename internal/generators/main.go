@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/consensys/gurvy/tmp/generators/template/generator"
+	"github.com/consensys/gurvy/internal/generators/template/generator"
 )
 
 //go:generate go run main.go
