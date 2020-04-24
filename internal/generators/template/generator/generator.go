@@ -79,7 +79,6 @@ func GenerateCurve(d GenerateData) error {
 	// fp2
 	{
 		// generate e2.go
-		fmt.Println("going there")
 		src := []string{
 			fp2.Base,
 			fp2.Inline,
