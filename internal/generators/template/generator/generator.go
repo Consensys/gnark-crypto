@@ -46,7 +46,11 @@ type GenerateData struct {
 	TNeg bool
 
 	// gpoint
-	PointName string
+	PointName    string
+	ThirdRootOne string
+	Lambda       string
+	Size1        string
+	Size2        string
 }
 
 // PointData to generate g1.go, g2.go
@@ -55,6 +59,12 @@ type PointData struct {
 	CoordType string
 	GroupType string
 	Fpackage  string
+
+	// data useful for the "endomorphism trick" to speed up scalar multiplication
+	Lambda       string
+	ThirdRootOne string
+	Size1        string
+	Size2        string
 }
 
 // GenerateCurve generates tower, curve, pairing
@@ -134,40 +144,59 @@ func GenerateCurve(d GenerateData) error {
 
 	// gpoint
 	{
-		gpoints := []PointData{
-			{
-				PName:     d.PointName + "1",
-				CoordType: d.FpName + ".Element",
-				GroupType: d.FrName,
-				Fpackage:  d.Fpackage,
-			},
-			{
-				PName:     d.PointName + "2",
-				CoordType: d.Fp2Name,
-				GroupType: d.FrName,
-				Fpackage:  d.Fpackage,
-			},
+		// g1.go
+		point := PointData{
+			PName:        d.PointName + "1",
+			CoordType:    d.FpName + ".Element",
+			GroupType:    d.FrName,
+			Fpackage:     d.Fpackage,
+			ThirdRootOne: d.ThirdRootOne,
+			Lambda:       d.Lambda,
+			Size1:        d.Size1,
+			Size2:        d.Size2,
+		}
+		src := []string{
+			gpoint.Base,
+			gpoint.Add,
+			gpoint.AddMixed,
+			gpoint.Double,
+			gpoint.EndoMul,
+			gpoint.ScalarMul,
+			gpoint.WindowedMultiExp,
+			gpoint.MultiExp,
+		}
+		if err := bavard.Generate(d.RootPath+point.PName+".go", src, point,
+			bavard.Package(d.Fpackage),
+			bavard.Apache2("ConsenSys AG", 2020),
+			bavard.GeneratedBy("gurvy/internal/generators"),
+		); err != nil {
+			return err
 		}
 
-		for _, g := range gpoints {
-			// generatz g1.go, g2.go
-			src := []string{
-				gpoint.Base,
-				gpoint.Add,
-				gpoint.AddMixed,
-				gpoint.Double,
-				gpoint.ScalarMul,
-				gpoint.WindowedMultiExp,
-				gpoint.MultiExp,
-			}
-			if err := bavard.Generate(d.RootPath+g.PName+".go", src, g,
-				bavard.Package(d.Fpackage),
-				bavard.Apache2("ConsenSys AG", 2020),
-				bavard.GeneratedBy("gurvy/internal/generators"),
-			); err != nil {
-				return err
-			}
+		// g2.go
+		point = PointData{
+			PName:     d.PointName + "2",
+			CoordType: d.Fp2Name,
+			GroupType: d.FrName,
+			Fpackage:  d.Fpackage,
 		}
+		src = []string{
+			gpoint.Base,
+			gpoint.Add,
+			gpoint.AddMixed,
+			gpoint.Double,
+			gpoint.ScalarMul,
+			gpoint.WindowedMultiExp,
+			gpoint.MultiExp,
+		}
+		if err := bavard.Generate(d.RootPath+point.PName+".go", src, point,
+			bavard.Package(d.Fpackage),
+			bavard.Apache2("ConsenSys AG", 2020),
+			bavard.GeneratedBy("gurvy/internal/generators"),
+		); err != nil {
+			return err
+		}
+
 	}
 
 	// pairing
@@ -175,6 +204,8 @@ func GenerateCurve(d GenerateData) error {
 		// generate pairing.go
 		src := []string{
 			pairing.Pairing,
+			pairing.ExtraWork,
+			pairing.MulAssign,
 		}
 		if err := bavard.Generate(d.RootPath+"pairing.go", src, d,
 			bavard.Package(d.Fpackage),

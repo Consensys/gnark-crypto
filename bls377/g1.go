@@ -515,7 +515,7 @@ func (p *G1Jac) doubleandadd(curve *Curve, a *G1Affine, s fr.Element, n int) *G1
 // using the endo phi(p=(x,y))=(ux,y) where u is a 3rd root of 1,
 // phi(P) = lambda*P
 // u = 80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945
-// lambda = 91893752504881257701523279626832445440 (127 bits)
+// lambda = 91893752504881257701523279626832445440 (129 bits)
 // s1, s2 are scalars such that s1*lambda+s2 = s
 // s1 on 129 bits
 // s2 on 127 bits

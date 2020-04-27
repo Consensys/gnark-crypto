@@ -26,54 +26,7 @@ func (curve *Curve) FinalExponentiation(z *e12, _z ...*e12) e12 {
 		result.Mul(&result, e)
 	}
 
-	// memalloc
-	var t [6]e12
-
-	// buf = x**(p^6-1)
-	t[0].FrobeniusCube(&result).
-		FrobeniusCube(&t[0])
-
-	result.Inverse(&result)
-	t[0].Mul(&t[0], &result)
-
-	// z = (x**(p^6-1)) ^(p^2+1)
-	result.FrobeniusSquare(&t[0]).
-		Mul(&result, &t[0])
-
-	// hard part (up to permutation)
-	// performs the hard part of the final expo
-	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
-
-	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].Expt(&result)
-	t[1].Square(&t[5])
-	t[3].Mul(&t[0], &t[5])
-
-	t[0].Expt(&t[3])
-	t[2].Expt(&t[0])
-	t[4].Expt(&t[2])
-
-	t[4].Mul(&t[1], &t[4])
-	t[1].Expt(&t[4])
-	t[3].InverseUnitary(&t[3])
-	t[1].Mul(&t[3], &t[1])
-	t[1].Mul(&t[1], &result)
-
-	t[0].Mul(&t[0], &result)
-	t[0].FrobeniusCube(&t[0])
-
-	t[3].InverseUnitary(&result)
-	t[4].Mul(&t[3], &t[4])
-	t[4].Frobenius(&t[4])
-
-	t[5].Mul(&t[2], &t[5])
-	t[5].FrobeniusSquare(&t[5])
-
-	t[5].Mul(&t[5], &t[0])
-	t[5].Mul(&t[5], &t[4])
-	t[5].Mul(&t[5], &t[1])
-
-	result.Set(&t[5])
+	result.FinalExponentiation(&result)
 
 	return result
 }
@@ -101,7 +54,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *e12) *e12 {
 	var lEval lineEvalRes
 
 	// Miller loop
-	for i := 62; i >= 0; i-- {
+	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
 		QNext.Set(&QCur)
 		QNext.Double()
 		QNextNeg.Neg(&QNext)
@@ -198,62 +151,12 @@ type lineEvalRes struct {
 }
 
 func (l *lineEvalRes) mulAssign(z *e12) *e12 {
-	var buf [3]e6
 
-	// mul z.c0 by l.r0 (that's e6 multiplication with y.b0 == y.b2 == 0)
-	buf[0].B2.Mul(&z.C0.B1, &l.r0)
-	buf[0].B0.Add(&z.C0.B1, &z.C0.B2).
-		Mul(&buf[0].B0, &l.r0).
-		Sub(&buf[0].B0, &buf[0].B2).
-		MulByNonSquare(&buf[0].B0)
-
-	buf[0].B1.Add(&z.C0.B0, &z.C0.B1).
-		Mul(&buf[0].B1, &l.r0).
-		Sub(&buf[0].B1, &buf[0].B2)
-
-	e6Mulb1b2(&buf[1], &z.C1, &l.r1, &l.r2)
-	buf[2].Add(&z.C0, &z.C1)
-
-	var b1 e2
-	b1.Add(&l.r0, &l.r1)
-
-	z.C0.Set(&buf[1]).
-		MulByGen(&z.C0).
-		Add(&z.C0, &buf[0])
-	e6Mulb1b2(&z.C1, &buf[2], &b1, &l.r2).
-		Sub(&z.C1, &buf[0]).
-		Sub(&z.C1, &buf[1])
+	var a, b, c e12
+	a.MulByVW(z, &l.r1)
+	b.MulByV(z, &l.r0)
+	c.MulByV2W(z, &l.r2)
+	z.Add(&a, &b).Add(z, &c)
 
 	return z
-}
-
-func e6Mulb1b2(result, x *e6, b1, b2 *e2) *e6 {
-	// e6.Mul with  y.b1  & y.b2 are set, y.b0 == 0
-	var t1, t2 e2
-	var buf [2]e2
-
-	t1.Mul(&x.B1, b1)
-	t2.Mul(&x.B2, b2)
-
-	buf[0].Add(&x.B1, &x.B2)
-	buf[1].Add(b1, b2)
-
-	result.B0.Mul(&buf[0], &buf[1]).
-		Sub(&result.B0, &t1).
-		Sub(&result.B0, &t2).
-		MulByNonSquare(&result.B0)
-
-	buf[0].Add(&x.B0, &x.B1)
-	buf[1].Set(b1)
-	result.B1.Mul(&buf[0], &buf[1]).
-		Sub(&result.B1, &t1)
-	result.B1.Add(&result.B1, buf[0].MulByNonSquare(&t2))
-
-	buf[0].Add(&x.B0, &x.B2)
-	buf[1].Set(b2)
-	result.B2.Mul(&buf[0], &buf[1]).
-		Sub(&result.B2, &t2).
-		Add(&result.B2, &t1)
-
-	return result
 }

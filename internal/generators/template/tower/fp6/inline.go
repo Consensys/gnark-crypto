@@ -15,13 +15,13 @@ const Inline = `
 		{{- template "fpInlineMulByNonResidue" dict "all" $.all "out" (print "&(" $.out ").A0") "in" (print "&(" $.in ").A1") }}
 		({{$.out}}).A1 = buf
 	{{- else if eq $.all.Fp6NonResidue "1,1"}}
-		var buf {{$.all.Fp6Name}}
+		var buf {{$.all.Fp2Name}}
 		buf.Set({{$.in}})
 		{{$.out}}.A1.Add(&buf.A0, &buf.A1)
 		{{- template "fpInlineMulByNonResidue" dict "all" $.all "out" (print "&(" $.out ").A0") "in" "&buf.A1" }}
 		{{$.out}}.A0.AddAssign(&buf.A0)
 	{{- else if eq $.all.Fp6NonResidue "9,1"}}
-		var buf, buf9 {{$.all.Fp6Name}}
+		var buf, buf9 {{$.all.Fp2Name}}
 		buf.Set({{$.in}})
 		buf9.Double(&buf).
 			Double(&buf9).
