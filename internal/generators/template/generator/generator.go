@@ -165,7 +165,7 @@ func GenerateCurve(d GenerateData) error {
 			gpoint.WindowedMultiExp,
 			gpoint.MultiExp,
 		}
-		if err := bavard.Generate(d.RootPath+point.PName+".go", src, point,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(point.PName)+".go", src, point,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -189,7 +189,7 @@ func GenerateCurve(d GenerateData) error {
 			gpoint.WindowedMultiExp,
 			gpoint.MultiExp,
 		}
-		if err := bavard.Generate(d.RootPath+point.PName+".go", src, point,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(point.PName)+".go", src, point,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
