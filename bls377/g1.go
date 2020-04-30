@@ -37,6 +37,7 @@ limitations under the License.
 // Most algos for points operations are taken from http://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
 
 import (
+	"math/big"
 	"runtime"
 
 	"github.com/consensys/gurvy/bls377/fp"
@@ -519,7 +520,16 @@ func (p *G1Jac) doubleandadd(curve *Curve, a *G1Affine, s fr.Element, n int) *G1
 // s1, s2 are scalars such that s1*lambda+s2 = s
 // s1 on 129 bits
 // s2 on 127 bits
-func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s1, s2 fr.Element) chan G1Jac {
+func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s fr.Element) G1Jac {
+
+	// operation using big int
+	var lambda, _s, _s1, _s2 big.Int
+	lambda.SetString("91893752504881257701523279626832445440", 10)
+	s.ToBigInt(&_s)
+	_s1.DivMod(&_s, &lambda, &_s2)
+	var s1, s2 fr.Element
+	s1.SetBigInt(&_s1).FromMont()
+	s2.SetBigInt(&_s2).FromMont()
 
 	// eigenvalue of phi
 	var thirdRootOne fp.Element
@@ -577,7 +587,10 @@ func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s1, s2 fr.Element) chan
 	go task(0)
 	go task(1)
 	go reduce()
-	return chDone
+
+	<-chDone
+
+	return *p
 }
 
 // ScalarMul multiplies a by scalar

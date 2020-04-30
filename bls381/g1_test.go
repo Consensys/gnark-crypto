@@ -93,11 +93,8 @@ func TestG1ScalarMulEndo(t *testing.T) {
 
 	curve := BLS381()
 
-	// s = s1*l+s2 where l = 228988810152649578064853576960394133503
-	var s, s1, s2 fr.Element
+	var s fr.Element
 	s.SetString("52435875175126190470007740508185965837690552500527637822603658699938581184513").FromMont()
-	s1.SetString("228988810152649578023628855133563103606").FromMont()
-	s2.SetString("124157840902309078429813423282796472695").FromMont()
 
 	// correct result
 	var expectedRes G1Jac
@@ -108,7 +105,7 @@ func TestG1ScalarMulEndo(t *testing.T) {
 	var testRes G1Jac
 	var p G1Affine
 	curve.g1Gen.ToAffineFromJac(&p)
-	<-testRes.ScalarMulEndo(curve, &p, s1, s2)
+	testRes.ScalarMulEndo(curve, &p, s)
 
 	if !testRes.Equal(&expectedRes) {
 		t.Fatal("scalar Mul endo failed")
