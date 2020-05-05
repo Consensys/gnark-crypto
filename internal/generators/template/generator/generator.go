@@ -22,31 +22,31 @@ type GenerateData struct {
 
 	// common
 	Fpackage string
-	RootPath string
+	RootPath string // TODO deduce this from Fpackage; remove it
 
 	// fp, fr moduli
-	FpName    string
+	FpName    string // TODO this name cannot change; remove it
 	FpModulus string
 	FrModulus string
-	FrName    string
+	FrName    string // TODO this name cannot change; remove it
 
 	// fp2
-	Fp2Name       string
+	Fp2Name       string // TODO this name cannot change; remove it
 	Fp2NonResidue string
 
 	// fp6
-	Fp6Name       string
+	Fp6Name       string // TODO this name cannot change; remove it
 	Fp6NonResidue string
 
 	// fp12
-	Fp12Name string
+	Fp12Name string // TODO this name cannot change; remove it
 
 	// pairing
 	T    string
 	TNeg bool
 
 	// gpoint
-	PointName    string
+	PointName    string // TODO this name cannot change; remove it
 	ThirdRootOne string
 	Lambda       string
 	Size1        string
