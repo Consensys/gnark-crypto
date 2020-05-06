@@ -50,7 +50,7 @@ type GenerateData struct {
 	ThirdRootOne string
 	Lambda       string
 	Size1        string
-	Size2        string
+	Size2        string // TODO this is a function of Size1; remove it
 }
 
 // PointData to generate g1.go, g2.go
