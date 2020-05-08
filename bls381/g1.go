@@ -37,7 +37,6 @@ limitations under the License.
 // Most algos for points operations are taken from http://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
 
 import (
-	"math/big"
 	"runtime"
 
 	"github.com/consensys/gurvy/bls381/fp"
@@ -484,113 +483,6 @@ func (p *G1Jac) Double() *G1Jac {
 	p.Y.SubAssign(&YYYY)
 
 	return p
-}
-
-// queryNthBit returns the i-th bit of s
-func queryNthBit(s fr.Element, i int) uint64 {
-	limb := i / 64
-	offset := i % 64
-	b := (s[limb] >> offset) & 1
-	return b
-}
-
-// doubleandadd algo for exponentiation
-// n=number of bits of the scalar s
-func (p *G1Jac) doubleandadd(curve *Curve, a *G1Affine, s fr.Element, n int) *G1Jac {
-
-	var res G1Jac
-	res.Set(&curve.g1Infinity)
-
-	for i := n - 1; i >= 0; i-- {
-		b := queryNthBit(s, i)
-		res.Double()
-		if b == 1 {
-			res.AddMixed(a)
-		}
-	}
-	p.Set(&res)
-	return &res
-}
-
-// ScalarMulEndo performs scalar multiplication
-// using the endo phi(p=(x,y))=(ux,y) where u is a 3rd root of 1,
-// phi(P) = lambda*P
-// u = 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
-// lambda = 228988810152649578064853576960394133503 (128 bits)
-// s1, s2 are scalars such that s1*lambda+s2 = s
-// s1 on 128 bits
-// s2 on 128 bits
-func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s fr.Element) G1Jac {
-
-	// operation using big int
-	var lambda, _s, _s1, _s2 big.Int
-	lambda.SetString("228988810152649578064853576960394133503", 10)
-	s.ToBigInt(&_s)
-	_s1.DivMod(&_s, &lambda, &_s2)
-	var s1, s2 fr.Element
-	s1.SetBigInt(&_s1).FromMont()
-	s2.SetBigInt(&_s2).FromMont()
-
-	// eigenvalue of phi
-	var thirdRootOne fp.Element
-	thirdRootOne.SetString("4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436")
-
-	// result
-	chDone := make(chan G1Jac, 1)
-
-	// chan monitoring the computation of s1*a and s2*phi(a) respectively
-	chTasks := []chan struct{}{
-		make(chan struct{}),
-		make(chan struct{}),
-	}
-
-	//scalars
-	scalars := []fr.Element{
-		s1,
-		s2,
-	}
-
-	// sizes of s1 and s2
-	sizes := []int{
-		128,
-		128,
-	}
-
-	// a, phi(a)
-	points := []G1Affine{
-		*a,
-		*a,
-	}
-	points[0].X.MulAssign(&thirdRootOne)
-
-	// s1*phi(a), s2*(a)
-	tmpRes := make([]G1Jac, 2)
-
-	// subtask computing a single scalar mul
-	task := func(i int) {
-		tmpRes[i].doubleandadd(curve, &points[i], scalars[i], sizes[i])
-		chTasks[i] <- struct{}{}
-	}
-
-	// wait for each task to be done and add the results
-	reduce := func() {
-		var res G1Jac
-		res.Set(&curve.g1Infinity)
-		<-chTasks[0]
-		res.Add(curve, &tmpRes[0])
-		<-chTasks[1]
-		res.Add(curve, &tmpRes[1])
-		p.Set(&res)
-		chDone <- res
-	}
-
-	go task(0)
-	go task(1)
-	go reduce()
-
-	<-chDone
-
-	return *p
 }
 
 // ScalarMul multiplies a by scalar

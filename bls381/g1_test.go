@@ -89,29 +89,29 @@ func TestG1JacDouble(t *testing.T) {
 	}
 }
 
-func TestG1ScalarMulEndo(t *testing.T) {
+// func TestG1ScalarMulEndo(t *testing.T) {
 
-	curve := BLS381()
+// 	curve := BLS381()
 
-	var s fr.Element
-	s.SetString("52435875175126190470007740508185965837690552500527637822603658699938581184513").FromMont()
+// 	var s fr.Element
+// 	s.SetString("52435875175126190470007740508185965837690552500527637822603658699938581184513").FromMont()
 
-	// correct result
-	var expectedRes G1Jac
-	expectedRes.Set(&curve.g1Gen)
-	expectedRes.ScalarMul(curve, &expectedRes, s)
+// 	// correct result
+// 	var expectedRes G1Jac
+// 	expectedRes.Set(&curve.g1Gen)
+// 	expectedRes.ScalarMul(curve, &expectedRes, s)
 
-	// test
-	var testRes G1Jac
-	var p G1Affine
-	curve.g1Gen.ToAffineFromJac(&p)
-	testRes.ScalarMulEndo(curve, &p, s)
+// 	// test
+// 	var testRes G1Jac
+// 	var p G1Affine
+// 	curve.g1Gen.ToAffineFromJac(&p)
+// 	testRes.ScalarMulEndo(curve, &p, s)
 
-	if !testRes.Equal(&expectedRes) {
-		t.Fatal("scalar Mul endo failed")
-	}
+// 	if !testRes.Equal(&expectedRes) {
+// 		t.Fatal("scalar Mul endo failed")
+// 	}
 
-}
+// }
 
 func TestG1JacScalarMul(t *testing.T) {
 
