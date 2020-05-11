@@ -76,11 +76,21 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp, fr
 	{
-		if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, filepath.Join(d.RootPath, "fp"), false, false); err != nil {
+		fpPath := filepath.Join(d.RootPath, "fp")
+		if err := os.MkdirAll(fpPath, 0700); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(-1)
 		}
-		if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, filepath.Join(d.RootPath, "fr"), false, false); err != nil {
+		if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, fpPath, false, false); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(-1)
+		}
+		frPath := filepath.Join(d.RootPath, "fr")
+		if err := os.MkdirAll(frPath, 0700); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(-1)
+		}
+		if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, frPath, false, false); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(-1)
 		}

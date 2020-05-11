@@ -101,11 +101,11 @@ func main() {
 		Size2:         "316",
 	}
 
-	curve := [3]generator.GenerateData{
+	curve := [...]generator.GenerateData{
 		bls381,
 		bls377,
 		bn256,
-		// bw6_761,
+		bw6_761,
 	}
 
 	for _, d := range curve {
