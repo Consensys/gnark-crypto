@@ -170,7 +170,7 @@ func GenerateCurve(d GenerateData) error {
 			gpoint.Add,
 			gpoint.AddMixed,
 			gpoint.Double,
-			gpoint.EndoMul,
+			// gpoint.EndoMul,
 			gpoint.ScalarMul,
 			gpoint.WindowedMultiExp,
 			gpoint.MultiExp,
