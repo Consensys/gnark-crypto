@@ -20,7 +20,7 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 {{- /* TODO add a curve family parameter for BLS12, BN and use it here */}}
-{{- if and (eq .Fp6NonResidue "9,1") (eq .FpModulus "21888242871839275222246405745257275088696311157297823662689037894645226208583") }}
+{{- if eq .Fpackage "bn256" }}
 	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
 
 	// TODO modify sage test points script to include a factor of 3 in the final exponent for BLS curves but not BN curves
@@ -93,7 +93,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 	return z
 
-{{- else }}
+{{- else if or (eq .Fpackage "bls377") (eq .Fpackage "bls381") }}
 	// For BLS curves use Section 3 of https://eprint.iacr.org/2016/130.pdf; "hard part" is Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
 	var result PairingResult
 	result.Set(x)
