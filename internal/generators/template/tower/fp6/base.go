@@ -30,6 +30,17 @@ func (z *{{.Fp6Name}}) Set(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	return z
 }
 
+// SetOne sets z to 1 in Montgomery form and returns z
+func (z *{{.Fp6Name}}) SetOne() *{{.Fp6Name}} {
+	z.B0.A0.SetOne()
+	z.B0.A1.SetZero()
+	z.B1.A0.SetZero()
+	z.B1.A1.SetZero()
+	z.B2.A0.SetZero()
+	z.B2.A1.SetZero()
+	return z
+}
+
 // ToMont converts to Mont form
 func (z *{{.Fp6Name}}) ToMont() *{{.Fp6Name}} {
 	z.B0.ToMont()

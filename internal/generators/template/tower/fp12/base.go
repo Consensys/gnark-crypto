@@ -41,7 +41,7 @@ func (z *{{.Fp12Name}}) Set(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	return z
 }
 
-// SetOne sets z to 1 in {{.Fp12Name}} in Montgomery form and returns z
+// SetOne sets z to 1 in Montgomery form and returns z
 func (z *{{.Fp12Name}}) SetOne() *{{.Fp12Name}} {
 	z.C0.B0.A0.SetOne()
 	z.C0.B0.A1.SetZero()

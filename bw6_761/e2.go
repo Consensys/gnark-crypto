@@ -61,7 +61,7 @@ func (z *e2) Set(x *e2) *e2 {
 	return z
 }
 
-// Set sets z to 1
+// Set sets z to 1 in Montgomery form and returns z
 func (z *e2) SetOne() *e2 {
 	z.A0.SetOne()
 	z.A1.SetZero()

@@ -47,6 +47,17 @@ func (z *e6) Set(x *e6) *e6 {
 	return z
 }
 
+// SetOne sets z to 1 in Montgomery form and returns z
+func (z *e6) SetOne() *e6 {
+	z.B0.A0.SetOne()
+	z.B0.A1.SetZero()
+	z.B1.A0.SetZero()
+	z.B1.A1.SetZero()
+	z.B2.A0.SetZero()
+	z.B2.A1.SetZero()
+	return z
+}
+
 // ToMont converts to Mont form
 func (z *e6) ToMont() *e6 {
 	z.B0.ToMont()
