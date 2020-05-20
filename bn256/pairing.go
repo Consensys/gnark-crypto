@@ -31,7 +31,7 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 	return result
 }
 
-// FinalExponentiation computes the final expo x**((p**12 - 1)/r)
+// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
 
@@ -102,7 +102,6 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	t[1].Mul(&t[1], &y[0])
 	t[0].Square(&t[0])
 	z.Mul(&t[0], &t[1])
-
 	return z
 }
 

@@ -100,7 +100,7 @@ func main() {
 		Fp6NonResidue: "1,1",
 		MakeFp12:      false,
 		Fp12Name:      "fart",
-		MakePairing:   false,
+		MakePairing:   true,
 		T:             "4371281006305286848163485150587564217350348383473813272171392617577304305730246023460948554022786", // TODO this is the hard part exponent.  Implement the optimized hard part from Appendix B of https://eprint.iacr.org/2020/351.pdf
 		TNeg:          false,
 		PointName:     "G",

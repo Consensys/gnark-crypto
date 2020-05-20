@@ -16,7 +16,7 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 	return result
 }
 
-// FinalExponentiation computes the final expo x**((p**12 - 1)/r)
+// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 {{- /* TODO add a curve family parameter for BLS12, BN and use it here */}}
@@ -91,8 +91,6 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	t[0].Square(&t[0])
 	z.Mul(&t[0], &t[1])
 
-	return z
-
 {{- else if or (eq .Fpackage "bls377") (eq .Fpackage "bls381") }}
 	// For BLS curves use Section 3 of https://eprint.iacr.org/2016/130.pdf; "hard part" is Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
 	var result PairingResult
@@ -149,9 +147,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	result.Set(&t[5])
 
 	z.Set(&result)
-	return z
 
 {{- end }}
+	return z
 }
 
 // MillerLoop Miller loop
