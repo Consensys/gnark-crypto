@@ -31,6 +31,81 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 	return result
 }
 
+// FinalExponentiation computes the final expo x**((p**12 - 1)/r)
+func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
+
+	// TODO modify sage test points script to include a factor of 3 in the final exponent for BLS curves but not BN curves
+	var mt [4]e12 // mt[i] is m^(t^i)
+
+	// set m[0] = x^((p^6-1)*(p^2+1))
+	{
+		mt[0].Set(x)
+		var temp e12
+		temp.FrobeniusCube(&mt[0]).
+			FrobeniusCube(&temp)
+
+		mt[0].Inverse(&mt[0])
+		temp.Mul(&temp, &mt[0])
+
+		mt[0].FrobeniusSquare(&temp).
+			Mul(&mt[0], &temp)
+	}
+
+	// "hard part": set z = m[0]^((p^4-p^2+1)/r)
+
+	mt[1].Expt(&mt[0])
+	mt[2].Expt(&mt[1])
+	mt[3].Expt(&mt[2])
+
+	// prepare y
+	var y [7]e12
+
+	y[1].InverseUnitary(&mt[0])
+	y[4].Set(&mt[1])
+	y[5].InverseUnitary(&mt[2])
+	y[6].Set(&mt[3])
+
+	mt[0].Frobenius(&mt[0])
+	mt[1].Frobenius(&mt[1])
+	mt[2].Frobenius(&mt[2])
+	mt[3].Frobenius(&mt[3])
+
+	y[0].Set(&mt[0])
+	y[3].InverseUnitary(&mt[1])
+	y[4].Mul(&y[4], &mt[2]).InverseUnitary(&y[4])
+	y[6].Mul(&y[6], &mt[3]).InverseUnitary(&y[6])
+
+	mt[0].Frobenius(&mt[0])
+	mt[2].Frobenius(&mt[2])
+
+	y[0].Mul(&y[0], &mt[0])
+	y[2].Set(&mt[2])
+
+	mt[0].Frobenius(&mt[0])
+
+	y[0].Mul(&y[0], &mt[0])
+
+	// compute addition chain
+	var t [2]e12
+
+	t[0].Square(&y[6])
+	t[0].Mul(&t[0], &y[4])
+	t[0].Mul(&t[0], &y[5])
+	t[1].Mul(&y[3], &y[5])
+	t[1].Mul(&t[1], &t[0])
+	t[0].Mul(&t[0], &y[2])
+	t[1].Square(&t[1])
+	t[1].Mul(&t[1], &t[0])
+	t[1].Square(&t[1])
+	t[0].Mul(&t[1], &y[1])
+	t[1].Mul(&t[1], &y[0])
+	t[0].Square(&t[0])
+	z.Mul(&t[0], &t[1])
+
+	return z
+}
+
 // MillerLoop Miller loop
 func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
