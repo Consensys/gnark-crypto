@@ -137,7 +137,7 @@ type lineEvalRes struct {
 	r2 {{.Fp2Name}} // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *e12) *e12 {
+func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	{{template "MulAssign" dict "all" . }}
 

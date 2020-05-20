@@ -150,7 +150,7 @@ type lineEvalRes struct {
 	r2 e2 // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *e12) *e12 {
+func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	var a, b, c e12
 	a.MulByVW(z, &l.r1)
