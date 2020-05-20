@@ -2,8 +2,8 @@ package pairing
 
 const Pairing = `
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *{{.Fp12Name}}, _z ...*{{.Fp12Name}}) {{.Fp12Name}} {
-	var result {{.Fp12Name}}
+func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+	var result PairingResult
 	result.Set(z)
 
 	// if additional parameters are provided, multiply them into z
@@ -17,7 +17,7 @@ func (curve *Curve) FinalExponentiation(z *{{.Fp12Name}}, _z ...*{{.Fp12Name}}) 
 }
 
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *{{.Fp12Name}}) *{{.Fp12Name}} {
+func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	// init result
 	result.SetOne()

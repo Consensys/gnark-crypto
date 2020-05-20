@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/consensys/gurvy/internal/generators/template/generator"
@@ -22,7 +23,9 @@ func main() {
 		Fp2NonResidue: "-1",
 		Fp6Name:       "e6",
 		Fp6NonResidue: "1,1",
+		MakeFp12:      true,
 		Fp12Name:      "e12",
+		MakePairing:   true,
 		T:             "15132376222941642752",
 		TNeg:          true,
 		PointName:     "G",
@@ -45,7 +48,9 @@ func main() {
 		Fp2NonResidue: "5",
 		Fp6Name:       "e6",
 		Fp6NonResidue: "0,1",
+		MakeFp12:      true,
 		Fp12Name:      "e12",
+		MakePairing:   true,
 		T:             "9586122913090633729",
 		TNeg:          false,
 		PointName:     "G",
@@ -68,7 +73,9 @@ func main() {
 		Fp2NonResidue: "-1",
 		Fp6Name:       "e6",
 		Fp6NonResidue: "9,1",
+		MakeFp12:      true,
 		Fp12Name:      "e12",
+		MakePairing:   true,
 		T:             "4965661367192848881",
 		TNeg:          false,
 		PointName:     "G",
@@ -91,7 +98,9 @@ func main() {
 		Fp2NonResidue: "-1",
 		Fp6Name:       "e6",
 		Fp6NonResidue: "1,1",
-		Fp12Name:      "e12",
+		MakeFp12:      false,
+		Fp12Name:      "fart",
+		MakePairing:   false,
 		T:             "4371281006305286848163485150587564217350348383473813272171392617577304305730246023460948554022786", // TODO this is the hard part exponent.  Implement the optimized hard part from Appendix B of https://eprint.iacr.org/2020/351.pdf
 		TNeg:          false,
 		PointName:     "G",
@@ -109,12 +118,9 @@ func main() {
 	}
 
 	for _, d := range curve {
-		// create folder for the cruve
-		if err := os.MkdirAll(d.RootPath, 0700); err != nil {
-			panic(err)
-		}
 		if err := generator.GenerateCurve(d); err != nil {
-			panic(err)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(-1)
 		}
 	}
 }

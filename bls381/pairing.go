@@ -17,8 +17,8 @@
 package bls381
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *e12, _z ...*e12) e12 {
-	var result e12
+func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+	var result PairingResult
 	result.Set(z)
 
 	// if additional parameters are provided, multiply them into z
@@ -32,7 +32,7 @@ func (curve *Curve) FinalExponentiation(z *e12, _z ...*e12) e12 {
 }
 
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *e12) *e12 {
+func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	// init result
 	result.SetOne()

@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,11 +38,13 @@ type GenerateData struct {
 	Fp6NonResidue string
 
 	// fp12
+	MakeFp12 bool
 	Fp12Name string // TODO this name cannot change; remove it
 
 	// pairing
-	T    string
-	TNeg bool
+	MakePairing bool
+	T           string
+	TNeg        bool
 
 	// gpoint
 	PointName    string // TODO this name cannot change; remove it
@@ -78,21 +79,17 @@ func GenerateCurve(d GenerateData) error {
 	{
 		fpPath := filepath.Join(d.RootPath, "fp")
 		if err := os.MkdirAll(fpPath, 0700); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+			return err
 		}
 		if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, fpPath, false, false); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+			return err
 		}
 		frPath := filepath.Join(d.RootPath, "fr")
 		if err := os.MkdirAll(frPath, 0700); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+			return err
 		}
 		if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, frPath, false, false); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+			return err
 		}
 	}
 
@@ -132,7 +129,7 @@ func GenerateCurve(d GenerateData) error {
 	}
 
 	// fp12
-	{
+	if d.MakeFp12 {
 		// generatz e12.go
 		src := []string{
 			fp12.Base,
@@ -210,7 +207,7 @@ func GenerateCurve(d GenerateData) error {
 	}
 
 	// pairing
-	{
+	if d.MakePairing {
 		// generate pairing.go
 		src := []string{
 			pairing.Pairing,
