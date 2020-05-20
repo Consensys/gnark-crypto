@@ -12,6 +12,12 @@ type {{.Fp2Name}} struct {
 	A0, A1 fp.Element
 }
 
+// Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
+func (z *{{.Fp2Name}}) Equal(x *{{.Fp2Name}}) bool {
+	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
+}
+
 // SetString sets a {{.Fp2Name}} element from strings
 func (z *{{.Fp2Name}}) SetString(s1, s2 string) *{{.Fp2Name}} {
 	z.A0.SetString(s1)
@@ -52,11 +58,6 @@ func (z *{{.Fp2Name}}) SetRandom() *{{.Fp2Name}} {
 	z.A0.SetRandom()
 	z.A1.SetRandom()
 	return z
-}
-
-// Equal returns true if the two elements are equal, fasle otherwise
-func (z *{{.Fp2Name}}) Equal(x *{{.Fp2Name}}) bool {
-	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
 
 // Equal returns true if the two elements are equal, fasle otherwise

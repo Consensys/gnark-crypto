@@ -27,6 +27,12 @@ type e2 struct {
 	A0, A1 fp.Element
 }
 
+// Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
+func (z *e2) Equal(x *e2) bool {
+	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
+}
+
 // SetString sets a e2 element from strings
 func (z *e2) SetString(s1, s2 string) *e2 {
 	z.A0.SetString(s1)
@@ -67,11 +73,6 @@ func (z *e2) SetRandom() *e2 {
 	z.A0.SetRandom()
 	z.A1.SetRandom()
 	return z
-}
-
-// Equal returns true if the two elements are equal, fasle otherwise
-func (z *e2) Equal(x *e2) bool {
-	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
 
 // Equal returns true if the two elements are equal, fasle otherwise

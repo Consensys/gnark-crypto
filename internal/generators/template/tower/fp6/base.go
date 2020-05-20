@@ -8,6 +8,12 @@ type {{.Fp6Name}} struct {
 	B0, B1, B2 {{.Fp2Name}}
 }
 
+// Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
+func (z *{{.Fp6Name}}) Equal(x *{{.Fp6Name}}) bool {
+	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
+}
+
 // SetString sets a {{.Fp6Name}} elmt from stringf
 func (z *{{.Fp6Name}}) SetString(s1, s2, s3, s4, s5, s6 string) *{{.Fp6Name}} {
 	z.B0.SetString(s1, s2)
@@ -22,11 +28,6 @@ func (z *{{.Fp6Name}}) Set(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B1 = x.B1
 	z.B2 = x.B2
 	return z
-}
-
-// Equal compares two elements in {{.Fp6Name}}
-func (z *{{.Fp6Name}}) Equal(x *{{.Fp6Name}}) bool {
-	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
 
 // ToMont converts to Mont form

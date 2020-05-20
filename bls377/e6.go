@@ -25,6 +25,12 @@ type e6 struct {
 	B0, B1, B2 e2
 }
 
+// Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
+func (z *e6) Equal(x *e6) bool {
+	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
+}
+
 // SetString sets a e6 elmt from stringf
 func (z *e6) SetString(s1, s2, s3, s4, s5, s6 string) *e6 {
 	z.B0.SetString(s1, s2)
@@ -39,11 +45,6 @@ func (z *e6) Set(x *e6) *e6 {
 	z.B1 = x.B1
 	z.B2 = x.B2
 	return z
-}
-
-// Equal compares two elements in e6
-func (z *e6) Equal(x *e6) bool {
-	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
 
 // ToMont converts to Mont form

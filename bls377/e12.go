@@ -31,8 +31,8 @@ type e12 struct {
 	C0, C1 e6
 }
 
-// Equal compares two e12 elements
-// TODO can this be deleted?
+// Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
 func (z *e12) Equal(x *e12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
