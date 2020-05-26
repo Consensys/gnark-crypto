@@ -136,8 +136,8 @@ func GenerateCurve(d GenerateData) error {
 			fp6.Inline,
 			fp12.Inline,
 			fp12.Mul,
-			fp12.Frobenius,
-			fp12.Expt,
+			// fp12.Frobenius,
+			// fp12.Expt,
 		}
 		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp12Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
@@ -212,6 +212,8 @@ func GenerateCurve(d GenerateData) error {
 			pairing.Pairing,
 			pairing.ExtraWork,
 			pairing.MulAssign,
+			fp12.Frobenius,
+			fp12.Expt,
 		}
 		if err := bavard.Generate(d.RootPath+"pairing.go", src, d,
 			bavard.Package(d.Fpackage),

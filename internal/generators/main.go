@@ -109,8 +109,9 @@ func main() {
 		bls381,
 		bls377,
 		bn256,
-		bw6_761,
+		// bw6_761,
 	}
+	_ = bw6_761 // TODO temporary: avoid compile error
 
 	for _, d := range curve {
 		if err := generator.GenerateCurve(d); err != nil {
