@@ -21,7 +21,7 @@ const ID = gurvy.BW6_761
 const sGen = 4
 const bGen = sGen
 
-type PairingResult = e6
+type PairingResult = E6
 
 // BW6_761 returns BW6_761 curve
 func BW6_761() *Curve {

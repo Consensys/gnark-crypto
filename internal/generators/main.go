@@ -91,9 +91,9 @@ func main() {
 		FpName:        "fp",
 		FrModulus:     bls377.FpModulus,
 		FrName:        "fr",
-		Fp2Name:       "e2",
+		Fp2Name:       "E2",
 		Fp2NonResidue: "-1",
-		Fp6Name:       "e6",
+		Fp6Name:       "E6",
 		Fp6NonResidue: "1,1",
 		MakePairing:   false,
 		T:             "4371281006305286848163485150587564217350348383473813272171392617577304305730246023460948554022786", // TODO this is the hard part exponent.  Implement the optimized hard part from Appendix B of https://eprint.iacr.org/2020/351.pdf
