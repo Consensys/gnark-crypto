@@ -92,8 +92,8 @@ func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B1 = b0
 	return z
 }
-// Square2 squares a {{.Fp6Name}}
-func (z *{{.Fp6Name}}) Square2(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+// SquarE2 squares a {{.Fp6Name}}
+func (z *{{.Fp6Name}}) SquarE2(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
 	var v0, v1, v2, v01, v02, v12 {{.Fp2Name}}
 	v0.Square(&x.B0)

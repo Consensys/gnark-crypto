@@ -18,29 +18,29 @@ package bls381
 
 import "github.com/consensys/gurvy/bls381/fp"
 
-// e6 is a degree-three finite field extension of fp2:
+// E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-1,1 is irrep in fp2
 
-type e6 struct {
-	B0, B1, B2 e2
+type E6 struct {
+	B0, B1, B2 E2
 }
 
 // Equal returns true if z equals x, fasle otherwise
 // TODO can this be deleted?  Should be able to use == operator instead
-func (z *e6) Equal(x *e6) bool {
+func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
 
-// SetString sets a e6 elmt from stringf
-func (z *e6) SetString(s1, s2, s3, s4, s5, s6 string) *e6 {
+// SetString sets a E6 elmt from stringf
+func (z *E6) SetString(s1, s2, s3, s4, s5, s6 string) *E6 {
 	z.B0.SetString(s1, s2)
 	z.B1.SetString(s3, s4)
 	z.B2.SetString(s5, s6)
 	return z
 }
 
-// Set Sets a e6 elmt form another e6 elmt
-func (z *e6) Set(x *e6) *e6 {
+// Set Sets a E6 elmt form another E6 elmt
+func (z *E6) Set(x *E6) *E6 {
 	z.B0 = x.B0
 	z.B1 = x.B1
 	z.B2 = x.B2
@@ -48,7 +48,7 @@ func (z *e6) Set(x *e6) *e6 {
 }
 
 // SetOne sets z to 1 in Montgomery form and returns z
-func (z *e6) SetOne() *e6 {
+func (z *E6) SetOne() *E6 {
 	z.B0.A0.SetOne()
 	z.B0.A1.SetZero()
 	z.B1.A0.SetZero()
@@ -59,7 +59,7 @@ func (z *e6) SetOne() *e6 {
 }
 
 // ToMont converts to Mont form
-func (z *e6) ToMont() *e6 {
+func (z *E6) ToMont() *E6 {
 	z.B0.ToMont()
 	z.B1.ToMont()
 	z.B2.ToMont()
@@ -67,31 +67,31 @@ func (z *e6) ToMont() *e6 {
 }
 
 // FromMont converts from Mont form
-func (z *e6) FromMont() *e6 {
+func (z *E6) FromMont() *E6 {
 	z.B0.FromMont()
 	z.B1.FromMont()
 	z.B2.FromMont()
 	return z
 }
 
-// Add adds two elements of e6
-func (z *e6) Add(x, y *e6) *e6 {
+// Add adds two elements of E6
+func (z *E6) Add(x, y *E6) *E6 {
 	z.B0.Add(&x.B0, &y.B0)
 	z.B1.Add(&x.B1, &y.B1)
 	z.B2.Add(&x.B2, &y.B2)
 	return z
 }
 
-// Neg negates the e6 number
-func (z *e6) Neg(x *e6) *e6 {
+// Neg negates the E6 number
+func (z *E6) Neg(x *E6) *E6 {
 	z.B0.Neg(&z.B0)
 	z.B1.Neg(&z.B1)
 	z.B2.Neg(&z.B2)
 	return z
 }
 
-// Sub two elements of e6
-func (z *e6) Sub(x, y *e6) *e6 {
+// Sub two elements of E6
+func (z *E6) Sub(x, y *E6) *E6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
@@ -100,13 +100,13 @@ func (z *e6) Sub(x, y *e6) *e6 {
 
 // MulByGen Multiplies by v, root of X^3-1,1
 // TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *e6) MulByGen(x *e6) *e6 {
-	var result e6
+func (z *E6) MulByGen(x *E6) *E6 {
+	var result E6
 
 	result.B1 = x.B0
 	result.B2 = x.B1
 	{ // begin: inline result.B0.MulByNonResidue(&x.B2)
-		var buf e2
+		var buf E2
 		buf.Set(&x.B2)
 		result.B0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(result.B0).A0, &buf.A1)
@@ -119,23 +119,23 @@ func (z *e6) MulByGen(x *e6) *e6 {
 	return z
 }
 
-// Double doubles an element in e6
-func (z *e6) Double(x *e6) *e6 {
+// Double doubles an element in E6
+func (z *E6) Double(x *E6) *E6 {
 	z.B0.Double(&x.B0)
 	z.B1.Double(&x.B1)
 	z.B2.Double(&x.B2)
 	return z
 }
 
-// String puts e6 elmt in string form
-func (z *e6) String() string {
+// String puts E6 elmt in string form
+func (z *E6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
 }
 
-// Mul multiplies two numbers in e6
-func (z *e6) Mul(x, y *e6) *e6 {
+// Mul multiplies two numbers in E6
+func (z *E6) Mul(x, y *E6) *E6 {
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3, b4 e2
+	var rb0, b0, b1, b2, b3, b4 E2
 	b0.Mul(&x.B0, &y.B0) // step 1
 	b1.Mul(&x.B1, &y.B1) // step 2
 	b2.Mul(&x.B2, &y.B2) // step 3
@@ -146,7 +146,7 @@ func (z *e6) Mul(x, y *e6) *e6 {
 		SubAssign(&b1).
 		SubAssign(&b2)
 	{ // begin: inline rb0.MulByNonResidue(&rb0)
-		var buf e2
+		var buf E2
 		buf.Set(&rb0)
 		rb0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(rb0).A0, &buf.A1)
@@ -162,7 +162,7 @@ func (z *e6) Mul(x, y *e6) *e6 {
 		SubAssign(&b0).
 		SubAssign(&b1)
 	{ // begin: inline b3.MulByNonResidue(&b2)
-		var buf e2
+		var buf E2
 		buf.Set(&b2)
 		b3.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(b3).A0, &buf.A1)
@@ -182,9 +182,9 @@ func (z *e6) Mul(x, y *e6) *e6 {
 	return z
 }
 
-// MulByE2 multiplies x by an elements of e2
-func (z *e6) MulByE2(x *e6, y *e2) *e6 {
-	var yCopy e2
+// MulByE2 multiplies x by an elements of E2
+func (z *E6) MulByE2(x *E6, y *E2) *E6 {
+	var yCopy E2
 	yCopy.Set(y)
 	z.B0.Mul(&x.B0, &yCopy)
 	z.B1.Mul(&x.B1, &yCopy)
@@ -193,9 +193,9 @@ func (z *e6) MulByE2(x *e6, y *e2) *e6 {
 }
 
 // MulByNotv2 multiplies x by y with &y.b2=0
-func (z *e6) MulByNotv2(x, y *e6) *e6 {
+func (z *E6) MulByNotv2(x, y *E6) *E6 {
 	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3 e2
+	var rb0, b0, b1, b2, b3 E2
 	b0.Mul(&x.B0, &y.B0) // step 1
 	b1.Mul(&x.B1, &y.B1) // step 2
 	// step 3
@@ -203,7 +203,7 @@ func (z *e6) MulByNotv2(x, y *e6) *e6 {
 	rb0.Mul(&b2, &y.B1).
 		SubAssign(&b1)
 	{ // begin: inline rb0.MulByNonResidue(&rb0)
-		var buf e2
+		var buf E2
 		buf.Set(&rb0)
 		rb0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(rb0).A0, &buf.A1)
@@ -225,16 +225,16 @@ func (z *e6) MulByNotv2(x, y *e6) *e6 {
 	return z
 }
 
-// Square squares a e6
-func (z *e6) Square(x *e6) *e6 {
+// Square squares a E6
+func (z *E6) Square(x *E6) *E6 {
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var b0, b1, b2, b3, b4 e2
+	var b0, b1, b2, b3, b4 E2
 	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
 	b4.Square(&x.B2)                 // step 2
 
 	// step 3
 	{ // begin: inline b0.MulByNonResidue(&b4)
-		var buf e2
+		var buf E2
 		buf.Set(&b4)
 		b0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(b0).A0, &buf.A1)
@@ -249,7 +249,7 @@ func (z *e6) Square(x *e6) *e6 {
 	b4.Mul(&x.B1, &x.B2).Double(&b4)                  // step 7
 	// step 9
 	{ // begin: inline z.B0.MulByNonResidue(&b4)
-		var buf e2
+		var buf E2
 		buf.Set(&b4)
 		z.B0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(z.B0).A0, &buf.A1)
@@ -267,10 +267,10 @@ func (z *e6) Square(x *e6) *e6 {
 	return z
 }
 
-// Square2 squares a e6
-func (z *e6) Square2(x *e6) *e6 {
+// SquarE2 squares a E6
+func (z *E6) SquarE2(x *E6) *E6 {
 	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 e2
+	var v0, v1, v2, v01, v02, v12 E2
 	v0.Square(&x.B0)
 	v1.Square(&x.B1)
 	v2.Square(&x.B2)
@@ -282,7 +282,7 @@ func (z *e6) Square2(x *e6) *e6 {
 	v12.Square(&v12)
 	z.B0.Sub(&v12, &v1).SubAssign(&v2)
 	{ // begin: inline z.B0.MulByNonResidue(&z.B0)
-		var buf e2
+		var buf E2
 		buf.Set(&z.B0)
 		z.B0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(z.B0).A0, &buf.A1)
@@ -292,7 +292,7 @@ func (z *e6) Square2(x *e6) *e6 {
 	} // end: inline z.B0.MulByNonResidue(&z.B0)
 	z.B0.AddAssign(&v0)
 	{ // begin: inline z.B1.MulByNonResidue(&v2)
-		var buf e2
+		var buf E2
 		buf.Set(&v2)
 		z.B1.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(z.B1).A0, &buf.A1)
@@ -305,17 +305,17 @@ func (z *e6) Square2(x *e6) *e6 {
 	return z
 }
 
-// Square3 squares a e6
-func (z *e6) Square3(x *e6) *e6 {
+// Square3 squares a E6
+func (z *E6) Square3(x *E6) *E6 {
 	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 e2
+	var s0, s1, s2, s3, s4 E2
 	s0.Square(&x.B0)
 	s1.Mul(&x.B0, &x.B1).Double(&s1)
 	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
 	s3.Mul(&x.B1, &x.B2).Double(&s3)
 	s4.Square(&x.B2)
 	{ // begin: inline z.B0.MulByNonResidue(&s3)
-		var buf e2
+		var buf E2
 		buf.Set(&s3)
 		z.B0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(z.B0).A0, &buf.A1)
@@ -325,7 +325,7 @@ func (z *e6) Square3(x *e6) *e6 {
 	} // end: inline z.B0.MulByNonResidue(&s3)
 	z.B0.AddAssign(&s0)
 	{ // begin: inline z.B1.MulByNonResidue(&s4)
-		var buf e2
+		var buf E2
 		buf.Set(&s4)
 		z.B1.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(z.B1).A0, &buf.A1)
@@ -338,14 +338,14 @@ func (z *e6) Square3(x *e6) *e6 {
 	return z
 }
 
-// Inverse an element in e6
-func (z *e6) Inverse(x *e6) *e6 {
+// Inverse an element in E6
+func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
 	// step 9 is wrong in the paper!
 	// memalloc
-	var t [7]e2
-	var c [3]e2
-	var buf e2
+	var t [7]E2
+	var c [3]E2
+	var buf E2
 	t[0].Square(&x.B0)     // step 1
 	t[1].Square(&x.B1)     // step 2
 	t[2].Square(&x.B2)     // step 3
@@ -354,7 +354,7 @@ func (z *e6) Inverse(x *e6) *e6 {
 	t[5].Mul(&x.B1, &x.B2) // step 6
 	// step 7
 	{ // begin: inline c[0].MulByNonResidue(&t[5])
-		var buf e2
+		var buf E2
 		buf.Set(&t[5])
 		c[0].A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(c[0]).A0, &buf.A1)
@@ -365,7 +365,7 @@ func (z *e6) Inverse(x *e6) *e6 {
 	c[0].Neg(&c[0]).AddAssign(&t[0])
 	// step 8
 	{ // begin: inline c[1].MulByNonResidue(&t[2])
-		var buf e2
+		var buf E2
 		buf.Set(&t[2])
 		c[1].A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(c[1]).A0, &buf.A1)
@@ -380,7 +380,7 @@ func (z *e6) Inverse(x *e6) *e6 {
 	buf.Mul(&x.B1, &c[2])
 	t[6].AddAssign(&buf)
 	{ // begin: inline t[6].MulByNonResidue(&t[6])
-		var buf e2
+		var buf E2
 		buf.Set(&t[6])
 		t[6].A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(t[6]).A0, &buf.A1)
@@ -398,9 +398,9 @@ func (z *e6) Inverse(x *e6) *e6 {
 	return z
 }
 
-// MulByNonResidue multiplies a e2 by (1,1)
-func (z *e2) MulByNonResidue(x *e2) *e2 {
-	var buf e2
+// MulByNonResidue multiplies a E2 by (1,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	var buf E2
 	buf.Set(x)
 	z.A1.Add(&buf.A0, &buf.A1)
 	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
@@ -410,8 +410,8 @@ func (z *e2) MulByNonResidue(x *e2) *e2 {
 	return z
 }
 
-// MulByNonResidueInv multiplies a e2 by (1,1)^{-1}
-func (z *e2) MulByNonResidueInv(x *e2) *e2 {
+// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 	// (z).A0 = ((x).A0 + (x).A1)/2
 	// (z).A1 = ((x).A1 - (x).A0)/2
 	buf := *(x)

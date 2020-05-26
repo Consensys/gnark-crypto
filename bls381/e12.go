@@ -22,44 +22,44 @@ import (
 	"github.com/consensys/gurvy/bls381/fp"
 )
 
-// e12 is a degree-two finite field extension of fp6:
+// E12 is a degree-two finite field extension of fp6:
 // C0 + C1w where w^3-v is irrep in fp6
 
 // fp2, fp12 are both quadratic field extensions
 // template code is duplicated in fp2, fp12
 // TODO make an abstract quadratic extension template
 
-type e12 struct {
-	C0, C1 e6
+type E12 struct {
+	C0, C1 E6
 }
 
 // Equal returns true if z equals x, fasle otherwise
 // TODO can this be deleted?  Should be able to use == operator instead
-func (z *e12) Equal(x *e12) bool {
+func (z *E12) Equal(x *E12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
 
-// String puts e12 in string form
-func (z *e12) String() string {
+// String puts E12 in string form
+func (z *E12) String() string {
 	return (z.C0.String() + "+(" + z.C1.String() + ")*w")
 }
 
-// SetString sets a e12 from string
-func (z *e12) SetString(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11 string) *e12 {
+// SetString sets a E12 from string
+func (z *E12) SetString(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11 string) *E12 {
 	z.C0.SetString(s0, s1, s2, s3, s4, s5)
 	z.C1.SetString(s6, s7, s8, s9, s10, s11)
 	return z
 }
 
 // Set copies x into z and returns z
-func (z *e12) Set(x *e12) *e12 {
+func (z *E12) Set(x *E12) *E12 {
 	z.C0 = x.C0
 	z.C1 = x.C1
 	return z
 }
 
 // SetOne sets z to 1 in Montgomery form and returns z
-func (z *e12) SetOne() *e12 {
+func (z *E12) SetOne() *E12 {
 	z.C0.B0.A0.SetOne()
 	z.C0.B0.A1.SetZero()
 	z.C0.B1.A0.SetZero()
@@ -77,7 +77,7 @@ func (z *e12) SetOne() *e12 {
 
 // ToMont converts to Mont form
 // TODO can this be deleted?
-func (z *e12) ToMont() *e12 {
+func (z *E12) ToMont() *E12 {
 	z.C0.ToMont()
 	z.C1.ToMont()
 	return z
@@ -85,21 +85,21 @@ func (z *e12) ToMont() *e12 {
 
 // FromMont converts from Mont form
 // TODO can this be deleted?
-func (z *e12) FromMont() *e12 {
+func (z *E12) FromMont() *E12 {
 	z.C0.FromMont()
 	z.C1.FromMont()
 	return z
 }
 
-// Add set z=x+y in e12 and return z
-func (z *e12) Add(x, y *e12) *e12 {
+// Add set z=x+y in E12 and return z
+func (z *E12) Add(x, y *E12) *E12 {
 	z.C0.Add(&x.C0, &y.C0)
 	z.C1.Add(&x.C1, &y.C1)
 	return z
 }
 
-// Sub set z=x-y in e12 and return z
-func (z *e12) Sub(x, y *e12) *e12 {
+// Sub set z=x-y in E12 and return z
+func (z *E12) Sub(x, y *E12) *E12 {
 	z.C0.Sub(&x.C0, &y.C0)
 	z.C1.Sub(&x.C1, &y.C1)
 	return z
@@ -107,7 +107,7 @@ func (z *e12) Sub(x, y *e12) *e12 {
 
 // SetRandom used only in tests
 // TODO eliminate this method!
-func (z *e12) SetRandom() *e12 {
+func (z *E12) SetRandom() *E12 {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()
 	z.C0.B1.A0.SetRandom()
@@ -123,11 +123,11 @@ func (z *e12) SetRandom() *e12 {
 	return z
 }
 
-// Mul set z=x*y in e12 and return z
-func (z *e12) Mul(x, y *e12) *e12 {
+// Mul set z=x*y in E12 and return z
+func (z *E12) Mul(x, y *E12) *E12 {
 	// Algorithm 20 from https://eprint.iacr.org/2010/354.pdf
 
-	var t0, t1, xSum, ySum e6
+	var t0, t1, xSum, ySum E6
 
 	t0.Mul(&x.C0, &y.C0) // step 1
 	t1.Mul(&x.C1, &y.C1) // step 2
@@ -138,11 +138,11 @@ func (z *e12) Mul(x, y *e12) *e12 {
 
 	// step 3
 	{ // begin: inline z.C0.MulByNonResidue(&t1)
-		var result e6
+		var result E6
 		result.B1.Set(&(&t1).B0)
 		result.B2.Set(&(&t1).B1)
 		{ // begin: inline result.B0.MulByNonResidue(&(&t1).B2)
-			var buf e2
+			var buf E2
 			buf.Set(&(&t1).B2)
 			result.B0.A1.Add(&buf.A0, &buf.A1)
 			{ // begin: inline MulByNonResidue(&(result.B0).A0, &buf.A1)
@@ -162,21 +162,21 @@ func (z *e12) Mul(x, y *e12) *e12 {
 	return z
 }
 
-// Square set z=x*x in e12 and return z
-func (z *e12) Square(x *e12) *e12 {
+// Square set z=x*x in E12 and return z
+func (z *E12) Square(x *E12) *E12 {
 	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
 	// or the complex method from fp2
 	// for now do it the dumb way
-	var b0, b1 e6
+	var b0, b1 E6
 
 	b0.Square(&x.C0)
 	b1.Square(&x.C1)
 	{ // begin: inline b1.MulByNonResidue(&b1)
-		var result e6
+		var result E6
 		result.B1.Set(&(&b1).B0)
 		result.B2.Set(&(&b1).B1)
 		{ // begin: inline result.B0.MulByNonResidue(&(&b1).B2)
-			var buf e2
+			var buf E2
 			buf.Set(&(&b1).B2)
 			result.B0.A1.Add(&buf.A0, &buf.A1)
 			{ // begin: inline MulByNonResidue(&(result.B0).A0, &buf.A1)
@@ -194,22 +194,22 @@ func (z *e12) Square(x *e12) *e12 {
 	return z
 }
 
-// Inverse set z to the inverse of x in e12 and return z
-func (z *e12) Inverse(x *e12) *e12 {
+// Inverse set z to the inverse of x in E12 and return z
+func (z *E12) Inverse(x *E12) *E12 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
-	var t [2]e6
+	var t [2]E6
 
 	t[0].Square(&x.C0) // step 1
 	t[1].Square(&x.C1) // step 2
 	{                  // step 3
-		var buf e6
+		var buf E6
 		{ // begin: inline buf.MulByNonResidue(&t[1])
-			var result e6
+			var result E6
 			result.B1.Set(&(&t[1]).B0)
 			result.B2.Set(&(&t[1]).B1)
 			{ // begin: inline result.B0.MulByNonResidue(&(&t[1]).B2)
-				var buf e2
+				var buf E2
 				buf.Set(&(&t[1]).B2)
 				result.B0.A1.Add(&buf.A0, &buf.A1)
 				{ // begin: inline MulByNonResidue(&(result.B0).A0, &buf.A1)
@@ -230,25 +230,25 @@ func (z *e12) Inverse(x *e12) *e12 {
 
 // InverseUnitary inverse a unitary element
 // TODO deprecate in favour of Conjugate
-func (z *e12) InverseUnitary(x *e12) *e12 {
+func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }
 
 // Conjugate set z to (x.C0, -x.C1) and return z
-func (z *e12) Conjugate(x *e12) *e12 {
+func (z *E12) Conjugate(x *E12) *E12 {
 	z.Set(x)
 	z.C1.Neg(&z.C1)
 	return z
 }
 
 // MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the e12 element with C1.B1=y and all other components 0
-func (z *e12) MulByVW(x *e12, y *e2) *e12 {
-	var result e12
-	var yNR e2
+// here y*v*w means the E12 element with C1.B1=y and all other components 0
+func (z *E12) MulByVW(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
 
 	{ // begin: inline yNR.MulByNonResidue(y)
-		var buf e2
+		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(yNR).A0, &buf.A1)
@@ -267,13 +267,13 @@ func (z *e12) MulByVW(x *e12, y *e2) *e12 {
 }
 
 // MulByV set z to x*(y*v) and return z
-// here y*v means the e12 element with C0.B1=y and all other components 0
-func (z *e12) MulByV(x *e12, y *e2) *e12 {
-	var result e12
-	var yNR e2
+// here y*v means the E12 element with C0.B1=y and all other components 0
+func (z *E12) MulByV(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
 
 	{ // begin: inline yNR.MulByNonResidue(y)
-		var buf e2
+		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(yNR).A0, &buf.A1)
@@ -292,13 +292,13 @@ func (z *e12) MulByV(x *e12, y *e2) *e12 {
 }
 
 // MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the e12 element with C1.B2=y and all other components 0
-func (z *e12) MulByV2W(x *e12, y *e2) *e12 {
-	var result e12
-	var yNR e2
+// here y*v^2*w means the E12 element with C1.B2=y and all other components 0
+func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
 
 	{ // begin: inline yNR.MulByNonResidue(y)
-		var buf e2
+		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(yNR).A0, &buf.A1)
@@ -317,10 +317,10 @@ func (z *e12) MulByV2W(x *e12, y *e2) *e12 {
 }
 
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-// here y*v^2 means the e12 element with C0.B2=y and all other components 0
-func (z *e12) MulByV2NRInv(x *e12, y *e2) *e12 {
-	var result e12
-	var yNRInv e2
+// here y*v^2 means the E12 element with C0.B2=y and all other components 0
+func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
@@ -353,10 +353,10 @@ func (z *e12) MulByV2NRInv(x *e12, y *e2) *e12 {
 }
 
 // MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-// here y*v*w means the e12 element with C1.B1=y and all other components 0
-func (z *e12) MulByVWNRInv(x *e12, y *e2) *e12 {
-	var result e12
-	var yNRInv e2
+// here y*v*w means the E12 element with C1.B1=y and all other components 0
+func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
@@ -389,10 +389,10 @@ func (z *e12) MulByVWNRInv(x *e12, y *e2) *e12 {
 }
 
 // MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-// here y*w means the e12 element with C1.B0=y and all other components 0
-func (z *e12) MulByWNRInv(x *e12, y *e2) *e12 {
-	var result e12
-	var yNRInv e2
+// here y*w means the E12 element with C1.B0=y and all other components 0
+func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
@@ -424,13 +424,13 @@ func (z *e12) MulByWNRInv(x *e12, y *e2) *e12 {
 	return z
 }
 
-// MulByNonResidue multiplies a e6 by ((0,0),(1,0),(0,0))
-func (z *e6) MulByNonResidue(x *e6) *e6 {
-	var result e6
+// MulByNonResidue multiplies a E6 by ((0,0),(1,0),(0,0))
+func (z *E6) MulByNonResidue(x *E6) *E6 {
+	var result E6
 	result.B1.Set(&(x).B0)
 	result.B2.Set(&(x).B1)
 	{ // begin: inline result.B0.MulByNonResidue(&(x).B2)
-		var buf e2
+		var buf E2
 		buf.Set(&(x).B2)
 		result.B0.A1.Add(&buf.A0, &buf.A1)
 		{ // begin: inline MulByNonResidue(&(result.B0).A0, &buf.A1)
@@ -442,10 +442,10 @@ func (z *e6) MulByNonResidue(x *e6) *e6 {
 	return z
 }
 
-// Frobenius set z to Frobenius(x) in e12 and return z
-func (z *e12) Frobenius(x *e12) *e12 {
+// Frobenius set z to Frobenius(x) in E12 and return z
+func (z *E12) Frobenius(x *E12) *E12 {
 	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]e2
+	var t [6]E2
 
 	// Frobenius acts on fp2 by conjugation
 	t[0].Conjugate(&x.C0.B0)
@@ -471,10 +471,10 @@ func (z *e12) Frobenius(x *e12) *e12 {
 	return z
 }
 
-// FrobeniusSquare set z to Frobenius^2(x) in e12 and return z
-func (z *e12) FrobeniusSquare(x *e12) *e12 {
+// FrobeniusSquare set z to Frobenius^2(x) in E12 and return z
+func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]e2
+	var t [6]E2
 
 	t[1].MulByNonResiduePowerSquare2(&x.C0.B1)
 	t[2].MulByNonResiduePowerSquare4(&x.C0.B2)
@@ -492,10 +492,10 @@ func (z *e12) FrobeniusSquare(x *e12) *e12 {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x) in e12 and return z
-func (z *e12) FrobeniusCube(x *e12) *e12 {
+// FrobeniusCube set z to Frobenius^3(x) in E12 and return z
+func (z *E12) FrobeniusCube(x *E12) *E12 {
 	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]e2
+	var t [6]E2
 
 	// Frobenius^3 acts on fp2 by conjugation
 	t[0].Conjugate(&x.C0.B0)
@@ -522,10 +522,10 @@ func (z *e12) FrobeniusCube(x *e12) *e12 {
 }
 
 // MulByNonResiduePower1 set z=x*(1,1)^(1*(p-1)/6) and return z
-func (z *e2) MulByNonResiduePower1(x *e2) *e2 {
+func (z *E2) MulByNonResiduePower1(x *E2) *E2 {
 	// (1,1)^(1*(p-1)/6)
 	// 3850754370037169011952147076051364057158807420970682438676050522613628423219637725072182697113062777891589506424760 + u*151655185184498381465642749684540099398075398968325446656007613510403227271200139370504932015952886146304766135027
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			506819140503852133,
 			14297063575771579155,
@@ -548,10 +548,10 @@ func (z *e2) MulByNonResiduePower1(x *e2) *e2 {
 }
 
 // MulByNonResiduePower2 set z=x*(1,1)^(2*(p-1)/6) and return z
-func (z *e2) MulByNonResiduePower2(x *e2) *e2 {
+func (z *E2) MulByNonResiduePower2(x *E2) *E2 {
 	// (1,1)^(2*(p-1)/6)
 	// 0 + u*4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			0,
 			0,
@@ -574,10 +574,10 @@ func (z *e2) MulByNonResiduePower2(x *e2) *e2 {
 }
 
 // MulByNonResiduePower3 set z=x*(1,1)^(3*(p-1)/6) and return z
-func (z *e2) MulByNonResiduePower3(x *e2) *e2 {
+func (z *E2) MulByNonResiduePower3(x *E2) *E2 {
 	// (1,1)^(3*(p-1)/6)
 	// 1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257 + u*1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			8921533702591418330,
 			15859389534032789116,
@@ -600,7 +600,7 @@ func (z *e2) MulByNonResiduePower3(x *e2) *e2 {
 }
 
 // MulByNonResiduePower4 set z=x*(1,1)^(4*(p-1)/6) and return z
-func (z *e2) MulByNonResiduePower4(x *e2) *e2 {
+func (z *E2) MulByNonResiduePower4(x *E2) *E2 {
 	// (1,1)^(4*(p-1)/6)
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
 	b := fp.Element{
@@ -617,10 +617,10 @@ func (z *e2) MulByNonResiduePower4(x *e2) *e2 {
 }
 
 // MulByNonResiduePower5 set z=x*(1,1)^(5*(p-1)/6) and return z
-func (z *e2) MulByNonResiduePower5(x *e2) *e2 {
+func (z *E2) MulByNonResiduePower5(x *E2) *E2 {
 	// (1,1)^(5*(p-1)/6)
 	// 877076961050607968509681729531255177986764537961432449499635504522207616027455086505066378536590128544573588734230 + u*3125332594171059424908108096204648978570118281977575435832422631601824034463382777937621250592425535493320683825557
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			9428352843095270463,
 			11709709036094816655,
@@ -643,7 +643,7 @@ func (z *e2) MulByNonResiduePower5(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerSquare1 set z=x*(1,1)^(1*(p^2-1)/6) and return z
-func (z *e2) MulByNonResiduePowerSquare1(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerSquare1(x *E2) *E2 {
 	// (1,1)^(1*(p^2-1)/6)
 	// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620351
 	b := fp.Element{
@@ -660,7 +660,7 @@ func (z *e2) MulByNonResiduePowerSquare1(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerSquare2 set z=x*(1,1)^(2*(p^2-1)/6) and return z
-func (z *e2) MulByNonResiduePowerSquare2(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerSquare2(x *E2) *E2 {
 	// (1,1)^(2*(p^2-1)/6)
 	// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620350
 	b := fp.Element{
@@ -677,7 +677,7 @@ func (z *e2) MulByNonResiduePowerSquare2(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerSquare3 set z=x*(1,1)^(3*(p^2-1)/6) and return z
-func (z *e2) MulByNonResiduePowerSquare3(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerSquare3(x *E2) *E2 {
 	// (1,1)^(3*(p^2-1)/6)
 	// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
 	b := fp.Element{
@@ -694,7 +694,7 @@ func (z *e2) MulByNonResiduePowerSquare3(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerSquare4 set z=x*(1,1)^(4*(p^2-1)/6) and return z
-func (z *e2) MulByNonResiduePowerSquare4(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerSquare4(x *E2) *E2 {
 	// (1,1)^(4*(p^2-1)/6)
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
 	b := fp.Element{
@@ -711,7 +711,7 @@ func (z *e2) MulByNonResiduePowerSquare4(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerSquare5 set z=x*(1,1)^(5*(p^2-1)/6) and return z
-func (z *e2) MulByNonResiduePowerSquare5(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerSquare5(x *E2) *E2 {
 	// (1,1)^(5*(p^2-1)/6)
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
 	b := fp.Element{
@@ -728,10 +728,10 @@ func (z *e2) MulByNonResiduePowerSquare5(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerCube1 set z=x*(1,1)^(1*(p^3-1)/6) and return z
-func (z *e2) MulByNonResiduePowerCube1(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerCube1(x *E2) *E2 {
 	// (1,1)^(1*(p^3-1)/6)
 	// 2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530 + u*1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			4480897313486445265,
 			4797496051193971075,
@@ -754,10 +754,10 @@ func (z *e2) MulByNonResiduePowerCube1(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerCube2 set z=x*(1,1)^(2*(p^3-1)/6) and return z
-func (z *e2) MulByNonResiduePowerCube2(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerCube2(x *E2) *E2 {
 	// (1,1)^(2*(p^3-1)/6)
 	// 0 + u*1
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			0,
 			0,
@@ -780,10 +780,10 @@ func (z *e2) MulByNonResiduePowerCube2(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerCube3 set z=x*(1,1)^(3*(p^3-1)/6) and return z
-func (z *e2) MulByNonResiduePowerCube3(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerCube3(x *E2) *E2 {
 	// (1,1)^(3*(p^3-1)/6)
 	// 2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530 + u*2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			4480897313486445265,
 			4797496051193971075,
@@ -806,7 +806,7 @@ func (z *e2) MulByNonResiduePowerCube3(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerCube4 set z=x*(1,1)^(4*(p^3-1)/6) and return z
-func (z *e2) MulByNonResiduePowerCube4(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerCube4(x *E2) *E2 {
 	// (1,1)^(4*(p^3-1)/6)
 	// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
 	b := fp.Element{
@@ -823,10 +823,10 @@ func (z *e2) MulByNonResiduePowerCube4(x *e2) *e2 {
 }
 
 // MulByNonResiduePowerCube5 set z=x*(1,1)^(5*(p^3-1)/6) and return z
-func (z *e2) MulByNonResiduePowerCube5(x *e2) *e2 {
+func (z *E2) MulByNonResiduePowerCube5(x *E2) *E2 {
 	// (1,1)^(5*(p^3-1)/6)
 	// 1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257 + u*2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			8921533702591418330,
 			15859389534032789116,
@@ -850,13 +850,13 @@ func (z *e2) MulByNonResiduePowerCube5(x *e2) *e2 {
 
 const tAbsVal uint64 = 15132376222941642752 // negative
 
-// Expt set z to x^t in e12 and return z
+// Expt set z to x^t in E12 and return z
 // TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
 // TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
-func (z *e12) Expt(x *e12) *e12 {
+func (z *E12) Expt(x *E12) *E12 {
 	// TODO what if x==0?
 	// TODO make this match Element.Exp: x is a non-pointer?
-	var result e12
+	var result E12
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2

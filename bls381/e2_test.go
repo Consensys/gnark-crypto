@@ -6,57 +6,57 @@ import (
 	"testing"
 )
 
-type e2TestPoint struct {
-	in  [2]e2
-	out [7]e2
+type E2TestPoint struct {
+	in  [2]E2
+	out [7]E2
 }
 
-var e2TestPoints []e2TestPoint
+var E2TestPoints []E2TestPoint
 
 // TODO this method is the same everywhere. move it someplace central and call it "compare"
-func e2compare(t *testing.T, got, want interface{}) {
+func E2compare(t *testing.T, got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatal("\nexpect:\t", want, "\ngot:\t", got)
 	}
 }
 
-func e2check(t *testing.T, f func(*e2, *e2, *e2) *e2, m int) {
+func E2check(t *testing.T, f func(*E2, *E2, *E2) *E2, m int) {
 
-	if len(e2TestPoints) < 1 {
+	if len(E2TestPoints) < 1 {
 		t.Log("no tests to run")
 	}
 
-	for i := range e2TestPoints {
-		var receiver e2
-		var out *e2
-		var inCopies [len(e2TestPoints[i].in)]e2
+	for i := range E2TestPoints {
+		var receiver E2
+		var out *E2
+		var inCopies [len(E2TestPoints[i].in)]E2
 
 		for j := range inCopies {
-			inCopies[j].Set(&e2TestPoints[i].in[j])
+			inCopies[j].Set(&E2TestPoints[i].in[j])
 		}
 
 		// receiver, return value both set to result
 		out = f(&receiver, &inCopies[0], &inCopies[1])
 
-		e2compare(t, receiver, e2TestPoints[i].out[m]) // receiver correct
-		e2compare(t, *out, e2TestPoints[i].out[m])     // return value correct
+		E2compare(t, receiver, E2TestPoints[i].out[m]) // receiver correct
+		E2compare(t, *out, E2TestPoints[i].out[m])     // return value correct
 		for j := range inCopies {
-			e2compare(t, inCopies[j], e2TestPoints[i].in[j]) // inputs unchanged
+			E2compare(t, inCopies[j], E2TestPoints[i].in[j]) // inputs unchanged
 		}
 
 		// receiver == one of the inputs
 		for j := range inCopies {
 			out = f(&inCopies[j], &inCopies[0], &inCopies[1])
 
-			e2compare(t, inCopies[j], e2TestPoints[i].out[m]) // receiver correct
-			e2compare(t, *out, e2TestPoints[i].out[m])        // return value correct
+			E2compare(t, inCopies[j], E2TestPoints[i].out[m]) // receiver correct
+			E2compare(t, *out, E2TestPoints[i].out[m])        // return value correct
 			for k := range inCopies {
 				if k == j {
 					continue
 				}
-				e2compare(t, inCopies[k], e2TestPoints[i].in[k]) // other inputs unchanged
+				E2compare(t, inCopies[k], E2TestPoints[i].in[k]) // other inputs unchanged
 			}
-			inCopies[j].Set(&e2TestPoints[i].in[j]) // reset input for next tests
+			inCopies[j].Set(&E2TestPoints[i].in[j]) // reset input for next tests
 		}
 	}
 }
@@ -66,105 +66,105 @@ func e2check(t *testing.T, f func(*e2, *e2, *e2) *e2, m int) {
 //--------------------//
 
 func TestE2Add(t *testing.T) {
-	e2check(t, (*e2).Add, 0)
+	E2check(t, (*E2).Add, 0)
 }
 
 func TestE2Sub(t *testing.T) {
-	e2check(t, (*e2).Sub, 1)
+	E2check(t, (*E2).Sub, 1)
 }
 
 func TestE2Mul(t *testing.T) {
-	e2check(t, (*e2).Mul, 2)
+	E2check(t, (*E2).Mul, 2)
 }
 
 func TestE2MulByElement(t *testing.T) {
-	e2check(t, (*e2).MulByElementBinary, 3)
+	E2check(t, (*E2).MulByElementBinary, 3)
 }
 
 func TestE2Square(t *testing.T) {
-	e2check(t, (*e2).SquareBinary, 4)
+	E2check(t, (*E2).SquareBinary, 4)
 }
 
 func TestE2Inverse(t *testing.T) {
-	e2check(t, (*e2).InverseBinary, 5)
+	E2check(t, (*E2).InverseBinary, 5)
 }
 
 func TestE2Conjugate(t *testing.T) {
-	e2check(t, (*e2).ConjugateBinary, 6)
+	E2check(t, (*E2).ConjugateBinary, 6)
 }
 
 //--------------------//
 //     benches		  //
 //--------------------//
 
-var e2BenchIn1, e2BenchIn2, e2BenchOut e2
+var E2BenchIn1, E2BenchIn2, E2BenchOut E2
 
 func BenchmarkE2Add(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.Add(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.Add(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2Sub(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.Sub(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.Sub(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2Mul(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.Mul(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.Mul(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2MulByElement(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.MulByElementBinary(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.MulByElementBinary(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2Square(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.SquareBinary(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.SquareBinary(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2Inverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.InverseBinary(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.InverseBinary(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 func BenchmarkE2Conjugate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e2BenchOut.ConjugateBinary(&e2BenchIn1, &e2BenchIn2)
+		E2BenchOut.ConjugateBinary(&E2BenchIn1, &E2BenchIn2)
 	}
 }
 
 //-------------------------------------//
-// unary helpers for e2 methods
+// unary helpers for E2 methods
 //-------------------------------------//
 
 // SquareBinary a binary wrapper for Square
-func (z *e2) SquareBinary(x, y *e2) *e2 {
+func (z *E2) SquareBinary(x, y *E2) *E2 {
 	return z.Square(x)
 }
 
 // InverseBinary a binary wrapper for Inverse
-func (z *e2) InverseBinary(x, y *e2) *e2 {
+func (z *E2) InverseBinary(x, y *E2) *E2 {
 	return z.Inverse(x)
 }
 
 // ConjugateBinary a binary wrapper for Conjugate
-func (z *e2) ConjugateBinary(x, y *e2) *e2 {
+func (z *E2) ConjugateBinary(x, y *E2) *E2 {
 	return z.Conjugate(x)
 }
 
 //-------------------------------------//
-// custom helpers for e2 methods
+// custom helpers for E2 methods
 //-------------------------------------//
 
 // MulByElementBinary a binary wrapper for MulByElement
-func (z *e2) MulByElementBinary(x, y *e2) *e2 {
+func (z *E2) MulByElementBinary(x, y *E2) *E2 {
 	return z.MulByElement(x, &y.A0)
 }

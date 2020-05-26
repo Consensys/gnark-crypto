@@ -267,8 +267,8 @@ func (z *e6) Square(x *e6) *e6 {
 	return z
 }
 
-// Square2 squares a e6
-func (z *e6) Square2(x *e6) *e6 {
+// SquarE2 squares a e6
+func (z *e6) SquarE2(x *e6) *e6 {
 	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
 	var v0, v1, v2, v01, v02, v12 e2
 	v0.Square(&x.B0)

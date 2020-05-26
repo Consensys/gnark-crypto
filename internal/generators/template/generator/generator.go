@@ -38,7 +38,6 @@ type GenerateData struct {
 	Fp6NonResidue string
 
 	// fp12
-	MakeFp12 bool
 	Fp12Name string // TODO this name cannot change; remove it
 
 	// pairing
@@ -95,13 +94,13 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp2
 	{
-		// generate e2.go
+		// generate E2.go
 		src := []string{
 			fp2.Base,
 			fp2.Inline,
 			fp2.Mul,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp2Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp2Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -112,14 +111,14 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp6
 	{
-		// generate e6.go
+		// generate E6.go
 		src := []string{
 			fp6.Base,
 			fp2.Inline,
 			fp6.Inline,
 			fp6.Mul,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp6Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp6Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -129,8 +128,8 @@ func GenerateCurve(d GenerateData) error {
 	}
 
 	// fp12
-	if d.MakeFp12 {
-		// generatz e12.go
+	if d.Fp12Name != "" {
+		// generatz E12.go
 		src := []string{
 			fp12.Base,
 			fp2.Inline,
@@ -140,7 +139,7 @@ func GenerateCurve(d GenerateData) error {
 			fp12.Frobenius,
 			fp12.Expt,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp12Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp12Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),

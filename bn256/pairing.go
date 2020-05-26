@@ -36,12 +36,12 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
 
 	// TODO modify sage test points script to include a factor of 3 in the final exponent for BLS curves but not BN curves
-	var mt [4]e12 // mt[i] is m^(t^i)
+	var mt [4]PairingResult // mt[i] is m^(t^i)
 
 	// set m[0] = x^((p^6-1)*(p^2+1))
 	{
 		mt[0].Set(x)
-		var temp e12
+		var temp PairingResult
 		temp.FrobeniusCube(&mt[0]).
 			FrobeniusCube(&temp)
 
@@ -59,7 +59,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	mt[3].Expt(&mt[2])
 
 	// prepare y
-	var y [7]e12
+	var y [7]PairingResult
 
 	y[1].InverseUnitary(&mt[0])
 	y[4].Set(&mt[1])
@@ -87,7 +87,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	y[0].Mul(&y[0], &mt[0])
 
 	// compute addition chain
-	var t [2]e12
+	var t [2]PairingResult
 
 	t[0].Square(&y[6])
 	t[0].Mul(&t[0], &y[4])
@@ -238,14 +238,14 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 }
 
 type lineEvalRes struct {
-	r0 e2 // c0.b1
-	r1 e2 // c1.b1
-	r2 e2 // c1.b2
+	r0 E2 // c0.b1
+	r1 E2 // c1.b1
+	r2 E2 // c1.b2
 }
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c e12
+	var a, b, c E12
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)
