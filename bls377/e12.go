@@ -463,7 +463,7 @@ func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
 
-	t[1].MulByNonResiduePowerSquarE2(&x.C0.B1)
+	t[1].MulByNonResiduePowerSquare2(&x.C0.B1)
 	t[2].MulByNonResiduePowerSquare4(&x.C0.B2)
 	t[3].MulByNonResiduePowerSquare1(&x.C1.B0)
 	t[4].MulByNonResiduePowerSquare3(&x.C1.B1)
@@ -492,7 +492,7 @@ func (z *E12) FrobeniusCube(x *E12) *E12 {
 	t[4].Conjugate(&x.C1.B1)
 	t[5].Conjugate(&x.C1.B2)
 
-	t[1].MulByNonResiduePowerCubE2(&t[1])
+	t[1].MulByNonResiduePowerCube2(&t[1])
 	t[2].MulByNonResiduePowerCube4(&t[2])
 	t[3].MulByNonResiduePowerCube1(&t[3])
 	t[4].MulByNonResiduePowerCube3(&t[4])
@@ -610,8 +610,8 @@ func (z *E2) MulByNonResiduePowerSquare1(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResiduePowerSquarE2 set z=x*(0,1)^(2*(p^2-1)/6) and return z
-func (z *E2) MulByNonResiduePowerSquarE2(x *E2) *E2 {
+// MulByNonResiduePowerSquare2 set z=x*(0,1)^(2*(p^2-1)/6) and return z
+func (z *E2) MulByNonResiduePowerSquare2(x *E2) *E2 {
 	// (0,1)^(2*(p^2-1)/6)
 	// 80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945
 	b := fp.Element{
@@ -695,8 +695,8 @@ func (z *E2) MulByNonResiduePowerCube1(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResiduePowerCubE2 set z=x*(0,1)^(2*(p^3-1)/6) and return z
-func (z *E2) MulByNonResiduePowerCubE2(x *E2) *E2 {
+// MulByNonResiduePowerCube2 set z=x*(0,1)^(2*(p^3-1)/6) and return z
+func (z *E2) MulByNonResiduePowerCube2(x *E2) *E2 {
 	// (0,1)^(2*(p^3-1)/6)
 	// 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458176
 	b := fp.Element{

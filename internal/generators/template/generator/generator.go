@@ -94,7 +94,7 @@ func GenerateCurve(d GenerateData) error {
 			fp2.Inline,
 			fp2.Mul,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp2Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp2Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -112,7 +112,7 @@ func GenerateCurve(d GenerateData) error {
 			fp6.Inline,
 			fp6.Mul,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp6Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp6Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -133,7 +133,7 @@ func GenerateCurve(d GenerateData) error {
 			fp12.Frobenius,
 			fp12.Expt,
 		}
-		if err := bavard.Generate(d.RootPath+d.Fp12Name+".go", src, d,
+		if err := bavard.Generate(d.RootPath+strings.ToLower(d.Fp12Name)+".go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),

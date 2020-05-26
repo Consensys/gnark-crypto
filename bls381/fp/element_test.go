@@ -87,23 +87,23 @@ func TestELEMENTCorrectnessAgainstBigInt(t *testing.T) {
 
 		var bMul, bAdd, bSub, bDiv, bNeg, bLsh, bInv, bExp, bExp2, bSquare big.Int
 
-		// e1 = mont(b1), E2 = mont(b2)
-		var e1, E2, eMul, eAdd, eSub, eDiv, eNeg, eLsh, eInv, eExp, eSquare, eMulAssign, eSubAssign, eAddAssign Element
+		// e1 = mont(b1), e2 = mont(b2)
+		var e1, e2, eMul, eAdd, eSub, eDiv, eNeg, eLsh, eInv, eExp, eSquare, eMulAssign, eSubAssign, eAddAssign Element
 		e1.SetBigInt(b1)
-		E2.SetBigInt(b2)
+		e2.SetBigInt(b2)
 
-		// (e1*E2).FromMont() === b1*b2 mod q ... etc
+		// (e1*e2).FromMont() === b1*b2 mod q ... etc
 		eSquare.Square(&e1)
-		eMul.Mul(&e1, &E2)
+		eMul.Mul(&e1, &e2)
 		eMulAssign.Set(&e1)
-		eMulAssign.MulAssign(&E2)
-		eAdd.Add(&e1, &E2)
+		eMulAssign.MulAssign(&e2)
+		eAdd.Add(&e1, &e2)
 		eAddAssign.Set(&e1)
-		eAddAssign.AddAssign(&E2)
-		eSub.Sub(&e1, &E2)
+		eAddAssign.AddAssign(&e2)
+		eSub.Sub(&e1, &e2)
 		eSubAssign.Set(&e1)
-		eSubAssign.SubAssign(&E2)
-		eDiv.Div(&e1, &E2)
+		eSubAssign.SubAssign(&e2)
+		eDiv.Div(&e1, &e2)
 		eNeg.Neg(&e1)
 		eInv.Inverse(&e1)
 		eExp.Exp(e1, rExp)
@@ -141,7 +141,7 @@ func TestELEMENTCorrectnessAgainstBigInt(t *testing.T) {
 		if e1.Legendre() != big.Jacobi(b1, modulus) {
 			t.Fatal("legendre symbol computation failed")
 		}
-		if E2.Legendre() != big.Jacobi(b2, modulus) {
+		if e2.Legendre() != big.Jacobi(b2, modulus) {
 			t.Fatal("legendre symbol computation failed")
 		}
 
@@ -350,15 +350,15 @@ func TestELEMENTAsm(t *testing.T) {
 		b1, _ := rand.Int(rand.Reader, modulus)
 		b2, _ := rand.Int(rand.Reader, modulus)
 
-		// e1 = mont(b1), E2 = mont(b2)
-		var e1, E2, eTestMul, eMulAssign, eSquare, eTestSquare Element
+		// e1 = mont(b1), e2 = mont(b2)
+		var e1, e2, eTestMul, eMulAssign, eSquare, eTestSquare Element
 		e1.SetBigInt(b1)
-		E2.SetBigInt(b2)
+		e2.SetBigInt(b2)
 
 		eTestMul = e1
-		eTestMul.testMulAssign(&E2)
+		eTestMul.testMulAssign(&e2)
 		eMulAssign = e1
-		eMulAssign.MulAssign(&E2)
+		eMulAssign.MulAssign(&e2)
 
 		if !eTestMul.Equal(&eMulAssign) {
 			if supportAdx {

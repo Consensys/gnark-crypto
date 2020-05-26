@@ -158,7 +158,7 @@ const ExtraWork = `
 		Q1.Y.Conjugate(&Q.Y).MulByNonResiduePower3(&Q1.Y)
 
 		// Q2 = -Frob2(Q)
-		Q2.X.MulByNonResiduePowerSquarE2(&Q.X)
+		Q2.X.MulByNonResiduePowerSquare2(&Q.X)
 		Q2.Y.MulByNonResiduePowerSquare3(&Q.Y).Neg(&Q2.Y)
 
 		lineEvalAffine(QCur, Q1, &P, &lEval)
