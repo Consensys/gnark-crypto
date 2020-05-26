@@ -150,25 +150,25 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	z.Set(&result)
 
 {{- else if eq .Fpackage "bw6_761" }}
-	// easy part: x**((p**3 - 1)*(p+1))
-	var result PairingResult
-	result.Set(x)
+	// // easy part: x**((p**3 - 1)*(p+1))
+	// var result PairingResult
+	// result.Set(x)
 
-	var t [1]PairingResult // temp memory
+	// var t [1]PairingResult // temp memory
 
-	t[0].FrobeniusCube(&result) // x**(p**3)
-	result.Inverse(&result)     // x**(-1)
-	t[0].Mul(&t[0], &result)    // x**(p**3-1)
-	result.Frobenius(&t[0]).    // x**((p**3-1)*p)
-		Mul(&result, &t[0])     // x**((p**3-1)*(p+1))
+	// t[0].FrobeniusCube(&result) // x**(p**3)
+	// result.Inverse(&result)     // x**(-1)
+	// t[0].Mul(&t[0], &result)    // x**(p**3-1)
+	// result.Frobenius(&t[0]).    // x**((p**3-1)*p)
+	// 	Mul(&result, &t[0])     // x**((p**3-1)*(p+1))
 
-	// hard part (up to permutation)
-	// performs the hard part of the final expo
-	// Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
-	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
+	// // hard part (up to permutation)
+	// // performs the hard part of the final expo
+	// // Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
+	// // The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
 
-	// TODO
-	z.Set(&result)
+	// // TODO
+	// z.Set(&result)
 
 {{- end }}
 	return z
