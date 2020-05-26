@@ -17,8 +17,8 @@
 package bn256
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *e12, _z ...*e12) e12 {
-	var result e12
+func (curve *Curve) FinalExponentiation(z *E12, _z ...*E12) E12 {
+	var result E12
 	result.Set(z)
 
 	// if additional parameters are provided, multiply them into z
@@ -32,7 +32,7 @@ func (curve *Curve) FinalExponentiation(z *e12, _z ...*e12) e12 {
 }
 
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *e12) *e12 {
+func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *E12) *E12 {
 
 	// init result
 	result.SetOne()
@@ -90,7 +90,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *e12) *e12 {
 	Q1.Y.Conjugate(&Q.Y).MulByNonResiduePower3(&Q1.Y)
 
 	// Q2 = -Frob2(Q)
-	Q2.X.MulByNonResiduePowerSquare2(&Q.X)
+	Q2.X.MulByNonResiduePowerSquarE2(&Q.X)
 	Q2.Y.MulByNonResiduePowerSquare3(&Q.Y).Neg(&Q2.Y)
 
 	lineEvalAffine(QCur, Q1, &P, &lEval)
@@ -164,14 +164,14 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 }
 
 type lineEvalRes struct {
-	r0 e2 // c0.b1
-	r1 e2 // c1.b1
-	r2 e2 // c1.b2
+	r0 E2 // c0.b1
+	r1 E2 // c1.b1
+	r2 E2 // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *e12) *e12 {
+func (l *lineEvalRes) mulAssign(z *E12) *E12 {
 
-	var a, b, c e12
+	var a, b, c E12
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)

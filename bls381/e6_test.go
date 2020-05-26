@@ -6,57 +6,57 @@ import (
 	"testing"
 )
 
-type e6TestPoint struct {
-	in  [2]e6
-	out [7]e6
+type E6TestPoint struct {
+	in  [2]E6
+	out [7]E6
 }
 
-var e6TestPoints []e6TestPoint
+var E6TestPoints []E6TestPoint
 
 // TODO this method is the same everywhere. move it someplace central and call it "compare"
-func e6compare(t *testing.T, got, want interface{}) {
+func E6compare(t *testing.T, got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatal("\nexpect:\t", want, "\ngot:\t", got)
 	}
 }
 
-func e6check(t *testing.T, f func(*e6, *e6, *e6) *e6, m int) {
+func E6check(t *testing.T, f func(*E6, *E6, *E6) *E6, m int) {
 
-	if len(e6TestPoints) < 1 {
+	if len(E6TestPoints) < 1 {
 		t.Log("no tests to run")
 	}
 
-	for i := range e6TestPoints {
-		var receiver e6
-		var out *e6
-		var inCopies [len(e6TestPoints[i].in)]e6
+	for i := range E6TestPoints {
+		var receiver E6
+		var out *E6
+		var inCopies [len(E6TestPoints[i].in)]E6
 
 		for j := range inCopies {
-			inCopies[j].Set(&e6TestPoints[i].in[j])
+			inCopies[j].Set(&E6TestPoints[i].in[j])
 		}
 
 		// receiver, return value both set to result
 		out = f(&receiver, &inCopies[0], &inCopies[1])
 
-		e6compare(t, receiver, e6TestPoints[i].out[m]) // receiver correct
-		e6compare(t, *out, e6TestPoints[i].out[m])     // return value correct
+		E6compare(t, receiver, E6TestPoints[i].out[m]) // receiver correct
+		E6compare(t, *out, E6TestPoints[i].out[m])     // return value correct
 		for j := range inCopies {
-			e6compare(t, inCopies[j], e6TestPoints[i].in[j]) // inputs unchanged
+			E6compare(t, inCopies[j], E6TestPoints[i].in[j]) // inputs unchanged
 		}
 
 		// receiver == one of the inputs
 		for j := range inCopies {
 			out = f(&inCopies[j], &inCopies[0], &inCopies[1])
 
-			e6compare(t, inCopies[j], e6TestPoints[i].out[m]) // receiver correct
-			e6compare(t, *out, e6TestPoints[i].out[m])        // return value correct
+			E6compare(t, inCopies[j], E6TestPoints[i].out[m]) // receiver correct
+			E6compare(t, *out, E6TestPoints[i].out[m])        // return value correct
 			for k := range inCopies {
 				if k == j {
 					continue
 				}
-				e6compare(t, inCopies[k], e6TestPoints[i].in[k]) // other inputs unchanged
+				E6compare(t, inCopies[k], E6TestPoints[i].in[k]) // other inputs unchanged
 			}
-			inCopies[j].Set(&e6TestPoints[i].in[j]) // reset input for next tests
+			inCopies[j].Set(&E6TestPoints[i].in[j]) // reset input for next tests
 		}
 	}
 }
@@ -66,105 +66,105 @@ func e6check(t *testing.T, f func(*e6, *e6, *e6) *e6, m int) {
 //--------------------//
 
 func TestE6Add(t *testing.T) {
-	e6check(t, (*e6).Add, 0)
+	E6check(t, (*E6).Add, 0)
 }
 
 func TestE6Sub(t *testing.T) {
-	e6check(t, (*e6).Sub, 1)
+	E6check(t, (*E6).Sub, 1)
 }
 
 func TestE6Mul(t *testing.T) {
-	e6check(t, (*e6).Mul, 2)
+	E6check(t, (*E6).Mul, 2)
 }
 
 func TestE6MulByE2(t *testing.T) {
-	e6check(t, (*e6).MulByE2Binary, 3)
+	E6check(t, (*E6).MulByE2Binary, 3)
 }
 
 func TestE6MulByGen(t *testing.T) {
-	e6check(t, (*e6).MulByGenBinary, 4)
+	E6check(t, (*E6).MulByGenBinary, 4)
 }
 
 func TestE6Square(t *testing.T) {
-	e6check(t, (*e6).SquareBinary, 5)
+	E6check(t, (*E6).SquareBinary, 5)
 }
 
 func TestE6Inverse(t *testing.T) {
-	e6check(t, (*e6).InverseBinary, 6)
+	E6check(t, (*E6).InverseBinary, 6)
 }
 
 //--------------------//
 //     benches		  //
 //--------------------//
 
-var e6BenchIn1, e6BenchIn2, e6BenchOut e6
+var E6BenchIn1, E6BenchIn2, E6BenchOut E6
 
 func BenchmarkE6Add(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.Add(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.Add(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6Sub(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.Sub(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.Sub(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6Mul(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.Mul(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.Mul(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6MulByE2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.MulByE2Binary(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.MulByE2Binary(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6MulByGen(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.MulByGenBinary(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.MulByGenBinary(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6Square(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.SquareBinary(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.SquareBinary(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 func BenchmarkE6Inverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		e6BenchOut.InverseBinary(&e6BenchIn1, &e6BenchIn2)
+		E6BenchOut.InverseBinary(&E6BenchIn1, &E6BenchIn2)
 	}
 }
 
 //-------------------------------------//
-// unary helpers for e6 methods
+// unary helpers for E6 methods
 //-------------------------------------//
 
 // MulByGenBinary a binary wrapper for MulByGen
-func (z *e6) MulByGenBinary(x, y *e6) *e6 {
+func (z *E6) MulByGenBinary(x, y *E6) *E6 {
 	return z.MulByGen(x)
 }
 
 // SquareBinary a binary wrapper for Square
-func (z *e6) SquareBinary(x, y *e6) *e6 {
+func (z *E6) SquareBinary(x, y *E6) *E6 {
 	return z.Square(x)
 }
 
 // InverseBinary a binary wrapper for Inverse
-func (z *e6) InverseBinary(x, y *e6) *e6 {
+func (z *E6) InverseBinary(x, y *E6) *E6 {
 	return z.Inverse(x)
 }
 
 //-------------------------------------//
-// custom helpers for e6 methods
+// custom helpers for E6 methods
 //-------------------------------------//
 
 // MulByE2Binary a binary wrapper for MulByE2
-func (z *e6) MulByE2Binary(x, y *e6) *e6 {
+func (z *E6) MulByE2Binary(x, y *E6) *E6 {
 	return z.MulByE2(x, &y.B0)
 }

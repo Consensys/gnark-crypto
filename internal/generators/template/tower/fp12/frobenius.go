@@ -35,7 +35,7 @@ func (z *{{.Fp12Name}}) FrobeniusSquare(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]{{.Fp2Name}}
 
-	t[1].MulByNonResiduePowerSquare2(&x.C0.B1)
+	t[1].MulByNonResiduePowerSquarE2(&x.C0.B1)
 	t[2].MulByNonResiduePowerSquare4(&x.C0.B2)
 	t[3].MulByNonResiduePowerSquare1(&x.C1.B0)
 	t[4].MulByNonResiduePowerSquare3(&x.C1.B1)
@@ -64,7 +64,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	t[4].Conjugate(&x.C1.B1)
 	t[5].Conjugate(&x.C1.B2)
 
-	t[1].MulByNonResiduePowerCube2(&t[1])
+	t[1].MulByNonResiduePowerCubE2(&t[1])
 	t[2].MulByNonResiduePowerCube4(&t[2])
 	t[3].MulByNonResiduePowerCube1(&t[3])
 	t[4].MulByNonResiduePowerCube3(&t[4])
@@ -105,7 +105,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 {{ define "MulByNonResiduePowerFp2" }}
 	{{- template "MulByNonResiduePowerHeader" dict "all" $.all "vars" . }}
 	// {{$.betaDecimal}} + u*{{$.betaDecimalU}}
-	b := e2{
+	b := E2{
 		A0: fp.Element{
 			{{$.betaArray}}
 		},
@@ -185,10 +185,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 
 {{- else if and (eq .Fp6NonResidue "9,1") (eq .FpModulus "21888242871839275222246405745257275088696311157297823662689037894645226208583") }}
 	// MulByNonResiduePower1 set z=x*(9,1)^(1*(p-1)/6) and return z
-	func (z *e2) MulByNonResiduePower1(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePower1(x *E2) *E2 {
 		// (9,1)^(1*(p-1)/6)
 		// 3850754370037169011952147076051364057158807420970682438676050522613628423219637725072182697113062777891589506424760 + u*151655185184498381465642749684540099398075398968325446656007613510403227271200139370504932015952886146304766135027
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				12653890742059813127,
 				14585784200204367754,
@@ -207,10 +207,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePower2 set z=x*(9,1)^(2*(p-1)/6) and return z
-	func (z *e2) MulByNonResiduePower2(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePower2(x *E2) *E2 {
 		// (9,1)^(2*(p-1)/6)
 		// 0 + u*4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				13075984984163199792,
 				3782902503040509012,
@@ -229,10 +229,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePower3 set z=x*(9,1)^(3*(p-1)/6) and return z
-	func (z *e2) MulByNonResiduePower3(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePower3(x *E2) *E2 {
 		// (9,1)^(3*(p-1)/6)
 		// 1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257 + u*1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				16482010305593259561,
 				13488546290961988299,
@@ -251,10 +251,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePower4 set z=x*(9,1)^(4*(p-1)/6) and return z
-	func (z *e2) MulByNonResiduePower4(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePower4(x *E2) *E2 {
 		// (9,1)^(4*(p-1)/6)
 		// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				8314163329781907090,
 				11942187022798819835,
@@ -273,10 +273,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePower5 set z=x*(9,1)^(5*(p-1)/6) and return z
-	func (z *e2) MulByNonResiduePower5(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePower5(x *E2) *E2 {
 		// (9,1)^(5*(p-1)/6)
 		// 877076961050607968509681729531255177986764537961432449499635504522207616027455086505066378536590128544573588734230 + u*3125332594171059424908108096204648978570118281977575435832422631601824034463382777937621250592425535493320683825557
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				14515217250696892391,
 				16303087968080972555,
@@ -295,7 +295,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerSquare1 set z=x*(9,1)^(1*(p^2-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerSquare1(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerSquare1(x *E2) *E2 {
 		// (9,1)^(1*(p^2-1)/6)
 		// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620351
 		b := fp.Element{
@@ -309,8 +309,8 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 		return z
 	}
 
-	// MulByNonResiduePowerSquare2 set z=x*(9,1)^(2*(p^2-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerSquare2(x *e2) *e2 {
+	// MulByNonResiduePowerSquarE2 set z=x*(9,1)^(2*(p^2-1)/6) and return z
+	func (z *E2) MulByNonResiduePowerSquarE2(x *E2) *E2 {
 		// (9,1)^(2*(p^2-1)/6)
 		// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620350
 		b := fp.Element{
@@ -325,7 +325,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerSquare3 set z=x*(9,1)^(3*(p^2-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerSquare3(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerSquare3(x *E2) *E2 {
 		// (9,1)^(3*(p^2-1)/6)
 		// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
 		b := fp.Element{
@@ -340,7 +340,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerSquare4 set z=x*(9,1)^(4*(p^2-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerSquare4(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerSquare4(x *E2) *E2 {
 		// (9,1)^(4*(p^2-1)/6)
 		// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
 		b := fp.Element{
@@ -355,7 +355,7 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerSquare5 set z=x*(9,1)^(5*(p^2-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerSquare5(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerSquare5(x *E2) *E2 {
 		// (9,1)^(5*(p^2-1)/6)
 		// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
 		b := fp.Element{
@@ -370,10 +370,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerCube1 set z=x*(9,1)^(1*(p^3-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerCube1(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerCube1(x *E2) *E2 {
 		// (9,1)^(1*(p^3-1)/6)
 		// 2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530 + u*1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				3914496794763385213,
 				790120733010914719,
@@ -391,11 +391,11 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 		return z
 	}
 
-	// MulByNonResiduePowerCube2 set z=x*(9,1)^(2*(p^3-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerCube2(x *e2) *e2 {
+	// MulByNonResiduePowerCubE2 set z=x*(9,1)^(2*(p^3-1)/6) and return z
+	func (z *E2) MulByNonResiduePowerCubE2(x *E2) *E2 {
 		// (9,1)^(2*(p^3-1)/6)
 		// 0 + u*1
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				14532872967180610477,
 				12903226530429559474,
@@ -414,10 +414,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerCube3 set z=x*(9,1)^(3*(p^3-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerCube3(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerCube3(x *E2) *E2 {
 		// (9,1)^(3*(p^3-1)/6)
 		// 2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530 + u*2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				6297350639395948318,
 				15875321927225446337,
@@ -436,10 +436,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerCube4 set z=x*(9,1)^(4*(p^3-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerCube4(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerCube4(x *E2) *E2 {
 		// (9,1)^(4*(p^3-1)/6)
 		// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				4938922280314430175,
 				13823286637238282975,
@@ -458,10 +458,10 @@ func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	}
 
 	// MulByNonResiduePowerCube5 set z=x*(9,1)^(5*(p^3-1)/6) and return z
-	func (z *e2) MulByNonResiduePowerCube5(x *e2) *e2 {
+	func (z *E2) MulByNonResiduePowerCube5(x *E2) *E2 {
 		// (9,1)^(5*(p^3-1)/6)
 		// 1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257 + u*2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530
-		b := e2{
+		b := E2{
 			A0: fp.Element{
 				16193900971494954399,
 				13995139551301264911,

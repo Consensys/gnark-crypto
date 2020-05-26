@@ -67,7 +67,7 @@ const Inline = `
 		// ({{$.out}}).A1 = (9*({{$.in}}).A1 - ({{$.in}}).A0)/82
 		copy := *({{$.in}})
 
-		var copy9 e2
+		var copy9 E2
 		copy9.Double(&copy).
 			Double(&copy9).
 			Double(&copy9).
@@ -89,7 +89,7 @@ const Inline = `
 		// ({{$.out}}).A1 = (9*({{$.in}}).A1 - ({{$.in}}).A0)/78
 		copy := *({{$.in}})
 
-		var copy9 e2
+		var copy9 E2
 		copy9.Double(&copy).
 			Double(&copy9).
 			Double(&copy9).

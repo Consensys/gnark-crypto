@@ -40,7 +40,7 @@ func (z *{{.Fp2Name}}) MulAssign(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 
 {{ end }}
 
-// Square sets z to the e2-product of x,x returns z
+// Square sets z to the E2-product of x,x returns z
 func (z *{{.Fp2Name}}) Square(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	// (a+bu)^2 == (a^2+({{.Fp2NonResidue}})*b^2) + (2ab)u where u^2 == {{.Fp2NonResidue}}
 	// Complex method: 2 fp multiplications instead of 3
@@ -52,7 +52,7 @@ func (z *{{.Fp2Name}}) Square(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	{{- if eq .Fp2NonResidue "-1" }}
 		// optimize for quadratic nonresidue -1
 		var aplusb fp.Element
-		var result e2
+		var result E2
 
 		aplusb.Add(&x.A0, &x.A1) // a+b
 		result.A0.Sub(&x.A0, &x.A1) // a-b

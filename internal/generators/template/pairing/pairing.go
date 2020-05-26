@@ -137,7 +137,7 @@ type lineEvalRes struct {
 	r2 {{.Fp2Name}} // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *e12) *e12 {
+func (l *lineEvalRes) mulAssign(z *E12) *E12 {
 
 	{{template "MulAssign" dict "all" . }}
 
@@ -158,7 +158,7 @@ const ExtraWork = `
 		Q1.Y.Conjugate(&Q.Y).MulByNonResiduePower3(&Q1.Y)
 
 		// Q2 = -Frob2(Q)
-		Q2.X.MulByNonResiduePowerSquare2(&Q.X)
+		Q2.X.MulByNonResiduePowerSquarE2(&Q.X)
 		Q2.Y.MulByNonResiduePowerSquare3(&Q.Y).Neg(&Q2.Y)
 
 		lineEvalAffine(QCur, Q1, &P, &lEval)
@@ -172,24 +172,24 @@ const ExtraWork = `
 {{- end}}
 `
 
-// MulAssign multiplies the result of a line evalution to a e12 elmt.
+// MulAssign multiplies the result of a line evalution to a E12 elmt.
 // The line evaluation result is sparse therefore there is a special optimized method to handle this case.
 const MulAssign = `
 {{define "MulAssign" }}
 	{{if eq $.all.Fpackage "bn256" }}	
-		var a, b, c e12
+		var a, b, c E12
 		a.MulByVW(z, &l.r1)
 		b.MulByV(z, &l.r0)
 		c.MulByV2W(z, &l.r2)
 		z.Add(&a, &b).Add(z, &c)
 	{{else if eq $.all.Fpackage "bls377" }}
-		var a, b, c e12
+		var a, b, c E12
 		a.MulByVW(z, &l.r1)
 		b.MulByV(z, &l.r0)
 		c.MulByV2W(z, &l.r2)
 		z.Add(&a, &b).Add(z, &c)
 	{{else if eq $.all.Fpackage "bls381" }}
-		var a, b, c e12
+		var a, b, c E12
 		a.MulByVWNRInv(z, &l.r1)
 		b.MulByV2NRInv(z, &l.r0)
 		c.MulByWNRInv(z, &l.r2)

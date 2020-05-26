@@ -26,7 +26,7 @@ const ID = gurvy.BLS377
 const sGen = 4
 const bGen = sGen
 
-type PairingResult = e12
+type PairingResult = E12
 
 // BLS377 returns BLS377 curve
 func BLS377() *Curve {

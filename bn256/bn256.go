@@ -27,7 +27,7 @@ const ID = gurvy.BN256
 const sGen = 4
 const bGen = sGen
 
-type PairingResult = e12
+type PairingResult = E12
 
 // BN256 returns BN256 curve
 func BN256() *Curve {

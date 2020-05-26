@@ -41,7 +41,7 @@ func TestPairingLineEval(t *testing.T) {
 	lRes := &lineEvalRes{}
 	lineEvalJac(G, H, &Paff, lRes)
 
-	var expectedA, expectedB, expectedC e2
+	var expectedA, expectedB, expectedC E2
 	expectedA.SetString("2746816319525720818573317398714695290610786823787257703017876624172190671587655383907329814290177195519600649042869",
 		"643747286337692864778296894475735847270769031664837266992781597080477672082027893021637700221187514825471134004686")
 	expectedB.SetString("1512667481834352587995424361032288920192919642890472182077688617437094168773236832254318567984667090256426031170030",
@@ -62,7 +62,7 @@ func TestPairingLineEval(t *testing.T) {
 
 func TestMagicPairing(t *testing.T) {
 
-	var r1, r2 e12
+	var r1, r2 E12
 
 	r1.SetRandom()
 	r2.SetRandom()
@@ -99,7 +99,7 @@ func TestComputePairing(t *testing.T) {
 	sG.ScalarMul(curve, sG, scalar)
 	sP.ScalarMul(curve, sP, scalar)
 
-	var mRes1, mRes2, mRes3 e12
+	var mRes1, mRes2, mRes3 E12
 
 	P.ToAffineFromJac(&Paff)
 	sP.ToAffineFromJac(&sPaff)
@@ -165,7 +165,7 @@ func BenchmarkPairing(b *testing.B) {
 
 	curve := BLS381()
 
-	var mRes e12
+	var mRes E12
 
 	var g1GenAff G1Affine
 	var g2GenAff G2Affine
@@ -181,7 +181,7 @@ func BenchmarkPairing(b *testing.B) {
 
 func BenchmarkFinalExponentiation(b *testing.B) {
 
-	var a e12
+	var a E12
 
 	curve := BLS381()
 

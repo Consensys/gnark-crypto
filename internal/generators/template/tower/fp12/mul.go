@@ -5,7 +5,7 @@ const Mul = `
 func (z *{{.Fp12Name}}) Mul(x, y *{{.Fp12Name}}) *{{.Fp12Name}} {
 	// Algorithm 20 from https://eprint.iacr.org/2010/354.pdf
 
-	var t0, t1, xSum, ySum e6
+	var t0, t1, xSum, ySum E6
 
 	t0.Mul(&x.C0, &y.C0) // step 1
 	t1.Mul(&x.C1, &y.C1) // step 2

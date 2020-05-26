@@ -50,7 +50,7 @@ type GenerateData struct {
 	ThirdRootOne string
 	Lambda       string
 	Size1        string
-	Size2        string
+	SizE2        string
 }
 
 // PointData to generate g1.go, g2.go
@@ -64,7 +64,7 @@ type PointData struct {
 	Lambda       string
 	ThirdRootOne string
 	Size1        string
-	Size2        string
+	SizE2        string
 }
 
 // GenerateCurve generates tower, curve, pairing
@@ -88,7 +88,7 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp2
 	{
-		// generate e2.go
+		// generate E2.go
 		src := []string{
 			fp2.Base,
 			fp2.Inline,
@@ -105,7 +105,7 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp6
 	{
-		// generate e6.go
+		// generate E6.go
 		src := []string{
 			fp6.Base,
 			fp2.Inline,
@@ -123,7 +123,7 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp12
 	{
-		// generatz e12.go
+		// generatz E12.go
 		src := []string{
 			fp12.Base,
 			fp2.Inline,
@@ -153,7 +153,7 @@ func GenerateCurve(d GenerateData) error {
 			ThirdRootOne: d.ThirdRootOne,
 			Lambda:       d.Lambda,
 			Size1:        d.Size1,
-			Size2:        d.Size2,
+			SizE2:        d.SizE2,
 		}
 		src := []string{
 			gpoint.Base,
