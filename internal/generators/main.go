@@ -95,7 +95,7 @@ func main() {
 		Fp2NonResidue: "-1",
 		Fp6Name:       "e6",
 		Fp6NonResidue: "1,1",
-		MakePairing:   true,
+		MakePairing:   false,
 		T:             "4371281006305286848163485150587564217350348383473813272171392617577304305730246023460948554022786", // TODO this is the hard part exponent.  Implement the optimized hard part from Appendix B of https://eprint.iacr.org/2020/351.pdf
 		TNeg:          false,
 		PointName:     "G",
@@ -109,9 +109,8 @@ func main() {
 		bls381,
 		bls377,
 		bn256,
-		// bw6_761,
+		bw6_761,
 	}
-	_ = bw6_761 // TODO temporary: avoid compile error
 
 	for _, d := range curve {
 		if err := generator.GenerateCurve(d); err != nil {
