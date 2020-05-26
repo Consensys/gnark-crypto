@@ -2,8 +2,8 @@ package pairing
 
 const Pairing = `
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *{{.Fp12Name}}, _z ...*{{.Fp12Name}}) {{.Fp12Name}} {
-	var result {{.Fp12Name}}
+func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+	var result PairingResult
 	result.Set(z)
 
 	// if additional parameters are provided, multiply them into z
@@ -16,8 +16,144 @@ func (curve *Curve) FinalExponentiation(z *{{.Fp12Name}}, _z ...*{{.Fp12Name}}) 
 	return result
 }
 
+// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
+func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+
+{{- /* TODO add a curve family parameter for BLS12, BN and use it here */}}
+{{- if eq .Fpackage "bn256" }}
+	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
+
+	// TODO modify sage test points script to include a factor of 3 in the final exponent for BLS curves but not BN curves
+	var mt [4]PairingResult // mt[i] is m^(t^i)
+
+	// set m[0] = x^((p^6-1)*(p^2+1))
+	{
+		mt[0].Set(x)
+		var temp PairingResult
+		temp.FrobeniusCube(&mt[0]).
+			FrobeniusCube(&temp)
+
+		mt[0].Inverse(&mt[0])
+		temp.Mul(&temp, &mt[0])
+
+		mt[0].FrobeniusSquare(&temp).
+			Mul(&mt[0], &temp)
+	}
+
+	// "hard part": set z = m[0]^((p^4-p^2+1)/r)
+
+	mt[1].Expt(&mt[0])
+	mt[2].Expt(&mt[1])
+	mt[3].Expt(&mt[2])
+
+	// prepare y
+	var y [7]PairingResult
+
+	y[1].InverseUnitary(&mt[0])
+	y[4].Set(&mt[1])
+	y[5].InverseUnitary(&mt[2])
+	y[6].Set(&mt[3])
+
+	mt[0].Frobenius(&mt[0])
+	mt[1].Frobenius(&mt[1])
+	mt[2].Frobenius(&mt[2])
+	mt[3].Frobenius(&mt[3])
+
+	y[0].Set(&mt[0])
+	y[3].InverseUnitary(&mt[1])
+	y[4].Mul(&y[4], &mt[2]).InverseUnitary(&y[4])
+	y[6].Mul(&y[6], &mt[3]).InverseUnitary(&y[6])
+
+	mt[0].Frobenius(&mt[0])
+	mt[2].Frobenius(&mt[2])
+
+	y[0].Mul(&y[0], &mt[0])
+	y[2].Set(&mt[2])
+
+	mt[0].Frobenius(&mt[0])
+
+	y[0].Mul(&y[0], &mt[0])
+
+	// compute addition chain
+	var t [2]PairingResult
+
+	t[0].Square(&y[6])
+	t[0].Mul(&t[0], &y[4])
+	t[0].Mul(&t[0], &y[5])
+	t[1].Mul(&y[3], &y[5])
+	t[1].Mul(&t[1], &t[0])
+	t[0].Mul(&t[0], &y[2])
+	t[1].Square(&t[1])
+	t[1].Mul(&t[1], &t[0])
+	t[1].Square(&t[1])
+	t[0].Mul(&t[1], &y[1])
+	t[1].Mul(&t[1], &y[0])
+	t[0].Square(&t[0])
+	z.Mul(&t[0], &t[1])
+
+{{- else if or (eq .Fpackage "bls377") (eq .Fpackage "bls381") }}
+	// For BLS curves use Section 3 of https://eprint.iacr.org/2016/130.pdf; "hard part" is Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
+	var result PairingResult
+	result.Set(x)
+
+	// memalloc
+	var t [6]PairingResult
+
+	// buf = x**(p^6-1)
+	t[0].FrobeniusCube(&result).
+		FrobeniusCube(&t[0])
+
+	result.Inverse(&result)
+	t[0].Mul(&t[0], &result)
+
+	// x = (x**(p^6-1)) ^(p^2+1)
+	result.FrobeniusSquare(&t[0]).
+		Mul(&result, &t[0])
+
+	// hard part (up to permutation)
+	// performs the hard part of the final expo
+	// Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
+	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
+
+	t[0].InverseUnitary(&result).Square(&t[0])
+	t[5].Expt(&result)
+	t[1].Square(&t[5])
+	t[3].Mul(&t[0], &t[5])
+
+	t[0].Expt(&t[3])
+	t[2].Expt(&t[0])
+	t[4].Expt(&t[2])
+
+	t[4].Mul(&t[1], &t[4])
+	t[1].Expt(&t[4])
+	t[3].InverseUnitary(&t[3])
+	t[1].Mul(&t[3], &t[1])
+	t[1].Mul(&t[1], &result)
+
+	t[0].Mul(&t[0], &result)
+	t[0].FrobeniusCube(&t[0])
+
+	t[3].InverseUnitary(&result)
+	t[4].Mul(&t[3], &t[4])
+	t[4].Frobenius(&t[4])
+
+	t[5].Mul(&t[2], &t[5])
+	t[5].FrobeniusSquare(&t[5])
+
+	t[5].Mul(&t[5], &t[0])
+	t[5].Mul(&t[5], &t[4])
+	t[5].Mul(&t[5], &t[1])
+
+	result.Set(&t[5])
+
+	z.Set(&result)
+
+{{- end }}
+	return z
+}
+
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *{{.Fp12Name}}) *{{.Fp12Name}} {
+func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	// init result
 	result.SetOne()
@@ -137,7 +273,8 @@ type lineEvalRes struct {
 	r2 {{.Fp2Name}} // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *E12) *E12 {
+
+func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	{{template "MulAssign" dict "all" . }}
 

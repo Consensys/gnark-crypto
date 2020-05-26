@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,35 +21,36 @@ type GenerateData struct {
 
 	// common
 	Fpackage string
-	RootPath string
+	RootPath string // TODO deduce this from Fpackage; remove it
 
 	// fp, fr moduli
-	FpName    string
+	FpName    string // TODO this name cannot change; remove it
 	FpModulus string
 	FrModulus string
-	FrName    string
+	FrName    string // TODO this name cannot change; remove it
 
 	// fp2
-	Fp2Name       string
+	Fp2Name       string // TODO this name cannot change; remove it
 	Fp2NonResidue string
 
 	// fp6
-	Fp6Name       string
+	Fp6Name       string // TODO this name cannot change; remove it
 	Fp6NonResidue string
 
 	// fp12
-	Fp12Name string
+	Fp12Name string // TODO this name cannot change; remove it
 
 	// pairing
-	T    string
-	TNeg bool
+	MakePairing bool
+	T           string
+	TNeg        bool
 
 	// gpoint
-	PointName    string
+	PointName    string // TODO this name cannot change; remove it
 	ThirdRootOne string
 	Lambda       string
 	Size1        string
-	SizE2        string
+	Size2        string // TODO this is a function of Size1; remove it
 }
 
 // PointData to generate g1.go, g2.go
@@ -64,7 +64,7 @@ type PointData struct {
 	Lambda       string
 	ThirdRootOne string
 	Size1        string
-	SizE2        string
+	Size2        string
 }
 
 // GenerateCurve generates tower, curve, pairing
@@ -76,13 +76,19 @@ func GenerateCurve(d GenerateData) error {
 
 	// fp, fr
 	{
-		if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, filepath.Join(d.RootPath, "fp"), false, false); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+		fpPath := filepath.Join(d.RootPath, "fp")
+		if err := os.MkdirAll(fpPath, 0700); err != nil {
+			return err
 		}
-		if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, filepath.Join(d.RootPath, "fr"), false, false); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(-1)
+		if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, fpPath, false, false); err != nil {
+			return err
+		}
+		frPath := filepath.Join(d.RootPath, "fr")
+		if err := os.MkdirAll(frPath, 0700); err != nil {
+			return err
+		}
+		if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, frPath, false, false); err != nil {
+			return err
 		}
 	}
 
@@ -122,7 +128,7 @@ func GenerateCurve(d GenerateData) error {
 	}
 
 	// fp12
-	{
+	if d.Fp12Name != "" {
 		// generatz E12.go
 		src := []string{
 			fp12.Base,
@@ -153,7 +159,7 @@ func GenerateCurve(d GenerateData) error {
 			ThirdRootOne: d.ThirdRootOne,
 			Lambda:       d.Lambda,
 			Size1:        d.Size1,
-			SizE2:        d.SizE2,
+			Size2:        d.Size2,
 		}
 		src := []string{
 			gpoint.Base,
@@ -200,7 +206,7 @@ func GenerateCurve(d GenerateData) error {
 	}
 
 	// pairing
-	{
+	if d.MakePairing {
 		// generate pairing.go
 		src := []string{
 			pairing.Pairing,

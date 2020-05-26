@@ -317,7 +317,7 @@ func (p *G1Jac) doubleandadd(curve *Curve, a *G1Affine, s fr.Element, n int) *G1
 // lambda = {{.Lambda}} ({{.Size1}} bits)
 // s1, s2 are scalars such that s1*lambda+s2 = s
 // s1 on {{.Size1}} bits
-// s2 on {{.SizE2}} bits
+// s2 on {{.Size2}} bits
 func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s fr.Element) G1Jac {
 
 	// operation using big int
@@ -351,7 +351,7 @@ func (p *G1Jac) ScalarMulEndo(curve *Curve, a *G1Affine, s fr.Element) G1Jac {
 	// sizes of s1 and s2
 	sizes := []int{
 		{{.Size1}},
-		{{.SizE2}},
+		{{.Size2}},
 	}
 
 	// a, phi(a)

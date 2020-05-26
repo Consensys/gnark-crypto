@@ -17,8 +17,8 @@
 package bls381
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *E12, _z ...*E12) E12 {
-	var result E12
+func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+	var result PairingResult
 	result.Set(z)
 
 	// if additional parameters are provided, multiply them into z
@@ -31,8 +31,68 @@ func (curve *Curve) FinalExponentiation(z *E12, _z ...*E12) E12 {
 	return result
 }
 
+// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
+func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+	// For BLS curves use Section 3 of https://eprint.iacr.org/2016/130.pdf; "hard part" is Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
+	var result PairingResult
+	result.Set(x)
+
+	// memalloc
+	var t [6]PairingResult
+
+	// buf = x**(p^6-1)
+	t[0].FrobeniusCube(&result).
+		FrobeniusCube(&t[0])
+
+	result.Inverse(&result)
+	t[0].Mul(&t[0], &result)
+
+	// x = (x**(p^6-1)) ^(p^2+1)
+	result.FrobeniusSquare(&t[0]).
+		Mul(&result, &t[0])
+
+	// hard part (up to permutation)
+	// performs the hard part of the final expo
+	// Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
+	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
+
+	t[0].InverseUnitary(&result).Square(&t[0])
+	t[5].Expt(&result)
+	t[1].Square(&t[5])
+	t[3].Mul(&t[0], &t[5])
+
+	t[0].Expt(&t[3])
+	t[2].Expt(&t[0])
+	t[4].Expt(&t[2])
+
+	t[4].Mul(&t[1], &t[4])
+	t[1].Expt(&t[4])
+	t[3].InverseUnitary(&t[3])
+	t[1].Mul(&t[3], &t[1])
+	t[1].Mul(&t[1], &result)
+
+	t[0].Mul(&t[0], &result)
+	t[0].FrobeniusCube(&t[0])
+
+	t[3].InverseUnitary(&result)
+	t[4].Mul(&t[3], &t[4])
+	t[4].Frobenius(&t[4])
+
+	t[5].Mul(&t[2], &t[5])
+	t[5].FrobeniusSquare(&t[5])
+
+	t[5].Mul(&t[5], &t[0])
+	t[5].Mul(&t[5], &t[4])
+	t[5].Mul(&t[5], &t[1])
+
+	result.Set(&t[5])
+
+	z.Set(&result)
+	return z
+}
+
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *E12) *E12 {
+func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	// init result
 	result.SetOne()
@@ -150,7 +210,7 @@ type lineEvalRes struct {
 	r2 E2 // c1.b2
 }
 
-func (l *lineEvalRes) mulAssign(z *E12) *E12 {
+func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	var a, b, c E12
 	a.MulByVWNRInv(z, &l.r1)

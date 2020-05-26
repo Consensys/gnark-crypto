@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/consensys/gurvy/internal/generators/template/generator"
@@ -23,13 +24,14 @@ func main() {
 		Fp6Name:       "E6",
 		Fp6NonResidue: "1,1",
 		Fp12Name:      "E12",
+		MakePairing:   true,
 		T:             "15132376222941642752",
 		TNeg:          true,
 		PointName:     "G",
 		ThirdRootOne:  "4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436",
 		Lambda:        "228988810152649578064853576960394133503",
 		Size1:         "128",
-		SizE2:         "128",
+		Size2:         "128",
 	}
 
 	// -------------------------------------------------------------------------------------------------
@@ -46,13 +48,14 @@ func main() {
 		Fp6Name:       "E6",
 		Fp6NonResidue: "0,1",
 		Fp12Name:      "E12",
+		MakePairing:   true,
 		T:             "9586122913090633729",
 		TNeg:          false,
 		PointName:     "G",
 		ThirdRootOne:  "80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945",
 		Lambda:        "91893752504881257701523279626832445440",
 		Size1:         "129",
-		SizE2:         "127",
+		Size2:         "127",
 	}
 
 	// -------------------------------------------------------------------------------------------------
@@ -69,28 +72,50 @@ func main() {
 		Fp6Name:       "E6",
 		Fp6NonResidue: "9,1",
 		Fp12Name:      "E12",
+		MakePairing:   true,
 		T:             "4965661367192848881",
 		TNeg:          false,
 		PointName:     "G",
 		ThirdRootOne:  "2203960485148121921418603742825762020974279258880205651966",
 		Lambda:        "4407920970296243842393367215006156084916469457145843978461",
 		Size1:         "65",
-		SizE2:         "191",
+		Size2:         "191",
 	}
 
-	curve := [3]generator.GenerateData{
+	// -------------------------------------------------------------------------------------------------
+	// BW6-781
+	bw6_761 := generator.GenerateData{
+		Fpackage:      "bw6_761",
+		RootPath:      "../../bw6_761/",
+		FpModulus:     "6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299",
+		FpName:        "fp",
+		FrModulus:     bls377.FpModulus,
+		FrName:        "fr",
+		Fp2Name:       "e2",
+		Fp2NonResidue: "-1",
+		Fp6Name:       "e6",
+		Fp6NonResidue: "1,1",
+		MakePairing:   true,
+		T:             "4371281006305286848163485150587564217350348383473813272171392617577304305730246023460948554022786", // TODO this is the hard part exponent.  Implement the optimized hard part from Appendix B of https://eprint.iacr.org/2020/351.pdf
+		TNeg:          false,
+		PointName:     "G",
+		ThirdRootOne:  "1968985824090209297278610739700577151397666382303825728450741611566800370218827257750865013421937292370006175842381275743914023380727582819905021229583192207421122272650305267822868639090213645505120388400344940985710520836292650",
+		Lambda:        "80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945",
+		Size1:         "65",
+		Size2:         "316",
+	}
+
+	curve := [...]generator.GenerateData{
 		bls381,
 		bls377,
 		bn256,
+		bw6_761,
 	}
 
 	for _, d := range curve {
-		// create folder for the cruve
-		if err := os.MkdirAll(d.RootPath, 0700); err != nil {
-			panic(err)
-		}
 		if err := generator.GenerateCurve(d); err != nil {
-			panic(err)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(-1)
 		}
 	}
 }
