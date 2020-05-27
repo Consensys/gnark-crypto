@@ -32,6 +32,8 @@ type GenerateData struct {
 	Fp2Name  string // TODO this name cannot change; remove it
 	Fp6Name  string // TODO this name cannot change; remove it
 	Fp12Name string // TODO this name cannot change; remove it
+
+	TwoInv []uint64 // fp.Element, used only when Fp2NonResidue==-1 and Fp6NonResidue==(1,1). TODO there must be a better way to do this.
 }
 
 // GenerateTower generates pairing

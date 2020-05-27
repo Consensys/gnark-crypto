@@ -47,19 +47,14 @@ const Inline = `
 		{{- template "fpInlineMulByNonResidueInv" dict "all" $.all "out" (print "&(" $.out ").A1") "in" (print "&(" $.in ").A0") }}
 		({{$.out}}).A0 = buf
 	{{- else if (and (eq $.all.Fp6NonResidue "1,1") (eq $.all.Fp2NonResidue "-1")) }}
-		// TODO This is the BLS12-381 formula.  Need to update for BW6-761
 		// ({{$.out}}).A0 = (({{$.in}}).A0 + ({{$.in}}).A1)/2
 		// ({{$.out}}).A1 = (({{$.in}}).A1 - ({{$.in}}).A0)/2
 		buf := *({{$.in}})
 		({{$.out}}).A0.Add(&buf.A0, &buf.A1)
 		({{$.out}}).A1.Sub(&buf.A1, &buf.A0)
 		twoInv := fp.Element{
-			1730508156817200468,
-			9606178027640717313,
-			7150789853162776431,
-			7936136305760253186,
-			15245073033536294050,
-			1728177566264616342,
+			{{- range $i := (len .all.TwoInv)}}
+			{{index $.all.TwoInv $i}},{{end}}
 		}
 		({{$.out}}).A0.MulAssign(&twoInv)
 		({{$.out}}).A1.MulAssign(&twoInv)

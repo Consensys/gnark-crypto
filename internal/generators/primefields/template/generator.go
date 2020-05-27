@@ -3,6 +3,7 @@ package primefields
 import (
 	"path/filepath"
 
+	"github.com/consensys/bavard"
 	"github.com/consensys/goff/cmd"
 )
 
@@ -42,6 +43,20 @@ func GeneratePrimeFields(d GenerateData) error {
 		// 	return err
 		// }
 		if err := cmd.GenerateFF(FrName, "Element", d.FrModulus, frPath, false, false); err != nil {
+			return err
+		}
+	}
+
+	// tower template generator
+	{
+		src := []string{
+			TwoInv,
+		}
+		if err := bavard.Generate("../tower/template/twoinv.go", src, d,
+			bavard.Package(d.Fpackage),
+			// bavard.Apache2("ConsenSys AG", 2020),
+			bavard.GeneratedBy("gurvy/internal/generators"),
+		); err != nil {
 			return err
 		}
 	}
