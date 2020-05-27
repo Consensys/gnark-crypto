@@ -33,6 +33,7 @@ type GenerateData struct {
 	Fp6Name  string // TODO this name cannot change; remove it
 	Fp12Name string // TODO this name cannot change; remove it
 
+	// these members are computed as needed
 	TwoInv []uint64 // fp.Element, used only when Fp2NonResidue==-1 and Fp6NonResidue==(1,1). TODO there must be a better way to do this.
 }
 
@@ -40,6 +41,11 @@ type GenerateData struct {
 func GenerateTower(d GenerateData) error {
 
 	rootPath := "../../../" + d.Fpackage + "/"
+
+	// inverse of 2 in fp is used by some curves
+	if d.Fp2NonResidue == "-1" && d.Fp6NonResidue == "1,1" {
+		d.InitTwoInv()
+	}
 
 	// fp2
 	{

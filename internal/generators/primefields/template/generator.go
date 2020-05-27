@@ -53,7 +53,7 @@ func GeneratePrimeFields(d GenerateData) error {
 			TwoInv,
 		}
 		if err := bavard.Generate("../tower/template/twoinv.go", src, d,
-			bavard.Package(d.Fpackage),
+			bavard.Package("tower"),
 			// bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
 		); err != nil {

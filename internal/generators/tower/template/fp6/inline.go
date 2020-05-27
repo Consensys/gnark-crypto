@@ -53,8 +53,8 @@ const Inline = `
 		({{$.out}}).A0.Add(&buf.A0, &buf.A1)
 		({{$.out}}).A1.Sub(&buf.A1, &buf.A0)
 		twoInv := fp.Element{
-			{{- range $i := (len .all.TwoInv)}}
-			{{index $.all.TwoInv $i}},{{end}}
+			{{- range $i := .all.TwoInv}}
+			{{$i}},{{end}}
 		}
 		({{$.out}}).A0.MulAssign(&twoInv)
 		({{$.out}}).A1.MulAssign(&twoInv)

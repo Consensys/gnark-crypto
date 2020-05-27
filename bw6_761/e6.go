@@ -412,7 +412,6 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 
 // MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// TODO This is the BLS12-381 formula.  Need to update for BW6-761
 	// (z).A0 = ((x).A0 + (x).A1)/2
 	// (z).A1 = ((x).A1 - (x).A0)/2
 	buf := *(x)

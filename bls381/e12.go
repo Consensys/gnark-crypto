@@ -321,7 +321,6 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		// TODO This is the BLS12-381 formula.  Need to update for BW6-761
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
 		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
 		buf := *(y)
@@ -358,7 +357,6 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		// TODO This is the BLS12-381 formula.  Need to update for BW6-761
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
 		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
 		buf := *(y)
@@ -395,7 +393,6 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 	var yNRInv E2
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		// TODO This is the BLS12-381 formula.  Need to update for BW6-761
 		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
 		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
 		buf := *(y)
