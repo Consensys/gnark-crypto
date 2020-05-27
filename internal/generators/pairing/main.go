@@ -10,6 +10,7 @@ import (
 //go:generate go run main.go
 func main() {
 
+	// TODO curve data copied in each template generator. Read from a config file instead
 	// -------------------------------------------------------------------------------------------------
 	// bls377
 	bls377 := pairing.GenerateData{

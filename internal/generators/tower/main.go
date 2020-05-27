@@ -10,6 +10,21 @@ import (
 //go:generate go run main.go
 func main() {
 
+	// TODO curve data copied in each template generator. Read from a config file instead
+	// -------------------------------------------------------------------------------------------------
+	// bls381
+	bls381 := tower.GenerateData{
+		Fpackage:      "bls381",
+		FpModulus:     "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
+		FrModulus:     "52435875175126190479447740508185965837690552500527637822603658699938581184513",
+		Fp2NonResidue: "-1",
+		Fp6NonResidue: "1,1",
+		MakeFp12:      true,
+		Fp2Name:       tower.Fp2Name,
+		Fp6Name:       tower.Fp6Name,
+		Fp12Name:      tower.Fp12Name,
+	}
+
 	// -------------------------------------------------------------------------------------------------
 	// bls377
 	bls377 := tower.GenerateData{
@@ -18,6 +33,20 @@ func main() {
 		FrModulus:     "8444461749428370424248824938781546531375899335154063827935233455917409239041",
 		Fp2NonResidue: "5",
 		Fp6NonResidue: "0,1",
+		MakeFp12:      true,
+		Fp2Name:       tower.Fp2Name,
+		Fp6Name:       tower.Fp6Name,
+		Fp12Name:      tower.Fp12Name,
+	}
+
+	// -------------------------------------------------------------------------------------------------
+	// bn256
+	bn256 := tower.GenerateData{
+		Fpackage:      "bn256",
+		FpModulus:     "21888242871839275222246405745257275088696311157297823662689037894645226208583",
+		FrModulus:     "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+		Fp2NonResidue: "-1",
+		Fp6NonResidue: "9,1",
 		MakeFp12:      true,
 		Fp2Name:       tower.Fp2Name,
 		Fp6Name:       tower.Fp6Name,
@@ -39,9 +68,9 @@ func main() {
 	}
 
 	curve := [...]tower.GenerateData{
-		// bls381,
-		// bls377,
-		// bn256,
+		bls381,
+		bls377,
+		bn256,
 		bw6_761,
 	}
 
