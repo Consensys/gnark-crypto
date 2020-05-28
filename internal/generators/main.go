@@ -7,7 +7,8 @@ import (
 	"github.com/consensys/gurvy/internal/generators/template/generator"
 )
 
-//go:generate go run main.go
+// this is the old template.  uncomment to activate go:generate
+// //go:generate go run main.go
 func main() {
 
 	// -------------------------------------------------------------------------------------------------

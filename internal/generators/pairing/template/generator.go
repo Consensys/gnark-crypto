@@ -33,6 +33,9 @@ type GenerateData struct {
 	// fp12
 	// Fp12Name string // TODO this name cannot change; remove it
 
+	T    string
+	TNeg bool
+
 	// data needed in the template, always set to constants
 	Fp2Name  string // TODO this name cannot change; remove it
 	Fp6Name  string // TODO this name cannot change; remove it
@@ -51,8 +54,8 @@ func GeneratePairing(d GenerateData) error {
 			Pairing,
 			ExtraWork,
 			MulAssign,
-			// fp12.Frobenius,
-			// fp12.Expt,
+			Frobenius,
+			Expt,
 		}
 		if err := bavard.Generate(rootPath+"pairing.go", src, d,
 			bavard.Package(d.Fpackage),

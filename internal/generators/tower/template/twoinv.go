@@ -2,7 +2,7 @@
 
 package tower
 
-import "github.com/consensys/gurvy/bls381/fp"
+import "github.com/consensys/gurvy/bw6_761/fp"
 
 // InitTwoInv set z.TwoInv to the inverse of 2 as an fp.Element
 func (z *GenerateData) InitTwoInv() *GenerateData {

@@ -228,8 +228,8 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	return z
 }
 
-// Frobenius set z to Frobenius(x) in E12 and return z
-func (z *E12) Frobenius(x *E12) *E12 {
+// Frobenius set z to Frobenius(x) in PairingResult and return z
+func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
 
@@ -257,8 +257,8 @@ func (z *E12) Frobenius(x *E12) *E12 {
 	return z
 }
 
-// FrobeniusSquare set z to Frobenius^2(x) in E12 and return z
-func (z *E12) FrobeniusSquare(x *E12) *E12 {
+// FrobeniusSquare set z to Frobenius^2(x) in PairingResult and return z
+func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
 
@@ -278,8 +278,8 @@ func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x) in E12 and return z
-func (z *E12) FrobeniusCube(x *E12) *E12 {
+// FrobeniusCube set z to Frobenius^3(x) in PairingResult and return z
+func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
 
@@ -636,13 +636,13 @@ func (z *E2) MulByNonResiduePowerCube5(x *E2) *E2 {
 
 const tAbsVal uint64 = 15132376222941642752 // negative
 
-// Expt set z to x^t in E12 and return z
+// Expt set z to x^t in PairingResult and return z
 // TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
 // TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
-func (z *E12) Expt(x *E12) *E12 {
+func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 	// TODO what if x==0?
 	// TODO make this match Element.Exp: x is a non-pointer?
-	var result E12
+	var result PairingResult
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2

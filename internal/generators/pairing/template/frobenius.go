@@ -1,8 +1,8 @@
-package fp12
+package pairing
 
 const Frobenius = `
-// Frobenius set z to Frobenius(x) in {{.Fp12Name}} and return z
-func (z *{{.Fp12Name}}) Frobenius(x *{{.Fp12Name}}) *{{.Fp12Name}} {
+// Frobenius set z to Frobenius(x) in PairingResult and return z
+func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]{{.Fp2Name}}
 
@@ -30,8 +30,8 @@ func (z *{{.Fp12Name}}) Frobenius(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	return z
 }
 
-// FrobeniusSquare set z to Frobenius^2(x) in {{.Fp12Name}} and return z
-func (z *{{.Fp12Name}}) FrobeniusSquare(x *{{.Fp12Name}}) *{{.Fp12Name}} {
+// FrobeniusSquare set z to Frobenius^2(x) in PairingResult and return z
+func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]{{.Fp2Name}}
 
@@ -51,8 +51,8 @@ func (z *{{.Fp12Name}}) FrobeniusSquare(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x) in {{.Fp12Name}} and return z
-func (z *{{.Fp12Name}}) FrobeniusCube(x *{{.Fp12Name}}) *{{.Fp12Name}} {
+// FrobeniusCube set z to Frobenius^3(x) in PairingResult and return z
+func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]{{.Fp2Name}}
 

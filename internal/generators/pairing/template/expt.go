@@ -1,12 +1,12 @@
-package fp12
+package pairing
 
 const Expt = `
 const tAbsVal uint64 = {{.T}} {{ if .TNeg }}// negative{{- end }}
 
-// Expt set z to x^t in {{.Fp12Name}} and return z
+// Expt set z to x^t in PairingResult and return z
 // TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
 // TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
-func (z *{{.Fp12Name}}) Expt(x *{{.Fp12Name}}) *{{.Fp12Name}} {
+func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 	// TODO what if x==0?
 	// TODO make this match Element.Exp: x is a non-pointer?
 	{{- if (eq .T "9586122913090633729" ) }}
@@ -15,7 +15,7 @@ func (z *{{.Fp12Name}}) Expt(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 		// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
 		// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html
 
-		var result, x33 {{.Fp12Name}}
+		var result, x33 PairingResult
 
 		// a shortest addition chain for 136227
 		result.Set(x)             // 0                1
@@ -49,7 +49,7 @@ func (z *{{.Fp12Name}}) Expt(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 		result.Mul(&result, x)
 	
 	{{- else }}
-		var result {{.Fp12Name}}
+		var result PairingResult
 		result.Set(x)
 
 		l := bits.Len64(tAbsVal) - 2
