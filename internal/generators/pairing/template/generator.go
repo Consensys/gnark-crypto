@@ -47,17 +47,29 @@ func GeneratePairing(d GenerateData) error {
 
 	rootPath := "../../../" + d.Fpackage + "/"
 
-	// pairing
+	// pairing.go
 	{
-		// generate pairing.go
 		src := []string{
 			Pairing,
 			ExtraWork,
 			MulAssign,
-			Frobenius,
 			Expt,
 		}
 		if err := bavard.Generate(rootPath+"pairing.go", src, d,
+			bavard.Package(d.Fpackage),
+			bavard.Apache2("ConsenSys AG", 2020),
+			bavard.GeneratedBy("gurvy/internal/generators"),
+		); err != nil {
+			return err
+		}
+	}
+
+	// frobenius.go
+	{
+		src := []string{
+			Frobenius,
+		}
+		if err := bavard.Generate(rootPath+"frobenius.go", src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
