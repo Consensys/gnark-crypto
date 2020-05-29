@@ -9,3 +9,5 @@ require (
 	github.com/spf13/cobra v1.0.0 // indirect
 	golang.org/x/sys v0.0.0-20200406155108-e3b113bbe6a4
 )
+
+replace github.com/consensys/bavard => ../bavard

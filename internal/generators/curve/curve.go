@@ -41,13 +41,14 @@ type Data struct {
 func (z *Data) Init() *Data {
 	z.FpName = fpName
 	z.FrName = frName
-	z.Fp2Name = fp2Name
+	// z.Fp2Name = fp2Name
 	z.Fp6Name = fp6Name
 	z.Fp12Name = fp12Name
 	z.PointName = pointName
 	return z
 }
 
+// CTemplate is the template to generate code to initialize C to a specific curve
 const CTemplate = `
 // C holds data for a specific curve
 // Examples: BLS12-381, BLS12-377, BN256, BW6-761

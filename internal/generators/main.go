@@ -117,7 +117,7 @@ func main() {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				// fmt.Fprintln(os.Stderr, err)
 				os.Exit(-1)
 			}
 		}
@@ -143,7 +143,7 @@ func main() {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				// fmt.Fprintln(os.Stderr, err)
 				os.Exit(-1)
 			}
 		}
