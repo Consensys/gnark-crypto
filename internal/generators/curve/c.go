@@ -1,0 +1,26 @@
+package curve
+
+// C holds data for a specific curve
+// Examples: BLS12-381, BLS12-377, BN256, BW6-761
+var C Data
+
+func init() {
+	C = Data{
+		Fpackage:        "bls381",
+		FpModulus:       "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
+		FrModulus:       "52435875175126190479447740508185965837690552500527637822603658699938581184513",
+		Fp2NonResidue:   "-1",
+		Fp6NonResidue:   "1,1",
+		EmbeddingDegree: 12,
+		T:               "15132376222941642752",
+		TNeg:            true,
+		ThirdRootOne:    "4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436",
+		Lambda:          "228988810152649578064853576960394133503",
+		Size1:           "128",
+		Size2:           "128",
+		Fp2Name:         Fp2Name,
+		Fp6Name:         Fp6Name,
+		Fp12Name:        Fp12Name,
+		PointName:       PointName,
+	}
+}
