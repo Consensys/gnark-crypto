@@ -46,6 +46,23 @@ func main() {
 	}
 
 	// -------------------------------------------------------------------------------------------------
+	// bn256
+	bn256 := pairing.GenerateData{
+		Fpackage:        "bn256",
+		FpModulus:       "21888242871839275222246405745257275088696311157297823662689037894645226208583",
+		FrModulus:       "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+		Fp2NonResidue:   "-1",
+		Fp6NonResidue:   "9,1",
+		MakeFp12:        true,
+		T:               "4965661367192848881",
+		TNeg:            false,
+		EmbeddingDegree: 12,
+		Fp2Name:         pairing.Fp2Name,
+		Fp6Name:         pairing.Fp6Name,
+		Fp12Name:        pairing.Fp12Name,
+	}
+
+	// -------------------------------------------------------------------------------------------------
 	// BW6-781
 	bw6_761 := pairing.GenerateData{
 		Fpackage:        "bw6_761",
@@ -63,14 +80,15 @@ func main() {
 	}
 
 	curve := [...]pairing.GenerateData{
-		bls381,
+		// bls381,
 		// bls377,
-		// bn256,
+		bn256,
 		// bw6_761,
 	}
 
 	_ = bls381
 	_ = bls377
+	_ = bn256
 	_ = bw6_761
 
 	for _, d := range curve {

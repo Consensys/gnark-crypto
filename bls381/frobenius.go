@@ -18,7 +18,7 @@ package bls381
 
 import "github.com/consensys/gurvy/bls381/fp"
 
-// Frobenius set z to Frobenius(x) in PairingResult and return z
+// Frobenius set z to Frobenius(x), return z
 func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
@@ -47,7 +47,7 @@ func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 	return z
 }
 
-// FrobeniusSquare set z to Frobenius^2(x) in PairingResult and return z
+// FrobeniusSquare set z to Frobenius^2(x), and return z
 func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
@@ -68,7 +68,7 @@ func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x) in PairingResult and return z
+// FrobeniusCube set z to Frobenius^3(x), return z
 func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
 	var t [6]E2
@@ -408,5 +408,3 @@ func (z *E2) MulByNonResidue3Power5(x *E2) *E2 {
 	z.Mul(x, &b)
 	return z
 }
-
-// panic("not implemented yet")

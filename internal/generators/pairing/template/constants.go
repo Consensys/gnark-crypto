@@ -7,11 +7,11 @@ import (
 	"math/bits"
 	"strings"
 
-	"github.com/consensys/gurvy/bls381"
-	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/bn256"
+	"github.com/consensys/gurvy/bn256/fp"
 )
 
-type fp2 = bls381.E2
+type fp2 = bn256.E2
 
 type fp2Template struct {
 	fp2
