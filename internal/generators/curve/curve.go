@@ -1,12 +1,12 @@
 package curve
 
 const (
-	FpName    = "fp"
-	FrName    = "fr"
-	Fp2Name   = "E2"
-	Fp6Name   = "E6"
-	Fp12Name  = "E12"
-	PointName = "G"
+	fpName    = "fp"
+	frName    = "fr"
+	fp2Name   = "E2"
+	fp6Name   = "E6"
+	fp12Name  = "E12"
+	pointName = "G"
 )
 
 // Data data used to generate the templates
@@ -30,6 +30,8 @@ type Data struct {
 	Size2        string // TODO this is a function of Size1; remove it
 
 	// data needed in the template, initialized to constants by Init() method
+	FpName   string
+	FrName   string
 	Fp2Name  string
 	Fp6Name  string
 	Fp12Name string
@@ -37,10 +39,12 @@ type Data struct {
 
 // Init initialize string constants such as z.Fp2Name, etc; return z
 func (z *Data) Init() *Data {
-	z.Fp2Name = Fp2Name
-	z.Fp6Name = Fp6Name
-	z.Fp12Name = Fp12Name
-
+	z.FpName = fpName
+	z.FrName = frName
+	z.Fp2Name = fp2Name
+	z.Fp6Name = fp6Name
+	z.Fp12Name = fp12Name
+	z.PointName = pointName
 	return z
 }
 

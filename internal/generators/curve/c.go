@@ -34,9 +34,6 @@ func init() {
 		Lambda:          "80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945",
 		Size1:           "65",
 		Size2:           "316",
-		Fp2Name:         Fp2Name,
-		Fp6Name:         Fp6Name,
-		Fp12Name:        Fp12Name,
-		PointName:       PointName,
 	}
+	C.Init()
 }

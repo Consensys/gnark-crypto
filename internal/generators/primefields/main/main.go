@@ -14,8 +14,8 @@ func main() {
 		Fpackage:  curve.C.Fpackage,
 		FpModulus: curve.C.FpModulus,
 		FrModulus: curve.C.FrModulus,
-		FpName:    curve.FpName,
-		FrName:    curve.FrName,
+		FpName:    curve.C.FpName,
+		FrName:    curve.C.FrName,
 	}
 
 	if err := primefields.Generate(d, "../../../../"); err != nil {
