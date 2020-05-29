@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gurvy/internal/generators/curve"
+	"github.com/consensys/gurvy/internal/generators/tower"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -89,6 +90,8 @@ func main() {
 
 	for _, d := range curves {
 
+		// TODO refactor calls to bavard.Generate, exec.Command
+
 		// generate curve.C
 		{
 			src := []string{
@@ -104,7 +107,7 @@ func main() {
 			}
 		}
 
-		// generate primefield (to use curve.C)
+		// generate primefield (uses curve.C)
 		{
 			cmd := exec.Command("go", "run", "./primefields/main/main.go")
 			cmd.Stdout = os.Stdout
@@ -114,7 +117,33 @@ func main() {
 				os.Exit(-1)
 			}
 		}
-		// generate tower (to use curve.C, primefield)
+
+		// generate tower generator (uses curve.C, primefield)
+		{
+			src := []string{
+				tower.TwoInvTemplate,
+			}
+			if err := bavard.Generate("tower/twoinv.go", src, d,
+				bavard.Package("tower"),
+				bavard.Apache2("ConsenSys AG", 2020),
+				bavard.GeneratedBy("gurvy/internal/generators"),
+			); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(-1)
+			}
+		}
+
+		// generate tower
+		{
+			cmd := exec.Command("go", "run", "./tower/main/main.go")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(-1)
+			}
+		}
+
 		// generate pairing (to use curve.C, tower)
 		// generate gpoint
 	}
