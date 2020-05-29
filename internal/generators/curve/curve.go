@@ -41,7 +41,7 @@ type Data struct {
 func (z *Data) Init() *Data {
 	z.FpName = fpName
 	z.FrName = frName
-	// z.Fp2Name = fp2Name
+	z.Fp2Name = fp2Name
 	z.Fp6Name = fp6Name
 	z.Fp12Name = fp12Name
 	z.PointName = pointName
