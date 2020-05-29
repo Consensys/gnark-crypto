@@ -36,16 +36,23 @@ type GenerateData struct {
 	T    string
 	TNeg bool
 
+	EmbeddingDegree int
+
 	// data needed in the template, always set to constants
 	Fp2Name  string // TODO this name cannot change; remove it
 	Fp6Name  string // TODO this name cannot change; remove it
 	Fp12Name string // TODO this name cannot change; remove it
+
+	// these members are computed as needed
+	Frobenius [][]fp2Template // constants used Frobenius
 }
 
 // GeneratePairing generates pairing
 func GeneratePairing(d GenerateData) error {
 
 	rootPath := "../../../" + d.Fpackage + "/"
+
+	d.InitFrobenius()
 
 	// pairing.go
 	{

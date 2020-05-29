@@ -12,6 +12,8 @@ github.com/consensys/bavard v0.1.1 h1:sFtk3U10YO4Mt8NNCEZQhMzoQ9UMy2H5GKOx/DwNg8
 github.com/consensys/bavard v0.1.1/go.mod h1:ffZkLPNQSN3E6u+zpArQSleJ/lsraMwKPCHQymPQJtM=
 github.com/consensys/bavard v0.1.2-0.20200424125854-c0225aa55321 h1:UxuPJ/fA9yD4x9sxZg11ozJFtGnjIDqPXXvrJJSuUTI=
 github.com/consensys/bavard v0.1.2-0.20200424125854-c0225aa55321/go.mod h1:ffZkLPNQSN3E6u+zpArQSleJ/lsraMwKPCHQymPQJtM=
+github.com/consensys/bavard v0.1.2-0.20200529000710-aadfd92a414b h1:Y0Gjdsba4/mXKuBFnE4ZoeEw37EF37aUeNfGA+k+lnc=
+github.com/consensys/bavard v0.1.2-0.20200529000710-aadfd92a414b/go.mod h1:ffZkLPNQSN3E6u+zpArQSleJ/lsraMwKPCHQymPQJtM=
 github.com/consensys/goff v0.2.1 h1:sBdsFEetlPpXnZJR0WtZaU6X+dDCejbHqG8M21WJtk8=
 github.com/consensys/goff v0.2.1/go.mod h1:CsKD9nM1/fD0gqJs0vRCyQ/wocVjex+wa3mVEjC6h+s=
 github.com/consensys/goff v0.2.2 h1:/iNN1B1HundCfxGPiAX9AdARh2miPywe/o62mRJUjr4=
