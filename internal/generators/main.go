@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gurvy/internal/generators/curve"
@@ -81,9 +82,9 @@ func main() {
 
 	curves := [...]curve.Data{
 		bls381,
-		// bls377,
-		// bn256,
-		// bw6_761,
+		bls377,
+		bn256,
+		bw6_761,
 	}
 
 	for _, d := range curves {
@@ -104,6 +105,15 @@ func main() {
 		}
 
 		// generate primefield (to use curve.C)
+		{
+			cmd := exec.Command("go", "run", "./primefields/main/main.go")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(-1)
+			}
+		}
 		// generate tower (to use curve.C, primefield)
 		// generate pairing (to use curve.C, tower)
 		// generate gpoint

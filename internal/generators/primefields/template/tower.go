@@ -1,5 +1,6 @@
 package primefields
 
+// TODO move me to the tower package!
 const TwoInv = `
 import "github.com/consensys/gurvy/{{.Fpackage}}/fp"
 

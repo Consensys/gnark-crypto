@@ -7,7 +7,7 @@ import (
 	pairing "github.com/consensys/gurvy/internal/generators/pairing/template"
 )
 
-//go:generate go run main.go
+// go:generate go run main.go
 func main() {
 
 	// TODO curve data copied in each template generator. Read from a config file instead
