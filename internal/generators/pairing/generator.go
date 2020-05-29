@@ -12,7 +12,7 @@ type Data struct {
 	// FpModulus string
 	// FrModulus string
 	// Fp2NonResidue string
-	// Fp6NonResidue string
+	Fp6NonResidue   string
 	EmbeddingDegree int
 	T               string
 	TNeg            bool

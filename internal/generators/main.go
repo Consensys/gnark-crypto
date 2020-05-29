@@ -7,9 +7,11 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gurvy/internal/generators/curve"
+	"github.com/consensys/gurvy/internal/generators/pairing"
 	"github.com/consensys/gurvy/internal/generators/tower"
 )
 
+// TODO move all this curve data to config file(s)?
 // -------------------------------------------------------------------------------------------------
 // bls381
 var bls381 curve.Data = curve.Data{
@@ -92,6 +94,8 @@ func main() {
 
 		// TODO refactor calls to bavard.Generate, exec.Command
 
+		d.Init()
+
 		// generate curve.C
 		{
 			src := []string{
@@ -139,6 +143,21 @@ func main() {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(-1)
+			}
+		}
+
+		// generate pairing generator (uses curve.C, tower)
+		{
+			src := []string{
+				pairing.ConstantsTemplate,
+			}
+			if err := bavard.Generate("pairing/constants.go", src, d,
+				bavard.Package("pairing"),
+				bavard.Apache2("ConsenSys AG", 2020),
+				bavard.GeneratedBy("gurvy/internal/generators"),
+			); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(-1)
 			}

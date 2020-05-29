@@ -1,5 +1,14 @@
 package curve
 
+const (
+	FpName    = "fp"
+	FrName    = "fr"
+	Fp2Name   = "E2"
+	Fp6Name   = "E6"
+	Fp12Name  = "E12"
+	PointName = "G"
+)
+
 // Data data used to generate the templates
 type Data struct {
 	Fpackage        string
@@ -20,20 +29,20 @@ type Data struct {
 	Size1        string
 	Size2        string // TODO this is a function of Size1; remove it
 
-	// data needed in the template, always set to constants
+	// data needed in the template, initialized to constants by Init() method
 	Fp2Name  string
 	Fp6Name  string
 	Fp12Name string
 }
 
-const (
-	FpName    = "fp"
-	FrName    = "fr"
-	Fp2Name   = "E2"
-	Fp6Name   = "E6"
-	Fp12Name  = "E12"
-	PointName = "G"
-)
+// Init initialize string constants such as z.Fp2Name, etc; return z
+func (z *Data) Init() *Data {
+	z.Fp2Name = Fp2Name
+	z.Fp6Name = Fp6Name
+	z.Fp12Name = Fp12Name
+
+	return z
+}
 
 const CTemplate = `
 // C holds data for a specific curve

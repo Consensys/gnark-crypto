@@ -12,6 +12,7 @@ func main() {
 
 	d := pairing.Data{
 		Fpackage:        curve.C.Fpackage,
+		Fp6NonResidue:   curve.C.Fp6NonResidue,
 		EmbeddingDegree: curve.C.EmbeddingDegree,
 		T:               curve.C.T,
 		TNeg:            curve.C.TNeg,
