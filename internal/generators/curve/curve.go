@@ -67,10 +67,7 @@ func init() {
 		Lambda:          "{{$.Lambda}}",
 		Size1:           "{{$.Size1}}",
 		Size2:           "{{$.Size2}}",
-		Fp2Name:         Fp2Name,
-		Fp6Name:         Fp6Name,
-		Fp12Name:        Fp12Name,
-		PointName:       PointName,
 	}
+	C.Init()
 }
 `
