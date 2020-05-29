@@ -25,7 +25,7 @@ type fp2Template struct {
 //   d = EmbeddingDegree / 2
 //   i = range [1,2,3]
 //   j = range [1,...,d-1]
-func (z *GenerateData) InitFrobenius() *GenerateData {
+func (z *Data) InitFrobenius() *Data {
 
 	// compute d
 	switch z.EmbeddingDegree {
@@ -36,7 +36,7 @@ func (z *GenerateData) InitFrobenius() *GenerateData {
 	d := (uint64)(z.EmbeddingDegree / 2)
 
 	// allocate memory
-	z.Frobenius = make([][]fp2Template, 3)
+	z.Frobenius = make([][]fp2Template, 3) // constants for Frobenius up to exponent 3
 	for i := range z.Frobenius {
 		z.Frobenius[i] = make([]fp2Template, d-1)
 	}
@@ -68,7 +68,7 @@ func (z *GenerateData) InitFrobenius() *GenerateData {
 	var gamma fp2Template
 	gamma.exp(&nonResidue, toUint64Slice(&exponent)...)
 
-	// compute gamma[i][j] as desribed above
+	// compute gamma[i][j] as in https://eprint.iacr.org/2010/354.pdf (Section 3.2)
 	z.Frobenius[0][0].Set(&gamma.fp2)
 	for j := 1; j < len(z.Frobenius[0]); j++ {
 		z.Frobenius[0][j].Set(&z.Frobenius[0][j-1].fp2).

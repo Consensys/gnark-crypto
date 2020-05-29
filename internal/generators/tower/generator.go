@@ -13,9 +13,7 @@ import (
 
 // Data data used to generate the templates
 type Data struct {
-	Fpackage string
-	// FpModulus string // TODO is this still needed?
-	// FrModulus string // TODO is this still needed?
+	Fpackage        string
 	Fp2NonResidue   string
 	Fp6NonResidue   string
 	EmbeddingDegree int
@@ -35,6 +33,7 @@ func Generate(d Data, outputDir string) error {
 	rootPath := filepath.Join(outputDir, d.Fpackage)
 
 	// inverse of 2 in fp is used by some curves
+	// TODO this sucks, generalize it
 	if d.Fp2NonResidue == "-1" && d.Fp6NonResidue == "1,1" {
 		d.InitTwoInv()
 	}
