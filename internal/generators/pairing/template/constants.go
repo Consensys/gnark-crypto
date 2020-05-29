@@ -7,15 +7,14 @@ import (
 	"math/bits"
 	"strings"
 
-	"github.com/consensys/gurvy/bn256"
-	"github.com/consensys/gurvy/bn256/fp"
+	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fp"
 )
 
-type fp2 = bn256.E2
+type fp2 = bls381.E2
 
 type fp2Template struct {
 	fp2
-	A1IsZero           bool
 	A0String, A1String string // base 10
 }
 
@@ -88,7 +87,6 @@ func (z *GenerateData) InitFrobenius() *GenerateData {
 	for i := range z.Frobenius {
 		for j := range z.Frobenius[i] {
 			f := &z.Frobenius[i][j]
-			f.A1IsZero = f.A1.IsZero()
 			f.A0String = f.A0.String()
 			f.A1String = f.A1.String()
 		}

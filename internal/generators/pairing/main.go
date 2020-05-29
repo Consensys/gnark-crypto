@@ -80,9 +80,9 @@ func main() {
 	}
 
 	curve := [...]pairing.GenerateData{
-		// bls381,
+		bls381,
 		// bls377,
-		bn256,
+		// bn256,
 		// bw6_761,
 	}
 

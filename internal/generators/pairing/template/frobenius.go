@@ -1,6 +1,6 @@
 package pairing
 
-const FrobeniusOld = `
+const Frobenius = `
 {{- if (eq $.EmbeddingDegree 12) }}
 
 	// Frobenius set z to Frobenius(x), return z
@@ -97,14 +97,18 @@ const FrobeniusOld = `
 
 		// MulByNonResidue{{$iplus1}}Power{{$jplus1}} set z=x*({{$.Fp6NonResidue}})^({{$jplus1}}*(p^{{$iplus1}}-1)/{{$d}}) and return z
 		func (z *{{$.Fp2Name}}) MulByNonResidue{{$iplus1}}Power{{$jplus1}}(x *{{$.Fp2Name}}) *{{$.Fp2Name}} {
-			{{- if $gammaij.A1IsZero }}
+			{{- if (eq $gammaij.A1String "0") }}
 				// {{$gammaij.A0String}}
-				b := fp.Element{
-					{{- range $x := $gammaij.A0}}
-					{{$x}},{{end}}
-				}
-				z.A0.Mul(&x.A0, &b)
-				z.A1.Mul(&x.A1, &b)		
+				{{- if (eq $gammaij.A0String "1") }}
+					// nothing to do
+				{{- else }}
+					b := fp.Element{
+						{{- range $x := $gammaij.A0}}
+						{{$x}},{{end}}
+					}
+					z.A0.Mul(&x.A0, &b)
+					z.A1.Mul(&x.A1, &b)
+				{{- end }}
 			{{- else }}
 				// {{ print "(" $gammaij.A0String "," $gammaij.A1String ")" }}
 				b := {{$.Fp2Name}}{
