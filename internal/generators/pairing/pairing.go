@@ -313,12 +313,12 @@ const ExtraWork = `
 		var Q1, Q2 G2Affine
 
 		//Q1 = Frob(Q)
-		Q1.X.Conjugate(&Q.X).MulByNonResiduePower2(&Q1.X)
-		Q1.Y.Conjugate(&Q.Y).MulByNonResiduePower3(&Q1.Y)
+		Q1.X.Conjugate(&Q.X).MulByNonResidue1Power2(&Q1.X)
+		Q1.Y.Conjugate(&Q.Y).MulByNonResidue1Power3(&Q1.Y)
 
 		// Q2 = -Frob2(Q)
-		Q2.X.MulByNonResiduePowerSquare2(&Q.X)
-		Q2.Y.MulByNonResiduePowerSquare3(&Q.Y).Neg(&Q2.Y)
+		Q2.X.MulByNonResidue2Power2(&Q.X)
+		Q2.Y.MulByNonResidue2Power3(&Q.Y).Neg(&Q2.Y)
 
 		lineEvalAffine(QCur, Q1, &P, &lEval)
 		lEval.mulAssign(result)

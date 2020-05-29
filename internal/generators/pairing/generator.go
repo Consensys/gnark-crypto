@@ -41,7 +41,7 @@ func Generate(d Data, outputDir string) error {
 			MulAssign,
 			Expt,
 		}
-		if err := bavard.Generate(rootPath+"pairing.go", src, d,
+		if err := bavard.Generate(filepath.Join(rootPath, "pairing.go"), src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -55,7 +55,7 @@ func Generate(d Data, outputDir string) error {
 		src := []string{
 			Frobenius,
 		}
-		if err := bavard.Generate(rootPath+"frobenius.go", src, d,
+		if err := bavard.Generate(filepath.Join(rootPath, "frobenius.go"), src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),

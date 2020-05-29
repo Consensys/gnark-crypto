@@ -18,7 +18,9 @@ func main() {
 		FrName:    curve.C.FrName,
 	}
 
-	if err := primefields.Generate(d, "../../../../"); err != nil {
+	// assume working directory is internal/generators
+	// TODO make this path more robust to changes in working directory
+	if err := primefields.Generate(d, "../../"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}

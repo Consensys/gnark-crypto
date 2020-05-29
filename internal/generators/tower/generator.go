@@ -45,7 +45,7 @@ func Generate(d Data, outputDir string) error {
 			fp2.Inline,
 			fp2.Mul,
 		}
-		if err := bavard.Generate(rootPath+strings.ToLower(d.Fp2Name)+".go", src, d,
+		if err := bavard.Generate(filepath.Join(rootPath, strings.ToLower(d.Fp2Name)+".go"), src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -62,7 +62,7 @@ func Generate(d Data, outputDir string) error {
 			fp6.Inline,
 			fp6.Mul,
 		}
-		if err := bavard.Generate(rootPath+strings.ToLower(d.Fp6Name)+".go", src, d,
+		if err := bavard.Generate(filepath.Join(rootPath, strings.ToLower(d.Fp6Name)+".go"), src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),
@@ -80,7 +80,7 @@ func Generate(d Data, outputDir string) error {
 			fp12.Inline,
 			fp12.Mul,
 		}
-		if err := bavard.Generate(rootPath+strings.ToLower(d.Fp12Name)+".go", src, d,
+		if err := bavard.Generate(filepath.Join(rootPath, strings.ToLower(d.Fp12Name)+".go"), src, d,
 			bavard.Package(d.Fpackage),
 			bavard.Apache2("ConsenSys AG", 2020),
 			bavard.GeneratedBy("gurvy/internal/generators"),

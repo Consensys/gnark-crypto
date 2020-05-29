@@ -179,3 +179,5 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	return z
 }
+
+// TODO Expt not yet implemented for bw6_761
