@@ -83,7 +83,47 @@ const Frobenius = `
 	}
 
 {{- else if (eq $.EmbeddingDegree 6) }}
-	// TODO embedding degree {{$.EmbeddingDegree}} not supported
+	
+	// Frobenius set z to Frobenius(x), return z
+	func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
+		// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+
+		z.B0.Conjugate(&x.B0)
+		z.B1.Conjugate(&x.B1)
+		z.B2.Conjugate(&x.B2)
+	
+		z.B1.MulByNonResidue1Power1(&z.B1)
+		z.B2.MulByNonResidue1Power2(&z.B1)
+	
+		return z
+	}
+
+	// FrobeniusSquare set z to Frobenius^2(x), and return z
+	func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
+		// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+	
+		z.Set(x)
+	
+		z.B1.MulByNonResidue2Power1(&z.B1)
+		z.B2.MulByNonResidue2Power2(&z.B1)
+	
+		return z
+	}
+	
+	// FrobeniusCube set z to Frobenius^3(x), return z
+	func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
+		// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+	
+		z.B0.Conjugate(&x.B0)
+		z.B1.Conjugate(&x.B1)
+		z.B2.Conjugate(&x.B2)
+	
+		z.B1.MulByNonResidue3Power1(&z.B1)
+		z.B2.MulByNonResidue3Power2(&z.B1)
+	
+		return z
+	}	
+
 {{- else }}
 	// TODO embedding degree {{$.EmbeddingDegree}} not supported
 {{- end }}

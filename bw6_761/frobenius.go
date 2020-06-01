@@ -18,7 +18,45 @@ package bw6_761
 
 import "github.com/consensys/gurvy/bw6_761/fp"
 
-// TODO embedding degree 6 not supported
+// Frobenius set z to Frobenius(x), return z
+func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
+	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+
+	z.B0.Conjugate(&x.B0)
+	z.B1.Conjugate(&x.B1)
+	z.B2.Conjugate(&x.B2)
+
+	z.B1.MulByNonResidue1Power1(&z.B1)
+	z.B2.MulByNonResidue1Power2(&z.B1)
+
+	return z
+}
+
+// FrobeniusSquare set z to Frobenius^2(x), and return z
+func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
+	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+
+	z.Set(x)
+
+	z.B1.MulByNonResidue2Power1(&z.B1)
+	z.B2.MulByNonResidue2Power2(&z.B1)
+
+	return z
+}
+
+// FrobeniusCube set z to Frobenius^3(x), return z
+func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
+	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
+
+	z.B0.Conjugate(&x.B0)
+	z.B1.Conjugate(&x.B1)
+	z.B2.Conjugate(&x.B2)
+
+	z.B1.MulByNonResidue3Power1(&z.B1)
+	z.B2.MulByNonResidue3Power2(&z.B1)
+
+	return z
+}
 
 // MulByNonResidue1Power1 set z=x*(1,1)^(1*(p^1-1)/3) and return z
 func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
