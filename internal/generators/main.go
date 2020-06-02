@@ -137,9 +137,20 @@ func main() {
 			}
 		}
 
-		// generate tower
+		// generate tower (uses curve.C)
 		{
 			cmd := exec.Command("go", "run", "./tower/main/main.go")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				// fmt.Fprintln(os.Stderr, err)
+				os.Exit(-1)
+			}
+		}
+
+		// generate gpoint (uses curve.C)
+		{
+			cmd := exec.Command("go", "run", "./gpoint/main/main.go")
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
@@ -163,7 +174,7 @@ func main() {
 			}
 		}
 
-		// generate pairing
+		// generate pairing (uses curve.C)
 		{
 			cmd := exec.Command("go", "run", "./pairing/main/main.go")
 			cmd.Stdout = os.Stdout
