@@ -151,9 +151,9 @@ func main() {
 		// generate pairing generator (uses curve.C, tower)
 		{
 			src := []string{
-				pairing.ConstantsTemplate,
+				pairing.ImportsTemplate,
 			}
-			if err := bavard.Generate("pairing/constants.go", src, d,
+			if err := bavard.Generate("pairing/imports.go", src, d,
 				bavard.Package("pairing"),
 				bavard.Apache2("ConsenSys AG", 2020),
 				bavard.GeneratedBy("gurvy/internal/generators"),
