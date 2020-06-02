@@ -32,7 +32,6 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 }
 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-// TODO customize this comment for the curve
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// For BLS curves use Section 3 of https://eprint.iacr.org/2016/130.pdf; "hard part" is Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
 	var result PairingResult
