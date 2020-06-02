@@ -206,9 +206,9 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 }
 
 type lineEvalRes struct {
-	r0 E2 // c0.b1
-	r1 E2 // c1.b1
-	r2 E2 // c1.b2
+	r0 G2CoordType // c0.b1
+	r1 G2CoordType // c1.b1
+	r2 G2CoordType // c1.b2
 }
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {

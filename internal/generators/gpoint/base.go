@@ -13,19 +13,21 @@ import (
 	"sync"
 )
 
-// {{.PName}}Jac is a point with {{.CoordType}} coordinates
+type {{.PName}}CoordType = {{.CoordType}}
+
+// {{.PName}}Jac is a point with {{.PName}}CoordType coordinates
 type {{.PName}}Jac struct {
-	X, Y, Z {{.CoordType}}
+	X, Y, Z {{.PName}}CoordType
 }
 
 // {{.PName}}Affine point in affine coordinates
 type {{.PName}}Affine struct {
-	X, Y {{.CoordType}}
+	X, Y {{.PName}}CoordType
 }
 
 // {{toLower .PName}}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
 type {{toLower .PName}}JacExtended struct {
-	X, Y, ZZ, ZZZ {{.CoordType}}
+	X, Y, ZZ, ZZZ {{.PName}}CoordType
 }
 
 // SetInfinity sets p to O
@@ -69,7 +71,7 @@ func (p *{{toLower .PName}}JacExtended) mAdd(a *{{.PName}}Affine) *{{toLower .PN
 		return p
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.PName}}CoordType
 
 	// p2: a, p1: p
 	U2.Mul(&a.X, &p.ZZ)
@@ -99,7 +101,7 @@ func (p *{{toLower .PName}}JacExtended) mAdd(a *{{.PName}}Affine) *{{toLower .PN
 // http://www.hyperelliptic.org/EFD/{{toLower .PName}}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{toLower .PName}}JacExtended) double(q *{{.PName}}Affine) *{{toLower .PName}}JacExtended {
 
-	var U, S, M, _M, Y3 {{.CoordType}}
+	var U, S, M, _M, Y3 {{.PName}}CoordType
 
 	U.Double(&q.Y)
 	p.ZZ.Square(&U)
@@ -179,7 +181,7 @@ func (p *{{.PName}}Jac) Sub(curve *Curve, a {{.PName}}Jac) *{{.PName}}Jac {
 // WARNING super slow function (due to the division)
 func (p *{{.PName}}Jac) ToAffineFromJac(res *{{.PName}}Affine) *{{.PName}}Affine {
 
-	var bufs [3]{{.CoordType}}
+	var bufs [3]{{.PName}}CoordType
 
 	if p.Z.IsZero() {
 		res.X.SetZero()
@@ -200,7 +202,7 @@ func (p *{{.PName}}Jac) ToAffineFromJac(res *{{.PName}}Affine) *{{.PName}}Affine
 // ToProjFromJac converts a point from Jacobian to projective coordinates
 func (p *{{.PName}}Jac) ToProjFromJac() *{{.PName}}Jac {
 	// memalloc
-	var buf {{.CoordType}}
+	var buf {{.PName}}CoordType
 	buf.Square(&p.Z)
 
 	p.X.Mul(&p.X, &p.Z)
@@ -235,7 +237,7 @@ func (p *{{ .PName}}Affine) ToJacobian(Q *{{ .PName}}Jac) *{{ .PName}}Jac {
 }
 
 func (p *{{.PName}}Affine) String(curve *Curve) string {
-	var x, y {{.CoordType}}
+	var x, y {{.PName}}CoordType
 	x.Set(&p.X)
 	y.Set(&p.Y)
 	return "E([" + x.String() + "," + y.String() + "]),"

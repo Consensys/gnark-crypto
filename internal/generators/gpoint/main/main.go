@@ -33,10 +33,21 @@ func main() {
 
 	// g2.go
 	{
+		// G2: sextic twist => CoordType is a field extension of degree EmbeddingDegree / 6
+		var coordType string
+		switch curve.C.EmbeddingDegree {
+		case 12:
+			coordType = curve.C.Fp2Name
+		case 6:
+			coordType = curve.C.FpName + ".Element" // TODO refer to other constants
+		default:
+			panic("embedding degree " + string(curve.C.EmbeddingDegree) + " not implemented")
+		}
+
 		d := gpoint.Data{
 			Fpackage:  curve.C.Fpackage,
 			PName:     curve.C.PointName + "2",
-			CoordType: curve.C.Fp2Name,
+			CoordType: coordType,
 			GroupType: curve.C.FrName,
 			// ThirdRootOne: curve.C.ThirdRootOne,
 			// Lambda:       curve.C.Lambda,

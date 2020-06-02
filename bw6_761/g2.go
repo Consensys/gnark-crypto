@@ -20,6 +20,9 @@ package bw6_761
 
 import (
 	"runtime"
+
+	"github.com/consensys/gurvy/bw6_761/fp"
+
 	"sync"
 
 	"github.com/consensys/gurvy/bw6_761/fr"
@@ -27,19 +30,21 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// G2Jac is a point with E2 coordinates
+type G2CoordType = fp.Element
+
+// G2Jac is a point with G2CoordType coordinates
 type G2Jac struct {
-	X, Y, Z E2
+	X, Y, Z G2CoordType
 }
 
 // G2Affine point in affine coordinates
 type G2Affine struct {
-	X, Y E2
+	X, Y G2CoordType
 }
 
 // g2JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
 type g2JacExtended struct {
-	X, Y, ZZ, ZZZ E2
+	X, Y, ZZ, ZZZ G2CoordType
 }
 
 // SetInfinity sets p to O
@@ -83,7 +88,7 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 		return p
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 E2
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 G2CoordType
 
 	// p2: a, p1: p
 	U2.Mul(&a.X, &p.ZZ)
@@ -113,7 +118,7 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 // http://www.hyperelliptic.org/EFD/g2p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
 
-	var U, S, M, _M, Y3 E2
+	var U, S, M, _M, Y3 G2CoordType
 
 	U.Double(&q.Y)
 	p.ZZ.Square(&U)
@@ -192,7 +197,7 @@ func (p *G2Jac) Sub(curve *Curve, a G2Jac) *G2Jac {
 // WARNING super slow function (due to the division)
 func (p *G2Jac) ToAffineFromJac(res *G2Affine) *G2Affine {
 
-	var bufs [3]E2
+	var bufs [3]G2CoordType
 
 	if p.Z.IsZero() {
 		res.X.SetZero()
@@ -213,7 +218,7 @@ func (p *G2Jac) ToAffineFromJac(res *G2Affine) *G2Affine {
 // ToProjFromJac converts a point from Jacobian to projective coordinates
 func (p *G2Jac) ToProjFromJac() *G2Jac {
 	// memalloc
-	var buf E2
+	var buf G2CoordType
 	buf.Square(&p.Z)
 
 	p.X.Mul(&p.X, &p.Z)
@@ -248,7 +253,7 @@ func (p *G2Affine) ToJacobian(Q *G2Jac) *G2Jac {
 }
 
 func (p *G2Affine) String(curve *Curve) string {
-	var x, y E2
+	var x, y G2CoordType
 	x.Set(&p.X)
 	y.Set(&p.Y)
 	return "E([" + x.String() + "," + y.String() + "]),"
@@ -276,7 +281,7 @@ func (p *G2Jac) Add(curve *Curve, a *G2Jac) *G2Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V E2
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V G2CoordType
 
 	// Z1Z1 = a.Z ^ 2
 	Z1Z1.Square(&a.Z)
@@ -361,7 +366,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, U2, S2, H, HH, I, J, r, V E2
+	var Z1Z1, U2, S2, H, HH, I, J, r, V G2CoordType
 
 	// Z1Z1 = p.Z ^ 2
 	Z1Z1.Square(&p.Z)
@@ -419,7 +424,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) Double() *G2Jac {
 	// get some Element from our pool
-	var XX, YY, YYYY, ZZ, S, M, T E2
+	var XX, YY, YYYY, ZZ, S, M, T G2CoordType
 
 	// XX = a.X^2
 	XX.Square(&p.X)

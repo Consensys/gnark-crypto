@@ -1,5 +1,7 @@
 package pairing
 
+// TODO this template currently hard-codes the names "G1", "G2", etc; switch to {{.PName}} from gpoint
+
 const Pairing = `
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
@@ -256,9 +258,16 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	result.r2.Sub(&result.r2, &Q.Y)
 
 	// multiply P.Z by coeffs[2] in case P is infinity
-	result.r1.MulByElement(&result.r1, &P.X)
-	result.r0.MulByElement(&result.r0, &P.Y)
-	//result.r2.MulByElement(&result.r2, &P.Z)
+	{{- /* TODO currently using EmbeddingDegree to determine G2CoordType so we know whether to use MulByElement or Mul */}}
+	{{- if (eq $.EmbeddingDegree 6) }}
+		result.r1.Mul(&result.r1, &P.X)
+		result.r0.Mul(&result.r0, &P.Y)
+		//result.r2.Mul(&result.r2, &P.Z)
+	{{- else }}
+		result.r1.MulByElement(&result.r1, &P.X)
+		result.r0.MulByElement(&result.r0, &P.Y)
+		//result.r2.MulByElement(&result.r2, &P.Z)
+	{{- end }}
 }
 
 // Same as above but R is in affine coords
@@ -284,15 +293,22 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 	result.r2.Sub(&result.r2, &Q.Y)
 
 	// multiply P.Z by coeffs[2] in case P is infinity
-	result.r1.MulByElement(&result.r1, &P.X)
-	result.r0.MulByElement(&result.r0, &P.Y)
-	// result.r2.MulByElement(&result.r2, &P.Z)
+	{{- /* TODO currently using EmbeddingDegree to determine G2CoordType so we know whether to use MulByElement or Mul */}}
+	{{- if (eq $.EmbeddingDegree 6) }}
+		result.r1.Mul(&result.r1, &P.X)
+		result.r0.Mul(&result.r0, &P.Y)
+		// result.r2.Mul(&result.r2, &P.Z)
+	{{- else }}
+		result.r1.MulByElement(&result.r1, &P.X)
+		result.r0.MulByElement(&result.r0, &P.Y)
+		// result.r2.MulByElement(&result.r2, &P.Z)
+	{{- end }}
 }
 
 type lineEvalRes struct {
-	r0 {{.Fp2Name}} // c0.b1
-	r1 {{.Fp2Name}} // c1.b1
-	r2 {{.Fp2Name}} // c1.b2
+	r0 G2CoordType // c0.b1
+	r1 G2CoordType // c1.b1
+	r2 G2CoordType // c1.b2
 }
 
 
