@@ -277,8 +277,9 @@ func (z *E6) MulByNotv2(x, y *E6) *E6 {
 	return z
 }
 
-// Square squares a E6
+// Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
+
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
 	var b0, b1, b2, b3, b4 E2
 	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
@@ -298,6 +299,47 @@ func (z *E6) Square(x *E6) *E6 {
 	b2.Square(&x.B0)                                  // step 5
 	b3.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&b3) // steps 6 and 8
 	b4.Mul(&x.B1, &x.B2).Double(&b4)                  // step 7
+	// step 9
+	{ // begin: inline z.B0.MulByNonResidue(&b4)
+		buf := (&b4).A0
+		{ // begin: inline MulByNonResidue(&(z.B0).A0, &(&b4).A1)
+			buf := *(&(&b4).A1)
+			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).AddAssign(&buf)
+		} // end: inline MulByNonResidue(&(z.B0).A0, &(&b4).A1)
+		(z.B0).A1 = buf
+	} // end: inline z.B0.MulByNonResidue(&b4)
+	z.B0.AddAssign(&b2)
+
+	// step 10
+	z.B2.Add(&b1, &b3).
+		AddAssign(&b4).
+		SubAssign(&b2)
+	z.B1 = b0
+	return z
+}
+
+// SquareAssign sets z to the E6-product of z,z returns z
+func (z *E6) SquareAssign() *E6 {
+
+	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
+	var b0, b1, b2, b3, b4 E2
+	b3.Mul(&z.B0, &z.B1).Double(&b3) // step 1
+	b4.Square(&z.B2)                 // step 2
+
+	// step 3
+	{ // begin: inline b0.MulByNonResidue(&b4)
+		buf := (&b4).A0
+		{ // begin: inline MulByNonResidue(&(b0).A0, &(&b4).A1)
+			buf := *(&(&b4).A1)
+			(&(b0).A0).Double(&buf).Double(&(b0).A0).AddAssign(&buf)
+		} // end: inline MulByNonResidue(&(b0).A0, &(&b4).A1)
+		(b0).A1 = buf
+	} // end: inline b0.MulByNonResidue(&b4)
+	b0.AddAssign(&b3)
+	b1.Sub(&b3, &b4)                                  // step 4
+	b2.Square(&z.B0)                                  // step 5
+	b3.Sub(&z.B0, &z.B1).AddAssign(&z.B2).Square(&b3) // steps 6 and 8
+	b4.Mul(&z.B1, &z.B2).Double(&b4)                  // step 7
 	// step 9
 	{ // begin: inline z.B0.MulByNonResidue(&b4)
 		buf := (&b4).A0

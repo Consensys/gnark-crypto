@@ -82,22 +82,34 @@ func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0 = rb0
 	return z
 }
-// Square squares a {{.Fp6Name}}
+
+// Square sets z to the {{.Fp6Name}}-product of x,x, returns z
 func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+	{{ template "square" dict "all" . "V" "x" }}
+	return z
+}
+
+// SquareAssign sets z to the {{.Fp6Name}}-product of z,z returns z
+func (z *{{.Fp6Name}}) SquareAssign() *{{.Fp6Name}} {
+	{{ template "square" dict "all" . "V" "z" }}
+	return z
+}
+
+{{- define "square" }}
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var b0, b1, b2, b3, b4 {{.Fp2Name}}
-	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
-	b4.Square(&x.B2) // step 2
+	var b0, b1, b2, b3, b4 {{.all.Fp2Name}}
+	b3.Mul(&{{.V}}.B0, &{{.V}}.B1).Double(&b3) // step 1
+	b4.Square(&{{.V}}.B2) // step 2
 	
 	// step 3
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "b0" "in" "&b4" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "b0" "in" "&b4" }}
 	b0.AddAssign(&b3)
 	b1.Sub(&b3, &b4) // step 4
-	b2.Square(&x.B0) // step 5
-	b3.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&b3) // steps 6 and 8
-	b4.Mul(&x.B1, &x.B2).Double(&b4) // step 7
+	b2.Square(&{{.V}}.B0) // step 5
+	b3.Sub(&{{.V}}.B0, &{{.V}}.B1).AddAssign(&{{.V}}.B2).Square(&b3) // steps 6 and 8
+	b4.Mul(&{{.V}}.B1, &{{.V}}.B2).Double(&b4) // step 7
 	// step 9
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B0" "in" "&b4" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "z.B0" "in" "&b4" }}
 	z.B0.AddAssign(&b2)
 	
 	// step 10
@@ -105,8 +117,8 @@ func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 		AddAssign(&b4).
 		SubAssign(&b2)
 	z.B1 = b0
-	return z
-}
+{{- end }}
+
 // SquarE2 squares a {{.Fp6Name}}
 func (z *{{.Fp6Name}}) SquarE2(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
