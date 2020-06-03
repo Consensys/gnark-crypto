@@ -33,24 +33,147 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 
 // FinalExponentiation sets z to the final expo x**((p**6 - 1)/r), returns z
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
-	// easy part: x**((p**3 - 1)*(p+1))
 	var result PairingResult
 	result.Set(x)
 
-	var t [1]PairingResult // temp memory
+	// easy part exponent: (p**3 - 1)*(p+1)
+	{
+		var buf PairingResult
+		buf.FrobeniusCube(&result)
+		result.Inverse(&result)
+		buf.Mul(&buf, &result)
+		result.Frobenius(&buf).
+			MulAssign(&buf)
+	}
 
-	t[0].FrobeniusCube(&result) // x**(p**3)
-	result.Inverse(&result)     // x**(-1)
-	t[0].Mul(&t[0], &result)    // x**(p**3-1)
-	result.Frobenius(&t[0]).    // x**((p**3-1)*p)
-					Mul(&result, &t[0]) // x**((p**3-1)*(p+1))
+	// hard part exponent: a multiple (3) of (p**2 - p + 1)/r
+	// Appendix B of https://eprint.iacr.org/2020/351.pdf
+	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
+	var f [8]PairingResult   // temp memory
+	var fp [10]PairingResult // temp memory
 
-	// hard part (up to permutation)
-	// performs the hard part of the final expo
-	// Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
-	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
+	f[0].Set(&result)
+	for i := 1; i < len(f); i++ {
+		f[1].Expt(&f[i-1])
+	}
+	for i := range f {
+		fp[i].Frobenius(&f[i])
+	}
+	fp[8].Expt(&fp[7])
+	fp[9].Expt(&fp[8])
 
-	// TODO
+	result.FrobeniusCube(&fp[5]).
+		MulAssign(&fp[3]).
+		MulAssign(&fp[6]).
+		SquareAssign()
+
+	var f4fp2 PairingResult
+	f4fp2.Mul(&f[4], &fp[2])
+
+	{
+		var buf PairingResult
+		buf.Mul(&f[0], &f[1]).
+			MulAssign(&f[3]).
+			MulAssign(&f4fp2).
+			MulAssign(&fp[8])
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f[5]).
+		MulAssign(&fp[0]).
+		SquareAssign()
+
+	{
+		var buf PairingResult
+		buf.FrobeniusCube(&f[7])
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&fp[9]).
+		SquareAssign()
+
+	var f2fp4, f4fp2fp5 PairingResult
+	f2fp4.Mul(&f[2], &fp[4])
+	f4fp2fp5.Mul(&f4fp2, &fp[5])
+
+	{
+		var buf PairingResult
+		buf.Mul(&f2fp4, &f[3]).
+			MulAssign(&fp[3])
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f4fp2fp5).
+		MulAssign(&f[6]).
+		MulAssign(&fp[7]).
+		SquareAssign()
+
+	{
+		var buf PairingResult
+		buf.Mul(&fp[0], &fp[9])
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f[0]).
+		MulAssign(&f[7]).
+		MulAssign(&fp[1]).
+		SquareAssign()
+
+	var fp6fp8, f5fp7 PairingResult
+	fp6fp8.Mul(&fp[6], &fp[8])
+	f5fp7.Mul(&f[5], &fp[7])
+
+	{
+		var buf PairingResult
+		buf.FrobeniusCube(&fp6fp8)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f5fp7).
+		MulAssign(&fp[2]).
+		SquareAssign()
+
+	var f3f6, f1f7 PairingResult
+	f3f6.Mul(&f[3], &f[6])
+	f1f7.Mul(&f[1], &f[7])
+
+	{
+		var buf PairingResult
+		buf.Mul(&f1f7, &f[2])
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f3f6).
+		MulAssign(&fp[9]).
+		SquareAssign()
+
+	{
+		var buf PairingResult
+		buf.Mul(&f4fp2, &f5fp7).
+			MulAssign(&fp6fp8)
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f[0]).
+		MulAssign(&fp[0]).
+		MulAssign(&fp[3]).
+		MulAssign(&fp[5]).
+		SquareAssign()
+
+	{
+		var buf PairingResult
+		buf.FrobeniusCube(&f3f6)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&fp[1]).
+		SquareAssign()
+
+	{
+		var buf PairingResult
+		buf.Mul(&f2fp4, &f4fp2fp5).MulAssign(&fp[9])
+		buf.FrobeniusCube(&buf)
+		result.MulAssign(&buf)
+	}
+	result.MulAssign(&f1f7).MulAssign(&f5fp7).MulAssign(&fp[0])
+
 	z.Set(&result)
 	return z
 }
