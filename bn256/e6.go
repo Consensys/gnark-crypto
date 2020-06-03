@@ -58,6 +58,14 @@ func (z *E6) SetOne() *E6 {
 	return z
 }
 
+// SetRandom set z to a random elmt
+func (z *E6) SetRandom() *E6 {
+	z.B0.SetRandom()
+	z.B1.SetRandom()
+	z.B2.SetRandom()
+	return z
+}
+
 // ToMont converts to Mont form
 func (z *E6) ToMont() *E6 {
 	z.B0.ToMont()
