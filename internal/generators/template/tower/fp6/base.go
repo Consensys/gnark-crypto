@@ -41,6 +41,14 @@ func (z *{{.Fp6Name}}) SetOne() *{{.Fp6Name}} {
 	return z
 }
 
+// SetRandom set z to a random elmt
+func (z *{{.Fp6Name}}) SetRandom() *{{.Fp6Name}} {
+	z.B0.SetRandom()
+	z.B1.SetRandom()
+	z.B2.SetRandom()
+	return z
+}
+
 // ToMont converts to Mont form
 func (z *{{.Fp6Name}}) ToMont() *{{.Fp6Name}} {
 	z.B0.ToMont()
