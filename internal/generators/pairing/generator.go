@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	pairing "github.com/consensys/gurvy/internal/generators/pairing/templates"
 )
 
 // Data data used to generate the templates
@@ -36,10 +37,10 @@ func Generate(d Data, outputDir string) error {
 	// pairing.go
 	{
 		src := []string{
-			Pairing,
-			ExtraWork,
-			MulAssign,
-			Expt,
+			pairing.Pairing,
+			pairing.ExtraWork,
+			pairing.MulAssign,
+			pairing.Expt,
 		}
 		if err := bavard.Generate(filepath.Join(rootPath, "pairing.go"), src, d,
 			bavard.Package(d.Fpackage),
@@ -53,7 +54,7 @@ func Generate(d Data, outputDir string) error {
 	// frobenius.go
 	{
 		src := []string{
-			Frobenius,
+			pairing.Frobenius,
 		}
 		if err := bavard.Generate(filepath.Join(rootPath, "frobenius.go"), src, d,
 			bavard.Package(d.Fpackage),

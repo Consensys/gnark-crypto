@@ -6,9 +6,9 @@ import (
 
 	"github.com/consensys/bavard"
 
-	"github.com/consensys/gurvy/internal/generators/tower/fp12"
-	"github.com/consensys/gurvy/internal/generators/tower/fp2"
-	"github.com/consensys/gurvy/internal/generators/tower/fp6"
+	"github.com/consensys/gurvy/internal/generators/tower/templates/fp12"
+	"github.com/consensys/gurvy/internal/generators/tower/templates/fp2"
+	"github.com/consensys/gurvy/internal/generators/tower/templates/fp6"
 )
 
 // Data data used to generate the templates
@@ -92,14 +92,16 @@ func Generate(d Data, outputDir string) error {
 	return nil
 }
 
-const TwoInvTemplate = `
-import "github.com/consensys/gurvy/{{$.Fpackage}}/fp"
-
 // InitTwoInv set z.TwoInv to the inverse of 2 as an fp.Element
 func (z *Data) InitTwoInv() *Data {
-	var twoInv fp.Element
+	var twoInv fpElement
 	twoInv.SetUint64(2).Inverse(&twoInv)
 	z.TwoInv = twoInv[:]
 	return z
 }
+
+const TwoInvTemplate = `
+import "github.com/consensys/gurvy/{{$.Fpackage}}/fp"
+
+type fpElement = fp.Element
 `

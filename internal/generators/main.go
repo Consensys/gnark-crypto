@@ -101,7 +101,7 @@ func main() {
 			src := []string{
 				curve.CTemplate,
 			}
-			if err := bavard.Generate("curve/c.go", src, d,
+			if err := bavard.Generate("curve/generated-code.go", src, d,
 				bavard.Package("curve"),
 				bavard.Apache2("ConsenSys AG", 2020),
 				bavard.GeneratedBy("gurvy/internal/generators"),
@@ -127,7 +127,7 @@ func main() {
 			src := []string{
 				tower.TwoInvTemplate,
 			}
-			if err := bavard.Generate("tower/twoinv.go", src, d,
+			if err := bavard.Generate("tower/generated-code.go", src, d,
 				bavard.Package("tower"),
 				bavard.Apache2("ConsenSys AG", 2020),
 				bavard.GeneratedBy("gurvy/internal/generators"),
@@ -164,7 +164,7 @@ func main() {
 			src := []string{
 				pairing.ImportsTemplate,
 			}
-			if err := bavard.Generate("pairing/imports.go", src, d,
+			if err := bavard.Generate("pairing/generated-code.go", src, d,
 				bavard.Package("pairing"),
 				bavard.Apache2("ConsenSys AG", 2020),
 				bavard.GeneratedBy("gurvy/internal/generators"),

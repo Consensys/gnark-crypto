@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard"
+	gpoint "github.com/consensys/gurvy/internal/generators/gpoint/templates"
 )
 
 // Data data used to generate the templates
@@ -26,14 +27,14 @@ func Generate(d Data, outputDir string) error {
 
 	rootPath := filepath.Join(outputDir, d.Fpackage)
 	src := []string{
-		Base,
-		Add,
-		AddMixed,
-		Double,
-		// EndoMul,
-		ScalarMul,
-		WindowedMultiExp,
-		MultiExp,
+		gpoint.Base,
+		gpoint.Add,
+		gpoint.AddMixed,
+		gpoint.Double,
+		// gpoint.EndoMul,
+		gpoint.ScalarMul,
+		gpoint.WindowedMultiExp,
+		gpoint.MultiExp,
 	}
 	if err := bavard.Generate(filepath.Join(rootPath, strings.ToLower(d.PName)+".go"), src, d,
 		bavard.Package(d.Fpackage),
