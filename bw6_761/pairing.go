@@ -54,7 +54,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 	f[0].Set(&result)
 	for i := 1; i < len(f); i++ {
-		f[1].Expt(&f[i-1])
+		f[i].Expt(&f[i-1])
 	}
 	for i := range f {
 		fp[i].Frobenius(&f[i])
