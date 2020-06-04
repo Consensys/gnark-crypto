@@ -27,7 +27,7 @@ func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 	z.B2.Conjugate(&x.B2)
 
 	z.B1.MulByNonResidue1Power1(&z.B1)
-	z.B2.MulByNonResidue1Power2(&z.B1)
+	z.B2.MulByNonResidue1Power2(&z.B2)
 
 	return z
 }
@@ -39,7 +39,7 @@ func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 	z.Set(x)
 
 	z.B1.MulByNonResidue2Power1(&z.B1)
-	z.B2.MulByNonResidue2Power2(&z.B1)
+	z.B2.MulByNonResidue2Power2(&z.B2)
 
 	return z
 }
@@ -53,7 +53,7 @@ func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 	z.B2.Conjugate(&x.B2)
 
 	z.B1.MulByNonResidue3Power1(&z.B1)
-	z.B2.MulByNonResidue3Power2(&z.B1)
+	z.B2.MulByNonResidue3Power2(&z.B2)
 
 	return z
 }
