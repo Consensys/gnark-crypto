@@ -164,7 +164,8 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 			MulAssign(&buf)
 	}
 
-	// hard part exponent: a multiple (3) of (p**2 - p + 1)/r
+	// hard part exponent: a multiple of (p**2 - p + 1)/r
+	// the multiple is 3*(t**3 - t**2 + 1)
 	// Appendix B of https://eprint.iacr.org/2020/351.pdf
 	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
 	var f [8]PairingResult   // temp memory
