@@ -63,7 +63,11 @@ func initBW6_761() {
 	bw6_761.g2Gen.Z.SetString("1")
 
 	// Setting the loop counter for Miller loop in NAF form
-	T, _ := new(big.Int).SetString("9586122913090633729", 10)
+	// TODO Optimized Miller loop described in the paper
+	// https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
+	// for now just use the fr modulus as described in Section 3.3
+	// (fr < trace of Frobenius so this is faster than trace of Frobenius)
+	T, _ := new(big.Int).SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177", 10)
 	utils.NafDecomposition(T, bw6_761.loopCounter[:])
 
 	// infinity point G1
