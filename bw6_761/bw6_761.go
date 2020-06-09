@@ -40,7 +40,7 @@ type Curve struct {
 	g2Infinity G2Jac
 
 	// TODO store this number as a MAX_SIZE constant, or with build tags
-	loopCounter [64]int8 // NAF decomposition of t-1, t is the trace of the Frobenius restricted on the r torsion group
+	loopCounter [378]int8 // NAF decomposition of t-1, t is the trace of the Frobenius restricted on the r torsion group
 
 	// precomputed values for ScalarMulByGen
 	tGenG1 [((1 << bGen) - 1)]G1Jac
