@@ -46,7 +46,8 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 			MulAssign(&buf)
 	}
 
-	// hard part exponent: a multiple (3) of (p**2 - p + 1)/r
+	// hard part exponent: a multiple of (p**2 - p + 1)/r
+	// the multiple is 3*(t**3 - t**2 + 1)
 	// Appendix B of https://eprint.iacr.org/2020/351.pdf
 	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
 	var f [8]PairingResult   // temp memory
@@ -202,6 +203,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 
 	// Miller loop
 	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
+
 		QNext.Set(&QCur)
 		QNext.Double()
 		QNextNeg.Neg(&QNext)
@@ -236,6 +238,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 // Q, R are in jacobian coordinates
 // The case in which Q=R=Infinity is not handled as this doesn't happen in the SNARK pairing
 func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
+
 	// converts Q and R to projective coords
 	Q.ToProjFromJac()
 	R.ToProjFromJac()
@@ -298,6 +301,12 @@ type lineEvalRes struct {
 }
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
+
+	var a, b, c E6
+	a.MulByVMinusThree(z, &l.r1)
+	b.MulByVminusTwo(z, &l.r0)
+	c.MulByVminusFive(z, &l.r2)
+	z.Add(&a, &b).Add(z, &c)
 
 	return z
 }

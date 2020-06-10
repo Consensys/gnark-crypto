@@ -6,6 +6,7 @@ import (
 
 // NafDecomposition gets the naf decomposition of a big number
 func NafDecomposition(a *big.Int, result []int8) int {
+
 	var zero, one, two, three big.Int
 
 	one.SetUint64(1)

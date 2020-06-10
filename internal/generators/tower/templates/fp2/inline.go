@@ -18,6 +18,9 @@ const Inline = `
 	{{- else if eq $.all.Fp2NonResidue "3" }}
 		buf := *({{$.in}})
 		({{$.out}}).Double(&buf).AddAssign(&buf)
+	{{- else if eq $.all.Fp2NonResidue "-4" }}
+		buf := *({{$.in}})
+		({{$.out}}).Double(&buf).Double({{$.out}}).Neg({{$.out}})
 	{{- else }}
 		panic("not implemented yet")
 	{{- end }}
