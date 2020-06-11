@@ -504,16 +504,6 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	buf := (x).A1
-	{ // begin: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-		panic("not implemented yet")
-	} // end: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-	(z).A0 = buf
-	return z
-}
-
 // MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
 func (z *E6) MulByVMinusThree(x *E6, y *fp.Element) *E6 {
 
