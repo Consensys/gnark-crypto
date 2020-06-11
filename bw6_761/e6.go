@@ -16,7 +16,9 @@
 
 package bw6_761
 
-import "github.com/consensys/gurvy/bw6_761/fp"
+import (
+	"github.com/consensys/gurvy/bw6_761/fp"
+)
 
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
@@ -539,12 +541,11 @@ func (z *E6) MulByVminusTwo(x *E6, y *fp.Element) *E6 {
 	tmp.A0.SetZero()
 	tmp.A1.Mul(y, &fourinv)
 
-	var a, b E2
-	a.Mul(&tmp, &x.B0)
-	b.Mul(&tmp, &x.B1)
-	z.B0.Set(&x.B2)
-	z.B1.Set(&a)
-	z.B2.Set(&b)
+	var a E2
+	a.MulByElement(&x.B2, y)
+	z.B2.Mul(&x.B1, &tmp)
+	z.B1.Mul(&x.B0, &tmp)
+	z.B0.Set(&a)
 
 	return z
 }
@@ -562,8 +563,8 @@ func (z *E6) MulByVminusFive(x *E6, y *fp.Element) *E6 {
 
 	var a E2
 	a.Mul(&x.B2, &tmp)
-	z.B2.MulByElement(&z.B1, &fourinv)
-	z.B1.MulByElement(&z.B0, &fourinv)
+	z.B2.MulByElement(&x.B1, &tmp.A1)
+	z.B1.MulByElement(&x.B0, &tmp.A1)
 	z.B0.Set(&a)
 
 	return z

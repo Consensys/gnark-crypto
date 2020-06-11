@@ -115,6 +115,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 
 	// Miller loop
 	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
+
 		QNext.Set(&QCur)
 		QNext.Double()
 		QNextNeg.Neg(&QNext)

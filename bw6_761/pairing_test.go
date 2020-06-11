@@ -29,8 +29,6 @@ func TestMagicPairing(t *testing.T) {
 
 func TestComputePairing(t *testing.T) {
 
-	t.Skip("not working yet")
-
 	curve := BW6_761()
 
 	G := curve.g2Gen.Clone()
@@ -52,6 +50,7 @@ func TestComputePairing(t *testing.T) {
 
 	P.ToAffineFromJac(&Paff)
 	sP.ToAffineFromJac(&sPaff)
+
 	G.ToAffineFromJac(&Gaff)
 	sG.ToAffineFromJac(&sGaff)
 
