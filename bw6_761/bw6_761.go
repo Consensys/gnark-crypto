@@ -39,8 +39,10 @@ type Curve struct {
 	g1Infinity G1Jac // infinity (in Jacobian coords)
 	g2Infinity G2Jac
 
-	// TODO store this number as a MAX_SIZE constant, or with build tags
-	loopCounter [378]int8 // NAF decomposition of t-1, t is the trace of the Frobenius restricted on the r torsion group
+	// Miller loop counters in NAF form
+	// TODO For the love of god, please clean this up
+	loopCounter1 [64]int8
+	loopCounter2 [127]int8
 
 	// precomputed values for ScalarMulByGen
 	tGenG1 [((1 << bGen) - 1)]G1Jac
@@ -62,13 +64,12 @@ func initBW6_761() {
 	bw6_761.g2Gen.Y.SetString("2945005085389580383802706904000483833228424888054664780252599806365093320701303614818391222418768857269542753796449953578553937529004880983494788715529986360817835802796138196037201453469654110552028363169895102423753717534586247")
 	bw6_761.g2Gen.Z.SetString("1")
 
-	// Setting the loop counter for Miller loop in NAF form
-	// TODO Optimized Miller loop described in the paper
+	// Setting the loop counters for Miller loop in NAF form
 	// https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
-	// for now just use the fr modulus as described in Section 3.3
-	// (fr < trace of Frobenius so this is faster than trace of Frobenius)
-	T, _ := new(big.Int).SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177", 10)
-	utils.NafDecomposition(T, bw6_761.loopCounter[:])
+	T, _ := new(big.Int).SetString("9586122913090633729", 10)
+	utils.NafDecomposition(T, bw6_761.loopCounter1[:])
+	T2, _ := new(big.Int).SetString("91893752504881257691937156713741811711", 10)
+	utils.NafDecomposition(T2, bw6_761.loopCounter2[:])
 
 	// infinity point G1
 	bw6_761.g1Infinity.X.SetOne()

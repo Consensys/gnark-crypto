@@ -180,6 +180,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
+// https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
+// sage: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L344
+// TODO for the love of god, please clean this up
 func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	// init result
@@ -193,6 +196,8 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	var QCur, QNext, QNextNeg G2Jac
 	var QNeg G2Affine
 
+	// first Miller loop
+
 	// Stores -Q
 	QNeg.Neg(&Q)
 
@@ -202,7 +207,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	var lEval lineEvalRes
 
 	// Miller loop
-	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
+	for i := len(curve.loopCounter1) - 2; i >= 0; i-- {
 
 		QNext.Set(&QCur)
 		QNext.Double()
@@ -214,14 +219,14 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 		lineEvalJac(QCur, QNextNeg, &P, &lEval)
 		lEval.mulAssign(result)
 
-		if curve.loopCounter[i] == 1 {
+		if curve.loopCounter1[i] == 1 {
 			// evaluates line through 2Qcur, Q at P
 			lineEvalAffine(QNext, Q, &P, &lEval)
 			lEval.mulAssign(result)
 
 			QNext.AddMixed(&Q)
 
-		} else if curve.loopCounter[i] == -1 {
+		} else if curve.loopCounter1[i] == -1 {
 			// evaluates line through 2Qcur, -Q at P
 			lineEvalAffine(QNext, QNeg, &P, &lEval)
 			lEval.mulAssign(result)
@@ -230,6 +235,51 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 		}
 		QCur.Set(&QNext)
 	}
+
+	// prepare for second Miller loop
+	var result1Base, result1Inv, result1lEval PairingResult
+	result1Base.Set(result)
+	result1Inv.Inverse(result)
+	result1lEval.Set(result)
+	lineEvalAffine(QCur, Q, &P, &lEval)
+	lEval.mulAssign(&result1lEval)
+
+	// second Miller loop
+	for i := len(curve.loopCounter2) - 2; i >= 0; i-- {
+
+		QNext.Set(&QCur)
+		QNext.Double()
+		QNextNeg.Neg(&QNext)
+
+		result.Square(result)
+
+		// evaluates line though Qcur,2Qcur at P
+		lineEvalJac(QCur, QNextNeg, &P, &lEval)
+		lEval.mulAssign(result)
+
+		if curve.loopCounter2[i] == 1 {
+			// evaluates line through 2Qcur, Q at P
+			lineEvalAffine(QNext, Q, &P, &lEval)
+			lEval.mulAssign(result)
+
+			result.MulAssign(&result1Base)
+
+			QNext.AddMixed(&Q)
+
+		} else if curve.loopCounter2[i] == -1 {
+			// evaluates line through 2Qcur, -Q at P
+			lineEvalAffine(QNext, QNeg, &P, &lEval)
+			lEval.mulAssign(result)
+
+			result.MulAssign(&result1Inv)
+
+			QNext.AddMixed(&QNeg)
+		}
+		QCur.Set(&QNext)
+	}
+
+	result.Frobenius(result)
+	result.MulAssign(&result1lEval)
 
 	return result
 }
