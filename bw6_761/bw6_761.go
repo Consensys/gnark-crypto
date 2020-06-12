@@ -42,7 +42,7 @@ type Curve struct {
 	// Miller loop counters in NAF form
 	// TODO For the love of god, please clean this up
 	loopCounter1 [64]int8
-	loopCounter2 [127]int8
+	loopCounter2 [190]int8
 
 	// precomputed values for ScalarMulByGen
 	tGenG1 [((1 << bGen) - 1)]G1Jac
@@ -66,9 +66,15 @@ func initBW6_761() {
 
 	// Setting the loop counters for Miller loop in NAF form
 	// https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
-	T, _ := new(big.Int).SetString("9586122913090633729", 10)
+	// T, _ := new(big.Int).SetString("9586122913090633729", 10)
+	// utils.NafDecomposition(T, bw6_761.loopCounter1[:])
+	// T2, _ := new(big.Int).SetString("91893752504881257691937156713741811711", 10)
+	// utils.NafDecomposition(T2, bw6_761.loopCounter2[:])
+
+	// TODO for now use the "naive" Miller loop
+	T, _ := new(big.Int).SetString("9586122913090633730", 10)
 	utils.NafDecomposition(T, bw6_761.loopCounter1[:])
-	T2, _ := new(big.Int).SetString("91893752504881257691937156713741811711", 10)
+	T2, _ := new(big.Int).SetString("880904806456922042166256752416502360955572640081583800319", 10)
 	utils.NafDecomposition(T2, bw6_761.loopCounter2[:])
 
 	// infinity point G1
