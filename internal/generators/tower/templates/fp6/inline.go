@@ -31,7 +31,7 @@ const Inline = `
 		{{- template "fpInlineMulByNonResidue" dict "all" $.all "out" (print "&(" $.out ").A0") "in" "&buf.A1" }}
 		{{$.out}}.A0.AddAssign(&buf9.A0)
 	{{- else}}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 
@@ -53,12 +53,8 @@ const Inline = `
 		({{$.out}}).A0.Add(&buf.A0, &buf.A1)
 		({{$.out}}).A1.Sub(&buf.A1, &buf.A0)
 		twoInv := fp.Element{
-			1730508156817200468,
-			9606178027640717313,
-			7150789853162776431,
-			7936136305760253186,
-			15245073033536294050,
-			1728177566264616342,
+			{{- range $i := .all.TwoInv}}
+			{{$i}},{{end}}
 		}
 		({{$.out}}).A0.MulAssign(&twoInv)
 		({{$.out}}).A1.MulAssign(&twoInv)
@@ -107,7 +103,7 @@ const Inline = `
 		({{$.out}}).A0.MulAssign(&buf78inv)
 		({{$.out}}).A1.MulAssign(&buf78inv)
 	{{- else}}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 `

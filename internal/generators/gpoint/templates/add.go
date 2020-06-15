@@ -19,7 +19,7 @@ func (p *{{.PName}}Jac) Add(curve *Curve, a *{{.PName}}Jac) *{{.PName}}Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V {{.CoordType}}
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V {{.PName}}CoordType
 
 	// Z1Z1 = a.Z ^ 2
 	Z1Z1.Square(&a.Z)
@@ -107,7 +107,7 @@ func (p *{{.PName}}Jac) AddMixed(a *{{.PName}}Affine) *{{.PName}}Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1,  U2 , S2, H, HH, I, J, r, V {{.CoordType}}
+	var Z1Z1,  U2 , S2, H, HH, I, J, r, V {{.PName}}CoordType
 
 	// Z1Z1 = p.Z ^ 2
 	Z1Z1.Square(&p.Z)

@@ -1,39 +1,53 @@
 package fp6
 
 const Mul = `
-// Mul multiplies two numbers in {{.Fp6Name}}
+// Mul sets z to the {{.Fp6Name}}-product of x,y, returns z
 func (z *{{.Fp6Name}}) Mul(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
+	{{ template "mul" dict "all" . "V1" "x" "V2" "y"}}
+	return z
+}
+
+// MulAssign sets z to the {{.Fp6Name}}-product of z,x returns z
+func (z *{{.Fp6Name}}) MulAssign(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+	{{ template "mul" dict "all" . "V1" "z" "V2" "x"}}
+	return z
+}
+
+{{- define "mul" }}
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3, b4 {{.Fp2Name}}
-	b0.Mul(&x.B0, &y.B0) // step 1
-	b1.Mul(&x.B1, &y.B1) // step 2
-	b2.Mul(&x.B2, &y.B2) // step 3
+	var rb0, b0, b1, b2, b3, b4 {{.all.Fp2Name}}
+	b0.Mul(&{{.V1}}.B0, &{{.V2}}.B0) // step 1
+	b1.Mul(&{{.V1}}.B1, &{{.V2}}.B1) // step 2
+	b2.Mul(&{{.V1}}.B2, &{{.V2}}.B2) // step 3
+
 	// step 4
-	b3.Add(&x.B1, &x.B2)
-	b4.Add(&y.B1, &y.B2)
+	b3.Add(&{{.V1}}.B1, &{{.V1}}.B2)
+	b4.Add(&{{.V2}}.B1, &{{.V2}}.B2)
 	rb0.Mul(&b3, &b4).
 		SubAssign(&b1).
 		SubAssign(&b2)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "rb0" "in" "&rb0" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "rb0" "in" "&rb0" }}
 	rb0.AddAssign(&b0)
+	
 	// step 5
-	b3.Add(&x.B0, &x.B1)
-	b4.Add(&y.B0, &y.B1)
+	b3.Add(&{{.V1}}.B0, &{{.V1}}.B1)
+	b4.Add(&{{.V2}}.B0, &{{.V2}}.B1)
 	z.B1.Mul(&b3, &b4).
 		SubAssign(&b0).
 		SubAssign(&b1)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "b3" "in" "&b2" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "b3" "in" "&b2" }}
 	z.B1.AddAssign(&b3)
+	
 	// step 6
-	b3.Add(&x.B0, &x.B2)
-	b4.Add(&y.B0, &y.B2)
+	b3.Add(&{{.V1}}.B0, &{{.V1}}.B2)
+	b4.Add(&{{.V2}}.B0, &{{.V2}}.B2)
 	z.B2.Mul(&b3, &b4).
 		SubAssign(&b0).
 		SubAssign(&b2).
 		AddAssign(&b1)
 	z.B0 = rb0
-	return z
-}
+{{- end }}
+
 // MulBy{{capitalize .Fp2Name}} multiplies x by an elements of {{.Fp2Name}}
 func (z *{{.Fp6Name}}) MulBy{{capitalize .Fp2Name}}(x *{{.Fp6Name}}, y *{{.Fp2Name}}) *{{.Fp6Name}} {
 	var yCopy {{.Fp2Name}}
@@ -43,6 +57,7 @@ func (z *{{.Fp6Name}}) MulBy{{capitalize .Fp2Name}}(x *{{.Fp6Name}}, y *{{.Fp2Na
 	z.B2.Mul(&x.B2, &yCopy)
 	return z
 }
+
 // MulByNotv2 multiplies x by y with &y.b2=0
 func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
@@ -67,22 +82,34 @@ func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0 = rb0
 	return z
 }
-// Square squares a {{.Fp6Name}}
+
+// Square sets z to the {{.Fp6Name}}-product of x,x, returns z
 func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+	{{ template "square" dict "all" . "V" "x" }}
+	return z
+}
+
+// SquareAssign sets z to the {{.Fp6Name}}-product of z,z returns z
+func (z *{{.Fp6Name}}) SquareAssign() *{{.Fp6Name}} {
+	{{ template "square" dict "all" . "V" "z" }}
+	return z
+}
+
+{{- define "square" }}
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var b0, b1, b2, b3, b4 {{.Fp2Name}}
-	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
-	b4.Square(&x.B2) // step 2
+	var b0, b1, b2, b3, b4 {{.all.Fp2Name}}
+	b3.Mul(&{{.V}}.B0, &{{.V}}.B1).Double(&b3) // step 1
+	b4.Square(&{{.V}}.B2) // step 2
 	
 	// step 3
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "b0" "in" "&b4" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "b0" "in" "&b4" }}
 	b0.AddAssign(&b3)
 	b1.Sub(&b3, &b4) // step 4
-	b2.Square(&x.B0) // step 5
-	b3.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&b3) // steps 6 and 8
-	b4.Mul(&x.B1, &x.B2).Double(&b4) // step 7
+	b2.Square(&{{.V}}.B0) // step 5
+	b3.Sub(&{{.V}}.B0, &{{.V}}.B1).AddAssign(&{{.V}}.B2).Square(&b3) // steps 6 and 8
+	b4.Mul(&{{.V}}.B1, &{{.V}}.B2).Double(&b4) // step 7
 	// step 9
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B0" "in" "&b4" }}
+	{{- template "fp2InlineMulByNonResidue" dict "all" .all "out" "z.B0" "in" "&b4" }}
 	z.B0.AddAssign(&b2)
 	
 	// step 10
@@ -90,8 +117,8 @@ func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 		AddAssign(&b4).
 		SubAssign(&b2)
 	z.B1 = b0
-	return z
-}
+{{- end }}
+
 // SquarE2 squares a {{.Fp6Name}}
 func (z *{{.Fp6Name}}) SquarE2(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf

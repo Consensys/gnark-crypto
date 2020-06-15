@@ -144,13 +144,15 @@ func (z *E6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
 }
 
-// Mul multiplies two numbers in E6
+// Mul sets z to the E6-product of x,y, returns z
 func (z *E6) Mul(x, y *E6) *E6 {
+
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
 	var rb0, b0, b1, b2, b3, b4 E2
 	b0.Mul(&x.B0, &y.B0) // step 1
 	b1.Mul(&x.B1, &y.B1) // step 2
 	b2.Mul(&x.B2, &y.B2) // step 3
+
 	// step 4
 	b3.Add(&x.B1, &x.B2)
 	b4.Add(&y.B1, &y.B2)
@@ -171,6 +173,7 @@ func (z *E6) Mul(x, y *E6) *E6 {
 		rb0.A0.AddAssign(&buf9.A0)
 	} // end: inline rb0.MulByNonResidue(&rb0)
 	rb0.AddAssign(&b0)
+
 	// step 5
 	b3.Add(&x.B0, &x.B1)
 	b4.Add(&y.B0, &y.B1)
@@ -191,9 +194,72 @@ func (z *E6) Mul(x, y *E6) *E6 {
 		b3.A0.AddAssign(&buf9.A0)
 	} // end: inline b3.MulByNonResidue(&b2)
 	z.B1.AddAssign(&b3)
+
 	// step 6
 	b3.Add(&x.B0, &x.B2)
 	b4.Add(&y.B0, &y.B2)
+	z.B2.Mul(&b3, &b4).
+		SubAssign(&b0).
+		SubAssign(&b2).
+		AddAssign(&b1)
+	z.B0 = rb0
+	return z
+}
+
+// MulAssign sets z to the E6-product of z,x returns z
+func (z *E6) MulAssign(x *E6) *E6 {
+
+	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
+	var rb0, b0, b1, b2, b3, b4 E2
+	b0.Mul(&z.B0, &x.B0) // step 1
+	b1.Mul(&z.B1, &x.B1) // step 2
+	b2.Mul(&z.B2, &x.B2) // step 3
+
+	// step 4
+	b3.Add(&z.B1, &z.B2)
+	b4.Add(&x.B1, &x.B2)
+	rb0.Mul(&b3, &b4).
+		SubAssign(&b1).
+		SubAssign(&b2)
+	{ // begin: inline rb0.MulByNonResidue(&rb0)
+		var buf, buf9 E2
+		buf.Set(&rb0)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		rb0.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin: inline MulByNonResidue(&(rb0).A0, &buf.A1)
+			(&(rb0).A0).Neg(&buf.A1)
+		} // end: inline MulByNonResidue(&(rb0).A0, &buf.A1)
+		rb0.A0.AddAssign(&buf9.A0)
+	} // end: inline rb0.MulByNonResidue(&rb0)
+	rb0.AddAssign(&b0)
+
+	// step 5
+	b3.Add(&z.B0, &z.B1)
+	b4.Add(&x.B0, &x.B1)
+	z.B1.Mul(&b3, &b4).
+		SubAssign(&b0).
+		SubAssign(&b1)
+	{ // begin: inline b3.MulByNonResidue(&b2)
+		var buf, buf9 E2
+		buf.Set(&b2)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		b3.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin: inline MulByNonResidue(&(b3).A0, &buf.A1)
+			(&(b3).A0).Neg(&buf.A1)
+		} // end: inline MulByNonResidue(&(b3).A0, &buf.A1)
+		b3.A0.AddAssign(&buf9.A0)
+	} // end: inline b3.MulByNonResidue(&b2)
+	z.B1.AddAssign(&b3)
+
+	// step 6
+	b3.Add(&z.B0, &z.B2)
+	b4.Add(&x.B0, &x.B2)
 	z.B2.Mul(&b3, &b4).
 		SubAssign(&b0).
 		SubAssign(&b2).
@@ -249,8 +315,9 @@ func (z *E6) MulByNotv2(x, y *E6) *E6 {
 	return z
 }
 
-// Square squares a E6
+// Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
+
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
 	var b0, b1, b2, b3, b4 E2
 	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
@@ -275,6 +342,57 @@ func (z *E6) Square(x *E6) *E6 {
 	b2.Square(&x.B0)                                  // step 5
 	b3.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&b3) // steps 6 and 8
 	b4.Mul(&x.B1, &x.B2).Double(&b4)                  // step 7
+	// step 9
+	{ // begin: inline z.B0.MulByNonResidue(&b4)
+		var buf, buf9 E2
+		buf.Set(&b4)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		z.B0.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin: inline MulByNonResidue(&(z.B0).A0, &buf.A1)
+			(&(z.B0).A0).Neg(&buf.A1)
+		} // end: inline MulByNonResidue(&(z.B0).A0, &buf.A1)
+		z.B0.A0.AddAssign(&buf9.A0)
+	} // end: inline z.B0.MulByNonResidue(&b4)
+	z.B0.AddAssign(&b2)
+
+	// step 10
+	z.B2.Add(&b1, &b3).
+		AddAssign(&b4).
+		SubAssign(&b2)
+	z.B1 = b0
+	return z
+}
+
+// SquareAssign sets z to the E6-product of z,z returns z
+func (z *E6) SquareAssign() *E6 {
+
+	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
+	var b0, b1, b2, b3, b4 E2
+	b3.Mul(&z.B0, &z.B1).Double(&b3) // step 1
+	b4.Square(&z.B2)                 // step 2
+
+	// step 3
+	{ // begin: inline b0.MulByNonResidue(&b4)
+		var buf, buf9 E2
+		buf.Set(&b4)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		b0.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin: inline MulByNonResidue(&(b0).A0, &buf.A1)
+			(&(b0).A0).Neg(&buf.A1)
+		} // end: inline MulByNonResidue(&(b0).A0, &buf.A1)
+		b0.A0.AddAssign(&buf9.A0)
+	} // end: inline b0.MulByNonResidue(&b4)
+	b0.AddAssign(&b3)
+	b1.Sub(&b3, &b4)                                  // step 4
+	b2.Square(&z.B0)                                  // step 5
+	b3.Sub(&z.B0, &z.B1).AddAssign(&z.B2).Square(&b3) // steps 6 and 8
+	b4.Mul(&z.B1, &z.B2).Double(&b4)                  // step 7
 	// step 9
 	{ // begin: inline z.B0.MulByNonResidue(&b4)
 		var buf, buf9 E2
