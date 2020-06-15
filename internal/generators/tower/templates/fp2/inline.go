@@ -22,7 +22,7 @@ const Inline = `
 		buf := *({{$.in}})
 		({{$.out}}).Double(&buf).Double({{$.out}}).Neg({{$.out}})
 	{{- else }}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 
@@ -55,7 +55,7 @@ const Inline = `
 		}
 		({{$.out}}).Mul(({{$.in}}), &nrinv)
 	{{- else }}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 `

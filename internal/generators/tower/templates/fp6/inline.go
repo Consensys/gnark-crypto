@@ -31,7 +31,7 @@ const Inline = `
 		{{- template "fpInlineMulByNonResidue" dict "all" $.all "out" (print "&(" $.out ").A0") "in" "&buf.A1" }}
 		{{$.out}}.A0.AddAssign(&buf9.A0)
 	{{- else}}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 
@@ -103,7 +103,7 @@ const Inline = `
 		({{$.out}}).A0.MulAssign(&buf78inv)
 		({{$.out}}).A1.MulAssign(&buf78inv)
 	{{- else}}
-		panic("not implemented yet")
+		// TODO not implemented
 	{{- end }}
 {{- end }}
 `

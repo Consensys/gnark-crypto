@@ -35,21 +35,22 @@ func Generate(d Data, outputDir string) error {
 	d.InitFrobenius()
 
 	// pairing.go
-	{
-		src := []string{
-			pairing.Pairing,
-			pairing.ExtraWork,
-			pairing.MulAssign,
-			pairing.Expt,
-		}
-		if err := bavard.Generate(filepath.Join(rootPath, "pairing.go"), src, d,
-			bavard.Package(d.Fpackage),
-			bavard.Apache2("ConsenSys AG", 2020),
-			bavard.GeneratedBy("gurvy/internal/generators"),
-		); err != nil {
-			return err
-		}
-	}
+	// TODO for now don't generate pairing.go; most of this code is curve-specific anyway
+	// {
+	// 	src := []string{
+	// 		pairing.Pairing,
+	// 		pairing.ExtraWork,
+	// 		pairing.MulAssign,
+	// 		pairing.Expt,
+	// 	}
+	// 	if err := bavard.Generate(filepath.Join(rootPath, "pairing.go"), src, d,
+	// 		bavard.Package(d.Fpackage),
+	// 		bavard.Apache2("ConsenSys AG", 2020),
+	// 		bavard.GeneratedBy("gurvy/internal/generators"),
+	// 	); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	// frobenius.go
 	{

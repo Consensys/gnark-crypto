@@ -348,7 +348,7 @@ type lineEvalRes struct {
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c E6
+	var a, b, c PairingResult
 	a.MulByVMinusThree(z, &l.r1)
 	b.MulByVminusTwo(z, &l.r0)
 	c.MulByVminusFive(z, &l.r2)
@@ -404,5 +404,61 @@ func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 	result.Mul(&result, x)
 
 	z.Set(&result)
+	return z
+}
+
+// MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
+func (z *PairingResult) MulByVMinusThree(x *PairingResult, y *G2CoordType) *PairingResult {
+
+	var fourinv G2CoordType // (-4)**-1
+	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
+
+	// tmp = y*(-4)**-1 * u
+	var tmp E2
+	tmp.A0.SetZero()
+	tmp.A1.Mul(y, &fourinv)
+
+	z.MulByE2(x, &tmp)
+
+	return z
+}
+
+// MulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
+func (z *PairingResult) MulByVminusTwo(x *PairingResult, y *G2CoordType) *PairingResult {
+
+	var fourinv G2CoordType // (-4)**-1
+	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
+
+	// tmp = y*(-4)**-1 * u
+	var tmp E2
+	tmp.A0.SetZero()
+	tmp.A1.Mul(y, &fourinv)
+
+	var a E2
+	a.MulByElement(&x.B2, y)
+	z.B2.Mul(&x.B1, &tmp)
+	z.B1.Mul(&x.B0, &tmp)
+	z.B0.Set(&a)
+
+	return z
+}
+
+// MulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
+func (z *PairingResult) MulByVminusFive(x *PairingResult, y *G2CoordType) *PairingResult {
+
+	var fourinv G2CoordType // (-4)**-1
+	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
+
+	// tmp = y*(-4)**-1 * u
+	var tmp E2
+	tmp.A0.SetZero()
+	tmp.A1.Mul(y, &fourinv)
+
+	var a E2
+	a.Mul(&x.B2, &tmp)
+	z.B2.MulByElement(&x.B1, &tmp.A1)
+	z.B1.MulByElement(&x.B0, &tmp.A1)
+	z.B0.Set(&a)
+
 	return z
 }

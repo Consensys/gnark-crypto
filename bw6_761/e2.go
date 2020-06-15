@@ -261,3 +261,10 @@ func MulByNonResidue(out, in *fp.Element) *fp.Element {
 	(out).Double(&buf).Double(out).Neg(out)
 	return out
 }
+
+// MulByNonResidueInv multiplies a fp.Element by -4^{-1}
+// It would be nice to make this a method of fp.Element but fp.Element is outside this package
+func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
+	// TODO not implemented
+	return out
+}
