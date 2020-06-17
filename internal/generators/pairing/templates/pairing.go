@@ -150,7 +150,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 	z.Set(&result)
 
-{{- else if eq .Fpackage "bw6_761" }}
+{{- else if eq .Fpackage "bw761" }}
 	var result PairingResult
 	result.Set(x)
 

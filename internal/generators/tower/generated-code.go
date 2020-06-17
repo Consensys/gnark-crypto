@@ -16,6 +16,6 @@
 
 package tower
 
-import "github.com/consensys/gurvy/bw6_761/fp"
+import "github.com/consensys/gurvy/bw761/fp"
 
 type fpElement = fp.Element

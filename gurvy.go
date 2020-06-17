@@ -24,7 +24,7 @@ const (
 	BLS377
 	BLS381
 	BN256
-	BW6_761
+	BW761
 )
 
 // ID represent a unique ID for a curve
@@ -39,8 +39,8 @@ func (id ID) String() string {
 		return "bls381"
 	case BN256:
 		return "bn256"
-	case BW6_761:
-		return "bw6_761"
+	case BW761:
+		return "bw761"
 	default:
 		panic("unimplemented curve ID")
 	}
