@@ -182,13 +182,10 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 // MillerLoop Miller loop
 // https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
 // sage: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L344
-// TODO for now use the "naive" version: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L303
 // TODO for the love of god, please clean this up
 func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
-	// init result
-	result.SetOne()
-
+	result.SetOne() // init result
 	if P.IsInfinity() || Q.IsInfinity() {
 		return result
 	}
@@ -197,11 +194,8 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	var QCur, QNext, QNextNeg G2Jac
 	var QNeg G2Affine
 
-	// Stores -Q
-	QNeg.Neg(&Q)
-
-	// init QCur with Q
-	Q.ToJacobian(&QCur)
+	QNeg.Neg(&Q)        // store -Q for use in NAF loop
+	Q.ToJacobian(&QCur) // init QCur with Q
 
 	var lEval lineEvalRes
 
@@ -236,19 +230,18 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	}
 
 	var result1 PairingResult
-	result1.Set(result) // copy result of Miller loop 1
-	// result.SetOne()     // reset result
-	// Q.ToJacobian(&QCur) // reset QCur
+	result1.Set(result) // store the result of Miller loop 1
 
 	var result1Inv PairingResult
-	result1Inv.Inverse(&result1)
+	result1Inv.Inverse(&result1) // store result1 inverse for NAF loop
 
 	lineEvalAffine(QCur, Q, &P, &lEval)
 
 	var result1LineEval PairingResult
 	result1LineEval.Set(&result1)
-	lEval.mulAssign(&result1LineEval)
+	lEval.mulAssign(&result1LineEval) // store result1 * (line eval) for the end
 
+	// Miller loop 2 uses Q1, Q1Neg instead of Q, QNeg
 	var Q1, Q1Neg G2Affine
 	QCur.ToAffineFromJac(&Q1)
 	Q1Neg.Neg(&Q1)
@@ -270,8 +263,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 			// evaluates line through 2Qcur, Q at P
 			lineEvalAffine(QNext, Q1, &P, &lEval)
 			lEval.mulAssign(result)
-
-			result.MulAssign(&result1)
+			result.MulAssign(&result1) // extra multiple of result1
 
 			QNext.AddMixed(&Q1)
 
@@ -279,8 +271,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 			// evaluates line through 2Qcur, -Q at P
 			lineEvalAffine(QNext, Q1Neg, &P, &lEval)
 			lEval.mulAssign(result)
-
-			result.MulAssign(&result1Inv)
+			result.MulAssign(&result1Inv) // extra multiple of result1Inv
 
 			QNext.AddMixed(&Q1Neg)
 		}
