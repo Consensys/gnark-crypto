@@ -237,8 +237,21 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 
 	var result1 PairingResult
 	result1.Set(result) // copy result of Miller loop 1
-	result.SetOne()     // reset result
-	Q.ToJacobian(&QCur) // reset QCur
+	// result.SetOne()     // reset result
+	// Q.ToJacobian(&QCur) // reset QCur
+
+	var result1Inv PairingResult
+	result1Inv.Inverse(&result1)
+
+	lineEvalAffine(QCur, Q, &P, &lEval)
+
+	var result1LineEval PairingResult
+	result1LineEval.Set(&result1)
+	lEval.mulAssign(&result1LineEval)
+
+	var Q1, Q1Neg G2Affine
+	QCur.ToAffineFromJac(&Q1)
+	Q1Neg.Neg(&Q1)
 
 	// Miller loop 2
 	for i := len(curve.loopCounter2) - 2; i >= 0; i-- {
@@ -255,27 +268,27 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 
 		if curve.loopCounter2[i] == 1 {
 			// evaluates line through 2Qcur, Q at P
-			lineEvalAffine(QNext, Q, &P, &lEval)
+			lineEvalAffine(QNext, Q1, &P, &lEval)
 			lEval.mulAssign(result)
 
-			// result.MulAssign(&result1Base)
+			result.MulAssign(&result1)
 
-			QNext.AddMixed(&Q)
+			QNext.AddMixed(&Q1)
 
 		} else if curve.loopCounter2[i] == -1 {
 			// evaluates line through 2Qcur, -Q at P
-			lineEvalAffine(QNext, QNeg, &P, &lEval)
+			lineEvalAffine(QNext, Q1Neg, &P, &lEval)
 			lEval.mulAssign(result)
 
-			// result.MulAssign(&result1Inv)
+			result.MulAssign(&result1Inv)
 
-			QNext.AddMixed(&QNeg)
+			QNext.AddMixed(&Q1Neg)
 		}
 		QCur.Set(&QNext)
 	}
 
 	result.Frobenius(result)
-	result.MulAssign(&result1)
+	result.MulAssign(&result1LineEval)
 
 	return result
 }
