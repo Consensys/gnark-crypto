@@ -596,27 +596,30 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 }
 
 // MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
+// TODO delete this method once you have another way of testing the inlined code
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = (9*(x).A0 + (x).A1)/82
-	// (z).A1 = (9*(x).A1 - (x).A0)/82
-	copy := *(x)
+	{ // begin inline: set z to (x) * (9,1)^{-1}
+		// (z).A0 = (9*(x).A0 + (x).A1)/82
+		// (z).A1 = (9*(x).A1 - (x).A0)/82
+		copy := *(x)
 
-	var copy9 E2
-	copy9.Double(&copy).
-		Double(&copy9).
-		Double(&copy9).
-		AddAssign(&copy)
+		var copy9 E2
+		copy9.Double(&copy).
+			Double(&copy9).
+			Double(&copy9).
+			AddAssign(&copy)
 
-	(z).A0.Add(&copy9.A0, &copy.A1)
-	(z).A1.Sub(&copy9.A1, &copy.A0)
+		(z).A0.Add(&copy9.A0, &copy.A1)
+		(z).A1.Sub(&copy9.A1, &copy.A0)
 
-	buf82inv := fp.Element{
-		15263610803691847034,
-		14617516054323294413,
-		1961223913490700324,
-		3456812345740674661,
-	}
-	(z).A0.MulAssign(&buf82inv)
-	(z).A1.MulAssign(&buf82inv)
+		buf82inv := fp.Element{
+			15263610803691847034,
+			14617516054323294413,
+			1961223913490700324,
+			3456812345740674661,
+		}
+		(z).A0.MulAssign(&buf82inv)
+		(z).A1.MulAssign(&buf82inv)
+	} // end inline: set z to (x) * (9,1)^{-1}
 	return z
 }

@@ -200,8 +200,9 @@ func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 }
 
 // MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
+// TODO delete this method once you have another way of testing the inlined code
 func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2MulByNonResidueInvBody" dict "all" . "out" "z" "in" "x" }}
+	{{- template "fp2InlineMulByNonResidueInv" dict "all" . "out" "z" "in" "x" }}
 	return z
 }
 `

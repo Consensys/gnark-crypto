@@ -524,21 +524,24 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 }
 
 // MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
+// TODO delete this method once you have another way of testing the inlined code
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = ((x).A0 + (x).A1)/2
-	// (z).A1 = ((x).A1 - (x).A0)/2
-	buf := *(x)
-	(z).A0.Add(&buf.A0, &buf.A1)
-	(z).A1.Sub(&buf.A1, &buf.A0)
-	twoInv := fp.Element{
-		1730508156817200468,
-		9606178027640717313,
-		7150789853162776431,
-		7936136305760253186,
-		15245073033536294050,
-		1728177566264616342,
-	}
-	(z).A0.MulAssign(&twoInv)
-	(z).A1.MulAssign(&twoInv)
+	{ // begin inline: set z to (x) * (1,1)^{-1}
+		// (z).A0 = ((x).A0 + (x).A1)/2
+		// (z).A1 = ((x).A1 - (x).A0)/2
+		buf := *(x)
+		(z).A0.Add(&buf.A0, &buf.A1)
+		(z).A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		(z).A0.MulAssign(&twoInv)
+		(z).A1.MulAssign(&twoInv)
+	} // end inline: set z to (x) * (1,1)^{-1}
 	return z
 }

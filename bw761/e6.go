@@ -504,11 +504,14 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 }
 
 // MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
+// TODO delete this method once you have another way of testing the inlined code
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	buf := (x).A1
-	{ // begin inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
-		// TODO not implemented
-	} // end inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
-	(z).A0 = buf
+	{ // begin inline: set z to (x) * (0,1)^{-1}
+		buf := (x).A1
+		{ // begin inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
+			// TODO not implemented
+		} // end inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
+		(z).A0 = buf
+	} // end inline: set z to (x) * (0,1)^{-1}
 	return z
 }

@@ -314,7 +314,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (0,1)^{-1}
 		buf := (y).A1
 		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
@@ -328,7 +328,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
 		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (0,1)^{-1}
 
 	result.C0.B0.Mul(&x.C0.B1, y)
 	result.C0.B1.Mul(&x.C0.B2, y)
@@ -348,7 +348,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (0,1)^{-1}
 		buf := (y).A1
 		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
@@ -362,7 +362,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
 		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (0,1)^{-1}
 
 	result.C0.B0.Mul(&x.C1.B1, y)
 	result.C0.B1.Mul(&x.C1.B2, y)
@@ -382,7 +382,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (0,1)^{-1}
 		buf := (y).A1
 		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
@@ -396,7 +396,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
 		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (0,1)^{-1}
 
 	result.C0.B0.Mul(&x.C1.B2, y)
 	result.C0.B1.Mul(&x.C1.B0, &yNRInv)

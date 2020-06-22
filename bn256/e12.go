@@ -344,7 +344,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (9,1)^{-1}
 		// (yNRInv).A0 = (9*(y).A0 + (y).A1)/82
 		// (yNRInv).A1 = (9*(y).A1 - (y).A0)/82
 		copy := *(y)
@@ -366,7 +366,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 		}
 		(yNRInv).A0.MulAssign(&buf82inv)
 		(yNRInv).A1.MulAssign(&buf82inv)
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (9,1)^{-1}
 
 	result.C0.B0.Mul(&x.C0.B1, y)
 	result.C0.B1.Mul(&x.C0.B2, y)
@@ -386,7 +386,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (9,1)^{-1}
 		// (yNRInv).A0 = (9*(y).A0 + (y).A1)/82
 		// (yNRInv).A1 = (9*(y).A1 - (y).A0)/82
 		copy := *(y)
@@ -408,7 +408,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 		}
 		(yNRInv).A0.MulAssign(&buf82inv)
 		(yNRInv).A1.MulAssign(&buf82inv)
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (9,1)^{-1}
 
 	result.C0.B0.Mul(&x.C1.B1, y)
 	result.C0.B1.Mul(&x.C1.B2, y)
@@ -428,7 +428,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 	var result E12
 	var yNRInv E2
 
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
+	{ // begin inline: set yNRInv to (y) * (9,1)^{-1}
 		// (yNRInv).A0 = (9*(y).A0 + (y).A1)/82
 		// (yNRInv).A1 = (9*(y).A1 - (y).A0)/82
 		copy := *(y)
@@ -450,7 +450,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 		}
 		(yNRInv).A0.MulAssign(&buf82inv)
 		(yNRInv).A1.MulAssign(&buf82inv)
-	} // end: inline yNRInv.MulByNonResidueInv(y)
+	} // end inline: set yNRInv to (y) * (9,1)^{-1}
 
 	result.C0.B0.Mul(&x.C1.B2, y)
 	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
