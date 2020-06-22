@@ -141,10 +141,10 @@ func (z *E12) Mul(x, y *E12) *E12 {
 		result.B2.Set(&(&t1).B1)
 		{ // begin: inline result.B0.MulByNonResidue(&(&t1).B2)
 			buf := (&(&t1).B2).A0
-			{ // begin inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&t1).B2).A1 and (0,1)
+			{ // begin inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
 				buf := *(&(&(&t1).B2).A1)
 				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&t1).B2).A1 and (0,1)
+			} // end inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
 			(result.B0).A1 = buf
 		} // end: inline result.B0.MulByNonResidue(&(&t1).B2)
 		z.C0.Set(&result)
@@ -174,10 +174,10 @@ func (z *E12) Square(x *E12) *E12 {
 		result.B2.Set(&(&b1).B1)
 		{ // begin: inline result.B0.MulByNonResidue(&(&b1).B2)
 			buf := (&(&b1).B2).A0
-			{ // begin inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&b1).B2).A1 and (0,1)
+			{ // begin inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
 				buf := *(&(&(&b1).B2).A1)
 				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&b1).B2).A1 and (0,1)
+			} // end inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
 			(result.B0).A1 = buf
 		} // end: inline result.B0.MulByNonResidue(&(&b1).B2)
 		b1.Set(&result)
@@ -206,10 +206,10 @@ func (z *E12) Inverse(x *E12) *E12 {
 			result.B2.Set(&(&t[1]).B1)
 			{ // begin: inline result.B0.MulByNonResidue(&(&t[1]).B2)
 				buf := (&(&t[1]).B2).A0
-				{ // begin inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&t[1]).B2).A1 and (0,1)
+				{ // begin inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
 					buf := *(&(&(&t[1]).B2).A1)
 					(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-				} // end inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(&t[1]).B2).A1 and (0,1)
+				} // end inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
 				(result.B0).A1 = buf
 			} // end: inline result.B0.MulByNonResidue(&(&t[1]).B2)
 			buf.Set(&result)
@@ -244,10 +244,10 @@ func (z *E12) MulByVW(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNR.MulByNonResidue(y)
 		buf := (y).A0
-		{ // begin inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
 			buf := *(&(y).A1)
 			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
 		(yNR).A1 = buf
 	} // end: inline yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
@@ -268,10 +268,10 @@ func (z *E12) MulByV(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNR.MulByNonResidue(y)
 		buf := (y).A0
-		{ // begin inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
 			buf := *(&(y).A1)
 			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
 		(yNR).A1 = buf
 	} // end: inline yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
@@ -292,10 +292,10 @@ func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNR.MulByNonResidue(y)
 		buf := (y).A0
-		{ // begin inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
 			buf := *(&(y).A1)
 			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set the *E2 variable &(yNR).A0 to the E2-product of the *E2 variable &(y).A1 and (0,1)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
 		(yNR).A1 = buf
 	} // end: inline yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
@@ -316,7 +316,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
 				330620507644336508,
 				9878087358076053079,
@@ -326,7 +326,7 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 				104838758629667239,
 			}
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
 	} // end: inline yNRInv.MulByNonResidueInv(y)
 
@@ -350,7 +350,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
 				330620507644336508,
 				9878087358076053079,
@@ -360,7 +360,7 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 				104838758629667239,
 			}
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
 	} // end: inline yNRInv.MulByNonResidueInv(y)
 
@@ -384,7 +384,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 
 	{ // begin: inline yNRInv.MulByNonResidueInv(y)
 		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		{ // begin inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 			nrinv := fp.Element{
 				330620507644336508,
 				9878087358076053079,
@@ -394,7 +394,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 				104838758629667239,
 			}
 			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
+		} // end inline: set &(yNRInv).A1 to (&(y).A0) * (5)^{-1}
 		(yNRInv).A0 = buf
 	} // end: inline yNRInv.MulByNonResidueInv(y)
 
@@ -417,10 +417,10 @@ func (z *E6) MulByNonResidue(x *E6) *E6 {
 	result.B2.Set(&(x).B1)
 	{ // begin: inline result.B0.MulByNonResidue(&(x).B2)
 		buf := (&(x).B2).A0
-		{ // begin inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(x).B2).A1 and (0,1)
+		{ // begin inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
 			buf := *(&(&(x).B2).A1)
 			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-		} // end inline: set the *E2 variable &(result.B0).A0 to the E2-product of the *E2 variable &(&(x).B2).A1 and (0,1)
+		} // end inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
 		(result.B0).A1 = buf
 	} // end: inline result.B0.MulByNonResidue(&(x).B2)
 	z.Set(&result)

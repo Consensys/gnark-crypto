@@ -251,18 +251,23 @@ func (z *E2) Conjugate(x *E2) *E2 {
 }
 
 // MulByNonResidue multiplies a fp.Element by -1
+// TODO delete this method once you have another way of testing the inlined code
 // It would be nice to make this a method of fp.Element but fp.Element is outside this package
 func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	{ // begin inline: set the *E2 variable out to the E2-product of the *E2 variable in and (1,1)
+	{ // begin inline: set out to (in) * (-1)
 		(out).Neg(in)
-	} // end inline: set the *E2 variable out to the E2-product of the *E2 variable in and (1,1)
+	} // end inline: set out to (in) * (-1)
 	return out
 }
 
 // MulByNonResidueInv multiplies a fp.Element by -1^{-1}
+// TODO delete this method once you have another way of testing the inlined code
 // It would be nice to make this a method of fp.Element but fp.Element is outside this package
 func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	// TODO this should be a no-op when out==in
-	(out).Set(in)
+	{ // begin inline: set out to (in) * (-1)^{-1}
+		// TODO this should be a no-op when out==in
+		// TODO uh, why is -1 inverse equal to +1???
+		(out).Set(in)
+	} // end inline: set out to (in) * (-1)^{-1}
 	return out
 }
