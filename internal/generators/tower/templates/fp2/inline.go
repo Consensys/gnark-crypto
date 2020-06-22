@@ -35,9 +35,8 @@ const Inline = `
 			}
 			({{$.out}}).Mul({{$.in}}, &nrinv)
 		{{- else if eq $.all.Fp2NonResidue "-1" }}
-			// TODO this should be a no-op when {{$.out}}=={{$.in}}
-			// TODO uh, why is -1 inverse equal to +1???
-			({{$.out}}).Set({{$.in}})
+			// TODO delete: this is never called!
+			({{$.out}}).Neg({{$.in}})
 		{{- else if eq $.all.Fp2NonResidue "3" }}
 			nrinv := fp.Element{
 				12669921578670009932,

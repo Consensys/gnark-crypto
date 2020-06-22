@@ -265,9 +265,8 @@ func MulByNonResidue(out, in *fp.Element) *fp.Element {
 // It would be nice to make this a method of fp.Element but fp.Element is outside this package
 func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
 	{ // begin inline: set out to (in) * (-1)^{-1}
-		// TODO this should be a no-op when out==in
-		// TODO uh, why is -1 inverse equal to +1???
-		(out).Set(in)
+		// TODO delete: this is never called!
+		(out).Neg(in)
 	} // end inline: set out to (in) * (-1)^{-1}
 	return out
 }
