@@ -135,7 +135,7 @@ func (z *E12) Mul(x, y *E12) *E12 {
 	ySum.Add(&y.C0, &y.C1)
 
 	// step 3
-	{ // begin: inline z.C0.MulByNonResidue(&t1)
+	{ // begin inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
 		var result E6
 		result.B1.Set(&(&t1).B0)
 		result.B2.Set(&(&t1).B1)
@@ -148,7 +148,7 @@ func (z *E12) Mul(x, y *E12) *E12 {
 			(result.B0).A1 = buf
 		} // end inline: set result.B0 to (&(&t1).B2) * (0,1)
 		z.C0.Set(&result)
-	} // end: inline z.C0.MulByNonResidue(&t1)
+	} // end inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
 	z.C0.Add(&z.C0, &t0)
 
 	// step 4
@@ -168,7 +168,7 @@ func (z *E12) Square(x *E12) *E12 {
 
 	b0.Square(&x.C0)
 	b1.Square(&x.C1)
-	{ // begin: inline b1.MulByNonResidue(&b1)
+	{ // begin inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
 		var result E6
 		result.B1.Set(&(&b1).B0)
 		result.B2.Set(&(&b1).B1)
@@ -181,7 +181,7 @@ func (z *E12) Square(x *E12) *E12 {
 			(result.B0).A1 = buf
 		} // end inline: set result.B0 to (&(&b1).B2) * (0,1)
 		b1.Set(&result)
-	} // end: inline b1.MulByNonResidue(&b1)
+	} // end inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
 	b1.Add(&b0, &b1)
 
 	z.C1.Mul(&x.C0, &x.C1).Double(&z.C1)
@@ -200,7 +200,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 	t[1].Square(&x.C1) // step 2
 	{                  // step 3
 		var buf E6
-		{ // begin: inline buf.MulByNonResidue(&t[1])
+		{ // begin inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
 			var result E6
 			result.B1.Set(&(&t[1]).B0)
 			result.B2.Set(&(&t[1]).B1)
@@ -213,7 +213,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 				(result.B0).A1 = buf
 			} // end inline: set result.B0 to (&(&t[1]).B2) * (0,1)
 			buf.Set(&result)
-		} // end: inline buf.MulByNonResidue(&t[1])
+		} // end inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
 		t[0].Sub(&t[0], &buf)
 	}
 	t[1].Inverse(&t[0])               // step 4
@@ -411,18 +411,21 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 }
 
 // MulByNonResidue multiplies a E6 by ((0,0),(1,0),(0,0))
+// TODO delete this method once you have another way of testing the inlined code
 func (z *E6) MulByNonResidue(x *E6) *E6 {
-	var result E6
-	result.B1.Set(&(x).B0)
-	result.B2.Set(&(x).B1)
-	{ // begin inline: set result.B0 to (&(x).B2) * (0,1)
-		buf := (&(x).B2).A0
-		{ // begin inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
-			buf := *(&(&(x).B2).A1)
-			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-		} // end inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
-		(result.B0).A1 = buf
-	} // end inline: set result.B0 to (&(x).B2) * (0,1)
-	z.Set(&result)
+	{ // begin inline: set z to (x) * ((0,0),(1,0),(0,0))
+		var result E6
+		result.B1.Set(&(x).B0)
+		result.B2.Set(&(x).B1)
+		{ // begin inline: set result.B0 to (&(x).B2) * (0,1)
+			buf := (&(x).B2).A0
+			{ // begin inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
+				buf := *(&(&(x).B2).A1)
+				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
+			} // end inline: set &(result.B0).A0 to (&(&(x).B2).A1) * (5)
+			(result.B0).A1 = buf
+		} // end inline: set result.B0 to (&(x).B2) * (0,1)
+		z.Set(&result)
+	} // end inline: set z to (x) * ((0,0),(1,0),(0,0))
 	return z
 }
