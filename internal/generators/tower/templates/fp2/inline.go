@@ -4,26 +4,22 @@ package fp2
 
 const Inline = `
 {{- define "fpInlineMulByNonResidue" }}
-	{ // begin: inline MulByNonResidue({{$.out}}, {{$.in}})
-		{{- template "fpMulByNonResidueBody" dict "all" $.all "out" $.out "in" $.in }}
-	} // end: inline MulByNonResidue({{$.out}}, {{$.in}})
-{{- end }}
-
-{{- define "fpMulByNonResidueBody" }}
-	{{- if eq $.all.Fp2NonResidue "5" }}
-		buf := *({{$.in}})
-		({{$.out}}).Double(&buf).Double({{$.out}}).AddAssign(&buf)
-	{{- else if eq $.all.Fp2NonResidue "-1" }}
-		({{$.out}}).Neg({{$.in}})
-	{{- else if eq $.all.Fp2NonResidue "3" }}
-		buf := *({{$.in}})
-		({{$.out}}).Double(&buf).AddAssign(&buf)
-	{{- else if eq $.all.Fp2NonResidue "-4" }}
-		buf := *({{$.in}})
-		({{$.out}}).Double(&buf).Double({{$.out}}).Neg({{$.out}})
-	{{- else }}
-		// TODO not implemented
-	{{- end }}
+	{ // begin inline: set the *{{.all.Fp2Name}} variable {{.out}} to the {{.all.Fp2Name}}-product of the *{{.all.Fp2Name}} variable {{.in}} and ({{.all.Fp6NonResidue}})
+		{{- if eq $.all.Fp2NonResidue "5" }}
+			buf := *({{.in}})
+			({{.out}}).Double(&buf).Double({{$.out}}).AddAssign(&buf)
+		{{- else if eq $.all.Fp2NonResidue "-1" }}
+			({{.out}}).Neg({{.in}})
+		{{- else if eq $.all.Fp2NonResidue "3" }}
+			buf := *({{.in}})
+			({{.out}}).Double(&buf).AddAssign(&buf)
+		{{- else if eq .all.Fp2NonResidue "-4" }}
+			buf := *({{.in}})
+			({{.out}}).Double(&buf).Double({{.out}}).Neg({{.out}})
+		{{- else }}
+			// TODO not implemented
+		{{- end }}
+	} // end inline: set the *{{.all.Fp2Name}} variable {{.out}} to the {{.all.Fp2Name}}-product of the *{{.all.Fp2Name}} variable {{.in}} and ({{.all.Fp6NonResidue}})
 {{- end }}
 
 {{- define "fpInlineMulByNonResidueInv" }}

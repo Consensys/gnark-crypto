@@ -138,7 +138,7 @@ func (z *{{.Fp2Name}}) Conjugate(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 // MulByNonResidue multiplies a fp.Element by {{.Fp2NonResidue}}
 // It would be nice to make this a method of fp.Element but fp.Element is outside this package
 func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	{{- template "fpMulByNonResidueBody" dict "all" . "out" "out" "in" "in" }}
+	{{- template "fpInlineMulByNonResidue" dict "all" . "out" "out" "in" "in" }}
 	return out
 }
 

@@ -257,8 +257,10 @@ func (z *E2) Conjugate(x *E2) *E2 {
 // MulByNonResidue multiplies a fp.Element by 5
 // It would be nice to make this a method of fp.Element but fp.Element is outside this package
 func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	buf := *(in)
-	(out).Double(&buf).Double(out).AddAssign(&buf)
+	{ // begin inline: set the *E2 variable out to the E2-product of the *E2 variable in and (0,1)
+		buf := *(in)
+		(out).Double(&buf).Double(out).AddAssign(&buf)
+	} // end inline: set the *E2 variable out to the E2-product of the *E2 variable in and (0,1)
 	return out
 }
 
