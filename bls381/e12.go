@@ -139,7 +139,7 @@ func (z *E12) Mul(x, y *E12) *E12 {
 		var result E6
 		result.B1.Set(&(&t1).B0)
 		result.B2.Set(&(&t1).B1)
-		{ // begin: inline result.B0.MulByNonResidue(&(&t1).B2)
+		{ // begin inline: set result.B0 to (&(&t1).B2) * (1,1)
 			var buf E2
 			buf.Set(&(&t1).B2)
 			result.B0.A1.Add(&buf.A0, &buf.A1)
@@ -147,7 +147,7 @@ func (z *E12) Mul(x, y *E12) *E12 {
 				(&(result.B0).A0).Neg(&buf.A1)
 			} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
 			result.B0.A0.AddAssign(&buf.A0)
-		} // end: inline result.B0.MulByNonResidue(&(&t1).B2)
+		} // end inline: set result.B0 to (&(&t1).B2) * (1,1)
 		z.C0.Set(&result)
 	} // end: inline z.C0.MulByNonResidue(&t1)
 	z.C0.Add(&z.C0, &t0)
@@ -173,7 +173,7 @@ func (z *E12) Square(x *E12) *E12 {
 		var result E6
 		result.B1.Set(&(&b1).B0)
 		result.B2.Set(&(&b1).B1)
-		{ // begin: inline result.B0.MulByNonResidue(&(&b1).B2)
+		{ // begin inline: set result.B0 to (&(&b1).B2) * (1,1)
 			var buf E2
 			buf.Set(&(&b1).B2)
 			result.B0.A1.Add(&buf.A0, &buf.A1)
@@ -181,7 +181,7 @@ func (z *E12) Square(x *E12) *E12 {
 				(&(result.B0).A0).Neg(&buf.A1)
 			} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
 			result.B0.A0.AddAssign(&buf.A0)
-		} // end: inline result.B0.MulByNonResidue(&(&b1).B2)
+		} // end inline: set result.B0 to (&(&b1).B2) * (1,1)
 		b1.Set(&result)
 	} // end: inline b1.MulByNonResidue(&b1)
 	b1.Add(&b0, &b1)
@@ -206,7 +206,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 			var result E6
 			result.B1.Set(&(&t[1]).B0)
 			result.B2.Set(&(&t[1]).B1)
-			{ // begin: inline result.B0.MulByNonResidue(&(&t[1]).B2)
+			{ // begin inline: set result.B0 to (&(&t[1]).B2) * (1,1)
 				var buf E2
 				buf.Set(&(&t[1]).B2)
 				result.B0.A1.Add(&buf.A0, &buf.A1)
@@ -214,7 +214,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 					(&(result.B0).A0).Neg(&buf.A1)
 				} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
 				result.B0.A0.AddAssign(&buf.A0)
-			} // end: inline result.B0.MulByNonResidue(&(&t[1]).B2)
+			} // end inline: set result.B0 to (&(&t[1]).B2) * (1,1)
 			buf.Set(&result)
 		} // end: inline buf.MulByNonResidue(&t[1])
 		t[0].Sub(&t[0], &buf)
@@ -245,7 +245,7 @@ func (z *E12) MulByVW(x *E12, y *E2) *E12 {
 	var result E12
 	var yNR E2
 
-	{ // begin: inline yNR.MulByNonResidue(y)
+	{ // begin inline: set yNR to (y) * (1,1)
 		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
@@ -253,7 +253,7 @@ func (z *E12) MulByVW(x *E12, y *E2) *E12 {
 			(&(yNR).A0).Neg(&buf.A1)
 		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
 		yNR.A0.AddAssign(&buf.A0)
-	} // end: inline yNR.MulByNonResidue(y)
+	} // end inline: set yNR to (y) * (1,1)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
 	result.C0.B1.Mul(&x.C1.B2, &yNR)
 	result.C0.B2.Mul(&x.C1.B0, y)
@@ -270,7 +270,7 @@ func (z *E12) MulByV(x *E12, y *E2) *E12 {
 	var result E12
 	var yNR E2
 
-	{ // begin: inline yNR.MulByNonResidue(y)
+	{ // begin inline: set yNR to (y) * (1,1)
 		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
@@ -278,7 +278,7 @@ func (z *E12) MulByV(x *E12, y *E2) *E12 {
 			(&(yNR).A0).Neg(&buf.A1)
 		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
 		yNR.A0.AddAssign(&buf.A0)
-	} // end: inline yNR.MulByNonResidue(y)
+	} // end inline: set yNR to (y) * (1,1)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
 	result.C0.B1.Mul(&x.C0.B0, y)
 	result.C0.B2.Mul(&x.C0.B1, y)
@@ -295,7 +295,7 @@ func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
 	var result E12
 	var yNR E2
 
-	{ // begin: inline yNR.MulByNonResidue(y)
+	{ // begin inline: set yNR to (y) * (1,1)
 		var buf E2
 		buf.Set(y)
 		yNR.A1.Add(&buf.A0, &buf.A1)
@@ -303,7 +303,7 @@ func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
 			(&(yNR).A0).Neg(&buf.A1)
 		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
 		yNR.A0.AddAssign(&buf.A0)
-	} // end: inline yNR.MulByNonResidue(y)
+	} // end inline: set yNR to (y) * (1,1)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
 	result.C0.B1.Mul(&x.C1.B1, &yNR)
 	result.C0.B2.Mul(&x.C1.B2, &yNR)
@@ -427,7 +427,7 @@ func (z *E6) MulByNonResidue(x *E6) *E6 {
 	var result E6
 	result.B1.Set(&(x).B0)
 	result.B2.Set(&(x).B1)
-	{ // begin: inline result.B0.MulByNonResidue(&(x).B2)
+	{ // begin inline: set result.B0 to (&(x).B2) * (1,1)
 		var buf E2
 		buf.Set(&(x).B2)
 		result.B0.A1.Add(&buf.A0, &buf.A1)
@@ -435,7 +435,7 @@ func (z *E6) MulByNonResidue(x *E6) *E6 {
 			(&(result.B0).A0).Neg(&buf.A1)
 		} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
 		result.B0.A0.AddAssign(&buf.A0)
-	} // end: inline result.B0.MulByNonResidue(&(x).B2)
+	} // end inline: set result.B0 to (&(x).B2) * (1,1)
 	z.Set(&result)
 	return z
 }
