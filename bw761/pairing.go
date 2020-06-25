@@ -243,7 +243,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 
 	// Miller loop 2 uses Q1, Q1Neg instead of Q, QNeg
 	var Q1, Q1Neg G2Affine
-	QCur.ToAffineFromJac(&Q1)
+	Q1.FromJacobian(&QCur)
 	Q1Neg.Neg(&Q1)
 
 	// Miller loop 2

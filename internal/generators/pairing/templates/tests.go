@@ -84,7 +84,7 @@ func TestMagicPairing(t *testing.T) {
 
 func TestComputePairing(t *testing.T) {
 
-	{{ if (eq .T "9586122913090633729" ) }}
+    {{ if (eq .T "9586122913090633729" ) }}
 		curve := BLS377()
 	{{- else if (eq .T "15132376222941642752" )}}
 		curve := BLS381()
@@ -104,15 +104,15 @@ func TestComputePairing(t *testing.T) {
 
 	// check 1
 	scalar := fr.Element{123}
-	sG.ScalarMul(curve, G, scalar)
+	sG.ScalarMul(curve, sG, scalar)
 	sP.ScalarMul(curve, sP, scalar)
 
-	var mRes1, mRes2, mRes3 {{.Fp12Name}}
+	var mRes1, mRes2, mRes3 E12
 
-	P.ToAffineFromJac(&Paff)
-	sP.ToAffineFromJac(&sPaff)
-	G.ToAffineFromJac(&Gaff)
-	sG.ToAffineFromJac(&sGaff)
+	Paff.FromJacobian(P)
+	sPaff.FromJacobian(sP)
+	Gaff.FromJacobian(G)
+	sGaff.FromJacobian(sG)
 
 	res1 := curve.FinalExponentiation(curve.MillerLoop(Paff, sGaff, &mRes1))
 	res2 := curve.FinalExponentiation(curve.MillerLoop(sPaff, Gaff, &mRes2))
@@ -134,9 +134,9 @@ func TestComputePairing(t *testing.T) {
 	s3G.ScalarMul(curve, s3G, s3)
 
 	var s1Gaff, s2Gaff, s3Gaff G2Affine
-	s1G.ToAffineFromJac(&s1Gaff)
-	s2G.ToAffineFromJac(&s2Gaff)
-	s3G.ToAffineFromJac(&s3Gaff)
+	s1Gaff.FromJacobian(s1G)
+	s2Gaff.FromJacobian(s2G)
+	s3Gaff.FromJacobian(s3G)
 
 	rs1 := curve.FinalExponentiation(curve.MillerLoop(Paff, s1Gaff, &mRes1))
 	rs2 := curve.FinalExponentiation(curve.MillerLoop(Paff, s2Gaff, &mRes2))
@@ -167,7 +167,7 @@ func BenchmarkLineEval(b *testing.B) {
 
 	lRes := &lineEvalRes{}
 	var g1GenAff G1Affine
-	curve.g1Gen.ToAffineFromJac(&g1GenAff)
+	g1GenAff.FromJacobian(&curve.g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		lineEvalJac(curve.g2Gen, H, &g1GenAff, lRes)
@@ -190,8 +190,8 @@ func BenchmarkPairing(b *testing.B) {
 	var g1GenAff G1Affine
 	var g2GenAff G2Affine
 
-	curve.g1Gen.ToAffineFromJac(&g1GenAff)
-	curve.g2Gen.ToAffineFromJac(&g2GenAff)
+	g1GenAff.FromJacobian(&curve.g1Gen)
+	g2GenAff.FromJacobian(&curve.g2Gen)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -13,25 +13,11 @@ func TestG2JacToAffineFromJac(t *testing.T) {
 	p := testPointsG2()
 
 	_p := G2Affine{}
-	p[0].ToAffineFromJac(&_p)
+	_p.FromJacobian(&p[0])
 	if !_p.X.Equal(&p[1].X) || !_p.Y.Equal(&p[1].Y) {
 		t.Fatal("ToAffineFromJac failed")
 	}
 
-}
-
-func TestG2Conv(t *testing.T) {
-	p := testPointsG2()
-
-	for i := 0; i < len(p); i++ {
-		var pJac G2Jac
-		var pAff G2Affine
-		p[i].ToAffineFromJac(&pAff)
-		pAff.ToJacobian(&pJac)
-		if !pJac.Equal(&p[i]) {
-			t.Fatal("jacobian to affine to jacobian fails")
-		}
-	}
 }
 
 func TestG2JacAdd(t *testing.T) {
@@ -42,7 +28,7 @@ func TestG2JacAdd(t *testing.T) {
 	// p3 = p1 + p2
 	p1 := p[1].Clone()
 	_p2 := G2Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 	p[1].AddMixed(&_p2)
 	p[2].Add(curve, p1)
 
@@ -122,7 +108,7 @@ func TestMultiExpG2(t *testing.T) {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			MulAssign(&mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
+		samplePoints[i-1].FromJacobian(&G)
 		G.Add(curve, &curve.g2Gen)
 	}
 
@@ -190,7 +176,7 @@ func BenchmarkG2AddMixed(b *testing.B) {
 
 	p := testPointsG2()
 	_p2 := G2Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -268,7 +254,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
+		samplePoints[i-1].FromJacobian(&G)
 	}
 
 	var testPoint G2Jac

@@ -152,10 +152,10 @@ func (p *G2Jac) Equal(a *G2Jac) bool {
 		return true
 	}
 	_p := G2Affine{}
-	p.ToAffineFromJac(&_p)
+	_p.FromJacobian(p)
 
 	_a := G2Affine{}
-	a.ToAffineFromJac(&_a)
+	_a.FromJacobian(a)
 
 	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
 }
@@ -193,26 +193,26 @@ func (p *G2Jac) Sub(curve *Curve, a G2Jac) *G2Jac {
 	return p
 }
 
-// ToAffineFromJac rescale a point in Jacobian coord in z=1 plane
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
 // WARNING super slow function (due to the division)
-func (p *G2Jac) ToAffineFromJac(res *G2Affine) *G2Affine {
+func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 
 	var bufs [3]G2CoordType
 
-	if p.Z.IsZero() {
-		res.X.SetZero()
-		res.Y.SetZero()
-		return res
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
 	}
 
-	bufs[0].Inverse(&p.Z)
+	bufs[0].Inverse(&p1.Z)
 	bufs[2].Square(&bufs[0])
 	bufs[1].Mul(&bufs[2], &bufs[0])
 
-	res.Y.Mul(&p.Y, &bufs[1])
-	res.X.Mul(&p.X, &bufs[2])
+	p.Y.Mul(&p1.Y, &bufs[1])
+	p.X.Mul(&p1.X, &bufs[2])
 
-	return res
+	return p
 }
 
 // ToProjFromJac converts a point from Jacobian to projective coordinates
@@ -232,7 +232,7 @@ func (p *G2Jac) String(curve *Curve) string {
 		return "O"
 	}
 	_p := G2Affine{}
-	p.ToAffineFromJac(&_p)
+	_p.FromJacobian(p)
 	_p.X.FromMont()
 	_p.Y.FromMont()
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
