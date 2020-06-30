@@ -13,8 +13,8 @@ func (p *{{.PName}}Jac) ScalarMul(curve *Curve, a *{{.PName}}Jac, scalar {{.Grou
 	computeT := func(T []{{.PName}}Jac, t0 *{{.PName}}Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, []{{.PName}}Jac{*a}, []{{.GroupType}}.Element{scalar}, s, b, T[:], computeT)
@@ -41,7 +41,7 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 	if nbPoints <= minPoints {
 		_points := make([]{{.PName}}Jac, len(points))
 		for i := 0; i < len(points); i++ {
-			points[i].ToJacobian(&_points[i])
+			_points[i].FromAffine(&points[i])
 		}
 		go func() {
 			p.WindowedMultiExp(curve, _points, scalars)
@@ -159,7 +159,7 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 					tmp.mAdd(&points[k])
 				}
 				tmp.ToJac(&_tmp)
-				accumulators[task].Add(curve, &_tmp)
+				accumulators[task].AddAssign(curve, &_tmp)
 			}
 			chPoints[task] <- struct{}{}
 			close(chPoints[task])
@@ -172,10 +172,10 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 		res.Set(&curve.{{toLower .PName}}Infinity)
 		for i := 0; i < nbChunks; i++ {
 			for j := 0; j < len(bitsForTask[i]); j++ {
-				res.Double()
+				res.DoubleAssign()
 			}
 			<-chPoints[i]
-			res.Add(curve, &accumulators[i])
+			res.AddAssign(curve, &accumulators[i])
 		}
 		p.Set(&res)
 		chRes <- *p
@@ -215,7 +215,7 @@ func (p *{{.PName}}Jac) WindowedMultiExp(curve *Curve, points []{{.PName}}Jac, s
 		var t {{.PName}}Jac
 		t.multiExp(curve, points[start:end], scalars[start:end])
 		lock.Lock()
-		p.Add(curve, &t)
+		p.AddAssign(curve, &t)
 		lock.Unlock()
 	}, false)
 	return p
@@ -238,8 +238,8 @@ func (p *{{.PName}}Jac) multiExp(curve *Curve, points []{{.PName}}Jac, scalars [
 	computeT := func(T []{{.PName}}Jac, t0 *{{.PName}}Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, points, scalars, s, b, T[:], computeT)
@@ -266,7 +266,7 @@ func (p *{{.PName}}Jac) pippenger(curve *Curve, points []{{.PName}}Jac, scalars 
 			selectorShift = uint64(ks - (selectorIndex * 64))
 			selector = (scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift
 			if selector != 0 {
-				morePoints[k].Add(curve, &T[selector-1])
+				morePoints[k].AddAssign(curve, &T[selector-1])
 			}
 		}
 	}
@@ -274,9 +274,9 @@ func (p *{{.PName}}Jac) pippenger(curve *Curve, points []{{.PName}}Jac, scalars 
 	p.Set(&morePoints[t-1])
 	for k := t - 2; k >= 0; k-- {
 		for j := uint64(0); j < s; j++ {
-			p.Double()
+			p.DoubleAssign()
 		}
-		p.Add(curve, &morePoints[k])
+		p.AddAssign(curve, &morePoints[k])
 	}
 	return p
 }

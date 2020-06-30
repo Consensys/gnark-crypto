@@ -2,9 +2,9 @@ package gpoint
 
 const Double = `
 
-// Double doubles a point in Jacobian coordinates
+// DoubleAssign doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *{{.PName}}Jac) Double() *{{.PName}}Jac {
+func (p *{{.PName}}Jac) DoubleAssign() *{{.PName}}Jac {
 	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T {{.PName}}CoordType
 

@@ -37,6 +37,11 @@ type G1Jac struct {
 	X, Y, Z G1CoordType
 }
 
+// G1Proj point in projective coordinates
+type G1Proj struct {
+	X, Y, Z G1CoordType
+}
+
 // G1Affine point in affine coordinates
 type G1Affine struct {
 	X, Y G1CoordType
@@ -186,10 +191,10 @@ func (p *G1Affine) Neg(a *G1Affine) *G1Affine {
 	return p
 }
 
-// Sub substracts two points on the curve
-func (p *G1Jac) Sub(curve *Curve, a G1Jac) *G1Jac {
+// SubAssign substracts two points on the curve
+func (p *G1Jac) SubAssign(curve *Curve, a G1Jac) *G1Jac {
 	a.Y.Neg(&a.Y)
-	p.Add(curve, &a)
+	p.AddAssign(curve, &a)
 	return p
 }
 
@@ -215,14 +220,15 @@ func (p *G1Affine) FromJacobian(p1 *G1Jac) *G1Affine {
 	return p
 }
 
-// ToProjFromJac converts a point from Jacobian to projective coordinates
-func (p *G1Jac) ToProjFromJac() *G1Jac {
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *G1Proj) FromJacobian(Q *G1Jac) *G1Proj {
 	// memalloc
 	var buf G1CoordType
-	buf.Square(&p.Z)
+	buf.Square(&Q.Z)
 
-	p.X.Mul(&p.X, &p.Z)
-	p.Z.Mul(&p.Z, &buf)
+	p.X.Mul(&Q.X, &Q.Z)
+	p.Y.Set(&Q.Y)
+	p.Z.Mul(&Q.Z, &buf)
 
 	return p
 }
@@ -238,18 +244,18 @@ func (p *G1Jac) String(curve *Curve) string {
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
 }
 
-// ToJacobian sets Q = p, Q in Jacboian, p in affine
-func (p *G1Affine) ToJacobian(Q *G1Jac) *G1Jac {
-	if p.X.IsZero() && p.Y.IsZero() {
-		Q.Z.SetZero()
-		Q.X.SetOne()
-		Q.Y.SetOne()
-		return Q
+// FromAffine sets p = Q, p in Jacboian, Q in affine
+func (p *G1Jac) FromAffine(Q *G1Affine) *G1Jac {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.Z.SetZero()
+		p.X.SetOne()
+		p.Y.SetOne()
+		return p
 	}
-	Q.Z.SetOne()
-	Q.X.Set(&p.X)
-	Q.Y.Set(&p.Y)
-	return Q
+	p.Z.SetOne()
+	p.X.Set(&Q.X)
+	p.Y.Set(&Q.Y)
+	return p
 }
 
 func (p *G1Affine) String(curve *Curve) string {
@@ -268,7 +274,7 @@ func (p *G1Affine) IsInfinity() bool {
 // no assumptions on z
 // Note: calling Add with p.Equal(a) produces [0, 0, 0], call p.Double() instead
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *G1Jac) Add(curve *Curve, a *G1Jac) *G1Jac {
+func (p *G1Jac) AddAssign(curve *Curve, a *G1Jac) *G1Jac {
 	// p is infinity, return a
 	if p.Z.IsZero() {
 		p.Set(a)
@@ -305,7 +311,7 @@ func (p *G1Jac) Add(curve *Curve, a *G1Jac) *G1Jac {
 
 	// if p == a, we double instead
 	if U1.Equal(&U2) && S1.Equal(&S2) {
-		return p.Double()
+		return p.DoubleAssign()
 	}
 
 	// H = U2 - U1
@@ -380,7 +386,7 @@ func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.Double()
+		return p.DoubleAssign()
 	}
 
 	// H = U2 - p.X
@@ -420,9 +426,9 @@ func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
 	return p
 }
 
-// Double doubles a point in Jacobian coordinates
+// DoubleAssign doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *G1Jac) Double() *G1Jac {
+func (p *G1Jac) DoubleAssign() *G1Jac {
 	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T G1CoordType
 
@@ -481,8 +487,8 @@ func (p *G1Jac) ScalarMul(curve *Curve, a *G1Jac, scalar fr.Element) *G1Jac {
 	computeT := func(T []G1Jac, t0 *G1Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, []G1Jac{*a}, []fr.Element{scalar}, s, b, T[:], computeT)
@@ -508,7 +514,7 @@ func (p *G1Jac) WindowedMultiExp(curve *Curve, points []G1Jac, scalars []fr.Elem
 		var t G1Jac
 		t.multiExp(curve, points[start:end], scalars[start:end])
 		lock.Lock()
-		p.Add(curve, &t)
+		p.AddAssign(curve, &t)
 		lock.Unlock()
 	}, false)
 	return p
@@ -532,8 +538,8 @@ func (p *G1Jac) multiExp(curve *Curve, points []G1Jac, scalars []fr.Element) *G1
 	computeT := func(T []G1Jac, t0 *G1Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, points, scalars, s, b, T[:], computeT)
@@ -561,7 +567,7 @@ func (p *G1Jac) pippenger(curve *Curve, points []G1Jac, scalars []fr.Element, s,
 			selectorShift = uint64(ks - (selectorIndex * 64))
 			selector = (scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift
 			if selector != 0 {
-				morePoints[k].Add(curve, &T[selector-1])
+				morePoints[k].AddAssign(curve, &T[selector-1])
 			}
 		}
 	}
@@ -569,9 +575,9 @@ func (p *G1Jac) pippenger(curve *Curve, points []G1Jac, scalars []fr.Element, s,
 	p.Set(&morePoints[t-1])
 	for k := t - 2; k >= 0; k-- {
 		for j := uint64(0); j < s; j++ {
-			p.Double()
+			p.DoubleAssign()
 		}
-		p.Add(curve, &morePoints[k])
+		p.AddAssign(curve, &morePoints[k])
 	}
 	return p
 }
@@ -588,7 +594,7 @@ func (p *G1Jac) MultiExp(curve *Curve, points []G1Affine, scalars []fr.Element) 
 	if nbPoints <= minPoints {
 		_points := make([]G1Jac, len(points))
 		for i := 0; i < len(points); i++ {
-			points[i].ToJacobian(&_points[i])
+			_points[i].FromAffine(&points[i])
 		}
 		go func() {
 			p.WindowedMultiExp(curve, _points, scalars)
@@ -706,7 +712,7 @@ func (p *G1Jac) MultiExp(curve *Curve, points []G1Affine, scalars []fr.Element) 
 					tmp.mAdd(&points[k])
 				}
 				tmp.ToJac(&_tmp)
-				accumulators[task].Add(curve, &_tmp)
+				accumulators[task].AddAssign(curve, &_tmp)
 			}
 			chPoints[task] <- struct{}{}
 			close(chPoints[task])
@@ -719,10 +725,10 @@ func (p *G1Jac) MultiExp(curve *Curve, points []G1Affine, scalars []fr.Element) 
 		res.Set(&curve.g1Infinity)
 		for i := 0; i < nbChunks; i++ {
 			for j := 0; j < len(bitsForTask[i]); j++ {
-				res.Double()
+				res.DoubleAssign()
 			}
 			<-chPoints[i]
-			res.Add(curve, &accumulators[i])
+			res.AddAssign(curve, &accumulators[i])
 		}
 		p.Set(&res)
 		chRes <- *p

@@ -89,12 +89,12 @@ func initBN256() {
 	// precomputed values for ScalarMulByGen
 	bn256.tGenG1[0].Set(&bn256.g1Gen)
 	for j := 1; j < len(bn256.tGenG1)-1; j = j + 2 {
-		bn256.tGenG1[j].Set(&bn256.tGenG1[j/2]).Double()
-		bn256.tGenG1[j+1].Set(&bn256.tGenG1[(j+1)/2]).Add(&bn256, &bn256.tGenG1[j/2])
+		bn256.tGenG1[j].Set(&bn256.tGenG1[j/2]).DoubleAssign()
+		bn256.tGenG1[j+1].Set(&bn256.tGenG1[(j+1)/2]).AddAssign(&bn256, &bn256.tGenG1[j/2])
 	}
 	bn256.tGenG2[0].Set(&bn256.g2Gen)
 	for j := 1; j < len(bn256.tGenG2)-1; j = j + 2 {
-		bn256.tGenG2[j].Set(&bn256.tGenG2[j/2]).Double()
-		bn256.tGenG2[j+1].Set(&bn256.tGenG2[(j+1)/2]).Add(&bn256, &bn256.tGenG2[j/2])
+		bn256.tGenG2[j].Set(&bn256.tGenG2[j/2]).DoubleAssign()
+		bn256.tGenG2[j+1].Set(&bn256.tGenG2[(j+1)/2]).AddAssign(&bn256, &bn256.tGenG2[j/2])
 	}
 }

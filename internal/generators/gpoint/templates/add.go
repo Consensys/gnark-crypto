@@ -6,7 +6,7 @@ const Add = `
 // no assumptions on z
 // Note: calling Add with p.Equal(a) produces [0, 0, 0], call p.Double() instead
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *{{.PName}}Jac) Add(curve *Curve, a *{{.PName}}Jac) *{{.PName}}Jac {
+func (p *{{.PName}}Jac) AddAssign(curve *Curve, a *{{.PName}}Jac) *{{.PName}}Jac {
 	// p is infinity, return a
 	if p.Z.IsZero() {
 		p.Set(a)
@@ -43,7 +43,7 @@ func (p *{{.PName}}Jac) Add(curve *Curve, a *{{.PName}}Jac) *{{.PName}}Jac {
 
 	// if p == a, we double instead
 	if U1.Equal(&U2) && S1.Equal(&S2) {
-		return p.Double()
+		return p.DoubleAssign()
 	}
 
 	// H = U2 - U1
@@ -121,7 +121,7 @@ func (p *{{.PName}}Jac) AddMixed(a *{{.PName}}Affine) *{{.PName}}Jac {
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.Double()
+		return p.DoubleAssign()
 	}
 
 	// H = U2 - p.X

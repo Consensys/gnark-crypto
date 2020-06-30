@@ -82,12 +82,12 @@ func initBW761() {
 	// precomputed values for ScalarMulByGen
 	bw761.tGenG1[0].Set(&bw761.g1Gen)
 	for j := 1; j < len(bw761.tGenG1)-1; j = j + 2 {
-		bw761.tGenG1[j].Set(&bw761.tGenG1[j/2]).Double()
-		bw761.tGenG1[j+1].Set(&bw761.tGenG1[(j+1)/2]).Add(&bw761, &bw761.tGenG1[j/2])
+		bw761.tGenG1[j].Set(&bw761.tGenG1[j/2]).DoubleAssign()
+		bw761.tGenG1[j+1].Set(&bw761.tGenG1[(j+1)/2]).AddAssign(&bw761, &bw761.tGenG1[j/2])
 	}
 	bw761.tGenG2[0].Set(&bw761.g2Gen)
 	for j := 1; j < len(bw761.tGenG2)-1; j = j + 2 {
-		bw761.tGenG2[j].Set(&bw761.tGenG2[j/2]).Double()
-		bw761.tGenG2[j+1].Set(&bw761.tGenG2[(j+1)/2]).Add(&bw761, &bw761.tGenG2[j/2])
+		bw761.tGenG2[j].Set(&bw761.tGenG2[j/2]).DoubleAssign()
+		bw761.tGenG2[j+1].Set(&bw761.tGenG2[(j+1)/2]).AddAssign(&bw761, &bw761.tGenG2[j/2])
 	}
 }

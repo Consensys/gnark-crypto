@@ -111,14 +111,14 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	QNeg.Neg(&Q)
 
 	// init QCur with Q
-	Q.ToJacobian(&QCur)
+	QCur.FromAffine(&Q)
 
 	var lEval lineEvalRes
 
 	// Miller loop
 	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
 		QNext.Set(&QCur)
-		QNext.Double()
+		QNext.DoubleAssign()
 		QNextNeg.Neg(&QNext)
 
 		result.Square(result)
@@ -151,26 +151,27 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 // Q, R are in jacobian coordinates
 // The case in which Q=R=Infinity is not handled as this doesn't happen in the SNARK pairing
 func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
-	// converts Q and R to projective coords
-	Q.ToProjFromJac()
-	R.ToProjFromJac()
+	// converts _Q and _R to projective coords
+	var _Q, _R G2Proj
+	_Q.FromJacobian(&Q)
+	_R.FromJacobian(&R)
 
-	// line eq: w^3*(QyRz-QzRy)x +  w^2*(QzRx - QxRz)y + w^5*(QxRy-QyRxz)
-	// result.r1 = QyRz-QzRy
-	// result.r0 = QzRx - QxRz
-	// result.r2 = QxRy-QyRxz
+	// line eq: w^3*(_Qy_Rz-_Qz_Ry)x +  w^2*(_Qz_Rx - _Qx_Rz)y + w^5*(_Qx_Ry-_Qy_Rxz)
+	// result.r1 = _Qy_Rz-_Qz_Ry
+	// result.r0 = _Qz_Rx - _Qx_Rz
+	// result.r2 = _Qx_Ry-_Qy_Rxz
 
-	result.r1.Mul(&Q.Y, &R.Z)
-	result.r0.Mul(&Q.Z, &R.X)
-	result.r2.Mul(&Q.X, &R.Y)
+	result.r1.Mul(&_Q.Y, &_R.Z)
+	result.r0.Mul(&_Q.Z, &_R.X)
+	result.r2.Mul(&_Q.X, &_R.Y)
 
-	Q.Z.Mul(&Q.Z, &R.Y)
-	Q.X.Mul(&Q.X, &R.Z)
-	Q.Y.Mul(&Q.Y, &R.X)
+	_Q.Z.Mul(&_Q.Z, &_R.Y)
+	_Q.X.Mul(&_Q.X, &_R.Z)
+	_Q.Y.Mul(&_Q.Y, &_R.X)
 
-	result.r1.Sub(&result.r1, &Q.Z)
-	result.r0.Sub(&result.r0, &Q.X)
-	result.r2.Sub(&result.r2, &Q.Y)
+	result.r1.Sub(&result.r1, &_Q.Z)
+	result.r0.Sub(&result.r0, &_Q.X)
+	result.r2.Sub(&result.r2, &_Q.Y)
 
 	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)
@@ -182,23 +183,24 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 
 	// converts Q and R to projective coords
-	Q.ToProjFromJac()
+	var _Q G2Proj
+	_Q.FromJacobian(&Q)
 
 	// line eq: w^3*(QyRz-QzRy)x +  w^2*(QzRx - QxRz)y + w^5*(QxRy-QyRxz)
 	// result.r1 = QyRz-QzRy
 	// result.r0 = QzRx - QxRz
 	// result.r2 = QxRy-QyRxz
 
-	result.r1.Set(&Q.Y)
-	result.r0.Mul(&Q.Z, &R.X)
-	result.r2.Mul(&Q.X, &R.Y)
+	result.r1.Set(&_Q.Y)
+	result.r0.Mul(&_Q.Z, &R.X)
+	result.r2.Mul(&_Q.X, &R.Y)
 
-	Q.Z.Mul(&Q.Z, &R.Y)
-	Q.Y.Mul(&Q.Y, &R.X)
+	_Q.Z.Mul(&_Q.Z, &R.Y)
+	_Q.Y.Mul(&_Q.Y, &R.X)
 
-	result.r1.Sub(&result.r1, &Q.Z)
-	result.r0.Sub(&result.r0, &Q.X)
-	result.r2.Sub(&result.r2, &Q.Y)
+	result.r1.Sub(&result.r1, &_Q.Z)
+	result.r0.Sub(&result.r0, &_Q.X)
+	result.r2.Sub(&result.r2, &_Q.Y)
 
 	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)

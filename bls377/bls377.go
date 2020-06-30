@@ -85,12 +85,12 @@ func initBLS377() {
 	// precomputed values for ScalarMulByGen
 	bls377.tGenG1[0].Set(&bls377.g1Gen)
 	for j := 1; j < len(bls377.tGenG1)-1; j = j + 2 {
-		bls377.tGenG1[j].Set(&bls377.tGenG1[j/2]).Double()
-		bls377.tGenG1[j+1].Set(&bls377.tGenG1[(j+1)/2]).Add(&bls377, &bls377.tGenG1[j/2])
+		bls377.tGenG1[j].Set(&bls377.tGenG1[j/2]).DoubleAssign()
+		bls377.tGenG1[j+1].Set(&bls377.tGenG1[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG1[j/2])
 	}
 	bls377.tGenG2[0].Set(&bls377.g2Gen)
 	for j := 1; j < len(bls377.tGenG2)-1; j = j + 2 {
-		bls377.tGenG2[j].Set(&bls377.tGenG2[j/2]).Double()
-		bls377.tGenG2[j+1].Set(&bls377.tGenG2[(j+1)/2]).Add(&bls377, &bls377.tGenG2[j/2])
+		bls377.tGenG2[j].Set(&bls377.tGenG2[j/2]).DoubleAssign()
+		bls377.tGenG2[j+1].Set(&bls377.tGenG2[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG2[j/2])
 	}
 }

@@ -30,7 +30,7 @@ func TestG2JacAdd(t *testing.T) {
 	_p2 := G2Affine{}
 	_p2.FromJacobian(&p[2])
 	p[1].AddMixed(&_p2)
-	p[2].Add(curve, p1)
+	p[2].AddAssign(curve, p1)
 
 	if !p[3].Equal(&p[1]) {
 		t.Fatal("Add failed")
@@ -48,7 +48,7 @@ func TestG2JacSub(t *testing.T) {
 	p := testPointsG2()
 
 	// p4 = p1 - p2
-	p[1].Sub(curve, p[2])
+	p[1].SubAssign(curve, p[2])
 
 	if !p[4].Equal(&p[1]) {
 		t.Fatal("Sub failed")
@@ -61,14 +61,14 @@ func TestG2JacDouble(t *testing.T) {
 	p := testPointsG2()
 
 	// p5 = 2 * p1
-	p[1].Double()
+	p[1].DoubleAssign()
 	if !p[5].Equal(&p[1]) {
 		t.Fatal("Double failed")
 	}
 
 	G := curve.g2Infinity.Clone()
 	R := curve.g2Infinity.Clone()
-	G.Double()
+	G.DoubleAssign()
 
 	if !G.Equal(R) {
 		t.Fatal("Double failed (infinity case)")
@@ -109,7 +109,7 @@ func TestMultiExpG2(t *testing.T) {
 			MulAssign(&mixer).
 			FromMont()
 		samplePoints[i-1].FromJacobian(&G)
-		G.Add(curve, &curve.g2Gen)
+		G.AddAssign(curve, &curve.g2Gen)
 	}
 
 	var testLotOfPoint, testPoint G2Jac
@@ -167,7 +167,7 @@ func BenchmarkG2Add(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResG2 = p[1]
-		benchResG2.Add(curve, &p[2])
+		benchResG2.AddAssign(curve, &p[2])
 	}
 
 }
@@ -193,7 +193,7 @@ func BenchmarkG2Double(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResG2 = p[1]
-		benchResG2.Double()
+		benchResG2.DoubleAssign()
 	}
 
 }

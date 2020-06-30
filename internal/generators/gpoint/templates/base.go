@@ -20,6 +20,11 @@ type {{.PName}}Jac struct {
 	X, Y, Z {{.PName}}CoordType
 }
 
+// {{.PName}}Proj point in projective coordinates
+type {{.PName}}Proj struct {
+	X, Y, Z {{.PName}}CoordType
+}
+
 // {{.PName}}Affine point in affine coordinates
 type {{.PName}}Affine struct {
 	X, Y {{.PName}}CoordType
@@ -171,10 +176,10 @@ func (p *{{.PName}}Affine) Neg(a *{{.PName}}Affine) *{{.PName}}Affine {
 	return p
 }
 
-// Sub substracts two points on the curve
-func (p *{{.PName}}Jac) Sub(curve *Curve, a {{.PName}}Jac) *{{.PName}}Jac {
+// SubAssign substracts two points on the curve
+func (p *{{.PName}}Jac) SubAssign(curve *Curve, a {{.PName}}Jac) *{{.PName}}Jac {
 	a.Y.Neg(&a.Y)
-	p.Add(curve, &a)
+	p.AddAssign(curve, &a)
 	return p
 }
 
@@ -200,14 +205,15 @@ func (p *{{.PName}}Affine) FromJacobian(p1 *{{.PName}}Jac) *{{.PName}}Affine {
 	return p
 }
 
-// ToProjFromJac converts a point from Jacobian to projective coordinates
-func (p *{{.PName}}Jac) ToProjFromJac() *{{.PName}}Jac {
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *{{ .PName}}Proj) FromJacobian(Q *{{ .PName}}Jac) *{{ .PName}}Proj {
 	// memalloc
 	var buf {{.PName}}CoordType
-	buf.Square(&p.Z)
+	buf.Square(&Q.Z)
 
-	p.X.Mul(&p.X, &p.Z)
-	p.Z.Mul(&p.Z, &buf)
+	p.X.Mul(&Q.X, &Q.Z)
+	p.Y.Set(&Q.Y)
+	p.Z.Mul(&Q.Z, &buf)
 
 	return p
 }
@@ -223,20 +229,20 @@ func (p *{{.PName}}Jac) String(curve *Curve) string {
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
 }
 
-
-// ToJacobian sets Q = p, Q in Jacboian, p in affine
-func (p *{{ .PName}}Affine) ToJacobian(Q *{{ .PName}}Jac) *{{ .PName}}Jac {
-	if p.X.IsZero() && p.Y.IsZero() {
-		Q.Z.SetZero()
-		Q.X.SetOne()
-		Q.Y.SetOne()
-		return Q
+// FromAffine sets p = Q, p in Jacboian, Q in affine
+func (p *{{ .PName}}Jac) FromAffine(Q *{{ .PName}}Affine) *{{ .PName}}Jac {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.Z.SetZero()
+		p.X.SetOne()
+		p.Y.SetOne()
+		return p
 	}
-	Q.Z.SetOne()
-	Q.X.Set(&p.X)
-	Q.Y.Set(&p.Y)
-	return Q
+	p.Z.SetOne()
+	p.X.Set(&Q.X)
+	p.Y.Set(&Q.Y)
+	return p
 }
+
 
 func (p *{{.PName}}Affine) String(curve *Curve) string {
 	var x, y {{.PName}}CoordType
