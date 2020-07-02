@@ -1,6 +1,48 @@
 package gpoint
 
 const ScalarMul = `
+
+// doubleandadd algo for exponentiation
+func (p *{{.PName}}Jac) _doubleandadd(curve *Curve, a *{{.PName}}Affine, s fr.Element) *{{.PName}}Jac {
+
+	p.FromAffine(a)
+
+	binDec := s.Bytes()
+
+	// find the first non zero byte of s
+	start := 0
+	for binDec[start] == 0 {
+		start++
+	}
+
+	// find first non zero bit of the first non zero byte
+	nzBitPos := 7
+	for binDec[start]>>nzBitPos == 0 {
+		nzBitPos--
+	}
+
+	// start the double and add on the first non zero byte, starting from nzBitPos-1
+	for i := nzBitPos - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		b := (binDec[start] >> i) & 1
+		if b == 1 {
+			p.AddMixed(a)
+		}
+	}
+
+	// finish the double and add algo
+	for i := start + 1; i < len(binDec); i++ {
+		for j := 7; j >= 0; j-- {
+			p.DoubleAssign()
+			b := (binDec[i] >> j) & 1
+			if b == 1 {
+				p.AddMixed(a)
+			}
+		}
+	}
+	return p
+}
+
 // ScalarMul multiplies a by scalar
 // algorithm: a special case of Pippenger described by Bootle:
 // https://jbootle.github.io/Misc/pippenger.pdf

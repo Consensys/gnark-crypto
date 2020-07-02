@@ -113,6 +113,22 @@ func TestG1JacScalarMul(t *testing.T) {
 	}
 }
 
+func TestG1JacDoubleAndAdd(t *testing.T) {
+
+	curve := BN256()
+	_p := testPointsG1()
+	var p G1Affine
+	p.FromJacobian(&_p[1])
+
+	var scalar fr.Element
+	scalar.SetUint64(32394)
+	_p[1]._doubleandadd(curve, &p, scalar)
+
+	if !_p[1].Equal(&_p[6]) {
+		t.Error("ScalarMul failed")
+	}
+}
+
 func TestMultiExpG1(t *testing.T) {
 
 	curve := BN256()
@@ -176,6 +192,25 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p[1].ScalarMul(curve, &p[1], scalar)
+		b.StopTimer()
+		scalar.SetRandom()
+		b.StartTimer()
+	}
+
+}
+
+func BenchmarkG1DoubleAndAdd(b *testing.B) {
+
+	curve := BN256()
+	p := testPointsG1()
+	var _p G1Affine
+	_p.FromJacobian(&p[1])
+
+	var scalar fr.Element
+	scalar.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p[1]._doubleandadd(curve, &_p, scalar)
 		b.StopTimer()
 		scalar.SetRandom()
 		b.StartTimer()
@@ -293,21 +328,3 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		})
 	}
 }
-
-// func BenchmarkEndo(b *testing.B) {
-// 	curve := BN256()
-
-// 	var s fr.Element
-// 	s.SetString("21888242071839275222246405745257275088548364400416034343698204106575808495617").FromMont()
-
-// 	// test
-// 	var testRes G1Jac
-// 	var p G1Affine
-// 	curve.g1Gen.ToAffineFromJac(&p)
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		testRes.ScalarMulEndo(curve, &p, s)
-// 	}
-
-// }

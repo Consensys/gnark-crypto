@@ -272,6 +272,7 @@ func (p *G2Affine) IsInfinity() bool {
 // Note: calling Add with p.Equal(a) produces [0, 0, 0], call p.Double() instead
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
+
 	// p is infinity, return a
 	if p.Z.IsZero() {
 		p.Set(a)
@@ -285,24 +286,12 @@ func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
 
 	// get some Element from our pool
 	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V G2CoordType
-
-	// Z1Z1 = a.Z ^ 2
 	Z1Z1.Square(&a.Z)
-
-	// Z2Z2 = p.Z ^ 2
 	Z2Z2.Square(&p.Z)
-
-	// U1 = a.X * Z2Z2
 	U1.Mul(&a.X, &Z2Z2)
-
-	// U2 = p.X * Z1Z1
 	U2.Mul(&p.X, &Z1Z1)
-
-	// S1 = a.Y * p.Z * Z2Z2
 	S1.Mul(&a.Y, &p.Z).
 		MulAssign(&Z2Z2)
-
-	// S2 = p.Y * a.Z * Z1Z1
 	S2.Mul(&p.Y, &a.Z).
 		MulAssign(&Z1Z1)
 
@@ -311,35 +300,20 @@ func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
 		return p.DoubleAssign()
 	}
 
-	// H = U2 - U1
 	H.Sub(&U2, &U1)
-
-	// I = (2*H)^2
 	I.Double(&H).
 		Square(&I)
-
-	// J = H*I
 	J.Mul(&H, &I)
-
-	// r = 2*(S2-S1)
 	r.Sub(&S2, &S1).Double(&r)
-
-	// V = U1*I
 	V.Mul(&U1, &I)
-
-	// res.X = r^2-J-2*V
 	p.X.Square(&r).
 		SubAssign(&J).
 		SubAssign(&V).
 		SubAssign(&V)
-
-	// res.Y = r*(V-X3)-2*S1*J
 	p.Y.Sub(&V, &p.X).
 		MulAssign(&r)
 	S1.MulAssign(&J).Double(&S1)
 	p.Y.SubAssign(&S1)
-
-	// res.Z = ((a.Z+p.Z)^2-Z1Z1-Z2Z2)*H
 	p.Z.AddAssign(&a.Z)
 	p.Z.Square(&p.Z).
 		SubAssign(&Z1Z1).
@@ -370,14 +344,8 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V G2CoordType
-
-	// Z1Z1 = p.Z ^ 2
 	Z1Z1.Square(&p.Z)
-
-	// U2 = a.X * Z1Z1
 	U2.Mul(&a.X, &Z1Z1)
-
-	// S2 = a.Y * p.Z * Z1Z1
 	S2.Mul(&a.Y, &p.Z).
 		MulAssign(&Z1Z1)
 
@@ -386,35 +354,20 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 		return p.DoubleAssign()
 	}
 
-	// H = U2 - p.X
 	H.Sub(&U2, &p.X)
 	HH.Square(&H)
-
-	// I = 4*HH
 	I.Double(&HH).Double(&I)
-
-	// J = H*I
 	J.Mul(&H, &I)
-
-	// r = 2*(S2-Y1)
 	r.Sub(&S2, &p.Y).Double(&r)
-
-	// V = X1*I
 	V.Mul(&p.X, &I)
-
-	// res.X = r^2-J-2*V
 	p.X.Square(&r).
 		SubAssign(&J).
 		SubAssign(&V).
 		SubAssign(&V)
-
-	// res.Y = r*(V-X3)-2*Y1*J
 	J.MulAssign(&p.Y).Double(&J)
 	p.Y.Sub(&V, &p.X).
 		MulAssign(&r)
 	p.Y.SubAssign(&J)
-
-	// res.Z =  (p.Z+H)^2-Z1Z1-HH
 	p.Z.AddAssign(&H)
 	p.Z.Square(&p.Z).
 		SubAssign(&Z1Z1).
@@ -426,49 +379,74 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 // DoubleAssign doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
+
 	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T G2CoordType
 
-	// XX = a.X^2
 	XX.Square(&p.X)
-
-	// YY = a.Y^2
 	YY.Square(&p.Y)
-
-	// YYYY = YY^2
 	YYYY.Square(&YY)
-
-	// ZZ = Z1^2
 	ZZ.Square(&p.Z)
-
-	// S = 2*((X1+YY)^2-XX-YYYY)
 	S.Add(&p.X, &YY)
 	S.Square(&S).
 		SubAssign(&XX).
 		SubAssign(&YYYY).
 		Double(&S)
-
-	// M = 3*XX+a*ZZ^2
 	M.Double(&XX).AddAssign(&XX)
-
-	// res.Z = (Y1+Z1)^2-YY-ZZ
 	p.Z.AddAssign(&p.Y).
 		Square(&p.Z).
 		SubAssign(&YY).
 		SubAssign(&ZZ)
-
-	// T = M2-2*S && res.X = T
 	T.Square(&M)
 	p.X = T
 	T.Double(&S)
 	p.X.SubAssign(&T)
-
-	// res.Y = M*(S-T)-8*YYYY
 	p.Y.Sub(&S, &p.X).
 		MulAssign(&M)
 	YYYY.Double(&YYYY).Double(&YYYY).Double(&YYYY)
 	p.Y.SubAssign(&YYYY)
 
+	return p
+}
+
+// doubleandadd algo for exponentiation
+func (p *G2Jac) _doubleandadd(curve *Curve, a *G2Affine, s fr.Element) *G2Jac {
+
+	p.FromAffine(a)
+
+	binDec := s.Bytes()
+
+	// find the first non zero byte of s
+	start := 0
+	for binDec[start] == 0 {
+		start++
+	}
+
+	// find first non zero bit of the first non zero byte
+	nzBitPos := 7
+	for binDec[start]>>nzBitPos == 0 {
+		nzBitPos--
+	}
+
+	// start the double and add on the first non zero byte, starting from nzBitPos-1
+	for i := nzBitPos - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		b := (binDec[start] >> i) & 1
+		if b == 1 {
+			p.AddMixed(a)
+		}
+	}
+
+	// finish the double and add algo
+	for i := start + 1; i < len(binDec); i++ {
+		for j := 7; j >= 0; j-- {
+			p.DoubleAssign()
+			b := (binDec[i] >> j) & 1
+			if b == 1 {
+				p.AddMixed(a)
+			}
+		}
+	}
 	return p
 }
 
