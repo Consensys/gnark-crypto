@@ -8,7 +8,7 @@ import (
 
 type E12TestPoint struct {
 	in  [2]E12
-	out [17]E12
+	out [11]E12
 }
 
 var E12TestPoints []E12TestPoint
@@ -77,48 +77,36 @@ func TestE12Mul(t *testing.T) {
 	E12check(t, (*E12).Mul, 2)
 }
 
-func TestE12MulByV2NRInv(t *testing.T) {
-	E12check(t, (*E12).MulByV2NRInvBinary, 6)
-}
-
-func TestE12MulByVWNRInv(t *testing.T) {
-	E12check(t, (*E12).MulByVWNRInvBinary, 7)
-}
-
-func TestE12MulByWNRInv(t *testing.T) {
-	E12check(t, (*E12).MulByWNRInvBinary, 8)
-}
-
 func TestE12Square(t *testing.T) {
-	E12check(t, (*E12).SquareBinary, 9)
+	E12check(t, (*E12).SquareBinary, 3)
 }
 
 func TestE12Inverse(t *testing.T) {
-	E12check(t, (*E12).InverseBinary, 10)
+	E12check(t, (*E12).InverseBinary, 4)
 }
 
 func TestE12Conjugate(t *testing.T) {
-	E12check(t, (*E12).ConjugateBinary, 11)
+	E12check(t, (*E12).ConjugateBinary, 5)
 }
 
 func TestE12Frobenius(t *testing.T) {
-	E12check(t, (*E12).FrobeniusBinary, 12)
+	E12check(t, (*E12).FrobeniusBinary, 6)
 }
 
 func TestE12FrobeniusSquare(t *testing.T) {
-	E12check(t, (*E12).FrobeniusSquareBinary, 13)
+	E12check(t, (*E12).FrobeniusSquareBinary, 7)
 }
 
 func TestE12FrobeniusCube(t *testing.T) {
-	E12check(t, (*E12).FrobeniusCubeBinary, 14)
+	E12check(t, (*E12).FrobeniusCubeBinary, 8)
 }
 
 func TestE12Expt(t *testing.T) {
-	E12check(t, (*E12).ExptBinary, 15)
+	E12check(t, (*E12).ExptBinary, 9)
 }
 
 func TestE12FinalExponentiation(t *testing.T) {
-	E12check(t, (*E12).FinalExponentiationBinary, 16)
+	E12check(t, (*E12).FinalExponentiationBinary, 10)
 }
 
 //--------------------//
@@ -142,24 +130,6 @@ func BenchmarkE12Sub(b *testing.B) {
 func BenchmarkE12Mul(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.Mul(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByV2NRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByV2NRInvBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByVWNRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByVWNRInvBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByWNRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByWNRInvBinary(&E12BenchIn1, &E12BenchIn2)
 	}
 }
 
@@ -261,26 +231,5 @@ func (z *E12) ExptBinary(x, y *E12) *E12 {
 	// if tAbsVal is negative then need to undo the conjugation in order to match the test point
 	z.Conjugate(z) // because tAbsVal is negative
 
-	return z
-}
-
-// MulByV2NRInvBinary a binary wrapper for MulByV2NRInv
-func (z *E12) MulByV2NRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C0.B2
-	z.MulByV2NRInv(x, &yCopy)
-	return z
-}
-
-// MulByVWNRInvBinary a binary wrapper for MulByVWNRInv
-func (z *E12) MulByVWNRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B1
-	z.MulByVWNRInv(x, &yCopy)
-	return z
-}
-
-// MulByWNRInvBinary a binary wrapper for MulByWNRInv
-func (z *E12) MulByWNRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B0
-	z.MulByWNRInv(x, &yCopy)
 	return z
 }
