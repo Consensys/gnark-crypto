@@ -16,7 +16,10 @@
 
 package bls381
 
-import "math/bits"
+import (
+	"github.com/consensys/gurvy/bls381/fp"
+	"math/bits"
+)
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
@@ -220,6 +223,114 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	c.MulByWNRInv(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
+	return z
+}
+
+// MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
+// here y*v^2 means the E12 element with C0.B2=y and all other components 0
+func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
+
+	{ // begin inline: set yNRInv to (y) * (1,1)^{-1}
+		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
+		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
+		buf := *(y)
+		(yNRInv).A0.Add(&buf.A0, &buf.A1)
+		(yNRInv).A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		(yNRInv).A0.MulAssign(&twoInv)
+		(yNRInv).A1.MulAssign(&twoInv)
+	} // end inline: set yNRInv to (y) * (1,1)^{-1}
+
+	result.C0.B0.Mul(&x.C0.B1, y)
+	result.C0.B1.Mul(&x.C0.B2, y)
+	result.C0.B2.Mul(&x.C0.B0, &yNRInv)
+
+	result.C1.B0.Mul(&x.C1.B1, y)
+	result.C1.B1.Mul(&x.C1.B2, y)
+	result.C1.B2.Mul(&x.C1.B0, &yNRInv)
+
+	z.Set(&result)
+	return z
+}
+
+// MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
+// here y*v*w means the E12 element with C1.B1=y and all other components 0
+func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
+
+	{ // begin inline: set yNRInv to (y) * (1,1)^{-1}
+		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
+		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
+		buf := *(y)
+		(yNRInv).A0.Add(&buf.A0, &buf.A1)
+		(yNRInv).A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		(yNRInv).A0.MulAssign(&twoInv)
+		(yNRInv).A1.MulAssign(&twoInv)
+	} // end inline: set yNRInv to (y) * (1,1)^{-1}
+
+	result.C0.B0.Mul(&x.C1.B1, y)
+	result.C0.B1.Mul(&x.C1.B2, y)
+	result.C0.B2.Mul(&x.C1.B0, &yNRInv)
+
+	result.C1.B0.Mul(&x.C0.B2, y)
+	result.C1.B1.Mul(&x.C0.B0, &yNRInv)
+	result.C1.B2.Mul(&x.C0.B1, &yNRInv)
+
+	z.Set(&result)
+	return z
+}
+
+// MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
+// here y*w means the E12 element with C1.B0=y and all other components 0
+func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
+	var result E12
+	var yNRInv E2
+
+	{ // begin inline: set yNRInv to (y) * (1,1)^{-1}
+		// (yNRInv).A0 = ((y).A0 + (y).A1)/2
+		// (yNRInv).A1 = ((y).A1 - (y).A0)/2
+		buf := *(y)
+		(yNRInv).A0.Add(&buf.A0, &buf.A1)
+		(yNRInv).A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		(yNRInv).A0.MulAssign(&twoInv)
+		(yNRInv).A1.MulAssign(&twoInv)
+	} // end inline: set yNRInv to (y) * (1,1)^{-1}
+
+	result.C0.B0.Mul(&x.C1.B2, y)
+	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
+	result.C0.B2.Mul(&x.C1.B1, &yNRInv)
+
+	result.C1.B0.Mul(&x.C0.B0, &yNRInv)
+	result.C1.B1.Mul(&x.C0.B1, &yNRInv)
+	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
+
+	z.Set(&result)
 	return z
 }
 

@@ -256,6 +256,93 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	return z
 }
 
+// MulByVW set z to x*(y*v*w) and return z
+// here y*v*w means the E12 element with C1.B1=y and all other components 0
+func (z *E12) MulByVW(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
+
+	{ // begin inline: set yNR to (y) * (9,1)
+		var buf, buf9 E2
+		buf.Set(y)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		yNR.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
+			(&(yNR).A0).Neg(&buf.A1)
+		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
+		yNR.A0.AddAssign(&buf9.A0)
+	} // end inline: set yNR to (y) * (9,1)
+	result.C0.B0.Mul(&x.C1.B1, &yNR)
+	result.C0.B1.Mul(&x.C1.B2, &yNR)
+	result.C0.B2.Mul(&x.C1.B0, y)
+	result.C1.B0.Mul(&x.C0.B2, &yNR)
+	result.C1.B1.Mul(&x.C0.B0, y)
+	result.C1.B2.Mul(&x.C0.B1, y)
+	z.Set(&result)
+	return z
+}
+
+// MulByV set z to x*(y*v) and return z
+// here y*v means the E12 element with C0.B1=y and all other components 0
+func (z *E12) MulByV(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
+
+	{ // begin inline: set yNR to (y) * (9,1)
+		var buf, buf9 E2
+		buf.Set(y)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		yNR.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
+			(&(yNR).A0).Neg(&buf.A1)
+		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
+		yNR.A0.AddAssign(&buf9.A0)
+	} // end inline: set yNR to (y) * (9,1)
+	result.C0.B0.Mul(&x.C0.B2, &yNR)
+	result.C0.B1.Mul(&x.C0.B0, y)
+	result.C0.B2.Mul(&x.C0.B1, y)
+	result.C1.B0.Mul(&x.C1.B2, &yNR)
+	result.C1.B1.Mul(&x.C1.B0, y)
+	result.C1.B2.Mul(&x.C1.B1, y)
+	z.Set(&result)
+	return z
+}
+
+// MulByV2W set z to x*(y*v^2*w) and return z
+// here y*v^2*w means the E12 element with C1.B2=y and all other components 0
+func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
+	var result E12
+	var yNR E2
+
+	{ // begin inline: set yNR to (y) * (9,1)
+		var buf, buf9 E2
+		buf.Set(y)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		yNR.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
+			(&(yNR).A0).Neg(&buf.A1)
+		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
+		yNR.A0.AddAssign(&buf9.A0)
+	} // end inline: set yNR to (y) * (9,1)
+	result.C0.B0.Mul(&x.C1.B0, &yNR)
+	result.C0.B1.Mul(&x.C1.B1, &yNR)
+	result.C0.B2.Mul(&x.C1.B2, &yNR)
+	result.C1.B0.Mul(&x.C0.B1, &yNR)
+	result.C1.B1.Mul(&x.C0.B2, &yNR)
+	result.C1.B2.Mul(&x.C0.B0, y)
+	z.Set(&result)
+	return z
+}
+
 const tAbsVal uint64 = 4965661367192848881
 
 // Expt set z to x^t in PairingResult and return z
