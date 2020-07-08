@@ -253,38 +253,6 @@ func (z *E6) MulByE2(x *E6, y *E2) *E6 {
 	return z
 }
 
-// MulByNotv2 multiplies x by y with &y.b2=0
-func (z *E6) MulByNotv2(x, y *E6) *E6 {
-	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3 E2
-	b0.Mul(&x.B0, &y.B0) // step 1
-	b1.Mul(&x.B1, &y.B1) // step 2
-	// step 3
-	b2.Add(&x.B1, &x.B2)
-	rb0.Mul(&b2, &y.B1).
-		SubAssign(&b1)
-	{ // begin inline: set rb0 to (&rb0) * (0,1)
-		buf := (&rb0).A0
-		{ // begin inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-			buf := *(&(&rb0).A1)
-			(&(rb0).A0).Double(&buf).Double(&(rb0).A0).AddAssign(&buf)
-		} // end inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-		(rb0).A1 = buf
-	} // end inline: set rb0 to (&rb0) * (0,1)
-	rb0.AddAssign(&b0)
-	// step 4
-	b2.Add(&x.B0, &x.B1)
-	b3.Add(&y.B0, &y.B1)
-	z.B1.Mul(&b2, &b3).
-		SubAssign(&b0).
-		SubAssign(&b1)
-	// step 5
-	z.B2.Mul(&x.B2, &y.B0).
-		AddAssign(&b1)
-	z.B0 = rb0
-	return z
-}
-
 // Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
 

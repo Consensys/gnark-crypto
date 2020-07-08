@@ -58,6 +58,7 @@ func (z *{{.Fp6Name}}) MulBy{{capitalize .Fp2Name}}(x *{{.Fp6Name}}, y *{{.Fp2Na
 	return z
 }
 
+{{- /* MulByNotv2 is no longer used
 // MulByNotv2 multiplies x by y with &y.b2=0
 func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
@@ -82,6 +83,7 @@ func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0 = rb0
 	return z
 }
+*/}}
 
 // Square sets z to the {{.Fp6Name}}-product of x,x, returns z
 func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
