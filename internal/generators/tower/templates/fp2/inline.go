@@ -17,7 +17,7 @@ const Inline = `
 			buf := *({{.in}})
 			({{.out}}).Double(&buf).Double({{.out}}).Neg({{.out}})
 		{{- else }}
-			// TODO not implemented
+			panic("not implemented")
 		{{- end }}
 	} // end inline: set {{.out}} to ({{.in}}) * ({{.all.Fp2NonResidue}})
 {{- end }}
