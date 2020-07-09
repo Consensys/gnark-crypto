@@ -34,7 +34,7 @@ func (z *{{.Fp2Name}}) MulAssign(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	{{- if eq $.all.Fp2NonResidue "-1" }}
 		z.A0.Sub(&ac, &bd) // z.A0: [1] - [2]
 	{{- else }}
-		MulByNonResidue(&z.A0, &bd)
+		{{- template "fpInlineMulByNonResidue" dict "all" .all "out" "&z.A0" "in" "&bd" }}
 		z.A0.AddAssign(&ac) // z.A0: [1] + ({{.all.Fp2NonResidue}})*[2]
 	{{- end -}}
 
@@ -63,7 +63,7 @@ func (z *{{.Fp2Name}}) Square(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	{{- else }}
 		var ab, aplusb, ababetab fp.Element
 
-		MulByNonResidue(&ababetab, &x.A1)
+		{{ template "fpInlineMulByNonResidue" dict "all" . "out" "&ababetab" "in" "&x.A1" }}
 
 		ababetab.AddAssign(&x.A0)   // a+({{.Fp2NonResidue}})*b
 		aplusb.Add(&x.A0, &x.A1)    // a+b
@@ -74,20 +74,12 @@ func (z *{{.Fp2Name}}) Square(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 		{{- if eq .Fp2NonResidue "5"}}
 			z.A0.Add(&ab, &z.A1).Double(&z.A0) // (5+1)*ab, optimize for quadratic nonresidue 5
 		{{- else}}
-			MulByNonResidue(&z.A0, &ab).AddAssign(&ab) // ({{.Fp2NonResidue}}+1)*ab
+			{{- template "fpInlineMulByNonResidue" dict "all" . "out" "&z.A0" "in" "&ab" }}
+			z.A0.AddAssign(&ab) // ({{.Fp2NonResidue}}+1)*ab
 		{{- end }}
 		z.A0.Sub(&ababetab, &z.A0) // z.A0: [2] - ({{.Fp2NonResidue}}+1)[1]
 	{{- end }}
 
-	return z
-}
-
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *{{.Fp2Name}}) MulByNonSquare(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
-	z.A1 = a
 	return z
 }
 
@@ -109,7 +101,7 @@ func (z *{{.Fp2Name}}) Inverse(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	{{- if eq .Fp2NonResidue "-1" }}
 		t0.Add(&t0, &t1) // step 3
 	{{- else }}
-		MulByNonResidue(&t1beta, &t1)
+		{{- template "fpInlineMulByNonResidue" dict "all" . "out" "&t1beta" "in" "&t1" }}
 		t0.SubAssign(&t1beta)        // step 3
 	{{- end }}
 	t1.Inverse(&t0)              // step 4
@@ -135,19 +127,21 @@ func (z *{{.Fp2Name}}) Conjugate(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	return z
 }
 
-// MulByNonResidue multiplies a fp.Element by {{.Fp2NonResidue}}
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	{{- template "fpInlineMulByNonResidue" dict "all" . "out" "out" "in" "in" }}
-	return out
-}
+{{/* MulByNonResidue, MulByNonResidueInv not used
+	// MulByNonResidue multiplies a fp.Element by {{.Fp2NonResidue}}
+	// TODO delete this method once you have another way of testing the inlined code
+	// It would be nice to make this a method of fp.Element but fp.Element is outside this package
+	func MulByNonResidue(out, in *fp.Element) *fp.Element {
+		{{- template "fpInlineMulByNonResidue" dict "all" . "out" "out" "in" "in" }}
+		return out
+	}
 
-// MulByNonResidueInv multiplies a fp.Element by {{.Fp2NonResidue}}^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	{{- template "fpInlineMulByNonResidueInv" dict "all" . "out" "out" "in" "in" }}
-	return out
-}
+	// MulByNonResidueInv multiplies a fp.Element by {{.Fp2NonResidue}}^{-1}
+	// TODO delete this method once you have another way of testing the inlined code
+	// It would be nice to make this a method of fp.Element but fp.Element is outside this package
+	func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
+		{{- template "fpInlineMulByNonResidueInv" dict "all" . "out" "out" "in" "in" }}
+		return out
+	}
+*/}}
 `

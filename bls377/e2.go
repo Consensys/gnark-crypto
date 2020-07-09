@@ -159,7 +159,10 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	MulByNonResidue(&z.A0, &bd)
+	{                               // begin inline: set &z.A0 to (&bd) * (5)
+		buf := *(&bd)
+		(&z.A0).Double(&buf).Double(&z.A0).AddAssign(&buf)
+	} // end inline: set &z.A0 to (&bd) * (5)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (5)*[2]
 	return z
 }
@@ -182,7 +185,10 @@ func (z *E2) MulAssign(x *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	MulByNonResidue(&z.A0, &bd)
+	{                               // begin inline: set &z.A0 to (&bd) * (5)
+		buf := *(&bd)
+		(&z.A0).Double(&buf).Double(&z.A0).AddAssign(&buf)
+	} // end inline: set &z.A0 to (&bd) * (5)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (5)*[2]
 	return z
 }
@@ -197,7 +203,10 @@ func (z *E2) Square(x *E2) *E2 {
 	// Then z.A1: 2[1]
 	var ab, aplusb, ababetab fp.Element
 
-	MulByNonResidue(&ababetab, &x.A1)
+	{ // begin inline: set &ababetab to (&x.A1) * (5)
+		buf := *(&x.A1)
+		(&ababetab).Double(&buf).Double(&ababetab).AddAssign(&buf)
+	} // end inline: set &ababetab to (&x.A1) * (5)
 
 	ababetab.AddAssign(&x.A0)          // a+(5)*b
 	aplusb.Add(&x.A0, &x.A1)           // a+b
@@ -207,15 +216,6 @@ func (z *E2) Square(x *E2) *E2 {
 	z.A0.Add(&ab, &z.A1).Double(&z.A0) // (5+1)*ab, optimize for quadratic nonresidue 5
 	z.A0.Sub(&ababetab, &z.A0)         // z.A0: [2] - (5+1)[1]
 
-	return z
-}
-
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *E2) MulByNonSquare(x *E2) *E2 {
-	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
-	z.A1 = a
 	return z
 }
 
@@ -229,7 +229,10 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 	t0.Square(&a0) // step 1
 	t1.Square(&a1) // step 2
-	MulByNonResidue(&t1beta, &t1)
+	{              // begin inline: set &t1beta to (&t1) * (5)
+		buf := *(&t1)
+		(&t1beta).Double(&buf).Double(&t1beta).AddAssign(&buf)
+	} // end inline: set &t1beta to (&t1) * (5)
 	t0.SubAssign(&t1beta)        // step 3
 	t1.Inverse(&t0)              // step 4
 	z.A0.Mul(&a0, &t1)           // step 5
@@ -252,33 +255,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by 5
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	{ // begin inline: set out to (in) * (5)
-		buf := *(in)
-		(out).Double(&buf).Double(out).AddAssign(&buf)
-	} // end inline: set out to (in) * (5)
-	return out
-}
-
-// MulByNonResidueInv multiplies a fp.Element by 5^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	{ // begin inline: set out to (in) * (5)^{-1}
-		nrinv := fp.Element{
-			330620507644336508,
-			9878087358076053079,
-			11461392860540703536,
-			6973035786057818995,
-			8846909097162646007,
-			104838758629667239,
-		}
-		(out).Mul(in, &nrinv)
-	} // end inline: set out to (in) * (5)^{-1}
-	return out
 }

@@ -207,15 +207,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *E2) MulByNonSquare(x *E2) *E2 {
-	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
-	z.A1 = a
-	return z
-}
-
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
@@ -248,25 +239,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by -1
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	{ // begin inline: set out to (in) * (-1)
-		(out).Neg(in)
-	} // end inline: set out to (in) * (-1)
-	return out
-}
-
-// MulByNonResidueInv multiplies a fp.Element by -1^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	{ // begin inline: set out to (in) * (-1)^{-1}
-		// TODO delete: this is never called!
-		(out).Neg(in)
-	} // end inline: set out to (in) * (-1)^{-1}
-	return out
 }
