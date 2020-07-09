@@ -22,21 +22,12 @@ type Data struct {
 	Fp2Name  string
 	Fp6Name  string
 	Fp12Name string
-
-	// these members are computed as needed
-	TwoInv []uint64 // fp.Element, used only when Fp2NonResidue==-1 and Fp6NonResidue==(1,1). TODO there must be a better way to do this.
 }
 
 // Generate generates pairing
 func Generate(d Data, outputDir string) error {
 
 	rootPath := filepath.Join(outputDir, d.Fpackage)
-
-	// inverse of 2 in fp is used by some curves
-	// TODO this sucks, generalize it
-	if d.Fp2NonResidue == "-1" && d.Fp6NonResidue == "1,1" {
-		d.InitTwoInv()
-	}
 
 	// fp2
 	if d.EmbeddingDegree >= 2 {
@@ -91,17 +82,3 @@ func Generate(d Data, outputDir string) error {
 
 	return nil
 }
-
-// InitTwoInv set z.TwoInv to the inverse of 2 as an fp.Element
-func (z *Data) InitTwoInv() *Data {
-	var twoInv fpElement
-	twoInv.SetUint64(2).Inverse(&twoInv)
-	z.TwoInv = twoInv[:]
-	return z
-}
-
-const TwoInvTemplate = `
-import "github.com/consensys/gurvy/{{$.Fpackage}}/fp"
-
-type fpElement = fp.Element
-`
