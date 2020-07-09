@@ -234,24 +234,3 @@ func (z *E12) Conjugate(x *E12) *E12 {
 	z.C1.Neg(&z.C1)
 	return z
 }
-
-// MulByNonResidue multiplies a E6 by ((0,0),(1,0),(0,0))
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E6) MulByNonResidue(x *E6) *E6 {
-	{ // begin inline: set z to (x) * ((0,0),(1,0),(0,0))
-		var result E6
-		result.B1.Set(&(x).B0)
-		result.B2.Set(&(x).B1)
-		{ // begin inline: set result.B0 to (&(x).B2) * (1,1)
-			var buf E2
-			buf.Set(&(x).B2)
-			result.B0.A1.Add(&buf.A0, &buf.A1)
-			{ // begin inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-				(&(result.B0).A0).Neg(&buf.A1)
-			} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-			result.B0.A0.AddAssign(&buf.A0)
-		} // end inline: set result.B0 to (&(x).B2) * (1,1)
-		z.Set(&result)
-	} // end inline: set z to (x) * ((0,0),(1,0),(0,0))
-	return z
-}
