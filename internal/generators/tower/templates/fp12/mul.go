@@ -76,13 +76,4 @@ func (z *{{.Fp12Name}}) Conjugate(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 	z.C1.Neg(&z.C1)
 	return z
 }
-
-{{/* MulByNonResidue not used
-	// MulByNonResidue multiplies a {{.Fp6Name}} by ((0,0),(1,0),(0,0))
-	// TODO delete this method once you have another way of testing the inlined code
-	func (z *{{.Fp6Name}}) MulByNonResidue(x *{{.Fp6Name}}) *{{.Fp6Name}} {
-		{{- template "fp6InlineMulByNonResidue" dict "all" . "out" "z" "in" "x" }}
-		return z
-	}
-*/}}
 `

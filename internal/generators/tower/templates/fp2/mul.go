@@ -126,22 +126,4 @@ func (z *{{.Fp2Name}}) Conjugate(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	z.A1.Neg(&x.A1)
 	return z
 }
-
-{{/* MulByNonResidue, MulByNonResidueInv not used
-	// MulByNonResidue multiplies a fp.Element by {{.Fp2NonResidue}}
-	// TODO delete this method once you have another way of testing the inlined code
-	// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-	func MulByNonResidue(out, in *fp.Element) *fp.Element {
-		{{- template "fpInlineMulByNonResidue" dict "all" . "out" "out" "in" "in" }}
-		return out
-	}
-
-	// MulByNonResidueInv multiplies a fp.Element by {{.Fp2NonResidue}}^{-1}
-	// TODO delete this method once you have another way of testing the inlined code
-	// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-	func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-		{{- template "fpInlineMulByNonResidueInv" dict "all" . "out" "out" "in" "in" }}
-		return out
-	}
-*/}}
 `
