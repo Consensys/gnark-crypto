@@ -247,7 +247,7 @@ type lineEvalRes struct {
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c E12
+	var a, b, c PairingResult
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)
@@ -257,13 +257,13 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 }
 
 // MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the E12 element with C1.B1=y and all other components 0
-func (z *E12) MulByVW(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
+// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
+func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
 
 	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 E2
+		var buf, buf9 G2CoordType
 		buf.Set(y)
 		buf9.Double(&buf).
 			Double(&buf9).
@@ -286,13 +286,13 @@ func (z *E12) MulByVW(x *E12, y *E2) *E12 {
 }
 
 // MulByV set z to x*(y*v) and return z
-// here y*v means the E12 element with C0.B1=y and all other components 0
-func (z *E12) MulByV(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
+// here y*v means the PairingResult element with C0.B1=y and all other components 0
+func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
 
 	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 E2
+		var buf, buf9 G2CoordType
 		buf.Set(y)
 		buf9.Double(&buf).
 			Double(&buf9).
@@ -315,13 +315,13 @@ func (z *E12) MulByV(x *E12, y *E2) *E12 {
 }
 
 // MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the E12 element with C1.B2=y and all other components 0
-func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
+// here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
+func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
 
 	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 E2
+		var buf, buf9 G2CoordType
 		buf.Set(y)
 		buf9.Double(&buf).
 			Double(&buf9).

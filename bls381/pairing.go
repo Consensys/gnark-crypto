@@ -217,7 +217,7 @@ type lineEvalRes struct {
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c E12
+	var a, b, c PairingResult
 	a.MulByVWNRInv(z, &l.r1)
 	b.MulByV2NRInv(z, &l.r0)
 	c.MulByWNRInv(z, &l.r2)
@@ -227,10 +227,10 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 }
 
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-// here y*v^2 means the E12 element with C0.B2=y and all other components 0
-func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
+// here y*v^2 means the PairingResult element with C0.B2=y and all other components 0
+func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
 	yNRInv.mulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C0.B1, y)
@@ -246,10 +246,10 @@ func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 }
 
 // MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-// here y*v*w means the E12 element with C1.B1=y and all other components 0
-func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
+// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
+func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
 	yNRInv.mulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B1, y)
@@ -265,10 +265,10 @@ func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
 }
 
 // MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-// here y*w means the E12 element with C1.B0=y and all other components 0
-func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
+// here y*w means the PairingResult element with C1.B0=y and all other components 0
+func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
 	yNRInv.mulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B2, y)
@@ -284,7 +284,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 }
 
 // mulByNonResidueInv set z to x * (1,1)^{-1} and return z
-func (z *E2) mulByNonResidueInv(x *E2) *E2 {
+func (z *G2CoordType) mulByNonResidueInv(x *G2CoordType) *G2CoordType {
 	{ // begin inline: set z to x * (1,1)^{-1}
 		// z.A0 = (x.A0 + x.A1)/2
 		// z.A1 = (x.A1 - x.A0)/2
