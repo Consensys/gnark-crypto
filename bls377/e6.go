@@ -16,8 +16,6 @@
 
 package bls377
 
-import "github.com/consensys/gurvy/bls377/fp"
-
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
 
@@ -456,40 +454,5 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B0.Mul(&c[0], &t[6]) // step 14
 	z.B1.Mul(&c[1], &t[6]) // step 15
 	z.B2.Mul(&c[2], &t[6]) // step 16
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (0,1)
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)
-		buf := (x).A0
-		{ // begin inline: set &(z).A0 to (&(x).A1) * (5)
-			buf := *(&(x).A1)
-			(&(z).A0).Double(&buf).Double(&(z).A0).AddAssign(&buf)
-		} // end inline: set &(z).A0 to (&(x).A1) * (5)
-		(z).A1 = buf
-	} // end inline: set z to (x) * (0,1)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)^{-1}
-		buf := (x).A1
-		{ // begin inline: set &(z).A1 to (&(x).A0) * (5)^{-1}
-			nrinv := fp.Element{
-				330620507644336508,
-				9878087358076053079,
-				11461392860540703536,
-				6973035786057818995,
-				8846909097162646007,
-				104838758629667239,
-			}
-			(&(z).A1).Mul(&(x).A0, &nrinv)
-		} // end inline: set &(z).A1 to (&(x).A0) * (5)^{-1}
-		(z).A0 = buf
-	} // end inline: set z to (x) * (0,1)^{-1}
 	return z
 }

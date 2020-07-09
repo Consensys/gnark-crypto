@@ -16,8 +16,6 @@
 
 package bls381
 
-import "github.com/consensys/gurvy/bls381/fp"
-
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-1,1 is irrep in fp2
 
@@ -472,43 +470,5 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B0.Mul(&c[0], &t[6]) // step 14
 	z.B1.Mul(&c[1], &t[6]) // step 15
 	z.B2.Mul(&c[2], &t[6]) // step 16
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (1,1)
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (1,1)
-		var buf E2
-		buf.Set(x)
-		z.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(z).A0 to (&buf.A1) * (-1)
-			(&(z).A0).Neg(&buf.A1)
-		} // end inline: set &(z).A0 to (&buf.A1) * (-1)
-		z.A0.AddAssign(&buf.A0)
-	} // end inline: set z to (x) * (1,1)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (1,1)^{-1}
-		// (z).A0 = ((x).A0 + (x).A1)/2
-		// (z).A1 = ((x).A1 - (x).A0)/2
-		buf := *(x)
-		(z).A0.Add(&buf.A0, &buf.A1)
-		(z).A1.Sub(&buf.A1, &buf.A0)
-		twoInv := fp.Element{
-			1730508156817200468,
-			9606178027640717313,
-			7150789853162776431,
-			7936136305760253186,
-			15245073033536294050,
-			1728177566264616342,
-		}
-		(z).A0.MulAssign(&twoInv)
-		(z).A1.MulAssign(&twoInv)
-	} // end inline: set z to (x) * (1,1)^{-1}
 	return z
 }

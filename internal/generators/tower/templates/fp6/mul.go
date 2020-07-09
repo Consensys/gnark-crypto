@@ -194,17 +194,19 @@ func (z *{{.Fp6Name}}) Inverse(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	return z
 }
 
-// MulByNonResidue multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})
-// TODO delete this method once you have another way of testing the inlined code
-func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z" "in" "x" }}
-	return z
-}
+{{/* MulByNonResidue, MulByNonResidueInv not used
+	// MulByNonResidue multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})
+	// TODO delete this method once you have another way of testing the inlined code
+	func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
+		{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z" "in" "x" }}
+		return z
+	}
 
-// MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2InlineMulByNonResidueInv" dict "all" . "out" "z" "in" "x" }}
-	return z
-}
+	// MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
+	// TODO delete this method once you have another way of testing the inlined code
+	func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
+		{{- template "fp2InlineMulByNonResidueInv" dict "all" . "out" "z" "in" "x" }}
+		return z
+	}
+*/}}
 `

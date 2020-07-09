@@ -456,30 +456,3 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B2.Mul(&c[2], &t[6]) // step 16
 	return z
 }
-
-// MulByNonResidue multiplies a E2 by (0,1)
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)
-		buf := (x).A0
-		{ // begin inline: set &(z).A0 to (&(x).A1) * (-4)
-			buf := *(&(x).A1)
-			(&(z).A0).Double(&buf).Double(&(z).A0).Neg(&(z).A0)
-		} // end inline: set &(z).A0 to (&(x).A1) * (-4)
-		(z).A1 = buf
-	} // end inline: set z to (x) * (0,1)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)^{-1}
-		buf := (x).A1
-		{ // begin inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
-			// TODO not implemented
-		} // end inline: set &(z).A1 to (&(x).A0) * (-4)^{-1}
-		(z).A0 = buf
-	} // end inline: set z to (x) * (0,1)^{-1}
-	return z
-}

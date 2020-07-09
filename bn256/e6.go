@@ -16,8 +16,6 @@
 
 package bn256
 
-import "github.com/consensys/gurvy/bn256/fp"
-
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-9,1 is irrep in fp2
 
@@ -536,53 +534,5 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B0.Mul(&c[0], &t[6]) // step 14
 	z.B1.Mul(&c[1], &t[6]) // step 15
 	z.B2.Mul(&c[2], &t[6]) // step 16
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (9,1)
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (9,1)
-		var buf, buf9 E2
-		buf.Set(x)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		z.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(z).A0 to (&buf.A1) * (-1)
-			(&(z).A0).Neg(&buf.A1)
-		} // end inline: set &(z).A0 to (&buf.A1) * (-1)
-		z.A0.AddAssign(&buf9.A0)
-	} // end inline: set z to (x) * (9,1)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
-// TODO delete this method once you have another way of testing the inlined code
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (9,1)^{-1}
-		// (z).A0 = (9*(x).A0 + (x).A1)/82
-		// (z).A1 = (9*(x).A1 - (x).A0)/82
-		copy := *(x)
-
-		var copy9 E2
-		copy9.Double(&copy).
-			Double(&copy9).
-			Double(&copy9).
-			AddAssign(&copy)
-
-		(z).A0.Add(&copy9.A0, &copy.A1)
-		(z).A1.Sub(&copy9.A1, &copy.A0)
-
-		buf82inv := fp.Element{
-			15263610803691847034,
-			14617516054323294413,
-			1961223913490700324,
-			3456812345740674661,
-		}
-		(z).A0.MulAssign(&buf82inv)
-		(z).A1.MulAssign(&buf82inv)
-	} // end inline: set z to (x) * (9,1)^{-1}
 	return z
 }
