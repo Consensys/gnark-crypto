@@ -89,18 +89,6 @@ func TestE12MulByV2W(t *testing.T) {
 	E12check(t, (*E12).MulByV2WBinary, 5)
 }
 
-func TestE12MulByV2NRInv(t *testing.T) {
-	E12check(t, (*E12).MulByV2NRInvBinary, 6)
-}
-
-func TestE12MulByVWNRInv(t *testing.T) {
-	E12check(t, (*E12).MulByVWNRInvBinary, 7)
-}
-
-func TestE12MulByWNRInv(t *testing.T) {
-	E12check(t, (*E12).MulByWNRInvBinary, 8)
-}
-
 func TestE12Square(t *testing.T) {
 	E12check(t, (*E12).SquareBinary, 9)
 }
@@ -172,24 +160,6 @@ func BenchmarkE12MulByVW(b *testing.B) {
 func BenchmarkE12MulByV2W(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.MulByV2WBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByV2NRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByV2NRInvBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByVWNRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByVWNRInvBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByWNRInv(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByWNRInvBinary(&E12BenchIn1, &E12BenchIn2)
 	}
 }
 
@@ -311,26 +281,5 @@ func (z *E12) MulByVWBinary(x, y *E12) *E12 {
 func (z *E12) MulByV2WBinary(x, y *E12) *E12 {
 	yCopy := y.C1.B2
 	z.MulByV2W(x, &yCopy)
-	return z
-}
-
-// MulByV2NRInvBinary a binary wrapper for MulByV2NRInv
-func (z *E12) MulByV2NRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C0.B2
-	z.MulByV2NRInv(x, &yCopy)
-	return z
-}
-
-// MulByVWNRInvBinary a binary wrapper for MulByVWNRInv
-func (z *E12) MulByVWNRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B1
-	z.MulByVWNRInv(x, &yCopy)
-	return z
-}
-
-// MulByWNRInvBinary a binary wrapper for MulByWNRInv
-func (z *E12) MulByWNRInvBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B0
-	z.MulByWNRInv(x, &yCopy)
 	return z
 }

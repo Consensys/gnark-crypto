@@ -91,18 +91,22 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// compute addition chain
 	var t [2]PairingResult
 
-	t[0].Square(&y[6])
+	//t[0].Square(&y[6])
+	t[0].CyclotomicSquare(&y[6])
 	t[0].Mul(&t[0], &y[4])
 	t[0].Mul(&t[0], &y[5])
 	t[1].Mul(&y[3], &y[5])
 	t[1].Mul(&t[1], &t[0])
 	t[0].Mul(&t[0], &y[2])
-	t[1].Square(&t[1])
+	//t[1].Square(&t[1])
+	t[1].CyclotomicSquare(&t[1])
 	t[1].Mul(&t[1], &t[0])
-	t[1].Square(&t[1])
+	//t[1].Square(&t[1])
+	t[1].CyclotomicSquare(&t[1])
 	t[0].Mul(&t[1], &y[1])
 	t[1].Mul(&t[1], &y[0])
-	t[0].Square(&t[0])
+	//t[0].Square(&t[0])
+	t[0].CyclotomicSquare(&t[0])
 	z.Mul(&t[0], &t[1])
 	return z
 }
@@ -261,17 +265,15 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 const tAbsVal uint64 = 4965661367192848881
 
 // Expt set z to x^t in PairingResult and return z
-// TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
-// TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
-	// TODO what if x==0?
-	// TODO make this match Element.Exp: x is a non-pointer?
+
 	var result PairingResult
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2
 	for i := l; i >= 0; i-- {
-		result.Square(&result)
+		//result.Square(&result)
+		result.CyclotomicSquare(&result)
 		if tAbsVal&(1<<uint(i)) != 0 {
 			result.Mul(&result, x)
 		}

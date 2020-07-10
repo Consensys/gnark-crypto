@@ -77,14 +77,6 @@ func TestE6Mul(t *testing.T) {
 	E6check(t, (*E6).Mul, 2)
 }
 
-func TestE6MulByE2(t *testing.T) {
-	E6check(t, (*E6).MulByE2Binary, 3)
-}
-
-func TestE6MulByGen(t *testing.T) {
-	E6check(t, (*E6).MulByGenBinary, 4)
-}
-
 func TestE6Square(t *testing.T) {
 	E6check(t, (*E6).SquareBinary, 5)
 }
@@ -117,18 +109,6 @@ func BenchmarkE6Mul(b *testing.B) {
 	}
 }
 
-func BenchmarkE6MulByE2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.MulByE2Binary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
-func BenchmarkE6MulByGen(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.MulByGenBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
 func BenchmarkE6Square(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E6BenchOut.SquareBinary(&E6BenchIn1, &E6BenchIn2)
@@ -145,11 +125,6 @@ func BenchmarkE6Inverse(b *testing.B) {
 // unary helpers for E6 methods
 //-------------------------------------//
 
-// MulByGenBinary a binary wrapper for MulByGen
-func (z *E6) MulByGenBinary(x, y *E6) *E6 {
-	return z.MulByGen(x)
-}
-
 // SquareBinary a binary wrapper for Square
 func (z *E6) SquareBinary(x, y *E6) *E6 {
 	return z.Square(x)
@@ -158,13 +133,4 @@ func (z *E6) SquareBinary(x, y *E6) *E6 {
 // InverseBinary a binary wrapper for Inverse
 func (z *E6) InverseBinary(x, y *E6) *E6 {
 	return z.Inverse(x)
-}
-
-//-------------------------------------//
-// custom helpers for E6 methods
-//-------------------------------------//
-
-// MulByE2Binary a binary wrapper for MulByE2
-func (z *E6) MulByE2Binary(x, y *E6) *E6 {
-	return z.MulByE2(x, &y.B0)
 }

@@ -2,6 +2,7 @@
 package bls381
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -65,6 +66,29 @@ func E12check(t *testing.T, f func(*E12, *E12, *E12) *E12, m int) {
 //     tests		  //
 //--------------------//
 
+func TestCycloSquare(t *testing.T) {
+	t.Skip()
+	var a E12
+	a.C0.B0.A0.SetString("1125072297731382902998299617879606393499709029188003643946166382965379098202732821509561541450713115569207565047729")
+	a.C0.B0.A1.SetString("357267673522920829364987037930948607675213838915560861452910819759875466909965828900241076435336951242792416960472")
+	a.C0.B1.A0.SetString("1987735468309181410854523297998910368067402344245302433071674220984520853134212231520989377083661921684726636822203")
+	a.C0.B1.A1.SetString("3078788936339241826019628074347117007612655788393653508620912675920884332954869997531075527318577230674279889727517")
+	a.C0.B2.A0.SetString("606096396946834167020088181447512195646648624798244403036993381091258042638474265397393746530767190765251800095150")
+	a.C0.B2.A1.SetString("765104595319501786306301970572308463780324552170891372013005158453958269421976154496670472558810291317440185682321")
+
+	a.C1.B0.A0.SetString("532417150049868768803851413942598186479745157010957745052829772443704612986590037434859754860752903032079030649089")
+	a.C1.B0.A1.SetString("3880522962080780495063608492282356300692158206629927988705015238873711065525995208687227900723361847434225437474555")
+	a.C1.B1.A0.SetString("1062944682025931268139308150715375751207962784457829120070348027021962970941611739469506759735869607564192451518809")
+	a.C1.B1.A1.SetString("2467093686626274960476841057070780908319363070636488881336872757940479107908242664519638623004531793926692899248971")
+	a.C1.B2.A0.SetString("2385731102610501598810999573444339392927667778371372455029715066045750289692603646778961098121426397253068943202295")
+	a.C1.B2.A1.SetString("803858520773611672426086895244279582330789619913718232935537265096633341857271101022263404527218888918607995760226")
+
+	a.CyclotomicSquare(&a)
+
+	fmt.Println(a.String())
+
+}
+
 func TestE12Add(t *testing.T) {
 	E12check(t, (*E12).Add, 0)
 }
@@ -75,18 +99,6 @@ func TestE12Sub(t *testing.T) {
 
 func TestE12Mul(t *testing.T) {
 	E12check(t, (*E12).Mul, 2)
-}
-
-func TestE12MulByV(t *testing.T) {
-	E12check(t, (*E12).MulByVBinary, 3)
-}
-
-func TestE12MulByVW(t *testing.T) {
-	E12check(t, (*E12).MulByVWBinary, 4)
-}
-
-func TestE12MulByV2W(t *testing.T) {
-	E12check(t, (*E12).MulByV2WBinary, 5)
 }
 
 func TestE12MulByV2NRInv(t *testing.T) {
@@ -157,24 +169,6 @@ func BenchmarkE12Mul(b *testing.B) {
 	}
 }
 
-func BenchmarkE12MulByV(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByVBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByVW(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByVWBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12MulByV2W(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.MulByV2WBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
 func BenchmarkE12MulByV2NRInv(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.MulByV2NRInvBinary(&E12BenchIn1, &E12BenchIn2)
@@ -196,6 +190,15 @@ func BenchmarkE12MulByWNRInv(b *testing.B) {
 func BenchmarkE12Square(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.SquareBinary(&E12BenchIn1, &E12BenchIn2)
+	}
+}
+
+func BenchmarkCycloSquare(b *testing.B) {
+	var a E12
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.CyclotomicSquare(&a)
 	}
 }
 
@@ -291,27 +294,6 @@ func (z *E12) ExptBinary(x, y *E12) *E12 {
 	// if tAbsVal is negative then need to undo the conjugation in order to match the test point
 	z.Conjugate(z) // because tAbsVal is negative
 
-	return z
-}
-
-// MulByVBinary a binary wrapper for MulByV
-func (z *E12) MulByVBinary(x, y *E12) *E12 {
-	yCopy := y.C0.B1
-	z.MulByV(x, &yCopy)
-	return z
-}
-
-// MulByVWBinary a binary wrapper for MulByVW
-func (z *E12) MulByVWBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B1
-	z.MulByVW(x, &yCopy)
-	return z
-}
-
-// MulByV2WBinary a binary wrapper for MulByV2W
-func (z *E12) MulByV2WBinary(x, y *E12) *E12 {
-	yCopy := y.C1.B2
-	z.MulByV2W(x, &yCopy)
 	return z
 }
 

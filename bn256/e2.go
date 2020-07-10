@@ -207,12 +207,45 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *E2) MulByNonSquare(x *E2) *E2 {
-	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
-	z.A1 = a
+// MulByNonResidue multiplies a E2 by (9,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	var buf, buf9 E2
+	buf.Set(x)
+	buf9.Double(&buf).
+		Double(&buf9).
+		Double(&buf9).
+		Add(&buf9, &buf)
+	z.A1.Add(&buf.A0, &buf9.A1)
+	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
+		(&(z).A0).Neg(&buf.A1)
+	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
+	z.A0.AddAssign(&buf9.A0)
+	return z
+}
+
+// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+	// (z).A0 = (9*(x).A0 + (x).A1)/82
+	// (z).A1 = (9*(x).A1 - (x).A0)/82
+	copy := *(x)
+
+	var copy9 E2
+	copy9.Double(&copy).
+		Double(&copy9).
+		Double(&copy9).
+		AddAssign(&copy)
+
+	(z).A0.Add(&copy9.A0, &copy.A1)
+	(z).A1.Sub(&copy9.A1, &copy.A0)
+
+	buf82inv := fp.Element{
+		15263610803691847034,
+		14617516054323294413,
+		1961223913490700324,
+		3456812345740674661,
+	}
+	(z).A0.MulAssign(&buf82inv)
+	(z).A1.MulAssign(&buf82inv)
 	return z
 }
 
@@ -248,19 +281,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by -1
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	(out).Neg(in)
-	return out
-}
-
-// MulByNonResidueInv multiplies a fp.Element by -1^{-1}
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	// TODO this should be a no-op when out==in
-	(out).Set(in)
-	return out
 }

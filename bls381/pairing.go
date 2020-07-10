@@ -60,7 +60,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
 	t[0].InverseUnitary(&result).Square(&t[0])
 	t[5].Expt(&result)
-	t[1].Square(&t[5])
+	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])
 
 	t[0].Expt(&t[3])
@@ -228,16 +228,14 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 const tAbsVal uint64 = 15132376222941642752 // negative
 
 // Expt set z to x^t in PairingResult and return z
-// TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
-// TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
-	// TODO what if x==0?
-	// TODO make this match Element.Exp: x is a non-pointer?
+
 	var result PairingResult
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2
 	for i := l; i >= 0; i-- {
+		//result.CyclotomicSquare(&result)
 		result.Square(&result)
 		if tAbsVal&(1<<uint(i)) != 0 {
 			result.Mul(&result, x)

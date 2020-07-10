@@ -22,7 +22,6 @@ import (
 
 // E2 is a degree-two finite field extension of fp.Element:
 // A0 + A1u where u^2 == -1 is a quadratic nonresidue in fp
-
 type E2 struct {
 	A0, A1 fp.Element
 }
@@ -40,6 +39,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
+// SetZero sets z to 0
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -61,7 +61,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// Set sets z to 1 in Montgomery form and returns z
+// SetOne sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -75,7 +75,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// Equal returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -163,15 +163,9 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	return z
 }
 
-// MulAssign sets z to the E2-product of z,x returns z
+// MulAssign sets z to the E2-product of z,x returns z (Karatsuba)
 func (z *E2) MulAssign(x *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(-1)*bd) + (ad+bc)u where u^2 == -1
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (-1)*[2]
-	// Then z.A1: [3] - [2] - [1]
+
 	var ac, bd, cplusd, aplusbcplusd fp.Element
 
 	ac.Mul(&z.A0, &x.A0)            // [1]: ac
@@ -207,15 +201,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *E2) MulByNonSquare(x *E2) *E2 {
-	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
-	z.A1 = a
-	return z
-}
-
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
@@ -234,6 +219,38 @@ func (z *E2) Inverse(x *E2) *E2 {
 	return z
 }
 
+// MulByNonResidue multiplies a E2 by (1,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	var buf E2
+	buf.Set(x)
+	z.A1.Add(&buf.A0, &buf.A1)
+	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
+		(&(z).A0).Neg(&buf.A1)
+	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
+	z.A0.AddAssign(&buf.A0)
+	return z
+}
+
+// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+	// (z).A0 = ((x).A0 + (x).A1)/2
+	// (z).A1 = ((x).A1 - (x).A0)/2
+	buf := *(x)
+	(z).A0.Add(&buf.A0, &buf.A1)
+	(z).A1.Sub(&buf.A1, &buf.A0)
+	twoInv := fp.Element{
+		1730508156817200468,
+		9606178027640717313,
+		7150789853162776431,
+		7936136305760253186,
+		15245073033536294050,
+		1728177566264616342,
+	}
+	(z).A0.MulAssign(&twoInv)
+	(z).A1.MulAssign(&twoInv)
+	return z
+}
+
 // MulByElement multiplies an element in E2 by an element in fp
 func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 	var yCopy fp.Element
@@ -248,19 +265,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by -1
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	(out).Neg(in)
-	return out
-}
-
-// MulByNonResidueInv multiplies a fp.Element by -1^{-1}
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	// TODO this should be a no-op when out==in
-	(out).Set(in)
-	return out
 }
