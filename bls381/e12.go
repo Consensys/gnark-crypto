@@ -196,7 +196,7 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by as an Fp4 elmt, where y**2=1+u
+// squares an element a+by interpreted as an Fp4 elmt, where y**2=1+u
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)

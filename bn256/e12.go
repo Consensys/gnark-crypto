@@ -162,9 +162,8 @@ func (z *E12) Mul(x, y *E12) *E12 {
 
 // Square set z=x*x in E12 and return z
 func (z *E12) Square(x *E12) *E12 {
-	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	// or the complex method from fp2
-	// for now do it the dumb way
+	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf, see also https://eprint.iacr.org/2006/471.pdf
+
 	var b0, b1 E6
 
 	b0.Square(&x.C0)
@@ -196,7 +195,7 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by as an Fp4 elmt, where y**2=1+u
+// squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)

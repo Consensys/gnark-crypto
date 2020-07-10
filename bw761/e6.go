@@ -16,15 +16,12 @@
 
 package bw761
 
-// E6 is a degree-three finite field extension of fp2:
-// B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
-
+// E6 is a degree-three finite field extension of fp2
 type E6 struct {
 	B0, B1, B2 E2
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
@@ -101,26 +98,6 @@ func (z *E6) Sub(x, y *E6) *E6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
-	return z
-}
-
-// MulByGen Multiplies by v, root of X^3-0,1
-// TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *E6) MulByGen(x *E6) *E6 {
-	var result E6
-
-	result.B1 = x.B0
-	result.B2 = x.B1
-	{ // begin: inline result.B0.MulByNonResidue(&x.B2)
-		buf := (&x.B2).A0
-		{ // begin: inline MulByNonResidue(&(result.B0).A0, &(&x.B2).A1)
-			buf := *(&(&x.B2).A1)
-			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).Neg(&(result.B0).A0)
-		} // end: inline MulByNonResidue(&(result.B0).A0, &(&x.B2).A1)
-		(result.B0).A1 = buf
-	} // end: inline result.B0.MulByNonResidue(&x.B2)
-
-	z.Set(&result)
 	return z
 }
 
@@ -251,38 +228,6 @@ func (z *E6) MulByE2(x *E6, y *E2) *E6 {
 	return z
 }
 
-// MulByNotv2 multiplies x by y with &y.b2=0
-func (z *E6) MulByNotv2(x, y *E6) *E6 {
-	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3 E2
-	b0.Mul(&x.B0, &y.B0) // step 1
-	b1.Mul(&x.B1, &y.B1) // step 2
-	// step 3
-	b2.Add(&x.B1, &x.B2)
-	rb0.Mul(&b2, &y.B1).
-		SubAssign(&b1)
-	{ // begin: inline rb0.MulByNonResidue(&rb0)
-		buf := (&rb0).A0
-		{ // begin: inline MulByNonResidue(&(rb0).A0, &(&rb0).A1)
-			buf := *(&(&rb0).A1)
-			(&(rb0).A0).Double(&buf).Double(&(rb0).A0).Neg(&(rb0).A0)
-		} // end: inline MulByNonResidue(&(rb0).A0, &(&rb0).A1)
-		(rb0).A1 = buf
-	} // end: inline rb0.MulByNonResidue(&rb0)
-	rb0.AddAssign(&b0)
-	// step 4
-	b2.Add(&x.B0, &x.B1)
-	b3.Add(&y.B0, &y.B1)
-	z.B1.Mul(&b2, &b3).
-		SubAssign(&b0).
-		SubAssign(&b1)
-	// step 5
-	z.B2.Mul(&x.B2, &y.B0).
-		AddAssign(&b1)
-	z.B0 = rb0
-	return z
-}
-
 // Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
 
@@ -365,70 +310,31 @@ func (z *E6) SquareAssign() *E6 {
 	return z
 }
 
-// SquarE2 squares a E6
-func (z *E6) SquarE2(x *E6) *E6 {
-	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 E2
-	v0.Square(&x.B0)
-	v1.Square(&x.B1)
-	v2.Square(&x.B2)
-	v01.Add(&x.B0, &x.B1)
-	v01.Square(&v01)
-	v02.Add(&x.B0, &x.B2)
-	v02.Square(&v02)
-	v12.Add(&x.B1, &x.B2)
-	v12.Square(&v12)
-	z.B0.Sub(&v12, &v1).SubAssign(&v2)
-	{ // begin: inline z.B0.MulByNonResidue(&z.B0)
-		buf := (&z.B0).A0
-		{ // begin: inline MulByNonResidue(&(z.B0).A0, &(&z.B0).A1)
-			buf := *(&(&z.B0).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).Neg(&(z.B0).A0)
-		} // end: inline MulByNonResidue(&(z.B0).A0, &(&z.B0).A1)
-		(z.B0).A1 = buf
-	} // end: inline z.B0.MulByNonResidue(&z.B0)
-	z.B0.AddAssign(&v0)
-	{ // begin: inline z.B1.MulByNonResidue(&v2)
-		buf := (&v2).A0
-		{ // begin: inline MulByNonResidue(&(z.B1).A0, &(&v2).A1)
-			buf := *(&(&v2).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).Neg(&(z.B1).A0)
-		} // end: inline MulByNonResidue(&(z.B1).A0, &(&v2).A1)
-		(z.B1).A1 = buf
-	} // end: inline z.B1.MulByNonResidue(&v2)
-	z.B1.AddAssign(&v01).SubAssign(&v0).SubAssign(&v1)
-	z.B2.Add(&v02, &v1).SubAssign(&v0).SubAssign(&v2)
-	return z
-}
+// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+func (z *E6) CyclotomicSquare(x *E6) *E6 {
 
-// Square3 squares a E6
-func (z *E6) Square3(x *E6) *E6 {
-	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 E2
-	s0.Square(&x.B0)
-	s1.Mul(&x.B0, &x.B1).Double(&s1)
-	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
-	s3.Mul(&x.B1, &x.B2).Double(&s3)
-	s4.Square(&x.B2)
-	{ // begin: inline z.B0.MulByNonResidue(&s3)
-		buf := (&s3).A0
-		{ // begin: inline MulByNonResidue(&(z.B0).A0, &(&s3).A1)
-			buf := *(&(&s3).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).Neg(&(z.B0).A0)
-		} // end: inline MulByNonResidue(&(z.B0).A0, &(&s3).A1)
-		(z.B0).A1 = buf
-	} // end: inline z.B0.MulByNonResidue(&s3)
-	z.B0.AddAssign(&s0)
-	{ // begin: inline z.B1.MulByNonResidue(&s4)
-		buf := (&s4).A0
-		{ // begin: inline MulByNonResidue(&(z.B1).A0, &(&s4).A1)
-			buf := *(&(&s4).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).Neg(&(z.B1).A0)
-		} // end: inline MulByNonResidue(&(z.B1).A0, &(&s4).A1)
-		(z.B1).A1 = buf
-	} // end: inline z.B1.MulByNonResidue(&s4)
-	z.B1.AddAssign(&s1)
-	z.B2.Add(&s1, &s2).AddAssign(&s3).SubAssign(&s0).SubAssign(&s4)
+	var res, a E6
+	var tmp E2
+
+	// A
+	res.B0.Square(&x.B0)
+	a.B0.Conjugate(&x.B0)
+
+	// B
+	res.B2.A0.Set(&x.B1.A1)
+	res.B2.A1.MulByNonResidueInv(&x.B1.A0)
+	res.B2.Square(&res.B2).Double(&res.B2).Double(&res.B2).Neg(&res.B2)
+	a.B2.Conjugate(&x.B2)
+
+	// C
+	tmp.Square(&x.B2)
+	res.B1.A0.MulByNonResidue(&tmp.A1)
+	res.B1.A1.Set(&tmp.A0)
+	a.B1.A0.Neg(&x.B1.A0)
+	a.B1.A1.Set(&x.B1.A1)
+
+	z.Sub(&res, &a).Double(z).Add(z, &res)
+
 	return z
 }
 
@@ -486,26 +392,5 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B0.Mul(&c[0], &t[6]) // step 14
 	z.B1.Mul(&c[1], &t[6]) // step 15
 	z.B2.Mul(&c[2], &t[6]) // step 16
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (0,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	buf := (x).A0
-	{ // begin: inline MulByNonResidue(&(z).A0, &(x).A1)
-		buf := *(&(x).A1)
-		(&(z).A0).Double(&buf).Double(&(z).A0).Neg(&(z).A0)
-	} // end: inline MulByNonResidue(&(z).A0, &(x).A1)
-	(z).A1 = buf
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	buf := (x).A1
-	{ // begin: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-		// TODO not implemented
-	} // end: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-	(z).A0 = buf
 	return z
 }

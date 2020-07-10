@@ -13,7 +13,6 @@ type E6TestPoint struct {
 
 var E6TestPoints []E6TestPoint
 
-// TODO this method is the same everywhere. move it someplace central and call it "compare"
 func E6compare(t *testing.T, got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatal("\nexpect:\t", want, "\ngot:\t", got)
@@ -97,10 +96,6 @@ func TestE6FrobeniusCube(t *testing.T) {
 	E6check(t, (*E6).FrobeniusCubeBinary, 7)
 }
 
-func TestE6Expt(t *testing.T) {
-	E6check(t, (*E6).ExptBinary, 8)
-}
-
 func TestE6FinalExponentiation(t *testing.T) {
 	E6check(t, (*E6).FinalExponentiationBinary, 9)
 }
@@ -159,12 +154,6 @@ func BenchmarkE6FrobeniusCube(b *testing.B) {
 	}
 }
 
-func BenchmarkE6Expt(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.ExptBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
 func BenchmarkE6FinalExponentiation(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E6BenchOut.FinalExponentiationBinary(&E6BenchIn1, &E6BenchIn2)
@@ -203,17 +192,4 @@ func (z *E6) FrobeniusCubeBinary(x, y *E6) *E6 {
 // FinalExponentiationBinary a binary wrapper for FinalExponentiation
 func (z *E6) FinalExponentiationBinary(x, y *E6) *E6 {
 	return z.FinalExponentiation(x)
-}
-
-//-------------------------------------//
-// custom helpers for E6 methods
-//-------------------------------------//
-
-// ExptBinary a binary wrapper for Expt
-func (z *E6) ExptBinary(x, y *E6) *E6 {
-	z.Expt(x)
-
-	// if tAbsVal is negative then need to undo the conjugation in order to match the test point
-
-	return z
 }

@@ -113,14 +113,6 @@ func TestE12FrobeniusCube(t *testing.T) {
 	E12check(t, (*E12).FrobeniusCubeBinary, 14)
 }
 
-func TestE12Expt(t *testing.T) {
-	E12check(t, (*E12).ExptBinary, 15)
-}
-
-func TestE12FinalExponentiation(t *testing.T) {
-	E12check(t, (*E12).FinalExponentiationBinary, 16)
-}
-
 //--------------------//
 //     benches		  //
 //--------------------//

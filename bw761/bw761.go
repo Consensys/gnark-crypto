@@ -11,6 +11,7 @@ import (
 
 // E: y**2=x**3-1
 // Etwist: y**2 = x**3+4
+// field ext modulus: x**6+4
 
 var bw761 Curve
 var initOnce sync.Once

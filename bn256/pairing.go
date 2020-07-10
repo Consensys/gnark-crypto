@@ -272,7 +272,6 @@ func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 
 	l := bits.Len64(tAbsVal) - 2
 	for i := l; i >= 0; i-- {
-		//result.Square(&result)
 		result.CyclotomicSquare(&result)
 		if tAbsVal&(1<<uint(i)) != 0 {
 			result.Mul(&result, x)

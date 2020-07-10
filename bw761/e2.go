@@ -20,9 +20,7 @@ import (
 	"github.com/consensys/gurvy/bw761/fp"
 )
 
-// E2 is a degree-two finite field extension of fp.Element:
-// A0 + A1u where u^2 == -4 is a quadratic nonresidue in fp
-
+// E2 is a degree-two finite field extension of fp.Element
 type E2 struct {
 	A0, A1 fp.Element
 }
@@ -159,7 +157,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	MulByNonResidue(&z.A0, &bd)
+	z.A0.MulByNonResidue(&bd)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
 	return z
 }
@@ -182,7 +180,7 @@ func (z *E2) MulAssign(x *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	MulByNonResidue(&z.A0, &bd)
+	z.A0.MulByNonResidue(&bd)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
 	return z
 }
@@ -197,24 +195,24 @@ func (z *E2) Square(x *E2) *E2 {
 	// Then z.A1: 2[1]
 	var ab, aplusb, ababetab fp.Element
 
-	MulByNonResidue(&ababetab, &x.A1)
+	//MulByNonResidue(&ababetab, &x.A1)
+	ababetab.MulByNonResidue(&x.A1)
 
-	ababetab.AddAssign(&x.A0)                  // a+(-4)*b
-	aplusb.Add(&x.A0, &x.A1)                   // a+b
-	ababetab.MulAssign(&aplusb)                // [2]: (a+b)*(a+(-4)*b)
-	ab.Mul(&x.A0, &x.A1)                       // [1]: ab
-	z.A1.Double(&ab)                           // z.A1: 2*[1]
-	MulByNonResidue(&z.A0, &ab).AddAssign(&ab) // (-4+1)*ab
-	z.A0.Sub(&ababetab, &z.A0)                 // z.A0: [2] - (-4+1)[1]
+	ababetab.AddAssign(&x.A0)   // a+(-4)*b
+	aplusb.Add(&x.A0, &x.A1)    // a+b
+	ababetab.MulAssign(&aplusb) // [2]: (a+b)*(a+(-4)*b)
+	ab.Mul(&x.A0, &x.A1)        // [1]: ab
+	z.A1.Double(&ab)            // z.A1: 2*[1]
+	z.A0.MulByNonResidue(&ab).AddAssign(&ab)
+	z.A0.Sub(&ababetab, &z.A0) // z.A0: [2] - (-4+1)[1]
 
 	return z
 }
 
-// MulByNonSquare multiplies an element by (0,1)
-// TODO deprecate in favor of inlined MulByNonResidue in fp6 package
-func (z *E2) MulByNonSquare(x *E2) *E2 {
+// MulByNonResidue multiplies an element by (0,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
 	a := x.A0
-	MulByNonResidue(&z.A0, &x.A1)
+	z.A0.MulByNonResidue(&x.A1)
 	z.A1 = a
 	return z
 }
@@ -229,7 +227,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 	t0.Square(&a0) // step 1
 	t1.Square(&a1) // step 2
-	MulByNonResidue(&t1beta, &t1)
+	t1beta.MulByNonResidue(&t1)
 	t0.SubAssign(&t1beta)        // step 3
 	t1.Inverse(&t0)              // step 4
 	z.A0.Mul(&a0, &t1)           // step 5
@@ -252,19 +250,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by -4
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	buf := *(in)
-	(out).Double(&buf).Double(out).Neg(out)
-	return out
-}
-
-// MulByNonResidueInv multiplies a fp.Element by -4^{-1}
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidueInv(out, in *fp.Element) *fp.Element {
-	// TODO not implemented
-	return out
 }
