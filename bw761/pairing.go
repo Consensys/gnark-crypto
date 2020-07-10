@@ -350,14 +350,64 @@ type lineEvalRes struct {
 	r2 G2CoordType // c1.b2
 }
 
+// mulAssign finish the work of lineEval by applying the twist isomorphism to l, obtaining a PairingResult p
+// then set z to z*p and return z
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	var a, b, c PairingResult
-	a.MulByVMinusThree(z, &l.r1)
-	b.MulByVminusTwo(z, &l.r0)
-	c.MulByVminusFive(z, &l.r2)
-	z.Add(&a, &b).Add(z, &c)
 
+	fourinv := G2CoordType{ // (-4)^(-1)
+		8571757465769615091,
+		6221412002326125864,
+		16781361031322833010,
+		18148962537424854844,
+		6497335359600054623,
+		17630955688667215145,
+		15638647242705587201,
+		830917065158682257,
+		6848922060227959954,
+		4142027113657578586,
+		12050453106507568375,
+		55644342162350184,
+	}
+
+	// in what follows arithmetic is in Fp6(v) where v^3=u, v^6=-4
+
+	// set a to z * (l.r1 * v^-3) where v^(-3) = u^(-1) = (-4)^(-1)*u
+	{
+		var tmp E2 // tmp = l.r1 * (-4)^(-1)*u
+		tmp.A0.SetZero()
+		tmp.A1.Mul(&l.r1, &fourinv)
+		a.MulByE2(z, &tmp)
+	}
+
+	// set b to z * (l.r0 * v^-2) where v^(-2) = (-4)^(-1)*u*v
+	{
+		var tmp E2 // tmp = l.r0 * (-4)^(-1)*u
+		tmp.A0.SetZero()
+		tmp.A1.Mul(&l.r0, &fourinv)
+
+		var a E2
+		a.MulByElement(&z.B2, &l.r0)
+		b.B2.Mul(&z.B1, &tmp)
+		b.B1.Mul(&z.B0, &tmp)
+		b.B0.Set(&a)
+	}
+
+	// set c to z * (l.r2 * v^-5) (Fp6(v) where v^3=u, v^6=-4, so v^(-5) = (-4)^(-1)*v)
+	{
+		var tmp E2 // tmp = l.r2 * (-4)^(-1)*u
+		tmp.A0.SetZero()
+		tmp.A1.Mul(&l.r2, &fourinv)
+
+		var a E2
+		a.Mul(&z.B2, &tmp)
+		c.B2.MulByElement(&z.B1, &tmp.A1)
+		c.B1.MulByElement(&z.B0, &tmp.A1)
+		c.B0.Set(&a)
+	}
+
+	z.Add(&a, &b).Add(z, &c)
 	return z
 }
 
@@ -408,61 +458,5 @@ func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 	result.Mul(&result, x)
 
 	z.Set(&result)
-	return z
-}
-
-// MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
-func (z *PairingResult) MulByVMinusThree(x *PairingResult, y *G2CoordType) *PairingResult {
-
-	var fourinv G2CoordType // (-4)**-1
-	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
-
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	z.MulByE2(x, &tmp)
-
-	return z
-}
-
-// MulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
-func (z *PairingResult) MulByVminusTwo(x *PairingResult, y *G2CoordType) *PairingResult {
-
-	var fourinv G2CoordType // (-4)**-1
-	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
-
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	var a E2
-	a.MulByElement(&x.B2, y)
-	z.B2.Mul(&x.B1, &tmp)
-	z.B1.Mul(&x.B0, &tmp)
-	z.B0.Set(&a)
-
-	return z
-}
-
-// MulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
-func (z *PairingResult) MulByVminusFive(x *PairingResult, y *G2CoordType) *PairingResult {
-
-	var fourinv G2CoordType // (-4)**-1
-	fourinv.SetString("5168587788236799404547592261706743156859751684402112582135342620157217566682618802065762387467058765730648425815339960088371319340415685819512133774343976199213703824533881637779407723567697596963924775322476834632073684839301224")
-
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	var a E2
-	a.Mul(&x.B2, &tmp)
-	z.B2.MulByElement(&x.B1, &tmp.A1)
-	z.B1.MulByElement(&x.B0, &tmp.A1)
-	z.B0.Set(&a)
-
 	return z
 }

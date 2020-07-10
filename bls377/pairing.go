@@ -213,12 +213,84 @@ type lineEvalRes struct {
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c E12
+	var a, b, c PairingResult
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
+	return z
+}
+
+// MulByVW set z to x*(y*v*w) and return z
+// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
+func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
+
+	{ // begin inline: set yNR to (y) * (0,1)
+		buf := (y).A0
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
+			buf := *(&(y).A1)
+			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
+		(yNR).A1 = buf
+	} // end inline: set yNR to (y) * (0,1)
+	result.C0.B0.Mul(&x.C1.B1, &yNR)
+	result.C0.B1.Mul(&x.C1.B2, &yNR)
+	result.C0.B2.Mul(&x.C1.B0, y)
+	result.C1.B0.Mul(&x.C0.B2, &yNR)
+	result.C1.B1.Mul(&x.C0.B0, y)
+	result.C1.B2.Mul(&x.C0.B1, y)
+	z.Set(&result)
+	return z
+}
+
+// MulByV set z to x*(y*v) and return z
+// here y*v means the PairingResult element with C0.B1=y and all other components 0
+func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
+
+	{ // begin inline: set yNR to (y) * (0,1)
+		buf := (y).A0
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
+			buf := *(&(y).A1)
+			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
+		(yNR).A1 = buf
+	} // end inline: set yNR to (y) * (0,1)
+	result.C0.B0.Mul(&x.C0.B2, &yNR)
+	result.C0.B1.Mul(&x.C0.B0, y)
+	result.C0.B2.Mul(&x.C0.B1, y)
+	result.C1.B0.Mul(&x.C1.B2, &yNR)
+	result.C1.B1.Mul(&x.C1.B0, y)
+	result.C1.B2.Mul(&x.C1.B1, y)
+	z.Set(&result)
+	return z
+}
+
+// MulByV2W set z to x*(y*v^2*w) and return z
+// here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
+func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNR G2CoordType
+
+	{ // begin inline: set yNR to (y) * (0,1)
+		buf := (y).A0
+		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
+			buf := *(&(y).A1)
+			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
+		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
+		(yNR).A1 = buf
+	} // end inline: set yNR to (y) * (0,1)
+	result.C0.B0.Mul(&x.C1.B0, &yNR)
+	result.C0.B1.Mul(&x.C1.B1, &yNR)
+	result.C0.B2.Mul(&x.C1.B2, &yNR)
+	result.C1.B0.Mul(&x.C0.B1, &yNR)
+	result.C1.B1.Mul(&x.C0.B2, &yNR)
+	result.C1.B2.Mul(&x.C0.B0, y)
+	z.Set(&result)
 	return z
 }
 

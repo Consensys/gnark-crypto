@@ -16,10 +16,6 @@
 
 package bls377
 
-import (
-	"github.com/consensys/gurvy/bls377/fp"
-)
-
 // E12 is a degree-two finite field extension of fp6:
 // C0 + C1w where w^3-v is irrep in fp6
 
@@ -135,20 +131,20 @@ func (z *E12) Mul(x, y *E12) *E12 {
 	ySum.Add(&y.C0, &y.C1)
 
 	// step 3
-	{ // begin: inline z.C0.MulByNonResidue(&t1)
+	{ // begin inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
 		var result E6
 		result.B1.Set(&(&t1).B0)
 		result.B2.Set(&(&t1).B1)
-		{ // begin: inline result.B0.MulByNonResidue(&(&t1).B2)
+		{ // begin inline: set result.B0 to (&(&t1).B2) * (0,1)
 			buf := (&(&t1).B2).A0
-			{ // begin: inline MulByNonResidue(&(result.B0).A0, &(&(&t1).B2).A1)
+			{ // begin inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
 				buf := *(&(&(&t1).B2).A1)
 				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end: inline MulByNonResidue(&(result.B0).A0, &(&(&t1).B2).A1)
+			} // end inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
 			(result.B0).A1 = buf
-		} // end: inline result.B0.MulByNonResidue(&(&t1).B2)
+		} // end inline: set result.B0 to (&(&t1).B2) * (0,1)
 		z.C0.Set(&result)
-	} // end: inline z.C0.MulByNonResidue(&t1)
+	} // end inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
 	z.C0.Add(&z.C0, &t0)
 
 	// step 4
@@ -168,20 +164,20 @@ func (z *E12) Square(x *E12) *E12 {
 
 	b0.Square(&x.C0)
 	b1.Square(&x.C1)
-	{ // begin: inline b1.MulByNonResidue(&b1)
+	{ // begin inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
 		var result E6
 		result.B1.Set(&(&b1).B0)
 		result.B2.Set(&(&b1).B1)
-		{ // begin: inline result.B0.MulByNonResidue(&(&b1).B2)
+		{ // begin inline: set result.B0 to (&(&b1).B2) * (0,1)
 			buf := (&(&b1).B2).A0
-			{ // begin: inline MulByNonResidue(&(result.B0).A0, &(&(&b1).B2).A1)
+			{ // begin inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
 				buf := *(&(&(&b1).B2).A1)
 				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end: inline MulByNonResidue(&(result.B0).A0, &(&(&b1).B2).A1)
+			} // end inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
 			(result.B0).A1 = buf
-		} // end: inline result.B0.MulByNonResidue(&(&b1).B2)
+		} // end inline: set result.B0 to (&(&b1).B2) * (0,1)
 		b1.Set(&result)
-	} // end: inline b1.MulByNonResidue(&b1)
+	} // end inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
 	b1.Add(&b0, &b1)
 
 	z.C1.Mul(&x.C0, &x.C1).Double(&z.C1)
@@ -200,20 +196,20 @@ func (z *E12) Inverse(x *E12) *E12 {
 	t[1].Square(&x.C1) // step 2
 	{                  // step 3
 		var buf E6
-		{ // begin: inline buf.MulByNonResidue(&t[1])
+		{ // begin inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
 			var result E6
 			result.B1.Set(&(&t[1]).B0)
 			result.B2.Set(&(&t[1]).B1)
-			{ // begin: inline result.B0.MulByNonResidue(&(&t[1]).B2)
+			{ // begin inline: set result.B0 to (&(&t[1]).B2) * (0,1)
 				buf := (&(&t[1]).B2).A0
-				{ // begin: inline MulByNonResidue(&(result.B0).A0, &(&(&t[1]).B2).A1)
+				{ // begin inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
 					buf := *(&(&(&t[1]).B2).A1)
 					(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-				} // end: inline MulByNonResidue(&(result.B0).A0, &(&(&t[1]).B2).A1)
+				} // end inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
 				(result.B0).A1 = buf
-			} // end: inline result.B0.MulByNonResidue(&(&t[1]).B2)
+			} // end inline: set result.B0 to (&(&t[1]).B2) * (0,1)
 			buf.Set(&result)
-		} // end: inline buf.MulByNonResidue(&t[1])
+		} // end inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
 		t[0].Sub(&t[0], &buf)
 	}
 	t[1].Inverse(&t[0])               // step 4
@@ -233,196 +229,5 @@ func (z *E12) InverseUnitary(x *E12) *E12 {
 func (z *E12) Conjugate(x *E12) *E12 {
 	z.Set(x)
 	z.C1.Neg(&z.C1)
-	return z
-}
-
-// MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the E12 element with C1.B1=y and all other components 0
-func (z *E12) MulByVW(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
-
-	{ // begin: inline yNR.MulByNonResidue(y)
-		buf := (y).A0
-		{ // begin: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-		(yNR).A1 = buf
-	} // end: inline yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B1, &yNR)
-	result.C0.B1.Mul(&x.C1.B2, &yNR)
-	result.C0.B2.Mul(&x.C1.B0, y)
-	result.C1.B0.Mul(&x.C0.B2, &yNR)
-	result.C1.B1.Mul(&x.C0.B0, y)
-	result.C1.B2.Mul(&x.C0.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// MulByV set z to x*(y*v) and return z
-// here y*v means the E12 element with C0.B1=y and all other components 0
-func (z *E12) MulByV(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
-
-	{ // begin: inline yNR.MulByNonResidue(y)
-		buf := (y).A0
-		{ // begin: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-		(yNR).A1 = buf
-	} // end: inline yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C0.B2, &yNR)
-	result.C0.B1.Mul(&x.C0.B0, y)
-	result.C0.B2.Mul(&x.C0.B1, y)
-	result.C1.B0.Mul(&x.C1.B2, &yNR)
-	result.C1.B1.Mul(&x.C1.B0, y)
-	result.C1.B2.Mul(&x.C1.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the E12 element with C1.B2=y and all other components 0
-func (z *E12) MulByV2W(x *E12, y *E2) *E12 {
-	var result E12
-	var yNR E2
-
-	{ // begin: inline yNR.MulByNonResidue(y)
-		buf := (y).A0
-		{ // begin: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end: inline MulByNonResidue(&(yNR).A0, &(y).A1)
-		(yNR).A1 = buf
-	} // end: inline yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B0, &yNR)
-	result.C0.B1.Mul(&x.C1.B1, &yNR)
-	result.C0.B2.Mul(&x.C1.B2, &yNR)
-	result.C1.B0.Mul(&x.C0.B1, &yNR)
-	result.C1.B1.Mul(&x.C0.B2, &yNR)
-	result.C1.B2.Mul(&x.C0.B0, y)
-	z.Set(&result)
-	return z
-}
-
-// MulByV2NRInv set z to x*(y*v^2*(0,1)^{-1}) and return z
-// here y*v^2 means the E12 element with C0.B2=y and all other components 0
-func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
-
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-			nrinv := fp.Element{
-				330620507644336508,
-				9878087358076053079,
-				11461392860540703536,
-				6973035786057818995,
-				8846909097162646007,
-				104838758629667239,
-			}
-			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C0.B1, y)
-	result.C0.B1.Mul(&x.C0.B2, y)
-	result.C0.B2.Mul(&x.C0.B0, &yNRInv)
-
-	result.C1.B0.Mul(&x.C1.B1, y)
-	result.C1.B1.Mul(&x.C1.B2, y)
-	result.C1.B2.Mul(&x.C1.B0, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// MulByVWNRInv set z to x*(y*v*w*(0,1)^{-1}) and return z
-// here y*v*w means the E12 element with C1.B1=y and all other components 0
-func (z *E12) MulByVWNRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
-
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-			nrinv := fp.Element{
-				330620507644336508,
-				9878087358076053079,
-				11461392860540703536,
-				6973035786057818995,
-				8846909097162646007,
-				104838758629667239,
-			}
-			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C1.B1, y)
-	result.C0.B1.Mul(&x.C1.B2, y)
-	result.C0.B2.Mul(&x.C1.B0, &yNRInv)
-
-	result.C1.B0.Mul(&x.C0.B2, y)
-	result.C1.B1.Mul(&x.C0.B0, &yNRInv)
-	result.C1.B2.Mul(&x.C0.B1, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// MulByWNRInv set z to x*(y*w*(0,1)^{-1}) and return z
-// here y*w means the E12 element with C1.B0=y and all other components 0
-func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
-	var result E12
-	var yNRInv E2
-
-	{ // begin: inline yNRInv.MulByNonResidueInv(y)
-		buf := (y).A1
-		{ // begin: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-			nrinv := fp.Element{
-				330620507644336508,
-				9878087358076053079,
-				11461392860540703536,
-				6973035786057818995,
-				8846909097162646007,
-				104838758629667239,
-			}
-			(&(yNRInv).A1).Mul(&(y).A0, &nrinv)
-		} // end: inline MulByNonResidueInv(&(yNRInv).A1, &(y).A0)
-		(yNRInv).A0 = buf
-	} // end: inline yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C1.B2, y)
-	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
-	result.C0.B2.Mul(&x.C1.B1, &yNRInv)
-
-	result.C1.B0.Mul(&x.C0.B0, &yNRInv)
-	result.C1.B1.Mul(&x.C0.B1, &yNRInv)
-	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// MulByNonResidue multiplies a E6 by ((0,0),(1,0),(0,0))
-func (z *E6) MulByNonResidue(x *E6) *E6 {
-	var result E6
-	result.B1.Set(&(x).B0)
-	result.B2.Set(&(x).B1)
-	{ // begin: inline result.B0.MulByNonResidue(&(x).B2)
-		buf := (&(x).B2).A0
-		{ // begin: inline MulByNonResidue(&(result.B0).A0, &(&(x).B2).A1)
-			buf := *(&(&(x).B2).A1)
-			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-		} // end: inline MulByNonResidue(&(result.B0).A0, &(&(x).B2).A1)
-		(result.B0).A1 = buf
-	} // end: inline result.B0.MulByNonResidue(&(x).B2)
-	z.Set(&result)
 	return z
 }

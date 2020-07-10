@@ -16,7 +16,10 @@
 
 package bls381
 
-import "math/bits"
+import (
+	"github.com/consensys/gurvy/bls381/fp"
+	"math/bits"
+)
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
@@ -214,12 +217,91 @@ type lineEvalRes struct {
 
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
-	var a, b, c E12
+	var a, b, c PairingResult
 	a.MulByVWNRInv(z, &l.r1)
 	b.MulByV2NRInv(z, &l.r0)
 	c.MulByWNRInv(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
+	return z
+}
+
+// MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
+// here y*v^2 means the PairingResult element with C0.B2=y and all other components 0
+func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
+	yNRInv.mulByNonResidueInv(y)
+
+	result.C0.B0.Mul(&x.C0.B1, y)
+	result.C0.B1.Mul(&x.C0.B2, y)
+	result.C0.B2.Mul(&x.C0.B0, &yNRInv)
+
+	result.C1.B0.Mul(&x.C1.B1, y)
+	result.C1.B1.Mul(&x.C1.B2, y)
+	result.C1.B2.Mul(&x.C1.B0, &yNRInv)
+
+	z.Set(&result)
+	return z
+}
+
+// MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
+// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
+func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
+	yNRInv.mulByNonResidueInv(y)
+
+	result.C0.B0.Mul(&x.C1.B1, y)
+	result.C0.B1.Mul(&x.C1.B2, y)
+	result.C0.B2.Mul(&x.C1.B0, &yNRInv)
+
+	result.C1.B0.Mul(&x.C0.B2, y)
+	result.C1.B1.Mul(&x.C0.B0, &yNRInv)
+	result.C1.B2.Mul(&x.C0.B1, &yNRInv)
+
+	z.Set(&result)
+	return z
+}
+
+// MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
+// here y*w means the PairingResult element with C1.B0=y and all other components 0
+func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+	var result PairingResult
+	var yNRInv G2CoordType
+	yNRInv.mulByNonResidueInv(y)
+
+	result.C0.B0.Mul(&x.C1.B2, y)
+	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
+	result.C0.B2.Mul(&x.C1.B1, &yNRInv)
+
+	result.C1.B0.Mul(&x.C0.B0, &yNRInv)
+	result.C1.B1.Mul(&x.C0.B1, &yNRInv)
+	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
+
+	z.Set(&result)
+	return z
+}
+
+// mulByNonResidueInv set z to x * (1,1)^{-1} and return z
+func (z *G2CoordType) mulByNonResidueInv(x *G2CoordType) *G2CoordType {
+	{ // begin inline: set z to x * (1,1)^{-1}
+		// z.A0 = (x.A0 + x.A1)/2
+		// z.A1 = (x.A1 - x.A0)/2
+		buf := *x
+		z.A0.Add(&buf.A0, &buf.A1)
+		z.A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		z.A0.MulAssign(&twoInv)
+		z.A1.MulAssign(&twoInv)
+	} // end inline: set z to x * (1,1)^{-1}
 	return z
 }
 

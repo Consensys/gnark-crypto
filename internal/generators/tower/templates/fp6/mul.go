@@ -58,6 +58,7 @@ func (z *{{.Fp6Name}}) MulBy{{capitalize .Fp2Name}}(x *{{.Fp6Name}}, y *{{.Fp2Na
 	return z
 }
 
+{{- /* MulByNotv2 is no longer used
 // MulByNotv2 multiplies x by y with &y.b2=0
 func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
@@ -82,6 +83,7 @@ func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0 = rb0
 	return z
 }
+*/}}
 
 // Square sets z to the {{.Fp6Name}}-product of x,x, returns z
 func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
@@ -189,16 +191,6 @@ func (z *{{.Fp6Name}}) Inverse(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0.Mul(&c[0], &t[6]) // step 14
 	z.B1.Mul(&c[1], &t[6]) // step 15
 	z.B2.Mul(&c[2], &t[6]) // step 16
-	return z
-}
-// MulByNonResidue multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})
-func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2MulByNonResidueBody" dict "all" . "out" "z" "in" "x" }}
-	return z
-}
-// MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
-func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2MulByNonResidueInvBody" dict "all" . "out" "z" "in" "x" }}
 	return z
 }
 `

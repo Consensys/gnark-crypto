@@ -8,7 +8,6 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gurvy/internal/generators/curve"
 	"github.com/consensys/gurvy/internal/generators/pairing"
-	"github.com/consensys/gurvy/internal/generators/tower"
 )
 
 // TODO move all this curve data to config file(s)?
@@ -118,21 +117,6 @@ func main() {
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
 				// fmt.Fprintln(os.Stderr, err)
-				os.Exit(-1)
-			}
-		}
-
-		// generate tower generator (uses curve.C, primefield)
-		{
-			src := []string{
-				tower.TwoInvTemplate,
-			}
-			if err := bavard.Generate("tower/generated-code.go", src, d,
-				bavard.Package("tower"),
-				bavard.Apache2("ConsenSys AG", 2020),
-				bavard.GeneratedBy("gurvy/internal/generators"),
-			); err != nil {
-				fmt.Fprintln(os.Stderr, err)
 				os.Exit(-1)
 			}
 		}
