@@ -20,9 +20,7 @@ import (
 	"github.com/consensys/gurvy/bw761/fp"
 )
 
-// E2 is a degree-two finite field extension of fp.Element:
-// A0 + A1u where u^2 == -4 is a quadratic nonresidue in fp
-
+// E2 is a degree-two finite field extension of fp.Element
 type E2 struct {
 	A0, A1 fp.Element
 }
@@ -159,10 +157,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	{                               // begin inline: set &z.A0 to (&bd) * (-4)
-		buf := *(&bd)
-		(&z.A0).Double(&buf).Double(&z.A0).Neg(&z.A0)
-	} // end inline: set &z.A0 to (&bd) * (-4)
+	z.A0.MulByNonResidue(&bd)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
 	return z
 }
@@ -185,10 +180,7 @@ func (z *E2) MulAssign(x *E2) *E2 {
 	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
 	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
 	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	{                               // begin inline: set &z.A0 to (&bd) * (-4)
-		buf := *(&bd)
-		(&z.A0).Double(&buf).Double(&z.A0).Neg(&z.A0)
-	} // end inline: set &z.A0 to (&bd) * (-4)
+	z.A0.MulByNonResidue(&bd)
 	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
 	return z
 }
@@ -203,23 +195,25 @@ func (z *E2) Square(x *E2) *E2 {
 	// Then z.A1: 2[1]
 	var ab, aplusb, ababetab fp.Element
 
-	{ // begin inline: set &ababetab to (&x.A1) * (-4)
-		buf := *(&x.A1)
-		(&ababetab).Double(&buf).Double(&ababetab).Neg(&ababetab)
-	} // end inline: set &ababetab to (&x.A1) * (-4)
+	//MulByNonResidue(&ababetab, &x.A1)
+	ababetab.MulByNonResidue(&x.A1)
 
 	ababetab.AddAssign(&x.A0)   // a+(-4)*b
 	aplusb.Add(&x.A0, &x.A1)    // a+b
 	ababetab.MulAssign(&aplusb) // [2]: (a+b)*(a+(-4)*b)
 	ab.Mul(&x.A0, &x.A1)        // [1]: ab
 	z.A1.Double(&ab)            // z.A1: 2*[1]
-	{                           // begin inline: set &z.A0 to (&ab) * (-4)
-		buf := *(&ab)
-		(&z.A0).Double(&buf).Double(&z.A0).Neg(&z.A0)
-	} // end inline: set &z.A0 to (&ab) * (-4)
-	z.A0.AddAssign(&ab)        // (-4+1)*ab
+	z.A0.MulByNonResidue(&ab).AddAssign(&ab)
 	z.A0.Sub(&ababetab, &z.A0) // z.A0: [2] - (-4+1)[1]
 
+	return z
+}
+
+// MulByNonResidue multiplies an element by (0,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	a := x.A0
+	z.A0.MulByNonResidue(&x.A1)
+	z.A1 = a
 	return z
 }
 
@@ -233,10 +227,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 	t0.Square(&a0) // step 1
 	t1.Square(&a1) // step 2
-	{              // begin inline: set &t1beta to (&t1) * (-4)
-		buf := *(&t1)
-		(&t1beta).Double(&buf).Double(&t1beta).Neg(&t1beta)
-	} // end inline: set &t1beta to (&t1) * (-4)
+	t1beta.MulByNonResidue(&t1)
 	t0.SubAssign(&t1beta)        // step 3
 	t1.Inverse(&t0)              // step 4
 	z.A0.Mul(&a0, &t1)           // step 5

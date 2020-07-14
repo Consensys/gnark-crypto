@@ -24,7 +24,6 @@ type E6 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
@@ -101,26 +100,6 @@ func (z *E6) Sub(x, y *E6) *E6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
-	return z
-}
-
-// MulByGen Multiplies by v, root of X^3-0,1
-// TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *E6) MulByGen(x *E6) *E6 {
-	var result E6
-
-	result.B1 = x.B0
-	result.B2 = x.B1
-	{ // begin inline: set result.B0 to (&x.B2) * (0,1)
-		buf := (&x.B2).A0
-		{ // begin inline: set &(result.B0).A0 to (&(&x.B2).A1) * (5)
-			buf := *(&(&x.B2).A1)
-			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-		} // end inline: set &(result.B0).A0 to (&(&x.B2).A1) * (5)
-		(result.B0).A1 = buf
-	} // end inline: set result.B0 to (&x.B2) * (0,1)
-
-	z.Set(&result)
 	return z
 }
 
@@ -241,16 +220,6 @@ func (z *E6) MulAssign(x *E6) *E6 {
 	return z
 }
 
-// MulByE2 multiplies x by an elements of E2
-func (z *E6) MulByE2(x *E6, y *E2) *E6 {
-	var yCopy E2
-	yCopy.Set(y)
-	z.B0.Mul(&x.B0, &yCopy)
-	z.B1.Mul(&x.B1, &yCopy)
-	z.B2.Mul(&x.B2, &yCopy)
-	return z
-}
-
 // Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
 
@@ -330,73 +299,6 @@ func (z *E6) SquareAssign() *E6 {
 		AddAssign(&b4).
 		SubAssign(&b2)
 	z.B1 = b0
-	return z
-}
-
-// SquarE2 squares a E6
-func (z *E6) SquarE2(x *E6) *E6 {
-	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 E2
-	v0.Square(&x.B0)
-	v1.Square(&x.B1)
-	v2.Square(&x.B2)
-	v01.Add(&x.B0, &x.B1)
-	v01.Square(&v01)
-	v02.Add(&x.B0, &x.B2)
-	v02.Square(&v02)
-	v12.Add(&x.B1, &x.B2)
-	v12.Square(&v12)
-	z.B0.Sub(&v12, &v1).SubAssign(&v2)
-	{ // begin inline: set z.B0 to (&z.B0) * (0,1)
-		buf := (&z.B0).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&z.B0).A1) * (5)
-			buf := *(&(&z.B0).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).AddAssign(&buf)
-		} // end inline: set &(z.B0).A0 to (&(&z.B0).A1) * (5)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&z.B0) * (0,1)
-	z.B0.AddAssign(&v0)
-	{ // begin inline: set z.B1 to (&v2) * (0,1)
-		buf := (&v2).A0
-		{ // begin inline: set &(z.B1).A0 to (&(&v2).A1) * (5)
-			buf := *(&(&v2).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).AddAssign(&buf)
-		} // end inline: set &(z.B1).A0 to (&(&v2).A1) * (5)
-		(z.B1).A1 = buf
-	} // end inline: set z.B1 to (&v2) * (0,1)
-	z.B1.AddAssign(&v01).SubAssign(&v0).SubAssign(&v1)
-	z.B2.Add(&v02, &v1).SubAssign(&v0).SubAssign(&v2)
-	return z
-}
-
-// Square3 squares a E6
-func (z *E6) Square3(x *E6) *E6 {
-	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 E2
-	s0.Square(&x.B0)
-	s1.Mul(&x.B0, &x.B1).Double(&s1)
-	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
-	s3.Mul(&x.B1, &x.B2).Double(&s3)
-	s4.Square(&x.B2)
-	{ // begin inline: set z.B0 to (&s3) * (0,1)
-		buf := (&s3).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&s3).A1) * (5)
-			buf := *(&(&s3).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).AddAssign(&buf)
-		} // end inline: set &(z.B0).A0 to (&(&s3).A1) * (5)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&s3) * (0,1)
-	z.B0.AddAssign(&s0)
-	{ // begin inline: set z.B1 to (&s4) * (0,1)
-		buf := (&s4).A0
-		{ // begin inline: set &(z.B1).A0 to (&(&s4).A1) * (5)
-			buf := *(&(&s4).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).AddAssign(&buf)
-		} // end inline: set &(z.B1).A0 to (&(&s4).A1) * (5)
-		(z.B1).A1 = buf
-	} // end inline: set z.B1 to (&s4) * (0,1)
-	z.B1.AddAssign(&s1)
-	z.B2.Add(&s1, &s2).AddAssign(&s3).SubAssign(&s0).SubAssign(&s4)
 	return z
 }
 

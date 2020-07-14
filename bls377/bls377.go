@@ -11,7 +11,7 @@ import (
 
 // generate code for field tower, curve groups
 // add -testpoints to generate test points using sage
-//go:generate go run ../internal/generator.go -out . -package bls377 -t 9586122913090633729 -p 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177 -r 8444461749428370424248824938781546531375899335154063827935233455917409239041 -fp2 5 -fp6 0,1
+// TODO go:generate go run ../internal/generator.go -out . -package bls377 -t 9586122913090633729 -p 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177 -r 8444461749428370424248824938781546531375899335154063827935233455917409239041 -fp2 5 -fp6 0,1
 
 // E: y**2=x**3+1
 // Etwist: y**2 = x**3+u**-1
@@ -85,12 +85,12 @@ func initBLS377() {
 	// precomputed values for ScalarMulByGen
 	bls377.tGenG1[0].Set(&bls377.g1Gen)
 	for j := 1; j < len(bls377.tGenG1)-1; j = j + 2 {
-		bls377.tGenG1[j].Set(&bls377.tGenG1[j/2]).Double()
-		bls377.tGenG1[j+1].Set(&bls377.tGenG1[(j+1)/2]).Add(&bls377, &bls377.tGenG1[j/2])
+		bls377.tGenG1[j].Set(&bls377.tGenG1[j/2]).DoubleAssign()
+		bls377.tGenG1[j+1].Set(&bls377.tGenG1[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG1[j/2])
 	}
 	bls377.tGenG2[0].Set(&bls377.g2Gen)
 	for j := 1; j < len(bls377.tGenG2)-1; j = j + 2 {
-		bls377.tGenG2[j].Set(&bls377.tGenG2[j/2]).Double()
-		bls377.tGenG2[j+1].Set(&bls377.tGenG2[(j+1)/2]).Add(&bls377, &bls377.tGenG2[j/2])
+		bls377.tGenG2[j].Set(&bls377.tGenG2[j/2]).DoubleAssign()
+		bls377.tGenG2[j+1].Set(&bls377.tGenG2[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG2[j/2])
 	}
 }

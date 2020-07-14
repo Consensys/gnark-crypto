@@ -1,6 +1,48 @@
 package gpoint
 
 const ScalarMul = `
+
+// doubleandadd algo for exponentiation
+func (p *{{.PName}}Jac) _doubleandadd(curve *Curve, a *{{.PName}}Affine, s fr.Element) *{{.PName}}Jac {
+
+	p.FromAffine(a)
+
+	binDec := s.Bytes()
+
+	// find the first non zero byte of s
+	start := 0
+	for binDec[start] == 0 {
+		start++
+	}
+
+	// find first non zero bit of the first non zero byte
+	nzBitPos := 7
+	for binDec[start]>>nzBitPos == 0 {
+		nzBitPos--
+	}
+
+	// start the double and add on the first non zero byte, starting from nzBitPos-1
+	for i := nzBitPos - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		b := (binDec[start] >> i) & 1
+		if b == 1 {
+			p.AddMixed(a)
+		}
+	}
+
+	// finish the double and add algo
+	for i := start + 1; i < len(binDec); i++ {
+		for j := 7; j >= 0; j-- {
+			p.DoubleAssign()
+			b := (binDec[i] >> j) & 1
+			if b == 1 {
+				p.AddMixed(a)
+			}
+		}
+	}
+	return p
+}
+
 // ScalarMul multiplies a by scalar
 // algorithm: a special case of Pippenger described by Bootle:
 // https://jbootle.github.io/Misc/pippenger.pdf
@@ -13,8 +55,8 @@ func (p *{{.PName}}Jac) ScalarMul(curve *Curve, a *{{.PName}}Jac, scalar {{.Grou
 	computeT := func(T []{{.PName}}Jac, t0 *{{.PName}}Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, []{{.PName}}Jac{*a}, []{{.GroupType}}.Element{scalar}, s, b, T[:], computeT)
@@ -41,7 +83,7 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 	if nbPoints <= minPoints {
 		_points := make([]{{.PName}}Jac, len(points))
 		for i := 0; i < len(points); i++ {
-			points[i].ToJacobian(&_points[i])
+			_points[i].FromAffine(&points[i])
 		}
 		go func() {
 			p.WindowedMultiExp(curve, _points, scalars)
@@ -159,7 +201,7 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 					tmp.mAdd(&points[k])
 				}
 				tmp.ToJac(&_tmp)
-				accumulators[task].Add(curve, &_tmp)
+				accumulators[task].AddAssign(curve, &_tmp)
 			}
 			chPoints[task] <- struct{}{}
 			close(chPoints[task])
@@ -172,10 +214,10 @@ func (p *{{.PName}}Jac) MultiExp(curve *Curve, points []{{.PName}}Affine, scalar
 		res.Set(&curve.{{toLower .PName}}Infinity)
 		for i := 0; i < nbChunks; i++ {
 			for j := 0; j < len(bitsForTask[i]); j++ {
-				res.Double()
+				res.DoubleAssign()
 			}
 			<-chPoints[i]
-			res.Add(curve, &accumulators[i])
+			res.AddAssign(curve, &accumulators[i])
 		}
 		p.Set(&res)
 		chRes <- *p
@@ -215,7 +257,7 @@ func (p *{{.PName}}Jac) WindowedMultiExp(curve *Curve, points []{{.PName}}Jac, s
 		var t {{.PName}}Jac
 		t.multiExp(curve, points[start:end], scalars[start:end])
 		lock.Lock()
-		p.Add(curve, &t)
+		p.AddAssign(curve, &t)
 		lock.Unlock()
 	}, false)
 	return p
@@ -238,8 +280,8 @@ func (p *{{.PName}}Jac) multiExp(curve *Curve, points []{{.PName}}Jac, scalars [
 	computeT := func(T []{{.PName}}Jac, t0 *{{.PName}}Jac) {
 		T[0].Set(t0)
 		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).Double()
-			T[j+1].Set(&T[(j+1)/2]).Add(curve, &T[j/2])
+			T[j].Set(&T[j/2]).DoubleAssign()
+			T[j+1].Set(&T[(j+1)/2]).AddAssign(curve, &T[j/2])
 		}
 	}
 	return p.pippenger(curve, points, scalars, s, b, T[:], computeT)
@@ -266,7 +308,7 @@ func (p *{{.PName}}Jac) pippenger(curve *Curve, points []{{.PName}}Jac, scalars 
 			selectorShift = uint64(ks - (selectorIndex * 64))
 			selector = (scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift
 			if selector != 0 {
-				morePoints[k].Add(curve, &T[selector-1])
+				morePoints[k].AddAssign(curve, &T[selector-1])
 			}
 		}
 	}
@@ -274,9 +316,9 @@ func (p *{{.PName}}Jac) pippenger(curve *Curve, points []{{.PName}}Jac, scalars 
 	p.Set(&morePoints[t-1])
 	for k := t - 2; k >= 0; k-- {
 		for j := uint64(0); j < s; j++ {
-			p.Double()
+			p.DoubleAssign()
 		}
-		p.Add(curve, &morePoints[k])
+		p.AddAssign(curve, &morePoints[k])
 	}
 	return p
 }

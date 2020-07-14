@@ -8,30 +8,16 @@ import (
 	"github.com/consensys/gurvy/bn256/fr"
 )
 
-func TestG1JacToAffineFromJac(t *testing.T) {
+func TestG1JacFromJacobian(t *testing.T) {
 
 	p := testPointsG1()
 
 	_p := G1Affine{}
-	p[0].ToAffineFromJac(&_p)
+	_p.FromJacobian(&p[0])
 	if !_p.X.Equal(&p[1].X) || !_p.Y.Equal(&p[1].Y) {
 		t.Fatal("ToAffineFromJac failed")
 	}
 
-}
-
-func TestG1Conv(t *testing.T) {
-	p := testPointsG1()
-
-	for i := 0; i < len(p); i++ {
-		var pJac G1Jac
-		var pAff G1Affine
-		p[i].ToAffineFromJac(&pAff)
-		pAff.ToJacobian(&pJac)
-		if !pJac.Equal(&p[i]) {
-			t.Fatal("jacobian to affine to jacobian fails")
-		}
-	}
 }
 
 func TestG1JacAdd(t *testing.T) {
@@ -42,9 +28,9 @@ func TestG1JacAdd(t *testing.T) {
 	// p3 = p1 + p2
 	p1 := p[1].Clone()
 	_p2 := G1Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 	p[1].AddMixed(&_p2)
-	p[2].Add(curve, p1)
+	p[2].AddAssign(curve, p1)
 
 	if !p[3].Equal(&p[1]) {
 		t.Fatal("Add failed")
@@ -62,7 +48,7 @@ func TestG1JacSub(t *testing.T) {
 	p := testPointsG1()
 
 	// p4 = p1 - p2
-	p[1].Sub(curve, p[2])
+	p[1].SubAssign(curve, p[2])
 
 	if !p[4].Equal(&p[1]) {
 		t.Fatal("Sub failed")
@@ -75,14 +61,14 @@ func TestG1JacDouble(t *testing.T) {
 	p := testPointsG1()
 
 	// p5 = 2 * p1
-	p[1].Double()
+	p[1].DoubleAssign()
 	if !p[5].Equal(&p[1]) {
 		t.Fatal("Double failed")
 	}
 
 	G := curve.g1Infinity.Clone()
 	R := curve.g1Infinity.Clone()
-	G.Double()
+	G.DoubleAssign()
 
 	if !G.Equal(R) {
 		t.Fatal("Double failed (infinity case)")
@@ -127,6 +113,22 @@ func TestG1JacScalarMul(t *testing.T) {
 	}
 }
 
+func TestG1JacDoubleAndAdd(t *testing.T) {
+
+	curve := BN256()
+	_p := testPointsG1()
+	var p G1Affine
+	p.FromJacobian(&_p[1])
+
+	var scalar fr.Element
+	scalar.SetUint64(32394)
+	_p[1]._doubleandadd(curve, &p, scalar)
+
+	if !_p[1].Equal(&_p[6]) {
+		t.Error("ScalarMul failed")
+	}
+}
+
 func TestMultiExpG1(t *testing.T) {
 
 	curve := BN256()
@@ -146,8 +148,8 @@ func TestMultiExpG1(t *testing.T) {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			MulAssign(&mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
-		G.Add(curve, &curve.g1Gen)
+		samplePoints[i-1].FromJacobian(&G)
+		G.AddAssign(curve, &curve.g1Gen)
 	}
 
 	var testLotOfPoint, testPoint G1Jac
@@ -197,6 +199,25 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 
 }
 
+func BenchmarkG1DoubleAndAdd(b *testing.B) {
+
+	curve := BN256()
+	p := testPointsG1()
+	var _p G1Affine
+	_p.FromJacobian(&p[1])
+
+	var scalar fr.Element
+	scalar.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p[1]._doubleandadd(curve, &_p, scalar)
+		b.StopTimer()
+		scalar.SetRandom()
+		b.StartTimer()
+	}
+
+}
+
 func BenchmarkG1Add(b *testing.B) {
 
 	curve := BN256()
@@ -205,7 +226,7 @@ func BenchmarkG1Add(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResG1 = p[1]
-		benchResG1.Add(curve, &p[2])
+		benchResG1.AddAssign(curve, &p[2])
 	}
 
 }
@@ -214,7 +235,7 @@ func BenchmarkG1AddMixed(b *testing.B) {
 
 	p := testPointsG1()
 	_p2 := G1Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -231,7 +252,7 @@ func BenchmarkG1Double(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResG1 = p[1]
-		benchResG1.Double()
+		benchResG1.DoubleAssign()
 	}
 
 }
@@ -292,7 +313,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
+		samplePoints[i-1].FromJacobian(&G)
 	}
 
 	var testPoint G1Jac
@@ -307,21 +328,3 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		})
 	}
 }
-
-// func BenchmarkEndo(b *testing.B) {
-// 	curve := BN256()
-
-// 	var s fr.Element
-// 	s.SetString("21888242071839275222246405745257275088548364400416034343698204106575808495617").FromMont()
-
-// 	// test
-// 	var testRes G1Jac
-// 	var p G1Affine
-// 	curve.g1Gen.ToAffineFromJac(&p)
-
-// 	b.ResetTimer()
-// 	for i := 0; i < b.N; i++ {
-// 		testRes.ScalarMulEndo(curve, &p, s)
-// 	}
-
-// }

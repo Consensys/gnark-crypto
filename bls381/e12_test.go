@@ -139,6 +139,15 @@ func BenchmarkE12Square(b *testing.B) {
 	}
 }
 
+func BenchmarkCycloSquare(b *testing.B) {
+	var a E12
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.CyclotomicSquare(&a)
+	}
+}
+
 func BenchmarkE12Inverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.InverseBinary(&E12BenchIn1, &E12BenchIn2)
@@ -172,12 +181,6 @@ func BenchmarkE12FrobeniusCube(b *testing.B) {
 func BenchmarkE12Expt(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		E12BenchOut.ExptBinary(&E12BenchIn1, &E12BenchIn2)
-	}
-}
-
-func BenchmarkE12FinalExponentiation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E12BenchOut.FinalExponentiationBinary(&E12BenchIn1, &E12BenchIn2)
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 // generate code for field tower, curve groups
 // add -testpoints to generate test points using sage
 // TODO g1_test.go, g2_test.go tests currently fail---just delete those files
-//go:generate go run ../internal/generator.go -out . -package bn256 -t 4965661367192848881 -p 21888242871839275222246405745257275088696311157297823662689037894645226208583 -r 21888242871839275222246405745257275088548364400416034343698204186575808495617 -fp2 -1 -fp6 9,1
+// TODO go:generate go run ../internal/generator.go -out . -package bn256 -t 4965661367192848881 -p 21888242871839275222246405745257275088696311157297823662689037894645226208583 -r 21888242871839275222246405745257275088548364400416034343698204186575808495617 -fp2 -1 -fp6 9,1
 
 // E: y**2=x**3+3
 // Etwist: y**2 = x**3+3*(u+9)**-1
@@ -89,12 +89,12 @@ func initBN256() {
 	// precomputed values for ScalarMulByGen
 	bn256.tGenG1[0].Set(&bn256.g1Gen)
 	for j := 1; j < len(bn256.tGenG1)-1; j = j + 2 {
-		bn256.tGenG1[j].Set(&bn256.tGenG1[j/2]).Double()
-		bn256.tGenG1[j+1].Set(&bn256.tGenG1[(j+1)/2]).Add(&bn256, &bn256.tGenG1[j/2])
+		bn256.tGenG1[j].Set(&bn256.tGenG1[j/2]).DoubleAssign()
+		bn256.tGenG1[j+1].Set(&bn256.tGenG1[(j+1)/2]).AddAssign(&bn256, &bn256.tGenG1[j/2])
 	}
 	bn256.tGenG2[0].Set(&bn256.g2Gen)
 	for j := 1; j < len(bn256.tGenG2)-1; j = j + 2 {
-		bn256.tGenG2[j].Set(&bn256.tGenG2[j/2]).Double()
-		bn256.tGenG2[j+1].Set(&bn256.tGenG2[(j+1)/2]).Add(&bn256, &bn256.tGenG2[j/2])
+		bn256.tGenG2[j].Set(&bn256.tGenG2[j/2]).DoubleAssign()
+		bn256.tGenG2[j+1].Set(&bn256.tGenG2[(j+1)/2]).AddAssign(&bn256, &bn256.tGenG2[j/2])
 	}
 }

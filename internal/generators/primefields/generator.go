@@ -22,13 +22,13 @@ func Generate(d Data, outputDir string) error {
 
 	// fp
 	fpPath := filepath.Join(rootPath, d.FpName)
-	if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, fpPath, false, false); err != nil {
+	if err := cmd.GenerateFF(d.FpName, "Element", d.FpModulus, fpPath, false); err != nil {
 		return err
 	}
 
 	// fr
 	frPath := filepath.Join(rootPath, d.FrName)
-	if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, frPath, false, false); err != nil {
+	if err := cmd.GenerateFF(d.FrName, "Element", d.FrModulus, frPath, false); err != nil {
 		return err
 	}
 

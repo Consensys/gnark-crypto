@@ -28,7 +28,6 @@ type E12 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E12) Equal(x *E12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
@@ -70,7 +69,6 @@ func (z *E12) SetOne() *E12 {
 }
 
 // ToMont converts to Mont form
-// TODO can this be deleted?
 func (z *E12) ToMont() *E12 {
 	z.C0.ToMont()
 	z.C1.ToMont()
@@ -78,7 +76,6 @@ func (z *E12) ToMont() *E12 {
 }
 
 // FromMont converts from Mont form
-// TODO can this be deleted?
 func (z *E12) FromMont() *E12 {
 	z.C0.FromMont()
 	z.C1.FromMont()
@@ -96,6 +93,13 @@ func (z *E12) Add(x, y *E12) *E12 {
 func (z *E12) Sub(x, y *E12) *E12 {
 	z.C0.Sub(&x.C0, &y.C0)
 	z.C1.Sub(&x.C1, &y.C1)
+	return z
+}
+
+// Double sets z=2*x and returns z
+func (z *E12) Double(x *E12) *E12 {
+	z.C0.Double(&x.C0)
+	z.C1.Double(&x.C1)
 	return z
 }
 
@@ -186,6 +190,47 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
+// squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
+func fp4Square(a, b, c, d *E2) {
+	var tmp E2
+	c.Square(a)
+	tmp.Square(b).MulByNonResidue(&tmp)
+	c.Add(c, &tmp)
+	d.Mul(a, b).Double(d)
+}
+
+// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+func (z *E12) CyclotomicSquare(x *E12) *E12 {
+
+	var res, b, a E12
+	var tmp E2
+
+	// A
+	fp4Square(&x.C0.B0, &x.C1.B1, &b.C0.B0, &b.C1.B1)
+	a.C0.B0.Set(&x.C0.B0)
+	a.C1.B1.Neg(&x.C1.B1)
+
+	// B
+	tmp.MulByNonResidueInv(&x.C1.B0)
+	fp4Square(&x.C0.B2, &tmp, &b.C0.B1, &b.C1.B2)
+	b.C0.B1.MulByNonResidue(&b.C0.B1)
+	b.C1.B2.MulByNonResidue(&b.C1.B2)
+	a.C0.B1.Set(&x.C0.B1)
+	a.C1.B2.Neg(&x.C1.B2)
+
+	// C
+	fp4Square(&x.C0.B1, &x.C1.B2, &b.C0.B2, &b.C1.B0)
+	b.C1.B0.MulByNonResidue(&b.C1.B0)
+	a.C0.B2.Set(&x.C0.B2)
+	a.C1.B0.Neg(&x.C1.B0)
+
+	res.Set(&b)
+	b.Sub(&b, &a).Double(&b)
+	z.Add(&res, &b)
+
+	return z
+}
+
 // Inverse set z to the inverse of x in E12 and return z
 func (z *E12) Inverse(x *E12) *E12 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
@@ -220,7 +265,6 @@ func (z *E12) Inverse(x *E12) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
-// TODO deprecate in favour of Conjugate
 func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }

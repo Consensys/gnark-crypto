@@ -16,15 +16,12 @@
 
 package bw761
 
-// E6 is a degree-three finite field extension of fp2:
-// B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
-
+// E6 is a degree-three finite field extension of fp2
 type E6 struct {
 	B0, B1, B2 E2
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
@@ -101,26 +98,6 @@ func (z *E6) Sub(x, y *E6) *E6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
-	return z
-}
-
-// MulByGen Multiplies by v, root of X^3-0,1
-// TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *E6) MulByGen(x *E6) *E6 {
-	var result E6
-
-	result.B1 = x.B0
-	result.B2 = x.B1
-	{ // begin inline: set result.B0 to (&x.B2) * (0,1)
-		buf := (&x.B2).A0
-		{ // begin inline: set &(result.B0).A0 to (&(&x.B2).A1) * (-4)
-			buf := *(&(&x.B2).A1)
-			(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).Neg(&(result.B0).A0)
-		} // end inline: set &(result.B0).A0 to (&(&x.B2).A1) * (-4)
-		(result.B0).A1 = buf
-	} // end inline: set result.B0 to (&x.B2) * (0,1)
-
-	z.Set(&result)
 	return z
 }
 
@@ -333,70 +310,31 @@ func (z *E6) SquareAssign() *E6 {
 	return z
 }
 
-// SquarE2 squares a E6
-func (z *E6) SquarE2(x *E6) *E6 {
-	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 E2
-	v0.Square(&x.B0)
-	v1.Square(&x.B1)
-	v2.Square(&x.B2)
-	v01.Add(&x.B0, &x.B1)
-	v01.Square(&v01)
-	v02.Add(&x.B0, &x.B2)
-	v02.Square(&v02)
-	v12.Add(&x.B1, &x.B2)
-	v12.Square(&v12)
-	z.B0.Sub(&v12, &v1).SubAssign(&v2)
-	{ // begin inline: set z.B0 to (&z.B0) * (0,1)
-		buf := (&z.B0).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&z.B0).A1) * (-4)
-			buf := *(&(&z.B0).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).Neg(&(z.B0).A0)
-		} // end inline: set &(z.B0).A0 to (&(&z.B0).A1) * (-4)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&z.B0) * (0,1)
-	z.B0.AddAssign(&v0)
-	{ // begin inline: set z.B1 to (&v2) * (0,1)
-		buf := (&v2).A0
-		{ // begin inline: set &(z.B1).A0 to (&(&v2).A1) * (-4)
-			buf := *(&(&v2).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).Neg(&(z.B1).A0)
-		} // end inline: set &(z.B1).A0 to (&(&v2).A1) * (-4)
-		(z.B1).A1 = buf
-	} // end inline: set z.B1 to (&v2) * (0,1)
-	z.B1.AddAssign(&v01).SubAssign(&v0).SubAssign(&v1)
-	z.B2.Add(&v02, &v1).SubAssign(&v0).SubAssign(&v2)
-	return z
-}
+// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+func (z *E6) CyclotomicSquare(x *E6) *E6 {
 
-// Square3 squares a E6
-func (z *E6) Square3(x *E6) *E6 {
-	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 E2
-	s0.Square(&x.B0)
-	s1.Mul(&x.B0, &x.B1).Double(&s1)
-	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
-	s3.Mul(&x.B1, &x.B2).Double(&s3)
-	s4.Square(&x.B2)
-	{ // begin inline: set z.B0 to (&s3) * (0,1)
-		buf := (&s3).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&s3).A1) * (-4)
-			buf := *(&(&s3).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).Neg(&(z.B0).A0)
-		} // end inline: set &(z.B0).A0 to (&(&s3).A1) * (-4)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&s3) * (0,1)
-	z.B0.AddAssign(&s0)
-	{ // begin inline: set z.B1 to (&s4) * (0,1)
-		buf := (&s4).A0
-		{ // begin inline: set &(z.B1).A0 to (&(&s4).A1) * (-4)
-			buf := *(&(&s4).A1)
-			(&(z.B1).A0).Double(&buf).Double(&(z.B1).A0).Neg(&(z.B1).A0)
-		} // end inline: set &(z.B1).A0 to (&(&s4).A1) * (-4)
-		(z.B1).A1 = buf
-	} // end inline: set z.B1 to (&s4) * (0,1)
-	z.B1.AddAssign(&s1)
-	z.B2.Add(&s1, &s2).AddAssign(&s3).SubAssign(&s0).SubAssign(&s4)
+	var res, a E6
+	var tmp E2
+
+	// A
+	res.B0.Square(&x.B0)
+	a.B0.Conjugate(&x.B0)
+
+	// B
+	res.B2.A0.Set(&x.B1.A1)
+	res.B2.A1.MulByNonResidueInv(&x.B1.A0)
+	res.B2.Square(&res.B2).Double(&res.B2).Double(&res.B2).Neg(&res.B2)
+	a.B2.Conjugate(&x.B2)
+
+	// C
+	tmp.Square(&x.B2)
+	res.B1.A0.MulByNonResidue(&tmp.A1)
+	res.B1.A1.Set(&tmp.A0)
+	a.B1.A0.Neg(&x.B1.A0)
+	a.B1.A1.Set(&x.B1.A1)
+
+	z.Sub(&res, &a).Double(z).Add(z, &res)
+
 	return z
 }
 

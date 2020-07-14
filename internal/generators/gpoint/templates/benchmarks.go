@@ -42,14 +42,13 @@ func Benchmark{{.PName}}AddMixed(b *testing.B) {
 
 	p := testPoints{{.PName}}()
 	_p2 := {{.PName}}Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.PName}} = p[1]
-		benchRes{{.PName}} .AddMixed(&_p2)
+		benchRes{{.PName}}.AddMixed(&_p2)
 	}
-
 
 }
 
@@ -102,7 +101,7 @@ func Benchmark{{.PName}}WindowedMultiExp(b *testing.B) {
 
 func BenchmarkMultiExp{{.PName}}(b *testing.B) {
 
-	curve := {{toUpper .Packag.PName}}()
+	curve := {{toUpper .Packag.PName}}() 
 
 	var G {{.PName}}Jac
 
@@ -115,19 +114,19 @@ func BenchmarkMultiExp{{.PName}}(b *testing.B) {
 	samplePoints := make([]{{.PName}}Affine, nbSamples)
 	sampleScalars := make([]fr.Element, nbSamples)
 
-	G.Set(&curve.{{toLower .PName}}Gen)
+	G.Set(&curve.g1Gen)
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
+		samplePoints[i-1].FromJacobian(&G)
 	}
 
 	var testPoint {{.PName}}Jac
 
 	for i := 0; i < 16; i++ {
-		
+
 		b.Run(fmt.Sprintf("%d points)", (i+1)*50000), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {

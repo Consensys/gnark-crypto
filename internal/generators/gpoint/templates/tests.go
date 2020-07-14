@@ -11,42 +11,27 @@ import (
 	"github.com/consensys/gurvy/{{.Packag.PName}}/fr"
 )
 
-func Test{{.PName}}JacToAffineFromJac(t *testing.T) {
+func Test{{.PName}}FromJacobian(t *testing.T) {
 
 	p := testPoints{{.PName}}()
 
 	_p := {{.PName}}Affine{}
-	p[0].ToAffineFromJac(&_p)
-	if !_p.X.Equal(&p[1].X) || !_p.Y.Equal(&p[1].Y){
+	_p.FromJacobian(&p[0])
+	if !_p.X.Equal(&p[1].X) || !_p.Y.Equal(&p[1].Y) {
 		t.Fatal("ToAffineFromJac failed")
 	}
-	
+
 }
-
-func Test{{.PName}}Conv(t *testing.T) {
-	p := testPoints{{.PName}}()
-
-	for i := 0 ; i < len(p) ; i++ {
-		var pJac {{.PName}}Jac
-		var pAff {{.PName}}Affine
-		p[i].ToAffineFromJac(&pAff)
-		pAff.ToJacobian(&pJac)
-		if !pJac.Equal(&p[i]) {
-			t.Fatal("jacobian to affine to jacobian fails")
-		}
-	}
-}
-
 
 func Test{{.PName}}JacAdd(t *testing.T) {
 
-	curve := {{toUpper .Packag.PName}}()
+	curve :={{toUpper .Packag.PName}}() 
 	p := testPoints{{.PName}}()
 
 	// p3 = p1 + p2
 	p1 := p[1].Clone()
 	_p2 := {{.PName}}Affine{}
-	p[2].ToAffineFromJac(&_p2)
+	_p2.FromJacobian(&p[2])
 	p[1].AddMixed(&_p2)
 	p[2].Add(curve, p1)
 
@@ -109,7 +94,7 @@ func Test{{.PName}}JacScalarMul(t *testing.T) {
 
 func TestMultiExp{{.PName}}(t *testing.T) {
 
-	curve := {{toUpper .Packag.PName}}()
+	curve := {{toUpper .Packag.PName}}() 
 
 	var G {{.PName}}Jac
 
@@ -120,14 +105,14 @@ func TestMultiExp{{.PName}}(t *testing.T) {
 	samplePoints := make([]{{.PName}}Affine, 3000)
 	sampleScalars := make([]fr.Element, 3000)
 
-	G.Set(&curve.{{toLower .PName}}Gen)
+	G.Set(&curve.g1Gen)
 
 	for i := 1; i <= 3000; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			MulAssign(&mixer).
 			FromMont()
-		G.ToAffineFromJac(&samplePoints[i-1])
-		G.Add(curve, &curve.{{toLower .PName}}Gen)
+		samplePoints[i-1].FromJacobian(&G)
+		G.Add(curve, &curve.g1Gen)
 	}
 
 	var testLotOfPoint, testPoint {{.PName}}Jac
@@ -138,12 +123,12 @@ func TestMultiExp{{.PName}}(t *testing.T) {
 	var finalBigScalar fr.Element
 	var finalLotOfPoint {{.PName}}Jac
 	finalBigScalar.SetString("9004500500").MulAssign(&mixer).FromMont()
-	finalLotOfPoint.ScalarMul(curve, &curve.{{toLower .PName}}Gen, finalBigScalar)
+	finalLotOfPoint.ScalarMul(curve, &curve.g1Gen, finalBigScalar)
 
 	var finalScalar fr.Element
 	var finalPoint {{.PName}}Jac
 	finalScalar.SetString("9455").MulAssign(&mixer).FromMont()
-	finalPoint.ScalarMul(curve, &curve.{{toLower .PName}}Gen, finalScalar)
+	finalPoint.ScalarMul(curve, &curve.g1Gen, finalScalar)
 
 	if !finalLotOfPoint.Equal(&testLotOfPoint) {
 		t.Fatal("error multi (>50 points) exp")

@@ -20,6 +20,11 @@ type {{.PName}}Jac struct {
 	X, Y, Z {{.PName}}CoordType
 }
 
+// {{.PName}}Proj point in projective coordinates
+type {{.PName}}Proj struct {
+	X, Y, Z {{.PName}}CoordType
+}
+
 // {{.PName}}Affine point in affine coordinates
 type {{.PName}}Affine struct {
 	X, Y {{.PName}}CoordType
@@ -135,13 +140,14 @@ func (p *{{.PName}}Jac) Equal(a *{{.PName}}Jac) bool {
 		return true
 	}
 	_p := {{.PName}}Affine{}
-	p.ToAffineFromJac(&_p)
+	_p.FromJacobian(p)
 
 	_a := {{.PName}}Affine{}
-	a.ToAffineFromJac(&_a)
+	_a.FromJacobian(a)
 
 	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
 }
+
 
 // Equal tests if two points (in Affine coordinates) are equal
 func (p *{{ .PName}}Affine) Equal(a *{{ .PName}}Affine) bool {
@@ -170,43 +176,44 @@ func (p *{{.PName}}Affine) Neg(a *{{.PName}}Affine) *{{.PName}}Affine {
 	return p
 }
 
-// Sub substracts two points on the curve
-func (p *{{.PName}}Jac) Sub(curve *Curve, a {{.PName}}Jac) *{{.PName}}Jac {
+// SubAssign substracts two points on the curve
+func (p *{{.PName}}Jac) SubAssign(curve *Curve, a {{.PName}}Jac) *{{.PName}}Jac {
 	a.Y.Neg(&a.Y)
-	p.Add(curve, &a)
+	p.AddAssign(curve, &a)
 	return p
 }
 
-// ToAffineFromJac rescale a point in Jacobian coord in z=1 plane
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
 // WARNING super slow function (due to the division)
-func (p *{{.PName}}Jac) ToAffineFromJac(res *{{.PName}}Affine) *{{.PName}}Affine {
+func (p *{{.PName}}Affine) FromJacobian(p1 *{{.PName}}Jac) *{{.PName}}Affine {
 
 	var bufs [3]{{.PName}}CoordType
 
-	if p.Z.IsZero() {
-		res.X.SetZero()
-		res.Y.SetZero()
-		return res
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
 	}
 
-	bufs[0].Inverse(&p.Z)
+	bufs[0].Inverse(&p1.Z)
 	bufs[2].Square(&bufs[0])
 	bufs[1].Mul(&bufs[2], &bufs[0])
 
-	res.Y.Mul(&p.Y, &bufs[1])
-	res.X.Mul(&p.X, &bufs[2])
+	p.Y.Mul(&p1.Y, &bufs[1])
+	p.X.Mul(&p1.X, &bufs[2])
 
-	return res
+	return p
 }
 
-// ToProjFromJac converts a point from Jacobian to projective coordinates
-func (p *{{.PName}}Jac) ToProjFromJac() *{{.PName}}Jac {
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *{{ .PName}}Proj) FromJacobian(Q *{{ .PName}}Jac) *{{ .PName}}Proj {
 	// memalloc
 	var buf {{.PName}}CoordType
-	buf.Square(&p.Z)
+	buf.Square(&Q.Z)
 
-	p.X.Mul(&p.X, &p.Z)
-	p.Z.Mul(&p.Z, &buf)
+	p.X.Mul(&Q.X, &Q.Z)
+	p.Y.Set(&Q.Y)
+	p.Z.Mul(&Q.Z, &buf)
 
 	return p
 }
@@ -216,25 +223,26 @@ func (p *{{.PName}}Jac) String(curve *Curve) string {
 		return "O"
 	}
 	_p := {{.PName}}Affine{}
-	p.ToAffineFromJac(&_p)
+	_p.FromJacobian(p)
 	_p.X.FromMont()
 	_p.Y.FromMont()
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
 }
 
-// ToJacobian sets Q = p, Q in Jacboian, p in affine
-func (p *{{ .PName}}Affine) ToJacobian(Q *{{ .PName}}Jac) *{{ .PName}}Jac {
-	if p.X.IsZero() && p.Y.IsZero() {
-		Q.Z.SetZero()
-		Q.X.SetOne()
-		Q.Y.SetOne()
-		return Q
+// FromAffine sets p = Q, p in Jacboian, Q in affine
+func (p *{{ .PName}}Jac) FromAffine(Q *{{ .PName}}Affine) *{{ .PName}}Jac {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.Z.SetZero()
+		p.X.SetOne()
+		p.Y.SetOne()
+		return p
 	}
-	Q.Z.SetOne()
-	Q.X.Set(&p.X)
-	Q.Y.Set(&p.Y)
-	return Q
+	p.Z.SetOne()
+	p.X.Set(&Q.X)
+	p.Y.Set(&Q.Y)
+	return p
 }
+
 
 func (p *{{.PName}}Affine) String(curve *Curve) string {
 	var x, y {{.PName}}CoordType

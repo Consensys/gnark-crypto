@@ -48,11 +48,12 @@ func TestComputePairing(t *testing.T) {
 
 	var mRes1, mRes2, mRes3 PairingResult
 
-	P.ToAffineFromJac(&Paff)
-	sP.ToAffineFromJac(&sPaff)
+	Paff.FromJacobian(P)
+	Paff.FromJacobian(P)
+	sPaff.FromJacobian(sP)
 
-	G.ToAffineFromJac(&Gaff)
-	sG.ToAffineFromJac(&sGaff)
+	Gaff.FromJacobian(G)
+	sGaff.FromJacobian(sG)
 
 	res1 := curve.FinalExponentiation(curve.MillerLoop(Paff, sGaff, &mRes1))
 	res2 := curve.FinalExponentiation(curve.MillerLoop(sPaff, Gaff, &mRes2))
@@ -74,9 +75,9 @@ func TestComputePairing(t *testing.T) {
 	s3G.ScalarMul(curve, s3G, s3)
 
 	var s1Gaff, s2Gaff, s3Gaff G2Affine
-	s1G.ToAffineFromJac(&s1Gaff)
-	s2G.ToAffineFromJac(&s2Gaff)
-	s3G.ToAffineFromJac(&s3Gaff)
+	s1Gaff.FromJacobian(s1G)
+	s2Gaff.FromJacobian(s2G)
+	s3Gaff.FromJacobian(s3G)
 
 	rs1 := curve.FinalExponentiation(curve.MillerLoop(Paff, s1Gaff, &mRes1))
 	rs2 := curve.FinalExponentiation(curve.MillerLoop(Paff, s2Gaff, &mRes2))
@@ -101,7 +102,7 @@ func BenchmarkLineEval(b *testing.B) {
 
 	lRes := &lineEvalRes{}
 	var g1GenAff G1Affine
-	curve.g1Gen.ToAffineFromJac(&g1GenAff)
+	g1GenAff.FromJacobian(&curve.g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		lineEvalJac(curve.g2Gen, H, &g1GenAff, lRes)
@@ -118,8 +119,8 @@ func BenchmarkPairing(b *testing.B) {
 	var g1GenAff G1Affine
 	var g2GenAff G2Affine
 
-	curve.g1Gen.ToAffineFromJac(&g1GenAff)
-	curve.g2Gen.ToAffineFromJac(&g2GenAff)
+	g1GenAff.FromJacobian(&curve.g1Gen)
+	g2GenAff.FromJacobian(&curve.g2Gen)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

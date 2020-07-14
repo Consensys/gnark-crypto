@@ -99,8 +99,14 @@ func (z *E12) Sub(x, y *E12) *E12 {
 	return z
 }
 
+// Double sets z=2*x and returns z
+func (z *E12) Double(x *E12) *E12 {
+	z.C0.Double(&x.C0)
+	z.C1.Double(&x.C1)
+	return z
+}
+
 // SetRandom used only in tests
-// TODO eliminate this method!
 func (z *E12) SetRandom() *E12 {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()
@@ -159,8 +165,6 @@ func (z *E12) Mul(x, y *E12) *E12 {
 // Square set z=x*x in E12 and return z
 func (z *E12) Square(x *E12) *E12 {
 	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	// or the complex method from fp2
-	// for now do it the dumb way
 	var b0, b1 E6
 
 	b0.Square(&x.C0)
@@ -184,6 +188,47 @@ func (z *E12) Square(x *E12) *E12 {
 
 	z.C1.Mul(&x.C0, &x.C1).Double(&z.C1)
 	z.C0 = b1
+
+	return z
+}
+
+// squares an element a+by interpreted as an Fp4 elmt, where y**2=1+u
+func fp4Square(a, b, c, d *E2) {
+	var tmp E2
+	c.Square(a)
+	tmp.Square(b).MulByNonResidue(&tmp)
+	c.Add(c, &tmp)
+	d.Mul(a, b).Double(d)
+}
+
+// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+func (z *E12) CyclotomicSquare(x *E12) *E12 {
+
+	var res, b, a E12
+	var tmp E2
+
+	// A
+	fp4Square(&x.C0.B0, &x.C1.B1, &b.C0.B0, &b.C1.B1)
+	a.C0.B0.Set(&x.C0.B0)
+	a.C1.B1.Neg(&x.C1.B1)
+
+	// B
+	tmp.MulByNonResidueInv(&x.C1.B0)
+	fp4Square(&x.C0.B2, &tmp, &b.C0.B1, &b.C1.B2)
+	b.C0.B1.MulByNonResidue(&b.C0.B1)
+	b.C1.B2.MulByNonResidue(&b.C1.B2)
+	a.C0.B1.Set(&x.C0.B1)
+	a.C1.B2.Neg(&x.C1.B2)
+
+	// C
+	fp4Square(&x.C0.B1, &x.C1.B2, &b.C0.B2, &b.C1.B0)
+	b.C1.B0.MulByNonResidue(&b.C1.B0)
+	a.C0.B2.Set(&x.C0.B2)
+	a.C1.B0.Neg(&x.C1.B0)
+
+	res.Set(&b)
+	b.Sub(&b, &a).Double(&b)
+	z.Add(&res, &b)
 
 	return z
 }
@@ -223,7 +268,6 @@ func (z *E12) Inverse(x *E12) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
-// TODO deprecate in favour of Conjugate
 func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }

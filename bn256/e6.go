@@ -24,7 +24,6 @@ type E6 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
@@ -101,31 +100,6 @@ func (z *E6) Sub(x, y *E6) *E6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
-	return z
-}
-
-// MulByGen Multiplies by v, root of X^3-9,1
-// TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *E6) MulByGen(x *E6) *E6 {
-	var result E6
-
-	result.B1 = x.B0
-	result.B2 = x.B1
-	{ // begin inline: set result.B0 to (&x.B2) * (9,1)
-		var buf, buf9 E2
-		buf.Set(&x.B2)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		result.B0.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-			(&(result.B0).A0).Neg(&buf.A1)
-		} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-		result.B0.A0.AddAssign(&buf9.A0)
-	} // end inline: set result.B0 to (&x.B2) * (9,1)
-
-	z.Set(&result)
 	return z
 }
 
@@ -266,16 +240,6 @@ func (z *E6) MulAssign(x *E6) *E6 {
 	return z
 }
 
-// MulByE2 multiplies x by an elements of E2
-func (z *E6) MulByE2(x *E6, y *E2) *E6 {
-	var yCopy E2
-	yCopy.Set(y)
-	z.B0.Mul(&x.B0, &yCopy)
-	z.B1.Mul(&x.B1, &yCopy)
-	z.B2.Mul(&x.B2, &yCopy)
-	return z
-}
-
 // Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
 
@@ -378,107 +342,20 @@ func (z *E6) SquareAssign() *E6 {
 	return z
 }
 
-// SquarE2 squares a E6
-func (z *E6) SquarE2(x *E6) *E6 {
-	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 E2
-	v0.Square(&x.B0)
-	v1.Square(&x.B1)
-	v2.Square(&x.B2)
-	v01.Add(&x.B0, &x.B1)
-	v01.Square(&v01)
-	v02.Add(&x.B0, &x.B2)
-	v02.Square(&v02)
-	v12.Add(&x.B1, &x.B2)
-	v12.Square(&v12)
-	z.B0.Sub(&v12, &v1).SubAssign(&v2)
-	{ // begin inline: set z.B0 to (&z.B0) * (9,1)
-		var buf, buf9 E2
-		buf.Set(&z.B0)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		z.B0.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-			(&(z.B0).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-		z.B0.A0.AddAssign(&buf9.A0)
-	} // end inline: set z.B0 to (&z.B0) * (9,1)
-	z.B0.AddAssign(&v0)
-	{ // begin inline: set z.B1 to (&v2) * (9,1)
-		var buf, buf9 E2
-		buf.Set(&v2)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		z.B1.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(z.B1).A0 to (&buf.A1) * (-1)
-			(&(z.B1).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B1).A0 to (&buf.A1) * (-1)
-		z.B1.A0.AddAssign(&buf9.A0)
-	} // end inline: set z.B1 to (&v2) * (9,1)
-	z.B1.AddAssign(&v01).SubAssign(&v0).SubAssign(&v1)
-	z.B2.Add(&v02, &v1).SubAssign(&v0).SubAssign(&v2)
-	return z
-}
-
-// Square3 squares a E6
-func (z *E6) Square3(x *E6) *E6 {
-	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 E2
-	s0.Square(&x.B0)
-	s1.Mul(&x.B0, &x.B1).Double(&s1)
-	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
-	s3.Mul(&x.B1, &x.B2).Double(&s3)
-	s4.Square(&x.B2)
-	{ // begin inline: set z.B0 to (&s3) * (9,1)
-		var buf, buf9 E2
-		buf.Set(&s3)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		z.B0.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-			(&(z.B0).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-		z.B0.A0.AddAssign(&buf9.A0)
-	} // end inline: set z.B0 to (&s3) * (9,1)
-	z.B0.AddAssign(&s0)
-	{ // begin inline: set z.B1 to (&s4) * (9,1)
-		var buf, buf9 E2
-		buf.Set(&s4)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		z.B1.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(z.B1).A0 to (&buf.A1) * (-1)
-			(&(z.B1).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B1).A0 to (&buf.A1) * (-1)
-		z.B1.A0.AddAssign(&buf9.A0)
-	} // end inline: set z.B1 to (&s4) * (9,1)
-	z.B1.AddAssign(&s1)
-	z.B2.Add(&s1, &s2).AddAssign(&s3).SubAssign(&s0).SubAssign(&s4)
-	return z
-}
-
 // Inverse an element in E6
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
-	// step 9 is wrong in the paper!
+	// step 9 is wrong in the paper
 	// memalloc
 	var t [7]E2
 	var c [3]E2
 	var buf E2
-	t[0].Square(&x.B0)     // step 1
-	t[1].Square(&x.B1)     // step 2
-	t[2].Square(&x.B2)     // step 3
-	t[3].Mul(&x.B0, &x.B1) // step 4
-	t[4].Mul(&x.B0, &x.B2) // step 5
-	t[5].Mul(&x.B1, &x.B2) // step 6
+	t[0].Square(&x.B0)
+	t[1].Square(&x.B1)
+	t[2].Square(&x.B2)
+	t[3].Mul(&x.B0, &x.B1)
+	t[4].Mul(&x.B0, &x.B2)
+	t[5].Mul(&x.B1, &x.B2)
 	// step 7
 	{ // begin inline: set c[0] to (&t[5]) * (9,1)
 		var buf, buf9 E2
