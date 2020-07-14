@@ -5,13 +5,16 @@ jobs:
       - image: circleci/golang:latest
     steps:
       - checkout
+      - run: mkdir -p  /tmp/test-results
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
       - run: if [[ -n $(gofmt -l .) ]]; then echo "Please run gofmt"; exit 1; fi
       - run: go vet -v ./...
       - run: go get golang.org/x/tools/cmd/goimports
-      - run: go test -v -tags debug ./...
+      - run: gotestsum --junitfile  /tmp/test-results/results.xml -- ./... -tags debug
+      - store_test_results:
+          path: /tmp/test-results
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
