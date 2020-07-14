@@ -122,6 +122,10 @@ func main() {
 			}
 		}
 
+		// TODO
+		fmt.Println("skipping tower generation")
+		continue
+
 		// generate tower generator (uses curve.C, primefield)
 		{
 			src := []string{
