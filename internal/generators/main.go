@@ -86,7 +86,7 @@ func main() {
 		bls381,
 		bls377,
 		bn256,
-		// bw761,
+		bw761,
 	}
 
 	for _, d := range curves {

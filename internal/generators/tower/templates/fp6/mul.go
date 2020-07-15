@@ -84,6 +84,37 @@ func (z *{{.Fp6Name}}) SquareAssign() *{{.Fp6Name}} {
 	z.B1 = b0
 {{- end }}
 
+{{/* HACK: bw761 is the only curve that needs cyclotomic square in Fp6; all others need it in Fp12 */}}
+{{- if (eq .Fpackage "bw761") }}
+	// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+	func (z *{{.Fp6Name}}) CyclotomicSquare(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+
+		var res, a {{.Fp6Name}}
+		var tmp {{.Fp2Name}}
+
+		// A
+		res.B0.Square(&x.B0)
+		a.B0.Conjugate(&x.B0)
+
+		// B
+		res.B2.A0.Set(&x.B1.A1)
+		res.B2.A1.MulByNonResidueInv(&x.B1.A0)
+		res.B2.Square(&res.B2).Double(&res.B2).Double(&res.B2).Neg(&res.B2)
+		a.B2.Conjugate(&x.B2)
+
+		// C
+		tmp.Square(&x.B2)
+		res.B1.A0.MulByNonResidue(&tmp.A1)
+		res.B1.A1.Set(&tmp.A0)
+		a.B1.A0.Neg(&x.B1.A0)
+		a.B1.A1.Set(&x.B1.A1)
+
+		z.Sub(&res, &a).Double(z).Add(z, &res)
+
+		return z
+	}
+{{- end }}
+
 // Inverse an element in {{.Fp6Name}}
 func (z *{{.Fp6Name}}) Inverse(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf

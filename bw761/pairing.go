@@ -379,7 +379,9 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 		var tmp E2 // tmp = l.r1 * (-4)^(-1)*u
 		tmp.A0.SetZero()
 		tmp.A1.Mul(&l.r1, &fourinv)
-		a.MulByE2(z, &tmp)
+		a.B0.Mul(&z.B0, &tmp)
+		a.B1.Mul(&z.B1, &tmp)
+		a.B2.Mul(&z.B2, &tmp)
 	}
 
 	// set b to z * (l.r0 * v^-2) where v^(-2) = (-4)^(-1)*u*v

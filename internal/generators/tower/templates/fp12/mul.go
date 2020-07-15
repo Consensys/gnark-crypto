@@ -46,7 +46,7 @@ func (z *{{.Fp12Name}}) Square(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 
 // squares an element a+by interpreted as an Fp4 elmt, where y**2=({{.Fp6NonResidue}})
 func fp4Square(a, b, c, d *{{.Fp2Name}}) {
-	var tmp E2
+	var tmp {{.Fp2Name}}
 	c.Square(a)
 	tmp.Square(b).MulByNonResidue(&tmp)
 	c.Add(c, &tmp)
@@ -57,7 +57,7 @@ func fp4Square(a, b, c, d *{{.Fp2Name}}) {
 func (z *{{.Fp12Name}}) CyclotomicSquare(x *{{.Fp12Name}}) *{{.Fp12Name}} {
 
 	var res, b, a {{.Fp12Name}}
-	var tmp E2
+	var tmp {{.Fp2Name}}
 
 	// A
 	fp4Square(&x.C0.B0, &x.C1.B1, &b.C0.B0, &b.C1.B1)
