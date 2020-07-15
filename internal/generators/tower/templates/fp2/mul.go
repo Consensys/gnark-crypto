@@ -111,17 +111,20 @@ func (z *{{.Fp2Name}}) Inverse(x *{{.Fp2Name}}) *{{.Fp2Name}} {
 	return z
 }
 
-// MulByNonResidue multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})
-func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z" "in" "x" }}
-	return z
-}
+{{/* HACK: bw761 is the only curve that does not use these methods */}}
+{{- if not (eq .Fpackage "bw761") }}
+	// MulByNonResidue multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})
+	func (z *{{.Fp2Name}}) MulByNonResidue(x *{{.Fp2Name}}) *{{.Fp2Name}} {
+		{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z" "in" "x" }}
+		return z
+	}
 
-// MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
-func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
-	{{- template "fp2InlineMulByNonResidueInv" dict "all" . "out" "z" "in" "x" }}
-	return z
-}
+	// MulByNonResidueInv multiplies a {{.Fp2Name}} by ({{.Fp6NonResidue}})^{-1}
+	func (z *{{.Fp2Name}}) MulByNonResidueInv(x *{{.Fp2Name}}) *{{.Fp2Name}} {
+		{{- template "fp2InlineMulByNonResidueInv" dict "all" . "out" "z" "in" "x" }}
+		return z
+	}
+{{- end }}
 
 // MulByElement multiplies an element in {{.Fp2Name}} by an element in fp
 func (z *{{.Fp2Name}}) MulByElement(x *{{.Fp2Name}}, y *fp.Element) *{{.Fp2Name}} {

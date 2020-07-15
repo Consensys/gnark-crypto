@@ -245,27 +245,6 @@ func (z *E2) Inverse(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (0,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)
-		buf := (x).A0
-		{ // begin inline: set &(z).A0 to (&(x).A1) * (-4)
-			buf := *(&(x).A1)
-			(&(z).A0).Double(&buf).Double(&(z).A0).Neg(&(z).A0)
-		} // end inline: set &(z).A0 to (&(x).A1) * (-4)
-		(z).A1 = buf
-	} // end inline: set z to (x) * (0,1)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	{ // begin inline: set z to (x) * (0,1)^{-1}
-		// TODO not implemented
-	} // end inline: set z to (x) * (0,1)^{-1}
-	return z
-}
-
 // MulByElement multiplies an element in E2 by an element in fp
 func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 	var yCopy fp.Element

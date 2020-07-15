@@ -82,7 +82,7 @@ const Inline = `
 			({{.out}}).A0.MulAssign(&buf82inv)
 			({{.out}}).A1.MulAssign(&buf82inv)
 		{{- else}}
-			// TODO not implemented
+			panic("not implemented")
 		{{- end }}
 	} // end inline: set {{.out}} to ({{.in}}) * ({{.all.Fp6NonResidue}})^{-1}
 {{- end }}
