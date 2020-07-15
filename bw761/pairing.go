@@ -357,28 +357,13 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	var a, b, c PairingResult
 
-	fourinv := G2CoordType{ // (-4)^(-1)
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
-
 	// in what follows arithmetic is in Fp6(v) where v^3=u, v^6=-4
 
 	// set a to z * (l.r1 * v^-3) where v^(-3) = u^(-1) = (-4)^(-1)*u
 	{
 		var tmp E2 // tmp = l.r1 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.Mul(&l.r1, &fourinv)
+		tmp.A1.MulByNonResidueInv(&l.r1)
 		a.B0.Mul(&z.B0, &tmp)
 		a.B1.Mul(&z.B1, &tmp)
 		a.B2.Mul(&z.B2, &tmp)
@@ -388,7 +373,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	{
 		var tmp E2 // tmp = l.r0 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.Mul(&l.r0, &fourinv)
+		tmp.A1.MulByNonResidueInv(&l.r0)
 
 		var a E2
 		a.MulByElement(&z.B2, &l.r0)
@@ -401,7 +386,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	{
 		var tmp E2 // tmp = l.r2 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.Mul(&l.r2, &fourinv)
+		tmp.A1.MulByNonResidueInv(&l.r2)
 
 		var a E2
 		a.Mul(&z.B2, &tmp)

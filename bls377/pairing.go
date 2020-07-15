@@ -228,15 +228,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (0,1)
-		buf := (y).A0
-		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
-		(yNR).A1 = buf
-	} // end inline: set yNR to (y) * (0,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
 	result.C0.B1.Mul(&x.C1.B2, &yNR)
 	result.C0.B2.Mul(&x.C1.B0, y)
@@ -252,15 +244,7 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult
 func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (0,1)
-		buf := (y).A0
-		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
-		(yNR).A1 = buf
-	} // end inline: set yNR to (y) * (0,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
 	result.C0.B1.Mul(&x.C0.B0, y)
 	result.C0.B2.Mul(&x.C0.B1, y)
@@ -276,15 +260,7 @@ func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult 
 func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (0,1)
-		buf := (y).A0
-		{ // begin inline: set &(yNR).A0 to (&(y).A1) * (5)
-			buf := *(&(y).A1)
-			(&(yNR).A0).Double(&buf).Double(&(yNR).A0).AddAssign(&buf)
-		} // end inline: set &(yNR).A0 to (&(y).A1) * (5)
-		(yNR).A1 = buf
-	} // end inline: set yNR to (y) * (0,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
 	result.C0.B1.Mul(&x.C1.B1, &yNR)
 	result.C0.B2.Mul(&x.C1.B2, &yNR)

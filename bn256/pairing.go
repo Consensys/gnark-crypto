@@ -267,20 +267,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
 	result.C0.B1.Mul(&x.C1.B2, &yNR)
 	result.C0.B2.Mul(&x.C1.B0, y)
@@ -296,20 +283,7 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult
 func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
 	result.C0.B1.Mul(&x.C0.B0, y)
 	result.C0.B2.Mul(&x.C0.B1, y)
@@ -325,20 +299,7 @@ func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult 
 func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNR G2CoordType
-
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
 	result.C0.B1.Mul(&x.C1.B1, &yNR)
 	result.C0.B2.Mul(&x.C1.B2, &yNR)
