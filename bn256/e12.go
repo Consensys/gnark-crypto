@@ -28,6 +28,7 @@ type E12 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E12) Equal(x *E12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
@@ -106,7 +107,6 @@ func (z *E12) Double(x *E12) *E12 {
 }
 
 // SetRandom used only in tests
-// TODO eliminate this method!
 func (z *E12) SetRandom() *E12 {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()
@@ -168,8 +168,9 @@ func (z *E12) Mul(x, y *E12) *E12 {
 
 // Square set z=x*x in E12 and return z
 func (z *E12) Square(x *E12) *E12 {
-	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf, see also https://eprint.iacr.org/2006/471.pdf
-
+	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	// or the complex method from fp2
+	// for now do it the dumb way
 	var b0, b1 E6
 
 	b0.Square(&x.C0)
@@ -201,7 +202,7 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
+// squares an element a+by interpreted as an Fp4 elmt, where y**2=(9,1)
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)
@@ -248,9 +249,9 @@ func (z *E12) Inverse(x *E12) *E12 {
 
 	var t [2]E6
 
-	t[0].Square(&x.C0)
-	t[1].Square(&x.C1)
-	{
+	t[0].Square(&x.C0) // step 1
+	t[1].Square(&x.C1) // step 2
+	{                  // step 3
 		var buf E6
 		{ // begin inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
 			var result E6
@@ -281,6 +282,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
+// TODO deprecate in favour of Conjugate
 func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }
