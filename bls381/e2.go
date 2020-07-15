@@ -228,13 +228,9 @@ func (z *E2) Inverse(x *E2) *E2 {
 // MulByNonResidue multiplies a E2 by (1,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	{ // begin inline: set z to (x) * (1,1)
-		var buf E2
-		buf.Set(x)
-		z.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(z).A0 to (&buf.A1) * (-1)
-			(&(z).A0).Neg(&buf.A1)
-		} // end inline: set &(z).A0 to (&buf.A1) * (-1)
-		z.A0.AddAssign(&buf.A0)
+		a0 := (x).A0
+		z.A0.Sub(&a0, &(x).A1)
+		z.A1.Add(&a0, &(x).A1)
 	} // end inline: set z to (x) * (1,1)
 	return z
 }

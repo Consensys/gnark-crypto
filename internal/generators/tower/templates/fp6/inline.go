@@ -9,12 +9,10 @@ const Inline = `
 			buf := ({{.in}}).A0
 			{{- template "fpInlineMulByNonResidue" dict "all" .all "out" (print "&(" .out ").A0") "in" (print "&(" .in ").A1") }}
 			({{.out}}).A1 = buf
-		{{- else if eq .all.Fp6NonResidue "1,1"}}
-			var buf {{.all.Fp2Name}}
-			buf.Set({{.in}})
-			{{.out}}.A1.Add(&buf.A0, &buf.A1)
-			{{- template "fpInlineMulByNonResidue" dict "all" .all "out" (print "&(" .out ").A0") "in" "&buf.A1" }}
-			{{.out}}.A0.AddAssign(&buf.A0)
+		{{- else if (and (eq .all.Fp6NonResidue "1,1") (eq .all.Fp2NonResidue "-1" ) ) }}
+			a0 := ({{.in}}).A0
+			{{.out}}.A0.Sub(&a0, &({{.in}}).A1)
+			{{.out}}.A1.Add(&a0, &({{.in}}).A1)
 		{{- else if eq .all.Fp6NonResidue "9,1"}}
 			var buf, buf9 {{.all.Fp2Name}}
 			buf.Set({{.in}})
