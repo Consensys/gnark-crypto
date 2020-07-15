@@ -81,28 +81,6 @@ const Inline = `
 			}
 			({{.out}}).A0.MulAssign(&buf82inv)
 			({{.out}}).A1.MulAssign(&buf82inv)
-		{{- else if (and (eq .all.Fp6NonResidue "9,1") (eq .all.Fp2NonResidue "3")) }}
-			// ({{.out}}).A0 = (9*({{.in}}).A0 - 3*({{.in}}).A1)/78
-			// ({{.out}}).A1 = (9*({{.in}}).A1 - ({{.in}}).A0)/78
-			copy := *({{.in}})
-
-			var copy9 E2
-			copy9.Double(&copy).
-				Double(&copy9).
-				Double(&copy9).
-				AddAssign(&copy)
-
-			var copy3A1 fp.Element
-			copy3A1.Double(&copy.A1).
-				AddAssign(&copy.A1)
-
-			({{.out}}).A0.Sub(&copy9.A0, &copy3A1)
-			({{.out}}).A1.Sub(&copy9.A1, &copy.A0)
-
-			var buf78inv fp.Element
-			buf78inv.SetUint64(78).Inverse(&buf78inv) // TODO hardcode
-			({{.out}}).A0.MulAssign(&buf78inv)
-			({{.out}}).A1.MulAssign(&buf78inv)
 		{{- else}}
 			// TODO not implemented
 		{{- end }}
