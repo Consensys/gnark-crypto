@@ -7,7 +7,6 @@ import (
 
 // {{.Fp2Name}} is a degree-two finite field extension of fp.Element:
 // A0 + A1u where u^2 == {{.Fp2NonResidue}} is a quadratic nonresidue in fp
-
 type {{.Fp2Name}} struct {
 	A0, A1 fp.Element
 }
@@ -25,6 +24,7 @@ func (z *{{.Fp2Name}}) SetString(s1, s2 string) *{{.Fp2Name}} {
 	return z
 }
 
+// SetZero sets z to 0, return z
 func (z *{{.Fp2Name}}) SetZero() *{{.Fp2Name}} {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -60,7 +60,7 @@ func (z *{{.Fp2Name}}) SetRandom() *{{.Fp2Name}} {
 	return z
 }
 
-// Equal returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if z==0, fasle otherwise
 func (z *{{.Fp2Name}}) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }

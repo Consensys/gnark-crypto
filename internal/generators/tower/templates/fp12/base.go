@@ -88,8 +88,14 @@ func (z *{{.Fp12Name}}) Sub(x, y *{{.Fp12Name}}) *{{.Fp12Name}} {
 	return z
 }
 
+// Double sets z=2*x and returns z
+func (z *{{.Fp12Name}}) Double(x *{{.Fp12Name}}) *{{.Fp12Name}} {
+	z.C0.Double(&x.C0)
+	z.C1.Double(&x.C1)
+	return z
+}
+
 // SetRandom used only in tests
-// TODO eliminate this method!
 func (z *{{.Fp12Name}}) SetRandom() *{{.Fp12Name}} {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()

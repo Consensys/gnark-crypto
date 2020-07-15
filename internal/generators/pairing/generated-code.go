@@ -19,11 +19,11 @@ package pairing
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/bw761"
-	"github.com/consensys/gurvy/bw761/fp"
+	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fp"
 )
 
-type fp2 = bw761.E2
+type fp2 = bls381.E2
 
 func primeModulus() *big.Int {
 	return fp.ElementModulus()
