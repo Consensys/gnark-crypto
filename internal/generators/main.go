@@ -84,7 +84,7 @@ func main() {
 
 	curves := [...]curve.Data{
 		bls381,
-		// bls377,
+		bls377,
 		// bn256,
 		// bw761,
 	}

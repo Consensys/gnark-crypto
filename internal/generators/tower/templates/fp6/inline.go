@@ -33,9 +33,17 @@ const Inline = `
 
 {{- define "fp2InlineMulByNonResidueInv" }}
 	{ // begin inline: set {{.out}} to ({{.in}}) * ({{.all.Fp6NonResidue}})^{-1}
-		{{- if eq .all.Fp6NonResidue "0,1" }}
+		{{- if (and (eq .all.Fp6NonResidue "0,1") (eq .all.Fp2NonResidue "5")) }}
 			buf := ({{.in}}).A1
-			{{- template "fpInlineMulByNonResidueInv" dict "all" .all "out" (print "&(" .out ").A1") "in" (print "&(" .in ").A0") }}
+			nrinv := fp.Element{
+				330620507644336508,
+				9878087358076053079,
+				11461392860540703536,
+				6973035786057818995,
+				8846909097162646007,
+				104838758629667239,
+			}
+			({{.out}}).A1.Mul(&({{.in}}).A0, &nrinv)
 			({{.out}}).A0 = buf
 		{{- else if (and (eq .all.Fp6NonResidue "1,1") (eq .all.Fp2NonResidue "-1")) }}
 			// ({{.out}}).A0 = (({{.in}}).A0 + ({{.in}}).A1)/2
