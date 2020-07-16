@@ -142,13 +142,9 @@ func (z *E12) Mul(x, y *E12) *E12 {
 		result.B1.Set(&(&t1).B0)
 		result.B2.Set(&(&t1).B1)
 		{ // begin inline: set result.B0 to (&(&t1).B2) * (1,1)
-			var buf E2
-			buf.Set(&(&t1).B2)
-			result.B0.A1.Add(&buf.A0, &buf.A1)
-			{ // begin inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-				(&(result.B0).A0).Neg(&buf.A1)
-			} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-			result.B0.A0.AddAssign(&buf.A0)
+			a0 := (&(&t1).B2).A0
+			result.B0.A0.Sub(&a0, &(&(&t1).B2).A1)
+			result.B0.A1.Add(&a0, &(&(&t1).B2).A1)
 		} // end inline: set result.B0 to (&(&t1).B2) * (1,1)
 		z.C0.Set(&result)
 	} // end inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
@@ -165,6 +161,8 @@ func (z *E12) Mul(x, y *E12) *E12 {
 // Square set z=x*x in E12 and return z
 func (z *E12) Square(x *E12) *E12 {
 	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	// or the complex method from fp2
+	// for now do it the dumb way
 	var b0, b1 E6
 
 	b0.Square(&x.C0)
@@ -174,13 +172,9 @@ func (z *E12) Square(x *E12) *E12 {
 		result.B1.Set(&(&b1).B0)
 		result.B2.Set(&(&b1).B1)
 		{ // begin inline: set result.B0 to (&(&b1).B2) * (1,1)
-			var buf E2
-			buf.Set(&(&b1).B2)
-			result.B0.A1.Add(&buf.A0, &buf.A1)
-			{ // begin inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-				(&(result.B0).A0).Neg(&buf.A1)
-			} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-			result.B0.A0.AddAssign(&buf.A0)
+			a0 := (&(&b1).B2).A0
+			result.B0.A0.Sub(&a0, &(&(&b1).B2).A1)
+			result.B0.A1.Add(&a0, &(&(&b1).B2).A1)
 		} // end inline: set result.B0 to (&(&b1).B2) * (1,1)
 		b1.Set(&result)
 	} // end inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
@@ -192,7 +186,7 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by interpreted as an Fp4 elmt, where y**2=1+u
+// squares an element a+by interpreted as an Fp4 elmt, where y**2=(1,1)
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)
@@ -248,13 +242,9 @@ func (z *E12) Inverse(x *E12) *E12 {
 			result.B1.Set(&(&t[1]).B0)
 			result.B2.Set(&(&t[1]).B1)
 			{ // begin inline: set result.B0 to (&(&t[1]).B2) * (1,1)
-				var buf E2
-				buf.Set(&(&t[1]).B2)
-				result.B0.A1.Add(&buf.A0, &buf.A1)
-				{ // begin inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-					(&(result.B0).A0).Neg(&buf.A1)
-				} // end inline: set &(result.B0).A0 to (&buf.A1) * (-1)
-				result.B0.A0.AddAssign(&buf.A0)
+				a0 := (&(&t[1]).B2).A0
+				result.B0.A0.Sub(&a0, &(&(&t[1]).B2).A1)
+				result.B0.A1.Add(&a0, &(&(&t[1]).B2).A1)
 			} // end inline: set result.B0 to (&(&t[1]).B2) * (1,1)
 			buf.Set(&result)
 		} // end inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
@@ -268,6 +258,7 @@ func (z *E12) Inverse(x *E12) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
+// TODO deprecate in favour of Conjugate
 func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }

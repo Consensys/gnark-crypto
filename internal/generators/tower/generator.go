@@ -34,6 +34,7 @@ func Generate(d Data, outputDir string) error {
 		src := []string{
 			fp2.Base,
 			fp2.Inline,
+			fp6.Inline,
 			fp2.Mul,
 		}
 		if err := bavard.Generate(filepath.Join(rootPath, strings.ToLower(d.Fp2Name)+".go"), src, d,

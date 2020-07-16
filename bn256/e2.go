@@ -22,7 +22,6 @@ import (
 
 // E2 is a degree-two finite field extension of fp.Element:
 // A0 + A1u where u^2 == -1 is a quadratic nonresidue in fp
-
 type E2 struct {
 	A0, A1 fp.Element
 }
@@ -40,6 +39,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
+// SetZero sets z to 0, return z
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -75,7 +75,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// Equal returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if z==0, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -207,48 +207,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (9,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var buf, buf9 E2
-	buf.Set(x)
-	buf9.Double(&buf).
-		Double(&buf9).
-		Double(&buf9).
-		Add(&buf9, &buf)
-	z.A1.Add(&buf.A0, &buf9.A1)
-	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
-		(&(z).A0).Neg(&buf.A1)
-	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
-	z.A0.AddAssign(&buf9.A0)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = (9*(x).A0 + (x).A1)/82
-	// (z).A1 = (9*(x).A1 - (x).A0)/82
-	copy := *(x)
-
-	var copy9 E2
-	copy9.Double(&copy).
-		Double(&copy9).
-		Double(&copy9).
-		AddAssign(&copy)
-
-	(z).A0.Add(&copy9.A0, &copy.A1)
-	(z).A1.Sub(&copy9.A1, &copy.A0)
-
-	buf82inv := fp.Element{
-		15263610803691847034,
-		14617516054323294413,
-		1961223913490700324,
-		3456812345740674661,
-	}
-	(z).A0.MulAssign(&buf82inv)
-	(z).A1.MulAssign(&buf82inv)
-	return z
-}
-
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
@@ -264,6 +222,52 @@ func (z *E2) Inverse(x *E2) *E2 {
 	z.A0.Mul(&a0, &t1)           // step 5
 	z.A1.Neg(&a1).MulAssign(&t1) // step 6
 
+	return z
+}
+
+// MulByNonResidue multiplies a E2 by (9,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	{ // begin inline: set z to (x) * (9,1)
+		var buf, buf9 E2
+		buf.Set(x)
+		buf9.Double(&buf).
+			Double(&buf9).
+			Double(&buf9).
+			Add(&buf9, &buf)
+		z.A1.Add(&buf.A0, &buf9.A1)
+		{ // begin inline: set &(z).A0 to (&buf.A1) * (-1)
+			(&(z).A0).Neg(&buf.A1)
+		} // end inline: set &(z).A0 to (&buf.A1) * (-1)
+		z.A0.AddAssign(&buf9.A0)
+	} // end inline: set z to (x) * (9,1)
+	return z
+}
+
+// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+	{ // begin inline: set z to (x) * (9,1)^{-1}
+		// (z).A0 = (9*(x).A0 + (x).A1)/82
+		// (z).A1 = (9*(x).A1 - (x).A0)/82
+		copy := *(x)
+
+		var copy9 E2
+		copy9.Double(&copy).
+			Double(&copy9).
+			Double(&copy9).
+			AddAssign(&copy)
+
+		(z).A0.Add(&copy9.A0, &copy.A1)
+		(z).A1.Sub(&copy9.A1, &copy.A0)
+
+		buf82inv := fp.Element{
+			15263610803691847034,
+			14617516054323294413,
+			1961223913490700324,
+			3456812345740674661,
+		}
+		(z).A0.MulAssign(&buf82inv)
+		(z).A1.MulAssign(&buf82inv)
+	} // end inline: set z to (x) * (9,1)^{-1}
 	return z
 }
 

@@ -48,43 +48,6 @@ func (z *{{.Fp6Name}}) MulAssign(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0 = rb0
 {{- end }}
 
-// MulBy{{capitalize .Fp2Name}} multiplies x by an elements of {{.Fp2Name}}
-func (z *{{.Fp6Name}}) MulBy{{capitalize .Fp2Name}}(x *{{.Fp6Name}}, y *{{.Fp2Name}}) *{{.Fp6Name}} {
-	var yCopy {{.Fp2Name}}
-	yCopy.Set(y)
-	z.B0.Mul(&x.B0, &yCopy)
-	z.B1.Mul(&x.B1, &yCopy)
-	z.B2.Mul(&x.B2, &yCopy)
-	return z
-}
-
-{{- /* MulByNotv2 is no longer used
-// MulByNotv2 multiplies x by y with &y.b2=0
-func (z *{{.Fp6Name}}) MulByNotv2(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
-	// Algorithm 15 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3 {{.Fp2Name}}
-	b0.Mul(&x.B0, &y.B0) // step 1
-	b1.Mul(&x.B1, &y.B1) // step 2
-	// step 3
-	b2.Add(&x.B1, &x.B2)
-	rb0.Mul(&b2, &y.B1).
-		SubAssign(&b1)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "rb0" "in" "&rb0" }}
-	rb0.AddAssign(&b0)
-	// step 4
-	b2.Add(&x.B0, &x.B1)
-	b3.Add(&y.B0, &y.B1)
-	z.B1.Mul(&b2, &b3).
-		SubAssign(&b0).
-		SubAssign(&b1)
-	// step 5
-	z.B2.Mul(&x.B2, &y.B0).
-		AddAssign(&b1)
-	z.B0 = rb0
-	return z
-}
-*/}}
-
 // Square sets z to the {{.Fp6Name}}-product of x,x, returns z
 func (z *{{.Fp6Name}}) Square(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	{{ template "square" dict "all" . "V" "x" }}
@@ -121,43 +84,37 @@ func (z *{{.Fp6Name}}) SquareAssign() *{{.Fp6Name}} {
 	z.B1 = b0
 {{- end }}
 
-// SquarE2 squares a {{.Fp6Name}}
-func (z *{{.Fp6Name}}) SquarE2(x *{{.Fp6Name}}) *{{.Fp6Name}} {
-	// Karatsuba from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var v0, v1, v2, v01, v02, v12 {{.Fp2Name}}
-	v0.Square(&x.B0)
-	v1.Square(&x.B1)
-	v2.Square(&x.B2)
-	v01.Add(&x.B0, &x.B1)
-	v01.Square(&v01)
-	v02.Add(&x.B0, &x.B2)
-	v02.Square(&v02)
-	v12.Add(&x.B1, &x.B2)
-	v12.Square(&v12)
-	z.B0.Sub(&v12, &v1).SubAssign(&v2)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B0" "in" "&z.B0" }}
-	z.B0.AddAssign(&v0)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B1" "in" "&v2" }}
-	z.B1.AddAssign(&v01).SubAssign(&v0).SubAssign(&v1)
-	z.B2.Add(&v02, &v1).SubAssign(&v0).SubAssign(&v2)
-	return z
-}
-// Square3 squares a {{.Fp6Name}}
-func (z *{{.Fp6Name}}) Square3(x *{{.Fp6Name}}) *{{.Fp6Name}} {
-	// CH-SQR2 from from Section 4 of https://eprint.iacr.org/2006/471.pdf
-	var s0, s1, s2, s3, s4 {{.Fp2Name}}
-	s0.Square(&x.B0)
-	s1.Mul(&x.B0, &x.B1).Double(&s1)
-	s2.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&s2)
-	s3.Mul(&x.B1, &x.B2).Double(&s3)
-	s4.Square(&x.B2)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B0" "in" "&s3" }}
-	z.B0.AddAssign(&s0)
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "z.B1" "in" "&s4" }}
-	z.B1.AddAssign(&s1)
-	z.B2.Add(&s1, &s2).AddAssign(&s3).SubAssign(&s0).SubAssign(&s4)
-	return z
-}
+{{/* HACK: bw761 is the only curve that needs cyclotomic square in Fp6; all others need it in Fp12 */}}
+{{- if (eq .Fpackage "bw761") }}
+	// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+	func (z *{{.Fp6Name}}) CyclotomicSquare(x *{{.Fp6Name}}) *{{.Fp6Name}} {
+
+		var res, a {{.Fp6Name}}
+		var tmp {{.Fp2Name}}
+
+		// A
+		res.B0.Square(&x.B0)
+		a.B0.Conjugate(&x.B0)
+
+		// B
+		res.B2.A0.Set(&x.B1.A1)
+		res.B2.A1.MulByNonResidueInv(&x.B1.A0)
+		res.B2.Square(&res.B2).Double(&res.B2).Double(&res.B2).Neg(&res.B2)
+		a.B2.Conjugate(&x.B2)
+
+		// C
+		tmp.Square(&x.B2)
+		res.B1.A0.MulByNonResidue(&tmp.A1)
+		res.B1.A1.Set(&tmp.A0)
+		a.B1.A0.Neg(&x.B1.A0)
+		a.B1.A1.Set(&x.B1.A1)
+
+		z.Sub(&res, &a).Double(z).Add(z, &res)
+
+		return z
+	}
+{{- end }}
+
 // Inverse an element in {{.Fp6Name}}
 func (z *{{.Fp6Name}}) Inverse(x *{{.Fp6Name}}) *{{.Fp6Name}} {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf

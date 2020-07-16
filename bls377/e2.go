@@ -20,12 +20,14 @@ import (
 	"github.com/consensys/gurvy/bls377/fp"
 )
 
-// E2 is a degree-two finite field extension of fp.Element
+// E2 is a degree-two finite field extension of fp.Element:
+// A0 + A1u where u^2 == 5 is a quadratic nonresidue in fp
 type E2 struct {
 	A0, A1 fp.Element
 }
 
 // Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -37,7 +39,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
-// SetZero sets z to zero and returns it
+// SetZero sets z to 0, return z
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -59,7 +61,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// SetOne sets z to 1 and returns z
+// Set sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -73,7 +75,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if z==0, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -217,35 +219,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (0,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	buf := (x).A0
-	{ // begin: inline MulByNonResidue(&(z).A0, &(x).A1)
-		buf := *(&(x).A1)
-		(&(z).A0).Double(&buf).Double(&(z).A0).AddAssign(&buf)
-	} // end: inline MulByNonResidue(&(z).A0, &(x).A1)
-	(z).A1 = buf
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	buf := (x).A1
-	{ // begin: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-		nrinv := fp.Element{
-			330620507644336508,
-			9878087358076053079,
-			11461392860540703536,
-			6973035786057818995,
-			8846909097162646007,
-			104838758629667239,
-		}
-		(&(z).A1).Mul(&(x).A0, &nrinv)
-	} // end: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-	(z).A0 = buf
-	return z
-}
-
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
@@ -256,12 +229,46 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 	t0.Square(&a0) // step 1
 	t1.Square(&a1) // step 2
-	t1beta.Double(&t1).Double(&t1beta).AddAssign(&t1)
+	{              // begin inline: set &t1beta to (&t1) * (5)
+		buf := *(&t1)
+		(&t1beta).Double(&buf).Double(&t1beta).AddAssign(&buf)
+	} // end inline: set &t1beta to (&t1) * (5)
 	t0.SubAssign(&t1beta)        // step 3
 	t1.Inverse(&t0)              // step 4
 	z.A0.Mul(&a0, &t1)           // step 5
 	z.A1.Neg(&a1).MulAssign(&t1) // step 6
 
+	return z
+}
+
+// MulByNonResidue multiplies a E2 by (0,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	{ // begin inline: set z to (x) * (0,1)
+		buf := (x).A0
+		{ // begin inline: set &(z).A0 to (&(x).A1) * (5)
+			buf := *(&(x).A1)
+			(&(z).A0).Double(&buf).Double(&(z).A0).AddAssign(&buf)
+		} // end inline: set &(z).A0 to (&(x).A1) * (5)
+		(z).A1 = buf
+	} // end inline: set z to (x) * (0,1)
+	return z
+}
+
+// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+	{ // begin inline: set z to (x) * (0,1)^{-1}
+		buf := (x).A1
+		nrinv := fp.Element{
+			330620507644336508,
+			9878087358076053079,
+			11461392860540703536,
+			6973035786057818995,
+			8846909097162646007,
+			104838758629667239,
+		}
+		(z).A1.Mul(&(x).A0, &nrinv)
+		(z).A0 = buf
+	} // end inline: set z to (x) * (0,1)^{-1}
 	return z
 }
 
@@ -279,12 +286,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by 5
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	buf := *(in)
-	(out).Double(&buf).Double(out).AddAssign(&buf)
-	return out
 }

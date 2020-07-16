@@ -3,7 +3,6 @@ package fp6
 const Base = `
 // {{.Fp6Name}} is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-{{.Fp6NonResidue}} is irrep in fp2
-
 type {{.Fp6Name}} struct {
 	B0, B1, B2 {{.Fp2Name}}
 }
@@ -86,19 +85,6 @@ func (z *{{.Fp6Name}}) Sub(x, y *{{.Fp6Name}}) *{{.Fp6Name}} {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
-	return z
-}
-
-// MulByGen Multiplies by v, root of X^3-{{.Fp6NonResidue}}
-// TODO deprecate in favor of inlined MulByNonResidue in fp12 package
-func (z *{{.Fp6Name}}) MulByGen(x *{{.Fp6Name}}) *{{.Fp6Name}} {
-	var result {{.Fp6Name}}
-
-	result.B1 = x.B0
-	result.B2 = x.B1
-	{{- template "fp2InlineMulByNonResidue" dict "all" . "out" "result.B0" "in" "&x.B2" }}
-
-	z.Set(&result)
 	return z
 }
 

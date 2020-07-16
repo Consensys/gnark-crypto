@@ -18,12 +18,12 @@ package bls377
 
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
-
 type E6 struct {
 	B0, B1, B2 E2
 }
 
 // Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }

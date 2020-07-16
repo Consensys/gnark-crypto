@@ -39,7 +39,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
-// SetZero sets z to 0
+// SetZero sets z to 0, return z
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -61,7 +61,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// SetOne sets z to 1 in Montgomery form and returns z
+// Set sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -75,7 +75,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if z==0, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -163,9 +163,15 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	return z
 }
 
-// MulAssign sets z to the E2-product of z,x returns z (Karatsuba)
+// MulAssign sets z to the E2-product of z,x returns z
 func (z *E2) MulAssign(x *E2) *E2 {
-
+	// (a+bu)*(c+du) == (ac+(-1)*bd) + (ad+bc)u where u^2 == -1
+	// Karatsuba: 3 fp multiplications instead of 4
+	// [1]: ac
+	// [2]: bd
+	// [3]: (a+b)*(c+d)
+	// Then z.A0: [1] + (-1)*[2]
+	// Then z.A1: [3] - [2] - [1]
 	var ac, bd, cplusd, aplusbcplusd fp.Element
 
 	ac.Mul(&z.A0, &x.A0)            // [1]: ac
@@ -221,33 +227,33 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 // MulByNonResidue multiplies a E2 by (1,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var buf E2
-	buf.Set(x)
-	z.A1.Add(&buf.A0, &buf.A1)
-	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
-		(&(z).A0).Neg(&buf.A1)
-	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
-	z.A0.AddAssign(&buf.A0)
+	{ // begin inline: set z to (x) * (1,1)
+		a0 := (x).A0
+		z.A0.Sub(&a0, &(x).A1)
+		z.A1.Add(&a0, &(x).A1)
+	} // end inline: set z to (x) * (1,1)
 	return z
 }
 
 // MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = ((x).A0 + (x).A1)/2
-	// (z).A1 = ((x).A1 - (x).A0)/2
-	buf := *(x)
-	(z).A0.Add(&buf.A0, &buf.A1)
-	(z).A1.Sub(&buf.A1, &buf.A0)
-	twoInv := fp.Element{
-		1730508156817200468,
-		9606178027640717313,
-		7150789853162776431,
-		7936136305760253186,
-		15245073033536294050,
-		1728177566264616342,
-	}
-	(z).A0.MulAssign(&twoInv)
-	(z).A1.MulAssign(&twoInv)
+	{ // begin inline: set z to (x) * (1,1)^{-1}
+		// (z).A0 = ((x).A0 + (x).A1)/2
+		// (z).A1 = ((x).A1 - (x).A0)/2
+		buf := *(x)
+		(z).A0.Add(&buf.A0, &buf.A1)
+		(z).A1.Sub(&buf.A1, &buf.A0)
+		twoInv := fp.Element{
+			1730508156817200468,
+			9606178027640717313,
+			7150789853162776431,
+			7936136305760253186,
+			15245073033536294050,
+			1728177566264616342,
+		}
+		(z).A0.MulAssign(&twoInv)
+		(z).A1.MulAssign(&twoInv)
+	} // end inline: set z to (x) * (1,1)^{-1}
 	return z
 }
 

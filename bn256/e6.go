@@ -18,12 +18,12 @@ package bn256
 
 // E6 is a degree-three finite field extension of fp2:
 // B0 + B1v + B2v^2 where v^3-9,1 is irrep in fp2
-
 type E6 struct {
 	B0, B1, B2 E2
 }
 
 // Equal returns true if z equals x, fasle otherwise
+// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
@@ -345,17 +345,17 @@ func (z *E6) SquareAssign() *E6 {
 // Inverse an element in E6
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
-	// step 9 is wrong in the paper
+	// step 9 is wrong in the paper!
 	// memalloc
 	var t [7]E2
 	var c [3]E2
 	var buf E2
-	t[0].Square(&x.B0)
-	t[1].Square(&x.B1)
-	t[2].Square(&x.B2)
-	t[3].Mul(&x.B0, &x.B1)
-	t[4].Mul(&x.B0, &x.B2)
-	t[5].Mul(&x.B1, &x.B2)
+	t[0].Square(&x.B0)     // step 1
+	t[1].Square(&x.B1)     // step 2
+	t[2].Square(&x.B2)     // step 3
+	t[3].Mul(&x.B0, &x.B1) // step 4
+	t[4].Mul(&x.B0, &x.B2) // step 5
+	t[5].Mul(&x.B1, &x.B2) // step 6
 	// step 7
 	{ // begin inline: set c[0] to (&t[5]) * (9,1)
 		var buf, buf9 E2

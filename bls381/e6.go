@@ -132,13 +132,9 @@ func (z *E6) Mul(x, y *E6) *E6 {
 		SubAssign(&b1).
 		SubAssign(&b2)
 	{ // begin inline: set rb0 to (&rb0) * (1,1)
-		var buf E2
-		buf.Set(&rb0)
-		rb0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(rb0).A0 to (&buf.A1) * (-1)
-			(&(rb0).A0).Neg(&buf.A1)
-		} // end inline: set &(rb0).A0 to (&buf.A1) * (-1)
-		rb0.A0.AddAssign(&buf.A0)
+		a0 := (&rb0).A0
+		rb0.A0.Sub(&a0, &(&rb0).A1)
+		rb0.A1.Add(&a0, &(&rb0).A1)
 	} // end inline: set rb0 to (&rb0) * (1,1)
 	rb0.AddAssign(&b0)
 
@@ -149,13 +145,9 @@ func (z *E6) Mul(x, y *E6) *E6 {
 		SubAssign(&b0).
 		SubAssign(&b1)
 	{ // begin inline: set b3 to (&b2) * (1,1)
-		var buf E2
-		buf.Set(&b2)
-		b3.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(b3).A0 to (&buf.A1) * (-1)
-			(&(b3).A0).Neg(&buf.A1)
-		} // end inline: set &(b3).A0 to (&buf.A1) * (-1)
-		b3.A0.AddAssign(&buf.A0)
+		a0 := (&b2).A0
+		b3.A0.Sub(&a0, &(&b2).A1)
+		b3.A1.Add(&a0, &(&b2).A1)
 	} // end inline: set b3 to (&b2) * (1,1)
 	z.B1.AddAssign(&b3)
 
@@ -186,13 +178,9 @@ func (z *E6) MulAssign(x *E6) *E6 {
 		SubAssign(&b1).
 		SubAssign(&b2)
 	{ // begin inline: set rb0 to (&rb0) * (1,1)
-		var buf E2
-		buf.Set(&rb0)
-		rb0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(rb0).A0 to (&buf.A1) * (-1)
-			(&(rb0).A0).Neg(&buf.A1)
-		} // end inline: set &(rb0).A0 to (&buf.A1) * (-1)
-		rb0.A0.AddAssign(&buf.A0)
+		a0 := (&rb0).A0
+		rb0.A0.Sub(&a0, &(&rb0).A1)
+		rb0.A1.Add(&a0, &(&rb0).A1)
 	} // end inline: set rb0 to (&rb0) * (1,1)
 	rb0.AddAssign(&b0)
 
@@ -203,13 +191,9 @@ func (z *E6) MulAssign(x *E6) *E6 {
 		SubAssign(&b0).
 		SubAssign(&b1)
 	{ // begin inline: set b3 to (&b2) * (1,1)
-		var buf E2
-		buf.Set(&b2)
-		b3.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(b3).A0 to (&buf.A1) * (-1)
-			(&(b3).A0).Neg(&buf.A1)
-		} // end inline: set &(b3).A0 to (&buf.A1) * (-1)
-		b3.A0.AddAssign(&buf.A0)
+		a0 := (&b2).A0
+		b3.A0.Sub(&a0, &(&b2).A1)
+		b3.A1.Add(&a0, &(&b2).A1)
 	} // end inline: set b3 to (&b2) * (1,1)
 	z.B1.AddAssign(&b3)
 
@@ -234,13 +218,9 @@ func (z *E6) Square(x *E6) *E6 {
 
 	// step 3
 	{ // begin inline: set b0 to (&b4) * (1,1)
-		var buf E2
-		buf.Set(&b4)
-		b0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(b0).A0 to (&buf.A1) * (-1)
-			(&(b0).A0).Neg(&buf.A1)
-		} // end inline: set &(b0).A0 to (&buf.A1) * (-1)
-		b0.A0.AddAssign(&buf.A0)
+		a0 := (&b4).A0
+		b0.A0.Sub(&a0, &(&b4).A1)
+		b0.A1.Add(&a0, &(&b4).A1)
 	} // end inline: set b0 to (&b4) * (1,1)
 	b0.AddAssign(&b3)
 	b1.Sub(&b3, &b4)                                  // step 4
@@ -249,13 +229,9 @@ func (z *E6) Square(x *E6) *E6 {
 	b4.Mul(&x.B1, &x.B2).Double(&b4)                  // step 7
 	// step 9
 	{ // begin inline: set z.B0 to (&b4) * (1,1)
-		var buf E2
-		buf.Set(&b4)
-		z.B0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-			(&(z.B0).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-		z.B0.A0.AddAssign(&buf.A0)
+		a0 := (&b4).A0
+		z.B0.A0.Sub(&a0, &(&b4).A1)
+		z.B0.A1.Add(&a0, &(&b4).A1)
 	} // end inline: set z.B0 to (&b4) * (1,1)
 	z.B0.AddAssign(&b2)
 
@@ -277,13 +253,9 @@ func (z *E6) SquareAssign() *E6 {
 
 	// step 3
 	{ // begin inline: set b0 to (&b4) * (1,1)
-		var buf E2
-		buf.Set(&b4)
-		b0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(b0).A0 to (&buf.A1) * (-1)
-			(&(b0).A0).Neg(&buf.A1)
-		} // end inline: set &(b0).A0 to (&buf.A1) * (-1)
-		b0.A0.AddAssign(&buf.A0)
+		a0 := (&b4).A0
+		b0.A0.Sub(&a0, &(&b4).A1)
+		b0.A1.Add(&a0, &(&b4).A1)
 	} // end inline: set b0 to (&b4) * (1,1)
 	b0.AddAssign(&b3)
 	b1.Sub(&b3, &b4)                                  // step 4
@@ -292,13 +264,9 @@ func (z *E6) SquareAssign() *E6 {
 	b4.Mul(&z.B1, &z.B2).Double(&b4)                  // step 7
 	// step 9
 	{ // begin inline: set z.B0 to (&b4) * (1,1)
-		var buf E2
-		buf.Set(&b4)
-		z.B0.A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-			(&(z.B0).A0).Neg(&buf.A1)
-		} // end inline: set &(z.B0).A0 to (&buf.A1) * (-1)
-		z.B0.A0.AddAssign(&buf.A0)
+		a0 := (&b4).A0
+		z.B0.A0.Sub(&a0, &(&b4).A1)
+		z.B0.A1.Add(&a0, &(&b4).A1)
 	} // end inline: set z.B0 to (&b4) * (1,1)
 	z.B0.AddAssign(&b2)
 
@@ -326,24 +294,16 @@ func (z *E6) Inverse(x *E6) *E6 {
 	t[5].Mul(&x.B1, &x.B2) // step 6
 	// step 7
 	{ // begin inline: set c[0] to (&t[5]) * (1,1)
-		var buf E2
-		buf.Set(&t[5])
-		c[0].A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(c[0]).A0 to (&buf.A1) * (-1)
-			(&(c[0]).A0).Neg(&buf.A1)
-		} // end inline: set &(c[0]).A0 to (&buf.A1) * (-1)
-		c[0].A0.AddAssign(&buf.A0)
+		a0 := (&t[5]).A0
+		c[0].A0.Sub(&a0, &(&t[5]).A1)
+		c[0].A1.Add(&a0, &(&t[5]).A1)
 	} // end inline: set c[0] to (&t[5]) * (1,1)
 	c[0].Neg(&c[0]).AddAssign(&t[0])
 	// step 8
 	{ // begin inline: set c[1] to (&t[2]) * (1,1)
-		var buf E2
-		buf.Set(&t[2])
-		c[1].A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(c[1]).A0 to (&buf.A1) * (-1)
-			(&(c[1]).A0).Neg(&buf.A1)
-		} // end inline: set &(c[1]).A0 to (&buf.A1) * (-1)
-		c[1].A0.AddAssign(&buf.A0)
+		a0 := (&t[2]).A0
+		c[1].A0.Sub(&a0, &(&t[2]).A1)
+		c[1].A1.Add(&a0, &(&t[2]).A1)
 	} // end inline: set c[1] to (&t[2]) * (1,1)
 	c[1].SubAssign(&t[3])
 	c[2].Sub(&t[1], &t[4]) // step 9 is wrong in 2010/354!
@@ -352,13 +312,9 @@ func (z *E6) Inverse(x *E6) *E6 {
 	buf.Mul(&x.B1, &c[2])
 	t[6].AddAssign(&buf)
 	{ // begin inline: set t[6] to (&t[6]) * (1,1)
-		var buf E2
-		buf.Set(&t[6])
-		t[6].A1.Add(&buf.A0, &buf.A1)
-		{ // begin inline: set &(t[6]).A0 to (&buf.A1) * (-1)
-			(&(t[6]).A0).Neg(&buf.A1)
-		} // end inline: set &(t[6]).A0 to (&buf.A1) * (-1)
-		t[6].A0.AddAssign(&buf.A0)
+		a0 := (&t[6]).A0
+		t[6].A0.Sub(&a0, &(&t[6]).A1)
+		t[6].A1.Add(&a0, &(&t[6]).A1)
 	} // end inline: set t[6] to (&t[6]) * (1,1)
 	buf.Mul(&x.B0, &c[0])
 	t[6].AddAssign(&buf)

@@ -17,7 +17,6 @@
 package bls381
 
 import (
-	"github.com/consensys/gurvy/bls381/fp"
 	"math/bits"
 )
 
@@ -233,7 +232,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C0.B1, y)
 	result.C0.B1.Mul(&x.C0.B2, y)
@@ -252,7 +251,7 @@ func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingR
 func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B1, y)
 	result.C0.B1.Mul(&x.C1.B2, y)
@@ -271,7 +270,7 @@ func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingR
 func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B2, y)
 	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
@@ -282,28 +281,6 @@ func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingRe
 	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
 
 	z.Set(&result)
-	return z
-}
-
-// mulByNonResidueInv set z to x * (1,1)^{-1} and return z
-func (z *G2CoordType) mulByNonResidueInv(x *G2CoordType) *G2CoordType {
-	{ // begin inline: set z to x * (1,1)^{-1}
-		// z.A0 = (x.A0 + x.A1)/2
-		// z.A1 = (x.A1 - x.A0)/2
-		buf := *x
-		z.A0.Add(&buf.A0, &buf.A1)
-		z.A1.Sub(&buf.A1, &buf.A0)
-		twoInv := fp.Element{
-			1730508156817200468,
-			9606178027640717313,
-			7150789853162776431,
-			7936136305760253186,
-			15245073033536294050,
-			1728177566264616342,
-		}
-		z.A0.MulAssign(&twoInv)
-		z.A1.MulAssign(&twoInv)
-	} // end inline: set z to x * (1,1)^{-1}
 	return z
 }
 
