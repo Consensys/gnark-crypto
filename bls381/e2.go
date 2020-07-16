@@ -20,14 +20,12 @@ import (
 	"github.com/consensys/gurvy/bls381/fp"
 )
 
-// E2 is a degree-two finite field extension of fp.Element:
-// A0 + A1u where u^2 == -1 is a quadratic nonresidue in fp
+// E2 is a degree-two finite field extension of fp.Element
 type E2 struct {
 	A0, A1 fp.Element
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -39,7 +37,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
-// SetZero sets z to 0
+// SetZero sets an e2 elmt to zero
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -143,6 +141,19 @@ func (z *E2) Double(x *E2) *E2 {
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
+	var a, b, c fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Add(&y.A0, &y.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &y.A0)
+	c.Mul(&x.A1, &y.A1)
+	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
+	return z
+}
+
+// MulAssign sets z to the E2-product of z,x returns z
+func (z *E2) MulAssign(x *E2) *E2 {
 	// (a+bu)*(c+du) == (ac+(-1)*bd) + (ad+bc)u where u^2 == -1
 	// Karatsuba: 3 fp multiplications instead of 4
 	// [1]: ac
@@ -150,22 +161,6 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	// [3]: (a+b)*(c+d)
 	// Then z.A0: [1] + (-1)*[2]
 	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&x.A0, &y.A0)            // [1]: ac
-	bd.Mul(&x.A1, &y.A1)            // [2]: bd
-	cplusd.Add(&y.A0, &y.A1)        // c+d
-	aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	z.A0.Sub(&ac, &bd)              // z.A0: [1] - [2]
-	return z
-}
-
-// MulAssign sets z to the E2-product of z,x returns z (Karatsuba)
-func (z *E2) MulAssign(x *E2) *E2 {
-
 	var ac, bd, cplusd, aplusbcplusd fp.Element
 
 	ac.Mul(&z.A0, &x.A0)            // [1]: ac
@@ -181,22 +176,42 @@ func (z *E2) MulAssign(x *E2) *E2 {
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
-	// (a+bu)^2 == (a^2+(-1)*b^2) + (2ab)u where u^2 == -1
-	// Complex method: 2 fp multiplications instead of 3
-	// [1]: ab
-	// [2]: (a+b)*(a+(-1)*b)
-	// Then z.A0: [2] - (-1+1)*[1]
-	// Then z.A1: 2[1]
-	// optimize for quadratic nonresidue -1
-	var aplusb fp.Element
-	var result E2
+	// algo 22 https://eprint.iacr.org/2010/354.pdf
+	var a, b fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Sub(&x.A0, &x.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &x.A1).Double(&b)
+	z.A0.Set(&a)
+	z.A1.Set(&b)
+	return z
+}
 
-	aplusb.Add(&x.A0, &x.A1)                       // a+b
-	result.A0.Sub(&x.A0, &x.A1)                    // a-b
-	result.A0.MulAssign(&aplusb)                   // [2]: (a+b)*(a-b)
-	result.A1.Mul(&x.A0, &x.A1).Double(&result.A1) // [1]: ab
+// MulByNonResidue multiplies a E2 by (1,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	var a fp.Element
+	a.Sub(&x.A0, &x.A1)
+	z.A1.Add(&x.A0, &x.A1)
+	z.A0.Set(&a)
+	return z
+}
 
-	z.Set(&result)
+// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+
+	twoinv := fp.Element{
+		1730508156817200468,
+		9606178027640717313,
+		7150789853162776431,
+		7936136305760253186,
+		15245073033536294050,
+		1728177566264616342,
+	}
+
+	var tmp fp.Element
+	tmp.Add(&x.A0, &x.A1)
+	z.A1.Sub(&x.A1, &x.A0).Mul(&z.A1, &twoinv)
+	z.A0.Set(&tmp).Mul(&z.A0, &twoinv)
 
 	return z
 }
@@ -209,45 +224,13 @@ func (z *E2) Inverse(x *E2) *E2 {
 	a0 = x.A0 // = is slightly faster than Set()
 	a1 = x.A1 // = is slightly faster than Set()
 
-	t0.Square(&a0)               // step 1
-	t1.Square(&a1)               // step 2
-	t0.Add(&t0, &t1)             // step 3
-	t1.Inverse(&t0)              // step 4
-	z.A0.Mul(&a0, &t1)           // step 5
-	z.A1.Neg(&a1).MulAssign(&t1) // step 6
+	t0.Square(&a0)
+	t1.Square(&a1)
+	t0.Add(&t0, &t1)
+	t1.Inverse(&t0)
+	z.A0.Mul(&a0, &t1)
+	z.A1.Neg(&a1).MulAssign(&t1)
 
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (1,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var buf E2
-	buf.Set(x)
-	z.A1.Add(&buf.A0, &buf.A1)
-	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
-		(&(z).A0).Neg(&buf.A1)
-	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
-	z.A0.AddAssign(&buf.A0)
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = ((x).A0 + (x).A1)/2
-	// (z).A1 = ((x).A1 - (x).A0)/2
-	buf := *(x)
-	(z).A0.Add(&buf.A0, &buf.A1)
-	(z).A1.Sub(&buf.A1, &buf.A0)
-	twoInv := fp.Element{
-		1730508156817200468,
-		9606178027640717313,
-		7150789853162776431,
-		7936136305760253186,
-		15245073033536294050,
-		1728177566264616342,
-	}
-	(z).A0.MulAssign(&twoInv)
-	(z).A1.MulAssign(&twoInv)
 	return z
 }
 
