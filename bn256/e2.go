@@ -20,15 +20,12 @@ import (
 	"github.com/consensys/gurvy/bn256/fp"
 )
 
-// E2 is a degree-two finite field extension of fp.Element:
-// A0 + A1u where u^2 == -1 is a quadratic nonresidue in fp
-
+// E2 is a degree-two finite field extension of fp.Element
 type E2 struct {
 	A0, A1 fp.Element
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -40,6 +37,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
+// SetZero sets an e2 elmt to zero
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -61,7 +59,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// Set sets z to 1 in Montgomery form and returns z
+// SetOne sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -75,7 +73,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// Equal returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -143,23 +141,14 @@ func (z *E2) Double(x *E2) *E2 {
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(-1)*bd) + (ad+bc)u where u^2 == -1
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (-1)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&x.A0, &y.A0)            // [1]: ac
-	bd.Mul(&x.A1, &y.A1)            // [2]: bd
-	cplusd.Add(&y.A0, &y.A1)        // c+d
-	aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	z.A0.Sub(&ac, &bd)              // z.A0: [1] - [2]
+	var a, b, c fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Add(&y.A0, &y.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &y.A0)
+	c.Mul(&x.A1, &y.A1)
+	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
 	return z
 }
 
@@ -187,65 +176,45 @@ func (z *E2) MulAssign(x *E2) *E2 {
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
-	// (a+bu)^2 == (a^2+(-1)*b^2) + (2ab)u where u^2 == -1
-	// Complex method: 2 fp multiplications instead of 3
-	// [1]: ab
-	// [2]: (a+b)*(a+(-1)*b)
-	// Then z.A0: [2] - (-1+1)*[1]
-	// Then z.A1: 2[1]
-	// optimize for quadratic nonresidue -1
-	var aplusb fp.Element
-	var result E2
-
-	aplusb.Add(&x.A0, &x.A1)                       // a+b
-	result.A0.Sub(&x.A0, &x.A1)                    // a-b
-	result.A0.MulAssign(&aplusb)                   // [2]: (a+b)*(a-b)
-	result.A1.Mul(&x.A0, &x.A1).Double(&result.A1) // [1]: ab
-
-	z.Set(&result)
-
+	// algo 22 https://eprint.iacr.org/2010/354.pdf
+	var a, b fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Sub(&x.A0, &x.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &x.A1).Double(&b)
+	z.A0.Set(&a)
+	z.A1.Set(&b)
 	return z
 }
 
 // MulByNonResidue multiplies a E2 by (9,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var buf, buf9 E2
-	buf.Set(x)
-	buf9.Double(&buf).
-		Double(&buf9).
-		Double(&buf9).
-		Add(&buf9, &buf)
-	z.A1.Add(&buf.A0, &buf9.A1)
-	{ // begin: inline MulByNonResidue(&(z).A0, &buf.A1)
-		(&(z).A0).Neg(&buf.A1)
-	} // end: inline MulByNonResidue(&(z).A0, &buf.A1)
-	z.A0.AddAssign(&buf9.A0)
+	var a, b fp.Element
+	a.Double(&x.A0).Double(&a).Double(&a).Add(&a, &x.A0).Sub(&a, &x.A1)
+	b.Double(&x.A1).Double(&b).Double(&b).Add(&b, &x.A1).Add(&b, &x.A0)
+	z.A0.Set(&a)
+	z.A1.Set(&b)
 	return z
 }
 
 // MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	// (z).A0 = (9*(x).A0 + (x).A1)/82
-	// (z).A1 = (9*(x).A1 - (x).A0)/82
-	copy := *(x)
 
-	var copy9 E2
-	copy9.Double(&copy).
-		Double(&copy9).
-		Double(&copy9).
-		AddAssign(&copy)
-
-	(z).A0.Add(&copy9.A0, &copy.A1)
-	(z).A1.Sub(&copy9.A1, &copy.A0)
-
-	buf82inv := fp.Element{
-		15263610803691847034,
-		14617516054323294413,
-		1961223913490700324,
-		3456812345740674661,
+	var nonresinv E2
+	nonresinv.A0 = fp.Element{
+		10477841894441615122,
+		7327163185667482322,
+		3635199979766503006,
+		3215324977242306624,
 	}
-	(z).A0.MulAssign(&buf82inv)
-	(z).A1.MulAssign(&buf82inv)
+	nonresinv.A1 = fp.Element{
+		7515750141297360845,
+		14746352163864140223,
+		11319968037783994424,
+		30185921062296004,
+	}
+	z.Mul(x, &nonresinv)
+
 	return z
 }
 
@@ -257,12 +226,12 @@ func (z *E2) Inverse(x *E2) *E2 {
 	a0 = x.A0 // = is slightly faster than Set()
 	a1 = x.A1 // = is slightly faster than Set()
 
-	t0.Square(&a0)               // step 1
-	t1.Square(&a1)               // step 2
-	t0.Add(&t0, &t1)             // step 3
-	t1.Inverse(&t0)              // step 4
-	z.A0.Mul(&a0, &t1)           // step 5
-	z.A1.Neg(&a1).MulAssign(&t1) // step 6
+	t0.Square(&a0)
+	t1.Square(&a1)
+	t0.Add(&t0, &t1)
+	t1.Inverse(&t0)
+	z.A0.Mul(&a0, &t1)
+	z.A1.Neg(&a1).MulAssign(&t1)
 
 	return z
 }
