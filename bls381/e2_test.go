@@ -2,6 +2,8 @@
 package bls381
 
 import (
+	"fmt"
+	"github.com/consensys/gurvy/bls381/fp"
 	"reflect"
 	"testing"
 )
@@ -66,7 +68,22 @@ func E2check(t *testing.T, f func(*E2, *E2, *E2) *E2, m int) {
 //--------------------//
 
 func TestE2Add(t *testing.T) {
-	E2check(t, (*E2).Add, 0)
+	var a, b fp.Element
+	a.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279894")
+	b.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279893")
+
+	fmt.Println("[")
+	for _, v := range a {
+		fmt.Printf("%d,\n", v)
+	}
+	fmt.Println("]")
+	fmt.Println("[")
+	for _, v := range b {
+		fmt.Printf("%d,\n", v)
+	}
+	fmt.Println("]")
+
+	//E2check(t, (*E2).Add, 0)
 }
 
 func TestE2Sub(t *testing.T) {
@@ -100,44 +117,88 @@ func TestE2Conjugate(t *testing.T) {
 var E2BenchIn1, E2BenchIn2, E2BenchOut E2
 
 func BenchmarkE2Add(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Add(&E2BenchIn1, &E2BenchIn2)
+		a.Add(&a, &c)
 	}
 }
 
 func BenchmarkE2Sub(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Sub(&E2BenchIn1, &E2BenchIn2)
+		a.Sub(&a, &c)
 	}
 }
 
 func BenchmarkE2Mul(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Mul(&E2BenchIn1, &E2BenchIn2)
+		a.Mul(&a, &c)
 	}
 }
 
 func BenchmarkE2MulByElement(b *testing.B) {
+	var a E2
+	var c fp.Element
+	c.SetRandom()
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.MulByElementBinary(&E2BenchIn1, &E2BenchIn2)
+		a.MulByElement(&a, &c)
 	}
 }
 
 func BenchmarkE2Square(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.SquareBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Square(&a)
 	}
 }
 
 func BenchmarkE2Inverse(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.InverseBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Inverse(&a)
+	}
+}
+
+func BenchmarkE2MulNonRes(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidue(&a)
+	}
+}
+
+func BenchmarkE2MulNonResInv(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidueInv(&a)
 	}
 }
 
 func BenchmarkE2Conjugate(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.ConjugateBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Conjugate(&a)
 	}
 }
 
