@@ -144,7 +144,7 @@ func BenchmarkE12Mul(b *testing.B) {
 	}
 }
 
-func BenchmarkCyclosquare(b *testing.B) {
+func BenchmarkE12Cyclosquare(b *testing.B) {
 	var a E12
 	a.SetRandom()
 	b.ResetTimer()
