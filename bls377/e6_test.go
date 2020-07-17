@@ -13,6 +13,7 @@ type E6TestPoint struct {
 
 var E6TestPoints []E6TestPoint
 
+// TODO this method is the same everywhere. move it someplace central and call it "compare"
 func E6compare(t *testing.T, got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatal("\nexpect:\t", want, "\ngot:\t", got)
@@ -88,35 +89,51 @@ func TestE6Inverse(t *testing.T) {
 //     benches		  //
 //--------------------//
 
-var E6BenchIn1, E6BenchIn2, E6BenchOut E6
-
 func BenchmarkE6Add(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Add(&E6BenchIn1, &E6BenchIn2)
+		a.Add(&a, &c)
 	}
 }
 
 func BenchmarkE6Sub(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Sub(&E6BenchIn1, &E6BenchIn2)
+		a.Sub(&a, &c)
 	}
 }
 
 func BenchmarkE6Mul(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Mul(&E6BenchIn1, &E6BenchIn2)
+		a.Mul(&a, &c)
 	}
 }
 
 func BenchmarkE6Square(b *testing.B) {
+	var a E6
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.SquareBinary(&E6BenchIn1, &E6BenchIn2)
+		a.Square(&a)
 	}
 }
 
 func BenchmarkE6Inverse(b *testing.B) {
+	var a E6
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.InverseBinary(&E6BenchIn1, &E6BenchIn2)
+		a.Inverse(&a)
 	}
 }
 
