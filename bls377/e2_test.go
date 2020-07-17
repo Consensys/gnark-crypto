@@ -2,6 +2,7 @@
 package bls377
 
 import (
+	"github.com/consensys/gurvy/bls377/fp"
 	"reflect"
 	"testing"
 )
@@ -100,44 +101,88 @@ func TestE2Conjugate(t *testing.T) {
 var E2BenchIn1, E2BenchIn2, E2BenchOut E2
 
 func BenchmarkE2Add(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Add(&E2BenchIn1, &E2BenchIn2)
+		a.Add(&a, &c)
 	}
 }
 
 func BenchmarkE2Sub(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Sub(&E2BenchIn1, &E2BenchIn2)
+		a.Sub(&a, &c)
 	}
 }
 
 func BenchmarkE2Mul(b *testing.B) {
+	var a, c E2
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.Mul(&E2BenchIn1, &E2BenchIn2)
+		a.Mul(&a, &c)
 	}
 }
 
 func BenchmarkE2MulByElement(b *testing.B) {
+	var a E2
+	var c fp.Element
+	c.SetRandom()
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.MulByElementBinary(&E2BenchIn1, &E2BenchIn2)
+		a.MulByElement(&a, &c)
 	}
 }
 
 func BenchmarkE2Square(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.SquareBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Square(&a)
 	}
 }
 
 func BenchmarkE2Inverse(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.InverseBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Inverse(&a)
+	}
+}
+
+func BenchmarkE2MulNonRes(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidue(&a)
+	}
+}
+
+func BenchmarkE2MulNonResInv(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidueInv(&a)
 	}
 }
 
 func BenchmarkE2Conjugate(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E2BenchOut.ConjugateBinary(&E2BenchIn1, &E2BenchIn2)
+		a.Conjugate(&a)
 	}
 }
 

@@ -2,7 +2,6 @@
 package bls381
 
 import (
-	"fmt"
 	"github.com/consensys/gurvy/bls381/fp"
 	"reflect"
 	"testing"
@@ -68,22 +67,7 @@ func E2check(t *testing.T, f func(*E2, *E2, *E2) *E2, m int) {
 //--------------------//
 
 func TestE2Add(t *testing.T) {
-	var a, b fp.Element
-	a.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279894")
-	b.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279893")
-
-	fmt.Println("[")
-	for _, v := range a {
-		fmt.Printf("%d,\n", v)
-	}
-	fmt.Println("]")
-	fmt.Println("[")
-	for _, v := range b {
-		fmt.Printf("%d,\n", v)
-	}
-	fmt.Println("]")
-
-	//E2check(t, (*E2).Add, 0)
+	E2check(t, (*E2).Add, 0)
 }
 
 func TestE2Sub(t *testing.T) {
