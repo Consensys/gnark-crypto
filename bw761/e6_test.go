@@ -78,11 +78,34 @@ func TestE6Mul(t *testing.T) {
 }
 
 func TestE6Square(t *testing.T) {
-	E6check(t, (*E6).SquareBinary, 5)
+	var a, b, c E6
+	for i := 0; i < 10000; i++ {
+		a.SetRandom()
+		b.Square(&a)
+		c.Mul(&a, &a)
+		a.Square(&a)
+		if !a.Equal(&b) || !a.Equal(&c) || !b.Equal(&c) {
+			t.Fatal("E6Square fails")
+		}
+	}
 }
 
 func TestE6Inverse(t *testing.T) {
-	E6check(t, (*E6).InverseBinary, 6)
+	var a, b, w E6
+	w.SetOne()
+	for i := 0; i < 10000; i++ {
+		a.SetRandom()
+		b.Inverse(&a)
+		a.Inverse(&a)
+		if !a.Equal(&b) {
+			t.Fatal("E6Inverse fails")
+		}
+		a.Inverse(&a)
+		a.Mul(&a, &b)
+		if !a.Equal(&w) {
+			t.Fatal("E6Inverse fails")
+		}
+	}
 }
 
 //--------------------//

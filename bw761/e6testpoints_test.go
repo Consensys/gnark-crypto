@@ -3,7 +3,7 @@ package bw761
 
 func init() {
 
-	E6TestPoints = make([]E6TestPoint, 7)
+	E6TestPoints = make([]E6TestPoint, 10)
 
 	E6TestPoints[0].in[0].SetString("0", "0", "0", "0", "0", "0")
 	E6TestPoints[0].in[1].SetString("0", "0", "0", "0", "0", "0")
