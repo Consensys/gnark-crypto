@@ -8,11 +8,12 @@ import (
 
 type E6TestPoint struct {
 	in  [2]E6
-	out [10]E6
+	out [7]E6
 }
 
 var E6TestPoints []E6TestPoint
 
+// TODO this method is the same everywhere. move it someplace central and call it "compare"
 func E6compare(t *testing.T, got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatal("\nexpect:\t", want, "\ngot:\t", got)
@@ -77,86 +78,62 @@ func TestE6Mul(t *testing.T) {
 }
 
 func TestE6Square(t *testing.T) {
-	E6check(t, (*E6).SquareBinary, 3)
+	E6check(t, (*E6).SquareBinary, 5)
 }
 
 func TestE6Inverse(t *testing.T) {
-	E6check(t, (*E6).InverseBinary, 4)
-}
-
-func TestE6Frobenius(t *testing.T) {
-	E6check(t, (*E6).FrobeniusBinary, 5)
-}
-
-func TestE6FrobeniusSquare(t *testing.T) {
-	E6check(t, (*E6).FrobeniusSquareBinary, 6)
-}
-
-func TestE6FrobeniusCube(t *testing.T) {
-	E6check(t, (*E6).FrobeniusCubeBinary, 7)
-}
-
-func TestE6FinalExponentiation(t *testing.T) {
-	E6check(t, (*E6).FinalExponentiationBinary, 9)
+	E6check(t, (*E6).InverseBinary, 6)
 }
 
 //--------------------//
 //     benches		  //
 //--------------------//
 
-var E6BenchIn1, E6BenchIn2, E6BenchOut E6
-
 func BenchmarkE6Add(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Add(&E6BenchIn1, &E6BenchIn2)
+		a.Add(&a, &c)
 	}
 }
 
 func BenchmarkE6Sub(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Sub(&E6BenchIn1, &E6BenchIn2)
+		a.Sub(&a, &c)
 	}
 }
 
 func BenchmarkE6Mul(b *testing.B) {
+	var a, c E6
+	a.SetRandom()
+	c.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.Mul(&E6BenchIn1, &E6BenchIn2)
+		a.Mul(&a, &c)
 	}
 }
 
 func BenchmarkE6Square(b *testing.B) {
+	var a E6
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.SquareBinary(&E6BenchIn1, &E6BenchIn2)
+		a.Square(&a)
 	}
 }
 
 func BenchmarkE6Inverse(b *testing.B) {
+	var a E6
+	a.SetRandom()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		E6BenchOut.InverseBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
-func BenchmarkE6Frobenius(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.FrobeniusBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
-func BenchmarkE6FrobeniusSquare(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.FrobeniusSquareBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
-func BenchmarkE6FrobeniusCube(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.FrobeniusCubeBinary(&E6BenchIn1, &E6BenchIn2)
-	}
-}
-
-func BenchmarkE6FinalExponentiation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		E6BenchOut.FinalExponentiationBinary(&E6BenchIn1, &E6BenchIn2)
+		a.Inverse(&a)
 	}
 }
 
@@ -172,24 +149,4 @@ func (z *E6) SquareBinary(x, y *E6) *E6 {
 // InverseBinary a binary wrapper for Inverse
 func (z *E6) InverseBinary(x, y *E6) *E6 {
 	return z.Inverse(x)
-}
-
-// FrobeniusBinary a binary wrapper for Frobenius
-func (z *E6) FrobeniusBinary(x, y *E6) *E6 {
-	return z.Frobenius(x)
-}
-
-// FrobeniusSquareBinary a binary wrapper for FrobeniusSquare
-func (z *E6) FrobeniusSquareBinary(x, y *E6) *E6 {
-	return z.FrobeniusSquare(x)
-}
-
-// FrobeniusCubeBinary a binary wrapper for FrobeniusCube
-func (z *E6) FrobeniusCubeBinary(x, y *E6) *E6 {
-	return z.FrobeniusCube(x)
-}
-
-// FinalExponentiationBinary a binary wrapper for FinalExponentiation
-func (z *E6) FinalExponentiationBinary(x, y *E6) *E6 {
-	return z.FinalExponentiation(x)
 }
