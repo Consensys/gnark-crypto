@@ -219,17 +219,13 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
-	var a0, a1, t0, t1 fp.Element
-
-	a0 = x.A0 // = is slightly faster than Set()
-	a1 = x.A1 // = is slightly faster than Set()
-
-	t0.Square(&a0)
-	t1.Square(&a1)
+	var t0, t1 fp.Element
+	t0.Square(&x.A0)
+	t1.Square(&x.A1)
 	t0.Add(&t0, &t1)
 	t1.Inverse(&t0)
-	z.A0.Mul(&a0, &t1)
-	z.A1.Neg(&a1).MulAssign(&t1)
+	z.A0.Mul(&x.A0, &t1)
+	z.A1.Mul(&x.A1, &t1).Neg(&z.A1)
 
 	return z
 }

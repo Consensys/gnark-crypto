@@ -37,7 +37,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
-// SetZero sets z to zero and returns it
+// SetZero sets an e2 elmt to zero
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -59,7 +59,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// SetOne sets z to 1 and returns z
+// SetOne sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -141,126 +141,76 @@ func (z *E2) Double(x *E2) *E2 {
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(5)*bd) + (ad+bc)u where u^2 == 5
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (5)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&x.A0, &y.A0)            // [1]: ac
-	bd.Mul(&x.A1, &y.A1)            // [2]: bd
-	cplusd.Add(&y.A0, &y.A1)        // c+d
-	aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	{                               // begin inline: set &z.A0 to (&bd) * (5)
-		buf := *(&bd)
-		(&z.A0).Double(&buf).Double(&z.A0).AddAssign(&buf)
-	} // end inline: set &z.A0 to (&bd) * (5)
-	z.A0.AddAssign(&ac) // z.A0: [1] + (5)*[2]
+	var a, b, c fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Add(&y.A0, &y.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &y.A0)
+	c.Mul(&x.A1, &y.A1)
+	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	z.A0.Double(&c).Double(&z.A0).AddAssign(&c).Add(&z.A0, &b)
 	return z
 }
 
 // MulAssign sets z to the E2-product of z,x returns z
 func (z *E2) MulAssign(x *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(5)*bd) + (ad+bc)u where u^2 == 5
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (5)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&z.A0, &x.A0)            // [1]: ac
-	bd.Mul(&z.A1, &x.A1)            // [2]: bd
-	cplusd.Add(&x.A0, &x.A1)        // c+d
-	aplusbcplusd.Add(&z.A0, &z.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	{                               // begin inline: set &z.A0 to (&bd) * (5)
-		buf := *(&bd)
-		(&z.A0).Double(&buf).Double(&z.A0).AddAssign(&buf)
-	} // end inline: set &z.A0 to (&bd) * (5)
-	z.A0.AddAssign(&ac) // z.A0: [1] + (5)*[2]
+	z.Mul(z, x)
 	return z
 }
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
-	// (a+bu)^2 == (a^2+(5)*b^2) + (2ab)u where u^2 == 5
-	// Complex method: 2 fp multiplications instead of 3
-	// [1]: ab
-	// [2]: (a+b)*(a+(5)*b)
-	// Then z.A0: [2] - (5+1)*[1]
-	// Then z.A1: 2[1]
-	var ab, aplusb, ababetab fp.Element
-
-	{ // begin inline: set &ababetab to (&x.A1) * (5)
-		buf := *(&x.A1)
-		(&ababetab).Double(&buf).Double(&ababetab).AddAssign(&buf)
-	} // end inline: set &ababetab to (&x.A1) * (5)
-
-	ababetab.AddAssign(&x.A0)          // a+(5)*b
-	aplusb.Add(&x.A0, &x.A1)           // a+b
-	ababetab.MulAssign(&aplusb)        // [2]: (a+b)*(a+(5)*b)
-	ab.Mul(&x.A0, &x.A1)               // [1]: ab
-	z.A1.Double(&ab)                   // z.A1: 2*[1]
-	z.A0.Add(&ab, &z.A1).Double(&z.A0) // (5+1)*ab, optimize for quadratic nonresidue 5
-	z.A0.Sub(&ababetab, &z.A0)         // z.A0: [2] - (5+1)[1]
+	//algo 22 https://eprint.iacr.org/2010/354.pdf
+	var c0, c2 fp.Element
+	c2.Double(&x.A1).Double(&c2).AddAssign(&x.A1).AddAssign(&x.A0)
+	c0.Add(&x.A0, &x.A1)
+	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2)
+	z.A1.Mul(&x.A0, &x.A1).Double(&z.A1)
+	z.A0.Sub(&c0, &z.A1).SubAssign(&z.A1).SubAssign(&z.A1)
 
 	return z
 }
 
 // MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	buf := (x).A0
-	{ // begin: inline MulByNonResidue(&(z).A0, &(x).A1)
-		buf := *(&(x).A1)
-		(&(z).A0).Double(&buf).Double(&(z).A0).AddAssign(&buf)
-	} // end: inline MulByNonResidue(&(z).A0, &(x).A1)
-	(z).A1 = buf
+	a := x.A0
+	b := x.A1 // fetching x.A1 in the function below is slower
+	z.A0.Double(&b).Double(&z.A0).Add(&z.A0, &b)
+	z.A1 = a
 	return z
 }
 
 // MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	buf := (x).A1
-	{ // begin: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-		nrinv := fp.Element{
-			330620507644336508,
-			9878087358076053079,
-			11461392860540703536,
-			6973035786057818995,
-			8846909097162646007,
-			104838758629667239,
-		}
-		(&(z).A1).Mul(&(x).A0, &nrinv)
-	} // end: inline MulByNonResidueInv(&(z).A1, &(x).A0)
-	(z).A0 = buf
+	//z.A1.MulByNonResidueInv(&x.A0)
+	a := x.A1
+	fiveinv := fp.Element{
+		330620507644336508,
+		9878087358076053079,
+		11461392860540703536,
+		6973035786057818995,
+		8846909097162646007,
+		104838758629667239,
+	}
+	z.A1.Mul(&x.A0, &fiveinv)
+	z.A0 = a
 	return z
 }
 
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
-	var a0, a1, t0, t1, t1beta fp.Element
-
-	a0 = x.A0 // = is slightly faster than Set()
-	a1 = x.A1 // = is slightly faster than Set()
-
-	t0.Square(&a0) // step 1
-	t1.Square(&a1) // step 2
-	t1beta.Double(&t1).Double(&t1beta).AddAssign(&t1)
-	t0.SubAssign(&t1beta)        // step 3
-	t1.Inverse(&t0)              // step 4
-	z.A0.Mul(&a0, &t1)           // step 5
-	z.A1.Neg(&a1).MulAssign(&t1) // step 6
+	//var a, b, t0, t1, tmp fp.Element
+	var t0, t1, tmp fp.Element
+	a := &x.A0 // creating the buffers a, b is faster than querying &x.A0, &x.A1 in the functions call below
+	b := &x.A1
+	t0.Square(a)
+	t1.Square(b)
+	tmp.Double(&t1).Double(&tmp).Add(&tmp, &t1)
+	t0.Sub(&t0, &tmp)
+	t1.Inverse(&t0)
+	z.A0.Mul(a, &t1)
+	z.A1.Mul(b, &t1).Neg(&z.A1)
 
 	return z
 }
@@ -279,12 +229,4 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
 	return z
-}
-
-// MulByNonResidue multiplies a fp.Element by 5
-// It would be nice to make this a method of fp.Element but fp.Element is outside this package
-func MulByNonResidue(out, in *fp.Element) *fp.Element {
-	buf := *(in)
-	(out).Double(&buf).Double(out).AddAssign(&buf)
-	return out
 }

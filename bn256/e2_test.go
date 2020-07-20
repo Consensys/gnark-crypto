@@ -2,7 +2,6 @@
 package bn256
 
 import (
-	"fmt"
 	"github.com/consensys/gurvy/bn256/fp"
 	"reflect"
 	"testing"
@@ -68,22 +67,7 @@ func E2check(t *testing.T, f func(*E2, *E2, *E2) *E2, m int) {
 //--------------------//
 
 func TestE2Add(t *testing.T) {
-	var a, b fp.Element
-	a.SetString("21087453498479301738505683583845423561061080261299122796980902361914303298513")
-	b.SetString("14681138511599513868579906292550611339979233093309515871315818100066920017952")
-
-	fmt.Println("[")
-	for _, v := range a {
-		fmt.Printf("%d,\n", v)
-	}
-	fmt.Println("]")
-	fmt.Println("[")
-	for _, v := range b {
-		fmt.Printf("%d,\n", v)
-	}
-	fmt.Println("]")
-
-	//E2check(t, (*E2).Add, 0)
+	E2check(t, (*E2).Add, 0)
 }
 
 func TestE2Sub(t *testing.T) {

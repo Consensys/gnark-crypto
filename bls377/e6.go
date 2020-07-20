@@ -16,9 +16,7 @@
 
 package bls377
 
-// E6 is a degree-three finite field extension of fp2:
-// B0 + B1v + B2v^2 where v^3-0,1 is irrep in fp2
-
+// E6 is a degree-three finite field extension of fp2
 type E6 struct {
 	B0, B1, B2 E2
 }
@@ -116,107 +114,41 @@ func (z *E6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
 }
 
-// Mul sets z to the E6-product of x,y, returns z
-func (z *E6) Mul(x, y *E6) *E6 {
-
-	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3, b4 E2
-	b0.Mul(&x.B0, &y.B0) // step 1
-	b1.Mul(&x.B1, &y.B1) // step 2
-	b2.Mul(&x.B2, &y.B2) // step 3
-
-	// step 4
-	b3.Add(&x.B1, &x.B2)
-	b4.Add(&y.B1, &y.B2)
-	rb0.Mul(&b3, &b4).
-		SubAssign(&b1).
-		SubAssign(&b2)
-	{ // begin inline: set rb0 to (&rb0) * (0,1)
-		buf := (&rb0).A0
-		{ // begin inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-			buf := *(&(&rb0).A1)
-			(&(rb0).A0).Double(&buf).Double(&(rb0).A0).AddAssign(&buf)
-		} // end inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-		(rb0).A1 = buf
-	} // end inline: set rb0 to (&rb0) * (0,1)
-	rb0.AddAssign(&b0)
-
-	// step 5
-	b3.Add(&x.B0, &x.B1)
-	b4.Add(&y.B0, &y.B1)
-	z.B1.Mul(&b3, &b4).
-		SubAssign(&b0).
-		SubAssign(&b1)
-	{ // begin inline: set b3 to (&b2) * (0,1)
-		buf := (&b2).A0
-		{ // begin inline: set &(b3).A0 to (&(&b2).A1) * (5)
-			buf := *(&(&b2).A1)
-			(&(b3).A0).Double(&buf).Double(&(b3).A0).AddAssign(&buf)
-		} // end inline: set &(b3).A0 to (&(&b2).A1) * (5)
-		(b3).A1 = buf
-	} // end inline: set b3 to (&b2) * (0,1)
-	z.B1.AddAssign(&b3)
-
-	// step 6
-	b3.Add(&x.B0, &x.B2)
-	b4.Add(&y.B0, &y.B2)
-	z.B2.Mul(&b3, &b4).
-		SubAssign(&b0).
-		SubAssign(&b2).
-		AddAssign(&b1)
-	z.B0 = rb0
+// MulByNonResidue mul x by (0,1,0)
+func (z *E6) MulByNonResidue(x *E6) *E6 {
+	var tmp E2
+	tmp.Set(&x.B2)
+	z.B2.Set(&x.B1)
+	z.B1.Set(&x.B0)
+	z.B0.MulByNonResidue(&tmp)
 	return z
 }
 
-// MulAssign sets z to the E6-product of z,x returns z
-func (z *E6) MulAssign(x *E6) *E6 {
-
+// Mul sets z to the E6-product of x,y, returns z
+func (z *E6) Mul(x, y *E6) *E6 {
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var rb0, b0, b1, b2, b3, b4 E2
-	b0.Mul(&z.B0, &x.B0) // step 1
-	b1.Mul(&z.B1, &x.B1) // step 2
-	b2.Mul(&z.B2, &x.B2) // step 3
+	var t0, t1, t2, c0, c1, c2, tmp E2
+	t0.Mul(&x.B0, &y.B0)
+	t1.Mul(&x.B1, &y.B1)
+	t2.Mul(&x.B2, &y.B2)
 
-	// step 4
-	b3.Add(&z.B1, &z.B2)
-	b4.Add(&x.B1, &x.B2)
-	rb0.Mul(&b3, &b4).
-		SubAssign(&b1).
-		SubAssign(&b2)
-	{ // begin inline: set rb0 to (&rb0) * (0,1)
-		buf := (&rb0).A0
-		{ // begin inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-			buf := *(&(&rb0).A1)
-			(&(rb0).A0).Double(&buf).Double(&(rb0).A0).AddAssign(&buf)
-		} // end inline: set &(rb0).A0 to (&(&rb0).A1) * (5)
-		(rb0).A1 = buf
-	} // end inline: set rb0 to (&rb0) * (0,1)
-	rb0.AddAssign(&b0)
+	c0.Add(&x.B1, &x.B2)
+	tmp.Add(&y.B1, &y.B2)
+	c0.MulAssign(&tmp).SubAssign(&t1).SubAssign(&t2).MulByNonResidue(&c0).AddAssign(&t0)
 
-	// step 5
-	b3.Add(&z.B0, &z.B1)
-	b4.Add(&x.B0, &x.B1)
-	z.B1.Mul(&b3, &b4).
-		SubAssign(&b0).
-		SubAssign(&b1)
-	{ // begin inline: set b3 to (&b2) * (0,1)
-		buf := (&b2).A0
-		{ // begin inline: set &(b3).A0 to (&(&b2).A1) * (5)
-			buf := *(&(&b2).A1)
-			(&(b3).A0).Double(&buf).Double(&(b3).A0).AddAssign(&buf)
-		} // end inline: set &(b3).A0 to (&(&b2).A1) * (5)
-		(b3).A1 = buf
-	} // end inline: set b3 to (&b2) * (0,1)
-	z.B1.AddAssign(&b3)
+	c1.Add(&x.B0, &x.B1)
+	tmp.Add(&y.B0, &y.B1)
+	c1.MulAssign(&tmp).SubAssign(&t0).SubAssign(&t1)
+	tmp.MulByNonResidue(&t2)
+	c1.AddAssign(&tmp)
 
-	// step 6
-	b3.Add(&z.B0, &z.B2)
-	b4.Add(&x.B0, &x.B2)
-	z.B2.Mul(&b3, &b4).
-		SubAssign(&b0).
-		SubAssign(&b2).
-		AddAssign(&b1)
-	z.B0 = rb0
+	tmp.Add(&x.B0, &x.B2)
+	c2.Add(&y.B0, &y.B2).MulAssign(&tmp).SubAssign(&t0).SubAssign(&t2).AddAssign(&t1)
+
+	z.B0.Set(&c0)
+	z.B1.Set(&c1)
+	z.B2.Set(&c2)
+
 	return z
 }
 
@@ -224,137 +156,46 @@ func (z *E6) MulAssign(x *E6) *E6 {
 func (z *E6) Square(x *E6) *E6 {
 
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var b0, b1, b2, b3, b4 E2
-	b3.Mul(&x.B0, &x.B1).Double(&b3) // step 1
-	b4.Square(&x.B2)                 // step 2
+	var c4, c5, c1, c2, c3, c0 E2
+	c4.Mul(&x.B0, &x.B1).Double(&c4)
+	c5.Square(&x.B2)
+	c1.MulByNonResidue(&c5).Add(&c1, &c4)
+	c2.Sub(&c4, &c5)
+	c3.Square(&x.B0)
+	c4.Sub(&x.B0, &x.B1).Add(&c4, &x.B2)
+	c5.Mul(&x.B1, &x.B2).Double(&c5)
+	c4.Square(&c4)
+	c0.MulByNonResidue(&c5).Add(&c0, &c3)
+	z.B2.Add(&c2, &c4).Add(&z.B2, &c5).Sub(&z.B2, &c3)
+	z.B0.Set(&c0)
+	z.B1.Set(&c1)
 
-	// step 3
-	{ // begin inline: set b0 to (&b4) * (0,1)
-		buf := (&b4).A0
-		{ // begin inline: set &(b0).A0 to (&(&b4).A1) * (5)
-			buf := *(&(&b4).A1)
-			(&(b0).A0).Double(&buf).Double(&(b0).A0).AddAssign(&buf)
-		} // end inline: set &(b0).A0 to (&(&b4).A1) * (5)
-		(b0).A1 = buf
-	} // end inline: set b0 to (&b4) * (0,1)
-	b0.AddAssign(&b3)
-	b1.Sub(&b3, &b4)                                  // step 4
-	b2.Square(&x.B0)                                  // step 5
-	b3.Sub(&x.B0, &x.B1).AddAssign(&x.B2).Square(&b3) // steps 6 and 8
-	b4.Mul(&x.B1, &x.B2).Double(&b4)                  // step 7
-	// step 9
-	{ // begin inline: set z.B0 to (&b4) * (0,1)
-		buf := (&b4).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&b4).A1) * (5)
-			buf := *(&(&b4).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).AddAssign(&buf)
-		} // end inline: set &(z.B0).A0 to (&(&b4).A1) * (5)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&b4) * (0,1)
-	z.B0.AddAssign(&b2)
-
-	// step 10
-	z.B2.Add(&b1, &b3).
-		AddAssign(&b4).
-		SubAssign(&b2)
-	z.B1 = b0
-	return z
-}
-
-// SquareAssign sets z to the E6-product of z,z returns z
-func (z *E6) SquareAssign() *E6 {
-
-	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var b0, b1, b2, b3, b4 E2
-	b3.Mul(&z.B0, &z.B1).Double(&b3) // step 1
-	b4.Square(&z.B2)                 // step 2
-
-	// step 3
-	{ // begin inline: set b0 to (&b4) * (0,1)
-		buf := (&b4).A0
-		{ // begin inline: set &(b0).A0 to (&(&b4).A1) * (5)
-			buf := *(&(&b4).A1)
-			(&(b0).A0).Double(&buf).Double(&(b0).A0).AddAssign(&buf)
-		} // end inline: set &(b0).A0 to (&(&b4).A1) * (5)
-		(b0).A1 = buf
-	} // end inline: set b0 to (&b4) * (0,1)
-	b0.AddAssign(&b3)
-	b1.Sub(&b3, &b4)                                  // step 4
-	b2.Square(&z.B0)                                  // step 5
-	b3.Sub(&z.B0, &z.B1).AddAssign(&z.B2).Square(&b3) // steps 6 and 8
-	b4.Mul(&z.B1, &z.B2).Double(&b4)                  // step 7
-	// step 9
-	{ // begin inline: set z.B0 to (&b4) * (0,1)
-		buf := (&b4).A0
-		{ // begin inline: set &(z.B0).A0 to (&(&b4).A1) * (5)
-			buf := *(&(&b4).A1)
-			(&(z.B0).A0).Double(&buf).Double(&(z.B0).A0).AddAssign(&buf)
-		} // end inline: set &(z.B0).A0 to (&(&b4).A1) * (5)
-		(z.B0).A1 = buf
-	} // end inline: set z.B0 to (&b4) * (0,1)
-	z.B0.AddAssign(&b2)
-
-	// step 10
-	z.B2.Add(&b1, &b3).
-		AddAssign(&b4).
-		SubAssign(&b2)
-	z.B1 = b0
 	return z
 }
 
 // Inverse an element in E6
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
-	// step 9 is wrong in the paper!
-	// memalloc
-	var t [7]E2
-	var c [3]E2
-	var buf E2
-	t[0].Square(&x.B0)     // step 1
-	t[1].Square(&x.B1)     // step 2
-	t[2].Square(&x.B2)     // step 3
-	t[3].Mul(&x.B0, &x.B1) // step 4
-	t[4].Mul(&x.B0, &x.B2) // step 5
-	t[5].Mul(&x.B1, &x.B2) // step 6
-	// step 7
-	{ // begin inline: set c[0] to (&t[5]) * (0,1)
-		buf := (&t[5]).A0
-		{ // begin inline: set &(c[0]).A0 to (&(&t[5]).A1) * (5)
-			buf := *(&(&t[5]).A1)
-			(&(c[0]).A0).Double(&buf).Double(&(c[0]).A0).AddAssign(&buf)
-		} // end inline: set &(c[0]).A0 to (&(&t[5]).A1) * (5)
-		(c[0]).A1 = buf
-	} // end inline: set c[0] to (&t[5]) * (0,1)
-	c[0].Neg(&c[0]).AddAssign(&t[0])
-	// step 8
-	{ // begin inline: set c[1] to (&t[2]) * (0,1)
-		buf := (&t[2]).A0
-		{ // begin inline: set &(c[1]).A0 to (&(&t[2]).A1) * (5)
-			buf := *(&(&t[2]).A1)
-			(&(c[1]).A0).Double(&buf).Double(&(c[1]).A0).AddAssign(&buf)
-		} // end inline: set &(c[1]).A0 to (&(&t[2]).A1) * (5)
-		(c[1]).A1 = buf
-	} // end inline: set c[1] to (&t[2]) * (0,1)
-	c[1].SubAssign(&t[3])
-	c[2].Sub(&t[1], &t[4]) // step 9 is wrong in 2010/354!
-	// steps 10, 11, 12
-	t[6].Mul(&x.B2, &c[1])
-	buf.Mul(&x.B1, &c[2])
-	t[6].AddAssign(&buf)
-	{ // begin inline: set t[6] to (&t[6]) * (0,1)
-		buf := (&t[6]).A0
-		{ // begin inline: set &(t[6]).A0 to (&(&t[6]).A1) * (5)
-			buf := *(&(&t[6]).A1)
-			(&(t[6]).A0).Double(&buf).Double(&(t[6]).A0).AddAssign(&buf)
-		} // end inline: set &(t[6]).A0 to (&(&t[6]).A1) * (5)
-		(t[6]).A1 = buf
-	} // end inline: set t[6] to (&t[6]) * (0,1)
-	buf.Mul(&x.B0, &c[0])
-	t[6].AddAssign(&buf)
+	// step 9 is wrong in the paper it's t1-t4
+	var t0, t1, t2, t3, t4, t5, t6, c0, c1, c2, d1, d2 E2
+	t0.Square(&x.B0)
+	t1.Square(&x.B1)
+	t2.Square(&x.B2)
+	t3.Mul(&x.B0, &x.B1)
+	t4.Mul(&x.B0, &x.B2)
+	t5.Mul(&x.B1, &x.B2)
+	c0.MulByNonResidue(&t5).Neg(&c0).Add(&c0, &t0)
+	c1.MulByNonResidue(&t2).Sub(&c1, &t3)
+	c2.Sub(&t1, &t4)
+	t6.Mul(&x.B0, &c0)
+	d1.Mul(&x.B2, &c1)
+	d2.Mul(&x.B1, &c2)
+	d1.Add(&d1, &d2).MulByNonResidue(&d1)
+	t6.Add(&t6, &d1)
+	t6.Inverse(&t6)
+	z.B0.Mul(&c0, &t6)
+	z.B1.Mul(&c1, &t6)
+	z.B2.Mul(&c2, &t6)
 
-	t[6].Inverse(&t[6])    // step 13
-	z.B0.Mul(&c[0], &t[6]) // step 14
-	z.B1.Mul(&c[1], &t[6]) // step 15
-	z.B2.Mul(&c[2], &t[6]) // step 16
 	return z
 }

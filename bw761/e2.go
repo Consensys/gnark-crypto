@@ -26,7 +26,6 @@ type E2 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -38,6 +37,7 @@ func (z *E2) SetString(s1, s2 string) *E2 {
 	return z
 }
 
+// SetZero sets an e2 elmt to zero
 func (z *E2) SetZero() *E2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
@@ -59,7 +59,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// Set sets z to 1 in Montgomery form and returns z
+// SetOne sets z to 1 in Montgomery form and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -73,7 +73,7 @@ func (z *E2) SetRandom() *E2 {
 	return z
 }
 
-// Equal returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -141,97 +141,102 @@ func (z *E2) Double(x *E2) *E2 {
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(-4)*bd) + (ad+bc)u where u^2 == -4
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (-4)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&x.A0, &y.A0)            // [1]: ac
-	bd.Mul(&x.A1, &y.A1)            // [2]: bd
-	cplusd.Add(&y.A0, &y.A1)        // c+d
-	aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	z.A0.MulByNonResidue(&bd)
-	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
+	var a, b, c fp.Element
+	a.Add(&x.A0, &x.A1)
+	b.Add(&y.A0, &y.A1)
+	a.Mul(&a, &b)
+	b.Mul(&x.A0, &y.A0)
+	c.Mul(&x.A1, &y.A1)
+	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	z.A0.Double(&c).Double(&z.A0).Neg(&z.A0).Add(&z.A0, &b)
 	return z
+
+	// // (a+bu)*(c+du) == (ac+(-4)*bd) + (ad+bc)u where u^2 == -4
+	// // Karatsuba: 3 fp multiplications instead of 4
+	// // [1]: ac
+	// // [2]: bd
+	// // [3]: (a+b)*(c+d)
+	// // Then z.A0: [1] + (-4)*[2]
+	// // Then z.A1: [3] - [2] - [1]
+	// var ac, bd, cplusd, aplusbcplusd fp.Element
+
+	// ac.Mul(&x.A0, &y.A0)            // [1]: ac
+	// bd.Mul(&x.A1, &y.A1)            // [2]: bd
+	// cplusd.Add(&y.A0, &y.A1)        // c+d
+	// aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
+	// aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
+	// z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
+	// z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
+	// {                               // begin inline: set &z.A0 to (&bd) * (-4)
+	// 	buf := *(&bd)
+	// 	(&z.A0).Double(&buf).Double(&z.A0).Neg(&z.A0)
+	// } // end inline: set &z.A0 to (&bd) * (-4)
+	// z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
+	// return z
 }
 
 // MulAssign sets z to the E2-product of z,x returns z
 func (z *E2) MulAssign(x *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(-4)*bd) + (ad+bc)u where u^2 == -4
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (-4)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&z.A0, &x.A0)            // [1]: ac
-	bd.Mul(&z.A1, &x.A1)            // [2]: bd
-	cplusd.Add(&x.A0, &x.A1)        // c+d
-	aplusbcplusd.Add(&z.A0, &z.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	z.A0.MulByNonResidue(&bd)
-	z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
+	var t E2
+	t.Mul(z, x)
+	z.Set(&t)
 	return z
 }
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
-	// (a+bu)^2 == (a^2+(-4)*b^2) + (2ab)u where u^2 == -4
-	// Complex method: 2 fp multiplications instead of 3
-	// [1]: ab
-	// [2]: (a+b)*(a+(-4)*b)
-	// Then z.A0: [2] - (-4+1)*[1]
-	// Then z.A1: 2[1]
-	var ab, aplusb, ababetab fp.Element
-
-	//MulByNonResidue(&ababetab, &x.A1)
-	ababetab.MulByNonResidue(&x.A1)
-
-	ababetab.AddAssign(&x.A0)   // a+(-4)*b
-	aplusb.Add(&x.A0, &x.A1)    // a+b
-	ababetab.MulAssign(&aplusb) // [2]: (a+b)*(a+(-4)*b)
-	ab.Mul(&x.A0, &x.A1)        // [1]: ab
-	z.A1.Double(&ab)            // z.A1: 2*[1]
-	z.A0.MulByNonResidue(&ab).AddAssign(&ab)
-	z.A0.Sub(&ababetab, &z.A0) // z.A0: [2] - (-4+1)[1]
-
+	// algo 22 https://eprint.iacr.org/2010/354.pdf
+	var c0, c2 fp.Element
+	c2.Double(&x.A1).Double(&c2).Neg(&c2).AddAssign(&x.A0)
+	c0.Add(&x.A0, &x.A1)
+	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2) = x1**2+(u**2)x2**2+(u**2+1)x1x2
+	c2.Mul(&x.A0, &x.A1)
+	z.A1.Double(&c2)
+	z.A0.Add(&c0, &z.A1).AddAssign(&c2)
 	return z
 }
 
-// MulByNonResidue multiplies an element by (0,1)
+// MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	a := x.A0
-	z.A0.MulByNonResidue(&x.A1)
+	b := x.A1 // fetching x.A1 in the function below is slower
+	z.A0.Double(&b).Double(&z.A0).Neg(&z.A0)
 	z.A1 = a
+	return z
+}
+
+// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+
+	var nonresinv E2
+	nonresinv.A0 = fp.Element{
+		10477841894441615122,
+		7327163185667482322,
+		3635199979766503006,
+		3215324977242306624,
+	}
+	nonresinv.A1 = fp.Element{
+		7515750141297360845,
+		14746352163864140223,
+		11319968037783994424,
+		30185921062296004,
+	}
+	z.Mul(x, &nonresinv)
+
 	return z
 }
 
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
-	var a0, a1, t0, t1, t1beta fp.Element
-
-	a0 = x.A0 // = is slightly faster than Set()
-	a1 = x.A1 // = is slightly faster than Set()
-
-	t0.Square(&a0) // step 1
-	t1.Square(&a1) // step 2
-	t1beta.MulByNonResidue(&t1)
-	t0.SubAssign(&t1beta)        // step 3
-	t1.Inverse(&t0)              // step 4
-	z.A0.Mul(&a0, &t1)           // step 5
-	z.A1.Neg(&a1).MulAssign(&t1) // step 6
+	var t0, t1, tmp fp.Element
+	t0.Square(&x.A0)
+	t1.Square(&x.A1)
+	tmp.Double(&t1).Double(&tmp).Neg(&tmp)
+	t0.Sub(&t0, &tmp)
+	t1.Inverse(&t0)
+	z.A0.Mul(&x.A0, &t1)
+	z.A1.Mul(&x.A1, &t1).Neg(&z.A1)
 
 	return z
 }
