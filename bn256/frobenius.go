@@ -20,7 +20,7 @@ import "github.com/consensys/gurvy/bn256/fp"
 
 // Frobenius set z to Frobenius(x), return z
 func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
-	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
+	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf
 	var t [6]E2
 
 	// Frobenius acts on fp2 by conjugation
@@ -49,7 +49,7 @@ func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 
 // FrobeniusSquare set z to Frobenius^2(x), and return z
 func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
-	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
+	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf
 	var t [6]E2
 
 	t[1].MulByNonResidue2Power2(&x.C0.B1)
@@ -70,7 +70,7 @@ func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 
 // FrobeniusCube set z to Frobenius^3(x), return z
 func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
-	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
+	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf
 	var t [6]E2
 
 	// Frobenius^3 acts on fp2 by conjugation

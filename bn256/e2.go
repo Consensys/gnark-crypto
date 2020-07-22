@@ -154,23 +154,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 
 // MulAssign sets z to the E2-product of z,x returns z
 func (z *E2) MulAssign(x *E2) *E2 {
-	// (a+bu)*(c+du) == (ac+(-1)*bd) + (ad+bc)u where u^2 == -1
-	// Karatsuba: 3 fp multiplications instead of 4
-	// [1]: ac
-	// [2]: bd
-	// [3]: (a+b)*(c+d)
-	// Then z.A0: [1] + (-1)*[2]
-	// Then z.A1: [3] - [2] - [1]
-	var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	ac.Mul(&z.A0, &x.A0)            // [1]: ac
-	bd.Mul(&z.A1, &x.A1)            // [2]: bd
-	cplusd.Add(&x.A0, &x.A1)        // c+d
-	aplusbcplusd.Add(&z.A0, &z.A1)  // a+b
-	aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	z.A0.Sub(&ac, &bd)              // z.A0: [1] - [2]
+	z.Mul(z, x)
 	return z
 }
 

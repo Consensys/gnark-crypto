@@ -63,7 +63,6 @@ func (z *E12) SetOne() *E12 {
 }
 
 // ToMont converts to Mont form
-// TODO can this be deleted?
 func (z *E12) ToMont() *E12 {
 	z.C0.ToMont()
 	z.C1.ToMont()
@@ -71,7 +70,6 @@ func (z *E12) ToMont() *E12 {
 }
 
 // FromMont converts from Mont form
-// TODO can this be deleted?
 func (z *E12) FromMont() *E12 {
 	z.C0.FromMont()
 	z.C1.FromMont()
@@ -100,7 +98,6 @@ func (z *E12) Double(x *E12) *E12 {
 }
 
 // SetRandom used only in tests
-// TODO eliminate this method!
 func (z *E12) SetRandom() *E12 {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()

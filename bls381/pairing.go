@@ -17,7 +17,6 @@
 package bls381
 
 import (
-	"github.com/consensys/gurvy/bls381/fp"
 	"math/bits"
 )
 
@@ -45,22 +44,15 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// memalloc
 	var t [6]PairingResult
 
-	// buf = x**(p^6-1)
+	// easy part
 	t[0].FrobeniusCube(&result).
 		FrobeniusCube(&t[0])
-
 	result.Inverse(&result)
 	t[0].Mul(&t[0], &result)
-
-	// x = (x**(p^6-1)) ^(p^2+1)
 	result.FrobeniusSquare(&t[0]).
 		Mul(&result, &t[0])
 
 	// hard part (up to permutation)
-	// performs the hard part of the final expo
-	// Algorithm 1 of https://eprint.iacr.org/2016/130.pdf
-	// The result is the same as p**4-p**2+1/r, but up to permutation (it's 3* (p**4 -p**2 +1 /r)), ok since r=1 mod 3)
-
 	t[0].InverseUnitary(&result).Square(&t[0])
 	t[5].Expt(&result)
 	t[1].CyclotomicSquare(&t[5])
@@ -159,11 +151,6 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	_Q.FromJacobian(&Q)
 	_R.FromJacobian(&R)
 
-	// line eq: w^3*(_Qy_Rz-_Qz_Ry)x +  w^2*(_Qz_Rx - _Qx_Rz)y + w^5*(_Qx_Ry-_Qy_Rxz)
-	// result.r1 = _Qy_Rz-_Qz_Ry
-	// result.r0 = _Qz_Rx - _Qx_Rz
-	// result.r2 = _Qx_Ry-_Qy_Rxz
-
 	result.r1.Mul(&_Q.Y, &_R.Z)
 	result.r0.Mul(&_Q.Z, &_R.X)
 	result.r2.Mul(&_Q.X, &_R.Y)
@@ -176,10 +163,8 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	result.r0.Sub(&result.r0, &_Q.X)
 	result.r2.Sub(&result.r2, &_Q.Y)
 
-	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)
 	result.r0.MulByElement(&result.r0, &P.Y)
-	//result.r2.MulByElement(&result.r2, &P.Z)
 }
 
 // Same as above but R is in affine coords
@@ -188,11 +173,6 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 	// converts Q and R to projective coords
 	var _Q G2Proj
 	_Q.FromJacobian(&Q)
-
-	// line eq: w^3*(QyRz-QzRy)x +  w^2*(QzRx - QxRz)y + w^5*(QxRy-QyRxz)
-	// result.r1 = QyRz-QzRy
-	// result.r0 = QzRx - QxRz
-	// result.r2 = QxRy-QyRxz
 
 	result.r1.Set(&_Q.Y)
 	result.r0.Mul(&_Q.Z, &R.X)
@@ -205,10 +185,8 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 	result.r0.Sub(&result.r0, &_Q.X)
 	result.r2.Sub(&result.r2, &_Q.Y)
 
-	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)
 	result.r0.MulByElement(&result.r0, &P.Y)
-	// result.r2.MulByElement(&result.r2, &P.Z)
 }
 
 type lineEvalRes struct {
@@ -233,7 +211,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C0.B1, y)
 	result.C0.B1.Mul(&x.C0.B2, y)
@@ -252,7 +230,7 @@ func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingR
 func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B1, y)
 	result.C0.B1.Mul(&x.C1.B2, y)
@@ -269,9 +247,10 @@ func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingR
 // MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
 // here y*w means the PairingResult element with C1.B0=y and all other components 0
 func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+
 	var result PairingResult
 	var yNRInv G2CoordType
-	yNRInv.mulByNonResidueInv(y)
+	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B2, y)
 	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
@@ -282,28 +261,6 @@ func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingRe
 	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
 
 	z.Set(&result)
-	return z
-}
-
-// mulByNonResidueInv set z to x * (1,1)^{-1} and return z
-func (z *G2CoordType) mulByNonResidueInv(x *G2CoordType) *G2CoordType {
-	{ // begin inline: set z to x * (1,1)^{-1}
-		// z.A0 = (x.A0 + x.A1)/2
-		// z.A1 = (x.A1 - x.A0)/2
-		buf := *x
-		z.A0.Add(&buf.A0, &buf.A1)
-		z.A1.Sub(&buf.A1, &buf.A0)
-		twoInv := fp.Element{
-			1730508156817200468,
-			9606178027640717313,
-			7150789853162776431,
-			7936136305760253186,
-			15245073033536294050,
-			1728177566264616342,
-		}
-		z.A0.MulAssign(&twoInv)
-		z.A1.MulAssign(&twoInv)
-	} // end inline: set z to x * (1,1)^{-1}
 	return z
 }
 

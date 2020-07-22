@@ -35,27 +35,22 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
-	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf; their x is our t
+	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf
 
 	// TODO modify sage test points script to include a factor of 3 in the final exponent for BLS curves but not BN curves
 	var mt [4]PairingResult // mt[i] is m^(t^i)
 
-	// set m[0] = x^((p^6-1)*(p^2+1))
-	{
-		mt[0].Set(x)
-		var temp PairingResult
-		temp.FrobeniusCube(&mt[0]).
-			FrobeniusCube(&temp)
+	// easy part
+	mt[0].Set(x)
+	var temp PairingResult
+	temp.FrobeniusCube(&mt[0]).
+		FrobeniusCube(&temp)
+	mt[0].Inverse(&mt[0])
+	temp.Mul(&temp, &mt[0])
+	mt[0].FrobeniusSquare(&temp).
+		Mul(&mt[0], &temp)
 
-		mt[0].Inverse(&mt[0])
-		temp.Mul(&temp, &mt[0])
-
-		mt[0].FrobeniusSquare(&temp).
-			Mul(&mt[0], &temp)
-	}
-
-	// "hard part": set z = m[0]^((p^4-p^2+1)/r)
-
+	// hard part
 	mt[1].Expt(&mt[0])
 	mt[2].Expt(&mt[1])
 	mt[3].Expt(&mt[2])
@@ -91,21 +86,17 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// compute addition chain
 	var t [2]PairingResult
 
-	//t[0].Square(&y[6])
 	t[0].CyclotomicSquare(&y[6])
 	t[0].Mul(&t[0], &y[4])
 	t[0].Mul(&t[0], &y[5])
 	t[1].Mul(&y[3], &y[5])
 	t[1].Mul(&t[1], &t[0])
 	t[0].Mul(&t[0], &y[2])
-	//t[1].Square(&t[1])
 	t[1].CyclotomicSquare(&t[1])
 	t[1].Mul(&t[1], &t[0])
-	//t[1].Square(&t[1])
 	t[1].CyclotomicSquare(&t[1])
 	t[0].Mul(&t[1], &y[1])
 	t[1].Mul(&t[1], &y[0])
-	//t[0].Square(&t[0])
 	t[0].CyclotomicSquare(&t[0])
 	z.Mul(&t[0], &t[1])
 	return z
@@ -193,11 +184,6 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	_Q.FromJacobian(&Q)
 	_R.FromJacobian(&R)
 
-	// line eq: w^3*(_Qy_Rz-_Qz_Ry)x +  w^2*(_Qz_Rx - _Qx_Rz)y + w^5*(_Qx_Ry-_Qy_Rxz)
-	// result.r1 = _Qy_Rz-_Qz_Ry
-	// result.r0 = _Qz_Rx - _Qx_Rz
-	// result.r2 = _Qx_Ry-_Qy_Rxz
-
 	result.r1.Mul(&_Q.Y, &_R.Z)
 	result.r0.Mul(&_Q.Z, &_R.X)
 	result.r2.Mul(&_Q.X, &_R.Y)
@@ -210,10 +196,8 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	result.r0.Sub(&result.r0, &_Q.X)
 	result.r2.Sub(&result.r2, &_Q.Y)
 
-	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)
 	result.r0.MulByElement(&result.r0, &P.Y)
-	//result.r2.MulByElement(&result.r2, &P.Z)
 }
 
 // Same as above but R is in affine coords
@@ -222,11 +206,6 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 	// converts Q and R to projective coords
 	var _Q G2Proj
 	_Q.FromJacobian(&Q)
-
-	// line eq: w^3*(QyRz-QzRy)x +  w^2*(QzRx - QxRz)y + w^5*(QxRy-QyRxz)
-	// result.r1 = QyRz-QzRy
-	// result.r0 = QzRx - QxRz
-	// result.r2 = QxRy-QyRxz
 
 	result.r1.Set(&_Q.Y)
 	result.r0.Mul(&_Q.Z, &R.X)
@@ -239,10 +218,8 @@ func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
 	result.r0.Sub(&result.r0, &_Q.X)
 	result.r2.Sub(&result.r2, &_Q.Y)
 
-	// multiply P.Z by coeffs[2] in case P is infinity
 	result.r1.MulByElement(&result.r1, &P.X)
 	result.r0.MulByElement(&result.r0, &P.Y)
-	// result.r2.MulByElement(&result.r2, &P.Z)
 }
 
 type lineEvalRes struct {
@@ -265,22 +242,11 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 // MulByVW set z to x*(y*v*w) and return z
 // here y*v*w means the PairingResult element with C1.B1=y and all other components 0
 func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
+
 	var result PairingResult
 	var yNR G2CoordType
 
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
 	result.C0.B1.Mul(&x.C1.B2, &yNR)
 	result.C0.B2.Mul(&x.C1.B0, y)
@@ -294,22 +260,11 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult
 // MulByV set z to x*(y*v) and return z
 // here y*v means the PairingResult element with C0.B1=y and all other components 0
 func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
+
 	var result PairingResult
 	var yNR G2CoordType
 
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
 	result.C0.B1.Mul(&x.C0.B0, y)
 	result.C0.B2.Mul(&x.C0.B1, y)
@@ -323,22 +278,11 @@ func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult 
 // MulByV2W set z to x*(y*v^2*w) and return z
 // here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
 func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
+
 	var result PairingResult
 	var yNR G2CoordType
 
-	{ // begin inline: set yNR to (y) * (9,1)
-		var buf, buf9 G2CoordType
-		buf.Set(y)
-		buf9.Double(&buf).
-			Double(&buf9).
-			Double(&buf9).
-			Add(&buf9, &buf)
-		yNR.A1.Add(&buf.A0, &buf9.A1)
-		{ // begin inline: set &(yNR).A0 to (&buf.A1) * (-1)
-			(&(yNR).A0).Neg(&buf.A1)
-		} // end inline: set &(yNR).A0 to (&buf.A1) * (-1)
-		yNR.A0.AddAssign(&buf9.A0)
-	} // end inline: set yNR to (y) * (9,1)
+	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
 	result.C0.B1.Mul(&x.C1.B1, &yNR)
 	result.C0.B2.Mul(&x.C1.B2, &yNR)
@@ -349,10 +293,11 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResul
 	return z
 }
 
-const tAbsVal uint64 = 4965661367192848881
-
 // Expt set z to x^t in PairingResult and return z
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
+
+	var tAbsVal uint64
+	tAbsVal = 4965661367192848881
 
 	var result PairingResult
 	result.Set(x)
