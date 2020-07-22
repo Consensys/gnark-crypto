@@ -111,24 +111,10 @@ func (z *E2) Add(x, y *E2) *E2 {
 	return z
 }
 
-// AddAssign adds x to z
-func (z *E2) AddAssign(x *E2) *E2 {
-	z.A0.AddAssign(&x.A0)
-	z.A1.AddAssign(&x.A1)
-	return z
-}
-
 // Sub two elements of E2
 func (z *E2) Sub(x, y *E2) *E2 {
 	z.A0.Sub(&x.A0, &y.A0)
 	z.A1.Sub(&x.A1, &y.A1)
-	return z
-}
-
-// SubAssign subs x from z
-func (z *E2) SubAssign(x *E2) *E2 {
-	z.A0.SubAssign(&x.A0)
-	z.A1.SubAssign(&x.A1)
 	return z
 }
 
@@ -150,29 +136,6 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	z.A0.Double(&c).Double(&z.A0).Neg(&z.A0).Add(&z.A0, &b)
 	return z
-
-	// // (a+bu)*(c+du) == (ac+(-4)*bd) + (ad+bc)u where u^2 == -4
-	// // Karatsuba: 3 fp multiplications instead of 4
-	// // [1]: ac
-	// // [2]: bd
-	// // [3]: (a+b)*(c+d)
-	// // Then z.A0: [1] + (-4)*[2]
-	// // Then z.A1: [3] - [2] - [1]
-	// var ac, bd, cplusd, aplusbcplusd fp.Element
-
-	// ac.Mul(&x.A0, &y.A0)            // [1]: ac
-	// bd.Mul(&x.A1, &y.A1)            // [2]: bd
-	// cplusd.Add(&y.A0, &y.A1)        // c+d
-	// aplusbcplusd.Add(&x.A0, &x.A1)  // a+b
-	// aplusbcplusd.MulAssign(&cplusd) // [3]: (a+b)*(c+d)
-	// z.A1.Add(&ac, &bd)              // ad+bc, [2] + [1]
-	// z.A1.Sub(&aplusbcplusd, &z.A1)  // z.A1: [3] - [2] - [1]
-	// {                               // begin inline: set &z.A0 to (&bd) * (-4)
-	// 	buf := *(&bd)
-	// 	(&z.A0).Double(&buf).Double(&z.A0).Neg(&z.A0)
-	// } // end inline: set &z.A0 to (&bd) * (-4)
-	// z.A0.AddAssign(&ac) // z.A0: [1] + (-4)*[2]
-	// return z
 }
 
 // MulAssign sets z to the E2-product of z,x returns z
@@ -202,27 +165,6 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	b := x.A1 // fetching x.A1 in the function below is slower
 	z.A0.Double(&b).Double(&z.A0).Neg(&z.A0)
 	z.A1 = a
-	return z
-}
-
-// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-
-	var nonresinv E2
-	nonresinv.A0 = fp.Element{
-		10477841894441615122,
-		7327163185667482322,
-		3635199979766503006,
-		3215324977242306624,
-	}
-	nonresinv.A1 = fp.Element{
-		7515750141297360845,
-		14746352163864140223,
-		11319968037783994424,
-		30185921062296004,
-	}
-	z.Mul(x, &nonresinv)
-
 	return z
 }
 

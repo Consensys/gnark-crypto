@@ -303,17 +303,3 @@ func BenchmarkE6Inverse(b *testing.B) {
 		a.Inverse(&a)
 	}
 }
-
-//-------------------------------------//
-// unary helpers for E6 methods
-//-------------------------------------//
-
-// SquareBinary a binary wrapper for Square
-func (z *E6) SquareBinary(x, y *E6) *E6 {
-	return z.Square(x)
-}
-
-// InverseBinary a binary wrapper for Inverse
-func (z *E6) InverseBinary(x, y *E6) *E6 {
-	return z.Inverse(x)
-}

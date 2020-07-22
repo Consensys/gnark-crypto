@@ -87,9 +87,9 @@ func (z *E6) Add(x, y *E6) *E6 {
 
 // Neg negates the E6 number
 func (z *E6) Neg(x *E6) *E6 {
-	z.B0.Neg(&z.B0)
-	z.B1.Neg(&z.B1)
-	z.B2.Neg(&z.B2)
+	z.B0.Neg(&x.B0)
+	z.B1.Neg(&x.B1)
+	z.B2.Neg(&x.B2)
 	return z
 }
 
