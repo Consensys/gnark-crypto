@@ -2,6 +2,7 @@
 package bn256
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/consensys/gurvy/bn256/fp"
@@ -80,6 +81,12 @@ func TestMagicPairing(t *testing.T) {
 func TestComputePairing(t *testing.T) {
 
 	curve := BN256()
+
+	fmt.Printf("[")
+	for _, v := range curve.loopCounter {
+		fmt.Printf("%d,", v)
+	}
+	fmt.Printf("]\n")
 
 	G := curve.g2Gen.Clone()
 	P := curve.g1Gen.Clone()

@@ -2,13 +2,13 @@
 package bw761
 
 import (
-	"testing"
-
+	"fmt"
 	"github.com/consensys/gurvy/bw761/fr"
+	"testing"
 )
 
 func TestMagicPairing(t *testing.T) {
-	t.Skip("wip")
+
 	var r1, r2 PairingResult
 
 	r1.SetRandom()
@@ -56,6 +56,7 @@ func TestComputePairing(t *testing.T) {
 	sGaff.FromJacobian(sG)
 
 	res1 := curve.FinalExponentiation(curve.MillerLoop(Paff, sGaff, &mRes1))
+	fmt.Println(res1.String())
 	res2 := curve.FinalExponentiation(curve.MillerLoop(sPaff, Gaff, &mRes2))
 
 	if !res1.Equal(&res2) {

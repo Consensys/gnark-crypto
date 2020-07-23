@@ -38,8 +38,8 @@ func TestPairingLineEval(t *testing.T) {
 	var Paff G1Affine
 	Paff.FromJacobian(&P)
 
-	lRes := &lineEvalRes{}
-	lineEvalJac(G, H, &Paff, lRes)
+	lRes := &lineEvaluation{}
+	lineEval(&G, &H, &Paff, lRes)
 
 	var expectedA, expectedB, expectedC E2
 	expectedA.SetString("2746816319525720818573317398714695290610786823787257703017876624172190671587655383907329814290177195519600649042869",
@@ -144,22 +144,22 @@ func TestComputePairing(t *testing.T) {
 //     benches		  //
 //--------------------//
 
-func BenchmarkLineEval(b *testing.B) {
+// func BenchmarkLineEval(b *testing.B) {
 
-	curve := BLS381()
+// 	curve := BLS381()
 
-	H := G2Jac{}
-	H.ScalarMul(curve, &curve.g2Gen, fr.Element{1213})
+// 	H := G2Jac{}
+// 	H.ScalarMul(curve, &curve.g2Gen, fr.Element{1213})
 
-	lRes := &lineEvalRes{}
-	var g1GenAff G1Affine
-	g1GenAff.FromJacobian(&curve.g1Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		lineEvalJac(curve.g2Gen, H, &g1GenAff, lRes)
-	}
+// 	lRes := &lineEvalRes{}
+// 	var g1GenAff G1Affine
+// 	g1GenAff.FromJacobian(&curve.g1Gen)
+// 	b.ResetTimer()
+// 	for i := 0; i < b.N; i++ {
+// 		lineEvalJac(curve.g2Gen, H, &g1GenAff, lRes)
+// 	}
 
-}
+// }
 
 func BenchmarkPairing(b *testing.B) {
 

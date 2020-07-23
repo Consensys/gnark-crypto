@@ -267,9 +267,7 @@ func (p *G2Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
-// Add point addition in montgomery form
-// no assumptions on z
-// Note: calling Add with p.Equal(a) produces [0, 0, 0], call p.Double() instead
+// AddAssign point addition in montgomery form
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
 
@@ -284,7 +282,6 @@ func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V G2CoordType
 	Z1Z1.Square(&a.Z)
 	Z2Z2.Square(&p.Z)
@@ -323,9 +320,7 @@ func (p *G2Jac) AddAssign(curve *Curve, a *G2Jac) *G2Jac {
 	return p
 }
 
-// AddMixed point addition in montgomery form
-// assumes a is in affine coordinates (i.e a.z == 1)
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// AddMixed point addition
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
@@ -337,7 +332,6 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 	if p.Z.IsZero() {
 		p.X = a.X
 		p.Y = a.Y
-		// p.Z.Set(&curve.g2sZero.X)
 		p.Z.SetOne()
 		return p
 	}
@@ -373,6 +367,14 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 		SubAssign(&Z1Z1).
 		SubAssign(&HH)
 
+	return p
+}
+
+// Double doubles a point in Jacobian coordinates
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+func (p *G2Jac) Double(q *G2Jac) *G2Jac {
+	p.Set(q)
+	p.DoubleAssign()
 	return p
 }
 

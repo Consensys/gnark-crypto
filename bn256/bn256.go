@@ -9,9 +9,6 @@ import (
 	"github.com/consensys/gurvy/utils"
 )
 
-// generate code for field tower, curve groups
-// add -testpoints to generate test points using sage
-// TODO g1_test.go, g2_test.go tests currently fail---just delete those files
 // TODO go:generate go run ../internal/generator.go -out . -package bn256 -t 4965661367192848881 -p 21888242871839275222246405745257275088696311157297823662689037894645226208583 -r 21888242871839275222246405745257275088548364400416034343698204186575808495617 -fp2 -1 -fp6 9,1
 
 // E: y**2=x**3+3
@@ -27,6 +24,7 @@ const ID = gurvy.BN256
 const sGen = 4
 const bGen = sGen
 
+// PairingResult target group of the pairing
 type PairingResult = E12
 
 // BN256 returns BN256 curve
@@ -37,18 +35,18 @@ func BN256() *Curve {
 
 // Curve represents the BLS381 curve and pre-computed constants
 type Curve struct {
-	B fp.Element // A, B coefficients of the curve x^3 = y^2 +AX+b
 
-	g1Gen G1Jac // generator of torsion group G1Jac
-	g2Gen G2Jac // generator of torsion group G2Jac
+	// A, B coefficients of the curve x^3 = y^2 +AX+b
+	B fp.Element
 
-	g1Infinity G1Jac // infinity (in Jacobian coords)
+	// generators of the r-torsion subgroup, g1 in ker(pi), g2 in ker(p-q)
+	g1Gen      G1Jac
+	g2Gen      G2Jac
+	g1Infinity G1Jac
 	g2Infinity G2Jac
 
-	// TODO store this number as a MAX_SIZE constant, or with build tags
-	// NAF decomposition takes 65 trits for bn256 but only 64 trits for bls377
-	//loopCounter [128]int8 // NAF decomposition of t-1, t is the trace of the Frobenius
-	loopCounter [66]int8 // NAF decomposition of t-1, t is the trace of the Frobenius
+	// NAF decomposition of t-1, t is the trace of the Frobenius
+	loopCounter [66]int8
 
 	// precomputed values for ScalarMulByGen
 	tGenG1 [((1 << bGen) - 1)]G1Jac
@@ -73,8 +71,7 @@ func initBN256() {
 	bn256.g2Gen.Z.SetString("1",
 		"0")
 
-	// Setting the loop counter for Miller loop in NAF form
-	//T, _ := new(big.Int).SetString("147946756881789318990833708069417712966", 10)
+	// Setting the loop counter for Miller loop in NAF form (6*t+2)
 	T, _ := new(big.Int).SetString("29793968203157093288", 10)
 	utils.NafDecomposition(T, bn256.loopCounter[:])
 

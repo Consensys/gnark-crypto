@@ -1,17 +1,12 @@
 package bls381
 
 import (
-	"math/big"
 	"sync"
 
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bls381/fp"
-	"github.com/consensys/gurvy/utils"
 )
 
-// generate code for field tower, curve groups
-// add -testpoints to generate test points using sage
-// TODO g1_test.go, g2_test.go tests currently fail---just delete those files
 // TODO go:generate go run ../internal/generator.go -out . -package bls381 -t 15132376222941642752 -tNeg -p 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787 -r 52435875175126190479447740508185965837690552500527637822603658699938581184513 -fp2 -1 -fp6 1,1
 
 // E: y**2=x**3+4
@@ -27,6 +22,7 @@ const ID = gurvy.BLS381
 const sGen = 4
 const bGen = sGen
 
+// PairingResult target group of the pairing
 type PairingResult = E12
 
 // BLS381 returns BLS381 curve
@@ -37,17 +33,18 @@ func BLS381() *Curve {
 
 // Curve represents the BLS381 curve and pre-computed constants
 type Curve struct {
-	B fp.Element // A, B coefficients of the curve x^3 = y^2 +AX+b
 
-	g1Gen G1Jac // generator of torsion group G1Jac
-	g2Gen G2Jac // generator of torsion group G2Jac
+	// A, B coefficients of the curve x^3 = y^2 +AX+b
+	B fp.Element
 
-	g1Infinity G1Jac // infinity (in Jacobian coords)
+	// generators of the r-torsion subgroup, g1 in ker(pi), g2 in ker(p-q)
+	g1Gen      G1Jac
+	g2Gen      G2Jac
+	g1Infinity G1Jac
 	g2Infinity G2Jac
 
-	// TODO store this number as a MAX_SIZE constant, or with build tags
 	// NAF decomposition takes 65 trits for bls381 but only 64 trits for bls377
-	loopCounter [65]int8 // NAF decomposition of t-1, t is the trace of the Frobenius
+	loopCounter [64]int8
 
 	// precomputed values for ScalarMulByGen
 	tGenG1 [((1 << bGen) - 1)]G1Jac
@@ -72,10 +69,8 @@ func initBLS381() {
 	bls381.g2Gen.Z.SetString("1",
 		"0")
 
-	// Setting the loop counter for Miller loop in NAF form
-	// we can take |T|, see section C https://eprint.iacr.org/2008/096.pdf
-	T, _ := new(big.Int).SetString("15132376222941642752", 10)
-	utils.NafDecomposition(T, bls381.loopCounter[:])
+	// 15132376222941642752 (trace of the Frobenius, it's the shortest Miller loop for BLS family)
+	bls381.loopCounter = [64]int8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1}
 
 	// infinity point G1
 	bls381.g1Infinity.X.SetOne()
