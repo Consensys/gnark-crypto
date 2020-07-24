@@ -15,7 +15,7 @@ import (
 func TestPairing(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
 
@@ -49,7 +49,7 @@ func TestPairing(t *testing.T) {
 	properties.Property("bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
-			var res, resa, resb, resab PairingResult
+			var res, resa, resb, resab, zero PairingResult
 
 			var aG1 G1Jac
 			var bG2 G2Jac
@@ -78,7 +78,7 @@ func TestPairing(t *testing.T) {
 			resa.Exp(&resa, bbigint)
 			resb.Exp(&resb, abigint)
 
-			return resab.Equal(&resa) && resab.Equal(&resb)
+			return resab.Equal(&resa) && resab.Equal(&resb) && !res.Equal(&zero)
 
 		},
 		genR1,

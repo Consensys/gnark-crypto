@@ -19,7 +19,7 @@
 
 ```
 BenchmarkPairing-12         1167            954992 ns/op (BLS381)
-BenchmarkPairing-12         1424            789678 ns/op (BN256)
+BenchmarkPairing-12         1534            720039 ns/op (BN256)
 BenchmarkPairing-12         1089           1054871 ns/op (BLS377)
 BenchmarkPairing-12          355           3341688 ns/op (BW761)
 ```

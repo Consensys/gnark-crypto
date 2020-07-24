@@ -16,14 +16,25 @@ package bn256
 
 import "math/bits"
 
-// FinalExponentiation multiplies the inputs, applies the final expo on the result and return it
-func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+// PairingResult target group of the pairing
+type PairingResult = E12
+
+type lineEvaluation struct {
+	r0 E2
+	r1 E2
+	r2 E2
+}
+
+// FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
+func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 
 	var result PairingResult
 	result.Set(z)
+
 	for _, e := range _z {
 		result.Mul(&result, e)
 	}
+
 	result.FinalExponentiation(&result)
 
 	return result
@@ -32,7 +43,7 @@ func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
 func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 
-	// For BN curves use Section 5 of https://eprint.iacr.org/2008/490.pdf
+	// https://eprint.iacr.org/2008/490.pdf
 	var mt [4]PairingResult // mt[i] is m^(t^i)
 
 	// easy part
@@ -97,84 +108,71 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 
-	// init result
+	var result PairingResult
 	result.SetOne()
 
 	if P.IsInfinity() || Q.IsInfinity() {
-		return result
+		return &result
 	}
 
-	// the line goes through QCur and QNext
-	var QCur, QNext, QNextNeg G2Jac
-	var QNeg G2Affine
+	ch := make(chan struct{}, 30)
 
-	// Stores -Q
-	QNeg.Neg(&Q)
+	var evaluations [86]lineEvaluation
+	var Qjac G2Jac
+	Qjac.FromAffine(&Q)
+	go preCompute(&evaluations, &Qjac, &P, ch)
 
-	// init QCur with Q
-	QCur.FromAffine(&Q)
+	j := 0
+	for i := len(loopCounter) - 2; i >= 0; i-- {
 
-	var lEval lineEvalRes
+		result.Square(&result)
+		<-ch
+		result.mulAssign(&evaluations[j])
+		j++
 
-	// Miller loop
-	for i := len(curve.loopCounter) - 2; i >= 0; i-- {
-		QNext.Set(&QCur)
-		QNext.DoubleAssign()
-		QNextNeg.Neg(&QNext)
-
-		result.Square(result)
-
-		// evaluates line though Qcur,2Qcur at P
-		lineEvalJac(QCur, QNextNeg, &P, &lEval)
-		lEval.mulAssign(result)
-
-		if curve.loopCounter[i] == 1 {
-			// evaluates line through 2Qcur, Q at P
-			lineEvalAffine(QNext, Q, &P, &lEval)
-			lEval.mulAssign(result)
-			QNext.AddMixed(&Q)
-
-		} else if curve.loopCounter[i] == -1 {
-			// evaluates line through 2Qcur, -Q at P
-			lineEvalAffine(QNext, QNeg, &P, &lEval)
-			lEval.mulAssign(result)
-			QNext.AddMixed(&QNeg)
+		if loopCounter[i] != 0 {
+			<-ch
+			result.mulAssign(&evaluations[j])
+			j++
 		}
-		QCur.Set(&QNext)
 	}
+	close(ch)
 
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
-	var Q1, Q2 G2Affine
+	var Q1, Q2 G2Jac
 
 	//Q1 = Frob(Q)
 	Q1.X.Conjugate(&Q.X).MulByNonResidue1Power2(&Q1.X)
 	Q1.Y.Conjugate(&Q.Y).MulByNonResidue1Power3(&Q1.Y)
+	Q1.Z.SetOne()
 
 	// Q2 = -Frob2(Q)
 	Q2.X.MulByNonResidue2Power2(&Q.X)
 	Q2.Y.MulByNonResidue2Power3(&Q.Y).Neg(&Q2.Y)
+	Q2.Z.SetOne()
 
-	lineEvalAffine(QCur, Q1, &P, &lEval)
-	lEval.mulAssign(result)
+	var lEval lineEvaluation
+	lineEval(&Qjac, &Q1, &P, &lEval)
+	result.mulAssign(&lEval)
 
-	QCur.AddMixed(&Q1)
+	Qjac.AddAssign(&Q1)
 
-	lineEvalAffine(QCur, Q2, &P, &lEval)
-	lEval.mulAssign(result)
+	lineEval(&Qjac, &Q2, &P, &lEval)
+	result.mulAssign(&lEval)
 
-	return result
+	return &result
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
 // Q, R are in jacobian coordinates
-// The case in which Q=R=Infinity is not handled as this doesn't happen in the SNARK pairing
-func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
+func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
+
 	// converts _Q and _R to projective coords
 	var _Q, _R G2Proj
-	_Q.FromJacobian(&Q)
-	_R.FromJacobian(&R)
+	_Q.FromJacobian(Q)
+	_R.FromJacobian(R)
 
 	result.r1.Mul(&_Q.Y, &_R.Z)
 	result.r0.Mul(&_Q.Z, &_R.X)
@@ -192,35 +190,7 @@ func lineEvalJac(Q, R G2Jac, P *G1Affine, result *lineEvalRes) {
 	result.r0.MulByElement(&result.r0, &P.Y)
 }
 
-// Same as above but R is in affine coords
-func lineEvalAffine(Q G2Jac, R G2Affine, P *G1Affine, result *lineEvalRes) {
-
-	// converts Q and R to projective coords
-	var _Q G2Proj
-	_Q.FromJacobian(&Q)
-
-	result.r1.Set(&_Q.Y)
-	result.r0.Mul(&_Q.Z, &R.X)
-	result.r2.Mul(&_Q.X, &R.Y)
-
-	_Q.Z.Mul(&_Q.Z, &R.Y)
-	_Q.Y.Mul(&_Q.Y, &R.X)
-
-	result.r1.Sub(&result.r1, &_Q.Z)
-	result.r0.Sub(&result.r0, &_Q.X)
-	result.r2.Sub(&result.r2, &_Q.Y)
-
-	result.r1.MulByElement(&result.r1, &P.X)
-	result.r0.MulByElement(&result.r0, &P.Y)
-}
-
-type lineEvalRes struct {
-	r0 G2CoordType // c0.b1
-	r1 G2CoordType // c1.b1
-	r2 G2CoordType // c1.b2
-}
-
-func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
+func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
 
 	var a, b, c PairingResult
 	a.MulByVW(z, &l.r1)
@@ -231,12 +201,45 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	return z
 }
 
+// precomputes the line evaluations used during the Miller loop.
+func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+
+	var Q1, Qbuf, Qneg G2Jac
+	Q1.Set(Q)
+	Qbuf.Set(Q)
+	Qneg.Neg(Q)
+
+	j := 0
+
+	for i := len(loopCounter) - 2; i >= 0; i-- {
+
+		Q1.Set(Q)
+		Q.Double(&Q1).Neg(Q)
+		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q2)-3(O)
+		Q.Neg(Q)
+		ch <- struct{}{}
+		j++
+
+		if loopCounter[i] == 1 {
+			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
+			Q.AddAssign(&Qbuf)
+			ch <- struct{}{}
+			j++
+		} else if loopCounter[i] == -1 {
+			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
+			Q.AddAssign(&Qneg)
+			ch <- struct{}{}
+			j++
+		}
+	}
+}
+
 // MulByVW set z to x*(y*v*w) and return z
 // here y*v*w means the PairingResult element with C1.B1=y and all other components 0
-func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByVW(x *PairingResult, y *E2) *PairingResult {
 
 	var result PairingResult
-	var yNR G2CoordType
+	var yNR E2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
@@ -251,10 +254,10 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *G2CoordType) *PairingResult
 
 // MulByV set z to x*(y*v) and return z
 // here y*v means the PairingResult element with C0.B1=y and all other components 0
-func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByV(x *PairingResult, y *E2) *PairingResult {
 
 	var result PairingResult
-	var yNR G2CoordType
+	var yNR E2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
@@ -269,10 +272,10 @@ func (z *PairingResult) MulByV(x *PairingResult, y *G2CoordType) *PairingResult 
 
 // MulByV2W set z to x*(y*v^2*w) and return z
 // here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
-func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
 
 	var result PairingResult
-	var yNR G2CoordType
+	var yNR E2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
@@ -285,7 +288,7 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *G2CoordType) *PairingResul
 	return z
 }
 
-// Expt set z to x^t in PairingResult and return z
+// Expt set z to x^t in PairingResult and return z (t is the generator of the BN curve)
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 
 	var tAbsVal uint64
