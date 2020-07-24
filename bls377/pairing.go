@@ -102,7 +102,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 		return &result
 	}
 
-	ch := make(chan struct{}, 10)
+	ch := make(chan struct{}, 20)
 
 	var evaluations [69]lineEvaluation
 	go preCompute(&evaluations, &Q, &P, ch)
