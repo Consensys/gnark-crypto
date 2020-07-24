@@ -1,96 +1,74 @@
 package bls377
 
 import (
-	"math/big"
-	"sync"
-
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bls377/fp"
-	"github.com/consensys/gurvy/utils"
 )
-
-// generate code for field tower, curve groups
-// add -testpoints to generate test points using sage
-// TODO go:generate go run ../internal/generator.go -out . -package bls377 -t 9586122913090633729 -p 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177 -r 8444461749428370424248824938781546531375899335154063827935233455917409239041 -fp2 5 -fp6 0,1
 
 // E: y**2=x**3+1
 // Etwist: y**2 = x**3+u**-1
-
-var bls377 Curve
-var initOnce sync.Once
+// Tower: Fp->Fp2, u**2=5 -> Fp12, v**6=u
+// Generator (BLS12 family): x=9586122913090633729
+// Fp: p=258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
+// Fr: r=8444461749428370424248824938781546531375899335154063827935233455917409239041
 
 // ID bls377 ID
-const ID = gurvy.BLS377
+var ID = gurvy.BLS377
+
+// B b coeff of the curve
+var B fp.Element
+
+// generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
+var g1Gen G1Jac
+var g2Gen G2Jac
+
+// point at infinity
+var g1Infinity G1Jac
+var g2Infinity G2Jac
+
+// optimal Ate loop counter (=trace-1 = x in BLS family)
+var loopCounter [64]int8
 
 // parameters for pippenger ScalarMulByGen
+// TODO get rid of this, keep only double and add, and the multi exp
 const sGen = 4
 const bGen = sGen
 
-type PairingResult = E12
+var tGenG1 [((1 << bGen) - 1)]G1Jac
+var tGenG2 [((1 << bGen) - 1)]G2Jac
 
-// BLS377 returns BLS377 curve
-func BLS377() *Curve {
-	initOnce.Do(initBLS377)
-	return &bls377
-}
+func init() {
 
-// Curve represents the BLS377 curve and pre-computed constants
-type Curve struct {
-	B fp.Element // A, B coefficients of the curve x^3 = y^2 +AX+b
+	B.SetUint64(1)
 
-	g1Gen G1Jac // generator of torsion group G1Jac
-	g2Gen G2Jac // generator of torsion group G2Jac
+	g1Gen.X.SetString("68333130937826953018162399284085925021577172705782285525244777453303237942212457240213897533859360921141590695983")
+	g1Gen.Y.SetString("243386584320553125968203959498080829207604143167922579970841210259134422887279629198736754149500839244552761526603")
+	g1Gen.Z.SetString("1")
 
-	g1Infinity G1Jac // infinity (in Jacobian coords)
-	g2Infinity G2Jac
-
-	// TODO store this number as a MAX_SIZE constant, or with build tags
-	loopCounter [64]int8 // NAF decomposition of t-1, t is the trace of the Frobenius restricted on the r torsion group
-
-	// precomputed values for ScalarMulByGen
-	tGenG1 [((1 << bGen) - 1)]G1Jac
-	tGenG2 [((1 << bGen) - 1)]G2Jac
-}
-
-func initBLS377() {
-
-	// A, B coeffs of the curve in Mont form
-	bls377.B.SetUint64(4)
-
-	// Setting G1Jac
-	bls377.g1Gen.X.SetString("68333130937826953018162399284085925021577172705782285525244777453303237942212457240213897533859360921141590695983")
-	bls377.g1Gen.Y.SetString("243386584320553125968203959498080829207604143167922579970841210259134422887279629198736754149500839244552761526603")
-	bls377.g1Gen.Z.SetString("1")
-
-	// Setting G2Jac
-	bls377.g2Gen.X.SetString("129200027147742761118726589615458929865665635908074731940673005072449785691019374448547048953080140429883331266310",
+	g2Gen.X.SetString("129200027147742761118726589615458929865665635908074731940673005072449785691019374448547048953080140429883331266310",
 		"218164455698855406745723400799886985937129266327098023241324696183914328661520330195732120783615155502387891913936")
-	bls377.g2Gen.Y.SetString("178797786102020318006939402153521323286173305074858025240458924050651930669327663166574060567346617543016897467207",
+	g2Gen.Y.SetString("178797786102020318006939402153521323286173305074858025240458924050651930669327663166574060567346617543016897467207",
 		"246194676937700783734853490842104812127151341609821057456393698060154678349106147660301543343243364716364400889778")
-	bls377.g2Gen.Z.SetString("1",
+	g2Gen.Z.SetString("1",
 		"0")
 
-	// Setting the loop counter for Miller loop in NAF form
-	T, _ := new(big.Int).SetString("9586122913090633729", 10)
-	utils.NafDecomposition(T, bls377.loopCounter[:])
+	// binary decomposition of 15132376222941642752 little endian
+	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
 
-	// infinity point G1
-	bls377.g1Infinity.X.SetOne()
-	bls377.g1Infinity.Y.SetOne()
+	g1Infinity.X.SetOne()
+	g1Infinity.Y.SetOne()
 
-	// infinity point G2
-	bls377.g2Infinity.X.SetOne()
-	bls377.g2Infinity.Y.SetOne()
+	g2Infinity.X.SetOne()
+	g2Infinity.Y.SetOne()
 
-	// precomputed values for ScalarMulByGen
-	bls377.tGenG1[0].Set(&bls377.g1Gen)
-	for j := 1; j < len(bls377.tGenG1)-1; j = j + 2 {
-		bls377.tGenG1[j].Set(&bls377.tGenG1[j/2]).DoubleAssign()
-		bls377.tGenG1[j+1].Set(&bls377.tGenG1[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG1[j/2])
+	tGenG1[0].Set(&g1Gen)
+	for j := 1; j < len(tGenG1)-1; j = j + 2 {
+		tGenG1[j].Set(&tGenG1[j/2]).DoubleAssign()
+		tGenG1[j+1].Set(&tGenG1[(j+1)/2]).AddAssign(&tGenG1[j/2])
 	}
-	bls377.tGenG2[0].Set(&bls377.g2Gen)
-	for j := 1; j < len(bls377.tGenG2)-1; j = j + 2 {
-		bls377.tGenG2[j].Set(&bls377.tGenG2[j/2]).DoubleAssign()
-		bls377.tGenG2[j+1].Set(&bls377.tGenG2[(j+1)/2]).AddAssign(&bls377, &bls377.tGenG2[j/2])
+	tGenG2[0].Set(&g2Gen)
+	for j := 1; j < len(tGenG2)-1; j = j + 2 {
+		tGenG2[j].Set(&tGenG2[j/2]).DoubleAssign()
+		tGenG2[j+1].Set(&tGenG2[(j+1)/2]).AddAssign(&tGenG2[j/2])
 	}
 }

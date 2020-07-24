@@ -16,8 +16,6 @@
 
 package bls381
 
-// Most algos for points operations are taken from http://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
-
 import (
 	"math/big"
 	"runtime"

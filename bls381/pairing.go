@@ -111,7 +111,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 	go preCompute(&evaluations, &Q, &P, ch)
 
 	j := 0
-	for i := 62; i >= 0; i-- {
+	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		result.Square(&result)
 		<-ch
@@ -178,7 +178,7 @@ func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 
 	j := 0
 
-	for i := 62; i >= 0; i-- {
+	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		Q1.Set(&Q2)
 		Q2.Double(&Q1).Neg(&Q2)
