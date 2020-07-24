@@ -29,10 +29,10 @@ type lineEvaluation struct {
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+
 	var result PairingResult
 	result.Set(z)
 
-	// if additional parameters are provided, multiply them into z
 	for _, e := range _z {
 		result.Mul(&result, e)
 	}
@@ -96,12 +96,13 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 
+	var result PairingResult
 	result.SetOne()
 
 	if P.IsInfinity() || Q.IsInfinity() {
-		return result
+		return &result
 	}
 
 	ch := make(chan struct{}, 10)
@@ -112,7 +113,7 @@ func MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 	j := 0
 	for i := 62; i >= 0; i-- {
 
-		result.Square(result)
+		result.Square(&result)
 		<-ch
 		result.mulAssign(&evaluations[j])
 		j++
@@ -125,7 +126,7 @@ func MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 	}
 	close(ch)
 
-	return result
+	return &result
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P

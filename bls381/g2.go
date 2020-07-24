@@ -19,6 +19,7 @@ package bls381
 // Most algos for points operations are taken from http://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html
 
 import (
+	"math/big"
 	"runtime"
 	"sync"
 
@@ -194,10 +195,9 @@ func (p *G2Jac) SubAssign(a G2Jac) *G2Jac {
 }
 
 // FromJacobian rescale a point in Jacobian coord in z=1 plane
-// WARNING super slow function (due to the division)
 func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 
-	var bufs [3]E2
+	var a, b E2
 
 	if p1.Z.IsZero() {
 		p.X.SetZero()
@@ -205,12 +205,10 @@ func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 		return p
 	}
 
-	bufs[0].Inverse(&p1.Z)
-	bufs[2].Square(&bufs[0])
-	bufs[1].Mul(&bufs[2], &bufs[0])
-
-	p.Y.Mul(&p1.Y, &bufs[1])
-	p.X.Mul(&p1.X, &bufs[2])
+	a.Inverse(&p1.Z)
+	b.Square(&a)
+	p.X.Mul(&p1.X, &b)
+	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
 
 	return p
 }
@@ -234,8 +232,6 @@ func (p *G2Jac) String() string {
 	}
 	_p := G2Affine{}
 	_p.FromJacobian(p)
-	_p.X.FromMont()
-	_p.Y.FromMont()
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
 }
 
@@ -410,43 +406,24 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 }
 
 // doubleandadd algo for exponentiation
-func (p *G2Jac) _doubleandadd(a *G2Affine, s fr.Element) *G2Jac {
+func (p *G2Jac) _doubleandadd(a *G2Affine, s big.Int) *G2Jac {
 
-	p.FromAffine(a)
-
-	binDec := s.Bytes()
-
-	// find the first non zero byte of s
-	start := 0
-	for binDec[start] == 0 {
-		start++
-	}
-
-	// find first non zero bit of the first non zero byte
-	nzBitPos := 7
-	for binDec[start]>>nzBitPos == 0 {
-		nzBitPos--
-	}
-
-	// start the double and add on the first non zero byte, starting from nzBitPos-1
-	for i := nzBitPos - 1; i >= 0; i-- {
-		p.DoubleAssign()
-		b := (binDec[start] >> i) & 1
-		if b == 1 {
-			p.AddMixed(a)
-		}
-	}
-
-	// finish the double and add algo
-	for i := start + 1; i < len(binDec); i++ {
-		for j := 7; j >= 0; j-- {
-			p.DoubleAssign()
-			b := (binDec[i] >> j) & 1
-			if b == 1 {
-				p.AddMixed(a)
+	var res G2Jac
+	res.Set(&g2Infinity)
+	b := s.Bytes()
+	for i := range b {
+		w := b[i]
+		mask := byte(0x80)
+		for j := 0; j < 8; j++ {
+			res.DoubleAssign()
+			if (w&mask)>>(7-j) != 0 {
+				res.AddMixed(a)
 			}
+			mask = mask >> 1
 		}
 	}
+	p.Set(&res)
+
 	return p
 }
 

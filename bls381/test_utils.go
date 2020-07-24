@@ -2,8 +2,12 @@ package bls381
 
 import (
 	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/leanovate/gopter"
 )
+
+// ------------------------------------------------------------
+// Tower generators
 
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
@@ -52,4 +56,23 @@ func GenE12() gopter.Gen {
 	).Map(func(values []interface{}) *E12 {
 		return &E12{*values[0].(*E6), *values[1].(*E6)}
 	})
+}
+
+// ------------------------------------------------------------
+// pairing generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var a0, a1, a2, a3 uint64
+		a0 = genParams.NextUint64() % 18446744069414584321
+		a1 = genParams.NextUint64() % 6034159408538082302
+		a2 = genParams.NextUint64() % 3691218898639771653
+		a3 = genParams.NextUint64() % 8353516859464449352
+		elmt := fr.Element{
+			a0, a1, a2, a3,
+		}
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
 }

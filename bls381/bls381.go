@@ -55,6 +55,7 @@ func init() {
 	g2Gen.Z.SetString("1",
 		"0")
 
+	// binary decomposition of 15132376222941642752 little endian
 	loopCounter = [64]int8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1}
 
 	g1Infinity.X.SetOne()
