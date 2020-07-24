@@ -70,10 +70,8 @@ func TestMagicPairing(t *testing.T) {
 	t.Log(r1)
 	t.Log(r2)
 
-	curve := BLS381()
-
-	res1 := curve.FinalExponentiation(&r1)
-	res2 := curve.FinalExponentiation(&r2)
+	res1 := FinalExponentiation(&r1)
+	res2 := FinalExponentiation(&r2)
 
 	if res1.Equal(&res2) {
 		t.Fatal("TestMagicPairing failed")
@@ -82,10 +80,8 @@ func TestMagicPairing(t *testing.T) {
 
 func TestComputePairing(t *testing.T) {
 
-	curve := BLS381()
-
-	G := curve.g2Gen.Clone()
-	P := curve.g1Gen.Clone()
+	G := g2Gen.Clone()
+	P := g1Gen.Clone()
 	sG := G.Clone()
 	sP := P.Clone()
 
@@ -96,8 +92,8 @@ func TestComputePairing(t *testing.T) {
 
 	// check 1
 	scalar := fr.Element{123}
-	sG.ScalarMul(curve, sG, scalar)
-	sP.ScalarMul(curve, sP, scalar)
+	sG.ScalarMul(sG, scalar)
+	sP.ScalarMul(sP, scalar)
 
 	var mRes1, mRes2, mRes3 E12
 
@@ -106,8 +102,8 @@ func TestComputePairing(t *testing.T) {
 	Gaff.FromJacobian(G)
 	sGaff.FromJacobian(sG)
 
-	res1 := curve.FinalExponentiation(curve.MillerLoop(Paff, sGaff, &mRes1))
-	res2 := curve.FinalExponentiation(curve.MillerLoop(sPaff, Gaff, &mRes2))
+	res1 := FinalExponentiation(MillerLoop(Paff, sGaff, &mRes1))
+	res2 := FinalExponentiation(MillerLoop(sPaff, Gaff, &mRes2))
 
 	if !res1.Equal(&res2) {
 		t.Fatal("pairing failed")
@@ -121,18 +117,18 @@ func TestComputePairing(t *testing.T) {
 	s2 := fr.Element{209302420904}
 	var s3 fr.Element
 	s3.Add(&s1, &s2)
-	s1G.ScalarMul(curve, s1G, s1)
-	s2G.ScalarMul(curve, s2G, s2)
-	s3G.ScalarMul(curve, s3G, s3)
+	s1G.ScalarMul(s1G, s1)
+	s2G.ScalarMul(s2G, s2)
+	s3G.ScalarMul(s3G, s3)
 
 	var s1Gaff, s2Gaff, s3Gaff G2Affine
 	s1Gaff.FromJacobian(s1G)
 	s2Gaff.FromJacobian(s2G)
 	s3Gaff.FromJacobian(s3G)
 
-	rs1 := curve.FinalExponentiation(curve.MillerLoop(Paff, s1Gaff, &mRes1))
-	rs2 := curve.FinalExponentiation(curve.MillerLoop(Paff, s2Gaff, &mRes2))
-	rs3 := curve.FinalExponentiation(curve.MillerLoop(Paff, s3Gaff, &mRes3))
+	rs1 := FinalExponentiation(MillerLoop(Paff, s1Gaff, &mRes1))
+	rs2 := FinalExponentiation(MillerLoop(Paff, s2Gaff, &mRes2))
+	rs3 := FinalExponentiation(MillerLoop(Paff, s3Gaff, &mRes3))
 	rs1.Mul(&rs2, &rs1)
 	if !rs3.Equal(&rs1) {
 		t.Fatal("pairing failed2")
@@ -146,44 +142,39 @@ func TestComputePairing(t *testing.T) {
 
 // func BenchmarkLineEval(b *testing.B) {
 
-// 	curve := BLS381()
-
+//
 // 	H := G2Jac{}
-// 	H.ScalarMul(curve, &curve.g2Gen, fr.Element{1213})
+// 	H.ScalarMul(&g2Gen, fr.Element{1213})
 
 // 	lRes := &lineEvalRes{}
 // 	var g1GenAff G1Affine
-// 	g1GenAff.FromJacobian(&curve.g1Gen)
+// 	g1GenAff.FromJacobian(&g1Gen)
 // 	b.ResetTimer()
 // 	for i := 0; i < b.N; i++ {
-// 		lineEvalJac(curve.g2Gen, H, &g1GenAff, lRes)
+// 		lineEvalJac(g2Gen, H, &g1GenAff, lRes)
 // 	}
 
 // }
 
 func BenchmarkPairing(b *testing.B) {
 
-	curve := BLS381()
-
 	var mRes E12
 
 	var g1GenAff G1Affine
 	var g2GenAff G2Affine
 
-	g1GenAff.FromJacobian(&curve.g1Gen)
-	g2GenAff.FromJacobian(&curve.g2Gen)
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		curve.FinalExponentiation(curve.MillerLoop(g1GenAff, g2GenAff, &mRes))
+		FinalExponentiation(MillerLoop(g1GenAff, g2GenAff, &mRes))
 	}
 }
 
 func BenchmarkFinalExponentiation(b *testing.B) {
 
 	var a E12
-
-	curve := BLS381()
 
 	a.SetString(
 		"1382424129690940106527336948935335363935127549146605398842626667204683483408227749",
@@ -201,7 +192,7 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		curve.FinalExponentiation(&a)
+		FinalExponentiation(&a)
 	}
 
 }

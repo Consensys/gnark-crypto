@@ -18,14 +18,17 @@ import (
 	"math/bits"
 )
 
+// PairingResult target group of the pairing
+type PairingResult = E12
+
 type lineEvaluation struct {
-	r0 G2CoordType
-	r1 G2CoordType
-	r2 G2CoordType
+	r0 E2
+	r1 E2
+	r2 E2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func (curve *Curve) FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 	var result PairingResult
 	result.Set(z)
 
@@ -93,7 +96,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	result.SetOne()
 
@@ -104,7 +107,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 	ch := make(chan struct{}, 10)
 
 	var evaluations [68]lineEvaluation
-	go preCompute(curve, &evaluations, &Q, &P, ch)
+	go preCompute(&evaluations, &Q, &P, ch)
 
 	j := 0
 	for i := 62; i >= 0; i-- {
@@ -114,7 +117,7 @@ func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *P
 		result.mulAssign(&evaluations[j])
 		j++
 
-		if curve.loopCounter[i] == 1 {
+		if loopCounter[i] == 1 {
 			<-ch
 			result.mulAssign(&evaluations[j])
 			j++
@@ -151,7 +154,7 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 }
 
 // multiplies a result of a line evaluation to the current pairing result, taking care of mapping it
-// back to the original curve. The line evaluation l is f(P) where div(f)=(P')+(Q')+(-P'-Q')-3(O), the support
+// back to the original  The line evaluation l is f(P) where div(f)=(P')+(Q')+(-P'-Q')-3(O), the support
 // being on the twist.
 func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
 
@@ -165,7 +168,7 @@ func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(curve *Curve, evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch chan struct{}) {
+func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch chan struct{}) {
 
 	var Q1, Q2, Qbuf G2Jac
 	Q1.FromAffine(Q)
@@ -183,8 +186,8 @@ func preCompute(curve *Curve, evaluations *[68]lineEvaluation, Q *G2Affine, P *G
 		Q2.Neg(&Q2)
 		j++
 
-		if curve.loopCounter[i] == 1 {
-			lineEval(&Q2, &Qbuf, P, &evaluations[j]) // f(P), dif(f) = (Q)+(P)+(-P-Q)-3(O)
+		if loopCounter[i] == 1 {
+			lineEval(&Q2, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
 			ch <- struct{}{}
 			Q2.AddMixed(Q)
 			j++
@@ -194,10 +197,10 @@ func preCompute(curve *Curve, evaluations *[68]lineEvaluation, Q *G2Affine, P *G
 }
 
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *E2) *PairingResult {
 
 	var result PairingResult
-	var yNRInv G2CoordType
+	var yNRInv E2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C0.B1, y)
@@ -213,9 +216,9 @@ func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *G2CoordType) *PairingR
 }
 
 // MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *E2) *PairingResult {
 	var result PairingResult
-	var yNRInv G2CoordType
+	var yNRInv E2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B1, y)
@@ -231,10 +234,10 @@ func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *G2CoordType) *PairingR
 }
 
 // MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByWNRInv(x *PairingResult, y *G2CoordType) *PairingResult {
+func (z *PairingResult) MulByWNRInv(x *PairingResult, y *E2) *PairingResult {
 
 	var result PairingResult
-	var yNRInv G2CoordType
+	var yNRInv E2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B2, y)
