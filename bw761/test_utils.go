@@ -2,6 +2,7 @@ package bw761
 
 import (
 	"github.com/consensys/gurvy/bw761/fp"
+	"github.com/consensys/gurvy/bw761/fr"
 	"github.com/leanovate/gopter"
 )
 
@@ -48,4 +49,25 @@ func GenE6() gopter.Gen {
 	).Map(func(values []interface{}) *E6 {
 		return &E6{*values[0].(*E2), *values[1].(*E2), *values[2].(*E2)}
 	})
+}
+
+// ------------------------------------------------------------
+// pairing generators
+
+// GenFr generates an Fp element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var a0, a1, a2, a3, a4, a5 uint64
+		a0 = genParams.NextUint64() % 9586122913090633729
+		a1 = genParams.NextUint64() % 1660523435060625408
+		a2 = genParams.NextUint64() % 2230234197602682880
+		a3 = genParams.NextUint64() % 1883307231910630287
+		a4 = genParams.NextUint64() % 14284016967150029115
+		a5 = genParams.NextUint64() % 121098312706494698
+		elmt := fr.Element{
+			a0, a1, a2, a3, a4, a5,
+		}
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
 }

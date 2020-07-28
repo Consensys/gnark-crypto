@@ -14,6 +14,8 @@
 
 package bw761
 
+import "math/big"
+
 // E6 is a degree-three finite field extension of fp2
 type E6 struct {
 	B0, B1, B2 E2
@@ -229,5 +231,25 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B1.Mul(&c1, &t6)
 	z.B2.Mul(&c2, &t6)
 
+	return z
+}
+
+// Exp sets z=x**e and returns it
+func (z *E6) Exp(x *E6, e big.Int) *E6 {
+	var res E6
+	res.SetOne()
+	b := e.Bytes()
+	for i := range b {
+		w := b[i]
+		mask := byte(0x80)
+		for j := 0; j < 8; j++ {
+			res.Square(&res)
+			if (w&mask)>>(7-j) != 0 {
+				res.Mul(&res, x)
+			}
+			mask = mask >> 1
+		}
+	}
+	z.Set(&res)
 	return z
 }

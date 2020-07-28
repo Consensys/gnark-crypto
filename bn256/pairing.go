@@ -215,18 +215,18 @@ func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan 
 
 		Q1.Set(Q)
 		Q.Double(&Q1).Neg(Q)
-		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q2)-3(O)
+		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
 		Q.Neg(Q)
 		ch <- struct{}{}
 		j++
 
 		if loopCounter[i] == 1 {
-			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
+			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
 			Q.AddAssign(&Qbuf)
 			ch <- struct{}{}
 			j++
 		} else if loopCounter[i] == -1 {
-			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
+			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q)+(-Qbuf)+(-Q+Qbuf)-3(O)
 			Q.AddAssign(&Qneg)
 			ch <- struct{}{}
 			j++
