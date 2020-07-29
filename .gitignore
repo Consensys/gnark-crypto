@@ -23,6 +23,7 @@ tasks.txt
 *.input
 *.r1cs
 *.log
+*.backup
 
 # generated files during integratrion tests
 internal/tests/integration/

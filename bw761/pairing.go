@@ -182,7 +182,6 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 // MillerLoop Miller loop
 // https://eprint.iacr.org/2020/351.pdf (Algorithm 5)
 // sage: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L344
-// TODO for the love of god, please clean this up
 func (curve *Curve) MillerLoop(P G1Affine, Q G2Affine, result *PairingResult) *PairingResult {
 
 	result.SetOne() // init result
@@ -351,29 +350,37 @@ type lineEvalRes struct {
 	r2 G2CoordType // c1.b2
 }
 
-// mulAssign finish the work of lineEval by applying the twist isomorphism to l, obtaining a PairingResult p
-// then set z to z*p and return z
 func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 
 	var a, b, c PairingResult
 
-	// in what follows arithmetic is in Fp6(v) where v^3=u, v^6=-4
+	fourinv := G2CoordType{ // (-4)^(-1)
+		8571757465769615091,
+		6221412002326125864,
+		16781361031322833010,
+		18148962537424854844,
+		6497335359600054623,
+		17630955688667215145,
+		15638647242705587201,
+		830917065158682257,
+		6848922060227959954,
+		4142027113657578586,
+		12050453106507568375,
+		55644342162350184,
+	}
 
-	// set a to z * (l.r1 * v^-3) where v^(-3) = u^(-1) = (-4)^(-1)*u
 	{
 		var tmp E2 // tmp = l.r1 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.MulByNonResidueInv(&l.r1)
-		a.B0.Mul(&z.B0, &tmp)
-		a.B1.Mul(&z.B1, &tmp)
-		a.B2.Mul(&z.B2, &tmp)
+		tmp.A1.Mul(&l.r1, &fourinv)
+		a.MulByE2(z, &tmp)
 	}
 
 	// set b to z * (l.r0 * v^-2) where v^(-2) = (-4)^(-1)*u*v
 	{
 		var tmp E2 // tmp = l.r0 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.MulByNonResidueInv(&l.r0)
+		tmp.A1.Mul(&l.r0, &fourinv)
 
 		var a E2
 		a.MulByElement(&z.B2, &l.r0)
@@ -386,7 +393,7 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 	{
 		var tmp E2 // tmp = l.r2 * (-4)^(-1)*u
 		tmp.A0.SetZero()
-		tmp.A1.MulByNonResidueInv(&l.r2)
+		tmp.A1.Mul(&l.r2, &fourinv)
 
 		var a E2
 		a.Mul(&z.B2, &tmp)
@@ -402,8 +409,6 @@ func (l *lineEvalRes) mulAssign(z *PairingResult) *PairingResult {
 const tAbsVal uint64 = 9586122913090633729
 
 // Expt set z to x^t in PairingResult and return z
-// TODO make a ExptAssign method that assigns the result to self; then this method can assert fail if z != x
-// TODO Expt is the only method that depends on tAbsVal.  The rest of the tower does not depend on this value.  Logically, Expt should be separated from the rest of the tower.
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001

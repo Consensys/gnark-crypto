@@ -16,13 +16,7 @@
 
 package bls377
 
-// E12 is a degree-two finite field extension of fp6:
-// C0 + C1w where w^3-v is irrep in fp6
-
-// fp2, fp12 are both quadratic field extensions
-// template code is duplicated in fp2, fp12
-// TODO make an abstract quadratic extension template
-
+// E12 is a degree-two finite field extension of fp6
 type E12 struct {
 	C0, C1 E6
 }
@@ -125,69 +119,29 @@ func (z *E12) SetRandom() *E12 {
 
 // Mul set z=x*y in E12 and return z
 func (z *E12) Mul(x, y *E12) *E12 {
-	// Algorithm 20 from https://eprint.iacr.org/2010/354.pdf
-
-	var t0, t1, xSum, ySum E6
-
-	t0.Mul(&x.C0, &y.C0) // step 1
-	t1.Mul(&x.C1, &y.C1) // step 2
-
-	// finish processing input in case z==x or y
-	xSum.Add(&x.C0, &x.C1)
-	ySum.Add(&y.C0, &y.C1)
-
-	// step 3
-	{ // begin inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
-		var result E6
-		result.B1.Set(&(&t1).B0)
-		result.B2.Set(&(&t1).B1)
-		{ // begin inline: set result.B0 to (&(&t1).B2) * (0,1)
-			buf := (&(&t1).B2).A0
-			{ // begin inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
-				buf := *(&(&(&t1).B2).A1)
-				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end inline: set &(result.B0).A0 to (&(&(&t1).B2).A1) * (5)
-			(result.B0).A1 = buf
-		} // end inline: set result.B0 to (&(&t1).B2) * (0,1)
-		z.C0.Set(&result)
-	} // end inline: set z.C0 to (&t1) * ((0,0),(1,0),(0,0))
-	z.C0.Add(&z.C0, &t0)
-
-	// step 4
-	z.C1.Mul(&xSum, &ySum).
-		Sub(&z.C1, &t0).
-		Sub(&z.C1, &t1)
-
+	var a, b, c E6
+	a.Add(&x.C0, &x.C1)
+	b.Add(&y.C0, &y.C1)
+	a.Mul(&a, &b)
+	b.Mul(&x.C0, &y.C0)
+	c.Mul(&x.C1, &y.C1)
+	z.C1.Sub(&a, &b).Sub(&z.C1, &c)
+	z.C0.MulByNonResidue(&c).Add(&z.C0, &b)
 	return z
 }
 
 // Square set z=x*x in E12 and return z
 func (z *E12) Square(x *E12) *E12 {
-	// TODO implement Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	// or the complex method from fp2
-	// for now do it the dumb way
-	var b0, b1 E6
 
-	b0.Square(&x.C0)
-	b1.Square(&x.C1)
-	{ // begin inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
-		var result E6
-		result.B1.Set(&(&b1).B0)
-		result.B2.Set(&(&b1).B1)
-		{ // begin inline: set result.B0 to (&(&b1).B2) * (0,1)
-			buf := (&(&b1).B2).A0
-			{ // begin inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
-				buf := *(&(&(&b1).B2).A1)
-				(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-			} // end inline: set &(result.B0).A0 to (&(&(&b1).B2).A1) * (5)
-			(result.B0).A1 = buf
-		} // end inline: set result.B0 to (&(&b1).B2) * (0,1)
-		b1.Set(&result)
-	} // end inline: set b1 to (&b1) * ((0,0),(1,0),(0,0))
-	b1.Add(&b0, &b1)
-
-	z.C1.Mul(&x.C0, &x.C1).Double(&z.C1)
-	z.C0 = b1
+	//Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	var c0, c2, c3 E6
+	c0.Sub(&x.C0, &x.C1)
+	c3.MulByNonResidue(&x.C1).Neg(&c3).Add(&x.C0, &c3)
+	c2.Mul(&x.C0, &x.C1)
+	c0.Mul(&c0, &c3).Add(&c0, &c2)
+	z.C1.Double(&c2)
+	c2.MulByNonResidue(&c2)
+	z.C0.Add(&c0, &c2)
 
 	return z
 }
@@ -236,32 +190,14 @@ func (z *E12) CyclotomicSquare(x *E12) *E12 {
 // Inverse set z to the inverse of x in E12 and return z
 func (z *E12) Inverse(x *E12) *E12 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
-
-	var t [2]E6
-
-	t[0].Square(&x.C0) // step 1
-	t[1].Square(&x.C1) // step 2
-	{                  // step 3
-		var buf E6
-		{ // begin inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
-			var result E6
-			result.B1.Set(&(&t[1]).B0)
-			result.B2.Set(&(&t[1]).B1)
-			{ // begin inline: set result.B0 to (&(&t[1]).B2) * (0,1)
-				buf := (&(&t[1]).B2).A0
-				{ // begin inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
-					buf := *(&(&(&t[1]).B2).A1)
-					(&(result.B0).A0).Double(&buf).Double(&(result.B0).A0).AddAssign(&buf)
-				} // end inline: set &(result.B0).A0 to (&(&(&t[1]).B2).A1) * (5)
-				(result.B0).A1 = buf
-			} // end inline: set result.B0 to (&(&t[1]).B2) * (0,1)
-			buf.Set(&result)
-		} // end inline: set buf to (&t[1]) * ((0,0),(1,0),(0,0))
-		t[0].Sub(&t[0], &buf)
-	}
-	t[1].Inverse(&t[0])               // step 4
-	z.C0.Mul(&x.C0, &t[1])            // step 5
-	z.C1.Mul(&x.C1, &t[1]).Neg(&z.C1) // step 6
+	var t0, t1, tmp E6
+	t0.Square(&x.C0)
+	t1.Square(&x.C1)
+	tmp.MulByNonResidue(&t1)
+	t0.Sub(&t0, &tmp)
+	t1.Inverse(&t0)
+	z.C0.Mul(&x.C0, &t1)
+	z.C1.Mul(&x.C1, &t1).Neg(&z.C1)
 
 	return z
 }
