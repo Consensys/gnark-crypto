@@ -2,6 +2,7 @@ package bn256
 
 import (
 	"github.com/consensys/gurvy/bn256/fp"
+	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/leanovate/gopter"
 )
 
@@ -50,4 +51,23 @@ func GenE12() gopter.Gen {
 	).Map(func(values []interface{}) *E12 {
 		return &E12{*values[0].(*E6), *values[1].(*E6)}
 	})
+}
+
+// ------------------------------------------------------------
+// pairing generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var a0, a1, a2, a3 uint64
+		a0 = genParams.NextUint64() % 4891460686036598785
+		a1 = genParams.NextUint64() % 2896914383306846353
+		a2 = genParams.NextUint64() % 13281191951274694749
+		a3 = genParams.NextUint64() % 3486998266802970665
+		elmt := fr.Element{
+			a0, a1, a2, a3,
+		}
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
 }

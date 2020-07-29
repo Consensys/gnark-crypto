@@ -16,6 +16,10 @@
 
 package bls381
 
+import (
+	"math/big"
+)
+
 // E12 is a degree-two finite field extension of fp6
 type E12 struct {
 	C0, C1 E6
@@ -197,6 +201,26 @@ func (z *E12) Inverse(x *E12) *E12 {
 	z.C0.Mul(&x.C0, &t1)
 	z.C1.Mul(&x.C1, &t1).Neg(&z.C1)
 
+	return z
+}
+
+// Exp sets z=x**e and returns it
+func (z *E12) Exp(x *E12, e big.Int) *E12 {
+	var res E12
+	res.SetOne()
+	b := e.Bytes()
+	for i := range b {
+		w := b[i]
+		mask := byte(0x80)
+		for j := 0; j < 8; j++ {
+			res.Square(&res)
+			if (w&mask)>>(7-j) != 0 {
+				res.Mul(&res, x)
+			}
+			mask = mask >> 1
+		}
+	}
+	z.Set(&res)
 	return z
 }
 

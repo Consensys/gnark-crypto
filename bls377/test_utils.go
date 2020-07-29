@@ -2,6 +2,7 @@ package bls377
 
 import (
 	"github.com/consensys/gurvy/bls377/fp"
+	"github.com/consensys/gurvy/bls377/fr"
 	"github.com/leanovate/gopter"
 )
 
@@ -52,4 +53,23 @@ func GenE12() gopter.Gen {
 	).Map(func(values []interface{}) *E12 {
 		return &E12{*values[0].(*E6), *values[1].(*E6)}
 	})
+}
+
+// ------------------------------------------------------------
+// pairing generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var a0, a1, a2, a3 uint64
+		a0 = genParams.NextUint64() % 725501752471715841
+		a1 = genParams.NextUint64() % 6461107452199829505
+		a2 = genParams.NextUint64() % 6968279316240510977
+		a3 = genParams.NextUint64() % 1345280370688173398
+		elmt := fr.Element{
+			a0, a1, a2, a3,
+		}
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
 }

@@ -22,7 +22,6 @@ func TestG2JacToAffineFromJac(t *testing.T) {
 
 func TestG2JacAdd(t *testing.T) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	// p3 = p1 + p2
@@ -30,7 +29,7 @@ func TestG2JacAdd(t *testing.T) {
 	_p2 := G2Affine{}
 	_p2.FromJacobian(&p[2])
 	p[1].AddMixed(&_p2)
-	p[2].AddAssign(curve, p1)
+	p[2].AddAssign(p1)
 
 	if !p[3].Equal(&p[1]) {
 		t.Fatal("Add failed")
@@ -44,11 +43,10 @@ func TestG2JacAdd(t *testing.T) {
 
 func TestG2JacSub(t *testing.T) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	// p4 = p1 - p2
-	p[1].SubAssign(curve, p[2])
+	p[1].SubAssign(p[2])
 
 	if !p[4].Equal(&p[1]) {
 		t.Fatal("Sub failed")
@@ -57,7 +55,6 @@ func TestG2JacSub(t *testing.T) {
 
 func TestG2JacDouble(t *testing.T) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	// p5 = 2 * p1
@@ -66,8 +63,8 @@ func TestG2JacDouble(t *testing.T) {
 		t.Fatal("Double failed")
 	}
 
-	G := curve.g2Infinity.Clone()
-	R := curve.g2Infinity.Clone()
+	G := g2Infinity.Clone()
+	R := g2Infinity.Clone()
 	G.DoubleAssign()
 
 	if !G.Equal(R) {
@@ -77,12 +74,11 @@ func TestG2JacDouble(t *testing.T) {
 
 func TestG2JacScalarMul(t *testing.T) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	// p6 = [p1]32394 (scalar mul)
 	scalar := fr.Element{32394}
-	p[1].ScalarMul(curve, &p[1], scalar)
+	p[1].ScalarMul(&p[1], scalar)
 
 	if !p[1].Equal(&p[6]) {
 		t.Error("ScalarMul failed")
@@ -90,8 +86,6 @@ func TestG2JacScalarMul(t *testing.T) {
 }
 
 func TestMultiExpG2(t *testing.T) {
-
-	curve := BLS377()
 
 	var G G2Jac
 
@@ -102,30 +96,30 @@ func TestMultiExpG2(t *testing.T) {
 	samplePoints := make([]G2Affine, 3000)
 	sampleScalars := make([]fr.Element, 3000)
 
-	G.Set(&curve.g2Gen)
+	G.Set(&g2Gen)
 
 	for i := 1; i <= 3000; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			MulAssign(&mixer).
 			FromMont()
 		samplePoints[i-1].FromJacobian(&G)
-		G.AddAssign(curve, &curve.g2Gen)
+		G.AddAssign(&g2Gen)
 	}
 
 	var testLotOfPoint, testPoint G2Jac
 
-	<-testLotOfPoint.MultiExp(curve, samplePoints, sampleScalars)
-	<-testPoint.MultiExp(curve, samplePoints[:30], sampleScalars[:30])
+	<-testLotOfPoint.MultiExp(samplePoints, sampleScalars)
+	<-testPoint.MultiExp(samplePoints[:30], sampleScalars[:30])
 
 	var finalBigScalar fr.Element
 	var finalLotOfPoint G2Jac
 	finalBigScalar.SetString("9004500500").MulAssign(&mixer).FromMont()
-	finalLotOfPoint.ScalarMul(curve, &curve.g2Gen, finalBigScalar)
+	finalLotOfPoint.ScalarMul(&g2Gen, finalBigScalar)
 
 	var finalScalar fr.Element
 	var finalPoint G2Jac
 	finalScalar.SetString("9455").MulAssign(&mixer).FromMont()
-	finalPoint.ScalarMul(curve, &curve.g2Gen, finalScalar)
+	finalPoint.ScalarMul(&g2Gen, finalScalar)
 
 	if !finalLotOfPoint.Equal(&testLotOfPoint) {
 		t.Fatal("error multi (>50 points) exp")
@@ -144,14 +138,13 @@ var benchResG2 G2Jac
 
 func BenchmarkG2ScalarMul(b *testing.B) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	var scalar fr.Element
 	scalar.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p[1].ScalarMul(curve, &p[1], scalar)
+		p[1].ScalarMul(&p[1], scalar)
 		b.StopTimer()
 		scalar.SetRandom()
 		b.StartTimer()
@@ -161,13 +154,12 @@ func BenchmarkG2ScalarMul(b *testing.B) {
 
 func BenchmarkG2Add(b *testing.B) {
 
-	curve := BLS377()
 	p := testPointsG2()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResG2 = p[1]
-		benchResG2.AddAssign(curve, &p[2])
+		benchResG2.AddAssign(&p[2])
 	}
 
 }
@@ -199,7 +191,6 @@ func BenchmarkG2Double(b *testing.B) {
 }
 
 func BenchmarkG2WindowedMultiExp(b *testing.B) {
-	curve := BLS377()
 
 	var G G2Jac
 
@@ -212,13 +203,13 @@ func BenchmarkG2WindowedMultiExp(b *testing.B) {
 	samplePoints := make([]G2Jac, nbSamples)
 	sampleScalars := make([]fr.Element, nbSamples)
 
-	G.Set(&curve.g2Gen)
+	G.Set(&g2Gen)
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1].Set(&curve.g2Gen)
+		samplePoints[i-1].Set(&g2Gen)
 	}
 
 	var testPoint G2Jac
@@ -227,15 +218,13 @@ func BenchmarkG2WindowedMultiExp(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", (i+1)*50000), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.WindowedMultiExp(curve, samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
+				testPoint.WindowedMultiExp(samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
 			}
 		})
 	}
 }
 
 func BenchmarkMultiExpG2(b *testing.B) {
-
-	curve := BLS377()
 
 	var G G2Jac
 
@@ -248,7 +237,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	samplePoints := make([]G2Affine, nbSamples)
 	sampleScalars := make([]fr.Element, nbSamples)
 
-	G.Set(&curve.g2Gen)
+	G.Set(&g2Gen)
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
@@ -264,7 +253,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points)", (i+1)*50000), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(curve, samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
+				<-testPoint.MultiExp(samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
 			}
 		})
 	}
