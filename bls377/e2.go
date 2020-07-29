@@ -139,6 +139,12 @@ func (z *E2) Double(x *E2) *E2 {
 	return z
 }
 
+// MulAssign sets z to the E2-product of z,x returns z
+func (z *E2) MulAssign(x *E2) *E2 {
+	z.Mul(z, x)
+	return z
+}
+
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
 	var a, b, c fp.Element
@@ -149,12 +155,6 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	z.A0.Double(&c).Double(&z.A0).AddAssign(&c).Add(&z.A0, &b)
-	return z
-}
-
-// MulAssign sets z to the E2-product of z,x returns z
-func (z *E2) MulAssign(x *E2) *E2 {
-	z.Mul(z, x)
 	return z
 }
 

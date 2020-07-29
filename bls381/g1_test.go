@@ -3,10 +3,30 @@ package bls381
 
 import (
 	"fmt"
-	"testing"
-
 	"github.com/consensys/gurvy/bls381/fr"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+	"testing"
 )
+
+// ------------------------------------------------------------
+// tests
+
+func TestG1(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("Having the receiver as operand (final expo) should output the same result", prop.ForAll(
+		func() bool {
+			return true
+		},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 func TestG1JacToAffineFromJac(t *testing.T) {
 

@@ -259,7 +259,7 @@ func (p *G2Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
-// AddAssign point addition in montgomery form
+// AddAssign point addition
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 
@@ -328,7 +328,6 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V E2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
@@ -374,7 +373,6 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
-	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T E2
 
 	XX.Square(&p.X)

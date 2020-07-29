@@ -6,6 +6,7 @@ import (
 )
 
 func TestNafDecomposition(t *testing.T) {
+	// TODO write a real test...
 	exp := big.NewInt(13)
 	var result [400]int8
 	lExp := NafDecomposition(exp, result[:])
