@@ -405,7 +405,7 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 }
 
 // doubleandadd algo for exponentiation
-func (p *G1Jac) _doubleandadd(a *G1Affine, s big.Int) *G1Jac {
+func (p *G1Jac) _doubleandadd(a *G1Affine, s *big.Int) *G1Jac {
 
 	var res G1Jac
 	res.Set(&g1Infinity)
@@ -421,6 +421,49 @@ func (p *G1Jac) _doubleandadd(a *G1Affine, s big.Int) *G1Jac {
 			mask = mask >> 1
 		}
 	}
+	p.Set(&res)
+
+	return p
+}
+
+// ScalarMulEndo performs scalar multiplication using GLV (without the lattice reduction)
+func (p *G1Jac) ScalarMulEndo(a *G1Affine, s *big.Int) *G1Jac {
+
+	var g1, phig1, res G1Jac
+	var phig1Affine G1Affine
+	res.Set(&g1Infinity)
+	g1.FromAffine(a)
+	phig1.Set(&g1)
+	phig1.X.Mul(&phig1.X, &thirdRootOneG1)
+
+	phig1Affine.FromJacobian(&phig1)
+
+	// s = s1*lambda+s2
+	var s1, s2 big.Int
+	s1.DivMod(s, &lambdaGLV, &s2)
+
+	chTasks := []chan struct{}{
+		make(chan struct{}),
+		make(chan struct{}),
+	}
+
+	// s1 part (on phi(g1)=lambda*g1)
+	go func() {
+		phig1._doubleandadd(&phig1Affine, &s1)
+		chTasks[0] <- struct{}{}
+	}()
+
+	// s2 part (on g1)
+	go func() {
+		g1._doubleandadd(a, &s2)
+		chTasks[1] <- struct{}{}
+	}()
+
+	<-chTasks[0]
+	res.AddAssign(&phig1)
+	<-chTasks[1]
+	res.AddAssign(&g1)
+
 	p.Set(&res)
 
 	return p

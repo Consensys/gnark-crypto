@@ -247,7 +247,7 @@ func (p *{{ toUpper .PointName }}Affine) IsInfinity() bool {
 }
 
 // AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 
 	// p is infinity, return a
@@ -300,7 +300,7 @@ func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) 
 }
 
 // AddMixed point addition
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// http://www.hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
 
 	//if a is infinity return p
@@ -350,7 +350,7 @@ func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine
 }
 
 // Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 	p.Set(q)
 	p.DoubleAssign()
@@ -358,7 +358,7 @@ func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{
 }
 
 // DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Jac {
 
 	// get some Element from our pool
@@ -391,7 +391,7 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 }
 
 // doubleandadd algo for exponentiation
-func (p *{{ toUpper .PointName }}Jac) _doubleandadd(a *{{ toUpper .PointName }}Affine, s big.Int) *{{ toUpper .PointName }}Jac {
+func (p *{{ toUpper .PointName }}Jac) _doubleandadd(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
 	var res {{ toUpper .PointName }}Jac
 	res.Set(& {{toLower .PointName}}Infinity)
@@ -411,6 +411,55 @@ func (p *{{ toUpper .PointName }}Jac) _doubleandadd(a *{{ toUpper .PointName }}A
 
 	return p
 }
+
+// ScalarMulEndo performs scalar multiplication using GLV (without the lattice reduction)
+func (p *{{ toUpper .PointName}}Jac) ScalarMulEndo(a *{{ toUpper .PointName}}Affine, s *big.Int) *{{ toUpper .PointName}}Jac {
+
+	var {{ toLower .PointName}}, phi{{ toLower .PointName}}, res {{ toUpper .PointName}}Jac
+	var phi{{ toLower .PointName}}Affine {{ toUpper .PointName}}Affine
+	res.Set(&{{ toLower .PointName}}Infinity)
+	{{ toLower .PointName}}.FromAffine(a)
+	phi{{ toLower .PointName}}.Set(&{{ toLower .PointName}})
+	{{- if eq .CoordType "fp.Element" }}
+		phi{{ toLower .PointName}}.X.Mul(&phi{{ toLower .PointName}}.X, &thirdRootOne{{ toUpper .PointName}})
+	{{- else if eq .CoordType "E2" }}
+		phi{{ toLower .PointName}}.X.MulByElement(&phi{{ toLower .PointName}}.X, &thirdRootOne{{ toUpper .PointName}})
+	{{- end }}
+
+	phi{{ toLower .PointName}}Affine.FromJacobian(&phi{{ toLower .PointName}})
+
+	// s = s1*lambda+s2
+	var s1, s2 big.Int
+	s1.DivMod(s, &lambdaGLV, &s2)
+
+	chTasks := []chan struct{}{
+		make(chan struct{}),
+		make(chan struct{}),
+	}
+
+	// s1 part (on phi({{ toLower .PointName}})=lambda*{{ toLower .PointName}})
+	go func() {
+		phi{{ toLower .PointName}}._doubleandadd(&phi{{ toLower .PointName}}Affine, &s1)
+		chTasks[0] <- struct{}{}
+	}()
+
+	// s2 part (on {{ toLower .PointName}})
+	go func() {
+		{{ toLower .PointName}}._doubleandadd(a, &s2)
+		chTasks[1] <- struct{}{}
+	}()
+
+	<-chTasks[0]
+	res.AddAssign(&phi{{ toLower .PointName}})
+	<-chTasks[1]
+	res.AddAssign(&{{ toLower .PointName}})
+
+	p.Set(&res)
+
+	return p
+}
+
+
 
 // ScalarMul multiplies a by scalar
 // algorithm: a special case of Pippenger described by Bootle:

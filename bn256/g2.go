@@ -260,7 +260,7 @@ func (p *G2Affine) IsInfinity() bool {
 }
 
 // AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 
 	// p is infinity, return a
@@ -313,7 +313,7 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 }
 
 // AddMixed point addition
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// http://www.hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	//if a is infinity return p
@@ -363,7 +363,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 }
 
 // Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 	p.Set(q)
 	p.DoubleAssign()
@@ -371,7 +371,7 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 }
 
 // DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
 	// get some Element from our pool
@@ -404,7 +404,7 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 }
 
 // doubleandadd algo for exponentiation
-func (p *G2Jac) _doubleandadd(a *G2Affine, s big.Int) *G2Jac {
+func (p *G2Jac) _doubleandadd(a *G2Affine, s *big.Int) *G2Jac {
 
 	var res G2Jac
 	res.Set(&g2Infinity)
@@ -420,6 +420,49 @@ func (p *G2Jac) _doubleandadd(a *G2Affine, s big.Int) *G2Jac {
 			mask = mask >> 1
 		}
 	}
+	p.Set(&res)
+
+	return p
+}
+
+// ScalarMulEndo performs scalar multiplication using GLV (without the lattice reduction)
+func (p *G2Jac) ScalarMulEndo(a *G2Affine, s *big.Int) *G2Jac {
+
+	var g2, phig2, res G2Jac
+	var phig2Affine G2Affine
+	res.Set(&g2Infinity)
+	g2.FromAffine(a)
+	phig2.Set(&g2)
+	phig2.X.MulByElement(&phig2.X, &thirdRootOneG2)
+
+	phig2Affine.FromJacobian(&phig2)
+
+	// s = s1*lambda+s2
+	var s1, s2 big.Int
+	s1.DivMod(s, &lambdaGLV, &s2)
+
+	chTasks := []chan struct{}{
+		make(chan struct{}),
+		make(chan struct{}),
+	}
+
+	// s1 part (on phi(g2)=lambda*g2)
+	go func() {
+		phig2._doubleandadd(&phig2Affine, &s1)
+		chTasks[0] <- struct{}{}
+	}()
+
+	// s2 part (on g2)
+	go func() {
+		g2._doubleandadd(a, &s2)
+		chTasks[1] <- struct{}{}
+	}()
+
+	<-chTasks[0]
+	res.AddAssign(&phig2)
+	<-chTasks[1]
+	res.AddAssign(&g2)
+
 	p.Set(&res)
 
 	return p

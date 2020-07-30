@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gurvy/internal/templates/fq12over6over2"
+	"github.com/consensys/gurvy/internal/templates/pairing"
 	"github.com/consensys/gurvy/internal/templates/point"
 )
 
@@ -13,6 +14,7 @@ type CurveConfig struct {
 	CurveName string
 	CoordType string
 	PointName string
+	RTorsion  string
 }
 
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
@@ -21,7 +23,6 @@ func GenerateFq12over6over2(conf CurveConfig, outputDir string) error {
 	// fq2 base
 	src := []string{
 		fq12over6over2.Fq2Common,
-		fq12over6over2.Fq2Specific,
 	}
 
 	bavardOpts := []func(*bavard.Bavard) error{
@@ -115,6 +116,28 @@ func GeneratePoint(conf CurveConfig, outputDir string) error {
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
+
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GeneratePairing generates elliptic curve arithmetic
+func GeneratePairing(conf CurveConfig, outputDir string) error {
+
+	src := []string{
+		pairing.PairingTests,
+	}
+
+	bavardOpts := []func(*bavard.Bavard) error{
+		bavard.Apache2("ConsenSys AG", 2020),
+		bavard.Package(conf.CurveName),
+		bavard.GeneratedBy("gurvy"),
+	}
+
+	pathSrc := filepath.Join(outputDir, "pairing_test.go")
 
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err

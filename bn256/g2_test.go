@@ -5,8 +5,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
 )
+
+func TestGLV(t *testing.T) {
+	var a fp.Element
+	a.SetString("22039604851481219212410676345676148381554848409937473031202")
+	for _, v := range a {
+		fmt.Printf("%d,\n", v)
+	}
+}
 
 func TestG2JacFromJacobian(t *testing.T) {
 

@@ -3,10 +3,12 @@ package bls381
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"testing"
 )
 
 // ------------------------------------------------------------
@@ -180,18 +182,45 @@ func TestMultiExpG1(t *testing.T) {
 
 var benchResG1 G1Jac
 
-func BenchmarkG1ScalarMul(b *testing.B) {
+func BenchmarkGLV(b *testing.B) {
+	var g G1Affine
+	g.FromJacobian(&g1Gen)
 
-	p := testPointsG1()
+	var g1 G1Jac
+	var s big.Int
+	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 
-	var scalar fr.Element
-	scalar.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p[1].ScalarMul(&p[1], scalar)
-		b.StopTimer()
-		scalar.SetRandom()
-		b.StartTimer()
+		g1.ScalarMulEndo(&g, &s)
+	}
+
+}
+
+func BenchmarkDoubleAndAdd(b *testing.B) {
+
+	var g G1Affine
+	g.FromJacobian(&g1Gen)
+
+	var g1 G1Jac
+	var s big.Int
+	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		g1._doubleandadd(&g, &s)
+	}
+
+}
+
+func BenchmarkG1ScalarMul(b *testing.B) {
+
+	var g1 G1Jac
+	var scalar fr.Element
+	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		g1.ScalarMul(&g1Gen, scalar)
 	}
 
 }
