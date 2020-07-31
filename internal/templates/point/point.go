@@ -448,13 +448,13 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 
 	// s1 part (on phi({{ toLower .PointName}})=lambda*{{ toLower .PointName}})
 	go func() {
-		phi{{ toLower .PointName}}._doubleandadd(&phi{{ toLower .PointName}}Affine, &s1)
+		phi{{ toLower .PointName}}.ScalarMultiplication(&phi{{ toLower .PointName}}Affine, &s1)
 		chTasks[0] <- struct{}{}
 	}()
 
 	// s2 part (on {{ toLower .PointName}})
 	go func() {
-		{{ toLower .PointName}}._doubleandadd(a, &s2)
+		{{ toLower .PointName}}.ScalarMultiplication(a, &s2)
 		chTasks[1] <- struct{}{}
 	}()
 

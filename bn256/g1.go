@@ -19,12 +19,10 @@ package bn256
 import (
 	"math/big"
 	"runtime"
-	"sync"
 
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/utils/debug"
-	"github.com/consensys/gurvy/utils/parallel"
 )
 
 // G1Jac is a point with fp.Element coordinates
@@ -58,6 +56,12 @@ func (p *g1JacExtended) SetInfinity() *g1JacExtended {
 
 // ToAffine sets p in affine coords
 func (p *g1JacExtended) ToAffine(Q *G1Affine) *G1Affine {
+	var zero fp.Element
+	if p.ZZ.Equal(&zero) {
+		Q.X.Set(&zero)
+		Q.Y.Set(&zero)
+		return Q
+	}
 	Q.X.Inverse(&p.ZZ).MulAssign(&p.X)
 	Q.Y.Inverse(&p.ZZZ).MulAssign(&p.Y)
 	return Q
@@ -65,6 +69,11 @@ func (p *g1JacExtended) ToAffine(Q *G1Affine) *G1Affine {
 
 // ToJac sets p in affine coords
 func (p *g1JacExtended) ToJac(Q *G1Jac) *G1Jac {
+	var zero fp.Element
+	if p.ZZ.Equal(&zero) {
+		Q.Set(&g1Infinity)
+		return Q
+	}
 	Q.X.Mul(&p.ZZ, &p.X).MulAssign(&p.ZZ)
 	Q.Y.Mul(&p.ZZZ, &p.Y).MulAssign(&p.ZZZ)
 	Q.Z.Set(&p.ZZZ)
@@ -404,8 +413,8 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// doubleandadd algo for exponentiation
-func (p *G1Jac) _doubleandadd(a *G1Affine, s *big.Int) *G1Jac {
+// ScalarMultiplication algo for exponentiation
+func (p *G1Jac) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Jac {
 
 	var res G1Jac
 	res.Set(&g1Infinity)
@@ -426,8 +435,8 @@ func (p *G1Jac) _doubleandadd(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// ScalarMulEndo performs scalar multiplication using GLV (without the lattice reduction)
-func (p *G1Jac) ScalarMulEndo(a *G1Affine, s *big.Int) *G1Jac {
+// ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
+func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 
 	var g1, phig1, res G1Jac
 	var phig1Affine G1Affine
@@ -449,13 +458,13 @@ func (p *G1Jac) ScalarMulEndo(a *G1Affine, s *big.Int) *G1Jac {
 
 	// s1 part (on phi(g1)=lambda*g1)
 	go func() {
-		phig1._doubleandadd(&phig1Affine, &s1)
+		phig1.ScalarMultiplication(&phig1Affine, &s1)
 		chTasks[0] <- struct{}{}
 	}()
 
 	// s2 part (on g1)
 	go func() {
-		g1._doubleandadd(a, &s2)
+		g1.ScalarMultiplication(a, &s2)
 		chTasks[1] <- struct{}{}
 	}()
 
@@ -469,115 +478,9 @@ func (p *G1Jac) ScalarMulEndo(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// ScalarMul multiplies a by scalar
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *G1Jac) ScalarMul(a *G1Jac, scalar fr.Element) *G1Jac {
-	// see MultiExp and pippenger documentation for more details about these constants / variables
-	const s = 4
-	const b = s
-	const TSize = (1 << b) - 1
-	var T [TSize]G1Jac
-	computeT := func(T []G1Jac, t0 *G1Jac) {
-		T[0].Set(t0)
-		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).DoubleAssign()
-			T[j+1].Set(&T[(j+1)/2]).AddAssign(&T[j/2])
-		}
-	}
-	return p.pippenger([]G1Jac{*a}, []fr.Element{scalar}, s, b, T[:], computeT)
-}
-
-// ScalarMulByGen multiplies curve. g1Gen by scalar
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *G1Jac) ScalarMulByGen(scalar fr.Element) *G1Jac {
-	computeT := func(T []G1Jac, t0 *G1Jac) {}
-	return p.pippenger([]G1Jac{g1Gen}, []fr.Element{scalar}, sGen, bGen, tGenG1[:], computeT)
-}
-
-// WindowedMultiExp set p = scalars[0]*points[0] + ... + scalars[n]*points[n]
-// assume: scalars in non-Montgomery form!
-// assume: len(points)==len(scalars)>0, len(scalars[i]) equal for all i
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-// uses all availables runtime.NumCPU()
-func (p *G1Jac) WindowedMultiExp(points []G1Jac, scalars []fr.Element) *G1Jac {
-	var lock sync.Mutex
-	parallel.Execute(0, len(points), func(start, end int) {
-		var t G1Jac
-		t.multiExp(points[start:end], scalars[start:end])
-		lock.Lock()
-		p.AddAssign(&t)
-		lock.Unlock()
-	}, false)
-	return p
-}
-
-// multiExp set p = scalars[0]*points[0] + ... + scalars[n]*points[n]
-// assume: scalars in non-Montgomery form!
-// assume: len(points)==len(scalars)>0, len(scalars[i]) equal for all i
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *G1Jac) multiExp(points []G1Jac, scalars []fr.Element) *G1Jac {
-	const s = 4 // s from Bootle, we choose s divisible by scalar bit length
-	const b = s // b from Bootle, we choose b equal to s
-	// WARNING! This code breaks if you switch to b!=s
-	// Because we chose b=s, each set S_i from Bootle is simply the set of points[i]^{2^j} for each j in [0:s]
-	// This choice allows for simpler code
-	// If you want to use b!=s then the S_i from Bootle are different
-	const TSize = (1 << b) - 1 // TSize is size of T_i sets from Bootle, equal to 2^b - 1
-	// Store only one set T_i at a time---don't store them all!
-	var T [TSize]G1Jac // a set T_i from Bootle, the set of g^j for j in [1:2^b] for some choice of g
-	computeT := func(T []G1Jac, t0 *G1Jac) {
-		T[0].Set(t0)
-		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).DoubleAssign()
-			T[j+1].Set(&T[(j+1)/2]).AddAssign(&T[j/2])
-		}
-	}
-	return p.pippenger(points, scalars, s, b, T[:], computeT)
-}
-
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *G1Jac) pippenger(points []G1Jac, scalars []fr.Element, s, b uint64, T []G1Jac, computeT func(T []G1Jac, t0 *G1Jac)) *G1Jac {
-	var t, selectorIndex, ks int
-	var selectorMask, selectorShift, selector uint64
-
-	t = fr.ElementLimbs * 64 / int(s) // t from Bootle, equal to (scalar bit length) / s
-	selectorMask = (1 << b) - 1       // low b bits are 1
-	morePoints := make([]G1Jac, t)    // morePoints is the set of G'_k points from Bootle
-	for k := 0; k < t; k++ {
-		morePoints[k].Set(&g1Infinity)
-	}
-	for i := 0; i < len(points); i++ {
-		// compute the set T_i from Bootle: all possible combinations of elements from S_i from Bootle
-		computeT(T, &points[i])
-		// for each morePoints: find the right T element and add it
-		for k := 0; k < t; k++ {
-			ks = k * int(s)
-			selectorIndex = ks / 64
-			selectorShift = uint64(ks - (selectorIndex * 64))
-			selector = (scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift
-			if selector != 0 {
-				morePoints[k].AddAssign(&T[selector-1])
-			}
-		}
-	}
-	// combine morePoints to get the final result
-	p.Set(&morePoints[t-1])
-	for k := t - 2; k >= 0; k-- {
-		for j := uint64(0); j < s; j++ {
-			p.DoubleAssign()
-		}
-		p.AddAssign(&morePoints[k])
-	}
-	return p
-}
-
 // MultiExp complexity O(n)
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
 	nbPoints := len(points)
 	debug.Assert(nbPoints == len(scalars))
 
@@ -586,15 +489,14 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
 	// under 50 points, the windowed multi exp performs better
 	const minPoints = 50
 	if nbPoints <= minPoints {
-		_points := make([]G1Jac, len(points))
-		for i := 0; i < len(points); i++ {
-			_points[i].FromAffine(&points[i])
+		var tmp G1Jac
+		var s big.Int
+		p.Set(&g1Infinity)
+		for i := 0; i < nbPoints; i++ {
+			scalars[i].ToBigInt(&s)
+			tmp.ScalarMulGLV(&points[i], &s)
+			p.AddAssign(&tmp)
 		}
-		go func() {
-			p.WindowedMultiExp(_points, scalars)
-			chRes <- *p
-		}()
-		return chRes
 	}
 
 	// empirical values

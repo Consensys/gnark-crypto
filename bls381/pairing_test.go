@@ -82,8 +82,8 @@ func TestPairing(t *testing.T) {
 			g1affine.FromJacobian(&g1Gen)
 			g2affine.FromJacobian(&g2Gen)
 
-			aG1._doubleandadd(&g1affine, &abigint)
-			bG2._doubleandadd(&g2affine, &bbigint)
+			aG1.ScalarMultiplication(&g1affine, &abigint)
+			bG2.ScalarMultiplication(&g2affine, &bbigint)
 			ag1.FromJacobian(&aG1)
 			bg2.FromJacobian(&bG2)
 
