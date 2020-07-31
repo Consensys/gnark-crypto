@@ -101,22 +101,34 @@ func GenerateFq12over6over2(conf CurveConfig, outputDir string) error {
 // GeneratePoint generates elliptic curve arithmetic
 func GeneratePoint(conf CurveConfig, outputDir string) error {
 
-	src := []string{
-		point.Point,
-	}
-
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys AG", 2020),
 		bavard.Package(conf.CurveName),
 		bavard.GeneratedBy("gurvy"),
 	}
 
-	pathSrc := filepath.Join(outputDir, conf.PointName+".go")
+	// point code
+	src := []string{
+		point.Point,
+	}
 
+	pathSrc := filepath.Join(outputDir, conf.PointName+".go")
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
 
+	// point test
+	src = []string{
+		point.PointTests,
+	}
+
+	pathSrc = filepath.Join(outputDir, conf.PointName+"_test.go")
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}

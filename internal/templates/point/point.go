@@ -2,15 +2,13 @@ package point
 
 const Point = `
 
-
 import (
 	"math/big"
 	"runtime"
-	"sync"
 
+	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
 	"github.com/consensys/gurvy/utils/debug"
-	"github.com/consensys/gurvy/utils/parallel"
 )
 
 // {{ toUpper .PointName }}Jac is a point with {{.CoordType}} coordinates
@@ -28,13 +26,13 @@ type {{ toUpper .PointName }}Affine struct {
 	X, Y {{.CoordType}}
 }
 
-//  {{toLower .PointName}}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type  {{toLower .PointName}}JacExtended struct {
+//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type {{ toLower .PointName }}JacExtended struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
 // SetInfinity sets p to O
-func (p * {{toLower .PointName}}JacExtended) SetInfinity() * {{toLower .PointName}}JacExtended {
+func (p *{{ toLower .PointName }}JacExtended) SetInfinity() *{{ toLower .PointName }}JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
 	p.ZZ.SetZero()
@@ -43,14 +41,25 @@ func (p * {{toLower .PointName}}JacExtended) SetInfinity() * {{toLower .PointNam
 }
 
 // ToAffine sets p in affine coords
-func (p * {{toLower .PointName}}JacExtended) ToAffine(Q *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Affine {
+func (p *{{ toLower .PointName }}JacExtended) ToAffine(Q *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Affine {
+	var zero {{.CoordType}}
+	if p.ZZ.Equal(&zero) {
+		Q.X.Set(&zero)
+		Q.Y.Set(&zero)
+		return Q
+	}
 	Q.X.Inverse(&p.ZZ).MulAssign(&p.X)
 	Q.Y.Inverse(&p.ZZZ).MulAssign(&p.Y)
 	return Q
 }
 
 // ToJac sets p in affine coords
-func (p * {{toLower .PointName}}JacExtended) ToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+	var zero {{.CoordType}}
+	if p.ZZ.Equal(&zero) {
+		Q.Set(&{{ toLower .PointName }}Infinity)
+		return Q
+	}
 	Q.X.Mul(&p.ZZ, &p.X).MulAssign(&p.ZZ)
 	Q.Y.Mul(&p.ZZZ, &p.Y).MulAssign(&p.ZZZ)
 	Q.Z.Set(&p.ZZZ)
@@ -58,8 +67,8 @@ func (p * {{toLower .PointName}}JacExtended) ToJac(Q *{{ toUpper .PointName }}Ja
 }
 
 // mAdd
-// http://www.hyperelliptic.org/EFD/ {{toLower .PointName}}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p * {{toLower .PointName}}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) * {{toLower .PointName}}JacExtended {
+// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -101,8 +110,8 @@ func (p * {{toLower .PointName}}JacExtended) mAdd(a *{{ toUpper .PointName }}Aff
 }
 
 // double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/ {{toLower .PointName}}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p * {{toLower .PointName}}JacExtended) double(q *{{ toUpper .PointName }}Affine) * {{toLower .PointName}}JacExtended {
+// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
 
 	var U, S, M, _M, Y3 {{.CoordType}}
 
@@ -247,7 +256,7 @@ func (p *{{ toUpper .PointName }}Affine) IsInfinity() bool {
 }
 
 // AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 
 	// p is infinity, return a
@@ -300,7 +309,7 @@ func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) 
 }
 
 // AddMixed point addition
-// http://www.hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
 
 	//if a is infinity return p
@@ -350,7 +359,7 @@ func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine
 }
 
 // Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 	p.Set(q)
 	p.DoubleAssign()
@@ -358,7 +367,7 @@ func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{
 }
 
 // DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{toLower .PointName}}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Jac {
 
 	// get some Element from our pool
@@ -390,11 +399,11 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 	return p
 }
 
-// doubleandadd algo for exponentiation
-func (p *{{ toUpper .PointName }}Jac) _doubleandadd(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
+// ScalarMultiplication algo for exponentiation
+func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
 	var res {{ toUpper .PointName }}Jac
-	res.Set(& {{toLower .PointName}}Infinity)
+	res.Set(&{{ toLower .PointName }}Infinity)
 	b := s.Bytes()
 	for i := range b {
 		w := b[i]
@@ -412,8 +421,8 @@ func (p *{{ toUpper .PointName }}Jac) _doubleandadd(a *{{ toUpper .PointName }}A
 	return p
 }
 
-// ScalarMulEndo performs scalar multiplication using GLV (without the lattice reduction)
-func (p *{{ toUpper .PointName}}Jac) ScalarMulEndo(a *{{ toUpper .PointName}}Affine, s *big.Int) *{{ toUpper .PointName}}Jac {
+// ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
+func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
 	var {{ toLower .PointName}}, phi{{ toLower .PointName}}, res {{ toUpper .PointName}}Jac
 	var phi{{ toLower .PointName}}Affine {{ toUpper .PointName}}Affine
@@ -459,117 +468,9 @@ func (p *{{ toUpper .PointName}}Jac) ScalarMulEndo(a *{{ toUpper .PointName}}Aff
 	return p
 }
 
-
-
-// ScalarMul multiplies a by scalar
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *{{ toUpper .PointName }}Jac) ScalarMul(a *{{ toUpper .PointName }}Jac, scalar fr.Element) *{{ toUpper .PointName }}Jac {
-	// see MultiExp and pippenger documentation for more details about these constants / variables
-	const s = 4
-	const b = s
-	const TSize = (1 << b) - 1
-	var T [TSize]{{ toUpper .PointName }}Jac
-	computeT := func(T []{{ toUpper .PointName }}Jac, t0 *{{ toUpper .PointName }}Jac) {
-		T[0].Set(t0)
-		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).DoubleAssign()
-			T[j+1].Set(&T[(j+1)/2]).AddAssign(&T[j/2])
-		}
-	}
-	return p.pippenger([]{{ toUpper .PointName }}Jac{*a}, []fr.Element{scalar}, s, b, T[:], computeT)
-}
-
-// ScalarMulByGen multiplies curve. {{toLower .PointName}}Gen by scalar
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(scalar fr.Element) *{{ toUpper .PointName }}Jac {
-	computeT := func(T []{{ toUpper .PointName }}Jac, t0 *{{ toUpper .PointName }}Jac) {}
-	return p.pippenger([]{{ toUpper .PointName }}Jac{ {{toLower .PointName}}Gen}, []fr.Element{scalar}, sGen, bGen, tGen{{ toUpper .PointName }}[:], computeT)
-}
-
-// WindowedMultiExp set p = scalars[0]*points[0] + ... + scalars[n]*points[n]
-// assume: scalars in non-Montgomery form!
-// assume: len(points)==len(scalars)>0, len(scalars[i]) equal for all i
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-// uses all availables runtime.NumCPU()
-func (p *{{ toUpper .PointName }}Jac) WindowedMultiExp(points []{{ toUpper .PointName }}Jac, scalars []fr.Element) *{{ toUpper .PointName }}Jac {
-	var lock sync.Mutex
-	parallel.Execute(0, len(points), func(start, end int) {
-		var t {{ toUpper .PointName }}Jac
-		t.multiExp(points[start:end], scalars[start:end])
-		lock.Lock()
-		p.AddAssign(&t)
-		lock.Unlock()
-	}, false)
-	return p
-}
-
-// multiExp set p = scalars[0]*points[0] + ... + scalars[n]*points[n]
-// assume: scalars in non-Montgomery form!
-// assume: len(points)==len(scalars)>0, len(scalars[i]) equal for all i
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *{{ toUpper .PointName }}Jac) multiExp(points []{{ toUpper .PointName }}Jac, scalars []fr.Element) *{{ toUpper .PointName }}Jac {
-	const s = 4 // s from Bootle, we choose s divisible by scalar bit length
-	const b = s // b from Bootle, we choose b equal to s
-	// WARNING! This code breaks if you switch to b!=s
-	// Because we chose b=s, each set S_i from Bootle is simply the set of points[i]^{2^j} for each j in [0:s]
-	// This choice allows for simpler code
-	// If you want to use b!=s then the S_i from Bootle are different
-	const TSize = (1 << b) - 1 // TSize is size of T_i sets from Bootle, equal to 2^b - 1
-	// Store only one set T_i at a time---don't store them all!
-	var T [TSize]{{ toUpper .PointName }}Jac // a set T_i from Bootle, the set of g^j for j in [1:2^b] for some choice of g
-	computeT := func(T []{{ toUpper .PointName }}Jac, t0 *{{ toUpper .PointName }}Jac) {
-		T[0].Set(t0)
-		for j := 1; j < (1<<b)-1; j = j + 2 {
-			T[j].Set(&T[j/2]).DoubleAssign()
-			T[j+1].Set(&T[(j+1)/2]).AddAssign(&T[j/2])
-		}
-	}
-	return p.pippenger(points, scalars, s, b, T[:], computeT)
-}
-
-// algorithm: a special case of Pippenger described by Bootle:
-// https://jbootle.github.io/Misc/pippenger.pdf
-func (p *{{ toUpper .PointName }}Jac) pippenger(points []{{ toUpper .PointName }}Jac, scalars []fr.Element, s, b uint64, T []{{ toUpper .PointName }}Jac, computeT func(T []{{ toUpper .PointName }}Jac, t0 *{{ toUpper .PointName }}Jac)) *{{ toUpper .PointName }}Jac {
-	var t, selectorIndex, ks int
-	var selectorMask, selectorShift, selector uint64
-
-	t = fr.ElementLimbs * 64 / int(s) // t from Bootle, equal to (scalar bit length) / s
-	selectorMask = (1 << b) - 1       // low b bits are 1
-	morePoints := make([]{{ toUpper .PointName }}Jac, t)    // morePoints is the set of G'_k points from Bootle
-	for k := 0; k < t; k++ {
-		morePoints[k].Set(& {{toLower .PointName}}Infinity)
-	}
-	for i := 0; i < len(points); i++ {
-		// compute the set T_i from Bootle: all possible combinations of elements from S_i from Bootle
-		computeT(T, &points[i])
-		// for each morePoints: find the right T element and add it
-		for k := 0; k < t; k++ {
-			ks = k * int(s)
-			selectorIndex = ks / 64
-			selectorShift = uint64(ks - (selectorIndex * 64))
-			selector = (scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift
-			if selector != 0 {
-				morePoints[k].AddAssign(&T[selector-1])
-			}
-		}
-	}
-	// combine morePoints to get the final result
-	p.Set(&morePoints[t-1])
-	for k := t - 2; k >= 0; k-- {
-		for j := uint64(0); j < s; j++ {
-			p.DoubleAssign()
-		}
-		p.AddAssign(&morePoints[k])
-	}
-	return p
-}
-
 // MultiExp complexity O(n)
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+
 	nbPoints := len(points)
 	debug.Assert(nbPoints == len(scalars))
 
@@ -578,15 +479,14 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// under 50 points, the windowed multi exp performs better
 	const minPoints = 50
 	if nbPoints <= minPoints {
-		_points := make([]{{ toUpper .PointName }}Jac, len(points))
-		for i := 0; i < len(points); i++ {
-			_points[i].FromAffine(&points[i])
+		var tmp {{ toUpper .PointName }}Jac
+		var s big.Int
+		p.Set(&{{ toLower .PointName }}Infinity)
+		for i := 0; i < nbPoints; i++ {
+			scalars[i].ToBigInt(&s)
+			tmp.ScalarMulGLV(&points[i], &s)
+			p.AddAssign(&tmp)
 		}
-		go func() {
-			p.WindowedMultiExp(_points, scalars)
-			chRes <- *p
-		}()
-		return chRes
 	}
 
 	// empirical values
@@ -682,13 +582,13 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// in index 1, add to current result, etc, up to 255=2**8-1
 	accumulatePoints := func(cpuID, nbTasks, n int) {
 		for i := 0; i < nbTasks; i++ {
-			var tmp  {{toLower .PointName}}JacExtended
+			var tmp {{ toLower .PointName }}JacExtended
 			var _tmp {{ toUpper .PointName }}Jac
 			task := cpuID + i*n
 
 			// init points
 			tmp.SetInfinity()
-			accumulators[task].Set(& {{toLower .PointName}}Infinity)
+			accumulators[task].Set(&{{ toLower .PointName }}Infinity)
 
 			// wait for indices to be ready
 			<-chIndices[task]
@@ -708,7 +608,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// double and add algo to collect all small reductions
 	reduce := func() {
 		var res {{ toUpper .PointName }}Jac
-		res.Set(& {{toLower .PointName}}Infinity)
+		res.Set(&{{ toLower .PointName }}Infinity)
 		for i := 0; i < nbChunks; i++ {
 			for j := 0; j < len(bitsForTask[i]); j++ {
 				res.DoubleAssign()
@@ -738,7 +638,5 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 
 	return chRes
 }
-
-
 
 `
