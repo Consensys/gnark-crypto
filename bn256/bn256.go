@@ -34,8 +34,10 @@ var g2Infinity G2Jac
 var loopCounter [66]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
-//  endomorphisms phi1 and phi2 for <G1> and <G2>, lambda is the associated eigenvalue
+//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+// <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
 // of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
