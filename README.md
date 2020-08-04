@@ -15,11 +15,4 @@
 
 #### Benchmarks
 
-(2,2GHz, i7)
-
-```
-BenchmarkPairing-12         1167            954992 ns/op (BLS381)
-BenchmarkPairing-12         1512            723142 ns/op (BN256)
-BenchmarkPairing-12         1089           1054871 ns/op (BLS377)
-BenchmarkPairing-12          363           3225724 ns/op (BW761)
-```
+TODO 
