@@ -13,7 +13,9 @@ jobs:
       - run: go vet -v ./...
       - run: go get golang.org/x/tools/cmd/goimports
       - run: go generate ./...
-      - run: if [[ -n $(git status --porcelain) ]]; then echo "Git repo is dirty after runing go generate -- please don't modify generated files"; exit 1; fi
+      - run: git update-index --assume-unchanged go.mod
+      - run: git update-index --assume-unchanged go.sum
+      - run: if [[ -n $(git status --porcelain) ]]; then echo "Git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
       - run: gotestsum --junitfile  /tmp/test-results/results.xml -- ./... -tags debug
       - store_test_results:
           path: /tmp/test-results
