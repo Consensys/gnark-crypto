@@ -16,7 +16,7 @@
 #include "textflag.h"
 #include "funcdata.h"
 
-TEXT ·Mul(SB), $96-24
+TEXT ·mul(SB), $96-24
 
 	// the algorithm is described here
 	// https://hackmd.io/@zkteam/modular_multiplication
@@ -33,7 +33,7 @@ TEXT ·Mul(SB), $96-24
 	
 NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l1
+    JNE l38
     XORQ DX, DX
     MOVQ y+16(FP), DX
     MOVQ 0(DX), DX
@@ -1428,7 +1428,7 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l1:
+l38:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX
@@ -1438,7 +1438,7 @@ l1:
 CALL ·_mulGeneric(SB)
     RET
 
-TEXT ·Square(SB), $96-16
+TEXT ·square(SB), $96-16
 
 	// the algorithm is described here
 	// https://hackmd.io/@zkteam/modular_multiplication
@@ -1456,7 +1456,7 @@ TEXT ·Square(SB), $96-16
 	
 NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l2
+    JNE l39
     XORQ DX, DX
     MOVQ x+8(FP), DX
     MOVQ 0(DX), DX
@@ -2851,7 +2851,7 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l2:
+l39:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX
@@ -2859,7 +2859,7 @@ l2:
 CALL ·_squareGeneric(SB)
     RET
 
-TEXT ·FromMont(SB), $96-8
+TEXT ·fromMont(SB), $96-8
 NO_LOCAL_POINTERS
 
 	// the algorithm is described here
@@ -2874,7 +2874,7 @@ NO_LOCAL_POINTERS
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l3
+    JNE l40
     MOVQ res+0(FP), R13
     MOVQ 0(R13), R14
     MOVQ 8(R13), R15
@@ -3490,13 +3490,13 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l3:
+l40:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
 CALL ·_fromMontGeneric(SB)
     RET
 
-TEXT ·Reduce(SB), $96-8
+TEXT ·reduce(SB), $96-8
     MOVQ res+0(FP), AX
     MOVQ 0(AX), DX
     MOVQ 8(AX), CX
@@ -3560,7 +3560,7 @@ TEXT ·Reduce(SB), $96-8
     MOVQ R13, 88(AX)
     RET
 
-TEXT ·Add(SB), $96-24
+TEXT ·add(SB), $96-24
     MOVQ x+8(FP), AX
     MOVQ 0(AX), BX
     MOVQ 8(AX), BP
@@ -3638,157 +3638,7 @@ TEXT ·Add(SB), $96-24
     MOVQ R15, 88(CX)
     RET
 
-TEXT ·Add2(SB), $96-24
-    MOVQ x+8(FP), AX
-    MOVQ 0(AX), BX
-    MOVQ 8(AX), BP
-    MOVQ 16(AX), SI
-    MOVQ 24(AX), DI
-    MOVQ 32(AX), R8
-    MOVQ 40(AX), R9
-    MOVQ 48(AX), R10
-    MOVQ 56(AX), R11
-    MOVQ 64(AX), R12
-    MOVQ 72(AX), R13
-    MOVQ 80(AX), R14
-    MOVQ 88(AX), R15
-    MOVQ y+16(FP), DX
-    ADDQ 0(DX), BX
-    ADCQ 8(DX), BP
-    ADCQ 16(DX), SI
-    ADCQ 24(DX), DI
-    ADCQ 32(DX), R8
-    ADCQ 40(DX), R9
-    ADCQ 48(DX), R10
-    ADCQ 56(DX), R11
-    ADCQ 64(DX), R12
-    ADCQ 72(DX), R13
-    ADCQ 80(DX), R14
-    ADCQ 88(DX), R15
-    MOVQ res+0(FP), CX
-    MOVQ BX, t0-8(SP)
-    SUBQ ·qElement+0(SB), BX
-    MOVQ BP, t1-16(SP)
-    SBBQ ·qElement+8(SB), BP
-    MOVQ SI, t2-24(SP)
-    SBBQ ·qElement+16(SB), SI
-    MOVQ DI, t3-32(SP)
-    SBBQ ·qElement+24(SB), DI
-    MOVQ R8, t4-40(SP)
-    SBBQ ·qElement+32(SB), R8
-    MOVQ R9, t5-48(SP)
-    SBBQ ·qElement+40(SB), R9
-    MOVQ R10, t6-56(SP)
-    SBBQ ·qElement+48(SB), R10
-    MOVQ R11, t7-64(SP)
-    SBBQ ·qElement+56(SB), R11
-    MOVQ R12, t8-72(SP)
-    SBBQ ·qElement+64(SB), R12
-    MOVQ R13, t9-80(SP)
-    SBBQ ·qElement+72(SB), R13
-    MOVQ R14, t10-88(SP)
-    SBBQ ·qElement+80(SB), R14
-    MOVQ R15, t11-96(SP)
-    SBBQ ·qElement+88(SB), R15
-    CMOVQCS t0-8(SP), BX
-    CMOVQCS t1-16(SP), BP
-    CMOVQCS t2-24(SP), SI
-    CMOVQCS t3-32(SP), DI
-    CMOVQCS t4-40(SP), R8
-    CMOVQCS t5-48(SP), R9
-    CMOVQCS t6-56(SP), R10
-    CMOVQCS t7-64(SP), R11
-    CMOVQCS t8-72(SP), R12
-    CMOVQCS t9-80(SP), R13
-    CMOVQCS t10-88(SP), R14
-    CMOVQCS t11-96(SP), R15
-    MOVQ BX, 0(CX)
-    MOVQ BP, 8(CX)
-    MOVQ SI, 16(CX)
-    MOVQ DI, 24(CX)
-    MOVQ R8, 32(CX)
-    MOVQ R9, 40(CX)
-    MOVQ R10, 48(CX)
-    MOVQ R11, 56(CX)
-    MOVQ R12, 64(CX)
-    MOVQ R13, 72(CX)
-    MOVQ R14, 80(CX)
-    MOVQ R15, 88(CX)
-    MOVQ 96(AX), BX
-    MOVQ 104(AX), BP
-    MOVQ 112(AX), SI
-    MOVQ 120(AX), DI
-    MOVQ 128(AX), R8
-    MOVQ 136(AX), R9
-    MOVQ 144(AX), R10
-    MOVQ 152(AX), R11
-    MOVQ 160(AX), R12
-    MOVQ 168(AX), R13
-    MOVQ 176(AX), R14
-    MOVQ 184(AX), R15
-    ADDQ 96(DX), BX
-    ADCQ 104(DX), BP
-    ADCQ 112(DX), SI
-    ADCQ 120(DX), DI
-    ADCQ 128(DX), R8
-    ADCQ 136(DX), R9
-    ADCQ 144(DX), R10
-    ADCQ 152(DX), R11
-    ADCQ 160(DX), R12
-    ADCQ 168(DX), R13
-    ADCQ 176(DX), R14
-    ADCQ 184(DX), R15
-    MOVQ BX, t0-8(SP)
-    SUBQ ·qElement+0(SB), BX
-    MOVQ BP, t1-16(SP)
-    SBBQ ·qElement+8(SB), BP
-    MOVQ SI, t2-24(SP)
-    SBBQ ·qElement+16(SB), SI
-    MOVQ DI, t3-32(SP)
-    SBBQ ·qElement+24(SB), DI
-    MOVQ R8, t4-40(SP)
-    SBBQ ·qElement+32(SB), R8
-    MOVQ R9, t5-48(SP)
-    SBBQ ·qElement+40(SB), R9
-    MOVQ R10, t6-56(SP)
-    SBBQ ·qElement+48(SB), R10
-    MOVQ R11, t7-64(SP)
-    SBBQ ·qElement+56(SB), R11
-    MOVQ R12, t8-72(SP)
-    SBBQ ·qElement+64(SB), R12
-    MOVQ R13, t9-80(SP)
-    SBBQ ·qElement+72(SB), R13
-    MOVQ R14, t10-88(SP)
-    SBBQ ·qElement+80(SB), R14
-    MOVQ R15, t11-96(SP)
-    SBBQ ·qElement+88(SB), R15
-    CMOVQCS t0-8(SP), BX
-    CMOVQCS t1-16(SP), BP
-    CMOVQCS t2-24(SP), SI
-    CMOVQCS t3-32(SP), DI
-    CMOVQCS t4-40(SP), R8
-    CMOVQCS t5-48(SP), R9
-    CMOVQCS t6-56(SP), R10
-    CMOVQCS t7-64(SP), R11
-    CMOVQCS t8-72(SP), R12
-    CMOVQCS t9-80(SP), R13
-    CMOVQCS t10-88(SP), R14
-    CMOVQCS t11-96(SP), R15
-    MOVQ BX, 96(CX)
-    MOVQ BP, 104(CX)
-    MOVQ SI, 112(CX)
-    MOVQ DI, 120(CX)
-    MOVQ R8, 128(CX)
-    MOVQ R9, 136(CX)
-    MOVQ R10, 144(CX)
-    MOVQ R11, 152(CX)
-    MOVQ R12, 160(CX)
-    MOVQ R13, 168(CX)
-    MOVQ R14, 176(CX)
-    MOVQ R15, 184(CX)
-    RET
-
-TEXT ·Sub(SB), NOSPLIT, $0-24
+TEXT ·sub(SB), NOSPLIT, $0-24
     MOVQ x+8(FP), R13
     MOVQ 0(R13), AX
     MOVQ 8(R13), DX
@@ -3815,7 +3665,7 @@ TEXT ·Sub(SB), NOSPLIT, $0-24
     SBBQ 72(R14), R10
     SBBQ 80(R14), R11
     SBBQ 88(R14), R12
-    JCC l4
+    JCC l41
     ADDQ ·qElement+0(SB), AX
     ADCQ ·qElement+8(SB), DX
     ADCQ ·qElement+16(SB), CX
@@ -3828,7 +3678,7 @@ TEXT ·Sub(SB), NOSPLIT, $0-24
     ADCQ ·qElement+72(SB), R10
     ADCQ ·qElement+80(SB), R11
     ADCQ ·qElement+88(SB), R12
-l4:
+l41:
     MOVQ res+0(FP), R15
     MOVQ AX, 0(R15)
     MOVQ DX, 8(R15)
@@ -3844,114 +3694,7 @@ l4:
     MOVQ R12, 88(R15)
     RET
 
-TEXT ·Sub2(SB), NOSPLIT, $0-24
-    MOVQ x+8(FP), R13
-    MOVQ y+16(FP), R14
-    MOVQ 0(R13), AX
-    MOVQ 8(R13), DX
-    MOVQ 16(R13), CX
-    MOVQ 24(R13), BX
-    MOVQ 32(R13), BP
-    MOVQ 40(R13), SI
-    MOVQ 48(R13), DI
-    MOVQ 56(R13), R8
-    MOVQ 64(R13), R9
-    MOVQ 72(R13), R10
-    MOVQ 80(R13), R11
-    MOVQ 88(R13), R12
-    SUBQ 0(R14), AX
-    SBBQ 8(R14), DX
-    SBBQ 16(R14), CX
-    SBBQ 24(R14), BX
-    SBBQ 32(R14), BP
-    SBBQ 40(R14), SI
-    SBBQ 48(R14), DI
-    SBBQ 56(R14), R8
-    SBBQ 64(R14), R9
-    SBBQ 72(R14), R10
-    SBBQ 80(R14), R11
-    SBBQ 88(R14), R12
-    JCC l5
-    ADDQ ·qElement+0(SB), AX
-    ADCQ ·qElement+8(SB), DX
-    ADCQ ·qElement+16(SB), CX
-    ADCQ ·qElement+24(SB), BX
-    ADCQ ·qElement+32(SB), BP
-    ADCQ ·qElement+40(SB), SI
-    ADCQ ·qElement+48(SB), DI
-    ADCQ ·qElement+56(SB), R8
-    ADCQ ·qElement+64(SB), R9
-    ADCQ ·qElement+72(SB), R10
-    ADCQ ·qElement+80(SB), R11
-    ADCQ ·qElement+88(SB), R12
-l5:
-    MOVQ res+0(FP), R15
-    MOVQ AX, 0(R15)
-    MOVQ DX, 8(R15)
-    MOVQ CX, 16(R15)
-    MOVQ BX, 24(R15)
-    MOVQ BP, 32(R15)
-    MOVQ SI, 40(R15)
-    MOVQ DI, 48(R15)
-    MOVQ R8, 56(R15)
-    MOVQ R9, 64(R15)
-    MOVQ R10, 72(R15)
-    MOVQ R11, 80(R15)
-    MOVQ R12, 88(R15)
-    MOVQ 96(R13), AX
-    MOVQ 104(R13), DX
-    MOVQ 112(R13), CX
-    MOVQ 120(R13), BX
-    MOVQ 128(R13), BP
-    MOVQ 136(R13), SI
-    MOVQ 144(R13), DI
-    MOVQ 152(R13), R8
-    MOVQ 160(R13), R9
-    MOVQ 168(R13), R10
-    MOVQ 176(R13), R11
-    MOVQ 184(R13), R12
-    SUBQ 96(R14), AX
-    SBBQ 104(R14), DX
-    SBBQ 112(R14), CX
-    SBBQ 120(R14), BX
-    SBBQ 128(R14), BP
-    SBBQ 136(R14), SI
-    SBBQ 144(R14), DI
-    SBBQ 152(R14), R8
-    SBBQ 160(R14), R9
-    SBBQ 168(R14), R10
-    SBBQ 176(R14), R11
-    SBBQ 184(R14), R12
-    JCC l6
-    ADDQ ·qElement+0(SB), AX
-    ADCQ ·qElement+8(SB), DX
-    ADCQ ·qElement+16(SB), CX
-    ADCQ ·qElement+24(SB), BX
-    ADCQ ·qElement+32(SB), BP
-    ADCQ ·qElement+40(SB), SI
-    ADCQ ·qElement+48(SB), DI
-    ADCQ ·qElement+56(SB), R8
-    ADCQ ·qElement+64(SB), R9
-    ADCQ ·qElement+72(SB), R10
-    ADCQ ·qElement+80(SB), R11
-    ADCQ ·qElement+88(SB), R12
-l6:
-    MOVQ res+0(FP), R13
-    MOVQ AX, 96(R13)
-    MOVQ DX, 104(R13)
-    MOVQ CX, 112(R13)
-    MOVQ BX, 120(R13)
-    MOVQ BP, 128(R13)
-    MOVQ SI, 136(R13)
-    MOVQ DI, 144(R13)
-    MOVQ R8, 152(R13)
-    MOVQ R9, 160(R13)
-    MOVQ R10, 168(R13)
-    MOVQ R11, 176(R13)
-    MOVQ R12, 184(R13)
-    RET
-
-TEXT ·Double(SB), $96-16
+TEXT ·double(SB), $96-16
     MOVQ res+0(FP), DX
     MOVQ x+8(FP), AX
     MOVQ 0(AX), CX
@@ -4028,156 +3771,7 @@ TEXT ·Double(SB), $96-16
     MOVQ R14, 88(DX)
     RET
 
-TEXT ·Double2(SB), $96-16
-    MOVQ res+0(FP), DX
-    MOVQ x+8(FP), AX
-    MOVQ 0(AX), CX
-    MOVQ 8(AX), BX
-    MOVQ 16(AX), BP
-    MOVQ 24(AX), SI
-    MOVQ 32(AX), DI
-    MOVQ 40(AX), R8
-    MOVQ 48(AX), R9
-    MOVQ 56(AX), R10
-    MOVQ 64(AX), R11
-    MOVQ 72(AX), R12
-    MOVQ 80(AX), R13
-    MOVQ 88(AX), R14
-    ADDQ CX, CX
-    ADCQ BX, BX
-    ADCQ BP, BP
-    ADCQ SI, SI
-    ADCQ DI, DI
-    ADCQ R8, R8
-    ADCQ R9, R9
-    ADCQ R10, R10
-    ADCQ R11, R11
-    ADCQ R12, R12
-    ADCQ R13, R13
-    ADCQ R14, R14
-    MOVQ CX, t0-8(SP)
-    SUBQ ·qElement+0(SB), CX
-    MOVQ BX, t1-16(SP)
-    SBBQ ·qElement+8(SB), BX
-    MOVQ BP, t2-24(SP)
-    SBBQ ·qElement+16(SB), BP
-    MOVQ SI, t3-32(SP)
-    SBBQ ·qElement+24(SB), SI
-    MOVQ DI, t4-40(SP)
-    SBBQ ·qElement+32(SB), DI
-    MOVQ R8, t5-48(SP)
-    SBBQ ·qElement+40(SB), R8
-    MOVQ R9, t6-56(SP)
-    SBBQ ·qElement+48(SB), R9
-    MOVQ R10, t7-64(SP)
-    SBBQ ·qElement+56(SB), R10
-    MOVQ R11, t8-72(SP)
-    SBBQ ·qElement+64(SB), R11
-    MOVQ R12, t9-80(SP)
-    SBBQ ·qElement+72(SB), R12
-    MOVQ R13, t10-88(SP)
-    SBBQ ·qElement+80(SB), R13
-    MOVQ R14, t11-96(SP)
-    SBBQ ·qElement+88(SB), R14
-    CMOVQCS t0-8(SP), CX
-    CMOVQCS t1-16(SP), BX
-    CMOVQCS t2-24(SP), BP
-    CMOVQCS t3-32(SP), SI
-    CMOVQCS t4-40(SP), DI
-    CMOVQCS t5-48(SP), R8
-    CMOVQCS t6-56(SP), R9
-    CMOVQCS t7-64(SP), R10
-    CMOVQCS t8-72(SP), R11
-    CMOVQCS t9-80(SP), R12
-    CMOVQCS t10-88(SP), R13
-    CMOVQCS t11-96(SP), R14
-    MOVQ CX, 0(DX)
-    MOVQ BX, 8(DX)
-    MOVQ BP, 16(DX)
-    MOVQ SI, 24(DX)
-    MOVQ DI, 32(DX)
-    MOVQ R8, 40(DX)
-    MOVQ R9, 48(DX)
-    MOVQ R10, 56(DX)
-    MOVQ R11, 64(DX)
-    MOVQ R12, 72(DX)
-    MOVQ R13, 80(DX)
-    MOVQ R14, 88(DX)
-    MOVQ 96(AX), CX
-    MOVQ 104(AX), BX
-    MOVQ 112(AX), BP
-    MOVQ 120(AX), SI
-    MOVQ 128(AX), DI
-    MOVQ 136(AX), R8
-    MOVQ 144(AX), R9
-    MOVQ 152(AX), R10
-    MOVQ 160(AX), R11
-    MOVQ 168(AX), R12
-    MOVQ 176(AX), R13
-    MOVQ 184(AX), R14
-    ADDQ CX, CX
-    ADCQ BX, BX
-    ADCQ BP, BP
-    ADCQ SI, SI
-    ADCQ DI, DI
-    ADCQ R8, R8
-    ADCQ R9, R9
-    ADCQ R10, R10
-    ADCQ R11, R11
-    ADCQ R12, R12
-    ADCQ R13, R13
-    ADCQ R14, R14
-    MOVQ CX, t0-8(SP)
-    SUBQ ·qElement+0(SB), CX
-    MOVQ BX, t1-16(SP)
-    SBBQ ·qElement+8(SB), BX
-    MOVQ BP, t2-24(SP)
-    SBBQ ·qElement+16(SB), BP
-    MOVQ SI, t3-32(SP)
-    SBBQ ·qElement+24(SB), SI
-    MOVQ DI, t4-40(SP)
-    SBBQ ·qElement+32(SB), DI
-    MOVQ R8, t5-48(SP)
-    SBBQ ·qElement+40(SB), R8
-    MOVQ R9, t6-56(SP)
-    SBBQ ·qElement+48(SB), R9
-    MOVQ R10, t7-64(SP)
-    SBBQ ·qElement+56(SB), R10
-    MOVQ R11, t8-72(SP)
-    SBBQ ·qElement+64(SB), R11
-    MOVQ R12, t9-80(SP)
-    SBBQ ·qElement+72(SB), R12
-    MOVQ R13, t10-88(SP)
-    SBBQ ·qElement+80(SB), R13
-    MOVQ R14, t11-96(SP)
-    SBBQ ·qElement+88(SB), R14
-    CMOVQCS t0-8(SP), CX
-    CMOVQCS t1-16(SP), BX
-    CMOVQCS t2-24(SP), BP
-    CMOVQCS t3-32(SP), SI
-    CMOVQCS t4-40(SP), DI
-    CMOVQCS t5-48(SP), R8
-    CMOVQCS t6-56(SP), R9
-    CMOVQCS t7-64(SP), R10
-    CMOVQCS t8-72(SP), R11
-    CMOVQCS t9-80(SP), R12
-    CMOVQCS t10-88(SP), R13
-    CMOVQCS t11-96(SP), R14
-    MOVQ CX, 96(DX)
-    MOVQ BX, 104(DX)
-    MOVQ BP, 112(DX)
-    MOVQ SI, 120(DX)
-    MOVQ DI, 128(DX)
-    MOVQ R8, 136(DX)
-    MOVQ R9, 144(DX)
-    MOVQ R10, 152(DX)
-    MOVQ R11, 160(DX)
-    MOVQ R12, 168(DX)
-    MOVQ R13, 176(DX)
-    MOVQ R14, 184(DX)
-    RET
-
-TEXT ·Neg(SB), NOSPLIT, $0-16
+TEXT ·neg(SB), NOSPLIT, $0-16
     MOVQ res+0(FP), DX
     MOVQ x+8(FP), AX
     MOVQ 0(AX), BX
@@ -4205,7 +3799,7 @@ TEXT ·Neg(SB), NOSPLIT, $0-16
     ORQ R14, AX
     ORQ R15, AX
     TESTQ AX, AX
-    JNE l7
+    JNE l42
     MOVQ AX, 0(DX)
     MOVQ AX, 8(DX)
     MOVQ AX, 16(DX)
@@ -4213,7 +3807,7 @@ TEXT ·Neg(SB), NOSPLIT, $0-16
     MOVQ AX, 32(DX)
     MOVQ AX, 40(DX)
     RET
-l7:
+l42:
     MOVQ $0xf49d00000000008b, CX
     SUBQ BX, CX
     MOVQ CX, 0(DX)
@@ -4250,163 +3844,4 @@ l7:
     MOVQ $0x0122e824fb83ce0a, CX
     SBBQ R15, CX
     MOVQ CX, 88(DX)
-    RET
-
-TEXT ·Neg2(SB), NOSPLIT, $0-16
-    MOVQ res+0(FP), DX
-    MOVQ x+8(FP), AX
-    MOVQ 0(AX), BX
-    MOVQ 8(AX), BP
-    MOVQ 16(AX), SI
-    MOVQ 24(AX), DI
-    MOVQ 32(AX), R8
-    MOVQ 40(AX), R9
-    MOVQ 48(AX), R10
-    MOVQ 56(AX), R11
-    MOVQ 64(AX), R12
-    MOVQ 72(AX), R13
-    MOVQ 80(AX), R14
-    MOVQ 88(AX), R15
-    MOVQ BX, AX
-    ORQ BP, AX
-    ORQ SI, AX
-    ORQ DI, AX
-    ORQ R8, AX
-    ORQ R9, AX
-    ORQ R10, AX
-    ORQ R11, AX
-    ORQ R12, AX
-    ORQ R13, AX
-    ORQ R14, AX
-    ORQ R15, AX
-    TESTQ AX, AX
-    JNE l8
-    MOVQ AX, 96(DX)
-    MOVQ AX, 104(DX)
-    MOVQ AX, 112(DX)
-    MOVQ AX, 120(DX)
-    MOVQ AX, 128(DX)
-    MOVQ AX, 136(DX)
-    MOVQ AX, 144(DX)
-    MOVQ AX, 152(DX)
-    MOVQ AX, 160(DX)
-    MOVQ AX, 168(DX)
-    MOVQ AX, 176(DX)
-    MOVQ AX, 184(DX)
-    JMP l10
-l8:
-    MOVQ $0xf49d00000000008b, CX
-    SUBQ BX, CX
-    MOVQ CX, 0(DX)
-    MOVQ $0xe6913e6870000082, CX
-    SBBQ BP, CX
-    MOVQ CX, 8(DX)
-    MOVQ $0x160cf8aeeaf0a437, CX
-    SBBQ SI, CX
-    MOVQ CX, 16(DX)
-    MOVQ $0x98a116c25667a8f8, CX
-    SBBQ DI, CX
-    MOVQ CX, 24(DX)
-    MOVQ $0x71dcd3dc73ebff2e, CX
-    SBBQ R8, CX
-    MOVQ CX, 32(DX)
-    MOVQ $0x8689c8ed12f9fd90, CX
-    SBBQ R9, CX
-    MOVQ CX, 40(DX)
-    MOVQ $0x03cebaff25b42304, CX
-    SBBQ R10, CX
-    MOVQ CX, 48(DX)
-    MOVQ $0x707ba638e584e919, CX
-    SBBQ R11, CX
-    MOVQ CX, 56(DX)
-    MOVQ $0x528275ef8087be41, CX
-    SBBQ R12, CX
-    MOVQ CX, 64(DX)
-    MOVQ $0xb926186a81d14688, CX
-    SBBQ R13, CX
-    MOVQ CX, 72(DX)
-    MOVQ $0xd187c94004faff3e, CX
-    SBBQ R14, CX
-    MOVQ CX, 80(DX)
-    MOVQ $0x0122e824fb83ce0a, CX
-    SBBQ R15, CX
-    MOVQ CX, 88(DX)
-l10:
-    MOVQ x+8(FP), AX
-    MOVQ 96(AX), BX
-    MOVQ 104(AX), BP
-    MOVQ 112(AX), SI
-    MOVQ 120(AX), DI
-    MOVQ 128(AX), R8
-    MOVQ 136(AX), R9
-    MOVQ 144(AX), R10
-    MOVQ 152(AX), R11
-    MOVQ 160(AX), R12
-    MOVQ 168(AX), R13
-    MOVQ 176(AX), R14
-    MOVQ 184(AX), R15
-    MOVQ BX, AX
-    ORQ BP, AX
-    ORQ SI, AX
-    ORQ DI, AX
-    ORQ R8, AX
-    ORQ R9, AX
-    ORQ R10, AX
-    ORQ R11, AX
-    ORQ R12, AX
-    ORQ R13, AX
-    ORQ R14, AX
-    ORQ R15, AX
-    TESTQ AX, AX
-    JNE l9
-    MOVQ AX, 96(DX)
-    MOVQ AX, 104(DX)
-    MOVQ AX, 112(DX)
-    MOVQ AX, 120(DX)
-    MOVQ AX, 128(DX)
-    MOVQ AX, 136(DX)
-    MOVQ AX, 144(DX)
-    MOVQ AX, 152(DX)
-    MOVQ AX, 160(DX)
-    MOVQ AX, 168(DX)
-    MOVQ AX, 176(DX)
-    MOVQ AX, 184(DX)
-    RET
-l9:
-    MOVQ $0xf49d00000000008b, CX
-    SUBQ BX, CX
-    MOVQ CX, 96(DX)
-    MOVQ $0xe6913e6870000082, CX
-    SBBQ BP, CX
-    MOVQ CX, 104(DX)
-    MOVQ $0x160cf8aeeaf0a437, CX
-    SBBQ SI, CX
-    MOVQ CX, 112(DX)
-    MOVQ $0x98a116c25667a8f8, CX
-    SBBQ DI, CX
-    MOVQ CX, 120(DX)
-    MOVQ $0x71dcd3dc73ebff2e, CX
-    SBBQ R8, CX
-    MOVQ CX, 128(DX)
-    MOVQ $0x8689c8ed12f9fd90, CX
-    SBBQ R9, CX
-    MOVQ CX, 136(DX)
-    MOVQ $0x03cebaff25b42304, CX
-    SBBQ R10, CX
-    MOVQ CX, 144(DX)
-    MOVQ $0x707ba638e584e919, CX
-    SBBQ R11, CX
-    MOVQ CX, 152(DX)
-    MOVQ $0x528275ef8087be41, CX
-    SBBQ R12, CX
-    MOVQ CX, 160(DX)
-    MOVQ $0xb926186a81d14688, CX
-    SBBQ R13, CX
-    MOVQ CX, 168(DX)
-    MOVQ $0xd187c94004faff3e, CX
-    SBBQ R14, CX
-    MOVQ CX, 176(DX)
-    MOVQ $0x0122e824fb83ce0a, CX
-    SBBQ R15, CX
-    MOVQ CX, 184(DX)
     RET

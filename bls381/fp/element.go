@@ -51,7 +51,7 @@ const Bits = 381
 var _modulus big.Int
 var onceModulus sync.Once
 
-// ElementModulus returns q as a big.Int
+// Modulus returns q as a big.Int
 // q =
 //
 // 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
@@ -251,45 +251,45 @@ func (z *Element) SubAssign(x *Element) *Element {
 // Mul z = x * y mod q
 // see https://hackmd.io/@zkteam/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
-	Mul(z, x, y)
+	mul(z, x, y)
 	return z
 }
 
 // Square z = x * x mod q
 // see https://hackmd.io/@zkteam/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
-	Square(z, x)
+	square(z, x)
 	return z
 }
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func (z *Element) FromMont() *Element {
-	FromMont(z)
+	fromMont(z)
 	return z
 }
 
 // Add z = x + y mod q
 func (z *Element) Add(x, y *Element) *Element {
-	Add(z, x, y)
+	add(z, x, y)
 	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	Double(z, x)
+	double(z, x)
 	return z
 }
 
 // Sub  z = x - y mod q
 func (z *Element) Sub(x, y *Element) *Element {
-	Sub(z, x, y)
+	sub(z, x, y)
 	return z
 }
 
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
-	Neg(z, x)
+	neg(z, x)
 	return z
 }
 

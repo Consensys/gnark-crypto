@@ -23,28 +23,28 @@ import "math/bits"
 // Declarations
 
 //go:noescape
-func Add(res, x, y *Element)
+func add(res, x, y *Element)
 
 //go:noescape
-func Sub(res, x, y *Element)
+func sub(res, x, y *Element)
 
 //go:noescape
-func Neg(res, x *Element)
+func neg(res, x *Element)
 
 //go:noescape
-func Double(res, x *Element)
+func double(res, x *Element)
 
 //go:noescape
-func Mul(res, x, y *Element)
+func mul(res, x, y *Element)
 
 //go:noescape
-func Square(res, x *Element)
+func square(res, x *Element)
 
 //go:noescape
-func FromMont(res *Element)
+func fromMont(res *Element)
 
 //go:noescape
-func Reduce(res *Element)
+func reduce(res *Element)
 
 // E2
 

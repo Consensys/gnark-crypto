@@ -16,7 +16,7 @@
 #include "textflag.h"
 #include "funcdata.h"
 
-TEXT ·Mul(SB), NOSPLIT, $0-24
+TEXT ·mul(SB), NOSPLIT, $0-24
 
 	// the algorithm is described here
 	// https://hackmd.io/@zkteam/modular_multiplication
@@ -459,7 +459,7 @@ l1:
     MOVQ SI, 24(R15)
     RET
 
-TEXT ·Square(SB), NOSPLIT, $0-16
+TEXT ·square(SB), NOSPLIT, $0-16
 
 	// the algorithm is described here
 	// https://hackmd.io/@zkteam/modular_multiplication
@@ -888,7 +888,7 @@ l2:
     MOVQ SI, 24(R15)
     RET
 
-TEXT ·FromMont(SB), $8-8
+TEXT ·fromMont(SB), $8-8
 NO_LOCAL_POINTERS
 
 	// the algorithm is described here
@@ -1020,7 +1020,7 @@ l3:
 CALL ·_fromMontGeneric(SB)
     RET
 
-TEXT ·Reduce(SB), NOSPLIT, $0-8
+TEXT ·reduce(SB), NOSPLIT, $0-8
     MOVQ res+0(FP), AX
     MOVQ 0(AX), DX
     MOVQ 8(AX), CX
@@ -1044,7 +1044,7 @@ TEXT ·Reduce(SB), NOSPLIT, $0-8
     MOVQ BP, 24(AX)
     RET
 
-TEXT ·Add(SB), NOSPLIT, $0-24
+TEXT ·add(SB), NOSPLIT, $0-24
     MOVQ x+8(FP), AX
     MOVQ 0(AX), BX
     MOVQ 8(AX), BP
@@ -1074,7 +1074,7 @@ TEXT ·Add(SB), NOSPLIT, $0-24
     MOVQ DI, 24(CX)
     RET
 
-TEXT ·Sub(SB), NOSPLIT, $0-24
+TEXT ·sub(SB), NOSPLIT, $0-24
     MOVQ x+8(FP), BP
     MOVQ 0(BP), AX
     MOVQ 8(BP), DX
@@ -1105,7 +1105,7 @@ TEXT ·Sub(SB), NOSPLIT, $0-24
     MOVQ BX, 24(R12)
     RET
 
-TEXT ·Double(SB), NOSPLIT, $0-16
+TEXT ·double(SB), NOSPLIT, $0-16
     MOVQ res+0(FP), DX
     MOVQ x+8(FP), AX
     MOVQ 0(AX), CX
@@ -1134,7 +1134,7 @@ TEXT ·Double(SB), NOSPLIT, $0-16
     MOVQ SI, 24(DX)
     RET
 
-TEXT ·Neg(SB), NOSPLIT, $0-16
+TEXT ·neg(SB), NOSPLIT, $0-16
     MOVQ res+0(FP), DX
     MOVQ x+8(FP), AX
     MOVQ 0(AX), BX

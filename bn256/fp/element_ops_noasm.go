@@ -27,22 +27,21 @@ package fp
 
 import "math/bits"
 
-func Mul(z, x, y *Element) {
+func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }
 
-func Square(z, x *Element) {
+func square(z, x *Element) {
 	_squareGeneric(z, x)
 }
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
-func FromMont(z *Element) {
+func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }
 
-// Add z = x + y mod q
-func Add(z, x, y *Element) {
+func add(z, x, y *Element) {
 	var carry uint64
 
 	z[0], carry = bits.Add64(x[0], y[0], 0)
@@ -61,8 +60,7 @@ func Add(z, x, y *Element) {
 	}
 }
 
-// Double z = x + x mod q, aka Lsh 1
-func Double(z, x *Element) {
+func double(z, x *Element) {
 	var carry uint64
 
 	z[0], carry = bits.Add64(x[0], x[0], 0)
@@ -81,8 +79,7 @@ func Double(z, x *Element) {
 	}
 }
 
-// Sub  z = x - y mod q
-func Sub(z, x, y *Element) {
+func sub(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	z[1], b = bits.Sub64(x[1], y[1], b)
@@ -97,8 +94,7 @@ func Sub(z, x, y *Element) {
 	}
 }
 
-// Neg z = q - x
-func Neg(z, x *Element) {
+func neg(z, x *Element) {
 	if x.IsZero() {
 		z.SetZero()
 		return
