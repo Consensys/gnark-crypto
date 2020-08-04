@@ -57,17 +57,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (9,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	mulNonResE2(z, x)
-	// var a, b fp.Element
-	// a.Double(&x.A0).Double(&a).Double(&a).Add(&a, &x.A0).Sub(&a, &x.A1)
-	// b.Double(&x.A1).Double(&b).Double(&b).Add(&b, &x.A1).Add(&b, &x.A0)
-	// z.A0.Set(&a)
-	// z.A1.Set(&b)
-	return z
-}
-
 // MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 
