@@ -14,10 +14,21 @@
 
 package bn256
 
-import "github.com/consensys/gurvy/bn256/fp"
+import (
+	"github.com/consensys/gurvy/bn256/fp"
+	"golang.org/x/sys/cpu"
+)
+
+// supportAdx will be set only on amd64 that has MULX and ADDX instructions
+var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
+	if supportAdx {
+		mulAdxE2(z, x, y)
+		return z
+	}
+
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -31,6 +42,10 @@ func (z *E2) Mul(x, y *E2) *E2 {
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
+	if supportAdx {
+		squareAdxE2(z, x)
+		return z
+	}
 	// algo 22 https://eprint.iacr.org/2010/354.pdf
 	var a, b fp.Element
 	a.Add(&x.A0, &x.A1)
@@ -44,11 +59,12 @@ func (z *E2) Square(x *E2) *E2 {
 
 // MulByNonResidue multiplies a E2 by (9,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var a, b fp.Element
-	a.Double(&x.A0).Double(&a).Double(&a).Add(&a, &x.A0).Sub(&a, &x.A1)
-	b.Double(&x.A1).Double(&b).Double(&b).Add(&b, &x.A1).Add(&b, &x.A0)
-	z.A0.Set(&a)
-	z.A1.Set(&b)
+	mulNonResE2(z, x)
+	// var a, b fp.Element
+	// a.Double(&x.A0).Double(&a).Double(&a).Add(&a, &x.A0).Sub(&a, &x.A1)
+	// b.Double(&x.A1).Double(&b).Double(&b).Add(&b, &x.A1).Add(&b, &x.A0)
+	// z.A0.Set(&a)
+	// z.A1.Set(&b)
 	return z
 }
 
@@ -68,6 +84,7 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 		11319968037783994424,
 		30185921062296004,
 	}
+
 	z.Mul(x, &nonresinv)
 
 	return z

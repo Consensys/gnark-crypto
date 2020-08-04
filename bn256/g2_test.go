@@ -241,7 +241,7 @@ func TestG2Ops(t *testing.T) {
 	properties.Property("scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
-			r := fr.ElementModulus()
+			r := fr.Modulus()
 			var g G2Jac
 			var gaff G2Affine
 			gaff.FromJacobian(&g2Gen)
@@ -266,7 +266,7 @@ func TestG2Ops(t *testing.T) {
 	properties.Property("scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
-			r := fr.ElementModulus()
+			r := fr.Modulus()
 			var g G2Jac
 			var gaff G2Affine
 			gaff.FromJacobian(&g2Gen)

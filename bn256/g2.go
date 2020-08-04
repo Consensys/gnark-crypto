@@ -513,7 +513,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) chan G2Jac {
 		chunkSize = 16
 	}
 
-	const sizeScalar = fr.ElementLimbs * 64
+	const sizeScalar = fr.Limbs * 64
 
 	var bitsForTask [][]int
 	if sizeScalar%chunkSize == 0 {

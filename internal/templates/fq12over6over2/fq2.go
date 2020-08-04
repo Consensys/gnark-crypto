@@ -1,5 +1,37 @@
 package fq12over6over2
 
+const Fq2FallBack = `
+
+func addE2(z, x, y *E2) {
+	z.A0.Add(&x.A0, &y.A0)
+	z.A1.Add(&x.A1, &y.A1)
+}
+
+func subE2(z, x, y *E2) {
+	z.A0.Sub(&x.A0, &y.A0)
+	z.A1.Sub(&x.A1, &y.A1)
+}
+
+func doubleE2(z, x *E2) {
+	z.A0.Double(&x.A0)
+	z.A1.Double(&x.A1)
+}
+
+func negE2(z, x *E2) {
+	z.A0.Neg(&x.A0)
+	z.A1.Neg(&x.A1)
+}
+
+func squareAdxE2(z, x *E2) {
+	panic("not implemented")
+}
+
+func mulAdxE2(z, x, y *E2) {
+	panic("not implemented")
+}
+
+`
+
 const Fq2Common = `
 
 import (
@@ -64,10 +96,29 @@ func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
 
+// Add adds two elements of E2
+func (z *E2) Add(x, y *E2) *E2 {
+	addE2(z, x, y)
+	return z
+}
+
+// Sub two elements of E2
+func (z *E2) Sub(x, y *E2) *E2 {
+	subE2(z, x, y)
+	return z
+}
+
+
+// Double doubles an E2 element
+func (z *E2) Double(x *E2) *E2 {
+	doubleE2(z, x)
+	return z
+}
+
+
 // Neg negates an E2 element
 func (z *E2) Neg(x *E2) *E2 {
-	z.A0.Neg(&x.A0)
-	z.A1.Neg(&x.A1)
+	negE2(z, x)
 	return z
 }
 
@@ -90,47 +141,6 @@ func (z *E2) FromMont() *E2 {
 	return z
 }
 
-// Add adds two elements of E2
-func (z *E2) Add(x, y *E2) *E2 {
-	z.A0.Add(&x.A0, &y.A0)
-	z.A1.Add(&x.A1, &y.A1)
-	return z
-}
-
-// AddAssign adds x to z
-func (z *E2) AddAssign(x *E2) *E2 {
-	z.A0.AddAssign(&x.A0)
-	z.A1.AddAssign(&x.A1)
-	return z
-}
-
-// Sub two elements of E2
-func (z *E2) Sub(x, y *E2) *E2 {
-	z.A0.Sub(&x.A0, &y.A0)
-	z.A1.Sub(&x.A1, &y.A1)
-	return z
-}
-
-// SubAssign subs x from z
-func (z *E2) SubAssign(x *E2) *E2 {
-	z.A0.SubAssign(&x.A0)
-	z.A1.SubAssign(&x.A1)
-	return z
-}
-
-// Double doubles an E2 element
-func (z *E2) Double(x *E2) *E2 {
-	z.A0.Double(&x.A0)
-	z.A1.Double(&x.A1)
-	return z
-}
-
-// MulAssign sets z to the E2 product of z,x returns z
-func (z *E2) MulAssign(x *E2) *E2 {
-	z.Mul(z, x)
-	return z
-}
-
 // MulByElement multiplies an element in E2 by an element in fp
 func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 	var yCopy fp.Element
@@ -144,6 +154,24 @@ func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 func (z *E2) Conjugate(x *E2) *E2 {
 	z.A0.Set(&x.A0)
 	z.A1.Neg(&x.A1)
+	return z
+}
+
+// MulAssign sets z to the E2 product of z,x returns z
+func (z *E2) MulAssign(x *E2) *E2 {
+	z.Mul(z, x)
+	return z
+}
+
+// SubAssign subs x from z
+func (z *E2) SubAssign(x *E2) *E2 {
+	z.Sub(z, x)
+	return z
+}
+
+// AddAssign adds x to z
+func (z *E2) AddAssign(x *E2) *E2 {
+	z.Add(z, x)
 	return z
 }
 `

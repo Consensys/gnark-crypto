@@ -504,7 +504,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 		chunkSize = 16
 	}
 
-	const sizeScalar = fr.ElementLimbs * 64
+	const sizeScalar = fr.Limbs * 64
 
 	var bitsForTask [][]int
 	if sizeScalar%chunkSize == 0 {
