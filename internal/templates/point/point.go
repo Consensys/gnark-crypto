@@ -48,8 +48,8 @@ func (p *{{ toLower .PointName }}JacExtended) ToAffine(Q *{{ toUpper .PointName 
 		Q.Y.Set(&zero)
 		return Q
 	}
-	Q.X.Inverse(&p.ZZ).MulAssign(&p.X)
-	Q.Y.Inverse(&p.ZZZ).MulAssign(&p.Y)
+	Q.X.Inverse(&p.ZZ).Mul(&Q.X, &p.X)
+	Q.Y.Inverse(&p.ZZZ).Mul(&Q.Y, &p.Y)
 	return Q
 }
 
@@ -60,8 +60,8 @@ func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}J
 		Q.Set(&{{ toLower .PointName }}Infinity)
 		return Q
 	}
-	Q.X.Mul(&p.ZZ, &p.X).MulAssign(&p.ZZ)
-	Q.Y.Mul(&p.ZZZ, &p.Y).MulAssign(&p.ZZZ)
+	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
+	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
 	Q.Z.Set(&p.ZZZ)
 	return Q
 }
@@ -98,13 +98,13 @@ func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Af
 	Q.Mul(&p.X, &PP)
 	RR.Square(&R)
 	X3.Sub(&RR, &PPP)
-	Q2.AddAssign(&Q).AddAssign(&Q)
+	Q2.Double(&Q)
 	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).MulAssign(&R)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
 	R.Mul(&p.Y, &PPP)
 	p.Y.Sub(&Y3, &R)
-	p.ZZ.MulAssign(&PP)
-	p.ZZZ.MulAssign(&PPP)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
 
 	return p
 }
@@ -121,11 +121,11 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 	S.Mul(&q.X, &p.ZZ)
 	_M.Square(&q.X)
 	M.Double(&_M).
-		AddAssign(&_M) // -> + a, but a=0 here
+		Add(&M, &_M) // -> + a, but a=0 here
 	p.X.Square(&M).
-		SubAssign(&S).
-		SubAssign(&S)
-	Y3.Sub(&S, &p.X).MulAssign(&M)
+		Sub(&p.X, &S).
+		Sub(&p.X, &S)
+	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
 	U.Mul(&p.ZZZ, &q.Y)
 	p.Y.Sub(&Y3, &U)
 
@@ -276,9 +276,9 @@ func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) 
 	U1.Mul(&a.X, &Z2Z2)
 	U2.Mul(&p.X, &Z1Z1)
 	S1.Mul(&a.Y, &p.Z).
-		MulAssign(&Z2Z2)
+		Mul(&S1, &Z2Z2)
 	S2.Mul(&p.Y, &a.Z).
-		MulAssign(&Z1Z1)
+		Mul(&S2, &Z1Z1)
 
 	// if p == a, we double instead
 	if U1.Equal(&U2) && S1.Equal(&S2) {
@@ -292,18 +292,18 @@ func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) 
 	r.Sub(&S2, &S1).Double(&r)
 	V.Mul(&U1, &I)
 	p.X.Square(&r).
-		SubAssign(&J).
-		SubAssign(&V).
-		SubAssign(&V)
+		Sub(&p.X, &J).
+		Sub(&p.X, &V).
+		Sub(&p.X, &V)
 	p.Y.Sub(&V, &p.X).
-		MulAssign(&r)
-	S1.MulAssign(&J).Double(&S1)
-	p.Y.SubAssign(&S1)
-	p.Z.AddAssign(&a.Z)
+		Mul(&p.Y, &r)
+	S1.Mul(&S1, &J).Double(&S1)
+	p.Y.Sub(&p.Y, &S1)
+	p.Z.Add(&p.Z, &a.Z)
 	p.Z.Square(&p.Z).
-		SubAssign(&Z1Z1).
-		SubAssign(&Z2Z2).
-		MulAssign(&H)
+		Sub(&p.Z, &Z1Z1).
+		Sub(&p.Z, &Z2Z2).
+		Mul(&p.Z, &H)
 
 	return p
 }
@@ -329,7 +329,7 @@ func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
 	S2.Mul(&a.Y, &p.Z).
-		MulAssign(&Z1Z1)
+		Mul(&S2, &Z1Z1)
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
@@ -343,17 +343,17 @@ func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine
 	r.Sub(&S2, &p.Y).Double(&r)
 	V.Mul(&p.X, &I)
 	p.X.Square(&r).
-		SubAssign(&J).
-		SubAssign(&V).
-		SubAssign(&V)
-	J.MulAssign(&p.Y).Double(&J)
+		Sub(&p.X, &J).
+		Sub(&p.X, &V).
+		Sub(&p.X, &V)
+	J.Mul(&J, &p.Y).Double(&J)
 	p.Y.Sub(&V, &p.X).
-		MulAssign(&r)
-	p.Y.SubAssign(&J)
-	p.Z.AddAssign(&H)
+		Mul(&p.Y, &r)
+	p.Y.Sub(&p.Y, &J)
+	p.Z.Add(&p.Z, &H)
 	p.Z.Square(&p.Z).
-		SubAssign(&Z1Z1).
-		SubAssign(&HH)
+		Sub(&p.Z, &Z1Z1).
+		Sub(&p.Z, &HH)
 
 	return p
 }
@@ -379,22 +379,22 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 	ZZ.Square(&p.Z)
 	S.Add(&p.X, &YY)
 	S.Square(&S).
-		SubAssign(&XX).
-		SubAssign(&YYYY).
+		Sub(&S, &XX).
+		Sub(&S, &YYYY).
 		Double(&S)
-	M.Double(&XX).AddAssign(&XX)
-	p.Z.AddAssign(&p.Y).
+	M.Double(&XX).Add(&M, &XX)
+	p.Z.Add(&p.Z, &p.Y).
 		Square(&p.Z).
-		SubAssign(&YY).
-		SubAssign(&ZZ)
+		Sub(&p.Z, &YY).
+		Sub(&p.Z, &ZZ)
 	T.Square(&M)
 	p.X = T
 	T.Double(&S)
-	p.X.SubAssign(&T)
+	p.X.Sub(&p.X, &T)
 	p.Y.Sub(&S, &p.X).
-		MulAssign(&M)
+		Mul(&p.Y, &M)
 	YYYY.Double(&YYYY).Double(&YYYY).Double(&YYYY)
-	p.Y.SubAssign(&YYYY)
+	p.Y.Sub(&p.Y, &YYYY)
 
 	return p
 }

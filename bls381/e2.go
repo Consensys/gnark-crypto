@@ -136,21 +136,3 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A1.Neg(&x.A1)
 	return z
 }
-
-// MulAssign sets z to the E2 product of z,x returns z
-func (z *E2) MulAssign(x *E2) *E2 {
-	z.Mul(z, x)
-	return z
-}
-
-// SubAssign subs x from z
-func (z *E2) SubAssign(x *E2) *E2 {
-	z.Sub(z, x)
-	return z
-}
-
-// AddAssign adds x to z
-func (z *E2) AddAssign(x *E2) *E2 {
-	z.Add(z, x)
-	return z
-}

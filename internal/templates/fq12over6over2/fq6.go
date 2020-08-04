@@ -120,16 +120,16 @@ func (z *E6) Mul(x, y *E6) *E6 {
 
 	c0.Add(&x.B1, &x.B2)
 	tmp.Add(&y.B1, &y.B2)
-	c0.MulAssign(&tmp).SubAssign(&t1).SubAssign(&t2).MulByNonResidue(&c0).AddAssign(&t0)
+	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByNonResidue(&c0).Add(&c0, &t0)
 
 	c1.Add(&x.B0, &x.B1)
 	tmp.Add(&y.B0, &y.B1)
-	c1.MulAssign(&tmp).SubAssign(&t0).SubAssign(&t1)
+	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
 	tmp.MulByNonResidue(&t2)
-	c1.AddAssign(&tmp)
+	c1.Add(&c1, &tmp)
 
 	tmp.Add(&x.B0, &x.B2)
-	c2.Add(&y.B0, &y.B2).MulAssign(&tmp).SubAssign(&t0).SubAssign(&t2).AddAssign(&t1)
+	c2.Add(&y.B0, &y.B2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2).Add(&c2, &t1)
 
 	z.B0.Set(&c0)
 	z.B1.Set(&c1)
