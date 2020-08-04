@@ -399,6 +399,11 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 	return p
 }
 
+// ScalarMulByGen multiplies given scalar by generator
+func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .PointName }}Jac {
+	return p.ScalarMultiplication(&{{ toLower .PointName }}GenAff, s)
+}
+
 // ScalarMultiplication algo for exponentiation
 func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
@@ -441,6 +446,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 	var s1, s2 big.Int
 	s1.DivMod(s, &lambdaGLV, &s2)
 
+	// TODO note: using chans and go routine here is likely a bad idea. Heavy burden on a caller calling this millions of time.
 	chTasks := []chan struct{}{
 		make(chan struct{}),
 		make(chan struct{}),

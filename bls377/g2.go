@@ -412,6 +412,11 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
+// ScalarMulByGen multiplies given scalar by generator
+func (p *G2Jac) ScalarMulByGen(s *big.Int) *G2Jac {
+	return p.ScalarMultiplication(&g2GenAff, s)
+}
+
 // ScalarMultiplication algo for exponentiation
 func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 
@@ -450,6 +455,7 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 	var s1, s2 big.Int
 	s1.DivMod(s, &lambdaGLV, &s2)
 
+	// TODO note: using chans and go routine here is likely a bad idea. Heavy burden on a caller calling this millions of time.
 	chTasks := []chan struct{}{
 		make(chan struct{}),
 		make(chan struct{}),

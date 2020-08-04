@@ -26,6 +26,9 @@ var B fp.Element
 var g1Gen G1Jac
 var g2Gen G2Jac
 
+var g1GenAff G1Affine
+var g2GenAff G2Affine
+
 // point at infinity
 var g1Infinity G1Jac
 var g2Infinity G2Jac
@@ -64,6 +67,9 @@ func init() {
 		"12495620673937637012904672587588023149812491484245871073230980321212840773339")
 	g2Gen.Z.SetString("1",
 		"0")
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
 
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
