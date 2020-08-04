@@ -26,7 +26,6 @@ type E12 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
 func (z *E12) Equal(x *E12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
@@ -68,7 +67,6 @@ func (z *E12) SetOne() *E12 {
 }
 
 // ToMont converts to Mont form
-// TODO can this be deleted?
 func (z *E12) ToMont() *E12 {
 	z.C0.ToMont()
 	z.C1.ToMont()
@@ -76,7 +74,6 @@ func (z *E12) ToMont() *E12 {
 }
 
 // FromMont converts from Mont form
-// TODO can this be deleted?
 func (z *E12) FromMont() *E12 {
 	z.C0.FromMont()
 	z.C1.FromMont()
@@ -150,7 +147,7 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by interpreted as an Fp4 elmt, where y**2=(0,1)
+// squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)
@@ -228,7 +225,6 @@ func (z *E12) Exp(x *E12, e big.Int) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
-// TODO deprecate in favour of Conjugate
 func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }
