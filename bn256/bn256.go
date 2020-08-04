@@ -33,6 +33,15 @@ var g2Infinity G2Jac
 // optimal Ate loop counter (=trace-1 = x in BLS family)
 var loopCounter [66]int8
 
+// Parameters useful for the GLV scalar multiplication. The third roots define the
+//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+// <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
+// of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+var thirdRootOneG1 fp.Element
+var thirdRootOneG2 fp.Element
+var lambdaGLV big.Int
+
 // parameters for pippenger ScalarMulByGen
 // TODO get rid of this, keep only double and add, and the multi exp
 const sGen = 4
@@ -56,15 +65,18 @@ func init() {
 	g2Gen.Z.SetString("1",
 		"0")
 
+	g1Infinity.X.SetOne()
+	g1Infinity.Y.SetOne()
+	g2Infinity.X.SetOne()
+	g2Infinity.Y.SetOne()
+
+	thirdRootOneG1.SetString("2203960485148121921418603742825762020974279258880205651966")
+	thirdRootOneG2.Square(&thirdRootOneG1)
+	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10)
+
 	// binary decomposition of 15132376222941642752 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)
 	utils.NafDecomposition(optimaAteLoop, loopCounter[:])
-
-	g1Infinity.X.SetOne()
-	g1Infinity.Y.SetOne()
-
-	g2Infinity.X.SetOne()
-	g2Infinity.Y.SetOne()
 
 	tGenG1[0].Set(&g1Gen)
 	for j := 1; j < len(tGenG1)-1; j = j + 2 {

@@ -41,25 +41,25 @@ import (
 // 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
 type Element [6]uint64
 
-// ElementLimbs number of 64 bits words needed to represent Element
-const ElementLimbs = 6
+// Limbs number of 64 bits words needed to represent Element
+const Limbs = 6
 
-// ElementBits number bits needed to represent Element
-const ElementBits = 377
+// Bits number bits needed to represent Element
+const Bits = 377
 
 // field modulus stored as big.Int
-var _ElementModulus big.Int
-var onceElementModulus sync.Once
+var _modulus big.Int
+var onceModulus sync.Once
 
-// ElementModulus returns q as a big.Int
+// Modulus returns q as a big.Int
 // q =
 //
 // 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
-func ElementModulus() *big.Int {
-	onceElementModulus.Do(func() {
-		_ElementModulus.SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177", 10)
+func Modulus() *big.Int {
+	onceModulus.Do(func() {
+		_modulus.SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177", 10)
 	})
-	return &_ElementModulus
+	return &_modulus
 }
 
 // q (modulus)
@@ -76,7 +76,7 @@ var qElement = Element{
 var qElementInv0 uint64 = 9586122913090633727
 
 // rSquare
-var rSquareElement = Element{
+var rSquare = Element{
 	13224372171368877346,
 	227991066186625457,
 	2496666625421784173,
@@ -90,10 +90,10 @@ var rSquareElement = Element{
 func (z *Element) Bytes() []byte {
 	var _z Element
 	_z.Set(z).FromMont()
-	res := make([]byte, ElementLimbs*8)
-	binary.BigEndian.PutUint64(res[(ElementLimbs-1)*8:], _z[0])
-	for i := ElementLimbs - 2; i >= 0; i-- {
-		binary.BigEndian.PutUint64(res[i*8:(i+1)*8], _z[ElementLimbs-1-i])
+	res := make([]byte, Limbs*8)
+	binary.BigEndian.PutUint64(res[(Limbs-1)*8:], _z[0])
+	for i := Limbs - 2; i >= 0; i-- {
+		binary.BigEndian.PutUint64(res[i*8:(i+1)*8], _z[Limbs-1-i])
 	}
 	return res
 }
@@ -176,21 +176,6 @@ func (z *Element) SetOne() *Element {
 	return z
 }
 
-// Neg z = q - x
-func (z *Element) Neg(x *Element) *Element {
-	if x.IsZero() {
-		return z.SetZero()
-	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64(9586122913090633729, x[0], 0)
-	z[1], borrow = bits.Sub64(1660523435060625408, x[1], borrow)
-	z[2], borrow = bits.Sub64(2230234197602682880, x[2], borrow)
-	z[3], borrow = bits.Sub64(1883307231910630287, x[3], borrow)
-	z[4], borrow = bits.Sub64(14284016967150029115, x[4], borrow)
-	z[5], _ = bits.Sub64(121098312706494698, x[5], borrow)
-	return z
-}
-
 // Div z = x*y^-1 mod q
 func (z *Element) Div(x, y *Element) *Element {
 	var yInv Element
@@ -206,7 +191,7 @@ func (z *Element) Equal(x *Element) bool {
 
 // IsZero returns z == 0
 func (z *Element) IsZero() bool {
-	return (z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
+	return z[5] == 0 && z[4] == 0 && z[3] == 0 && z[2] == 0 && z[1] == 0 && z[0] == 0
 }
 
 // SetRandom sets z to a random element < q
@@ -243,56 +228,94 @@ func One() Element {
 	return one
 }
 
-// MulAssign is deprecated, use Mul instead
+// MulAssign is deprecated
+// Deprecated: use Mul instead
 func (z *Element) MulAssign(x *Element) *Element {
 	return z.Mul(z, x)
 }
 
-// AddAssign is deprecated, use Add instead
+// AddAssign is deprecated
+// Deprecated: use Add instead
 func (z *Element) AddAssign(x *Element) *Element {
 	return z.Add(z, x)
 }
 
-// SubAssign is deprecated, use Sub instead
+// SubAssign is deprecated
+// Deprecated: use Sub instead
 func (z *Element) SubAssign(x *Element) *Element {
 	return z.Sub(z, x)
 }
 
+// API with assembly impl
+
+// Mul z = x * y mod q
+// see https://hackmd.io/@zkteam/modular_multiplication
+func (z *Element) Mul(x, y *Element) *Element {
+	mul(z, x, y)
+	return z
+}
+
+// Square z = x * x mod q
+// see https://hackmd.io/@zkteam/modular_multiplication
+func (z *Element) Square(x *Element) *Element {
+	square(z, x)
+	return z
+}
+
+// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
+// sets and returns z = z * 1
+func (z *Element) FromMont() *Element {
+	fromMont(z)
+	return z
+}
+
+// Add z = x + y mod q
+func (z *Element) Add(x, y *Element) *Element {
+	add(z, x, y)
+	return z
+}
+
+// Double z = x + x mod q, aka Lsh 1
+func (z *Element) Double(x *Element) *Element {
+	double(z, x)
+	return z
+}
+
+// Sub  z = x - y mod q
+func (z *Element) Sub(x, y *Element) *Element {
+	sub(z, x, y)
+	return z
+}
+
+// Neg z = q - x
+func (z *Element) Neg(x *Element) *Element {
+	neg(z, x)
+	return z
+}
+
 // Exp z = x^exponent mod q
-// (not optimized)
-// exponent (non-montgomery form) is ordered from least significant word to most significant word
-func (z *Element) Exp(x Element, exponent ...uint64) *Element {
-	r := 0
-	msb := 0
-	for i := len(exponent) - 1; i >= 0; i-- {
-		if exponent[i] == 0 {
-			r++
-		} else {
-			msb = (i * 64) + bits.Len64(exponent[i])
-			break
-		}
-	}
-	exponent = exponent[:len(exponent)-r]
-	if len(exponent) == 0 {
+func (z *Element) Exp(x Element, exponent *big.Int) *Element {
+	var bZero big.Int
+	if exponent.Cmp(&bZero) == 0 {
 		return z.SetOne()
 	}
 
 	z.Set(&x)
 
-	l := msb - 2
-	for i := l; i >= 0; i-- {
+	for i := exponent.BitLen() - 2; i >= 0; i-- {
 		z.Square(z)
-		if exponent[i/64]&(1<<uint(i%64)) != 0 {
+		if exponent.Bit(i) == 1 {
 			z.Mul(z, &x)
 		}
 	}
+
 	return z
 }
 
 // ToMont converts z to Montgomery form
 // sets and returns z = z * r^2
 func (z *Element) ToMont() *Element {
-	return z.Mul(z, &rSquareElement)
+	return z.Mul(z, &rSquare)
 }
 
 // ToRegular returns z in regular form (doesn't mutate z)
@@ -324,7 +347,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	z.SetZero()
 
 	zero := big.NewInt(0)
-	q := ElementModulus()
+	q := Modulus()
 
 	// fast path
 	c := v.Cmp(q)
@@ -360,18 +383,22 @@ func (z *Element) SetString(s string) *Element {
 	return z.SetBigInt(x)
 }
 
+var (
+	_bLegendreExponentElement *big.Int
+	_bSqrtExponentElement     *big.Int
+)
+
+func init() {
+	_bLegendreExponentElement, _ = new(big.Int).SetString("d71d230be28875631d82e03650a49d8d116cf9807a89c78f79b117dd04a4000b85aea2180000004284600000000000", 16)
+	const sqrtExponentElement = "35c748c2f8a21d58c760b80d94292763445b3e601ea271e3de6c45f741290002e16ba88600000010a11"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+}
+
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.Exp(*z,
-		4793061456545316864,
-		830261717530312704,
-		10338489135656117248,
-		10165025652810090951,
-		7142008483575014557,
-		60549156353247349,
-	)
+	l.Exp(*z, _bLegendreExponentElement)
 
 	if l.IsZero() {
 		return 0
@@ -394,14 +421,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.Exp(*x,
-		13441098641003579921,
-		14150156177295552022,
-		12963050682622819814,
-		828901211384460357,
-		8398139675458767990,
-		860,
-	)
+	w.Exp(*x, _bSqrtExponentElement)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
@@ -682,329 +702,4 @@ func (z *Element) Inverse(x *Element) *Element {
 	}
 
 	return z
-}
-
-// Generic (no ADX instructions, no AMD64) versions
-
-func _mulGenericElement(z, x, y *Element) {
-
-	var t [6]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd1(v, y[3], c[1])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd1(v, y[4], c[1])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd1(v, y[5], c[1])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 4
-		v := x[4]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 5
-		v := x[5]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], z[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], z[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		z[5], z[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 9586122913090633729, 0)
-		z[1], b = bits.Sub64(z[1], 1660523435060625408, b)
-		z[2], b = bits.Sub64(z[2], 2230234197602682880, b)
-		z[3], b = bits.Sub64(z[3], 1883307231910630287, b)
-		z[4], b = bits.Sub64(z[4], 14284016967150029115, b)
-		z[5], _ = bits.Sub64(z[5], 121098312706494698, b)
-	}
-}
-
-func _squareGenericElement(z, x *Element) {
-
-	var t [6]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, x[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd1(v, x[1], c[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd1(v, x[2], c[1])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd1(v, x[3], c[1])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd1(v, x[4], c[1])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd1(v, x[5], c[1])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, x[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, x[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, x[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, x[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, x[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, x[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 4
-		v := x[4]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, x[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, x[5], c[1], t[5])
-		t[5], t[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-	{
-		// round 5
-		v := x[5]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 9586122913090633727
-		c[2] = madd0(m, 9586122913090633729, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], z[0] = madd2(m, 1660523435060625408, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], z[1] = madd2(m, 2230234197602682880, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		c[2], z[2] = madd2(m, 1883307231910630287, c[2], c[0])
-		c[1], c[0] = madd2(v, x[4], c[1], t[4])
-		c[2], z[3] = madd2(m, 14284016967150029115, c[2], c[0])
-		c[1], c[0] = madd2(v, x[5], c[1], t[5])
-		z[5], z[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
-	}
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 9586122913090633729, 0)
-		z[1], b = bits.Sub64(z[1], 1660523435060625408, b)
-		z[2], b = bits.Sub64(z[2], 2230234197602682880, b)
-		z[3], b = bits.Sub64(z[3], 1883307231910630287, b)
-		z[4], b = bits.Sub64(z[4], 14284016967150029115, b)
-		z[5], _ = bits.Sub64(z[5], 121098312706494698, b)
-	}
-}
-
-func _fromMontGenericElement(z *Element) {
-	// the following lines implement z = z * 1
-	// with a modified CIOS montgomery multiplication
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * 9586122913090633727
-		C := madd0(m, 9586122913090633729, z[0])
-		C, z[0] = madd2(m, 1660523435060625408, z[1], C)
-		C, z[1] = madd2(m, 2230234197602682880, z[2], C)
-		C, z[2] = madd2(m, 1883307231910630287, z[3], C)
-		C, z[3] = madd2(m, 14284016967150029115, z[4], C)
-		C, z[4] = madd2(m, 121098312706494698, z[5], C)
-		z[5] = C
-	}
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 9586122913090633729, 0)
-		z[1], b = bits.Sub64(z[1], 1660523435060625408, b)
-		z[2], b = bits.Sub64(z[2], 2230234197602682880, b)
-		z[3], b = bits.Sub64(z[3], 1883307231910630287, b)
-		z[4], b = bits.Sub64(z[4], 14284016967150029115, b)
-		z[5], _ = bits.Sub64(z[5], 121098312706494698, b)
-	}
 }

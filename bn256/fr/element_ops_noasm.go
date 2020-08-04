@@ -27,29 +27,21 @@ package fr
 
 import "math/bits"
 
-// Mul z = x * y mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
-func (z *Element) Mul(x, y *Element) *Element {
-	_mulGenericElement(z, x, y)
-	return z
+func mul(z, x, y *Element) {
+	_mulGeneric(z, x, y)
 }
 
-// Square z = x * x mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
-func (z *Element) Square(x *Element) *Element {
-	_squareGenericElement(z, x)
-	return z
+func square(z, x *Element) {
+	_squareGeneric(z, x)
 }
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
-func (z *Element) FromMont() *Element {
-	_fromMontGenericElement(z)
-	return z
+func fromMont(z *Element) {
+	_fromMontGeneric(z)
 }
 
-// Add z = x + y mod q
-func (z *Element) Add(x, y *Element) *Element {
+func add(z, x, y *Element) {
 	var carry uint64
 
 	z[0], carry = bits.Add64(x[0], y[0], 0)
@@ -66,11 +58,9 @@ func (z *Element) Add(x, y *Element) *Element {
 		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
 		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
 	}
-	return z
 }
 
-// Double z = x + x mod q, aka Lsh 1
-func (z *Element) Double(x *Element) *Element {
+func double(z, x *Element) {
 	var carry uint64
 
 	z[0], carry = bits.Add64(x[0], x[0], 0)
@@ -87,11 +77,9 @@ func (z *Element) Double(x *Element) *Element {
 		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
 		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
 	}
-	return z
 }
 
-// Sub  z = x - y mod q
-func (z *Element) Sub(x, y *Element) *Element {
+func sub(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	z[1], b = bits.Sub64(x[1], y[1], b)
@@ -104,5 +92,16 @@ func (z *Element) Sub(x, y *Element) *Element {
 		z[2], c = bits.Add64(z[2], 13281191951274694749, c)
 		z[3], _ = bits.Add64(z[3], 3486998266802970665, c)
 	}
-	return z
+}
+
+func neg(z, x *Element) {
+	if x.IsZero() {
+		z.SetZero()
+		return
+	}
+	var borrow uint64
+	z[0], borrow = bits.Sub64(4891460686036598785, x[0], 0)
+	z[1], borrow = bits.Sub64(2896914383306846353, x[1], borrow)
+	z[2], borrow = bits.Sub64(13281191951274694749, x[2], borrow)
+	z[3], _ = bits.Sub64(3486998266802970665, x[3], borrow)
 }

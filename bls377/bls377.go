@@ -1,6 +1,8 @@
 package bls377
 
 import (
+	"math/big"
+
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bls377/fp"
 )
@@ -30,6 +32,15 @@ var g2Infinity G2Jac
 // optimal Ate loop counter (=trace-1 = x in BLS family)
 var loopCounter [64]int8
 
+// Parameters useful for the GLV scalar multiplication. The third roots define the
+//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+// <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
+// of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+var thirdRootOneG1 fp.Element
+var thirdRootOneG2 fp.Element
+var lambdaGLV big.Int
+
 // parameters for pippenger ScalarMulByGen
 // TODO get rid of this, keep only double and add, and the multi exp
 const sGen = 4
@@ -53,14 +64,17 @@ func init() {
 	g2Gen.Z.SetString("1",
 		"0")
 
-	// binary decomposition of 15132376222941642752 little endian
-	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
-
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
-
 	g2Infinity.X.SetOne()
 	g2Infinity.Y.SetOne()
+
+	thirdRootOneG1.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945")
+	thirdRootOneG2.Square(&thirdRootOneG1)
+	lambdaGLV.SetString("91893752504881257701523279626832445440", 10)
+
+	// binary decomposition of 15132376222941642752 little endian
+	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
 
 	tGenG1[0].Set(&g1Gen)
 	for j := 1; j < len(tGenG1)-1; j = j + 2 {
