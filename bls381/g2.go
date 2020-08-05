@@ -455,27 +455,13 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 	var s1, s2 big.Int
 	s1.DivMod(s, &lambdaGLV, &s2)
 
-	// TODO note: using chans and go routine here is likely a bad idea. Heavy burden on a caller calling this millions of time.
-	chTasks := []chan struct{}{
-		make(chan struct{}),
-		make(chan struct{}),
-	}
-
 	// s1 part (on phi(g2)=lambda*g2)
-	go func() {
-		phig2.ScalarMultiplication(&phig2Affine, &s1)
-		chTasks[0] <- struct{}{}
-	}()
+	phig2.ScalarMultiplication(&phig2Affine, &s1)
 
 	// s2 part (on g2)
-	go func() {
-		g2.ScalarMultiplication(a, &s2)
-		chTasks[1] <- struct{}{}
-	}()
+	g2.ScalarMultiplication(a, &s2)
 
-	<-chTasks[0]
 	res.AddAssign(&phig2)
-	<-chTasks[1]
 	res.AddAssign(&g2)
 
 	p.Set(&res)

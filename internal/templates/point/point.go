@@ -446,27 +446,14 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 	var s1, s2 big.Int
 	s1.DivMod(s, &lambdaGLV, &s2)
 
-	// TODO note: using chans and go routine here is likely a bad idea. Heavy burden on a caller calling this millions of time.
-	chTasks := []chan struct{}{
-		make(chan struct{}),
-		make(chan struct{}),
-	}
 
 	// s1 part (on phi({{ toLower .PointName}})=lambda*{{ toLower .PointName}})
-	go func() {
-		phi{{ toLower .PointName}}.ScalarMultiplication(&phi{{ toLower .PointName}}Affine, &s1)
-		chTasks[0] <- struct{}{}
-	}()
+	phi{{ toLower .PointName}}.ScalarMultiplication(&phi{{ toLower .PointName}}Affine, &s1)
 
 	// s2 part (on {{ toLower .PointName}})
-	go func() {
-		{{ toLower .PointName}}.ScalarMultiplication(a, &s2)
-		chTasks[1] <- struct{}{}
-	}()
+	{{ toLower .PointName}}.ScalarMultiplication(a, &s2)
 
-	<-chTasks[0]
 	res.AddAssign(&phi{{ toLower .PointName}})
-	<-chTasks[1]
 	res.AddAssign(&{{ toLower .PointName}})
 
 	p.Set(&res)
