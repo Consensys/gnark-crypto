@@ -245,11 +245,9 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
 	return z
 }
 
-const tAbsVal uint64 = 9586122913090633729
-
 // Expt set z to x^t in PairingResult and return z
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
-
+	const tAbsVal uint64 = 9586122913090633729
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
 	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html

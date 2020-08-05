@@ -255,7 +255,7 @@ func (z *PairingResult) MulByWNRInv(x *PairingResult, y *E2) *PairingResult {
 // Expt set z to x^t in PairingResult and return z
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 
-	tAbsVal := uint64(15132376222941642752) // negative
+	const tAbsVal uint64 = 15132376222941642752 // negative
 
 	var result PairingResult
 	result.Set(x)

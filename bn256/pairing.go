@@ -138,7 +138,6 @@ func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 			j++
 		}
 	}
-	close(ch)
 
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	var Q1, Q2 G2Jac
@@ -232,6 +231,8 @@ func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan 
 			j++
 		}
 	}
+
+	close(ch)
 }
 
 // MulByVW set z to x*(y*v*w) and return z
@@ -291,8 +292,7 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
 // Expt set z to x^t in PairingResult and return z (t is the generator of the BN curve)
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 
-	var tAbsVal uint64
-	tAbsVal = 4965661367192848881
+	const tAbsVal uint64 = 4965661367192848881
 
 	var result PairingResult
 	result.Set(x)
