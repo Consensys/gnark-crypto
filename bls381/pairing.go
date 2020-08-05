@@ -124,7 +124,6 @@ func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 			j++
 		}
 	}
-	close(ch)
 
 	return &result
 }
@@ -194,7 +193,7 @@ func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 			j++
 		}
 	}
-
+	close(ch)
 }
 
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
