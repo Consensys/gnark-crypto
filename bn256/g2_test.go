@@ -304,17 +304,18 @@ func TestG2Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (>50points) should be consistant with sum of square", prop.ForAll(
+	properties.Property("Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
+			const nbSamples = 3000
 			var g G2Jac
 			g.Set(&g2Gen)
 
 			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]G2Affine, 3000)
-			sampleScalars := make([]fr.Element, 3000)
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
 
-			for i := 1; i <= 3000; i++ {
+			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
 					MulAssign(&mixer).
 					FromMont()
@@ -322,19 +323,193 @@ func TestG2Ops(t *testing.T) {
 				g.AddAssign(&g2Gen)
 			}
 
-			var op1MultiExp G2Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
-
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc4(samplePoints[:], sampleScalars[:])
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul G2Jac
-			var op1Aff G2Affine
-			op1Aff.FromJacobian(&g2Gen)
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
 			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 
-			return op1ScalarMul.Equal(&op1MultiExp)
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 3000
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc8(samplePoints[:], sampleScalars[:])
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
+			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 3000
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc10(samplePoints[:], sampleScalars[:])
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
+			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 3000
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc14(samplePoints[:], sampleScalars[:])
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
+			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 3000
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc16(samplePoints[:], sampleScalars[:])
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
+			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=18) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 3000
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G2Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			// compare multiExp with double and add
+			var result, expected G2Jac
+			<-result.multiExpc18(samplePoints[:], sampleScalars[:])
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+
+			// TODO make this a function of nbSamples so that we can reduce test time..
+			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			expected.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+
+			return result.Equal(&expected)
 		},
 		genScalar,
 	))
@@ -409,7 +584,7 @@ func BenchmarkG2DoubleAndAdd(b *testing.B) {
 
 }
 
-func BenchmarkG2G2Add(b *testing.B) {
+func BenchmarkG2Add(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 	b.ResetTimer()
@@ -418,7 +593,20 @@ func BenchmarkG2G2Add(b *testing.B) {
 	}
 }
 
-func BenchmarkG2G2AddMixed(b *testing.B) {
+func BenchmarkG2mAdd(b *testing.B) {
+	var a g2JacExtended
+	a.double(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.mAdd(&c)
+	}
+
+}
+
+func BenchmarkG2AddMixed(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 
@@ -431,7 +619,7 @@ func BenchmarkG2G2AddMixed(b *testing.B) {
 
 }
 
-func BenchmarkG2G2Double(b *testing.B) {
+func BenchmarkG2Double(b *testing.B) {
 	var a G2Jac
 	a.Set(&g2Gen)
 	b.ResetTimer()
@@ -442,36 +630,31 @@ func BenchmarkG2G2Double(b *testing.B) {
 }
 
 func BenchmarkG2MultiExpG2(b *testing.B) {
-
-	var G G2Jac
-
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	var nbSamples int
-	nbSamples = 800000
+	const pow = 24
+	const nbSamples = 1 << pow
 
-	samplePoints := make([]G2Affine, nbSamples)
-	sampleScalars := make([]fr.Element, nbSamples)
-
-	G.Set(&g2Gen)
+	var samplePoints [nbSamples]G2Affine
+	var sampleScalars [nbSamples]fr.Element
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1].FromJacobian(&G)
+		samplePoints[i-1] = g2GenAff
 	}
 
 	var testPoint G2Jac
 
-	for i := 0; i < 16; i++ {
-
-		b.Run(fmt.Sprintf("%d points)", (i+1)*50000), func(b *testing.B) {
+	for i := 19; i <= pow; i++ {
+		using := 1 << i
+		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
+				<-testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
 	}

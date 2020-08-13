@@ -1,7 +1,10 @@
 package generator
 
 import (
+	"math/big"
 	"path/filepath"
+	"strconv"
+	"text/template"
 
 	"github.com/consensys/bavard"
 	goff "github.com/consensys/goff/cmd"
@@ -16,6 +19,7 @@ type CurveConfig struct {
 	CoordType string
 	PointName string
 	RTorsion  string
+	RBitLen   int
 	FpModulus string
 	OutputDir string
 }
@@ -139,6 +143,47 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 	return nil
 }
 
+// Template helpers (txt/template)
+func helpers() template.FuncMap {
+	// functions used in template
+	return template.FuncMap{
+		"divides": divides,
+	}
+}
+
+// return true if c1 divides c2, that is, c2 % c1 == 0
+func divides(c1, c2 interface{}) bool {
+	switch cc1 := c1.(type) {
+	case int:
+		switch cc2 := c2.(type) {
+		case int:
+			return cc2%cc1 == 0
+		case string:
+			c2Int, err := strconv.Atoi(cc2)
+			if err != nil {
+				panic(err)
+			}
+			return c2Int%cc1 == 0
+		}
+	case string:
+		c1Int, err := strconv.Atoi(cc1)
+		if err != nil {
+			panic(err)
+		}
+		switch cc2 := c2.(type) {
+		case int:
+			return cc2%c1Int == 0
+		case string:
+			c2Int, err := strconv.Atoi(cc2)
+			if err != nil {
+				panic(err)
+			}
+			return c2Int%c1Int == 0
+		}
+	}
+	panic("unexpected type")
+}
+
 // GeneratePoint generates elliptic curve arithmetic
 func GeneratePoint(conf CurveConfig) error {
 
@@ -146,6 +191,7 @@ func GeneratePoint(conf CurveConfig) error {
 		bavard.Apache2("ConsenSys AG", 2020),
 		bavard.Package(conf.CurveName),
 		bavard.GeneratedBy("gurvy"),
+		bavard.Funcs(helpers()),
 	}
 
 	// point code
@@ -153,10 +199,16 @@ func GeneratePoint(conf CurveConfig) error {
 		point.Point,
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, conf.PointName+".go")
-	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
-		return err
+	// bit len of R
+	if conf.RBitLen == 0 {
+		r, ok := new(big.Int).SetString(conf.RTorsion, 10)
+		if !ok {
+			panic("can't set r from RTorsion")
+		}
+		conf.RBitLen = r.BitLen()
 	}
+
+	pathSrc := filepath.Join(conf.OutputDir, conf.PointName+".go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -167,9 +219,6 @@ func GeneratePoint(conf CurveConfig) error {
 	}
 
 	pathSrc = filepath.Join(conf.OutputDir, conf.PointName+"_test.go")
-	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
-		return err
-	}
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}

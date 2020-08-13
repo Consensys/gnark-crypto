@@ -368,40 +368,53 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (>50points) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
+	
 
-			var g {{ toUpper .PointName}}Jac
-			g.Set(&{{ toLower .PointName }}Gen)
+	{{ template "test_multiexp" dict "all" . "C" "4"}}
+	{{ template "test_multiexp" dict "all" . "C" "8"}}
+	{{ template "test_multiexp" dict "all" . "C" "10"}}
+	{{ template "test_multiexp" dict "all" . "C" "14"}}
+	{{ template "test_multiexp" dict "all" . "C" "16"}}
+	{{ template "test_multiexp" dict "all" . "C" "18"}}
 
-			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]{{ toUpper .PointName}}Affine, 3000)
-			sampleScalars := make([]fr.Element, 3000)
+	{{define "test_multiexp"}}
+		properties.Property("Multi exponentation (c={{.C}}) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
 
-			for i := 1; i <= 3000; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&{{ toLower .PointName }}Gen)
-			}
+				const nbSamples = 3000
+				var g {{ toUpper .all.PointName}}Jac
+				g.Set(&{{ toLower .all.PointName }}Gen)
 
-			var op1MultiExp {{ toUpper .PointName}}Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+				// mixer ensures that all the words of a fpElement are set
+				var samplePoints [nbSamples]{{ toUpper .all.PointName}}Affine
+				var sampleScalars [nbSamples]fr.Element
 
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
-			var op1ScalarMul {{ toUpper .PointName}}Jac
-			var op1Aff {{ toUpper .PointName}}Affine
-			op1Aff.FromJacobian(&{{ toLower .PointName }}Gen)
-			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+					samplePoints[i-1].FromJacobian(&g)
+					g.AddAssign(&{{ toLower .all.PointName }}Gen)
+				}
 
-			return op1ScalarMul.Equal(&op1MultiExp)
-		},
-		genScalar,
-	))
+				// compare multiExp with double and add
+				var result, expected {{ toUpper .all.PointName}}Jac
+				<-result.multiExpc{{.C}}(samplePoints[:], sampleScalars[:])
+				var finalBigScalar fr.Element
+				var finalBigScalarBi big.Int
+
+				// TODO make this a function of nbSamples so that we can reduce test time..
+				finalBigScalar.SetString("9004500500").MulAssign(&mixer)
+				finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+				expected.ScalarMultiplication(&{{ toLower .all.PointName }}GenAff, &finalBigScalarBi)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+	{{end}}
+
+
 
 	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
@@ -457,6 +470,8 @@ func Benchmark{{ toUpper .PointName}}GLV(b *testing.B) {
 
 }
 
+
+
 func Benchmark{{ toUpper .PointName}}DoubleAndAdd(b *testing.B) {
 
 	var g {{ toUpper .PointName}}Affine
@@ -473,7 +488,7 @@ func Benchmark{{ toUpper .PointName}}DoubleAndAdd(b *testing.B) {
 
 }
 
-func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}Add(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}Add(b *testing.B) {
 	var a {{ toUpper .PointName}}Jac
 	a.Double(&{{ toLower .PointName }}Gen)
 	b.ResetTimer()
@@ -482,7 +497,20 @@ func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}Add(b *testing.B) {
 	}
 }
 
-func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}AddMixed(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}mAdd(b *testing.B) {
+	var a {{ toLower .PointName}}JacExtended
+	a.double(&{{ toLower .PointName }}GenAff)
+
+	var c {{ toUpper .PointName}}Affine
+	c.FromJacobian(&{{ toLower .PointName }}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.mAdd(&c)
+	}
+
+}
+
+func Benchmark{{ toUpper .PointName}}AddMixed(b *testing.B) {
 	var a {{ toUpper .PointName}}Jac
 	a.Double(&{{ toLower .PointName }}Gen)
 
@@ -495,7 +523,7 @@ func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}AddMixed(b *testing.
 
 }
 
-func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}Double(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}Double(b *testing.B) {
 	var a {{ toUpper .PointName}}Jac
 	a.Set(&{{ toLower .PointName }}Gen)
 	b.ResetTimer()
@@ -506,39 +534,36 @@ func Benchmark{{ toUpper .PointName}}{{ toUpper .PointName}}Double(b *testing.B)
 }
 
 func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.B) {
-
-	var G {{ toUpper .PointName}}Jac
-
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	var nbSamples int
-	nbSamples = 800000
+	const pow = 24
+	const nbSamples = 1 << pow
 
-	samplePoints := make([]{{ toUpper .PointName}}Affine, nbSamples)
-	sampleScalars := make([]fr.Element, nbSamples)
-
-	G.Set(&{{ toLower .PointName }}Gen)
+	var samplePoints [nbSamples]{{ toUpper .PointName}}Affine
+	var sampleScalars [nbSamples]fr.Element
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1].FromJacobian(&G)
+		samplePoints[i-1]= {{ toLower .PointName }}GenAff
 	}
 
 	var testPoint {{ toUpper .PointName}}Jac
 
-	for i := 0; i < 16; i++ {
-
-		b.Run(fmt.Sprintf("%d points)", (i+1)*50000), func(b *testing.B) {
+	for i := 19; i <= pow; i++ {
+		using := 1 << i
+		b.Run(fmt.Sprintf("%d points",using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(samplePoints[:50000+i*50000], sampleScalars[:50000+i*50000])
+				<-testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
 	}
 }
+
+
 
 `

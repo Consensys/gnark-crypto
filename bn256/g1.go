@@ -18,7 +18,6 @@ package bn256
 
 import (
 	"math/big"
-	"runtime"
 
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
@@ -74,6 +73,14 @@ func (p *g1JacExtended) ToJac(Q *G1Jac) *G1Jac {
 		Q.Set(&g1Infinity)
 		return Q
 	}
+	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
+	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
+	Q.Z.Set(&p.ZZZ)
+	return Q
+}
+
+// unsafeToJac sets p in affine coords, but don't check for infinity
+func (p *g1JacExtended) unsafeToJac(Q *G1Jac) *G1Jac {
 	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
 	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
 	Q.Z.Set(&p.ZZZ)
@@ -415,7 +422,7 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 
 // ScalarMulByGen multiplies given scalar by generator
 func (p *G1Jac) ScalarMulByGen(s *big.Int) *G1Jac {
-	return p.ScalarMultiplication(&g1GenAff, s)
+	return p.ScalarMulGLV(&g1GenAff, s)
 }
 
 // ScalarMultiplication algo for exponentiation
@@ -470,173 +477,237 @@ func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// MultiExp complexity O(n)
+// MultiExp
+// implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
 	nbPoints := len(points)
-	debug.Assert(nbPoints == len(scalars))
-
-	chRes := make(chan G1Jac, 1)
-
-	// under 50 points, the windowed multi exp performs better
-	const minPoints = 50
-	if nbPoints <= minPoints {
-		var tmp G1Jac
-		var s big.Int
-		p.Set(&g1Infinity)
-		for i := 0; i < nbPoints; i++ {
-			scalars[i].ToBigInt(&s)
-			tmp.ScalarMulGLV(&points[i], &s)
-			p.AddAssign(&tmp)
-		}
-	}
-
-	// empirical values
-	var nbChunks, chunkSize int
-	var mask uint64
-	if nbPoints <= 10000 {
-		chunkSize = 8
-	} else if nbPoints <= 80000 {
-		chunkSize = 11
-	} else if nbPoints <= 400000 {
-		chunkSize = 13
-	} else if nbPoints <= 800000 {
-		chunkSize = 14
+	if nbPoints <= (1 << 5) {
+		return p.multiExpc4(points, scalars)
+	} else if nbPoints <= 200000 {
+		return p.multiExpc8(points, scalars)
 	} else {
-		chunkSize = 16
+		return p.multiExpc16(points, scalars)
 	}
+}
 
-	const sizeScalar = fr.Limbs * 64
+func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
 
-	var bitsForTask [][]int
-	if sizeScalar%chunkSize == 0 {
-		counter := sizeScalar - 1
-		nbChunks = sizeScalar / chunkSize
-		bitsForTask = make([][]int, nbChunks)
-		for i := 0; i < nbChunks; i++ {
-			bitsForTask[i] = make([]int, chunkSize)
-			for j := 0; j < chunkSize; j++ {
-				bitsForTask[i][j] = counter
-				counter--
-			}
-		}
-	} else {
-		counter := sizeScalar - 1
-		nbChunks = sizeScalar/chunkSize + 1
-		bitsForTask = make([][]int, nbChunks)
-		for i := 0; i < nbChunks; i++ {
-			if i < nbChunks-1 {
-				bitsForTask[i] = make([]int, chunkSize)
-			} else {
-				bitsForTask[i] = make([]int, sizeScalar%chunkSize)
-			}
-			for j := 0; j < chunkSize && counter >= 0; j++ {
-				bitsForTask[i][j] = counter
-				counter--
-			}
-		}
-	}
+	const c = 4                              // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	accumulators := make([]G1Jac, nbChunks)
-	chIndices := make([]chan struct{}, nbChunks)
-	chPoints := make([]chan struct{}, nbChunks)
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
 	for i := 0; i < nbChunks; i++ {
-		chIndices[i] = make(chan struct{}, 1)
-		chPoints[i] = make(chan struct{}, 1)
+		chTotals[i] = make(chan G1Jac, 1)
 	}
 
-	mask = (1 << chunkSize) - 1
-	nbPointsPerSlots := nbPoints / int(mask)
-	// [][] is more efficient than [][][] for storage, elements are accessed via i*nbChunks+k
-	indices := make([][]int, int(mask)*nbChunks)
-	for i := 0; i < int(mask)*nbChunks; i++ {
-		indices[i] = make([]int, 0, nbPointsPerSlots)
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
 	}
 
-	// if chunkSize=8, nbChunks=32 (the scalars are chunkSize*nbChunks bits long)
-	// for each 32 chunk, there is a list of 2**8=256 list of indices
-	// for the i-th chunk, accumulateIndices stores in the k-th list all the indices of points
-	// for which the i-th chunk of 8 bits is equal to k
-	accumulateIndices := func(cpuID, nbTasks, n int) {
-		for i := 0; i < nbTasks; i++ {
-			task := cpuID + i*n
-			idx := task*int(mask) - 1
-			for j := 0; j < nbPoints; j++ {
-				val := 0
-				for k := 0; k < len(bitsForTask[task]); k++ {
-					val = val << 1
-					c := bitsForTask[task][k] / int(64)
-					o := bitsForTask[task][k] % int(64)
-					b := (scalars[j][c] >> o) & 1
-					val += int(b)
-				}
-				if val != 0 {
-					indices[idx+int(val)] = append(indices[idx+int(val)], j)
-				}
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 8                              // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 10                             // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 14                             // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 16                             // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 18                             // scalars partitioned into c-bit radixes
+	const t = fr.Bits / c                    // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1 << c) - 1]g1JacExtended
+			bucketAccumulateG1(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduceG1(p, c, chTotals[:])
+
+}
+
+// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+func bucketAccumulateG1(chunk, c int, selectorMask uint64, points []G1Affine, scalars []fr.Element, buckets []g1JacExtended, chRes chan G1Jac) {
+
+	for i := 0; i < len(buckets); i++ {
+		buckets[i].SetInfinity()
+	}
+
+	// place points into buckets based on their selector
+	jc := uint64(chunk * c)
+	selectorIndex := jc / 64
+	selectorShift := jc - (selectorIndex * 64)
+	selectedBits := selectorMask << selectorShift
+
+	multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+
+	if !multiWordSelect {
+		for i := 0; i < len(scalars); i++ {
+			selector := (scalars[i][selectorIndex] & selectedBits) >> selectorShift
+			if selector == 0 {
+				continue
 			}
-			chIndices[task] <- struct{}{}
-			close(chIndices[task])
+			buckets[selector-1].mAdd(&points[i])
+		}
+	} else {
+		// we are selecting bits over 2 words
+		selectorIndexNext := selectorIndex + 1
+		nbBitsHigh := selectorShift - uint64(64-c)
+		highShift := 64 - nbBitsHigh
+		highShiftRight := highShift - (64 - selectorShift)
+
+		for i := 0; i < len(scalars); i++ {
+			selector := (scalars[i][selectorIndex] & selectedBits) >> selectorShift
+			selectorNext := (scalars[i][selectorIndexNext] << highShift) >> highShiftRight
+			selector |= selectorNext
+			if selector == 0 {
+				continue
+			}
+			buckets[selector-1].mAdd(&points[i])
 		}
 	}
 
-	// if chunkSize=8, nbChunks=32 (the scalars are chunkSize*nbChunks bits long)
-	// for each chunk, sum up elements in index 0, add to current result, sum up elements
-	// in index 1, add to current result, etc, up to 255=2**8-1
-	accumulatePoints := func(cpuID, nbTasks, n int) {
-		for i := 0; i < nbTasks; i++ {
-			var tmp g1JacExtended
-			var _tmp G1Jac
-			task := cpuID + i*n
+	var sumj, tj, totalj G1Jac
+	sumj.Set(&g1Infinity)
+	totalj.Set(&g1Infinity)
 
-			// init points
-			tmp.SetInfinity()
-			accumulators[task].Set(&g1Infinity)
-
-			// wait for indices to be ready
-			<-chIndices[task]
-
-			for j := int(mask - 1); j >= 0; j-- {
-				for _, k := range indices[task*int(mask)+j] {
-					tmp.mAdd(&points[k])
-				}
-				tmp.ToJac(&_tmp)
-				accumulators[task].AddAssign(&_tmp)
-			}
-			chPoints[task] <- struct{}{}
-			close(chPoints[task])
+	// computes bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+	for k := len(buckets) - 1; k >= 0; k-- {
+		if !buckets[k].ZZ.IsZero() {
+			sumj.AddAssign(buckets[k].unsafeToJac(&tj))
 		}
+		totalj.AddAssign(&sumj)
 	}
 
-	// double and add algo to collect all small reductions
-	reduce := func() {
-		var res G1Jac
-		res.Set(&g1Infinity)
-		for i := 0; i < nbChunks; i++ {
-			for j := 0; j < len(bitsForTask[i]); j++ {
-				res.DoubleAssign()
+	chRes <- totalj
+	close(chRes)
+}
+
+func bucketReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) chan G1Jac {
+	chRes := make(chan G1Jac, 1)
+	debug.Assert(len(chTotals) >= 2)
+	go func() {
+		totalj := <-chTotals[len(chTotals)-1]
+		p.Set(&totalj)
+		for j := len(chTotals) - 2; j >= 0; j-- {
+			for l := 0; l < c; l++ {
+				p.DoubleAssign()
 			}
-			<-chPoints[i]
-			res.AddAssign(&accumulators[i])
+			totalj := <-chTotals[j]
+			p.AddAssign(&totalj)
 		}
-		p.Set(&res)
+
 		chRes <- *p
-	}
-
-	nbCpus := runtime.NumCPU()
-	nbTasksPerCpus := nbChunks / nbCpus
-	remainingTasks := nbChunks % nbCpus
-	for i := 0; i < nbCpus; i++ {
-		if remainingTasks > 0 {
-			go accumulateIndices(i, nbTasksPerCpus+1, nbCpus)
-			go accumulatePoints(i, nbTasksPerCpus+1, nbCpus)
-			remainingTasks--
-		} else {
-			go accumulateIndices(i, nbTasksPerCpus, nbCpus)
-			go accumulatePoints(i, nbTasksPerCpus, nbCpus)
-		}
-	}
-
-	go reduce()
+		close(chRes)
+	}()
 
 	return chRes
 }

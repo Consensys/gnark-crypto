@@ -66,6 +66,14 @@ func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}J
 	return Q
 }
 
+// unsafeToJac sets p in affine coords, but don't check for infinity
+func (p *{{ toLower .PointName }}JacExtended) unsafeToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
+	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
+	Q.Z.Set(&p.ZZZ)
+	return Q
+}
+
 // mAdd
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
@@ -401,7 +409,7 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 
 // ScalarMulByGen multiplies given scalar by generator
 func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .PointName }}Jac {
-	return p.ScalarMultiplication(&{{ toLower .PointName }}GenAff, s)
+	return p.ScalarMulGLV(&{{ toLower .PointName }}GenAff, s)
 }
 
 // ScalarMultiplication algo for exponentiation
@@ -461,175 +469,160 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 	return p
 }
 
-// MultiExp complexity O(n)
+
+// MultiExp
+// implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-
 	nbPoints := len(points)
-	debug.Assert(nbPoints == len(scalars))
+	if nbPoints <= (1<<5) {
+		return p.multiExpc4(points, scalars)
+	} else if nbPoints <= 200000 {
+		return p.multiExpc8(points, scalars)
+	} else {
+		return p.multiExpc16(points, scalars)
+	}
+}
 
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc4(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" 4}}
+}
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc8(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" "8"}}
+}
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc10(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" "10"}}
+}
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc14(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" "14"}}
+}
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc16(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" "16"}}
+}
+
+func (p *{{ toUpper .PointName }}Jac) multiExpc18(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	{{ template "multiexp" dict "all" . "C" "18"}}
+}
+
+
+
+// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+func bucketAccumulate{{ toUpper .PointName }}(chunk, c int, selectorMask uint64, points []{{ toUpper .PointName }}Affine, scalars []fr.Element, buckets []{{ toLower .PointName }}JacExtended, chRes chan {{ toUpper .PointName }}Jac) {
+		
+	for i := 0 ; i < len(buckets); i++ {
+		buckets[i].SetInfinity()
+	}
+
+	// place points into buckets based on their selector
+	jc := uint64(chunk * c)
+	selectorIndex := jc / 64
+	selectorShift := jc - (selectorIndex * 64)
+	selectedBits := selectorMask << selectorShift
+
+	multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs - 1 )
+
+	if !multiWordSelect {
+		for i := 0; i < len(scalars); i++ {
+			selector := (scalars[i][selectorIndex] & selectedBits) >> selectorShift
+			if selector == 0 {
+				continue
+			}
+			buckets[selector-1].mAdd(&points[i])
+		}
+	} else {
+		// we are selecting bits over 2 words
+		selectorIndexNext := selectorIndex+1
+		nbBitsHigh := selectorShift - uint64(64-c)
+		highShift := 64 - nbBitsHigh
+		highShiftRight := highShift - (64 - selectorShift)
+
+		for i := 0; i < len(scalars); i++ {
+			selector := (scalars[i][selectorIndex] & selectedBits) >> selectorShift
+			selectorNext := (scalars[i][selectorIndexNext] << highShift) >> highShiftRight
+			selector |= selectorNext
+			if selector == 0 {
+				continue
+			}
+			buckets[selector-1].mAdd(&points[i])
+		}
+	}
+
+	
+
+	var sumj, tj, totalj {{ toUpper .PointName }}Jac
+	sumj.Set(&{{ toLower .PointName }}Infinity)
+	totalj.Set(&{{ toLower .PointName }}Infinity)
+	
+	// computes bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+	for k := len(buckets) - 1; k >= 0; k-- {
+		if !buckets[k].ZZ.IsZero() {
+			sumj.AddAssign(buckets[k].unsafeToJac(&tj))
+		}
+		totalj.AddAssign(&sumj)
+	}
+	
+
+	chRes <- totalj
+	close(chRes)
+} 
+
+
+func bucketReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
 	chRes := make(chan {{ toUpper .PointName }}Jac, 1)
-
-	// under 50 points, the windowed multi exp performs better
-	const minPoints = 50
-	if nbPoints <= minPoints {
-		var tmp {{ toUpper .PointName }}Jac
-		var s big.Int
-		p.Set(&{{ toLower .PointName }}Infinity)
-		for i := 0; i < nbPoints; i++ {
-			scalars[i].ToBigInt(&s)
-			tmp.ScalarMulGLV(&points[i], &s)
-			p.AddAssign(&tmp)
-		}
-	}
-
-	// empirical values
-	var nbChunks, chunkSize int
-	var mask uint64
-	if nbPoints <= 10000 {
-		chunkSize = 8
-	} else if nbPoints <= 80000 {
-		chunkSize = 11
-	} else if nbPoints <= 400000 {
-		chunkSize = 13
-	} else if nbPoints <= 800000 {
-		chunkSize = 14
-	} else {
-		chunkSize = 16
-	}
-
-	const sizeScalar = fr.Limbs * 64
-
-	var bitsForTask [][]int
-	if sizeScalar%chunkSize == 0 {
-		counter := sizeScalar - 1
-		nbChunks = sizeScalar / chunkSize
-		bitsForTask = make([][]int, nbChunks)
-		for i := 0; i < nbChunks; i++ {
-			bitsForTask[i] = make([]int, chunkSize)
-			for j := 0; j < chunkSize; j++ {
-				bitsForTask[i][j] = counter
-				counter--
+	debug.Assert(len(chTotals) >= 2)
+	go func() {
+		totalj := <-chTotals[len(chTotals)-1]
+		p.Set(&totalj)
+		for j := len(chTotals) - 2; j >= 0; j-- {
+			for l := 0; l < c; l++ {
+				p.DoubleAssign()
 			}
+			totalj := <-chTotals[j]
+			p.AddAssign(&totalj)
 		}
-	} else {
-		counter := sizeScalar - 1
-		nbChunks = sizeScalar/chunkSize + 1
-		bitsForTask = make([][]int, nbChunks)
-		for i := 0; i < nbChunks; i++ {
-			if i < nbChunks-1 {
-				bitsForTask[i] = make([]int, chunkSize)
-			} else {
-				bitsForTask[i] = make([]int, sizeScalar%chunkSize)
-			}
-			for j := 0; j < chunkSize && counter >= 0; j++ {
-				bitsForTask[i][j] = counter
-				counter--
-			}
-		}
-	}
-
-	accumulators := make([]{{ toUpper .PointName }}Jac, nbChunks)
-	chIndices := make([]chan struct{}, nbChunks)
-	chPoints := make([]chan struct{}, nbChunks)
-	for i := 0; i < nbChunks; i++ {
-		chIndices[i] = make(chan struct{}, 1)
-		chPoints[i] = make(chan struct{}, 1)
-	}
-
-	mask = (1 << chunkSize) - 1
-	nbPointsPerSlots := nbPoints / int(mask)
-	// [][] is more efficient than [][][] for storage, elements are accessed via i*nbChunks+k
-	indices := make([][]int, int(mask)*nbChunks)
-	for i := 0; i < int(mask)*nbChunks; i++ {
-		indices[i] = make([]int, 0, nbPointsPerSlots)
-	}
-
-	// if chunkSize=8, nbChunks=32 (the scalars are chunkSize*nbChunks bits long)
-	// for each 32 chunk, there is a list of 2**8=256 list of indices
-	// for the i-th chunk, accumulateIndices stores in the k-th list all the indices of points
-	// for which the i-th chunk of 8 bits is equal to k
-	accumulateIndices := func(cpuID, nbTasks, n int) {
-		for i := 0; i < nbTasks; i++ {
-			task := cpuID + i*n
-			idx := task*int(mask) - 1
-			for j := 0; j < nbPoints; j++ {
-				val := 0
-				for k := 0; k < len(bitsForTask[task]); k++ {
-					val = val << 1
-					c := bitsForTask[task][k] / int(64)
-					o := bitsForTask[task][k] % int(64)
-					b := (scalars[j][c] >> o) & 1
-					val += int(b)
-				}
-				if val != 0 {
-					indices[idx+int(val)] = append(indices[idx+int(val)], j)
-				}
-			}
-			chIndices[task] <- struct{}{}
-			close(chIndices[task])
-		}
-	}
-
-	// if chunkSize=8, nbChunks=32 (the scalars are chunkSize*nbChunks bits long)
-	// for each chunk, sum up elements in index 0, add to current result, sum up elements
-	// in index 1, add to current result, etc, up to 255=2**8-1
-	accumulatePoints := func(cpuID, nbTasks, n int) {
-		for i := 0; i < nbTasks; i++ {
-			var tmp {{ toLower .PointName }}JacExtended
-			var _tmp {{ toUpper .PointName }}Jac
-			task := cpuID + i*n
-
-			// init points
-			tmp.SetInfinity()
-			accumulators[task].Set(&{{ toLower .PointName }}Infinity)
-
-			// wait for indices to be ready
-			<-chIndices[task]
-
-			for j := int(mask - 1); j >= 0; j-- {
-				for _, k := range indices[task*int(mask)+j] {
-					tmp.mAdd(&points[k])
-				}
-				tmp.ToJac(&_tmp)
-				accumulators[task].AddAssign(&_tmp)
-			}
-			chPoints[task] <- struct{}{}
-			close(chPoints[task])
-		}
-	}
-
-	// double and add algo to collect all small reductions
-	reduce := func() {
-		var res {{ toUpper .PointName }}Jac
-		res.Set(&{{ toLower .PointName }}Infinity)
-		for i := 0; i < nbChunks; i++ {
-			for j := 0; j < len(bitsForTask[i]); j++ {
-				res.DoubleAssign()
-			}
-			<-chPoints[i]
-			res.AddAssign(&accumulators[i])
-		}
-		p.Set(&res)
+		
 		chRes <- *p
-	}
+		close(chRes)
+	}()
 
-	nbCpus := runtime.NumCPU()
-	nbTasksPerCpus := nbChunks / nbCpus
-	remainingTasks := nbChunks % nbCpus
-	for i := 0; i < nbCpus; i++ {
-		if remainingTasks > 0 {
-			go accumulateIndices(i, nbTasksPerCpus+1, nbCpus)
-			go accumulatePoints(i, nbTasksPerCpus+1, nbCpus)
-			remainingTasks--
-		} else {
-			go accumulateIndices(i, nbTasksPerCpus, nbCpus)
-			go accumulatePoints(i, nbTasksPerCpus, nbCpus)
-		}
-	}
-
-	go reduce()
-
+	
 	return chRes
 }
+
+
+{{ define "multiexp" }}
+	{{$cDividesBits := divides $.C $.all.RBitLen}}
+	const c  = {{$.C}} 							// scalars partitioned into c-bit radixes
+	const t = fr.Bits / c        			// number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
+	const nbChunks = t {{if not $cDividesBits }} + 1 {{end}} // note: if c doesn't divide fr.Bits, nbChunks != t)
+
+	// channels that return result per chunk to be reduced later
+	var chTotals [nbChunks]chan {{ toUpper .all.PointName }}Jac
+	for i:= 0; i< nbChunks; i++ {
+		chTotals[i] = make(chan {{ toUpper .all.PointName }}Jac, 1)
+	}
+
+
+	for j := nbChunks - 1; j >= 0; j-- {
+		go func(chunk int) {
+			var buckets [(1<<c)-1]{{ toLower .all.PointName }}JacExtended
+			bucketAccumulate{{ toUpper .all.PointName }}(chunk, c, selectorMask, points, scalars, buckets[:], chTotals[chunk])
+		}(j)
+	}
+
+	return bucketReduce{{ toUpper .all.PointName }}(p, c, chTotals[:])
+	
+
+{{ end }}
+
+`
+
+const Backup = `
+// note: keeping that around for now, in case we need to explore 64%c != 0
 
 `
