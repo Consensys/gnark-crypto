@@ -479,6 +479,17 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 // MultiExp
 // implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) chan G2Jac {
+	// note:
+	// each of the multiExpcX method is the same, except for the c constant it declares
+	// duplicating (through template generation) these methods allows to declare the buckets on the stack
+	// the choice of c needs to be improved:
+	// there is a theoritical value that gives optimal asymptotics
+	// but in practice, other factors come into play, including:
+	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
+	// * number of CPUs
+	// * cache friendliness (which depends on the host, G1 or G2... )
+	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
+
 	nbPoints := len(points)
 	if nbPoints <= (1 << 5) {
 		return p.multiExpc4(points, scalars)
@@ -496,12 +507,14 @@ func (p *G2Jac) multiExpc4(points []G2Affine, scalars []fr.Element) chan G2Jac {
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -509,7 +522,7 @@ func (p *G2Jac) multiExpc4(points []G2Affine, scalars []fr.Element) chan G2Jac {
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
@@ -520,12 +533,14 @@ func (p *G2Jac) multiExpc8(points []G2Affine, scalars []fr.Element) chan G2Jac {
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -533,7 +548,7 @@ func (p *G2Jac) multiExpc8(points []G2Affine, scalars []fr.Element) chan G2Jac {
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
@@ -544,12 +559,14 @@ func (p *G2Jac) multiExpc10(points []G2Affine, scalars []fr.Element) chan G2Jac 
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -557,7 +574,7 @@ func (p *G2Jac) multiExpc10(points []G2Affine, scalars []fr.Element) chan G2Jac 
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
@@ -568,12 +585,14 @@ func (p *G2Jac) multiExpc14(points []G2Affine, scalars []fr.Element) chan G2Jac 
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -581,7 +600,7 @@ func (p *G2Jac) multiExpc14(points []G2Affine, scalars []fr.Element) chan G2Jac 
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
@@ -592,12 +611,14 @@ func (p *G2Jac) multiExpc16(points []G2Affine, scalars []fr.Element) chan G2Jac 
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -605,7 +626,7 @@ func (p *G2Jac) multiExpc16(points []G2Affine, scalars []fr.Element) chan G2Jac 
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
@@ -616,12 +637,14 @@ func (p *G2Jac) multiExpc18(points []G2Affine, scalars []fr.Element) chan G2Jac 
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan G2Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1 << c) - 1]g2JacExtended
@@ -629,12 +652,12 @@ func (p *G2Jac) multiExpc18(points []G2Affine, scalars []fr.Element) chan G2Jac 
 		}(j)
 	}
 
-	return bucketReduceG2(p, c, chTotals[:])
+	return chunkReduceG2(p, c, chTotals[:])
 
 }
 
 // bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-func bucketAccumulateG2(chunk, c int, selectorMask uint64, points []G2Affine, scalars []fr.Element, buckets []g2JacExtended, chRes chan G2Jac) {
+func bucketAccumulateG2(chunk, c int, selectorMask uint64, points []G2Affine, scalars []fr.Element, buckets []g2JacExtended, chRes chan<- G2Jac) {
 
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].SetInfinity()
@@ -674,23 +697,24 @@ func bucketAccumulateG2(chunk, c int, selectorMask uint64, points []G2Affine, sc
 		}
 	}
 
-	var sumj, tj, totalj G2Jac
-	sumj.Set(&g2Infinity)
-	totalj.Set(&g2Infinity)
+	// reduce buckets into total
+	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	// computes bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+	var runningSum, tj, total G2Jac
+	runningSum.Set(&g2Infinity)
+	total.Set(&g2Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			sumj.AddAssign(buckets[k].unsafeToJac(&tj))
+			runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
 		}
-		totalj.AddAssign(&sumj)
+		total.AddAssign(&runningSum)
 	}
 
-	chRes <- totalj
+	chRes <- total
 	close(chRes)
 }
 
-func bucketReduceG2(p *G2Jac, c int, chTotals []chan G2Jac) chan G2Jac {
+func chunkReduceG2(p *G2Jac, c int, chTotals []chan G2Jac) chan G2Jac {
 	chRes := make(chan G2Jac, 1)
 	debug.Assert(len(chTotals) >= 2)
 	go func() {

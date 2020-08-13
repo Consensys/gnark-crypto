@@ -473,6 +473,18 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 // MultiExp
 // implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+	// note: 
+	// each of the multiExpcX method is the same, except for the c constant it declares
+	// duplicating (through template generation) these methods allows to declare the buckets on the stack
+	// the choice of c needs to be improved: 
+	// there is a theoritical value that gives optimal asymptotics
+	// but in practice, other factors come into play, including:
+	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
+	// * number of CPUs 
+	// * cache friendliness (which depends on the host, G1 or G2... )
+	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't. 
+	
+
 	nbPoints := len(points)
 	if nbPoints <= (1<<5) {
 		return p.multiExpc4(points, scalars)
@@ -484,34 +496,16 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 }
 
 
-func (p *{{ toUpper .PointName }}Jac) multiExpc4(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" 4}}
-}
-
-func (p *{{ toUpper .PointName }}Jac) multiExpc8(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" "8"}}
-}
-
-func (p *{{ toUpper .PointName }}Jac) multiExpc10(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" "10"}}
-}
-
-func (p *{{ toUpper .PointName }}Jac) multiExpc14(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" "14"}}
-}
-
-func (p *{{ toUpper .PointName }}Jac) multiExpc16(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" "16"}}
-}
-
-func (p *{{ toUpper .PointName }}Jac) multiExpc18(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
-	{{ template "multiexp" dict "all" . "C" "18"}}
-}
-
+{{ template "multiexp" dict "all" . "C" 4}}
+{{ template "multiexp" dict "all" . "C" "8"}}
+{{ template "multiexp" dict "all" . "C" "10"}}
+{{ template "multiexp" dict "all" . "C" "14"}}
+{{ template "multiexp" dict "all" . "C" "16"}}
+{{ template "multiexp" dict "all" . "C" "18"}}
 
 
 // bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-func bucketAccumulate{{ toUpper .PointName }}(chunk, c int, selectorMask uint64, points []{{ toUpper .PointName }}Affine, scalars []fr.Element, buckets []{{ toLower .PointName }}JacExtended, chRes chan {{ toUpper .PointName }}Jac) {
+func bucketAccumulate{{ toUpper .PointName }}(chunk, c int, selectorMask uint64, points []{{ toUpper .PointName }}Affine, scalars []fr.Element, buckets []{{ toLower .PointName }}JacExtended, chRes chan<- {{ toUpper .PointName }}Jac) {
 		
 	for i := 0 ; i < len(buckets); i++ {
 		buckets[i].SetInfinity()
@@ -552,26 +546,26 @@ func bucketAccumulate{{ toUpper .PointName }}(chunk, c int, selectorMask uint64,
 	}
 
 	
+	// reduce buckets into total
+	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var sumj, tj, totalj {{ toUpper .PointName }}Jac
-	sumj.Set(&{{ toLower .PointName }}Infinity)
-	totalj.Set(&{{ toLower .PointName }}Infinity)
-	
-	// computes bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+	var runningSum, tj, total {{ toUpper .PointName }}Jac
+	runningSum.Set(&{{ toLower .PointName }}Infinity)
+	total.Set(&{{ toLower .PointName }}Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			sumj.AddAssign(buckets[k].unsafeToJac(&tj))
+			runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
 		}
-		totalj.AddAssign(&sumj)
+		total.AddAssign(&runningSum)
 	}
 	
 
-	chRes <- totalj
+	chRes <- total
 	close(chRes)
 } 
 
 
-func bucketReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
+func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
 	chRes := make(chan {{ toUpper .PointName }}Jac, 1)
 	debug.Assert(len(chTotals) >= 2)
 	go func() {
@@ -595,19 +589,21 @@ func bucketReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int,
 
 
 {{ define "multiexp" }}
+func (p *{{ toUpper .all.PointName }}Jac) multiExpc{{$.C}}(points []{{ toUpper .all.PointName }}Affine, scalars []fr.Element) chan {{ toUpper .all.PointName }}Jac {
 	{{$cDividesBits := divides $.C $.all.RBitLen}}
 	const c  = {{$.C}} 							// scalars partitioned into c-bit radixes
 	const t = fr.Bits / c        			// number of c-bit radixes in a scalar
 	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
 	const nbChunks = t {{if not $cDividesBits }} + 1 {{end}} // note: if c doesn't divide fr.Bits, nbChunks != t)
 
-	// channels that return result per chunk to be reduced later
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
 	var chTotals [nbChunks]chan {{ toUpper .all.PointName }}Jac
 	for i:= 0; i< nbChunks; i++ {
 		chTotals[i] = make(chan {{ toUpper .all.PointName }}Jac, 1)
 	}
 
-
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
 	for j := nbChunks - 1; j >= 0; j-- {
 		go func(chunk int) {
 			var buckets [(1<<c)-1]{{ toLower .all.PointName }}JacExtended
@@ -615,9 +611,9 @@ func bucketReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int,
 		}(j)
 	}
 
-	return bucketReduce{{ toUpper .all.PointName }}(p, c, chTotals[:])
+	return chunkReduce{{ toUpper .all.PointName }}(p, c, chTotals[:])
 	
-
+}
 {{ end }}
 
 `
