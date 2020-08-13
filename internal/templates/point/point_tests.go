@@ -375,7 +375,6 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 	{{ template "test_multiexp" dict "all" . "C" "10"}}
 	{{ template "test_multiexp" dict "all" . "C" "14"}}
 	{{ template "test_multiexp" dict "all" . "C" "16"}}
-	{{ template "test_multiexp" dict "all" . "C" "18"}}
 
 	{{define "test_multiexp"}}
 		properties.Property("Multi exponentation (c={{.C}}) should be consistant with sum of square", prop.ForAll(

@@ -477,8 +477,7 @@ func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// MultiExp
-// implements section 4 of https://eprint.iacr.org/2012/549.pdf
+// MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
 	// note:
 	// each of the multiExpcX method is the same, except for the c constant it declares

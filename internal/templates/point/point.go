@@ -470,8 +470,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 }
 
 
-// MultiExp
-// implements section 4 of https://eprint.iacr.org/2012/549.pdf 
+// MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
 	// note: 
 	// each of the multiExpcX method is the same, except for the c constant it declares
