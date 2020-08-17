@@ -44,14 +44,6 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// parameters for pippenger ScalarMulByGen
-// TODO get rid of this, keep only double and add, and the multi exp
-const sGen = 4
-const bGen = sGen
-
-var tGenG1 [((1 << bGen) - 1)]G1Jac
-var tGenG2 [((1 << bGen) - 1)]G2Jac
-
 func init() {
 
 	B.SetUint64(1)
@@ -82,14 +74,4 @@ func init() {
 	// binary decomposition of 15132376222941642752 little endian
 	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
 
-	tGenG1[0].Set(&g1Gen)
-	for j := 1; j < len(tGenG1)-1; j = j + 2 {
-		tGenG1[j].Set(&tGenG1[j/2]).DoubleAssign()
-		tGenG1[j+1].Set(&tGenG1[(j+1)/2]).AddAssign(&tGenG1[j/2])
-	}
-	tGenG2[0].Set(&g2Gen)
-	for j := 1; j < len(tGenG2)-1; j = j + 2 {
-		tGenG2[j].Set(&tGenG2[j/2]).DoubleAssign()
-		tGenG2[j+1].Set(&tGenG2[(j+1)/2]).AddAssign(&tGenG2[j/2])
-	}
 }
