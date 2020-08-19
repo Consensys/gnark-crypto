@@ -227,6 +227,44 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
+	properties.Property("[Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
+		func(a fp.Element) bool {
+			fop1 := fuzzJacobianG1(&g1Gen, a)
+			var p1, p1Neg G1Affine
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 g1JacExtended
+			o1.mAdd(&p1Neg)
+			o2.mSub(&p1)
+
+			return o1.X.Equal(&o2.X) &&
+				o1.Y.Equal(&o2.Y) &&
+				o1.ZZ.Equal(&o2.ZZ) &&
+				o1.ZZZ.Equal(&o2.ZZZ)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+		func(a fp.Element) bool {
+			fop1 := fuzzJacobianG1(&g1Gen, a)
+			var p1, p1Neg G1Affine
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 g1JacExtended
+			o1.double(&p1Neg)
+			o2.doubleNeg(&p1)
+
+			return o1.X.Equal(&o2.X) &&
+				o1.Y.Equal(&o2.Y) &&
+				o1.ZZ.Equal(&o2.ZZ) &&
+				o1.ZZZ.Equal(&o2.ZZZ)
+		},
+		genFuzz1,
+	))
+
 	properties.Property("[Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
@@ -375,7 +413,7 @@ func TestG1Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
+	properties.Property("Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			const nbSamples = 3000
@@ -396,7 +434,7 @@ func TestG1Ops(t *testing.T) {
 
 			// compare multiExp with double and add
 			var result, expected G1Jac
-			<-result.multiExpc10(samplePoints[:], sampleScalars[:])
+			<-result.multiExpc11(samplePoints[:], sampleScalars[:])
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 
@@ -615,8 +653,9 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 
 	var testPoint G1Jac
 
-	for i := 19; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
+
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {

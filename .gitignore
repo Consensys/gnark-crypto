@@ -36,3 +36,6 @@ playground
 
 # compiled sage -> python code
 *.sage.py
+
+
+bn256/benchesres/**

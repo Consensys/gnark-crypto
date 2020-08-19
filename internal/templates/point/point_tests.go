@@ -286,6 +286,52 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 		genFuzz1,
 	))
 
+	properties.Property("[Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "E2" }}
+			func(a *E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
+			var p1,p1Neg {{ toUpper .PointName}}Affine
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 {{ toLower .PointName}}JacExtended 
+			o1.mAdd(&p1Neg)
+			o2.mSub(&p1)
+
+			return 	o1.X.Equal(&o2.X) && 
+					o1.Y.Equal(&o2.Y) && 
+					o1.ZZ.Equal(&o2.ZZ) && 
+					o1.ZZZ.Equal(&o2.ZZZ) 
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "E2" }}
+			func(a *E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
+			var p1,p1Neg {{ toUpper .PointName}}Affine
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 {{ toLower .PointName}}JacExtended 
+			o1.double(&p1Neg)
+			o2.doubleNeg(&p1)
+
+			return 	o1.X.Equal(&o2.X) && 
+					o1.Y.Equal(&o2.Y) && 
+					o1.ZZ.Equal(&o2.ZZ) && 
+					o1.ZZZ.Equal(&o2.ZZZ) 
+		},
+		genFuzz1,
+	))
+
 	properties.Property("[Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
@@ -372,7 +418,7 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 
 	{{ template "test_multiexp" dict "all" . "C" "4"}}
 	{{ template "test_multiexp" dict "all" . "C" "8"}}
-	{{ template "test_multiexp" dict "all" . "C" "10"}}
+	{{ template "test_multiexp" dict "all" . "C" "11"}}
 	{{ template "test_multiexp" dict "all" . "C" "14"}}
 	{{ template "test_multiexp" dict "all" . "C" "16"}}
 
@@ -532,6 +578,7 @@ func Benchmark{{ toUpper .PointName}}Double(b *testing.B) {
 
 }
 
+
 func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -552,8 +599,11 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 
 	var testPoint {{ toUpper .PointName}}Jac
 
-	for i := 19; i <= pow; i++ {
+
+	
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
+
 		b.Run(fmt.Sprintf("%d points",using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
