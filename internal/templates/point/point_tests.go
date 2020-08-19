@@ -373,46 +373,49 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
-		func(s fr.Element) bool {
+	{{if .GLV}}
+		properties.Property("scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
+			func(s fr.Element) bool {
 
-			r := fr.Modulus()
-			var g {{ toUpper .PointName}}Jac
-			var gaff {{ toUpper .PointName}}Affine
-			gaff.FromJacobian(&{{ toLower .PointName }}Gen)
-			g.ScalarMulGLV(&gaff, r)
+				r := fr.Modulus()
+				var g {{ toUpper .PointName}}Jac
+				var gaff {{ toUpper .PointName}}Affine
+				gaff.FromJacobian(&{{ toLower .PointName }}Gen)
+				g.ScalarMulGLV(&gaff, r)
 
-			var scalar, blindedScalard, rminusone big.Int
-			var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
-			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMulGLV(&gaff, &rminusone)
-			gneg.Neg(&{{ toLower .PointName }}Gen)
-			s.ToBigIntRegular(&scalar)
-			blindedScalard.Add(&scalar, r)
-			op1.ScalarMulGLV(&gaff, &scalar)
-			op2.ScalarMulGLV(&gaff, &blindedScalard)
+				var scalar, blindedScalard, rminusone big.Int
+				var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
+				rminusone.SetUint64(1).Sub(r, &rminusone)
+				op3.ScalarMulGLV(&gaff, &rminusone)
+				gneg.Neg(&{{ toLower .PointName }}Gen)
+				s.ToBigIntRegular(&scalar)
+				blindedScalard.Add(&scalar, r)
+				op1.ScalarMulGLV(&gaff, &scalar)
+				op2.ScalarMulGLV(&gaff, &blindedScalard)
 
-			return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName }}Infinity) && !op1.Equal(&{{ toLower .PointName }}Infinity) && gneg.Equal(&op3)
+				return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName }}Infinity) && !op1.Equal(&{{ toLower .PointName }}Infinity) && gneg.Equal(&op3)
 
-		},
-		genScalar,
-	))
+			},
+			genScalar,
+		))
 
-	properties.Property("GLV and Double and Add should output the same result", prop.ForAll(
-		func(s fr.Element) bool {
+		properties.Property("GLV and Double and Add should output the same result", prop.ForAll(
+			func(s fr.Element) bool {
 
-			var r big.Int
-			var op1, op2 {{ toUpper .PointName}}Jac
-			var gaff {{ toUpper .PointName}}Affine
-			s.ToBigIntRegular(&r)
-			gaff.FromJacobian(&{{ toLower .PointName }}Gen)
-			op1.ScalarMultiplication(&gaff, &r)
-			op2.ScalarMulGLV(&gaff, &r)
-			return op1.Equal(&op2) && !op1.Equal(&{{ toLower .PointName }}Infinity)
+				var r big.Int
+				var op1, op2 {{ toUpper .PointName}}Jac
+				var gaff {{ toUpper .PointName}}Affine
+				s.ToBigIntRegular(&r)
+				gaff.FromJacobian(&{{ toLower .PointName }}Gen)
+				op1.ScalarMultiplication(&gaff, &r)
+				op2.ScalarMulGLV(&gaff, &r)
+				return op1.Equal(&op2) && !op1.Equal(&{{ toLower .PointName }}Infinity)
 
-		},
-		genScalar,
-	))
+			},
+			genScalar,
+		))
+
+	{{end}}
 
 	
 
@@ -500,6 +503,7 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
+{{if .GLV}}
 func Benchmark{{ toUpper .PointName}}GLV(b *testing.B) {
 	var g {{ toUpper .PointName}}Affine
 	g.FromJacobian(&{{ toLower .PointName }}Gen)
@@ -512,6 +516,7 @@ func Benchmark{{ toUpper .PointName}}GLV(b *testing.B) {
 	}
 
 }
+{{end}}
 
 
 

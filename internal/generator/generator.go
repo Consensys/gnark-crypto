@@ -22,6 +22,7 @@ type CurveConfig struct {
 	RBitLen   int
 	FpModulus string
 	OutputDir string
+	GLV       bool
 }
 
 // GenerateBaseFields generates the base field fr and fp

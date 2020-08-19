@@ -478,9 +478,14 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 	return p
 }
 
+
 // ScalarMulByGen multiplies given scalar by generator
 func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .PointName }}Jac {
-	return p.ScalarMulGLV(&{{ toLower .PointName }}GenAff, s)
+	{{- if .GLV}}
+		return p.ScalarMulGLV(&{{ toLower .PointName }}GenAff, s)
+	{{- else}}
+		return p.ScalarMultiplication(&{{ toLower .PointName }}GenAff, s)
+	{{- end}}
 }
 
 // ScalarMultiplication algo for exponentiation
@@ -515,6 +520,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointN
 
 }
 
+{{ if .GLV}}
 // ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
 func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
@@ -549,6 +555,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 
 	return p
 }
+{{ end }}
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
