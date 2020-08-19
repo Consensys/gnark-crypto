@@ -42,6 +42,7 @@ func main() {
 
 		if confs[i].CurveName != "bw761" {
 
+			// G1
 			confs[i].CoordType = "fp.Element"
 			confs[i].PointName = "g1"
 			if err := generator.GeneratePoint(confs[i]); err != nil {
@@ -49,6 +50,7 @@ func main() {
 				os.Exit(-1)
 			}
 
+			// G2
 			confs[i].CoordType = "E2"
 			confs[i].PointName = "g2"
 			if err := generator.GeneratePoint(confs[i]); err != nil {
@@ -63,6 +65,13 @@ func main() {
 
 			err := generator.GeneratePairing(confs[i])
 			if err != nil {
+				fmt.Printf("\n%s\n", err.Error())
+				os.Exit(-1)
+			}
+		} else {
+			confs[i].CoordType = "fp.Element"
+			confs[i].PointName = "g1"
+			if err := generator.GeneratePoint(confs[i]); err != nil {
 				fmt.Printf("\n%s\n", err.Error())
 				os.Exit(-1)
 			}

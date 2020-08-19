@@ -486,23 +486,33 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .Po
 // ScalarMultiplication algo for exponentiation
 func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
-	var res {{ toUpper .PointName }}Jac
-	res.Set(&{{ toLower .PointName }}Infinity)
+	var res, tmp {{toUpper .PointName}}Jac
+	var ops [3]{{toUpper .PointName}}Affine
+
+	res.Set(&{{toLower .PointName}}Infinity)
+	ops[0] = *a
+	tmp.FromAffine(a).DoubleAssign()
+	ops[1].FromJacobian(&tmp)
+	tmp.AddMixed(a)
+	ops[2].FromJacobian(&tmp)
+
 	b := s.Bytes()
 	for i := range b {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 0; j < 8; j++ {
-			res.DoubleAssign()
-			if (w&mask)>>(7-j) != 0 {
-				res.AddMixed(a)
+		mask := byte(0xc0)
+		for j := 0; j < 4; j++ {
+			res.DoubleAssign().DoubleAssign()
+			c := (w & mask) >> (6 - 2*j)
+			if c != 0 {
+				res.AddMixed(&ops[c-1])
 			}
-			mask = mask >> 1
+			mask = mask >> 2
 		}
 	}
 	p.Set(&res)
 
 	return p
+
 }
 
 // ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
