@@ -418,8 +418,6 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 
 	{{ template "test_multiexp" dict "all" . "C" "4"}}
 	{{ template "test_multiexp" dict "all" . "C" "8"}}
-	{{ template "test_multiexp" dict "all" . "C" "11"}}
-	{{ template "test_multiexp" dict "all" . "C" "14"}}
 	{{ template "test_multiexp" dict "all" . "C" "16"}}
 
 	{{define "test_multiexp"}}

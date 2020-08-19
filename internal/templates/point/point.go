@@ -554,18 +554,12 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// * cache friendliness (which depends on the host, G1 or G2... )
 	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't. 
 	nbPoints := len(points)
-	if nbPoints <= 100 {
+	if nbPoints <= 1 << 5 {
 		return p.multiExpc4(points, scalars)
-	} else if nbPoints <= 10000 {
+	} else if nbPoints <= 150000 {
 		return p.multiExpc8(points, scalars)
-	} else if nbPoints <= 80000 {
-		return p.multiExpc11(points, scalars)
-	} else if nbPoints <= 400000 {
-		return p.multiExpc13(points, scalars)
-	} else if nbPoints < 8388608 {
-		return p.multiExpc16(points, scalars)
 	} else {
-		return p.multiExpc18(points, scalars)
+		return p.multiExpc16(points, scalars)
 	}
 
 }
@@ -573,13 +567,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 
 {{ template "multiexp" dict "all" . "C" "4"}}
 {{ template "multiexp" dict "all" . "C" "8"}}
-{{ template "multiexp" dict "all" . "C" "11"}}
-{{ template "multiexp" dict "all" . "C" "13"}}
-{{ template "multiexp" dict "all" . "C" "14"}}
-{{ template "multiexp" dict "all" . "C" "15"}}
 {{ template "multiexp" dict "all" . "C" "16"}}
-{{ template "multiexp" dict "all" . "C" "17"}}
-{{ template "multiexp" dict "all" . "C" "18"}}
 
 
 func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
@@ -637,18 +625,6 @@ func (p *{{ toUpper .all.PointName }}Jac) multiExpc{{$.C}}(points []{{ toUpper .
 
 
 					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-					{{$cDivides64 := divides $.C 64}}
-					{{if not $cDivides64}}
-						multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs - 1 )
-						if multiWordSelect {
-							// we are selecting bits over 2 words
-							selectorIndexNext := selectorIndex+1
-							nbBitsHigh := selectorShift - uint64(64-c)
-							highShift := 64 - nbBitsHigh
-							highShiftRight := highShift - (64 - selectorShift)
-							digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-						}
-					{{end}}
 					
 					if digit >= (max) {
 						digit -= twoc
