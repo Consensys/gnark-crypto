@@ -23,7 +23,6 @@ import (
 
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/fr"
-	"github.com/consensys/gurvy/utils/debug"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -270,13 +269,6 @@ func (p *G1Jac) Equal(a *G1Jac) bool {
 // Equal tests if two points (in Affine coordinates) are equal
 func (p *G1Affine) Equal(a *G1Affine) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
-}
-
-// Clone returns a copy of self
-func (p *G1Jac) Clone() *G1Jac {
-	return &G1Jac{
-		p.X, p.Y, p.Z,
-	}
 }
 
 // Neg computes -G
@@ -631,1839 +623,9 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
 	}
 }
 
-func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 4                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc5(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 5                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc6(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 6                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc7(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 7                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 8                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc9(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 9                              // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 10                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc11(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 11                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc12(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 12                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc13(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 13                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 14                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc15(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 15                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 16                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc17(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 17                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
-func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element) chan G1Jac {
-
-	const c = 18                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-
-	digits := scalarsToDigits(scalars)
-
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G1Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1 << (c - 1)]g1JacExtended
-
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G1Jac
-		runningSum.Set(&g1Infinity)
-		total.Set(&g1Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	}
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduceG1(p, c, chTotals[:])
-
-}
-
+// chunkReduceG1 reduces the weighted sum of the buckets into the result of the multiExp
 func chunkReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) chan G1Jac {
 	chRes := make(chan G1Jac, 1)
-	debug.Assert(len(chTotals) >= 2)
 	go func() {
 		totalj := <-chTotals[len(chTotals)-1]
 		p.Set(&totalj)
@@ -2478,6 +640,2207 @@ func chunkReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) chan G1Jac {
 		chRes <- *p
 		close(chRes)
 	}()
-
 	return chRes
+}
+
+// multiExpc4 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 4
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 4                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc5 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 5
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc5(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 5                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc6 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 6
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc6(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 6                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc7 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 7
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc7(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 7                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc8 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 8
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 8                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc9 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 9
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc9(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 9                              // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc10 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 10
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 10                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc11 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 11
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc11(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 11                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc12 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 12
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc12(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 12                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc13 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 13
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc13(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 13                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc14 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 14
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 14                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc15 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 15
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc15(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 15                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc16 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 16
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 16                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t                       // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc17 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 17
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc17(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 17                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
+}
+
+// multiExpc18 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = 18
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
+func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element) chan G1Jac {
+
+	const c = 18                             // scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan G1Jac
+	for i := 0; i < nbChunks; i++ {
+		chTotals[i] = make(chan G1Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// c doesn't divide 64, which means we may need to select bits over 2 words
+					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
+					if multiWordSelect {
+						// we are selecting bits over 2 words
+						selectorIndexNext := selectorIndex + 1
+						nbBitsHigh := selectorShift - uint64(64-c)
+						highShift := 64 - nbBitsHigh
+						highShiftRight := highShift - (64 - selectorShift)
+						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+					}
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		}, true)
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	// step 2
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- G1Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
+
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1 << (c - 1)]g1JacExtended
+		for i := 0; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+		// for each scalars, get the digit corresponding to the chunk we're processing.
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+
+			// if msbWindow bit is set, we need to substract
+			if bits&msbWindow == 0 {
+				// add
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total G1Jac
+		runningSum.Set(&g1Infinity)
+		total.Set(&g1Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
+	}
+
+	// run step2
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk])
+	}
+
+	// reduce the buckets weigthed sums into our result
+	return chunkReduceG1(p, c, chTotals[:])
+
 }

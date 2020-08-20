@@ -262,13 +262,6 @@ func (p *{{ toUpper .PointName }}Affine) Equal(a *{{ toUpper .PointName }}Affine
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
 }
 
-// Clone returns a copy of self
-func (p *{{ toUpper .PointName }}Jac) Clone() *{{ toUpper .PointName }}Jac {
-	return &{{ toUpper .PointName }}Jac{
-		p.X, p.Y, p.Z,
-	}
-}
-
 // Neg computes -G
 func (p *{{ toUpper .PointName }}Jac) Neg(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 	p.Set(a)
@@ -624,9 +617,34 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	}
 }
 
+// chunkReduce{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
+func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
+	chRes := make(chan {{ toUpper .PointName }}Jac, 1)
+	go func() {
+		totalj := <-chTotals[len(chTotals)-1]
+		p.Set(&totalj)
+		for j := len(chTotals) - 2; j >= 0; j-- {
+			for l := 0; l < c; l++ {
+				p.DoubleAssign()
+			}
+			totalj := <-chTotals[j]
+			p.AddAssign(&totalj)
+		}
+		
+		chRes <- *p
+		close(chRes)
+	}()
+	return chRes
+}
+
+
 
 {{range $c :=  .CRange}}
 
+// multiExpc{{$c}} implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
+// with c = {{$c}}
+// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
+// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
 func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) chan {{ toUpper $.PointName }}Jac {
 	{{$cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
@@ -635,29 +653,54 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 	const nbChunks = t {{if not $cDividesBits }} + 1 {{end}} // note: if c doesn't divide fr.Bits, nbChunks != t)
 	const msbWindow uint32 = (1 << (c -1)) 
 
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan {{ toUpper $.PointName }}Jac
+	for i:= 0; i< nbChunks; i++ {
+		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
+	}
+
+	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i:=0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+
+	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
+	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+	// 2^{c} to the current digit, making it negative.
+	// negative digits will be processed in the next step as adding -G into the bucket instead of G
+	// (computing -G is cheap, and this saves us half of the buckets)
 	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
 		const max = int(msbWindow)
 		const twoc = (1 << c ) 
 		digits = make([][nbChunks]uint32, len(scalars))
 		
+		// process the scalars in parallel
 		parallel.Execute(0, len(scalars), func(start, end int) {
 			for i:=start; i < end; i++ {
 				var carry int
-				// for each chunk, compute the current digit
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
 				for chunk := 0; chunk < nbChunks; chunk++ {
 		
+					// compute offset and word selector / shift to select the right bits of our windows
 					jc := uint64(chunk * c)
 					selectorIndex := jc / 64
 					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
 
+					// init with carry if any
 					digit := carry
 					carry = 0
 
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
 					
 					{{$cDivides64 := divides $c 64}}
 					{{if not $cDivides64}}
+						// c doesn't divide 64, which means we may need to select bits over 2 words
 						multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs - 1 )
 						if multiWordSelect {
 							// we are selecting bits over 2 words
@@ -669,18 +712,21 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 						}
 					{{end}}
 
-
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
 					if digit >= max {
 						digit -= twoc
 						carry = 1 
 					}
+
 					if digit == 0 {
-						continue
+						continue // digit[i][chunk] = 0
 					}
 
 					if digit > 0 {
 						digits[i][chunk] = uint32(digit)
 					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used. 
 						digits[i][chunk] = uint32(-digit - 1) | msbWindow
 					}
 					
@@ -689,28 +735,30 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 		}, true)
 		return 
 	}
-
 	digits := scalarsToDigits(scalars)
 
-
-	
+	// step 2
 	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- {{ toUpper $.PointName }}Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
+	bucketAccumulate := func(chunk int, chRes chan<- {{ toUpper $.PointName }}Jac) {
+		<-chCpus // wait and decrement avaiable CPUs on the semaphore
 
+		// declare our buckets on the stack
+		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+		// we use jacobian extended formulas here as they are faster than mixed addition
+		var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
 		for i := 0 ; i < len(buckets); i++ {
 			buckets[i].SetInfinity()
 		}
 
 
-		// place points into buckets based on their selector
+		// for each scalars, get the digit corresponding to the chunk we're processing. 
 		for i := 0; i < len(digits); i++ {
 			bits := digits[i][chunk]
 			if bits == 0 {
 				continue
 			}
 			
+			// if msbWindow bit is set, we need to substract
 			if bits & msbWindow == 0 {
 				// add 
 				buckets[bits-1].mAdd(&points[i])
@@ -737,61 +785,18 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 
 		chRes <- total
 		close(chRes)
-		chCpus <- struct{}{}
+		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
 	} 
 
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan {{ toUpper $.PointName }}Jac
-	for i:= 0; i< nbChunks; i++ {
-		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i:=0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
+	// run step2 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
+		go bucketAccumulate(chunk, chTotals[chunk])
 	}
 
+	// reduce the buckets weigthed sums into our result
 	return chunkReduce{{ toUpper $.PointName }}(p, c, chTotals[:])
 	
 }
 {{end}}
-
-
-func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
-	chRes := make(chan {{ toUpper .PointName }}Jac, 1)
-	debug.Assert(len(chTotals) >= 2)
-	go func() {
-		totalj := <-chTotals[len(chTotals)-1]
-		p.Set(&totalj)
-		for j := len(chTotals) - 2; j >= 0; j-- {
-			for l := 0; l < c; l++ {
-				p.DoubleAssign()
-			}
-			totalj := <-chTotals[j]
-			p.AddAssign(&totalj)
-		}
-		
-		chRes <- *p
-		close(chRes)
-	}()
-
-	
-	return chRes
-}
-
-
-
-
-
-`
-
-const Backup = `
-// note: keeping that around for now, in case we need to explore 64%c != 0
 
 `
