@@ -418,8 +418,48 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 	{{end}}
 
 
+
+	// note : this test is here as we expect to have a different multiExp than the above bucket method
+	// for small number of points
+	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			var g {{ toUpper .PointName}}Jac
+			g.Set(&{{ toLower .PointName }}Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			samplePoints := make([]{{ toUpper .PointName}}Affine, 30)
+			sampleScalars := make([]fr.Element, 30)
+
+			for i := 1; i <= 30; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&{{ toLower .PointName }}Gen)
+			}
+
+			var op1MultiExp {{ toUpper .PointName}}Jac
+			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+			var op1ScalarMul {{ toUpper .PointName}}Jac
+			var op1Aff {{ toUpper .PointName}}Affine
+			op1Aff.FromJacobian(&{{ toLower .PointName }}Gen)
+			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
+
+			return op1ScalarMul.Equal(&op1MultiExp)
+		},
+		genScalar,
+	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+
+
 
 func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
@@ -429,12 +469,13 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
-
+	
 	{{range $c :=  .CRange}}
+
 	properties.Property("Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
-			const nbSamples = 1000
+			const nbSamples = 500
 			
 			var result, expected {{ toUpper $.PointName}}Jac
 	
@@ -474,48 +515,10 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 		genScalar,
 	))
 	{{end}}
-
-
-
-	// note : this test is here as we expect to have a different multiExp than the above bucket method
-	// for small number of points
-	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var g {{ toUpper .PointName}}Jac
-			g.Set(&{{ toLower .PointName }}Gen)
-
-			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]{{ toUpper .PointName}}Affine, 30)
-			sampleScalars := make([]fr.Element, 30)
-
-			for i := 1; i <= 30; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&{{ toLower .PointName }}Gen)
-			}
-
-			var op1MultiExp {{ toUpper .PointName}}Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
-
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
-			var op1ScalarMul {{ toUpper .PointName}}Jac
-			var op1Aff {{ toUpper .PointName}}Affine
-			op1Aff.FromJacobian(&{{ toLower .PointName }}Gen)
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
-
-			return op1ScalarMul.Equal(&op1MultiExp)
-		},
-		genScalar,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+
 
 // ------------------------------------------------------------
 // benches

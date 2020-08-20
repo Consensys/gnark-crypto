@@ -342,6 +342,42 @@ func TestG2Ops(t *testing.T) {
 		genScalar,
 	))
 
+	// note : this test is here as we expect to have a different multiExp than the above bucket method
+	// for small number of points
+	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			var g G2Jac
+			g.Set(&g2Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			samplePoints := make([]G2Affine, 30)
+			sampleScalars := make([]fr.Element, 30)
+
+			for i := 1; i <= 30; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+
+			var op1MultiExp G2Jac
+			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+
+			var finalBigScalar fr.Element
+			var finalBigScalarBi big.Int
+			var op1ScalarMul G2Jac
+			var op1Aff G2Affine
+			op1Aff.FromJacobian(&g2Gen)
+			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
+
+			return op1ScalarMul.Equal(&op1MultiExp)
+		},
+		genScalar,
+	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -357,7 +393,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -399,7 +435,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -441,7 +477,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -483,7 +519,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -525,7 +561,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -567,7 +603,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -609,7 +645,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -651,7 +687,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -693,7 +729,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -735,7 +771,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -777,7 +813,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -819,7 +855,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -861,7 +897,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -903,7 +939,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=17) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -945,7 +981,7 @@ func TestG2MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=18) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 1000
+			const nbSamples = 500
 
 			var result, expected G2Jac
 
@@ -980,43 +1016,6 @@ func TestG2MultiExp(t *testing.T) {
 			expected.ScalarMultiplication(&g2GenAff, &scalar)
 
 			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	// note : this test is here as we expect to have a different multiExp than the above bucket method
-	// for small number of points
-	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var g G2Jac
-			g.Set(&g2Gen)
-
-			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]G2Affine, 30)
-			sampleScalars := make([]fr.Element, 30)
-
-			for i := 1; i <= 30; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&g2Gen)
-			}
-
-			var op1MultiExp G2Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
-
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
-			var op1ScalarMul G2Jac
-			var op1Aff G2Affine
-			op1Aff.FromJacobian(&g2Gen)
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
-
-			return op1ScalarMul.Equal(&op1MultiExp)
 		},
 		genScalar,
 	))
