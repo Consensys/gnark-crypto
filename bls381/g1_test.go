@@ -343,6 +343,18 @@ func TestG1Ops(t *testing.T) {
 		genScalar,
 	))
 
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG1MultiExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	genScalar := GenFr()
+
 	properties.Property("Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 

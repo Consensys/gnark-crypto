@@ -417,7 +417,18 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 
 	{{end}}
 
-	
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	genScalar := GenFr()
 
 	{{ template "test_multiexp" dict "all" . "C" "4"}}
 	{{ template "test_multiexp" dict "all" . "C" "8"}}

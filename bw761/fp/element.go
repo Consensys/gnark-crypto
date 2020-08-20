@@ -227,7 +227,7 @@ func (z *Element) Equal(x *Element) bool {
 
 // IsZero returns z == 0
 func (z *Element) IsZero() bool {
-	return z[11] == 0 && z[10] == 0 && z[9] == 0 && z[8] == 0 && z[7] == 0 && z[6] == 0 && z[5] == 0 && z[4] == 0 && z[3] == 0 && z[2] == 0 && z[1] == 0 && z[0] == 0
+	return (z[11] | z[10] | z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
 // SetRandom sets z to a random element < q

@@ -179,7 +179,7 @@ func (z *Element) Equal(x *Element) bool {
 
 // IsZero returns z == 0
 func (z *Element) IsZero() bool {
-	return z[3] == 0 && z[2] == 0 && z[1] == 0 && z[0] == 0
+	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
 // SetRandom sets z to a random element < q
