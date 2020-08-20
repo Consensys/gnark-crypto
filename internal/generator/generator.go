@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"fmt"
 	"math/big"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/consensys/bavard"
@@ -16,13 +18,47 @@ import (
 // CurveConfig describes parameters of the curve useful for the templates
 type CurveConfig struct {
 	CurveName string
-	CoordType string
-	PointName string
 	RTorsion  string
 	RBitLen   int
 	FpModulus string
 	OutputDir string
-	GLV       bool
+	GLV       bool  // scalar mulitplication using GLV
+	CRange    []int // multiexp bucket method: generate inner methods (with const arrays) for each c
+}
+
+type PointConfig struct {
+	CurveConfig
+	CoordType string
+	PointName string
+}
+
+func NewCurveConfig(name, rTorsion, fpModulus string, glv bool) CurveConfig {
+	name = strings.ToLower(name)
+	conf := CurveConfig{
+		CurveName: name,
+		RTorsion:  rTorsion,
+		FpModulus: fpModulus,
+		GLV:       glv,
+	}
+
+	conf.OutputDir = fmt.Sprintf("../%s/", name)
+
+	// bit len of R
+	r, ok := new(big.Int).SetString(rTorsion, 10)
+	if !ok {
+		panic("can't set r from RTorsion")
+	}
+	conf.RBitLen = r.BitLen()
+	for conf.RBitLen%64 != 0 {
+		conf.RBitLen++
+	}
+
+	// default range for C values in the multiExp
+	for c := 4; c < 19; c++ {
+		conf.CRange = append(conf.CRange, c)
+	}
+
+	return conf
 }
 
 // GenerateBaseFields generates the base field fr and fp
@@ -186,7 +222,13 @@ func divides(c1, c2 interface{}) bool {
 }
 
 // GeneratePoint generates elliptic curve arithmetic
-func GeneratePoint(conf CurveConfig) error {
+func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
+
+	conf := PointConfig{
+		CurveConfig: _conf,
+		CoordType:   coordType,
+		PointName:   pointName,
+	}
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys AG", 2020),
@@ -198,15 +240,6 @@ func GeneratePoint(conf CurveConfig) error {
 	// point code
 	src := []string{
 		point.Point,
-	}
-
-	// bit len of R
-	if conf.RBitLen == 0 {
-		r, ok := new(big.Int).SetString(conf.RTorsion, 10)
-		if !ok {
-			panic("can't set r from RTorsion")
-		}
-		conf.RBitLen = r.BitLen()
 	}
 
 	pathSrc := filepath.Join(conf.OutputDir, conf.PointName+".go")

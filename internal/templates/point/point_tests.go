@@ -430,49 +430,55 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
 	genScalar := GenFr()
 
-	{{ template "test_multiexp" dict "all" . "C" "4"}}
-	{{ template "test_multiexp" dict "all" . "C" "8"}}
-	{{ template "test_multiexp" dict "all" . "C" "16"}}
-
-	{{define "test_multiexp"}}
-		properties.Property("Multi exponentation (c={{.C}}) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				const nbSamples = 3000
-				var g {{ toUpper .all.PointName}}Jac
-				g.Set(&{{ toLower .all.PointName }}Gen)
-
-				// mixer ensures that all the words of a fpElement are set
-				var samplePoints [nbSamples]{{ toUpper .all.PointName}}Affine
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
-						FromMont()
-					samplePoints[i-1].FromJacobian(&g)
-					g.AddAssign(&{{ toLower .all.PointName }}Gen)
-				}
-
-				// compare multiExp with double and add
-				var result, expected {{ toUpper .all.PointName}}Jac
-				<-result.multiExpc{{.C}}(samplePoints[:], sampleScalars[:])
-				var finalBigScalar fr.Element
-				var finalBigScalarBi big.Int
-
-				// TODO make this a function of nbSamples so that we can reduce test time..
-				finalBigScalar.SetString("9004500500").MulAssign(&mixer)
-				finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-				expected.ScalarMultiplication(&{{ toLower .all.PointName }}GenAff, &finalBigScalarBi)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
+	{{range $c :=  .CRange}}
+	properties.Property("Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+	
+			const nbSamples = 1000
+			
+			var result, expected {{ toUpper $.PointName}}Jac
+	
+			// compute the multiExp
+			var g {{ toUpper $.PointName}}Jac
+			g.Set(&{{ toLower $.PointName }}Gen)
+	
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]{{ toUpper $.PointName}}Affine
+			var sampleScalars [nbSamples]fr.Element
+	
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&{{ toLower $.PointName }}Gen)
+			}
+	
+			<-result.multiExpc{{$c}}(samplePoints[:], sampleScalars[:])
+	
+	
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+	
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&{{ toLower $.PointName }}GenAff, &scalar)
+	
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
 	{{end}}
 
 
 
+	// note : this test is here as we expect to have a different multiExp than the above bucket method
+	// for small number of points
 	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 

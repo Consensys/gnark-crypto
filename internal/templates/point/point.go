@@ -593,21 +593,174 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// * number of CPUs 
 	// * cache friendliness (which depends on the host, G1 or G2... )
 	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't. 
-	nbPoints := len(points)
-	if nbPoints <= 1 << 5 {
-		return p.multiExpc4(points, scalars)
-	} else if nbPoints <= 150000 {
-		return p.multiExpc8(points, scalars)
-	} else {
-		return p.multiExpc16(points, scalars)
-	}
 
+	// approximate cost (in group operations)
+	// cost = bits/c * (nbPoints + 2^{c-1})
+	bestC := func(nbPoints int) int {
+		implementedCs := []int{
+			{{- range $c :=  .CRange}} {{$c}},{{- end}}
+		}
+
+		min := math.MaxFloat64
+		toReturn := 0
+		for _, c := range implementedCs {
+			cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
+			cost := float64(cc) / float64(c)
+			if cost < min {
+				min = cost
+				toReturn = c 
+			}
+		}
+		return toReturn
+	}
+	c := bestC(len(points))
+	switch c {
+	{{range $c :=  .CRange}}
+	case {{$c}}:
+		return p.multiExpc{{$c}}(points, scalars)	
+	{{end}}
+	default:
+		panic("unimplemented")
+	}
 }
 
 
-{{ template "multiexp" dict "all" . "C" "4"}}
-{{ template "multiexp" dict "all" . "C" "8"}}
-{{ template "multiexp" dict "all" . "C" "16"}}
+{{range $c :=  .CRange}}
+
+func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) chan {{ toUpper $.PointName }}Jac {
+	{{$cDividesBits := divides $c $.RBitLen}}
+	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
+	const t = fr.Limbs * 64 / c        			// number of c-bit radixes in a scalar
+	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
+	const nbChunks = t {{if not $cDividesBits }} + 1 {{end}} // note: if c doesn't divide fr.Bits, nbChunks != t)
+	const msbWindow uint32 = (1 << (c -1)) 
+
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c ) 
+		digits = make([][nbChunks]uint32, len(scalars))
+		
+		parallel.Execute(0, len(scalars), func(start, end int) {
+			for i:=start; i < end; i++ {
+				var carry int
+				// for each chunk, compute the current digit
+				for chunk := 0; chunk < nbChunks; chunk++ {
+		
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+					selectedBits := selectorMask << selectorShift
+
+					digit := carry
+					carry = 0
+
+					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
+					
+					{{$cDivides64 := divides $c 64}}
+					{{if not $cDivides64}}
+						multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs - 1 )
+						if multiWordSelect {
+							// we are selecting bits over 2 words
+							selectorIndexNext := selectorIndex+1
+							nbBitsHigh := selectorShift - uint64(64-c)
+							highShift := 64 - nbBitsHigh
+							highShiftRight := highShift - (64 - selectorShift)
+							digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
+						}
+					{{end}}
+
+
+					if digit >= max {
+						digit -= twoc
+						carry = 1 
+					}
+					if digit == 0 {
+						continue
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						digits[i][chunk] = uint32(-digit - 1) | msbWindow
+					}
+					
+				}
+			}
+		}, true)
+		return 
+	}
+
+	digits := scalarsToDigits(scalars)
+
+
+	
+	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	bucketAccumulate := func(chunk int, chRes chan<- {{ toUpper $.PointName }}Jac, chCpus chan struct{}) {
+		<-chCpus
+		var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
+
+		for i := 0 ; i < len(buckets); i++ {
+			buckets[i].SetInfinity()
+		}
+
+
+		// place points into buckets based on their selector
+		for i := 0; i < len(digits); i++ {
+			bits := digits[i][chunk]
+			if bits == 0 {
+				continue
+			}
+			
+			if bits & msbWindow == 0 {
+				// add 
+				buckets[bits-1].mAdd(&points[i])
+			} else {
+				// sub
+				buckets[bits & ^msbWindow].mSub(&points[i])
+			}
+		}
+
+		
+		// reduce buckets into total
+		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+		var runningSum, tj, total {{ toUpper $.PointName }}Jac
+		runningSum.Set(&{{ toLower $.PointName }}Infinity)
+		total.Set(&{{ toLower $.PointName }}Infinity)
+		for k := len(buckets) - 1; k >= 0; k-- {
+			if !buckets[k].ZZ.IsZero() {
+				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			}
+			total.AddAssign(&runningSum)
+		}
+		
+
+		chRes <- total
+		close(chRes)
+		chCpus <- struct{}{}
+	} 
+
+
+	// 1 channel per chunk, which will contain the weighted sum of the its buckets
+	var chTotals [nbChunks]chan {{ toUpper $.PointName }}Jac
+	for i:= 0; i< nbChunks; i++ {
+		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
+	}
+	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
+	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i:=0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
+	}
+
+	return chunkReduce{{ toUpper $.PointName }}(p, c, chTotals[:])
+	
+}
+{{end}}
 
 
 func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
@@ -635,127 +788,6 @@ func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, 
 
 
 
-{{ define "multiexp" }}
-func (p *{{ toUpper .all.PointName }}Jac) multiExpc{{$.C}}(points []{{ toUpper .all.PointName }}Affine, scalars []fr.Element) chan {{ toUpper .all.PointName }}Jac {
-	{{$cDividesBits := divides $.C $.all.RBitLen}}
-	const c  = {{$.C}} 							// scalars partitioned into c-bit radixes
-	const t = fr.Bits / c        			// number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
-	const nbChunks = t {{if not $cDividesBits }} + 1 {{end}} // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c -1)) 
-
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c ) 
-		digits = make([][nbChunks]uint32, len(scalars))
-		
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i:=start; i < end; i++ {
-				var carry int
-				// for each chunk, compute the current digit
-				for chunk := 0; chunk < nbChunks; chunk++ {
-		
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-					selectedBits := selectorMask << selectorShift
-
-					digit := carry
-					carry = 0
-
-					digit += int((scalars[i][selectorIndex] & selectedBits) >> selectorShift)
-					
-					if digit >= max {
-						digit -= twoc
-						carry = 1 
-					}
-					if digit == 0 {
-						continue
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						digits[i][chunk] = uint32(-digit - 1) | msbWindow
-					}
-					
-				}
-			}
-		}, true)
-		return 
-	}
-
-	digits := scalarsToDigits(scalars)
-
-
-	
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- {{ toUpper .all.PointName }}Jac, chCpus chan struct{}) {
-		<-chCpus
-		var buckets [1<<(c-1)]{{ toLower .all.PointName }}JacExtended
-
-		for i := 0 ; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-
-		// place points into buckets based on their selector
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-			
-			if bits & msbWindow == 0 {
-				// add 
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total {{ toUpper .all.PointName }}Jac
-		runningSum.Set(&{{ toLower .all.PointName }}Infinity)
-		total.Set(&{{ toLower .all.PointName }}Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-		
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{}
-	} 
-
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan {{ toUpper .all.PointName }}Jac
-	for i:= 0; i< nbChunks; i++ {
-		chTotals[i] = make(chan {{ toUpper .all.PointName }}Jac, 1)
-	}
-	// for each chunk, add points to the buckets, then do the weighted sum of the buckets
-	// TODO we don't take into account the number of available CPUs here, and we should. WIP on parralelism strategy.
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i:=0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk], chCpus)
-	}
-
-	return chunkReduce{{ toUpper .all.PointName }}(p, c, chTotals[:])
-	
-}
-{{ end }}
 
 `
 

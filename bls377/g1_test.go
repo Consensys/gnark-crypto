@@ -358,7 +358,11 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 3000
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
 			var g G1Jac
 			g.Set(&g1Gen)
 
@@ -374,16 +378,145 @@ func TestG1MultiExp(t *testing.T) {
 				g.AddAssign(&g1Gen)
 			}
 
-			// compare multiExp with double and add
-			var result, expected G1Jac
 			<-result.multiExpc4(samplePoints[:], sampleScalars[:])
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
 
-			// TODO make this a function of nbSamples so that we can reduce test time..
-			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			expected.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc5(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc6(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc7(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
 
 			return result.Equal(&expected)
 		},
@@ -393,7 +526,11 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 3000
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
 			var g G1Jac
 			g.Set(&g1Gen)
 
@@ -409,16 +546,313 @@ func TestG1MultiExp(t *testing.T) {
 				g.AddAssign(&g1Gen)
 			}
 
-			// compare multiExp with double and add
-			var result, expected G1Jac
 			<-result.multiExpc8(samplePoints[:], sampleScalars[:])
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
 
-			// TODO make this a function of nbSamples so that we can reduce test time..
-			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			expected.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc9(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc10(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc11(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc12(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc13(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc14(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc15(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
 
 			return result.Equal(&expected)
 		},
@@ -428,7 +862,11 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			const nbSamples = 3000
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
 			var g G1Jac
 			g.Set(&g1Gen)
 
@@ -444,22 +882,111 @@ func TestG1MultiExp(t *testing.T) {
 				g.AddAssign(&g1Gen)
 			}
 
-			// compare multiExp with double and add
-			var result, expected G1Jac
 			<-result.multiExpc16(samplePoints[:], sampleScalars[:])
-			var finalBigScalar fr.Element
-			var finalBigScalarBi big.Int
 
-			// TODO make this a function of nbSamples so that we can reduce test time..
-			finalBigScalar.SetString("9004500500").MulAssign(&mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			expected.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
 
 			return result.Equal(&expected)
 		},
 		genScalar,
 	))
 
+	properties.Property("Multi exponentation (c=17) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc17(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=18) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			const nbSamples = 1000
+
+			var result, expected G1Jac
+
+			// compute the multiExp
+			var g G1Jac
+			g.Set(&g1Gen)
+
+			// mixer ensures that all the words of a fpElement are set
+			var samplePoints [nbSamples]G1Affine
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+
+			<-result.multiExpc18(samplePoints[:], sampleScalars[:])
+
+			// compute expected result with double and add
+			var scalar big.Int
+			var mixerBigInt big.Int
+
+			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+			scalar.SetInt64(nbSamples)
+			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+			scalar.Div(&scalar, new(big.Int).SetInt64(6))
+			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1GenAff, &scalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	// note : this test is here as we expect to have a different multiExp than the above bucket method
+	// for small number of points
 	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
