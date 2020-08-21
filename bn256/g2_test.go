@@ -308,17 +308,17 @@ func TestG2Ops(t *testing.T) {
 			var g G2Jac
 			var gaff G2Affine
 			gaff.FromJacobian(&g2Gen)
-			g.ScalarMulGLV(&gaff, r)
+			g.GLV(&gaff, r)
 
 			var scalar, blindedScalard, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMulGLV(&gaff, &rminusone)
+			op3.GLV(&gaff, &rminusone)
 			gneg.Neg(&g2Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalard.Add(&scalar, r)
-			op1.ScalarMulGLV(&gaff, &scalar)
-			op2.ScalarMulGLV(&gaff, &blindedScalard)
+			op1.GLV(&gaff, &scalar)
+			op2.GLV(&gaff, &blindedScalard)
 
 			return op1.Equal(&op2) && g.Equal(&g2Infinity) && !op1.Equal(&g2Infinity) && gneg.Equal(&op3)
 
@@ -335,7 +335,7 @@ func TestG2Ops(t *testing.T) {
 			s.ToBigIntRegular(&r)
 			gaff.FromJacobian(&g2Gen)
 			op1.ScalarMultiplication(&gaff, &r)
-			op2.ScalarMulGLV(&gaff, &r)
+			op2.GLV(&gaff, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g2Infinity)
 
 		},
@@ -814,7 +814,7 @@ func BenchmarkG2GLV(b *testing.B) {
 	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		op1.ScalarMulGLV(&g, &s)
+		op1.GLV(&g, &s)
 	}
 
 }
