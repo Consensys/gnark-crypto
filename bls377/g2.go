@@ -616,7 +616,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	// cost = bits/c * (nbPoints + 2^{c-1})
 	// this needs to be verified empirically.
 	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-	implementedCs := []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+	implementedCs := []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
 
 	nbPoints := len(points)
 	min := math.MaxFloat64
@@ -686,9 +686,6 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 
 	case 19:
 		return p.multiExpc19(points, scalars, chCpus)
-
-	case 20:
-		return p.multiExpc20(points, scalars, chCpus)
 
 	default:
 		panic("unimplemented")
@@ -2829,149 +2826,6 @@ func (p *G2Jac) multiExpc18(points []G2Affine, scalars []fr.Element, chCpus chan
 func (p *G2Jac) multiExpc19(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
 
 	const c = 19                             // scalars partitioned into c-bit radixes
-	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
-	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
-	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)
-	const msbWindow uint32 = (1 << (c - 1))
-
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G2Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G2Jac, 1)
-	}
-
-	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
-	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-	// 2^{c} to the current digit, making it negative.
-	// negative digits will be processed in the next step as adding -G into the bucket instead of G
-	// (computing -G is cheap, and this saves us half of the buckets)
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c)
-		digits = make([][nbChunks]uint32, len(scalars))
-
-		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
-			for i := start; i < end; i++ {
-				var carry int
-
-				// for each chunk in the scalar, compute the current digit, and an eventual carry
-				for chunk := 0; chunk < nbChunks; chunk++ {
-
-					// compute offset and word selector / shift to select the right bits of our windows
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-
-					// init with carry if any
-					digit := carry
-					carry = 0
-
-					// digit = value of the c-bit window
-					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
-
-					// c doesn't divide 64, which means we may need to select bits over 2 words
-					multiWordSelect := int(selectorShift) > (64-c) && selectorIndex < (fr.Limbs-1)
-					if multiWordSelect {
-						// we are selecting bits over 2 words
-						selectorIndexNext := selectorIndex + 1
-						nbBitsHigh := selectorShift - uint64(64-c)
-						highShift := 64 - nbBitsHigh
-						highShiftRight := highShift - (64 - selectorShift)
-						digit += int((scalars[i][selectorIndexNext] << highShift) >> highShiftRight)
-					}
-
-					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-					// 2^{c} to the current digit, making it negative.
-					if digit >= max {
-						digit -= twoc
-						carry = 1
-					}
-
-					if digit == 0 {
-						continue // digit[i][chunk] = 0
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						// mark negative sign using msbWindow mask, a bit we know is not used.
-						digits[i][chunk] = uint32(-digit-1) | msbWindow
-					}
-
-				}
-			}
-		}, true)
-		return
-	}
-	digits := scalarsToDigits(scalars)
-
-	// step 2
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
-	bucketAccumulate := func(chunk int, chRes chan<- G2Jac) {
-		<-chCpus // wait and decrement avaiable CPUs on the semaphore
-
-		// declare our buckets on the stack
-		// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
-		// we use jacobian extended formulas here as they are faster than mixed addition
-		var buckets [1 << (c - 1)]g2JacExtended
-		for i := 0; i < len(buckets); i++ {
-			buckets[i].SetInfinity()
-		}
-
-		// for each scalars, get the digit corresponding to the chunk we're processing.
-		for i := 0; i < len(digits); i++ {
-			bits := digits[i][chunk]
-			if bits == 0 {
-				continue
-			}
-
-			// if msbWindow bit is set, we need to substract
-			if bits&msbWindow == 0 {
-				// add
-				buckets[bits-1].mAdd(&points[i])
-			} else {
-				// sub
-				buckets[bits & ^msbWindow].mSub(&points[i])
-			}
-		}
-
-		// reduce buckets into total
-		// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
-		var runningSum, tj, total G2Jac
-		runningSum.Set(&g2Infinity)
-		total.Set(&g2Infinity)
-		for k := len(buckets) - 1; k >= 0; k-- {
-			if !buckets[k].ZZ.IsZero() {
-				runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
-			}
-			total.AddAssign(&runningSum)
-		}
-
-		chRes <- total
-		close(chRes)
-		chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
-	}
-
-	// run step2
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		go bucketAccumulate(chunk, chTotals[chunk])
-	}
-
-	// reduce the buckets weigthed sums into our result
-	return chunkReduceG2(p, c, chTotals[:])
-
-}
-
-// multiExpc20 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
-// with c = 20
-// all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
-// that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
-// chCpus is a semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
-func (p *G2Jac) multiExpc20(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
-
-	const c = 20                             // scalars partitioned into c-bit radixes
 	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
 	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
 	const nbChunks = t + 1                   // note: if c doesn't divide fr.Bits, nbChunks != t)

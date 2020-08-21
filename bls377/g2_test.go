@@ -939,39 +939,6 @@ func TestG2MultiExp(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (c=20) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			numCpus := runtime.NumCPU()
-			chCpus := make(chan struct{}, numCpus)
-			for i := 0; i < numCpus; i++ {
-				chCpus <- struct{}{}
-			}
-
-			result.multiExpc20(samplePoints[:], sampleScalars[:], chCpus)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2GenAff, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
