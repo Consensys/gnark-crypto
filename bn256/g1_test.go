@@ -820,6 +820,19 @@ func BenchmarkG1GLV(b *testing.B) {
 
 }
 
+func BenchmarkG1GLVBis(b *testing.B) {
+	var g G1Affine
+	g.FromJacobian(&g1Gen)
+	var op1 G1Jac
+	var s big.Int
+	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		op1.GLV(&g, &s)
+	}
+
+}
+
 func BenchmarkG1DoubleAndAdd(b *testing.B) {
 
 	var g G1Affine

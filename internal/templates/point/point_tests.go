@@ -541,6 +541,20 @@ func Benchmark{{ toUpper .PointName}}GLV(b *testing.B) {
 	}
 
 }
+
+func Benchmark{{ toUpper .PointName}}GLVBis(b *testing.B) {
+	var g {{ toUpper .PointName}}Affine
+	g.FromJacobian(&{{ toLower .PointName }}Gen)
+	var op1 {{ toUpper .PointName}}Jac
+	var s big.Int
+	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		op1.GLV(&g, &s)
+	}
+
+}
+
 {{end}}
 
 
@@ -640,7 +654,5 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 		})
 	}
 }
-
-
 
 `

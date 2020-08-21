@@ -17,12 +17,12 @@
 package bn256
 
 import (
-	"github.com/consensys/gurvy/utils"
 	"math"
 	"math/big"
 	"runtime"
 
 	"github.com/consensys/gurvy/bn256/fr"
+	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -573,7 +573,9 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Affine) *G2Jac {
 	p.FromAffine(a)
+
 	p.X.MulByElement(&p.X, &thirdRootOneG2)
+
 	return p
 }
 

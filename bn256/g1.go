@@ -574,7 +574,9 @@ func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G1Jac) phi(a *G1Affine) *G1Jac {
 	p.FromAffine(a)
+
 	p.X.Mul(&p.X, &thirdRootOneG1)
+
 	return p
 }
 

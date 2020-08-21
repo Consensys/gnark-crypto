@@ -23,6 +23,7 @@ import (
 
 	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/bls377/fr"
+	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -567,6 +568,65 @@ func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 
 	p.Set(&res)
 
+	return p
+}
+
+// phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
+func (p *G1Jac) phi(a *G1Affine) *G1Jac {
+	p.FromAffine(a)
+
+	p.X.Mul(&p.X, &thirdRootOneG1)
+
+	return p
+}
+
+// GLV performs scalar multiplication using GLV
+func (p *G1Jac) GLV(a *G1Affine, s *big.Int) *G1Jac {
+
+	var table [3]G1Jac
+	var zero big.Int
+	var res G1Jac
+	var k1, k2 fr.Element
+
+	res.Set(&g1Infinity)
+
+	// table stores [+-a, +-phi(a), +-a+-phi(a)]
+	table[0].FromAffine(a)
+	table[1].phi(a)
+
+	// split the scalar, modifies +-a, phi(a) accordingly
+	k := utils.SplitScalar(s, &glvBasis)
+
+	if k[0].Cmp(&zero) == -1 {
+		k[0].Neg(&k[0])
+		table[0].Neg(&table[0])
+	}
+	if k[1].Cmp(&zero) == -1 {
+		k[1].Neg(&k[1])
+		table[1].Neg(&table[1])
+	}
+	table[2].Set(&table[0]).AddAssign(&table[1])
+
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	k1.SetBigInt(&k[0]).FromMont()
+	k2.SetBigInt(&k[1]).FromMont()
+
+	// loop starts from len(k1)/2 due to the bounds
+	for i := len(k1)/2 - 1; i >= 0; i-- {
+		mask := uint64(1) << 63
+		for j := 0; j < 64; j++ {
+			res.Double(&res)
+			b1 := (k1[i] & mask) >> (63 - j)
+			b2 := (k2[i] & mask) >> (63 - j)
+			if b1|b2 != 0 {
+				s := (b2<<1 | b1)
+				res.AddAssign(&table[s-1])
+			}
+			mask = mask >> 1
+		}
+	}
+
+	p.Set(&res)
 	return p
 }
 

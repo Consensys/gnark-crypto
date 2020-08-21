@@ -571,6 +571,68 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Af
 
 	return p
 }
+
+// phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
+func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUpper .PointName}}Jac {
+	p.FromAffine(a)
+	{{if eq .PointName "g2"}}
+		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
+	{{else}}
+		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})
+	{{end}}
+	return p
+}
+
+// GLV performs scalar multiplication using GLV
+func (p *{{toUpper .PointName}}Jac) GLV(a *{{toUpper .PointName}}Affine, s *big.Int) *{{toUpper .PointName}}Jac {
+
+	var table [3]{{toUpper .PointName}}Jac
+	var zero big.Int
+	var res {{toUpper .PointName}}Jac
+	var k1, k2 fr.Element
+
+	res.Set(&{{toLower .PointName}}Infinity)
+
+	// table stores [+-a, +-phi(a), +-a+-phi(a)]
+	table[0].FromAffine(a)
+	table[1].phi(a)
+
+	// split the scalar, modifies +-a, phi(a) accordingly
+	k := utils.SplitScalar(s, &glvBasis)
+
+	if k[0].Cmp(&zero) == -1 {
+		k[0].Neg(&k[0])
+		table[0].Neg(&table[0])
+	}
+	if k[1].Cmp(&zero) == -1 {
+		k[1].Neg(&k[1])
+		table[1].Neg(&table[1])
+	}
+	table[2].Set(&table[0]).AddAssign(&table[1])
+
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	k1.SetBigInt(&k[0]).FromMont()
+	k2.SetBigInt(&k[1]).FromMont()
+
+	// loop starts from len(k1)/2 due to the bounds
+	for i := len(k1)/2 - 1; i >= 0; i-- {
+		mask := uint64(1) << 63
+		for j := 0; j < 64; j++ {
+			res.Double(&res)
+			b1 := (k1[i] & mask) >> (63 - j)
+			b2 := (k2[i] & mask) >> (63 - j)
+			if b1|b2 != 0 {
+				s := (b2<<1 | b1)
+				res.AddAssign(&table[s-1])
+			}
+			mask = mask >> 1
+		}
+	}
+
+	p.Set(&res)
+	return p
+}
+
 {{ end }}
 
 
