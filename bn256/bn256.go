@@ -10,7 +10,7 @@ import (
 )
 
 // E: y**2=x**3+3
-// Etwist: y**2 = x**3+u**-1
+// Etwist: y**2 = x**3+3*(u+9)**-1
 // Tower: Fp->Fp2, u**2=-1 -> Fp12, v**6=9+u
 // Generator (BN family): x=4965661367192848881
 // optimal Ate loop: 6x+2

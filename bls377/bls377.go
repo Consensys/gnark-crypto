@@ -5,6 +5,8 @@ import (
 
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bls377/fp"
+	"github.com/consensys/gurvy/bls377/fr"
+	"github.com/consensys/gurvy/utils"
 )
 
 // E: y**2=x**3+1
@@ -44,6 +46,10 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
+// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// in ker((u,v)->u+vlambda[r]), and their determinant
+var glvBasis utils.Lattice
+
 func init() {
 
 	B.SetUint64(1)
@@ -70,6 +76,8 @@ func init() {
 	thirdRootOneG1.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945")
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("91893752504881257701523279626832445440", 10)
+	_r := fr.Modulus()
+	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	// binary decomposition of 15132376222941642752 little endian
 	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
