@@ -440,7 +440,7 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 			}
 
 			var op1MultiExp {{ toUpper .PointName}}Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -506,8 +506,15 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 					MulAssign(&mixer).
 					FromMont()
 			}
+
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i:=0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
 	
-			<-result.multiExpc{{$c}}(samplePoints[:], sampleScalars[:])
+			result.multiExpc{{$c}}(samplePoints[:], sampleScalars[:], chCpus)
 	
 	
 			// compute expected result with double and add
@@ -628,7 +635,7 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 		b.Run(fmt.Sprintf("%d points",using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
 	}

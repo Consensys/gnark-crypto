@@ -541,7 +541,7 @@ func (p *G1Jac) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Jac {
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
+func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 	// note:
 	// each of the multiExpcX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -555,32 +555,39 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
 
 	// approximate cost (in group operations)
 	// cost = bits/c * (nbPoints + 2^{c-1})
-	bestC := func(nbPoints int) int {
-		implementedCs := []int{4, 8, 16}
+	// this needs to be verified empirically.
+	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	implementedCs := []int{4, 8, 16}
 
-		min := math.MaxFloat64
-		toReturn := 0
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				toReturn = c
-			}
+	nbPoints := len(points)
+	min := math.MaxFloat64
+	bestC := 0
+	for _, c := range implementedCs {
+		cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
+		cost := float64(cc) / float64(c)
+		if cost < min {
+			min = cost
+			bestC = c
 		}
-		return toReturn
 	}
-	c := bestC(len(points))
-	switch c {
+
+	// semaphore to limit number of cpus
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i := 0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+	switch bestC {
 
 	case 4:
-		return p.multiExpc4(points, scalars)
+		return p.multiExpc4(points, scalars, chCpus)
 
 	case 8:
-		return p.multiExpc8(points, scalars)
+		return p.multiExpc8(points, scalars, chCpus)
 
 	case 16:
-		return p.multiExpc16(points, scalars)
+		return p.multiExpc16(points, scalars, chCpus)
 
 	default:
 		panic("unimplemented")
@@ -588,30 +595,25 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) chan G1Jac {
 }
 
 // chunkReduceG1 reduces the weighted sum of the buckets into the result of the multiExp
-func chunkReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) chan G1Jac {
-	chRes := make(chan G1Jac, 1)
-	go func() {
-		totalj := <-chTotals[len(chTotals)-1]
-		p.Set(&totalj)
-		for j := len(chTotals) - 2; j >= 0; j-- {
-			for l := 0; l < c; l++ {
-				p.DoubleAssign()
-			}
-			totalj := <-chTotals[j]
-			p.AddAssign(&totalj)
+func chunkReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) *G1Jac {
+	totalj := <-chTotals[len(chTotals)-1]
+	p.Set(&totalj)
+	for j := len(chTotals) - 2; j >= 0; j-- {
+		for l := 0; l < c; l++ {
+			p.DoubleAssign()
 		}
-
-		chRes <- *p
-		close(chRes)
-	}()
-	return chRes
+		totalj := <-chTotals[j]
+		p.AddAssign(&totalj)
+	}
+	return p
 }
 
 // multiExpc4 implements the multi exp  (section 4 of https://eprint.iacr.org/2012/549.pdf  )
 // with c = 4
 // all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
 // that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
-func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
+// chCpus is a semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 
 	const c = 4                              // scalars partitioned into c-bit radixes
 	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
@@ -623,13 +625,6 @@ func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
 	var chTotals [nbChunks]chan G1Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G1Jac, 1)
-	}
-
-	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
 	}
 
 	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
@@ -749,7 +744,8 @@ func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element) chan G1Jac {
 // with c = 8
 // all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
 // that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
-func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
+// chCpus is a semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 
 	const c = 8                              // scalars partitioned into c-bit radixes
 	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
@@ -761,13 +757,6 @@ func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
 	var chTotals [nbChunks]chan G1Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G1Jac, 1)
-	}
-
-	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
 	}
 
 	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
@@ -887,7 +876,8 @@ func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element) chan G1Jac {
 // with c = 16
 // all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
 // that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
-func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element) chan G1Jac {
+// chCpus is a semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 
 	const c = 16                             // scalars partitioned into c-bit radixes
 	const t = fr.Limbs * 64 / c              // number of c-bit radixes in a scalar
@@ -899,13 +889,6 @@ func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element) chan G1Jac 
 	var chTotals [nbChunks]chan G1Jac
 	for i := 0; i < nbChunks; i++ {
 		chTotals[i] = make(chan G1Jac, 1)
-	}
-
-	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
-		chCpus <- struct{}{}
 	}
 
 	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits

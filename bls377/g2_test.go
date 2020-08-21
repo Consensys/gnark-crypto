@@ -19,6 +19,7 @@ package bls377
 import (
 	"fmt"
 	"math/big"
+	"runtime"
 	"testing"
 
 	"github.com/consensys/gurvy/bls377/fr"
@@ -363,7 +364,7 @@ func TestG2Ops(t *testing.T) {
 			}
 
 			var op1MultiExp G2Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -424,7 +425,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc4(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc4(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -450,7 +458,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc5(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc5(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -476,7 +491,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc6(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc6(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -502,7 +524,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc7(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc7(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -528,7 +557,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc8(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc8(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -554,7 +590,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc9(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc9(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -580,7 +623,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc10(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc10(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -606,7 +656,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc11(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc11(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -632,7 +689,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc12(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc12(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -658,7 +722,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc13(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc13(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -684,7 +755,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc14(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc14(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -710,7 +788,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc15(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc15(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -736,7 +821,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc16(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc16(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -762,7 +854,14 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc17(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc17(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -788,7 +887,80 @@ func TestG2MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc18(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc18(samplePoints[:], sampleScalars[:], chCpus)
+
+			// compute expected result with double and add
+			var finalScalar, mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g2GenAff, &finalScalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=19) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			var result, expected G2Jac
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+			}
+
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc19(samplePoints[:], sampleScalars[:], chCpus)
+
+			// compute expected result with double and add
+			var finalScalar, mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g2GenAff, &finalScalar)
+
+			return result.Equal(&expected)
+		},
+		genScalar,
+	))
+
+	properties.Property("Multi exponentation (c=20) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			var result, expected G2Jac
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+			}
+
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc20(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -901,7 +1073,7 @@ func BenchmarkG2MultiExpG2(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
 	}

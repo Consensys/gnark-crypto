@@ -19,6 +19,7 @@ package bw761
 import (
 	"fmt"
 	"math/big"
+	"runtime"
 	"testing"
 
 	"github.com/consensys/gurvy/bw761/fp"
@@ -323,7 +324,7 @@ func TestG1Ops(t *testing.T) {
 			}
 
 			var op1MultiExp G1Jac
-			<-op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -384,7 +385,14 @@ func TestG1MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc4(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc4(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -410,7 +418,14 @@ func TestG1MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc8(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc8(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -436,7 +451,14 @@ func TestG1MultiExp(t *testing.T) {
 					FromMont()
 			}
 
-			<-result.multiExpc16(samplePoints[:], sampleScalars[:])
+			// semaphore to limit number of cpus
+			numCpus := runtime.NumCPU()
+			chCpus := make(chan struct{}, numCpus)
+			for i := 0; i < numCpus; i++ {
+				chCpus <- struct{}{}
+			}
+
+			result.multiExpc16(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -541,7 +563,7 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				<-testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
 	}

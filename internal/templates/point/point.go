@@ -603,7 +603,7 @@ func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Affine
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
-func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) chan {{ toUpper .PointName }}Jac {
+func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) *{{ toUpper .PointName }}Jac {
 	// note: 
 	// each of the multiExpcX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -617,28 +617,36 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 
 	// approximate cost (in group operations)
 	// cost = bits/c * (nbPoints + 2^{c-1})
-	bestC := func(nbPoints int) int {
-		implementedCs := []int{
-			{{- range $c :=  .CRange}} {{$c}},{{- end}}
-		}
-
-		min := math.MaxFloat64
-		toReturn := 0
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				toReturn = c 
-			}
-		}
-		return toReturn
+	// this needs to be verified empirically. 
+	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	implementedCs := []int{
+		{{- range $c :=  .CRange}} {{$c}},{{- end}}
 	}
-	c := bestC(len(points))
-	switch c {
+
+	nbPoints := len(points)
+	min := math.MaxFloat64
+	bestC := 0
+	for _, c := range implementedCs {
+		cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
+		cost := float64(cc) / float64(c)
+		if cost < min {
+			min = cost
+			bestC = c 
+		}
+	}
+
+	// semaphore to limit number of cpus
+	numCpus := runtime.NumCPU()
+	chCpus := make(chan struct{}, numCpus)
+	for i:=0; i < numCpus; i++ {
+		chCpus <- struct{}{}
+	}
+
+
+	switch bestC {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.multiExpc{{$c}}(points, scalars)	
+		return p.multiExpc{{$c}}(points, scalars, chCpus)	
 	{{end}}
 	default:
 		panic("unimplemented")
@@ -646,23 +654,17 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 }
 
 // chunkReduce{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
-func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  chan {{ toUpper .PointName }}Jac {
-	chRes := make(chan {{ toUpper .PointName }}Jac, 1)
-	go func() {
-		totalj := <-chTotals[len(chTotals)-1]
-		p.Set(&totalj)
-		for j := len(chTotals) - 2; j >= 0; j-- {
-			for l := 0; l < c; l++ {
-				p.DoubleAssign()
-			}
-			totalj := <-chTotals[j]
-			p.AddAssign(&totalj)
+func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  *{{ toUpper .PointName }}Jac {
+	totalj := <-chTotals[len(chTotals)-1]
+	p.Set(&totalj)
+	for j := len(chTotals) - 2; j >= 0; j-- {
+		for l := 0; l < c; l++ {
+			p.DoubleAssign()
 		}
-		
-		chRes <- *p
-		close(chRes)
-	}()
-	return chRes
+		totalj := <-chTotals[j]
+		p.AddAssign(&totalj)
+	}
+	return p
 }
 
 
@@ -673,7 +675,8 @@ func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, 
 // with c = {{$c}}
 // all the multiExpcXX are the same (generated with templates) except for this const c = xx declaration
 // that enables to declares array and allocate on the stack, but generates a lot of duplicate code in our gXX.go files.
-func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) chan {{ toUpper $.PointName }}Jac {
+// chCpus is a semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
+func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, chCpus chan struct{}) *{{ toUpper $.PointName }}Jac {
 	{{$cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const t = fr.Limbs * 64 / c        			// number of c-bit radixes in a scalar
@@ -687,14 +690,6 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 	for i:= 0; i< nbChunks; i++ {
 		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
 	}
-
-	// semaphore to limit number of CPUs running the bucket accumulation and iterating through the points at the same time
-	numCpus := runtime.NumCPU()
-	chCpus := make(chan struct{}, numCpus)
-	for i:=0; i < numCpus; i++ {
-		chCpus <- struct{}{}
-	}
-
 
 	// step 1: we compute, for each scalars over c-bit wide windows, nbChunk digits
 	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract

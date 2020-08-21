@@ -54,10 +54,9 @@ func NewCurveConfig(name, rTorsion, fpModulus string, glv bool) CurveConfig {
 	}
 
 	// default range for C values in the multiExp
-	for c := 4; c < 19; c++ {
+	for c := 4; c <= 20; c++ {
 		conf.CRange = append(conf.CRange, c)
 	}
-
 	return conf
 }
 
