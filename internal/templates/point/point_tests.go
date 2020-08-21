@@ -491,7 +491,10 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	{{range $c :=  .CRange}}
-
+	
+	{{if gt $c 15}}
+	if !testing.Short() {
+	{{end}}
 	properties.Property("Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
@@ -526,6 +529,11 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 		},
 		genScalar,
 	))
+
+	{{if gt $c 15}}
+	}
+	{{end}}
+
 	{{end}}
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

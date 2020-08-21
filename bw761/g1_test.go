@@ -437,38 +437,42 @@ func TestG1MultiExp(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
+	if !testing.Short() {
 
-			var result, expected G1Jac
+		properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
 
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
+				var result, expected G1Jac
 
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
 
-			// semaphore to limit number of cpus
-			numCpus := runtime.NumCPU()
-			chCpus := make(chan struct{}, numCpus)
-			for i := 0; i < numCpus; i++ {
-				chCpus <- struct{}{}
-			}
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
 
-			result.multiExpc16(samplePoints[:], sampleScalars[:], chCpus)
+				// semaphore to limit number of cpus
+				numCpus := runtime.NumCPU()
+				chCpus := make(chan struct{}, numCpus)
+				for i := 0; i < numCpus; i++ {
+					chCpus <- struct{}{}
+				}
 
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1GenAff, &finalScalar)
+				result.multiExpc16(samplePoints[:], sampleScalars[:], chCpus)
 
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1GenAff, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+	}
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
