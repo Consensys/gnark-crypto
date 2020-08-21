@@ -5,10 +5,11 @@ import (
 
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bn256/fp"
+	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/utils"
 )
 
-// E: y**2=x**3+1
+// E: y**2=x**3+3
 // Etwist: y**2 = x**3+u**-1
 // Tower: Fp->Fp2, u**2=-1 -> Fp12, v**6=9+u
 // Generator (BN family): x=4965661367192848881
@@ -33,7 +34,7 @@ var g2GenAff G2Affine
 var g1Infinity G1Jac
 var g2Infinity G2Jac
 
-// optimal Ate loop counter (=trace-1 = x in BLS family)
+// optimal Ate loop counter
 var loopCounter [66]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
@@ -44,6 +45,10 @@ var loopCounter [66]int8
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
+
+// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// in ker((u,v)->u+vlambda[r]), and their determinant
+var glvBasis utils.Lattice
 
 func init() {
 
@@ -71,6 +76,8 @@ func init() {
 	thirdRootOneG1.SetString("2203960485148121921418603742825762020974279258880205651966")
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10)
+	_r := fr.Modulus()
+	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	// binary decomposition of 15132376222941642752 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)
