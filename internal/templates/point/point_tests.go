@@ -470,45 +470,50 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
 	genScalar := GenFr()
 	
+	// size of the multiExps 
+	const nbSamples = 500
+
+	// multi exp points
+	var samplePoints [nbSamples]{{ toUpper $.PointName}}Affine
+	var g {{ toUpper $.PointName}}Jac
+	g.Set(&{{ toLower $.PointName }}Gen)
+	for i := 1; i <= nbSamples; i++ {
+		samplePoints[i-1].FromJacobian(&g)
+		g.AddAssign(&{{ toLower $.PointName }}Gen)
+	}
+
+	// final scalar to use in double and add method (without mixer factor)
+	// n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
+	var scalar big.Int
+	scalar.SetInt64(nbSamples)
+	scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
+	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
+	scalar.Div(&scalar, new(big.Int).SetInt64(6))
+
 	{{range $c :=  .CRange}}
 
 	properties.Property("Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
-			const nbSamples = 500
-			
 			var result, expected {{ toUpper $.PointName}}Jac
 	
-			// compute the multiExp
-			var g {{ toUpper $.PointName}}Jac
-			g.Set(&{{ toLower $.PointName }}Gen)
 	
 			// mixer ensures that all the words of a fpElement are set
-			var samplePoints [nbSamples]{{ toUpper $.PointName}}Affine
 			var sampleScalars [nbSamples]fr.Element
 	
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
 					MulAssign(&mixer).
 					FromMont()
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&{{ toLower $.PointName }}Gen)
 			}
 	
 			<-result.multiExpc{{$c}}(samplePoints[:], sampleScalars[:])
 	
 	
 			// compute expected result with double and add
-			var scalar big.Int
-			var mixerBigInt big.Int
-	
-			// scalar equals n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
-			scalar.SetInt64(nbSamples)
-			scalar.Mul(&scalar, new(big.Int).SetInt64(nbSamples+1))
-			scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
-			scalar.Div(&scalar, new(big.Int).SetInt64(6))
-			scalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&{{ toLower $.PointName }}GenAff, &scalar)
+			var finalScalar,mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&{{ toLower $.PointName }}GenAff, &finalScalar)
 	
 			return result.Equal(&expected)
 		},
