@@ -537,40 +537,6 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointN
 }
 
 {{ if .GLV}}
-// ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
-func (p *{{ toUpper .PointName }}Jac) ScalarMulGLV(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
-
-	var {{ toLower .PointName}}, phi{{ toLower .PointName}}, res {{ toUpper .PointName}}Jac
-	var phi{{ toLower .PointName}}Affine {{ toUpper .PointName}}Affine
-	res.Set(&{{ toLower .PointName}}Infinity)
-	{{ toLower .PointName}}.FromAffine(a)
-	phi{{ toLower .PointName}}.Set(&{{ toLower .PointName}})
-	{{- if eq .CoordType "fp.Element" }}
-		phi{{ toLower .PointName}}.X.Mul(&phi{{ toLower .PointName}}.X, &thirdRootOne{{ toUpper .PointName}})
-	{{- else if eq .CoordType "E2" }}
-		phi{{ toLower .PointName}}.X.MulByElement(&phi{{ toLower .PointName}}.X, &thirdRootOne{{ toUpper .PointName}})
-	{{- end }}
-
-	phi{{ toLower .PointName}}Affine.FromJacobian(&phi{{ toLower .PointName}})
-
-	// s = s1*lambda+s2
-	var s1, s2 big.Int
-	s1.DivMod(s, &lambdaGLV, &s2)
-
-
-	// s1 part (on phi({{ toLower .PointName}})=lambda*{{ toLower .PointName}})
-	phi{{ toLower .PointName}}.ScalarMultiplication(&phi{{ toLower .PointName}}Affine, &s1)
-
-	// s2 part (on {{ toLower .PointName}})
-	{{ toLower .PointName}}.ScalarMultiplication(a, &s2)
-
-	res.AddAssign(&phi{{ toLower .PointName}})
-	res.AddAssign(&{{ toLower .PointName}})
-
-	p.Set(&res)
-
-	return p
-}
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUpper .PointName}}Jac {
@@ -583,8 +549,8 @@ func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUp
 	return p
 }
 
-// GLV performs scalar multiplication using GLV
-func (p *{{toUpper .PointName}}Jac) GLV(a *{{toUpper .PointName}}Affine, s *big.Int) *{{toUpper .PointName}}Jac {
+// ScalarMulGLV performs scalar multiplication using GLV
+func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Affine, s *big.Int) *{{toUpper .PointName}}Jac {
 
 	var table [3]{{toUpper .PointName}}Jac
 	var zero big.Int

@@ -540,36 +540,6 @@ func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 
 }
 
-// ScalarMulGLV performs scalar multiplication using GLV (without the lattice reduction)
-func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
-
-	var g2, phig2, res G2Jac
-	var phig2Affine G2Affine
-	res.Set(&g2Infinity)
-	g2.FromAffine(a)
-	phig2.Set(&g2)
-	phig2.X.MulByElement(&phig2.X, &thirdRootOneG2)
-
-	phig2Affine.FromJacobian(&phig2)
-
-	// s = s1*lambda+s2
-	var s1, s2 big.Int
-	s1.DivMod(s, &lambdaGLV, &s2)
-
-	// s1 part (on phi(g2)=lambda*g2)
-	phig2.ScalarMultiplication(&phig2Affine, &s1)
-
-	// s2 part (on g2)
-	g2.ScalarMultiplication(a, &s2)
-
-	res.AddAssign(&phig2)
-	res.AddAssign(&g2)
-
-	p.Set(&res)
-
-	return p
-}
-
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Affine) *G2Jac {
 	p.FromAffine(a)
@@ -579,8 +549,8 @@ func (p *G2Jac) phi(a *G2Affine) *G2Jac {
 	return p
 }
 
-// GLV performs scalar multiplication using GLV
-func (p *G2Jac) GLV(a *G2Affine, s *big.Int) *G2Jac {
+// ScalarMulGLV performs scalar multiplication using GLV
+func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 
 	var table [3]G2Jac
 	var zero big.Int

@@ -381,17 +381,17 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 				var g {{ toUpper .PointName}}Jac
 				var gaff {{ toUpper .PointName}}Affine
 				gaff.FromJacobian(&{{ toLower .PointName }}Gen)
-				g.GLV(&gaff, r)
+				g.ScalarMulGLV(&gaff, r)
 
 				var scalar, blindedScalard, rminusone big.Int
 				var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
 				rminusone.SetUint64(1).Sub(r, &rminusone)
-				op3.GLV(&gaff, &rminusone)
+				op3.ScalarMulGLV(&gaff, &rminusone)
 				gneg.Neg(&{{ toLower .PointName }}Gen)
 				s.ToBigIntRegular(&scalar)
 				blindedScalard.Add(&scalar, r)
-				op1.GLV(&gaff, &scalar)
-				op2.GLV(&gaff, &blindedScalard)
+				op1.ScalarMulGLV(&gaff, &scalar)
+				op2.ScalarMulGLV(&gaff, &blindedScalard)
 
 				return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName }}Infinity) && !op1.Equal(&{{ toLower .PointName }}Infinity) && gneg.Equal(&op3)
 
@@ -408,7 +408,7 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 				s.ToBigIntRegular(&r)
 				gaff.FromJacobian(&{{ toLower .PointName }}Gen)
 				op1.ScalarMultiplication(&gaff, &r)
-				op2.GLV(&gaff, &r)
+				op2.ScalarMulGLV(&gaff, &r)
 				return op1.Equal(&op2) && !op1.Equal(&{{ toLower .PointName }}Infinity)
 
 			},
@@ -528,50 +528,29 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
-{{if .GLV}}
-func Benchmark{{ toUpper .PointName}}GLV(b *testing.B) {
-	var g {{ toUpper .PointName}}Affine
-	g.FromJacobian(&{{ toLower .PointName }}Gen)
-	var op1 {{ toUpper .PointName}}Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.GLV(&g, &s)
-	}
+func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 
-}
+	var scalar big.Int
+	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 
-func Benchmark{{ toUpper .PointName}}GLVBis(b *testing.B) {
-	var g {{ toUpper .PointName}}Affine
-	g.FromJacobian(&{{ toLower .PointName }}Gen)
-	var op1 {{ toUpper .PointName}}Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.GLV(&g, &s)
-	}
+	var doubleAndAdd {{ toUpper .PointName}}Jac
 
-}
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &scalar)
+		}
+	})
 
-{{end}}
-
-
-
-func Benchmark{{ toUpper .PointName}}DoubleAndAdd(b *testing.B) {
-
-	var g {{ toUpper .PointName}}Affine
-	g.FromJacobian(&{{ toLower .PointName }}Gen)
-
-	var op1 {{ toUpper .PointName}}Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.ScalarMultiplication(&g, &s)
-	}
+	{{if .GLV}}
+	var glv {{ toUpper .PointName}}Jac
+	b.Run("GLV", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			glv.ScalarMulGLV(&{{ toLower .PointName }}GenAff, &scalar)
+		}
+	})
+	{{end}}
 
 }
 

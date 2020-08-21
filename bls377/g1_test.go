@@ -309,17 +309,17 @@ func TestG1Ops(t *testing.T) {
 			var g G1Jac
 			var gaff G1Affine
 			gaff.FromJacobian(&g1Gen)
-			g.GLV(&gaff, r)
+			g.ScalarMulGLV(&gaff, r)
 
 			var scalar, blindedScalard, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.GLV(&gaff, &rminusone)
+			op3.ScalarMulGLV(&gaff, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalard.Add(&scalar, r)
-			op1.GLV(&gaff, &scalar)
-			op2.GLV(&gaff, &blindedScalard)
+			op1.ScalarMulGLV(&gaff, &scalar)
+			op2.ScalarMulGLV(&gaff, &blindedScalard)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -336,7 +336,7 @@ func TestG1Ops(t *testing.T) {
 			s.ToBigIntRegular(&r)
 			gaff.FromJacobian(&g1Gen)
 			op1.ScalarMultiplication(&gaff, &r)
-			op2.GLV(&gaff, &r)
+			op2.ScalarMulGLV(&gaff, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
 
 		},
@@ -807,45 +807,27 @@ func TestG1MultiExp(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
-func BenchmarkG1GLV(b *testing.B) {
-	var g G1Affine
-	g.FromJacobian(&g1Gen)
-	var op1 G1Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.GLV(&g, &s)
-	}
+func BenchmarkG1ScalarMul(b *testing.B) {
 
-}
+	var scalar big.Int
+	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 
-func BenchmarkG1GLVBis(b *testing.B) {
-	var g G1Affine
-	g.FromJacobian(&g1Gen)
-	var op1 G1Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.GLV(&g, &s)
-	}
+	var doubleAndAdd G1Jac
 
-}
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.ScalarMultiplication(&g1GenAff, &scalar)
+		}
+	})
 
-func BenchmarkG1DoubleAndAdd(b *testing.B) {
-
-	var g G1Affine
-	g.FromJacobian(&g1Gen)
-
-	var op1 G1Jac
-	var s big.Int
-	s.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		op1.ScalarMultiplication(&g, &s)
-	}
+	var glv G1Jac
+	b.Run("GLV", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			glv.ScalarMulGLV(&g1GenAff, &scalar)
+		}
+	})
 
 }
 
