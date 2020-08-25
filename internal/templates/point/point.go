@@ -871,9 +871,9 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
+// result must be allocated with len(result) == len(points)
 func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointName}}Jac, result []{{ toUpper .PointName}}Affine) {
-
-	products := make([]fp.Element, len(points))
+	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -883,7 +883,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 			zeroes[i] = true
 			continue
 		}
-		products[i] = accumulator
+		result[i].Y = accumulator
 		accumulator.Mul(&accumulator, &points[i].Z)
 	}
 
@@ -895,7 +895,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 			// do nothing, X and Y are zeroes in affine.
 			continue
 		}
-		products[i].Mul(&products[i], &accInverse)
+		result[i].Y.Mul(&result[i].Y, &accInverse)
 		accInverse.Mul(&accInverse, &points[i].Z)
 	}
 
@@ -905,11 +905,12 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 				// do nothing, X and Y are zeroes in affine.
 				continue
 			}
-			var b fp.Element
-			b.Square(&products[i])
+			var a, b fp.Element
+			a = result[i].Y
+			b.Square(&a)
 			result[i].X.Mul(&points[i].X, &b)
 			result[i].Y.Mul(&points[i].Y, &b).
-				Mul(&result[i].Y, &products[i])
+				Mul(&result[i].Y, &a)
 		}
 	})
 

@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/fr"
 	"github.com/consensys/gurvy/utils"
+	"github.com/consensys/gurvy/utils/debug"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -1101,9 +1102,9 @@ func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
+// result must be allocated with len(result) == len(points)
 func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
-
-	products := make([]fp.Element, len(points))
+	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -1113,7 +1114,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 			zeroes[i] = true
 			continue
 		}
-		products[i] = accumulator
+		result[i].Y = accumulator
 		accumulator.Mul(&accumulator, &points[i].Z)
 	}
 
@@ -1125,7 +1126,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 			// do nothing, X and Y are zeroes in affine.
 			continue
 		}
-		products[i].Mul(&products[i], &accInverse)
+		result[i].Y.Mul(&result[i].Y, &accInverse)
 		accInverse.Mul(&accInverse, &points[i].Z)
 	}
 
@@ -1135,11 +1136,12 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 				// do nothing, X and Y are zeroes in affine.
 				continue
 			}
-			var b fp.Element
-			b.Square(&products[i])
+			var a, b fp.Element
+			a = result[i].Y
+			b.Square(&a)
 			result[i].X.Mul(&points[i].X, &b)
 			result[i].Y.Mul(&points[i].Y, &b).
-				Mul(&result[i].Y, &products[i])
+				Mul(&result[i].Y, &a)
 		}
 	})
 
