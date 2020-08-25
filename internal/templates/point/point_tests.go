@@ -77,6 +77,83 @@ import (
 // ------------------------------------------------------------
 // tests
 
+func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+	{{- else if eq .CoordType "E2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+	properties.Property("{{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "E2" }}
+			func(a *E2) bool {
+		{{- end}}
+			var op1, op2 {{ toUpper .PointName}}Affine
+			op1.FromJacobian(&{{ toLower .PointName}}Gen)
+			op2.FromJacobian(&{{ toLower .PointName}}Gen)
+			{{- if eq .CoordType "fp.Element" }}
+				op2.Y.Mul(&op2.Y, &a)
+			{{- else if eq .CoordType "E2" }}
+			op2.Y.Mul(&op2.Y, a)
+			{{- end}}
+			return op1.IsOnCurve() && !op2.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("{{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "E2" }}
+			func(a *E2) bool {
+		{{- end}}
+			var op1, op2, op3 {{ toUpper .PointName}}Jac
+			op1.Set(&{{ toLower .PointName}}Gen)
+			op3.Set(&{{ toLower .PointName}}Gen)
+
+			op2 = fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName}}Gen, a)
+			{{- if eq .CoordType "fp.Element" }}
+				op3.Y.Mul(&op3.Y, &a)
+			{{- else if eq .CoordType "E2" }}
+				op3.Y.Mul(&op3.Y, a)
+			{{- end}}
+			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("{{ toLower .PointName}}Gen (projective) should be on the curve", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "E2" }}
+			func(a *E2) bool {
+		{{- end}}
+			var op1, op2, op3 {{ toUpper .PointName}}Proj
+			op1.FromJacobian(&{{ toLower .PointName}}Gen)
+			op2.FromJacobian(&{{ toLower .PointName}}Gen)
+			op3.FromJacobian(&{{ toLower .PointName}}Gen)
+
+			op2 = fuzzProjective{{ toUpper .PointName}}(&op1, a)
+			{{- if eq .CoordType "fp.Element" }}
+				op3.Y.Mul(&op3.Y, &a)
+			{{- else if eq .CoordType "E2" }}
+				op3.Y.Mul(&op3.Y, a)
+			{{- end}}
+			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
 func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

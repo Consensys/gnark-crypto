@@ -14,6 +14,8 @@
 
 package bw761
 
+import "github.com/consensys/gurvy/bw761/fp"
+
 // G2Jac same type as G1Jac (degree 6 twist, degree 6 extension)
 type G2Jac = G1Jac
 
@@ -25,3 +27,38 @@ type G2Affine = G1Affine
 
 // g2JacExtended same type as g1JacExtended (degree 6 twist, degree 6 extension)
 type g2JacExtended = g1JacExtended
+
+// IsOnTwist returns true if p in on the curve
+func (p *G2Proj) IsOnTwist() bool {
+	var left, right, tmp fp.Element
+	left.Square(&p.Y).
+		Mul(&left, &p.Z)
+	right.Square(&p.X).
+		Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &Btwist)
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnTwist returns true if p in on the curve
+func (p *G2Jac) IsOnTwist() bool {
+	var left, right, tmp fp.Element
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Square(&tmp).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &Btwist)
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnTwist returns true if p in on the curve
+func (p *G2Affine) IsOnTwist() bool {
+	var point G2Jac
+	point.FromAffine(p)
+	return point.IsOnTwist() // call this function to handle infinity point
+}

@@ -23,6 +23,9 @@ var ID = gurvy.BN256
 // B b coeff of the curve
 var B fp.Element
 
+// Btwist b coeff of the twist (defined over Fp2) curve
+var Btwist E2
+
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
 var g2Gen G2Jac
@@ -52,7 +55,10 @@ var glvBasis utils.Lattice
 
 func init() {
 
-	B.SetUint64(1)
+	B.SetUint64(3)
+	Btwist.A0.SetUint64(9)
+	Btwist.A1.SetUint64(1)
+	Btwist.Inverse(&Btwist).MulByElement(&Btwist, &B)
 
 	g1Gen.X.SetString("20567171726433170376993012834626974355708098753738075953327671604980729474588")
 	g1Gen.Y.SetString("14259118686601658563517637559143782061303537174604067025175876803301021346267")

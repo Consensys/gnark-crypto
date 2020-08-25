@@ -350,6 +350,50 @@ func (p *{{ toUpper .PointName }}Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
+// IsOnCurve returns true if p in on the curve
+func (p *{{ toUpper .PointName}}Proj) IsOnCurve() bool {
+	var left, right, tmp  {{.CoordType}}
+	left.Square(&p.Y).
+		Mul(&left, &p.Z)
+	right.Square(&p.X).
+		Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Mul(&tmp, &p.Z).
+		{{- if eq .PointName "g1"}}
+			Mul(&tmp, &B)
+		{{- else}}
+			Mul(&tmp, &Btwist)
+		{{- end}}
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *{{ toUpper .PointName}}Jac) IsOnCurve() bool {
+	var left, right, tmp  {{.CoordType}}
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Square(&tmp).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &p.Z).
+		{{- if eq .PointName "g1"}}
+			Mul(&tmp, &B)
+		{{- else}}
+			Mul(&tmp, &Btwist)
+		{{- end}}
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
+	var point {{ toUpper .PointName}}Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+
 // AddAssign point addition in montgomery form
 // https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
@@ -504,7 +548,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .Po
 	{{- end}}
 }
 
-// ScalarMultiplication algo for exponentiation
+// ScalarMultiplication 2-bits windowed exponentiation
 func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
 	var res, tmp {{toUpper .PointName}}Jac

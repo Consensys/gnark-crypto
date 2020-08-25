@@ -60,6 +60,54 @@ func fuzzExtendedJacobianG2(p *g2JacExtended, f *E2) g2JacExtended {
 // ------------------------------------------------------------
 // tests
 
+func TestG2IsOnCurve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	genFuzz1 := GenE2()
+	properties.Property("g2Gen (affine) should be on the curve", prop.ForAll(
+		func(a *E2) bool {
+			var op1, op2 G2Affine
+			op1.FromJacobian(&g2Gen)
+			op2.FromJacobian(&g2Gen)
+			op2.Y.Mul(&op2.Y, a)
+			return op1.IsOnCurve() && !op2.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("g2Gen (Jacobian) should be on the curve", prop.ForAll(
+		func(a *E2) bool {
+			var op1, op2, op3 G2Jac
+			op1.Set(&g2Gen)
+			op3.Set(&g2Gen)
+
+			op2 = fuzzJacobianG2(&g2Gen, a)
+			op3.Y.Mul(&op3.Y, a)
+			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("g2Gen (projective) should be on the curve", prop.ForAll(
+		func(a *E2) bool {
+			var op1, op2, op3 G2Proj
+			op1.FromJacobian(&g2Gen)
+			op2.FromJacobian(&g2Gen)
+			op3.FromJacobian(&g2Gen)
+
+			op2 = fuzzProjectiveG2(&op1, a)
+			op3.Y.Mul(&op3.Y, a)
+			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestG2Conversions(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
