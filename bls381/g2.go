@@ -359,6 +359,41 @@ func (p *G2Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
+// IsOnCurve returns true if p in on the curve
+func (p *G2Proj) IsOnCurve() bool {
+	var left, right, tmp E2
+	left.Square(&p.Y).
+		Mul(&left, &p.Z)
+	right.Square(&p.X).
+		Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &Btwist)
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *G2Jac) IsOnCurve() bool {
+	var left, right, tmp E2
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	tmp.Square(&p.Z).
+		Square(&tmp).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &p.Z).
+		Mul(&tmp, &Btwist)
+	right.Add(&right, &tmp)
+	return left.Equal(&right)
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *G2Affine) IsOnCurve() bool {
+	var point G2Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
 // AddAssign point addition in montgomery form
 // https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
@@ -508,7 +543,7 @@ func (p *G2Jac) ScalarMulByGen(s *big.Int) *G2Jac {
 	return p.ScalarMulGLV(&g2GenAff, s)
 }
 
-// ScalarMultiplication algo for exponentiation
+// ScalarMultiplication 2-bits windowed exponentiation
 func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 
 	var res, tmp G2Jac
