@@ -89,3 +89,10 @@ func init() {
 	loopCounter = [64]int8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1}
 
 }
+
+// Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
+func Generators() (g1 G1Affine, g2 G2Affine) {
+	g1 = g1GenAff
+	g2 = g2GenAff
+	return
+}

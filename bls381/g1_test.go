@@ -1044,6 +1044,54 @@ func TestG1MultiExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestG1BatchScalarMultiplication(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	genScalar := GenFr()
+
+	// size of the multiExps
+	const nbSamples = 500
+
+	properties.Property("BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+			}
+
+			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
+
+			if len(result) != len(sampleScalars) {
+				return false
+			}
+
+			for i := 0; i < len(result); i++ {
+				var expectedJac G1Jac
+				var expected G1Affine
+				var b big.Int
+				expectedJac.ScalarMulGLV(&g1GenAff, sampleScalars[i].ToBigInt(&b))
+				expected.FromJacobian(&expectedJac)
+				if !result[i].Equal(&expected) {
+					return false
+				}
+			}
+			return true
+		},
+		genScalar,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 // ------------------------------------------------------------
 // benches
 

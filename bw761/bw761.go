@@ -106,3 +106,10 @@ func init() {
 	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 }
+
+// Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
+func Generators() (g1 G1Affine, g2 G2Affine) {
+	g1 = g1GenAff
+	g2 = g2GenAff
+	return
+}

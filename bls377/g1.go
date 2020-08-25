@@ -775,7 +775,7 @@ func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -814,7 +814,7 @@ func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -907,7 +907,7 @@ func (p *G1Jac) multiExpc5(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -957,7 +957,7 @@ func (p *G1Jac) multiExpc5(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1050,7 +1050,7 @@ func (p *G1Jac) multiExpc6(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1100,7 +1100,7 @@ func (p *G1Jac) multiExpc6(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1193,7 +1193,7 @@ func (p *G1Jac) multiExpc7(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1243,7 +1243,7 @@ func (p *G1Jac) multiExpc7(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1336,7 +1336,7 @@ func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1375,7 +1375,7 @@ func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1468,7 +1468,7 @@ func (p *G1Jac) multiExpc9(points []G1Affine, scalars []fr.Element, chCpus chan 
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1518,7 +1518,7 @@ func (p *G1Jac) multiExpc9(points []G1Affine, scalars []fr.Element, chCpus chan 
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1611,7 +1611,7 @@ func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1661,7 +1661,7 @@ func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1754,7 +1754,7 @@ func (p *G1Jac) multiExpc11(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1804,7 +1804,7 @@ func (p *G1Jac) multiExpc11(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -1897,7 +1897,7 @@ func (p *G1Jac) multiExpc12(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -1947,7 +1947,7 @@ func (p *G1Jac) multiExpc12(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2040,7 +2040,7 @@ func (p *G1Jac) multiExpc13(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2090,7 +2090,7 @@ func (p *G1Jac) multiExpc13(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2183,7 +2183,7 @@ func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2233,7 +2233,7 @@ func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2326,7 +2326,7 @@ func (p *G1Jac) multiExpc15(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2376,7 +2376,7 @@ func (p *G1Jac) multiExpc15(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2469,7 +2469,7 @@ func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2508,7 +2508,7 @@ func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2601,7 +2601,7 @@ func (p *G1Jac) multiExpc17(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2651,7 +2651,7 @@ func (p *G1Jac) multiExpc17(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2744,7 +2744,7 @@ func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2794,7 +2794,7 @@ func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -2887,7 +2887,7 @@ func (p *G1Jac) multiExpc19(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -2937,7 +2937,7 @@ func (p *G1Jac) multiExpc19(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -3030,7 +3030,7 @@ func (p *G1Jac) multiExpc20(points []G1Affine, scalars []fr.Element, chCpus chan
 		digits = make([][nbChunks]uint32, len(scalars))
 
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i := start; i < end; i++ {
 				var carry int
 
@@ -3080,7 +3080,7 @@ func (p *G1Jac) multiExpc20(points []G1Affine, scalars []fr.Element, chCpus chan
 
 				}
 			}
-		}, true)
+		})
 		return
 	}
 	digits := scalarsToDigits(scalars)
@@ -3141,4 +3141,111 @@ func (p *G1Jac) multiExpc20(points []G1Affine, scalars []fr.Element, chCpus chan
 	// reduce the buckets weigthed sums into our result
 	return chunkReduceG1(p, c, chTotals[:])
 
+}
+
+// BatchScalarMultiplicationG1 multiplies the same base (generator) by all scalars
+// and return resulting points in affine coordinates
+// currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
+// TODO : implement variable window size depending on input size
+// TODO : implement montgomery batch inversion to batch convert the jacobian points to affine coordinates
+func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+	const c = 16 // window size
+	const nbChunks = fr.Limbs * 64 / c
+	const selectorMask uint64 = (1 << c) - 1 // low c bits are 1
+	const msbWindow uint32 = (1 << (c - 1))
+
+	// precompute all powers of base for our window
+	var baseTable [(1 << (c - 1))]G1Jac
+	baseTable[0].Set(&g1Infinity)
+	baseTable[0].AddMixed(base)
+	for i := 1; i < len(baseTable); i++ {
+		baseTable[i] = baseTable[i-1]
+		baseTable[i].AddMixed(base)
+	}
+
+	// convert our scalars to digits
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c)
+		digits = make([][nbChunks]uint32, len(scalars))
+
+		// process the scalars in parallel
+		parallel.Execute(len(scalars), func(start, end int) {
+			for i := start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used.
+						digits[i][chunk] = uint32(-digit-1) | msbWindow
+					}
+
+				}
+			}
+		})
+		return
+	}
+	digits := scalarsToDigits(scalars)
+
+	toReturn := make([]G1Affine, len(scalars))
+	// for each digit, take value in the base table, double it c time, voila.
+	parallel.Execute(len(digits), func(start, end int) {
+		var p G1Jac
+		for i := start; i < end; i++ {
+			p.Set(&g1Infinity)
+
+			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+				if chunk != nbChunks-1 {
+					for j := 0; j < c; j++ {
+						p.DoubleAssign()
+					}
+				}
+
+				bits := digits[i][chunk]
+				if bits != 0 {
+					if bits&msbWindow == 0 {
+						// add
+						p.AddAssign(&baseTable[bits-1])
+					} else {
+						// sub
+						t := baseTable[bits & ^msbWindow]
+						t.Neg(&t)
+						p.AddAssign(&t)
+					}
+				}
+			}
+
+			// set our result point
+			toReturn[i].FromJacobian(&p)
+		}
+	})
+
+	return toReturn
 }

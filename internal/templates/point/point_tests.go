@@ -536,8 +536,6 @@ func Test{{ toUpper .PointName}}Ops(t *testing.T) {
 }
 
 
-
-
 func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -612,6 +610,58 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	{{end}}
 
 	{{end}}
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	genScalar := GenFr()
+	
+	// size of the multiExps 
+	const nbSamples = 500
+
+	properties.Property("BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+		func(mixer fr.Element) bool {
+	
+		
+	
+	
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+	
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+			}
+
+			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{ toLower $.PointName }}GenAff, sampleScalars[:])
+	
+			if len(result) != len(sampleScalars) {
+				return false
+			}
+
+			for i:=0; i<len(result); i++ {
+				var expectedJac {{ toUpper $.PointName}}Jac 
+				var expected {{ toUpper $.PointName}}Affine
+				var b big.Int
+				expectedJac.ScalarMulGLV(&{{ toLower $.PointName }}GenAff, sampleScalars[i].ToBigInt(&b))
+				expected.FromJacobian(&expectedJac)
+				if !result[i].Equal(&expected) {
+					return false
+				}
+			}
+			return true 
+		},
+		genScalar,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

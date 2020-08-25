@@ -746,7 +746,7 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 		digits = make([][nbChunks]uint32, len(scalars))
 		
 		// process the scalars in parallel
-		parallel.Execute(0, len(scalars), func(start, end int) {
+		parallel.Execute(len(scalars), func(start, end int) {
 			for i:=start; i < end; i++ {
 				var carry int
 
@@ -799,7 +799,7 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 					
 				}
 			}
-		}, true)
+		})
 		return 
 	}
 	digits := scalarsToDigits(scalars)
@@ -865,5 +865,113 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 	
 }
 {{end}}
+
+
+// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
+// and return resulting points in affine coordinates
+// currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
+// TODO : implement variable window size depending on input size
+// TODO : implement montgomery batch inversion to batch convert the jacobian points to affine coordinates
+func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}Affine, scalars []fr.Element) []{{ toUpper .PointName }}Affine {
+	const c = 16 // window size
+	const nbChunks = fr.Limbs * 64 / c
+	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
+	const msbWindow uint32 = (1 << (c -1)) 
+
+	// precompute all powers of base for our window
+	var baseTable [(1<<(c-1))]{{ toUpper .PointName }}Jac
+	baseTable[0].Set(&{{ toLower .PointName}}Infinity)
+	baseTable[0].AddMixed(base)
+	for i:=1;i<len(baseTable);i++ {
+		baseTable[i] = baseTable[i-1]
+		baseTable[i].AddMixed(base)
+	}
+
+	// convert our scalars to digits
+	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
+		const max = int(msbWindow)
+		const twoc = (1 << c ) 
+		digits = make([][nbChunks]uint32, len(scalars))
+		
+		// process the scalars in parallel
+		parallel.Execute( len(scalars), func(start, end int) {
+			for i:=start; i < end; i++ {
+				var carry int
+
+				// for each chunk in the scalar, compute the current digit, and an eventual carry
+				for chunk := 0; chunk < nbChunks; chunk++ {
+		
+					// compute offset and word selector / shift to select the right bits of our windows
+					jc := uint64(chunk * c)
+					selectorIndex := jc / 64
+					selectorShift := jc - (selectorIndex * 64)
+
+					// init with carry if any
+					digit := carry
+					carry = 0
+
+					// digit = value of the c-bit window
+					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
+					
+					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+					// 2^{c} to the current digit, making it negative.
+					if digit >= max {
+						digit -= twoc
+						carry = 1 
+					}
+
+					if digit == 0 {
+						continue // digit[i][chunk] = 0
+					}
+
+					if digit > 0 {
+						digits[i][chunk] = uint32(digit)
+					} else {
+						// mark negative sign using msbWindow mask, a bit we know is not used. 
+						digits[i][chunk] = uint32(-digit - 1) | msbWindow
+					}
+					
+				}
+			}
+		})
+		return 
+	}
+	digits := scalarsToDigits(scalars)
+
+	toReturn := make([]{{ toUpper .PointName }}Affine, len(scalars))
+	// for each digit, take value in the base table, double it c time, voila.
+	parallel.Execute( len(digits), func(start, end int) {
+		var p {{ toUpper .PointName }}Jac
+		for i:=start; i < end; i++ {
+			p.Set(&{{ toLower .PointName}}Infinity)
+			
+			for chunk := nbChunks - 1; chunk >=0; chunk-- {
+				if chunk != nbChunks -1 {
+					for j:=0; j<c; j++ {
+						p.DoubleAssign()
+					}
+				}
+
+				bits := digits[i][chunk]
+				if bits != 0 {
+					if bits & msbWindow == 0 {
+						// add 
+						p.AddAssign(&baseTable[bits-1])
+					} else {
+						// sub 
+						t := baseTable[bits & ^msbWindow]
+						t.Neg(&t)
+						p.AddAssign(&t)
+					}
+				}
+			}
+
+			// set our result point 
+			toReturn[i].FromJacobian(&p)
+		}
+	})
+
+	return toReturn
+}
 
 `
