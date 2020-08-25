@@ -866,12 +866,60 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 }
 {{end}}
 
+{{/* note batch inversion for g2 elements with e2 that is curve specific is a bit more troublesome to implement */}}
+{{if eq .PointName "g1"}}
+
+// BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
+// performing a single field inversion (Montgomery batch inversion trick)
+func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointName}}Jac, result []{{ toUpper .PointName}}Affine) {
+
+	products := make([]fp.Element, len(points))
+	zeroes := make([]bool, len(points))
+	accumulator := fp.One()
+
+	// mark all zero points to ignore them. 
+	for i:=0; i < len(points); i++ {
+		if points[i].Z.IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		products[i] = accumulator
+		accumulator.Mul(&accumulator, &points[i].Z)
+	}
+
+	var accInverse fp.Element
+	accInverse.Inverse(&accumulator)
+
+	for i := len(points) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			// do nothing, X and Y are zeroes in affine.
+			continue
+		}
+		products[i].Mul(&products[i], &accInverse)
+		accInverse.Mul(&accInverse, &points[i].Z)
+	}
+
+	parallel.Execute( len(points), func(start, end int) {
+		for i:=start; i < end; i++ {
+			if zeroes[i] {
+				// do nothing, X and Y are zeroes in affine.
+				continue
+			}
+			var b fp.Element
+			b.Square(&products[i])
+			result[i].X.Mul(&points[i].X, &b)
+			result[i].Y.Mul(&points[i].Y, &b).
+				Mul(&result[i].Y, &products[i])
+		}
+	})
+
+}
+{{end}}
 
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
 // TODO : implement variable window size depending on input size
-// TODO : implement montgomery batch inversion to batch convert the jacobian points to affine coordinates
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}Affine, scalars []fr.Element) []{{ toUpper .PointName }}Affine {
 	const c = 16 // window size
 	const nbChunks = fr.Limbs * 64 / c
@@ -938,7 +986,12 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 	}
 	digits := scalarsToDigits(scalars)
 
-	toReturn := make([]{{ toUpper .PointName }}Affine, len(scalars))
+	{{if eq .PointName "g1"}}
+		toReturn := make([]{{ toUpper .PointName }}Jac, len(scalars))
+	{{else}}
+		toReturn := make([]{{ toUpper .PointName }}Affine, len(scalars))
+	{{end}}
+
 	// for each digit, take value in the base table, double it c time, voila.
 	parallel.Execute( len(digits), func(start, end int) {
 		var p {{ toUpper .PointName }}Jac
@@ -967,11 +1020,22 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 			}
 
 			// set our result point 
-			toReturn[i].FromJacobian(&p)
+			{{if eq .PointName "g1"}}
+				toReturn[i] = p
+			{{else}}
+				toReturn[i].FromJacobian(&p)
+			{{end}}
+			
 		}
 	})
 
-	return toReturn
+	{{if eq .PointName "g1"}}
+		toReturnAff := make([]{{ toUpper .PointName }}Affine, len(scalars))
+		BatchJacobianToAffine{{ toUpper .PointName }}(toReturn, toReturnAff)
+		return toReturnAff
+	{{else}}
+		return toReturn
+	{{end}}
 }
 
 `

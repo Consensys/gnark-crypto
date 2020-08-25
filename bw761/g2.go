@@ -1103,7 +1103,6 @@ func (p *G2Jac) multiExpc16(points []G2Affine, scalars []fr.Element, chCpus chan
 // and return resulting points in affine coordinates
 // currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
 // TODO : implement variable window size depending on input size
-// TODO : implement montgomery batch inversion to batch convert the jacobian points to affine coordinates
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 	const c = 16 // window size
 	const nbChunks = fr.Limbs * 64 / c
@@ -1171,6 +1170,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	digits := scalarsToDigits(scalars)
 
 	toReturn := make([]G2Affine, len(scalars))
+
 	// for each digit, take value in the base table, double it c time, voila.
 	parallel.Execute(len(digits), func(start, end int) {
 		var p G2Jac
@@ -1199,9 +1199,12 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 			}
 
 			// set our result point
+
 			toReturn[i].FromJacobian(&p)
+
 		}
 	})
 
 	return toReturn
+
 }
