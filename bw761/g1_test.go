@@ -351,6 +351,47 @@ func TestG1Ops(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property("scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
+		func(s fr.Element) bool {
+
+			r := fr.Modulus()
+			var g G1Jac
+			var gaff G1Affine
+			gaff.FromJacobian(&g1Gen)
+			g.ScalarMulGLV(&gaff, r)
+
+			var scalar, blindedScalard, rminusone big.Int
+			var op1, op2, op3, gneg G1Jac
+			rminusone.SetUint64(1).Sub(r, &rminusone)
+			op3.ScalarMulGLV(&gaff, &rminusone)
+			gneg.Neg(&g1Gen)
+			s.ToBigIntRegular(&scalar)
+			blindedScalard.Add(&scalar, r)
+			op1.ScalarMulGLV(&gaff, &scalar)
+			op2.ScalarMulGLV(&gaff, &blindedScalard)
+
+			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
+
+		},
+		genScalar,
+	))
+
+	properties.Property("GLV and Double and Add should output the same result", prop.ForAll(
+		func(s fr.Element) bool {
+
+			var r big.Int
+			var op1, op2 G1Jac
+			var gaff G1Affine
+			s.ToBigIntRegular(&r)
+			gaff.FromJacobian(&g1Gen)
+			op1.ScalarMultiplication(&gaff, &r)
+			op2.ScalarMulGLV(&gaff, &r)
+			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
+
+		},
+		genScalar,
+	))
+
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
@@ -539,6 +580,14 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			doubleAndAdd.ScalarMultiplication(&g1GenAff, &scalar)
+		}
+	})
+
+	var glv G1Jac
+	b.Run("GLV", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			glv.ScalarMulGLV(&g1GenAff, &scalar)
 		}
 	})
 

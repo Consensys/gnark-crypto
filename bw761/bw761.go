@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bw761/fp"
+	"github.com/consensys/gurvy/bw761/fr"
 	"github.com/consensys/gurvy/utils"
 )
 
@@ -58,6 +59,19 @@ var g2Infinity G2Jac
 var loopCounter1 [64]int8
 var loopCounter2 [127]int8
 
+// Parameters useful for the GLV scalar multiplication. The third roots define the
+//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+// <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
+// of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+var thirdRootOneG1 fp.Element
+var thirdRootOneG2 fp.Element
+var lambdaGLV big.Int
+
+// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// in ker((u,v)->u+vlambda[r]), and their determinant
+var glvBasis utils.Lattice
+
 func init() {
 
 	B.SetOne().Neg(&B)
@@ -82,8 +96,13 @@ func init() {
 
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
-
 	g2Infinity.X.SetOne()
 	g2Infinity.Y.SetOne()
+
+	thirdRootOneG1.SetString("1968985824090209297278610739700577151397666382303825728450741611566800370218827257750865013421937292370006175842381275743914023380727582819905021229583192207421122272650305267822868639090213645505120388400344940985710520836292650")
+	thirdRootOneG2.Square(&thirdRootOneG1)
+	lambdaGLV.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945", 10)
+	_r := fr.Modulus()
+	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 }

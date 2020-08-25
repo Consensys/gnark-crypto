@@ -31,7 +31,7 @@ func main() {
 	bw761 := generator.NewCurveConfig("bw761",
 		"258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
 		"6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299",
-		false,
+		true,
 	)
 	bw761.CRange = []int{4, 8, 16}
 
@@ -69,7 +69,15 @@ func main() {
 				os.Exit(-1)
 			}
 		} else {
+
+			// G1
 			if err := generator.GeneratePoint(confs[i], "fp.Element", "g1"); err != nil {
+				fmt.Printf("\n%s\n", err.Error())
+				os.Exit(-1)
+			}
+
+			// G2
+			if err := generator.GeneratePoint(confs[i], "fp.Element", "g2"); err != nil {
 				fmt.Printf("\n%s\n", err.Error())
 				os.Exit(-1)
 			}

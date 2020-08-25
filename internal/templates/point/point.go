@@ -585,7 +585,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointN
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUpper .PointName}}Jac {
 	p.FromAffine(a)
-	{{if eq .PointName "g2"}}
+	{{if eq .CoordType "E2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{else}}
 		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})
