@@ -32,23 +32,12 @@ type MultiExpOptions struct {
 }
 
 func (opt *MultiExpOptions) build(nbPoints int) {
-	// implemented msmC methods (the c we use must be in this slice)
-	implementedCs := []uint64{4, 8, 16}
-
-	if opt.C != 0 {
-		// C is set, ensure the implementation exists.
-		found := false
-		for i := 0; i < len(implementedCs); i++ {
-			if implementedCs[i] == opt.C {
-				found = true
-				break
-			}
-		}
-		if !found {
-			panic("invalid option: unsupported C value")
-		}
-	} else {
+	if opt.C == 0 {
 		// C is not set, use default value
+
+		// implemented msmC methods (the c we use must be in this slice)
+		implementedCs := []uint64{4, 8, 16}
+
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c-1})
 		// this needs to be verified empirically.
