@@ -81,12 +81,12 @@ func (p *g2JacExtended) ToJac(Q *G2Jac) *G2Jac {
 	return Q
 }
 
-// unsafeToJac sets p in affine coords, but don't check for infinity
-func (p *g2JacExtended) unsafeToJac(Q *G2Jac) *G2Jac {
-	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
-	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
-	Q.Z.Set(&p.ZZZ)
-	return Q
+// unsafeFromJacExtended sets p in affine coords, but don't check for infinity
+func (p *G2Jac) unsafeFromJacExtended(Q *g2JacExtended) *G2Jac {
+	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
+	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
+	p.Z.Set(&Q.ZZZ)
+	return p
 }
 
 // mSub
@@ -812,7 +812,7 @@ func msmProcessChunkG2(chunk uint64,
 	total.Set(&g2Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			runningSum.AddAssign(tj.unsafeFromJacExtended(&buckets[k]))
 		}
 		total.AddAssign(&runningSum)
 	}

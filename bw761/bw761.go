@@ -39,7 +39,7 @@ var ID = gurvy.BW761
 // B b coeff of the curve
 var B fp.Element
 
-// Btwist b coeff of the twist (defined over Fp2) curve
+// Btwist b coeff of the twist (defined over Fp) curve
 var Btwist fp.Element
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)

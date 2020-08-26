@@ -66,12 +66,12 @@ func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}J
 	return Q
 }
 
-// unsafeToJac sets p in affine coords, but don't check for infinity
-func (p *{{ toLower .PointName }}JacExtended) unsafeToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
-	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
-	Q.Z.Set(&p.ZZZ)
-	return Q
+// unsafeFromJacExtended sets p in affine coords, but don't check for infinity
+func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
+	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
+	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
+	p.Z.Set(&Q.ZZZ)
+	return p
 }
 
 
@@ -779,7 +779,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	total.Set(&{{ toLower .PointName }}Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			runningSum.AddAssign(buckets[k].unsafeToJac(&tj))
+			runningSum.AddAssign(tj.unsafeFromJacExtended(&buckets[k]))
 		}
 		total.AddAssign(&runningSum)
 	}
