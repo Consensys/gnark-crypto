@@ -57,12 +57,6 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...MultiE
 	}
 	opt.build(len(points))
 
-	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-	chCpus := make(chan struct{}, opt.MaxCPUs)
-	for i := 0; i < opt.MaxCPUs; i++ {
-		chCpus <- struct{}{}
-	}
-
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
@@ -73,55 +67,55 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...MultiE
 	switch opt.C {
 
 	case 4:
-		return p.msmC4(points, scalars, chCpus)
+		return p.msmC4(points, scalars, opt.ChCpus)
 
 	case 5:
-		return p.msmC5(points, scalars, chCpus)
+		return p.msmC5(points, scalars, opt.ChCpus)
 
 	case 6:
-		return p.msmC6(points, scalars, chCpus)
+		return p.msmC6(points, scalars, opt.ChCpus)
 
 	case 7:
-		return p.msmC7(points, scalars, chCpus)
+		return p.msmC7(points, scalars, opt.ChCpus)
 
 	case 8:
-		return p.msmC8(points, scalars, chCpus)
+		return p.msmC8(points, scalars, opt.ChCpus)
 
 	case 9:
-		return p.msmC9(points, scalars, chCpus)
+		return p.msmC9(points, scalars, opt.ChCpus)
 
 	case 10:
-		return p.msmC10(points, scalars, chCpus)
+		return p.msmC10(points, scalars, opt.ChCpus)
 
 	case 11:
-		return p.msmC11(points, scalars, chCpus)
+		return p.msmC11(points, scalars, opt.ChCpus)
 
 	case 12:
-		return p.msmC12(points, scalars, chCpus)
+		return p.msmC12(points, scalars, opt.ChCpus)
 
 	case 13:
-		return p.msmC13(points, scalars, chCpus)
+		return p.msmC13(points, scalars, opt.ChCpus)
 
 	case 14:
-		return p.msmC14(points, scalars, chCpus)
+		return p.msmC14(points, scalars, opt.ChCpus)
 
 	case 15:
-		return p.msmC15(points, scalars, chCpus)
+		return p.msmC15(points, scalars, opt.ChCpus)
 
 	case 16:
-		return p.msmC16(points, scalars, chCpus)
+		return p.msmC16(points, scalars, opt.ChCpus)
 
 	case 17:
-		return p.msmC17(points, scalars, chCpus)
+		return p.msmC17(points, scalars, opt.ChCpus)
 
 	case 18:
-		return p.msmC18(points, scalars, chCpus)
+		return p.msmC18(points, scalars, opt.ChCpus)
 
 	case 19:
-		return p.msmC19(points, scalars, chCpus)
+		return p.msmC19(points, scalars, opt.ChCpus)
 
 	case 20:
-		return p.msmC20(points, scalars, chCpus)
+		return p.msmC20(points, scalars, opt.ChCpus)
 
 	default:
 		panic("unimplemented")

@@ -41,12 +41,6 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	}
 	opt.build(len(points))
 
-	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-	chCpus := make(chan struct{}, opt.MaxCPUs)
-	for i:=0; i < opt.MaxCPUs; i++ {
-		chCpus <- struct{}{}
-	}
-
 	// partition the scalars 
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
@@ -57,7 +51,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	switch opt.C {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.msmC{{$c}}(points, scalars, chCpus)	
+		return p.msmC{{$c}}(points, scalars, opt.ChCpus)	
 	{{end}}
 	default:
 		panic("unimplemented")
@@ -185,7 +179,7 @@ import (
 type MultiExpOptions struct {
 	IsPartitionned bool // indicates whether or not the scalars inputs are already partitionned
 	C uint64  				// sets the "c" parameter (window size)
-	MaxCPUs int  		// sets max CPUs to use. ignored if <0 or > runtime.NumCPUs()
+	ChCpus chan struct{}  	// semaphore to limit number of cpus iterating through points and scalrs at the same time
 } 
 
 func (opt *MultiExpOptions) build(nbPoints int) {
@@ -212,15 +206,12 @@ func (opt *MultiExpOptions) build(nbPoints int) {
 		}
 	}
 
-
-	// available cpus 
-	numCpus := runtime.NumCPU()
-	if !(opt.MaxCPUs > 0 && opt.MaxCPUs < numCpus) {
-		opt.MaxCPUs = numCpus
+	if opt.ChCpus == nil {
+		opt.ChCpus = make(chan struct{}, runtime.NumCPU())
+		for i:=0; i < runtime.NumCPU(); i++ {
+			opt.ChCpus <- struct{}{}
+		}
 	}
-
-
-	
 }
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
@@ -321,7 +312,7 @@ func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Elemen
 				
 			}
 		}
-	}, opt.MaxCPUs)
+	}, len(opt.ChCpus))
 	return toReturn
 }
 

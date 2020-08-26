@@ -26,9 +26,9 @@ import (
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	IsPartitionned bool   // indicates whether or not the scalars inputs are already partitionned
-	C              uint64 // sets the "c" parameter (window size)
-	MaxCPUs        int    // sets max CPUs to use. ignored if <0 or > runtime.NumCPUs()
+	IsPartitionned bool          // indicates whether or not the scalars inputs are already partitionned
+	C              uint64        // sets the "c" parameter (window size)
+	ChCpus         chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 }
 
 func (opt *MultiExpOptions) build(nbPoints int) {
@@ -53,12 +53,12 @@ func (opt *MultiExpOptions) build(nbPoints int) {
 		}
 	}
 
-	// available cpus
-	numCpus := runtime.NumCPU()
-	if !(opt.MaxCPUs > 0 && opt.MaxCPUs < numCpus) {
-		opt.MaxCPUs = numCpus
+	if opt.ChCpus == nil {
+		opt.ChCpus = make(chan struct{}, runtime.NumCPU())
+		for i := 0; i < runtime.NumCPU(); i++ {
+			opt.ChCpus <- struct{}{}
+		}
 	}
-
 }
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
@@ -157,6 +157,6 @@ func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Elemen
 
 			}
 		}
-	}, opt.MaxCPUs)
+	}, len(opt.ChCpus))
 	return toReturn
 }

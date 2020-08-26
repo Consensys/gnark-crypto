@@ -57,12 +57,6 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...MultiE
 	}
 	opt.build(len(points))
 
-	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-	chCpus := make(chan struct{}, opt.MaxCPUs)
-	for i := 0; i < opt.MaxCPUs; i++ {
-		chCpus <- struct{}{}
-	}
-
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
@@ -73,13 +67,13 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...MultiE
 	switch opt.C {
 
 	case 4:
-		return p.msmC4(points, scalars, chCpus)
+		return p.msmC4(points, scalars, opt.ChCpus)
 
 	case 8:
-		return p.msmC8(points, scalars, chCpus)
+		return p.msmC8(points, scalars, opt.ChCpus)
 
 	case 16:
-		return p.msmC16(points, scalars, chCpus)
+		return p.msmC16(points, scalars, opt.ChCpus)
 
 	default:
 		panic("unimplemented")
