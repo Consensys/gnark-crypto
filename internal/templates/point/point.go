@@ -884,8 +884,8 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}Affine, scalars []fr.Element) []{{ toUpper .PointName }}Affine {
 	const c = 16 // window size
 	const nbChunks = fr.Limbs * 64 / c
-	const selectorMask uint64 = (1 << c) - 1	// low c bits are 1
-	const msbWindow uint32 = (1 << (c -1)) 
+	const mask uint64 = (1 << c) - 1	// low c bits are 1
+	const msbWindow uint64 = (1 << (c -1)) 
 
 	// precompute all powers of base for our window
 	var baseTable [(1<<(c-1))]{{ toUpper .PointName }}Jac
@@ -896,56 +896,24 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		baseTable[i].AddMixed(base)
 	}
 
-	// convert our scalars to digits
-	scalarsToDigits := func(scalars []fr.Element) (digits [][nbChunks]uint32) {
-		const max = int(msbWindow)
-		const twoc = (1 << c ) 
-		digits = make([][nbChunks]uint32, len(scalars))
-		
-		// process the scalars in parallel
-		parallel.Execute( len(scalars), func(start, end int) {
-			for i:=start; i < end; i++ {
-				var carry int
+	newScalars := ScalarsToDigits(scalars, c)
 
-				// for each chunk in the scalar, compute the current digit, and an eventual carry
-				for chunk := 0; chunk < nbChunks; chunk++ {
-		
-					// compute offset and word selector / shift to select the right bits of our windows
-					jc := uint64(chunk * c)
-					selectorIndex := jc / 64
-					selectorShift := jc - (selectorIndex * 64)
-
-					// init with carry if any
-					digit := carry
-					carry = 0
-
-					// digit = value of the c-bit window
-					digit += int((scalars[i][selectorIndex] & (selectorMask << selectorShift)) >> selectorShift)
-					
-					// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-					// 2^{c} to the current digit, making it negative.
-					if digit >= max {
-						digit -= twoc
-						carry = 1 
-					}
-
-					if digit == 0 {
-						continue // digit[i][chunk] = 0
-					}
-
-					if digit > 0 {
-						digits[i][chunk] = uint32(digit)
-					} else {
-						// mark negative sign using msbWindow mask, a bit we know is not used. 
-						digits[i][chunk] = uint32(-digit - 1) | msbWindow
-					}
-					
-				}
-			}
-		})
-		return 
+	// compute offset and word selector / shift to select the right bits of our windows
+	selectors := make([]selector, nbChunks)
+	for chunk:=uint64(0); chunk < nbChunks; chunk++ {
+		jc := uint64(chunk * c)
+		d := selector{}
+		d.index = jc / 64
+		d.shift = jc - (d.index * 64)
+		d.mask = mask << d.shift
+		d.multiWordSelect = (64%c) != 0  && d.shift > (64-c) && d.index < (fr.Limbs - 1 )
+		if d.multiWordSelect {
+			nbBitsHigh := d.shift - uint64(64-c)
+			d.maskHigh = (1 << nbBitsHigh) - 1
+			d.shiftHigh = (c - nbBitsHigh)
+		}
+		selectors[chunk] = d
 	}
-	digits := scalarsToDigits(scalars)
 
 	{{if eq .PointName "g1"}}
 		toReturn := make([]{{ toUpper .PointName }}Jac, len(scalars))
@@ -954,29 +922,37 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 	{{end}}
 
 	// for each digit, take value in the base table, double it c time, voila.
-	parallel.Execute( len(digits), func(start, end int) {
+	parallel.Execute( len(newScalars), func(start, end int) {
 		var p {{ toUpper .PointName }}Jac
 		for i:=start; i < end; i++ {
 			p.Set(&{{ toLower .PointName}}Infinity)
 			
 			for chunk := nbChunks - 1; chunk >=0; chunk-- {
+				s := selectors[chunk]
 				if chunk != nbChunks -1 {
 					for j:=0; j<c; j++ {
 						p.DoubleAssign()
 					}
 				}
 
-				bits := digits[i][chunk]
-				if bits != 0 {
-					if bits & msbWindow == 0 {
-						// add 
-						p.AddAssign(&baseTable[bits-1])
-					} else {
-						// sub 
-						t := baseTable[bits & ^msbWindow]
+				bits := (newScalars[i][s.index] & s.mask) >> s.shift
+				if s.multiWordSelect {
+					bits += (newScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+				}
+
+				if bits == 0 {
+					continue
+				}
+				
+				// if msbWindow bit is set, we need to substract
+				if bits & msbWindow == 0 {
+					// add 
+					p.AddAssign(&baseTable[bits-1])
+				} else {
+					// sub
+					t := baseTable[bits & ^msbWindow]
 						t.Neg(&t)
 						p.AddAssign(&t)
-					}
 				}
 			}
 
