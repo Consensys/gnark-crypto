@@ -539,11 +539,6 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMulByGen multiplies given scalar by generator
-func (p *G2Jac) ScalarMulByGen(s *big.Int) *G2Jac {
-	return p.ScalarMulGLV(&g2GenAff, s)
-}
-
 // ScalarMultiplication 2-bits windowed exponentiation
 func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 
@@ -638,7 +633,7 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	// note:
-	// each of the multiExpcX method is the same, except for the c constant it declares
+	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
 	// the choice of c needs to be improved:
 	// there is a theoritical value that gives optimal asymptotics
@@ -648,7 +643,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	// * cache friendliness (which depends on the host, G1 or G2... )
 	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
-	// for each multiExpcX
+	// for each msmCX
 	// step 1
 	// we compute, for each scalars over c-bit wide windows, nbChunk digits
 	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
@@ -659,9 +654,9 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	// buckets are declared on the stack
 	// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
 	// we use jacobian extended formulas here as they are faster than mixed addition
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	// msmProcessChunk places points into buckets base on their selector and return the weighted bucket sum in given channel
 	// step 3
-	// reduce the buckets weigthed sums into our result (chunkReduce)
+	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
 	// approximate cost (in group operations)
 	// cost = bits/c * (nbPoints + 2^{c-1})
@@ -681,7 +676,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 		}
 	}
 
-	// semaphore to limit number of cpus
+	// semaphore to limit number of cpus iterating through points and scalrs at the same time
 	numCpus := runtime.NumCPU()
 	chCpus := make(chan struct{}, numCpus)
 	for i := 0; i < numCpus; i++ {
@@ -691,34 +686,34 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	switch bestC {
 
 	case 4:
-		return p.multiExpc4(points, scalars, chCpus)
+		return p.msmC4(points, scalars, chCpus)
 
 	case 8:
-		return p.multiExpc8(points, scalars, chCpus)
+		return p.msmC8(points, scalars, chCpus)
 
 	case 16:
-		return p.multiExpc16(points, scalars, chCpus)
+		return p.msmC16(points, scalars, chCpus)
 
 	default:
 		panic("unimplemented")
 	}
 }
 
-// chunkReduceG2 reduces the weighted sum of the buckets into the result of the multiExp
-func chunkReduceG2(p *G2Jac, c int, chTotals []chan G2Jac) *G2Jac {
-	totalj := <-chTotals[len(chTotals)-1]
+// msmReduceChunkG2 reduces the weighted sum of the buckets into the result of the multiExp
+func msmReduceChunkG2(p *G2Jac, c int, chChunks []chan G2Jac) *G2Jac {
+	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
-	for j := len(chTotals) - 2; j >= 0; j-- {
+	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
 			p.DoubleAssign()
 		}
-		totalj := <-chTotals[j]
+		totalj := <-chChunks[j]
 		p.AddAssign(&totalj)
 	}
 	return p
 }
 
-func bucketAccumulateG2(chunk uint64,
+func msmProcessChunkG2(chunk uint64,
 	chRes chan<- G2Jac,
 	chCpus chan struct{},
 	buckets []g2JacExtended,
@@ -786,87 +781,107 @@ func bucketAccumulateG2(chunk uint64,
 	chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
 }
 
-func (p *G2Jac) multiExpc4(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
-
+func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G2Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G2Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			bucketAccumulateG2(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG2(p, c, chTotals[:])
+	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) multiExpc8(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
-
+func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G2Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G2Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			bucketAccumulateG2(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG2(p, c, chTotals[:])
+	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) multiExpc16(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
-
+func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, chCpus chan struct{}) *G2Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G2Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G2Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			bucketAccumulateG2(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG2(p, c, chTotals[:])
+	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
 // BatchScalarMultiplicationG2 multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
-// currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
-// TODO : implement variable window size depending on input size
+// currently uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
-	const c = 16 // window size
-	const nbChunks = fr.Limbs * 64 / c
-	const mask uint64 = (1 << c) - 1 // low c bits are 1
-	const msbWindow uint64 = (1 << (c - 1))
+
+	// approximate cost in group ops is
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+
+	nbPoints := uint64(len(scalars))
+	min := ^uint64(0)
+	bestC := 0
+	for c := 2; c < 18; c++ {
+		cost := uint64(1 << (c - 1))
+		nbChunks := uint64(fr.Limbs * 64 / c)
+		if (fr.Limbs*64)%c != 0 {
+			nbChunks++
+		}
+		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
+		if cost < min {
+			min = cost
+			bestC = c
+		}
+	}
+	c := uint64(bestC) // window size
+	nbChunks := int(fr.Limbs * 64 / c)
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
+	mask := uint64((1 << c) - 1) // low c bits are 1
+	msbWindow := uint64(1 << (c - 1))
 
 	// precompute all powers of base for our window
-	var baseTable [(1 << (c - 1))]G2Jac
+	// note here that if performance is critical, we can implement as in the msmX methods
+	// this allocation to be on the stack
+	baseTable := make([]G2Jac, (1 << (c - 1)))
 	baseTable[0].Set(&g2Infinity)
 	baseTable[0].AddMixed(base)
 	for i := 1; i < len(baseTable); i++ {
@@ -874,12 +889,12 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := PartitionScalars(scalars, c)
+	pScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
-	for chunk := uint64(0); chunk < nbChunks; chunk++ {
-		jc := uint64(chunk * c)
+	for chunk := 0; chunk < nbChunks; chunk++ {
+		jc := uint64(uint64(chunk) * c)
 		d := selector{}
 		d.index = jc / 64
 		d.shift = jc - (d.index * 64)
@@ -896,22 +911,21 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	toReturn := make([]G2Affine, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
-	parallel.Execute(len(newScalars), func(start, end int) {
+	parallel.Execute(len(pScalars), func(start, end int) {
 		var p G2Jac
 		for i := start; i < end; i++ {
 			p.Set(&g2Infinity)
-
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 				s := selectors[chunk]
 				if chunk != nbChunks-1 {
-					for j := 0; j < c; j++ {
+					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
 
-				bits := (newScalars[i][s.index] & s.mask) >> s.shift
+				bits := (pScalars[i][s.index] & s.mask) >> s.shift
 				if s.multiWordSelect {
-					bits += (newScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
 				}
 
 				if bits == 0 {
@@ -921,12 +935,16 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 				// if msbWindow bit is set, we need to substract
 				if bits&msbWindow == 0 {
 					// add
+
 					p.AddAssign(&baseTable[bits-1])
+
 				} else {
 					// sub
+
 					t := baseTable[bits & ^msbWindow]
 					t.Neg(&t)
 					p.AddAssign(&t)
+
 				}
 			}
 

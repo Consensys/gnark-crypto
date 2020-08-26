@@ -481,7 +481,7 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.multiExpc4(samplePoints[:], sampleScalars[:], chCpus)
+			result.msmC4(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -514,7 +514,7 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.multiExpc8(samplePoints[:], sampleScalars[:], chCpus)
+			result.msmC8(samplePoints[:], sampleScalars[:], chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -549,7 +549,7 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.multiExpc16(samplePoints[:], sampleScalars[:], chCpus)
+				result.msmC16(samplePoints[:], sampleScalars[:], chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int

@@ -539,15 +539,6 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 }
 
 
-// ScalarMulByGen multiplies given scalar by generator
-func (p *{{ toUpper .PointName }}Jac) ScalarMulByGen(s *big.Int) *{{ toUpper .PointName }}Jac {
-	{{- if .GLV}}
-		return p.ScalarMulGLV(&{{ toLower .PointName }}GenAff, s)
-	{{- else}}
-		return p.ScalarMultiplication(&{{ toLower .PointName }}GenAff, s)
-	{{- end}}
-}
-
 // ScalarMultiplication 2-bits windowed exponentiation
 func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
 
@@ -649,7 +640,7 @@ func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Affine
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element) *{{ toUpper .PointName }}Jac {
 	// note: 
-	// each of the multiExpcX method is the same, except for the c constant it declares
+	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
 	// the choice of c needs to be improved: 
 	// there is a theoritical value that gives optimal asymptotics
@@ -659,7 +650,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// * cache friendliness (which depends on the host, G1 or G2... )
 	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't. 
 
-	// for each multiExpcX
+	// for each msmCX
 	// step 1
 	// we compute, for each scalars over c-bit wide windows, nbChunk digits
 	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
@@ -670,9 +661,9 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// buckets are declared on the stack
 	// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
 	// we use jacobian extended formulas here as they are faster than mixed addition
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	// msmProcessChunk places points into buckets base on their selector and return the weighted bucket sum in given channel
 	// step 3
-	// reduce the buckets weigthed sums into our result (chunkReduce)
+	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
 	// approximate cost (in group operations)
 	// cost = bits/c * (nbPoints + 2^{c-1})
@@ -694,7 +685,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 		}
 	}
 
-	// semaphore to limit number of cpus
+	// semaphore to limit number of cpus iterating through points and scalrs at the same time
 	numCpus := runtime.NumCPU()
 	chCpus := make(chan struct{}, numCpus)
 	for i:=0; i < numCpus; i++ {
@@ -705,29 +696,29 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	switch bestC {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.multiExpc{{$c}}(points, scalars, chCpus)	
+		return p.msmC{{$c}}(points, scalars, chCpus)	
 	{{end}}
 	default:
 		panic("unimplemented")
 	}
 }
 
-// chunkReduce{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
-func chunkReduce{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chTotals []chan {{ toUpper .PointName }}Jac)  *{{ toUpper .PointName }}Jac {
-	totalj := <-chTotals[len(chTotals)-1]
+// msmReduceChunk{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
+func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chChunks []chan {{ toUpper .PointName }}Jac)  *{{ toUpper .PointName }}Jac {
+	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
-	for j := len(chTotals) - 2; j >= 0; j-- {
+	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
 			p.DoubleAssign()
 		}
-		totalj := <-chTotals[j]
+		totalj := <-chChunks[j]
 		p.AddAssign(&totalj)
 	}
 	return p
 }
 
 
-func bucketAccumulate{{ toUpper .PointName }}(chunk uint64,
+func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	 chRes chan<- {{ toUpper .PointName }}Jac,
 	 chCpus chan struct{},
 	 buckets []{{ toLower .PointName }}JacExtended,
@@ -802,27 +793,27 @@ func bucketAccumulate{{ toUpper .PointName }}(chunk uint64,
 
 {{range $c :=  .CRange}}
 
-func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, chCpus chan struct{}) *{{ toUpper $.PointName }}Jac {
-	{{$cDividesBits := divides $c $.RBitLen}}
+func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, chCpus chan struct{}) *{{ toUpper $.PointName }}Jac {
+	{{- $cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan {{ toUpper $.PointName }}Jac
-	for i:= 0; i< nbChunks; i++ {
-		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
-	}
+	// partition the scalars 
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan {{ toUpper $.PointName }}Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan {{ toUpper $.PointName }}Jac, 1)
 		go func(j uint64) {
 			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
-			bucketAccumulate{{ toUpper $.PointName }}(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduce{{ toUpper $.PointName }}(p, c, chTotals[:])
+	return msmReduceChunk{{ toUpper $.PointName }}(p, c, chChunks[:])
 }
 {{end}}
 
@@ -837,13 +828,14 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
-	// mark all zero points to ignore them. 
+	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
+	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
 	for i:=0; i < len(points); i++ {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
 		}
-		result[i].Y = accumulator
+		result[i].X = accumulator
 		accumulator.Mul(&accumulator, &points[i].Z)
 	}
 
@@ -855,10 +847,11 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 			// do nothing, X and Y are zeroes in affine.
 			continue
 		}
-		result[i].Y.Mul(&result[i].Y, &accInverse)
+		result[i].X.Mul(&result[i].X, &accInverse)
 		accInverse.Mul(&accInverse, &points[i].Z)
 	}
 
+	// batch convert to affine.
 	parallel.Execute( len(points), func(start, end int) {
 		for i:=start; i < end; i++ {
 			if zeroes[i] {
@@ -866,7 +859,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 				continue
 			}
 			var a, b fp.Element
-			a = result[i].Y
+			a = result[i].X
 			b.Square(&a)
 			result[i].X.Mul(&points[i].X, &b)
 			result[i].Y.Mul(&points[i].Y, &b).
@@ -877,18 +870,42 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 }
 {{end}}
 
+
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
-// currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
-// TODO : implement variable window size depending on input size
+// currently uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}Affine, scalars []fr.Element) []{{ toUpper .PointName }}Affine {
-	const c = 16 // window size
-	const nbChunks = fr.Limbs * 64 / c
-	const mask uint64 = (1 << c) - 1	// low c bits are 1
-	const msbWindow uint64 = (1 << (c -1)) 
+
+	// approximate cost in group ops is
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+
+	nbPoints := uint64(len(scalars))
+	min := ^uint64(0)
+	bestC := 0
+	for c := 2; c < 18; c++  {
+		cost := uint64(1 << (c-1))
+		nbChunks := uint64(fr.Limbs * 64 / c)
+		if (fr.Limbs*64) %c != 0 {
+			nbChunks++
+		}
+		cost += nbPoints*((fr.Limbs*64) + nbChunks)
+		if cost < min {
+			min = cost
+			bestC = c 
+		}
+	}
+	c := uint64(bestC) // window size
+	nbChunks := int(fr.Limbs * 64 / c)
+	if (fr.Limbs*64) %c != 0 {
+		nbChunks++
+	}
+	mask := uint64((1 << c) - 1)	// low c bits are 1
+	msbWindow := uint64(1 << (c -1)) 
 
 	// precompute all powers of base for our window
-	var baseTable [(1<<(c-1))]{{ toUpper .PointName }}Jac
+	// note here that if performance is critical, we can implement as in the msmX methods
+	// this allocation to be on the stack
+	baseTable := make([]{{ toUpper .PointName }}Jac, (1<<(c-1)))
 	baseTable[0].Set(&{{ toLower .PointName}}Infinity)
 	baseTable[0].AddMixed(base)
 	for i:=1;i<len(baseTable);i++ {
@@ -896,12 +913,12 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := PartitionScalars(scalars, c)
+	pScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
-	for chunk:=uint64(0); chunk < nbChunks; chunk++ {
-		jc := uint64(chunk * c)
+	for chunk:=0; chunk < nbChunks; chunk++ {
+		jc := uint64(uint64(chunk) * c)
 		d := selector{}
 		d.index = jc / 64
 		d.shift = jc - (d.index * 64)
@@ -916,28 +933,30 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 	}
 
 	{{if eq .PointName "g1"}}
+		// convert our base exp table into affine to use AddMixed
+		baseTableAff := make([]{{ toUpper .PointName }}Affine, (1<<(c-1)))
+		BatchJacobianToAffine{{ toUpper .PointName }}(baseTable, baseTableAff)
 		toReturn := make([]{{ toUpper .PointName }}Jac, len(scalars))
 	{{else}}
 		toReturn := make([]{{ toUpper .PointName }}Affine, len(scalars))
 	{{end}}
 
 	// for each digit, take value in the base table, double it c time, voila.
-	parallel.Execute( len(newScalars), func(start, end int) {
+	parallel.Execute( len(pScalars), func(start, end int) {
 		var p {{ toUpper .PointName }}Jac
 		for i:=start; i < end; i++ {
 			p.Set(&{{ toLower .PointName}}Infinity)
-			
 			for chunk := nbChunks - 1; chunk >=0; chunk-- {
 				s := selectors[chunk]
 				if chunk != nbChunks -1 {
-					for j:=0; j<c; j++ {
+					for j:=uint64(0); j<c; j++ {
 						p.DoubleAssign()
 					}
 				}
 
-				bits := (newScalars[i][s.index] & s.mask) >> s.shift
+				bits := (pScalars[i][s.index] & s.mask) >> s.shift
 				if s.multiWordSelect {
-					bits += (newScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
 				}
 
 				if bits == 0 {
@@ -947,12 +966,22 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 				// if msbWindow bit is set, we need to substract
 				if bits & msbWindow == 0 {
 					// add 
-					p.AddAssign(&baseTable[bits-1])
+					{{if eq .PointName "g1"}}
+						p.AddMixed(&baseTableAff[bits-1])
+					{{else}}
+						p.AddAssign(&baseTable[bits-1])
+					{{end}}
 				} else {
 					// sub
-					t := baseTable[bits & ^msbWindow]
+					{{if eq .PointName "g1"}}
+						t := baseTableAff[bits & ^msbWindow]
+						t.Neg(&t)
+						p.AddMixed(&t)
+					{{else}}
+						t := baseTable[bits & ^msbWindow]
 						t.Neg(&t)
 						p.AddAssign(&t)
+					{{end}}
 				}
 			}
 

@@ -592,7 +592,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 	
-			result.multiExpc{{$c}}(samplePoints[:], sampleScalars[:], chCpus)
+			result.msmC{{$c}}(samplePoints[:], sampleScalars[:], chCpus)
 	
 	
 			// compute expected result with double and add

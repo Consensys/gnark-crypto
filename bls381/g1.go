@@ -540,11 +540,6 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMulByGen multiplies given scalar by generator
-func (p *G1Jac) ScalarMulByGen(s *big.Int) *G1Jac {
-	return p.ScalarMulGLV(&g1GenAff, s)
-}
-
 // ScalarMultiplication 2-bits windowed exponentiation
 func (p *G1Jac) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Jac {
 
@@ -639,7 +634,7 @@ func (p *G1Jac) ScalarMulGLV(a *G1Affine, s *big.Int) *G1Jac {
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 	// note:
-	// each of the multiExpcX method is the same, except for the c constant it declares
+	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
 	// the choice of c needs to be improved:
 	// there is a theoritical value that gives optimal asymptotics
@@ -649,7 +644,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 	// * cache friendliness (which depends on the host, G1 or G2... )
 	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
-	// for each multiExpcX
+	// for each msmCX
 	// step 1
 	// we compute, for each scalars over c-bit wide windows, nbChunk digits
 	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
@@ -660,9 +655,9 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 	// buckets are declared on the stack
 	// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
 	// we use jacobian extended formulas here as they are faster than mixed addition
-	// bucketAccumulate places points into buckets base on their selector and return the weighted bucket sum in given channel
+	// msmProcessChunk places points into buckets base on their selector and return the weighted bucket sum in given channel
 	// step 3
-	// reduce the buckets weigthed sums into our result (chunkReduce)
+	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
 	// approximate cost (in group operations)
 	// cost = bits/c * (nbPoints + 2^{c-1})
@@ -682,7 +677,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 		}
 	}
 
-	// semaphore to limit number of cpus
+	// semaphore to limit number of cpus iterating through points and scalrs at the same time
 	numCpus := runtime.NumCPU()
 	chCpus := make(chan struct{}, numCpus)
 	for i := 0; i < numCpus; i++ {
@@ -692,76 +687,76 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element) *G1Jac {
 	switch bestC {
 
 	case 4:
-		return p.multiExpc4(points, scalars, chCpus)
+		return p.msmC4(points, scalars, chCpus)
 
 	case 5:
-		return p.multiExpc5(points, scalars, chCpus)
+		return p.msmC5(points, scalars, chCpus)
 
 	case 6:
-		return p.multiExpc6(points, scalars, chCpus)
+		return p.msmC6(points, scalars, chCpus)
 
 	case 7:
-		return p.multiExpc7(points, scalars, chCpus)
+		return p.msmC7(points, scalars, chCpus)
 
 	case 8:
-		return p.multiExpc8(points, scalars, chCpus)
+		return p.msmC8(points, scalars, chCpus)
 
 	case 9:
-		return p.multiExpc9(points, scalars, chCpus)
+		return p.msmC9(points, scalars, chCpus)
 
 	case 10:
-		return p.multiExpc10(points, scalars, chCpus)
+		return p.msmC10(points, scalars, chCpus)
 
 	case 11:
-		return p.multiExpc11(points, scalars, chCpus)
+		return p.msmC11(points, scalars, chCpus)
 
 	case 12:
-		return p.multiExpc12(points, scalars, chCpus)
+		return p.msmC12(points, scalars, chCpus)
 
 	case 13:
-		return p.multiExpc13(points, scalars, chCpus)
+		return p.msmC13(points, scalars, chCpus)
 
 	case 14:
-		return p.multiExpc14(points, scalars, chCpus)
+		return p.msmC14(points, scalars, chCpus)
 
 	case 15:
-		return p.multiExpc15(points, scalars, chCpus)
+		return p.msmC15(points, scalars, chCpus)
 
 	case 16:
-		return p.multiExpc16(points, scalars, chCpus)
+		return p.msmC16(points, scalars, chCpus)
 
 	case 17:
-		return p.multiExpc17(points, scalars, chCpus)
+		return p.msmC17(points, scalars, chCpus)
 
 	case 18:
-		return p.multiExpc18(points, scalars, chCpus)
+		return p.msmC18(points, scalars, chCpus)
 
 	case 19:
-		return p.multiExpc19(points, scalars, chCpus)
+		return p.msmC19(points, scalars, chCpus)
 
 	case 20:
-		return p.multiExpc20(points, scalars, chCpus)
+		return p.msmC20(points, scalars, chCpus)
 
 	default:
 		panic("unimplemented")
 	}
 }
 
-// chunkReduceG1 reduces the weighted sum of the buckets into the result of the multiExp
-func chunkReduceG1(p *G1Jac, c int, chTotals []chan G1Jac) *G1Jac {
-	totalj := <-chTotals[len(chTotals)-1]
+// msmReduceChunkG1 reduces the weighted sum of the buckets into the result of the multiExp
+func msmReduceChunkG1(p *G1Jac, c int, chChunks []chan G1Jac) *G1Jac {
+	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
-	for j := len(chTotals) - 2; j >= 0; j-- {
+	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
 			p.DoubleAssign()
 		}
-		totalj := <-chTotals[j]
+		totalj := <-chChunks[j]
 		p.AddAssign(&totalj)
 	}
 	return p
 }
 
-func bucketAccumulateG1(chunk uint64,
+func msmProcessChunkG1(chunk uint64,
 	chRes chan<- G1Jac,
 	chCpus chan struct{},
 	buckets []g1JacExtended,
@@ -829,395 +824,378 @@ func bucketAccumulateG1(chunk uint64,
 	chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
 }
 
-func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc5(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC5(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 5                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc6(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC6(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 6                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc7(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC7(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 7                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc9(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC9(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 9                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc10(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC10(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 10                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc11(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC11(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 11                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc12(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC12(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 12                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc13(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC13(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 13                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc14(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC14(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 14                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc15(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC15(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 15                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc17(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC17(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 17                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc18(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC18(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 18                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc19(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC19(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 19                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) multiExpc20(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
-
+func (p *G1Jac) msmC20(points []G1Affine, scalars []fr.Element, chCpus chan struct{}) *G1Jac {
 	const c = 20                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
-	// 1 channel per chunk, which will contain the weighted sum of the its buckets
-	var chTotals [nbChunks]chan G1Jac
-	for i := 0; i < nbChunks; i++ {
-		chTotals[i] = make(chan G1Jac, 1)
-	}
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	pScalars := PartitionScalars(scalars, c)
 
-	newScalars := PartitionScalars(scalars, c)
-
+	// for each chunk, spawn a go routine that'll loop through all the scalars
+	var chChunks [nbChunks]chan G1Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+		chChunks[chunk] = make(chan G1Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			bucketAccumulateG1(j, chTotals[j], chCpus, buckets[:], c, points, newScalars)
+			msmProcessChunkG1(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
 		}(uint64(chunk))
 	}
 
-	return chunkReduceG1(p, c, chTotals[:])
+	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
@@ -1228,13 +1206,14 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
-	// mark all zero points to ignore them.
+	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
+	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
 	for i := 0; i < len(points); i++ {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
 		}
-		result[i].Y = accumulator
+		result[i].X = accumulator
 		accumulator.Mul(&accumulator, &points[i].Z)
 	}
 
@@ -1246,10 +1225,11 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 			// do nothing, X and Y are zeroes in affine.
 			continue
 		}
-		result[i].Y.Mul(&result[i].Y, &accInverse)
+		result[i].X.Mul(&result[i].X, &accInverse)
 		accInverse.Mul(&accInverse, &points[i].Z)
 	}
 
+	// batch convert to affine.
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
@@ -1257,7 +1237,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 				continue
 			}
 			var a, b fp.Element
-			a = result[i].Y
+			a = result[i].X
 			b.Square(&a)
 			result[i].X.Mul(&points[i].X, &b)
 			result[i].Y.Mul(&points[i].Y, &b).
@@ -1269,16 +1249,39 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 
 // BatchScalarMultiplicationG1 multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
-// currently uses a simple windowed-NAF like exponentiation algorithm, and use fixed windowed size (16 bits)
-// TODO : implement variable window size depending on input size
+// currently uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
-	const c = 16 // window size
-	const nbChunks = fr.Limbs * 64 / c
-	const mask uint64 = (1 << c) - 1 // low c bits are 1
-	const msbWindow uint64 = (1 << (c - 1))
+
+	// approximate cost in group ops is
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+
+	nbPoints := uint64(len(scalars))
+	min := ^uint64(0)
+	bestC := 0
+	for c := 2; c < 18; c++ {
+		cost := uint64(1 << (c - 1))
+		nbChunks := uint64(fr.Limbs * 64 / c)
+		if (fr.Limbs*64)%c != 0 {
+			nbChunks++
+		}
+		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
+		if cost < min {
+			min = cost
+			bestC = c
+		}
+	}
+	c := uint64(bestC) // window size
+	nbChunks := int(fr.Limbs * 64 / c)
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
+	mask := uint64((1 << c) - 1) // low c bits are 1
+	msbWindow := uint64(1 << (c - 1))
 
 	// precompute all powers of base for our window
-	var baseTable [(1 << (c - 1))]G1Jac
+	// note here that if performance is critical, we can implement as in the msmX methods
+	// this allocation to be on the stack
+	baseTable := make([]G1Jac, (1 << (c - 1)))
 	baseTable[0].Set(&g1Infinity)
 	baseTable[0].AddMixed(base)
 	for i := 1; i < len(baseTable); i++ {
@@ -1286,12 +1289,12 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := PartitionScalars(scalars, c)
+	pScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
-	for chunk := uint64(0); chunk < nbChunks; chunk++ {
-		jc := uint64(chunk * c)
+	for chunk := 0; chunk < nbChunks; chunk++ {
+		jc := uint64(uint64(chunk) * c)
 		d := selector{}
 		d.index = jc / 64
 		d.shift = jc - (d.index * 64)
@@ -1305,25 +1308,27 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		selectors[chunk] = d
 	}
 
+	// convert our base exp table into affine to use AddMixed
+	baseTableAff := make([]G1Affine, (1 << (c - 1)))
+	BatchJacobianToAffineG1(baseTable, baseTableAff)
 	toReturn := make([]G1Jac, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
-	parallel.Execute(len(newScalars), func(start, end int) {
+	parallel.Execute(len(pScalars), func(start, end int) {
 		var p G1Jac
 		for i := start; i < end; i++ {
 			p.Set(&g1Infinity)
-
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 				s := selectors[chunk]
 				if chunk != nbChunks-1 {
-					for j := 0; j < c; j++ {
+					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
 
-				bits := (newScalars[i][s.index] & s.mask) >> s.shift
+				bits := (pScalars[i][s.index] & s.mask) >> s.shift
 				if s.multiWordSelect {
-					bits += (newScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
 				}
 
 				if bits == 0 {
@@ -1333,12 +1338,16 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 				// if msbWindow bit is set, we need to substract
 				if bits&msbWindow == 0 {
 					// add
-					p.AddAssign(&baseTable[bits-1])
+
+					p.AddMixed(&baseTableAff[bits-1])
+
 				} else {
 					// sub
-					t := baseTable[bits & ^msbWindow]
+
+					t := baseTableAff[bits & ^msbWindow]
 					t.Neg(&t)
-					p.AddAssign(&t)
+					p.AddMixed(&t)
+
 				}
 			}
 
