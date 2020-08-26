@@ -22,9 +22,14 @@ import (
 )
 
 // Execute process in parallel the work function, using all available CPUs
-func Execute(nbIterations int, work func(int, int)) {
+func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 
 	nbTasks := runtime.NumCPU()
+	if len(maxCpus) > 0 {
+		if maxCpus[0] > 0 && maxCpus[0] < nbTasks {
+			nbTasks = maxCpus[0]
+		}
+	}
 	nbIterationsPerCpus := nbIterations / nbTasks
 
 	// more CPUs than tasks: a CPU will work on exactly one iteration

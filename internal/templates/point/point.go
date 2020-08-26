@@ -732,7 +732,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars := PartitionScalars(scalars, c)
+	pScalars := PartitionScalars(scalars, MultiExpOptions{C:c})
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

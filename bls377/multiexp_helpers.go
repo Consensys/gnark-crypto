@@ -17,15 +17,59 @@
 package bls377
 
 import (
+	"math"
+	"runtime"
+
 	"github.com/consensys/gurvy/bls377/fr"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	IsPartitionned bool // indicates whether or not the scalars inputs are already partitionned
-	C              int  // sets the "c" parameter (window size)
-	MaxCPUs        int  // sets max CPUs to use. ignored if <0 or > runtime.NumCPUs()
+	IsPartitionned bool   // indicates whether or not the scalars inputs are already partitionned
+	C              uint64 // sets the "c" parameter (window size)
+	MaxCPUs        int    // sets max CPUs to use. ignored if <0 or > runtime.NumCPUs()
+}
+
+func (opt *MultiExpOptions) build(nbPoints int) {
+	// implemented msmC methods (the c we use must be in this slice)
+	implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+
+	if opt.C != 0 {
+		// C is set, ensure the implementation exists.
+		found := false
+		for i := 0; i < len(implementedCs); i++ {
+			if implementedCs[i] == opt.C {
+				found = true
+				break
+			}
+		}
+		if !found {
+			panic("invalid option: unsupported C value")
+		}
+	} else {
+		// C is not set, use default value
+		// approximate cost (in group operations)
+		// cost = bits/c * (nbPoints + 2^{c-1})
+		// this needs to be verified empirically.
+		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+		min := math.MaxFloat64
+		for _, c := range implementedCs {
+			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
+			cost := float64(cc) / float64(c)
+			if cost < min {
+				min = cost
+				opt.C = c
+			}
+		}
+	}
+
+	// available cpus
+	numCpus := runtime.NumCPU()
+	if !(opt.MaxCPUs > 0 && opt.MaxCPUs < numCpus) {
+		opt.MaxCPUs = numCpus
+	}
+
 }
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
@@ -45,8 +89,15 @@ type selector struct {
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
-func PartitionScalars(scalars []fr.Element, c uint64) []fr.Element {
+func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
+
+	var opt MultiExpOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	opt.build(len(scalars))
+	c := opt.C
 
 	// number of c-bit radixes in a scalar
 	nbChunks := fr.Limbs * 64 / c
@@ -117,6 +168,6 @@ func PartitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 
 			}
 		}
-	})
+	}, opt.MaxCPUs)
 	return toReturn
 }

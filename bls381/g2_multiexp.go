@@ -16,12 +16,7 @@
 
 package bls381
 
-import (
-	"math"
-	"runtime"
-
-	"github.com/consensys/gurvy/bls381/fr"
-)
+import "github.com/consensys/gurvy/bls381/fr"
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a MultiExpOptions struct
@@ -56,70 +51,26 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...MultiE
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	// implemented msmC methods (the c we use must be in this slice)
-	implementedCs := []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-	bestC := 0
-	needToPartitionScalars := true
-
-	// available cpus
-	numCpus := runtime.NumCPU()
-
-	// check if opts is set
+	var opt MultiExpOptions
 	if len(opts) > 0 {
-		opt := opts[0]
-		if opt.IsPartitionned {
-			needToPartitionScalars = false
-		}
-		if opt.C > 0 {
-			found := false
-			for i := 0; i < len(implementedCs); i++ {
-				if implementedCs[i] == opt.C {
-					found = true
-					break
-				}
-			}
-			if !found {
-				panic("invalid option: unsupported C value")
-			}
-			bestC = opt.C
-		}
-		if opt.MaxCPUs > 0 && opt.MaxCPUs < numCpus {
-			numCpus = opt.MaxCPUs
-		}
+		opt = opts[0]
 	}
-
-	// C is not set
-	if bestC == 0 {
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically.
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		nbPoints := len(points)
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				bestC = c
-			}
-		}
-	}
+	opt.build(len(points))
 
 	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-	chCpus := make(chan struct{}, numCpus)
-	for i := 0; i < numCpus; i++ {
+	chCpus := make(chan struct{}, opt.MaxCPUs)
+	for i := 0; i < opt.MaxCPUs; i++ {
 		chCpus <- struct{}{}
 	}
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	if needToPartitionScalars {
-		scalars = PartitionScalars(scalars, uint64(bestC))
+	if !opt.IsPartitionned {
+		scalars = PartitionScalars(scalars, opt)
 	}
 
-	switch bestC {
+	switch opt.C {
 
 	case 4:
 		return p.msmC4(points, scalars, chCpus)
