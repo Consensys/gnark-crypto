@@ -7,22 +7,24 @@ import (
 )
 
 
+// selector stores the index, mask and shifts needed to select bits from a scalar
+// it is used during the multiExp algorithm or the batch scalar multiplication
 type selector struct {
-	mask uint64
-	index uint64
-	shift uint64
+	index uint64 			// index in the multi-word scalar to select bits from
+	mask uint64				// mask (c-bit wide) 
+	shift uint64			// shift needed to get our bits on low positions
 
-	multiWordSelect bool		
-	maskHigh uint64 
-	shiftHigh uint64
+	multiWordSelect bool	// set to true if we need to select bits from 2 words (case where c doesn't divide 64)
+	maskHigh uint64 	  	// same than mask, for index+1
+	shiftHigh uint64		// same than shift, for index+1
 }
 
-// ScalarsToDigits  compute, for each scalars over c-bit wide windows, nbChunk digits
+// PartitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
-// negative digits will be processed in the next step as adding -G into the bucket instead of G
-// (computing -G is cheap, and this saves us half of the buckets)
-func ScalarsToDigits(scalars []fr.Element, c uint64) []fr.Element {
+// negative digits can be processed in a later step as adding -G into the bucket instead of G
+// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
+func PartitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
 
 	// number of c-bit radixes in a scalar

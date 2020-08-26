@@ -798,7 +798,7 @@ func (p *G1Jac) multiExpc4(points []G1Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G1Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -821,7 +821,7 @@ func (p *G1Jac) multiExpc8(points []G1Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G1Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -844,7 +844,7 @@ func (p *G1Jac) multiExpc16(points []G1Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G1Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -922,7 +922,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

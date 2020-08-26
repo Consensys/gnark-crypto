@@ -813,7 +813,7 @@ func (p *{{ toUpper $.PointName }}Jac) multiExpc{{$c}}(points []{{ toUpper $.Poi
 		chTotals[i] = make(chan {{ toUpper $.PointName }}Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -896,7 +896,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

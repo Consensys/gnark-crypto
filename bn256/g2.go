@@ -838,7 +838,7 @@ func (p *G2Jac) multiExpc4(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -861,7 +861,7 @@ func (p *G2Jac) multiExpc5(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -884,7 +884,7 @@ func (p *G2Jac) multiExpc6(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -907,7 +907,7 @@ func (p *G2Jac) multiExpc7(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -930,7 +930,7 @@ func (p *G2Jac) multiExpc8(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -953,7 +953,7 @@ func (p *G2Jac) multiExpc9(points []G2Affine, scalars []fr.Element, chCpus chan 
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -976,7 +976,7 @@ func (p *G2Jac) multiExpc10(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -999,7 +999,7 @@ func (p *G2Jac) multiExpc11(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1022,7 +1022,7 @@ func (p *G2Jac) multiExpc12(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1045,7 +1045,7 @@ func (p *G2Jac) multiExpc13(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1068,7 +1068,7 @@ func (p *G2Jac) multiExpc14(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1091,7 +1091,7 @@ func (p *G2Jac) multiExpc15(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1114,7 +1114,7 @@ func (p *G2Jac) multiExpc16(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1137,7 +1137,7 @@ func (p *G2Jac) multiExpc17(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1160,7 +1160,7 @@ func (p *G2Jac) multiExpc18(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1183,7 +1183,7 @@ func (p *G2Jac) multiExpc19(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1206,7 +1206,7 @@ func (p *G2Jac) multiExpc20(points []G2Affine, scalars []fr.Element, chCpus chan
 		chTotals[i] = make(chan G2Jac, 1)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		go func(j uint64) {
@@ -1237,7 +1237,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	newScalars := ScalarsToDigits(scalars, c)
+	newScalars := PartitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
