@@ -44,7 +44,7 @@ func main() {
 			os.Exit(-1)
 		}
 
-		if err := generator.GenerateMultiExp(confs[i]); err != nil {
+		if err := generator.GenerateMultiExpHelpers(confs[i]); err != nil {
 			fmt.Printf("\n%s\n", err.Error())
 			os.Exit(-1)
 		}

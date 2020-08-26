@@ -220,8 +220,8 @@ func divides(c1, c2 interface{}) bool {
 	panic("unexpected type")
 }
 
-// GenerateMultiExp generates multi exp functions
-func GenerateMultiExp(conf CurveConfig) error {
+// GenerateMultiExpHelpers generates multi exp helpers functions
+func GenerateMultiExpHelpers(conf CurveConfig) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys AG", 2020),
@@ -232,10 +232,10 @@ func GenerateMultiExp(conf CurveConfig) error {
 
 	// point code
 	src := []string{
-		point.MultiExp,
+		point.MultiExpHelpers,
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, "multiexp.go")
+	pathSrc := filepath.Join(conf.OutputDir, "multiexp_helpers.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -259,12 +259,21 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 		bavard.Funcs(helpers()),
 	}
 
-	// point code
+	// point code (without multi exp)
 	src := []string{
 		point.Point,
 	}
 
 	pathSrc := filepath.Join(conf.OutputDir, conf.PointName+".go")
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	// multi exp core code
+	src = []string{
+		point.MultiExpCore,
+	}
+	pathSrc = filepath.Join(conf.OutputDir, conf.PointName+"_multiexp.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
