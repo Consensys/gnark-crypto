@@ -24,7 +24,12 @@ import (
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
+// optionally, takes as parameter a MultiExpOptions struct
+// enabling to set
+// * the choice of  "c" (c-bit window to process the scalars)
+// * max number of cpus to use
+// * indicates wether or not the provided scalars are already partitionned using PartitionScalars method
+func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...MultiExpOptions) *G2Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -51,29 +56,67 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element) *G2Jac {
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	// approximate cost (in group operations)
-	// cost = bits/c * (nbPoints + 2^{c-1})
-	// this needs to be verified empirically.
-	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	// implemented msmC methods (the c we use must be in this slice)
 	implementedCs := []int{4, 8, 16}
-
-	nbPoints := len(points)
-	min := math.MaxFloat64
 	bestC := 0
-	for _, c := range implementedCs {
-		cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-		cost := float64(cc) / float64(c)
-		if cost < min {
-			min = cost
-			bestC = c
+	needToPartitionScalars := true
+
+	// available cpus
+	numCpus := runtime.NumCPU()
+
+	// check if opts is set
+	if len(opts) > 0 {
+		opt := opts[0]
+		if opt.IsPartitionned {
+			needToPartitionScalars = false
+		}
+		if opt.C > 0 {
+			found := false
+			for i := 0; i < len(implementedCs); i++ {
+				if implementedCs[i] == opt.C {
+					found = true
+					break
+				}
+			}
+			if !found {
+				panic("invalid option: unsupported C value")
+			}
+			bestC = opt.C
+		}
+		if opt.MaxCPUs > 0 && opt.MaxCPUs < numCpus {
+			numCpus = opt.MaxCPUs
+		}
+	}
+
+	// C is not set
+	if bestC == 0 {
+		// approximate cost (in group operations)
+		// cost = bits/c * (nbPoints + 2^{c-1})
+		// this needs to be verified empirically.
+		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+		nbPoints := len(points)
+		min := math.MaxFloat64
+		for _, c := range implementedCs {
+			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
+			cost := float64(cc) / float64(c)
+			if cost < min {
+				min = cost
+				bestC = c
+			}
 		}
 	}
 
 	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-	numCpus := runtime.NumCPU()
 	chCpus := make(chan struct{}, numCpus)
 	for i := 0; i < numCpus; i++ {
 		chCpus <- struct{}{}
+	}
+
+	// partition the scalars
+	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
+	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	if needToPartitionScalars {
+		scalars = PartitionScalars(scalars, uint64(bestC))
 	}
 
 	switch bestC {
@@ -178,18 +221,13 @@ func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, chCpus chan struc
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// partition the scalars
-	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	pScalars := PartitionScalars(scalars, c)
-
 	// for each chunk, spawn a go routine that'll loop through all the scalars
 	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, scalars)
 		}(uint64(chunk))
 	}
 
@@ -200,18 +238,13 @@ func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, chCpus chan struc
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// partition the scalars
-	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	pScalars := PartitionScalars(scalars, c)
-
 	// for each chunk, spawn a go routine that'll loop through all the scalars
 	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, scalars)
 		}(uint64(chunk))
 	}
 
@@ -222,18 +255,13 @@ func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, chCpus chan stru
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// partition the scalars
-	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	pScalars := PartitionScalars(scalars, c)
-
 	// for each chunk, spawn a go routine that'll loop through all the scalars
 	var chChunks [nbChunks]chan G2Jac
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G2Jac, 1)
 		go func(j uint64) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, pScalars)
+			msmProcessChunkG2(j, chChunks[j], chCpus, buckets[:], c, points, scalars)
 		}(uint64(chunk))
 	}
 

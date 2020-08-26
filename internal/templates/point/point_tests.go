@@ -592,7 +592,8 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 	
-			result.msmC{{$c}}(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], {{$c}})
+			result.msmC{{$c}}(samplePoints[:], scalars, chCpus)
 	
 	
 			// compute expected result with double and add

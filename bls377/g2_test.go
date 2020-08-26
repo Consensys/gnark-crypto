@@ -480,7 +480,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC4(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 4)
+			result.msmC4(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -513,7 +514,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC5(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 5)
+			result.msmC5(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -546,7 +548,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC6(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 6)
+			result.msmC6(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -579,7 +582,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC7(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 7)
+			result.msmC7(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -612,7 +616,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC8(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 8)
+			result.msmC8(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -645,7 +650,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC9(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 9)
+			result.msmC9(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -678,7 +684,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC10(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 10)
+			result.msmC10(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -711,7 +718,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC11(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 11)
+			result.msmC11(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -744,7 +752,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC12(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 12)
+			result.msmC12(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -777,7 +786,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC13(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 13)
+			result.msmC13(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -810,7 +820,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC14(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 14)
+			result.msmC14(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -843,7 +854,8 @@ func TestG2MultiExp(t *testing.T) {
 				chCpus <- struct{}{}
 			}
 
-			result.msmC15(samplePoints[:], sampleScalars[:], chCpus)
+			scalars := PartitionScalars(sampleScalars[:], 15)
+			result.msmC15(samplePoints[:], scalars, chCpus)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -878,7 +890,8 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.msmC16(samplePoints[:], sampleScalars[:], chCpus)
+				scalars := PartitionScalars(sampleScalars[:], 16)
+				result.msmC16(samplePoints[:], scalars, chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -915,7 +928,8 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.msmC17(samplePoints[:], sampleScalars[:], chCpus)
+				scalars := PartitionScalars(sampleScalars[:], 17)
+				result.msmC17(samplePoints[:], scalars, chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -952,7 +966,8 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.msmC18(samplePoints[:], sampleScalars[:], chCpus)
+				scalars := PartitionScalars(sampleScalars[:], 18)
+				result.msmC18(samplePoints[:], scalars, chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -989,7 +1004,8 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.msmC19(samplePoints[:], sampleScalars[:], chCpus)
+				scalars := PartitionScalars(sampleScalars[:], 19)
+				result.msmC19(samplePoints[:], scalars, chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1026,7 +1042,8 @@ func TestG2MultiExp(t *testing.T) {
 					chCpus <- struct{}{}
 				}
 
-				result.msmC20(samplePoints[:], sampleScalars[:], chCpus)
+				scalars := PartitionScalars(sampleScalars[:], 20)
+				result.msmC20(samplePoints[:], scalars, chCpus)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int

@@ -21,6 +21,13 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
+// MultiExpOptions enables users to set optional parameters to the multiexp
+type MultiExpOptions struct {
+	IsPartitionned bool // indicates whether or not the scalars inputs are already partitionned
+	C              int  // sets the "c" parameter (window size)
+	MaxCPUs        int  // sets max CPUs to use. ignored if <0 or > runtime.NumCPUs()
+}
+
 // selector stores the index, mask and shifts needed to select bits from a scalar
 // it is used during the multiExp algorithm or the batch scalar multiplication
 type selector struct {
