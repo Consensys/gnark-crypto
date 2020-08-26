@@ -628,10 +628,6 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 
 	properties.Property("BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
-	
-		
-	
-	
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
 	
@@ -669,6 +665,35 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 
 // ------------------------------------------------------------
 // benches
+
+func Benchmark{{ toUpper .PointName}}BatchScalarMul(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const pow = 15
+	const nbSamples = 1 << pow
+
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+	}
+
+	
+	for i := 5; i <= pow; i++ {
+		using := 1 << i
+
+		b.Run(fmt.Sprintf("%d points",using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				_ = BatchScalarMultiplication{{ toUpper .PointName }}(&{{toLower .PointName}}GenAff, sampleScalars[:using])
+			}
+		})
+	}
+}
 
 func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 

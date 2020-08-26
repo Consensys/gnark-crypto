@@ -220,6 +220,29 @@ func divides(c1, c2 interface{}) bool {
 	panic("unexpected type")
 }
 
+// GenerateMultiExp generates multi exp functions
+func GenerateMultiExp(conf CurveConfig) error {
+
+	bavardOpts := []func(*bavard.Bavard) error{
+		bavard.Apache2("ConsenSys AG", 2020),
+		bavard.Package(conf.CurveName),
+		bavard.GeneratedBy("gurvy"),
+		bavard.Funcs(helpers()),
+	}
+
+	// point code
+	src := []string{
+		point.MultiExp,
+	}
+
+	pathSrc := filepath.Join(conf.OutputDir, "multiexp.go")
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GeneratePoint generates elliptic curve arithmetic
 func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 
