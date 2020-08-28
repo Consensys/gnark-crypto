@@ -53,6 +53,9 @@ var lambdaGLV big.Int
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis utils.Lattice
 
+// generator of the curve
+var xGen big.Int
+
 func init() {
 
 	B.SetUint64(1)
@@ -86,6 +89,8 @@ func init() {
 
 	// binary decomposition of 15132376222941642752 little endian
 	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
+
+	xGen.SetString("9586122913090633729", 10)
 
 }
 

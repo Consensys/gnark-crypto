@@ -277,9 +277,11 @@ func (p *{{ toUpper .PointName }}Affine) Neg(a *{{ toUpper .PointName }}Affine) 
 }
 
 // SubAssign substracts two points on the curve
-func (p *{{ toUpper .PointName }}Jac) SubAssign(a {{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	a.Y.Neg(&a.Y)
-	p.AddAssign(&a)
+func (p *{{ toUpper .PointName }}Jac) SubAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+	var tmp {{ toUpper .PointName}}Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
 	return p
 }
 
@@ -392,6 +394,68 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
 }
+
+{{if eq .CurveName "bn256" }}
+	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
+	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+	// polynomials in x, a short vector of this Zmodule is
+	// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
+	// is the infinity.
+	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+
+		var res, xphip, phip {{ toUpper .PointName}}Jac
+		phip.phi(p)
+		xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
+		res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
+		res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
+		res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
+		res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+
+		return res.IsOnCurve() && res.Z.IsZero()
+
+	}
+{{else if eq .CurveName "bw761" }}
+	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
+	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+	// polynomials in x, a short vector of this Zmodule is
+	// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
+	// is the infinity.
+	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+
+		var res, phip {{ toUpper .PointName}}Jac
+		phip.phi(p)
+		res.ScalarMultiplication(&phip, &xGen).
+			SubAssign(&phip).
+			ScalarMultiplication(&res, &xGen).
+			ScalarMultiplication(&res, &xGen).
+			AddAssign(&phip)
+
+		phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+
+		return phip.IsOnCurve() && phip.Z.IsZero()
+
+	}
+{{else}}
+	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
+	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+	// polynomials in x, a short vector of this Zmodule is
+	// 1, x**2. So we check that p+x**2*phi(p)
+	// is the infinity.
+	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+
+		var res {{ toUpper .PointName}}Jac
+		res.phi(p).
+			ScalarMultiplication(&res, &xGen).
+			ScalarMultiplication(&res, &xGen).
+			AddAssign(p)
+
+		return res.IsOnCurve() && res.Z.IsZero()
+
+	}
+{{end}}
 
 
 // AddAssign point addition in montgomery form

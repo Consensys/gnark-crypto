@@ -683,7 +683,9 @@ func Benchmark{{ toUpper .PointName}}BatchScalarMul(b *testing.B) {
 func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 
 	var scalar big.Int
+	r := fr.Modulus()
 	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
+	scalar.Add(&scalar, r)
 
 	var doubleAndAdd {{ toUpper .PointName}}Jac
 

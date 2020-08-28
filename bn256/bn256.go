@@ -49,12 +49,12 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// generator of the curve
-var xGen big.Int
-
 // glvBasis stores R-linearly independant vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis utils.Lattice
+
+// generator of the curve
+var xGen big.Int
 
 func init() {
 
