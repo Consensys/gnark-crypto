@@ -284,9 +284,11 @@ func (p *G2Affine) Neg(a *G2Affine) *G2Affine {
 }
 
 // SubAssign substracts two points on the curve
-func (p *G2Jac) SubAssign(a G2Jac) *G2Jac {
-	a.Y.Neg(&a.Y)
-	p.AddAssign(&a)
+func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
+	var tmp G2Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
 	return p
 }
 
@@ -390,6 +392,24 @@ func (p *G2Affine) IsOnCurve() bool {
 	var point G2Jac
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+// Z[r,0]+Z[-lambdaG2, 1] is the kernel
+// of (u,v)->u+lambdaG2v mod r. Expressing r, lambdaG2 as
+// polynomials in x, a short vector of this Zmodule is
+// 1, x**2. So we check that p+x**2*phi(p)
+// is the infinity.
+func (p *G2Jac) SubgroupCheck() bool {
+
+	var res G2Jac
+	res.phi(p).
+		ScalarMultiplication(&res, &xGen).
+		ScalarMultiplication(&res, &xGen).
+		AddAssign(p)
+
+	return res.IsOnCurve() && res.Z.IsZero()
+
 }
 
 // AddAssign point addition in montgomery form
