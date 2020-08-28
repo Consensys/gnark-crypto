@@ -540,17 +540,15 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 
 
 // ScalarMultiplication 2-bits windowed exponentiation
-func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointName }}Affine, s *big.Int) *{{ toUpper .PointName }}Jac {
+func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
 
-	var res, tmp {{toUpper .PointName}}Jac
-	var ops [3]{{toUpper .PointName}}Affine
+	var res {{ toUpper .PointName}}Jac
+	var ops [3]{{ toUpper .PointName}}Jac
 
-	res.Set(&{{toLower .PointName}}Infinity)
-	ops[0] = *a
-	tmp.FromAffine(a).DoubleAssign()
-	ops[1].FromJacobian(&tmp)
-	tmp.AddMixed(a)
-	ops[2].FromJacobian(&tmp)
+	res.Set(&{{ toLower .PointName}}Infinity)
+	ops[0].Set(a)
+	ops[1].Double(&ops[0])
+	ops[2].Set(&ops[0]).AddAssign(&ops[1])
 
 	b := s.Bytes()
 	for i := range b {
@@ -560,7 +558,7 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointN
 			res.DoubleAssign().DoubleAssign()
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
-				res.AddMixed(&ops[c-1])
+				res.AddAssign(&ops[c-1])
 			}
 			mask = mask >> 2
 		}
@@ -571,11 +569,12 @@ func (p *{{ toUpper .PointName }}Jac) ScalarMultiplication(a *{{ toUpper .PointN
 
 }
 
+
 {{ if .GLV}}
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
-func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUpper .PointName}}Jac {
-	p.FromAffine(a)
+func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper .PointName}}Jac {
+	p.Set(a)
 	{{if eq .CoordType "E2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{else}}
@@ -585,7 +584,7 @@ func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Affine) *{{toUp
 }
 
 // ScalarMulGLV performs scalar multiplication using GLV
-func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Affine, s *big.Int) *{{toUpper .PointName}}Jac {
+func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Jac, s *big.Int) *{{toUpper .PointName}}Jac {
 
 	var table [3]{{toUpper .PointName}}Jac
 	var zero big.Int
@@ -595,7 +594,7 @@ func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Affine
 	res.Set(&{{toLower .PointName}}Infinity)
 
 	// table stores [+-a, +-phi(a), +-a+-phi(a)]
-	table[0].FromAffine(a)
+	table[0].Set(a)
 	table[1].phi(a)
 
 	// split the scalar, modifies +-a, phi(a) accordingly

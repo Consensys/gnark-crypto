@@ -68,7 +68,7 @@ func TestG1IsOnCurve(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 	genFuzz1 := GenFp()
-	properties.Property("g1Gen (affine) should be on the curve", prop.ForAll(
+	properties.Property("[BW761] g1Gen (affine) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			var op1, op2 G1Affine
 			op1.FromJacobian(&g1Gen)
@@ -79,7 +79,7 @@ func TestG1IsOnCurve(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("g1Gen (Jacobian) should be on the curve", prop.ForAll(
+	properties.Property("[BW761] g1Gen (Jacobian) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			var op1, op2, op3 G1Jac
 			op1.Set(&g1Gen)
@@ -92,7 +92,7 @@ func TestG1IsOnCurve(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("g1Gen (projective) should be on the curve", prop.ForAll(
+	properties.Property("[BW761] g1Gen (projective) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			var op1, op2, op3 G1Proj
 			op1.FromJacobian(&g1Gen)
@@ -118,7 +118,7 @@ func TestG1Conversions(t *testing.T) {
 	genFuzz1 := GenFp()
 	genFuzz2 := GenFp()
 
-	properties.Property("Affine representation should be independent of the Jacobian representative", prop.ForAll(
+	properties.Property("[BW761] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
 			g := fuzzJacobianG1(&g1Gen, a)
 			var op1 G1Affine
@@ -128,7 +128,7 @@ func TestG1Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
+	properties.Property("[BW761] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
 			var g g1JacExtended
 			g.X.Set(&g1Gen.X)
@@ -144,7 +144,7 @@ func TestG1Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("Projective representation should be independent of a Jacobian representative", prop.ForAll(
+	properties.Property("[BW761] Projective representation should be independent of a Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
 
 			g := fuzzJacobianG1(&g1Gen, a)
@@ -160,7 +160,7 @@ func TestG1Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("Jacobian representation should be the same as the affine representative", prop.ForAll(
+	properties.Property("[BW761] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		func(a fp.Element) bool {
 			var g G1Jac
 			var op1 G1Affine
@@ -177,7 +177,7 @@ func TestG1Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
+	properties.Property("[BW761] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g G1Affine
 			g.X.SetZero()
@@ -190,7 +190,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
+	properties.Property("[BW761] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
 			var g G1Affine
 			var op1 g1JacExtended
@@ -202,7 +202,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
+	properties.Property("[BW761] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g G1Jac
 			var op1 g1JacExtended
@@ -215,7 +215,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[Jacobian] Two representatives of the same class should be equal", prop.ForAll(
+	properties.Property("[BW761] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		func(a, b fp.Element) bool {
 			op1 := fuzzJacobianG1(&g1Gen, a)
 			op2 := fuzzJacobianG1(&g1Gen, b)
@@ -239,7 +239,7 @@ func TestG1Ops(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[Jacobian] Add should call double when having adding the same point", prop.ForAll(
+	properties.Property("[BW761] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop2 := fuzzJacobianG1(&g1Gen, b)
@@ -252,7 +252,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz2,
 	))
 
-	properties.Property("[Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
+	properties.Property("[BW761] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		func(a, b fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop2 := fuzzJacobianG1(&g1Gen, b)
@@ -264,7 +264,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz2,
 	))
 
-	properties.Property("[Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
+	properties.Property("[BW761] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop1.AddAssign(&g1Infinity)
@@ -276,7 +276,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
+	properties.Property("[BW761] [Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			var p1, p1Neg G1Affine
@@ -295,7 +295,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+	properties.Property("[BW761] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			var p1, p1Neg G1Affine
@@ -314,7 +314,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
+	properties.Property("[BW761] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop1.Neg(&fop1)
@@ -326,24 +326,22 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
+	properties.Property("[BW761] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
 			var g G1Jac
-			var gaff G1Affine
-			gaff.FromJacobian(&g1Gen)
-			g.ScalarMultiplication(&gaff, r)
+			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMultiplication(&gaff, &rminusone)
+			op3.ScalarMultiplication(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalard.Add(&scalar, r)
-			op1.ScalarMultiplication(&gaff, &scalar)
-			op2.ScalarMultiplication(&gaff, &blindedScalard)
+			op1.ScalarMultiplication(&g1Gen, &scalar)
+			op2.ScalarMultiplication(&g1Gen, &blindedScalard)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -351,24 +349,22 @@ func TestG1Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
+	properties.Property("[BW761] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
 			var g G1Jac
-			var gaff G1Affine
-			gaff.FromJacobian(&g1Gen)
-			g.ScalarMulGLV(&gaff, r)
+			g.ScalarMulGLV(&g1Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMulGLV(&gaff, &rminusone)
+			op3.ScalarMulGLV(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalard.Add(&scalar, r)
-			op1.ScalarMulGLV(&gaff, &scalar)
-			op2.ScalarMulGLV(&gaff, &blindedScalard)
+			op1.ScalarMulGLV(&g1Gen, &scalar)
+			op2.ScalarMulGLV(&g1Gen, &blindedScalard)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -376,16 +372,14 @@ func TestG1Ops(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("GLV and Double and Add should output the same result", prop.ForAll(
+	properties.Property("[BW761] GLV and Double and Add should output the same result", prop.ForAll(
 		func(s fr.Element) bool {
 
 			var r big.Int
 			var op1, op2 G1Jac
-			var gaff G1Affine
 			s.ToBigIntRegular(&r)
-			gaff.FromJacobian(&g1Gen)
-			op1.ScalarMultiplication(&gaff, &r)
-			op2.ScalarMulGLV(&gaff, &r)
+			op1.ScalarMultiplication(&g1Gen, &r)
+			op2.ScalarMulGLV(&g1Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
 
 		},
@@ -394,7 +388,7 @@ func TestG1Ops(t *testing.T) {
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[BW761] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g G1Jac
@@ -418,11 +412,9 @@ func TestG1Ops(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Jac
-			var op1Aff G1Affine
-			op1Aff.FromJacobian(&g1Gen)
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&op1Aff, &finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&g1Gen, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -460,7 +452,7 @@ func TestG1MultiExp(t *testing.T) {
 	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
-	properties.Property("Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[BW761] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var result, expected G1Jac
@@ -487,14 +479,14 @@ func TestG1MultiExp(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1GenAff, &finalScalar)
+			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			return result.Equal(&expected)
 		},
 		genScalar,
 	))
 
-	properties.Property("Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[BW761] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var result, expected G1Jac
@@ -521,7 +513,7 @@ func TestG1MultiExp(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1GenAff, &finalScalar)
+			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			return result.Equal(&expected)
 		},
@@ -530,7 +522,7 @@ func TestG1MultiExp(t *testing.T) {
 
 	if !testing.Short() {
 
-		properties.Property("Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
+		properties.Property("[BW761] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
 				var result, expected G1Jac
@@ -557,7 +549,7 @@ func TestG1MultiExp(t *testing.T) {
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
 				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1GenAff, &finalScalar)
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 				return result.Equal(&expected)
 			},
@@ -581,7 +573,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 500
 
-	properties.Property("BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+	properties.Property("[BW761] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -602,7 +594,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.ScalarMulGLV(&g1GenAff, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -657,7 +649,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 	b.Run("double and add", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMultiplication(&g1GenAff, &scalar)
+			doubleAndAdd.ScalarMultiplication(&g1Gen, &scalar)
 		}
 	})
 
@@ -665,7 +657,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			glv.ScalarMulGLV(&g1GenAff, &scalar)
+			glv.ScalarMulGLV(&g1Gen, &scalar)
 		}
 	})
 

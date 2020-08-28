@@ -49,6 +49,9 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
+// generator of the curve
+var xGen big.Int
+
 // glvBasis stores R-linearly independant vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis utils.Lattice
@@ -81,13 +84,15 @@ func init() {
 
 	thirdRootOneG1.SetString("2203960485148121921418603742825762020974279258880205651966")
 	thirdRootOneG2.Square(&thirdRootOneG1)
-	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10)
+	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10) // (36*x**3+18*x**2+6*x+1)
 	_r := fr.Modulus()
 	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	// binary decomposition of 15132376222941642752 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)
 	utils.NafDecomposition(optimaAteLoop, loopCounter[:])
+
+	xGen.SetString("4965661367192848881", 10)
 
 }
 

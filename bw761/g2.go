@@ -538,17 +538,15 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 }
 
 // ScalarMultiplication 2-bits windowed exponentiation
-func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 
-	var res, tmp G2Jac
-	var ops [3]G2Affine
+	var res G2Jac
+	var ops [3]G2Jac
 
 	res.Set(&g2Infinity)
-	ops[0] = *a
-	tmp.FromAffine(a).DoubleAssign()
-	ops[1].FromJacobian(&tmp)
-	tmp.AddMixed(a)
-	ops[2].FromJacobian(&tmp)
+	ops[0].Set(a)
+	ops[1].Double(&ops[0])
+	ops[2].Set(&ops[0]).AddAssign(&ops[1])
 
 	b := s.Bytes()
 	for i := range b {
@@ -558,7 +556,7 @@ func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 			res.DoubleAssign().DoubleAssign()
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
-				res.AddMixed(&ops[c-1])
+				res.AddAssign(&ops[c-1])
 			}
 			mask = mask >> 2
 		}
@@ -570,8 +568,8 @@ func (p *G2Jac) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Jac {
 }
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
-func (p *G2Jac) phi(a *G2Affine) *G2Jac {
-	p.FromAffine(a)
+func (p *G2Jac) phi(a *G2Jac) *G2Jac {
+	p.Set(a)
 
 	p.X.Mul(&p.X, &thirdRootOneG2)
 
@@ -579,7 +577,7 @@ func (p *G2Jac) phi(a *G2Affine) *G2Jac {
 }
 
 // ScalarMulGLV performs scalar multiplication using GLV
-func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	var table [3]G2Jac
 	var zero big.Int
@@ -589,7 +587,7 @@ func (p *G2Jac) ScalarMulGLV(a *G2Affine, s *big.Int) *G2Jac {
 	res.Set(&g2Infinity)
 
 	// table stores [+-a, +-phi(a), +-a+-phi(a)]
-	table[0].FromAffine(a)
+	table[0].Set(a)
 	table[1].phi(a)
 
 	// split the scalar, modifies +-a, phi(a) accordingly

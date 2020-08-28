@@ -291,8 +291,8 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 	return nil
 }
 
-// GeneratePairing generates elliptic curve arithmetic
-func GeneratePairing(conf CurveConfig) error {
+// GeneratePairingTests generates elliptic curve arithmetic
+func GeneratePairingTests(conf CurveConfig) error {
 
 	src := []string{
 		pairing.PairingTests,

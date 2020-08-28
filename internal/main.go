@@ -68,7 +68,7 @@ func main() {
 				os.Exit(-1)
 			}
 
-			err := generator.GeneratePairing(confs[i])
+			err := generator.GeneratePairingTests(confs[i])
 			if err != nil {
 				fmt.Printf("\n%s\n", err.Error())
 				os.Exit(-1)

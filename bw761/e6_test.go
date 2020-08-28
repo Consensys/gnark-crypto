@@ -22,7 +22,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 	genA := GenE6()
 	genB := GenE6()
 
-	properties.Property("Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -35,7 +35,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -48,7 +48,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -61,7 +61,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Square(a)
@@ -71,7 +71,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (neg) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (neg) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Neg(a)
@@ -81,7 +81,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Double(a)
@@ -91,7 +91,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Inverse(a)
@@ -101,7 +101,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (mul by E2) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (mul by E2) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			var c E2
@@ -113,7 +113,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (cyclotomic square) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (cyclotomic square) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.CyclotomicSquare(a)
@@ -123,7 +123,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (frobenius) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (frobenius) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Frobenius(a)
@@ -133,7 +133,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (frobenius square) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (frobenius square) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.FrobeniusSquare(a)
@@ -143,7 +143,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Having the receiver as operand (frobenius cube) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (frobenius cube) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.FrobeniusSquare(a)
@@ -347,7 +347,7 @@ func TestE6State(t *testing.T) {
 	}
 
 	properties := gopter.NewProperties(parameters)
-	properties.Property("E6 state", commands.Prop(e6commands))
+	properties.Property("[BW761] E6 state", commands.Prop(e6commands))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }

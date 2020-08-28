@@ -39,7 +39,7 @@ func TestPairing(t *testing.T) {
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-	properties.Property("Having the receiver as operand (final expo) should output the same result", prop.ForAll(
+	properties.Property("[BLS381] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Set(a)
@@ -50,7 +50,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
+	properties.Property("[BLS381] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
 		func(a *E12) bool {
 			var one E12
 			var e big.Int
@@ -62,7 +62,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("bilinearity", prop.ForAll(
+	properties.Property("[BLS381] bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var res, resa, resb, resab, zero PairingResult
@@ -82,8 +82,8 @@ func TestPairing(t *testing.T) {
 			g1affine.FromJacobian(&g1Gen)
 			g2affine.FromJacobian(&g2Gen)
 
-			aG1.ScalarMultiplication(&g1affine, &abigint)
-			bG2.ScalarMultiplication(&g2affine, &bbigint)
+			aG1.ScalarMultiplication(&g1Gen, &abigint)
+			bG2.ScalarMultiplication(&g2Gen, &bbigint)
 			ag1.FromJacobian(&aG1)
 			bg2.FromJacobian(&bG2)
 
