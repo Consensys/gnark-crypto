@@ -66,11 +66,11 @@ func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}J
 	return Q
 }
 
-// unsafeFromJacExtended sets p in affine coords, but don't check for infinity
+// unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
 func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
-	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
-	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
-	p.Z.Set(&Q.ZZZ)
+	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
+	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
+	p.Z = Q.ZZZ
 	return p
 }
 
@@ -795,7 +795,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars := PartitionScalars(scalars, MultiExpOptions{C:c})
+	pScalars := partitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
