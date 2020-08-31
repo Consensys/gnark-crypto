@@ -670,7 +670,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars := PartitionScalars(scalars, MultiExpOptions{C: c})
+	pScalars := partitionScalars(scalars, c)
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

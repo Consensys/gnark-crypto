@@ -586,14 +586,10 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			numCpus := runtime.NumCPU()
-			chCpus := make(chan struct{}, numCpus)
-			for i:=0; i < numCpus; i++ {
-				chCpus <- struct{}{}
-			}
-	
-			scalars := PartitionScalars(sampleScalars[:], MultiExpOptions{C:{{$c}}})
-			result.msmC{{$c}}(samplePoints[:], scalars, chCpus)
+			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt.lock.Lock()
+			scalars := partitionScalars(sampleScalars[:], {{$c}})
+			result.msmC{{$c}}(samplePoints[:], scalars, opt)
 	
 	
 			// compute expected result with double and add
@@ -767,6 +763,45 @@ func Benchmark{{ toUpper .PointName}}Double(b *testing.B) {
 
 }
 
+func Benchmark{{ toUpper .PointName}}MultiExpLarge{{ toUpper .PointName}}(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const pow = 27
+	const nbSamples = 1 << pow
+
+	var samplePoints [nbSamples]{{ toUpper .PointName}}Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1]= {{ toLower .PointName }}GenAff
+	}
+
+	var testPoint {{ toUpper .PointName}}Jac
+
+
+		for i := 23; i <= pow; i++ {
+			for c := 16; c <= 22; c++ {
+				for cpus:=2; cpus <=8; cpus*=2 {
+					using := 1 << i
+	
+					opt := NewMultiExpOptions(cpus)
+					opt.C = uint64(c)
+					b.Run(fmt.Sprintf("%d points, c = %d, cpus = %d",using, c, cpus), func(b *testing.B) {
+						b.ResetTimer()
+						for j := 0; j < b.N; j++ {
+							testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], opt)
+						}
+					})
+				}
+		}
+	}
+	
+}
 
 func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.B) {
 	// ensure every words of the scalars are filled

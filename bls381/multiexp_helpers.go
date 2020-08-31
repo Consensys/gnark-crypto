@@ -17,8 +17,7 @@
 package bls381
 
 import (
-	"math"
-	"runtime"
+	"sync"
 
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/consensys/gurvy/utils/parallel"
@@ -26,39 +25,19 @@ import (
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	IsPartitionned bool          // indicates whether or not the scalars inputs are already partitionned
-	C              uint64        // sets the "c" parameter (window size)
-	ChCpus         chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
+	C      uint64
+	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
+	lock   sync.Mutex
 }
 
-func (opt *MultiExpOptions) build(nbPoints int) {
-	if opt.C == 0 {
-		// C is not set, use default value
-
-		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically.
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				opt.C = c
-			}
-		}
+func NewMultiExpOptions(numCpus int) *MultiExpOptions {
+	toReturn := &MultiExpOptions{
+		chCpus: make(chan struct{}, numCpus),
 	}
-
-	if opt.ChCpus == nil {
-		opt.ChCpus = make(chan struct{}, runtime.NumCPU())
-		for i := 0; i < runtime.NumCPU(); i++ {
-			opt.ChCpus <- struct{}{}
-		}
+	for i := 0; i < numCpus; i++ {
+		toReturn.chCpus <- struct{}{}
 	}
+	return toReturn
 }
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
@@ -73,20 +52,13 @@ type selector struct {
 	shiftHigh       uint64 // same than shift, for index+1
 }
 
-// PartitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
+// partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
-func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Element {
+func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
-
-	var opt MultiExpOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-	opt.build(len(scalars))
-	c := opt.C
 
 	// number of c-bit radixes in a scalar
 	nbChunks := fr.Limbs * 64 / c
@@ -157,6 +129,6 @@ func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Elemen
 
 			}
 		}
-	}, len(opt.ChCpus))
+	})
 	return toReturn
 }

@@ -8,7 +8,7 @@ const MultiExpCore = `
 // * the choice of  "c" (c-bit window to process the scalars)
 // * max number of cpus to use
 // * indicates wether or not the provided scalars are already partitionned using PartitionScalars method
-func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...MultiExpOptions) *{{ toUpper .PointName }}Jac {
+func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*MultiExpOptions) *{{ toUpper .PointName }}Jac {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -35,23 +35,61 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt MultiExpOptions
+	var opt *MultiExpOptions
 	if len(opts) > 0 {
 		opt = opts[0]
+	} else {
+		opt = NewMultiExpOptions(runtime.NumCPU())
 	}
-	opt.build(len(points))
+
+	if opt.C == 0 {
+		nbPoints := len(points)
+	
+		// implemented msmC methods (the c we use must be in this slice)
+		implementedCs := []uint64{
+			{{- range $c :=  .CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
+		}
+	
+		// approximate cost (in group operations)
+		// cost = bits/c * (nbPoints + 2^{c-1})
+		// this needs to be verified empirically. 
+		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+		min := math.MaxFloat64
+		for _, c := range implementedCs {
+			cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
+			cost := float64(cc) / float64(c)
+			if cost < min {
+				min = cost
+				opt.C = c 
+			}
+		}
+
+		// empirical
+		{{if eq .PointName "g1"}}
+		if opt.C > 16 && nbPoints < 1 << 23 {
+			opt.C = 16
+		} 
+		{{else}}
+		if opt.C > 16 && nbPoints < 1 << 23 {
+			opt.C = 16
+		}
+		{{end}}
+	}
+	
+
+
+	// take all the cpus to ourselves
+	opt.lock.Lock()
 
 	// partition the scalars 
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	if !opt.IsPartitionned {
-		scalars = PartitionScalars(scalars, opt)
-	} 
-	
+	scalars = partitionScalars(scalars, opt.C)
+
 	switch opt.C {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.msmC{{$c}}(points, scalars, opt.ChCpus)	
+		return p.msmC{{$c}}(points, scalars, opt)	
 	{{end}}
 	default:
 		panic("unimplemented")
@@ -75,13 +113,11 @@ func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c in
 
 func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	 chRes chan<- {{ toUpper .PointName }}Jac,
-	 chCpus chan struct{},
 	 buckets []{{ toLower .PointName }}JacExtended,
 	 c uint64,
 	 points []{{ toUpper .PointName }}Affine,
 	 scalars []fr.Element) {
 
-	<-chCpus // wait and decrement avaiable CPUs on the semaphore
 
 	mask  := uint64((1 << c) - 1)	// low c bits are 1
 	msbWindow  := uint64(1 << (c -1)) 
@@ -141,26 +177,41 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 
 	chRes <- total
 	close(chRes)
-	chCpus <- struct{}{} // increment avaiable CPUs into the semaphore
 } 
 
 
 {{range $c :=  .CRange}}
 
-func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, chCpus chan struct{}) *{{ toUpper $.PointName }}Jac {
+func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, opt *MultiExpOptions) *{{ toUpper $.PointName }}Jac {
 	{{- $cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
-
 	// for each chunk, spawn a go routine that'll loop through all the scalars
 	var chChunks [nbChunks]chan {{ toUpper $.PointName }}Jac
+	{{- if not $cDividesBits }}
+	// c doesn't divide {{$.RBitLen}}, last window is smaller we can allocate less buckets
+	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+	chChunks[nbChunks-1] = make(chan {{ toUpper $.PointName }}Jac, 1)
+	<-opt.chCpus  // wait to have a cpu before scheduling 
+	go func(j uint64) {
+		var buckets [1<<(lastC-1)]{{ toLower $.PointName }}JacExtended
+		msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j], buckets[:], c, points, scalars)
+		opt.chCpus <- struct{}{} // release token in the semaphore
+	}(uint64(nbChunks-1))
+
+	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
+	{{- else}}
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+	{{- end}}
 		chChunks[chunk] = make(chan {{ toUpper $.PointName }}Jac, 1)
+		<-opt.chCpus  // wait to have a cpu before scheduling 
 		go func(j uint64) {
 			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
-			msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j], chCpus, buckets[:], c, points, scalars)
+			msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j],  buckets[:], c, points, scalars)
+			opt.chCpus <- struct{}{} // release token in the semaphore
 		}(uint64(chunk))
 	}
+	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 
 	return msmReduceChunk{{ toUpper $.PointName }}(p, c, chChunks[:])
 }
@@ -177,42 +228,21 @@ import (
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	IsPartitionned bool // indicates whether or not the scalars inputs are already partitionned
-	C uint64  				// sets the "c" parameter (window size)
-	ChCpus chan struct{}  	// semaphore to limit number of cpus iterating through points and scalrs at the same time
-} 
-
-func (opt *MultiExpOptions) build(nbPoints int) {
-	if opt.C == 0 {
-		// C is not set, use default value
-
-		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{
-			{{- range $c :=  .CRange}} {{$c}},{{- end}}
-		}
-
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically. 
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				opt.C = c 
-			}
-		}
-	}
-
-	if opt.ChCpus == nil {
-		opt.ChCpus = make(chan struct{}, runtime.NumCPU())
-		for i:=0; i < runtime.NumCPU(); i++ {
-			opt.ChCpus <- struct{}{}
-		}
-	}
+	C uint64
+	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
+	lock sync.Mutex 
 }
+
+func NewMultiExpOptions(numCpus int) *MultiExpOptions {
+	toReturn := &MultiExpOptions{
+		chCpus: make(chan struct{}, numCpus),
+	}
+	for i:=0; i < numCpus; i++ {
+		toReturn.chCpus <- struct{}{}
+	}
+	return toReturn 
+}
+
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
 // it is used during the multiExp algorithm or the batch scalar multiplication
@@ -226,20 +256,14 @@ type selector struct {
 	shiftHigh uint64		// same than shift, for index+1
 }
 
-// PartitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
+// partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
-func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Element {
+func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
 
-	var opt MultiExpOptions
-	if len(opts) > 0 {
-		opt = opts[0]
-	}
-	opt.build(len(scalars))
-	c := opt.C
 
 	// number of c-bit radixes in a scalar
 	nbChunks := fr.Limbs * 64 / c 
@@ -312,7 +336,7 @@ func PartitionScalars(scalars []fr.Element, opts ...MultiExpOptions) []fr.Elemen
 				
 			}
 		}
-	}, len(opt.ChCpus))
+	})
 	return toReturn
 }
 

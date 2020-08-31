@@ -475,14 +475,10 @@ func TestG2MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			numCpus := runtime.NumCPU()
-			chCpus := make(chan struct{}, numCpus)
-			for i := 0; i < numCpus; i++ {
-				chCpus <- struct{}{}
-			}
-
-			scalars := PartitionScalars(sampleScalars[:], MultiExpOptions{C: 4})
-			result.msmC4(samplePoints[:], scalars, chCpus)
+			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt.lock.Lock()
+			scalars := partitionScalars(sampleScalars[:], 4)
+			result.msmC4(samplePoints[:], scalars, opt)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -509,14 +505,10 @@ func TestG2MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			numCpus := runtime.NumCPU()
-			chCpus := make(chan struct{}, numCpus)
-			for i := 0; i < numCpus; i++ {
-				chCpus <- struct{}{}
-			}
-
-			scalars := PartitionScalars(sampleScalars[:], MultiExpOptions{C: 8})
-			result.msmC8(samplePoints[:], scalars, chCpus)
+			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt.lock.Lock()
+			scalars := partitionScalars(sampleScalars[:], 8)
+			result.msmC8(samplePoints[:], scalars, opt)
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
@@ -545,14 +537,10 @@ func TestG2MultiExp(t *testing.T) {
 				}
 
 				// semaphore to limit number of cpus
-				numCpus := runtime.NumCPU()
-				chCpus := make(chan struct{}, numCpus)
-				for i := 0; i < numCpus; i++ {
-					chCpus <- struct{}{}
-				}
-
-				scalars := PartitionScalars(sampleScalars[:], MultiExpOptions{C: 16})
-				result.msmC16(samplePoints[:], scalars, chCpus)
+				opt := NewMultiExpOptions(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 16)
+				result.msmC16(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -712,6 +700,45 @@ func BenchmarkG2Double(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.DoubleAssign()
+	}
+
+}
+
+func BenchmarkG2MultiExpLargeG2(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const pow = 27
+	const nbSamples = 1 << pow
+
+	var samplePoints [nbSamples]G2Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g2GenAff
+	}
+
+	var testPoint G2Jac
+
+	for i := 23; i <= pow; i++ {
+		for c := 16; c <= 22; c++ {
+			for cpus := 2; cpus <= 8; cpus *= 2 {
+				using := 1 << i
+
+				opt := NewMultiExpOptions(cpus)
+				opt.C = uint64(c)
+				b.Run(fmt.Sprintf("%d points, c = %d, cpus = %d", using, c, cpus), func(b *testing.B) {
+					b.ResetTimer()
+					for j := 0; j < b.N; j++ {
+						testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], opt)
+					}
+				})
+			}
+		}
 	}
 
 }
