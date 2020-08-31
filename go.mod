@@ -1,6 +1,6 @@
 module github.com/consensys/gurvy
 
-go 1.14
+go 1.15
 
 require (
 	github.com/consensys/bavard v0.1.3
