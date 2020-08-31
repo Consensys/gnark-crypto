@@ -79,11 +79,11 @@ func (p *g2JacExtended) ToJac(Q *G2Jac) *G2Jac {
 	return Q
 }
 
-// unsafeFromJacExtended sets p in affine coords, but don't check for infinity
+// unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
 func (p *G2Jac) unsafeFromJacExtended(Q *g2JacExtended) *G2Jac {
-	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
-	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
-	p.Z.Set(&Q.ZZZ)
+	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
+	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
+	p.Z = Q.ZZZ
 	return p
 }
 
