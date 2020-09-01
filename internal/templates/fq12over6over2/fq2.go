@@ -149,4 +149,10 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	return z
 }
 
+// Legendre returns the Legendre symbol of z
+func (z *E2) Legendre() int {
+	n := z.norm()
+	return n.Legendre()
+}
+
 `

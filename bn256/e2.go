@@ -128,3 +128,9 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	z.A1.Neg(&x.A1)
 	return z
 }
+
+// Legendre returns the Legendre symbol of z
+func (z *E2) Legendre() int {
+	n := z.norm()
+	return n.Legendre()
+}

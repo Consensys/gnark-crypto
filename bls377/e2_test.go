@@ -324,6 +324,22 @@ func TestE2State(t *testing.T) {
 		},
 	}
 
+	legendre := &commands.ProtoCommand{
+		Name: "LEGENDRE",
+		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
+			var z E2
+			z.Square(systemUnderTest.(*E2))
+			l := z.Legendre()
+			return l == 1
+		},
+		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
+			if result.(bool) {
+				return &gopter.PropResult{Status: gopter.PropTrue}
+			}
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		},
+	}
+
 	e2commands := &commands.ProtoCommands{
 		NewSystemUnderTestFunc: func(_ commands.State) commands.SystemUnderTest {
 			var a E2
@@ -332,7 +348,7 @@ func TestE2State(t *testing.T) {
 		},
 		InitialStateGen: gen.Const(false),
 		GenCommandFunc: func(state commands.State) gopter.Gen {
-			return gen.OneConstOf(subadd, mulinverse, inversetwice, negtwice, squaremul, mulbyelmtinverse, doublemul, mulbynonres, conjugate)
+			return gen.OneConstOf(subadd, mulinverse, inversetwice, negtwice, squaremul, mulbyelmtinverse, doublemul, mulbynonres, conjugate, legendre)
 		},
 	}
 
