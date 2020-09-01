@@ -35,6 +35,7 @@ func mulAdxE2(z, x, y *E2) {
 const Fq2Common = `
 
 import (
+	"math/big"
 	"github.com/consensys/gurvy/{{toLower .CurveName}}/fp"
 )
 
@@ -153,6 +154,26 @@ func (z *E2) Conjugate(x *E2) *E2 {
 func (z *E2) Legendre() int {
 	n := z.norm()
 	return n.Legendre()
+}
+
+// Exp sets z=x**e and returns it
+func (z *E2) Exp(x *E2, e big.Int) *E2 {
+	var res E2
+	res.SetOne()
+	b := e.Bytes()
+	for i := range b {
+		w := b[i]
+		mask := byte(0x80)
+		for j := 7; j >= 0; j-- {
+			res.Square(&res)
+			if (w&mask)>>j != 0 {
+				res.Mul(&res, x)
+			}
+			mask = mask >> 1
+		}
+	}
+	z.Set(&res)
+	return z
 }
 
 `
