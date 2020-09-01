@@ -260,14 +260,14 @@ func (p *{{ toUpper .PointName }}Affine) Equal(a *{{ toUpper .PointName }}Affine
 
 // Neg computes -G
 func (p *{{ toUpper .PointName }}Jac) Neg(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	p.Set(a)
+	*p = *a
 	p.Y.Neg(&a.Y)
 	return p
 }
 
 // Neg computes -G
 func (p *{{ toUpper .PointName }}Affine) Neg(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Affine {
-	p.X.Set(&a.X)
+	p.X = a.X
 	p.Y.Neg(&a.Y)
 	return p
 }

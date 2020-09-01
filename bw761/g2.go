@@ -268,14 +268,14 @@ func (p *G2Affine) Equal(a *G2Affine) bool {
 
 // Neg computes -G
 func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
-	p.Set(a)
+	*p = *a
 	p.Y.Neg(&a.Y)
 	return p
 }
 
 // Neg computes -G
 func (p *G2Affine) Neg(a *G2Affine) *G2Affine {
-	p.X.Set(&a.X)
+	p.X = a.X
 	p.Y.Neg(&a.Y)
 	return p
 }
