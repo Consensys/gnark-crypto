@@ -37,18 +37,8 @@ func (z *E12) Set(x *E12) *E12 {
 
 // SetOne sets z to 1 in Montgomery form and returns z
 func (z *E12) SetOne() *E12 {
+	*z = E12{}
 	z.C0.B0.A0.SetOne()
-	z.C0.B0.A1.SetZero()
-	z.C0.B1.A0.SetZero()
-	z.C0.B1.A1.SetZero()
-	z.C0.B2.A0.SetZero()
-	z.C0.B2.A1.SetZero()
-	z.C1.B0.A0.SetZero()
-	z.C1.B0.A1.SetZero()
-	z.C1.B1.A0.SetZero()
-	z.C1.B1.A1.SetZero()
-	z.C1.B2.A0.SetZero()
-	z.C1.B2.A1.SetZero()
 	return z
 }
 
@@ -217,7 +207,7 @@ func (z *E12) InverseUnitary(x *E12) *E12 {
 
 // Conjugate set z to x conjugated and return z
 func (z *E12) Conjugate(x *E12) *E12 {
-	z.Set(x)
+	*z = *x 
 	z.C1.Neg(&z.C1)
 	return z
 }

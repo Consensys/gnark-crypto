@@ -62,18 +62,10 @@ func (z *E2) SetZero() *E2 {
 	return z
 }
 
-// Clone returns a copy of self
-func (z *E2) Clone() *E2 {
-	return &E2{
-		A0: z.A0,
-		A1: z.A1,
-	}
-}
-
 // Set sets an E2 from x
 func (z *E2) Set(x *E2) *E2 {
-	z.A0.Set(&x.A0)
-	z.A1.Set(&x.A1)
+	z.A0 = x.A0
+	z.A1 = x.A1
 	return z
 }
 
@@ -152,7 +144,7 @@ func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 
 // Conjugate conjugates an element in E2
 func (z *E2) Conjugate(x *E2) *E2 {
-	z.A0.Set(&x.A0)
+	z.A0 = x.A0
 	z.A1.Neg(&x.A1)
 	return z
 }

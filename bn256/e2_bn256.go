@@ -18,6 +18,24 @@ import (
 	"github.com/consensys/gurvy/bn256/fp"
 )
 
+// declaring nonResInverse as global makes MulByNonResInv inlinable
+var nonResInverse E2
+
+func init() {
+	nonResInverse.A0 = fp.Element{
+		10477841894441615122,
+		7327163185667482322,
+		3635199979766503006,
+		3215324977242306624,
+	}
+	nonResInverse.A1 = fp.Element{
+		7515750141297360845,
+		14746352163864140223,
+		11319968037783994424,
+		30185921062296004,
+	}
+}
+
 // mulGenericE2 sets z to the E2-product of x,y, returns z
 // note: do not rename, this is referenced in the x86 assembly impl
 func mulGenericE2(z, x, y *E2) {
@@ -47,23 +65,7 @@ func squareGenericE2(z, x *E2) *E2 {
 
 // MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-
-	var nonresinv E2
-	nonresinv.A0 = fp.Element{
-		10477841894441615122,
-		7327163185667482322,
-		3635199979766503006,
-		3215324977242306624,
-	}
-	nonresinv.A1 = fp.Element{
-		7515750141297360845,
-		14746352163864140223,
-		11319968037783994424,
-		30185921062296004,
-	}
-
-	z.Mul(x, &nonresinv)
-
+	z.Mul(x, &nonResInverse)
 	return z
 }
 

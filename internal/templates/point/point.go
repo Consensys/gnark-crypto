@@ -35,17 +35,16 @@ type {{ toLower .PointName }}JacExtended struct {
 func (p *{{ toLower .PointName }}JacExtended) SetInfinity() *{{ toLower .PointName }}JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
-	p.ZZ.SetZero()
-	p.ZZZ.SetZero()
+	p.ZZ = {{.CoordType}}{}
+	p.ZZZ = {{.CoordType}}{}
 	return p
 }
 
 // ToAffine sets p in affine coords
 func (p *{{ toLower .PointName }}JacExtended) ToAffine(Q *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Affine {
-	var zero {{.CoordType}}
-	if p.ZZ.Equal(&zero) {
-		Q.X.Set(&zero)
-		Q.Y.Set(&zero)
+	if p.ZZ.IsZero() {
+		Q.X = {{.CoordType}}{}
+		Q.Y = {{.CoordType}}{}
 		return Q
 	}
 	Q.X.Inverse(&p.ZZ).Mul(&Q.X, &p.X)
@@ -55,8 +54,7 @@ func (p *{{ toLower .PointName }}JacExtended) ToAffine(Q *{{ toUpper .PointName 
 
 // ToJac sets p in affine coords
 func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	var zero {{.CoordType}}
-	if p.ZZ.Equal(&zero) {
+	if p.ZZ.IsZero() {
 		Q.Set(&{{ toLower .PointName }}Infinity)
 		return Q
 	}
@@ -110,8 +108,8 @@ func (p *{{ toLower .PointName }}JacExtended) mSub(a *{{ toUpper .PointName }}Af
 	if pIsZero && rIsZero {
 		return p.doubleNeg(a)
 	} else if pIsZero {
-		p.ZZ.SetZero()
-		p.ZZZ.SetZero()
+		p.ZZ =  {{.CoordType}}{}
+		p.ZZZ =  {{.CoordType}}{}
 		return p
 	} 
 
@@ -166,8 +164,8 @@ func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Af
 	if pIsZero && rIsZero {
 		return p.double(a)
 	} else if pIsZero {
-		p.ZZ.SetZero()
-		p.ZZZ.SetZero()
+		p.ZZ = {{.CoordType}}{}
+		p.ZZZ = {{.CoordType}}{}
 		return p
 	} 
 
@@ -236,9 +234,7 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 
 // Set set p to the provided point
 func (p *{{ toUpper .PointName }}Jac) Set(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	p.X.Set(&a.X)
-	p.Y.Set(&a.Y)
-	p.Z.Set(&a.Z)
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
 }
 

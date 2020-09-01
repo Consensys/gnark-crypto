@@ -201,11 +201,11 @@ func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, opt *MultiExpOpti
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
-		go func(j uint64) {
+		go func(j uint64, chRes chan G1Jac, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			msmProcessChunkG1(j, chChunks[j], buckets[:], c, points, scalars)
+			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
-		}(uint64(chunk))
+		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
 	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 
@@ -220,11 +220,11 @@ func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, opt *MultiExpOpti
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
-		go func(j uint64) {
+		go func(j uint64, chRes chan G1Jac, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			msmProcessChunkG1(j, chChunks[j], buckets[:], c, points, scalars)
+			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
-		}(uint64(chunk))
+		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
 	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 
@@ -239,11 +239,11 @@ func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, opt *MultiExpOpt
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
-		go func(j uint64) {
+		go func(j uint64, chRes chan G1Jac, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			msmProcessChunkG1(j, chChunks[j], buckets[:], c, points, scalars)
+			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
-		}(uint64(chunk))
+		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
 	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 

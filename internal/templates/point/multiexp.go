@@ -193,11 +193,11 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	chChunks[nbChunks-1] = make(chan {{ toUpper $.PointName }}Jac, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling 
-	go func(j uint64) {
+	go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
 		var buckets [1<<(lastC-1)]{{ toLower $.PointName }}JacExtended
-		msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j], buckets[:], c, points, scalars)
+		msmProcessChunk{{ toUpper $.PointName }}(j, chRes, buckets[:], c, points, scalars)
 		opt.chCpus <- struct{}{} // release token in the semaphore
-	}(uint64(nbChunks-1))
+	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
 	{{- else}}
@@ -205,11 +205,11 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	{{- end}}
 		chChunks[chunk] = make(chan {{ toUpper $.PointName }}Jac, 1)
 		<-opt.chCpus  // wait to have a cpu before scheduling 
-		go func(j uint64) {
+		go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
 			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
-			msmProcessChunk{{ toUpper $.PointName }}(j, chChunks[j],  buckets[:], c, points, scalars)
+			msmProcessChunk{{ toUpper $.PointName }}(j, chRes,  buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
-		}(uint64(chunk))
+		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
 	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 

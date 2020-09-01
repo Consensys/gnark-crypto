@@ -49,17 +49,16 @@ type g2JacExtended struct {
 func (p *g2JacExtended) SetInfinity() *g2JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
-	p.ZZ.SetZero()
-	p.ZZZ.SetZero()
+	p.ZZ = fp.Element{}
+	p.ZZZ = fp.Element{}
 	return p
 }
 
 // ToAffine sets p in affine coords
 func (p *g2JacExtended) ToAffine(Q *G2Affine) *G2Affine {
-	var zero fp.Element
-	if p.ZZ.Equal(&zero) {
-		Q.X.Set(&zero)
-		Q.Y.Set(&zero)
+	if p.ZZ.IsZero() {
+		Q.X = fp.Element{}
+		Q.Y = fp.Element{}
 		return Q
 	}
 	Q.X.Inverse(&p.ZZ).Mul(&Q.X, &p.X)
@@ -69,8 +68,7 @@ func (p *g2JacExtended) ToAffine(Q *G2Affine) *G2Affine {
 
 // ToJac sets p in affine coords
 func (p *g2JacExtended) ToJac(Q *G2Jac) *G2Jac {
-	var zero fp.Element
-	if p.ZZ.Equal(&zero) {
+	if p.ZZ.IsZero() {
 		Q.Set(&g2Infinity)
 		return Q
 	}
@@ -122,8 +120,8 @@ func (p *g2JacExtended) mSub(a *G2Affine) *g2JacExtended {
 	if pIsZero && rIsZero {
 		return p.doubleNeg(a)
 	} else if pIsZero {
-		p.ZZ.SetZero()
-		p.ZZZ.SetZero()
+		p.ZZ = fp.Element{}
+		p.ZZZ = fp.Element{}
 		return p
 	}
 
@@ -175,8 +173,8 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 	if pIsZero && rIsZero {
 		return p.double(a)
 	} else if pIsZero {
-		p.ZZ.SetZero()
-		p.ZZZ.SetZero()
+		p.ZZ = fp.Element{}
+		p.ZZZ = fp.Element{}
 		return p
 	}
 
@@ -244,9 +242,7 @@ func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
 
 // Set set p to the provided point
 func (p *G2Jac) Set(a *G2Jac) *G2Jac {
-	p.X.Set(&a.X)
-	p.Y.Set(&a.Y)
-	p.Z.Set(&a.Z)
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
 }
 

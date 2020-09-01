@@ -44,12 +44,8 @@ func (z *E6) Set(x *E6) *E6 {
 
 // SetOne sets z to 1 in Montgomery form and returns z
 func (z *E6) SetOne() *E6 {
+	*z = E6{}
 	z.B0.A0.SetOne()
-	z.B0.A1.SetZero()
-	z.B1.A0.SetZero()
-	z.B1.A1.SetZero()
-	z.B2.A0.SetZero()
-	z.B2.A1.SetZero()
 	return z
 }
 
@@ -116,11 +112,8 @@ func (z *E6) String() string {
 
 // MulByNonResidue mul x by (0,1,0)
 func (z *E6) MulByNonResidue(x *E6) *E6 {
-	var tmp E2
-	tmp.Set(&x.B2)
-	z.B2.Set(&x.B1)
-	z.B1.Set(&x.B0)
-	z.B0.MulByNonResidue(&tmp)
+	z.B2, z.B1, z.B0 = x.B1, x.B0, x.B2
+	z.B0.MulByNonResidue(&z.B0)
 	return z
 }
 
