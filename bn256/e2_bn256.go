@@ -82,3 +82,12 @@ func (z *E2) Inverse(x *E2) *E2 {
 
 	return z
 }
+
+// norm returns the norm of x
+func norm(x *E2) *fp.Element {
+	var res, tmp fp.Element
+	res.Square(&x.A0)
+	tmp.Square(&x.A1)
+	res.Add(&res, &tmp)
+	return &res
+}
