@@ -243,7 +243,9 @@ l10:
     MOVQ CX, 56(DX)
     RET
 
-TEXT ·squareAdxE2(SB), NOSPLIT, $0-16
+TEXT ·squareAdxE2(SB), $16-16
+    CMPB ·supportAdx(SB), $0x0000000000000001
+    JNE l12
     MOVQ x+8(FP), R9
     MOVQ 32(R9), R14
     MOVQ 40(R9), R15
@@ -645,8 +647,17 @@ TEXT ·squareAdxE2(SB), NOSPLIT, $0-16
     MOVQ CX, 16(R13)
     MOVQ BX, 24(R13)
     RET
+l12:
+    MOVQ res+0(FP), AX
+    MOVQ AX, (SP)
+    MOVQ x+8(FP), AX
+    MOVQ AX, 8(SP)
+CALL ·squareGenericE2(SB)
+    RET
 
-TEXT ·mulAdxE2(SB), NOSPLIT, $0-24
+TEXT ·mulAdxE2(SB), $24-24
+    CMPB ·supportAdx(SB), $0x0000000000000001
+    JNE l13
     MOVQ x+8(FP), R9
     MOVQ 32(R9), R14
     MOVQ 40(R9), R15
@@ -1297,6 +1308,15 @@ TEXT ·mulAdxE2(SB), NOSPLIT, $0-24
     MOVQ SI, 40(R14)
     MOVQ R8, 48(R14)
     MOVQ BP, 56(R14)
+    RET
+l13:
+    MOVQ res+0(FP), AX
+    MOVQ AX, (SP)
+    MOVQ x+8(FP), AX
+    MOVQ AX, 8(SP)
+    MOVQ y+16(FP), AX
+    MOVQ AX, 16(SP)
+CALL ·mulGenericE2(SB)
     RET
 
 TEXT ·mulNonResE2(SB), NOSPLIT, $0-16

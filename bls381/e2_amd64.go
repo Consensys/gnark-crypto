@@ -16,6 +16,13 @@
 
 package bls381
 
+import (
+	"golang.org/x/sys/cpu"
+)
+
+// supportAdx will be set only on amd64 that has MULX and ADDX instructions
+var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+
 // q (modulus)
 var qE2 = [6]uint64{
 	13402431016077863595,

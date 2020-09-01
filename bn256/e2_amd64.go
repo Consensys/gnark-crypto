@@ -16,6 +16,13 @@
 
 package bn256
 
+import (
+	"golang.org/x/sys/cpu"
+)
+
+// supportAdx will be set only on amd64 that has MULX and ADDX instructions
+var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+
 // q (modulus)
 var qE2 = [4]uint64{
 	4332616871279656263,
@@ -51,5 +58,17 @@ func mulAdxE2(res, x, y *E2)
 // MulByNonResidue multiplies a E2 by (9,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	mulNonResE2(z, x)
+	return z
+}
+
+// Mul sets z to the E2-product of x,y, returns z
+func (z *E2) Mul(x, y *E2) *E2 {
+	mulAdxE2(z, x, y)
+	return z
+}
+
+// Square sets z to the E2-product of x,x, returns z
+func (z *E2) Square(x *E2) *E2 {
+	squareAdxE2(z, x)
 	return z
 }

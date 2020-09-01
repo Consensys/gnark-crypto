@@ -16,19 +16,11 @@ package bn256
 
 import (
 	"github.com/consensys/gurvy/bn256/fp"
-	"golang.org/x/sys/cpu"
 )
 
-// supportAdx will be set only on amd64 that has MULX and ADDX instructions
-var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
-
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
-	if supportAdx {
-		mulAdxE2(z, x, y)
-		return z
-	}
-
+// mulGenericE2 sets z to the E2-product of x,y, returns z
+// note: do not rename, this is referenced in the x86 assembly impl
+func mulGenericE2(z, x, y *E2) {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -37,15 +29,11 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
-	return z
 }
 
-// Square sets z to the E2-product of x,x returns z
-func (z *E2) Square(x *E2) *E2 {
-	if supportAdx {
-		squareAdxE2(z, x)
-		return z
-	}
+// squareGenericE2 sets z to the E2-product of x,x returns z
+// note: do not rename, this is referenced in the x86 assembly impl
+func squareGenericE2(z, x *E2) *E2 {
 	// algo 22 https://eprint.iacr.org/2010/354.pdf
 	var a, b fp.Element
 	a.Add(&x.A0, &x.A1)
