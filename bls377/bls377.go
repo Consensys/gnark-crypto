@@ -14,6 +14,7 @@ import (
 // Tower: Fp->Fp2, u**2=5 -> Fp12, v**6=u
 // Generator (BLS12 family): x=9586122913090633729
 // optimal Ate loop: trace(frob)-1=x
+// trace of pi: x+1
 // Fp: p=258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
 // Fr: r=8444461749428370424248824938781546531375899335154063827935233455917409239041 (x**4-x**2+1)
 
@@ -53,6 +54,12 @@ var lambdaGLV big.Int
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis utils.Lattice
 
+// psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
+var endo struct {
+	u fp.Element
+	v fp.Element
+}
+
 // generator of the curve
 var xGen big.Int
 
@@ -86,6 +93,9 @@ func init() {
 	lambdaGLV.SetString("91893752504881257701523279626832445440", 10) //(x**2-1)
 	_r := fr.Modulus()
 	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+
+	endo.u.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410946")
+	endo.v.SetString("216465761340224619389371505802605247630151569547285782856803747159100223055385581585702401816380679166954762214499")
 
 	// binary decomposition of 15132376222941642752 little endian
 	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}

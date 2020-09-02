@@ -14,6 +14,7 @@ import (
 // Tower: Fp->Fp2, u**2=-1 -> Fp12, v**6=9+u
 // Generator (BN family): x=4965661367192848881
 // optimal Ate loop: 6x+2
+// trace of pi: x+1
 // Fp: p=21888242871839275222246405745257275088696311157297823662689037894645226208583
 // Fr: r=21888242871839275222246405745257275088548364400416034343698204186575808495617
 
@@ -53,6 +54,12 @@ var lambdaGLV big.Int
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis utils.Lattice
 
+// psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
+var endo struct {
+	u E2
+	v E2
+}
+
 // generator of the curve
 var xGen big.Int
 
@@ -87,6 +94,11 @@ func init() {
 	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10) // (36*x**3+18*x**2+6*x+1)
 	_r := fr.Modulus()
 	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+
+	endo.u.A0.SetString("16360020762774556598013388786114916077431217727990580677342011753074458436007")
+	endo.u.A1.SetString("10307601595873709700152284273816112264069230130616436755625194854815875713954")
+	endo.v.A0.SetString("15045457014669079880857698262349813226890047910746430923333052506178758170093")
+	endo.v.A1.SetString("3505843767911556378687030309984248845540243509899259641013678093033130930403")
 
 	// binary decomposition of 15132376222941642752 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)

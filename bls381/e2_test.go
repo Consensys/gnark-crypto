@@ -160,6 +160,24 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genfp,
 	))
 
+	properties.Property("[BLS381] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
+		func(a *E2) bool {
+			var b, c, d, s E2
+
+			s.Square(a)
+			a.Set(&s)
+			b.Set(&s)
+
+			a.Sqrt(a)
+			b.Sqrt(&b)
+
+			c.Square(a)
+			d.Square(&b)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -340,6 +358,24 @@ func TestE2State(t *testing.T) {
 		},
 	}
 
+	sqrt := &commands.ProtoCommand{
+		Name: "SQRT",
+		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
+			var u, v, w, x E2
+			u.Square(systemUnderTest.(*E2))
+			v.Sqrt(&u)
+			w.Neg(&v)
+			x.Square(&v)
+			return (v.Equal(systemUnderTest.(*E2)) || w.Equal(systemUnderTest.(*E2))) && x.Equal(&u)
+		},
+		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
+			if result.(bool) {
+				return &gopter.PropResult{Status: gopter.PropTrue}
+			}
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		},
+	}
+
 	e2commands := &commands.ProtoCommands{
 		NewSystemUnderTestFunc: func(_ commands.State) commands.SystemUnderTest {
 			var a E2
@@ -348,7 +384,18 @@ func TestE2State(t *testing.T) {
 		},
 		InitialStateGen: gen.Const(false),
 		GenCommandFunc: func(state commands.State) gopter.Gen {
-			return gen.OneConstOf(subadd, mulinverse, inversetwice, negtwice, squaremul, mulbyelmtinverse, doublemul, mulbynonres, conjugate, legendre)
+			return gen.OneConstOf(
+				subadd,
+				mulinverse,
+				inversetwice,
+				negtwice,
+				squaremul,
+				mulbyelmtinverse,
+				doublemul,
+				mulbynonres,
+				conjugate,
+				legendre,
+				sqrt)
 		},
 	}
 

@@ -248,7 +248,7 @@ func (z *E2) Exp(x *E2, e big.Int) *E2 {
 		}
 		x0.Square(&b).Mul(&x0, x).Mul(&x0, &f)
 		_b.Set(&x0.A0).Sqrt(&_b)
-		z.Conjugate(&b).Mul(z, &x0).Mul(z, &e)
+		z.Conjugate(&b).MulByElement(z, &_b).Mul(z, &e)
 
 		return z
 	}
