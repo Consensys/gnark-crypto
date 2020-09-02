@@ -24,7 +24,7 @@ type CurveConfig struct {
 	OutputDir string
 	GLV       bool  // scalar mulitplication using GLV
 	CRange    []int // multiexp bucket method: generate inner methods (with const arrays) for each c
-	pMod4     int   // 3 or 1
+	PMod4     int   // 3 or 1
 }
 
 type PointConfig struct {
@@ -60,7 +60,7 @@ func NewCurveConfig(name, rTorsion, fpModulus string, glv bool) CurveConfig {
 		panic("can't parse fpModulus")
 	}
 	b := r.Bytes()
-	conf.pMod4 = int(b[len(b)-1] & 3)
+	conf.PMod4 = int(b[len(b)-1] & 3)
 
 	// default range for C values in the multiExp
 	conf.CRange = []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}

@@ -84,14 +84,14 @@ var rSquare = Element{
 // Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte slice.
 func (z *Element) Bytes() []byte {
-	_z := z.ToRegular()
-	var res [Limbs * 8]byte
-	binary.BigEndian.PutUint64(res[24:32], _z[0])
-	binary.BigEndian.PutUint64(res[16:24], _z[1])
-	binary.BigEndian.PutUint64(res[8:16], _z[2])
-	binary.BigEndian.PutUint64(res[0:8], _z[3])
-
-	return res[:]
+	var _z Element
+	_z.Set(z).FromMont()
+	res := make([]byte, Limbs*8)
+	binary.BigEndian.PutUint64(res[(Limbs-1)*8:], _z[0])
+	for i := Limbs - 2; i >= 0; i-- {
+		binary.BigEndian.PutUint64(res[i*8:(i+1)*8], _z[Limbs-1-i])
+	}
+	return res
 }
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
@@ -105,8 +105,11 @@ func (z *Element) SetBytes(e []byte) *Element {
 
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *Element) SetUint64(v uint64) *Element {
-	*z = Element{v}
-	return z.Mul(z, &rSquare) // z.ToMont()
+	z[0] = v
+	z[1] = 0
+	z[2] = 0
+	z[3] = 0
+	return z.ToMont()
 }
 
 // Set z = x

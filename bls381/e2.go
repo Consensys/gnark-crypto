@@ -133,7 +133,8 @@ func (z *E2) Conjugate(x *E2) *E2 {
 
 // Legendre returns the Legendre symbol of z
 func (z *E2) Legendre() int {
-	n := z.norm()
+	var n fp.Element
+	z.norm(&n)
 	return n.Legendre()
 }
 
@@ -154,5 +155,40 @@ func (z *E2) Exp(x *E2, e big.Int) *E2 {
 		}
 	}
 	z.Set(&res)
+	return z
+}
+
+// Sqrt sets z to the square root of and returns z
+// The function does not test wether the square root
+// exists or not, it's up to the caller to call
+// Legendre beforehand.
+// cf https://eprint.iacr.org/2012/685.pdf (algo 9)
+func (z *E2) Sqrt(x *E2) *E2 {
+
+	var a1, alpha, b, x0, minusone E2
+	var e big.Int
+
+	minusone.SetOne().Neg(&minusone)
+
+	q := fp.Modulus()
+	tmp := big.NewInt(3)
+	e.Set(q).Sub(&e, tmp).Rsh(&e, 2)
+	a1.Exp(x, e)
+	alpha.Square(&a1).
+		Mul(&alpha, x)
+	x0.Mul(x, &a1)
+	if alpha.Equal(&minusone) {
+		var c fp.Element
+		c.Set(&x0.A0)
+		z.A0.Neg(&x0.A1)
+		z.A1.Set(&c)
+		return z
+	}
+	a1.SetOne()
+	b.Add(&a1, &alpha)
+	tmp.SetUint64(1)
+	e.Set(q).Sub(&e, tmp).Rsh(&e, 1)
+	b.Exp(&b, e).Mul(&x0, &b)
+	z.Set(&b)
 	return z
 }

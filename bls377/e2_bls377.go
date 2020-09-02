@@ -14,7 +14,9 @@
 
 package bls377
 
-import "github.com/consensys/gurvy/bls377/fp"
+import (
+	"github.com/consensys/gurvy/bls377/fp"
+)
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
@@ -86,11 +88,10 @@ func (z *E2) Inverse(x *E2) *E2 {
 	return z
 }
 
-// norm returns the norm of z
-func (z *E2) norm() *fp.Element {
-	var res, tmp fp.Element
-	res.Square(&z.A1)
-	tmp.Double(&res).Double(&tmp).Add(&tmp, &res)
-	res.Square(&z.A0).Sub(&res, &tmp)
-	return &res
+// norm sets x to the norm of z
+func (z *E2) norm(x *fp.Element) {
+	var tmp fp.Element
+	x.Square(&z.A1)
+	tmp.Double(x).Double(&tmp).Add(&tmp, x)
+	x.Square(&z.A0).Sub(x, &tmp)
 }
