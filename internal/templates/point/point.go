@@ -629,6 +629,16 @@ func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointNa
 
 }
 
+{{ if eq .CoordType "E2" }}
+	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+	func (p *{{ toUpper .PointName }}Jac) psi(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+		p.Set(a)
+		p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
+		p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
+		p.Z.Conjugate(&p.Z)
+		return p
+	}
+{{ end }}
 
 {{ if .GLV}}
 

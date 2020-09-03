@@ -448,6 +448,16 @@ parameters := gopter.DefaultTestParameters()
 		genScalar,
 	))
 
+	{{ if eq .CoordType "E2" }}
+		properties.Property("[{{ toUpper .CurveName }}] psi should map points from E' to itself", prop.ForAll(
+			func() bool {
+				var a {{ toUpper .PointName }}Jac
+				a.psi(&{{ toLower .PointName }}Gen)
+				return a.IsOnCurve() && !a.Equal(&g2Gen)
+			},
+		))
+	{{ end }}
+
     {{if .GLV}}
         properties.Property("[{{ toUpper .CurveName }}] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
             func(s fr.Element) bool {

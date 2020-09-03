@@ -582,6 +582,15 @@ func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 
 }
 
+// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+func (p *G2Jac) psi(a *G2Jac) *G2Jac {
+	p.Set(a)
+	p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
+	p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
+	p.Z.Conjugate(&p.Z)
+	return p
+}
+
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	p.Set(a)

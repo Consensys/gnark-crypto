@@ -348,6 +348,14 @@ func TestG2Ops(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property("[BLS377] psi should map points from E' to itself", prop.ForAll(
+		func() bool {
+			var a G2Jac
+			a.psi(&g2Gen)
+			return a.IsOnCurve() && !a.Equal(&g2Gen)
+		},
+	))
+
 	properties.Property("[BLS377] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
