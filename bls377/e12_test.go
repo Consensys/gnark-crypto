@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/commands"
-	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 )
 
@@ -160,202 +158,134 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestE12State(t *testing.T) {
+func TestE12Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
-	subadd := &commands.ProtoCommand{
-		Name: "SUBADD",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b E12
-			b.SetRandom()
-			a.Add(systemUnderTest.(*E12), &b).Sub(&a, &b)
-			return systemUnderTest.(*E12).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	mulinverse := &commands.ProtoCommand{
-		Name: "MULINVERSE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b E12
-			b.SetRandom()
-			a.Mul(systemUnderTest.(*E12), &b)
-			b.Inverse(&b)
-			a.Mul(&a, &b)
-			return systemUnderTest.(*E12).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	inversetwice := &commands.ProtoCommand{
-		Name: "INVERSETWICE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a E12
-			a.Inverse(systemUnderTest.(*E12)).Inverse(&a)
-			return systemUnderTest.(*E12).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	squaremul := &commands.ProtoCommand{
-		Name: "SQUAREMUL",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b, c E12
-			c.Set(systemUnderTest.(*E12))
-			a.Square(systemUnderTest.(*E12))
-			b.Mul(systemUnderTest.(*E12), systemUnderTest.(*E12))
-			return a.Equal(&b) && c.Equal(systemUnderTest.(*E12)) // check that the system hasn't changed
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	conjugate := &commands.ProtoCommand{
-		Name: "CONJUGATE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, w, sum, diff E12
-			var real, im, zero E6
-			w.Set(systemUnderTest.(*E12))
-			real.Double(&systemUnderTest.(*E12).C0)
-			im.Double(&systemUnderTest.(*E12).C1)
-			a.Conjugate(systemUnderTest.(*E12))
-			sum.Add(systemUnderTest.(*E12), &a)
-			diff.Sub(systemUnderTest.(*E12), &a)
-			return w.Equal(systemUnderTest.(*E12)) && sum.C1.Equal(&zero) && sum.C0.Equal(&real) && diff.C0.Equal(&zero) && diff.C1.Equal(&im)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	frobenius := &commands.ProtoCommand{
-		Name: "FROBENIUS",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, w E12
-			w.Set(systemUnderTest.(*E12))
-			a.Frobenius(systemUnderTest.(*E12)).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a).
-				Frobenius(&a)
-			return w.Equal(systemUnderTest.(*E12)) && a.Equal(&w)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	frobeniussquare := &commands.ProtoCommand{
-		Name: "FROBENIUSSQUARE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, w E12
-			w.Set(systemUnderTest.(*E12))
-			a.FrobeniusSquare(systemUnderTest.(*E12)).
-				FrobeniusSquare(&a).
-				FrobeniusSquare(&a).
-				FrobeniusSquare(&a).
-				FrobeniusSquare(&a).
-				FrobeniusSquare(&a)
-			return w.Equal(systemUnderTest.(*E12)) && a.Equal(&w)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	frobeniusscube := &commands.ProtoCommand{
-		Name: "FROBENIUSCUBE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, w E12
-			w.Set(systemUnderTest.(*E12))
-			a.FrobeniusCube(systemUnderTest.(*E12)).
-				FrobeniusCube(&a).
-				FrobeniusCube(&a).
-				FrobeniusCube(&a)
-			return w.Equal(systemUnderTest.(*E12)) && a.Equal(&w)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	cyclotomicsquare := &commands.ProtoCommand{
-		Name: "CYCLOTOMICSQUARE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b, w, s, sc E12
-			w.Set(systemUnderTest.(*E12))
-			a.FrobeniusCube(systemUnderTest.(*E12)).
-				FrobeniusCube(&a)
-			b.Inverse(&w)
-			a.Mul(&a, &b)
-			b.Set(&a)
-			a.FrobeniusSquare(&a).Mul(&a, &b) // a is now in the cyclotomic subgroup
-			s.Square(&a)
-			sc.CyclotomicSquare(&a)
-			return w.Equal(systemUnderTest.(*E12)) && s.Equal(&sc)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	e6commands := &commands.ProtoCommands{
-		NewSystemUnderTestFunc: func(_ commands.State) commands.SystemUnderTest {
-			var a E12
-			a.SetRandom()
-			return &a
-		},
-		InitialStateGen: gen.Const(false),
-		GenCommandFunc: func(state commands.State) gopter.Gen {
-			return gen.OneConstOf(subadd, mulinverse, inversetwice, squaremul, conjugate, frobenius, frobeniussquare, frobeniusscube, cyclotomicsquare)
-		},
-	}
-
 	properties := gopter.NewProperties(parameters)
-	properties.Property("[BLS377] E12 state", commands.Prop(e6commands))
+
+	genA := GenE12()
+	genB := GenE12()
+
+	properties.Property("[BLS377] sub & add should leave an element invariant", prop.ForAll(
+		func(a, b *E12) bool {
+			var c E12
+			c.Set(a)
+			c.Add(&c, b).Sub(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[BLS377] mul & inverse should leave an element invariant", prop.ForAll(
+		func(a, b *E12) bool {
+			var c, d E12
+			d.Inverse(b)
+			c.Set(a)
+			c.Mul(&c, b).Mul(&c, &d)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[BLS377] inverse twice should leave an element invariant", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.Inverse(a).Inverse(&b)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] square and mul should output the same result", prop.ForAll(
+		func(a *E12) bool {
+			var b, c E12
+			b.Mul(a, a)
+			c.Square(a)
+			return b.Equal(&c)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] a + pi(a), a-pi(a) should be real", prop.ForAll(
+		func(a *E12) bool {
+			var b, c, d E12
+			var e, f, g E6
+			b.Conjugate(a)
+			c.Add(a, &b)
+			d.Sub(a, &b)
+			e.Double(&a.C0)
+			f.Double(&a.C1)
+			return c.C1.Equal(&g) && d.C0.Equal(&g) && e.Equal(&c.C0) && f.Equal(&d.C1)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] pi**12=id", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.Frobenius(a).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b).
+				Frobenius(&b)
+			return b.Equal(a)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] (pi**2)**6=id", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.FrobeniusSquare(a).
+				FrobeniusSquare(&b).
+				FrobeniusSquare(&b).
+				FrobeniusSquare(&b).
+				FrobeniusSquare(&b).
+				FrobeniusSquare(&b)
+			return b.Equal(a)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] (pi**3)**4=id", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.FrobeniusCube(a).
+				FrobeniusCube(&b).
+				FrobeniusCube(&b).
+				FrobeniusCube(&b)
+			return b.Equal(a)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS377] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E12) bool {
+			var b, c, d E12
+			b.FrobeniusCube(a).
+				FrobeniusCube(&b)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Set(&b)
+			b.FrobeniusSquare(&b).Mul(&b, a)
+			c.Square(&b)
+			d.CyclotomicSquare(&b)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }

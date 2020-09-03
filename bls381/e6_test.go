@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/commands"
-	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 )
 
@@ -130,141 +128,88 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestE6State(t *testing.T) {
+func TestE6Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
-	subadd := &commands.ProtoCommand{
-		Name: "SUBADD",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b E6
-			b.SetRandom()
-			a.Add(systemUnderTest.(*E6), &b).Sub(&a, &b)
-			return systemUnderTest.(*E6).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	mulinverse := &commands.ProtoCommand{
-		Name: "MULINVERSE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b E6
-			b.SetRandom()
-			a.Mul(systemUnderTest.(*E6), &b)
-			b.Inverse(&b)
-			a.Mul(&a, &b)
-			return systemUnderTest.(*E6).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	inversetwice := &commands.ProtoCommand{
-		Name: "INVERSETWICE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a E6
-			a.Inverse(systemUnderTest.(*E6)).Inverse(&a)
-			return systemUnderTest.(*E6).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	negtwice := &commands.ProtoCommand{
-		Name: "NEGTWICE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a E6
-			a.Neg(systemUnderTest.(*E6)).Neg(&a)
-			return systemUnderTest.(*E6).Equal(&a)
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	squaremul := &commands.ProtoCommand{
-		Name: "SQUAREMUL",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b, c E6
-			c.Set(systemUnderTest.(*E6))
-			a.Square(systemUnderTest.(*E6))
-			b.Mul(systemUnderTest.(*E6), systemUnderTest.(*E6))
-			return a.Equal(&b) && c.Equal(systemUnderTest.(*E6)) // check that the system hasn't changed
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	doubleadd := &commands.ProtoCommand{
-		Name: "DOUBLEADD",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b, c E6
-			c.Set(systemUnderTest.(*E6))
-			a.Add(systemUnderTest.(*E6), systemUnderTest.(*E6))
-			b.Double(systemUnderTest.(*E6))
-			return a.Equal(&b) && c.Equal(systemUnderTest.(*E6)) // check that the system hasn't changed
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	mulbynonres := &commands.ProtoCommand{
-		Name: "MULBYNONRESIDUE",
-		RunFunc: func(systemUnderTest commands.SystemUnderTest) commands.Result {
-			var a, b, nonres, c E6
-			c.Set(systemUnderTest.(*E6))
-			a.MulByNonResidue(systemUnderTest.(*E6))
-			nonres.B1.A0.SetOne()
-			b.Mul(systemUnderTest.(*E6), &nonres)
-			return a.Equal(&b) && c.Equal(systemUnderTest.(*E6)) // check that the system hasn't changed
-		},
-		PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
-			if result.(bool) {
-				return &gopter.PropResult{Status: gopter.PropTrue}
-			}
-			return &gopter.PropResult{Status: gopter.PropFalse}
-		},
-	}
-
-	e6commands := &commands.ProtoCommands{
-		NewSystemUnderTestFunc: func(_ commands.State) commands.SystemUnderTest {
-			var a E6
-			a.SetRandom()
-			return &a
-		},
-		InitialStateGen: gen.Const(false),
-		GenCommandFunc: func(state commands.State) gopter.Gen {
-			return gen.OneConstOf(subadd, mulinverse, inversetwice, negtwice, squaremul, doubleadd, mulbynonres)
-		},
-	}
-
 	properties := gopter.NewProperties(parameters)
-	properties.Property("[BLS381] E6 state", commands.Prop(e6commands))
+
+	genA := GenE6()
+	genB := GenE6()
+
+	properties.Property("[BLS381] sub & add should leave an element invariant", prop.ForAll(
+		func(a, b *E6) bool {
+			var c E6
+			c.Set(a)
+			c.Add(&c, b).Sub(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[BLS381] mul & inverse should leave an element invariant", prop.ForAll(
+		func(a, b *E6) bool {
+			var c, d E6
+			d.Inverse(b)
+			c.Set(a)
+			c.Mul(&c, b).Mul(&c, &d)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[BLS381] inverse twice should leave an element invariant", prop.ForAll(
+		func(a *E6) bool {
+			var b E6
+			b.Inverse(a).Inverse(&b)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS381] neg twice should leave an element invariant", prop.ForAll(
+		func(a *E6) bool {
+			var b E6
+			b.Neg(a).Neg(&b)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS381] square and mul should output the same result", prop.ForAll(
+		func(a *E6) bool {
+			var b, c E6
+			b.Mul(a, a)
+			c.Square(a)
+			return b.Equal(&c)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS381] Double and add twice should output the same result", prop.ForAll(
+		func(a *E6) bool {
+			var b E6
+			b.Add(a, a)
+			a.Double(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS381] Mul by non residue should be the same as multiplying by (0,1,0)", prop.ForAll(
+		func(a *E6) bool {
+			var b, c E6
+			b.B1.A0.SetOne()
+			c.Mul(a, &b)
+			a.MulByNonResidue(a)
+			return a.Equal(&c)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
