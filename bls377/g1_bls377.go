@@ -16,8 +16,8 @@ package bls377
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cf https://eprint.iacr.org/2019/403.pdf, 5
-func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
-	var res G2Jac
+func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
+	var res G1Jac
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p

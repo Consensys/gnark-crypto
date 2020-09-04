@@ -21,12 +21,15 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	var points [4]G2Jac
 
 	points[0].ScalarMultiplication(a, &xGen)
+
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
 		psi(&points[1])
+
 	points[2].psi(&points[0]).
 		psi(&points[2])
-	points[3].psi(p).psi(&points[3]).psi(&points[3])
+
+	points[3].psi(a).psi(&points[3]).psi(&points[3])
 
 	var res G2Jac
 	res.Set(&g2Infinity)

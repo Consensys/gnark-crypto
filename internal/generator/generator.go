@@ -17,14 +17,15 @@ import (
 
 // CurveConfig describes parameters of the curve useful for the templates
 type CurveConfig struct {
-	CurveName string
-	RTorsion  string
-	RBitLen   int
-	FpModulus string
-	OutputDir string
-	GLV       bool  // scalar mulitplication using GLV
-	CRange    []int // multiexp bucket method: generate inner methods (with const arrays) for each c
-	PMod4     int   // 3 or 1
+	CurveName        string
+	RTorsion         string
+	RBitLen          int
+	FpModulus        string
+	OutputDir        string
+	GLV              bool  // scalar mulitplication using GLV
+	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
+	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
+	PMod4            int   // 3 or 1
 }
 
 type PointConfig struct {
@@ -33,13 +34,14 @@ type PointConfig struct {
 	PointName string
 }
 
-func NewCurveConfig(name, rTorsion, fpModulus string, glv bool) CurveConfig {
+func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) CurveConfig {
 	name = strings.ToLower(name)
 	conf := CurveConfig{
-		CurveName: name,
-		RTorsion:  rTorsion,
-		FpModulus: fpModulus,
-		GLV:       glv,
+		CurveName:        name,
+		RTorsion:         rTorsion,
+		FpModulus:        fpModulus,
+		GLV:              glv,
+		CofactorCleaning: cc,
 	}
 
 	conf.OutputDir = fmt.Sprintf("../%s/", name)

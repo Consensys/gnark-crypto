@@ -608,6 +608,46 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+{{if .CofactorCleaning }}
+func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{ toUpper .CurveName }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
+		func() bool {
+			var a, x, b {{ .CoordType }}
+			a.SetRandom()
+			{{if eq .CoordType "fp.Element" }}
+				x.Square(&a).Mul(&x, &a).Add(&x, &B)
+				for x.Legendre() != 1 {
+					a.SetRandom()
+					x.Square(&a).Mul(&x, &a).Add(&x, &B)
+				}
+			{{else if eq .CoordType "E2" }}
+				x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+				for x.Legendre() != 1 {
+					a.SetRandom()
+					x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+				}
+			{{end}}
+			b.Sqrt(&x)
+			var point, pointCleared, infinity {{ toUpper .PointName}}Jac
+			point.X.Set(&a)
+			point.Y.Set(&b)
+			point.Z.SetOne()
+			pointCleared.ClearCofactor(&point)
+			infinity.Set(&{{ toLower .PointName}}Infinity)
+			return point.IsOnCurve() && pointCleared.SubgroupCheck() && !pointCleared.Equal(&infinity)
+		},
+	))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+{{end}}
+
 func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -713,6 +753,17 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
     {{end}}
 
 }
+
+
+{{if .CofactorCleaning}}
+func Benchmark{{ toUpper .PointName }}CofactorClearing(b *testing.B) {
+	var a {{ toUpper .PointName }}Jac
+	a.Set(&{{ toLower .PointName }}Gen)
+	for i := 0; i < b.N; i++ {
+		a.ClearCofactor(&a)
+	}
+}
+{{end}}
 
 func Benchmark{{ toUpper .PointName}}Add(b *testing.B) {
 	var a {{ toUpper .PointName}}Jac
