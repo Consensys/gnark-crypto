@@ -661,16 +661,9 @@ func (z *Element) ToBigInt(res *big.Int) *big.Int {
 }
 
 // ToBigIntRegular returns z as a big.Int in regular form
-func (z *Element) ToBigIntRegular(res *big.Int) *big.Int {
-	zRegular := z.ToRegular()
-	var b [Limbs * 8]byte
-	binary.BigEndian.PutUint64(b[40:48], zRegular[0])
-	binary.BigEndian.PutUint64(b[32:40], zRegular[1])
-	binary.BigEndian.PutUint64(b[24:32], zRegular[2])
-	binary.BigEndian.PutUint64(b[16:24], zRegular[3])
-	binary.BigEndian.PutUint64(b[8:16], zRegular[4])
-	binary.BigEndian.PutUint64(b[0:8], zRegular[5])
-	return res.SetBytes(b[:])
+func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
+	z.FromMont()
+	return z.ToBigInt(res)
 }
 
 // SetBigInt sets z to v (regular form) and returns z in Montgomery form
