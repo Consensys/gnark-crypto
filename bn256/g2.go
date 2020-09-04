@@ -554,8 +554,14 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMultiplication 2-bits windowed exponentiation
+// ScalarMultiplication computes and returns p = a*s
+// see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
+	return p.mulGLV(a, s)
+}
+
+// mulWindowed 2-bits windowed exponentiation
+func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
 	var res G2Jac
 	var ops [3]G2Jac
@@ -602,8 +608,9 @@ func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	return p
 }
 
-// ScalarMulGLV performs scalar multiplication using GLV
-func (p *G2Jac) ScalarMulGLV(a *G2Jac, s *big.Int) *G2Jac {
+// mulGLV performs scalar multiplication using GLV
+// see https://www.iacr.org/archive/crypto2001/21390189.pdf
+func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	var table [3]G2Jac
 	var zero big.Int

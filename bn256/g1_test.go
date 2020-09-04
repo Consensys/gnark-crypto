@@ -355,17 +355,17 @@ func TestG1Ops(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G1Jac
-			g.ScalarMulGLV(&g1Gen, r)
+			g.mulGLV(&g1Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMulGLV(&g1Gen, &rminusone)
+			op3.mulGLV(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalard.Add(&scalar, r)
-			op1.ScalarMulGLV(&g1Gen, &scalar)
-			op2.ScalarMulGLV(&g1Gen, &blindedScalard)
+			op1.mulGLV(&g1Gen, &scalar)
+			op2.mulGLV(&g1Gen, &blindedScalard)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -379,8 +379,8 @@ func TestG1Ops(t *testing.T) {
 			var r big.Int
 			var op1, op2 G1Jac
 			s.ToBigIntRegular(&r)
-			op1.ScalarMultiplication(&g1Gen, &r)
-			op2.ScalarMulGLV(&g1Gen, &r)
+			op1.mulWindowed(&g1Gen, &r)
+			op2.mulGLV(&g1Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
 
 		},
@@ -985,7 +985,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.ScalarMulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -1050,7 +1050,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			glv.ScalarMulGLV(&g1Gen, &scalar)
+			glv.mulGLV(&g1Gen, &scalar)
 		}
 	})
 

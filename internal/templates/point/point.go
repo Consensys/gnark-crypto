@@ -599,8 +599,19 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 }
 
 
-// ScalarMultiplication 2-bits windowed exponentiation
+// ScalarMultiplication computes and returns p = a*s
+// {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
 func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
+	{{- if .GLV}}
+		return p.mulGLV(a, s)
+	{{- else }}
+		return p.mulWindowed(a, s)
+	{{- end }}
+}
+
+
+// mulWindowed 2-bits windowed exponentiation
+func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
 
 	var res {{ toUpper .PointName}}Jac
 	var ops [3]{{ toUpper .PointName}}Jac
@@ -653,8 +664,9 @@ func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper
 	return p
 }
 
-// ScalarMulGLV performs scalar multiplication using GLV
-func (p *{{toUpper .PointName}}Jac) ScalarMulGLV(a *{{toUpper .PointName}}Jac, s *big.Int) *{{toUpper .PointName}}Jac {
+// mulGLV performs scalar multiplication using GLV
+// see https://www.iacr.org/archive/crypto2001/21390189.pdf
+func (p *{{toUpper .PointName}}Jac) mulGLV(a *{{toUpper .PointName}}Jac, s *big.Int) *{{toUpper .PointName}}Jac {
 
 	var table [3]{{toUpper .PointName}}Jac
 	var zero big.Int

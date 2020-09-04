@@ -465,17 +465,17 @@ parameters := gopter.DefaultTestParameters()
 
                 r := fr.Modulus()
                 var g {{ toUpper .PointName}}Jac
-                g.ScalarMulGLV(&{{ toLower .PointName}}Gen, r)
+                g.mulGLV(&{{ toLower .PointName}}Gen, r)
 
                 var scalar, blindedScalard, rminusone big.Int
                 var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
                 rminusone.SetUint64(1).Sub(r, &rminusone)
-                op3.ScalarMulGLV(&{{ toLower .PointName}}Gen, &rminusone)
+                op3.mulGLV(&{{ toLower .PointName}}Gen, &rminusone)
                 gneg.Neg(&{{ toLower .PointName}}Gen)
                 s.ToBigIntRegular(&scalar)
                 blindedScalard.Add(&scalar, r)
-                op1.ScalarMulGLV(&{{ toLower .PointName}}Gen, &scalar)
-                op2.ScalarMulGLV(&{{ toLower .PointName}}Gen, &blindedScalard)
+                op1.mulGLV(&{{ toLower .PointName}}Gen, &scalar)
+                op2.mulGLV(&{{ toLower .PointName}}Gen, &blindedScalard)
 
                 return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName}}Infinity) && !op1.Equal(&{{ toLower .PointName}}Infinity) && gneg.Equal(&op3)
 
@@ -489,8 +489,8 @@ parameters := gopter.DefaultTestParameters()
                 var r big.Int
                 var op1, op2 {{ toUpper .PointName}}Jac
                 s.ToBigIntRegular(&r)
-                op1.ScalarMultiplication(&{{ toLower .PointName}}Gen, &r)
-                op2.ScalarMulGLV(&{{ toLower .PointName}}Gen, &r)
+                op1.mulWindowed(&{{ toLower .PointName}}Gen, &r)
+                op2.mulGLV(&{{ toLower .PointName}}Gen, &r)
                 return op1.Equal(&op2) && !op1.Equal(&{{ toLower .PointName}}Infinity)
 
             },
@@ -682,7 +682,7 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 				var expectedJac {{ toUpper .PointName}}Jac
 				var expected {{ toUpper .PointName}}Affine
 				var b big.Int
-				expectedJac.ScalarMulGLV(&{{ toLower .PointName}}Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.mulGLV(&{{ toLower .PointName}}Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -748,7 +748,7 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			glv.ScalarMulGLV(&{{ toLower .PointName}}Gen, &scalar)
+			glv.mulGLV(&{{ toLower .PointName}}Gen, &scalar)
 		}
 	})
     {{end}}
