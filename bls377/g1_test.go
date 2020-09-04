@@ -19,6 +19,7 @@ package bls377
 import (
 	"fmt"
 	"math/big"
+	"math/bits"
 	"runtime"
 	"testing"
 
@@ -1145,7 +1146,7 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = 24
+	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
 	const nbSamples = 1 << pow
 
 	var samplePoints [nbSamples]G1Affine
