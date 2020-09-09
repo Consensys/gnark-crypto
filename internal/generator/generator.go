@@ -142,6 +142,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 
 	bavardOpts = []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys AG", 2020),
+		bavard.GeneratedBy("gurvy"),
 		bavard.Package(conf.CurveName),
 	}
 
@@ -167,6 +168,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 
 	bavardOpts = []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys AG", 2020),
+		bavard.GeneratedBy("gurvy"),
 		bavard.Package(conf.CurveName),
 	}
 
