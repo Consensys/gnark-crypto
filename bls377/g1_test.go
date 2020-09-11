@@ -965,9 +965,12 @@ func TestG1CofactorCleaning(t *testing.T) {
 			a.SetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &B)
+
 			for x.Legendre() != 1 {
 				a.SetRandom()
+
 				x.Square(&a).Mul(&x, &a).Add(&x, &B)
+
 			}
 
 			b.Sqrt(&x)

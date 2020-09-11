@@ -550,6 +550,41 @@ func TestG2MultiExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestG2CofactorCleaning(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BW761] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
+		func() bool {
+			var a, x, b fp.Element
+			a.SetRandom()
+
+			x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+
+			for x.Legendre() != 1 {
+				a.SetRandom()
+
+				x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+
+			}
+
+			b.Sqrt(&x)
+			var point, pointCleared, infinity G2Jac
+			point.X.Set(&a)
+			point.Y.Set(&b)
+			point.Z.SetOne()
+			pointCleared.ClearCofactor(&point)
+			infinity.Set(&g2Infinity)
+			return point.IsOnCurve() && pointCleared.SubgroupCheck() && !pointCleared.Equal(&infinity)
+		},
+	))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+
 func TestG2BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -652,6 +687,14 @@ func BenchmarkG2ScalarMul(b *testing.B) {
 		}
 	})
 
+}
+
+func BenchmarkG2CofactorClearing(b *testing.B) {
+	var a G2Jac
+	a.Set(&g2Gen)
+	for i := 0; i < b.N; i++ {
+		a.ClearCofactor(&a)
+	}
 }
 
 func BenchmarkG2Add(b *testing.B) {

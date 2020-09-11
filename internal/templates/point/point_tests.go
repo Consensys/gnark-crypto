@@ -622,10 +622,18 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 			var a, x, b {{ .CoordType }}
 			a.SetRandom()
 			{{if eq .CoordType "fp.Element" }}
-				x.Square(&a).Mul(&x, &a).Add(&x, &B)
+				{{if eq .PointName "g2" }}
+					x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+				{{else}}
+					x.Square(&a).Mul(&x, &a).Add(&x, &B)
+				{{end}}	
 				for x.Legendre() != 1 {
 					a.SetRandom()
-					x.Square(&a).Mul(&x, &a).Add(&x, &B)
+					{{if eq .PointName "g2" }}
+						x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+					{{else}}
+						x.Square(&a).Mul(&x, &a).Add(&x, &B)
+					{{end}}
 				}
 			{{else if eq .CoordType "E2" }}
 				x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)

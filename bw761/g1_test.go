@@ -557,15 +557,18 @@ func TestG1CofactorCleaning(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BN256] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
+	properties.Property("[BW761] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b fp.Element
 			a.SetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &B)
+
 			for x.Legendre() != 1 {
 				a.SetRandom()
+
 				x.Square(&a).Mul(&x, &a).Add(&x, &B)
+
 			}
 
 			b.Sqrt(&x)
