@@ -1,5 +1,6 @@
 package point
 
+// Point ...
 const Point = `
 
 import (
@@ -26,211 +27,166 @@ type {{ toUpper .PointName }}Affine struct {
 	X, Y {{.CoordType}}
 }
 
-//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type {{ toLower .PointName }}JacExtended struct {
-	X, Y, ZZ, ZZZ {{.CoordType}}
-}
 
-// SetInfinity sets p to O
-func (p *{{ toLower .PointName }}JacExtended) SetInfinity() *{{ toLower .PointName }}JacExtended {
-	p.X.SetOne()
-	p.Y.SetOne()
-	p.ZZ = {{.CoordType}}{}
-	p.ZZZ = {{.CoordType}}{}
+
+
+// AddAssign point addition in montgomery form
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+
+	// p is infinity, return a
+	if p.Z.IsZero() {
+		p.Set(a)
+		return p
+	}
+
+	// a is infinity, return p
+	if a.Z.IsZero() {
+		return p
+	}
+
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V {{.CoordType}}
+	Z1Z1.Square(&a.Z)
+	Z2Z2.Square(&p.Z)
+	U1.Mul(&a.X, &Z2Z2)
+	U2.Mul(&p.X, &Z1Z1)
+	S1.Mul(&a.Y, &p.Z).
+		Mul(&S1, &Z2Z2)
+	S2.Mul(&p.Y, &a.Z).
+		Mul(&S2, &Z1Z1)
+
+	// if p == a, we double instead
+	if U1.Equal(&U2) && S1.Equal(&S2) {
+		return p.DoubleAssign()
+	}
+
+	H.Sub(&U2, &U1)
+	I.Double(&H).
+		Square(&I)
+	J.Mul(&H, &I)
+	r.Sub(&S2, &S1).Double(&r)
+	V.Mul(&U1, &I)
+	p.X.Square(&r).
+		Sub(&p.X, &J).
+		Sub(&p.X, &V).
+		Sub(&p.X, &V)
+	p.Y.Sub(&V, &p.X).
+		Mul(&p.Y, &r)
+	S1.Mul(&S1, &J).Double(&S1)
+	p.Y.Sub(&p.Y, &S1)
+	p.Z.Add(&p.Z, &a.Z)
+	p.Z.Square(&p.Z).
+		Sub(&p.Z, &Z1Z1).
+		Sub(&p.Z, &Z2Z2).
+		Mul(&p.Z, &H)
+
 	return p
 }
 
-// ToAffine sets p in affine coords
-func (p *{{ toLower .PointName }}JacExtended) ToAffine(Q *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Affine {
-	if p.ZZ.IsZero() {
-		Q.X = {{.CoordType}}{}
-		Q.Y = {{.CoordType}}{}
-		return Q
-	}
-	Q.X.Inverse(&p.ZZ).Mul(&Q.X, &p.X)
-	Q.Y.Inverse(&p.ZZZ).Mul(&Q.Y, &p.Y)
-	return Q
-}
-
-// ToJac sets p in affine coords
-func (p *{{ toLower .PointName }}JacExtended) ToJac(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	if p.ZZ.IsZero() {
-		Q.Set(&{{ toLower .PointName }}Infinity)
-		return Q
-	}
-	Q.X.Mul(&p.ZZ, &p.X).Mul(&Q.X, &p.ZZ)
-	Q.Y.Mul(&p.ZZZ, &p.Y).Mul(&Q.Y, &p.ZZZ)
-	Q.Z.Set(&p.ZZZ)
-	return Q
-}
-
-// unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
-func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
-	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
-	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
-	p.Z = Q.ZZZ
-	return p
-}
-
-
-// mSub
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) mSub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+// AddMixed point addition
+// http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
 		return p
 	}
 	// p is infinity, return a
-	if p.ZZ.IsZero() {
+	if p.Z.IsZero() {
 		p.X = a.X
 		p.Y = a.Y
-		p.Y.Neg(&p.Y)
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
+		p.Z.SetOne()
 		return p
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
+	// get some Element from our pool
+	var Z1Z1, U2, S2, H, HH, I, J, r, V {{.CoordType}}
+	Z1Z1.Square(&p.Z)
+	U2.Mul(&a.X, &Z1Z1)
+	S2.Mul(&a.Y, &p.Z).
+		Mul(&S2, &Z1Z1)
 
-	// p2: a, p1: p
-	U2.Mul(&a.X, &p.ZZ)
-	S2.Mul(&a.Y, &p.ZZZ)
-	S2.Neg(&S2)
-
-
-	P.Sub(&U2, &p.X)
-	R.Sub(&S2, &p.Y)
-
-	pIsZero := P.IsZero()
-	rIsZero := R.IsZero()
-
-	if pIsZero && rIsZero {
-		return p.doubleNeg(a)
-	} else if pIsZero {
-		p.ZZ =  {{.CoordType}}{}
-		p.ZZZ =  {{.CoordType}}{}
-		return p
-	} 
-
-
-
-	PP.Square(&P)
-	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
-
-	return p
-}
-
-
-// mAdd
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
-		return p
-	}
-	// p is infinity, return a
-	if p.ZZ.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
-		return p
+	// if p == a, we double instead
+	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
+		return p.DoubleAssign()
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
-
-	// p2: a, p1: p
-	U2.Mul(&a.X, &p.ZZ)
-	S2.Mul(&a.Y, &p.ZZZ)
-
-	P.Sub(&U2, &p.X)
-	R.Sub(&S2, &p.Y)
-
-	pIsZero := P.IsZero()
-	rIsZero := R.IsZero()
-
-	if pIsZero && rIsZero {
-		return p.double(a)
-	} else if pIsZero {
-		p.ZZ = {{.CoordType}}{}
-		p.ZZZ = {{.CoordType}}{}
-		return p
-	} 
-
-	PP.Square(&P)
-	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
+	H.Sub(&U2, &p.X)
+	HH.Square(&H)
+	I.Double(&HH).Double(&I)
+	J.Mul(&H, &I)
+	r.Sub(&S2, &p.Y).Double(&r)
+	V.Mul(&p.X, &I)
+	p.X.Square(&r).
+		Sub(&p.X, &J).
+		Sub(&p.X, &V).
+		Sub(&p.X, &V)
+	J.Mul(&J, &p.Y).Double(&J)
+	p.Y.Sub(&V, &p.X).
+		Mul(&p.Y, &r)
+	p.Y.Sub(&p.Y, &J)
+	p.Z.Add(&p.Z, &H)
+	p.Z.Square(&p.Z).
+		Sub(&p.Z, &Z1Z1).
+		Sub(&p.Z, &HH)
 
 	return p
 }
 
-func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+// Double doubles a point in Jacobian coordinates
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+	p.Set(q)
+	p.DoubleAssign()
+	return p
+}
 
-	var U, S, M, _M, Y3 {{.CoordType}}
+// DoubleAssign doubles a point in Jacobian coordinates
+// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Jac {
 
-	U.Double(&q.Y)
-	U.Neg(&U)
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-	U.Neg(&U)
-	p.Y.Sub(&Y3, &U)
+	// get some Element from our pool
+	var XX, YY, YYYY, ZZ, S, M, T {{.CoordType}}
+
+	XX.Square(&p.X)
+	YY.Square(&p.Y)
+	YYYY.Square(&YY)
+	ZZ.Square(&p.Z)
+	S.Add(&p.X, &YY)
+	S.Square(&S).
+		Sub(&S, &XX).
+		Sub(&S, &YYYY).
+		Double(&S)
+	M.Double(&XX).Add(&M, &XX)
+	p.Z.Add(&p.Z, &p.Y).
+		Square(&p.Z).
+		Sub(&p.Z, &YY).
+		Sub(&p.Z, &ZZ)
+	T.Square(&M)
+	p.X = T
+	T.Double(&S)
+	p.X.Sub(&p.X, &T)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M)
+	YYYY.Double(&YYYY).Double(&YYYY).Double(&YYYY)
+	p.Y.Sub(&p.Y, &YYYY)
 
 	return p
 }
 
 
-// double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
-
-	var U, S, M, _M, Y3 {{.CoordType}}
-
-	U.Double(&q.Y)
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-	p.Y.Sub(&Y3, &U)
-
-	return p
+// ScalarMultiplication computes and returns p = a*s
+// {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
+func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
+	{{- if .GLV}}
+		return p.mulGLV(a, s)
+	{{- else }}
+		return p.mulWindowed(a, s)
+	{{- end }}
 }
+
+
+
 
 // Set set p to the provided point
 func (p *{{ toUpper .PointName }}Jac) Set(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
@@ -453,163 +409,6 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 	}
 {{end}}
 
-
-// AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-
-	// p is infinity, return a
-	if p.Z.IsZero() {
-		p.Set(a)
-		return p
-	}
-
-	// a is infinity, return p
-	if a.Z.IsZero() {
-		return p
-	}
-
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V {{.CoordType}}
-	Z1Z1.Square(&a.Z)
-	Z2Z2.Square(&p.Z)
-	U1.Mul(&a.X, &Z2Z2)
-	U2.Mul(&p.X, &Z1Z1)
-	S1.Mul(&a.Y, &p.Z).
-		Mul(&S1, &Z2Z2)
-	S2.Mul(&p.Y, &a.Z).
-		Mul(&S2, &Z1Z1)
-
-	// if p == a, we double instead
-	if U1.Equal(&U2) && S1.Equal(&S2) {
-		return p.DoubleAssign()
-	}
-
-	H.Sub(&U2, &U1)
-	I.Double(&H).
-		Square(&I)
-	J.Mul(&H, &I)
-	r.Sub(&S2, &S1).Double(&r)
-	V.Mul(&U1, &I)
-	p.X.Square(&r).
-		Sub(&p.X, &J).
-		Sub(&p.X, &V).
-		Sub(&p.X, &V)
-	p.Y.Sub(&V, &p.X).
-		Mul(&p.Y, &r)
-	S1.Mul(&S1, &J).Double(&S1)
-	p.Y.Sub(&p.Y, &S1)
-	p.Z.Add(&p.Z, &a.Z)
-	p.Z.Square(&p.Z).
-		Sub(&p.Z, &Z1Z1).
-		Sub(&p.Z, &Z2Z2).
-		Mul(&p.Z, &H)
-
-	return p
-}
-
-// AddMixed point addition
-// http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
-		return p
-	}
-	// p is infinity, return a
-	if p.Z.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-		p.Z.SetOne()
-		return p
-	}
-
-	// get some Element from our pool
-	var Z1Z1, U2, S2, H, HH, I, J, r, V {{.CoordType}}
-	Z1Z1.Square(&p.Z)
-	U2.Mul(&a.X, &Z1Z1)
-	S2.Mul(&a.Y, &p.Z).
-		Mul(&S2, &Z1Z1)
-
-	// if p == a, we double instead
-	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.DoubleAssign()
-	}
-
-	H.Sub(&U2, &p.X)
-	HH.Square(&H)
-	I.Double(&HH).Double(&I)
-	J.Mul(&H, &I)
-	r.Sub(&S2, &p.Y).Double(&r)
-	V.Mul(&p.X, &I)
-	p.X.Square(&r).
-		Sub(&p.X, &J).
-		Sub(&p.X, &V).
-		Sub(&p.X, &V)
-	J.Mul(&J, &p.Y).Double(&J)
-	p.Y.Sub(&V, &p.X).
-		Mul(&p.Y, &r)
-	p.Y.Sub(&p.Y, &J)
-	p.Z.Add(&p.Z, &H)
-	p.Z.Square(&p.Z).
-		Sub(&p.Z, &Z1Z1).
-		Sub(&p.Z, &HH)
-
-	return p
-}
-
-// Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	p.Set(q)
-	p.DoubleAssign()
-	return p
-}
-
-// DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Jac {
-
-	// get some Element from our pool
-	var XX, YY, YYYY, ZZ, S, M, T {{.CoordType}}
-
-	XX.Square(&p.X)
-	YY.Square(&p.Y)
-	YYYY.Square(&YY)
-	ZZ.Square(&p.Z)
-	S.Add(&p.X, &YY)
-	S.Square(&S).
-		Sub(&S, &XX).
-		Sub(&S, &YYYY).
-		Double(&S)
-	M.Double(&XX).Add(&M, &XX)
-	p.Z.Add(&p.Z, &p.Y).
-		Square(&p.Z).
-		Sub(&p.Z, &YY).
-		Sub(&p.Z, &ZZ)
-	T.Square(&M)
-	p.X = T
-	T.Double(&S)
-	p.X.Sub(&p.X, &T)
-	p.Y.Sub(&S, &p.X).
-		Mul(&p.Y, &M)
-	YYYY.Double(&YYYY).Double(&YYYY).Double(&YYYY)
-	p.Y.Sub(&p.Y, &YYYY)
-
-	return p
-}
-
-
-// ScalarMultiplication computes and returns p = a*s
-// {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
-func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
-	{{- if .GLV}}
-		return p.mulGLV(a, s)
-	{{- else }}
-		return p.mulWindowed(a, s)
-	{{- end }}
-}
-
-
 // mulWindowed 2-bits windowed exponentiation
 func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
 
@@ -773,7 +572,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointNam
 
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
-// currently uses a simple windowed-NAF like exponentiation algorithm
+// uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}Affine, scalars []fr.Element) []{{ toUpper .PointName }}Affine {
 
 	// approximate cost in group ops is

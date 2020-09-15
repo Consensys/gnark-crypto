@@ -1,5 +1,6 @@
 package fq12over6over2
 
+// Fq2FallBack ...
 const Fq2FallBack = `
 
 func addE2(z, x, y *E2) {
@@ -32,6 +33,7 @@ func mulAdxE2(z, x, y *E2) {
 
 `
 
+// Fq2Common ...
 const Fq2Common = `
 
 import (

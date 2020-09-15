@@ -28,12 +28,14 @@ type CurveConfig struct {
 	PMod4            int   // 3 or 1
 }
 
-type PointConfig struct {
+type pointConfig struct {
 	CurveConfig
 	CoordType string
 	PointName string
 }
 
+// NewCurveConfig returns a struct initialized with the parameters needed for template generation
+// (internal use in gurvy)
 func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) CurveConfig {
 	name = strings.ToLower(name)
 	conf := CurveConfig{
@@ -257,7 +259,7 @@ func GenerateMultiExpHelpers(conf CurveConfig) error {
 // GeneratePoint generates elliptic curve arithmetic
 func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 
-	conf := PointConfig{
+	conf := pointConfig{
 		CurveConfig: _conf,
 		CoordType:   coordType,
 		PointName:   pointName,

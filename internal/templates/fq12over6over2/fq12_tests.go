@@ -1,5 +1,6 @@
 package fq12over6over2
 
+// Fq12Tests ...
 const Fq12Tests = `
 
 import (

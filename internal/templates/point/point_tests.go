@@ -1,5 +1,6 @@
 package point
 
+// PointTests ...
 const PointTests = `
 
 import (
@@ -197,7 +198,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			gfuzz := fuzzExtendedJacobian{{ toUpper .PointName}}(&g, a)
 
 			var op1 {{ toUpper .PointName}}Affine
-			gfuzz.ToAffine(&op1)
+			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
 		},
 		genFuzz1,
@@ -264,7 +265,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			var zero {{ .CoordType}}
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
 			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
-			op1.ToAffine(&g)
+			g.fromJacExtended(&op1)
 			return g.X.Equal(&zero) && g.Y.Equal(&zero)
 		},
 	))
@@ -277,7 +278,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			one.SetOne()
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
 			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
-			op1.ToJac(&g)
+			g.fromJacExtended(&op1)
 			return g.X.Equal(&one) && g.Y.Equal(&one) && g.Z.Equal(&zero)
 		},
 	))

@@ -1,5 +1,6 @@
 package pairing
 
+// PairingTests ...
 const PairingTests = `
 
 import (

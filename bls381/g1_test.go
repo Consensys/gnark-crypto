@@ -139,7 +139,7 @@ func TestG1Conversions(t *testing.T) {
 			gfuzz := fuzzExtendedJacobianG1(&g, a)
 
 			var op1 G1Affine
-			gfuzz.ToAffine(&op1)
+			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g1Gen.X) && op1.Y.Equal(&g1Gen.Y)
 		},
 		genFuzz1,
@@ -198,7 +198,7 @@ func TestG1Conversions(t *testing.T) {
 			var zero fp.Element
 			op1.X.Set(&g1Gen.X)
 			op1.Y.Set(&g1Gen.Y)
-			op1.ToAffine(&g)
+			g.fromJacExtended(&op1)
 			return g.X.Equal(&zero) && g.Y.Equal(&zero)
 		},
 	))
@@ -211,7 +211,7 @@ func TestG1Conversions(t *testing.T) {
 			one.SetOne()
 			op1.X.Set(&g1Gen.X)
 			op1.Y.Set(&g1Gen.Y)
-			op1.ToJac(&g)
+			g.fromJacExtended(&op1)
 			return g.X.Equal(&one) && g.Y.Equal(&one) && g.Z.Equal(&zero)
 		},
 	))

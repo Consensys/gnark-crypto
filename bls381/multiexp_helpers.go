@@ -25,11 +25,14 @@ import (
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	C      uint64
+	c      uint64
 	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 	lock   sync.Mutex
 }
 
+// NewMultiExpOptions returns a new multiExp options to be used with MultiExp
+// this option can be shared between different MultiExp calls and will ensure only numCpus are used
+// through a semaphore
 func NewMultiExpOptions(numCpus int) *MultiExpOptions {
 	toReturn := &MultiExpOptions{
 		chCpus: make(chan struct{}, numCpus),

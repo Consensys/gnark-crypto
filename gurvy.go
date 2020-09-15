@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package gurvy is an elliptic curve (+pairing) library. It currently generates efficient code for
-// bls381, bls377 and bn256
+// Package gurvy is an elliptic curve (+pairing) library. It currently expose efficient implementations for
+// bls381, bls377, bn256 and bw761
 package gurvy
 
 // do not modify the order of this enum
@@ -28,7 +28,6 @@ const (
 )
 
 // ID represent a unique ID for a curve
-// (used in serialization checks)
 type ID uint16
 
 func (id ID) String() string {

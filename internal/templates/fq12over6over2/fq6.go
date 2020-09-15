@@ -1,5 +1,6 @@
 package fq12over6over2
 
+// Fq6 ...
 const Fq6 = `
 
 // E6 is a degree three finite field extension of fp2

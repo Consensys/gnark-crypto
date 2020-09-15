@@ -344,8 +344,6 @@ func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch cha
 	}
 }
 
-const tAbsVal uint64 = 9586122913090633729
-
 // Expt set z to x^t in PairingResult and return z
 func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 

@@ -1,13 +1,12 @@
 package point
 
+// MultiExpCore ...
 const MultiExpCore = `
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 // optionally, takes as parameter a MultiExpOptions struct
 // enabling to set 
-// * the choice of  "c" (c-bit window to process the scalars)
 // * max number of cpus to use
-// * indicates wether or not the provided scalars are already partitionned using PartitionScalars method
 func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*MultiExpOptions) *{{ toUpper .PointName }}Jac {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
@@ -42,7 +41,7 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 		opt = NewMultiExpOptions(runtime.NumCPU())
 	}
 
-	if opt.C == 0 {
+	if opt.c == 0 {
 		nbPoints := len(points)
 	
 		// implemented msmC methods (the c we use must be in this slice)
@@ -60,18 +59,18 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
-				opt.C = c 
+				opt.c = c 
 			}
 		}
 
-		// empirical
+		// empirical, needs to be tuned.
 		{{if eq .PointName "g1"}}
-		if opt.C > 16 && nbPoints < 1 << 23 {
-			opt.C = 16
+		if opt.c > 16 && nbPoints < 1 << 23 {
+			opt.c = 16
 		} 
 		{{else}}
-		if opt.C > 16 && nbPoints < 1 << 23 {
-			opt.C = 16
+		if opt.c > 16 && nbPoints < 1 << 23 {
+			opt.c = 16
 		}
 		{{end}}
 	}
@@ -84,9 +83,9 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// partition the scalars 
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, opt.C)
+	scalars = partitionScalars(scalars, opt.c)
 
-	switch opt.C {
+	switch opt.c {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
 		return p.msmC{{$c}}(points, scalars, opt)	
@@ -123,7 +122,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	msbWindow  := uint64(1 << (c -1)) 
 	
 	for i := 0 ; i < len(buckets); i++ {
-		buckets[i].SetInfinity()
+		buckets[i].setInfinity()
 	}
 
 	jc := uint64(chunk * c)
@@ -217,6 +216,214 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 }
 {{end}}
 
+
+//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type {{ toLower .PointName }}JacExtended struct {
+	X, Y, ZZ, ZZZ {{.CoordType}}
+}
+
+// setInfinity sets p to O
+func (p *{{ toLower .PointName }}JacExtended) setInfinity() *{{ toLower .PointName }}JacExtended {
+	p.X.SetOne()
+	p.Y.SetOne()
+	p.ZZ = {{.CoordType}}{}
+	p.ZZZ = {{.CoordType}}{}
+	return p
+}
+
+// fromJacExtended sets Q in affine coords
+func (p *{{ toUpper .PointName }}Affine)  fromJacExtended (Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Affine {
+	if Q.ZZ.IsZero() {
+		p.X = {{.CoordType}}{}
+		p.Y = {{.CoordType}}{}
+		return p
+	}
+	p.X.Inverse(&Q.ZZ).Mul(&p.X, &Q.X)
+	p.Y.Inverse(&Q.ZZZ).Mul(&p.Y, &Q.Y)
+	return p
+}
+
+// fromJacExtended sets Q in Jacobian coords
+func (p *{{ toUpper .PointName }}Jac) fromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
+	if Q.ZZ.IsZero() {
+		p.Set(&{{ toLower .PointName }}Infinity)
+		return p
+	}
+	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
+	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
+	p.Z.Set(&Q.ZZZ)
+	return p
+}
+
+// unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
+func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
+	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
+	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
+	p.Z = Q.ZZZ
+	return p
+}
+
+
+// mSub same as mAdd, but will negate a.Y 
+// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *{{ toLower .PointName }}JacExtended) mSub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+
+	//if a is infinity return p
+	if a.X.IsZero() && a.Y.IsZero() {
+		return p
+	}
+	// p is infinity, return a
+	if p.ZZ.IsZero() {
+		p.X = a.X
+		p.Y = a.Y
+		p.Y.Neg(&p.Y)
+		p.ZZ.SetOne()
+		p.ZZZ.SetOne()
+		return p
+	}
+
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
+
+	// p2: a, p1: p
+	U2.Mul(&a.X, &p.ZZ)
+	S2.Mul(&a.Y, &p.ZZZ)
+	S2.Neg(&S2)
+
+
+	P.Sub(&U2, &p.X)
+	R.Sub(&S2, &p.Y)
+
+	pIsZero := P.IsZero()
+	rIsZero := R.IsZero()
+
+	if pIsZero && rIsZero {
+		return p.doubleNeg(a)
+	} else if pIsZero {
+		p.ZZ =  {{.CoordType}}{}
+		p.ZZZ =  {{.CoordType}}{}
+		return p
+	} 
+
+
+
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&p.X, &PP)
+	RR.Square(&R)
+	X3.Sub(&RR, &PPP)
+	Q2.Double(&Q)
+	p.X.Sub(&X3, &Q2)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
+	R.Mul(&p.Y, &PPP)
+	p.Y.Sub(&Y3, &R)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
+
+	return p
+}
+
+
+// mAdd
+// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+
+	//if a is infinity return p
+	if a.X.IsZero() && a.Y.IsZero() {
+		return p
+	}
+	// p is infinity, return a
+	if p.ZZ.IsZero() {
+		p.X = a.X
+		p.Y = a.Y
+		p.ZZ.SetOne()
+		p.ZZZ.SetOne()
+		return p
+	}
+
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
+
+	// p2: a, p1: p
+	U2.Mul(&a.X, &p.ZZ)
+	S2.Mul(&a.Y, &p.ZZZ)
+
+	P.Sub(&U2, &p.X)
+	R.Sub(&S2, &p.Y)
+
+	pIsZero := P.IsZero()
+	rIsZero := R.IsZero()
+
+	if pIsZero && rIsZero {
+		return p.double(a)
+	} else if pIsZero {
+		p.ZZ = {{.CoordType}}{}
+		p.ZZZ = {{.CoordType}}{}
+		return p
+	} 
+
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&p.X, &PP)
+	RR.Square(&R)
+	X3.Sub(&RR, &PPP)
+	Q2.Double(&Q)
+	p.X.Sub(&X3, &Q2)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
+	R.Mul(&p.Y, &PPP)
+	p.Y.Sub(&Y3, &R)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
+
+	return p
+}
+
+// doubleNeg same as double, but will negate q.Y
+func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+
+	var U, S, M, _M, Y3 {{.CoordType}}
+
+	U.Double(&q.Y)
+	U.Neg(&U)
+	p.ZZ.Square(&U)
+	p.ZZZ.Mul(&U, &p.ZZ)
+	S.Mul(&q.X, &p.ZZ)
+	_M.Square(&q.X)
+	M.Double(&_M).
+		Add(&M, &_M) // -> + a, but a=0 here
+	p.X.Square(&M).
+		Sub(&p.X, &S).
+		Sub(&p.X, &S)
+	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
+	U.Mul(&p.ZZZ, &q.Y)
+	U.Neg(&U)
+	p.Y.Sub(&Y3, &U)
+
+	return p
+}
+
+
+// double point in ZZ coords
+// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+
+	var U, S, M, _M, Y3 {{.CoordType}}
+
+	U.Double(&q.Y)
+	p.ZZ.Square(&U)
+	p.ZZZ.Mul(&U, &p.ZZ)
+	S.Mul(&q.X, &p.ZZ)
+	_M.Square(&q.X)
+	M.Double(&_M).
+		Add(&M, &_M) // -> + a, but a=0 here
+	p.X.Square(&M).
+		Sub(&p.X, &S).
+		Sub(&p.X, &S)
+	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
+	U.Mul(&p.ZZZ, &q.Y)
+	p.Y.Sub(&Y3, &U)
+
+	return p
+}
+
 `
 
 // MultiExpHelpers is common to both points (only one is generated per package)
@@ -228,11 +435,14 @@ import (
 
 // MultiExpOptions enables users to set optional parameters to the multiexp
 type MultiExpOptions struct {
-	C uint64
+	c uint64
 	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 	lock sync.Mutex 
 }
 
+// NewMultiExpOptions returns a new multiExp options to be used with MultiExp
+// this option can be shared between different MultiExp calls and will ensure only numCpus are used
+// through a semaphore
 func NewMultiExpOptions(numCpus int) *MultiExpOptions {
 	toReturn := &MultiExpOptions{
 		chCpus: make(chan struct{}, numCpus),
