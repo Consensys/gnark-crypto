@@ -43,15 +43,9 @@ func main() {
 
 	for i := 0; i < len(confs); i++ {
 
-		if err := generator.GenerateBaseFields(confs[i]); err != nil {
-			fmt.Printf("\n%s\n", err.Error())
-			os.Exit(-1)
-		}
-
-		if err := generator.GenerateMultiExpHelpers(confs[i]); err != nil {
-			fmt.Printf("\n%s\n", err.Error())
-			os.Exit(-1)
-		}
+		assertNoError(generator.GenerateBaseFields(confs[i]))
+		assertNoError(generator.GenerateMultiExpHelpers(confs[i]))
+		assertNoError(generator.GenerateDoc(confs[i]))
 
 		if confs[i].CurveName != "bw761" {
 
@@ -59,45 +53,30 @@ func main() {
 			if confs[i].CurveName == "bn256" {
 				confs[i].CofactorCleaning = false
 			}
-			if err := generator.GeneratePoint(confs[i], "fp.Element", "g1"); err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
+			assertNoError(generator.GeneratePoint(confs[i], "fp.Element", "g1"))
 
 			// G2
 			if confs[i].CurveName == "bn256" {
 				confs[i].CofactorCleaning = true
 			}
-			if err := generator.GeneratePoint(confs[i], "E2", "g2"); err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
+			assertNoError(generator.GeneratePoint(confs[i], "E2", "g2"))
+			assertNoError(generator.GenerateFq12over6over2(confs[i]))
+			assertNoError(generator.GeneratePairingTests(confs[i]))
 
-			if err := generator.GenerateFq12over6over2(confs[i]); err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
-
-			err := generator.GeneratePairingTests(confs[i])
-			if err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
 		} else {
-
 			// G1
-			if err := generator.GeneratePoint(confs[i], "fp.Element", "g1"); err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
-
+			assertNoError(generator.GeneratePoint(confs[i], "fp.Element", "g1"))
 			// G2
-			if err := generator.GeneratePoint(confs[i], "fp.Element", "g2"); err != nil {
-				fmt.Printf("\n%s\n", err.Error())
-				os.Exit(-1)
-			}
+			assertNoError(generator.GeneratePoint(confs[i], "fp.Element", "g2"))
 		}
 
 	}
 
+}
+
+func assertNoError(err error) {
+	if err != nil {
+		fmt.Printf("\n%s\n", err.Error())
+		os.Exit(-1)
+	}
 }

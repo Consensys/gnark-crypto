@@ -325,3 +325,21 @@ func GeneratePairingTests(conf CurveConfig) error {
 
 	return nil
 }
+
+// GenerateDoc generates package level doc
+func GenerateDoc(conf CurveConfig) error {
+
+	bavardOpts := []func(*bavard.Bavard) error{
+		bavard.Apache2("ConsenSys AG", 2020),
+		bavard.Package(conf.CurveName, "provides efficient elliptic curve and pairing implementation for "+conf.CurveName),
+		bavard.GeneratedBy("gurvy"),
+	}
+
+	pathSrc := filepath.Join(conf.OutputDir, "doc.go")
+
+	if err := bavard.Generate(pathSrc, []string{""}, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	return nil
+}
