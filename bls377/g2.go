@@ -340,13 +340,20 @@ func (p *G2Affine) IsOnCurve() bool {
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
-// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *G2Affine) IsInSubGroup() bool {
+	var _p G2Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 // Z[r,0]+Z[-lambdaG2, 1] is the kernel
 // of (u,v)->u+lambdaG2v mod r. Expressing r, lambdaG2 as
 // polynomials in x, a short vector of this Zmodule is
 // 1, x**2. So we check that p+x**2*phi(p)
 // is the infinity.
-func (p *G2Jac) SubgroupCheck() bool {
+func (p *G2Jac) IsInSubGroup() bool {
 
 	var res G2Jac
 	res.phi(p).
@@ -356,13 +363,6 @@ func (p *G2Jac) SubgroupCheck() bool {
 
 	return res.IsOnCurve() && res.Z.IsZero()
 
-}
-
-// SubgroupCheck returns true if p is in the correct subgroup, false otherwise
-func (p *G2Affine) SubgroupCheck() bool {
-	var _p G2Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.SubgroupCheck()
 }
 
 // mulWindowed 2-bits windowed exponentiation

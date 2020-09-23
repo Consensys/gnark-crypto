@@ -650,7 +650,7 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 			point.Z.SetOne()
 			pointCleared.ClearCofactor(&point)
 			infinity.Set(&{{ toLower .PointName}}Infinity)
-			return point.IsOnCurve() && pointCleared.SubgroupCheck() && !pointCleared.Equal(&infinity)
+			return point.IsOnCurve() && pointCleared.IsInSubGroup() && !pointCleared.Equal(&infinity)
 		},
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))

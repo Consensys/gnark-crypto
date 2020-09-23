@@ -342,20 +342,20 @@ func (p *G1Affine) IsOnCurve() bool {
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
-// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *G1Affine) IsInSubGroup() bool {
+	var _p G1Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 // For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
 // the point is on the curve.
-func (p *G1Jac) SubgroupCheck() bool {
+func (p *G1Jac) IsInSubGroup() bool {
 
 	return p.IsOnCurve()
 
-}
-
-// SubgroupCheck returns true if p is in the correct subgroup, false otherwise
-func (p *G1Affine) SubgroupCheck() bool {
-	var _p G1Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.SubgroupCheck()
 }
 
 // mulWindowed 2-bits windowed exponentiation

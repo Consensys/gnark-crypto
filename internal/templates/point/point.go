@@ -347,24 +347,31 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
+	var _p {{ toUpper .PointName}}Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
 {{if eq .CurveName "bn256" }}
 	{{if eq .PointName "g1"}}
-		// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
 		// the point is on the curve.
-		func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+		func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
 
 			return p.IsOnCurve()
 
 		}
 	{{else if eq .PointName "g2"}}
-		// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
 		// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
 		// polynomials in x, a short vector of this Zmodule is
 		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
 		// is the infinity.
-		func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+		func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
 
 			var res, xphip, phip {{ toUpper .PointName}}Jac
 			phip.phi(p)
@@ -379,13 +386,13 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 		}
 	{{end}}
 {{else if eq .CurveName "bw761" }}
-	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
 	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
 	// polynomials in x, a short vector of this Zmodule is
 	// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
 	// is the infinity.
-	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+	func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
 
 		var res, phip {{ toUpper .PointName}}Jac
 		phip.phi(p)
@@ -401,13 +408,13 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 
 	}
 {{else}}
-	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
 	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
 	// polynomials in x, a short vector of this Zmodule is
 	// 1, x**2. So we check that p+x**2*phi(p)
 	// is the infinity.
-	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+	func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
 
 		var res {{ toUpper .PointName}}Jac
 		res.phi(p).
@@ -420,12 +427,6 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 	}
 {{end}}
 
-// SubgroupCheck returns true if p is in the correct subgroup, false otherwise
-func (p *{{ toUpper .PointName}}Affine) SubgroupCheck() bool {
-	var _p {{ toUpper .PointName}}Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.SubgroupCheck()
-}
 
 // mulWindowed 2-bits windowed exponentiation
 func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
