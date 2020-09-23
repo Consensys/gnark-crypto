@@ -18,8 +18,8 @@ import (
 	"github.com/consensys/gurvy/bw761/fp"
 )
 
-// PairingResult target group of the pairing
-type PairingResult = E6
+// GT target group of the pairing
+type GT = e6
 
 type lineEvaluation struct {
 	r0 fp.Element
@@ -28,9 +28,9 @@ type lineEvaluation struct {
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+func FinalExponentiation(z *GT, _z ...*GT) GT {
 
-	var result PairingResult
+	var result GT
 	result.Set(z)
 
 	for _, e := range _z {
@@ -43,10 +43,10 @@ func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 }
 
 // FinalExponentiation sets z to the final expo x**((p**6 - 1)/r), returns z
-func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+func (z *GT) FinalExponentiation(x *GT) *GT {
 
-	var buf PairingResult
-	var result PairingResult
+	var buf GT
+	var result GT
 	result.Set(x)
 
 	// easy part exponent: (p**3 - 1)*(p+1)
@@ -59,8 +59,8 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	// hard part exponent: a multiple of (p**2 - p + 1)/r
 	// Appendix B of https://eprint.iacr.org/2020/351.pdf
 	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
-	var f [8]PairingResult
-	var fp [10]PairingResult
+	var f [8]GT
+	var fp [10]GT
 
 	f[0].Set(&result)
 	for i := 1; i < len(f); i++ {
@@ -77,7 +77,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 		MulAssign(&fp[6]).
 		CyclotomicSquare(&result)
 
-	var f4fp2 PairingResult
+	var f4fp2 GT
 	f4fp2.Mul(&f[4], &fp[2])
 	buf.Mul(&f[0], &f[1]).
 		MulAssign(&f[3]).
@@ -96,7 +96,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	result.MulAssign(&fp[9]).
 		CyclotomicSquare(&result)
 
-	var f2fp4, f4fp2fp5 PairingResult
+	var f2fp4, f4fp2fp5 GT
 	f2fp4.Mul(&f[2], &fp[4])
 	f4fp2fp5.Mul(&f4fp2, &fp[5])
 	buf.Mul(&f2fp4, &f[3]).
@@ -117,7 +117,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 		MulAssign(&fp[1]).
 		CyclotomicSquare(&result)
 
-	var fp6fp8, f5fp7 PairingResult
+	var fp6fp8, f5fp7 GT
 	fp6fp8.Mul(&fp[6], &fp[8])
 	f5fp7.Mul(&f[5], &fp[7])
 	buf.FrobeniusCube(&fp6fp8)
@@ -127,7 +127,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 		MulAssign(&fp[2]).
 		CyclotomicSquare(&result)
 
-	var f3f6, f1f7 PairingResult
+	var f3f6, f1f7 GT
 	f3f6.Mul(&f[3], &f[6])
 	f1f7.Mul(&f[1], &f[7])
 
@@ -167,9 +167,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
-	var result PairingResult
+	var result GT
 
 	if P.IsInfinity() || Q.IsInfinity() {
 		return &result
@@ -206,7 +206,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
 	// store mx=g(P), mxInv=1/g(P), div(g)=x(Q)-([x]Q)-(x-1)(O), because the second Miller loop
 	// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O) and
 	// f(P)=g(P)**(u**2-u-1)*h(P), div(h)=(x**2-x-1)([x]Q)-([x**2-x-1][x]Q)-(x**2-x-2)(O)
-	var mx, mxInv, mxplusone PairingResult
+	var mx, mxInv, mxplusone GT
 	mx.Set(&result)
 	mxInv.Inverse(&result)
 
@@ -272,9 +272,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 	result.r0.Mul(&result.r0, &P.Y)
 }
 
-func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
+func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
-	var a, b, c PairingResult
+	var a, b, c GT
 	a.MulByVMinusThree(z, &l.r1)
 	b.MulByVminusTwo(z, &l.r0)
 	c.MulByVminusFive(z, &l.r2)
@@ -344,14 +344,14 @@ func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch cha
 	}
 }
 
-// Expt set z to x^t in PairingResult and return z
-func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
+// Expt set z to x^t in GT and return z
+func (z *GT) Expt(x *GT) *GT {
 
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
 	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html
 
-	var result, x33 PairingResult
+	var result, x33 GT
 
 	// a shortest addition chain for 136227
 	result.Set(x)             // 0                1
@@ -389,7 +389,7 @@ func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
 }
 
 // MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
-func (z *PairingResult) MulByVMinusThree(x *PairingResult, y *fp.Element) *PairingResult {
+func (z *GT) MulByVMinusThree(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
@@ -407,7 +407,7 @@ func (z *PairingResult) MulByVMinusThree(x *PairingResult, y *fp.Element) *Pairi
 	}
 
 	// tmp = y*(-4)**-1 * u
-	var tmp E2
+	var tmp e2
 	tmp.A0.SetZero()
 	tmp.A1.Mul(y, &fourinv)
 
@@ -417,7 +417,7 @@ func (z *PairingResult) MulByVMinusThree(x *PairingResult, y *fp.Element) *Pairi
 }
 
 // MulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
-func (z *PairingResult) MulByVminusTwo(x *PairingResult, y *fp.Element) *PairingResult {
+func (z *GT) MulByVminusTwo(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
@@ -435,11 +435,11 @@ func (z *PairingResult) MulByVminusTwo(x *PairingResult, y *fp.Element) *Pairing
 	}
 
 	// tmp = y*(-4)**-1 * u
-	var tmp E2
+	var tmp e2
 	tmp.A0.SetZero()
 	tmp.A1.Mul(y, &fourinv)
 
-	var a E2
+	var a e2
 	a.MulByElement(&x.B2, y)
 	z.B2.Mul(&x.B1, &tmp)
 	z.B1.Mul(&x.B0, &tmp)
@@ -449,7 +449,7 @@ func (z *PairingResult) MulByVminusTwo(x *PairingResult, y *fp.Element) *Pairing
 }
 
 // MulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
-func (z *PairingResult) MulByVminusFive(x *PairingResult, y *fp.Element) *PairingResult {
+func (z *GT) MulByVminusFive(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
@@ -467,11 +467,11 @@ func (z *PairingResult) MulByVminusFive(x *PairingResult, y *fp.Element) *Pairin
 	}
 
 	// tmp = y*(-4)**-1 * u
-	var tmp E2
+	var tmp e2
 	tmp.A0.SetZero()
 	tmp.A1.Mul(y, &fourinv)
 
-	var a E2
+	var a e2
 	a.Mul(&x.B2, &tmp)
 	z.B2.MulByElement(&x.B1, &tmp.A1)
 	z.B1.MulByElement(&x.B0, &tmp.A1)

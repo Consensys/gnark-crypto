@@ -19,7 +19,7 @@ import (
 )
 
 // declaring nonResInverse as global makes MulByNonResInv inlinable
-var nonResInverse E2
+var nonResInverse e2
 
 func init() {
 	nonResInverse.A0 = fp.Element{
@@ -36,9 +36,9 @@ func init() {
 	}
 }
 
-// mulGenericE2 sets z to the E2-product of x,y, returns z
+// mulGenericE2 sets z to the e2-product of x,y, returns z
 // note: do not rename, this is referenced in the x86 assembly impl
-func mulGenericE2(z, x, y *E2) {
+func mulGenericE2(z, x, y *e2) {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -49,9 +49,9 @@ func mulGenericE2(z, x, y *E2) {
 	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
 }
 
-// squareGenericE2 sets z to the E2-product of x,x returns z
+// squareGenericE2 sets z to the e2-product of x,x returns z
 // note: do not rename, this is referenced in the x86 assembly impl
-func squareGenericE2(z, x *E2) *E2 {
+func squareGenericE2(z, x *e2) *e2 {
 	// algo 22 https://eprint.iacr.org/2010/354.pdf
 	var a, b fp.Element
 	a.Add(&x.A0, &x.A1)
@@ -63,14 +63,14 @@ func squareGenericE2(z, x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidueInv multiplies a E2 by (9,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+// MulByNonResidueInv multiplies a e2 by (9,1)^{-1}
+func (z *e2) MulByNonResidueInv(x *e2) *e2 {
 	z.Mul(x, &nonResInverse)
 	return z
 }
 
-// Inverse sets z to the E2-inverse of x, returns z
-func (z *E2) Inverse(x *E2) *E2 {
+// Inverse sets z to the e2-inverse of x, returns z
+func (z *e2) Inverse(x *e2) *e2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
 	var t0, t1 fp.Element
 	t0.Square(&x.A0)
@@ -84,7 +84,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 }
 
 // norm sets x to the norm of z
-func (z *E2) norm(x *fp.Element) {
+func (z *e2) norm(x *fp.Element) {
 	var tmp fp.Element
 	x.Square(&z.A0)
 	tmp.Square(&z.A1)

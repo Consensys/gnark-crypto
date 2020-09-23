@@ -27,8 +27,8 @@ func TestPairing(t *testing.T) {
 	genR2 := GenFr()
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a *E12) bool {
-			var b E12
+		func(a *e12) bool {
+			var b e12
 			b.Set(a)
 			b.FinalExponentiation(a)
 			a.FinalExponentiation(a)
@@ -38,8 +38,8 @@ func TestPairing(t *testing.T) {
 	))
 
     properties.Property("[{{ toUpper .CurveName}}] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a *E12) bool {
-			var one E12
+		func(a *e12) bool {
+			var one e12
 			var e big.Int
 			e.SetString("{{ .RTorsion }}", 10)
 			one.SetOne()
@@ -52,7 +52,7 @@ func TestPairing(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName}}] bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
-			var res, resa, resb, resab, zero PairingResult
+			var res, resa, resb, resab, zero GT
 
 			var aG1 G1Jac
 			var bG2 G2Jac
@@ -110,7 +110,7 @@ func BenchmarkPairing(b *testing.B) {
 
 func BenchmarkFinalExponentiation(b *testing.B) {
 
-	var a E12
+	var a e12
 	a.SetRandom()
 
 	b.ResetTimer()

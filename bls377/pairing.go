@@ -14,19 +14,19 @@
 
 package bls377
 
-// PairingResult target group of the pairing
-type PairingResult = E12
+// GT target group of the pairing
+type GT = e12
 
 type lineEvaluation struct {
-	r0 E2
-	r1 E2
-	r2 E2
+	r0 e2
+	r1 e2
+	r2 e2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+func FinalExponentiation(z *GT, _z ...*GT) GT {
 
-	var result PairingResult
+	var result GT
 	result.Set(z)
 
 	for _, e := range _z {
@@ -39,14 +39,14 @@ func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 }
 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// https://eprint.iacr.org/2016/130.pdf
-	var result PairingResult
+	var result GT
 	result.Set(x)
 
 	// memalloc
-	var t [6]PairingResult
+	var t [6]GT
 
 	// easy part
 	t[0].FrobeniusCube(&result).
@@ -93,9 +93,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
-	var result PairingResult
+	var result GT
 	result.SetOne()
 
 	if P.IsInfinity() || Q.IsInfinity() {
@@ -150,9 +150,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 	result.r0.MulByElement(&result.r0, &P.Y)
 }
 
-func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
+func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
-	var a, b, c PairingResult
+	var a, b, c GT
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)
@@ -192,11 +192,11 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 }
 
 // MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
-func (z *PairingResult) MulByVW(x *PairingResult, y *E2) *PairingResult {
+// here y*v*w means the GT element with C1.B1=y and all other components 0
+func (z *GT) MulByVW(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
@@ -210,11 +210,11 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByV set z to x*(y*v) and return z
-// here y*v means the PairingResult element with C0.B1=y and all other components 0
-func (z *PairingResult) MulByV(x *PairingResult, y *E2) *PairingResult {
+// here y*v means the GT element with C0.B1=y and all other components 0
+func (z *GT) MulByV(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
@@ -228,11 +228,11 @@ func (z *PairingResult) MulByV(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
-func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
+// here y*v^2*w means the GT element with C1.B2=y and all other components 0
+func (z *GT) MulByV2W(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
@@ -245,14 +245,14 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
 	return z
 }
 
-// Expt set z to x^t in PairingResult and return z
-func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
+// Expt set z to x^t in GT and return z
+func (z *GT) Expt(x *GT) *GT {
 	const tAbsVal uint64 = 9586122913090633729
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
 	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html
 
-	var result, x33 PairingResult
+	var result, x33 GT
 
 	// a shortest addition chain for 136227
 	result.Set(x)                    // 0                1

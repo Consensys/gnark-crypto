@@ -458,7 +458,7 @@ func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, 
 
 }
 
-{{ if eq .CoordType "E2" }}
+{{ if eq .CoordType "e2" }}
 	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
 	func (p *{{ toUpper .PointName }}Jac) psi(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
 		p.Set(a)
@@ -474,7 +474,7 @@ func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper .PointName}}Jac {
 	p.Set(a)
-	{{if eq .CoordType "E2"}}
+	{{if eq .CoordType "e2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{else}}
 		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})

@@ -16,27 +16,27 @@ package bw761
 
 import "math/big"
 
-// E6 is a degree-three finite field extension of fp2
-type E6 struct {
-	B0, B1, B2 E2
+// e6 is a degree-three finite field extension of fp2
+type e6 struct {
+	B0, B1, B2 e2
 }
 
 // Equal returns true if z equals x, fasle otherwise
 // TODO can this be deleted?  Should be able to use == operator instead
-func (z *E6) Equal(x *E6) bool {
+func (z *e6) Equal(x *e6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
 }
 
-// SetString sets a E6 elmt from stringf
-func (z *E6) SetString(s1, s2, s3, s4, s5, s6 string) *E6 {
+// SetString sets a e6 elmt from stringf
+func (z *e6) SetString(s1, s2, s3, s4, s5, s6 string) *e6 {
 	z.B0.SetString(s1, s2)
 	z.B1.SetString(s3, s4)
 	z.B2.SetString(s5, s6)
 	return z
 }
 
-// Set Sets a E6 elmt form another E6 elmt
-func (z *E6) Set(x *E6) *E6 {
+// Set Sets a e6 elmt form another e6 elmt
+func (z *e6) Set(x *e6) *e6 {
 	z.B0 = x.B0
 	z.B1 = x.B1
 	z.B2 = x.B2
@@ -44,7 +44,7 @@ func (z *E6) Set(x *E6) *E6 {
 }
 
 // SetOne sets z to 1 in Montgomery form and returns z
-func (z *E6) SetOne() *E6 {
+func (z *e6) SetOne() *e6 {
 	z.B0.A0.SetOne()
 	z.B0.A1.SetZero()
 	z.B1.A0.SetZero()
@@ -55,7 +55,7 @@ func (z *E6) SetOne() *E6 {
 }
 
 // SetRandom set z to a random elmt
-func (z *E6) SetRandom() *E6 {
+func (z *e6) SetRandom() *e6 {
 	z.B0.SetRandom()
 	z.B1.SetRandom()
 	z.B2.SetRandom()
@@ -63,7 +63,7 @@ func (z *E6) SetRandom() *E6 {
 }
 
 // ToMont converts to Mont form
-func (z *E6) ToMont() *E6 {
+func (z *e6) ToMont() *e6 {
 	z.B0.ToMont()
 	z.B1.ToMont()
 	z.B2.ToMont()
@@ -71,54 +71,54 @@ func (z *E6) ToMont() *E6 {
 }
 
 // FromMont converts from Mont form
-func (z *E6) FromMont() *E6 {
+func (z *e6) FromMont() *e6 {
 	z.B0.FromMont()
 	z.B1.FromMont()
 	z.B2.FromMont()
 	return z
 }
 
-// Add adds two elements of E6
-func (z *E6) Add(x, y *E6) *E6 {
+// Add adds two elements of e6
+func (z *e6) Add(x, y *e6) *e6 {
 	z.B0.Add(&x.B0, &y.B0)
 	z.B1.Add(&x.B1, &y.B1)
 	z.B2.Add(&x.B2, &y.B2)
 	return z
 }
 
-// Neg negates the E6 number
-func (z *E6) Neg(x *E6) *E6 {
+// Neg negates the e6 number
+func (z *e6) Neg(x *e6) *e6 {
 	z.B0.Neg(&x.B0)
 	z.B1.Neg(&x.B1)
 	z.B2.Neg(&x.B2)
 	return z
 }
 
-// Sub two elements of E6
-func (z *E6) Sub(x, y *E6) *E6 {
+// Sub two elements of e6
+func (z *e6) Sub(x, y *e6) *e6 {
 	z.B0.Sub(&x.B0, &y.B0)
 	z.B1.Sub(&x.B1, &y.B1)
 	z.B2.Sub(&x.B2, &y.B2)
 	return z
 }
 
-// Double doubles an element in E6
-func (z *E6) Double(x *E6) *E6 {
+// Double doubles an element in e6
+func (z *e6) Double(x *e6) *e6 {
 	z.B0.Double(&x.B0)
 	z.B1.Double(&x.B1)
 	z.B2.Double(&x.B2)
 	return z
 }
 
-// String puts E6 elmt in string form
-func (z *E6) String() string {
+// String puts e6 elmt in string form
+func (z *e6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
 }
 
-// Mul sets z to the E6-product of x,y, returns z
-func (z *E6) Mul(x, y *E6) *E6 {
+// Mul sets z to the e6-product of x,y, returns z
+func (z *e6) Mul(x, y *e6) *e6 {
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var t0, t1, t2, c0, c1, c2, tmp E2
+	var t0, t1, t2, c0, c1, c2, tmp e2
 	t0.Mul(&x.B0, &y.B0)
 	t1.Mul(&x.B1, &y.B1)
 	t2.Mul(&x.B2, &y.B2)
@@ -143,15 +143,15 @@ func (z *E6) Mul(x, y *E6) *E6 {
 	return z
 }
 
-// MulAssign sets z to the E6-product of z,y, returns z
-func (z *E6) MulAssign(x *E6) *E6 {
+// MulAssign sets z to the e6-product of z,y, returns z
+func (z *e6) MulAssign(x *e6) *e6 {
 	z.Mul(z, x)
 	return z
 }
 
-// MulByE2 multiplies x by an elements of E2
-func (z *E6) MulByE2(x *E6, y *E2) *E6 {
-	var yCopy E2
+// MulByE2 multiplies x by an elements of e2
+func (z *e6) MulByE2(x *e6, y *e2) *e6 {
+	var yCopy e2
 	yCopy.Set(y)
 	z.B0.Mul(&x.B0, &yCopy)
 	z.B1.Mul(&x.B1, &yCopy)
@@ -159,11 +159,11 @@ func (z *E6) MulByE2(x *E6, y *E2) *E6 {
 	return z
 }
 
-// Square sets z to the E6-product of x,x, returns z
-func (z *E6) Square(x *E6) *E6 {
+// Square sets z to the e6-product of x,x, returns z
+func (z *e6) Square(x *e6) *e6 {
 
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var c4, c5, c1, c2, c3, c0 E2
+	var c4, c5, c1, c2, c3, c0 e2
 	c4.Mul(&x.B0, &x.B1).Double(&c4)
 	c5.Square(&x.B2)
 	c1.MulByNonResidue(&c5).Add(&c1, &c4)
@@ -181,10 +181,10 @@ func (z *E6) Square(x *E6) *E6 {
 }
 
 // CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
-func (z *E6) CyclotomicSquare(x *E6) *E6 {
+func (z *e6) CyclotomicSquare(x *e6) *e6 {
 
-	var res, a E6
-	var tmp E2
+	var res, a e6
+	var tmp e2
 
 	// A
 	res.B0.Square(&x.B0)
@@ -208,11 +208,11 @@ func (z *E6) CyclotomicSquare(x *E6) *E6 {
 	return z
 }
 
-// Inverse an element in E6
-func (z *E6) Inverse(x *E6) *E6 {
+// Inverse an element in e6
+func (z *e6) Inverse(x *e6) *e6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
 	// step 9 is wrong in the paper it's t1-t4
-	var t0, t1, t2, t3, t4, t5, t6, c0, c1, c2, d1, d2 E2
+	var t0, t1, t2, t3, t4, t5, t6, c0, c1, c2, d1, d2 e2
 	t0.Square(&x.B0)
 	t1.Square(&x.B1)
 	t2.Square(&x.B2)
@@ -236,8 +236,8 @@ func (z *E6) Inverse(x *E6) *E6 {
 }
 
 // Exp sets z=x**e and returns it
-func (z *E6) Exp(x *E6, e big.Int) *E6 {
-	var res E6
+func (z *e6) Exp(x *e6, e big.Int) *e6 {
+	var res e6
 	res.SetOne()
 	b := e.Bytes()
 	for i := range b {

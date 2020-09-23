@@ -38,12 +38,12 @@ TEXT ·addE2(SB), NOSPLIT, $0-24
     MOVQ DI, R13
     MOVQ R8, R14
     MOVQ R9, R15
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
-    SBBQ ·qE2+32(SB), R14
-    SBBQ ·qE2+40(SB), R15
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
+    SBBQ ·qe2+32(SB), R14
+    SBBQ ·qe2+40(SB), R15
     CMOVQCC R10, BX
     CMOVQCC R11, BP
     CMOVQCC R12, SI
@@ -74,12 +74,12 @@ TEXT ·addE2(SB), NOSPLIT, $0-24
     MOVQ DI, R13
     MOVQ R8, R14
     MOVQ R9, R15
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
-    SBBQ ·qE2+32(SB), R14
-    SBBQ ·qE2+40(SB), R15
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
+    SBBQ ·qe2+32(SB), R14
+    SBBQ ·qe2+40(SB), R15
     CMOVQCC R10, BX
     CMOVQCC R11, BP
     CMOVQCC R12, SI
@@ -196,12 +196,12 @@ TEXT ·doubleE2(SB), NOSPLIT, $0-16
     MOVQ SI, R12
     MOVQ DI, R13
     MOVQ R8, R14
-    SUBQ ·qE2+0(SB), R9
-    SBBQ ·qE2+8(SB), R10
-    SBBQ ·qE2+16(SB), R11
-    SBBQ ·qE2+24(SB), R12
-    SBBQ ·qE2+32(SB), R13
-    SBBQ ·qE2+40(SB), R14
+    SUBQ ·qe2+0(SB), R9
+    SBBQ ·qe2+8(SB), R10
+    SBBQ ·qe2+16(SB), R11
+    SBBQ ·qe2+24(SB), R12
+    SBBQ ·qe2+32(SB), R13
+    SBBQ ·qe2+40(SB), R14
     CMOVQCC R9, CX
     CMOVQCC R10, BX
     CMOVQCC R11, BP
@@ -232,12 +232,12 @@ TEXT ·doubleE2(SB), NOSPLIT, $0-16
     MOVQ SI, R11
     MOVQ DI, R12
     MOVQ R8, R13
-    SUBQ ·qE2+0(SB), R15
-    SBBQ ·qE2+8(SB), R9
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R11
-    SBBQ ·qE2+32(SB), R12
-    SBBQ ·qE2+40(SB), R13
+    SUBQ ·qe2+0(SB), R15
+    SBBQ ·qe2+8(SB), R9
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R11
+    SBBQ ·qe2+32(SB), R12
+    SBBQ ·qe2+40(SB), R13
     CMOVQCC R15, CX
     CMOVQCC R9, BX
     CMOVQCC R10, BP

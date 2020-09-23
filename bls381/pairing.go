@@ -18,19 +18,19 @@ import (
 	"math/bits"
 )
 
-// PairingResult target group of the pairing
-type PairingResult = E12
+// GT target group of the pairing
+type GT = e12
 
 type lineEvaluation struct {
-	r0 E2
-	r1 E2
-	r2 E2
+	r0 e2
+	r1 e2
+	r2 e2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+func FinalExponentiation(z *GT, _z ...*GT) GT {
 
-	var result PairingResult
+	var result GT
 	result.Set(z)
 
 	for _, e := range _z {
@@ -43,13 +43,13 @@ func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 }
 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// cf https://eprint.iacr.org/2016/130.pdf
-	var result PairingResult
+	var result GT
 	result.Set(x)
 
-	var t [6]PairingResult
+	var t [6]GT
 
 	// easy part
 	t[0].FrobeniusCube(&result).
@@ -96,9 +96,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
-	var result PairingResult
+	var result GT
 	result.SetOne()
 
 	if P.IsInfinity() || Q.IsInfinity() {
@@ -156,9 +156,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 // multiplies a result of a line evaluation to the current pairing result, taking care of mapping it
 // back to the original  The line evaluation l is f(P) where div(f)=(P')+(Q')+(-P'-Q')-3(O), the support
 // being on the twist.
-func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
+func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
-	var a, b, c PairingResult
+	var a, b, c GT
 	a.MulByVWNRInv(z, &l.r1)
 	b.MulByV2NRInv(z, &l.r0)
 	c.MulByWNRInv(z, &l.r2)
@@ -197,10 +197,10 @@ func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 }
 
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *E2) *PairingResult {
+func (z *GT) MulByV2NRInv(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNRInv E2
+	var result GT
+	var yNRInv e2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C0.B1, y)
@@ -216,9 +216,9 @@ func (z *PairingResult) MulByV2NRInv(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *E2) *PairingResult {
-	var result PairingResult
-	var yNRInv E2
+func (z *GT) MulByVWNRInv(x *GT, y *e2) *GT {
+	var result GT
+	var yNRInv e2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B1, y)
@@ -234,10 +234,10 @@ func (z *PairingResult) MulByVWNRInv(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-func (z *PairingResult) MulByWNRInv(x *PairingResult, y *E2) *PairingResult {
+func (z *GT) MulByWNRInv(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNRInv E2
+	var result GT
+	var yNRInv e2
 	yNRInv.MulByNonResidueInv(y)
 
 	result.C0.B0.Mul(&x.C1.B2, y)
@@ -252,12 +252,12 @@ func (z *PairingResult) MulByWNRInv(x *PairingResult, y *E2) *PairingResult {
 	return z
 }
 
-// Expt set z to x^t in PairingResult and return z
-func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
+// Expt set z to x^t in GT and return z
+func (z *GT) Expt(x *GT) *GT {
 
 	const tAbsVal uint64 = 15132376222941642752 // negative
 
-	var result PairingResult
+	var result GT
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2

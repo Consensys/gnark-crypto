@@ -18,8 +18,8 @@ import (
 	"github.com/consensys/gurvy/bls377/fp"
 )
 
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
+// Mul sets z to the e2-product of x,y, returns z
+func (z *e2) Mul(x, y *e2) *e2 {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -31,8 +31,8 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	return z
 }
 
-// Square sets z to the E2-product of x,x returns z
-func (z *E2) Square(x *E2) *E2 {
+// Square sets z to the e2-product of x,x returns z
+func (z *e2) Square(x *e2) *e2 {
 	//algo 22 https://eprint.iacr.org/2010/354.pdf
 	var c0, c2 fp.Element
 	c2.Double(&x.A1).Double(&c2).AddAssign(&x.A1).AddAssign(&x.A0)
@@ -44,8 +44,8 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (0,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
+// MulByNonResidue multiplies a e2 by (0,1)
+func (z *e2) MulByNonResidue(x *e2) *e2 {
 	a := x.A0
 	b := x.A1 // fetching x.A1 in the function below is slower
 	z.A0.Double(&b).Double(&z.A0).Add(&z.A0, &b)
@@ -53,8 +53,8 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+// MulByNonResidueInv multiplies a e2 by (0,1)^{-1}
+func (z *e2) MulByNonResidueInv(x *e2) *e2 {
 	//z.A1.MulByNonResidueInv(&x.A0)
 	a := x.A1
 	fiveinv := fp.Element{
@@ -70,8 +70,8 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 	return z
 }
 
-// Inverse sets z to the E2-inverse of x, returns z
-func (z *E2) Inverse(x *E2) *E2 {
+// Inverse sets z to the e2-inverse of x, returns z
+func (z *e2) Inverse(x *e2) *e2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
 	//var a, b, t0, t1, tmp fp.Element
 	var t0, t1, tmp fp.Element
@@ -89,7 +89,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 }
 
 // norm sets x to the norm of z
-func (z *E2) norm(x *fp.Element) {
+func (z *e2) norm(x *fp.Element) {
 	var tmp fp.Element
 	x.Square(&z.A1)
 	tmp.Double(x).Double(&tmp).Add(&tmp, x)

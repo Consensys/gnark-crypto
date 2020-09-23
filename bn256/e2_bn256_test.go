@@ -18,8 +18,8 @@ func TestE2AssemblyOps(t *testing.T) {
 	genB := GenE2()
 
 	properties.Property("[BN256] mulAsm & mulGeneric should output same result", prop.ForAll(
-		func(a, b *E2) bool {
-			var c, d E2
+		func(a, b *e2) bool {
+			var c, d e2
 			c.Mul(a, b)
 			mulGenericE2(&d, a, b)
 			return c.Equal(&d)
@@ -29,8 +29,8 @@ func TestE2AssemblyOps(t *testing.T) {
 	))
 
 	properties.Property("[BN256] squareAsm & squareGeneric should output same result", prop.ForAll(
-		func(a *E2) bool {
-			var c, d E2
+		func(a *e2) bool {
+			var c, d e2
 			c.Square(a)
 			squareGenericE2(&d, a)
 			return c.Equal(&d)

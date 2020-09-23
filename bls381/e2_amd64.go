@@ -24,7 +24,7 @@ import (
 var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 // q (modulus)
-var qE2 = [6]uint64{
+var qe2 = [6]uint64{
 	13402431016077863595,
 	2210141511517208575,
 	7435674573564081700,
@@ -34,16 +34,16 @@ var qE2 = [6]uint64{
 }
 
 // q'[0], see montgommery multiplication algorithm
-var qE2Inv0 uint64 = 9940570264628428797
+var qe2Inv0 uint64 = 9940570264628428797
 
 //go:noescape
-func addE2(res, x, y *E2)
+func addE2(res, x, y *e2)
 
 //go:noescape
-func subE2(res, x, y *E2)
+func subE2(res, x, y *e2)
 
 //go:noescape
-func doubleE2(res, x *E2)
+func doubleE2(res, x *e2)
 
 //go:noescape
-func negE2(res, x *E2)
+func negE2(res, x *e2)

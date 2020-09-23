@@ -19,7 +19,7 @@ package bw761
 import "github.com/consensys/gurvy/bw761/fp"
 
 // Frobenius set z to Frobenius(x), return z
-func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
+func (z *GT) Frobenius(x *GT) *GT {
 	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
 
 	z.B0.Conjugate(&x.B0)
@@ -33,7 +33,7 @@ func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 }
 
 // FrobeniusSquare set z to Frobenius^2(x), and return z
-func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
+func (z *GT) FrobeniusSquare(x *GT) *GT {
 	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
 
 	z.Set(x)
@@ -45,7 +45,7 @@ func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 }
 
 // FrobeniusCube set z to Frobenius^3(x), return z
-func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
+func (z *GT) FrobeniusCube(x *GT) *GT {
 	// Adapted from https://eprint.iacr.org/2010/354.pdf (Section 3.2)
 
 	z.B0.Conjugate(&x.B0)
@@ -59,7 +59,7 @@ func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 }
 
 // MulByNonResidue1Power1 set z=x*(0,1)^(1*(p^1-1)/3) and return z
-func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power1(x *e2) *e2 {
 	// 4922464560225523242118178942575080391082002530232324381063048548642823052024664478336818169867474395270858391911405337707247735739826664939444490469542109391530482826728203582549674992333383150446779312029624171857054392282775649
 	b := fp.Element{
 		10159193990637832851,
@@ -81,7 +81,7 @@ func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue1Power2 set z=x*(0,1)^(2*(p^1-1)/3) and return z
-func (z *E2) MulByNonResidue1Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power2(x *e2) *e2 {
 	// 4922464560225523242118178942575080391082002530232324381063048548642823052024664478336818169867474395270858391911405337707247735739826664939444490469542109391530482826728203582549674992333383150446779312029624171857054392282775648
 	b := fp.Element{
 		9193734820520314185,
@@ -103,7 +103,7 @@ func (z *E2) MulByNonResidue1Power2(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power1 set z=x*(0,1)^(1*(p^2-1)/3) and return z
-func (z *E2) MulByNonResidue2Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power1(x *e2) *e2 {
 	// 4922464560225523242118178942575080391082002530232324381063048548642823052024664478336818169867474395270858391911405337707247735739826664939444490469542109391530482826728203582549674992333383150446779312029624171857054392282775648
 	b := fp.Element{
 		9193734820520314185,
@@ -125,7 +125,7 @@ func (z *E2) MulByNonResidue2Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power2 set z=x*(0,1)^(2*(p^2-1)/3) and return z
-func (z *E2) MulByNonResidue2Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power2(x *e2) *e2 {
 	// 1968985824090209297278610739700577151397666382303825728450741611566800370218827257750865013421937292370006175842381275743914023380727582819905021229583192207421122272650305267822868639090213645505120388400344940985710520836292650
 	b := fp.Element{
 		7467050525960156664,
@@ -147,7 +147,7 @@ func (z *E2) MulByNonResidue2Power2(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power1 set z=x*(0,1)^(1*(p^3-1)/3) and return z
-func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power1(x *e2) *e2 {
 	// 6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068298
 	b := fp.Element{
 		17481284903592032950,
@@ -169,7 +169,7 @@ func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power2 set z=x*(0,1)^(2*(p^3-1)/3) and return z
-func (z *E2) MulByNonResidue3Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power2(x *e2) *e2 {
 	// 1
 	// nothing to do
 	return z

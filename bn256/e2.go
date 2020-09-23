@@ -22,101 +22,101 @@ import (
 	"github.com/consensys/gurvy/bn256/fp"
 )
 
-// E2 is a degree two finite field extension of fp.Element
-type E2 struct {
+// e2 is a degree two finite field extension of fp.Element
+type e2 struct {
 	A0, A1 fp.Element
 }
 
 // Equal returns true if z equals x, fasle otherwise
-func (z *E2) Equal(x *E2) bool {
+func (z *e2) Equal(x *e2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
 
-// SetString sets a E2 element from strings
-func (z *E2) SetString(s1, s2 string) *E2 {
+// SetString sets a e2 element from strings
+func (z *e2) SetString(s1, s2 string) *e2 {
 	z.A0.SetString(s1)
 	z.A1.SetString(s2)
 	return z
 }
 
 // SetZero sets an e2 elmt to zero
-func (z *E2) SetZero() *E2 {
+func (z *e2) SetZero() *e2 {
 	z.A0.SetZero()
 	z.A1.SetZero()
 	return z
 }
 
-// Set sets an E2 from x
-func (z *E2) Set(x *E2) *E2 {
+// Set sets an e2 from x
+func (z *e2) Set(x *e2) *e2 {
 	z.A0 = x.A0
 	z.A1 = x.A1
 	return z
 }
 
 // SetOne sets z to 1 in Montgomery form and returns z
-func (z *E2) SetOne() *E2 {
+func (z *e2) SetOne() *e2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
 	return z
 }
 
 // SetRandom sets a0 and a1 to random values
-func (z *E2) SetRandom() *E2 {
+func (z *e2) SetRandom() *e2 {
 	z.A0.SetRandom()
 	z.A1.SetRandom()
 	return z
 }
 
 // IsZero returns true if the two elements are equal, fasle otherwise
-func (z *E2) IsZero() bool {
+func (z *e2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
 
-// Add adds two elements of E2
-func (z *E2) Add(x, y *E2) *E2 {
+// Add adds two elements of e2
+func (z *e2) Add(x, y *e2) *e2 {
 	addE2(z, x, y)
 	return z
 }
 
-// Sub two elements of E2
-func (z *E2) Sub(x, y *E2) *E2 {
+// Sub two elements of e2
+func (z *e2) Sub(x, y *e2) *e2 {
 	subE2(z, x, y)
 	return z
 }
 
-// Double doubles an E2 element
-func (z *E2) Double(x *E2) *E2 {
+// Double doubles an e2 element
+func (z *e2) Double(x *e2) *e2 {
 	doubleE2(z, x)
 	return z
 }
 
-// Neg negates an E2 element
-func (z *E2) Neg(x *E2) *E2 {
+// Neg negates an e2 element
+func (z *e2) Neg(x *e2) *e2 {
 	negE2(z, x)
 	return z
 }
 
 // String implements Stringer interface for fancy printing
-func (z *E2) String() string {
+func (z *e2) String() string {
 	return (z.A0.String() + "+" + z.A1.String() + "*u")
 }
 
 // ToMont converts to mont form
-func (z *E2) ToMont() *E2 {
+func (z *e2) ToMont() *e2 {
 	z.A0.ToMont()
 	z.A1.ToMont()
 	return z
 }
 
 // FromMont converts from mont form
-func (z *E2) FromMont() *E2 {
+func (z *e2) FromMont() *e2 {
 	z.A0.FromMont()
 	z.A1.FromMont()
 	return z
 }
 
-// MulByElement multiplies an element in E2 by an element in fp
-func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
+// MulByElement multiplies an element in e2 by an element in fp
+func (z *e2) MulByElement(x *e2, y *fp.Element) *e2 {
 	var yCopy fp.Element
 	yCopy.Set(y)
 	z.A0.Mul(&x.A0, &yCopy)
@@ -124,23 +124,23 @@ func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 	return z
 }
 
-// Conjugate conjugates an element in E2
-func (z *E2) Conjugate(x *E2) *E2 {
+// Conjugate conjugates an element in e2
+func (z *e2) Conjugate(x *e2) *e2 {
 	z.A0 = x.A0
 	z.A1.Neg(&x.A1)
 	return z
 }
 
 // Legendre returns the Legendre symbol of z
-func (z *E2) Legendre() int {
+func (z *e2) Legendre() int {
 	var n fp.Element
 	z.norm(&n)
 	return n.Legendre()
 }
 
 // Exp sets z=x**e and returns it
-func (z *E2) Exp(x *E2, e big.Int) *E2 {
-	var res E2
+func (z *e2) Exp(x *e2, e big.Int) *e2 {
+	var res e2
 	res.SetOne()
 	b := e.Bytes()
 	for i := range b {
@@ -163,9 +163,9 @@ func (z *E2) Exp(x *E2, e big.Int) *E2 {
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
 // cf https://eprint.iacr.org/2012/685.pdf (algo 9)
-func (z *E2) Sqrt(x *E2) *E2 {
+func (z *e2) Sqrt(x *e2) *e2 {
 
-	var a1, alpha, b, x0, minusone E2
+	var a1, alpha, b, x0, minusone e2
 	var e big.Int
 
 	minusone.SetOne().Neg(&minusone)

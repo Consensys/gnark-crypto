@@ -18,6 +18,14 @@ github.com/consensys/goff v0.3.4-0.20200904230238-8797bbd02380 h1:63ncrg+N2ED1we
 github.com/consensys/goff v0.3.4-0.20200904230238-8797bbd02380/go.mod h1:EUuE1RBF74XbvAz9ZtaiYKt/Z+QfYE2gPqNVj09gnO0=
 github.com/consensys/goff v0.3.4-0.20200909152010-40e909758495 h1:BNtJ/ODRMXYtrMeLN3TKDb+XbCH1bcO3/QTBIipmMFY=
 github.com/consensys/goff v0.3.4-0.20200909152010-40e909758495/go.mod h1:K3bq8aWAC6FqD9ONzRlz4WE7ejgI+XxDh2fIB93f7GU=
+github.com/consensys/goff v0.3.4-0.20200923204636-d005ac7f9a22 h1:rB2xsP9KpaPLmouwZFt3E9mIcYLJ2m8Nem3oRMPLeZw=
+github.com/consensys/goff v0.3.4-0.20200923204636-d005ac7f9a22/go.mod h1:K3bq8aWAC6FqD9ONzRlz4WE7ejgI+XxDh2fIB93f7GU=
+github.com/consensys/goff v0.3.4-0.20200923204940-0ae1541d1b87 h1:79iQEYjOLwXPwL7lsrJIGacheFumoQjUdzohpCFa2V8=
+github.com/consensys/goff v0.3.4-0.20200923204940-0ae1541d1b87/go.mod h1:K3bq8aWAC6FqD9ONzRlz4WE7ejgI+XxDh2fIB93f7GU=
+github.com/consensys/goff v0.3.4-0.20200923205122-567b64ebaff4 h1:ReJ9UJJ6BfpJAjlcMlMTm6mZoIod3DkJ/1W4G07uJpI=
+github.com/consensys/goff v0.3.4-0.20200923205122-567b64ebaff4/go.mod h1:K3bq8aWAC6FqD9ONzRlz4WE7ejgI+XxDh2fIB93f7GU=
+github.com/consensys/goff v0.3.4-0.20200923205558-7dafda98a75c h1:PmWBzp1d2C96nRi9LCMBAo8CpkCKvdtaQMxmhSBdtLE=
+github.com/consensys/goff v0.3.4-0.20200923205558-7dafda98a75c/go.mod h1:K3bq8aWAC6FqD9ONzRlz4WE7ejgI+XxDh2fIB93f7GU=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=

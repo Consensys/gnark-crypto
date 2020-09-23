@@ -18,8 +18,8 @@ package bn256
 
 import "github.com/consensys/gurvy/bn256/fp"
 
-// MulByNonResidue multiplies a E2 by (9,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
+// MulByNonResidue multiplies a e2 by (9,1)
+func (z *e2) MulByNonResidue(x *e2) *e2 {
 	var a, b fp.Element
 	a.Double(&x.A0).Double(&a).Double(&a).Add(&a, &x.A0).Sub(&a, &x.A1)
 	b.Double(&x.A1).Double(&b).Double(&b).Add(&b, &x.A1).Add(&b, &x.A0)
@@ -28,14 +28,14 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	return z
 }
 
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
+// Mul sets z to the e2-product of x,y, returns z
+func (z *e2) Mul(x, y *e2) *e2 {
 	mulGenericE2(z, x, y)
 	return z
 }
 
-// Square sets z to the E2-product of x,x returns z
-func (z *E2) Square(x *E2) *E2 {
+// Square sets z to the e2-product of x,x returns z
+func (z *e2) Square(x *e2) *e2 {
 	squareGenericE2(z, x)
 	return z
 }

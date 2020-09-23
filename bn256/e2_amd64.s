@@ -32,10 +32,10 @@ TEXT ·addE2(SB), NOSPLIT, $0-24
     MOVQ BP, R9
     MOVQ SI, R10
     MOVQ DI, R11
-    SUBQ ·qE2+0(SB), R8
-    SBBQ ·qE2+8(SB), R9
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R11
+    SUBQ ·qe2+0(SB), R8
+    SBBQ ·qe2+8(SB), R9
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R11
     CMOVQCC R8, BX
     CMOVQCC R9, BP
     CMOVQCC R10, SI
@@ -56,10 +56,10 @@ TEXT ·addE2(SB), NOSPLIT, $0-24
     MOVQ BP, R13
     MOVQ SI, R14
     MOVQ DI, R15
-    SUBQ ·qE2+0(SB), R12
-    SBBQ ·qE2+8(SB), R13
-    SBBQ ·qE2+16(SB), R14
-    SBBQ ·qE2+24(SB), R15
+    SUBQ ·qe2+0(SB), R12
+    SBBQ ·qe2+8(SB), R13
+    SBBQ ·qe2+16(SB), R14
+    SBBQ ·qe2+24(SB), R15
     CMOVQCC R12, BX
     CMOVQCC R13, BP
     CMOVQCC R14, SI
@@ -142,10 +142,10 @@ TEXT ·doubleE2(SB), NOSPLIT, $0-16
     MOVQ BX, R8
     MOVQ BP, R9
     MOVQ SI, R10
-    SUBQ ·qE2+0(SB), DI
-    SBBQ ·qE2+8(SB), R8
-    SBBQ ·qE2+16(SB), R9
-    SBBQ ·qE2+24(SB), R10
+    SUBQ ·qe2+0(SB), DI
+    SBBQ ·qe2+8(SB), R8
+    SBBQ ·qe2+16(SB), R9
+    SBBQ ·qe2+24(SB), R10
     CMOVQCC DI, CX
     CMOVQCC R8, BX
     CMOVQCC R9, BP
@@ -166,10 +166,10 @@ TEXT ·doubleE2(SB), NOSPLIT, $0-16
     MOVQ BX, R12
     MOVQ BP, R13
     MOVQ SI, R14
-    SUBQ ·qE2+0(SB), R11
-    SBBQ ·qE2+8(SB), R12
-    SBBQ ·qE2+16(SB), R13
-    SBBQ ·qE2+24(SB), R14
+    SUBQ ·qe2+0(SB), R11
+    SBBQ ·qe2+8(SB), R12
+    SBBQ ·qe2+16(SB), R13
+    SBBQ ·qe2+24(SB), R14
     CMOVQCC R11, CX
     CMOVQCC R12, BX
     CMOVQCC R13, BP
@@ -263,10 +263,10 @@ TEXT ·squareAdxE2(SB), $16-16
     MOVQ R15, R11
     MOVQ CX, R12
     MOVQ BX, R13
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
     CMOVQCC R10, R14
     CMOVQCC R11, R15
     CMOVQCC R12, CX
@@ -306,22 +306,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R13
     ADOXQ DX, R13
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R9, AX
     MOVQ BP, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R10, R9
-    MULXQ ·qE2+8(SB), AX, R10
+    MULXQ ·qe2+8(SB), AX, R10
     ADOXQ AX, R9
     ADCXQ R11, R10
-    MULXQ ·qE2+16(SB), AX, R11
+    MULXQ ·qe2+16(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+24(SB), AX, R12
+    MULXQ ·qe2+24(SB), AX, R12
     ADOXQ AX, R11
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R12
@@ -344,22 +344,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R13
     ADOXQ DX, R13
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R9, AX
     MOVQ BP, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R10, R9
-    MULXQ ·qE2+8(SB), AX, R10
+    MULXQ ·qe2+8(SB), AX, R10
     ADOXQ AX, R9
     ADCXQ R11, R10
-    MULXQ ·qE2+16(SB), AX, R11
+    MULXQ ·qe2+16(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+24(SB), AX, R12
+    MULXQ ·qe2+24(SB), AX, R12
     ADOXQ AX, R11
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R12
@@ -382,22 +382,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R13
     ADOXQ DX, R13
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, SI
+    MULXQ ·qe2+0(SB), AX, SI
     ADCXQ R9, AX
     MOVQ SI, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R10, R9
-    MULXQ ·qE2+8(SB), AX, R10
+    MULXQ ·qe2+8(SB), AX, R10
     ADOXQ AX, R9
     ADCXQ R11, R10
-    MULXQ ·qE2+16(SB), AX, R11
+    MULXQ ·qe2+16(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+24(SB), AX, R12
+    MULXQ ·qe2+24(SB), AX, R12
     ADOXQ AX, R11
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R12
@@ -420,22 +420,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R13
     ADOXQ DX, R13
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R9, AX
     MOVQ BP, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R10, R9
-    MULXQ ·qE2+8(SB), AX, R10
+    MULXQ ·qe2+8(SB), AX, R10
     ADOXQ AX, R9
     ADCXQ R11, R10
-    MULXQ ·qE2+16(SB), AX, R11
+    MULXQ ·qe2+16(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+24(SB), AX, R12
+    MULXQ ·qe2+24(SB), AX, R12
     ADOXQ AX, R11
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R12
@@ -444,10 +444,10 @@ TEXT ·squareAdxE2(SB), $16-16
     MOVQ R10, SI
     MOVQ R11, R8
     MOVQ R12, BP
-    SUBQ ·qE2+0(SB), DI
-    SBBQ ·qE2+8(SB), SI
-    SBBQ ·qE2+16(SB), R8
-    SBBQ ·qE2+24(SB), BP
+    SUBQ ·qe2+0(SB), DI
+    SBBQ ·qe2+8(SB), SI
+    SBBQ ·qe2+16(SB), R8
+    SBBQ ·qe2+24(SB), BP
     CMOVQCC DI, R9
     CMOVQCC SI, R10
     CMOVQCC R8, R11
@@ -471,22 +471,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R10
+    MULXQ ·qe2+0(SB), AX, R10
     ADCXQ DI, AX
     MOVQ R10, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -509,22 +509,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R11
+    MULXQ ·qe2+0(SB), AX, R11
     ADCXQ DI, AX
     MOVQ R11, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -547,22 +547,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R12
+    MULXQ ·qe2+0(SB), AX, R12
     ADCXQ DI, AX
     MOVQ R12, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -585,22 +585,22 @@ TEXT ·squareAdxE2(SB), $16-16
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R10
+    MULXQ ·qe2+0(SB), AX, R10
     ADCXQ DI, AX
     MOVQ R10, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -609,10 +609,10 @@ TEXT ·squareAdxE2(SB), $16-16
     MOVQ SI, R12
     MOVQ R8, R10
     MOVQ BP, R9
-    SUBQ ·qE2+0(SB), R11
-    SBBQ ·qE2+8(SB), R12
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R9
+    SUBQ ·qe2+0(SB), R11
+    SBBQ ·qe2+8(SB), R12
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R9
     CMOVQCC R11, DI
     CMOVQCC R12, SI
     CMOVQCC R10, R8
@@ -630,10 +630,10 @@ TEXT ·squareAdxE2(SB), $16-16
     MOVQ SI, R12
     MOVQ R8, R10
     MOVQ BP, R9
-    SUBQ ·qE2+0(SB), R11
-    SBBQ ·qE2+8(SB), R12
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R9
+    SUBQ ·qe2+0(SB), R11
+    SBBQ ·qe2+8(SB), R12
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R9
     CMOVQCC R11, DI
     CMOVQCC R12, SI
     CMOVQCC R10, R8
@@ -671,10 +671,10 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ R15, R11
     MOVQ CX, R12
     MOVQ BX, R13
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
     CMOVQCC R10, R14
     CMOVQCC R11, R15
     CMOVQCC R12, CX
@@ -696,10 +696,10 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ SI, R11
     MOVQ DI, R12
     MOVQ R8, R13
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
     CMOVQCC R10, BP
     CMOVQCC R11, SI
     CMOVQCC R12, DI
@@ -722,22 +722,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ R10, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R10, AX
     MOVQ BP, R10
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R11, R10
-    MULXQ ·qE2+8(SB), AX, R11
+    MULXQ ·qe2+8(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+16(SB), AX, R12
+    MULXQ ·qe2+16(SB), AX, R12
     ADOXQ AX, R11
     ADCXQ R13, R12
-    MULXQ ·qE2+24(SB), AX, R13
+    MULXQ ·qe2+24(SB), AX, R13
     ADOXQ AX, R12
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R13
@@ -760,22 +760,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ R10, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R10, AX
     MOVQ BP, R10
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R11, R10
-    MULXQ ·qE2+8(SB), AX, R11
+    MULXQ ·qe2+8(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+16(SB), AX, R12
+    MULXQ ·qe2+16(SB), AX, R12
     ADOXQ AX, R11
     ADCXQ R13, R12
-    MULXQ ·qE2+24(SB), AX, R13
+    MULXQ ·qe2+24(SB), AX, R13
     ADOXQ AX, R12
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R13
@@ -798,22 +798,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ R10, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, SI
+    MULXQ ·qe2+0(SB), AX, SI
     ADCXQ R10, AX
     MOVQ SI, R10
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R11, R10
-    MULXQ ·qE2+8(SB), AX, R11
+    MULXQ ·qe2+8(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+16(SB), AX, R12
+    MULXQ ·qe2+16(SB), AX, R12
     ADOXQ AX, R11
     ADCXQ R13, R12
-    MULXQ ·qE2+24(SB), AX, R13
+    MULXQ ·qe2+24(SB), AX, R13
     ADOXQ AX, R12
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R13
@@ -836,22 +836,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R9
     ADOXQ DX, R9
     MOVQ R10, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BP
+    MULXQ ·qe2+0(SB), AX, BP
     ADCXQ R10, AX
     MOVQ BP, R10
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R11, R10
-    MULXQ ·qE2+8(SB), AX, R11
+    MULXQ ·qe2+8(SB), AX, R11
     ADOXQ AX, R10
     ADCXQ R12, R11
-    MULXQ ·qE2+16(SB), AX, R12
+    MULXQ ·qe2+16(SB), AX, R12
     ADOXQ AX, R11
     ADCXQ R13, R12
-    MULXQ ·qE2+24(SB), AX, R13
+    MULXQ ·qe2+24(SB), AX, R13
     ADOXQ AX, R12
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R13
@@ -860,10 +860,10 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ R11, SI
     MOVQ R12, R8
     MOVQ R13, BP
-    SUBQ ·qE2+0(SB), DI
-    SBBQ ·qE2+8(SB), SI
-    SBBQ ·qE2+16(SB), R8
-    SBBQ ·qE2+24(SB), BP
+    SUBQ ·qe2+0(SB), DI
+    SBBQ ·qe2+8(SB), SI
+    SBBQ ·qe2+16(SB), R8
+    SBBQ ·qe2+24(SB), BP
     CMOVQCC DI, R10
     CMOVQCC SI, R11
     CMOVQCC R8, R12
@@ -891,22 +891,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R10
     ADOXQ DX, R10
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R11
+    MULXQ ·qe2+0(SB), AX, R11
     ADCXQ DI, AX
     MOVQ R11, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -934,22 +934,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R10
     ADOXQ DX, R10
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R12
+    MULXQ ·qe2+0(SB), AX, R12
     ADCXQ DI, AX
     MOVQ R12, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -977,22 +977,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R10
     ADOXQ DX, R10
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R13
+    MULXQ ·qe2+0(SB), AX, R13
     ADCXQ DI, AX
     MOVQ R13, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -1020,22 +1020,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R10
     ADOXQ DX, R10
     MOVQ DI, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R11
+    MULXQ ·qe2+0(SB), AX, R11
     ADCXQ DI, AX
     MOVQ R11, DI
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ SI, DI
-    MULXQ ·qE2+8(SB), AX, SI
+    MULXQ ·qe2+8(SB), AX, SI
     ADOXQ AX, DI
     ADCXQ R8, SI
-    MULXQ ·qE2+16(SB), AX, R8
+    MULXQ ·qe2+16(SB), AX, R8
     ADOXQ AX, SI
     ADCXQ BP, R8
-    MULXQ ·qE2+24(SB), AX, BP
+    MULXQ ·qe2+24(SB), AX, BP
     ADOXQ AX, R8
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, BP
@@ -1044,10 +1044,10 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ SI, R13
     MOVQ R8, R11
     MOVQ BP, R10
-    SUBQ ·qE2+0(SB), R12
-    SBBQ ·qE2+8(SB), R13
-    SBBQ ·qE2+16(SB), R11
-    SBBQ ·qE2+24(SB), R10
+    SUBQ ·qe2+0(SB), R12
+    SBBQ ·qe2+8(SB), R13
+    SBBQ ·qe2+16(SB), R11
+    SBBQ ·qe2+24(SB), R10
     CMOVQCC R12, DI
     CMOVQCC R13, SI
     CMOVQCC R11, R8
@@ -1096,22 +1096,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R14
     ADOXQ DX, R14
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R15
+    MULXQ ·qe2+0(SB), AX, R15
     ADCXQ R9, AX
     MOVQ R15, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R12, R9
-    MULXQ ·qE2+8(SB), AX, R12
+    MULXQ ·qe2+8(SB), AX, R12
     ADOXQ AX, R9
     ADCXQ R13, R12
-    MULXQ ·qE2+16(SB), AX, R13
+    MULXQ ·qe2+16(SB), AX, R13
     ADOXQ AX, R12
     ADCXQ R11, R13
-    MULXQ ·qE2+24(SB), AX, R11
+    MULXQ ·qe2+24(SB), AX, R11
     ADOXQ AX, R13
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R11
@@ -1139,22 +1139,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R14
     ADOXQ DX, R14
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, CX
+    MULXQ ·qe2+0(SB), AX, CX
     ADCXQ R9, AX
     MOVQ CX, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R12, R9
-    MULXQ ·qE2+8(SB), AX, R12
+    MULXQ ·qe2+8(SB), AX, R12
     ADOXQ AX, R9
     ADCXQ R13, R12
-    MULXQ ·qE2+16(SB), AX, R13
+    MULXQ ·qe2+16(SB), AX, R13
     ADOXQ AX, R12
     ADCXQ R11, R13
-    MULXQ ·qE2+24(SB), AX, R11
+    MULXQ ·qe2+24(SB), AX, R11
     ADOXQ AX, R13
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R11
@@ -1182,22 +1182,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R14
     ADOXQ DX, R14
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, BX
+    MULXQ ·qe2+0(SB), AX, BX
     ADCXQ R9, AX
     MOVQ BX, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R12, R9
-    MULXQ ·qE2+8(SB), AX, R12
+    MULXQ ·qe2+8(SB), AX, R12
     ADOXQ AX, R9
     ADCXQ R13, R12
-    MULXQ ·qE2+16(SB), AX, R13
+    MULXQ ·qe2+16(SB), AX, R13
     ADOXQ AX, R12
     ADCXQ R11, R13
-    MULXQ ·qE2+24(SB), AX, R11
+    MULXQ ·qe2+24(SB), AX, R11
     ADOXQ AX, R13
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R11
@@ -1225,22 +1225,22 @@ TEXT ·mulAdxE2(SB), $24-24
     ADCXQ DX, R14
     ADOXQ DX, R14
     MOVQ R9, DX
-    MULXQ ·qE2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
+    MULXQ ·qe2Inv0(SB), DX, AX                             // m := t[0]*q'[0] mod W
     XORQ AX, AX
     // C,_ := t[0] + m*q[0]
-    MULXQ ·qE2+0(SB), AX, R15
+    MULXQ ·qe2+0(SB), AX, R15
     ADCXQ R9, AX
     MOVQ R15, R9
     // for j=1 to N-1
     //     (C,t[j-1]) := t[j] + m*q[j] + C
     ADCXQ R12, R9
-    MULXQ ·qE2+8(SB), AX, R12
+    MULXQ ·qe2+8(SB), AX, R12
     ADOXQ AX, R9
     ADCXQ R13, R12
-    MULXQ ·qE2+16(SB), AX, R13
+    MULXQ ·qe2+16(SB), AX, R13
     ADOXQ AX, R12
     ADCXQ R11, R13
-    MULXQ ·qE2+24(SB), AX, R11
+    MULXQ ·qe2+24(SB), AX, R11
     ADOXQ AX, R13
     MOVQ $0x0000000000000000, AX
     ADCXQ AX, R11
@@ -1249,10 +1249,10 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ R12, BX
     MOVQ R13, R15
     MOVQ R11, R14
-    SUBQ ·qE2+0(SB), CX
-    SBBQ ·qE2+8(SB), BX
-    SBBQ ·qE2+16(SB), R15
-    SBBQ ·qE2+24(SB), R14
+    SUBQ ·qe2+0(SB), CX
+    SBBQ ·qe2+8(SB), BX
+    SBBQ ·qe2+16(SB), R15
+    SBBQ ·qe2+24(SB), R14
     CMOVQCC CX, R9
     CMOVQCC BX, R12
     CMOVQCC R15, R13
@@ -1333,10 +1333,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ DX, R11
     MOVQ CX, R12
     MOVQ BX, R13
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
     CMOVQCC R10, AX
     CMOVQCC R11, DX
     CMOVQCC R12, CX
@@ -1353,10 +1353,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ DX, R15
     MOVQ CX, R10
     MOVQ BX, R11
-    SUBQ ·qE2+0(SB), R14
-    SBBQ ·qE2+8(SB), R15
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R11
+    SUBQ ·qe2+0(SB), R14
+    SBBQ ·qe2+8(SB), R15
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R11
     CMOVQCC R14, AX
     CMOVQCC R15, DX
     CMOVQCC R10, CX
@@ -1373,10 +1373,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ DX, R13
     MOVQ CX, R14
     MOVQ BX, R15
-    SUBQ ·qE2+0(SB), R12
-    SBBQ ·qE2+8(SB), R13
-    SBBQ ·qE2+16(SB), R14
-    SBBQ ·qE2+24(SB), R15
+    SUBQ ·qe2+0(SB), R12
+    SBBQ ·qe2+8(SB), R13
+    SBBQ ·qe2+16(SB), R14
+    SBBQ ·qe2+24(SB), R15
     CMOVQCC R12, AX
     CMOVQCC R13, DX
     CMOVQCC R14, CX
@@ -1393,10 +1393,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ DX, R11
     MOVQ CX, R12
     MOVQ BX, R13
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R12
-    SBBQ ·qE2+24(SB), R13
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R12
+    SBBQ ·qe2+24(SB), R13
     CMOVQCC R10, AX
     CMOVQCC R11, DX
     CMOVQCC R12, CX
@@ -1434,10 +1434,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ SI, R12
     MOVQ DI, R14
     MOVQ R8, R15
-    SUBQ ·qE2+0(SB), R13
-    SBBQ ·qE2+8(SB), R12
-    SBBQ ·qE2+16(SB), R14
-    SBBQ ·qE2+24(SB), R15
+    SUBQ ·qe2+0(SB), R13
+    SBBQ ·qe2+8(SB), R12
+    SBBQ ·qe2+16(SB), R14
+    SBBQ ·qe2+24(SB), R15
     CMOVQCC R13, BP
     CMOVQCC R12, SI
     CMOVQCC R14, DI
@@ -1454,10 +1454,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ SI, R11
     MOVQ DI, R13
     MOVQ R8, R12
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R13
-    SBBQ ·qE2+24(SB), R12
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R13
+    SBBQ ·qe2+24(SB), R12
     CMOVQCC R10, BP
     CMOVQCC R11, SI
     CMOVQCC R13, DI
@@ -1474,10 +1474,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ SI, R15
     MOVQ DI, R10
     MOVQ R8, R11
-    SUBQ ·qE2+0(SB), R14
-    SBBQ ·qE2+8(SB), R15
-    SBBQ ·qE2+16(SB), R10
-    SBBQ ·qE2+24(SB), R11
+    SUBQ ·qe2+0(SB), R14
+    SBBQ ·qe2+8(SB), R15
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R11
     CMOVQCC R14, BP
     CMOVQCC R15, SI
     CMOVQCC R10, DI
@@ -1494,10 +1494,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ SI, R12
     MOVQ DI, R14
     MOVQ R8, R15
-    SUBQ ·qE2+0(SB), R13
-    SBBQ ·qE2+8(SB), R12
-    SBBQ ·qE2+16(SB), R14
-    SBBQ ·qE2+24(SB), R15
+    SUBQ ·qe2+0(SB), R13
+    SBBQ ·qe2+8(SB), R12
+    SBBQ ·qe2+16(SB), R14
+    SBBQ ·qe2+24(SB), R15
     CMOVQCC R13, BP
     CMOVQCC R12, SI
     CMOVQCC R14, DI
@@ -1514,10 +1514,10 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     MOVQ SI, R11
     MOVQ DI, R13
     MOVQ R8, R12
-    SUBQ ·qE2+0(SB), R10
-    SBBQ ·qE2+8(SB), R11
-    SBBQ ·qE2+16(SB), R13
-    SBBQ ·qE2+24(SB), R12
+    SUBQ ·qe2+0(SB), R10
+    SBBQ ·qe2+8(SB), R11
+    SBBQ ·qe2+16(SB), R13
+    SBBQ ·qe2+24(SB), R12
     CMOVQCC R10, BP
     CMOVQCC R11, SI
     CMOVQCC R13, DI

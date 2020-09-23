@@ -19,9 +19,9 @@ package bls381
 import "github.com/consensys/gurvy/bls381/fp"
 
 // Frobenius set z to Frobenius(x), return z
-func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
+func (z *GT) Frobenius(x *GT) *GT {
 	// Algorithm 28 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]E2
+	var t [6]e2
 
 	// Frobenius acts on fp2 by conjugation
 	t[0].Conjugate(&x.C0.B0)
@@ -48,9 +48,9 @@ func (z *PairingResult) Frobenius(x *PairingResult) *PairingResult {
 }
 
 // FrobeniusSquare set z to Frobenius^2(x), and return z
-func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
+func (z *GT) FrobeniusSquare(x *GT) *GT {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]E2
+	var t [6]e2
 
 	t[1].MulByNonResidue2Power2(&x.C0.B1)
 	t[2].MulByNonResidue2Power4(&x.C0.B2)
@@ -69,9 +69,9 @@ func (z *PairingResult) FrobeniusSquare(x *PairingResult) *PairingResult {
 }
 
 // FrobeniusCube set z to Frobenius^3(x), return z
-func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
+func (z *GT) FrobeniusCube(x *GT) *GT {
 	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]E2
+	var t [6]e2
 
 	// Frobenius^3 acts on fp2 by conjugation
 	t[0].Conjugate(&x.C0.B0)
@@ -98,9 +98,9 @@ func (z *PairingResult) FrobeniusCube(x *PairingResult) *PairingResult {
 }
 
 // MulByNonResidue1Power1 set z=x*(1,1)^(1*(p^1-1)/6) and return z
-func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power1(x *e2) *e2 {
 	// (3850754370037169011952147076051364057158807420970682438676050522613628423219637725072182697113062777891589506424760,151655185184498381465642749684540099398075398968325446656007613510403227271200139370504932015952886146304766135027)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			506819140503852133,
 			14297063575771579155,
@@ -123,9 +123,9 @@ func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue1Power2 set z=x*(1,1)^(2*(p^1-1)/6) and return z
-func (z *E2) MulByNonResidue1Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power2(x *e2) *e2 {
 	// (0,4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			0,
 			0,
@@ -148,9 +148,9 @@ func (z *E2) MulByNonResidue1Power2(x *E2) *E2 {
 }
 
 // MulByNonResidue1Power3 set z=x*(1,1)^(3*(p^1-1)/6) and return z
-func (z *E2) MulByNonResidue1Power3(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power3(x *e2) *e2 {
 	// (1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257,1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			8921533702591418330,
 			15859389534032789116,
@@ -173,7 +173,7 @@ func (z *E2) MulByNonResidue1Power3(x *E2) *E2 {
 }
 
 // MulByNonResidue1Power4 set z=x*(1,1)^(4*(p^1-1)/6) and return z
-func (z *E2) MulByNonResidue1Power4(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power4(x *e2) *e2 {
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
 	b := fp.Element{
 		9875771541238924739,
@@ -189,9 +189,9 @@ func (z *E2) MulByNonResidue1Power4(x *E2) *E2 {
 }
 
 // MulByNonResidue1Power5 set z=x*(1,1)^(5*(p^1-1)/6) and return z
-func (z *E2) MulByNonResidue1Power5(x *E2) *E2 {
+func (z *e2) MulByNonResidue1Power5(x *e2) *e2 {
 	// (877076961050607968509681729531255177986764537961432449499635504522207616027455086505066378536590128544573588734230,3125332594171059424908108096204648978570118281977575435832422631601824034463382777937621250592425535493320683825557)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			9428352843095270463,
 			11709709036094816655,
@@ -214,7 +214,7 @@ func (z *E2) MulByNonResidue1Power5(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power1 set z=x*(1,1)^(1*(p^2-1)/6) and return z
-func (z *E2) MulByNonResidue2Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power1(x *e2) *e2 {
 	// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620351
 	b := fp.Element{
 		17076301903736715834,
@@ -230,7 +230,7 @@ func (z *E2) MulByNonResidue2Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power2 set z=x*(1,1)^(2*(p^2-1)/6) and return z
-func (z *E2) MulByNonResidue2Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power2(x *e2) *e2 {
 	// 793479390729215512621379701633421447060886740281060493010456487427281649075476305620758731620350
 	b := fp.Element{
 		3526659474838938856,
@@ -246,7 +246,7 @@ func (z *E2) MulByNonResidue2Power2(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power3 set z=x*(1,1)^(3*(p^2-1)/6) and return z
-func (z *E2) MulByNonResidue2Power3(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power3(x *e2) *e2 {
 	// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
 	b := fp.Element{
 		4897101644811774638,
@@ -262,7 +262,7 @@ func (z *E2) MulByNonResidue2Power3(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power4 set z=x*(1,1)^(4*(p^2-1)/6) and return z
-func (z *E2) MulByNonResidue2Power4(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power4(x *e2) *e2 {
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436
 	b := fp.Element{
 		14772873186050699377,
@@ -278,7 +278,7 @@ func (z *E2) MulByNonResidue2Power4(x *E2) *E2 {
 }
 
 // MulByNonResidue2Power5 set z=x*(1,1)^(5*(p^2-1)/6) and return z
-func (z *E2) MulByNonResidue2Power5(x *E2) *E2 {
+func (z *e2) MulByNonResidue2Power5(x *e2) *e2 {
 	// 4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437
 	b := fp.Element{
 		9875771541238924739,
@@ -294,9 +294,9 @@ func (z *E2) MulByNonResidue2Power5(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power1 set z=x*(1,1)^(1*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power1(x *e2) *e2 {
 	// (2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530,1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			4480897313486445265,
 			4797496051193971075,
@@ -319,9 +319,9 @@ func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power2 set z=x*(1,1)^(2*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power2(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power2(x *e2) *e2 {
 	// (0,1)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			0,
 			0,
@@ -344,9 +344,9 @@ func (z *E2) MulByNonResidue3Power2(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power3 set z=x*(1,1)^(3*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power3(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power3(x *e2) *e2 {
 	// (2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530,2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			4480897313486445265,
 			4797496051193971075,
@@ -369,7 +369,7 @@ func (z *E2) MulByNonResidue3Power3(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power4 set z=x*(1,1)^(4*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power4(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power4(x *e2) *e2 {
 	// 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559786
 	b := fp.Element{
 		4897101644811774638,
@@ -385,9 +385,9 @@ func (z *E2) MulByNonResidue3Power4(x *E2) *E2 {
 }
 
 // MulByNonResidue3Power5 set z=x*(1,1)^(5*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power5(x *E2) *E2 {
+func (z *e2) MulByNonResidue3Power5(x *e2) *e2 {
 	// (1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257,2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530)
-	b := E2{
+	b := e2{
 		A0: fp.Element{
 			8921533702591418330,
 			15859389534032789116,

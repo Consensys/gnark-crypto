@@ -25,7 +25,7 @@ var ID = gurvy.BLS377
 var B fp.Element
 
 // Btwist b coeff of the twist (defined over Fp2) curve
-var Btwist E2
+var Btwist e2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
@@ -56,12 +56,23 @@ var glvBasis utils.Lattice
 
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
 var endo struct {
-	u E2
-	v E2
+	u e2
+	v e2
 }
 
 // generator of the curve
 var xGen big.Int
+
+// expose the tower -- github.com/consensys/gnark uses it in a gnark circuit
+
+// E2 is a degree two finite field extension of fp.Element
+type E2 = e2
+
+// E6 is a degree three finite field extension of fp2
+type E6 = e6
+
+// E12 is a degree two finite field extension of fp6
+type E12 = e12
 
 func init() {
 

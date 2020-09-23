@@ -24,19 +24,19 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// G2Jac is a point with E2 coordinates
+// G2Jac is a point with e2 coordinates
 type G2Jac struct {
-	X, Y, Z E2
+	X, Y, Z e2
 }
 
 // G2Proj point in projective coordinates
 type G2Proj struct {
-	X, Y, Z E2
+	X, Y, Z e2
 }
 
 // G2Affine point in affine coordinates
 type G2Affine struct {
-	X, Y E2
+	X, Y e2
 }
 
 // AddAssign point addition in montgomery form
@@ -54,7 +54,7 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 		return p
 	}
 
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V E2
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V e2
 	Z1Z1.Square(&a.Z)
 	Z2Z2.Square(&p.Z)
 	U1.Mul(&a.X, &Z2Z2)
@@ -109,7 +109,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, U2, S2, H, HH, I, J, r, V E2
+	var Z1Z1, U2, S2, H, HH, I, J, r, V e2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
 	S2.Mul(&a.Y, &p.Z).
@@ -155,7 +155,7 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
 	// get some Element from our pool
-	var XX, YY, YYYY, ZZ, S, M, T E2
+	var XX, YY, YYYY, ZZ, S, M, T e2
 
 	XX.Square(&p.X)
 	YY.Square(&p.Y)
@@ -241,7 +241,7 @@ func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
 // FromJacobian rescale a point in Jacobian coord in z=1 plane
 func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 
-	var a, b E2
+	var a, b e2
 
 	if p1.Z.IsZero() {
 		p.X.SetZero()
@@ -260,7 +260,7 @@ func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *G2Proj) FromJacobian(Q *G2Jac) *G2Proj {
 	// memalloc
-	var buf E2
+	var buf e2
 	buf.Square(&Q.Z)
 
 	p.X.Mul(&Q.X, &Q.Z)
@@ -294,7 +294,7 @@ func (p *G2Jac) FromAffine(Q *G2Affine) *G2Jac {
 }
 
 func (p *G2Affine) String() string {
-	var x, y E2
+	var x, y e2
 	x.Set(&p.X)
 	y.Set(&p.Y)
 	return "E([" + x.String() + "," + y.String() + "]),"
@@ -307,7 +307,7 @@ func (p *G2Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if p in on the curve
 func (p *G2Proj) IsOnCurve() bool {
-	var left, right, tmp E2
+	var left, right, tmp e2
 	left.Square(&p.Y).
 		Mul(&left, &p.Z)
 	right.Square(&p.X).
@@ -321,7 +321,7 @@ func (p *G2Proj) IsOnCurve() bool {
 
 // IsOnCurve returns true if p in on the curve
 func (p *G2Jac) IsOnCurve() bool {
-	var left, right, tmp E2
+	var left, right, tmp e2
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	tmp.Square(&p.Z).

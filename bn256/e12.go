@@ -20,79 +20,79 @@ import (
 	"math/big"
 )
 
-// E12 is a degree two finite field extension of fp6
-type E12 struct {
-	C0, C1 E6
+// e12 is a degree two finite field extension of fp6
+type e12 struct {
+	C0, C1 e6
 }
 
 // Equal returns true if z equals x, fasle otherwise
-func (z *E12) Equal(x *E12) bool {
+func (z *e12) Equal(x *e12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1)
 }
 
-// String puts E12 in string form
-func (z *E12) String() string {
+// String puts e12 in string form
+func (z *e12) String() string {
 	return (z.C0.String() + "+(" + z.C1.String() + ")*w")
 }
 
-// SetString sets a E12 from string
-func (z *E12) SetString(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11 string) *E12 {
+// SetString sets a e12 from string
+func (z *e12) SetString(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11 string) *e12 {
 	z.C0.SetString(s0, s1, s2, s3, s4, s5)
 	z.C1.SetString(s6, s7, s8, s9, s10, s11)
 	return z
 }
 
 // Set copies x into z and returns z
-func (z *E12) Set(x *E12) *E12 {
+func (z *e12) Set(x *e12) *e12 {
 	z.C0 = x.C0
 	z.C1 = x.C1
 	return z
 }
 
 // SetOne sets z to 1 in Montgomery form and returns z
-func (z *E12) SetOne() *E12 {
-	*z = E12{}
+func (z *e12) SetOne() *e12 {
+	*z = e12{}
 	z.C0.B0.A0.SetOne()
 	return z
 }
 
 // ToMont converts to Mont form
-func (z *E12) ToMont() *E12 {
+func (z *e12) ToMont() *e12 {
 	z.C0.ToMont()
 	z.C1.ToMont()
 	return z
 }
 
 // FromMont converts from Mont form
-func (z *E12) FromMont() *E12 {
+func (z *e12) FromMont() *e12 {
 	z.C0.FromMont()
 	z.C1.FromMont()
 	return z
 }
 
-// Add set z=x+y in E12 and return z
-func (z *E12) Add(x, y *E12) *E12 {
+// Add set z=x+y in e12 and return z
+func (z *e12) Add(x, y *e12) *e12 {
 	z.C0.Add(&x.C0, &y.C0)
 	z.C1.Add(&x.C1, &y.C1)
 	return z
 }
 
 // Sub sets z to x sub y and return z
-func (z *E12) Sub(x, y *E12) *E12 {
+func (z *e12) Sub(x, y *e12) *e12 {
 	z.C0.Sub(&x.C0, &y.C0)
 	z.C1.Sub(&x.C1, &y.C1)
 	return z
 }
 
 // Double sets z=2*x and returns z
-func (z *E12) Double(x *E12) *E12 {
+func (z *e12) Double(x *e12) *e12 {
 	z.C0.Double(&x.C0)
 	z.C1.Double(&x.C1)
 	return z
 }
 
 // SetRandom used only in tests
-func (z *E12) SetRandom() *E12 {
+func (z *e12) SetRandom() *e12 {
 	z.C0.B0.A0.SetRandom()
 	z.C0.B0.A1.SetRandom()
 	z.C0.B1.A0.SetRandom()
@@ -108,9 +108,9 @@ func (z *E12) SetRandom() *E12 {
 	return z
 }
 
-// Mul set z=x*y in E12 and return z
-func (z *E12) Mul(x, y *E12) *E12 {
-	var a, b, c E6
+// Mul set z=x*y in e12 and return z
+func (z *e12) Mul(x, y *e12) *e12 {
+	var a, b, c e6
 	a.Add(&x.C0, &x.C1)
 	b.Add(&y.C0, &y.C1)
 	a.Mul(&a, &b)
@@ -121,11 +121,11 @@ func (z *E12) Mul(x, y *E12) *E12 {
 	return z
 }
 
-// Square set z=x*x in E12 and return z
-func (z *E12) Square(x *E12) *E12 {
+// Square set z=x*x in e12 and return z
+func (z *e12) Square(x *e12) *e12 {
 
 	//Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var c0, c2, c3 E6
+	var c0, c2, c3 e6
 	c0.Sub(&x.C0, &x.C1)
 	c3.MulByNonResidue(&x.C1).Neg(&c3).Add(&x.C0, &c3)
 	c2.Mul(&x.C0, &x.C1)
@@ -138,8 +138,8 @@ func (z *E12) Square(x *E12) *E12 {
 }
 
 // squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
-func fp4Square(a, b, c, d *E2) {
-	var tmp E2
+func fp4Square(a, b, c, d *e2) {
+	var tmp e2
 	c.Square(a)
 	tmp.Square(b).MulByNonResidue(&tmp)
 	c.Add(c, &tmp)
@@ -147,10 +147,10 @@ func fp4Square(a, b, c, d *E2) {
 }
 
 // CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
-func (z *E12) CyclotomicSquare(x *E12) *E12 {
+func (z *e12) CyclotomicSquare(x *e12) *e12 {
 
-	var res, b, a E12
-	var tmp E2
+	var res, b, a e12
+	var tmp e2
 
 	// A
 	fp4Square(&x.C0.B0, &x.C1.B1, &b.C0.B0, &b.C1.B1)
@@ -178,11 +178,11 @@ func (z *E12) CyclotomicSquare(x *E12) *E12 {
 	return z
 }
 
-// Inverse set z to the inverse of x in E12 and return z
-func (z *E12) Inverse(x *E12) *E12 {
+// Inverse set z to the inverse of x in e12 and return z
+func (z *e12) Inverse(x *e12) *e12 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
-	var t0, t1, tmp E6
+	var t0, t1, tmp e6
 	t0.Square(&x.C0)
 	t1.Square(&x.C1)
 	tmp.MulByNonResidue(&t1)
@@ -195,8 +195,8 @@ func (z *E12) Inverse(x *E12) *E12 {
 }
 
 // Exp sets z=x**e and returns it
-func (z *E12) Exp(x *E12, e big.Int) *E12 {
-	var res E12
+func (z *e12) Exp(x *e12, e big.Int) *e12 {
+	var res e12
 	res.SetOne()
 	b := e.Bytes()
 	for i := range b {
@@ -215,12 +215,12 @@ func (z *E12) Exp(x *E12, e big.Int) *E12 {
 }
 
 // InverseUnitary inverse a unitary element
-func (z *E12) InverseUnitary(x *E12) *E12 {
+func (z *e12) InverseUnitary(x *e12) *e12 {
 	return z.Conjugate(x)
 }
 
 // Conjugate set z to x conjugated and return z
-func (z *E12) Conjugate(x *E12) *E12 {
+func (z *e12) Conjugate(x *e12) *e12 {
 	*z = *x
 	z.C1.Neg(&z.C1)
 	return z

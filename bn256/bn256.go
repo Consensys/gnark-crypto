@@ -25,7 +25,7 @@ var ID = gurvy.BN256
 var B fp.Element
 
 // Btwist b coeff of the twist (defined over Fp2) curve
-var Btwist E2
+var Btwist e2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
@@ -56,8 +56,8 @@ var glvBasis utils.Lattice
 
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
 var endo struct {
-	u E2
-	v E2
+	u e2
+	v e2
 }
 
 // generator of the curve

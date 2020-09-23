@@ -16,8 +16,8 @@ package bls381
 
 import "github.com/consensys/gurvy/bls381/fp"
 
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
+// Mul sets z to the e2-product of x,y, returns z
+func (z *e2) Mul(x, y *e2) *e2 {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -29,8 +29,8 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	return z
 }
 
-// Square sets z to the E2-product of x,x returns z
-func (z *E2) Square(x *E2) *E2 {
+// Square sets z to the e2-product of x,x returns z
+func (z *e2) Square(x *e2) *e2 {
 	// algo 22 https://eprint.iacr.org/2010/354.pdf
 	var a, b fp.Element
 	a.Add(&x.A0, &x.A1)
@@ -42,8 +42,8 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (1,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
+// MulByNonResidue multiplies a e2 by (1,1)
+func (z *e2) MulByNonResidue(x *e2) *e2 {
 	var a fp.Element
 	a.Sub(&x.A0, &x.A1)
 	z.A1.Add(&x.A0, &x.A1)
@@ -51,8 +51,8 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+// MulByNonResidueInv multiplies a e2 by (1,1)^{-1}
+func (z *e2) MulByNonResidueInv(x *e2) *e2 {
 
 	twoinv := fp.Element{
 		1730508156817200468,
@@ -71,8 +71,8 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 	return z
 }
 
-// Inverse sets z to the E2-inverse of x, returns z
-func (z *E2) Inverse(x *E2) *E2 {
+// Inverse sets z to the e2-inverse of x, returns z
+func (z *e2) Inverse(x *e2) *e2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
 	var t0, t1 fp.Element
 	t0.Square(&x.A0)
@@ -86,7 +86,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 }
 
 // norm sets x to the norm of z
-func (z *E2) norm(x *fp.Element) {
+func (z *e2) norm(x *fp.Element) {
 	var tmp fp.Element
 	x.Square(&z.A0)
 	tmp.Square(&z.A1)

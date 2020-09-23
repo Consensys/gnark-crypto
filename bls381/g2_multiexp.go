@@ -666,23 +666,23 @@ func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 
 //  g2JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
 type g2JacExtended struct {
-	X, Y, ZZ, ZZZ E2
+	X, Y, ZZ, ZZZ e2
 }
 
 // setInfinity sets p to O
 func (p *g2JacExtended) setInfinity() *g2JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
-	p.ZZ = E2{}
-	p.ZZZ = E2{}
+	p.ZZ = e2{}
+	p.ZZZ = e2{}
 	return p
 }
 
 // fromJacExtended sets Q in affine coords
 func (p *G2Affine) fromJacExtended(Q *g2JacExtended) *G2Affine {
 	if Q.ZZ.IsZero() {
-		p.X = E2{}
-		p.Y = E2{}
+		p.X = e2{}
+		p.Y = e2{}
 		return p
 	}
 	p.X.Inverse(&Q.ZZ).Mul(&p.X, &Q.X)
@@ -728,7 +728,7 @@ func (p *g2JacExtended) mSub(a *G2Affine) *g2JacExtended {
 		return p
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 E2
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 e2
 
 	// p2: a, p1: p
 	U2.Mul(&a.X, &p.ZZ)
@@ -744,8 +744,8 @@ func (p *g2JacExtended) mSub(a *G2Affine) *g2JacExtended {
 	if pIsZero && rIsZero {
 		return p.doubleNeg(a)
 	} else if pIsZero {
-		p.ZZ = E2{}
-		p.ZZZ = E2{}
+		p.ZZ = e2{}
+		p.ZZZ = e2{}
 		return p
 	}
 
@@ -782,7 +782,7 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 		return p
 	}
 
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 E2
+	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 e2
 
 	// p2: a, p1: p
 	U2.Mul(&a.X, &p.ZZ)
@@ -797,8 +797,8 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 	if pIsZero && rIsZero {
 		return p.double(a)
 	} else if pIsZero {
-		p.ZZ = E2{}
-		p.ZZZ = E2{}
+		p.ZZ = e2{}
+		p.ZZZ = e2{}
 		return p
 	}
 
@@ -821,7 +821,7 @@ func (p *g2JacExtended) mAdd(a *G2Affine) *g2JacExtended {
 // doubleNeg same as double, but will negate q.Y
 func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
 
-	var U, S, M, _M, Y3 E2
+	var U, S, M, _M, Y3 e2
 
 	U.Double(&q.Y)
 	U.Neg(&U)
@@ -846,7 +846,7 @@ func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
 // http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
 
-	var U, S, M, _M, Y3 E2
+	var U, S, M, _M, Y3 e2
 
 	U.Double(&q.Y)
 	p.ZZ.Square(&U)

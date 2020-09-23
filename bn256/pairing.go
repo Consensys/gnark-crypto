@@ -16,19 +16,19 @@ package bn256
 
 import "math/bits"
 
-// PairingResult target group of the pairing
-type PairingResult = E12
+// GT target group of the pairing
+type GT = e12
 
 type lineEvaluation struct {
-	r0 E2
-	r1 E2
-	r2 E2
+	r0 e2
+	r1 e2
+	r2 e2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
-func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
+func FinalExponentiation(z *GT, _z ...*GT) GT {
 
-	var result PairingResult
+	var result GT
 	result.Set(z)
 
 	for _, e := range _z {
@@ -41,14 +41,14 @@ func FinalExponentiation(z *PairingResult, _z ...*PairingResult) PairingResult {
 }
 
 // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
+func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// https://eprint.iacr.org/2008/490.pdf
-	var mt [4]PairingResult // mt[i] is m^(t^i)
+	var mt [4]GT // mt[i] is m^(t^i)
 
 	// easy part
 	mt[0].Set(x)
-	var temp PairingResult
+	var temp GT
 	temp.FrobeniusCube(&mt[0]).
 		FrobeniusCube(&temp)
 	mt[0].Inverse(&mt[0])
@@ -61,7 +61,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	mt[2].Expt(&mt[1])
 	mt[3].Expt(&mt[2])
 
-	var y [7]PairingResult
+	var y [7]GT
 
 	y[1].InverseUnitary(&mt[0])
 	y[4].Set(&mt[1])
@@ -89,7 +89,7 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 	y[0].Mul(&y[0], &mt[0])
 
 	// compute addition chain
-	var t [2]PairingResult
+	var t [2]GT
 
 	t[0].CyclotomicSquare(&y[6])
 	t[0].Mul(&t[0], &y[4])
@@ -108,9 +108,9 @@ func (z *PairingResult) FinalExponentiation(x *PairingResult) *PairingResult {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *PairingResult {
+func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
-	var result PairingResult
+	var result GT
 	result.SetOne()
 
 	if P.IsInfinity() || Q.IsInfinity() {
@@ -189,9 +189,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 	result.r0.MulByElement(&result.r0, &P.Y)
 }
 
-func (z *PairingResult) mulAssign(l *lineEvaluation) *PairingResult {
+func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
-	var a, b, c PairingResult
+	var a, b, c GT
 	a.MulByVW(z, &l.r1)
 	b.MulByV(z, &l.r0)
 	c.MulByV2W(z, &l.r2)
@@ -236,11 +236,11 @@ func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan 
 }
 
 // MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the PairingResult element with C1.B1=y and all other components 0
-func (z *PairingResult) MulByVW(x *PairingResult, y *E2) *PairingResult {
+// here y*v*w means the GT element with C1.B1=y and all other components 0
+func (z *GT) MulByVW(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B1, &yNR)
@@ -254,11 +254,11 @@ func (z *PairingResult) MulByVW(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByV set z to x*(y*v) and return z
-// here y*v means the PairingResult element with C0.B1=y and all other components 0
-func (z *PairingResult) MulByV(x *PairingResult, y *E2) *PairingResult {
+// here y*v means the GT element with C0.B1=y and all other components 0
+func (z *GT) MulByV(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C0.B2, &yNR)
@@ -272,11 +272,11 @@ func (z *PairingResult) MulByV(x *PairingResult, y *E2) *PairingResult {
 }
 
 // MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the PairingResult element with C1.B2=y and all other components 0
-func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
+// here y*v^2*w means the GT element with C1.B2=y and all other components 0
+func (z *GT) MulByV2W(x *GT, y *e2) *GT {
 
-	var result PairingResult
-	var yNR E2
+	var result GT
+	var yNR e2
 
 	yNR.MulByNonResidue(y)
 	result.C0.B0.Mul(&x.C1.B0, &yNR)
@@ -289,12 +289,12 @@ func (z *PairingResult) MulByV2W(x *PairingResult, y *E2) *PairingResult {
 	return z
 }
 
-// Expt set z to x^t in PairingResult and return z (t is the generator of the BN curve)
-func (z *PairingResult) Expt(x *PairingResult) *PairingResult {
+// Expt set z to x^t in GT and return z (t is the generator of the BN curve)
+func (z *GT) Expt(x *GT) *GT {
 
 	const tAbsVal uint64 = 4965661367192848881
 
-	var result PairingResult
+	var result GT
 	result.Set(x)
 
 	l := bits.Len64(tAbsVal) - 2
