@@ -358,6 +358,13 @@ func (p *G2Jac) SubgroupCheck() bool {
 
 }
 
+// SubgroupCheck returns true if p is in the correct subgroup, false otherwise
+func (p *G2Affine) SubgroupCheck() bool {
+	var _p G2Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.SubgroupCheck()
+}
+
 // mulWindowed 2-bits windowed exponentiation
 func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
