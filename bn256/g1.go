@@ -343,22 +343,11 @@ func (p *G1Affine) IsOnCurve() bool {
 }
 
 // SubgroupCheck returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG1, 1] is the kernel
-// of (u,v)->u+lambdaG1v mod r. Expressing r, lambdaG1 as
-// polynomials in x, a short vector of this Zmodule is
-// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
-// is the infinity.
+// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
+// the point is on the curve.
 func (p *G1Jac) SubgroupCheck() bool {
 
-	var res, xphip, phip G1Jac
-	phip.phi(p)
-	xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
-	res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
-	res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
-	res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
-	res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
-
-	return res.IsOnCurve() && res.Z.IsZero()
+	return p.IsOnCurve()
 
 }
 

@@ -348,25 +348,36 @@ func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
 }
 
 {{if eq .CurveName "bn256" }}
-	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
-	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
-	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
-	// polynomials in x, a short vector of this Zmodule is
-	// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
-	// is the infinity.
-	func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
+	{{if eq .PointName "g1"}}
+		// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
+		// the point is on the curve.
+		func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
 
-		var res, xphip, phip {{ toUpper .PointName}}Jac
-		phip.phi(p)
-		xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
-		res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
-		res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
-		res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
-		res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+			return p.IsOnCurve()
 
-		return res.IsOnCurve() && res.Z.IsZero()
+		}
+	{{else if eq .PointName "g2"}}
+		// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
+		// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
+		// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+		// polynomials in x, a short vector of this Zmodule is
+		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
+		// is the infinity.
+		func (p *{{ toUpper .PointName}}Jac) SubgroupCheck() bool {
 
-	}
+			var res, xphip, phip {{ toUpper .PointName}}Jac
+			phip.phi(p)
+			xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
+			res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
+			res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
+			res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
+			res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+
+			return res.IsOnCurve() && res.Z.IsZero()
+
+		}
+	{{end}}
 {{else if eq .CurveName "bw761" }}
 	// SubgroupCheck returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
