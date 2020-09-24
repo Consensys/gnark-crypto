@@ -63,11 +63,7 @@ func (p *Point) IsOnCurve() bool {
 		Mul(&tmp, &ecurve.D)
 	rhs.SetOne().Add(&rhs, &tmp)
 
-	// TODO why do we not compare lhs and rhs directly?
-	lhsreg := lhs.ToRegular()
-	rhsreg := rhs.ToRegular()
-
-	return rhsreg.Equal(&lhsreg)
+	return lhs.Equal(&rhs)
 }
 
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
