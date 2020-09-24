@@ -37,7 +37,7 @@ Note if that if you use go modules, in `go.mod` the module path is case sensitiv
 ### Documentation
 [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gurvy)](https://pkg.go.dev/mod/github.com/consensys/gurvy)
 
-The APIs are consistent accross the curves. Here [is `bn256` godoc](https://pkg.go.dev/github.com/consensys/gurvy/bn256#pkg-overview).
+The APIs are consistent accross the curves. For example, [here is `bn256` godoc](https://pkg.go.dev/github.com/consensys/gurvy/bn256#pkg-overview).
 
 ## Benchmarks
 
