@@ -314,9 +314,9 @@ func (p *{{ toUpper .PointName}}Proj) IsOnCurve() bool {
 	tmp.Square(&p.Z).
 		Mul(&tmp, &p.Z).
 		{{- if eq .PointName "g1"}}
-			Mul(&tmp, &B)
+			Mul(&tmp, &bCurveCoeff)
 		{{- else}}
-			Mul(&tmp, &Btwist)
+			Mul(&tmp, &bTwistCurveCoeff)
 		{{- end}}
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
@@ -332,9 +332,9 @@ func (p *{{ toUpper .PointName}}Jac) IsOnCurve() bool {
 		Mul(&tmp, &p.Z).
 		Mul(&tmp, &p.Z).
 		{{- if eq .PointName "g1"}}
-			Mul(&tmp, &B)
+			Mul(&tmp, &bCurveCoeff)
 		{{- else}}
-			Mul(&tmp, &Btwist)
+			Mul(&tmp, &bTwistCurveCoeff)
 		{{- end}}
 	right.Add(&right, &tmp)
 	return left.Equal(&right)

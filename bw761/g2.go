@@ -315,7 +315,7 @@ func (p *G2Proj) IsOnCurve() bool {
 		Mul(&right, &p.X)
 	tmp.Square(&p.Z).
 		Mul(&tmp, &p.Z).
-		Mul(&tmp, &Btwist)
+		Mul(&tmp, &bTwistCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }
@@ -329,7 +329,7 @@ func (p *G2Jac) IsOnCurve() bool {
 		Square(&tmp).
 		Mul(&tmp, &p.Z).
 		Mul(&tmp, &p.Z).
-		Mul(&tmp, &Btwist)
+		Mul(&tmp, &bTwistCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }

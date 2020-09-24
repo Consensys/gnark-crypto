@@ -19,13 +19,13 @@ import (
 // Fr: r=52435875175126190479447740508185965837690552500527637822603658699938581184513 (x**4-x**2+1)
 
 // ID bls381 ID
-var ID = gurvy.BLS381
+const ID = gurvy.BLS381
 
-// B b coeff of the curve
-var B fp.Element
+// bCurveCoeff b coeff of the curve
+var bCurveCoeff fp.Element
 
-// Btwist b coeff of the twist (defined over Fp2) curve
-var Btwist e2
+// bTwistCurveCoeff b coeff of the twist (defined over Fp2) curve
+var bTwistCurveCoeff e2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
@@ -65,10 +65,10 @@ var xGen big.Int
 
 func init() {
 
-	B.SetUint64(4)
-	Btwist.A0.SetUint64(1)
-	Btwist.A1.SetUint64(1)
-	Btwist.MulByElement(&Btwist, &B)
+	bCurveCoeff.SetUint64(4)
+	bTwistCurveCoeff.A0.SetUint64(1)
+	bTwistCurveCoeff.A1.SetUint64(1)
+	bTwistCurveCoeff.MulByElement(&bTwistCurveCoeff, &bCurveCoeff)
 
 	g1Gen.X.SetString("2407661716269791519325591009883849385849641130669941829988413640673772478386903154468379397813974815295049686961384")
 	g1Gen.Y.SetString("821462058248938975967615814494474302717441302457255475448080663619194518120412959273482223614332657512049995916067")

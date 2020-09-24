@@ -624,23 +624,23 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 			a.SetRandom()
 			{{if eq .CoordType "fp.Element" }}
 				{{if eq .PointName "g2" }}
-					x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				{{else}}
-					x.Square(&a).Mul(&x, &a).Add(&x, &B)
+					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 				{{end}}	
 				for x.Legendre() != 1 {
 					a.SetRandom()
 					{{if eq .PointName "g2" }}
-						x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 					{{else}}
-						x.Square(&a).Mul(&x, &a).Add(&x, &B)
+						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 					{{end}}
 				}
 			{{else if eq .CoordType "e2" }}
-				x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				for x.Legendre() != 1 {
 					a.SetRandom()
-					x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				}
 			{{end}}
 			b.Sqrt(&x)
