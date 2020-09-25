@@ -524,12 +524,12 @@ func TestG2CofactorCleaning(t *testing.T) {
 			var a, x, b fp.Element
 			a.SetRandom()
 
-			x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+			x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 
 			for x.Legendre() != 1 {
 				a.SetRandom()
 
-				x.Square(&a).Mul(&x, &a).Add(&x, &Btwist)
+				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 
 			}
 

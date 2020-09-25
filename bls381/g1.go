@@ -316,7 +316,7 @@ func (p *G1Jac) IsOnCurve() bool {
 		Square(&tmp).
 		Mul(&tmp, &p.Z).
 		Mul(&tmp, &p.Z).
-		Mul(&tmp, &B)
+		Mul(&tmp, &bCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }
