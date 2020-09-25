@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bls381
+package bls377
 
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/utils"
 )
 
@@ -67,7 +67,7 @@ func svdwMapG1(u fp.Element) G1Affine {
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fp.Element
-	z.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559784")
+	z.SetOne()
 	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bCurveCoeff)
 	twoInv.SetUint64(2).Inverse(&twoInv)
 	c2.Neg(&z).Mul(&c2, &twoInv)
@@ -131,7 +131,6 @@ func svdwMapG1(u fp.Element) G1Affine {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
 func MapToCurveG1Svdw(t fp.Element) G1Affine {
 	res := svdwMapG1(t)
-	res.ClearCofactor(&res)
 	return res
 }
 
@@ -179,6 +178,7 @@ func svdwMapG2(u e2) G2Affine {
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 e2
+	z.A0.SetString("2")
 	z.A1.SetString("1")
 	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bTwistCurveCoeff)
 	twoInv.SetUint64(2).Inverse(&twoInv)

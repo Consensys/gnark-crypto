@@ -22,3 +22,13 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	p.Set(&res)
 	return p
 }
+
+// ClearCofactor maps a point in E(Fp) to E(Fp)[r]
+// cf https://eprint.iacr.org/2019/403.pdf, 5
+func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
+	var _p G1Jac
+	_p.FromAffine(a)
+	_p.ClearCofactor(&_p)
+	p.FromJacobian(&_p)
+	return p
+}

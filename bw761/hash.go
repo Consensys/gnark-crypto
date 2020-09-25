@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bls381
+package bw761
 
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/utils"
 )
 
@@ -67,7 +67,7 @@ func svdwMapG1(u fp.Element) G1Affine {
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fp.Element
-	z.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559784")
+	z.SetString("6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068298")
 	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bCurveCoeff)
 	twoInv.SetUint64(2).Inverse(&twoInv)
 	c2.Neg(&z).Mul(&c2, &twoInv)
@@ -170,28 +170,26 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func svdwMapG2(u e2) G2Affine {
+func svdwMapG2(u fp.Element) G2Affine {
 
-	var twoInv fp.Element
-	var tmp e2
+	var twoInv, tmp fp.Element
 	var res G2Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
-	var z, c1, c2, c3, c4 e2
-	z.A1.SetString("1")
+	var z, c1, c2, c3, c4 fp.Element
+	z.SetOne()
 	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bTwistCurveCoeff)
 	twoInv.SetUint64(2).Inverse(&twoInv)
-	c2.Neg(&z).MulByElement(&c2, &twoInv)
+	c2.Neg(&z).Mul(&c2, &twoInv)
 	tmp.Square(&z)
 	c3.Double(&tmp).Add(&c3, &tmp).Mul(&c3, &c1).Neg(&c3).Sqrt(&c3) // sgn0(c3) MUST equal 1
-	// TODO find norms for which sqrt to take for fp2 elements
-	if !sign0(c3.A0) {
+	if !sign0(c3) {
 		c3.Neg(&c3)
 	}
 	c4.Double(&tmp).Add(&c4, &tmp).Inverse(&c4).Mul(&c4, &c1).Double(&c4).Double(&c4)
 
-	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y e2
+	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fp.Element
 	one.SetOne()
 	tv1.Square(&u).Mul(&tv1, &c1)
 	tv2.Add(&one, &tv1)
@@ -230,7 +228,7 @@ func svdwMapG2(u e2) G2Affine {
 	gx.Mul(&gx, &x)
 	gx.Add(&gx, &bTwistCurveCoeff)
 	y.Sqrt(&gx)
-	e3 := sign0(u.A0) && sign0(y.A0)
+	e3 := sign0(u) && sign0(y)
 	if !e3 {
 		y.Neg(&y)
 	}
@@ -242,7 +240,7 @@ func svdwMapG2(u e2) G2Affine {
 
 // MapToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToCurveG2Svdw(t e2) G2Affine {
+func MapToCurveG2Svdw(t fp.Element) G2Affine {
 	res := svdwMapG2(t)
 	res.ClearCofactor(&res)
 	return res
@@ -252,14 +250,11 @@ func MapToCurveG2Svdw(t e2) G2Affine {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
 func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
-	_t, err := hashToFp(msg, dst, 2)
+	t, err := hashToFp(msg, dst, 1)
 	if err != nil {
 		return res, err
 	}
-	var t e2
-	t.A0.Set(&_t[0])
-	t.A1.Set(&_t[1])
-	res = MapToCurveG2Svdw(t)
+	res = MapToCurveG2Svdw(t[0])
 	return res, nil
 }
 
@@ -267,17 +262,12 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
-	u, err := hashToFp(msg, dst, 4)
+	u, err := hashToFp(msg, dst, 2)
 	if err != nil {
 		return res, err
 	}
-	var u0, u1 e2
-	u0.A0.Set(&u[0])
-	u0.A1.Set(&u[1])
-	u1.A0.Set(&u[2])
-	u1.A1.Set(&u[3])
-	Q0 := MapToCurveG2Svdw(u0)
-	Q1 := MapToCurveG2Svdw(u1)
+	Q0 := MapToCurveG2Svdw(u[0])
+	Q1 := MapToCurveG2Svdw(u[1])
 	var _Q0, _Q1, _res G2Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1)
