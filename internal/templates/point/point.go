@@ -17,17 +17,15 @@ type {{ toUpper .PointName }}Jac struct {
 	X, Y, Z {{.CoordType}}
 }
 
-// {{ toUpper .PointName }}Proj point in projective coordinates
-type {{ toUpper .PointName }}Proj struct {
-	X, Y, Z {{.CoordType}}
+// {{ toLower .PointName }}Proj point in projective coordinates
+type {{ toLower .PointName }}Proj struct {
+	x, y, z {{.CoordType}}
 }
 
 // {{ toUpper .PointName }}Affine point in affine coordinates
 type {{ toUpper .PointName }}Affine struct {
 	X, Y {{.CoordType}}
 }
-
-
 
 
 // AddAssign point addition in montgomery form
@@ -257,14 +255,14 @@ func (p *{{ toUpper .PointName }}Affine) FromJacobian(p1 *{{ toUpper .PointName 
 }
 
 // FromJacobian converts a point from Jacobian to projective coordinates
-func (p *{{ toUpper .PointName }}Proj) FromJacobian(Q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Proj {
+func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toUpper .PointName }}Jac) *{{ toLower .PointName }}Proj {
 	// memalloc
 	var buf {{.CoordType}}
 	buf.Square(&Q.Z)
 
-	p.X.Mul(&Q.X, &Q.Z)
-	p.Y.Set(&Q.Y)
-	p.Z.Mul(&Q.Z, &buf)
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
 
 	return p
 }
@@ -302,24 +300,6 @@ func (p *{{ toUpper .PointName }}Affine) String() string {
 // IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
 func (p *{{ toUpper .PointName }}Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
-}
-
-// IsOnCurve returns true if p in on the curve
-func (p *{{ toUpper .PointName}}Proj) IsOnCurve() bool {
-	var left, right, tmp  {{.CoordType}}
-	left.Square(&p.Y).
-		Mul(&left, &p.Z)
-	right.Square(&p.X).
-		Mul(&right, &p.X)
-	tmp.Square(&p.Z).
-		Mul(&tmp, &p.Z).
-		{{- if eq .PointName "g1"}}
-			Mul(&tmp, &B)
-		{{- else}}
-			Mul(&tmp, &Btwist)
-		{{- end}}
-	right.Add(&right, &tmp)
-	return left.Equal(&right)
 }
 
 // IsOnCurve returns true if p in on the curve

@@ -39,14 +39,6 @@ func fuzzJacobianG2(p *G2Jac, f fp.Element) G2Jac {
 	return res
 }
 
-func fuzzProjectiveG2(p *G2Proj, f fp.Element) G2Proj {
-	var res G2Proj
-	res.X.Mul(&p.X, &f)
-	res.Y.Mul(&p.Y, &f)
-	res.Z.Mul(&p.Z, &f)
-	return res
-}
-
 func fuzzExtendedJacobianG2(p *g2JacExtended, f fp.Element) g2JacExtended {
 	var res g2JacExtended
 	var ff, fff fp.Element
@@ -93,20 +85,6 @@ func TestG2IsOnCurve(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BW761] g2Gen (projective) should be on the curve", prop.ForAll(
-		func(a fp.Element) bool {
-			var op1, op2, op3 G2Proj
-			op1.FromJacobian(&g2Gen)
-			op2.FromJacobian(&g2Gen)
-			op3.FromJacobian(&g2Gen)
-
-			op2 = fuzzProjectiveG2(&op1, a)
-			op3.Y.Mul(&op3.Y, &a)
-			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
-		},
-		genFuzz1,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -141,22 +119,6 @@ func TestG2Conversions(t *testing.T) {
 			var op1 G2Affine
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
-		},
-		genFuzz1,
-	))
-
-	properties.Property("[BW761] Projective representation should be independent of a Jacobian representative", prop.ForAll(
-		func(a fp.Element) bool {
-
-			g := fuzzJacobianG2(&g2Gen, a)
-
-			var op1 G2Proj
-			op1.FromJacobian(&g)
-			var u, v fp.Element
-			u.Mul(&g.X, &g.Z)
-			v.Square(&g.Z).Mul(&v, &g.Z)
-
-			return op1.X.Equal(&u) && op1.Y.Equal(&g.Y) && op1.Z.Equal(&v)
 		},
 		genFuzz1,
 	))

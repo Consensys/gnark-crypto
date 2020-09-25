@@ -252,21 +252,21 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 
 	// converts _Q and _R to projective coords
-	var _Q, _R G2Proj
+	var _Q, _R g2Proj
 	_Q.FromJacobian(Q)
 	_R.FromJacobian(R)
 
-	result.r1.Mul(&_Q.Y, &_R.Z)
-	result.r0.Mul(&_Q.Z, &_R.X)
-	result.r2.Mul(&_Q.X, &_R.Y)
+	result.r1.Mul(&_Q.y, &_R.z)
+	result.r0.Mul(&_Q.z, &_R.x)
+	result.r2.Mul(&_Q.x, &_R.y)
 
-	_Q.Z.Mul(&_Q.Z, &_R.Y)
-	_Q.X.Mul(&_Q.X, &_R.Z)
-	_Q.Y.Mul(&_Q.Y, &_R.X)
+	_Q.z.Mul(&_Q.z, &_R.y)
+	_Q.x.Mul(&_Q.x, &_R.z)
+	_Q.y.Mul(&_Q.y, &_R.x)
 
-	result.r1.Sub(&result.r1, &_Q.Z)
-	result.r0.Sub(&result.r0, &_Q.X)
-	result.r2.Sub(&result.r2, &_Q.Y)
+	result.r1.Sub(&result.r1, &_Q.z)
+	result.r0.Sub(&result.r0, &_Q.x)
+	result.r2.Sub(&result.r2, &_Q.y)
 
 	result.r1.Mul(&result.r1, &P.X)
 	result.r0.Mul(&result.r0, &P.Y)

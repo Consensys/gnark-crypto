@@ -29,9 +29,9 @@ type G2Jac struct {
 	X, Y, Z e2
 }
 
-// G2Proj point in projective coordinates
-type G2Proj struct {
-	X, Y, Z e2
+// g2Proj point in projective coordinates
+type g2Proj struct {
+	x, y, z e2
 }
 
 // G2Affine point in affine coordinates
@@ -258,14 +258,14 @@ func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
 }
 
 // FromJacobian converts a point from Jacobian to projective coordinates
-func (p *G2Proj) FromJacobian(Q *G2Jac) *G2Proj {
+func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
 	// memalloc
 	var buf e2
 	buf.Square(&Q.Z)
 
-	p.X.Mul(&Q.X, &Q.Z)
-	p.Y.Set(&Q.Y)
-	p.Z.Mul(&Q.Z, &buf)
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
 
 	return p
 }
@@ -303,20 +303,6 @@ func (p *G2Affine) String() string {
 // IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
 func (p *G2Affine) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
-}
-
-// IsOnCurve returns true if p in on the curve
-func (p *G2Proj) IsOnCurve() bool {
-	var left, right, tmp e2
-	left.Square(&p.Y).
-		Mul(&left, &p.Z)
-	right.Square(&p.X).
-		Mul(&right, &p.X)
-	tmp.Square(&p.Z).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &Btwist)
-	right.Add(&right, &tmp)
-	return left.Equal(&right)
 }
 
 // IsOnCurve returns true if p in on the curve

@@ -28,14 +28,6 @@ import (
 		return res
 	}
 
-	func fuzzProjective{{ toUpper .PointName}}(p *{{ toUpper .PointName}}Proj, f {{ .CoordType}}) {{ toUpper .PointName}}Proj {
-		var res {{ toUpper .PointName}}Proj
-		res.X.Mul(&p.X, &f)
-		res.Y.Mul(&p.Y, &f)
-		res.Z.Mul(&p.Z, &f)
-		return res
-	}
-
 	func fuzzExtendedJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}JacExtended, f {{ .CoordType}}) {{ toLower .PointName }}JacExtended {
 		var res {{ toLower .PointName }}JacExtended
 		var ff, fff {{ .CoordType}}
@@ -52,14 +44,6 @@ import (
 		var res {{ toUpper .PointName}}Jac
 		res.X.Mul(&p.X, f).Mul(&res.X, f)
 		res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
-		res.Z.Mul(&p.Z, f)
-		return res
-	}
-
-	func fuzzProjective{{ toUpper .PointName}}(p *{{ toUpper .PointName}}Proj, f *e2) {{ toUpper .PointName}}Proj {
-		var res {{ toUpper .PointName}}Proj
-		res.X.Mul(&p.X, f)
-		res.Y.Mul(&p.Y, f)
 		res.Z.Mul(&p.Z, f)
 		return res
 	}
@@ -131,28 +115,6 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] {{ toLower .PointName}}Gen (projective) should be on the curve", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
-		{{- end}}
-			var op1, op2, op3 {{ toUpper .PointName}}Proj
-			op1.FromJacobian(&{{ toLower .PointName}}Gen)
-			op2.FromJacobian(&{{ toLower .PointName}}Gen)
-			op3.FromJacobian(&{{ toLower .PointName}}Gen)
-
-			op2 = fuzzProjective{{ toUpper .PointName}}(&op1, a)
-			{{- if eq .CoordType "fp.Element" }}
-				op3.Y.Mul(&op3.Y, &a)
-			{{- else if eq .CoordType "e2" }}
-				op3.Y.Mul(&op3.Y, a)
-			{{- end}}
-			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
-		},
-		genFuzz1,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -200,26 +162,6 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			var op1 {{ toUpper .PointName}}Affine
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
-		},
-		genFuzz1,
-	))
-
-	properties.Property("[{{ toUpper .CurveName }}] Projective representation should be independent of a Jacobian representative", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
-		{{- end}}
-
-			g := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
-
-			var op1 {{ toUpper .PointName}}Proj
-			op1.FromJacobian(&g)
-			var u, v {{ .CoordType}}
-			u.Mul(&g.X, &g.Z)
-			v.Square(&g.Z).Mul(&v, &g.Z)
-
-			return op1.X.Equal(&u) && op1.Y.Equal(&g.Y) && op1.Z.Equal(&v)
 		},
 		genFuzz1,
 	))
