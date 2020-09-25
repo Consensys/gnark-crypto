@@ -380,7 +380,7 @@ func BenchmarkE12Expt(b *testing.B) {
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Expt(&a)
+		a.expt(&a)
 	}
 }
 

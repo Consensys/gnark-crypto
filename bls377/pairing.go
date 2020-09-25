@@ -58,16 +58,16 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// hard part (up to permutation)
 	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].Expt(&result)
+	t[5].expt(&result)
 	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])
 
-	t[0].Expt(&t[3])
-	t[2].Expt(&t[0])
-	t[4].Expt(&t[2])
+	t[0].expt(&t[3])
+	t[2].expt(&t[0])
+	t[4].expt(&t[2])
 
 	t[4].Mul(&t[1], &t[4])
-	t[1].Expt(&t[4])
+	t[1].expt(&t[4])
 	t[3].InverseUnitary(&t[3])
 	t[1].Mul(&t[3], &t[1])
 	t[1].Mul(&t[1], &result)
@@ -153,9 +153,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.MulByVW(z, &l.r1)
-	b.MulByV(z, &l.r0)
-	c.MulByV2W(z, &l.r2)
+	a.mulByVW(z, &l.r1)
+	b.mulByV(z, &l.r0)
+	c.mulByV2W(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -191,9 +191,9 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 	close(ch)
 }
 
-// MulByVW set z to x*(y*v*w) and return z
+// mulByVW set z to x*(y*v*w) and return z
 // here y*v*w means the GT element with C1.B1=y and all other components 0
-func (z *GT) MulByVW(x *GT, y *e2) *GT {
+func (z *GT) mulByVW(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
@@ -209,9 +209,9 @@ func (z *GT) MulByVW(x *GT, y *e2) *GT {
 	return z
 }
 
-// MulByV set z to x*(y*v) and return z
+// mulByV set z to x*(y*v) and return z
 // here y*v means the GT element with C0.B1=y and all other components 0
-func (z *GT) MulByV(x *GT, y *e2) *GT {
+func (z *GT) mulByV(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
@@ -227,9 +227,9 @@ func (z *GT) MulByV(x *GT, y *e2) *GT {
 	return z
 }
 
-// MulByV2W set z to x*(y*v^2*w) and return z
+// mulByV2W set z to x*(y*v^2*w) and return z
 // here y*v^2*w means the GT element with C1.B2=y and all other components 0
-func (z *GT) MulByV2W(x *GT, y *e2) *GT {
+func (z *GT) mulByV2W(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
@@ -245,8 +245,8 @@ func (z *GT) MulByV2W(x *GT, y *e2) *GT {
 	return z
 }
 
-// Expt set z to x^t in GT and return z
-func (z *GT) Expt(x *GT) *GT {
+// expt set z to x^t in GT and return z
+func (z *GT) expt(x *GT) *GT {
 	const tAbsVal uint64 = 9586122913090633729
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227

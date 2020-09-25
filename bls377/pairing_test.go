@@ -17,6 +17,7 @@
 package bls377
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -24,6 +25,35 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
+
+// ------------------------------------------------------------
+// examples
+
+func ExampleMillerLoop() {
+
+	// samples a random scalar r
+	var r big.Int
+	var rFr fr.Element
+	rFr.SetRandom()
+	rFr.ToBigIntRegular(&r)
+
+	// computes r*g1Gen, r*g2Gen
+	var rg1 G1Affine
+	var rg2 G2Affine
+	rg1.ScalarMultiplication(&g1GenAff, &r)
+	rg2.ScalarMultiplication(&g2GenAff, &r)
+
+	// Computes e(g1GenAff, ag2) and e(ag1, g2GenAff)
+	e1 := FinalExponentiation(MillerLoop(g1GenAff, rg2))
+	e2 := FinalExponentiation(MillerLoop(rg1, g2GenAff))
+
+	// checks that bilinearity property holds
+	check := e1.Equal(&e2)
+
+	fmt.Printf("%t\n", check)
+	// Output: true
+
+}
 
 // ------------------------------------------------------------
 // tests
@@ -67,11 +97,8 @@ func TestPairing(t *testing.T) {
 
 			var res, resa, resb, resab, zero GT
 
-			var aG1 G1Jac
-			var bG2 G2Jac
-
-			var g1affine, ag1 G1Affine
-			var g2affine, bg2 G2Affine
+			var ag1 G1Affine
+			var bg2 G2Affine
 
 			var abigint, bbigint, ab big.Int
 
@@ -79,17 +106,13 @@ func TestPairing(t *testing.T) {
 			b.ToBigIntRegular(&bbigint)
 			ab.Mul(&abigint, &bbigint)
 
-			g1affine.FromJacobian(&g1Gen)
-			g2affine.FromJacobian(&g2Gen)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
-			aG1.ScalarMultiplication(&g1Gen, &abigint)
-			bG2.ScalarMultiplication(&g2Gen, &bbigint)
-			ag1.FromJacobian(&aG1)
-			bg2.FromJacobian(&bG2)
+			res = FinalExponentiation(MillerLoop(g1GenAff, g2GenAff))
+			resa = FinalExponentiation(MillerLoop(ag1, g2GenAff))
+			resb = FinalExponentiation(MillerLoop(g1GenAff, bg2))
 
-			res = FinalExponentiation(MillerLoop(g1affine, g2affine))
-			resa = FinalExponentiation(MillerLoop(ag1, g2affine))
-			resb = FinalExponentiation(MillerLoop(g1affine, bg2))
 			resab.Exp(&res, ab)
 			resa.Exp(&resa, bbigint)
 			resb.Exp(&resb, abigint)

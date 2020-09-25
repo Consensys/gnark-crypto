@@ -61,16 +61,16 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// hard part (up to permutation)
 	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].Expt(&result)
+	t[5].expt(&result)
 	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])
 
-	t[0].Expt(&t[3])
-	t[2].Expt(&t[0])
-	t[4].Expt(&t[2])
+	t[0].expt(&t[3])
+	t[2].expt(&t[0])
+	t[4].expt(&t[2])
 
 	t[4].Mul(&t[1], &t[4])
-	t[1].Expt(&t[4])
+	t[1].expt(&t[4])
 	t[3].InverseUnitary(&t[3])
 	t[1].Mul(&t[3], &t[1])
 	t[1].Mul(&t[1], &result)
@@ -159,9 +159,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.MulByVWNRInv(z, &l.r1)
-	b.MulByV2NRInv(z, &l.r0)
-	c.MulByWNRInv(z, &l.r2)
+	a.mulByVWNRInv(z, &l.r1)
+	b.mulByV2NRInv(z, &l.r0)
+	c.mulByWNRInv(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -196,8 +196,8 @@ func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 	close(ch)
 }
 
-// MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-func (z *GT) MulByV2NRInv(x *GT, y *e2) *GT {
+// mulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
+func (z *GT) mulByV2NRInv(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNRInv e2
@@ -215,8 +215,8 @@ func (z *GT) MulByV2NRInv(x *GT, y *e2) *GT {
 	return z
 }
 
-// MulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-func (z *GT) MulByVWNRInv(x *GT, y *e2) *GT {
+// mulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
+func (z *GT) mulByVWNRInv(x *GT, y *e2) *GT {
 	var result GT
 	var yNRInv e2
 	yNRInv.MulByNonResidueInv(y)
@@ -233,8 +233,8 @@ func (z *GT) MulByVWNRInv(x *GT, y *e2) *GT {
 	return z
 }
 
-// MulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-func (z *GT) MulByWNRInv(x *GT, y *e2) *GT {
+// mulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
+func (z *GT) mulByWNRInv(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNRInv e2
@@ -252,8 +252,8 @@ func (z *GT) MulByWNRInv(x *GT, y *e2) *GT {
 	return z
 }
 
-// Expt set z to x^t in GT and return z
-func (z *GT) Expt(x *GT) *GT {
+// expt set z to x^t in GT and return z
+func (z *GT) expt(x *GT) *GT {
 
 	const tAbsVal uint64 = 15132376222941642752 // negative
 

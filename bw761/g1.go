@@ -191,6 +191,15 @@ func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
+// ScalarMultiplication computes and returns p = a*s
+func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
+	var _p G1Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
 // Set set p to the provided point
 func (p *G1Jac) Set(a *G1Jac) *G1Jac {
 	p.X, p.Y, p.Z = a.X, a.Y, a.Z

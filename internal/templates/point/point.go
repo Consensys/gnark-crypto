@@ -183,7 +183,14 @@ func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointNa
 	{{- end }}
 }
 
-
+// ScalarMultiplication computes and returns p = a*s
+func (p *{{ toUpper .PointName}}Affine) ScalarMultiplication(a *{{ toUpper .PointName}}Affine, s *big.Int) *{{ toUpper .PointName}}Affine {
+	var _p {{ toUpper .PointName}}Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
 
 
 // Set set p to the provided point

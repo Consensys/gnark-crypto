@@ -64,13 +64,13 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	f[0].Set(&result)
 	for i := 1; i < len(f); i++ {
-		f[i].Expt(&f[i-1])
+		f[i].expt(&f[i-1])
 	}
 	for i := range f {
 		fp[i].Frobenius(&f[i])
 	}
-	fp[8].Expt(&fp[7])
-	fp[9].Expt(&fp[8])
+	fp[8].expt(&fp[7])
+	fp[9].expt(&fp[8])
 
 	result.FrobeniusCube(&fp[5]).
 		MulAssign(&fp[3]).
@@ -275,9 +275,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.MulByVMinusThree(z, &l.r1)
-	b.MulByVminusTwo(z, &l.r0)
-	c.MulByVminusFive(z, &l.r2)
+	a.mulByVMinusThree(z, &l.r1)
+	b.mulByVminusTwo(z, &l.r0)
+	c.mulByVminusFive(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -344,8 +344,8 @@ func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch cha
 	}
 }
 
-// Expt set z to x^t in GT and return z
-func (z *GT) Expt(x *GT) *GT {
+// expt set z to x^t in GT and return z
+func (z *GT) expt(x *GT) *GT {
 
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
@@ -388,8 +388,8 @@ func (z *GT) Expt(x *GT) *GT {
 	return z
 }
 
-// MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
-func (z *GT) MulByVMinusThree(x *GT, y *fp.Element) *GT {
+// mulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
+func (z *GT) mulByVMinusThree(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
@@ -416,8 +416,8 @@ func (z *GT) MulByVMinusThree(x *GT, y *fp.Element) *GT {
 	return z
 }
 
-// MulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
-func (z *GT) MulByVminusTwo(x *GT, y *fp.Element) *GT {
+// mulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
+func (z *GT) mulByVminusTwo(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
@@ -448,8 +448,8 @@ func (z *GT) MulByVminusTwo(x *GT, y *fp.Element) *GT {
 	return z
 }
 
-// MulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
-func (z *GT) MulByVminusFive(x *GT, y *fp.Element) *GT {
+// mulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
+func (z *GT) mulByVminusFive(x *GT, y *fp.Element) *GT {
 
 	fourinv := fp.Element{
 		8571757465769615091,
