@@ -1,17 +1,17 @@
 
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+	// Copyright 2020 ConsenSys Software Inc.
+	//
+	// Licensed under the Apache License, Version 2.0 (the "License");
+	// you may not use this file except in compliance with the License.
+	// You may obtain a copy of the License at
+	//
+	//     http://www.apache.org/licenses/LICENSE-2.0
+	//
+	// Unless required by applicable law or agreed to in writing, software
+	// distributed under the License is distributed on an "AS IS" BASIS,
+	// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	// See the License for the specific language governing permissions and
+	// limitations under the License.
 	
 #include "textflag.h"
 #include "funcdata.h"
@@ -94,6 +94,83 @@ TEXT ·addE2(SB), NOSPLIT, $0-24
     MOVQ R9, 88(CX)
     RET
 
+TEXT ·doubleE2(SB), NOSPLIT, $0-16
+    MOVQ res+0(FP), DX
+    MOVQ x+8(FP), AX
+    MOVQ 0(AX), CX
+    MOVQ 8(AX), BX
+    MOVQ 16(AX), BP
+    MOVQ 24(AX), SI
+    MOVQ 32(AX), DI
+    MOVQ 40(AX), R8
+    ADDQ CX, CX
+    ADCQ BX, BX
+    ADCQ BP, BP
+    ADCQ SI, SI
+    ADCQ DI, DI
+    ADCQ R8, R8
+    MOVQ CX, R9
+    MOVQ BX, R10
+    MOVQ BP, R11
+    MOVQ SI, R12
+    MOVQ DI, R13
+    MOVQ R8, R14
+    SUBQ ·qe2+0(SB), R9
+    SBBQ ·qe2+8(SB), R10
+    SBBQ ·qe2+16(SB), R11
+    SBBQ ·qe2+24(SB), R12
+    SBBQ ·qe2+32(SB), R13
+    SBBQ ·qe2+40(SB), R14
+    CMOVQCC R9, CX
+    CMOVQCC R10, BX
+    CMOVQCC R11, BP
+    CMOVQCC R12, SI
+    CMOVQCC R13, DI
+    CMOVQCC R14, R8
+    MOVQ CX, 0(DX)
+    MOVQ BX, 8(DX)
+    MOVQ BP, 16(DX)
+    MOVQ SI, 24(DX)
+    MOVQ DI, 32(DX)
+    MOVQ R8, 40(DX)
+    MOVQ 48(AX), CX
+    MOVQ 56(AX), BX
+    MOVQ 64(AX), BP
+    MOVQ 72(AX), SI
+    MOVQ 80(AX), DI
+    MOVQ 88(AX), R8
+    ADDQ CX, CX
+    ADCQ BX, BX
+    ADCQ BP, BP
+    ADCQ SI, SI
+    ADCQ DI, DI
+    ADCQ R8, R8
+    MOVQ CX, R15
+    MOVQ BX, R9
+    MOVQ BP, R10
+    MOVQ SI, R11
+    MOVQ DI, R12
+    MOVQ R8, R13
+    SUBQ ·qe2+0(SB), R15
+    SBBQ ·qe2+8(SB), R9
+    SBBQ ·qe2+16(SB), R10
+    SBBQ ·qe2+24(SB), R11
+    SBBQ ·qe2+32(SB), R12
+    SBBQ ·qe2+40(SB), R13
+    CMOVQCC R15, CX
+    CMOVQCC R9, BX
+    CMOVQCC R10, BP
+    CMOVQCC R11, SI
+    CMOVQCC R12, DI
+    CMOVQCC R13, R8
+    MOVQ CX, 48(DX)
+    MOVQ BX, 56(DX)
+    MOVQ BP, 64(DX)
+    MOVQ SI, 72(DX)
+    MOVQ DI, 80(DX)
+    MOVQ R8, 88(DX)
+    RET
+
 TEXT ·subE2(SB), NOSPLIT, $0-24
     MOVQ x+8(FP), DI
     MOVQ y+16(FP), R8
@@ -173,83 +250,6 @@ TEXT ·subE2(SB), NOSPLIT, $0-24
     MOVQ BX, 72(DI)
     MOVQ BP, 80(DI)
     MOVQ SI, 88(DI)
-    RET
-
-TEXT ·doubleE2(SB), NOSPLIT, $0-16
-    MOVQ res+0(FP), DX
-    MOVQ x+8(FP), AX
-    MOVQ 0(AX), CX
-    MOVQ 8(AX), BX
-    MOVQ 16(AX), BP
-    MOVQ 24(AX), SI
-    MOVQ 32(AX), DI
-    MOVQ 40(AX), R8
-    ADDQ CX, CX
-    ADCQ BX, BX
-    ADCQ BP, BP
-    ADCQ SI, SI
-    ADCQ DI, DI
-    ADCQ R8, R8
-    MOVQ CX, R9
-    MOVQ BX, R10
-    MOVQ BP, R11
-    MOVQ SI, R12
-    MOVQ DI, R13
-    MOVQ R8, R14
-    SUBQ ·qe2+0(SB), R9
-    SBBQ ·qe2+8(SB), R10
-    SBBQ ·qe2+16(SB), R11
-    SBBQ ·qe2+24(SB), R12
-    SBBQ ·qe2+32(SB), R13
-    SBBQ ·qe2+40(SB), R14
-    CMOVQCC R9, CX
-    CMOVQCC R10, BX
-    CMOVQCC R11, BP
-    CMOVQCC R12, SI
-    CMOVQCC R13, DI
-    CMOVQCC R14, R8
-    MOVQ CX, 0(DX)
-    MOVQ BX, 8(DX)
-    MOVQ BP, 16(DX)
-    MOVQ SI, 24(DX)
-    MOVQ DI, 32(DX)
-    MOVQ R8, 40(DX)
-    MOVQ 48(AX), CX
-    MOVQ 56(AX), BX
-    MOVQ 64(AX), BP
-    MOVQ 72(AX), SI
-    MOVQ 80(AX), DI
-    MOVQ 88(AX), R8
-    ADDQ CX, CX
-    ADCQ BX, BX
-    ADCQ BP, BP
-    ADCQ SI, SI
-    ADCQ DI, DI
-    ADCQ R8, R8
-    MOVQ CX, R15
-    MOVQ BX, R9
-    MOVQ BP, R10
-    MOVQ SI, R11
-    MOVQ DI, R12
-    MOVQ R8, R13
-    SUBQ ·qe2+0(SB), R15
-    SBBQ ·qe2+8(SB), R9
-    SBBQ ·qe2+16(SB), R10
-    SBBQ ·qe2+24(SB), R11
-    SBBQ ·qe2+32(SB), R12
-    SBBQ ·qe2+40(SB), R13
-    CMOVQCC R15, CX
-    CMOVQCC R9, BX
-    CMOVQCC R10, BP
-    CMOVQCC R11, SI
-    CMOVQCC R12, DI
-    CMOVQCC R13, R8
-    MOVQ CX, 48(DX)
-    MOVQ BX, 56(DX)
-    MOVQ BP, 64(DX)
-    MOVQ SI, 72(DX)
-    MOVQ DI, 80(DX)
-    MOVQ R8, 88(DX)
     RET
 
 TEXT ·negE2(SB), NOSPLIT, $0-16

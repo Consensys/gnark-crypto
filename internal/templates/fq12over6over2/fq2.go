@@ -41,6 +41,7 @@ import (
 	"github.com/consensys/gurvy/{{toLower .CurveName}}/fp"
 )
 
+
 // e2 is a degree two finite field extension of fp.Element
 type e2 struct {
 	A0, A1 fp.Element
@@ -254,6 +255,73 @@ func (z *e2) Exp(x *e2, e big.Int) *e2 {
 
 		return z
 	}
+{{end}}
+
+
+
+
+
+`
+
+const Fq2Amd64 = `
+
+import "golang.org/x/sys/cpu"
+
+// supportAdx will be set only on amd64 that has MULX and ADDX instructions
+var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+
+// q (modulus)
+var qe2 = [{{.NbWords}}]uint64{
+	{{- range $i := .NbWordsIndexesFull}}
+	{{index $.Q $i}},{{end}}
+}
+
+// q'[0], see montgommery multiplication algorithm
+var qe2Inv0 uint64 = {{index $.QInverse 0}}
+
+
+//go:noescape
+func addE2(res,x,y *e2)
+
+//go:noescape
+func subE2(res,x,y *e2)
+
+//go:noescape
+func doubleE2(res,x *e2)
+
+//go:noescape
+func negE2(res,x *e2)
+
+{{if eq .CurveName "bn256"}}
+
+//go:noescape
+func mulNonResE2(res, x *e2)
+
+//go:noescape
+func squareAdxE2(res, x *e2)
+
+//go:noescape
+func mulAdxE2(res, x, y *e2)
+
+// MulByNonResidue multiplies a e2 by (9,1)
+func (z *e2) MulByNonResidue(x *e2) *e2 {
+	mulNonResE2(z, x)
+	return z
+}
+
+// Mul sets z to the e2-product of x,y, returns z
+func (z *e2) Mul(x, y *e2) *e2 {
+	mulAdxE2(z, x, y)
+	return z
+}
+
+// Square sets z to the e2-product of x,x, returns z
+func (z *e2) Square(x *e2) *e2 {
+	squareAdxE2(z, x)
+	return z
+}
+
+
 {{end}}
 
 `

@@ -25,6 +25,9 @@ It is actively developed and maintained by the team (zkteam@consensys.net) behin
 
 ## Getting started
 
+### Go version
+
+`gurvy` is tested with the last 2 major releases of Go (1.14 and 1.15).
 
 ### Install `gurvy` 
 
