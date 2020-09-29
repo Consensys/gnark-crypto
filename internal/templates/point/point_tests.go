@@ -307,7 +307,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
+	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "e2" }}
@@ -319,8 +319,8 @@ parameters := gopter.DefaultTestParameters()
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 {{ toLower .PointName}}JacExtended 
-			o1.mAdd(&p1Neg)
-			o2.mSub(&p1)
+			o1.add(&p1Neg)
+			o2.sub(&p1)
 
 			return 	o1.X.Equal(&o2.X) && 
 					o1.Y.Equal(&o2.Y) && 
@@ -726,7 +726,7 @@ func Benchmark{{ toUpper .PointName}}Add(b *testing.B) {
 	}
 }
 
-func Benchmark{{ toUpper .PointName}}mAdd(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}JacExtendedAdd(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
@@ -734,9 +734,45 @@ func Benchmark{{ toUpper .PointName}}mAdd(b *testing.B) {
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.mAdd(&c)
+		a.add(&c)
 	}
+}
 
+func Benchmark{{ toUpper .PointName}}JacExtendedSub(b *testing.B) {
+	var a {{ toLower .PointName}}JacExtended
+	a.double(&{{ toLower .PointName}}GenAff)
+
+	var c {{ toUpper .PointName}}Affine
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.sub(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtendedDouble(b *testing.B) {
+	var a {{ toLower .PointName}}JacExtended
+	a.double(&{{ toLower .PointName}}GenAff)
+
+	var c {{ toUpper .PointName}}Affine
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.double(&c)
+	}
+}
+
+
+func Benchmark{{ toUpper .PointName}}JacExtendedDoubleNeg(b *testing.B) {
+	var a {{ toLower .PointName}}JacExtended
+	a.double(&{{ toLower .PointName}}GenAff)
+
+	var c {{ toUpper .PointName}}Affine
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleNeg(&c)
+	}
 }
 
 func Benchmark{{ toUpper .PointName}}AddMixed(b *testing.B) {

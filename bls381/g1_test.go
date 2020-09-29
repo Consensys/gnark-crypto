@@ -239,7 +239,7 @@ func TestG1Ops(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BLS381] [Jacobian Extended] mAdd (-G) should equal mSub(G)", prop.ForAll(
+	properties.Property("[BLS381] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			var p1, p1Neg G1Affine
@@ -247,8 +247,8 @@ func TestG1Ops(t *testing.T) {
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 g1JacExtended
-			o1.mAdd(&p1Neg)
-			o2.mSub(&p1)
+			o1.add(&p1Neg)
+			o2.sub(&p1)
 
 			return o1.X.Equal(&o2.X) &&
 				o1.Y.Equal(&o2.Y) &&
@@ -1070,7 +1070,7 @@ func BenchmarkG1Add(b *testing.B) {
 	}
 }
 
-func BenchmarkG1mAdd(b *testing.B) {
+func BenchmarkG1JacExtendedAdd(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
@@ -1078,9 +1078,44 @@ func BenchmarkG1mAdd(b *testing.B) {
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.mAdd(&c)
+		a.add(&c)
 	}
+}
 
+func BenchmarkG1JacExtendedSub(b *testing.B) {
+	var a g1JacExtended
+	a.double(&g1GenAff)
+
+	var c G1Affine
+	c.FromJacobian(&g1Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.sub(&c)
+	}
+}
+
+func BenchmarkG1JacExtendedDouble(b *testing.B) {
+	var a g1JacExtended
+	a.double(&g1GenAff)
+
+	var c G1Affine
+	c.FromJacobian(&g1Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.double(&c)
+	}
+}
+
+func BenchmarkG1JacExtendedDoubleNeg(b *testing.B) {
+	var a g1JacExtended
+	a.double(&g1GenAff)
+
+	var c G1Affine
+	c.FromJacobian(&g1Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleNeg(&c)
+	}
 }
 
 func BenchmarkG1AddMixed(b *testing.B) {

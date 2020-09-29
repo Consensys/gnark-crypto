@@ -152,10 +152,10 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 		// if msbWindow bit is set, we need to substract
 		if bits & msbWindow == 0 {
 			// add 
-			buckets[bits-1].mAdd(&points[i])
+			buckets[bits-1].add(&points[i])
 		} else {
 			// sub
-			buckets[bits & ^msbWindow].mSub(&points[i])
+			buckets[bits & ^msbWindow].sub(&points[i])
 		}
 	}
 
@@ -185,33 +185,46 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	{{- $cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
+	
 	// for each chunk, spawn a go routine that'll loop through all the scalars
 	var chChunks [nbChunks]chan {{ toUpper $.PointName }}Jac
+
+	// wait group to wait for all the go routines to start
+	var wg sync.WaitGroup
+	
 	{{- if not $cDividesBits }}
 	// c doesn't divide {{$.RBitLen}}, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	chChunks[nbChunks-1] = make(chan {{ toUpper $.PointName }}Jac, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling 
+	wg.Add(1)
 	go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+		wg.Done()
 		var buckets [1<<(lastC-1)]{{ toLower $.PointName }}JacExtended
 		msmProcessChunk{{ toUpper $.PointName }}(j, chRes, buckets[:], c, points, scalars)
 		opt.chCpus <- struct{}{} // release token in the semaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-	{{- else}}
+	{{ else}}
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 	{{- end}}
 		chChunks[chunk] = make(chan {{ toUpper $.PointName }}Jac, 1)
 		<-opt.chCpus  // wait to have a cpu before scheduling 
+		wg.Add(1)
 		go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+			wg.Done()
 			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
 			msmProcessChunk{{ toUpper $.PointName }}(j, chRes,  buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
 		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
-	opt.lock.Unlock() // all my tasks are scheduled, I can let other func use avaiable tokens in the seamphroe
 
+	// wait for all goRoutines to actually start
+	wg.Wait()
+
+	// all my tasks are scheduled, I can let other func use avaiable tokens in the semaphore
+	opt.lock.Unlock() 
 	return msmReduceChunk{{ toUpper $.PointName }}(p, c, chChunks[:])
 }
 {{end}}
@@ -264,150 +277,39 @@ func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .Point
 }
 
 
-// mSub same as mAdd, but will negate a.Y 
+// sub same as add, but will negate a.Y 
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) mSub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
-		return p
-	}
-	// p is infinity, return a
-	if p.ZZ.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-		p.Y.Neg(&p.Y)
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
-		return p
-	}
-
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
-
-	// p2: a, p1: p
-	U2.Mul(&a.X, &p.ZZ)
-	S2.Mul(&a.Y, &p.ZZZ)
-	S2.Neg(&S2)
-
-
-	P.Sub(&U2, &p.X)
-	R.Sub(&S2, &p.Y)
-
-	pIsZero := P.IsZero()
-	rIsZero := R.IsZero()
-
-	if pIsZero && rIsZero {
-		return p.doubleNeg(a)
-	} else if pIsZero {
-		p.ZZ =  {{.CoordType}}{}
-		p.ZZZ =  {{.CoordType}}{}
-		return p
-	} 
-
-
-
-	PP.Square(&P)
-	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
-
-	return p
+func (p *{{ toLower .PointName }}JacExtended) sub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+	{{ template "add" dict "all" . "negate" true}}
 }
 
 
-// mAdd
+// add
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) mAdd(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
-		return p
-	}
-	// p is infinity, return a
-	if p.ZZ.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
-		return p
-	}
-
-	var U2, S2, P, R, PP, PPP, Q, Q2, RR, X3, Y3 {{.CoordType}}
-
-	// p2: a, p1: p
-	U2.Mul(&a.X, &p.ZZ)
-	S2.Mul(&a.Y, &p.ZZZ)
-
-	P.Sub(&U2, &p.X)
-	R.Sub(&S2, &p.Y)
-
-	pIsZero := P.IsZero()
-	rIsZero := R.IsZero()
-
-	if pIsZero && rIsZero {
-		return p.double(a)
-	} else if pIsZero {
-		p.ZZ = {{.CoordType}}{}
-		p.ZZZ = {{.CoordType}}{}
-		return p
-	} 
-
-	PP.Square(&P)
-	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
-
-	return p
+func (p *{{ toLower .PointName }}JacExtended) add(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+	{{ template "add" dict "all" . "negate" false}}
 }
 
 // doubleNeg same as double, but will negate q.Y
 func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
-
-	var U, S, M, _M, Y3 {{.CoordType}}
-
-	U.Double(&q.Y)
-	U.Neg(&U)
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-	U.Neg(&U)
-	p.Y.Sub(&Y3, &U)
-
-	return p
+	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+	{{ template "mDouble" dict "all" . "negate" false}}
+}
 
-	var U, S, M, _M, Y3 {{.CoordType}}
+
+{{define "mDouble" }}
+	var U, S, M, _M, Y3 {{.all.CoordType}}
 
 	U.Double(&q.Y)
+	{{if .negate}}
+		U.Neg(&U)
+	{{end}}
 	p.ZZ.Square(&U)
 	p.ZZZ.Mul(&U, &p.ZZ)
 	S.Mul(&q.X, &p.ZZ)
@@ -419,10 +321,77 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 		Sub(&p.X, &S)
 	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
 	U.Mul(&p.ZZZ, &q.Y)
-	p.Y.Sub(&Y3, &U)
+	{{if .negate}}
+		p.Y.Add(&Y3, &U)
+	{{else}}
+		p.Y.Sub(&Y3, &U)
+	{{end}}
 
 	return p
-}
+{{end}}
+
+{{define "add" }}
+	//if a is infinity return p
+	if a.X.IsZero() && a.Y.IsZero() {
+		return p
+	}
+	// p is infinity, return a
+	if p.ZZ.IsZero() {
+		p.X = a.X
+		p.Y = a.Y
+		{{if .negate}}
+		p.Y.Neg(&p.Y)
+		{{end}}
+		p.ZZ.SetOne()
+		p.ZZZ.SetOne()
+		return p
+	}
+
+	var P, R {{.all.CoordType}} 
+
+	// p2: a, p1: p
+	P.Mul(&a.X, &p.ZZ)
+	P.Sub(&P, &p.X)
+
+	R.Mul(&a.Y, &p.ZZZ)
+	{{if .negate}}
+		R.Neg(&R)
+	{{end}}
+	R.Sub(&R, &p.Y)
+
+	if P.IsZero() {
+		if R.IsZero() {
+			{{if .negate}}
+				return p.doubleNeg(a)
+			{{ else }}
+				return p.double(a)
+			{{end}}
+			
+		} else {
+			p.ZZ = {{.all.CoordType}}{}
+			p.ZZZ = {{.all.CoordType}}{}
+			return p
+		}
+	} 
+
+	var PP, PPP, Q, Q2, RR, X3, Y3 {{.all.CoordType}}
+
+
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&p.X, &PP)
+	RR.Square(&R)
+	X3.Sub(&RR, &PPP)
+	Q2.Double(&Q)
+	p.X.Sub(&X3, &Q2)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
+	R.Mul(&p.Y, &PPP)
+	p.Y.Sub(&Y3, &R)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
+
+	return p
+{{ end }}
 
 `
 
