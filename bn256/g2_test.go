@@ -1043,7 +1043,7 @@ func BenchmarkG2ScalarMul(b *testing.B) {
 	b.Run("double and add", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMultiplication(&g2Gen, &scalar)
+			doubleAndAdd.mulWindowed(&g2Gen, &scalar)
 		}
 	})
 

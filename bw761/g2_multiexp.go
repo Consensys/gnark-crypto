@@ -363,11 +363,10 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 
 			return p.doubleNeg(a)
 
-		} else {
-			p.ZZ = fp.Element{}
-			p.ZZZ = fp.Element{}
-			return p
 		}
+		p.ZZ = fp.Element{}
+		p.ZZZ = fp.Element{}
+		return p
 	}
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 fp.Element
@@ -422,11 +421,10 @@ func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
 
 			return p.double(a)
 
-		} else {
-			p.ZZ = fp.Element{}
-			p.ZZZ = fp.Element{}
-			return p
 		}
+		p.ZZ = fp.Element{}
+		p.ZZZ = fp.Element{}
+		return p
 	}
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 fp.Element

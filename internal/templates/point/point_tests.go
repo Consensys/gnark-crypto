@@ -690,7 +690,7 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 	b.Run("double and add", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMultiplication(&{{ toLower .PointName}}Gen, &scalar)
+			doubleAndAdd.mulWindowed(&{{ toLower .PointName}}Gen, &scalar)
 		}
 	})
 

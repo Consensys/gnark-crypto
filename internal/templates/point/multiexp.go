@@ -367,11 +367,10 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 				return p.double(a)
 			{{end}}
 			
-		} else {
-			p.ZZ = {{.all.CoordType}}{}
-			p.ZZZ = {{.all.CoordType}}{}
-			return p
-		}
+		} 
+		p.ZZ = {{.all.CoordType}}{}
+		p.ZZZ = {{.all.CoordType}}{}
+		return p
 	} 
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 {{.all.CoordType}}

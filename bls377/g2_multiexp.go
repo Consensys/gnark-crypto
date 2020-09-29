@@ -947,11 +947,10 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 
 			return p.doubleNeg(a)
 
-		} else {
-			p.ZZ = e2{}
-			p.ZZZ = e2{}
-			return p
 		}
+		p.ZZ = e2{}
+		p.ZZZ = e2{}
+		return p
 	}
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 e2
@@ -1006,11 +1005,10 @@ func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
 
 			return p.double(a)
 
-		} else {
-			p.ZZ = e2{}
-			p.ZZZ = e2{}
-			return p
 		}
+		p.ZZ = e2{}
+		p.ZZZ = e2{}
+		return p
 	}
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 e2
