@@ -471,18 +471,18 @@ func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper
 
 // mulGLV performs scalar multiplication using GLV
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *{{toUpper .PointName}}Jac) mulGLV(a *{{toUpper .PointName}}Jac, s *big.Int) *{{toUpper .PointName}}Jac {
+func (p *{{ toUpper .PointName}}Jac) mulGLV(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
 
-	var table [3]{{toUpper .PointName}}Jac
+	var table [15]{{ toUpper .PointName}}Jac
 	var zero big.Int
-	var res {{toUpper .PointName}}Jac
+	var res {{ toUpper .PointName}}Jac
 	var k1, k2 fr.Element
 
-	res.Set(&{{toLower .PointName}}Infinity)
+	res.Set(&{{ toLower .PointName}}Infinity)
 
-	// table stores [+-a, +-phi(a), +-a+-phi(a)]
+	// table[b3b2b1b0-1] = b3b2*phi(a) + b1b0*a
 	table[0].Set(a)
-	table[1].phi(a)
+	table[3].phi(a)
 
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := utils.SplitScalar(s, &glvBasis)
@@ -493,9 +493,24 @@ func (p *{{toUpper .PointName}}Jac) mulGLV(a *{{toUpper .PointName}}Jac, s *big.
 	}
 	if k[1].Cmp(&zero) == -1 {
 		k[1].Neg(&k[1])
-		table[1].Neg(&table[1])
+		table[3].Neg(&table[3])
 	}
-	table[2].Set(&table[0]).AddAssign(&table[1])
+
+	// precompute table (2 bits sliding window)
+	// table[b3b2b1b0-1] = b3b2*phi(a) + b1b0*a if b3b2b1b0 != 0
+	table[1].Double(&table[0])
+	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[4].Set(&table[3]).AddAssign(&table[0])
+	table[5].Set(&table[3]).AddAssign(&table[1])
+	table[6].Set(&table[3]).AddAssign(&table[2])
+	table[7].Double(&table[3])
+	table[8].Set(&table[7]).AddAssign(&table[0])
+	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[10].Set(&table[7]).AddAssign(&table[2])
+	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[12].Set(&table[11]).AddAssign(&table[0])
+	table[13].Set(&table[11]).AddAssign(&table[1])
+	table[14].Set(&table[11]).AddAssign(&table[2])
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
 	k1.SetBigInt(&k[0]).FromMont()
@@ -503,22 +518,23 @@ func (p *{{toUpper .PointName}}Jac) mulGLV(a *{{toUpper .PointName}}Jac, s *big.
 
 	// loop starts from len(k1)/2 due to the bounds
 	for i := len(k1)/2 - 1; i >= 0; i-- {
-		mask := uint64(1) << 63
-		for j := 0; j < 64; j++ {
-			res.Double(&res)
-			b1 := (k1[i] & mask) >> (63 - j)
-			b2 := (k2[i] & mask) >> (63 - j)
+		mask := uint64(3) << 62
+		for j := 0; j < 32; j++ {
+			res.Double(&res).Double(&res)
+			b1 := (k1[i] & mask) >> (62 - 2*j)
+			b2 := (k2[i] & mask) >> (62 - 2*j)
 			if b1|b2 != 0 {
-				s := (b2<<1 | b1)
+				s := (b2<<2 | b1)
 				res.AddAssign(&table[s-1])
 			}
-			mask = mask >> 1
+			mask = mask >> 2
 		}
 	}
 
 	p.Set(&res)
 	return p
 }
+
 
 {{ end }}
 
