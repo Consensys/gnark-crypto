@@ -49,7 +49,7 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 	// easy part
 	mt[0].Set(x)
 	var temp GT
-	temp.InverseUnitary(&mt[0])
+	temp.Conjugate(&mt[0])
 	mt[0].Inverse(&mt[0])
 	temp.Mul(&temp, &mt[0])
 	mt[0].FrobeniusSquare(&temp).
