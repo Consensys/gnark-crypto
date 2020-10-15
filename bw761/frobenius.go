@@ -46,7 +46,7 @@ func (z *GT) FrobeniusSquare(x *GT) *GT {
 func (z *GT) FrobeniusCube(x *GT) *GT {
 
 	z.B0.Conjugate(&x.B0)
-	z.B1.Conjugate(&x.B1).Neg(&z.B1)
+	z.B1.Conjugate(&x.B1).Neg(&z.B1) // Frob^3 on Fp^3 acts as a conjugation
 	z.B2.Conjugate(&x.B2)
 
 	return z
