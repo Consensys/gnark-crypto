@@ -28,10 +28,8 @@ github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghf
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/consensys/bavard v0.1.6 h1:mkiQ3dA49sHVSKS+c+L96VzY+eIMTKHg/AUqG99sgMQ=
 github.com/consensys/bavard v0.1.6/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
-github.com/consensys/goff v0.3.5 h1:VyrVvsOrfDm7Yitkz4w3phDkYtK8lMeEkGFAep6+mMw=
-github.com/consensys/goff v0.3.5/go.mod h1:1XDo6jmr1AJlDyCIvXU8IY9sFBxXMqaNWUtq+lDFdDc=
-github.com/consensys/goff v0.3.6-0.20201019211240-569687f532f9 h1:RIIIwWXbMz9BZCXgVEu3bIJEnPCywWQrJMg7YR5w+58=
-github.com/consensys/goff v0.3.6-0.20201019211240-569687f532f9/go.mod h1:1XDo6jmr1AJlDyCIvXU8IY9sFBxXMqaNWUtq+lDFdDc=
+github.com/consensys/goff v0.3.6 h1:B9kz2qzgu2lvwQBL/BJzKKx7r8mEIpS7iapS8o5rGxs=
+github.com/consensys/goff v0.3.6/go.mod h1:1XDo6jmr1AJlDyCIvXU8IY9sFBxXMqaNWUtq+lDFdDc=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
