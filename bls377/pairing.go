@@ -152,9 +152,9 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 func (z *GT) mulAssign(l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.mulByVW(z, &l.r1)
-	b.mulByV(z, &l.r0)
-	c.mulByV2W(z, &l.r2)
+	a.MulByVW(z, &l.r1)
+	b.MulByV(z, &l.r0)
+	c.MulByV2W(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -190,9 +190,9 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 	close(ch)
 }
 
-// mulByVW set z to x*(y*v*w) and return z
+// MulByVW set z to x*(y*v*w) and return z
 // here y*v*w means the GT element with C1.B1=y and all other components 0
-func (z *GT) mulByVW(x *GT, y *e2) *GT {
+func (z *GT) MulByVW(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
@@ -208,9 +208,9 @@ func (z *GT) mulByVW(x *GT, y *e2) *GT {
 	return z
 }
 
-// mulByV set z to x*(y*v) and return z
+// MulByV set z to x*(y*v) and return z
 // here y*v means the GT element with C0.B1=y and all other components 0
-func (z *GT) mulByV(x *GT, y *e2) *GT {
+func (z *GT) MulByV(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
@@ -226,9 +226,9 @@ func (z *GT) mulByV(x *GT, y *e2) *GT {
 	return z
 }
 
-// mulByV2W set z to x*(y*v^2*w) and return z
+// MulByV2W set z to x*(y*v^2*w) and return z
 // here y*v^2*w means the GT element with C1.B2=y and all other components 0
-func (z *GT) mulByV2W(x *GT, y *e2) *GT {
+func (z *GT) MulByV2W(x *GT, y *e2) *GT {
 
 	var result GT
 	var yNR e2
