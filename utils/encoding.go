@@ -27,10 +27,10 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	h := sha256.New()
 	ell := (lenInBytes + h.Size() - 1) / h.Size() // ceil(len_in_bytes / b_in_bytes)
 	if ell > 255 {
-		return nil, errors.New("Invalid lenInBytes")
+		return nil, errors.New("invalid lenInBytes")
 	}
 	if len(dst) > 255 {
-		return nil, errors.New("Invalid domain size (>255 bytes)")
+		return nil, errors.New("invalid domain size (>255 bytes)")
 	}
 	sizeDomain := uint8(len(dst))
 

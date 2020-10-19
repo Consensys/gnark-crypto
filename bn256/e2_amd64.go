@@ -19,7 +19,10 @@ package bn256
 import "golang.org/x/sys/cpu"
 
 // supportAdx will be set only on amd64 that has MULX and ADDX instructions
-var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+var (
+	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+	_          = supportAdx // used in asm
+)
 
 // q (modulus)
 var qe2 = [4]uint64{
@@ -30,7 +33,10 @@ var qe2 = [4]uint64{
 }
 
 // q'[0], see montgommery multiplication algorithm
-var qe2Inv0 uint64 = 9786893198990664585
+var (
+	qe2Inv0 uint64 = 9786893198990664585
+	_              = qe2Inv0 // used in asm
+)
 
 //go:noescape
 func addE2(res, x, y *e2)

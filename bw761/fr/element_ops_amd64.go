@@ -17,8 +17,10 @@
 package fr
 
 // q'[0], see montgommery multiplication algorithm
-// used in assembly code
-var qElementInv0 uint64 = 9586122913090633727
+var (
+	qElementInv0 uint64 = 9586122913090633727
+	_                   = qElementInv0 // used in asm
+)
 
 //go:noescape
 func add(res, x, y *Element)

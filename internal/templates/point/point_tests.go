@@ -528,7 +528,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt := NewCPUSemaphore(runtime.NumCPU())
 			opt.lock.Lock()
 			scalars := partitionScalars(sampleScalars[:], {{$c}})
 			result.msmC{{$c}}(samplePoints[:], scalars, opt)

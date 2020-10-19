@@ -246,7 +246,7 @@ func (z *GT) mulByV2W(x *GT, y *e2) *GT {
 
 // expt set z to x^t in GT and return z
 func (z *GT) expt(x *GT) *GT {
-	const tAbsVal uint64 = 9586122913090633729
+	// const tAbsVal uint64 = 9586122913090633729
 	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
 	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
 	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html

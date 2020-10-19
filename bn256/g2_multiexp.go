@@ -25,10 +25,9 @@ import (
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a MultiExpOptions struct
-// enabling to set
-// * max number of cpus to use
-func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*MultiExpOptions) *G2Jac {
+// optionally, takes as parameter a CPUSemaphore struct
+// enabling to set max number of cpus to use
+func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G2Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -55,40 +54,38 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*Multi
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *MultiExpOptions
+	var opt *CPUSemaphore
 	if len(opts) > 0 {
 		opt = opts[0]
 	} else {
-		opt = NewMultiExpOptions(runtime.NumCPU())
+		opt = NewCPUSemaphore(runtime.NumCPU())
 	}
 
-	if opt.c == 0 {
-		nbPoints := len(points)
+	var C uint64
+	nbPoints := len(points)
 
-		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
+	// implemented msmC methods (the c we use must be in this slice)
+	implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
 
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically.
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				opt.c = c
-			}
+	// approximate cost (in group operations)
+	// cost = bits/c * (nbPoints + 2^{c})
+	// this needs to be verified empirically.
+	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	min := math.MaxFloat64
+	for _, c := range implementedCs {
+		cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+		cost := float64(cc) / float64(c)
+		if cost < min {
+			min = cost
+			C = c
 		}
-
-		// empirical, needs to be tuned.
-
-		if opt.c > 16 && nbPoints < 1<<23 {
-			opt.c = 16
-		}
-
 	}
+
+	// empirical, needs to be tuned.
+
+	// if C > 16 && nbPoints < 1 << 23 {
+	// 	C = 16
+	// }
 
 	// take all the cpus to ourselves
 	opt.lock.Lock()
@@ -96,9 +93,9 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*Multi
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, opt.c)
+	scalars = partitionScalars(scalars, C)
 
-	switch opt.c {
+	switch C {
 
 	case 4:
 		return p.msmC4(points, scalars, opt)
@@ -231,7 +228,7 @@ func msmProcessChunkG2(chunk uint64,
 	close(chRes)
 }
 
-func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -260,7 +257,7 @@ func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 5                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -302,7 +299,7 @@ func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 6                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -344,7 +341,7 @@ func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 7                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -386,7 +383,7 @@ func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -415,7 +412,7 @@ func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 9                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -457,7 +454,7 @@ func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 10                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -499,7 +496,7 @@ func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 11                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -541,7 +538,7 @@ func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 12                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -583,7 +580,7 @@ func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 13                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -625,7 +622,7 @@ func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 14                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -667,7 +664,7 @@ func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 15                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -709,7 +706,7 @@ func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -738,7 +735,7 @@ func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 20                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -780,7 +777,7 @@ func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 21                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -822,7 +819,7 @@ func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *MultiExpOpt
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *MultiExpOptions) *G2Jac {
+func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *G2Jac {
 	const c = 22                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 

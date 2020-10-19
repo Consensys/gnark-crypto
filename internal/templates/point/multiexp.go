@@ -4,10 +4,9 @@ package point
 const MultiExpCore = `
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
-// optionally, takes as parameter a MultiExpOptions struct
-// enabling to set 
-// * max number of cpus to use
-func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*MultiExpOptions) *{{ toUpper .PointName }}Jac {
+// optionally, takes as parameter a CPUSemaphore struct
+// enabling to set max number of cpus to use
+func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toUpper .PointName }}Jac {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -34,46 +33,45 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *MultiExpOptions
+	var opt *CPUSemaphore
 	if len(opts) > 0 {
 		opt = opts[0]
 	} else {
-		opt = NewMultiExpOptions(runtime.NumCPU())
+		opt = NewCPUSemaphore(runtime.NumCPU())
 	}
 
-	if opt.c == 0 {
-		nbPoints := len(points)
-	
-		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{
-			{{- range $c :=  .CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
-		}
-	
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically. 
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c-1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				opt.c = c 
-			}
-		}
+	var C uint64
+	nbPoints := len(points)
 
-		// empirical, needs to be tuned.
-		{{if eq .PointName "g1"}}
-		if opt.c > 16 && nbPoints < 1 << 23 {
-			opt.c = 16
-		} 
-		{{else}}
-		if opt.c > 16 && nbPoints < 1 << 23 {
-			opt.c = 16
-		}
-		{{end}}
+	// implemented msmC methods (the c we use must be in this slice)
+	implementedCs := []uint64{
+		{{- range $c :=  .CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
 	}
+
+	// approximate cost (in group operations)
+	// cost = bits/c * (nbPoints + 2^{c})
+	// this needs to be verified empirically. 
+	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	min := math.MaxFloat64
+	for _, c := range implementedCs {
+		cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+		cost := float64(cc) / float64(c)
+		if cost < min {
+			min = cost
+			C = c 
+		}
+	}
+
+	// empirical, needs to be tuned.
+	{{if eq .PointName "g1"}}
+	// if C > 16 && nbPoints < 1 << 23 {
+	// 	C = 16
+	// } 
+	{{else}}
+	// if C > 16 && nbPoints < 1 << 23 {
+	// 	C = 16
+	// }
+	{{end}}
 	
 
 
@@ -83,9 +81,9 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// partition the scalars 
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, opt.c)
+	scalars = partitionScalars(scalars, C)
 
-	switch opt.c {
+	switch C {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
 		return p.msmC{{$c}}(points, scalars, opt)	
@@ -181,7 +179,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 
 {{range $c :=  .CRange}}
 
-func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, opt *MultiExpOptions) *{{ toUpper $.PointName }}Jac {
+func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, opt *CPUSemaphore) *{{ toUpper $.PointName }}Jac {
 	{{- $cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
@@ -401,18 +399,18 @@ import (
 	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
 )
 
-// MultiExpOptions enables users to set optional parameters to the multiexp
-type MultiExpOptions struct {
-	c uint64
+// CPUSemaphore enables users to set optional number of CPUs the multiexp will use
+// this is thread safe and can be used accross parallel calls of gurvy.MultiExp 
+type CPUSemaphore struct {
 	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 	lock sync.Mutex 
 }
 
-// NewMultiExpOptions returns a new multiExp options to be used with MultiExp
+// NewCPUSemaphore returns a new multiExp options to be used with MultiExp
 // this option can be shared between different MultiExp calls and will ensure only numCpus are used
 // through a semaphore
-func NewMultiExpOptions(numCpus int) *MultiExpOptions {
-	toReturn := &MultiExpOptions{
+func NewCPUSemaphore(numCpus int) *CPUSemaphore {
+	toReturn := &CPUSemaphore{
 		chCpus: make(chan struct{}, numCpus),
 	}
 	for i:=0; i < numCpus; i++ {

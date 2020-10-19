@@ -26,10 +26,9 @@ import (
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a MultiExpOptions struct
-// enabling to set
-// * max number of cpus to use
-func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*MultiExpOptions) *G1Jac {
+// optionally, takes as parameter a CPUSemaphore struct
+// enabling to set max number of cpus to use
+func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G1Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -56,40 +55,38 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*Multi
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *MultiExpOptions
+	var opt *CPUSemaphore
 	if len(opts) > 0 {
 		opt = opts[0]
 	} else {
-		opt = NewMultiExpOptions(runtime.NumCPU())
+		opt = NewCPUSemaphore(runtime.NumCPU())
 	}
 
-	if opt.c == 0 {
-		nbPoints := len(points)
+	var C uint64
+	nbPoints := len(points)
 
-		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 8, 16}
+	// implemented msmC methods (the c we use must be in this slice)
+	implementedCs := []uint64{4, 8, 16}
 
-		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c-1})
-		// this needs to be verified empirically.
-		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-		min := math.MaxFloat64
-		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c - 1)))
-			cost := float64(cc) / float64(c)
-			if cost < min {
-				min = cost
-				opt.c = c
-			}
+	// approximate cost (in group operations)
+	// cost = bits/c * (nbPoints + 2^{c})
+	// this needs to be verified empirically.
+	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+	min := math.MaxFloat64
+	for _, c := range implementedCs {
+		cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+		cost := float64(cc) / float64(c)
+		if cost < min {
+			min = cost
+			C = c
 		}
-
-		// empirical, needs to be tuned.
-
-		if opt.c > 16 && nbPoints < 1<<23 {
-			opt.c = 16
-		}
-
 	}
+
+	// empirical, needs to be tuned.
+
+	// if C > 16 && nbPoints < 1 << 23 {
+	// 	C = 16
+	// }
 
 	// take all the cpus to ourselves
 	opt.lock.Lock()
@@ -97,9 +94,9 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*Multi
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, opt.c)
+	scalars = partitionScalars(scalars, C)
 
-	switch opt.c {
+	switch C {
 
 	case 4:
 		return p.msmC4(points, scalars, opt)
@@ -193,7 +190,7 @@ func msmProcessChunkG1(chunk uint64,
 	close(chRes)
 }
 
-func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, opt *MultiExpOptions) *G1Jac {
+func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -222,7 +219,7 @@ func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, opt *MultiExpOptions) *G1Jac {
+func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -251,7 +248,7 @@ func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, opt *MultiExpOpti
 	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, opt *MultiExpOptions) *G1Jac {
+func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 

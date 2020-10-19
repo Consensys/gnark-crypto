@@ -48,10 +48,7 @@ func sign0(u fp.Element) bool {
 	u.ToBigIntRegular(&a)
 	u.Neg(&u)
 	u.ToBigIntRegular(&b)
-	if a.Cmp(&b) >= 0 {
-		return false
-	}
-	return true
+	return a.Cmp(&b) <= 0
 }
 
 // ----------------------------------------------------------------------------------------

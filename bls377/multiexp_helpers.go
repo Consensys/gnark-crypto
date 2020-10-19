@@ -23,18 +23,18 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// MultiExpOptions enables users to set optional parameters to the multiexp
-type MultiExpOptions struct {
-	c      uint64
+// CPUSemaphore enables users to set optional number of CPUs the multiexp will use
+// this is thread safe and can be used accross parallel calls of gurvy.MultiExp
+type CPUSemaphore struct {
 	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 	lock   sync.Mutex
 }
 
-// NewMultiExpOptions returns a new multiExp options to be used with MultiExp
+// NewCPUSemaphore returns a new multiExp options to be used with MultiExp
 // this option can be shared between different MultiExp calls and will ensure only numCpus are used
 // through a semaphore
-func NewMultiExpOptions(numCpus int) *MultiExpOptions {
-	toReturn := &MultiExpOptions{
+func NewCPUSemaphore(numCpus int) *CPUSemaphore {
+	toReturn := &CPUSemaphore{
 		chCpus: make(chan struct{}, numCpus),
 	}
 	for i := 0; i < numCpus; i++ {

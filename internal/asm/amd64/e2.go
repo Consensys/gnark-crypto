@@ -45,7 +45,7 @@ func (fq2 *Fq2Amd64) Generate() error {
 	fq2.generateSubE2()
 	fq2.generateNegE2()
 
-	if "bn256" == strings.ToLower(fq2.curveName) {
+	if strings.ToLower(fq2.curveName) == "bn256" {
 		fq2.generateMulE2BN256()
 		fq2.generateSquareE2BN256()
 		fq2.generateMulByNonResidueE2BN256()

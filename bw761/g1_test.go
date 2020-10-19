@@ -430,7 +430,7 @@ func TestG1MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt := NewCPUSemaphore(runtime.NumCPU())
 			opt.lock.Lock()
 			scalars := partitionScalars(sampleScalars[:], 4)
 			result.msmC4(samplePoints[:], scalars, opt)
@@ -460,7 +460,7 @@ func TestG1MultiExp(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			opt := NewMultiExpOptions(runtime.NumCPU())
+			opt := NewCPUSemaphore(runtime.NumCPU())
 			opt.lock.Lock()
 			scalars := partitionScalars(sampleScalars[:], 8)
 			result.msmC8(samplePoints[:], scalars, opt)
@@ -492,7 +492,7 @@ func TestG1MultiExp(t *testing.T) {
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewMultiExpOptions(runtime.NumCPU())
+				opt := NewCPUSemaphore(runtime.NumCPU())
 				opt.lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 16)
 				result.msmC16(samplePoints[:], scalars, opt)
