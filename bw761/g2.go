@@ -599,7 +599,6 @@ const SizeG2Uncompressed = SizeG2Compressed * 2
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
-// in both cases, coordinates are stored raw (in montgomery form: TODO WIP)
 func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 
 	// check buffer size
@@ -620,14 +619,14 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 		return nil
 	}
 
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
 	var mswMask uint64
 	if compressed {
 		// compressed, we need to know if Y is lexicographically bigger than -Y
-		var negY fp.Element
-		negY.Neg(&p.Y)
-
 		// if p.Y ">" -p.Y
-		if p.Y.Cmp(&negY) == 1 {
+		if p.Y.LexicographicallyLargest() {
 			mswMask = mCompressedLargest
 		} else {
 			mswMask = mCompressedSmallest
@@ -637,34 +636,38 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 		// not compressed
 		mswMask = mUncompressed
 		// we store the Y coordinate
-		binary.BigEndian.PutUint64(buf[184:192], p.Y[0])
-		binary.BigEndian.PutUint64(buf[176:184], p.Y[1])
-		binary.BigEndian.PutUint64(buf[168:176], p.Y[2])
-		binary.BigEndian.PutUint64(buf[160:168], p.Y[3])
-		binary.BigEndian.PutUint64(buf[152:160], p.Y[4])
-		binary.BigEndian.PutUint64(buf[144:152], p.Y[5])
-		binary.BigEndian.PutUint64(buf[136:144], p.Y[6])
-		binary.BigEndian.PutUint64(buf[128:136], p.Y[7])
-		binary.BigEndian.PutUint64(buf[120:128], p.Y[8])
-		binary.BigEndian.PutUint64(buf[112:120], p.Y[9])
-		binary.BigEndian.PutUint64(buf[104:112], p.Y[10])
-		binary.BigEndian.PutUint64(buf[96:104], p.Y[11])
+		tmp = p.Y
+		tmp.FromMont()
+		binary.BigEndian.PutUint64(buf[184:192], tmp[0])
+		binary.BigEndian.PutUint64(buf[176:184], tmp[1])
+		binary.BigEndian.PutUint64(buf[168:176], tmp[2])
+		binary.BigEndian.PutUint64(buf[160:168], tmp[3])
+		binary.BigEndian.PutUint64(buf[152:160], tmp[4])
+		binary.BigEndian.PutUint64(buf[144:152], tmp[5])
+		binary.BigEndian.PutUint64(buf[136:144], tmp[6])
+		binary.BigEndian.PutUint64(buf[128:136], tmp[7])
+		binary.BigEndian.PutUint64(buf[120:128], tmp[8])
+		binary.BigEndian.PutUint64(buf[112:120], tmp[9])
+		binary.BigEndian.PutUint64(buf[104:112], tmp[10])
+		binary.BigEndian.PutUint64(buf[96:104], tmp[11])
 
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	binary.BigEndian.PutUint64(buf[88:96], p.X[0])
-	binary.BigEndian.PutUint64(buf[80:88], p.X[1])
-	binary.BigEndian.PutUint64(buf[72:80], p.X[2])
-	binary.BigEndian.PutUint64(buf[64:72], p.X[3])
-	binary.BigEndian.PutUint64(buf[56:64], p.X[4])
-	binary.BigEndian.PutUint64(buf[48:56], p.X[5])
-	binary.BigEndian.PutUint64(buf[40:48], p.X[6])
-	binary.BigEndian.PutUint64(buf[32:40], p.X[7])
-	binary.BigEndian.PutUint64(buf[24:32], p.X[8])
-	binary.BigEndian.PutUint64(buf[16:24], p.X[9])
-	binary.BigEndian.PutUint64(buf[8:16], p.X[10])
-	binary.BigEndian.PutUint64(buf[0:8], p.X[11]|mswMask)
+	tmp = p.X
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(buf[88:96], tmp[0])
+	binary.BigEndian.PutUint64(buf[80:88], tmp[1])
+	binary.BigEndian.PutUint64(buf[72:80], tmp[2])
+	binary.BigEndian.PutUint64(buf[64:72], tmp[3])
+	binary.BigEndian.PutUint64(buf[56:64], tmp[4])
+	binary.BigEndian.PutUint64(buf[48:56], tmp[5])
+	binary.BigEndian.PutUint64(buf[40:48], tmp[6])
+	binary.BigEndian.PutUint64(buf[32:40], tmp[7])
+	binary.BigEndian.PutUint64(buf[24:32], tmp[8])
+	binary.BigEndian.PutUint64(buf[16:24], tmp[9])
+	binary.BigEndian.PutUint64(buf[8:16], tmp[10])
+	binary.BigEndian.PutUint64(buf[0:8], tmp[11]|mswMask)
 
 	return nil
 }
@@ -700,41 +703,48 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 		return nil
 	}
 
+	// tmp is used to convert to montgomery representation
+	var tmp fp.Element
+
 	// read X coordinate
-	p.X[0] = binary.BigEndian.Uint64(buf[88:96])
-	p.X[1] = binary.BigEndian.Uint64(buf[80:88])
-	p.X[2] = binary.BigEndian.Uint64(buf[72:80])
-	p.X[3] = binary.BigEndian.Uint64(buf[64:72])
-	p.X[4] = binary.BigEndian.Uint64(buf[56:64])
-	p.X[5] = binary.BigEndian.Uint64(buf[48:56])
-	p.X[6] = binary.BigEndian.Uint64(buf[40:48])
-	p.X[7] = binary.BigEndian.Uint64(buf[32:40])
-	p.X[8] = binary.BigEndian.Uint64(buf[24:32])
-	p.X[9] = binary.BigEndian.Uint64(buf[16:24])
-	p.X[10] = binary.BigEndian.Uint64(buf[8:16])
-	p.X[11] = msw & ^mMask
+	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
+	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
+	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
+	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
+	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
+	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
+	tmp[6] = binary.BigEndian.Uint64(buf[40:48])
+	tmp[7] = binary.BigEndian.Uint64(buf[32:40])
+	tmp[8] = binary.BigEndian.Uint64(buf[24:32])
+	tmp[9] = binary.BigEndian.Uint64(buf[16:24])
+	tmp[10] = binary.BigEndian.Uint64(buf[8:16])
+	tmp[11] = msw & ^mMask
+	tmp.ToMont()
+	p.X.Set(&tmp)
 
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-		p.Y[0] = binary.BigEndian.Uint64(buf[184:192])
-		p.Y[1] = binary.BigEndian.Uint64(buf[176:184])
-		p.Y[2] = binary.BigEndian.Uint64(buf[168:176])
-		p.Y[3] = binary.BigEndian.Uint64(buf[160:168])
-		p.Y[4] = binary.BigEndian.Uint64(buf[152:160])
-		p.Y[5] = binary.BigEndian.Uint64(buf[144:152])
-		p.Y[6] = binary.BigEndian.Uint64(buf[136:144])
-		p.Y[7] = binary.BigEndian.Uint64(buf[128:136])
-		p.Y[8] = binary.BigEndian.Uint64(buf[120:128])
-		p.Y[9] = binary.BigEndian.Uint64(buf[112:120])
-		p.Y[10] = binary.BigEndian.Uint64(buf[104:112])
-		p.Y[11] = binary.BigEndian.Uint64(buf[96:104])
+		tmp[0] = binary.BigEndian.Uint64(buf[184:192])
+		tmp[1] = binary.BigEndian.Uint64(buf[176:184])
+		tmp[2] = binary.BigEndian.Uint64(buf[168:176])
+		tmp[3] = binary.BigEndian.Uint64(buf[160:168])
+		tmp[4] = binary.BigEndian.Uint64(buf[152:160])
+		tmp[5] = binary.BigEndian.Uint64(buf[144:152])
+		tmp[6] = binary.BigEndian.Uint64(buf[136:144])
+		tmp[7] = binary.BigEndian.Uint64(buf[128:136])
+		tmp[8] = binary.BigEndian.Uint64(buf[120:128])
+		tmp[9] = binary.BigEndian.Uint64(buf[112:120])
+		tmp[10] = binary.BigEndian.Uint64(buf[104:112])
+		tmp[11] = binary.BigEndian.Uint64(buf[96:104])
+		tmp.ToMont()
+		p.Y.Set(&tmp)
 
 		return nil
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y, negY fp.Element
+	var YSquared, Y fp.Element
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
@@ -742,23 +752,19 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 		return errors.New("invalid compressed coordinate: square root doesn't exist.")
 	}
 
-	negY.Neg(&Y)
-
-	if Y.Cmp(&negY) == 1 {
+	if Y.LexicographicallyLargest() {
 		// Y ">" -Y
 		if mData == mCompressedSmallest {
-			p.Y = negY
-		} else {
-			p.Y = Y
+			Y.Neg(&Y)
 		}
 	} else {
 		// Y "<=" -Y
 		if mData == mCompressedLargest {
-			p.Y = negY
-		} else {
-			p.Y = Y
+			Y.Neg(&Y)
 		}
 	}
+
+	p.Y = Y
 
 	return nil
 }

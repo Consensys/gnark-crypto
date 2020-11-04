@@ -758,7 +758,6 @@ const Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Com
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 {{- end}}
-// in both cases, coordinates are stored raw (in montgomery form: TODO WIP)
 func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) error {
 
 	// check buffer size
@@ -779,14 +778,14 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 		return nil
 	}
 
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
 	var mswMask uint64
 	if compressed {
 		// compressed, we need to know if Y is lexicographically bigger than -Y
-		var negY {{ .CoordType }}
-		negY.Neg(&p.Y)
-
 		// if p.Y ">" -p.Y 
-		if p.Y.Cmp(&negY) == 1 { 
+		if p.Y.LexicographicallyLargest() { 
 			mswMask = mCompressedLargest
 		} else {
 			mswMask = mCompressedSmallest
@@ -854,6 +853,9 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 		return nil
 	}
 
+	// tmp is used to convert to montgomery representation
+	var tmp fp.Element
+
 	// read X coordinate
 	{{- if eq .CoordType "e2"}}
 		// p.X.A0 | p.X.A1 
@@ -883,7 +885,7 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y, negY {{.CoordType}}
+	var YSquared, Y {{.CoordType}}
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
@@ -899,29 +901,28 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 		}
 	{{- end}}
 
-	negY.Neg(&Y)
-
-	if Y.Cmp(&negY) == 1 { 
+	
+	if Y.LexicographicallyLargest()  { 
 		// Y ">" -Y
 		if mData == mCompressedSmallest {
-			p.Y = negY
-		} else {
-			p.Y = Y
+			Y.Neg(&Y)
 		}
 	} else {
 		// Y "<=" -Y
 		if mData == mCompressedLargest {
-			p.Y = negY
-		} else {
-			p.Y = Y
+			Y.Neg(&Y)
 		}
 	}
+
+	p.Y = Y
 
 	return nil 
 }
 
 
 {{define "putFp"}}
+	tmp = {{$.From}}
+	tmp.FromMont() 
 	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
 			{{- $j := mul $i 8}}
 			{{- $j := add $j $.OffSet}}
@@ -930,12 +931,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 			{{- $jj := add $j 8}}
 			{{- if eq $.OffSet 0}}
 				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
-					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}] | mswMask)
+					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}] | mswMask)
 				{{- else}}
-					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
+					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}])
 				{{- end}}
 			{{- else}}
-				binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
+				binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}])
 			{{- end}}
 			
 	{{- end}}
@@ -950,14 +951,16 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 			{{- $jj := add $j 8}}
 			{{- if eq $.OffSet 0}}
 				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
-					{{$.To}}[{{$k}}] = msw & ^mMask
+					tmp[{{$k}}] = msw & ^mMask
 				{{- else}}
-					{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
+					tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
 				{{- end}}
 			{{- else}}
-				{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
+				tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
 			{{- end}}
 	{{- end}}
+	tmp.ToMont()
+	{{$.To}}.Set(&tmp)
 {{end}}
 
 `
