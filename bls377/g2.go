@@ -641,8 +641,8 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 		// not compressed
 		mswMask = mUncompressed
 		// we store the Y coordinate
-		// p.Y.A0 | p.Y.A1
-		tmp = p.Y.A1
+		// p.Y.A1 | p.Y.A0
+		tmp = p.Y.A0
 		tmp.FromMont()
 		binary.BigEndian.PutUint64(buf[184:192], tmp[0])
 		binary.BigEndian.PutUint64(buf[176:184], tmp[1])
@@ -651,7 +651,7 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 		binary.BigEndian.PutUint64(buf[152:160], tmp[4])
 		binary.BigEndian.PutUint64(buf[144:152], tmp[5])
 
-		tmp = p.Y.A0
+		tmp = p.Y.A1
 		tmp.FromMont()
 		binary.BigEndian.PutUint64(buf[136:144], tmp[0])
 		binary.BigEndian.PutUint64(buf[128:136], tmp[1])
@@ -663,8 +663,8 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A0 | p.X.A1
-	tmp = p.X.A1
+	// p.X.A1 | p.X.A0
+	tmp = p.X.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(buf[88:96], tmp[0])
 	binary.BigEndian.PutUint64(buf[80:88], tmp[1])
@@ -673,7 +673,7 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 	binary.BigEndian.PutUint64(buf[56:64], tmp[4])
 	binary.BigEndian.PutUint64(buf[48:56], tmp[5])
 
-	tmp = p.X.A0
+	tmp = p.X.A1
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(buf[40:48], tmp[0])
 	binary.BigEndian.PutUint64(buf[32:40], tmp[1])
@@ -720,7 +720,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 	var tmp fp.Element
 
 	// read X coordinate
-	// p.X.A0 | p.X.A1
+	// p.X.A1 | p.X.A0
 	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
 	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
 	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
@@ -728,7 +728,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
 	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
 	tmp.ToMont()
-	p.X.A1.Set(&tmp)
+	p.X.A0.Set(&tmp)
 
 	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
 	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
@@ -737,12 +737,12 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
 	tmp[5] = msw & ^mMask
 	tmp.ToMont()
-	p.X.A0.Set(&tmp)
+	p.X.A1.Set(&tmp)
 
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-		// p.Y.A0 | p.Y.A1
+		// p.Y.A1 | p.Y.A0
 		tmp[0] = binary.BigEndian.Uint64(buf[184:192])
 		tmp[1] = binary.BigEndian.Uint64(buf[176:184])
 		tmp[2] = binary.BigEndian.Uint64(buf[168:176])
@@ -750,7 +750,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 		tmp[4] = binary.BigEndian.Uint64(buf[152:160])
 		tmp[5] = binary.BigEndian.Uint64(buf[144:152])
 		tmp.ToMont()
-		p.Y.A1.Set(&tmp)
+		p.Y.A0.Set(&tmp)
 
 		tmp[0] = binary.BigEndian.Uint64(buf[136:144])
 		tmp[1] = binary.BigEndian.Uint64(buf[128:136])
@@ -759,7 +759,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 		tmp[4] = binary.BigEndian.Uint64(buf[104:112])
 		tmp[5] = binary.BigEndian.Uint64(buf[96:104])
 		tmp.ToMont()
-		p.Y.A0.Set(&tmp)
+		p.Y.A1.Set(&tmp)
 
 		return nil
 	}

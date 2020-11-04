@@ -796,13 +796,12 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 		mswMask = mUncompressed
 		// we store the Y coordinate
 		{{- if eq .CoordType "e2"}}
-			// p.Y.A0 | p.Y.A1
+			// p.Y.A1 | p.Y.A0
 			{{- $offset := mul $sizeOfFp 3}}
-			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
-
-			{{- $offset := sub $offset $sizeOfFp}}
 			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
-			
+
+			{{- $offset := mul $sizeOfFp 2}}
+			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
 		{{- else}}
 			{{- template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
 		{{- end}}
@@ -810,10 +809,10 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq .CoordType "e2"}}
-		// p.X.A0 | p.X.A1
+		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
-		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A1"}}
-		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A0"}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
+		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A1"}}
 	{{- else}}
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -858,10 +857,10 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 
 	// read X coordinate
 	{{- if eq .CoordType "e2"}}
-		// p.X.A0 | p.X.A1 
+		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
-		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A1"}}
-		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A0"}}
+		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
 	{{- else}}
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
 	{{- end}}
@@ -870,12 +869,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 	if mData == mUncompressed {
 		// read Y coordinate
 		{{- if eq .CoordType "e2"}}
-			// p.Y.A0 | p.Y.A1
+			// p.Y.A1 | p.Y.A0
 			{{- $offset := mul $sizeOfFp 3}}
-			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
-
-			{{- $offset := sub $offset $sizeOfFp}}
 			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
+
+			{{- $offset := mul $sizeOfFp 2}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
 			
 		{{- else}}
 			{{- template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
