@@ -213,4 +213,131 @@ func (z *e12) Conjugate(x *e12) *e12 {
 	return z
 }
 
+
+{{- $sizeOfFp := mul .Fp.NbWords 8}}
+
+// sizeGT represents the size in bytes that a GT element need in binary form
+const sizeGT = {{ $sizeOfFp }} * 12
+
+// Bytes returns the regular (non montgomery) value 
+// of z as a big-endian byte slice.
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+func (z *e12) Bytes() []byte {
+	var r [sizeGT]byte
+
+	_z := *z
+	_z.FromMont()
+
+	{{- $offset := mul $sizeOfFp 11}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B0.A0"}}
+	
+	{{- $offset := mul $sizeOfFp 10}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B0.A1"}}
+
+	{{- $offset := mul $sizeOfFp 9}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B1.A0"}}
+
+	{{- $offset := mul $sizeOfFp 8}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B1.A1"}}
+
+	{{- $offset := mul $sizeOfFp 7}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B2.A0"}}
+	
+	{{- $offset := mul $sizeOfFp 6}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B2.A1"}}
+
+	{{- $offset := mul $sizeOfFp 5}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B0.A0"}}
+
+	{{- $offset := mul $sizeOfFp 4}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B0.A1"}}
+
+	{{- $offset := mul $sizeOfFp 3}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B1.A0"}}
+
+	{{- $offset := mul $sizeOfFp 2}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B1.A1"}}
+
+	{{- $offset := mul $sizeOfFp 1}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B2.A0"}}
+
+	{{- $offset := mul $sizeOfFp 0}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B2.A1"}}
+
+	return r[:]
+}
+
+
+// SetBytes interprets e as the bytes of a big-endian GT 
+// sets z to that value (in Montgomery form), and returns z.
+// size(e) == {{ $sizeOfFp }} * 12
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+func (z *e12) SetBytes(e []byte) error {
+	if len(e) != sizeGT {
+		return errors.New("invalid buffer size")
+	}
+
+	{{- $offset := mul $sizeOfFp 11}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B0.A0"}}
+	
+	{{- $offset := mul $sizeOfFp 10}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B0.A1"}}
+
+	{{- $offset := mul $sizeOfFp 9}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B1.A0"}}
+
+	{{- $offset := mul $sizeOfFp 8}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B1.A1"}}
+
+	{{- $offset := mul $sizeOfFp 7}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B2.A0"}}
+	
+	{{- $offset := mul $sizeOfFp 6}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C0.B2.A1"}}
+
+	{{- $offset := mul $sizeOfFp 5}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B0.A0"}}
+
+	{{- $offset := mul $sizeOfFp 4}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B0.A1"}}
+
+	{{- $offset := mul $sizeOfFp 3}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B1.A0"}}
+
+	{{- $offset := mul $sizeOfFp 2}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B1.A1"}}
+
+	{{- $offset := mul $sizeOfFp 1}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B2.A0"}}
+
+	{{- $offset := mul $sizeOfFp 0}}
+	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B2.A1"}}
+
+	z.ToMont()
+
+	return nil
+}
+
+{{define "putFp"}}
+	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+			{{- $j := mul $i 8}}
+			{{- $j := add $j $.OffSet}}
+			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $k $i}}
+			{{- $jj := add $j 8}}
+			binary.BigEndian.PutUint64(r[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
+	{{- end}}
+{{end}}
+
+{{define "readFp"}}
+	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+			{{- $j := mul $i 8}}
+			{{- $j := add $j $.OffSet}}
+			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $k $i}}
+			{{- $jj := add $j 8}}
+			{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(e[{{$j}}:{{$jj}}])
+	{{- end}}
+{{end}}
+
 `

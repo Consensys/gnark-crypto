@@ -15,6 +15,30 @@ import (
 // ------------------------------------------------------------
 // tests
 
+func TestE12Serialization(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE12()
+
+	properties.Property("[{{ toUpper .CurveName}}] SetBytes(Bytes()) should stay constant", prop.ForAll(
+		func(a *e12) bool {
+			var b e12
+			buf := a.Bytes()
+			if err := b.SetBytes(buf); err != nil {
+				return false
+			}
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestE12ReceiverIsOperand(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

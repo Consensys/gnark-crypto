@@ -93,6 +93,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		NbWords            int
 		NbWordsIndexesFull []int
 		Q, QInverse        []uint64
+		Fp                 field.Field
 	}
 
 	e2conf := e2Config{
@@ -101,6 +102,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		NbWordsIndexesFull: F.NbWordsIndexesFull,
 		Q:                  F.Q,
 		QInverse:           F.QInverse,
+		Fp:                 *F,
 	}
 
 	bavardOpts := []func(*bavard.Bavard) error{
@@ -224,7 +226,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 
 		pathSrc := filepath.Join(conf.OutputDir, "e12.go")
 
-		if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		if err := bavard.Generate(pathSrc, src, e2conf, bavardOpts...); err != nil {
 			return err
 		}
 	}
