@@ -63,6 +63,16 @@ var endo struct {
 // generator of the curve
 var xGen big.Int
 
+// we have less than 3 bits available on the msw, so we can't follow bls381 style encoding.
+// the difference is the case where a point is infinity and uncompressed is not flagged
+const (
+	mMask               uint64 = 0b11 << 62
+	mUncompressed       uint64 = 0b00 << 62
+	mCompressedSmallest uint64 = 0b10 << 62
+	mCompressedLargest  uint64 = 0b11 << 62
+	mCompressedInfinity uint64 = 0b01 << 62
+)
+
 func init() {
 
 	bCurveCoeff.SetUint64(3)

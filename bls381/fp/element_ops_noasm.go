@@ -24,8 +24,6 @@ package fp
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
-import "math/bits"
-
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }
@@ -41,95 +39,21 @@ func fromMont(z *Element) {
 }
 
 func add(z, x, y *Element) {
-	var carry uint64
-
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	z[1], carry = bits.Add64(x[1], y[1], carry)
-	z[2], carry = bits.Add64(x[2], y[2], carry)
-	z[3], carry = bits.Add64(x[3], y[3], carry)
-	z[4], carry = bits.Add64(x[4], y[4], carry)
-	z[5], _ = bits.Add64(x[5], y[5], carry)
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 1873798617647539866 || (z[5] == 1873798617647539866 && (z[4] < 5412103778470702295 || (z[4] == 5412103778470702295 && (z[3] < 7239337960414712511 || (z[3] == 7239337960414712511 && (z[2] < 7435674573564081700 || (z[2] == 7435674573564081700 && (z[1] < 2210141511517208575 || (z[1] == 2210141511517208575 && (z[0] < 13402431016077863595))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 13402431016077863595, 0)
-		z[1], b = bits.Sub64(z[1], 2210141511517208575, b)
-		z[2], b = bits.Sub64(z[2], 7435674573564081700, b)
-		z[3], b = bits.Sub64(z[3], 7239337960414712511, b)
-		z[4], b = bits.Sub64(z[4], 5412103778470702295, b)
-		z[5], _ = bits.Sub64(z[5], 1873798617647539866, b)
-	}
+	_addGeneric(z, x, y)
 }
 
 func double(z, x *Element) {
-	var carry uint64
-
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	z[1], carry = bits.Add64(x[1], x[1], carry)
-	z[2], carry = bits.Add64(x[2], x[2], carry)
-	z[3], carry = bits.Add64(x[3], x[3], carry)
-	z[4], carry = bits.Add64(x[4], x[4], carry)
-	z[5], _ = bits.Add64(x[5], x[5], carry)
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 1873798617647539866 || (z[5] == 1873798617647539866 && (z[4] < 5412103778470702295 || (z[4] == 5412103778470702295 && (z[3] < 7239337960414712511 || (z[3] == 7239337960414712511 && (z[2] < 7435674573564081700 || (z[2] == 7435674573564081700 && (z[1] < 2210141511517208575 || (z[1] == 2210141511517208575 && (z[0] < 13402431016077863595))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 13402431016077863595, 0)
-		z[1], b = bits.Sub64(z[1], 2210141511517208575, b)
-		z[2], b = bits.Sub64(z[2], 7435674573564081700, b)
-		z[3], b = bits.Sub64(z[3], 7239337960414712511, b)
-		z[4], b = bits.Sub64(z[4], 5412103778470702295, b)
-		z[5], _ = bits.Sub64(z[5], 1873798617647539866, b)
-	}
+	_doubleGeneric(z, x)
 }
 
 func sub(z, x, y *Element) {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	z[1], b = bits.Sub64(x[1], y[1], b)
-	z[2], b = bits.Sub64(x[2], y[2], b)
-	z[3], b = bits.Sub64(x[3], y[3], b)
-	z[4], b = bits.Sub64(x[4], y[4], b)
-	z[5], b = bits.Sub64(x[5], y[5], b)
-	if b != 0 {
-		var c uint64
-		z[0], c = bits.Add64(z[0], 13402431016077863595, 0)
-		z[1], c = bits.Add64(z[1], 2210141511517208575, c)
-		z[2], c = bits.Add64(z[2], 7435674573564081700, c)
-		z[3], c = bits.Add64(z[3], 7239337960414712511, c)
-		z[4], c = bits.Add64(z[4], 5412103778470702295, c)
-		z[5], _ = bits.Add64(z[5], 1873798617647539866, c)
-	}
+	_subGeneric(z, x, y)
 }
 
 func neg(z, x *Element) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64(13402431016077863595, x[0], 0)
-	z[1], borrow = bits.Sub64(2210141511517208575, x[1], borrow)
-	z[2], borrow = bits.Sub64(7435674573564081700, x[2], borrow)
-	z[3], borrow = bits.Sub64(7239337960414712511, x[3], borrow)
-	z[4], borrow = bits.Sub64(5412103778470702295, x[4], borrow)
-	z[5], _ = bits.Sub64(1873798617647539866, x[5], borrow)
+	_negGeneric(z, x)
 }
 
 func reduce(z *Element) {
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[5] < 1873798617647539866 || (z[5] == 1873798617647539866 && (z[4] < 5412103778470702295 || (z[4] == 5412103778470702295 && (z[3] < 7239337960414712511 || (z[3] == 7239337960414712511 && (z[2] < 7435674573564081700 || (z[2] == 7435674573564081700 && (z[1] < 2210141511517208575 || (z[1] == 2210141511517208575 && (z[0] < 13402431016077863595))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 13402431016077863595, 0)
-		z[1], b = bits.Sub64(z[1], 2210141511517208575, b)
-		z[2], b = bits.Sub64(z[2], 7435674573564081700, b)
-		z[3], b = bits.Sub64(z[3], 7239337960414712511, b)
-		z[4], b = bits.Sub64(z[4], 5412103778470702295, b)
-		z[5], _ = bits.Sub64(z[5], 1873798617647539866, b)
-	}
+	_reduceGeneric(z)
 }

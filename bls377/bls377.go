@@ -74,6 +74,19 @@ type E6 = e6
 // E12 is a degree two finite field extension of fp6
 type E12 = e12
 
+// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+const (
+	mMask                 uint64 = 0b111 << 61
+	mUncompressed         uint64 = 0b000 << 61
+	mUncompressedInfinity uint64 = 0b010 << 61
+	mCompressedSmallest   uint64 = 0b100 << 61
+	mCompressedLargest    uint64 = 0b101 << 61
+	mCompressedInfinity   uint64 = 0b110 << 61
+)
+
 func init() {
 
 	bCurveCoeff.SetUint64(1)

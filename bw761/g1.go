@@ -17,6 +17,8 @@
 package bw761
 
 import (
+	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/consensys/gurvy/bw761/fp"
@@ -635,4 +637,191 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	BatchJacobianToAffineG1(toReturn, toReturnAff)
 	return toReturnAff
 
+}
+
+const (
+	SizeG1Compressed   = 96
+	SizeG1Uncompressed = SizeG1Compressed * 2
+)
+
+// Bytes fills buf with binary representation of p
+// if compressed is set to false, will store X and Y coordinates
+// buf must be allocated with len(buf) = SizeG1Uncompressed
+// if compressed is set to true, will store X coordinate and a parity bit
+// buf must be allocated with len(buf) = SizeG1Compressed
+// note that the parity bit is stored in the highest bits of the most significant word of the X
+// coordinate
+// in both cases, coordinates are stored raw (in montgomery form)
+func (p *G1Affine) Bytes(buf []byte, compressed bool) error {
+
+	// check buffer size
+	if (compressed && (len(buf) != SizeG1Compressed)) ||
+		(!compressed && (len(buf) != SizeG1Uncompressed)) {
+		return errors.New("invalid buffer size")
+	}
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		var zbuf [SizeG1Uncompressed]byte
+		copy(buf[8:], zbuf[:])
+		if compressed {
+			binary.BigEndian.PutUint64(buf[:8], mCompressedInfinity)
+		} else {
+			binary.BigEndian.PutUint64(buf[:8], mUncompressedInfinity)
+		}
+		return nil
+	}
+
+	var mswMask uint64
+	if compressed {
+		// compressed, we need to know if Y is lexicographically bigger than -Y
+		var negY fp.Element
+		negY.Neg(&p.Y)
+
+		// if p.Y ">" -p.Y
+		if p.Y.Cmp(&negY) == 1 {
+			mswMask = mCompressedLargest
+		} else {
+			mswMask = mCompressedSmallest
+		}
+
+	} else {
+		// not compressed
+		mswMask = mUncompressed
+		// we store the Y coordinate
+
+		// p.Y
+
+		binary.BigEndian.PutUint64(buf[184:192], p.Y[0])
+		binary.BigEndian.PutUint64(buf[176:184], p.Y[1])
+		binary.BigEndian.PutUint64(buf[168:176], p.Y[2])
+		binary.BigEndian.PutUint64(buf[160:168], p.Y[3])
+		binary.BigEndian.PutUint64(buf[152:160], p.Y[4])
+		binary.BigEndian.PutUint64(buf[144:152], p.Y[5])
+		binary.BigEndian.PutUint64(buf[136:144], p.Y[6])
+		binary.BigEndian.PutUint64(buf[128:136], p.Y[7])
+		binary.BigEndian.PutUint64(buf[120:128], p.Y[8])
+		binary.BigEndian.PutUint64(buf[112:120], p.Y[9])
+		binary.BigEndian.PutUint64(buf[104:112], p.Y[10])
+		binary.BigEndian.PutUint64(buf[96:104], p.Y[11])
+
+	}
+
+	// we store X  and mask the most significant word with our metadata mask
+
+	// p.X
+
+	binary.BigEndian.PutUint64(buf[88:96], p.X[0])
+	binary.BigEndian.PutUint64(buf[80:88], p.X[1])
+	binary.BigEndian.PutUint64(buf[72:80], p.X[2])
+	binary.BigEndian.PutUint64(buf[64:72], p.X[3])
+	binary.BigEndian.PutUint64(buf[56:64], p.X[4])
+	binary.BigEndian.PutUint64(buf[48:56], p.X[5])
+	binary.BigEndian.PutUint64(buf[40:48], p.X[6])
+	binary.BigEndian.PutUint64(buf[32:40], p.X[7])
+	binary.BigEndian.PutUint64(buf[24:32], p.X[8])
+	binary.BigEndian.PutUint64(buf[16:24], p.X[9])
+	binary.BigEndian.PutUint64(buf[8:16], p.X[10])
+	binary.BigEndian.PutUint64(buf[0:8], p.X[11]|mswMask)
+
+	return nil
+}
+
+// SetBytes sets p from binary representation in buf
+// if buf doesn't match the spec in Bytes(..), this function returns an error
+// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+func (p *G1Affine) SetBytes(buf []byte) error {
+	if len(buf) < 96 {
+		return errors.New("invalid buffer size")
+	}
+
+	// read the most significant word
+	msw := binary.BigEndian.Uint64(buf[:8])
+
+	mData := msw & mMask
+
+	// check buffer size
+	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
+		if len(buf) != SizeG1Uncompressed {
+			return errors.New("invalid buffer size")
+		}
+	} else {
+		if len(buf) != SizeG1Compressed {
+			return errors.New("invalid buffer size")
+		}
+	}
+
+	if (mData == mCompressedInfinity) || (mData == mUncompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return nil
+	}
+
+	// read X coordinate
+
+	// p.X
+
+	p.X[0] = binary.BigEndian.Uint64(buf[88:96])
+	p.X[1] = binary.BigEndian.Uint64(buf[80:88])
+	p.X[2] = binary.BigEndian.Uint64(buf[72:80])
+	p.X[3] = binary.BigEndian.Uint64(buf[64:72])
+	p.X[4] = binary.BigEndian.Uint64(buf[56:64])
+	p.X[5] = binary.BigEndian.Uint64(buf[48:56])
+	p.X[6] = binary.BigEndian.Uint64(buf[40:48])
+	p.X[7] = binary.BigEndian.Uint64(buf[32:40])
+	p.X[8] = binary.BigEndian.Uint64(buf[24:32])
+	p.X[9] = binary.BigEndian.Uint64(buf[16:24])
+	p.X[10] = binary.BigEndian.Uint64(buf[8:16])
+	p.X[11] = msw & ^mMask
+
+	if mData == mUncompressed {
+		// read Y coordinate
+
+		//  p.Y
+
+		p.Y[0] = binary.BigEndian.Uint64(buf[184:192])
+		p.Y[1] = binary.BigEndian.Uint64(buf[176:184])
+		p.Y[2] = binary.BigEndian.Uint64(buf[168:176])
+		p.Y[3] = binary.BigEndian.Uint64(buf[160:168])
+		p.Y[4] = binary.BigEndian.Uint64(buf[152:160])
+		p.Y[5] = binary.BigEndian.Uint64(buf[144:152])
+		p.Y[6] = binary.BigEndian.Uint64(buf[136:144])
+		p.Y[7] = binary.BigEndian.Uint64(buf[128:136])
+		p.Y[8] = binary.BigEndian.Uint64(buf[120:128])
+		p.Y[9] = binary.BigEndian.Uint64(buf[112:120])
+		p.Y[10] = binary.BigEndian.Uint64(buf[104:112])
+		p.Y[11] = binary.BigEndian.Uint64(buf[96:104])
+
+		return nil
+	}
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y, negY fp.Element
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bCurveCoeff)
+
+	if Y.Sqrt(&YSquared) == nil {
+		return errors.New("invalid compressed coordinate: square root doesn't exist.")
+	}
+
+	negY.Neg(&Y)
+
+	if Y.Cmp(&negY) == 1 {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			p.Y = negY
+		} else {
+			p.Y = Y
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			p.Y = negY
+		} else {
+			p.Y = Y
+		}
+	}
+
+	return nil
 }

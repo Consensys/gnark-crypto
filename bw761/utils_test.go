@@ -6,6 +6,8 @@ import (
 	"github.com/leanovate/gopter"
 )
 
+// TODO all gopter.Gen are incorrect, use same model as goff
+
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {

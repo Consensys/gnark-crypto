@@ -118,6 +118,104 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+
+func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
+
+	// test round trip serialization of infinity, uncompressed
+	{
+		var p1, p2 {{ toUpper .PointName}}Affine
+		p2.X.SetRandom()
+		p2.Y.SetRandom()
+
+		var buf [Size{{ toUpper .PointName}}Uncompressed]byte
+		if err := p1.Bytes(buf[:], false); err != nil {
+			t.Fatal(err)
+		}
+		if err := p2.SetBytes(buf[:]); err != nil {
+			t.Fatal(err)
+		}
+		if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			t.Fatal("deserialization of uncompressed infinity point is not infinity")
+		}
+	}
+
+	// test round trip serialization of infinity, compressed
+	{
+		var p1, p2 {{ toUpper .PointName}}Affine
+		p2.X.SetRandom()
+		p2.Y.SetRandom()
+
+		var buf [Size{{ toUpper .PointName}}Compressed]byte
+		if err := p1.Bytes(buf[:], true); err != nil {
+			t.Fatal(err)
+		}
+		if err := p2.SetBytes(buf[:]); err != nil {
+			t.Fatal(err)
+		}
+		if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			t.Fatal("deserialization of compressed infinity point is not infinity")
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1000
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+	{{- else if eq .CoordType "e2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+
+
+	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(Bytes(compressed = false)) should stay the same", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a,b {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "e2" }}
+			func(a,b *e2) bool {
+		{{- end}}
+				var start, end {{ toUpper .PointName}}Affine
+				start.X = {{- if eq .CoordType "e2" }}*{{- end}}a
+				start.Y = {{- if eq .CoordType "e2" }}*{{- end}}b 
+
+				var buf [Size{{ toUpper .PointName}}Uncompressed]byte
+				if err := start.Bytes(buf[:], false); err != nil {
+					return false
+				}
+				if err := end.SetBytes(buf[:]); err != nil {
+					return false
+				}
+				return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		genFuzz1,
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(Bytes(compressed = true)) should stay the same", prop.ForAll(
+			func(a fp.Element) bool {
+				var start, end {{ toUpper .PointName}}Affine
+				var ab big.Int
+				a.ToBigIntRegular(&ab)
+				start.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &ab)
+
+				var buf [Size{{ toUpper .PointName}}Compressed]byte
+				if err := start.Bytes(buf[:], true); err != nil {
+					return false
+				}
+				if err := end.SetBytes(buf[:]); err != nil {
+					return false
+				}
+				return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		GenFp(),
+	))
+
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
 func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -145,6 +243,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		},
 		genFuzz1,
 	))
+
 
 	properties.Property("[{{ toUpper .CurveName }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}

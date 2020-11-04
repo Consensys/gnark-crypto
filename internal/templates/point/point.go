@@ -6,6 +6,7 @@ const Point = `
 import (
 	"math/big"
 	"runtime"
+	"encoding/binary"
 
 	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
@@ -218,6 +219,7 @@ func (p *{{ toUpper .PointName }}Jac) Equal(a *{{ toUpper .PointName }}Jac) bool
 func (p *{{ toUpper .PointName }}Affine) Equal(a *{{ toUpper .PointName }}Affine) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
 }
+
 
 // Neg computes -G
 func (p *{{ toUpper .PointName }}Jac) Neg(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
@@ -724,5 +726,228 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		return toReturn
 	{{end}}
 }
+
+
+
+{{- $sizeOfFp := mul .Fp.NbWords 8}}
+
+
+const (
+	Size{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
+	Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Compressed * 2
+)
+
+// Bytes fills buf with binary representation of p
+// if compressed is set to false, will store X and Y coordinates
+// buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Uncompressed
+// if compressed is set to true, will store X coordinate and a parity bit
+// buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Compressed
+// note that the parity bit is stored in the highest bits of the most significant word of the X
+// coordinate
+// in both cases, coordinates are stored raw (in montgomery form)
+func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) error {
+
+	// check buffer size
+	if (compressed && (len(buf) != Size{{ toUpper .PointName }}Compressed))  ||
+		(!compressed && (len(buf) != Size{{ toUpper .PointName }}Uncompressed)) {
+		return errors.New("invalid buffer size")
+	}
+
+
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		var zbuf [Size{{ toUpper .PointName }}Uncompressed]byte
+		copy(buf[8:], zbuf[:])
+		if compressed {
+			binary.BigEndian.PutUint64(buf[:8], mCompressedInfinity)
+		} else {
+			binary.BigEndian.PutUint64(buf[:8], {{- if gt .UnusedBits 3}}mUncompressedInfinity{{- else}} mUncompressed {{- end}})
+		}
+		return nil
+	}
+
+	var mswMask uint64
+	if compressed {
+		// compressed, we need to know if Y is lexicographically bigger than -Y
+		var negY {{ .CoordType }}
+		negY.Neg(&p.Y)
+
+		// if p.Y ">" -p.Y 
+		if p.Y.Cmp(&negY) == 1 { 
+			mswMask = mCompressedLargest
+		} else {
+			mswMask = mCompressedSmallest
+		}
+
+	} else {
+		// not compressed
+		mswMask = mUncompressed
+		// we store the Y coordinate
+		{{ if eq .CoordType "e2"}}
+			// p.Y.A0 | p.Y.A1
+			{{- $offset := mul $sizeOfFp 3}}
+			{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
+
+			{{- $offset := sub $offset $sizeOfFp}}
+			{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
+			
+		{{else}}
+			// p.Y
+			{{ template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
+		{{end}}
+	}
+
+	// we store X  and mask the most significant word with our metadata mask
+	{{ if eq .CoordType "e2"}}
+		// p.X.A0 | p.X.A1
+		{{- $offset := $sizeOfFp}}
+		{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A1"}}
+		{{ template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A0"}}
+	{{else}}
+		// p.X 
+		{{ template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
+	{{end}}
+
+	return nil
+}
+
+
+// SetBytes sets p from binary representation in buf
+// if buf doesn't match the spec in Bytes(..), this function returns an error
+// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
+	if len(buf) < {{ $sizeOfFp }} {
+		return errors.New("invalid buffer size")
+	}
+
+	// read the most significant word
+	msw := binary.BigEndian.Uint64(buf[:8])
+
+	mData := msw & mMask
+
+	// check buffer size
+	if (mData == mUncompressed) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+		if len(buf) != Size{{ toUpper .PointName }}Uncompressed {
+			return errors.New("invalid buffer size")
+		}
+	} else {
+		if len(buf) != Size{{ toUpper .PointName }}Compressed {
+			return errors.New("invalid buffer size")
+		}
+	}
+
+	if (mData == mCompressedInfinity) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return nil
+	}
+
+	// read X coordinate
+	{{ if eq .CoordType "e2"}}
+		// p.X.A0 | p.X.A1 
+		{{- $offset := $sizeOfFp}}
+		{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A1"}}
+		{{ template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A0"}}
+	{{else}}
+		// p.X 
+		{{ template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+	{{end}}
+
+	if mData == mUncompressed {
+		// read Y coordinate
+			{{ if eq .CoordType "e2"}}
+			// p.Y.A0 | p.Y.A1
+			{{- $offset := mul $sizeOfFp 3}}
+			{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
+
+			{{- $offset := sub $offset $sizeOfFp}}
+			{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
+			
+		{{else}}
+			//  p.Y
+			{{ template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
+		{{end}}
+
+		return nil
+	}
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y, negY {{.CoordType}}
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
+
+	{{if eq .CoordType "e2"}}
+		if YSquared.Legendre() == -1 {
+			return errors.New("invalid compressed coordinate: square root doesn't exist.")
+		}
+		Y.Sqrt(&YSquared)
+	{{else}}
+		if Y.Sqrt(&YSquared) == nil {
+			return errors.New("invalid compressed coordinate: square root doesn't exist.")
+		}
+	{{end}}
+
+	negY.Neg(&Y)
+
+	if Y.Cmp(&negY) == 1 { 
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			p.Y = negY
+		} else {
+			p.Y = Y
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			p.Y = negY
+		} else {
+			p.Y = Y
+		}
+	}
+
+	return nil 
+}
+
+
+{{define "putFp"}}
+	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+			{{- $j := mul $i 8}}
+			{{- $j := add $j $.OffSet}}
+			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $k $i}}
+			{{- $jj := add $j 8}}
+			{{- if eq $.OffSet 0}}
+				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
+					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}] | mswMask)
+				{{- else}}
+					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
+				{{- end}}
+			{{- else}}
+				binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
+			{{- end}}
+			
+	{{- end}}
+{{end}}
+
+{{define "readFp"}}
+	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+			{{- $j := mul $i 8}}
+			{{- $j := add $j $.OffSet}}
+			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $k $i}}
+			{{- $jj := add $j 8}}
+			{{- if eq $.OffSet 0}}
+				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
+					{{$.To}}[{{$k}}] = msw & ^mMask
+				{{- else}}
+					{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
+				{{- end}}
+			{{- else}}
+				{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
+			{{- end}}
+	{{- end}}
+{{end}}
 
 `

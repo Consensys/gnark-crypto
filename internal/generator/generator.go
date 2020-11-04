@@ -310,14 +310,23 @@ func GenerateMultiExpHelpers(conf CurveConfig) error {
 func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 	type pointConfig struct {
 		CurveConfig
-		CoordType string
-		PointName string
+		CoordType  string
+		PointName  string
+		Fp         field.Field
+		UnusedBits int
 	}
 	conf := pointConfig{
 		CurveConfig: _conf,
 		CoordType:   coordType,
 		PointName:   pointName,
 	}
+	if fp, err := field.NewField("unset", "fpelement", conf.FpModulus, false, "unset"); err != nil {
+		return err
+	} else {
+		conf.Fp = *fp
+	}
+
+	conf.UnusedBits = 64 - (conf.Fp.NbBits % 64)
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),

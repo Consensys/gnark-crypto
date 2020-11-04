@@ -24,8 +24,6 @@ package fr
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
-import "math/bits"
-
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }
@@ -41,79 +39,21 @@ func fromMont(z *Element) {
 }
 
 func add(z, x, y *Element) {
-	var carry uint64
-
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	z[1], carry = bits.Add64(x[1], y[1], carry)
-	z[2], carry = bits.Add64(x[2], y[2], carry)
-	z[3], _ = bits.Add64(x[3], y[3], carry)
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 8353516859464449352 || (z[3] == 8353516859464449352 && (z[2] < 3691218898639771653 || (z[2] == 3691218898639771653 && (z[1] < 6034159408538082302 || (z[1] == 6034159408538082302 && (z[0] < 18446744069414584321))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744069414584321, 0)
-		z[1], b = bits.Sub64(z[1], 6034159408538082302, b)
-		z[2], b = bits.Sub64(z[2], 3691218898639771653, b)
-		z[3], _ = bits.Sub64(z[3], 8353516859464449352, b)
-	}
+	_addGeneric(z, x, y)
 }
 
 func double(z, x *Element) {
-	var carry uint64
-
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	z[1], carry = bits.Add64(x[1], x[1], carry)
-	z[2], carry = bits.Add64(x[2], x[2], carry)
-	z[3], _ = bits.Add64(x[3], x[3], carry)
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 8353516859464449352 || (z[3] == 8353516859464449352 && (z[2] < 3691218898639771653 || (z[2] == 3691218898639771653 && (z[1] < 6034159408538082302 || (z[1] == 6034159408538082302 && (z[0] < 18446744069414584321))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744069414584321, 0)
-		z[1], b = bits.Sub64(z[1], 6034159408538082302, b)
-		z[2], b = bits.Sub64(z[2], 3691218898639771653, b)
-		z[3], _ = bits.Sub64(z[3], 8353516859464449352, b)
-	}
+	_doubleGeneric(z, x)
 }
 
 func sub(z, x, y *Element) {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	z[1], b = bits.Sub64(x[1], y[1], b)
-	z[2], b = bits.Sub64(x[2], y[2], b)
-	z[3], b = bits.Sub64(x[3], y[3], b)
-	if b != 0 {
-		var c uint64
-		z[0], c = bits.Add64(z[0], 18446744069414584321, 0)
-		z[1], c = bits.Add64(z[1], 6034159408538082302, c)
-		z[2], c = bits.Add64(z[2], 3691218898639771653, c)
-		z[3], _ = bits.Add64(z[3], 8353516859464449352, c)
-	}
+	_subGeneric(z, x, y)
 }
 
 func neg(z, x *Element) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64(18446744069414584321, x[0], 0)
-	z[1], borrow = bits.Sub64(6034159408538082302, x[1], borrow)
-	z[2], borrow = bits.Sub64(3691218898639771653, x[2], borrow)
-	z[3], _ = bits.Sub64(8353516859464449352, x[3], borrow)
+	_negGeneric(z, x)
 }
 
 func reduce(z *Element) {
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 8353516859464449352 || (z[3] == 8353516859464449352 && (z[2] < 3691218898639771653 || (z[2] == 3691218898639771653 && (z[1] < 6034159408538082302 || (z[1] == 6034159408538082302 && (z[0] < 18446744069414584321))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744069414584321, 0)
-		z[1], b = bits.Sub64(z[1], 6034159408538082302, b)
-		z[2], b = bits.Sub64(z[2], 3691218898639771653, b)
-		z[3], _ = bits.Sub64(z[3], 8353516859464449352, b)
-	}
+	_reduceGeneric(z)
 }

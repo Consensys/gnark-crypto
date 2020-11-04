@@ -175,6 +175,36 @@ func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
+// Cmp compares (lexicographic order) z and x and returns:
+//
+//   -1 if z <  x
+//    0 if z == x
+//   +1 if z >  x
+//
+func (z *Element) Cmp(x *Element) int {
+	if z[3] > x[3] {
+		return 1
+	} else if z[3] < x[3] {
+		return -1
+	}
+	if z[2] > x[2] {
+		return 1
+	} else if z[2] < x[2] {
+		return -1
+	}
+	if z[1] > x[1] {
+		return 1
+	} else if z[1] < x[1] {
+		return -1
+	}
+	if z[0] > x[0] {
+		return 1
+	} else if z[0] < x[0] {
+		return -1
+	}
+	return 0
+}
+
 // SetRandom sets z to a random element < q
 func (z *Element) SetRandom() *Element {
 	bytes := make([]byte, 32)
@@ -447,6 +477,84 @@ func _fromMontGeneric(z *Element) {
 		C, z[2] = madd2(m, 3486998266802970665, z[3], C)
 		z[3] = C
 	}
+
+	// if z > q --> z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+	}
+}
+
+func _addGeneric(z, x, y *Element) {
+	var carry uint64
+
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], _ = bits.Add64(x[3], y[3], carry)
+
+	// if z > q --> z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+	}
+}
+
+func _doubleGeneric(z, x *Element) {
+	var carry uint64
+
+	z[0], carry = bits.Add64(x[0], x[0], 0)
+	z[1], carry = bits.Add64(x[1], x[1], carry)
+	z[2], carry = bits.Add64(x[2], x[2], carry)
+	z[3], _ = bits.Add64(x[3], x[3], carry)
+
+	// if z > q --> z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+	}
+}
+
+func _subGeneric(z, x, y *Element) {
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	z[1], b = bits.Sub64(x[1], y[1], b)
+	z[2], b = bits.Sub64(x[2], y[2], b)
+	z[3], b = bits.Sub64(x[3], y[3], b)
+	if b != 0 {
+		var c uint64
+		z[0], c = bits.Add64(z[0], 4332616871279656263, 0)
+		z[1], c = bits.Add64(z[1], 10917124144477883021, c)
+		z[2], c = bits.Add64(z[2], 13281191951274694749, c)
+		z[3], _ = bits.Add64(z[3], 3486998266802970665, c)
+	}
+}
+
+func _negGeneric(z, x *Element) {
+	if x.IsZero() {
+		z.SetZero()
+		return
+	}
+	var borrow uint64
+	z[0], borrow = bits.Sub64(4332616871279656263, x[0], 0)
+	z[1], borrow = bits.Sub64(10917124144477883021, x[1], borrow)
+	z[2], borrow = bits.Sub64(13281191951274694749, x[2], borrow)
+	z[3], _ = bits.Sub64(3486998266802970665, x[3], borrow)
+}
+
+func _reduceGeneric(z *Element) {
 
 	// if z > q --> z -= q
 	// note: this is NOT constant time

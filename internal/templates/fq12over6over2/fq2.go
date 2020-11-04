@@ -52,6 +52,19 @@ func (z *e2) Equal(x *e2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
 
+// Cmp compares (lexicographic order) z and x and returns:
+//
+//   -1 if z <  x
+//    0 if z == x
+//   +1 if z >  x
+//
+func (z *e2) Cmp(x *e2) int {
+	if a1 := z.A1.Cmp(&x.A1); a1 != 0 {
+		return a1
+	} 
+	return z.A0.Cmp(&x.A0)
+}
+
 // SetString sets a e2 element from strings
 func (z *e2) SetString(s1, s2 string) *e2 {
 	z.A0.SetString(s1)

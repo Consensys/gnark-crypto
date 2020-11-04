@@ -26,134 +26,200 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestELEMENTCorrectnessAgainstBigInt(t *testing.T) {
-	modulus := Modulus()
-	cmpEandB := func(e *Element, b *big.Int, name string) {
-		var _e big.Int
-		if e.FromMont().ToBigInt(&_e).Cmp(b) != 0 {
-			t.Fatal(name, "failed")
-		}
-	}
-	var modulusMinusOne, one big.Int
-	one.SetUint64(1)
+// -------------------------------------------------------------------------------------------------
+// benchmarks
+// most benchmarks are rudimentary and should sample a large number of random inputs
+// or be run multiple times to ensure it didn't measure the fastest path of the function
 
-	modulusMinusOne.Sub(modulus, &one)
+var benchResElement Element
 
-	var n int
-	if testing.Short() {
-		n = 20
-	} else {
-		n = 500
+func BenchmarkElementInverse(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		benchResElement.Inverse(&x)
 	}
 
-	sAdx := supportAdx
-
-	for i := 0; i < n; i++ {
-		if i == n/2 && sAdx {
-			supportAdx = false // testing without adx instruction
-		}
-		// sample 3 random big int
-		b1, _ := rand.Int(rand.Reader, modulus)
-		b2, _ := rand.Int(rand.Reader, modulus)
-		b3, _ := rand.Int(rand.Reader, modulus) // exponent
-
-		// adding edge cases
-		// TODO need more edge cases
-		switch i {
-		case 0:
-			b3.SetUint64(0)
-			b1.SetUint64(0)
-		case 1:
-			b2.SetUint64(0)
-		case 2:
-			b1.SetUint64(0)
-			b2.SetUint64(0)
-		case 3:
-			b3.SetUint64(0)
-		case 4:
-			b3.SetUint64(1)
-		case 5:
-			b3.SetUint64(^uint64(0))
-		case 6:
-			b3.SetUint64(2)
-			b1.Set(&modulusMinusOne)
-		case 7:
-			b2.Set(&modulusMinusOne)
-		case 8:
-			b1.Set(&modulusMinusOne)
-			b2.Set(&modulusMinusOne)
-		}
-
-		var bMul, bAdd, bSub, bDiv, bNeg, bLsh, bInv, bExp, bSquare big.Int
-
-		// e1 = mont(b1), e2 = mont(b2)
-		var e1, e2, eMul, eAdd, eSub, eDiv, eNeg, eLsh, eInv, eExp, eSquare Element
-		e1.SetBigInt(b1)
-		e2.SetBigInt(b2)
-
-		// (e1*e2).FromMont() === b1*b2 mod q ... etc
-		eSquare.Square(&e1)
-		eMul.Mul(&e1, &e2)
-		eAdd.Add(&e1, &e2)
-		eSub.Sub(&e1, &e2)
-		eDiv.Div(&e1, &e2)
-		eNeg.Neg(&e1)
-		eInv.Inverse(&e1)
-		eExp.Exp(e1, b3)
-		eLsh.Double(&e1)
-
-		// same operations with big int
-		bAdd.Add(b1, b2).Mod(&bAdd, modulus)
-		bMul.Mul(b1, b2).Mod(&bMul, modulus)
-		bSquare.Mul(b1, b1).Mod(&bSquare, modulus)
-		bSub.Sub(b1, b2).Mod(&bSub, modulus)
-		bDiv.ModInverse(b2, modulus)
-		bDiv.Mul(&bDiv, b1).
-			Mod(&bDiv, modulus)
-		bNeg.Neg(b1).Mod(&bNeg, modulus)
-
-		bInv.ModInverse(b1, modulus)
-		bExp.Exp(b1, b3, modulus)
-		bLsh.Lsh(b1, 1).Mod(&bLsh, modulus)
-
-		cmpEandB(&eSquare, &bSquare, "Square")
-		cmpEandB(&eMul, &bMul, "Mul")
-		cmpEandB(&eAdd, &bAdd, "Add")
-		cmpEandB(&eSub, &bSub, "Sub")
-		cmpEandB(&eDiv, &bDiv, "Div")
-		cmpEandB(&eNeg, &bNeg, "Neg")
-		cmpEandB(&eInv, &bInv, "Inv")
-		cmpEandB(&eExp, &bExp, "Exp")
-
-		cmpEandB(&eLsh, &bLsh, "Lsh")
-
-		// legendre symbol
-		if e1.Legendre() != big.Jacobi(b1, modulus) {
-			t.Fatal("legendre symbol computation failed")
-		}
-		if e2.Legendre() != big.Jacobi(b2, modulus) {
-			t.Fatal("legendre symbol computation failed")
-		}
-
-		// these are slow, killing circle ci
-		if n <= 10 {
-			// sqrt
-			var eSqrt Element
-			var bSqrt big.Int
-			bSqrt.ModSqrt(b1, modulus)
-			eSqrt.Sqrt(&e1)
-			cmpEandB(&eSqrt, &bSqrt, "Sqrt")
-		}
+}
+func BenchmarkElementExp(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b1, _ := rand.Int(rand.Reader, Modulus())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Exp(x, b1)
 	}
-	supportAdx = sAdx
 }
 
-func TestELEMENTSetInterface(t *testing.T) {
+func BenchmarkElementDouble(b *testing.B) {
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Double(&benchResElement)
+	}
+}
+
+func BenchmarkElementAdd(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Add(&x, &benchResElement)
+	}
+}
+
+func BenchmarkElementSub(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Sub(&x, &benchResElement)
+	}
+}
+
+func BenchmarkElementNeg(b *testing.B) {
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Neg(&benchResElement)
+	}
+}
+
+func BenchmarkElementDiv(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Div(&x, &benchResElement)
+	}
+}
+
+func BenchmarkElementFromMont(b *testing.B) {
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.FromMont()
+	}
+}
+
+func BenchmarkElementToMont(b *testing.B) {
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.ToMont()
+	}
+}
+func BenchmarkElementSquare(b *testing.B) {
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Square(&benchResElement)
+	}
+}
+
+func BenchmarkElementSqrt(b *testing.B) {
+	var a Element
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Sqrt(&a)
+	}
+}
+
+func BenchmarkElementMul(b *testing.B) {
+	x := Element{
+		14305184132582319705,
+		8868935336694416555,
+		9196887162930508889,
+		15486798265448570248,
+		5402985275949444416,
+		10893197322525159598,
+		3204916688966998390,
+		12417238192559061753,
+		12426306557607898622,
+		1305582522441154384,
+		10311846026977660324,
+		48736111365249031,
+	}
+	benchResElement.SetOne()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Mul(&benchResElement, &x)
+	}
+}
+
+func BenchmarkElementCmp(b *testing.B) {
+	x := Element{
+		14305184132582319705,
+		8868935336694416555,
+		9196887162930508889,
+		15486798265448570248,
+		5402985275949444416,
+		10893197322525159598,
+		3204916688966998390,
+		12417238192559061753,
+		12426306557607898622,
+		1305582522441154384,
+		10311846026977660324,
+		48736111365249031,
+	}
+	benchResElement = x
+	benchResElement[0] = 0
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Cmp(&x)
+	}
+}
+
+func TestElementCmp(t *testing.T) {
+	var x, y Element
+
+	if x.Cmp(&y) != 0 {
+		t.Fatal("x == y")
+	}
+
+	one := One()
+	y.Sub(&y, &one)
+
+	if x.Cmp(&y) != -1 {
+		t.Fatal("x < y")
+	}
+	if y.Cmp(&x) != 1 {
+		t.Fatal("x < y")
+	}
+
+	x = y
+	if x.Cmp(&y) != 0 {
+		t.Fatal("x == y")
+	}
+
+	x, y = Element{}, Element{}
+
+	x[0] = 42
+	y[1] = 42
+
+	if x.Cmp(&y) != -1 {
+		t.Fatal("x < y")
+	}
+	if y.Cmp(&x) != 1 {
+		t.Fatal("x < y")
+	}
+
+}
+
+func TestElementSetInterface(t *testing.T) {
 	// TODO
 	t.Skip("not implemented")
 }
 
-func TestELEMENTIsRandom(t *testing.T) {
+func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
 		x.SetRandom()
@@ -164,7 +230,7 @@ func TestELEMENTIsRandom(t *testing.T) {
 	}
 }
 
-func TestByte(t *testing.T) {
+func TestElementBytes(t *testing.T) {
 
 	modulus := Modulus()
 
@@ -202,260 +268,496 @@ func TestByte(t *testing.T) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// benchmarks
-// most benchmarks are rudimentary and should sample a large number of random inputs
-// or be run multiple times to ensure it didn't measure the fastest path of the function
+// Gopter tests
+// most of them are generated with a template
 
-var benchResElement Element
+const (
+	nbFuzzShort = 20
+	nbFuzz      = 100
+)
 
-func BenchmarkInverseELEMENT(b *testing.B) {
-	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
-	b.ResetTimer()
+// special values to be used in tests
+var staticTestValues []Element
 
-	for i := 0; i < b.N; i++ {
-		benchResElement.Inverse(&x)
-	}
+func init() {
+	staticTestValues = append(staticTestValues, Element{}) // zero
+	staticTestValues = append(staticTestValues, One())     // one
+	staticTestValues = append(staticTestValues, rSquare)   // r^2
+	var e, one Element
+	one.SetOne()
+	e.Sub(&qElement, &one)
+	staticTestValues = append(staticTestValues, e) // q - 1
+	e.Double(&one)
+	staticTestValues = append(staticTestValues, e) // 2
 
-}
-func BenchmarkExpELEMENT(b *testing.B) {
-	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
-	b1, _ := rand.Int(rand.Reader, Modulus())
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Exp(x, b1)
-	}
-}
-
-func BenchmarkDoubleELEMENT(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Double(&benchResElement)
-	}
-}
-
-func BenchmarkAddELEMENT(b *testing.B) {
-	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Add(&x, &benchResElement)
-	}
-}
-
-func BenchmarkSubELEMENT(b *testing.B) {
-	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Sub(&x, &benchResElement)
-	}
-}
-
-func BenchmarkNegELEMENT(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Neg(&benchResElement)
-	}
-}
-
-func BenchmarkDivELEMENT(b *testing.B) {
-	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Div(&x, &benchResElement)
-	}
-}
-
-func BenchmarkFromMontELEMENT(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.FromMont()
-	}
-}
-
-func BenchmarkToMontELEMENT(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.ToMont()
-	}
-}
-func BenchmarkSquareELEMENT(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Square(&benchResElement)
-	}
-}
-
-func BenchmarkSqrtELEMENT(b *testing.B) {
-	var a Element
-	a.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Sqrt(&a)
-	}
-}
-
-func BenchmarkMulELEMENT(b *testing.B) {
-	x := Element{
-		14305184132582319705,
-		8868935336694416555,
-		9196887162930508889,
-		15486798265448570248,
-		5402985275949444416,
-		10893197322525159598,
-		3204916688966998390,
-		12417238192559061753,
-		12426306557607898622,
-		1305582522441154384,
-		10311846026977660324,
-		48736111365249031,
-	}
-	benchResElement.SetOne()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Mul(&benchResElement, &x)
-	}
-}
-
-func TestELEMENTreduce(t *testing.T) {
-	q := Element{
-		17626244516597989515,
-		16614129118623039618,
-		1588918198704579639,
-		10998096788944562424,
-		8204665564953313070,
-		9694500593442880912,
-		274362232328168196,
-		8105254717682411801,
-		5945444129596489281,
-		13341377791855249032,
-		15098257552581525310,
-		81882988782276106,
-	}
-
-	var testData []Element
 	{
-		a := q
+		a := qElement
 		a[11]--
-		testData = append(testData, a)
+		staticTestValues = append(staticTestValues, a)
 	}
 	{
-		a := q
+		a := qElement
 		a[0]--
-		testData = append(testData, a)
-	}
-	{
-		a := q
-		a[11]++
-		testData = append(testData, a)
-	}
-	{
-		a := q
-		a[0]++
-		testData = append(testData, a)
-	}
-	{
-		a := q
-		testData = append(testData, a)
+		staticTestValues = append(staticTestValues, a)
 	}
 
-	for _, s := range testData {
+	{
+		a := qElement
+		a[11]--
+		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+}
+
+func TestElementReduce(t *testing.T) {
+	testValues := make([]Element, len(staticTestValues))
+	copy(testValues, staticTestValues)
+
+	for _, s := range testValues {
 		expected := s
 		reduce(&s)
-		expected.testReduce()
+		_reduceGeneric(&expected)
 		if !s.Equal(&expected) {
-			t.Fatal("reduce failed")
+			t.Fatal("reduce failed: asm and generic impl don't match")
 		}
 	}
 
-}
-
-func (z *Element) testReduce() *Element {
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 81882988782276106 || (z[11] == 81882988782276106 && (z[10] < 15098257552581525310 || (z[10] == 15098257552581525310 && (z[9] < 13341377791855249032 || (z[9] == 13341377791855249032 && (z[8] < 5945444129596489281 || (z[8] == 5945444129596489281 && (z[7] < 8105254717682411801 || (z[7] == 8105254717682411801 && (z[6] < 274362232328168196 || (z[6] == 274362232328168196 && (z[5] < 9694500593442880912 || (z[5] == 9694500593442880912 && (z[4] < 8204665564953313070 || (z[4] == 8204665564953313070 && (z[3] < 10998096788944562424 || (z[3] == 10998096788944562424 && (z[2] < 1588918198704579639 || (z[2] == 1588918198704579639 && (z[1] < 16614129118623039618 || (z[1] == 16614129118623039618 && (z[0] < 17626244516597989515))))))))))))))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 17626244516597989515, 0)
-		z[1], b = bits.Sub64(z[1], 16614129118623039618, b)
-		z[2], b = bits.Sub64(z[2], 1588918198704579639, b)
-		z[3], b = bits.Sub64(z[3], 10998096788944562424, b)
-		z[4], b = bits.Sub64(z[4], 8204665564953313070, b)
-		z[5], b = bits.Sub64(z[5], 9694500593442880912, b)
-		z[6], b = bits.Sub64(z[6], 274362232328168196, b)
-		z[7], b = bits.Sub64(z[7], 8105254717682411801, b)
-		z[8], b = bits.Sub64(z[8], 5945444129596489281, b)
-		z[9], b = bits.Sub64(z[9], 13341377791855249032, b)
-		z[10], b = bits.Sub64(z[10], 15098257552581525310, b)
-		z[11], _ = bits.Sub64(z[11], 81882988782276106, b)
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
-	return z
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := genFull()
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(a Element) bool {
+			b := a
+			reduce(&a)
+			_reduceGeneric(&b)
+			return !a.biggerOrEqualModulus() && a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
+
 }
 
-// -------------------------------------------------------------------------------------------------
-// Gopter tests
+func TestElementLegendre(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
-func TestELEMENTMul(t *testing.T) {
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("legendre should output same result than big.Int.Jacobi", prop.ForAll(
+		func(a testPairElement) bool {
+			return a.element.Legendre() == big.Jacobi(&a.bigint, Modulus())
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
+
+}
+
+func TestElementAdd(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10000
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genA := gen()
 	genB := gen()
 
-	properties.Property("Having the receiver as operand should output the same result", prop.ForAll(
+	properties.Property("Add: having the receiver as operand should output the same result", prop.ForAll(
 		func(a, b testPairElement) bool {
 			var c, d Element
 			d.Set(&a.element)
-			c.Mul(&a.element, &b.element)
-			a.element.Mul(&a.element, &b.element)
-			b.element.Mul(&d, &b.element)
+
+			c.Add(&a.element, &b.element)
+			a.element.Add(&a.element, &b.element)
+			b.element.Add(&d, &b.element)
+
 			return a.element.Equal(&b.element) && a.element.Equal(&c) && b.element.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
-	properties.Property("Operation result must match big.Int result", prop.ForAll(
+	properties.Property("Add: operation result must match big.Int result", prop.ForAll(
 		func(a, b testPairElement) bool {
-			var c Element
-			c.Mul(&a.element, &b.element)
+			{
+				var c Element
 
-			var d, e big.Int
-			d.Mul(&a.bigint, &b.bigint).Mod(&d, Modulus())
+				c.Add(&a.element, &b.element)
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+				var d, e big.Int
+				d.Add(&a.bigint, &b.bigint).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+
+			// fixed elements
+			// a is random
+			// r takes special values
+			testValues := make([]Element, len(staticTestValues))
+			copy(testValues, staticTestValues)
+
+			for _, r := range testValues {
+				var d, e, rb big.Int
+				r.ToBigIntRegular(&rb)
+
+				var c Element
+				c.Add(&a.element, &r)
+				d.Add(&a.bigint, &rb).Mod(&d, Modulus())
+
+				// checking generic impl against asm path
+				var cGeneric Element
+				_addGeneric(&cGeneric, &a.element, &r)
+				if !cGeneric.Equal(&c) {
+					// need to give context to failing error.
+					return false
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+			return true
 		},
 		genA,
 		genB,
 	))
 
-	properties.Property("Operation result must be smaller than modulus", prop.ForAll(
+	properties.Property("Add: operation result must be smaller than modulus", prop.ForAll(
 		func(a, b testPairElement) bool {
 			var c Element
-			c.Mul(&a.element, &b.element)
+
+			c.Add(&a.element, &b.element)
+
 			return !c.biggerOrEqualModulus()
 		},
 		genA,
 		genB,
 	))
 
-	properties.Property("Assembly implementation must be consistent with generic one", prop.ForAll(
+	properties.Property("Add: assembly implementation must be consistent with generic one", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			c.Add(&a.element, &b.element)
+			_addGeneric(&d, &a.element, &b.element)
+			return c.Equal(&d)
+		},
+		genA,
+		genB,
+	))
+
+	specialValueTest := func() {
+		// test special values against special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			for _, b := range testValues {
+
+				var bBig, d, e big.Int
+				b.ToBigIntRegular(&bBig)
+
+				var c Element
+				c.Add(&a, &b)
+				d.Add(&aBig, &bBig).Mod(&d, Modulus())
+
+				// checking asm against generic impl
+				var cGeneric Element
+				_addGeneric(&cGeneric, &a, &b)
+				if !cGeneric.Equal(&c) {
+					t.Fatal("Add failed special test values: asm and generic impl don't match")
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					t.Fatal("Add failed special test values")
+				}
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementSub(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("Sub: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			d.Set(&a.element)
+
+			c.Sub(&a.element, &b.element)
+			a.element.Sub(&a.element, &b.element)
+			b.element.Sub(&d, &b.element)
+
+			return a.element.Equal(&b.element) && a.element.Equal(&c) && b.element.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Sub: operation result must match big.Int result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			{
+				var c Element
+
+				c.Sub(&a.element, &b.element)
+
+				var d, e big.Int
+				d.Sub(&a.bigint, &b.bigint).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+
+			// fixed elements
+			// a is random
+			// r takes special values
+			testValues := make([]Element, len(staticTestValues))
+			copy(testValues, staticTestValues)
+
+			for _, r := range testValues {
+				var d, e, rb big.Int
+				r.ToBigIntRegular(&rb)
+
+				var c Element
+				c.Sub(&a.element, &r)
+				d.Sub(&a.bigint, &rb).Mod(&d, Modulus())
+
+				// checking generic impl against asm path
+				var cGeneric Element
+				_subGeneric(&cGeneric, &a.element, &r)
+				if !cGeneric.Equal(&c) {
+					// need to give context to failing error.
+					return false
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Sub: operation result must be smaller than modulus", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c Element
+
+			c.Sub(&a.element, &b.element)
+
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Sub: assembly implementation must be consistent with generic one", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			c.Sub(&a.element, &b.element)
+			_subGeneric(&d, &a.element, &b.element)
+			return c.Equal(&d)
+		},
+		genA,
+		genB,
+	))
+
+	specialValueTest := func() {
+		// test special values against special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			for _, b := range testValues {
+
+				var bBig, d, e big.Int
+				b.ToBigIntRegular(&bBig)
+
+				var c Element
+				c.Sub(&a, &b)
+				d.Sub(&aBig, &bBig).Mod(&d, Modulus())
+
+				// checking asm against generic impl
+				var cGeneric Element
+				_subGeneric(&cGeneric, &a, &b)
+				if !cGeneric.Equal(&c) {
+					t.Fatal("Sub failed special test values: asm and generic impl don't match")
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					t.Fatal("Sub failed special test values")
+				}
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementMul(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("Mul: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			d.Set(&a.element)
+
+			c.Mul(&a.element, &b.element)
+			a.element.Mul(&a.element, &b.element)
+			b.element.Mul(&d, &b.element)
+
+			return a.element.Equal(&b.element) && a.element.Equal(&c) && b.element.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Mul: operation result must match big.Int result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			{
+				var c Element
+
+				c.Mul(&a.element, &b.element)
+
+				var d, e big.Int
+				d.Mul(&a.bigint, &b.bigint).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+
+			// fixed elements
+			// a is random
+			// r takes special values
+			testValues := make([]Element, len(staticTestValues))
+			copy(testValues, staticTestValues)
+
+			for _, r := range testValues {
+				var d, e, rb big.Int
+				r.ToBigIntRegular(&rb)
+
+				var c Element
+				c.Mul(&a.element, &r)
+				d.Mul(&a.bigint, &rb).Mod(&d, Modulus())
+
+				// checking generic impl against asm path
+				var cGeneric Element
+				_mulGeneric(&cGeneric, &a.element, &r)
+				if !cGeneric.Equal(&c) {
+					// need to give context to failing error.
+					return false
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Mul: operation result must be smaller than modulus", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c Element
+
+			c.Mul(&a.element, &b.element)
+
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Mul: assembly implementation must be consistent with generic one", prop.ForAll(
 		func(a, b testPairElement) bool {
 			var c, d Element
 			c.Mul(&a.element, &b.element)
@@ -466,21 +768,302 @@ func TestELEMENTMul(t *testing.T) {
 		genB,
 	))
 
+	specialValueTest := func() {
+		// test special values against special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			for _, b := range testValues {
+
+				var bBig, d, e big.Int
+				b.ToBigIntRegular(&bBig)
+
+				var c Element
+				c.Mul(&a, &b)
+				d.Mul(&aBig, &bBig).Mod(&d, Modulus())
+
+				// checking asm against generic impl
+				var cGeneric Element
+				_mulGeneric(&cGeneric, &a, &b)
+				if !cGeneric.Equal(&c) {
+					t.Fatal("Mul failed special test values: asm and generic impl don't match")
+				}
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					t.Fatal("Mul failed special test values")
+				}
+			}
+		}
+	}
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
 }
 
-func TestELEMENTSquare(t *testing.T) {
+func TestElementDiv(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10000
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("Div: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			d.Set(&a.element)
+
+			c.Div(&a.element, &b.element)
+			a.element.Div(&a.element, &b.element)
+			b.element.Div(&d, &b.element)
+
+			return a.element.Equal(&b.element) && a.element.Equal(&c) && b.element.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Div: operation result must match big.Int result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			{
+				var c Element
+
+				c.Div(&a.element, &b.element)
+
+				var d, e big.Int
+				d.ModInverse(&b.bigint, Modulus())
+				d.Mul(&d, &a.bigint).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+
+			// fixed elements
+			// a is random
+			// r takes special values
+			testValues := make([]Element, len(staticTestValues))
+			copy(testValues, staticTestValues)
+
+			for _, r := range testValues {
+				var d, e, rb big.Int
+				r.ToBigIntRegular(&rb)
+
+				var c Element
+				c.Div(&a.element, &r)
+				d.ModInverse(&rb, Modulus())
+				d.Mul(&d, &a.bigint).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Div: operation result must be smaller than modulus", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c Element
+
+			c.Div(&a.element, &b.element)
+
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+		genB,
+	))
+
+	specialValueTest := func() {
+		// test special values against special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			for _, b := range testValues {
+
+				var bBig, d, e big.Int
+				b.ToBigIntRegular(&bBig)
+
+				var c Element
+				c.Div(&a, &b)
+				d.ModInverse(&bBig, Modulus())
+				d.Mul(&d, &aBig).Mod(&d, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					t.Fatal("Div failed special test values")
+				}
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("Exp: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c, d Element
+			d.Set(&a.element)
+
+			c.Exp(a.element, &b.bigint)
+			a.element.Exp(a.element, &b.bigint)
+			b.element.Exp(d, &b.bigint)
+
+			return a.element.Equal(&b.element) && a.element.Equal(&c) && b.element.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Exp: operation result must match big.Int result", prop.ForAll(
+		func(a, b testPairElement) bool {
+			{
+				var c Element
+
+				c.Exp(a.element, &b.bigint)
+
+				var d, e big.Int
+				d.Exp(&a.bigint, &b.bigint, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+
+			// fixed elements
+			// a is random
+			// r takes special values
+			testValues := make([]Element, len(staticTestValues))
+			copy(testValues, staticTestValues)
+
+			for _, r := range testValues {
+				var d, e, rb big.Int
+				r.ToBigIntRegular(&rb)
+
+				var c Element
+				c.Exp(a.element, &rb)
+				d.Exp(&a.bigint, &rb, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Exp: operation result must be smaller than modulus", prop.ForAll(
+		func(a, b testPairElement) bool {
+			var c Element
+
+			c.Exp(a.element, &b.bigint)
+
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+		genB,
+	))
+
+	specialValueTest := func() {
+		// test special values against special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			for _, b := range testValues {
+
+				var bBig, d, e big.Int
+				b.ToBigIntRegular(&bBig)
+
+				var c Element
+				c.Exp(a, &bBig)
+				d.Exp(&aBig, &bBig, Modulus())
+
+				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+					t.Fatal("Exp failed special test values")
+				}
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementSquare(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genA := gen()
 
-	properties.Property("Having the receiver as operand should output the same result", prop.ForAll(
+	properties.Property("Square: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPairElement) bool {
+
 			var b Element
+
 			b.Square(&a.element)
 			a.element.Square(&a.element)
 			return a.element.Equal(&b)
@@ -488,39 +1071,29 @@ func TestELEMENTSquare(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Operation result must match big.Int result", prop.ForAll(
+	properties.Property("Square: operation result must match big.Int result", prop.ForAll(
 		func(a testPairElement) bool {
-			var b Element
-			b.Square(&a.element)
+			var c Element
+			c.Square(&a.element)
 
 			var d, e big.Int
 			d.Mul(&a.bigint, &a.bigint).Mod(&d, Modulus())
 
-			return b.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
 
-	properties.Property("Operation result must be smaller than modulus", prop.ForAll(
+	properties.Property("Square: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
-			var b Element
-			b.Square(&a.element)
-			return !b.biggerOrEqualModulus()
+			var c Element
+			c.Square(&a.element)
+			return !c.biggerOrEqualModulus()
 		},
 		genA,
 	))
 
-	properties.Property("Square(x) == Mul(x,x)", prop.ForAll(
-		func(a testPairElement) bool {
-			var b, c Element
-			b.Square(&a.element)
-			c.Mul(&a.element, &a.element)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("Assembly implementation must be consistent with generic one", prop.ForAll(
+	properties.Property("Square: assembly implementation must be consistent with generic one", prop.ForAll(
 		func(a testPairElement) bool {
 			var c, d Element
 			c.Square(&a.element)
@@ -530,13 +1103,403 @@ func TestELEMENTSquare(t *testing.T) {
 		genA,
 	))
 
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			var c Element
+			c.Square(&a)
+
+			var d, e big.Int
+			d.Mul(&aBig, &aBig).Mod(&d, Modulus())
+
+			// checking asm against generic impl
+			var cGeneric Element
+			_squareGeneric(&cGeneric, &a)
+			if !cGeneric.Equal(&c) {
+				t.Fatal("Square failed special test values: asm and generic impl don't match")
+			}
+
+			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				t.Fatal("Square failed special test values")
+			}
+		}
+	}
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		supportAdx = false
+		t.Log("disabling ADX")
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
 }
 
-func TestELEMENTFromMont(t *testing.T) {
+func TestElementInverse(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10000
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Inverse: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			var b Element
+
+			b.Inverse(&a.element)
+			a.element.Inverse(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Inverse: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Inverse(&a.element)
+
+			var d, e big.Int
+			d.ModInverse(&a.bigint, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Inverse: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Inverse(&a.element)
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			var c Element
+			c.Inverse(&a)
+
+			var d, e big.Int
+			d.ModInverse(&aBig, Modulus())
+
+			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				t.Fatal("Inverse failed special test values")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		supportAdx = false
+		t.Log("disabling ADX")
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementSqrt(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Sqrt: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			b := a.element
+
+			b.Sqrt(&a.element)
+			a.element.Sqrt(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Sqrt: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Sqrt(&a.element)
+
+			var d, e big.Int
+			d.ModSqrt(&a.bigint, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Sqrt: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Sqrt(&a.element)
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			var c Element
+			c.Sqrt(&a)
+
+			var d, e big.Int
+			d.ModSqrt(&aBig, Modulus())
+
+			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				t.Fatal("Sqrt failed special test values")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		supportAdx = false
+		t.Log("disabling ADX")
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementDouble(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Double: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			var b Element
+
+			b.Double(&a.element)
+			a.element.Double(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Double: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Double(&a.element)
+
+			var d, e big.Int
+			d.Lsh(&a.bigint, 1).Mod(&d, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Double: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Double(&a.element)
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+	))
+
+	properties.Property("Double: assembly implementation must be consistent with generic one", prop.ForAll(
+		func(a testPairElement) bool {
+			var c, d Element
+			c.Double(&a.element)
+			_doubleGeneric(&d, &a.element)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			var c Element
+			c.Double(&a)
+
+			var d, e big.Int
+			d.Lsh(&aBig, 1).Mod(&d, Modulus())
+
+			// checking asm against generic impl
+			var cGeneric Element
+			_doubleGeneric(&cGeneric, &a)
+			if !cGeneric.Equal(&c) {
+				t.Fatal("Double failed special test values: asm and generic impl don't match")
+			}
+
+			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				t.Fatal("Double failed special test values")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		supportAdx = false
+		t.Log("disabling ADX")
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementNeg(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Neg: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			var b Element
+
+			b.Neg(&a.element)
+			a.element.Neg(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Neg: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Neg(&a.element)
+
+			var d, e big.Int
+			d.Neg(&a.bigint).Mod(&d, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Neg: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Neg(&a.element)
+			return !c.biggerOrEqualModulus()
+		},
+		genA,
+	))
+
+	properties.Property("Neg: assembly implementation must be consistent with generic one", prop.ForAll(
+		func(a testPairElement) bool {
+			var c, d Element
+			c.Neg(&a.element)
+			_negGeneric(&d, &a.element)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for _, a := range testValues {
+			var aBig big.Int
+			a.ToBigIntRegular(&aBig)
+			var c Element
+			c.Neg(&a)
+
+			var d, e big.Int
+			d.Neg(&aBig).Mod(&d, Modulus())
+
+			// checking asm against generic impl
+			var cGeneric Element
+			_negGeneric(&cGeneric, &a)
+			if !cGeneric.Equal(&c) {
+				t.Fatal("Neg failed special test values: asm and generic impl don't match")
+			}
+
+			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				t.Fatal("Neg failed special test values")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		supportAdx = false
+		t.Log("disabling ADX")
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		specialValueTest()
+		supportAdx = true
+	}
+}
+
+func TestElementFromMont(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -549,6 +1512,15 @@ func TestELEMENTFromMont(t *testing.T) {
 			c.FromMont()
 			_fromMontGeneric(&d)
 			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("x.FromMont().ToMont() == x", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			c.FromMont().ToMont()
+			return c.Equal(&a.element)
 		},
 		genA,
 	))
@@ -686,6 +1658,74 @@ func gen() gopter.Gen {
 
 		g.element.ToBigIntRegular(&g.bigint)
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+func genFull() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+
+		genRandomFq := func() Element {
+			var g Element
+
+			g = Element{
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+			}
+
+			if qElement[11] != ^uint64(0) {
+				g[11] %= (qElement[11] + 1)
+			}
+
+			for g.biggerOrEqualModulus() {
+				g = Element{
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+					genParams.NextUint64(),
+				}
+				if qElement[11] != ^uint64(0) {
+					g[11] %= (qElement[11] + 1)
+				}
+			}
+
+			return g
+		}
+		a := genRandomFq()
+
+		var carry uint64
+		a[0], carry = bits.Add64(a[0], qElement[0], carry)
+		a[1], carry = bits.Add64(a[1], qElement[1], carry)
+		a[2], carry = bits.Add64(a[2], qElement[2], carry)
+		a[3], carry = bits.Add64(a[3], qElement[3], carry)
+		a[4], carry = bits.Add64(a[4], qElement[4], carry)
+		a[5], carry = bits.Add64(a[5], qElement[5], carry)
+		a[6], carry = bits.Add64(a[6], qElement[6], carry)
+		a[7], carry = bits.Add64(a[7], qElement[7], carry)
+		a[8], carry = bits.Add64(a[8], qElement[8], carry)
+		a[9], carry = bits.Add64(a[9], qElement[9], carry)
+		a[10], carry = bits.Add64(a[10], qElement[10], carry)
+		a[11], _ = bits.Add64(a[11], qElement[11], carry)
+
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }
