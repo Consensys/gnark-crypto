@@ -63,6 +63,8 @@ var endo struct {
 // generator of the curve
 var xGen big.Int
 
+// To encode G1 and G2 points, we mask the most significant bits with these bits to specify without ambiguity
+// metadata needed for point (de)compression
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.

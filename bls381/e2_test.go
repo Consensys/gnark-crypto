@@ -310,6 +310,23 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS381] Cmp and LexicographicallyLargest should be consistant", prop.ForAll(
+		func(a *e2) bool {
+			var negA e2
+			negA.Neg(a)
+			cmpResult := a.Cmp(&negA)
+			lResult := a.LexicographicallyLargest()
+			if lResult && cmpResult == 1 {
+				return true
+			}
+			if !lResult && cmpResult != 1 {
+				return true
+			}
+			return false
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

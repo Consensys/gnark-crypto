@@ -230,67 +230,98 @@ func (z *Element) IsZero() bool {
 //   +1 if z >  x
 //
 func (z *Element) Cmp(x *Element) int {
-	if z[11] > x[11] {
+	_z := *z
+	_x := *x
+	_z.FromMont()
+	_x.FromMont()
+	if _z[11] > _x[11] {
 		return 1
-	} else if z[11] < x[11] {
+	} else if _z[11] < _x[11] {
 		return -1
 	}
-	if z[10] > x[10] {
+	if _z[10] > _x[10] {
 		return 1
-	} else if z[10] < x[10] {
+	} else if _z[10] < _x[10] {
 		return -1
 	}
-	if z[9] > x[9] {
+	if _z[9] > _x[9] {
 		return 1
-	} else if z[9] < x[9] {
+	} else if _z[9] < _x[9] {
 		return -1
 	}
-	if z[8] > x[8] {
+	if _z[8] > _x[8] {
 		return 1
-	} else if z[8] < x[8] {
+	} else if _z[8] < _x[8] {
 		return -1
 	}
-	if z[7] > x[7] {
+	if _z[7] > _x[7] {
 		return 1
-	} else if z[7] < x[7] {
+	} else if _z[7] < _x[7] {
 		return -1
 	}
-	if z[6] > x[6] {
+	if _z[6] > _x[6] {
 		return 1
-	} else if z[6] < x[6] {
+	} else if _z[6] < _x[6] {
 		return -1
 	}
-	if z[5] > x[5] {
+	if _z[5] > _x[5] {
 		return 1
-	} else if z[5] < x[5] {
+	} else if _z[5] < _x[5] {
 		return -1
 	}
-	if z[4] > x[4] {
+	if _z[4] > _x[4] {
 		return 1
-	} else if z[4] < x[4] {
+	} else if _z[4] < _x[4] {
 		return -1
 	}
-	if z[3] > x[3] {
+	if _z[3] > _x[3] {
 		return 1
-	} else if z[3] < x[3] {
+	} else if _z[3] < _x[3] {
 		return -1
 	}
-	if z[2] > x[2] {
+	if _z[2] > _x[2] {
 		return 1
-	} else if z[2] < x[2] {
+	} else if _z[2] < _x[2] {
 		return -1
 	}
-	if z[1] > x[1] {
+	if _z[1] > _x[1] {
 		return 1
-	} else if z[1] < x[1] {
+	} else if _z[1] < _x[1] {
 		return -1
 	}
-	if z[0] > x[0] {
+	if _z[0] > _x[0] {
 		return 1
-	} else if z[0] < x[0] {
+	} else if _z[0] < _x[0] {
 		return -1
 	}
 	return 0
+}
+
+// LexicographicallyLargest returns true if this element is strictly lexicographically
+// larger than its negation, false otherwise
+func (z *Element) LexicographicallyLargest() bool {
+	// adapted from github.com/zkcrypto/bls12_381
+	// we check if the element is larger than (q-1) / 2
+	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
+
+	_z := *z
+	_z.FromMont()
+
+	var b uint64
+	_, b = bits.Sub64(_z[0], 8813122258298994758, 0)
+	_, b = bits.Sub64(_z[1], 17530436596166295617, b)
+	_, b = bits.Sub64(_z[2], 794459099352289819, b)
+	_, b = bits.Sub64(_z[3], 5499048394472281212, b)
+	_, b = bits.Sub64(_z[4], 4102332782476656535, b)
+	_, b = bits.Sub64(_z[5], 4847250296721440456, b)
+	_, b = bits.Sub64(_z[6], 9360553153018859906, b)
+	_, b = bits.Sub64(_z[7], 13275999395695981708, b)
+	_, b = bits.Sub64(_z[8], 2972722064798244640, b)
+	_, b = bits.Sub64(_z[9], 6670688895927624516, b)
+	_, b = bits.Sub64(_z[10], 7549128776290762655, b)
+	_, b = bits.Sub64(_z[11], 40941494391138053, b)
+
+	return b == 0
 }
 
 // SetRandom sets z to a random element < q

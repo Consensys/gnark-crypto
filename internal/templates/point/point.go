@@ -732,19 +732,33 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 
 
-const (
-	Size{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
-	Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Compressed * 2
-)
+// Size{{ toUpper .PointName }}Compressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, compressed
+const Size{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
+
+// Size{{ toUpper .PointName }}Uncompressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, uncompressed
+const Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Compressed * 2
+
 
 // Bytes fills buf with binary representation of p
 // if compressed is set to false, will store X and Y coordinates
 // buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Uncompressed
 // if compressed is set to true, will store X coordinate and a parity bit
 // buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Compressed
-// note that the parity bit is stored in the highest bits of the most significant word of the X
-// coordinate
-// in both cases, coordinates are stored raw (in montgomery form)
+{{- if gt .UnusedBits 3}}
+// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+{{- else}}
+// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// we use the 2 most significant bits instead
+// 00 -> uncompressed
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
+// 01 -> compressed infinity point
+// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+{{- end}}
+// in both cases, coordinates are stored raw (in montgomery form: TODO WIP)
 func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) error {
 
 	// check buffer size
@@ -752,8 +766,6 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 		(!compressed && (len(buf) != Size{{ toUpper .PointName }}Uncompressed)) {
 		return errors.New("invalid buffer size")
 	}
-
-
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
@@ -784,30 +796,28 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 		// not compressed
 		mswMask = mUncompressed
 		// we store the Y coordinate
-		{{ if eq .CoordType "e2"}}
+		{{- if eq .CoordType "e2"}}
 			// p.Y.A0 | p.Y.A1
 			{{- $offset := mul $sizeOfFp 3}}
-			{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
+			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
 
 			{{- $offset := sub $offset $sizeOfFp}}
-			{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
+			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
 			
-		{{else}}
-			// p.Y
-			{{ template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
-		{{end}}
+		{{- else}}
+			{{- template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
+		{{- end}}
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	{{ if eq .CoordType "e2"}}
+	{{- if eq .CoordType "e2"}}
 		// p.X.A0 | p.X.A1
 		{{- $offset := $sizeOfFp}}
-		{{ template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A1"}}
-		{{ template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A0"}}
-	{{else}}
-		// p.X 
-		{{ template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
-	{{end}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A1"}}
+		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A0"}}
+	{{- else}}
+		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
+	{{- end}}
 
 	return nil
 }
@@ -837,6 +847,7 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 		}
 	}
 
+	// if infinity is encoded in the metadata, we don't need to read the buffer
 	if (mData == mCompressedInfinity) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
 		p.X.SetZero()
 		p.Y.SetZero()
@@ -844,30 +855,29 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 	}
 
 	// read X coordinate
-	{{ if eq .CoordType "e2"}}
+	{{- if eq .CoordType "e2"}}
 		// p.X.A0 | p.X.A1 
 		{{- $offset := $sizeOfFp}}
-		{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A1"}}
-		{{ template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A0"}}
-	{{else}}
-		// p.X 
-		{{ template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
-	{{end}}
+		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A1"}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A0"}}
+	{{- else}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+	{{- end}}
 
+	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-			{{ if eq .CoordType "e2"}}
+		{{- if eq .CoordType "e2"}}
 			// p.Y.A0 | p.Y.A1
 			{{- $offset := mul $sizeOfFp 3}}
-			{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
 
 			{{- $offset := sub $offset $sizeOfFp}}
-			{{ template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
 			
-		{{else}}
-			//  p.Y
-			{{ template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
-		{{end}}
+		{{- else}}
+			{{- template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
+		{{- end}}
 
 		return nil
 	}
@@ -878,16 +888,16 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{if eq .CoordType "e2"}}
+	{{- if eq .CoordType "e2"}}
 		if YSquared.Legendre() == -1 {
 			return errors.New("invalid compressed coordinate: square root doesn't exist.")
 		}
 		Y.Sqrt(&YSquared)
-	{{else}}
+	{{- else}}
 		if Y.Sqrt(&YSquared) == nil {
 			return errors.New("invalid compressed coordinate: square root doesn't exist.")
 		}
-	{{end}}
+	{{- end}}
 
 	negY.Neg(&Y)
 

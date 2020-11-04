@@ -45,6 +45,16 @@ func (z *e2) Cmp(x *e2) int {
 	return z.A0.Cmp(&x.A0)
 }
 
+// LexicographicallyLargest returns true if this element is strictly lexicographically
+// larger than its negation, false otherwise
+func (z *e2) LexicographicallyLargest() bool {
+	// adapted from github.com/zkcrypto/bls12_381
+	if z.A1.IsZero() {
+		return z.A0.LexicographicallyLargest()
+	}
+	return z.A1.LexicographicallyLargest()
+}
+
 // SetString sets a e2 element from strings
 func (z *e2) SetString(s1, s2 string) *e2 {
 	z.A0.SetString(s1)

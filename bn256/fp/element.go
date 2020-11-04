@@ -182,27 +182,50 @@ func (z *Element) IsZero() bool {
 //   +1 if z >  x
 //
 func (z *Element) Cmp(x *Element) int {
-	if z[3] > x[3] {
+	_z := *z
+	_x := *x
+	_z.FromMont()
+	_x.FromMont()
+	if _z[3] > _x[3] {
 		return 1
-	} else if z[3] < x[3] {
+	} else if _z[3] < _x[3] {
 		return -1
 	}
-	if z[2] > x[2] {
+	if _z[2] > _x[2] {
 		return 1
-	} else if z[2] < x[2] {
+	} else if _z[2] < _x[2] {
 		return -1
 	}
-	if z[1] > x[1] {
+	if _z[1] > _x[1] {
 		return 1
-	} else if z[1] < x[1] {
+	} else if _z[1] < _x[1] {
 		return -1
 	}
-	if z[0] > x[0] {
+	if _z[0] > _x[0] {
 		return 1
-	} else if z[0] < x[0] {
+	} else if _z[0] < _x[0] {
 		return -1
 	}
 	return 0
+}
+
+// LexicographicallyLargest returns true if this element is strictly lexicographically
+// larger than its negation, false otherwise
+func (z *Element) LexicographicallyLargest() bool {
+	// adapted from github.com/zkcrypto/bls12_381
+	// we check if the element is larger than (q-1) / 2
+	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
+
+	_z := *z
+	_z.FromMont()
+
+	var b uint64
+	_, b = bits.Sub64(_z[0], 11389680472494603940, 0)
+	_, b = bits.Sub64(_z[1], 14681934109093717318, b)
+	_, b = bits.Sub64(_z[2], 15863968012492123182, b)
+	_, b = bits.Sub64(_z[3], 1743499133401485332, b)
+
+	return b == 0
 }
 
 // SetRandom sets z to a random element < q

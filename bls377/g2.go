@@ -588,19 +588,22 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 
 }
 
-const (
-	SizeG2Compressed   = 48 * 2
-	SizeG2Uncompressed = SizeG2Compressed * 2
-)
+// SizeG2Compressed represents the size in bytes that a G2Affine need in binary form, compressed
+const SizeG2Compressed = 48 * 2
+
+// SizeG2Uncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
+const SizeG2Uncompressed = SizeG2Compressed * 2
 
 // Bytes fills buf with binary representation of p
 // if compressed is set to false, will store X and Y coordinates
 // buf must be allocated with len(buf) = SizeG2Uncompressed
 // if compressed is set to true, will store X coordinate and a parity bit
 // buf must be allocated with len(buf) = SizeG2Compressed
-// note that the parity bit is stored in the highest bits of the most significant word of the X
-// coordinate
-// in both cases, coordinates are stored raw (in montgomery form)
+// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+// in both cases, coordinates are stored raw (in montgomery form: TODO WIP)
 func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 
 	// check buffer size
@@ -638,9 +641,7 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 		// not compressed
 		mswMask = mUncompressed
 		// we store the Y coordinate
-
 		// p.Y.A0 | p.Y.A1
-
 		binary.BigEndian.PutUint64(buf[184:192], p.Y.A1[0])
 		binary.BigEndian.PutUint64(buf[176:184], p.Y.A1[1])
 		binary.BigEndian.PutUint64(buf[168:176], p.Y.A1[2])
@@ -658,9 +659,7 @@ func (p *G2Affine) Bytes(buf []byte, compressed bool) error {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-
 	// p.X.A0 | p.X.A1
-
 	binary.BigEndian.PutUint64(buf[88:96], p.X.A1[0])
 	binary.BigEndian.PutUint64(buf[80:88], p.X.A1[1])
 	binary.BigEndian.PutUint64(buf[72:80], p.X.A1[2])
@@ -702,6 +701,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 		}
 	}
 
+	// if infinity is encoded in the metadata, we don't need to read the buffer
 	if (mData == mCompressedInfinity) || (mData == mUncompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
@@ -709,9 +709,7 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 	}
 
 	// read X coordinate
-
 	// p.X.A0 | p.X.A1
-
 	p.X.A1[0] = binary.BigEndian.Uint64(buf[88:96])
 	p.X.A1[1] = binary.BigEndian.Uint64(buf[80:88])
 	p.X.A1[2] = binary.BigEndian.Uint64(buf[72:80])
@@ -726,11 +724,10 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 	p.X.A0[4] = binary.BigEndian.Uint64(buf[8:16])
 	p.X.A0[5] = msw & ^mMask
 
+	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-
 		// p.Y.A0 | p.Y.A1
-
 		p.Y.A1[0] = binary.BigEndian.Uint64(buf[184:192])
 		p.Y.A1[1] = binary.BigEndian.Uint64(buf[176:184])
 		p.Y.A1[2] = binary.BigEndian.Uint64(buf[168:176])
@@ -753,7 +750,6 @@ func (p *G2Affine) SetBytes(buf []byte) error {
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
-
 	if YSquared.Legendre() == -1 {
 		return errors.New("invalid compressed coordinate: square root doesn't exist.")
 	}
