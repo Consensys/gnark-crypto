@@ -12,7 +12,7 @@ import (
 	"github.com/consensys/goff/field"
 
 	"github.com/consensys/bavard"
-	goff "github.com/consensys/goff/cmd"
+	"github.com/consensys/goff/generator"
 	"github.com/consensys/gurvy/internal/asm/amd64"
 	"github.com/consensys/gurvy/internal/templates/fq12over6over2"
 	"github.com/consensys/gurvy/internal/templates/pairing"
@@ -71,10 +71,10 @@ func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) CurveCo
 
 // GenerateBaseFields generates the base field fr and fp
 func GenerateBaseFields(conf CurveConfig) error {
-	if err := goff.GenerateFF("fr", "Element", conf.RTorsion, filepath.Join(conf.OutputDir, "fr"), false); err != nil {
+	if err := generator.GenerateFF("fr", "Element", conf.RTorsion, filepath.Join(conf.OutputDir, "fr"), false); err != nil {
 		return err
 	}
-	if err := goff.GenerateFF("fp", "Element", conf.FpModulus, filepath.Join(conf.OutputDir, "fp"), false); err != nil {
+	if err := generator.GenerateFF("fp", "Element", conf.FpModulus, filepath.Join(conf.OutputDir, "fp"), false); err != nil {
 		return err
 	}
 	return nil
