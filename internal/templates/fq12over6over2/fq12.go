@@ -216,15 +216,13 @@ func (z *e12) Conjugate(x *e12) *e12 {
 
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 
-// sizeGT represents the size in bytes that a GT element need in binary form
-const sizeGT = {{ $sizeOfFp }} * 12
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const SizeOfGT = {{ $sizeOfFp }} * 12
 
 // Bytes returns the regular (non montgomery) value 
-// of z as a big-endian byte slice.
+// of z as a big-endian byte array.
 // z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
-func (z *e12) Bytes() []byte {
-	var r [sizeGT]byte
-
+func (z *e12) Bytes() (r [SizeOfGT]byte) {
 	_z := *z
 	_z.FromMont()
 
@@ -264,7 +262,7 @@ func (z *e12) Bytes() []byte {
 	{{- $offset := mul $sizeOfFp 0}}
 	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B2.A1"}}
 
-	return r[:]
+	return
 }
 
 
@@ -273,7 +271,7 @@ func (z *e12) Bytes() []byte {
 // size(e) == {{ $sizeOfFp }} * 12
 // z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *e12) SetBytes(e []byte) error {
-	if len(e) != sizeGT {
+	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
 

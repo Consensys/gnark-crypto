@@ -228,15 +228,13 @@ func (z *e12) Conjugate(x *e12) *e12 {
 	return z
 }
 
-// sizeGT represents the size in bytes that a GT element need in binary form
-const sizeGT = 48 * 12
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const SizeOfGT = 48 * 12
 
 // Bytes returns the regular (non montgomery) value
-// of z as a big-endian byte slice.
+// of z as a big-endian byte array.
 // z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
-func (z *e12) Bytes() []byte {
-	var r [sizeGT]byte
-
+func (z *e12) Bytes() (r [SizeOfGT]byte) {
 	_z := *z
 	_z.FromMont()
 	binary.BigEndian.PutUint64(r[568:576], _z.C0.B0.A0[0])
@@ -323,7 +321,7 @@ func (z *e12) Bytes() []byte {
 	binary.BigEndian.PutUint64(r[8:16], _z.C1.B2.A1[4])
 	binary.BigEndian.PutUint64(r[0:8], _z.C1.B2.A1[5])
 
-	return r[:]
+	return
 }
 
 // SetBytes interprets e as the bytes of a big-endian GT
@@ -331,7 +329,7 @@ func (z *e12) Bytes() []byte {
 // size(e) == 48 * 12
 // z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *e12) SetBytes(e []byte) error {
-	if len(e) != sizeGT {
+	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
 	z.C0.B0.A0[0] = binary.BigEndian.Uint64(e[568:576])

@@ -19,6 +19,7 @@ package bls381
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 	"math/big"
 
 	"github.com/consensys/gurvy/bls381/fp"
@@ -635,17 +636,14 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 
 }
 
-// SizeG1Compressed represents the size in bytes that a G1Affine need in binary form, compressed
-const SizeG1Compressed = 48
+// SizeOfG1Compressed represents the size in bytes that a G1Affine need in binary form, compressed
+const SizeOfG1Compressed = 48
 
-// SizeG1Uncompressed represents the size in bytes that a G1Affine need in binary form, uncompressed
-const SizeG1Uncompressed = SizeG1Compressed * 2
+// SizeOfG1Uncompressed represents the size in bytes that a G1Affine need in binary form, uncompressed
+const SizeOfG1Uncompressed = SizeOfG1Compressed * 2
 
 // Bytes fills buf with binary representation of p
-// if compressed is set to false, will store X and Y coordinates
-// buf must be allocated with len(buf) = SizeG1Uncompressed
-// if compressed is set to true, will store X coordinate and a parity bit
-// buf must be allocated with len(buf) = SizeG1Compressed
+// will store X coordinate in regular form and a parity bit
 // as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
@@ -653,73 +651,84 @@ const SizeG1Uncompressed = SizeG1Compressed * 2
 // 11 -> compressed, use largest lexicographically square root of Y^2
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
-func (p *G1Affine) Bytes(buf []byte, compressed bool) error {
-
-	// check buffer size
-	if (compressed && (len(buf) != SizeG1Compressed)) ||
-		(!compressed && (len(buf) != SizeG1Uncompressed)) {
-		return errors.New("invalid buffer size")
-	}
+func (p *G1Affine) Bytes() (res [SizeOfG1Compressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		var zbuf [SizeG1Uncompressed]byte
-		copy(buf[8:], zbuf[:])
-		if compressed {
-			binary.BigEndian.PutUint64(buf[:8], mCompressedInfinity)
-		} else {
-			binary.BigEndian.PutUint64(buf[:8], mUncompressed)
-		}
-		return nil
+		binary.BigEndian.PutUint64(res[:8], mCompressedInfinity)
+		return
 	}
 
 	// tmp is used to convert from montgomery representation to regular
 	var tmp fp.Element
 
-	var mswMask uint64
-	if compressed {
-		// compressed, we need to know if Y is lexicographically bigger than -Y
-		// if p.Y ">" -p.Y
-		if p.Y.LexicographicallyLargest() {
-			mswMask = mCompressedLargest
-		} else {
-			mswMask = mCompressedSmallest
-		}
-
-	} else {
-		// not compressed
-		mswMask = mUncompressed
-		// we store the Y coordinate
-		tmp = p.Y
-		tmp.FromMont()
-		binary.BigEndian.PutUint64(buf[88:96], tmp[0])
-		binary.BigEndian.PutUint64(buf[80:88], tmp[1])
-		binary.BigEndian.PutUint64(buf[72:80], tmp[2])
-		binary.BigEndian.PutUint64(buf[64:72], tmp[3])
-		binary.BigEndian.PutUint64(buf[56:64], tmp[4])
-		binary.BigEndian.PutUint64(buf[48:56], tmp[5])
-
+	mswMask := mCompressedSmallest
+	// compressed, we need to know if Y is lexicographically bigger than -Y
+	// if p.Y ">" -p.Y
+	if p.Y.LexicographicallyLargest() {
+		mswMask = mCompressedLargest
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
 	tmp = p.X
 	tmp.FromMont()
-	binary.BigEndian.PutUint64(buf[40:48], tmp[0])
-	binary.BigEndian.PutUint64(buf[32:40], tmp[1])
-	binary.BigEndian.PutUint64(buf[24:32], tmp[2])
-	binary.BigEndian.PutUint64(buf[16:24], tmp[3])
-	binary.BigEndian.PutUint64(buf[8:16], tmp[4])
-	binary.BigEndian.PutUint64(buf[0:8], tmp[5]|mswMask)
+	binary.BigEndian.PutUint64(res[40:48], tmp[0])
+	binary.BigEndian.PutUint64(res[32:40], tmp[1])
+	binary.BigEndian.PutUint64(res[24:32], tmp[2])
+	binary.BigEndian.PutUint64(res[16:24], tmp[3])
+	binary.BigEndian.PutUint64(res[8:16], tmp[4])
+	binary.BigEndian.PutUint64(res[0:8], tmp[5]|mswMask)
 
-	return nil
+	return
 }
 
-// SetBytes sets p from binary representation in buf
-// if buf doesn't match the spec in Bytes(..), this function returns an error
+// RawBytes fills buf with binary representation of p (stores X and Y coordinate)
+// see Bytes() for a compressed representation
+func (p *G1Affine) RawBytes() (res [SizeOfG1Uncompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		binary.BigEndian.PutUint64(res[:8], mUncompressed)
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	// not compressed
+	mswMask := mUncompressed
+	// we store the Y coordinate
+	tmp = p.Y
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[88:96], tmp[0])
+	binary.BigEndian.PutUint64(res[80:88], tmp[1])
+	binary.BigEndian.PutUint64(res[72:80], tmp[2])
+	binary.BigEndian.PutUint64(res[64:72], tmp[3])
+	binary.BigEndian.PutUint64(res[56:64], tmp[4])
+	binary.BigEndian.PutUint64(res[48:56], tmp[5])
+
+	// we store X  and mask the most significant word with our metadata mask
+	tmp = p.X
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[40:48], tmp[0])
+	binary.BigEndian.PutUint64(res[32:40], tmp[1])
+	binary.BigEndian.PutUint64(res[24:32], tmp[2])
+	binary.BigEndian.PutUint64(res[16:24], tmp[3])
+	binary.BigEndian.PutUint64(res[8:16], tmp[4])
+	binary.BigEndian.PutUint64(res[0:8], tmp[5]|mswMask)
+
+	return
+}
+
+// SetBytes sets p from binary representation in buf and returns number of consumed bytes
+// bytes in buf must match either RawBytes() or Bytes() output
+// if buf is too short io.ErrShortBuffer is returned
+// if buf contains compressed representation (output from Bytes()) and we're unable to compute
+// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
 // note that this doesn't check if the resulting point is on the curve or in the correct subgroup
-func (p *G1Affine) SetBytes(buf []byte) error {
-	if len(buf) < 48 {
-		return errors.New("invalid buffer size")
+func (p *G1Affine) SetBytes(buf []byte) (int, error) {
+	if len(buf) < SizeOfG1Compressed {
+		return 0, io.ErrShortBuffer
 	}
 
 	// read the most significant word
@@ -729,12 +738,8 @@ func (p *G1Affine) SetBytes(buf []byte) error {
 
 	// check buffer size
 	if mData == mUncompressed {
-		if len(buf) != SizeG1Uncompressed {
-			return errors.New("invalid buffer size")
-		}
-	} else {
-		if len(buf) != SizeG1Compressed {
-			return errors.New("invalid buffer size")
+		if len(buf) < SizeOfG1Uncompressed {
+			return 0, io.ErrShortBuffer
 		}
 	}
 
@@ -742,7 +747,7 @@ func (p *G1Affine) SetBytes(buf []byte) error {
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return nil
+		return SizeOfG1Compressed, nil
 	}
 
 	// tmp is used to convert to montgomery representation
@@ -770,7 +775,7 @@ func (p *G1Affine) SetBytes(buf []byte) error {
 		tmp.ToMont()
 		p.Y.Set(&tmp)
 
-		return nil
+		return SizeOfG1Uncompressed, nil
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
@@ -779,7 +784,7 @@ func (p *G1Affine) SetBytes(buf []byte) error {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bCurveCoeff)
 	if Y.Sqrt(&YSquared) == nil {
-		return errors.New("invalid compressed coordinate: square root doesn't exist.")
+		return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
 	}
 
 	if Y.LexicographicallyLargest() {
@@ -796,5 +801,5 @@ func (p *G1Affine) SetBytes(buf []byte) error {
 
 	p.Y = Y
 
-	return nil
+	return SizeOfG1Compressed, nil
 }

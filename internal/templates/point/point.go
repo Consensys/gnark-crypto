@@ -4,6 +4,7 @@ package point
 const Point = `
 
 import (
+	"io"
 	"math/big"
 	"runtime"
 	"encoding/binary"
@@ -732,18 +733,15 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 
 
-// Size{{ toUpper .PointName }}Compressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, compressed
-const Size{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
+// SizeOf{{ toUpper .PointName }}Compressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, compressed
+const SizeOf{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
 
-// Size{{ toUpper .PointName }}Uncompressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, uncompressed
-const Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Compressed * 2
+// SizeOf{{ toUpper .PointName }}Uncompressed represents the size in bytes that a {{ toUpper .PointName }}Affine need in binary form, uncompressed
+const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }}Compressed * 2
 
 
 // Bytes fills buf with binary representation of p
-// if compressed is set to false, will store X and Y coordinates
-// buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Uncompressed
-// if compressed is set to true, will store X coordinate and a parity bit
-// buf must be allocated with len(buf) = Size{{ toUpper .PointName }}Compressed
+// will store X coordinate in regular form and a parity bit
 {{- if gt .UnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
@@ -758,53 +756,22 @@ const Size{{ toUpper .PointName }}Uncompressed = Size{{ toUpper .PointName }}Com
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 {{- end}}
-func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) error {
-
-	// check buffer size
-	if (compressed && (len(buf) != Size{{ toUpper .PointName }}Compressed))  ||
-		(!compressed && (len(buf) != Size{{ toUpper .PointName }}Uncompressed)) {
-		return errors.New("invalid buffer size")
-	}
+func (p *{{ toUpper .PointName }}Affine) Bytes() (res [SizeOf{{ toUpper .PointName }}Compressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		var zbuf [Size{{ toUpper .PointName }}Uncompressed]byte
-		copy(buf[8:], zbuf[:])
-		if compressed {
-			binary.BigEndian.PutUint64(buf[:8], mCompressedInfinity)
-		} else {
-			binary.BigEndian.PutUint64(buf[:8], {{- if gt .UnusedBits 3}}mUncompressedInfinity{{- else}} mUncompressed {{- end}})
-		}
-		return nil
+		binary.BigEndian.PutUint64(res[:8], mCompressedInfinity)
+		return
 	}
 
 	// tmp is used to convert from montgomery representation to regular
 	var tmp fp.Element
 
-	var mswMask uint64
-	if compressed {
-		// compressed, we need to know if Y is lexicographically bigger than -Y
-		// if p.Y ">" -p.Y 
-		if p.Y.LexicographicallyLargest() { 
-			mswMask = mCompressedLargest
-		} else {
-			mswMask = mCompressedSmallest
-		}
-
-	} else {
-		// not compressed
-		mswMask = mUncompressed
-		// we store the Y coordinate
-		{{- if eq .CoordType "e2"}}
-			// p.Y.A1 | p.Y.A0
-			{{- $offset := mul $sizeOfFp 3}}
-			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
-
-			{{- $offset := mul $sizeOfFp 2}}
-			{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
-		{{- else}}
-			{{- template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
-		{{- end}}
+	mswMask := mCompressedSmallest
+	// compressed, we need to know if Y is lexicographically bigger than -Y
+	// if p.Y ">" -p.Y 
+	if p.Y.LexicographicallyLargest() { 
+		mswMask = mCompressedLargest
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
@@ -817,16 +784,59 @@ func (p *{{ toUpper .PointName }}Affine) Bytes(buf []byte, compressed bool) erro
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
 	{{- end}}
 
-	return nil
+	return
 }
 
 
-// SetBytes sets p from binary representation in buf
-// if buf doesn't match the spec in Bytes(..), this function returns an error
+// RawBytes fills buf with binary representation of p (stores X and Y coordinate)
+// see Bytes() for a compressed representation
+func (p *{{ toUpper .PointName }}Affine) RawBytes() (res [SizeOf{{ toUpper .PointName }}Uncompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		binary.BigEndian.PutUint64(res[:8], {{- if gt .UnusedBits 3}}mUncompressedInfinity{{- else}} mUncompressed {{- end}})
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	// not compressed
+	mswMask := mUncompressed
+	// we store the Y coordinate
+	{{- if eq .CoordType "e2"}}
+		// p.Y.A1 | p.Y.A0
+		{{- $offset := mul $sizeOfFp 3}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
+
+		{{- $offset := mul $sizeOfFp 2}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A1"}}
+	{{- else}}
+		{{- template "putFp" dict "all" . "OffSet" $sizeOfFp "From" "p.Y"}}
+	{{- end}}
+
+	// we store X  and mask the most significant word with our metadata mask
+	{{- if eq .CoordType "e2"}}
+		// p.X.A1 | p.X.A0
+		{{- $offset := $sizeOfFp}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
+		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A1"}}
+	{{- else}}
+		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
+	{{- end}}
+
+	return 
+}
+
+// SetBytes sets p from binary representation in buf and returns number of consumed bytes
+// bytes in buf must match either RawBytes() or Bytes() output
+// if buf is too short io.ErrShortBuffer is returned
+// if buf contains compressed representation (output from Bytes()) and we're unable to compute
+// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
 // note that this doesn't check if the resulting point is on the curve or in the correct subgroup
-func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
-	if len(buf) < {{ $sizeOfFp }} {
-		return errors.New("invalid buffer size")
+func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
+	if len(buf) < SizeOf{{ toUpper .PointName }}Compressed {
+		return 0, io.ErrShortBuffer
 	}
 
 	// read the most significant word
@@ -836,21 +846,25 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 
 	// check buffer size
 	if (mData == mUncompressed) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
-		if len(buf) != Size{{ toUpper .PointName }}Uncompressed {
-			return errors.New("invalid buffer size")
+		if len(buf) < SizeOf{{ toUpper .PointName }}Uncompressed {
+			return 0, io.ErrShortBuffer
 		}
-	} else {
-		if len(buf) != Size{{ toUpper .PointName }}Compressed {
-			return errors.New("invalid buffer size")
-		}
-	}
+	} 
 
 	// if infinity is encoded in the metadata, we don't need to read the buffer
-	if (mData == mCompressedInfinity) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+	if (mData == mCompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return nil
+		return SizeOf{{ toUpper .PointName }}Compressed, nil
 	}
+
+	{{- if gt .UnusedBits 3}} 
+	if (mData == mUncompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOf{{ toUpper .PointName }}Uncompressed, nil
+	}
+	{{- end}} 
 
 	// tmp is used to convert to montgomery representation
 	var tmp fp.Element
@@ -880,7 +894,7 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 			{{- template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
 		{{- end}}
 
-		return nil
+		return SizeOf{{ toUpper .PointName }}Uncompressed, nil
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
@@ -891,12 +905,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 
 	{{- if eq .CoordType "e2"}}
 		if YSquared.Legendre() == -1 {
-			return errors.New("invalid compressed coordinate: square root doesn't exist.")
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
 		}
 		Y.Sqrt(&YSquared)
 	{{- else}}
 		if Y.Sqrt(&YSquared) == nil {
-			return errors.New("invalid compressed coordinate: square root doesn't exist.")
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
 		}
 	{{- end}}
 
@@ -915,7 +929,7 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 
 	p.Y = Y
 
-	return nil 
+	return SizeOf{{ toUpper .PointName }}Compressed, nil 
 }
 
 
@@ -930,12 +944,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) error {
 			{{- $jj := add $j 8}}
 			{{- if eq $.OffSet 0}}
 				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
-					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}] | mswMask)
+					binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}] | mswMask)
 				{{- else}}
-					binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}])
+					binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
 				{{- end}}
 			{{- else}}
-				binary.BigEndian.PutUint64(buf[{{$j}}:{{$jj}}], tmp[{{$k}}])
+				binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
 			{{- end}}
 			
 	{{- end}}

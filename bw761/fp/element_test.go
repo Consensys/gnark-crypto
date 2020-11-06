@@ -225,43 +225,6 @@ func TestElementIsRandom(t *testing.T) {
 	}
 }
 
-func TestElementBytes(t *testing.T) {
-
-	modulus := Modulus()
-
-	// test values
-	var bs [3][]byte
-	r1, _ := rand.Int(rand.Reader, modulus)
-	bs[0] = r1.Bytes() // should be r1 as Element
-	r2, _ := rand.Int(rand.Reader, modulus)
-	r2.Add(modulus, r2)
-	bs[1] = r2.Bytes() // should be r2 as Element
-	var tmp big.Int
-	tmp.SetUint64(0)
-	bs[2] = tmp.Bytes() // should be 0 as Element
-
-	// witness values as Element
-	var el [3]Element
-	el[0].SetBigInt(r1)
-	el[1].SetBigInt(r2)
-	el[2].SetUint64(0)
-
-	// check conversions
-	for i := 0; i < 3; i++ {
-		var z Element
-		z.SetBytes(bs[i])
-		if !z.Equal(&el[i]) {
-			t.Fatal("SetBytes fails")
-		}
-		// check conversion Element to Bytes
-		b := z.Bytes()
-		z.SetBytes(b)
-		if !z.Equal(&el[i]) {
-			t.Fatal("Bytes fails")
-		}
-	}
-}
-
 // -------------------------------------------------------------------------------------------------
 // Gopter tests
 // most of them are generated with a template
@@ -348,6 +311,31 @@ func TestElementReduce(t *testing.T) {
 		supportAdx = true
 	}
 
+}
+
+func TestElementBytes(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("SetBytes(Bytes()) should stayt constant", prop.ForAll(
+		func(a testPairElement) bool {
+			var b Element
+			bytes := a.element.Bytes()
+			b.SetBytes(bytes[:])
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementLegendre(t *testing.T) {

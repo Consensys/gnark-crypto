@@ -39,7 +39,7 @@ func TestE12Serialization(t *testing.T) {
 		func(a *e12) bool {
 			var b e12
 			buf := a.Bytes()
-			if err := b.SetBytes(buf); err != nil {
+			if err := b.SetBytes(buf[:]); err != nil {
 				return false
 			}
 			return a.Equal(&b)

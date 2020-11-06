@@ -90,39 +90,42 @@ func TestG2IsOnCurve(t *testing.T) {
 
 func TestG2Serialization(t *testing.T) {
 
-	// test round trip serialization of infinity, uncompressed
+	// test round trip serialization of infinity
 	{
-		var p1, p2 G2Affine
-		p2.X.SetRandom()
-		p2.Y.SetRandom()
+		// compressed
+		{
+			var p1, p2 G2Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.Bytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG2Compressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
 
-		var buf [SizeG2Uncompressed]byte
-		if err := p1.Bytes(buf[:], false); err != nil {
-			t.Fatal(err)
-		}
-		if err := p2.SetBytes(buf[:]); err != nil {
-			t.Fatal(err)
-		}
-		if !(p2.X.IsZero() && p2.Y.IsZero()) {
-			t.Fatal("deserialization of uncompressed infinity point is not infinity")
-		}
-	}
-
-	// test round trip serialization of infinity, compressed
-	{
-		var p1, p2 G2Affine
-		p2.X.SetRandom()
-		p2.Y.SetRandom()
-
-		var buf [SizeG2Compressed]byte
-		if err := p1.Bytes(buf[:], true); err != nil {
-			t.Fatal(err)
-		}
-		if err := p2.SetBytes(buf[:]); err != nil {
-			t.Fatal(err)
-		}
-		if !(p2.X.IsZero() && p2.Y.IsZero()) {
-			t.Fatal("deserialization of compressed infinity point is not infinity")
+		// uncompressed
+		{
+			var p1, p2 G2Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.RawBytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG2Uncompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
 		}
 	}
 
@@ -132,17 +135,18 @@ func TestG2Serialization(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	genFuzz1 := GenE2()
 
-	properties.Property("[BLS377] Affine SetBytes(Bytes(compressed = false)) should stay the same", prop.ForAll(
+	properties.Property("[BLS377] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
 		func(a, b *e2) bool {
 			var start, end G2Affine
 			start.X = *a
 			start.Y = *b
 
-			var buf [SizeG2Uncompressed]byte
-			if err := start.Bytes(buf[:], false); err != nil {
+			buf := start.RawBytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
 				return false
 			}
-			if err := end.SetBytes(buf[:]); err != nil {
+			if n != SizeOfG2Uncompressed {
 				return false
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
@@ -151,18 +155,19 @@ func TestG2Serialization(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BLS377] Affine SetBytes(Bytes(compressed = true)) should stay the same", prop.ForAll(
+	properties.Property("[BLS377] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func(a fp.Element) bool {
 			var start, end G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
-			var buf [SizeG2Compressed]byte
-			if err := start.Bytes(buf[:], true); err != nil {
+			buf := start.Bytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
 				return false
 			}
-			if err := end.SetBytes(buf[:]); err != nil {
+			if n != SizeOfG2Compressed {
 				return false
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
