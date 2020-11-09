@@ -199,6 +199,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	}
 }
 
+// BytesRead return total bytes read from reader
+func (dec *Decoder) BytesRead() int64 {
+	return dec.n
+}
+
 func (dec *Decoder) readUint64() (r uint64, err error) {
 	var read int
 	var buf [8]byte
@@ -242,8 +247,8 @@ func (enc *Encoder) Encode(v interface{}) (err error) {
 	return enc.encode(v)
 }
 
-// WrittenBytes return total bytes written on writer
-func (enc *Encoder) WrittenBytes() int64 {
+// BytesWritten return total bytes written on writer
+func (enc *Encoder) BytesWritten() int64 {
 	return enc.n
 }
 

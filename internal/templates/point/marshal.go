@@ -205,6 +205,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	}
 }
 
+// BytesRead return total bytes read from reader
+func (dec *Decoder) BytesRead() int64 {
+	return dec.n
+}
+
 func (dec *Decoder) readUint64() (r uint64, err error) {
 	var read int
 	var buf [8]byte
@@ -251,8 +256,8 @@ func (enc *Encoder) Encode(v interface{}) (err error) {
 	return enc.encode(v)
 }
 
-// WrittenBytes return total bytes written on writer
-func (enc *Encoder) WrittenBytes() int64 {
+// BytesWritten return total bytes written on writer
+func (enc *Encoder) BytesWritten() int64 {
 	return enc.n
 }
 
@@ -394,7 +399,7 @@ func TestEncoder(t *testing.T) {
 	}
 
 	
-	testDecode := func(t *testing.T, r io.Reader) {
+	testDecode := func(t *testing.T, r io.Reader, n int64) {
 		dec := NewDecoder(r)
 		var outA uint64
 		var outB fr.Element 
@@ -436,11 +441,14 @@ func TestEncoder(t *testing.T) {
 				t.Fatal("decode(encode(slice(points))) failed")	
 			}
 		}
+		if n != dec.BytesRead() {
+			t.Fatal("bytes read don't match bytes written")
+		}
 	}
 
 	// decode them 
-	testDecode(t, &buf)
-	testDecode(t, &bufRaw)
+	testDecode(t, &buf, enc.BytesWritten())
+	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
 
 }

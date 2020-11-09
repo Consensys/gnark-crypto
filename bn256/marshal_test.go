@@ -66,7 +66,7 @@ func TestEncoder(t *testing.T) {
 		}
 	}
 
-	testDecode := func(t *testing.T, r io.Reader) {
+	testDecode := func(t *testing.T, r io.Reader, n int64) {
 		dec := NewDecoder(r)
 		var outA uint64
 		var outB fr.Element
@@ -108,11 +108,14 @@ func TestEncoder(t *testing.T) {
 				t.Fatal("decode(encode(slice(points))) failed")
 			}
 		}
+		if n != dec.BytesRead() {
+			t.Fatal("bytes read don't match bytes written")
+		}
 	}
 
 	// decode them
-	testDecode(t, &buf)
-	testDecode(t, &bufRaw)
+	testDecode(t, &buf, enc.BytesWritten())
+	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
 }
 
