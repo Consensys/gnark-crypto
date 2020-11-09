@@ -10,6 +10,30 @@ import (
 // ------------------------------------------------------------
 // tests
 
+func TestE6Serialization(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE6()
+
+	properties.Property("[BW761] GT SetBytes(Bytes()) should stay constant", prop.ForAll(
+		func(a *e6) bool {
+			var b e6
+			buf := a.Bytes()
+			if err := b.SetBytes(buf[:]); err != nil {
+				return false
+			}
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestE6ReceiverIsOperand(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

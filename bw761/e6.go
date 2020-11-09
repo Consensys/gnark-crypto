@@ -14,7 +14,10 @@
 
 package bw761
 
-import "math/big"
+import (
+	"errors"
+	"math/big"
+)
 
 // e6 is a degree-three finite field extension of fp2
 type e6 struct {
@@ -253,4 +256,67 @@ func (z *e6) Exp(x *e6, e big.Int) *e6 {
 	}
 	z.Set(&res)
 	return z
+}
+
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const sizeOfFp = 96
+const SizeOfGT = sizeOfFp * 6
+
+// Bytes returns the regular (non montgomery) value
+// of z as a big-endian byte array.
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+func (z *e6) Bytes() (r [SizeOfGT]byte) {
+
+	offset := 0
+	var buf [sizeOfFp]byte
+
+	buf = z.B2.A1.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+	offset += sizeOfFp
+
+	buf = z.B2.A0.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+	offset += sizeOfFp
+
+	buf = z.B1.A1.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+	offset += sizeOfFp
+
+	buf = z.B1.A0.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+	offset += sizeOfFp
+
+	buf = z.B0.A1.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+	offset += sizeOfFp
+
+	buf = z.B0.A0.Bytes()
+	copy(r[offset:offset+sizeOfFp], buf[:])
+
+	return
+}
+
+// SetBytes interprets e as the bytes of a big-endian GT
+// sets z to that value (in Montgomery form), and returns z.
+// size(e) == 48 * 12
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+func (z *e6) SetBytes(e []byte) error {
+	if len(e) != SizeOfGT {
+		return errors.New("invalid buffer size")
+	}
+	offset := 0
+	z.B2.A1.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+	z.B2.A0.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+	z.B1.A1.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+	z.B1.A0.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+	z.B0.A1.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+	z.B0.A0.SetBytes(e[offset : offset+sizeOfFp])
+	offset += sizeOfFp
+
+	return nil
 }
