@@ -788,7 +788,7 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
 	if YSquared.Legendre() == -1 {
-		return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
+		return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 	}
 	Y.Sqrt(&YSquared)
 

@@ -905,12 +905,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
 
 	{{- if eq .CoordType "e2"}}
 		if YSquared.Legendre() == -1 {
-			return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
 		Y.Sqrt(&YSquared)
 	{{- else}}
 		if Y.Sqrt(&YSquared) == nil {
-			return 0, errors.New("invalid compressed coordinate: square root doesn't exist.")
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
 	{{- end}}
 

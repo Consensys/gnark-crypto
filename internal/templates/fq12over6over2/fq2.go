@@ -286,6 +286,7 @@ func (z *e2) Exp(x *e2, e big.Int) *e2 {
 
 `
 
+// Fq2Amd64 ...
 const Fq2Amd64 = `
 
 import "golang.org/x/sys/cpu"

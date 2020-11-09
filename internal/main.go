@@ -47,6 +47,8 @@ func main() {
 		assertNoError(generator.GenerateMultiExpHelpers(confs[i]))
 		assertNoError(generator.GenerateDoc(confs[i]))
 
+		assertNoError(generator.GenerateMarshal(confs[i]))
+
 		if confs[i].CurveName != "bw761" {
 
 			// G1

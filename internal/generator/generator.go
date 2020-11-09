@@ -369,6 +369,54 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 	return nil
 }
 
+// GenerateMarshal generates elliptic curve encoder and serialization code
+func GenerateMarshal(_conf CurveConfig) error {
+	type pointConfig struct {
+		CurveConfig
+		Fp         field.Field
+		UnusedBits int
+	}
+	conf := pointConfig{
+		CurveConfig: _conf,
+	}
+	if fp, err := field.NewField("unset", "fpelement", conf.FpModulus, false, "unset"); err != nil {
+		return err
+	} else {
+		conf.Fp = *fp
+	}
+	conf.UnusedBits = 64 - (conf.Fp.NbBits % 64)
+
+	bavardOpts := []func(*bavard.Bavard) error{
+		bavard.Apache2("ConsenSys Software Inc.", 2020),
+		bavard.Package(conf.CurveName),
+		bavard.GeneratedBy("gurvy"),
+		bavard.Funcs(helpers()),
+	}
+
+	// encoder / decoder
+	src := []string{
+		point.Marshal,
+	}
+
+	pathSrc := filepath.Join(conf.OutputDir, "marshal.go")
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	// tests
+	src = []string{
+		point.MarshalTests,
+	}
+
+	pathSrc = filepath.Join(conf.OutputDir, "marshal_test.go")
+
+	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GeneratePairingTests generates elliptic curve arithmetic
 func GeneratePairingTests(conf CurveConfig) error {
 
