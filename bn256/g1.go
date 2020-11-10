@@ -784,3 +784,74 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 
 	return SizeOfG1Compressed, nil
 }
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *G1Affine) unsafeComputeY() error {
+	// stored in unsafeSetCompressedBytes
+
+	mData := p.Y[0]
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y fp.Element
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bCurveCoeff)
+	if Y.Sqrt(&YSquared) == nil {
+		return errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+
+	// read the most significant word
+	msw := binary.BigEndian.Uint64(buf[:8])
+
+	mData := msw & mMask
+
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// tmp is used to convert to montgomery representation
+	var tmp fp.Element
+
+	// read X coordinate
+	tmp[0] = binary.BigEndian.Uint64(buf[24:32])
+	tmp[1] = binary.BigEndian.Uint64(buf[16:24])
+	tmp[2] = binary.BigEndian.Uint64(buf[8:16])
+	tmp[3] = msw & ^mMask
+	tmp.ToMont()
+	p.X.Set(&tmp)
+
+	// store mData in p.Y[0]
+	p.Y[0] = mData
+
+	// recomputing Y will be done asynchronously
+	return
+}

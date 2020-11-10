@@ -147,6 +147,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if len(*t) != int(msw) {
 			*t = make([]G1Affine, msw)
 		}
+		compressed := make([]bool, msw)
 		for i := 0; i < len(*t); i++ {
 			// read the most significant word
 			read, err = io.ReadFull(dec.r, buf[:8])
@@ -155,20 +156,42 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			msw = binary.BigEndian.Uint64(buf[:8])
-			nbBytes := SizeOfG1Uncompressed
+			
 			if isCompressed(msw) {
-				nbBytes = SizeOfG1Compressed
-			}
-			read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-			_, err = (*t)[i].SetBytes(buf[:nbBytes])
-			if err != nil {
-				return
+				nbBytes := SizeOfG1Compressed
+				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+				dec.n += int64(read)
+				if err != nil {
+					return
+				}
+				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+			} else {
+				nbBytes := SizeOfG1Uncompressed
+				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+				dec.n += int64(read)
+				if err != nil {
+					return
+				}
+				_, err = (*t)[i].SetBytes(buf[:nbBytes])
+				if err != nil {
+					return
+				}
 			}
 		}
+		var nbErrs uint64
+		parallel.Execute(len(compressed), func(start, end int){
+			for i := start; i < end; i++ {
+				if compressed[i] {
+					if err := (*t)[i].unsafeComputeY(); err != nil {
+						atomic.AddUint64(&nbErrs, 1)
+					}
+				}
+			}
+		})
+		if nbErrs != 0 {
+			return errors.New("point decompression failed")
+		}
+		
 		return nil
 	case *[]G2Affine:
 		msw, err = dec.readUint64()
@@ -178,27 +201,51 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if len(*t) != int(msw) {
 			*t = make([]G2Affine, msw)
 		}
+		compressed := make([]bool, msw)
 		for i := 0; i < len(*t); i++ {
+			// read the most significant word
 			read, err = io.ReadFull(dec.r, buf[:8])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
 			msw = binary.BigEndian.Uint64(buf[:8])
-			nbBytes := SizeOfG2Uncompressed
+			
 			if isCompressed(msw) {
-				nbBytes = SizeOfG2Compressed
-			}
-			read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-			_ , err = (*t)[i].SetBytes(buf[:nbBytes])
-			if err != nil {
-				return
+				nbBytes := SizeOfG2Compressed
+				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+				dec.n += int64(read)
+				if err != nil {
+					return
+				}
+				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+			} else {
+				nbBytes := SizeOfG2Uncompressed
+				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+				dec.n += int64(read)
+				if err != nil {
+					return
+				}
+				_, err = (*t)[i].SetBytes(buf[:nbBytes])
+				if err != nil {
+					return
+				}
 			}
 		}
+		var nbErrs uint64
+		parallel.Execute(len(compressed), func(start, end int){
+			for i := start; i < end; i++ {
+				if compressed[i] {
+					if err := (*t)[i].unsafeComputeY(); err != nil {
+						atomic.AddUint64(&nbErrs, 1)
+					}
+				}
+			}
+		})
+		if nbErrs != 0 {
+			return errors.New("point decompression failed")
+		}
+		
 		return nil
 	default:
 		return errors.New("{{.CurveName}} encoder: unsupported type")

@@ -933,6 +933,100 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
 }
 
 
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *{{ toUpper .PointName }}Affine) unsafeComputeY() error  {
+	// stored in unsafeSetCompressedBytes
+	{{ if eq .CoordType "e2"}}
+	mData := p.Y.A0[0]
+	{{ else}}
+	mData := p.Y[0]
+	{{ end}}
+
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y {{.CoordType}}
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
+
+	{{- if eq .CoordType "e2"}}
+		if YSquared.Legendre() == -1 {
+			return errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+		Y.Sqrt(&YSquared)
+	{{- else}}
+		if Y.Sqrt(&YSquared) == nil {
+			return errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+	{{- end}}
+
+	
+	if Y.LexicographicallyLargest()  { 
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *{{ toUpper .PointName }}Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
+
+	// read the most significant word
+	msw := binary.BigEndian.Uint64(buf[:8])
+
+	mData := msw & mMask
+
+	if (mData == mCompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// tmp is used to convert to montgomery representation
+	var tmp fp.Element
+
+	// read X coordinate
+	{{- if eq .CoordType "e2"}}
+		// p.X.A1 | p.X.A0
+		{{- $offset := $sizeOfFp}}
+		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
+	{{- else}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+	{{- end}}
+
+	{{ if eq .CoordType "e2"}}
+	// store mData in p.Y.A0[0]
+	p.Y.A0[0] = mData
+	{{ else}}
+	// store mData in p.Y[0]
+	p.Y[0] = mData
+	{{ end}}
+
+	// recomputing Y will be done asynchronously
+	return
+}
+
+
+
 {{define "putFp"}}
 	tmp = {{$.From}}
 	tmp.FromMont() 

@@ -808,3 +808,87 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 
 	return SizeOfG2Compressed, nil
 }
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *G2Affine) unsafeComputeY() error {
+	// stored in unsafeSetCompressedBytes
+
+	mData := p.Y.A0[0]
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y e2
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bTwistCurveCoeff)
+	if YSquared.Legendre() == -1 {
+		return errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+	Y.Sqrt(&YSquared)
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+
+	// read the most significant word
+	msw := binary.BigEndian.Uint64(buf[:8])
+
+	mData := msw & mMask
+
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// tmp is used to convert to montgomery representation
+	var tmp fp.Element
+
+	// read X coordinate
+	// p.X.A1 | p.X.A0
+	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
+	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
+	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
+	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
+	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
+	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
+	tmp.ToMont()
+	p.X.A0.Set(&tmp)
+
+	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
+	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
+	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
+	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
+	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
+	tmp[5] = msw & ^mMask
+	tmp.ToMont()
+	p.X.A1.Set(&tmp)
+
+	// store mData in p.Y.A0[0]
+	p.Y.A0[0] = mData
+
+	// recomputing Y will be done asynchronously
+	return
+}
