@@ -381,6 +381,17 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	}
 }
 
+func BenchmarkE2Exp(b *testing.B) {
+	var x e2
+	x.SetRandom()
+	b1, _ := rand.Int(rand.Reader, fp.Modulus())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x.Exp(x, b1)
+	}
+}
+
+
 
 func BenchmarkE2Inverse(b *testing.B) {
 	var a e2

@@ -162,24 +162,32 @@ func (z *e2) Legendre() int {
 }
 
 // Exp sets z=x**e and returns it
-func (z *e2) Exp(x *e2, e big.Int) *e2 {
-	var res e2
-	res.SetOne()
-	b := e.Bytes()
-	for i := range b {
+func (z *e2) Exp(x e2, exponent *big.Int) *e2 {
+	z.SetOne()
+	b := exponent.Bytes()
+	for i := 0; i < len(b); i++ {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		for j := 0; j < 8; j++ {
+			z.Square(z)
+			if (w & (0b10000000 >> j)) != 0 {
+				z.Mul(z, &x)
 			}
-			mask = mask >> 1
 		}
 	}
-	z.Set(&res)
+
 	return z
 }
+
+func init() {
+	q := fp.Modulus()
+	tmp := big.NewInt(3)
+	sqrtExp1.Set(q).Sub(&sqrtExp1, tmp).Rsh(&sqrtExp1, 2)
+
+	tmp.SetUint64(1)
+	sqrtExp2.Set(q).Sub(&sqrtExp2, tmp).Rsh(&sqrtExp2, 1)
+}
+
+var sqrtExp1, sqrtExp2 big.Int
 
 // Sqrt sets z to the square root of and returns z
 // The function does not test wether the square root
@@ -189,14 +197,10 @@ func (z *e2) Exp(x *e2, e big.Int) *e2 {
 func (z *e2) Sqrt(x *e2) *e2 {
 
 	var a1, alpha, b, x0, minusone e2
-	var e big.Int
 
 	minusone.SetOne().Neg(&minusone)
 
-	q := fp.Modulus()
-	tmp := big.NewInt(3)
-	e.Set(q).Sub(&e, tmp).Rsh(&e, 2)
-	a1.Exp(x, e)
+	a1.Exp(*x, &sqrtExp1)
 	alpha.Square(&a1).
 		Mul(&alpha, x)
 	x0.Mul(x, &a1)
@@ -209,9 +213,8 @@ func (z *e2) Sqrt(x *e2) *e2 {
 	}
 	a1.SetOne()
 	b.Add(&a1, &alpha)
-	tmp.SetUint64(1)
-	e.Set(q).Sub(&e, tmp).Rsh(&e, 1)
-	b.Exp(&b, e).Mul(&x0, &b)
+
+	b.Exp(b, &sqrtExp2).Mul(&x0, &b)
 	z.Set(&b)
 	return z
 }

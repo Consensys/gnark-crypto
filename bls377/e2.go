@@ -162,22 +162,19 @@ func (z *e2) Legendre() int {
 }
 
 // Exp sets z=x**e and returns it
-func (z *e2) Exp(x *e2, e big.Int) *e2 {
-	var res e2
-	res.SetOne()
-	b := e.Bytes()
-	for i := range b {
+func (z *e2) Exp(x e2, exponent *big.Int) *e2 {
+	z.SetOne()
+	b := exponent.Bytes()
+	for i := 0; i < len(b); i++ {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		for j := 0; j < 8; j++ {
+			z.Square(z)
+			if (w & (0b10000000 >> j)) != 0 {
+				z.Mul(z, &x)
 			}
-			mask = mask >> 1
 		}
 	}
-	z.Set(&res)
+
 	return z
 }
 
@@ -199,13 +196,13 @@ func (z *e2) Sqrt(x *e2) *e2 {
 	var exp, one big.Int
 	one.SetUint64(1)
 	exp.Set(q).Sub(&exp, &one).Rsh(&exp, 1)
-	d.Exp(&c, exp)
+	d.Exp(c, &exp)
 	e.Mul(&d, &c).Inverse(&e)
 	f.Mul(&d, &c).Square(&f)
 
 	// computation
 	exp.Rsh(&exp, 1)
-	b.Exp(x, exp)
+	b.Exp(*x, &exp)
 	b.norm(&_b)
 	o.SetOne()
 	if _b.Equal(&o) {

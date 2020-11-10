@@ -17,6 +17,7 @@
 package bn256
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/consensys/gurvy/bn256/fp"
@@ -389,6 +390,16 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sqrt(&a)
+	}
+}
+
+func BenchmarkE2Exp(b *testing.B) {
+	var x e2
+	x.SetRandom()
+	b1, _ := rand.Int(rand.Reader, fp.Modulus())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x.Exp(x, b1)
 	}
 }
 
