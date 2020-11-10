@@ -299,8 +299,10 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG1Compressed]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].Bytes()
+			buf = t[i].Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {
@@ -316,8 +318,10 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG2Compressed]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].Bytes()
+			buf = t[i].Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {
@@ -369,8 +373,10 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG1Uncompressed]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].RawBytes()
+			buf = t[i].RawBytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {
@@ -386,8 +392,10 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG2Uncompressed]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].RawBytes()
+			buf = t[i].RawBytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {

@@ -316,8 +316,10 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG1{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].{{- $.Raw}}Bytes()
+			buf = t[i].{{- $.Raw}}Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {
@@ -333,8 +335,10 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		enc.n += 8
 
+		var buf [SizeOfG2{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+
 		for i := 0; i < len(t); i++ {
-			buf := t[i].{{- $.Raw}}Bytes()
+			buf = t[i].{{- $.Raw}}Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
 			if err != nil {
