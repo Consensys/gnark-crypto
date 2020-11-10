@@ -740,7 +740,7 @@ const SizeOf{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .Coor
 const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }}Compressed * 2
 
 
-// Bytes fills buf with binary representation of p
+// Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 {{- if gt .UnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
@@ -788,7 +788,7 @@ func (p *{{ toUpper .PointName }}Affine) Bytes() (res [SizeOf{{ toUpper .PointNa
 }
 
 
-// RawBytes fills buf with binary representation of p (stores X and Y coordinate)
+// RawBytes returns binary representation of p (stores X and Y coordinate)
 // see Bytes() for a compressed representation
 func (p *{{ toUpper .PointName }}Affine) RawBytes() (res [SizeOf{{ toUpper .PointName }}Uncompressed]byte) {
 

@@ -596,7 +596,7 @@ const SizeOfG2Compressed = 48 * 2
 // SizeOfG2Uncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
 const SizeOfG2Uncompressed = SizeOfG2Compressed * 2
 
-// Bytes fills buf with binary representation of p
+// Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
@@ -646,7 +646,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2Compressed]byte) {
 	return
 }
 
-// RawBytes fills buf with binary representation of p (stores X and Y coordinate)
+// RawBytes returns binary representation of p (stores X and Y coordinate)
 // see Bytes() for a compressed representation
 func (p *G2Affine) RawBytes() (res [SizeOfG2Uncompressed]byte) {
 
