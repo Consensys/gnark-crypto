@@ -75,15 +75,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 	var buf [SizeOfG2Uncompressed]byte
 	var read int
-	var msw uint64
 
 	switch t := v.(type) {
 	case *uint64:
-		msw, err = dec.readUint64()
+		var r uint64
+		r, err = dec.readUint64()
 		if err != nil {
 			return
 		}
-		*t = msw
+		*t = r
 		return
 	case *fr.Element:
 		read, err = io.ReadFull(dec.r, buf[:fr.Limbs*8])
@@ -142,14 +142,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		_, err = t.SetBytes(buf[:nbBytes])
 		return
 	case *[]G1Affine:
-		msw, err = dec.readUint64()
+		var sliceLen uint32
+		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
-		if len(*t) != int(msw) {
-			*t = make([]G1Affine, msw)
+		if len(*t) != int(sliceLen) {
+			*t = make([]G1Affine, sliceLen)
 		}
-		compressed := make([]bool, msw)
+		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
@@ -192,14 +193,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 		return nil
 	case *[]G2Affine:
-		msw, err = dec.readUint64()
+		var sliceLen uint32
+		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
-		if len(*t) != int(msw) {
-			*t = make([]G2Affine, msw)
+		if len(*t) != int(sliceLen) {
+			*t = make([]G2Affine, sliceLen)
 		}
-		compressed := make([]bool, msw)
+		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
@@ -260,6 +262,18 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 		return
 	}
 	r = binary.BigEndian.Uint64(buf[:8])
+	return
+}
+
+func (dec *Decoder) readUint32() (r uint32, err error) {
+	var read int
+	var buf [4]byte
+	read, err = io.ReadFull(dec.r, buf[:4])
+	dec.n += int64(read)
+	if err != nil {
+		return
+	}
+	r = binary.BigEndian.Uint32(buf[:4])
 	return
 }
 
@@ -340,11 +354,11 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		return
 	case []G1Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint64(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
 			return
 		}
-		enc.n += 8
+		enc.n += 4
 
 		var buf [SizeOfG1Compressed]byte
 
@@ -359,11 +373,11 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		return nil
 	case []G2Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint64(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
 			return
 		}
-		enc.n += 8
+		enc.n += 4
 
 		var buf [SizeOfG2Compressed]byte
 
@@ -414,11 +428,11 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		return
 	case []G1Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint64(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
 			return
 		}
-		enc.n += 8
+		enc.n += 4
 
 		var buf [SizeOfG1Uncompressed]byte
 
@@ -433,11 +447,11 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		return nil
 	case []G2Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint64(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
 			return
 		}
-		enc.n += 8
+		enc.n += 4
 
 		var buf [SizeOfG2Uncompressed]byte
 
