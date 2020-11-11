@@ -644,29 +644,26 @@ const SizeOfG1Uncompressed = SizeOfG1Compressed * 2
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
-// we use the 2 most significant bits instead
-// 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y^2
-// 11 -> compressed, use largest lexicographically square root of Y^2
-// 01 -> compressed infinity point
-// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 func (p *G1Affine) Bytes() (res [SizeOfG1Compressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		binary.BigEndian.PutUint64(res[:8], mCompressedInfinity)
+		res[0] = mCompressedInfinity
 		return
 	}
 
 	// tmp is used to convert from montgomery representation to regular
 	var tmp fp.Element
 
-	mswMask := mCompressedSmallest
+	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
 	// if p.Y ">" -p.Y
 	if p.Y.LexicographicallyLargest() {
-		mswMask = mCompressedLargest
+		msbMask = mCompressedLargest
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
@@ -677,7 +674,9 @@ func (p *G1Affine) Bytes() (res [SizeOfG1Compressed]byte) {
 	binary.BigEndian.PutUint64(res[24:32], tmp[2])
 	binary.BigEndian.PutUint64(res[16:24], tmp[3])
 	binary.BigEndian.PutUint64(res[8:16], tmp[4])
-	binary.BigEndian.PutUint64(res[0:8], tmp[5]|mswMask)
+	binary.BigEndian.PutUint64(res[0:8], tmp[5])
+
+	res[0] |= msbMask
 
 	return
 }
@@ -688,7 +687,9 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1Uncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		binary.BigEndian.PutUint64(res[:8], mUncompressed)
+
+		res[0] = mUncompressedInfinity
+
 		return
 	}
 
@@ -696,7 +697,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1Uncompressed]byte) {
 	var tmp fp.Element
 
 	// not compressed
-	mswMask := mUncompressed
 	// we store the Y coordinate
 	tmp = p.Y
 	tmp.FromMont()
@@ -715,7 +715,9 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1Uncompressed]byte) {
 	binary.BigEndian.PutUint64(res[24:32], tmp[2])
 	binary.BigEndian.PutUint64(res[16:24], tmp[3])
 	binary.BigEndian.PutUint64(res[8:16], tmp[4])
-	binary.BigEndian.PutUint64(res[0:8], tmp[5]|mswMask)
+	binary.BigEndian.PutUint64(res[0:8], tmp[5])
+
+	res[0] |= mUncompressed
 
 	return
 }
@@ -731,13 +733,12 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 
-	// read the most significant word
-	msw := binary.BigEndian.Uint64(buf[:8])
-
-	mData := msw & mMask
+	// most significant byte
+	mData := buf[0] & mMask
+	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
-	if mData == mUncompressed {
+	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
 		if len(buf) < SizeOfG1Uncompressed {
 			return 0, io.ErrShortBuffer
 		}
@@ -749,6 +750,11 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 		p.Y.SetZero()
 		return SizeOfG1Compressed, nil
 	}
+	if mData == mUncompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOfG1Uncompressed, nil
+	}
 
 	// tmp is used to convert to montgomery representation
 	var tmp fp.Element
@@ -759,7 +765,7 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
 	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
 	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = msw & ^mMask
+	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
 	tmp.ToMont()
 	p.X.Set(&tmp)
 
@@ -809,7 +815,7 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 func (p *G1Affine) unsafeComputeY() error {
 	// stored in unsafeSetCompressedBytes
 
-	mData := p.Y[0]
+	mData := byte(p.Y[0])
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
 	var YSquared, Y fp.Element
@@ -843,10 +849,9 @@ func (p *G1Affine) unsafeComputeY() error {
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
 func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
-	// read the most significant word
-	msw := binary.BigEndian.Uint64(buf[:8])
-
-	mData := msw & mMask
+	// read the most significant byte
+	mData := buf[0] & mMask
+	buf[0] &= ^mMask
 
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
@@ -866,12 +871,12 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
 	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
 	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = msw & ^mMask
+	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
 	tmp.ToMont()
 	p.X.Set(&tmp)
 
 	// store mData in p.Y[0]
-	p.Y[0] = mData
+	p.Y[0] = uint64(mData)
 
 	// recomputing Y will be done asynchronously
 	return

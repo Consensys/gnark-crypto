@@ -33,11 +33,11 @@ import (
 // we have less than 3 bits available on the msw, so we can't follow BLS381 style encoding.
 // the difference is the case where a point is infinity and uncompressed is not flagged
 const (
-	mMask               uint64 = 0b11 << 62
-	mUncompressed       uint64 = 0b00 << 62
-	mCompressedSmallest uint64 = 0b10 << 62
-	mCompressedLargest  uint64 = 0b11 << 62
-	mCompressedInfinity uint64 = 0b01 << 62
+	mMask               byte = 0b11 << 6
+	mUncompressed       byte = 0b00 << 6
+	mCompressedSmallest byte = 0b10 << 6
+	mCompressedLargest  byte = 0b11 << 6
+	mCompressedInfinity byte = 0b01 << 6
 )
 
 // Encoder writes bn256 object values to an output stream
@@ -99,39 +99,42 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		t.SetBytes(buf[:fp.Limbs*8])
 		return
 	case *G1Affine:
-		// read the most significant word
-		read, err = io.ReadFull(dec.r, buf[:8])
+		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		msw = binary.BigEndian.Uint64(buf[:8])
-		nbBytes := SizeOfG1Uncompressed
-		if isCompressed(msw) {
-			nbBytes = SizeOfG1Compressed
-		}
-		read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-		dec.n += int64(read)
-		if err != nil {
-			return
+		nbBytes := SizeOfG1Compressed
+		// most significant byte contains metadata
+		if !isCompressed(buf[0]) {
+			nbBytes = SizeOfG1Uncompressed
+			// we read more.
+			read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return
 	case *G2Affine:
-		read, err = io.ReadFull(dec.r, buf[:8])
+		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		msw = binary.BigEndian.Uint64(buf[:8])
-		nbBytes := SizeOfG2Uncompressed
-		if isCompressed(msw) {
-			nbBytes = SizeOfG2Compressed
-		}
-		read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-		dec.n += int64(read)
-		if err != nil {
-			return
+		nbBytes := SizeOfG2Compressed
+		// most significant byte contains metadata
+		if !isCompressed(buf[0]) {
+			nbBytes = SizeOfG2Uncompressed
+			// we read more.
+			read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return
@@ -145,25 +148,19 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		compressed := make([]bool, msw)
 		for i := 0; i < len(*t); i++ {
-			// read the most significant word
-			read, err = io.ReadFull(dec.r, buf[:8])
+
+			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			msw = binary.BigEndian.Uint64(buf[:8])
-
-			if isCompressed(msw) {
-				nbBytes := SizeOfG1Compressed
-				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-				dec.n += int64(read)
-				if err != nil {
-					return
-				}
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
-			} else {
-				nbBytes := SizeOfG1Uncompressed
-				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+			nbBytes := SizeOfG1Compressed
+			// most significant byte contains metadata
+			if !isCompressed(buf[0]) {
+				nbBytes = SizeOfG1Uncompressed
+				// we read more.
+				read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -172,6 +169,8 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				if err != nil {
 					return
 				}
+			} else {
+				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
 			}
 		}
 		var nbErrs uint64
@@ -199,25 +198,19 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		compressed := make([]bool, msw)
 		for i := 0; i < len(*t); i++ {
-			// read the most significant word
-			read, err = io.ReadFull(dec.r, buf[:8])
+
+			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			msw = binary.BigEndian.Uint64(buf[:8])
-
-			if isCompressed(msw) {
-				nbBytes := SizeOfG2Compressed
-				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
-				dec.n += int64(read)
-				if err != nil {
-					return
-				}
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
-			} else {
-				nbBytes := SizeOfG2Uncompressed
-				read, err = io.ReadFull(dec.r, buf[8:nbBytes])
+			nbBytes := SizeOfG2Compressed
+			// most significant byte contains metadata
+			if !isCompressed(buf[0]) {
+				nbBytes = SizeOfG2Uncompressed
+				// we read more.
+				read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -226,6 +219,8 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				if err != nil {
 					return
 				}
+			} else {
+				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
 			}
 		}
 		var nbErrs uint64
@@ -265,8 +260,8 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 	return
 }
 
-func isCompressed(msw uint64) bool {
-	mData := msw & mMask
+func isCompressed(msb byte) bool {
+	mData := msb & mMask
 	return !(mData == mUncompressed)
 }
 

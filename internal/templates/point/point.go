@@ -742,7 +742,7 @@ const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-{{- if gt .UnusedBits 3}}
+{{- if ge .UnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
@@ -760,18 +760,18 @@ func (p *{{ toUpper .PointName }}Affine) Bytes() (res [SizeOf{{ toUpper .PointNa
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		binary.BigEndian.PutUint64(res[:8], mCompressedInfinity)
+		res[0] = mCompressedInfinity
 		return
 	}
 
 	// tmp is used to convert from montgomery representation to regular
 	var tmp fp.Element
 
-	mswMask := mCompressedSmallest
+	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
 	// if p.Y ">" -p.Y 
 	if p.Y.LexicographicallyLargest() { 
-		mswMask = mCompressedLargest
+		msbMask = mCompressedLargest
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
@@ -784,6 +784,8 @@ func (p *{{ toUpper .PointName }}Affine) Bytes() (res [SizeOf{{ toUpper .PointNa
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
 	{{- end}}
 
+	res[0] |= msbMask
+
 	return
 }
 
@@ -794,7 +796,11 @@ func (p *{{ toUpper .PointName }}Affine) RawBytes() (res [SizeOf{{ toUpper .Poin
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		binary.BigEndian.PutUint64(res[:8], {{- if gt .UnusedBits 3}}mUncompressedInfinity{{- else}} mUncompressed {{- end}})
+		{{if ge .UnusedBits 3}}
+			res[0] = mUncompressedInfinity
+		{{else}}
+			res[0] = mUncompressed 
+		{{end}}
 		return
 	}
 
@@ -802,7 +808,6 @@ func (p *{{ toUpper .PointName }}Affine) RawBytes() (res [SizeOf{{ toUpper .Poin
 	var tmp fp.Element
 
 	// not compressed
-	mswMask := mUncompressed
 	// we store the Y coordinate
 	{{- if eq .CoordType "e2"}}
 		// p.Y.A1 | p.Y.A0
@@ -825,6 +830,8 @@ func (p *{{ toUpper .PointName }}Affine) RawBytes() (res [SizeOf{{ toUpper .Poin
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
 	{{- end}}
 
+	res[0] |= mUncompressed
+
 	return 
 }
 
@@ -839,13 +846,12 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
 		return 0, io.ErrShortBuffer
 	}
 
-	// read the most significant word
-	msw := binary.BigEndian.Uint64(buf[:8])
-
-	mData := msw & mMask
+	// most significant byte
+	mData := buf[0] & mMask
+	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
-	if (mData == mUncompressed) {{- if gt .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+	if (mData == mUncompressed) {{- if ge .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
 		if len(buf) < SizeOf{{ toUpper .PointName }}Uncompressed {
 			return 0, io.ErrShortBuffer
 		}
@@ -858,7 +864,7 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
 		return SizeOf{{ toUpper .PointName }}Compressed, nil
 	}
 
-	{{- if gt .UnusedBits 3}} 
+	{{- if ge .UnusedBits 3}} 
 	if (mData == mUncompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
@@ -939,9 +945,9 @@ func (p *{{ toUpper .PointName }}Affine) SetBytes(buf []byte) (int, error)  {
 func (p *{{ toUpper .PointName }}Affine) unsafeComputeY() error  {
 	// stored in unsafeSetCompressedBytes
 	{{ if eq .CoordType "e2"}}
-	mData := p.Y.A0[0]
+	mData := byte(p.Y.A0[0])
 	{{ else}}
-	mData := p.Y[0]
+	mData := byte(p.Y[0])
 	{{ end}}
 
 
@@ -986,10 +992,9 @@ func (p *{{ toUpper .PointName }}Affine) unsafeComputeY() error  {
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
 func (p *{{ toUpper .PointName }}Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
 
-	// read the most significant word
-	msw := binary.BigEndian.Uint64(buf[:8])
-
-	mData := msw & mMask
+	// read the most significant byte
+	mData := buf[0] & mMask
+	buf[0] &= ^mMask
 
 	if (mData == mCompressedInfinity) {
 		p.X.SetZero()
@@ -1015,10 +1020,10 @@ func (p *{{ toUpper .PointName }}Affine) unsafeSetCompressedBytes(buf []byte) (i
 
 	{{ if eq .CoordType "e2"}}
 	// store mData in p.Y.A0[0]
-	p.Y.A0[0] = mData
+	p.Y.A0[0] = uint64(mData)
 	{{ else}}
 	// store mData in p.Y[0]
-	p.Y[0] = mData
+	p.Y[0] = uint64(mData)
 	{{ end}}
 
 	// recomputing Y will be done asynchronously
@@ -1036,16 +1041,7 @@ func (p *{{ toUpper .PointName }}Affine) unsafeSetCompressedBytes(buf []byte) (i
 			{{- $k := sub $.all.Fp.NbWords 1}}
 			{{- $k := sub $k $i}}
 			{{- $jj := add $j 8}}
-			{{- if eq $.OffSet 0}}
-				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
-					binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}] | mswMask)
-				{{- else}}
-					binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
-				{{- end}}
-			{{- else}}
-				binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
-			{{- end}}
-			
+			binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
 	{{- end}}
 {{end}}
 
@@ -1056,15 +1052,7 @@ func (p *{{ toUpper .PointName }}Affine) unsafeSetCompressedBytes(buf []byte) (i
 			{{- $k := sub $.all.Fp.NbWords 1}}
 			{{- $k := sub $k $i}}
 			{{- $jj := add $j 8}}
-			{{- if eq $.OffSet 0}}
-				{{- if eq $k $.all.Fp.NbWordsLastIndex}}
-					tmp[{{$k}}] = msw & ^mMask
-				{{- else}}
-					tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
-				{{- end}}
-			{{- else}}
-				tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
-			{{- end}}
+			tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
 	{{- end}}
 	tmp.ToMont()
 	{{$.To}}.Set(&tmp)

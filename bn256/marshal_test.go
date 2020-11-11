@@ -18,7 +18,6 @@ package bn256
 
 import (
 	"bytes"
-	"encoding/binary"
 	"io"
 	"math/big"
 	"math/rand"
@@ -128,56 +127,56 @@ func TestIsCompressed(t *testing.T) {
 
 	{
 		b := g1Inf.Bytes()
-		if !isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if !isCompressed(b[0]) {
 			t.Fatal("g1Inf.Bytes() should be compressed")
 		}
 	}
 
 	{
 		b := g1Inf.RawBytes()
-		if isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if isCompressed(b[0]) {
 			t.Fatal("g1Inf.RawBytes() should be uncompressed")
 		}
 	}
 
 	{
 		b := g1.Bytes()
-		if !isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if !isCompressed(b[0]) {
 			t.Fatal("g1.Bytes() should be compressed")
 		}
 	}
 
 	{
 		b := g1.RawBytes()
-		if isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if isCompressed(b[0]) {
 			t.Fatal("g1.RawBytes() should be uncompressed")
 		}
 	}
 
 	{
 		b := g2Inf.Bytes()
-		if !isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if !isCompressed(b[0]) {
 			t.Fatal("g2Inf.Bytes() should be compressed")
 		}
 	}
 
 	{
 		b := g2Inf.RawBytes()
-		if isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if isCompressed(b[0]) {
 			t.Fatal("g2Inf.RawBytes() should be uncompressed")
 		}
 	}
 
 	{
 		b := g2.Bytes()
-		if !isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if !isCompressed(b[0]) {
 			t.Fatal("g2.Bytes() should be compressed")
 		}
 	}
 
 	{
 		b := g2.RawBytes()
-		if isCompressed(binary.BigEndian.Uint64(b[:8])) {
+		if isCompressed(b[0]) {
 			t.Fatal("g2.RawBytes() should be uncompressed")
 		}
 	}
