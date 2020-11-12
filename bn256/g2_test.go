@@ -63,7 +63,7 @@ func TestG2IsOnCurve(t *testing.T) {
 	genFuzz1 := GenE2()
 	properties.Property("[BN256] g2Gen (affine) should be on the curve", prop.ForAll(
 		func(a *e2) bool {
-			var op1, op2 G2Affine
+			var op1, op2 G2
 			op1.FromJacobian(&g2Gen)
 			op2.FromJacobian(&g2Gen)
 			op2.Y.Mul(&op2.Y, a)
@@ -94,7 +94,7 @@ func TestG2Serialization(t *testing.T) {
 	{
 		// compressed
 		{
-			var p1, p2 G2Affine
+			var p1, p2 G2
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.Bytes()
@@ -112,7 +112,7 @@ func TestG2Serialization(t *testing.T) {
 
 		// uncompressed
 		{
-			var p1, p2 G2Affine
+			var p1, p2 G2
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.RawBytes()
@@ -137,7 +137,7 @@ func TestG2Serialization(t *testing.T) {
 
 	properties.Property("[BN256] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
 		func(a, b *e2) bool {
-			var start, end G2Affine
+			var start, end G2
 			start.X = *a
 			start.Y = *b
 
@@ -157,7 +157,7 @@ func TestG2Serialization(t *testing.T) {
 
 	properties.Property("[BN256] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G2Affine
+			var start, end G2
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
@@ -190,7 +190,7 @@ func TestG2Conversions(t *testing.T) {
 	properties.Property("[BN256] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a *e2) bool {
 			g := fuzzJacobianG2(&g2Gen, a)
-			var op1 G2Affine
+			var op1 G2
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
@@ -206,7 +206,7 @@ func TestG2Conversions(t *testing.T) {
 			g.ZZZ.Set(&g2Gen.Z)
 			gfuzz := fuzzExtendedJacobianG2(&g, a)
 
-			var op1 G2Affine
+			var op1 G2
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
@@ -216,7 +216,7 @@ func TestG2Conversions(t *testing.T) {
 	properties.Property("[BN256] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		func(a *e2) bool {
 			var g g2Jac
-			var op1 G2Affine
+			var op1 G2
 			op1.X.Set(&g2Gen.X)
 			op1.Y.Set(&g2Gen.Y)
 
@@ -232,7 +232,7 @@ func TestG2Conversions(t *testing.T) {
 
 	properties.Property("[BN256] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
-			var g G2Affine
+			var g G2
 			g.X.SetZero()
 			g.Y.SetZero()
 			var op1 g2Jac
@@ -245,7 +245,7 @@ func TestG2Conversions(t *testing.T) {
 
 	properties.Property("[BN256] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
-			var g G2Affine
+			var g G2
 			var op1 g2JacExtended
 			var zero e2
 			op1.X.Set(&g2Gen.X)
@@ -332,7 +332,7 @@ func TestG2Ops(t *testing.T) {
 	properties.Property("[BN256] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		func(a *e2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
-			var p1, p1Neg G2Affine
+			var p1, p1Neg G2
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -351,7 +351,7 @@ func TestG2Ops(t *testing.T) {
 	properties.Property("[BN256] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
 		func(a *e2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
-			var p1, p1Neg G2Affine
+			var p1, p1Neg G2
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -371,7 +371,7 @@ func TestG2Ops(t *testing.T) {
 		func(a *e2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			fop1.Neg(&fop1)
-			var op2 G2Affine
+			var op2 G2
 			op2.FromJacobian(&g2Gen)
 			fop1.AddMixed(&op2)
 			return fop1.Equal(&g2Infinity)
@@ -456,7 +456,7 @@ func TestG2Ops(t *testing.T) {
 			g.Set(&g2Gen)
 
 			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]G2Affine, 30)
+			samplePoints := make([]G2, 30)
 			sampleScalars := make([]fr.Element, 30)
 
 			for i := 1; i <= 30; i++ {
@@ -497,7 +497,7 @@ func TestG2MultiExp(t *testing.T) {
 	const nbSamples = 500
 
 	// multi exp points
-	var samplePoints [nbSamples]G2Affine
+	var samplePoints [nbSamples]G2
 	var g g2Jac
 	g.Set(&g2Gen)
 	for i := 1; i <= nbSamples; i++ {
@@ -1075,7 +1075,7 @@ func TestG2BatchScalarMultiplication(t *testing.T) {
 
 			for i := 0; i < len(result); i++ {
 				var expectedJac g2Jac
-				var expected G2Affine
+				var expected G2
 				var b big.Int
 				expectedJac.mulGLV(&g2Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
@@ -1169,7 +1169,7 @@ func BenchmarkG2JacExtendedAdd(b *testing.B) {
 	var a g2JacExtended
 	a.double(&g2GenAff)
 
-	var c G2Affine
+	var c G2
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1181,7 +1181,7 @@ func BenchmarkG2JacExtendedSub(b *testing.B) {
 	var a g2JacExtended
 	a.double(&g2GenAff)
 
-	var c G2Affine
+	var c G2
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1193,7 +1193,7 @@ func BenchmarkG2JacExtendedDouble(b *testing.B) {
 	var a g2JacExtended
 	a.double(&g2GenAff)
 
-	var c G2Affine
+	var c G2
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1205,7 +1205,7 @@ func BenchmarkG2JacExtendedDoubleNeg(b *testing.B) {
 	var a g2JacExtended
 	a.double(&g2GenAff)
 
-	var c G2Affine
+	var c G2
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1217,7 +1217,7 @@ func BenchmarkG2AddMixed(b *testing.B) {
 	var a g2Jac
 	a.Double(&g2Gen)
 
-	var c G2Affine
+	var c G2
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1244,7 +1244,7 @@ func BenchmarkG2MultiExpG2(b *testing.B) {
 	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
 	const nbSamples = 1 << pow
 
-	var samplePoints [nbSamples]G2Affine
+	var samplePoints [nbSamples]G2
 	var sampleScalars [nbSamples]fr.Element
 
 	for i := 1; i <= nbSamples; i++ {

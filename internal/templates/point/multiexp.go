@@ -6,7 +6,7 @@ const MultiExpCore = `
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *{{ toLower .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toLower .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toLower .PointName }}Jac {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -112,7 +112,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	 chRes chan<- {{ toLower .PointName }}Jac,
 	 buckets []{{ toLower .PointName }}JacExtended,
 	 c uint64,
-	 points []{{ toUpper .PointName }}Affine,
+	 points []{{ toUpper .PointName }},
 	 scalars []fr.Element) {
 
 
@@ -179,7 +179,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 
 {{range $c :=  .CRange}}
 
-func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, opt *CPUSemaphore) *{{ toLower $.PointName }}Jac {
+func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}, scalars []fr.Element, opt *CPUSemaphore) *{{ toLower $.PointName }}Jac {
 	{{- $cDividesBits := divides $c $.RBitLen}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
@@ -196,7 +196,7 @@ func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	chChunks[nbChunks-1] = make(chan {{ toLower $.PointName }}Jac, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling 
 	wg.Add(1)
-	go func(j uint64, chRes chan {{ toLower $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan {{ toLower $.PointName }}Jac, points []{{ toUpper $.PointName }}, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1<<(lastC-1)]{{ toLower $.PointName }}JacExtended
 		msmProcessChunk{{ toUpper $.PointName }}(j, chRes, buckets[:], c, points, scalars)
@@ -210,7 +210,7 @@ func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 		chChunks[chunk] = make(chan {{ toLower $.PointName }}Jac, 1)
 		<-opt.chCpus  // wait to have a cpu before scheduling 
 		wg.Add(1)
-		go func(j uint64, chRes chan {{ toLower $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan {{ toLower $.PointName }}Jac, points []{{ toUpper $.PointName }}, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
 			msmProcessChunk{{ toUpper $.PointName }}(j, chRes,  buckets[:], c, points, scalars)
@@ -243,7 +243,7 @@ func (p *{{ toLower .PointName }}JacExtended) setInfinity() *{{ toLower .PointNa
 }
 
 // fromJacExtended sets Q in affine coords
-func (p *{{ toUpper .PointName }}Affine)  fromJacExtended (Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Affine {
+func (p *{{ toUpper .PointName }})  fromJacExtended (Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }} {
 	if Q.ZZ.IsZero() {
 		p.X = {{.CoordType}}{}
 		p.Y = {{.CoordType}}{}
@@ -277,26 +277,26 @@ func (p *{{ toLower .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .Point
 
 // sub same as add, but will negate a.Y 
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) sub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ toLower .PointName }}JacExtended) sub(a *{{ toUpper .PointName }}) *{{ toLower .PointName }}JacExtended {
 	{{ template "add" dict "all" . "negate" true}}
 }
 
 
 // add
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) add(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ toLower .PointName }}JacExtended) add(a *{{ toUpper .PointName }}) *{{ toLower .PointName }}JacExtended {
 	{{ template "add" dict "all" . "negate" false}}
 }
 
 // doubleNeg same as double, but will negate q.Y
-func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}) *{{ toLower .PointName }}JacExtended {
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}) *{{ toLower .PointName }}JacExtended {
 	{{ template "mDouble" dict "all" . "negate" false}}
 }
 

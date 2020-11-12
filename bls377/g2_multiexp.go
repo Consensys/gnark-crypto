@@ -27,7 +27,7 @@ import (
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *g2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSemaphore) *g2Jac {
+func (p *g2Jac) MultiExp(points []G2, scalars []fr.Element, opts ...*CPUSemaphore) *g2Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -168,7 +168,7 @@ func msmProcessChunkG2(chunk uint64,
 	chRes chan<- g2Jac,
 	buckets []g2JacExtended,
 	c uint64,
-	points []G2Affine,
+	points []G2,
 	scalars []fr.Element) {
 
 	mask := uint64((1 << c) - 1) // low c bits are 1
@@ -228,7 +228,7 @@ func msmProcessChunkG2(chunk uint64,
 	close(chRes)
 }
 
-func (p *g2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC4(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -241,7 +241,7 @@ func (p *g2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -257,7 +257,7 @@ func (p *g2Jac) msmC4(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC5(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 5                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -271,7 +271,7 @@ func (p *g2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -283,7 +283,7 @@ func (p *g2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -299,7 +299,7 @@ func (p *g2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC6(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 6                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -313,7 +313,7 @@ func (p *g2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -325,7 +325,7 @@ func (p *g2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -341,7 +341,7 @@ func (p *g2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC7(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 7                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -355,7 +355,7 @@ func (p *g2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -367,7 +367,7 @@ func (p *g2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -383,7 +383,7 @@ func (p *g2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC8(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -396,7 +396,7 @@ func (p *g2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -412,7 +412,7 @@ func (p *g2Jac) msmC8(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC9(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 9                              // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -426,7 +426,7 @@ func (p *g2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -438,7 +438,7 @@ func (p *g2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -454,7 +454,7 @@ func (p *g2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC10(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 10                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -468,7 +468,7 @@ func (p *g2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -480,7 +480,7 @@ func (p *g2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -496,7 +496,7 @@ func (p *g2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC11(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 11                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -510,7 +510,7 @@ func (p *g2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -522,7 +522,7 @@ func (p *g2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -538,7 +538,7 @@ func (p *g2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC12(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 12                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -552,7 +552,7 @@ func (p *g2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -564,7 +564,7 @@ func (p *g2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -580,7 +580,7 @@ func (p *g2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC13(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 13                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -594,7 +594,7 @@ func (p *g2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -606,7 +606,7 @@ func (p *g2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -622,7 +622,7 @@ func (p *g2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC14(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 14                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -636,7 +636,7 @@ func (p *g2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -648,7 +648,7 @@ func (p *g2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -664,7 +664,7 @@ func (p *g2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC15(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 15                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -678,7 +678,7 @@ func (p *g2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -690,7 +690,7 @@ func (p *g2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -706,7 +706,7 @@ func (p *g2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC16(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
@@ -719,7 +719,7 @@ func (p *g2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -735,7 +735,7 @@ func (p *g2Jac) msmC16(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC20(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 20                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -749,7 +749,7 @@ func (p *g2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -761,7 +761,7 @@ func (p *g2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -777,7 +777,7 @@ func (p *g2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC21(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 21                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -791,7 +791,7 @@ func (p *g2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -803,7 +803,7 @@ func (p *g2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -819,7 +819,7 @@ func (p *g2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-func (p *g2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
+func (p *g2Jac) msmC22(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2Jac {
 	const c = 22                             // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) + 1 // number of c-bit radixes in a scalar
 
@@ -833,7 +833,7 @@ func (p *g2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	chChunks[nbChunks-1] = make(chan g2Jac, 1)
 	<-opt.chCpus // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1 << (lastC - 1)]g2JacExtended
 		msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -845,7 +845,7 @@ func (p *g2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 		chChunks[chunk] = make(chan g2Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g2Jac, points []G2Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan g2Jac, points []G2, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g2JacExtended
 			msmProcessChunkG2(j, chRes, buckets[:], c, points, scalars)
@@ -876,7 +876,7 @@ func (p *g2JacExtended) setInfinity() *g2JacExtended {
 }
 
 // fromJacExtended sets Q in affine coords
-func (p *G2Affine) fromJacExtended(Q *g2JacExtended) *G2Affine {
+func (p *G2) fromJacExtended(Q *g2JacExtended) *G2 {
 	if Q.ZZ.IsZero() {
 		p.X = e2{}
 		p.Y = e2{}
@@ -909,7 +909,7 @@ func (p *g2Jac) unsafeFromJacExtended(Q *g2JacExtended) *g2Jac {
 
 // sub same as add, but will negate a.Y
 // http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) sub(a *G2) *g2JacExtended {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -971,7 +971,7 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 
 // add
 // http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) add(a *G2) *g2JacExtended {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -1028,7 +1028,7 @@ func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
 }
 
 // doubleNeg same as double, but will negate q.Y
-func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) doubleNeg(q *G2) *g2JacExtended {
 
 	var U, S, M, _M, Y3 e2
 
@@ -1056,7 +1056,7 @@ func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) double(q *G2) *g2JacExtended {
 
 	var U, S, M, _M, Y3 e2
 

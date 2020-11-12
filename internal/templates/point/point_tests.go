@@ -81,7 +81,7 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 		{{- else if eq .CoordType "e2" }}
 			func(a *e2) bool {
 		{{- end}}
-			var op1, op2 {{ toUpper .PointName}}Affine
+			var op1, op2 {{ toUpper .PointName}}
 			op1.FromJacobian(&{{ toLower .PointName}}Gen)
 			op2.FromJacobian(&{{ toLower .PointName}}Gen)
 			{{- if eq .CoordType "fp.Element" }}
@@ -125,7 +125,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 	{
 		// compressed
 		{
-			var p1, p2 {{ toUpper .PointName}}Affine
+			var p1, p2 {{ toUpper .PointName}}
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.Bytes()
@@ -143,7 +143,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 
 		// uncompressed
 		{
-			var p1, p2 {{ toUpper .PointName}}Affine
+			var p1, p2 {{ toUpper .PointName}}
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.RawBytes()
@@ -177,7 +177,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 		{{- else if eq .CoordType "e2" }}
 			func(a,b *e2) bool {
 		{{- end}}
-				var start, end {{ toUpper .PointName}}Affine
+				var start, end {{ toUpper .PointName}}
 				start.X = {{- if eq .CoordType "e2" }}*{{- end}}a
 				start.Y = {{- if eq .CoordType "e2" }}*{{- end}}b 
 
@@ -197,7 +197,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 
 	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
 			func(a fp.Element) bool {
-				var start, end {{ toUpper .PointName}}Affine
+				var start, end {{ toUpper .PointName}}
 				var ab big.Int
 				a.ToBigIntRegular(&ab)
 				start.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &ab)
@@ -242,7 +242,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			func(a *e2) bool {
 		{{- end}}
 			g := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
-			var op1 {{ toUpper .PointName}}Affine
+			var op1 {{ toUpper .PointName}}
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
 		},
@@ -263,7 +263,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			g.ZZZ.Set(&{{ toLower .PointName }}Gen.Z)
 			gfuzz := fuzzExtendedJacobian{{ toUpper .PointName}}(&g, a)
 
-			var op1 {{ toUpper .PointName}}Affine
+			var op1 {{ toUpper .PointName}}
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
 		},
@@ -277,7 +277,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			func(a *e2) bool {
 		{{- end}}
 			var g {{ toLower .PointName }}Jac
-			var op1 {{ toUpper .PointName}}Affine
+			var op1 {{ toUpper .PointName}}
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
 			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
 
@@ -293,7 +293,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 
 	properties.Property("[{{ toUpper .CurveName }}] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
-			var g {{ toUpper .PointName}}Affine
+			var g {{ toUpper .PointName}}
 			g.X.SetZero()
 			g.Y.SetZero()
 			var op1 {{ toLower .PointName }}Jac
@@ -306,7 +306,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 
 	properties.Property("[{{ toUpper .CurveName }}] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
-			var g {{ toUpper .PointName}}Affine
+			var g {{ toUpper .PointName}}
 			var op1 {{ toLower .PointName }}JacExtended
 			var zero {{ .CoordType}}
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
@@ -418,7 +418,7 @@ parameters := gopter.DefaultTestParameters()
 			func(a *e2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
-			var p1,p1Neg {{ toUpper .PointName}}Affine
+			var p1,p1Neg {{ toUpper .PointName}}
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -441,7 +441,7 @@ parameters := gopter.DefaultTestParameters()
 			func(a *e2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
-			var p1,p1Neg {{ toUpper .PointName}}Affine
+			var p1,p1Neg {{ toUpper .PointName}}
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -465,7 +465,7 @@ parameters := gopter.DefaultTestParameters()
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop1.Neg(&fop1)
-			var op2 {{ toUpper .PointName}}Affine
+			var op2 {{ toUpper .PointName}}
 			op2.FromJacobian(&{{ toLower .PointName }}Gen)
 			fop1.AddMixed(&op2)
 			return fop1.Equal(&{{ toLower .PointName }}Infinity)
@@ -554,7 +554,7 @@ parameters := gopter.DefaultTestParameters()
 			g.Set(&{{ toLower .PointName}}Gen)
 
 			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]{{ toUpper .PointName}}Affine, 30)
+			samplePoints := make([]{{ toUpper .PointName}}, 30)
 			sampleScalars := make([]fr.Element, 30)
 
 			for i := 1; i <= 30; i++ {
@@ -595,7 +595,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	const nbSamples = 500
 
 	// multi exp points
-	var samplePoints [nbSamples]{{ toUpper $.PointName}}Affine
+	var samplePoints [nbSamples]{{ toUpper $.PointName}}
 	var g {{ toLower $.PointName}}Jac
 	g.Set(&{{ toLower $.PointName }}Gen)
 	for i := 1; i <= nbSamples; i++ {
@@ -735,7 +735,7 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 
 			for i := 0; i < len(result); i++ {
 				var expectedJac {{ toLower .PointName }}Jac
-				var expected {{ toUpper .PointName}}Affine
+				var expected {{ toUpper .PointName}}
 				var b big.Int
 				expectedJac.mulGLV(&{{ toLower .PointName}}Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
@@ -834,7 +834,7 @@ func Benchmark{{ toUpper .PointName}}JacExtendedAdd(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
-	var c {{ toUpper .PointName}}Affine
+	var c {{ toUpper .PointName}}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -846,7 +846,7 @@ func Benchmark{{ toUpper .PointName}}JacExtendedSub(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
-	var c {{ toUpper .PointName}}Affine
+	var c {{ toUpper .PointName}}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -858,7 +858,7 @@ func Benchmark{{ toUpper .PointName}}JacExtendedDouble(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
-	var c {{ toUpper .PointName}}Affine
+	var c {{ toUpper .PointName}}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -871,7 +871,7 @@ func Benchmark{{ toUpper .PointName}}JacExtendedDoubleNeg(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
-	var c {{ toUpper .PointName}}Affine
+	var c {{ toUpper .PointName}}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -883,7 +883,7 @@ func Benchmark{{ toUpper .PointName}}AddMixed(b *testing.B) {
 	var a {{ toLower .PointName }}Jac
 	a.Double(&{{ toLower .PointName}}Gen)
 
-	var c {{ toUpper .PointName}}Affine
+	var c {{ toUpper .PointName}}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -910,7 +910,7 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 	const pow = (bits.UintSize / 2 ) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits 
 	const nbSamples = 1 << pow
 
-	var samplePoints [nbSamples]{{ toUpper .PointName}}Affine
+	var samplePoints [nbSamples]{{ toUpper .PointName}}
 	var sampleScalars [nbSamples]fr.Element
 
 	for i := 1; i <= nbSamples; i++ {

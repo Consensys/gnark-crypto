@@ -63,7 +63,7 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 // Decode reads the binary encoding of v from the stream
-// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
+// type must be *uint64, *fr.Element, *fp.Element, *G1, *G2, *[]G1 or *[]G2
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
@@ -101,7 +101,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		t.SetBytes(buf[:fp.Limbs*8])
 		return
-	case *G1Affine:
+	case *G1:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
 		dec.n += int64(read)
@@ -121,7 +121,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return
-	case *G2Affine:
+	case *G2:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
 		dec.n += int64(read)
@@ -141,14 +141,14 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return
-	case *[]G1Affine:
+	case *[]G1:
 		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
 		if len(*t) != int(sliceLen) {
-			*t = make([]G1Affine, sliceLen)
+			*t = make([]G1, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
@@ -192,14 +192,14 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 
 		return nil
-	case *[]G2Affine:
+	case *[]G2:
 		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
 		if len(*t) != int(sliceLen) {
-			*t = make([]G2Affine, sliceLen)
+			*t = make([]G2, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
@@ -300,7 +300,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 }
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine or []G2Affine
+// type must be uint64, *fr.Element, *fp.Element, *G1, *G2, []G1 or []G2
 func (enc *Encoder) Encode(v interface{}) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -342,17 +342,17 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case *G1Affine:
+	case *G1:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case *G2Affine:
+	case *G2:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case []G1Affine:
+	case []G1:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
@@ -371,7 +371,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 			}
 		}
 		return nil
-	case []G2Affine:
+	case []G2:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
@@ -416,17 +416,17 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case *G1Affine:
+	case *G1:
 		buf := t.RawBytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case *G2Affine:
+	case *G2:
 		buf := t.RawBytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case []G1Affine:
+	case []G1:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
@@ -445,7 +445,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 			}
 		}
 		return nil
-	case []G2Affine:
+	case []G2:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
