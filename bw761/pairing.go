@@ -16,10 +16,11 @@ package bw761
 
 import (
 	"github.com/consensys/gurvy/bw761/fp"
+	"github.com/consensys/gurvy/bw761/internal/fptower"
 )
 
 // GT target group of the pairing
-type GT = e6
+type GT = fptower.E6
 
 type lineEvaluation struct {
 	r0 fp.Element
@@ -37,17 +38,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	result.FinalExponentiation(&result)
-
-	return result
-}
-
-// FinalExponentiation sets z to the final expo x**((p**6 - 1)/r), returns z
-func (z *GT) FinalExponentiation(x *GT) *GT {
-
 	var buf GT
-	var result GT
-	result.Set(x)
 
 	// easy part exponent: (p**3 - 1)*(p+1)
 	buf.FrobeniusCube(&result)
@@ -64,13 +55,13 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	f[0].Set(&result)
 	for i := 1; i < len(f); i++ {
-		f[i].expt(&f[i-1])
+		f[i].Expt(&f[i-1])
 	}
 	for i := range f {
 		fp[i].Frobenius(&f[i])
 	}
-	fp[8].expt(&fp[7])
-	fp[9].expt(&fp[8])
+	fp[8].Expt(&fp[7])
+	fp[9].Expt(&fp[8])
 
 	result.FrobeniusCube(&fp[5]).
 		MulAssign(&fp[3]).
@@ -162,8 +153,7 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	result.MulAssign(&f1f7).MulAssign(&f5fp7).MulAssign(&fp[0])
 
-	z.Set(&result)
-	return z
+	return result
 }
 
 // MillerLoop Miller loop
@@ -193,12 +183,12 @@ func MillerLoop(P G1, Q G2) *GT {
 
 		result.Square(&result)
 		<-ch
-		result.mulAssign(&evaluations1[j])
+		mulAssign(&result, &evaluations1[j])
 		j++
 
 		if loopCounter1[i] != 0 {
 			<-ch
-			result.mulAssign(&evaluations1[j])
+			mulAssign(&result, &evaluations1[j])
 			j++
 		}
 	}
@@ -213,7 +203,8 @@ func MillerLoop(P G1, Q G2) *GT {
 	// finishes the computation of g(P), div(g)=(x+1)(Q)-([x+1]Q)-x(O) (drop the vertical line)
 	var lEval lineEvaluation
 	lineEval(&xQjac, &QjacSaved, &P, &lEval)
-	mxplusone.Set(&mx).mulAssign(&lEval)
+	mxplusone.Set(&mx)
+	mulAssign(&mxplusone, &lEval)
 
 	// Miller loop part 2 (xQjac = [x]Q)
 	// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
@@ -223,16 +214,16 @@ func MillerLoop(P G1, Q G2) *GT {
 
 		result.Square(&result)
 		<-ch
-		result.mulAssign(&evaluations2[j])
+		mulAssign(&result, &evaluations2[j])
 		j++
 
 		if loopCounter2[i] == 1 {
 			<-ch
-			result.mulAssign(&evaluations2[j]).MulAssign(&mx) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			mulAssign(&result, &evaluations2[j]).MulAssign(&mx) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
 			j++
 		} else if loopCounter2[i] == -1 {
 			<-ch
-			result.mulAssign(&evaluations2[j]).MulAssign(&mxInv) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			mulAssign(&result, &evaluations2[j]).MulAssign(&mxInv) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
 			j++
 		}
 	}
@@ -272,12 +263,12 @@ func lineEval(Q, R *g2Jac, P *G1, result *lineEvaluation) {
 	result.r0.Mul(&result.r0, &P.Y)
 }
 
-func (z *GT) mulAssign(l *lineEvaluation) *GT {
+func mulAssign(z *GT, l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.mulByVMinusThree(z, &l.r1)
-	b.mulByVminusTwo(z, &l.r0)
-	c.mulByVminusFive(z, &l.r2)
+	a.MulByVMinusThree(z, &l.r1)
+	b.MulByVminusTwo(z, &l.r0)
+	c.MulByVminusFive(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -342,140 +333,4 @@ func preCompute2(evaluations *[144]lineEvaluation, Q *g2Jac, P *G1, ch chan stru
 			j++
 		}
 	}
-}
-
-// expt set z to x^t in GT and return z
-func (z *GT) expt(x *GT) *GT {
-
-	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
-	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
-	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html
-
-	var result, x33 GT
-
-	// a shortest addition chain for 136227
-	result.Set(x)             // 0                1
-	result.Square(&result)    // 1( 0)            2
-	result.Square(&result)    // 2( 1)            4
-	result.Square(&result)    // 3( 2)            8
-	result.Square(&result)    // 4( 3)           16
-	result.Square(&result)    // 5( 4)           32
-	result.Mul(&result, x)    // 6( 5, 0)        33
-	x33.Set(&result)          // save x33 for step 14
-	result.Square(&result)    // 7( 6)           66
-	result.Square(&result)    // 8( 7)          132
-	result.Square(&result)    // 9( 8)          264
-	result.Square(&result)    // 10( 9)          528
-	result.Square(&result)    // 11(10)         1056
-	result.Square(&result)    // 12(11)         2112
-	result.Square(&result)    // 13(12)         4224
-	result.Mul(&result, &x33) // 14(13, 6)      4257
-	result.Square(&result)    // 15(14)         8514
-	result.Square(&result)    // 16(15)        17028
-	result.Square(&result)    // 17(16)        34056
-	result.Square(&result)    // 18(17)        68112
-	result.Mul(&result, x)    // 19(18, 0)     68113
-	result.Square(&result)    // 20(19)       136226
-	result.Mul(&result, x)    // 21(20, 0)    136227
-
-	// the remaining 46 bits
-	for i := 0; i < 46; i++ {
-		result.Square(&result)
-	}
-	result.Mul(&result, x)
-
-	z.Set(&result)
-	return z
-}
-
-// mulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
-func (z *GT) mulByVMinusThree(x *GT, y *fp.Element) *GT {
-
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
-
-	// tmp = y*(-4)**-1 * u
-	var tmp e2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	z.MulByE2(x, &tmp)
-
-	return z
-}
-
-// mulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
-func (z *GT) mulByVminusTwo(x *GT, y *fp.Element) *GT {
-
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
-
-	// tmp = y*(-4)**-1 * u
-	var tmp e2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	var a e2
-	a.MulByElement(&x.B2, y)
-	z.B2.Mul(&x.B1, &tmp)
-	z.B1.Mul(&x.B0, &tmp)
-	z.B0.Set(&a)
-
-	return z
-}
-
-// mulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
-func (z *GT) mulByVminusFive(x *GT, y *fp.Element) *GT {
-
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
-
-	// tmp = y*(-4)**-1 * u
-	var tmp e2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
-
-	var a e2
-	a.Mul(&x.B2, &tmp)
-	z.B2.MulByElement(&x.B1, &tmp.A1)
-	z.B1.MulByElement(&x.B0, &tmp.A1)
-	z.B0.Set(&a)
-
-	return z
 }

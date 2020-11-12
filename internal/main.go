@@ -61,7 +61,7 @@ func main() {
 			if confs[i].CurveName == "bn256" {
 				confs[i].CofactorCleaning = true
 			}
-			assertNoError(generator.GeneratePoint(confs[i], "e2", "g2"))
+			assertNoError(generator.GeneratePoint(confs[i], "fptower.E2", "g2"))
 			assertNoError(generator.GenerateFq12over6over2(confs[i]))
 			assertNoError(generator.GeneratePairingTests(confs[i]))
 

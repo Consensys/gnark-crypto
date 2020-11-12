@@ -3,6 +3,7 @@ package bn256
 import (
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
+	"github.com/consensys/gurvy/bn256/internal/fptower"
 	"github.com/leanovate/gopter"
 )
 
@@ -22,34 +23,34 @@ func GenFp() gopter.Gen {
 	}
 }
 
-// GenE2 generates an e2 elmt
+// GenE2 generates an fptower.E2 elmt
 func GenE2() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *e2 {
-		return &e2{values[0].(fp.Element), values[1].(fp.Element)}
+	).Map(func(values []interface{}) *fptower.E2 {
+		return &fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
 	})
 }
 
-// GenE6 generates an e6 elmt
+// GenE6 generates an fptower.E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(
 		GenE2(),
 		GenE2(),
 		GenE2(),
-	).Map(func(values []interface{}) *e6 {
-		return &e6{*values[0].(*e2), *values[1].(*e2), *values[2].(*e2)}
+	).Map(func(values []interface{}) *fptower.E6 {
+		return &fptower.E6{B0: *values[0].(*fptower.E2), B1: *values[1].(*fptower.E2), B2: *values[2].(*fptower.E2)}
 	})
 }
 
-// GenE12 generates an e6 elmt
+// GenE12 generates an fptower.E6 elmt
 func GenE12() gopter.Gen {
 	return gopter.CombineGens(
 		GenE6(),
 		GenE6(),
-	).Map(func(values []interface{}) *e12 {
-		return &e12{*values[0].(*e6), *values[1].(*e6)}
+	).Map(func(values []interface{}) *fptower.E12 {
+		return &fptower.E12{C0: *values[0].(*fptower.E6), C1: *values[1].(*fptower.E6)}
 	})
 }
 

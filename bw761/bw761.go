@@ -113,9 +113,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1 g1Jac, g2 g2Jac, g1Aff G1, g2Aff G2) {
-	g1 = g1Gen
-	g2 = g2Gen
+func Generators() (g1Aff G1, g2Aff G2) {
 	g1Aff = g1GenAff
 	g2Aff = g2GenAff
 	return

@@ -18,6 +18,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gurvy/bn256/fp"
+	"github.com/consensys/gurvy/bn256/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 )
 
@@ -166,15 +167,15 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1, error) {
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func svdwMapG2(u e2) G2 {
+func svdwMapG2(u fptower.E2) G2 {
 
 	var twoInv fp.Element
-	var tmp e2
+	var tmp fptower.E2
 	var res G2
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
-	var z, c1, c2, c3, c4 e2
+	var z, c1, c2, c3, c4 fptower.E2
 	z.A1.SetString("1")
 	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bTwistCurveCoeff)
 	twoInv.SetUint64(2).Inverse(&twoInv)
@@ -187,7 +188,7 @@ func svdwMapG2(u e2) G2 {
 	}
 	c4.Double(&tmp).Add(&c4, &tmp).Inverse(&c4).Mul(&c4, &c1).Double(&c4).Double(&c4)
 
-	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y e2
+	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fptower.E2
 	one.SetOne()
 	tv1.Square(&u).Mul(&tv1, &c1)
 	tv2.Add(&one, &tv1)
@@ -238,7 +239,7 @@ func svdwMapG2(u e2) G2 {
 
 // MapToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToCurveG2Svdw(t e2) G2 {
+func MapToCurveG2Svdw(t fptower.E2) G2 {
 	res := svdwMapG2(t)
 	res.ClearCofactor(&res)
 	return res
@@ -252,7 +253,7 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2, error) {
 	if err != nil {
 		return res, err
 	}
-	var t e2
+	var t fptower.E2
 	t.A0.Set(&_t[0])
 	t.A1.Set(&_t[1])
 	res = MapToCurveG2Svdw(t)
@@ -267,7 +268,7 @@ func HashToCurveG2Svdw(msg, dst []byte) (G2, error) {
 	if err != nil {
 		return res, err
 	}
-	var u0, u1 e2
+	var u0, u1 fptower.E2
 	u0.A0.Set(&u[0])
 	u0.A1.Set(&u[1])
 	u1.A0.Set(&u[2])

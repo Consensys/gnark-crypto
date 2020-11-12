@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gurvy"
 	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
+	"github.com/consensys/gurvy/bls381/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 )
 
@@ -25,7 +26,7 @@ const ID = gurvy.BLS381
 var bCurveCoeff fp.Element
 
 // bTwistCurveCoeff b coeff of the twist (defined over Fp2) curve
-var bTwistCurveCoeff e2
+var bTwistCurveCoeff fptower.E2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen g1Jac
@@ -56,8 +57,8 @@ var glvBasis utils.Lattice
 
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
 var endo struct {
-	u e2
-	v e2
+	u fptower.E2
+	v fptower.E2
 }
 
 // generator of the curve
@@ -108,9 +109,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1 g1Jac, g2 g2Jac, g1Aff G1, g2Aff G2) {
-	g1 = g1Gen
-	g2 = g2Gen
+func Generators() (g1Aff G1, g2Aff G2) {
 	g1Aff = g1GenAff
 	g2Aff = g2GenAff
 	return

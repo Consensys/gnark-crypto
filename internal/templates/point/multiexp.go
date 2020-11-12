@@ -228,10 +228,6 @@ func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 {{end}}
 
 
-//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type {{ toLower .PointName }}JacExtended struct {
-	X, Y, ZZ, ZZZ {{.CoordType}}
-}
 
 // setInfinity sets p to O
 func (p *{{ toLower .PointName }}JacExtended) setInfinity() *{{ toLower .PointName }}JacExtended {

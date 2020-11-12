@@ -14,9 +14,19 @@ import (
 	"github.com/consensys/gurvy/utils/debug"
 )
 
+// {{ toUpper .PointName }} point in affine coordinates
+type {{ toUpper .PointName }} struct {
+	X, Y {{.CoordType}}
+}
+
 // {{ toLower .PointName }}Jac is a point with {{.CoordType}} coordinates
 type {{ toLower .PointName }}Jac struct {
 	X, Y, Z {{.CoordType}}
+}
+
+//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type {{ toLower .PointName }}JacExtended struct {
+	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
 // {{ toLower .PointName }}Proj point in projective coordinates
@@ -24,9 +34,126 @@ type {{ toLower .PointName }}Proj struct {
 	x, y, z {{.CoordType}}
 }
 
-// {{ toUpper .PointName }} point in affine coordinates
-type {{ toUpper .PointName }} struct {
-	X, Y {{.CoordType}}
+
+
+// -------------------------------------------------------------------------------------------------
+// Affine 
+
+
+// ScalarMultiplication computes and returns p = a*s
+func (p *{{ toUpper .PointName}}) ScalarMultiplication(a *{{ toUpper .PointName}}, s *big.Int) *{{ toUpper .PointName}} {
+	var _p {{ toLower .PointName }}Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
+
+
+// Equal tests if two points (in Affine coordinates) are equal
+func (p *{{ toUpper .PointName }}) Equal(a *{{ toUpper .PointName }}) bool {
+	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
+}
+
+
+// Neg computes -G
+func (p *{{ toUpper .PointName }}) Neg(a *{{ toUpper .PointName }}) *{{ toUpper .PointName }} {
+	p.X = a.X
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+
+
+
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
+func (p *{{ toUpper .PointName }}) FromJacobian(p1 *{{ toLower .PointName }}Jac) *{{ toUpper .PointName }} {
+
+	var a, b {{.CoordType}}
+
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
+	}
+
+	a.Inverse(&p1.Z)
+	b.Square(&a)
+	p.X.Mul(&p1.X, &b)
+	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
+
+	return p
+}
+
+
+
+func (p *{{ toUpper .PointName }}) String() string {
+	var x, y {{.CoordType}}
+	x.Set(&p.X)
+	y.Set(&p.Y)
+	return "E([" + x.String() + "," + y.String() + "]),"
+}
+
+// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
+func (p *{{ toUpper .PointName }}) IsInfinity() bool {
+	return p.X.IsZero() && p.Y.IsZero()
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *{{ toUpper .PointName}}) IsOnCurve() bool {
+	var point {{ toLower .PointName }}Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *{{ toUpper .PointName}}) IsInSubGroup() bool {
+	var _p {{ toLower .PointName }}Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian 
+
+// Set set p to the provided point
+func (p *{{ toLower .PointName }}Jac) Set(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
+	return p
+}
+
+// Equal tests if two points (in Jacobian coordinates) are equal
+func (p *{{ toLower .PointName }}Jac) Equal(a *{{ toLower .PointName }}Jac) bool {
+
+	if p.Z.IsZero() && a.Z.IsZero() {
+		return true
+	}
+	_p := {{ toUpper .PointName }}{}
+	_p.FromJacobian(p)
+
+	_a := {{ toUpper .PointName }}{}
+	_a.FromJacobian(a)
+
+	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+}
+
+// Neg computes -G
+func (p *{{ toLower .PointName }}Jac) Neg(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
+	*p = *a
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+
+// SubAssign substracts two points on the curve
+func (p *{{ toLower .PointName }}Jac) SubAssign(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
+	var tmp {{ toLower .PointName }}Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
+	return p
 }
 
 
@@ -185,98 +312,6 @@ func (p *{{ toLower .PointName }}Jac) ScalarMultiplication(a *{{ toLower .PointN
 	{{- end }}
 }
 
-// ScalarMultiplication computes and returns p = a*s
-func (p *{{ toUpper .PointName}}) ScalarMultiplication(a *{{ toUpper .PointName}}, s *big.Int) *{{ toUpper .PointName}} {
-	var _p {{ toLower .PointName }}Jac
-	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
-	p.FromJacobian(&_p)
-	return p
-}
-
-
-// Set set p to the provided point
-func (p *{{ toLower .PointName }}Jac) Set(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
-	p.X, p.Y, p.Z = a.X, a.Y, a.Z
-	return p
-}
-
-// Equal tests if two points (in Jacobian coordinates) are equal
-func (p *{{ toLower .PointName }}Jac) Equal(a *{{ toLower .PointName }}Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
-	}
-	_p := {{ toUpper .PointName }}{}
-	_p.FromJacobian(p)
-
-	_a := {{ toUpper .PointName }}{}
-	_a.FromJacobian(a)
-
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
-}
-
-// Equal tests if two points (in Affine coordinates) are equal
-func (p *{{ toUpper .PointName }}) Equal(a *{{ toUpper .PointName }}) bool {
-	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
-}
-
-
-// Neg computes -G
-func (p *{{ toLower .PointName }}Jac) Neg(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
-	*p = *a
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// Neg computes -G
-func (p *{{ toUpper .PointName }}) Neg(a *{{ toUpper .PointName }}) *{{ toUpper .PointName }} {
-	p.X = a.X
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// SubAssign substracts two points on the curve
-func (p *{{ toLower .PointName }}Jac) SubAssign(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
-	var tmp {{ toLower .PointName }}Jac
-	tmp.Set(a)
-	tmp.Y.Neg(&tmp.Y)
-	p.AddAssign(&tmp)
-	return p
-}
-
-// FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *{{ toUpper .PointName }}) FromJacobian(p1 *{{ toLower .PointName }}Jac) *{{ toUpper .PointName }} {
-
-	var a, b {{.CoordType}}
-
-	if p1.Z.IsZero() {
-		p.X.SetZero()
-		p.Y.SetZero()
-		return p
-	}
-
-	a.Inverse(&p1.Z)
-	b.Square(&a)
-	p.X.Mul(&p1.X, &b)
-	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
-
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Proj {
-	// memalloc
-	var buf {{.CoordType}}
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
 func (p *{{ toLower .PointName }}Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
@@ -300,17 +335,6 @@ func (p *{{ toLower .PointName }}Jac) FromAffine(Q *{{ toUpper .PointName }}) *{
 	return p
 }
 
-func (p *{{ toUpper .PointName }}) String() string {
-	var x, y {{.CoordType}}
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
-}
-
-// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
-func (p *{{ toUpper .PointName }}) IsInfinity() bool {
-	return p.X.IsZero() && p.Y.IsZero()
-}
 
 // IsOnCurve returns true if p in on the curve
 func (p *{{ toLower .PointName }}Jac) IsOnCurve() bool {
@@ -330,19 +354,7 @@ func (p *{{ toLower .PointName }}Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
-// IsOnCurve returns true if p in on the curve
-func (p *{{ toUpper .PointName}}) IsOnCurve() bool {
-	var point {{ toLower .PointName }}Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
-}
 
-// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
-func (p *{{ toUpper .PointName}}) IsInSubGroup() bool {
-	var _p {{ toLower .PointName }}Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
-}
 
 {{if eq .CurveName "bn256" }}
 	{{if eq .PointName "g1"}}
@@ -448,7 +460,7 @@ func (p *{{ toLower .PointName }}Jac) mulWindowed(a *{{ toLower .PointName }}Jac
 
 }
 
-{{ if eq .CoordType "e2" }}
+{{ if eq .CoordType "fptower.E2" }}
 	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
 	func (p *{{ toLower .PointName }}Jac) psi(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 		p.Set(a)
@@ -464,7 +476,7 @@ func (p *{{ toLower .PointName }}Jac) mulWindowed(a *{{ toLower .PointName }}Jac
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{toLower .PointName}}Jac) phi(a *{{toLower .PointName}}Jac) *{{toLower .PointName}}Jac {
 	p.Set(a)
-	{{if eq .CoordType "e2"}}
+	{{if eq .CoordType "fptower.E2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{else}}
 		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})
@@ -541,7 +553,32 @@ func (p *{{ toLower .PointName }}Jac) mulGLV(a *{{ toLower .PointName }}Jac, s *
 
 {{ end }}
 
-{{/* note batch inversion for g2 elements with e2 that is curve specific is a bit more troublesome to implement */}}
+// -------------------------------------------------------------------------------------------------
+// Jacobian extended 
+
+
+
+
+// -------------------------------------------------------------------------------------------------
+// Projective
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Proj {
+	// memalloc
+	var buf {{.CoordType}}
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
+	return p
+}
+
+
+
+
+{{/* note batch inversion for g2 elements with E2 that is curve specific is a bit more troublesome to implement */}}
 {{if eq .PointName "g1"}}
 
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
@@ -734,7 +771,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 
 
 // SizeOf{{ toUpper .PointName }}Compressed represents the size in bytes that a {{ toUpper .PointName }} need in binary form, compressed
-const SizeOf{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "e2"}} * 2 {{- end}}
+const SizeOf{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "fptower.E2"}} * 2 {{- end}}
 
 // SizeOf{{ toUpper .PointName }}Uncompressed represents the size in bytes that a {{ toUpper .PointName }} need in binary form, uncompressed
 const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }}Compressed * 2
@@ -775,7 +812,7 @@ func (p *{{ toUpper .PointName }}) Bytes() (res [SizeOf{{ toUpper .PointName }}C
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
 		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
@@ -809,7 +846,7 @@ func (p *{{ toUpper .PointName }}) RawBytes() (res [SizeOf{{ toUpper .PointName 
 
 	// not compressed
 	// we store the Y coordinate
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		// p.Y.A1 | p.Y.A0
 		{{- $offset := mul $sizeOfFp 3}}
 		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
@@ -821,7 +858,7 @@ func (p *{{ toUpper .PointName }}) RawBytes() (res [SizeOf{{ toUpper .PointName 
 	{{- end}}
 
 	// we store X  and mask the most significant word with our metadata mask
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
 		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
@@ -876,7 +913,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	var tmp fp.Element
 
 	// read X coordinate
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
 		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
@@ -888,7 +925,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-		{{- if eq .CoordType "e2"}}
+		{{- if eq .CoordType "fptower.E2"}}
 			// p.Y.A1 | p.Y.A0
 			{{- $offset := mul $sizeOfFp 3}}
 			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
@@ -909,7 +946,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		if YSquared.Legendre() == -1 {
 			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -944,7 +981,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 // it computes the Y coordinate from the already set X coordinate and is compute intensive
 func (p *{{ toUpper .PointName }}) unsafeComputeY() error  {
 	// stored in unsafeSetCompressedBytes
-	{{ if eq .CoordType "e2"}}
+	{{ if eq .CoordType "fptower.E2"}}
 	mData := byte(p.Y.A0[0])
 	{{ else}}
 	mData := byte(p.Y[0])
@@ -957,7 +994,7 @@ func (p *{{ toUpper .PointName }}) unsafeComputeY() error  {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		if YSquared.Legendre() == -1 {
 			return errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -1009,7 +1046,7 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 	var tmp fp.Element
 
 	// read X coordinate
-	{{- if eq .CoordType "e2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
 		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
@@ -1018,7 +1055,7 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
 	{{- end}}
 
-	{{ if eq .CoordType "e2"}}
+	{{ if eq .CoordType "fptower.E2"}}
 	// store mData in p.Y.A0[0]
 	p.Y.A0[0] = uint64(mData)
 	{{ else}}

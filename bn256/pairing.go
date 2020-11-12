@@ -14,15 +14,17 @@
 
 package bn256
 
-import "math/bits"
+import (
+	"github.com/consensys/gurvy/bn256/internal/fptower"
+)
 
 // GT target group of the pairing
-type GT = e12
+type GT = fptower.E12
 
 type lineEvaluation struct {
-	r0 e2
-	r1 e2
-	r2 e2
+	r0 fptower.E2
+	r1 fptower.E2
+	r2 fptower.E2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -35,19 +37,11 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	result.FinalExponentiation(&result)
-
-	return result
-}
-
-// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *GT) FinalExponentiation(x *GT) *GT {
-
 	// https://eprint.iacr.org/2008/490.pdf
 	var mt [4]GT // mt[i] is m^(t^i)
 
 	// easy part
-	mt[0].Set(x)
+	mt[0].Set(z)
 	var temp GT
 	temp.Conjugate(&mt[0])
 	mt[0].Inverse(&mt[0])
@@ -56,9 +50,9 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 		Mul(&mt[0], &temp)
 
 	// hard part
-	mt[1].expt(&mt[0])
-	mt[2].expt(&mt[1])
-	mt[3].expt(&mt[2])
+	mt[1].Expt(&mt[0])
+	mt[2].Expt(&mt[1])
+	mt[3].Expt(&mt[2])
 
 	var y [7]GT
 
@@ -102,8 +96,9 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 	t[0].Mul(&t[1], &y[1])
 	t[1].Mul(&t[1], &y[0])
 	t[0].CyclotomicSquare(&t[0])
-	z.Mul(&t[0], &t[1])
-	return z
+	result.Mul(&t[0], &t[1])
+
+	return result
 }
 
 // MillerLoop Miller loop
@@ -128,12 +123,12 @@ func MillerLoop(P G1, Q G2) *GT {
 
 		result.Square(&result)
 		<-ch
-		result.mulAssign(&evaluations[j])
+		mulAssign(&result, &evaluations[j])
 		j++
 
 		if loopCounter[i] != 0 {
 			<-ch
-			result.mulAssign(&evaluations[j])
+			mulAssign(&result, &evaluations[j])
 			j++
 		}
 	}
@@ -153,12 +148,12 @@ func MillerLoop(P G1, Q G2) *GT {
 
 	var lEval lineEvaluation
 	lineEval(&Qjac, &Q1, &P, &lEval)
-	result.mulAssign(&lEval)
+	mulAssign(&result, &lEval)
 
 	Qjac.AddAssign(&Q1)
 
 	lineEval(&Qjac, &Q2, &P, &lEval)
-	result.mulAssign(&lEval)
+	mulAssign(&result, &lEval)
 
 	return &result
 }
@@ -188,12 +183,12 @@ func lineEval(Q, R *g2Jac, P *G1, result *lineEvaluation) {
 	result.r0.MulByElement(&result.r0, &P.Y)
 }
 
-func (z *GT) mulAssign(l *lineEvaluation) *GT {
+func mulAssign(z *GT, l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.mulByVW(z, &l.r1)
-	b.mulByV(z, &l.r0)
-	c.mulByV2W(z, &l.r2)
+	a.MulByVW(z, &l.r1)
+	b.MulByV(z, &l.r0)
+	c.MulByV2W(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -232,78 +227,4 @@ func preCompute(evaluations *[86]lineEvaluation, Q *g2Jac, P *G1, ch chan struct
 	}
 
 	close(ch)
-}
-
-// mulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the GT element with C1.B1=y and all other components 0
-func (z *GT) mulByVW(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B1, &yNR)
-	result.C0.B1.Mul(&x.C1.B2, &yNR)
-	result.C0.B2.Mul(&x.C1.B0, y)
-	result.C1.B0.Mul(&x.C0.B2, &yNR)
-	result.C1.B1.Mul(&x.C0.B0, y)
-	result.C1.B2.Mul(&x.C0.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// mulByV set z to x*(y*v) and return z
-// here y*v means the GT element with C0.B1=y and all other components 0
-func (z *GT) mulByV(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C0.B2, &yNR)
-	result.C0.B1.Mul(&x.C0.B0, y)
-	result.C0.B2.Mul(&x.C0.B1, y)
-	result.C1.B0.Mul(&x.C1.B2, &yNR)
-	result.C1.B1.Mul(&x.C1.B0, y)
-	result.C1.B2.Mul(&x.C1.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// mulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the GT element with C1.B2=y and all other components 0
-func (z *GT) mulByV2W(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B0, &yNR)
-	result.C0.B1.Mul(&x.C1.B1, &yNR)
-	result.C0.B2.Mul(&x.C1.B2, &yNR)
-	result.C1.B0.Mul(&x.C0.B1, &yNR)
-	result.C1.B1.Mul(&x.C0.B2, &yNR)
-	result.C1.B2.Mul(&x.C0.B0, y)
-	z.Set(&result)
-	return z
-}
-
-// expt set z to x^t in GT and return z (t is the generator of the BN curve)
-func (z *GT) expt(x *GT) *GT {
-
-	const tAbsVal uint64 = 4965661367192848881
-
-	var result GT
-	result.Set(x)
-
-	l := bits.Len64(tAbsVal) - 2
-	for i := l; i >= 0; i-- {
-		result.CyclotomicSquare(&result)
-		if tAbsVal&(1<<uint(i)) != 0 {
-			result.Mul(&result, x)
-		}
-	}
-
-	z.Set(&result)
-	return z
 }

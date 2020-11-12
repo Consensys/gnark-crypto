@@ -45,10 +45,10 @@ func ExampleMillerLoop() {
 
 	// Computes e(g1GenAff, ag2) and e(ag1, g2GenAff)
 	e1 := FinalExponentiation(MillerLoop(g1GenAff, rg2))
-	e2 := FinalExponentiation(MillerLoop(rg1, g2GenAff))
+	E2 := FinalExponentiation(MillerLoop(rg1, g2GenAff))
 
 	// checks that bilinearity property holds
-	check := e1.Equal(&e2)
+	check := e1.Equal(&E2)
 
 	fmt.Printf("%t\n", check)
 	// Output: true
@@ -70,23 +70,24 @@ func TestPairing(t *testing.T) {
 	genR2 := GenFr()
 
 	properties.Property("[BLS381] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *GT) bool {
+			var b GT
 			b.Set(a)
-			b.FinalExponentiation(a)
-			a.FinalExponentiation(a)
+			b = FinalExponentiation(a)
+			*a = FinalExponentiation(a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[BLS381] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a *e12) bool {
-			var one e12
+		func(a *GT) bool {
+			var one GT
 			var e big.Int
 			e.SetString("52435875175126190479447740508185965837690552500527637822603658699938581184513", 10)
 			one.SetOne()
-			a.FinalExponentiation(a).Exp(a, e)
+			*a = FinalExponentiation(a)
+			a.Exp(a, e)
 			return a.Equal(&one)
 		},
 		genA,
@@ -146,7 +147,7 @@ func BenchmarkPairing(b *testing.B) {
 
 func BenchmarkFinalExponentiation(b *testing.B) {
 
-	var a e12
+	var a GT
 	a.SetRandom()
 
 	b.ResetTimer()

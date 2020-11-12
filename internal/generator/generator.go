@@ -80,10 +80,13 @@ func GenerateBaseFields(conf CurveConfig) error {
 	return nil
 }
 
+const fpTower = "fptower"
+
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
 func GenerateFq12over6over2(conf CurveConfig) error {
+	conf.OutputDir = filepath.Join(conf.OutputDir, "internal/", fpTower)
 	// base field (FpModulus) template data
-	F, err := field.NewField(conf.CurveName, "e2", conf.FpModulus, false, "unset")
+	F, err := field.NewField(conf.CurveName, "E2", conf.FpModulus, false, "unset")
 	if err != nil {
 		return err
 	}
@@ -107,7 +110,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName),
+		bavard.Package(fpTower),
 		bavard.GeneratedBy("gurvy"),
 	}
 
@@ -192,7 +195,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		bavardOpts := []func(*bavard.Bavard) error{
 			bavard.Apache2("ConsenSys Software Inc.", 2020),
 			bavard.GeneratedBy("gurvy"),
-			bavard.Package(conf.CurveName),
+			bavard.Package(fpTower),
 		}
 
 		pathSrc := filepath.Join(conf.OutputDir, "e6.go")
@@ -221,7 +224,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		bavardOpts := []func(*bavard.Bavard) error{
 			bavard.Apache2("ConsenSys Software Inc.", 2020),
 			bavard.GeneratedBy("gurvy"),
-			bavard.Package(conf.CurveName),
+			bavard.Package(fpTower),
 		}
 
 		pathSrc := filepath.Join(conf.OutputDir, "e12.go")

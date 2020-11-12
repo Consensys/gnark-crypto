@@ -25,13 +25,14 @@ import (
 
 	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/bls377/fr"
+	"github.com/consensys/gurvy/bls377/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
 
 // ------------------------------------------------------------
 // utils
-func fuzzJacobianG2(p *g2Jac, f *e2) g2Jac {
+func fuzzJacobianG2(p *g2Jac, f *fptower.E2) g2Jac {
 	var res g2Jac
 	res.X.Mul(&p.X, f).Mul(&res.X, f)
 	res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
@@ -39,9 +40,9 @@ func fuzzJacobianG2(p *g2Jac, f *e2) g2Jac {
 	return res
 }
 
-func fuzzExtendedJacobianG2(p *g2JacExtended, f *e2) g2JacExtended {
+func fuzzExtendedJacobianG2(p *g2JacExtended, f *fptower.E2) g2JacExtended {
 	var res g2JacExtended
-	var ff, fff e2
+	var ff, fff fptower.E2
 	ff.Square(f)
 	fff.Mul(&ff, f)
 	res.X.Mul(&p.X, &ff)
@@ -62,7 +63,7 @@ func TestG2IsOnCurve(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	genFuzz1 := GenE2()
 	properties.Property("[BLS377] g2Gen (affine) should be on the curve", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			var op1, op2 G2
 			op1.FromJacobian(&g2Gen)
 			op2.FromJacobian(&g2Gen)
@@ -73,7 +74,7 @@ func TestG2IsOnCurve(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] g2Gen (Jacobian) should be on the curve", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			var op1, op2, op3 g2Jac
 			op1.Set(&g2Gen)
 			op3.Set(&g2Gen)
@@ -136,7 +137,7 @@ func TestG2Serialization(t *testing.T) {
 	genFuzz1 := GenE2()
 
 	properties.Property("[BLS377] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
-		func(a, b *e2) bool {
+		func(a, b *fptower.E2) bool {
 			var start, end G2
 			start.X = *a
 			start.Y = *b
@@ -188,7 +189,7 @@ func TestG2Conversions(t *testing.T) {
 	genFuzz2 := GenE2()
 
 	properties.Property("[BLS377] Affine representation should be independent of the Jacobian representative", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			g := fuzzJacobianG2(&g2Gen, a)
 			var op1 G2
 			op1.FromJacobian(&g)
@@ -198,7 +199,7 @@ func TestG2Conversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			var g g2JacExtended
 			g.X.Set(&g2Gen.X)
 			g.Y.Set(&g2Gen.Y)
@@ -214,13 +215,13 @@ func TestG2Conversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] Jacobian representation should be the same as the affine representative", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			var g g2Jac
 			var op1 G2
 			op1.X.Set(&g2Gen.X)
 			op1.Y.Set(&g2Gen.Y)
 
-			var one e2
+			var one fptower.E2
 			one.SetOne()
 
 			g.FromAffine(&op1)
@@ -237,7 +238,7 @@ func TestG2Conversions(t *testing.T) {
 			g.Y.SetZero()
 			var op1 g2Jac
 			op1.FromAffine(&g)
-			var one, zero e2
+			var one, zero fptower.E2
 			one.SetOne()
 			return op1.X.Equal(&one) && op1.Y.Equal(&one) && op1.Z.Equal(&zero)
 		},
@@ -247,7 +248,7 @@ func TestG2Conversions(t *testing.T) {
 		func() bool {
 			var g G2
 			var op1 g2JacExtended
-			var zero e2
+			var zero fptower.E2
 			op1.X.Set(&g2Gen.X)
 			op1.Y.Set(&g2Gen.Y)
 			g.fromJacExtended(&op1)
@@ -259,7 +260,7 @@ func TestG2Conversions(t *testing.T) {
 		func() bool {
 			var g g2Jac
 			var op1 g2JacExtended
-			var zero, one e2
+			var zero, one fptower.E2
 			one.SetOne()
 			op1.X.Set(&g2Gen.X)
 			op1.Y.Set(&g2Gen.Y)
@@ -269,7 +270,7 @@ func TestG2Conversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
-		func(a, b *e2) bool {
+		func(a, b *fptower.E2) bool {
 			op1 := fuzzJacobianG2(&g2Gen, a)
 			op2 := fuzzJacobianG2(&g2Gen, b)
 			return op1.Equal(&op2)
@@ -293,7 +294,7 @@ func TestG2Ops(t *testing.T) {
 	genScalar := GenFr()
 
 	properties.Property("[BLS377] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
-		func(a, b *e2) bool {
+		func(a, b *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			fop2 := fuzzJacobianG2(&g2Gen, b)
 			var op1, op2 g2Jac
@@ -306,7 +307,7 @@ func TestG2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
-		func(a, b *e2) bool {
+		func(a, b *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			fop2 := fuzzJacobianG2(&g2Gen, b)
 			fop2.Neg(&fop2)
@@ -318,7 +319,7 @@ func TestG2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			fop1.AddAssign(&g2Infinity)
 			var op2 g2Jac
@@ -330,7 +331,7 @@ func TestG2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			var p1, p1Neg G2
 			p1.FromJacobian(&fop1)
@@ -349,7 +350,7 @@ func TestG2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			var p1, p1Neg G2
 			p1.FromJacobian(&fop1)
@@ -368,7 +369,7 @@ func TestG2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BLS377] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
-		func(a *e2) bool {
+		func(a *fptower.E2) bool {
 			fop1 := fuzzJacobianG2(&g2Gen, a)
 			fop1.Neg(&fop1)
 			var op2 G2
@@ -1021,7 +1022,7 @@ func TestG2CofactorCleaning(t *testing.T) {
 
 	properties.Property("[BLS377] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
-			var a, x, b e2
+			var a, x, b fptower.E2
 			a.SetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)

@@ -277,11 +277,6 @@ func (p *g1Jac) msmC16(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1
 	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-//  g1JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type g1JacExtended struct {
-	X, Y, ZZ, ZZZ fp.Element
-}
-
 // setInfinity sets p to O
 func (p *g1JacExtended) setInfinity() *g1JacExtended {
 	p.X.SetOne()

@@ -39,8 +39,8 @@ import (
 		res.ZZZ.Mul(&p.ZZZ, &fff)
 		return res
 	}
-{{- else if eq .CoordType "e2" }}
-	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}Jac, f *e2) {{ toLower .PointName }}Jac {
+{{- else if eq .CoordType "fptower.E2" }}
+	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}Jac, f *fptower.E2) {{ toLower .PointName }}Jac {
 		var res {{ toLower .PointName }}Jac
 		res.X.Mul(&p.X, f).Mul(&res.X, f)
 		res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
@@ -48,7 +48,7 @@ import (
 		return res
 	}
 
-	func fuzzExtendedJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}JacExtended, f *e2) {{ toLower .PointName }}JacExtended {
+	func fuzzExtendedJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}JacExtended, f *fptower.E2) {{ toLower .PointName }}JacExtended {
 		var res {{ toLower .PointName }}JacExtended
 		var ff, fff {{ .CoordType}}
 		ff.Square(f)
@@ -72,21 +72,21 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	{{- if eq .CoordType "fp.Element" }}
 		genFuzz1 := GenFp()
-	{{- else if eq .CoordType "e2" }}
+	{{- else if eq .CoordType "fptower.E2" }}
 		genFuzz1 := GenE2()
 	{{- end}}
 	properties.Property("[{{ toUpper .CurveName }}] {{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			var op1, op2 {{ toUpper .PointName}}
 			op1.FromJacobian(&{{ toLower .PointName}}Gen)
 			op2.FromJacobian(&{{ toLower .PointName}}Gen)
 			{{- if eq .CoordType "fp.Element" }}
 				op2.Y.Mul(&op2.Y, &a)
-			{{- else if eq .CoordType "e2" }}
+			{{- else if eq .CoordType "fptower.E2" }}
 			op2.Y.Mul(&op2.Y, a)
 			{{- end}}
 			return op1.IsOnCurve() && !op2.IsOnCurve()
@@ -97,8 +97,8 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] {{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			var op1, op2, op3 {{ toLower .PointName }}Jac
 			op1.Set(&{{ toLower .PointName}}Gen)
@@ -107,7 +107,7 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 			op2 = fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName}}Gen, a)
 			{{- if eq .CoordType "fp.Element" }}
 				op3.Y.Mul(&op3.Y, &a)
-			{{- else if eq .CoordType "e2" }}
+			{{- else if eq .CoordType "fptower.E2" }}
 				op3.Y.Mul(&op3.Y, a)
 			{{- end}}
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
@@ -166,7 +166,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	{{- if eq .CoordType "fp.Element" }}
 		genFuzz1 := GenFp()
-	{{- else if eq .CoordType "e2" }}
+	{{- else if eq .CoordType "fptower.E2" }}
 		genFuzz1 := GenE2()
 	{{- end}}
 
@@ -174,12 +174,12 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a,b {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a,b *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a,b *fptower.E2) bool {
 		{{- end}}
 				var start, end {{ toUpper .PointName}}
-				start.X = {{- if eq .CoordType "e2" }}*{{- end}}a
-				start.Y = {{- if eq .CoordType "e2" }}*{{- end}}b 
+				start.X = {{- if eq .CoordType "fptower.E2" }}*{{- end}}a
+				start.Y = {{- if eq .CoordType "fptower.E2" }}*{{- end}}b 
 
 				buf := start.RawBytes()
 				n, err := end.SetBytes(buf[:])
@@ -230,7 +230,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	{{- if eq .CoordType "fp.Element" }}
 		genFuzz1 := GenFp()
 		genFuzz2 := GenFp()
-	{{- else if eq .CoordType "e2" }}
+	{{- else if eq .CoordType "fptower.E2" }}
 		genFuzz1 := GenE2()
 		genFuzz2 := GenE2()
 	{{- end}}
@@ -238,8 +238,8 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			g := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			var op1 {{ toUpper .PointName}}
@@ -253,8 +253,8 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			var g {{ toLower .PointName }}JacExtended
 			g.X.Set(&{{ toLower .PointName }}Gen.X)
@@ -273,8 +273,8 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			var g {{ toLower .PointName }}Jac
 			var op1 {{ toUpper .PointName}}
@@ -332,8 +332,8 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a, b *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
 		{{- end}}
 			op1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			op2 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, b)
@@ -355,7 +355,7 @@ parameters := gopter.DefaultTestParameters()
 	{{- if eq .CoordType "fp.Element" }}
 		genFuzz1 := GenFp()
 		genFuzz2 := GenFp()
-	{{- else if eq .CoordType "e2" }}
+	{{- else if eq .CoordType "fptower.E2" }}
 		genFuzz1 := GenE2()
 		genFuzz2 := GenE2()
 	{{- end}}
@@ -365,8 +365,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a, b *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop2 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, b)
@@ -382,8 +382,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a, b *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop2 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, b)
@@ -398,8 +398,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop1.AddAssign(&{{ toLower .PointName }}Infinity)
@@ -414,8 +414,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			var p1,p1Neg {{ toUpper .PointName}}
@@ -437,8 +437,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			var p1,p1Neg {{ toUpper .PointName}}
@@ -460,8 +460,8 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
-		{{- else if eq .CoordType "e2" }}
-			func(a *e2) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop1.Neg(&fop1)
@@ -496,7 +496,7 @@ parameters := gopter.DefaultTestParameters()
 		genScalar,
 	))
 
-	{{ if eq .CoordType "e2" }}
+	{{ if eq .CoordType "fptower.E2" }}
 		properties.Property("[{{ toUpper .CurveName }}] psi should map points from E' to itself", prop.ForAll(
 			func() bool {
 				var a {{ toLower .PointName }}Jac
@@ -682,7 +682,7 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 					{{end}}
 				}
-			{{else if eq .CoordType "e2" }}
+			{{else if eq .CoordType "fptower.E2" }}
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				for x.Legendre() != 1 {
 					a.SetRandom()

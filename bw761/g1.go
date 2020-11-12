@@ -29,9 +29,19 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
+// G1 point in affine coordinates
+type G1 struct {
+	X, Y fp.Element
+}
+
 // g1Jac is a point with fp.Element coordinates
 type g1Jac struct {
 	X, Y, Z fp.Element
+}
+
+//  g1JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type g1JacExtended struct {
+	X, Y, ZZ, ZZZ fp.Element
 }
 
 // g1Proj point in projective coordinates
@@ -39,9 +49,113 @@ type g1Proj struct {
 	x, y, z fp.Element
 }
 
-// G1 point in affine coordinates
-type G1 struct {
-	X, Y fp.Element
+// -------------------------------------------------------------------------------------------------
+// Affine
+
+// ScalarMultiplication computes and returns p = a*s
+func (p *G1) ScalarMultiplication(a *G1, s *big.Int) *G1 {
+	var _p g1Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// Equal tests if two points (in Affine coordinates) are equal
+func (p *G1) Equal(a *G1) bool {
+	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
+}
+
+// Neg computes -G
+func (p *G1) Neg(a *G1) *G1 {
+	p.X = a.X
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
+func (p *G1) FromJacobian(p1 *g1Jac) *G1 {
+
+	var a, b fp.Element
+
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
+	}
+
+	a.Inverse(&p1.Z)
+	b.Square(&a)
+	p.X.Mul(&p1.X, &b)
+	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
+
+	return p
+}
+
+func (p *G1) String() string {
+	var x, y fp.Element
+	x.Set(&p.X)
+	y.Set(&p.Y)
+	return "E([" + x.String() + "," + y.String() + "]),"
+}
+
+// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
+func (p *G1) IsInfinity() bool {
+	return p.X.IsZero() && p.Y.IsZero()
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *G1) IsOnCurve() bool {
+	var point g1Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *G1) IsInSubGroup() bool {
+	var _p g1Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian
+
+// Set set p to the provided point
+func (p *g1Jac) Set(a *g1Jac) *g1Jac {
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
+	return p
+}
+
+// Equal tests if two points (in Jacobian coordinates) are equal
+func (p *g1Jac) Equal(a *g1Jac) bool {
+
+	if p.Z.IsZero() && a.Z.IsZero() {
+		return true
+	}
+	_p := G1{}
+	_p.FromJacobian(p)
+
+	_a := G1{}
+	_a.FromJacobian(a)
+
+	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+}
+
+// Neg computes -G
+func (p *g1Jac) Neg(a *g1Jac) *g1Jac {
+	*p = *a
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// SubAssign substracts two points on the curve
+func (p *g1Jac) SubAssign(a *g1Jac) *g1Jac {
+	var tmp g1Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
+	return p
 }
 
 // AddAssign point addition in montgomery form
@@ -194,96 +308,6 @@ func (p *g1Jac) ScalarMultiplication(a *g1Jac, s *big.Int) *g1Jac {
 	return p.mulGLV(a, s)
 }
 
-// ScalarMultiplication computes and returns p = a*s
-func (p *G1) ScalarMultiplication(a *G1, s *big.Int) *G1 {
-	var _p g1Jac
-	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
-	p.FromJacobian(&_p)
-	return p
-}
-
-// Set set p to the provided point
-func (p *g1Jac) Set(a *g1Jac) *g1Jac {
-	p.X, p.Y, p.Z = a.X, a.Y, a.Z
-	return p
-}
-
-// Equal tests if two points (in Jacobian coordinates) are equal
-func (p *g1Jac) Equal(a *g1Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
-	}
-	_p := G1{}
-	_p.FromJacobian(p)
-
-	_a := G1{}
-	_a.FromJacobian(a)
-
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
-}
-
-// Equal tests if two points (in Affine coordinates) are equal
-func (p *G1) Equal(a *G1) bool {
-	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
-}
-
-// Neg computes -G
-func (p *g1Jac) Neg(a *g1Jac) *g1Jac {
-	*p = *a
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// Neg computes -G
-func (p *G1) Neg(a *G1) *G1 {
-	p.X = a.X
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// SubAssign substracts two points on the curve
-func (p *g1Jac) SubAssign(a *g1Jac) *g1Jac {
-	var tmp g1Jac
-	tmp.Set(a)
-	tmp.Y.Neg(&tmp.Y)
-	p.AddAssign(&tmp)
-	return p
-}
-
-// FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *G1) FromJacobian(p1 *g1Jac) *G1 {
-
-	var a, b fp.Element
-
-	if p1.Z.IsZero() {
-		p.X.SetZero()
-		p.Y.SetZero()
-		return p
-	}
-
-	a.Inverse(&p1.Z)
-	b.Square(&a)
-	p.X.Mul(&p1.X, &b)
-	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
-
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g1Proj) FromJacobian(Q *g1Jac) *g1Proj {
-	// memalloc
-	var buf fp.Element
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
 func (p *g1Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
@@ -307,18 +331,6 @@ func (p *g1Jac) FromAffine(Q *G1) *g1Jac {
 	return p
 }
 
-func (p *G1) String() string {
-	var x, y fp.Element
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
-}
-
-// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
-func (p *G1) IsInfinity() bool {
-	return p.X.IsZero() && p.Y.IsZero()
-}
-
 // IsOnCurve returns true if p in on the curve
 func (p *g1Jac) IsOnCurve() bool {
 	var left, right, tmp fp.Element
@@ -331,20 +343,6 @@ func (p *g1Jac) IsOnCurve() bool {
 		Mul(&tmp, &bCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
-}
-
-// IsOnCurve returns true if p in on the curve
-func (p *G1) IsOnCurve() bool {
-	var point g1Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
-}
-
-// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
-func (p *G1) IsInSubGroup() bool {
-	var _p g1Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
@@ -471,6 +469,25 @@ func (p *g1Jac) mulGLV(a *g1Jac, s *big.Int) *g1Jac {
 	}
 
 	p.Set(&res)
+	return p
+}
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian extended
+
+// -------------------------------------------------------------------------------------------------
+// Projective
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g1Proj) FromJacobian(Q *g1Jac) *g1Proj {
+	// memalloc
+	var buf fp.Element
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
 	return p
 }
 

@@ -15,16 +15,16 @@
 package bls381
 
 import (
-	"math/bits"
+	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 
 // GT target group of the pairing
-type GT = e12
+type GT = fptower.E12
 
 type lineEvaluation struct {
-	r0 e2
-	r1 e2
-	r2 e2
+	r0 fptower.E2
+	r1 fptower.E2
+	r2 fptower.E2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -37,18 +37,6 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	result.FinalExponentiation(&result)
-
-	return result
-}
-
-// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *GT) FinalExponentiation(x *GT) *GT {
-
-	// cf https://eprint.iacr.org/2016/130.pdf
-	var result GT
-	result.Set(x)
-
 	var t [6]GT
 
 	// easy part
@@ -60,16 +48,16 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// hard part (up to permutation)
 	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].expt(&result)
+	t[5].Expt(&result)
 	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])
 
-	t[0].expt(&t[3])
-	t[2].expt(&t[0])
-	t[4].expt(&t[2])
+	t[0].Expt(&t[3])
+	t[2].Expt(&t[0])
+	t[4].Expt(&t[2])
 
 	t[4].Mul(&t[1], &t[4])
-	t[1].expt(&t[4])
+	t[1].Expt(&t[4])
 	t[3].InverseUnitary(&t[3])
 	t[1].Mul(&t[3], &t[1])
 	t[1].Mul(&t[1], &result)
@@ -90,8 +78,7 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	result.Set(&t[5])
 
-	z.Set(&result)
-	return z
+	return result
 }
 
 // MillerLoop Miller loop
@@ -114,12 +101,12 @@ func MillerLoop(P G1, Q G2) *GT {
 
 		result.Square(&result)
 		<-ch
-		result.mulAssign(&evaluations[j])
+		mulAssign(&result, &evaluations[j])
 		j++
 
 		if loopCounter[i] == 1 {
 			<-ch
-			result.mulAssign(&evaluations[j])
+			mulAssign(&result, &evaluations[j])
 			j++
 		}
 	}
@@ -155,12 +142,12 @@ func lineEval(Q, R *g2Jac, P *G1, result *lineEvaluation) {
 // multiplies a result of a line evaluation to the current pairing result, taking care of mapping it
 // back to the original  The line evaluation l is f(P) where div(f)=(P')+(Q')+(-P'-Q')-3(O), the support
 // being on the twist.
-func (z *GT) mulAssign(l *lineEvaluation) *GT {
+func mulAssign(z *GT, l *lineEvaluation) *GT {
 
 	var a, b, c GT
-	a.mulByVWNRInv(z, &l.r1)
-	b.mulByV2NRInv(z, &l.r0)
-	c.mulByWNRInv(z, &l.r2)
+	a.MulByVWNRInv(z, &l.r1)
+	b.MulByV2NRInv(z, &l.r0)
+	c.MulByWNRInv(z, &l.r2)
 	z.Add(&a, &b).Add(z, &c)
 
 	return z
@@ -193,81 +180,4 @@ func preCompute(evaluations *[68]lineEvaluation, Q *G2, P *G1, ch chan struct{})
 		}
 	}
 	close(ch)
-}
-
-// mulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
-func (z *GT) mulByV2NRInv(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNRInv e2
-	yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C0.B1, y)
-	result.C0.B1.Mul(&x.C0.B2, y)
-	result.C0.B2.Mul(&x.C0.B0, &yNRInv)
-
-	result.C1.B0.Mul(&x.C1.B1, y)
-	result.C1.B1.Mul(&x.C1.B2, y)
-	result.C1.B2.Mul(&x.C1.B0, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// mulByVWNRInv set z to x*(y*v*w*(1,1)^{-1}) and return z
-func (z *GT) mulByVWNRInv(x *GT, y *e2) *GT {
-	var result GT
-	var yNRInv e2
-	yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C1.B1, y)
-	result.C0.B1.Mul(&x.C1.B2, y)
-	result.C0.B2.Mul(&x.C1.B0, &yNRInv)
-
-	result.C1.B0.Mul(&x.C0.B2, y)
-	result.C1.B1.Mul(&x.C0.B0, &yNRInv)
-	result.C1.B2.Mul(&x.C0.B1, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// mulByWNRInv set z to x*(y*w*(1,1)^{-1}) and return z
-func (z *GT) mulByWNRInv(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNRInv e2
-	yNRInv.MulByNonResidueInv(y)
-
-	result.C0.B0.Mul(&x.C1.B2, y)
-	result.C0.B1.Mul(&x.C1.B0, &yNRInv)
-	result.C0.B2.Mul(&x.C1.B1, &yNRInv)
-
-	result.C1.B0.Mul(&x.C0.B0, &yNRInv)
-	result.C1.B1.Mul(&x.C0.B1, &yNRInv)
-	result.C1.B2.Mul(&x.C0.B2, &yNRInv)
-
-	z.Set(&result)
-	return z
-}
-
-// expt set z to x^t in GT and return z
-func (z *GT) expt(x *GT) *GT {
-
-	const tAbsVal uint64 = 15132376222941642752 // negative
-
-	var result GT
-	result.Set(x)
-
-	l := bits.Len64(tAbsVal) - 2
-	for i := l; i >= 0; i-- {
-		result.CyclotomicSquare(&result)
-		if tAbsVal&(1<<uint(i)) != 0 {
-			result.Mul(&result, x)
-		}
-	}
-	result.Conjugate(&result) // because tAbsVal is negative
-
-	z.Set(&result)
-	return z
 }

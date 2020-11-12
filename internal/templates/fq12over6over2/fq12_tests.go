@@ -25,8 +25,8 @@ func TestE12Serialization(t *testing.T) {
 	genA := GenE12()
 
 	properties.Property("[{{ toUpper .CurveName}}] SetBytes(Bytes()) should stay constant", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			buf := a.Bytes()
 			if err := b.SetBytes(buf[:]); err != nil {
 				return false
@@ -50,8 +50,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	genB := GenE12()
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
-		func(a, b *e12) bool {
-			var c, d e12
+		func(a, b *E12) bool {
+			var c, d E12
 			d.Set(a)
 			c.Add(a, b)
 			a.Add(a, b)
@@ -63,8 +63,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
-		func(a, b *e12) bool {
-			var c, d e12
+		func(a, b *E12) bool {
+			var c, d E12
 			d.Set(a)
 			c.Sub(a, b)
 			a.Sub(a, b)
@@ -76,8 +76,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
-		func(a, b *e12) bool {
-			var c, d e12
+		func(a, b *E12) bool {
+			var c, d E12
 			d.Set(a)
 			c.Mul(a, b)
 			a.Mul(a, b)
@@ -89,8 +89,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Square(a)
 			a.Square(a)
 			return a.Equal(&b)
@@ -99,8 +99,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Double(a)
 			a.Double(a)
 			return a.Equal(&b)
@@ -109,8 +109,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Inverse(a)
 			a.Inverse(a)
 			return a.Equal(&b)
@@ -119,8 +119,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Cyclotomic square) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.CyclotomicSquare(a)
 			a.CyclotomicSquare(a)
 			return a.Equal(&b)
@@ -129,8 +129,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Conjugate(a)
 			a.Conjugate(a)
 			return a.Equal(&b)
@@ -139,8 +139,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Frobenius) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Frobenius(a)
 			a.Frobenius(a)
 			return a.Equal(&b)
@@ -149,8 +149,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (FrobeniusSquare) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.FrobeniusSquare(a)
 			a.FrobeniusSquare(a)
 			return a.Equal(&b)
@@ -159,8 +159,8 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (FrobeniusCube) should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.FrobeniusCube(a)
 			a.FrobeniusCube(a)
 			return a.Equal(&b)
@@ -182,8 +182,8 @@ func TestE12Ops(t *testing.T) {
 	genB := GenE12()
 
 	properties.Property("[{{ toUpper .CurveName }}] sub & add should leave an element invariant", prop.ForAll(
-		func(a, b *e12) bool {
-			var c e12
+		func(a, b *E12) bool {
+			var c E12
 			c.Set(a)
 			c.Add(&c, b).Sub(&c, b)
 			return c.Equal(a)
@@ -193,8 +193,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] mul & inverse should leave an element invariant", prop.ForAll(
-		func(a, b *e12) bool {
-			var c, d e12
+		func(a, b *E12) bool {
+			var c, d E12
 			d.Inverse(b)
 			c.Set(a)
 			c.Mul(&c, b).Mul(&c, &d)
@@ -205,8 +205,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] inverse twice should leave an element invariant", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Inverse(a).Inverse(&b)
 			return a.Equal(&b)
 		},
@@ -214,8 +214,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] square and mul should output the same result", prop.ForAll(
-		func(a *e12) bool {
-			var b, c e12
+		func(a *E12) bool {
+			var b, c E12
 			b.Mul(a, a)
 			c.Square(a)
 			return b.Equal(&c)
@@ -224,9 +224,9 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] a + pi(a), a-pi(a) should be real", prop.ForAll(
-		func(a *e12) bool {
-			var b, c, d e12
-			var e, f, g e6
+		func(a *E12) bool {
+			var b, c, d E12
+			var e, f, g E6
 			b.Conjugate(a)
 			c.Add(a, &b)
 			d.Sub(a, &b)
@@ -238,8 +238,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] pi**12=id", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.Frobenius(a).
 				Frobenius(&b).
 				Frobenius(&b).
@@ -258,8 +258,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] (pi**2)**6=id", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.FrobeniusSquare(a).
 				FrobeniusSquare(&b).
 				FrobeniusSquare(&b).
@@ -272,8 +272,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] (pi**3)**4=id", prop.ForAll(
-		func(a *e12) bool {
-			var b e12
+		func(a *E12) bool {
+			var b E12
 			b.FrobeniusCube(a).
 				FrobeniusCube(&b).
 				FrobeniusCube(&b).
@@ -284,8 +284,8 @@ func TestE12Ops(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .CurveName }}] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
-		func(a *e12) bool {
-			var b, c, d e12
+		func(a *E12) bool {
+			var b, c, d E12
 			b.FrobeniusCube(a).
 				FrobeniusCube(&b)
 			a.Inverse(a)
@@ -307,7 +307,7 @@ func TestE12Ops(t *testing.T) {
 // benches
 
 func BenchmarkE12Add(b *testing.B) {
-	var a, c e12
+	var a, c E12
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -317,7 +317,7 @@ func BenchmarkE12Add(b *testing.B) {
 }
 
 func BenchmarkE12Sub(b *testing.B) {
-	var a, c e12
+	var a, c E12
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -327,7 +327,7 @@ func BenchmarkE12Sub(b *testing.B) {
 }
 
 func BenchmarkE12Mul(b *testing.B) {
-	var a, c e12
+	var a, c E12
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -337,7 +337,7 @@ func BenchmarkE12Mul(b *testing.B) {
 }
 
 func BenchmarkE12Cyclosquare(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -346,7 +346,7 @@ func BenchmarkE12Cyclosquare(b *testing.B) {
 }
 
 func BenchmarkE12Square(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -355,7 +355,7 @@ func BenchmarkE12Square(b *testing.B) {
 }
 
 func BenchmarkE12Inverse(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -364,7 +364,7 @@ func BenchmarkE12Inverse(b *testing.B) {
 }
 
 func BenchmarkE12Conjugate(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -373,7 +373,7 @@ func BenchmarkE12Conjugate(b *testing.B) {
 }
 
 func BenchmarkE12Frobenius(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -382,7 +382,7 @@ func BenchmarkE12Frobenius(b *testing.B) {
 }
 
 func BenchmarkE12FrobeniusSquare(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -391,7 +391,7 @@ func BenchmarkE12FrobeniusSquare(b *testing.B) {
 }
 
 func BenchmarkE12FrobeniusCube(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -400,21 +400,13 @@ func BenchmarkE12FrobeniusCube(b *testing.B) {
 }
 
 func BenchmarkE12Expt(b *testing.B) {
-	var a e12
+	var a E12
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.expt(&a)
+		a.Expt(&a)
 	}
 }
 
-func BenchmarkE12FinalExponentiation(b *testing.B) {
-	var a e12
-	a.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.FinalExponentiation(&a)
-	}
-}
 
 `

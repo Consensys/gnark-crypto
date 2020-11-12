@@ -24,23 +24,138 @@ import (
 
 	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
+	"github.com/consensys/gurvy/bls381/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// g2Jac is a point with e2 coordinates
+// G2 point in affine coordinates
+type G2 struct {
+	X, Y fptower.E2
+}
+
+// g2Jac is a point with fptower.E2 coordinates
 type g2Jac struct {
-	X, Y, Z e2
+	X, Y, Z fptower.E2
+}
+
+//  g2JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type g2JacExtended struct {
+	X, Y, ZZ, ZZZ fptower.E2
 }
 
 // g2Proj point in projective coordinates
 type g2Proj struct {
-	x, y, z e2
+	x, y, z fptower.E2
 }
 
-// G2 point in affine coordinates
-type G2 struct {
-	X, Y e2
+// -------------------------------------------------------------------------------------------------
+// Affine
+
+// ScalarMultiplication computes and returns p = a*s
+func (p *G2) ScalarMultiplication(a *G2, s *big.Int) *G2 {
+	var _p g2Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// Equal tests if two points (in Affine coordinates) are equal
+func (p *G2) Equal(a *G2) bool {
+	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
+}
+
+// Neg computes -G
+func (p *G2) Neg(a *G2) *G2 {
+	p.X = a.X
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
+func (p *G2) FromJacobian(p1 *g2Jac) *G2 {
+
+	var a, b fptower.E2
+
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
+	}
+
+	a.Inverse(&p1.Z)
+	b.Square(&a)
+	p.X.Mul(&p1.X, &b)
+	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
+
+	return p
+}
+
+func (p *G2) String() string {
+	var x, y fptower.E2
+	x.Set(&p.X)
+	y.Set(&p.Y)
+	return "E([" + x.String() + "," + y.String() + "]),"
+}
+
+// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
+func (p *G2) IsInfinity() bool {
+	return p.X.IsZero() && p.Y.IsZero()
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *G2) IsOnCurve() bool {
+	var point g2Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *G2) IsInSubGroup() bool {
+	var _p g2Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian
+
+// Set set p to the provided point
+func (p *g2Jac) Set(a *g2Jac) *g2Jac {
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
+	return p
+}
+
+// Equal tests if two points (in Jacobian coordinates) are equal
+func (p *g2Jac) Equal(a *g2Jac) bool {
+
+	if p.Z.IsZero() && a.Z.IsZero() {
+		return true
+	}
+	_p := G2{}
+	_p.FromJacobian(p)
+
+	_a := G2{}
+	_a.FromJacobian(a)
+
+	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+}
+
+// Neg computes -G
+func (p *g2Jac) Neg(a *g2Jac) *g2Jac {
+	*p = *a
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// SubAssign substracts two points on the curve
+func (p *g2Jac) SubAssign(a *g2Jac) *g2Jac {
+	var tmp g2Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
+	return p
 }
 
 // AddAssign point addition in montgomery form
@@ -58,7 +173,7 @@ func (p *g2Jac) AddAssign(a *g2Jac) *g2Jac {
 		return p
 	}
 
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V e2
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V fptower.E2
 	Z1Z1.Square(&a.Z)
 	Z2Z2.Square(&p.Z)
 	U1.Mul(&a.X, &Z2Z2)
@@ -113,7 +228,7 @@ func (p *g2Jac) AddMixed(a *G2) *g2Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, U2, S2, H, HH, I, J, r, V e2
+	var Z1Z1, U2, S2, H, HH, I, J, r, V fptower.E2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
 	S2.Mul(&a.Y, &p.Z).
@@ -159,7 +274,7 @@ func (p *g2Jac) Double(q *g2Jac) *g2Jac {
 func (p *g2Jac) DoubleAssign() *g2Jac {
 
 	// get some Element from our pool
-	var XX, YY, YYYY, ZZ, S, M, T e2
+	var XX, YY, YYYY, ZZ, S, M, T fptower.E2
 
 	XX.Square(&p.X)
 	YY.Square(&p.Y)
@@ -193,96 +308,6 @@ func (p *g2Jac) ScalarMultiplication(a *g2Jac, s *big.Int) *g2Jac {
 	return p.mulGLV(a, s)
 }
 
-// ScalarMultiplication computes and returns p = a*s
-func (p *G2) ScalarMultiplication(a *G2, s *big.Int) *G2 {
-	var _p g2Jac
-	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
-	p.FromJacobian(&_p)
-	return p
-}
-
-// Set set p to the provided point
-func (p *g2Jac) Set(a *g2Jac) *g2Jac {
-	p.X, p.Y, p.Z = a.X, a.Y, a.Z
-	return p
-}
-
-// Equal tests if two points (in Jacobian coordinates) are equal
-func (p *g2Jac) Equal(a *g2Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
-	}
-	_p := G2{}
-	_p.FromJacobian(p)
-
-	_a := G2{}
-	_a.FromJacobian(a)
-
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
-}
-
-// Equal tests if two points (in Affine coordinates) are equal
-func (p *G2) Equal(a *G2) bool {
-	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
-}
-
-// Neg computes -G
-func (p *g2Jac) Neg(a *g2Jac) *g2Jac {
-	*p = *a
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// Neg computes -G
-func (p *G2) Neg(a *G2) *G2 {
-	p.X = a.X
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// SubAssign substracts two points on the curve
-func (p *g2Jac) SubAssign(a *g2Jac) *g2Jac {
-	var tmp g2Jac
-	tmp.Set(a)
-	tmp.Y.Neg(&tmp.Y)
-	p.AddAssign(&tmp)
-	return p
-}
-
-// FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *G2) FromJacobian(p1 *g2Jac) *G2 {
-
-	var a, b e2
-
-	if p1.Z.IsZero() {
-		p.X.SetZero()
-		p.Y.SetZero()
-		return p
-	}
-
-	a.Inverse(&p1.Z)
-	b.Square(&a)
-	p.X.Mul(&p1.X, &b)
-	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
-
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g2Proj) FromJacobian(Q *g2Jac) *g2Proj {
-	// memalloc
-	var buf e2
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
 func (p *g2Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
@@ -306,21 +331,9 @@ func (p *g2Jac) FromAffine(Q *G2) *g2Jac {
 	return p
 }
 
-func (p *G2) String() string {
-	var x, y e2
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
-}
-
-// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
-func (p *G2) IsInfinity() bool {
-	return p.X.IsZero() && p.Y.IsZero()
-}
-
 // IsOnCurve returns true if p in on the curve
 func (p *g2Jac) IsOnCurve() bool {
-	var left, right, tmp e2
+	var left, right, tmp fptower.E2
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	tmp.Square(&p.Z).
@@ -330,20 +343,6 @@ func (p *g2Jac) IsOnCurve() bool {
 		Mul(&tmp, &bTwistCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
-}
-
-// IsOnCurve returns true if p in on the curve
-func (p *G2) IsOnCurve() bool {
-	var point g2Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
-}
-
-// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
-func (p *G2) IsInSubGroup() bool {
-	var _p g2Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
@@ -475,6 +474,25 @@ func (p *g2Jac) mulGLV(a *g2Jac, s *big.Int) *g2Jac {
 	}
 
 	p.Set(&res)
+	return p
+}
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian extended
+
+// -------------------------------------------------------------------------------------------------
+// Projective
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g2Proj) FromJacobian(Q *g2Jac) *g2Proj {
+	// memalloc
+	var buf fptower.E2
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
 	return p
 }
 
@@ -789,7 +807,7 @@ func (p *G2) SetBytes(buf []byte) (int, error) {
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y e2
+	var YSquared, Y fptower.E2
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
@@ -823,7 +841,7 @@ func (p *G2) unsafeComputeY() error {
 	mData := byte(p.Y.A0[0])
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y e2
+	var YSquared, Y fptower.E2
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)

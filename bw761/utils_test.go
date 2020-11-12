@@ -3,6 +3,7 @@ package bw761
 import (
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/fr"
+	"github.com/consensys/gurvy/bw761/internal/fptower"
 	"github.com/leanovate/gopter"
 )
 
@@ -32,24 +33,24 @@ func GenFp() gopter.Gen {
 	}
 }
 
-// GenE2 generates an e2 elmt
+// GenE2 generates an fptower.E2 elmt
 func GenE2() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *e2 {
-		return &e2{values[0].(fp.Element), values[1].(fp.Element)}
+	).Map(func(values []interface{}) *fptower.E2 {
+		return &fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
 	})
 }
 
-// GenE6 generates an e6 elmt
+// GenE6 generates an fptower.E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(
 		GenE2(),
 		GenE2(),
 		GenE2(),
-	).Map(func(values []interface{}) *e6 {
-		return &e6{*values[0].(*e2), *values[1].(*e2), *values[2].(*e2)}
+	).Map(func(values []interface{}) *fptower.E6 {
+		return &fptower.E6{B0: *values[0].(*fptower.E2), B1: *values[1].(*fptower.E2), B2: *values[2].(*fptower.E2)}
 	})
 }
 

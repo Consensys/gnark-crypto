@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/consensys/gurvy/bls381/fr"
+	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
@@ -861,25 +862,20 @@ func (p *g2Jac) msmC22(points []G2, scalars []fr.Element, opt *CPUSemaphore) *g2
 	return msmReduceChunkG2(p, c, chChunks[:])
 }
 
-//  g2JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type g2JacExtended struct {
-	X, Y, ZZ, ZZZ e2
-}
-
 // setInfinity sets p to O
 func (p *g2JacExtended) setInfinity() *g2JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
-	p.ZZ = e2{}
-	p.ZZZ = e2{}
+	p.ZZ = fptower.E2{}
+	p.ZZZ = fptower.E2{}
 	return p
 }
 
 // fromJacExtended sets Q in affine coords
 func (p *G2) fromJacExtended(Q *g2JacExtended) *G2 {
 	if Q.ZZ.IsZero() {
-		p.X = e2{}
-		p.Y = e2{}
+		p.X = fptower.E2{}
+		p.Y = fptower.E2{}
 		return p
 	}
 	p.X.Inverse(&Q.ZZ).Mul(&p.X, &Q.X)
@@ -927,7 +923,7 @@ func (p *g2JacExtended) sub(a *G2) *g2JacExtended {
 		return p
 	}
 
-	var P, R e2
+	var P, R fptower.E2
 
 	// p2: a, p1: p
 	P.Mul(&a.X, &p.ZZ)
@@ -945,12 +941,12 @@ func (p *g2JacExtended) sub(a *G2) *g2JacExtended {
 			return p.doubleNeg(a)
 
 		}
-		p.ZZ = e2{}
-		p.ZZZ = e2{}
+		p.ZZ = fptower.E2{}
+		p.ZZZ = fptower.E2{}
 		return p
 	}
 
-	var PP, PPP, Q, Q2, RR, X3, Y3 e2
+	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
 
 	PP.Square(&P)
 	PPP.Mul(&P, &PP)
@@ -987,7 +983,7 @@ func (p *g2JacExtended) add(a *G2) *g2JacExtended {
 		return p
 	}
 
-	var P, R e2
+	var P, R fptower.E2
 
 	// p2: a, p1: p
 	P.Mul(&a.X, &p.ZZ)
@@ -1003,12 +999,12 @@ func (p *g2JacExtended) add(a *G2) *g2JacExtended {
 			return p.double(a)
 
 		}
-		p.ZZ = e2{}
-		p.ZZZ = e2{}
+		p.ZZ = fptower.E2{}
+		p.ZZZ = fptower.E2{}
 		return p
 	}
 
-	var PP, PPP, Q, Q2, RR, X3, Y3 e2
+	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
 
 	PP.Square(&P)
 	PPP.Mul(&P, &PP)
@@ -1030,7 +1026,7 @@ func (p *g2JacExtended) add(a *G2) *g2JacExtended {
 // doubleNeg same as double, but will negate q.Y
 func (p *g2JacExtended) doubleNeg(q *G2) *g2JacExtended {
 
-	var U, S, M, _M, Y3 e2
+	var U, S, M, _M, Y3 fptower.E2
 
 	U.Double(&q.Y)
 
@@ -1058,7 +1054,7 @@ func (p *g2JacExtended) doubleNeg(q *G2) *g2JacExtended {
 // http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *G2) *g2JacExtended {
 
-	var U, S, M, _M, Y3 e2
+	var U, S, M, _M, Y3 fptower.E2
 
 	U.Double(&q.Y)
 
