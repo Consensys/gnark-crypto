@@ -163,7 +163,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 
 		bavardOpts := []func(*bavard.Bavard) error{
 			bavard.Apache2("ConsenSys Software Inc.", 2020),
-			bavard.Package(e2conf.CurveName),
+			bavard.Package(fpTower),
 			bavard.GeneratedBy("gurvy"),
 			bavard.BuildTag("!amd64"),
 		}
