@@ -16,9 +16,9 @@ package bn256
 
 // ClearCofactor maps a point in E'(Fp2) to E'(Fp2)[r]
 // cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
-func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
+func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
 
-	var points [4]G2Jac
+	var points [4]g2Jac
 
 	points[0].ScalarMultiplication(a, &xGen)
 
@@ -31,7 +31,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	points[3].psi(a).psi(&points[3]).psi(&points[3])
 
-	var res G2Jac
+	var res g2Jac
 	res.Set(&g2Infinity)
 	for i := 0; i < 4; i++ {
 		res.AddAssign(&points[i])
@@ -44,7 +44,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cf https://eprint.iacr.org/2019/403.pdf, 5
 func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
-	var _p G2Jac
+	var _p g2Jac
 	_p.FromAffine(a)
 	_p.ClearCofactor(&_p)
 	p.FromJacobian(&_p)

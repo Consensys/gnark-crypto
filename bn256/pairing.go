@@ -119,7 +119,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	ch := make(chan struct{}, 30)
 
 	var evaluations [86]lineEvaluation
-	var Qjac G2Jac
+	var Qjac g2Jac
 	Qjac.FromAffine(&Q)
 	go preCompute(&evaluations, &Qjac, &P, ch)
 
@@ -139,7 +139,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	}
 
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
-	var Q1, Q2 G2Jac
+	var Q1, Q2 g2Jac
 
 	//Q1 = Frob(Q)
 	Q1.X.Conjugate(&Q.X).MulByNonResidue1Power2(&Q1.X)
@@ -165,7 +165,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
 // Q, R are in jacobian coordinates
-func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
+func lineEval(Q, R *g2Jac, P *G1Affine, result *lineEvaluation) {
 
 	// converts _Q and _R to projective coords
 	var _Q, _R g2Proj
@@ -200,9 +200,9 @@ func (z *GT) mulAssign(l *lineEvaluation) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute(evaluations *[86]lineEvaluation, Q *g2Jac, P *G1Affine, ch chan struct{}) {
 
-	var Q1, Qbuf, Qneg G2Jac
+	var Q1, Qbuf, Qneg g2Jac
 	Q1.Set(Q)
 	Qbuf.Set(Q)
 	Qneg.Neg(Q)

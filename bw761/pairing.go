@@ -180,7 +180,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	var evaluations1 [69]lineEvaluation
 	var evaluations2 [144]lineEvaluation
 
-	var xQjac, QjacSaved G2Jac
+	var xQjac, QjacSaved g2Jac
 	xQjac.FromAffine(&Q)
 	QjacSaved.FromAffine(&Q)
 
@@ -249,7 +249,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
 // Q, R are in jacobian coordinates
-func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
+func lineEval(Q, R *g2Jac, P *G1Affine, result *lineEvaluation) {
 
 	// converts _Q and _R to projective coords
 	var _Q, _R g2Proj
@@ -284,9 +284,9 @@ func (z *GT) mulAssign(l *lineEvaluation) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute1(evaluations *[69]lineEvaluation, Q *g2Jac, P *G1Affine, ch chan struct{}) {
 
-	var Q1, Qbuf G2Jac
+	var Q1, Qbuf g2Jac
 	Q1.Set(Q)
 	Qbuf.Set(Q)
 
@@ -312,9 +312,9 @@ func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute2(evaluations *[144]lineEvaluation, Q *g2Jac, P *G1Affine, ch chan struct{}) {
 
-	var Q1, Qbuf, Qneg G2Jac
+	var Q1, Qbuf, Qneg g2Jac
 	Q1.Set(Q)
 	Qbuf.Set(Q)
 	Qneg.Neg(Q)

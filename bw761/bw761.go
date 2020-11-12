@@ -43,15 +43,15 @@ var bCurveCoeff fp.Element
 var bTwistCurveCoeff fp.Element
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-var g1Gen G1Jac
-var g2Gen G2Jac
+var g1Gen g1Jac
+var g2Gen g2Jac
 
 var g1GenAff G1Affine
 var g2GenAff G2Affine
 
 // point at infinity
-var g1Infinity G1Jac
-var g2Infinity G2Jac
+var g1Infinity g1Jac
+var g2Infinity g2Jac
 
 // optimal Ate loop counters
 // Miller loop 1: f(P), div(f) = (x+1)(Q)-([x+1]Q)-x(O)
@@ -113,7 +113,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1 G1Jac, g2 G2Jac, g1Aff G1Affine, g2Aff G2Affine) {
+func Generators() (g1 g1Jac, g2 g2Jac, g1Aff G1Affine, g2Aff G2Affine) {
 	g1 = g1Gen
 	g2 = g2Gen
 	g1Aff = g1GenAff

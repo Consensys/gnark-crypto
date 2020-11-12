@@ -20,8 +20,8 @@ import (
 // utils
 
 {{- if eq .CoordType "fp.Element" }}
-	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toUpper .PointName}}Jac, f {{ .CoordType}}) {{ toUpper .PointName}}Jac {
-		var res {{ toUpper .PointName}}Jac
+	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}Jac, f {{ .CoordType}}) {{ toLower .PointName }}Jac {
+		var res {{ toLower .PointName }}Jac
 		res.X.Mul(&p.X, &f).Mul(&res.X, &f)
 		res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
 		res.Z.Mul(&p.Z, &f)
@@ -40,8 +40,8 @@ import (
 		return res
 	}
 {{- else if eq .CoordType "e2" }}
-	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toUpper .PointName}}Jac, f *e2) {{ toUpper .PointName}}Jac {
-		var res {{ toUpper .PointName}}Jac
+	func fuzzJacobian{{ toUpper .PointName}}(p *{{ toLower .PointName }}Jac, f *e2) {{ toLower .PointName }}Jac {
+		var res {{ toLower .PointName }}Jac
 		res.X.Mul(&p.X, f).Mul(&res.X, f)
 		res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
 		res.Z.Mul(&p.Z, f)
@@ -100,7 +100,7 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 		{{- else if eq .CoordType "e2" }}
 			func(a *e2) bool {
 		{{- end}}
-			var op1, op2, op3 {{ toUpper .PointName}}Jac
+			var op1, op2, op3 {{ toLower .PointName }}Jac
 			op1.Set(&{{ toLower .PointName}}Gen)
 			op3.Set(&{{ toLower .PointName}}Gen)
 
@@ -276,7 +276,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		{{- else if eq .CoordType "e2" }}
 			func(a *e2) bool {
 		{{- end}}
-			var g {{ toUpper .PointName}}Jac
+			var g {{ toLower .PointName }}Jac
 			var op1 {{ toUpper .PointName}}Affine
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
 			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
@@ -296,7 +296,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 			var g {{ toUpper .PointName}}Affine
 			g.X.SetZero()
 			g.Y.SetZero()
-			var op1 {{ toUpper .PointName}}Jac
+			var op1 {{ toLower .PointName }}Jac
 			op1.FromAffine(&g)
 			var one, zero {{ .CoordType}}
 			one.SetOne()
@@ -318,7 +318,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 
 	properties.Property("[{{ toUpper .CurveName }}] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
 		func() bool {
-			var g {{ toUpper .PointName}}Jac
+			var g {{ toLower .PointName }}Jac
 			var op1 {{ toLower .PointName }}JacExtended
 			var zero, one {{ .CoordType}}
 			one.SetOne()
@@ -370,7 +370,7 @@ parameters := gopter.DefaultTestParameters()
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop2 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, b)
-			var op1, op2 {{ toUpper .PointName}}Jac
+			var op1, op2 {{ toLower .PointName }}Jac
 			op1.Set(&fop1).AddAssign(&fop2)
 			op2.Double(&fop2)
 			return op1.Equal(&op2)
@@ -403,7 +403,7 @@ parameters := gopter.DefaultTestParameters()
 		{{- end}}
 			fop1 := fuzzJacobian{{ toUpper .PointName}}(&{{ toLower .PointName }}Gen, a)
 			fop1.AddAssign(&{{ toLower .PointName }}Infinity)
-			var op2 {{ toUpper .PointName}}Jac
+			var op2 {{ toLower .PointName }}Jac
 			op2.Set(&{{ toLower .PointName }}Infinity)
 			op2.AddAssign(&{{ toLower .PointName }}Gen)
 			return fop1.Equal(&{{ toLower .PointName }}Gen) && op2.Equal(&{{ toLower .PointName }}Gen)
@@ -477,11 +477,11 @@ parameters := gopter.DefaultTestParameters()
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
-			var g {{ toUpper .PointName}}Jac
+			var g {{ toLower .PointName }}Jac
 			g.ScalarMultiplication(&{{ toLower .PointName}}Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
-			var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
+			var op1, op2, op3, gneg {{ toLower .PointName }}Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&{{ toLower .PointName}}Gen, &rminusone)
 			gneg.Neg(&{{ toLower .PointName}}Gen)
@@ -499,7 +499,7 @@ parameters := gopter.DefaultTestParameters()
 	{{ if eq .CoordType "e2" }}
 		properties.Property("[{{ toUpper .CurveName }}] psi should map points from E' to itself", prop.ForAll(
 			func() bool {
-				var a {{ toUpper .PointName }}Jac
+				var a {{ toLower .PointName }}Jac
 				a.psi(&{{ toLower .PointName }}Gen)
 				return a.IsOnCurve() && !a.Equal(&g2Gen)
 			},
@@ -511,11 +511,11 @@ parameters := gopter.DefaultTestParameters()
             func(s fr.Element) bool {
 
                 r := fr.Modulus()
-                var g {{ toUpper .PointName}}Jac
+                var g {{ toLower .PointName }}Jac
                 g.mulGLV(&{{ toLower .PointName}}Gen, r)
 
                 var scalar, blindedScalard, rminusone big.Int
-                var op1, op2, op3, gneg {{ toUpper .PointName}}Jac
+                var op1, op2, op3, gneg {{ toLower .PointName }}Jac
                 rminusone.SetUint64(1).Sub(r, &rminusone)
                 op3.mulGLV(&{{ toLower .PointName}}Gen, &rminusone)
                 gneg.Neg(&{{ toLower .PointName}}Gen)
@@ -534,7 +534,7 @@ parameters := gopter.DefaultTestParameters()
             func(s fr.Element) bool {
 
                 var r big.Int
-                var op1, op2 {{ toUpper .PointName}}Jac
+                var op1, op2 {{ toLower .PointName }}Jac
                 s.ToBigIntRegular(&r)
                 op1.mulWindowed(&{{ toLower .PointName}}Gen, &r)
                 op2.mulGLV(&{{ toLower .PointName}}Gen, &r)
@@ -550,7 +550,7 @@ parameters := gopter.DefaultTestParameters()
 	properties.Property("[{{ toUpper .CurveName }}] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var g {{ toUpper .PointName}}Jac
+			var g {{ toLower .PointName }}Jac
 			g.Set(&{{ toLower .PointName}}Gen)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -565,12 +565,12 @@ parameters := gopter.DefaultTestParameters()
 				g.AddAssign(&{{ toLower .PointName}}Gen)
 			}
 
-			var op1MultiExp {{ toUpper .PointName}}Jac
+			var op1MultiExp {{ toLower .PointName }}Jac
 			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul {{ toUpper .PointName}}Jac
+			var op1ScalarMul {{ toLower .PointName }}Jac
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}Gen, &finalBigScalarBi)
@@ -596,7 +596,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
 	// multi exp points
 	var samplePoints [nbSamples]{{ toUpper $.PointName}}Affine
-	var g {{ toUpper $.PointName}}Jac
+	var g {{ toLower $.PointName}}Jac
 	g.Set(&{{ toLower $.PointName }}Gen)
 	for i := 1; i <= nbSamples; i++ {
 		samplePoints[i-1].FromJacobian(&g)
@@ -619,7 +619,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	properties.Property("[{{ toUpper $.CurveName }}] Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
-			var result, expected {{ toUpper $.PointName}}Jac
+			var result, expected {{ toLower $.PointName}}Jac
 	
 	
 			// mixer ensures that all the words of a fpElement are set
@@ -690,7 +690,7 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 				}
 			{{end}}
 			b.Sqrt(&x)
-			var point, pointCleared, infinity {{ toUpper .PointName}}Jac
+			var point, pointCleared, infinity {{ toLower .PointName }}Jac
 			point.X.Set(&a)
 			point.Y.Set(&b)
 			point.Z.SetOne()
@@ -734,7 +734,7 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 			}
 
 			for i := 0; i < len(result); i++ {
-				var expectedJac {{ toUpper .PointName}}Jac
+				var expectedJac {{ toLower .PointName }}Jac
 				var expected {{ toUpper .PointName}}Affine
 				var b big.Int
 				expectedJac.mulGLV(&{{ toLower .PointName}}Gen, sampleScalars[i].ToBigInt(&b))
@@ -789,7 +789,7 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 	scalar.Add(&scalar, r)
 
-	var doubleAndAdd {{ toUpper .PointName}}Jac
+	var doubleAndAdd {{ toLower .PointName }}Jac
 
 	b.Run("double and add", func(b *testing.B) {
 		b.ResetTimer()
@@ -799,7 +799,7 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 	})
 
     {{if .GLV}}
-	var glv {{ toUpper .PointName}}Jac
+	var glv {{ toLower .PointName }}Jac
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
@@ -813,7 +813,7 @@ func Benchmark{{ toUpper .PointName}}ScalarMul(b *testing.B) {
 
 {{if .CofactorCleaning}}
 func Benchmark{{ toUpper .PointName }}CofactorClearing(b *testing.B) {
-	var a {{ toUpper .PointName }}Jac
+	var a {{ toLower .PointName }}Jac
 	a.Set(&{{ toLower .PointName }}Gen)
 	for i := 0; i < b.N; i++ {
 		a.ClearCofactor(&a)
@@ -822,7 +822,7 @@ func Benchmark{{ toUpper .PointName }}CofactorClearing(b *testing.B) {
 {{end}}
 
 func Benchmark{{ toUpper .PointName}}Add(b *testing.B) {
-	var a {{ toUpper .PointName}}Jac
+	var a {{ toLower .PointName }}Jac
 	a.Double(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -880,7 +880,7 @@ func Benchmark{{ toUpper .PointName}}JacExtendedDoubleNeg(b *testing.B) {
 }
 
 func Benchmark{{ toUpper .PointName}}AddMixed(b *testing.B) {
-	var a {{ toUpper .PointName}}Jac
+	var a {{ toLower .PointName }}Jac
 	a.Double(&{{ toLower .PointName}}Gen)
 
 	var c {{ toUpper .PointName}}Affine
@@ -893,7 +893,7 @@ func Benchmark{{ toUpper .PointName}}AddMixed(b *testing.B) {
 }
 
 func Benchmark{{ toUpper .PointName}}Double(b *testing.B) {
-	var a {{ toUpper .PointName}}Jac
+	var a {{ toLower .PointName }}Jac
 	a.Set(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -920,7 +920,7 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 		samplePoints[i-1] = {{ toLower .PointName}}GenAff
 	}
 
-	var testPoint {{ toUpper .PointName}}Jac
+	var testPoint {{ toLower .PointName }}Jac
 
 	for i := 5; i <= pow; i++ {
 		using := 1 << i

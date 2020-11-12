@@ -153,7 +153,7 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 	}
 	Q0 := MapToCurveG1Svdw(u[0])
 	Q1 := MapToCurveG1Svdw(u[1])
-	var _Q0, _Q1, _res G1Jac
+	var _Q0, _Q1, _res g1Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)
@@ -275,7 +275,7 @@ func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	u1.A1.Set(&u[3])
 	Q0 := MapToCurveG2Svdw(u0)
 	Q1 := MapToCurveG2Svdw(u1)
-	var _Q0, _Q1, _res G2Jac
+	var _Q0, _Q1, _res g2Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)

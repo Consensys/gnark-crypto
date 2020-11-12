@@ -28,15 +28,15 @@ var bCurveCoeff fp.Element
 var bTwistCurveCoeff e2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-var g1Gen G1Jac
-var g2Gen G2Jac
+var g1Gen g1Jac
+var g2Gen g2Jac
 
 var g1GenAff G1Affine
 var g2GenAff G2Affine
 
 // point at infinity
-var g1Infinity G1Jac
-var g2Infinity G2Jac
+var g1Infinity g1Jac
+var g2Infinity g2Jac
 
 // optimal Ate loop counter (=trace-1 = x in BLS family)
 var loopCounter [64]int8
@@ -108,7 +108,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1 G1Jac, g2 G2Jac, g1Aff G1Affine, g2Aff G2Affine) {
+func Generators() (g1 g1Jac, g2 g2Jac, g1Aff G1Affine, g2Aff G2Affine) {
 	g1 = g1Gen
 	g2 = g2Gen
 	g1Aff = g1GenAff

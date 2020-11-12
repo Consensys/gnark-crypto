@@ -29,8 +29,8 @@ import (
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// G1Jac is a point with fp.Element coordinates
-type G1Jac struct {
+// g1Jac is a point with fp.Element coordinates
+type g1Jac struct {
 	X, Y, Z fp.Element
 }
 
@@ -46,7 +46,7 @@ type G1Affine struct {
 
 // AddAssign point addition in montgomery form
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *G1Jac) AddAssign(a *G1Jac) *G1Jac {
+func (p *g1Jac) AddAssign(a *g1Jac) *g1Jac {
 
 	// p is infinity, return a
 	if p.Z.IsZero() {
@@ -99,7 +99,7 @@ func (p *G1Jac) AddAssign(a *G1Jac) *G1Jac {
 
 // AddMixed point addition
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
+func (p *g1Jac) AddMixed(a *G1Affine) *g1Jac {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -149,7 +149,7 @@ func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
 
 // Double doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *G1Jac) Double(q *G1Jac) *G1Jac {
+func (p *g1Jac) Double(q *g1Jac) *g1Jac {
 	p.Set(q)
 	p.DoubleAssign()
 	return p
@@ -157,7 +157,7 @@ func (p *G1Jac) Double(q *G1Jac) *G1Jac {
 
 // DoubleAssign doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *G1Jac) DoubleAssign() *G1Jac {
+func (p *g1Jac) DoubleAssign() *g1Jac {
 
 	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T fp.Element
@@ -190,13 +190,13 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 
 // ScalarMultiplication computes and returns p = a*s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
+func (p *g1Jac) ScalarMultiplication(a *g1Jac, s *big.Int) *g1Jac {
 	return p.mulGLV(a, s)
 }
 
 // ScalarMultiplication computes and returns p = a*s
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
-	var _p G1Jac
+	var _p g1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
 	p.FromJacobian(&_p)
@@ -204,13 +204,13 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 }
 
 // Set set p to the provided point
-func (p *G1Jac) Set(a *G1Jac) *G1Jac {
+func (p *g1Jac) Set(a *g1Jac) *g1Jac {
 	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
 }
 
 // Equal tests if two points (in Jacobian coordinates) are equal
-func (p *G1Jac) Equal(a *G1Jac) bool {
+func (p *g1Jac) Equal(a *g1Jac) bool {
 
 	if p.Z.IsZero() && a.Z.IsZero() {
 		return true
@@ -230,7 +230,7 @@ func (p *G1Affine) Equal(a *G1Affine) bool {
 }
 
 // Neg computes -G
-func (p *G1Jac) Neg(a *G1Jac) *G1Jac {
+func (p *g1Jac) Neg(a *g1Jac) *g1Jac {
 	*p = *a
 	p.Y.Neg(&a.Y)
 	return p
@@ -244,8 +244,8 @@ func (p *G1Affine) Neg(a *G1Affine) *G1Affine {
 }
 
 // SubAssign substracts two points on the curve
-func (p *G1Jac) SubAssign(a *G1Jac) *G1Jac {
-	var tmp G1Jac
+func (p *g1Jac) SubAssign(a *g1Jac) *g1Jac {
+	var tmp g1Jac
 	tmp.Set(a)
 	tmp.Y.Neg(&tmp.Y)
 	p.AddAssign(&tmp)
@@ -253,7 +253,7 @@ func (p *G1Jac) SubAssign(a *G1Jac) *G1Jac {
 }
 
 // FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *G1Affine) FromJacobian(p1 *G1Jac) *G1Affine {
+func (p *G1Affine) FromJacobian(p1 *g1Jac) *G1Affine {
 
 	var a, b fp.Element
 
@@ -272,7 +272,7 @@ func (p *G1Affine) FromJacobian(p1 *G1Jac) *G1Affine {
 }
 
 // FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
+func (p *g1Proj) FromJacobian(Q *g1Jac) *g1Proj {
 	// memalloc
 	var buf fp.Element
 	buf.Square(&Q.Z)
@@ -284,7 +284,7 @@ func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
 	return p
 }
 
-func (p *G1Jac) String() string {
+func (p *g1Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
 	}
@@ -294,7 +294,7 @@ func (p *G1Jac) String() string {
 }
 
 // FromAffine sets p = Q, p in Jacboian, Q in affine
-func (p *G1Jac) FromAffine(Q *G1Affine) *G1Jac {
+func (p *g1Jac) FromAffine(Q *G1Affine) *g1Jac {
 	if Q.X.IsZero() && Q.Y.IsZero() {
 		p.Z.SetZero()
 		p.X.SetOne()
@@ -320,7 +320,7 @@ func (p *G1Affine) IsInfinity() bool {
 }
 
 // IsOnCurve returns true if p in on the curve
-func (p *G1Jac) IsOnCurve() bool {
+func (p *g1Jac) IsOnCurve() bool {
 	var left, right, tmp fp.Element
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
@@ -335,14 +335,14 @@ func (p *G1Jac) IsOnCurve() bool {
 
 // IsOnCurve returns true if p in on the curve
 func (p *G1Affine) IsOnCurve() bool {
-	var point G1Jac
+	var point g1Jac
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
 // IsInSubGroup returns true if p is in the correct subgroup, false otherwise
 func (p *G1Affine) IsInSubGroup() bool {
-	var _p G1Jac
+	var _p g1Jac
 	_p.FromAffine(p)
 	return _p.IsOnCurve() && _p.IsInSubGroup()
 }
@@ -350,17 +350,17 @@ func (p *G1Affine) IsInSubGroup() bool {
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 // For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
 // the point is on the curve.
-func (p *G1Jac) IsInSubGroup() bool {
+func (p *g1Jac) IsInSubGroup() bool {
 
 	return p.IsOnCurve()
 
 }
 
 // mulWindowed 2-bits windowed exponentiation
-func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
+func (p *g1Jac) mulWindowed(a *g1Jac, s *big.Int) *g1Jac {
 
-	var res G1Jac
-	var ops [3]G1Jac
+	var res g1Jac
+	var ops [3]g1Jac
 
 	res.Set(&g1Infinity)
 	ops[0].Set(a)
@@ -387,7 +387,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 }
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
-func (p *G1Jac) phi(a *G1Jac) *G1Jac {
+func (p *g1Jac) phi(a *g1Jac) *g1Jac {
 	p.Set(a)
 
 	p.X.Mul(&p.X, &thirdRootOneG1)
@@ -397,11 +397,11 @@ func (p *G1Jac) phi(a *G1Jac) *G1Jac {
 
 // mulGLV performs scalar multiplication using GLV
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
+func (p *g1Jac) mulGLV(a *g1Jac, s *big.Int) *g1Jac {
 
-	var table [15]G1Jac
+	var table [15]g1Jac
 	var zero big.Int
-	var res G1Jac
+	var res g1Jac
 	var k1, k2 fr.Element
 
 	res.Set(&g1Infinity)
@@ -464,7 +464,7 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
+func BatchJacobianToAffineG1(points []g1Jac, result []G1Affine) {
 	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
@@ -544,7 +544,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]G1Jac, (1 << (c - 1)))
+	baseTable := make([]g1Jac, (1 << (c - 1)))
 	baseTable[0].Set(&g1Infinity)
 	baseTable[0].AddMixed(base)
 	for i := 1; i < len(baseTable); i++ {
@@ -574,11 +574,11 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := make([]G1Affine, (1 << (c - 1)))
 	BatchJacobianToAffineG1(baseTable, baseTableAff)
-	toReturn := make([]G1Jac, len(scalars))
+	toReturn := make([]g1Jac, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
 	parallel.Execute(len(pScalars), func(start, end int) {
-		var p G1Jac
+		var p g1Jac
 		for i := start; i < end; i++ {
 			p.Set(&g1Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {

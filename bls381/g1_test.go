@@ -31,8 +31,8 @@ import (
 
 // ------------------------------------------------------------
 // utils
-func fuzzJacobianG1(p *G1Jac, f fp.Element) G1Jac {
-	var res G1Jac
+func fuzzJacobianG1(p *g1Jac, f fp.Element) g1Jac {
+	var res g1Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
 	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
 	res.Z.Mul(&p.Z, &f)
@@ -74,7 +74,7 @@ func TestG1IsOnCurve(t *testing.T) {
 
 	properties.Property("[BLS381] g1Gen (Jacobian) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
-			var op1, op2, op3 G1Jac
+			var op1, op2, op3 g1Jac
 			op1.Set(&g1Gen)
 			op3.Set(&g1Gen)
 
@@ -215,7 +215,7 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		func(a fp.Element) bool {
-			var g G1Jac
+			var g g1Jac
 			var op1 G1Affine
 			op1.X.Set(&g1Gen.X)
 			op1.Y.Set(&g1Gen.Y)
@@ -235,7 +235,7 @@ func TestG1Conversions(t *testing.T) {
 			var g G1Affine
 			g.X.SetZero()
 			g.Y.SetZero()
-			var op1 G1Jac
+			var op1 g1Jac
 			op1.FromAffine(&g)
 			var one, zero fp.Element
 			one.SetOne()
@@ -257,7 +257,7 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
 		func() bool {
-			var g G1Jac
+			var g g1Jac
 			var op1 g1JacExtended
 			var zero, one fp.Element
 			one.SetOne()
@@ -296,7 +296,7 @@ func TestG1Ops(t *testing.T) {
 		func(a, b fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop2 := fuzzJacobianG1(&g1Gen, b)
-			var op1, op2 G1Jac
+			var op1, op2 g1Jac
 			op1.Set(&fop1).AddAssign(&fop2)
 			op2.Double(&fop2)
 			return op1.Equal(&op2)
@@ -321,7 +321,7 @@ func TestG1Ops(t *testing.T) {
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG1(&g1Gen, a)
 			fop1.AddAssign(&g1Infinity)
-			var op2 G1Jac
+			var op2 g1Jac
 			op2.Set(&g1Infinity)
 			op2.AddAssign(&g1Gen)
 			return fop1.Equal(&g1Gen) && op2.Equal(&g1Gen)
@@ -383,11 +383,11 @@ func TestG1Ops(t *testing.T) {
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
-			var g G1Jac
+			var g g1Jac
 			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
-			var op1, op2, op3, gneg G1Jac
+			var op1, op2, op3, gneg g1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
@@ -406,11 +406,11 @@ func TestG1Ops(t *testing.T) {
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
-			var g G1Jac
+			var g g1Jac
 			g.mulGLV(&g1Gen, r)
 
 			var scalar, blindedScalard, rminusone big.Int
-			var op1, op2, op3, gneg G1Jac
+			var op1, op2, op3, gneg g1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulGLV(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
@@ -429,7 +429,7 @@ func TestG1Ops(t *testing.T) {
 		func(s fr.Element) bool {
 
 			var r big.Int
-			var op1, op2 G1Jac
+			var op1, op2 g1Jac
 			s.ToBigIntRegular(&r)
 			op1.mulWindowed(&g1Gen, &r)
 			op2.mulGLV(&g1Gen, &r)
@@ -444,7 +444,7 @@ func TestG1Ops(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var g G1Jac
+			var g g1Jac
 			g.Set(&g1Gen)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -459,12 +459,12 @@ func TestG1Ops(t *testing.T) {
 				g.AddAssign(&g1Gen)
 			}
 
-			var op1MultiExp G1Jac
+			var op1MultiExp g1Jac
 			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul G1Jac
+			var op1ScalarMul g1Jac
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1Gen, &finalBigScalarBi)
@@ -490,7 +490,7 @@ func TestG1MultiExp(t *testing.T) {
 
 	// multi exp points
 	var samplePoints [nbSamples]G1Affine
-	var g G1Jac
+	var g g1Jac
 	g.Set(&g1Gen)
 	for i := 1; i <= nbSamples; i++ {
 		samplePoints[i-1].FromJacobian(&g)
@@ -508,7 +508,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -538,7 +538,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -568,7 +568,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -598,7 +598,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -628,7 +628,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -658,7 +658,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -688,7 +688,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -718,7 +718,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -748,7 +748,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -778,7 +778,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -808,7 +808,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -838,7 +838,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.Property("[BLS381] Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
-			var result, expected G1Jac
+			var result, expected g1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -870,7 +870,7 @@ func TestG1MultiExp(t *testing.T) {
 		properties.Property("[BLS381] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var result, expected G1Jac
+				var result, expected g1Jac
 
 				// mixer ensures that all the words of a fpElement are set
 				var sampleScalars [nbSamples]fr.Element
@@ -904,7 +904,7 @@ func TestG1MultiExp(t *testing.T) {
 		properties.Property("[BLS381] Multi exponentation (c=20) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var result, expected G1Jac
+				var result, expected g1Jac
 
 				// mixer ensures that all the words of a fpElement are set
 				var sampleScalars [nbSamples]fr.Element
@@ -938,7 +938,7 @@ func TestG1MultiExp(t *testing.T) {
 		properties.Property("[BLS381] Multi exponentation (c=21) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var result, expected G1Jac
+				var result, expected g1Jac
 
 				// mixer ensures that all the words of a fpElement are set
 				var sampleScalars [nbSamples]fr.Element
@@ -972,7 +972,7 @@ func TestG1MultiExp(t *testing.T) {
 		properties.Property("[BLS381] Multi exponentation (c=22) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var result, expected G1Jac
+				var result, expected g1Jac
 
 				// mixer ensures that all the words of a fpElement are set
 				var sampleScalars [nbSamples]fr.Element
@@ -1026,7 +1026,7 @@ func TestG1CofactorCleaning(t *testing.T) {
 			}
 
 			b.Sqrt(&x)
-			var point, pointCleared, infinity G1Jac
+			var point, pointCleared, infinity g1Jac
 			point.X.Set(&a)
 			point.Y.Set(&b)
 			point.Z.SetOne()
@@ -1069,7 +1069,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 			}
 
 			for i := 0; i < len(result); i++ {
-				var expectedJac G1Jac
+				var expectedJac g1Jac
 				var expected G1Affine
 				var b big.Int
 				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
@@ -1124,7 +1124,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 	scalar.Add(&scalar, r)
 
-	var doubleAndAdd G1Jac
+	var doubleAndAdd g1Jac
 
 	b.Run("double and add", func(b *testing.B) {
 		b.ResetTimer()
@@ -1133,7 +1133,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 		}
 	})
 
-	var glv G1Jac
+	var glv g1Jac
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
@@ -1144,7 +1144,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 }
 
 func BenchmarkG1CofactorClearing(b *testing.B) {
-	var a G1Jac
+	var a g1Jac
 	a.Set(&g1Gen)
 	for i := 0; i < b.N; i++ {
 		a.ClearCofactor(&a)
@@ -1152,7 +1152,7 @@ func BenchmarkG1CofactorClearing(b *testing.B) {
 }
 
 func BenchmarkG1Add(b *testing.B) {
-	var a G1Jac
+	var a g1Jac
 	a.Double(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1209,7 +1209,7 @@ func BenchmarkG1JacExtendedDoubleNeg(b *testing.B) {
 }
 
 func BenchmarkG1AddMixed(b *testing.B) {
-	var a G1Jac
+	var a g1Jac
 	a.Double(&g1Gen)
 
 	var c G1Affine
@@ -1222,7 +1222,7 @@ func BenchmarkG1AddMixed(b *testing.B) {
 }
 
 func BenchmarkG1Double(b *testing.B) {
-	var a G1Jac
+	var a g1Jac
 	a.Set(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1249,7 +1249,7 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 		samplePoints[i-1] = g1GenAff
 	}
 
-	var testPoint G1Jac
+	var testPoint g1Jac
 
 	for i := 5; i <= pow; i++ {
 		using := 1 << i

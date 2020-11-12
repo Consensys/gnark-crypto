@@ -14,8 +14,8 @@ import (
 	"github.com/consensys/gurvy/utils/debug"
 )
 
-// {{ toUpper .PointName }}Jac is a point with {{.CoordType}} coordinates
-type {{ toUpper .PointName }}Jac struct {
+// {{ toLower .PointName }}Jac is a point with {{.CoordType}} coordinates
+type {{ toLower .PointName }}Jac struct {
 	X, Y, Z {{.CoordType}}
 }
 
@@ -32,7 +32,7 @@ type {{ toUpper .PointName }}Affine struct {
 
 // AddAssign point addition in montgomery form
 // https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) AddAssign(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 
 	// p is infinity, return a
 	if p.Z.IsZero() {
@@ -85,7 +85,7 @@ func (p *{{ toUpper .PointName }}Jac) AddAssign(a *{{ toUpper .PointName }}Jac) 
 
 // AddMixed point addition
 // http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}Jac {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -135,7 +135,7 @@ func (p *{{ toUpper .PointName }}Jac) AddMixed(a *{{ toUpper .PointName }}Affine
 
 // Double doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) Double(q *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 	p.Set(q)
 	p.DoubleAssign()
 	return p
@@ -143,7 +143,7 @@ func (p *{{ toUpper .PointName }}Jac) Double(q *{{ toUpper .PointName }}Jac) *{{
 
 // DoubleAssign doubles a point in Jacobian coordinates
 // https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
-func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) DoubleAssign() *{{ toLower .PointName }}Jac {
 
 	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T {{.CoordType}}
@@ -177,7 +177,7 @@ func (p *{{ toUpper .PointName }}Jac) DoubleAssign() *{{ toUpper .PointName }}Ja
 
 // ScalarMultiplication computes and returns p = a*s
 // {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
-func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
+func (p *{{ toLower .PointName }}Jac) ScalarMultiplication(a *{{ toLower .PointName }}Jac, s *big.Int) *{{ toLower .PointName }}Jac {
 	{{- if .GLV}}
 		return p.mulGLV(a, s)
 	{{- else }}
@@ -187,7 +187,7 @@ func (p *{{ toUpper .PointName}}Jac) ScalarMultiplication(a *{{ toUpper .PointNa
 
 // ScalarMultiplication computes and returns p = a*s
 func (p *{{ toUpper .PointName}}Affine) ScalarMultiplication(a *{{ toUpper .PointName}}Affine, s *big.Int) *{{ toUpper .PointName}}Affine {
-	var _p {{ toUpper .PointName}}Jac
+	var _p {{ toLower .PointName }}Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
 	p.FromJacobian(&_p)
@@ -196,13 +196,13 @@ func (p *{{ toUpper .PointName}}Affine) ScalarMultiplication(a *{{ toUpper .Poin
 
 
 // Set set p to the provided point
-func (p *{{ toUpper .PointName }}Jac) Set(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) Set(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
 }
 
 // Equal tests if two points (in Jacobian coordinates) are equal
-func (p *{{ toUpper .PointName }}Jac) Equal(a *{{ toUpper .PointName }}Jac) bool {
+func (p *{{ toLower .PointName }}Jac) Equal(a *{{ toLower .PointName }}Jac) bool {
 
 	if p.Z.IsZero() && a.Z.IsZero() {
 		return true
@@ -223,7 +223,7 @@ func (p *{{ toUpper .PointName }}Affine) Equal(a *{{ toUpper .PointName }}Affine
 
 
 // Neg computes -G
-func (p *{{ toUpper .PointName }}Jac) Neg(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) Neg(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 	*p = *a
 	p.Y.Neg(&a.Y)
 	return p
@@ -237,8 +237,8 @@ func (p *{{ toUpper .PointName }}Affine) Neg(a *{{ toUpper .PointName }}Affine) 
 }
 
 // SubAssign substracts two points on the curve
-func (p *{{ toUpper .PointName }}Jac) SubAssign(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
-	var tmp {{ toUpper .PointName}}Jac
+func (p *{{ toLower .PointName }}Jac) SubAssign(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
+	var tmp {{ toLower .PointName }}Jac
 	tmp.Set(a)
 	tmp.Y.Neg(&tmp.Y)
 	p.AddAssign(&tmp)
@@ -246,7 +246,7 @@ func (p *{{ toUpper .PointName }}Jac) SubAssign(a *{{ toUpper .PointName }}Jac) 
 }
 
 // FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *{{ toUpper .PointName }}Affine) FromJacobian(p1 *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Affine {
+func (p *{{ toUpper .PointName }}Affine) FromJacobian(p1 *{{ toLower .PointName }}Jac) *{{ toUpper .PointName }}Affine {
 
 	var a, b {{.CoordType}}
 
@@ -265,7 +265,7 @@ func (p *{{ toUpper .PointName }}Affine) FromJacobian(p1 *{{ toUpper .PointName 
 }
 
 // FromJacobian converts a point from Jacobian to projective coordinates
-func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toUpper .PointName }}Jac) *{{ toLower .PointName }}Proj {
+func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Proj {
 	// memalloc
 	var buf {{.CoordType}}
 	buf.Square(&Q.Z)
@@ -277,7 +277,7 @@ func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toUpper .PointName }}J
 	return p
 }
 
-func (p *{{ toUpper .PointName }}Jac) String() string {
+func (p *{{ toLower .PointName }}Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
 	}
@@ -287,7 +287,7 @@ func (p *{{ toUpper .PointName }}Jac) String() string {
 }
 
 // FromAffine sets p = Q, p in Jacboian, Q in affine
-func (p *{{ toUpper .PointName }}Jac) FromAffine(Q *{{ toUpper .PointName }}Affine) *{{ toUpper .PointName }}Jac {
+func (p *{{ toLower .PointName }}Jac) FromAffine(Q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}Jac {
 	if Q.X.IsZero() && Q.Y.IsZero() {
 		p.Z.SetZero()
 		p.X.SetOne()
@@ -313,7 +313,7 @@ func (p *{{ toUpper .PointName }}Affine) IsInfinity() bool {
 }
 
 // IsOnCurve returns true if p in on the curve
-func (p *{{ toUpper .PointName}}Jac) IsOnCurve() bool {
+func (p *{{ toLower .PointName }}Jac) IsOnCurve() bool {
 	var left, right, tmp  {{.CoordType}}
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
@@ -332,14 +332,14 @@ func (p *{{ toUpper .PointName}}Jac) IsOnCurve() bool {
 
 // IsOnCurve returns true if p in on the curve
 func (p *{{ toUpper .PointName}}Affine) IsOnCurve() bool {
-	var point {{ toUpper .PointName}}Jac
+	var point {{ toLower .PointName }}Jac
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
 // IsInSubGroup returns true if p is in the correct subgroup, false otherwise
 func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
-	var _p {{ toUpper .PointName}}Jac
+	var _p {{ toLower .PointName }}Jac
 	_p.FromAffine(p)
 	return _p.IsOnCurve() && _p.IsInSubGroup()
 }
@@ -349,7 +349,7 @@ func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
 		// the point is on the curve.
-		func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
+		func (p *{{ toLower .PointName }}Jac) IsInSubGroup() bool {
 
 			return p.IsOnCurve()
 
@@ -361,9 +361,9 @@ func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
 		// polynomials in x, a short vector of this Zmodule is
 		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
 		// is the infinity.
-		func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
+		func (p *{{ toLower .PointName }}Jac) IsInSubGroup() bool {
 
-			var res, xphip, phip {{ toUpper .PointName}}Jac
+			var res, xphip, phip {{ toLower .PointName }}Jac
 			phip.phi(p)
 			xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
 			res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
@@ -382,9 +382,9 @@ func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
 	// polynomials in x, a short vector of this Zmodule is
 	// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
 	// is the infinity.
-	func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
+	func (p *{{ toLower .PointName }}Jac) IsInSubGroup() bool {
 
-		var res, phip {{ toUpper .PointName}}Jac
+		var res, phip {{ toLower .PointName }}Jac
 		phip.phi(p)
 		res.ScalarMultiplication(&phip, &xGen).
 			SubAssign(&phip).
@@ -404,9 +404,9 @@ func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
 	// polynomials in x, a short vector of this Zmodule is
 	// 1, x**2. So we check that p+x**2*phi(p)
 	// is the infinity.
-	func (p *{{ toUpper .PointName}}Jac) IsInSubGroup() bool {
+	func (p *{{ toLower .PointName }}Jac) IsInSubGroup() bool {
 
-		var res {{ toUpper .PointName}}Jac
+		var res {{ toLower .PointName }}Jac
 		res.phi(p).
 			ScalarMultiplication(&res, &xGen).
 			ScalarMultiplication(&res, &xGen).
@@ -419,10 +419,10 @@ func (p *{{ toUpper .PointName}}Affine) IsInSubGroup() bool {
 
 
 // mulWindowed 2-bits windowed exponentiation
-func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
+func (p *{{ toLower .PointName }}Jac) mulWindowed(a *{{ toLower .PointName }}Jac, s *big.Int) *{{ toLower .PointName }}Jac {
 
-	var res {{ toUpper .PointName}}Jac
-	var ops [3]{{ toUpper .PointName}}Jac
+	var res {{ toLower .PointName }}Jac
+	var ops [3]{{ toLower .PointName }}Jac
 
 	res.Set(&{{ toLower .PointName}}Infinity)
 	ops[0].Set(a)
@@ -450,7 +450,7 @@ func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, 
 
 {{ if eq .CoordType "e2" }}
 	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
-	func (p *{{ toUpper .PointName }}Jac) psi(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+	func (p *{{ toLower .PointName }}Jac) psi(a *{{ toLower .PointName }}Jac) *{{ toLower .PointName }}Jac {
 		p.Set(a)
 		p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
 		p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
@@ -462,7 +462,7 @@ func (p *{{ toUpper .PointName}}Jac) mulWindowed(a *{{ toUpper .PointName}}Jac, 
 {{ if .GLV}}
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
-func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper .PointName}}Jac {
+func (p *{{toLower .PointName}}Jac) phi(a *{{toLower .PointName}}Jac) *{{toLower .PointName}}Jac {
 	p.Set(a)
 	{{if eq .CoordType "e2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
@@ -474,11 +474,11 @@ func (p *{{toUpper .PointName}}Jac) phi(a *{{toUpper .PointName}}Jac) *{{toUpper
 
 // mulGLV performs scalar multiplication using GLV
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *{{ toUpper .PointName}}Jac) mulGLV(a *{{ toUpper .PointName}}Jac, s *big.Int) *{{ toUpper .PointName}}Jac {
+func (p *{{ toLower .PointName }}Jac) mulGLV(a *{{ toLower .PointName }}Jac, s *big.Int) *{{ toLower .PointName }}Jac {
 
-	var table [15]{{ toUpper .PointName}}Jac
+	var table [15]{{ toLower .PointName }}Jac
 	var zero big.Int
-	var res {{ toUpper .PointName}}Jac
+	var res {{ toLower .PointName }}Jac
 	var k1, k2 fr.Element
 
 	res.Set(&{{ toLower .PointName}}Infinity)
@@ -547,7 +547,7 @@ func (p *{{ toUpper .PointName}}Jac) mulGLV(a *{{ toUpper .PointName}}Jac, s *bi
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointName}}Jac, result []{{ toUpper .PointName}}Affine) {
+func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toLower .PointName }}Jac, result []{{ toUpper .PointName}}Affine) {
 	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
@@ -629,7 +629,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]{{ toUpper .PointName }}Jac, (1<<(c-1)))
+	baseTable := make([]{{ toLower .PointName }}Jac, (1<<(c-1)))
 	baseTable[0].Set(&{{ toLower .PointName}}Infinity)
 	baseTable[0].AddMixed(base)
 	for i:=1;i<len(baseTable);i++ {
@@ -660,14 +660,14 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 		// convert our base exp table into affine to use AddMixed
 		baseTableAff := make([]{{ toUpper .PointName }}Affine, (1<<(c-1)))
 		BatchJacobianToAffine{{ toUpper .PointName }}(baseTable, baseTableAff)
-		toReturn := make([]{{ toUpper .PointName }}Jac, len(scalars))
+		toReturn := make([]{{ toLower .PointName }}Jac, len(scalars))
 	{{else}}
 		toReturn := make([]{{ toUpper .PointName }}Affine, len(scalars))
 	{{end}}
 
 	// for each digit, take value in the base table, double it c time, voila.
 	parallel.Execute( len(pScalars), func(start, end int) {
-		var p {{ toUpper .PointName }}Jac
+		var p {{ toLower .PointName }}Jac
 		for i:=start; i < end; i++ {
 			p.Set(&{{ toLower .PointName}}Infinity)
 			for chunk := nbChunks - 1; chunk >=0; chunk-- {
