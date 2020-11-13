@@ -83,11 +83,10 @@ func TestPairing(t *testing.T) {
 	properties.Property("[BLS377] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
 		func(a *GT) bool {
 			var one GT
-			var e big.Int
-			e.SetString("8444461749428370424248824938781546531375899335154063827935233455917409239041", 10)
+			e := fr.Modulus()
 			one.SetOne()
 			*a = FinalExponentiation(a)
-			a.Exp(a, e)
+			a.Exp(a, *e)
 			return a.Equal(&one)
 		},
 		genA,

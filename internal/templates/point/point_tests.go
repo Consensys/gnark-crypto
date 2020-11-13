@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -75,7 +75,7 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 	{{- else if eq .CoordType "fptower.E2" }}
 		genFuzz1 := GenE2()
 	{{- end}}
-	properties.Property("[{{ toUpper .CurveName }}] {{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -94,7 +94,7 @@ func Test{{ toUpper .PointName}}IsOnCurve(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] {{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -171,7 +171,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 	{{- end}}
 
 
-	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a,b {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -195,7 +195,7 @@ func Test{{ toUpper .PointName}}Serialization(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
 			func(a fp.Element) bool {
 				var start, end {{ toUpper .PointName}}
 				var ab big.Int
@@ -235,7 +235,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		genFuzz2 := GenE2()
 	{{- end}}
 
-	properties.Property("[{{ toUpper .CurveName }}] Affine representation should be independent of the Jacobian representative", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -250,7 +250,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 	))
 
 
-	properties.Property("[{{ toUpper .CurveName }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -270,7 +270,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Jacobian representation should be the same as the affine representative", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -291,7 +291,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g {{ toUpper .PointName}}
 			g.X.SetZero()
@@ -304,7 +304,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
 			var g {{ toUpper .PointName}}
 			var op1 {{ toLower .PointName }}JacExtended
@@ -316,7 +316,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g {{ toLower .PointName }}Jac
 			var op1 {{ toLower .PointName }}JacExtended
@@ -329,7 +329,7 @@ func Test{{ toUpper .PointName}}Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -362,7 +362,7 @@ parameters := gopter.DefaultTestParameters()
 
 	genScalar := GenFr()
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -379,7 +379,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz2,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a, b {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -395,7 +395,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz2,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -411,7 +411,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -434,7 +434,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -457,7 +457,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -473,7 +473,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
@@ -497,7 +497,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	{{ if eq .CoordType "fptower.E2" }}
-		properties.Property("[{{ toUpper .CurveName }}] psi should map points from E' to itself", prop.ForAll(
+		properties.Property("[{{ toUpper .Name }}] psi should map points from E' to itself", prop.ForAll(
 			func() bool {
 				var a {{ toLower .PointName }}Jac
 				a.psi(&{{ toLower .PointName }}Gen)
@@ -507,7 +507,7 @@ parameters := gopter.DefaultTestParameters()
 	{{ end }}
 
     {{if .GLV}}
-        properties.Property("[{{ toUpper .CurveName }}] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
+        properties.Property("[{{ toUpper .Name }}] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
             func(s fr.Element) bool {
 
                 r := fr.Modulus()
@@ -530,7 +530,7 @@ parameters := gopter.DefaultTestParameters()
             genScalar,
         ))
 
-        properties.Property("[{{ toUpper .CurveName }}] GLV and Double and Add should output the same result", prop.ForAll(
+        properties.Property("[{{ toUpper .Name }}] GLV and Double and Add should output the same result", prop.ForAll(
             func(s fr.Element) bool {
 
                 var r big.Int
@@ -547,7 +547,7 @@ parameters := gopter.DefaultTestParameters()
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("[{{ toUpper .CurveName }}] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g {{ toLower .PointName }}Jac
@@ -616,7 +616,7 @@ func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 	{{if gt $c 15}}
 	if !testing.Short() {
 	{{end}}
-	properties.Property("[{{ toUpper $.CurveName }}] Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[{{ toUpper $.Name }}] Multi exponentation (c={{$c}}) should be consistant with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
 			var result, expected {{ toLower $.PointName}}Jac
@@ -664,7 +664,7 @@ func Test{{ toUpper .PointName}}CofactorCleaning(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[{{ toUpper .CurveName }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b {{ .CoordType }}
 			a.SetRandom()
@@ -716,7 +716,7 @@ func Test{{ toUpper .PointName}}BatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 500
 
-	properties.Property("[{{ toUpper .CurveName }}] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element

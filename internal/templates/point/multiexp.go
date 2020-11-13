@@ -180,7 +180,8 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 {{range $c :=  .CRange}}
 
 func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}, scalars []fr.Element, opt *CPUSemaphore) *{{ toLower $.PointName }}Jac {
-	{{- $cDividesBits := divides $c $.RBitLen}}
+	{{-  $frBits := mul $.Fr.NbWords 64}}
+	{{- $cDividesBits := divides $c $frBits}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
 	
@@ -191,7 +192,7 @@ func (p *{{ toLower $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	var wg sync.WaitGroup
 	
 	{{- if not $cDividesBits }}
-	// c doesn't divide {{$.RBitLen}}, last window is smaller we can allocate less buckets
+	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	chChunks[nbChunks-1] = make(chan {{ toLower $.PointName }}Jac, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling 
@@ -392,7 +393,7 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 const MultiExpHelpers = `
 
 import (
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use

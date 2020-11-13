@@ -38,7 +38,7 @@ const Fq2Common = `
 
 import (
 	"math/big"
-	"github.com/consensys/gurvy/{{toLower .CurveName}}/fp"
+	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
 )
 
 
@@ -200,7 +200,7 @@ func (z *E2) Exp(x E2, exponent *big.Int) *E2 {
 	return z
 }
 
-{{if eq .PMod4 3 }}
+{{if .Fp.SqrtQ3Mod4 }}
 	func init() {
 		q := fp.Modulus()
 		tmp := big.NewInt(3)
@@ -325,7 +325,7 @@ func doubleE2(res,x *E2)
 //go:noescape
 func negE2(res,x *E2)
 
-{{if eq .CurveName "bn256"}}
+{{if eq .Name "bn256"}}
 
 //go:noescape
 func mulNonResE2(res, x *E2)

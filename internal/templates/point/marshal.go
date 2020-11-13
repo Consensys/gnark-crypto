@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"encoding/binary"
 
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/consensys/gurvy/utils/debug"
 )
 
@@ -43,20 +43,20 @@ const (
 
 
 
-// Encoder writes {{.CurveName}} object values to an output stream
+// Encoder writes {{.Name}} object values to an output stream
 type Encoder struct {
 	w io.Writer
 	n int64 		// written bytes
 	raw bool 		// raw vs compressed encoding 
 }
 
-// Decoder reads {{.CurveName}} object values from an inbound stream
+// Decoder reads {{.Name}} object values from an inbound stream
 type Decoder struct {
 	r io.Reader
 	n int64 // read bytes
 }
 
-// NewDecoder returns a binary decoder supporting curve {{.CurveName}} objects in both 
+// NewDecoder returns a binary decoder supporting curve {{.Name}} objects in both 
 // compressed and uncompressed (raw) forms
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r}
@@ -68,7 +68,7 @@ func NewDecoder(r io.Reader) *Decoder {
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
-		return errors.New("{{.CurveName}} decoder: unsupported type, need pointer")
+		return errors.New("{{.Name}} decoder: unsupported type, need pointer")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -245,7 +245,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		
 		return nil
 	default:
-		return errors.New("{{.CurveName}} encoder: unsupported type")
+		return errors.New("{{.Name}} encoder: unsupported type")
 	}
 }
 
@@ -285,7 +285,7 @@ func isCompressed(msb byte) bool {
 }
 
 
-// NewEncoder returns a binary encoder supporting curve {{.CurveName}} objects
+// NewEncoder returns a binary encoder supporting curve {{.Name}} objects
 func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 	// default settings
 	enc := &Encoder {
@@ -403,7 +403,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("{{.CurveName}} encoder: unsupported type")
+		return errors.New("{{.Name}} encoder: unsupported type")
 	}
 }
 {{end}}

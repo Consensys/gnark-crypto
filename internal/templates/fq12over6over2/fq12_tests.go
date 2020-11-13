@@ -24,7 +24,7 @@ func TestE12Serialization(t *testing.T) {
 
 	genA := GenE12()
 
-	properties.Property("[{{ toUpper .CurveName}}] SetBytes(Bytes()) should stay constant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] SetBytes(Bytes()) should stay constant", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			buf := a.Bytes()
@@ -49,7 +49,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 	genA := GenE12()
 	genB := GenE12()
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E12) bool {
 			var c, d E12
 			d.Set(a)
@@ -62,7 +62,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E12) bool {
 			var c, d E12
 			d.Set(a)
@@ -75,7 +75,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E12) bool {
 			var c, d E12
 			d.Set(a)
@@ -88,7 +88,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Square(a)
@@ -98,7 +98,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Double(a)
@@ -108,7 +108,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Inverse(a)
@@ -118,7 +118,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Cyclotomic square) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (Cyclotomic square) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.CyclotomicSquare(a)
@@ -128,7 +128,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Conjugate(a)
@@ -138,7 +138,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Frobenius) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (Frobenius) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Frobenius(a)
@@ -148,7 +148,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (FrobeniusSquare) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (FrobeniusSquare) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.FrobeniusSquare(a)
@@ -158,7 +158,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (FrobeniusCube) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (FrobeniusCube) should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.FrobeniusCube(a)
@@ -181,7 +181,7 @@ func TestE12Ops(t *testing.T) {
 	genA := GenE12()
 	genB := GenE12()
 
-	properties.Property("[{{ toUpper .CurveName }}] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E12) bool {
 			var c E12
 			c.Set(a)
@@ -192,7 +192,7 @@ func TestE12Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E12) bool {
 			var c, d E12
 			d.Inverse(b)
@@ -204,7 +204,7 @@ func TestE12Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Inverse(a).Inverse(&b)
@@ -213,7 +213,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] square and mul should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] square and mul should output the same result", prop.ForAll(
 		func(a *E12) bool {
 			var b, c E12
 			b.Mul(a, a)
@@ -223,7 +223,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] a + pi(a), a-pi(a) should be real", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] a + pi(a), a-pi(a) should be real", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
 			var e, f, g E6
@@ -237,7 +237,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] pi**12=id", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] pi**12=id", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.Frobenius(a).
@@ -257,7 +257,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] (pi**2)**6=id", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] (pi**2)**6=id", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.FrobeniusSquare(a).
@@ -271,7 +271,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] (pi**3)**4=id", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] (pi**3)**4=id", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
 			b.FrobeniusCube(a).
@@ -283,7 +283,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
 			b.FrobeniusCube(a).

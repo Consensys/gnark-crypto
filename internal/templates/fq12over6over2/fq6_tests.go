@@ -25,7 +25,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 	genA := GenE6()
 	genB := GenE6()
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -38,7 +38,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -51,7 +51,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Set(a)
@@ -64,7 +64,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Square(a)
@@ -74,7 +74,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (neg) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (neg) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Neg(a)
@@ -84,7 +84,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Double(a)
@@ -94,7 +94,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.MulByNonResidue(a)
@@ -104,7 +104,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Inverse(a)
@@ -127,7 +127,7 @@ func TestE6Ops(t *testing.T) {
 	genA := GenE6()
 	genB := GenE6()
 
-	properties.Property("[{{ toUpper .CurveName }}] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
 			var c E6
 			c.Set(a)
@@ -138,7 +138,7 @@ func TestE6Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Inverse(b)
@@ -150,7 +150,7 @@ func TestE6Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Inverse(a).Inverse(&b)
@@ -159,7 +159,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] neg twice should leave an element invariant", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Neg(a).Neg(&b)
@@ -168,7 +168,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] square and mul should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] square and mul should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b, c E6
 			b.Mul(a, a)
@@ -178,7 +178,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Double and add twice should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Double and add twice should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Add(a, a)
@@ -188,7 +188,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName }}] Mul by non residue should be the same as multiplying by (0,1,0)", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] Mul by non residue should be the same as multiplying by (0,1,0)", prop.ForAll(
 		func(a *E6) bool {
 			var b, c E6
 			b.B1.A0.SetOne()

@@ -15,8 +15,6 @@
 package amd64
 
 import (
-	"strings"
-
 	. "github.com/consensys/bavard/amd64"
 )
 
@@ -26,7 +24,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
 	// 	b.Double(&x.A1).Double(&b).Double(&b).fq2.F.Add(&b, &x.A1).fq2.F.Add(&b, &x.A0)
 	// 	z.A0.Set(&a)
 	// 	z.A1.Set(&b)
-	registers := FnHeader("mulNonRes"+strings.ToUpper(fq2.F.ElementName), 0, 16)
+	registers := FnHeader("mulNonResE2", 0, 16)
 
 	a := registers.PopN(fq2.F.NbWords)
 	b := registers.PopN(fq2.F.NbWords)
@@ -80,7 +78,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 	// b.Mul(&x.A0, &x.A1).Double(&b)
 	// z.A0.Set(&a)
 	// z.A1.Set(&b)
-	registers := FnHeader("squareAdx"+strings.ToUpper(fq2.F.ElementName), 16, 16, DX, AX)
+	registers := FnHeader("squareAdxE2", 16, 16, DX, AX)
 
 	noAdx := NewLabel()
 	// check ADX instruction support
@@ -172,7 +170,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	// c.Mul(&x.A1, &y.A1)
 	// z.A1.fq2.F.Sub(&a, &b).fq2.F.Sub(&z.A1, &c)
 	// z.A0.fq2.F.Sub(&b, &c)
-	registers := FnHeader("mulAdx"+strings.ToUpper(fq2.F.ElementName), 24, 24, DX, AX)
+	registers := FnHeader("mulAdxE2", 24, 24, DX, AX)
 
 	noAdx := NewLabel()
 	// check ADX instruction support

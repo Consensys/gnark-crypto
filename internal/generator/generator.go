@@ -2,7 +2,6 @@ package generator
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,50 +18,40 @@ import (
 	"github.com/consensys/gurvy/internal/templates/point"
 )
 
-// CurveConfig describes parameters of the curve useful for the templates
-type CurveConfig struct {
-	CurveName        string
-	RTorsion         string
-	RBitLen          int
-	FpModulus        string
-	OutputDir        string
+// Curve describes parameters of the curve useful for the templates
+type Curve struct {
+	Name string
+	Fp   *field.Field
+	Fr   *field.Field
+
 	GLV              bool  // scalar mulitplication using GLV
 	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
 	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
-	PMod4            int   // 3 or 1
+
+	outputDir string
 }
+
+const fpTower = "fptower"
 
 // NewCurveConfig returns a struct initialized with the parameters needed for template generation
 // (internal use in gurvy)
-func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) CurveConfig {
+func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) Curve {
 	name = strings.ToLower(name)
-	conf := CurveConfig{
-		CurveName:        name,
-		RTorsion:         rTorsion,
-		FpModulus:        fpModulus,
+	conf := Curve{
+		Name:             name,
 		GLV:              glv,
 		CofactorCleaning: cc,
 	}
 
-	conf.OutputDir = fmt.Sprintf("../%s/", name)
-
-	// bit len of R
-	r, ok := new(big.Int).SetString(rTorsion, 10)
-	if !ok {
-		panic("can't set r from RTorsion")
+	var err error
+	if conf.Fp, err = field.NewField("fp", "Element", fpModulus, false, "unset"); err != nil {
+		panic(err)
 	}
-	conf.RBitLen = r.BitLen()
-	for conf.RBitLen%64 != 0 {
-		conf.RBitLen++
+	if conf.Fr, err = field.NewField("fr", "Element", rTorsion, false, "unset"); err != nil {
+		panic(err)
 	}
 
-	// sets the residue of p mod 4
-	r, ok = new(big.Int).SetString(fpModulus, 10)
-	if !ok {
-		panic("can't parse fpModulus")
-	}
-	b := r.Bytes()
-	conf.PMod4 = int(b[len(b)-1] & 3)
+	conf.outputDir = fmt.Sprintf("../%s/", name)
 
 	// default range for C values in the multiExp
 	conf.CRange = []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
@@ -70,42 +59,33 @@ func NewCurveConfig(name, rTorsion, fpModulus string, glv bool, cc bool) CurveCo
 }
 
 // GenerateBaseFields generates the base field fr and fp
-func GenerateBaseFields(conf CurveConfig) error {
-	if err := generator.GenerateFF("fr", "Element", conf.RTorsion, filepath.Join(conf.OutputDir, "fr"), false); err != nil {
+func GenerateBaseFields(conf Curve) error {
+	if err := generator.GenerateFF("fr", "Element", conf.Fr.Modulus, filepath.Join(conf.outputDir, "fr"), false); err != nil {
 		return err
 	}
-	if err := generator.GenerateFF("fp", "Element", conf.FpModulus, filepath.Join(conf.OutputDir, "fp"), false); err != nil {
+	if err := generator.GenerateFF("fp", "Element", conf.Fp.Modulus, filepath.Join(conf.outputDir, "fp"), false); err != nil {
 		return err
 	}
 	return nil
 }
 
-const fpTower = "fptower"
-
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
-func GenerateFq12over6over2(conf CurveConfig) error {
-	conf.OutputDir = filepath.Join(conf.OutputDir, "internal/", fpTower)
-	// base field (FpModulus) template data
-	F, err := field.NewField(conf.CurveName, "E2", conf.FpModulus, false, "unset")
-	if err != nil {
-		return err
-	}
+func GenerateFq12over6over2(conf Curve) error {
+	conf.outputDir = filepath.Join(conf.outputDir, "internal/", fpTower)
 
 	type e2Config struct {
-		CurveConfig
+		Curve
 		NbWords            int
 		NbWordsIndexesFull []int
 		Q, QInverse        []uint64
-		Fp                 field.Field
 	}
 
 	e2conf := e2Config{
-		CurveConfig:        conf,
-		NbWords:            F.NbWords,
-		NbWordsIndexesFull: F.NbWordsIndexesFull,
-		Q:                  F.Q,
-		QInverse:           F.QInverse,
-		Fp:                 *F,
+		Curve:              conf,
+		NbWords:            conf.Fp.NbWords,
+		NbWordsIndexesFull: conf.Fp.NbWordsIndexesFull,
+		Q:                  conf.Fp.Q,
+		QInverse:           conf.Fp.QInverse,
 	}
 
 	bavardOpts := []func(*bavard.Bavard) error{
@@ -120,7 +100,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 			fq12over6over2.Fq2Common,
 		}
 
-		pathSrc := filepath.Join(conf.OutputDir, "e2.go")
+		pathSrc := filepath.Join(conf.outputDir, "e2.go")
 
 		if err := bavard.Generate(pathSrc, src, e2conf, bavardOpts...); err != nil {
 			return err
@@ -134,21 +114,22 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 			fq12over6over2.Fq2Amd64,
 		}
 
-		pathSrc := filepath.Join(conf.OutputDir, "e2_amd64.go")
+		pathSrc := filepath.Join(conf.outputDir, "e2_amd64.go")
 
 		if err := bavard.Generate(pathSrc, src, e2conf, bavardOpts...); err != nil {
 			return err
 		}
 
 		// fq2 assembly
-		pathAmd64 := filepath.Join(conf.OutputDir, "e2_amd64.s")
+		pathAmd64 := filepath.Join(conf.outputDir, "e2_amd64.s")
 		f, err := os.Create(pathAmd64)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		fq2Amd64 := amd64.NewFq2Amd64(f, F, conf.CurveName)
+		fp2, _ := field.NewField(conf.Name, "E2", conf.Fp.Modulus, false, "unset")
+		fq2Amd64 := amd64.NewFq2Amd64(f, fp2, conf.Name)
 		if err := fq2Amd64.Generate(); err != nil {
 			return err
 		}
@@ -167,7 +148,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 			bavard.GeneratedBy("gurvy"),
 			bavard.BuildTag("!amd64"),
 		}
-		pathSrc := filepath.Join(e2conf.OutputDir, "e2_fallback.go")
+		pathSrc := filepath.Join(e2conf.outputDir, "e2_fallback.go")
 
 		if err := bavard.Generate(pathSrc, src, e2conf, bavardOpts...); err != nil {
 			return err
@@ -180,7 +161,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		src := []string{
 			fq12over6over2.Fq2Tests,
 		}
-		pathSrc := filepath.Join(conf.OutputDir, "e2_test.go")
+		pathSrc := filepath.Join(conf.outputDir, "e2_test.go")
 		if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 			return err
 		}
@@ -198,7 +179,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 			bavard.Package(fpTower),
 		}
 
-		pathSrc := filepath.Join(conf.OutputDir, "e6.go")
+		pathSrc := filepath.Join(conf.outputDir, "e6.go")
 
 		if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 			return err
@@ -210,7 +191,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		src := []string{
 			fq12over6over2.Fq6Tests,
 		}
-		pathSrc := filepath.Join(conf.OutputDir, "e6_test.go")
+		pathSrc := filepath.Join(conf.outputDir, "e6_test.go")
 		if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 			return err
 		}
@@ -227,7 +208,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 			bavard.Package(fpTower),
 		}
 
-		pathSrc := filepath.Join(conf.OutputDir, "e12.go")
+		pathSrc := filepath.Join(conf.outputDir, "e12.go")
 
 		if err := bavard.Generate(pathSrc, src, e2conf, bavardOpts...); err != nil {
 			return err
@@ -239,7 +220,7 @@ func GenerateFq12over6over2(conf CurveConfig) error {
 		src := []string{
 			fq12over6over2.Fq12Tests,
 		}
-		pathSrc := filepath.Join(conf.OutputDir, "e12_test.go")
+		pathSrc := filepath.Join(conf.outputDir, "e12_test.go")
 		if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 			return err
 		}
@@ -289,11 +270,11 @@ func divides(c1, c2 interface{}) bool {
 }
 
 // GenerateMultiExpHelpers generates multi exp helpers functions
-func GenerateMultiExpHelpers(conf CurveConfig) error {
+func GenerateMultiExpHelpers(conf Curve) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName),
+		bavard.Package(conf.Name),
 		bavard.GeneratedBy("gurvy"),
 		bavard.Funcs(helpers()),
 	}
@@ -303,7 +284,7 @@ func GenerateMultiExpHelpers(conf CurveConfig) error {
 		point.MultiExpHelpers,
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, "multiexp_helpers.go")
+	pathSrc := filepath.Join(conf.outputDir, "multiexp_helpers.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -312,30 +293,24 @@ func GenerateMultiExpHelpers(conf CurveConfig) error {
 }
 
 // GeneratePoint generates elliptic curve arithmetic
-func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
+func GeneratePoint(_conf Curve, coordType, pointName string) error {
 	type pointConfig struct {
-		CurveConfig
+		Curve
 		CoordType  string
 		PointName  string
-		Fp         field.Field
 		UnusedBits int
 	}
 	conf := pointConfig{
-		CurveConfig: _conf,
-		CoordType:   coordType,
-		PointName:   pointName,
-	}
-	if fp, err := field.NewField("unset", "fpelement", conf.FpModulus, false, "unset"); err != nil {
-		return err
-	} else {
-		conf.Fp = *fp
+		Curve:     _conf,
+		CoordType: coordType,
+		PointName: pointName,
 	}
 
 	conf.UnusedBits = 64 - (conf.Fp.NbBits % 64)
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName),
+		bavard.Package(conf.Name),
 		bavard.GeneratedBy("gurvy"),
 		bavard.Funcs(helpers()),
 	}
@@ -345,7 +320,7 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 		point.Point,
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, conf.PointName+".go")
+	pathSrc := filepath.Join(conf.outputDir, conf.PointName+".go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -354,7 +329,7 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 	src = []string{
 		point.MultiExpCore,
 	}
-	pathSrc = filepath.Join(conf.OutputDir, conf.PointName+"_multiexp.go")
+	pathSrc = filepath.Join(conf.outputDir, conf.PointName+"_multiexp.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -364,7 +339,7 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 		point.PointTests,
 	}
 
-	pathSrc = filepath.Join(conf.OutputDir, conf.PointName+"_test.go")
+	pathSrc = filepath.Join(conf.outputDir, conf.PointName+"_test.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -373,25 +348,20 @@ func GeneratePoint(_conf CurveConfig, coordType, pointName string) error {
 }
 
 // GenerateMarshal generates elliptic curve encoder and serialization code
-func GenerateMarshal(_conf CurveConfig) error {
+func GenerateMarshal(_conf Curve) error {
 	type pointConfig struct {
-		CurveConfig
-		Fp         field.Field
+		Curve
 		UnusedBits int
 	}
 	conf := pointConfig{
-		CurveConfig: _conf,
+		Curve: _conf,
 	}
-	if fp, err := field.NewField("unset", "fpelement", conf.FpModulus, false, "unset"); err != nil {
-		return err
-	} else {
-		conf.Fp = *fp
-	}
+
 	conf.UnusedBits = 64 - (conf.Fp.NbBits % 64)
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName),
+		bavard.Package(conf.Name),
 		bavard.GeneratedBy("gurvy"),
 		bavard.Funcs(helpers()),
 	}
@@ -401,7 +371,7 @@ func GenerateMarshal(_conf CurveConfig) error {
 		point.Marshal,
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, "marshal.go")
+	pathSrc := filepath.Join(conf.outputDir, "marshal.go")
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
 	}
@@ -411,7 +381,7 @@ func GenerateMarshal(_conf CurveConfig) error {
 		point.MarshalTests,
 	}
 
-	pathSrc = filepath.Join(conf.OutputDir, "marshal_test.go")
+	pathSrc = filepath.Join(conf.outputDir, "marshal_test.go")
 
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
@@ -421,7 +391,7 @@ func GenerateMarshal(_conf CurveConfig) error {
 }
 
 // GeneratePairingTests generates elliptic curve arithmetic
-func GeneratePairingTests(conf CurveConfig) error {
+func GeneratePairingTests(conf Curve) error {
 
 	src := []string{
 		pairing.PairingTests,
@@ -429,11 +399,11 @@ func GeneratePairingTests(conf CurveConfig) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName),
+		bavard.Package(conf.Name),
 		bavard.GeneratedBy("gurvy"),
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, "pairing_test.go")
+	pathSrc := filepath.Join(conf.outputDir, "pairing_test.go")
 
 	if err := bavard.Generate(pathSrc, src, conf, bavardOpts...); err != nil {
 		return err
@@ -443,15 +413,15 @@ func GeneratePairingTests(conf CurveConfig) error {
 }
 
 // GenerateDoc generates package level doc
-func GenerateDoc(conf CurveConfig) error {
+func GenerateDoc(conf Curve) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(conf.CurveName, "provides efficient elliptic curve and pairing implementation for "+conf.CurveName),
+		bavard.Package(conf.Name, "provides efficient elliptic curve and pairing implementation for "+conf.Name),
 		bavard.GeneratedBy("gurvy"),
 	}
 
-	pathSrc := filepath.Join(conf.OutputDir, "doc.go")
+	pathSrc := filepath.Join(conf.outputDir, "doc.go")
 
 	if err := bavard.Generate(pathSrc, []string{""}, conf, bavardOpts...); err != nil {
 		return err

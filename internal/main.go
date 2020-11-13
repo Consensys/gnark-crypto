@@ -39,7 +39,7 @@ func main() {
 	)
 	bw761.CRange = []int{4, 8, 16}
 
-	confs := []generator.CurveConfig{bn256, bls377, bls381, bw761}
+	confs := []generator.Curve{bn256, bls377, bls381, bw761}
 
 	for i := 0; i < len(confs); i++ {
 
@@ -49,16 +49,16 @@ func main() {
 
 		assertNoError(generator.GenerateMarshal(confs[i]))
 
-		if confs[i].CurveName != "bw761" {
+		if confs[i].Name != "bw761" {
 
 			// G1
-			if confs[i].CurveName == "bn256" {
+			if confs[i].Name == "bn256" {
 				confs[i].CofactorCleaning = false
 			}
 			assertNoError(generator.GeneratePoint(confs[i], "fp.Element", "g1"))
 
 			// G2
-			if confs[i].CurveName == "bn256" {
+			if confs[i].Name == "bn256" {
 				confs[i].CofactorCleaning = true
 			}
 			assertNoError(generator.GeneratePoint(confs[i], "fptower.E2", "g2"))

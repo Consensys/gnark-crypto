@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gurvy/{{ .CurveName }}/fr"    
+	"github.com/consensys/gurvy/{{ .Name }}/fr"    
     "github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -55,7 +55,7 @@ func TestPairing(t *testing.T) {
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-	properties.Property("[{{ toUpper .CurveName}}] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a *GT) bool {
 			var b GT
 			b.Set(a)
@@ -66,20 +66,19 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-    properties.Property("[{{ toUpper .CurveName}}] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
+    properties.Property("[{{ toUpper .Name}}] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
 		func(a *GT) bool {
 			var one GT
-			var e big.Int
-			e.SetString("{{ .RTorsion }}", 10)
+			e := fr.Modulus()
 			one.SetOne()
 			*a = FinalExponentiation(a)
-			a.Exp(a, e)
+			a.Exp(a, *e)
 			return a.Equal(&one)
 		},
 		genA,
 	))
 
-	properties.Property("[{{ toUpper .CurveName}}] bilinearity", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var res, resa, resb, resab, zero GT

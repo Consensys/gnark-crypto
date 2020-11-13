@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"encoding/binary"
 
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/consensys/gurvy/utils/debug"
 )
 
@@ -356,7 +356,7 @@ func (p *{{ toLower .PointName }}Jac) IsOnCurve() bool {
 
 
 
-{{if eq .CurveName "bn256" }}
+{{if eq .Name "bn256" }}
 	{{if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
@@ -387,7 +387,7 @@ func (p *{{ toLower .PointName }}Jac) IsOnCurve() bool {
 
 		}
 	{{end}}
-{{else if eq .CurveName "bw761" }}
+{{else if eq .Name "bw761" }}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
 	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as

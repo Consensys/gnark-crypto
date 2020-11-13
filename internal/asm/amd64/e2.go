@@ -59,7 +59,7 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 	if fq2.F.NbWords > amd64.SmallModulus {
 		stackSize = fq2.F.NbWords * 8
 	}
-	registers := FnHeader("add"+strings.ToUpper(fq2.F.ElementName), stackSize, 24)
+	registers := FnHeader("addE2", stackSize, 24)
 
 	// registers
 	x := registers.Pop()
@@ -100,7 +100,7 @@ func (fq2 *Fq2Amd64) generateDoubleE2() {
 	if fq2.F.NbWords > amd64.SmallModulus {
 		stackSize = fq2.F.NbWords * 8
 	}
-	registers := FnHeader("double"+strings.ToUpper(fq2.F.ElementName), stackSize, 16)
+	registers := FnHeader("doubleE2", stackSize, 16)
 
 	// registers
 	x := registers.Pop()
@@ -121,7 +121,7 @@ func (fq2 *Fq2Amd64) generateDoubleE2() {
 }
 
 func (fq2 *Fq2Amd64) generateNegE2() {
-	registers := FnHeader("neg"+strings.ToUpper(fq2.F.ElementName), 0, 16)
+	registers := FnHeader("negE2", 0, 16)
 
 	nonZeroA := NewLabel()
 	nonZeroB := NewLabel()
@@ -208,7 +208,7 @@ func (fq2 *Fq2Amd64) generateNegE2() {
 }
 
 func (fq2 *Fq2Amd64) generateSubE2() {
-	registers := FnHeader("sub"+strings.ToUpper(fq2.F.ElementName), 0, 24)
+	registers := FnHeader("subE2", 0, 24)
 
 	// registers
 	t := registers.PopN(fq2.F.NbWords)
