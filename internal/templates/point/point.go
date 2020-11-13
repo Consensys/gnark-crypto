@@ -779,7 +779,7 @@ const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-{{- if ge .UnusedBits 3}}
+{{- if ge .FpUnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
@@ -833,7 +833,7 @@ func (p *{{ toUpper .PointName }}) RawBytes() (res [SizeOf{{ toUpper .PointName 
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		{{if ge .UnusedBits 3}}
+		{{if ge .FpUnusedBits 3}}
 			res[0] = mUncompressedInfinity
 		{{else}}
 			res[0] = mUncompressed 
@@ -888,7 +888,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
-	if (mData == mUncompressed) {{- if ge .UnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+	if (mData == mUncompressed) {{- if ge .FpUnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
 		if len(buf) < SizeOf{{ toUpper .PointName }}Uncompressed {
 			return 0, io.ErrShortBuffer
 		}
@@ -901,7 +901,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 		return SizeOf{{ toUpper .PointName }}Compressed, nil
 	}
 
-	{{- if ge .UnusedBits 3}} 
+	{{- if ge .FpUnusedBits 3}} 
 	if (mData == mUncompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()

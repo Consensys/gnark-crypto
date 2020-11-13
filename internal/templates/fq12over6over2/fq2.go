@@ -301,14 +301,14 @@ var (
 )
 
 // q (modulus)
-var qE2 = [{{.NbWords}}]uint64{
-	{{- range $i := .NbWordsIndexesFull}}
-	{{index $.Q $i}},{{end}}
+var qE2 = [{{.Fp.NbWords}}]uint64{
+	{{- range $i := .Fp.NbWordsIndexesFull}}
+	{{index $.Fp.Q $i}},{{end}}
 }
 
 // q'[0], see montgommery multiplication algorithm
 var (
-	qE2Inv0 uint64 = {{index $.QInverse 0}}
+	qE2Inv0 uint64 = {{index $.Fp.QInverse 0}}
 	_ = qE2Inv0 // used in asm
 )
 
