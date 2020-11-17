@@ -902,6 +902,7 @@ func Benchmark{{ toUpper .PointName}}Double(b *testing.B) {
 
 }
 
+
 func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element

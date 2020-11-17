@@ -33,6 +33,18 @@ import (
 
 var benchResElement Element
 
+func BenchmarkElementSetBytes(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	bb := x.Bytes()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		benchResElement.SetBytes(bb[:])
+	}
+
+}
+
 func BenchmarkElementInverse(b *testing.B) {
 	var x Element
 	x.SetRandom()
@@ -44,6 +56,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	}
 
 }
+
 func BenchmarkElementExp(b *testing.B) {
 	var x Element
 	x.SetRandom()

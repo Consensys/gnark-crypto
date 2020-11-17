@@ -774,7 +774,6 @@ func (p *G1) SetBytes(buf []byte) (int, error) {
 
 	// most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
@@ -795,42 +794,19 @@ func (p *G1) SetBytes(buf []byte) (int, error) {
 		return SizeOfG1Uncompressed, nil
 	}
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
-	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
-	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
-	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
-	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
-	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
-	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
-	tmp[6] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[7] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[8] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[9] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[10] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[11] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.Set(&tmp)
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-		tmp[0] = binary.BigEndian.Uint64(buf[184:192])
-		tmp[1] = binary.BigEndian.Uint64(buf[176:184])
-		tmp[2] = binary.BigEndian.Uint64(buf[168:176])
-		tmp[3] = binary.BigEndian.Uint64(buf[160:168])
-		tmp[4] = binary.BigEndian.Uint64(buf[152:160])
-		tmp[5] = binary.BigEndian.Uint64(buf[144:152])
-		tmp[6] = binary.BigEndian.Uint64(buf[136:144])
-		tmp[7] = binary.BigEndian.Uint64(buf[128:136])
-		tmp[8] = binary.BigEndian.Uint64(buf[120:128])
-		tmp[9] = binary.BigEndian.Uint64(buf[112:120])
-		tmp[10] = binary.BigEndian.Uint64(buf[104:112])
-		tmp[11] = binary.BigEndian.Uint64(buf[96:104])
-		tmp.ToMont()
-		p.Y.Set(&tmp)
+		p.Y.SetBytes(buf[96 : 96+fp.Bytes])
 
 		return SizeOfG1Uncompressed, nil
 	}
@@ -902,7 +878,6 @@ func (p *G1) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask
 
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
@@ -913,24 +888,14 @@ func (p *G1) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read X
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
-	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
-	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
-	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
-	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
-	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
-	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
-	tmp[6] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[7] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[8] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[9] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[10] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[11] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.Set(&tmp)
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)

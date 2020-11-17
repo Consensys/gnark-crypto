@@ -752,7 +752,6 @@ func (p *G1) SetBytes(buf []byte) (int, error) {
 
 	// most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
@@ -773,30 +772,19 @@ func (p *G1) SetBytes(buf []byte) (int, error) {
 		return SizeOfG1Uncompressed, nil
 	}
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
-	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.Set(&tmp)
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
-		tmp[0] = binary.BigEndian.Uint64(buf[88:96])
-		tmp[1] = binary.BigEndian.Uint64(buf[80:88])
-		tmp[2] = binary.BigEndian.Uint64(buf[72:80])
-		tmp[3] = binary.BigEndian.Uint64(buf[64:72])
-		tmp[4] = binary.BigEndian.Uint64(buf[56:64])
-		tmp[5] = binary.BigEndian.Uint64(buf[48:56])
-		tmp.ToMont()
-		p.Y.Set(&tmp)
+		p.Y.SetBytes(buf[48 : 48+fp.Bytes])
 
 		return SizeOfG1Uncompressed, nil
 	}
@@ -868,7 +856,6 @@ func (p *G1) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask
 
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
@@ -879,18 +866,14 @@ func (p *G1) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read X
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
-	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.Set(&tmp)
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)

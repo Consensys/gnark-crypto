@@ -885,7 +885,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 
 	// most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask // clear meta data
+	
 
 	// check buffer size
 	if (mData == mUncompressed) {{- if ge .FpUnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
@@ -909,8 +909,8 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	}
 	{{- end}} 
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask 
 
 	// read X coordinate
 	{{- if eq .CoordType "fptower.E2"}}
@@ -921,6 +921,9 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	{{- else}}
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
 	{{- end}}
+
+	// restore buf
+	buf[0] |= mData
 
 	// uncompressed point
 	if mData == mUncompressed {
@@ -1031,8 +1034,7 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 
 	// read the most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask
-
+	
 	if (mData == mCompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
@@ -1042,8 +1044,8 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 
 	// read X
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask 
 
 	// read X coordinate
 	{{- if eq .CoordType "fptower.E2"}}
@@ -1054,6 +1056,9 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 	{{- else}}
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
 	{{- end}}
+
+	// restore buf
+	buf[0] |= mData
 
 	{{ if eq .CoordType "fptower.E2"}}
 	// store mData in p.Y.A0[0]
@@ -1083,16 +1088,7 @@ func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfin
 {{end}}
 
 {{define "readFp"}}
-	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
-			{{- $j := mul $i 8}}
-			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Fp.NbWords 1}}
-			{{- $k := sub $k $i}}
-			{{- $jj := add $j 8}}
-			tmp[{{$k}}] = binary.BigEndian.Uint64(buf[{{$j}}:{{$jj}}])
-	{{- end}}
-	tmp.ToMont()
-	{{$.To}}.Set(&tmp)
+	{{$.To}}.SetBytes(buf[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}
 
 `
