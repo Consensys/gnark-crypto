@@ -226,14 +226,15 @@ func GenerateFq12over6over2(conf curveConfig) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 
 		// TODO dirty, we need that so that generated assembly code points to q"E2"
 		fp2, _ := field.NewField(conf.Name, "E2", conf.Fp.Modulus, false, "unset")
 		fq2Amd64 := amd64.NewFq2Amd64(f, fp2, conf.Name)
 		if err := fq2Amd64.Generate(); err != nil {
+			_ = f.Close()
 			return err
 		}
+		_ = f.Close()
 
 	}
 

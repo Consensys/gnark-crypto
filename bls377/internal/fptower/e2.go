@@ -84,10 +84,14 @@ func (z *E2) SetOne() *E2 {
 }
 
 // SetRandom sets a0 and a1 to random values
-func (z *E2) SetRandom() *E2 {
-	z.A0.SetRandom()
-	z.A1.SetRandom()
-	return z
+func (z *E2) SetRandom() (*E2, error) {
+	if _, err := z.A0.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A1.SetRandom(); err != nil {
+		return nil, err
+	}
+	return z, nil
 }
 
 // IsZero returns true if the two elements are equal, fasle otherwise
@@ -190,7 +194,8 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	var _b, o fp.Element
 	c.SetOne()
 	for c.Legendre() == 1 {
-		c.SetRandom()
+		// TODO use something deterministic here, without possible error return
+		_, _ = c.SetRandom()
 	}
 	q := fp.Modulus()
 	var exp, one big.Int

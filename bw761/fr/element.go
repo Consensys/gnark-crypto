@@ -243,9 +243,11 @@ func (z *Element) LexicographicallyLargest() bool {
 }
 
 // SetRandom sets z to a random element < q
-func (z *Element) SetRandom() *Element {
+func (z *Element) SetRandom() (*Element, error) {
 	var bytes [48]byte
-	io.ReadFull(rand.Reader, bytes[:])
+	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
+		return nil, err
+	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
 	z[1] = binary.BigEndian.Uint64(bytes[8:16])
 	z[2] = binary.BigEndian.Uint64(bytes[16:24])
@@ -266,7 +268,7 @@ func (z *Element) SetRandom() *Element {
 		z[5], _ = bits.Sub64(z[5], 121098312706494698, b)
 	}
 
-	return z
+	return z, nil
 }
 
 // One returns 1 (in montgommery form)

@@ -39,19 +39,37 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	// DST_prime = I2OSP(len(DST), 1) || DST
 	// b_0 = H(Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime)
 	h.Reset()
-	h.Write(make([]byte, h.BlockSize()))
-	h.Write(msg)
-	h.Write([]byte{uint8(lenInBytes >> 8), uint8(lenInBytes), uint8(0)})
-	h.Write(dst)
-	h.Write([]byte{sizeDomain})
+	if _, err := h.Write(make([]byte, h.BlockSize())); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(msg); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{uint8(lenInBytes >> 8), uint8(lenInBytes), uint8(0)}); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(dst); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{sizeDomain}); err != nil {
+		return nil, err
+	}
 	b0 := h.Sum(nil)
 
 	// b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
 	h.Reset()
-	h.Write(b0)
-	h.Write([]byte{uint8(1)})
-	h.Write(dst)
-	h.Write([]byte{sizeDomain})
+	if _, err := h.Write(b0); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{uint8(1)}); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write(dst); err != nil {
+		return nil, err
+	}
+	if _, err := h.Write([]byte{sizeDomain}); err != nil {
+		return nil, err
+	}
 	b1 := h.Sum(nil)
 
 	res := make([]byte, lenInBytes)
@@ -64,10 +82,18 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 		for j := 0; j < h.Size(); j++ {
 			strxor[j] = b0[j] ^ b1[j]
 		}
-		h.Write(strxor)
-		h.Write([]byte{uint8(i)})
-		h.Write(dst)
-		h.Write([]byte{sizeDomain})
+		if _, err := h.Write(strxor); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write([]byte{uint8(i)}); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write(dst); err != nil {
+			return nil, err
+		}
+		if _, err := h.Write([]byte{sizeDomain}); err != nil {
+			return nil, err
+		}
 		b1 = h.Sum(nil)
 		copy(res[h.Size()*(i-1):h.Size()*i], b1)
 	}

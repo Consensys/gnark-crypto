@@ -79,20 +79,14 @@ func (z *E12) Double(x *E12) *E12 {
 }
 
 // SetRandom used only in tests
-func (z *E12) SetRandom() *E12 {
-	z.C0.B0.A0.SetRandom()
-	z.C0.B0.A1.SetRandom()
-	z.C0.B1.A0.SetRandom()
-	z.C0.B1.A1.SetRandom()
-	z.C0.B2.A0.SetRandom()
-	z.C0.B2.A1.SetRandom()
-	z.C1.B0.A0.SetRandom()
-	z.C1.B0.A1.SetRandom()
-	z.C1.B1.A0.SetRandom()
-	z.C1.B1.A1.SetRandom()
-	z.C1.B2.A0.SetRandom()
-	z.C1.B2.A1.SetRandom()
-	return z
+func (z *E12) SetRandom() (*E12, error) {
+	if _, err := z.C0.SetRandom(); err != nil {
+		return nil, err 
+	}
+	if _, err := z.C1.SetRandom(); err != nil {
+		return nil, err 
+	}
+	return z, nil 
 }
 
 // Mul set z=x*y in E12 and return z

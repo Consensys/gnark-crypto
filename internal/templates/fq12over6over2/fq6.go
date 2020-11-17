@@ -37,11 +37,17 @@ func (z *E6) SetOne() *E6 {
 }
 
 // SetRandom set z to a random elmt
-func (z *E6) SetRandom() *E6 {
-	z.B0.SetRandom()
-	z.B1.SetRandom()
-	z.B2.SetRandom()
-	return z
+func (z *E6) SetRandom() (*E6, error) {
+	if _, err := z.B0.SetRandom(); err != nil {
+		return nil, err 
+	}
+	if _, err := z.B1.SetRandom(); err != nil {
+		return nil, err 
+	}
+	if _, err := z.B2.SetRandom(); err != nil {
+		return nil, err 
+	}
+	return z, nil
 }
 
 // ToMont converts to Mont form
