@@ -32,7 +32,7 @@ TEXT ·mul(SB), NOSPLIT, $0-24
 	// 		t[N-1] = C + A
 	
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l5
+    JNE l1
     MOVQ x+8(FP), R14
     MOVQ y+16(FP), R15
     XORQ DX, DX
@@ -201,7 +201,7 @@ TEXT ·mul(SB), NOSPLIT, $0-24
     MOVQ BP, 16(R12)
     MOVQ SI, 24(R12)
     RET
-l5:
+l1:
     MOVQ x+8(FP), R15
     MOVQ y+16(FP), R14
     MOVQ 0(R15), AX
@@ -476,7 +476,7 @@ TEXT ·square(SB), NOSPLIT, $0-16
 
 	
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l6
+    JNE l2
     MOVQ x+8(FP), R14
     XORQ DX, DX
     MOVQ 0(R14), DX
@@ -644,7 +644,7 @@ TEXT ·square(SB), NOSPLIT, $0-16
     MOVQ BX, 16(R11)
     MOVQ BP, 24(R11)
     RET
-l6:
+l2:
     MOVQ x+8(FP), R15
     MOVQ x+8(FP), R14
     MOVQ 0(R15), AX
@@ -917,7 +917,7 @@ NO_LOCAL_POINTERS
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l7
+    JNE l3
     MOVQ res+0(FP), BP
     MOVQ 0(BP), R14
     MOVQ 8(BP), R15
@@ -1028,7 +1028,7 @@ NO_LOCAL_POINTERS
     MOVQ CX, 16(BP)
     MOVQ BX, 24(BP)
     RET
-l7:
+l3:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
 CALL ·_fromMontGeneric(SB)
@@ -1160,11 +1160,11 @@ TEXT ·neg(SB), NOSPLIT, $0-16
     ORQ SI, AX
     ORQ DI, AX
     TESTQ AX, AX
-    JNE l8
+    JNE l4
     MOVQ AX, 0(DX)
     MOVQ AX, 8(DX)
     RET
-l8:
+l4:
     MOVQ $0xffffffff00000001, CX
     SUBQ BX, CX
     MOVQ CX, 0(DX)
