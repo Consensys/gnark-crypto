@@ -20,6 +20,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"math/big"
+
+	"github.com/consensys/gurvy/bls381/fp"
 )
 
 // E12 is a degree two finite field extension of fp6
@@ -332,91 +334,29 @@ func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
-	z.C0.B0.A0[0] = binary.BigEndian.Uint64(e[568:576])
-	z.C0.B0.A0[1] = binary.BigEndian.Uint64(e[560:568])
-	z.C0.B0.A0[2] = binary.BigEndian.Uint64(e[552:560])
-	z.C0.B0.A0[3] = binary.BigEndian.Uint64(e[544:552])
-	z.C0.B0.A0[4] = binary.BigEndian.Uint64(e[536:544])
-	z.C0.B0.A0[5] = binary.BigEndian.Uint64(e[528:536])
+	z.C0.B0.A0.SetBytes(e[528 : 528+fp.Bytes])
 
-	z.C0.B0.A1[0] = binary.BigEndian.Uint64(e[520:528])
-	z.C0.B0.A1[1] = binary.BigEndian.Uint64(e[512:520])
-	z.C0.B0.A1[2] = binary.BigEndian.Uint64(e[504:512])
-	z.C0.B0.A1[3] = binary.BigEndian.Uint64(e[496:504])
-	z.C0.B0.A1[4] = binary.BigEndian.Uint64(e[488:496])
-	z.C0.B0.A1[5] = binary.BigEndian.Uint64(e[480:488])
+	z.C0.B0.A1.SetBytes(e[480 : 480+fp.Bytes])
 
-	z.C0.B1.A0[0] = binary.BigEndian.Uint64(e[472:480])
-	z.C0.B1.A0[1] = binary.BigEndian.Uint64(e[464:472])
-	z.C0.B1.A0[2] = binary.BigEndian.Uint64(e[456:464])
-	z.C0.B1.A0[3] = binary.BigEndian.Uint64(e[448:456])
-	z.C0.B1.A0[4] = binary.BigEndian.Uint64(e[440:448])
-	z.C0.B1.A0[5] = binary.BigEndian.Uint64(e[432:440])
+	z.C0.B1.A0.SetBytes(e[432 : 432+fp.Bytes])
 
-	z.C0.B1.A1[0] = binary.BigEndian.Uint64(e[424:432])
-	z.C0.B1.A1[1] = binary.BigEndian.Uint64(e[416:424])
-	z.C0.B1.A1[2] = binary.BigEndian.Uint64(e[408:416])
-	z.C0.B1.A1[3] = binary.BigEndian.Uint64(e[400:408])
-	z.C0.B1.A1[4] = binary.BigEndian.Uint64(e[392:400])
-	z.C0.B1.A1[5] = binary.BigEndian.Uint64(e[384:392])
+	z.C0.B1.A1.SetBytes(e[384 : 384+fp.Bytes])
 
-	z.C0.B2.A0[0] = binary.BigEndian.Uint64(e[376:384])
-	z.C0.B2.A0[1] = binary.BigEndian.Uint64(e[368:376])
-	z.C0.B2.A0[2] = binary.BigEndian.Uint64(e[360:368])
-	z.C0.B2.A0[3] = binary.BigEndian.Uint64(e[352:360])
-	z.C0.B2.A0[4] = binary.BigEndian.Uint64(e[344:352])
-	z.C0.B2.A0[5] = binary.BigEndian.Uint64(e[336:344])
+	z.C0.B2.A0.SetBytes(e[336 : 336+fp.Bytes])
 
-	z.C0.B2.A1[0] = binary.BigEndian.Uint64(e[328:336])
-	z.C0.B2.A1[1] = binary.BigEndian.Uint64(e[320:328])
-	z.C0.B2.A1[2] = binary.BigEndian.Uint64(e[312:320])
-	z.C0.B2.A1[3] = binary.BigEndian.Uint64(e[304:312])
-	z.C0.B2.A1[4] = binary.BigEndian.Uint64(e[296:304])
-	z.C0.B2.A1[5] = binary.BigEndian.Uint64(e[288:296])
+	z.C0.B2.A1.SetBytes(e[288 : 288+fp.Bytes])
 
-	z.C1.B0.A0[0] = binary.BigEndian.Uint64(e[280:288])
-	z.C1.B0.A0[1] = binary.BigEndian.Uint64(e[272:280])
-	z.C1.B0.A0[2] = binary.BigEndian.Uint64(e[264:272])
-	z.C1.B0.A0[3] = binary.BigEndian.Uint64(e[256:264])
-	z.C1.B0.A0[4] = binary.BigEndian.Uint64(e[248:256])
-	z.C1.B0.A0[5] = binary.BigEndian.Uint64(e[240:248])
+	z.C1.B0.A0.SetBytes(e[240 : 240+fp.Bytes])
 
-	z.C1.B0.A1[0] = binary.BigEndian.Uint64(e[232:240])
-	z.C1.B0.A1[1] = binary.BigEndian.Uint64(e[224:232])
-	z.C1.B0.A1[2] = binary.BigEndian.Uint64(e[216:224])
-	z.C1.B0.A1[3] = binary.BigEndian.Uint64(e[208:216])
-	z.C1.B0.A1[4] = binary.BigEndian.Uint64(e[200:208])
-	z.C1.B0.A1[5] = binary.BigEndian.Uint64(e[192:200])
+	z.C1.B0.A1.SetBytes(e[192 : 192+fp.Bytes])
 
-	z.C1.B1.A0[0] = binary.BigEndian.Uint64(e[184:192])
-	z.C1.B1.A0[1] = binary.BigEndian.Uint64(e[176:184])
-	z.C1.B1.A0[2] = binary.BigEndian.Uint64(e[168:176])
-	z.C1.B1.A0[3] = binary.BigEndian.Uint64(e[160:168])
-	z.C1.B1.A0[4] = binary.BigEndian.Uint64(e[152:160])
-	z.C1.B1.A0[5] = binary.BigEndian.Uint64(e[144:152])
+	z.C1.B1.A0.SetBytes(e[144 : 144+fp.Bytes])
 
-	z.C1.B1.A1[0] = binary.BigEndian.Uint64(e[136:144])
-	z.C1.B1.A1[1] = binary.BigEndian.Uint64(e[128:136])
-	z.C1.B1.A1[2] = binary.BigEndian.Uint64(e[120:128])
-	z.C1.B1.A1[3] = binary.BigEndian.Uint64(e[112:120])
-	z.C1.B1.A1[4] = binary.BigEndian.Uint64(e[104:112])
-	z.C1.B1.A1[5] = binary.BigEndian.Uint64(e[96:104])
+	z.C1.B1.A1.SetBytes(e[96 : 96+fp.Bytes])
 
-	z.C1.B2.A0[0] = binary.BigEndian.Uint64(e[88:96])
-	z.C1.B2.A0[1] = binary.BigEndian.Uint64(e[80:88])
-	z.C1.B2.A0[2] = binary.BigEndian.Uint64(e[72:80])
-	z.C1.B2.A0[3] = binary.BigEndian.Uint64(e[64:72])
-	z.C1.B2.A0[4] = binary.BigEndian.Uint64(e[56:64])
-	z.C1.B2.A0[5] = binary.BigEndian.Uint64(e[48:56])
+	z.C1.B2.A0.SetBytes(e[48 : 48+fp.Bytes])
 
-	z.C1.B2.A1[0] = binary.BigEndian.Uint64(e[40:48])
-	z.C1.B2.A1[1] = binary.BigEndian.Uint64(e[32:40])
-	z.C1.B2.A1[2] = binary.BigEndian.Uint64(e[24:32])
-	z.C1.B2.A1[3] = binary.BigEndian.Uint64(e[16:24])
-	z.C1.B2.A1[4] = binary.BigEndian.Uint64(e[8:16])
-	z.C1.B2.A1[5] = binary.BigEndian.Uint64(e[0:8])
-
-	z.ToMont()
+	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
 
 	return nil
 }

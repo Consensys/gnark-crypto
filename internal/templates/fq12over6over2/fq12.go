@@ -311,8 +311,6 @@ func (z *E12) SetBytes(e []byte) error {
 	{{- $offset := mul $sizeOfFp 0}}
 	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B2.A1"}}
 
-	z.ToMont()
-
 	return nil
 }
 
@@ -328,14 +326,7 @@ func (z *E12) SetBytes(e []byte) error {
 {{end}}
 
 {{define "readFp"}}
-	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
-			{{- $j := mul $i 8}}
-			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Fp.NbWords 1}}
-			{{- $k := sub $k $i}}
-			{{- $jj := add $j 8}}
-			{{$.To}}[{{$k}}] = binary.BigEndian.Uint64(e[{{$j}}:{{$jj}}])
-	{{- end}}
+	{{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}
 
 `
