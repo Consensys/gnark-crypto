@@ -17,8 +17,9 @@
 package fptower
 
 import (
-	"github.com/consensys/gurvy/bn256/fp"
 	"math/big"
+
+	"github.com/consensys/gurvy/bn256/fp"
 )
 
 // E2 is a degree two finite field extension of fp.Element
