@@ -5,6 +5,7 @@ const PairingTests = `
 
 import (
 	"math/big"
+	"fmt"
 	"testing"
 
 	"github.com/consensys/gurvy/{{ .Name }}/fr"    

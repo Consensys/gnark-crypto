@@ -33,7 +33,7 @@ TEXT ·mul(SB), $96-24
 	
 NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l40
+    JNE l29
     XORQ DX, DX
     MOVQ y+16(FP), DX
     MOVQ 0(DX), DX
@@ -1428,7 +1428,7 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l40:
+l29:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX
@@ -1456,7 +1456,7 @@ TEXT ·square(SB), $96-16
 	
 NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l41
+    JNE l30
     XORQ DX, DX
     MOVQ x+8(FP), DX
     MOVQ 0(DX), DX
@@ -2851,7 +2851,7 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l41:
+l30:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX
@@ -2874,7 +2874,7 @@ NO_LOCAL_POINTERS
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l42
+    JNE l31
     MOVQ res+0(FP), R13
     MOVQ 0(R13), R14
     MOVQ 8(R13), R15
@@ -3490,7 +3490,7 @@ NO_LOCAL_POINTERS
     MOVQ R11, 80(R13)
     MOVQ R12, 88(R13)
     RET
-l42:
+l31:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
 CALL ·_fromMontGeneric(SB)
@@ -3665,7 +3665,7 @@ TEXT ·sub(SB), NOSPLIT, $0-24
     SBBQ 72(R14), R10
     SBBQ 80(R14), R11
     SBBQ 88(R14), R12
-    JCC l43
+    JCC l32
     ADDQ ·qElement+0(SB), AX
     ADCQ ·qElement+8(SB), DX
     ADCQ ·qElement+16(SB), CX
@@ -3678,7 +3678,7 @@ TEXT ·sub(SB), NOSPLIT, $0-24
     ADCQ ·qElement+72(SB), R10
     ADCQ ·qElement+80(SB), R11
     ADCQ ·qElement+88(SB), R12
-l43:
+l32:
     MOVQ res+0(FP), R15
     MOVQ AX, 0(R15)
     MOVQ DX, 8(R15)
@@ -3799,7 +3799,7 @@ TEXT ·neg(SB), NOSPLIT, $0-16
     ORQ R14, AX
     ORQ R15, AX
     TESTQ AX, AX
-    JNE l44
+    JNE l33
     MOVQ AX, 0(DX)
     MOVQ AX, 8(DX)
     MOVQ AX, 16(DX)
@@ -3807,7 +3807,7 @@ TEXT ·neg(SB), NOSPLIT, $0-16
     MOVQ AX, 32(DX)
     MOVQ AX, 40(DX)
     RET
-l44:
+l33:
     MOVQ $0xf49d00000000008b, CX
     SUBQ BX, CX
     MOVQ CX, 0(DX)

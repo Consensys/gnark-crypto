@@ -17,11 +17,11 @@
 package bls377
 
 import (
+	"github.com/consensys/gurvy/bls377/fr"
 	"math"
 	"runtime"
 	"sync"
 
-	"github.com/consensys/gurvy/bls377/fr"
 	"github.com/consensys/gurvy/bls377/internal/fptower"
 )
 

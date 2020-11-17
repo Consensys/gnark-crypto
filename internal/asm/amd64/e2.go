@@ -35,6 +35,7 @@ func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
 }
 
 func (fq2 *Fq2Amd64) Generate() error {
+	defer amd64.Release()
 	WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
 	WriteLn("#include \"textflag.h\"")

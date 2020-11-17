@@ -192,13 +192,13 @@ TEXT ·negE2(SB), NOSPLIT, $0-16
     ORQ SI, AX
     ORQ DI, AX
     TESTQ AX, AX
-    JNE l9
+    JNE l34
     MOVQ AX, 32(DX)
     MOVQ AX, 40(DX)
     MOVQ AX, 48(DX)
     MOVQ AX, 56(DX)
-    JMP l11
-l9:
+    JMP l36
+l34:
     MOVQ $0x3c208c16d87cfd47, CX
     SUBQ BX, CX
     MOVQ CX, 0(DX)
@@ -211,7 +211,7 @@ l9:
     MOVQ $0x30644e72e131a029, CX
     SBBQ DI, CX
     MOVQ CX, 24(DX)
-l11:
+l36:
     MOVQ x+8(FP), AX
     MOVQ 32(AX), BX
     MOVQ 40(AX), BP
@@ -222,13 +222,13 @@ l11:
     ORQ SI, AX
     ORQ DI, AX
     TESTQ AX, AX
-    JNE l10
+    JNE l35
     MOVQ AX, 32(DX)
     MOVQ AX, 40(DX)
     MOVQ AX, 48(DX)
     MOVQ AX, 56(DX)
     RET
-l10:
+l35:
     MOVQ $0x3c208c16d87cfd47, CX
     SUBQ BX, CX
     MOVQ CX, 32(DX)
@@ -245,7 +245,7 @@ l10:
 
 TEXT ·mulAdxE2(SB), $24-24
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l12
+    JNE l37
     MOVQ x+8(FP), R9
     MOVQ 32(R9), R14
     MOVQ 40(R9), R15
@@ -897,7 +897,7 @@ TEXT ·mulAdxE2(SB), $24-24
     MOVQ R8, 48(R14)
     MOVQ BP, 56(R14)
     RET
-l12:
+l37:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX
@@ -909,7 +909,7 @@ CALL ·mulGenericE2(SB)
 
 TEXT ·squareAdxE2(SB), $16-16
     CMPB ·supportAdx(SB), $0x0000000000000001
-    JNE l13
+    JNE l38
     MOVQ x+8(FP), R9
     MOVQ 32(R9), R14
     MOVQ 40(R9), R15
@@ -1311,7 +1311,7 @@ TEXT ·squareAdxE2(SB), $16-16
     MOVQ CX, 16(R13)
     MOVQ BX, 24(R13)
     RET
-l13:
+l38:
     MOVQ res+0(FP), AX
     MOVQ AX, (SP)
     MOVQ x+8(FP), AX

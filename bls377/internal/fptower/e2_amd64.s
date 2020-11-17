@@ -268,15 +268,15 @@ TEXT ·negE2(SB), NOSPLIT, $0-16
     ORQ R8, AX
     ORQ R9, AX
     TESTQ AX, AX
-    JNE l22
+    JNE l42
     MOVQ AX, 48(DX)
     MOVQ AX, 56(DX)
     MOVQ AX, 64(DX)
     MOVQ AX, 72(DX)
     MOVQ AX, 80(DX)
     MOVQ AX, 88(DX)
-    JMP l24
-l22:
+    JMP l44
+l42:
     MOVQ $0x8508c00000000001, CX
     SUBQ BX, CX
     MOVQ CX, 0(DX)
@@ -295,7 +295,7 @@ l22:
     MOVQ $0x01ae3a4617c510ea, CX
     SBBQ R9, CX
     MOVQ CX, 40(DX)
-l24:
+l44:
     MOVQ x+8(FP), AX
     MOVQ 48(AX), BX
     MOVQ 56(AX), BP
@@ -310,7 +310,7 @@ l24:
     ORQ R8, AX
     ORQ R9, AX
     TESTQ AX, AX
-    JNE l23
+    JNE l43
     MOVQ AX, 48(DX)
     MOVQ AX, 56(DX)
     MOVQ AX, 64(DX)
@@ -318,7 +318,7 @@ l24:
     MOVQ AX, 80(DX)
     MOVQ AX, 88(DX)
     RET
-l23:
+l43:
     MOVQ $0x8508c00000000001, CX
     SUBQ BX, CX
     MOVQ CX, 48(DX)

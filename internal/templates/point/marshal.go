@@ -4,13 +4,14 @@ package point
 const Marshal = `
 import (
 	"io"
-	"math/big"
-	"runtime"
+	"reflect"
+	"errors"
 	"encoding/binary"
+	"sync/atomic"
 
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
-	"github.com/consensys/gurvy/utils/debug"
+	"github.com/consensys/gurvy/utils/parallel"
 )
 
 
@@ -414,10 +415,14 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 const MarshalTests = `
 import (
 	"testing"
+	"math/rand"
+	"math/big"
+	"bytes"
+	"io" 
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/gen"
-	"github.com/leanovate/gopter/prop"
+
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 )
 
 func TestEncoder(t *testing.T) {

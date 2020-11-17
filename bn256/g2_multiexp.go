@@ -17,11 +17,11 @@
 package bn256
 
 import (
+	"github.com/consensys/gurvy/bn256/fr"
 	"math"
 	"runtime"
 	"sync"
 
-	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/bn256/internal/fptower"
 )
 

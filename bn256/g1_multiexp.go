@@ -17,12 +17,12 @@
 package bn256
 
 import (
+	"github.com/consensys/gurvy/bn256/fr"
 	"math"
 	"runtime"
 	"sync"
 
 	"github.com/consensys/gurvy/bn256/fp"
-	"github.com/consensys/gurvy/bn256/fr"
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf

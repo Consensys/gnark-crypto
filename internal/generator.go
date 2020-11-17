@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"text/template"
 
 	"github.com/consensys/bavard"
@@ -18,6 +20,7 @@ import (
 
 //go:generate go run generator.go
 func main() {
+	var wg sync.WaitGroup
 	for _, conf := range []curveConfig{
 		// BN256
 		{
@@ -103,48 +106,58 @@ func main() {
 			},
 		},
 	} {
+		wg.Add(1)
 		// for each curve, generate the needed files
+		go func(conf curveConfig) {
+			defer wg.Done()
+			doc := "provides efficient elliptic curve and pairing implementation for " + conf.Name
+			conf.Fp, _ = field.NewField("fp", "Element", conf.fp)
+			conf.Fr, _ = field.NewField("fr", "Element", conf.fr)
+			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+			conf.dir = filepath.Join(baseDir, conf.Name)
 
-		doc := "provides efficient elliptic curve and pairing implementation for " + conf.Name
-		conf.Fp, _ = field.NewField("fp", "Element", conf.fp, false, "")
-		conf.Fr, _ = field.NewField("fr", "Element", conf.fr, false, "")
-		conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
-		conf.dir = filepath.Join(baseDir, conf.Name)
+			// generate base fields
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(conf.dir, "fr")))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(conf.dir, "fp")))
 
-		// generate base fields
-		assertNoError(GenerateBaseFields(conf))
+			g1 := pconf{conf, conf.G1}
+			g2 := pconf{conf, conf.G2}
 
-		g1 := pconf{conf, conf.G1}
-		g2 := pconf{conf, conf.G2}
+			toGenerate := []genOpts{
+				{data: conf, dir: conf.dir, file: "doc.go", doc: doc},
+				{data: conf, dir: conf.dir, file: "multiexp_helpers.go", templates: []string{point.MultiExpHelpers}},
+				{data: conf, dir: conf.dir, file: "marshal.go", templates: []string{point.Marshal}},
+				{data: conf, dir: conf.dir, file: "marshal_test.go", templates: []string{point.MarshalTests}},
 
-		toGenerate := []genOpts{
-			{data: conf, dir: conf.dir, file: "doc.go", doc: doc},
-			{data: conf, dir: conf.dir, file: "multiexp_helpers.go", templates: []string{point.MultiExpHelpers}},
-			{data: conf, dir: conf.dir, file: "marshal.go", templates: []string{point.Marshal}},
-			{data: conf, dir: conf.dir, file: "marshal_test.go", templates: []string{point.MarshalTests}},
+				{data: g1, dir: conf.dir, file: "g1.go", templates: []string{point.Point}},
+				{data: g1, dir: conf.dir, file: "g1_test.go", templates: []string{point.PointTests}},
+				{data: g1, dir: conf.dir, file: "g1_multiexp.go", templates: []string{point.MultiExpCore}},
 
-			{data: g1, dir: conf.dir, file: "g1.go", templates: []string{point.Point}},
-			{data: g1, dir: conf.dir, file: "g1_test.go", templates: []string{point.PointTests}},
-			{data: g1, dir: conf.dir, file: "g1_multiexp.go", templates: []string{point.MultiExpCore}},
+				{data: g2, dir: conf.dir, file: "g2.go", templates: []string{point.Point}},
+				{data: g2, dir: conf.dir, file: "g2_test.go", templates: []string{point.PointTests}},
+				{data: g2, dir: conf.dir, file: "g2_multiexp.go", templates: []string{point.MultiExpCore}},
+			}
 
-			{data: g2, dir: conf.dir, file: "g2.go", templates: []string{point.Point}},
-			{data: g2, dir: conf.dir, file: "g2_test.go", templates: []string{point.PointTests}},
-			{data: g2, dir: conf.dir, file: "g2_multiexp.go", templates: []string{point.MultiExpCore}},
-		}
+			if conf.Name != "bw761" {
+				assertNoError(GenerateFq12over6over2(conf))
+				toGenerate = append(toGenerate, genOpts{
+					data: conf, dir: conf.dir, file: "pairing_test.go", templates: []string{pairing.PairingTests},
+				})
+			}
 
-		if conf.Name != "bw761" {
-			assertNoError(GenerateFq12over6over2(conf))
-			toGenerate = append(toGenerate, genOpts{
-				data: conf, dir: conf.dir, file: "pairing_test.go", templates: []string{pairing.PairingTests},
-			})
-		}
-
-		for _, g := range toGenerate {
-			generate(g)
-		}
+			for _, g := range toGenerate {
+				generate(g)
+			}
+		}(conf)
 
 	}
+	wg.Wait()
 
+	// run go fmt on whole directory
+	cmd := exec.Command("gofmt", "-s", "-w", "../")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
 }
 
 func assertNoError(err error) {
@@ -192,17 +205,6 @@ func defaultCRange() []int {
 	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
 }
 
-// GenerateBaseFields generates the base field fr and fp
-func GenerateBaseFields(conf curveConfig) error {
-	if err := generator.GenerateFF("fr", "Element", conf.Fr.Modulus, filepath.Join(conf.dir, "fr"), false); err != nil {
-		return err
-	}
-	if err := generator.GenerateFF("fp", "Element", conf.Fp.Modulus, filepath.Join(conf.dir, "fp"), false); err != nil {
-		return err
-	}
-	return nil
-}
-
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
 func GenerateFq12over6over2(conf curveConfig) error {
 	dir := filepath.Join(conf.dir, "internal", fpTower)
@@ -228,9 +230,9 @@ func GenerateFq12over6over2(conf curveConfig) error {
 		}
 
 		// TODO dirty, we need that so that generated assembly code points to q"E2"
-		fp2, _ := field.NewField(conf.Name, "E2", conf.Fp.Modulus, false, "unset")
-		fq2Amd64 := amd64.NewFq2Amd64(f, fp2, conf.Name)
-		if err := fq2Amd64.Generate(); err != nil {
+		fp2, _ := field.NewField(conf.Name, "E2", conf.Fp.Modulus)
+		Fq2Amd64 := amd64.NewFq2Amd64(f, fp2, conf.Name)
+		if err := Fq2Amd64.Generate(); err != nil {
 			_ = f.Close()
 			return err
 		}
@@ -256,6 +258,8 @@ func generate(g genOpts) {
 		bavard.Apache2(copyrightHolder, 2020),
 		bavard.GeneratedBy("gurvy"),
 		bavard.Funcs(helpers()),
+		bavard.Format(false),
+		bavard.Import(false),
 	}
 	if g.buildTag != "" {
 		opts = append(opts, bavard.BuildTag(g.buildTag))

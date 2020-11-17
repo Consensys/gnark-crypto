@@ -17,11 +17,11 @@
 package bls381
 
 import (
+	"github.com/consensys/gurvy/bls381/fr"
 	"math"
 	"runtime"
 	"sync"
 
-	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 

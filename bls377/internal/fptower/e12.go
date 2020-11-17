@@ -19,9 +19,8 @@ package fptower
 import (
 	"encoding/binary"
 	"errors"
-	"math/big"
-
 	"github.com/consensys/gurvy/bls377/fp"
+	"math/big"
 )
 
 // E12 is a degree two finite field extension of fp6

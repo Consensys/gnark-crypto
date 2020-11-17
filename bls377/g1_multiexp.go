@@ -17,12 +17,12 @@
 package bls377
 
 import (
+	"github.com/consensys/gurvy/bls377/fr"
 	"math"
 	"runtime"
 	"sync"
 
 	"github.com/consensys/gurvy/bls377/fp"
-	"github.com/consensys/gurvy/bls377/fr"
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf

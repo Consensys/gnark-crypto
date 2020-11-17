@@ -6,12 +6,14 @@ const Point = `
 import (
 	"io"
 	"math/big"
-	"runtime"
 	"encoding/binary"
+	"errors"
 
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
-	"github.com/consensys/gurvy/utils/debug"
+	"github.com/consensys/gurvy/utils"
+	"github.com/consensys/gurvy/utils/parallel"
+	{{if eq .CoordType "fptower.E2"}}"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"{{end}}
 )
 
 // {{ toUpper .PointName }} point in affine coordinates
@@ -585,7 +587,6 @@ func (p *{{ toLower .PointName }}Proj) FromJacobian(Q *{{ toUpper .PointName}}Ja
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
 func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ toUpper .PointName}}Jac, result []{{ toUpper .PointName}}) {
-	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 

@@ -17,9 +17,8 @@
 package fp
 
 import (
-	"math/bits"
-
 	"golang.org/x/sys/cpu"
+	"math/bits"
 )
 
 var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2

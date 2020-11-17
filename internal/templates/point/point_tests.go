@@ -9,7 +9,8 @@ import (
 	"math/bits"
 	"runtime"
 	"testing"
-
+	
+	{{if eq .CoordType "fptower.E2"}}"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"{{end}}
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/leanovate/gopter"

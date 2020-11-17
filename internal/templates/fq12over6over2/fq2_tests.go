@@ -5,11 +5,10 @@ const Fq2Tests = `
 
 import (
 	"testing"
+	"crypto/rand"
 
 	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
 	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/commands"
-	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 )
 

@@ -3,6 +3,18 @@ package point
 // MultiExpCore ...
 const MultiExpCore = `
 
+import (
+	"runtime"
+	"math"
+	"sync"
+	"github.com/consensys/gurvy/{{toLower .Name}}/fr"
+	{{if eq .CoordType "fptower.E2"}}
+	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
+	{{else}}
+	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
+	{{end}}
+)
+
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
@@ -398,7 +410,9 @@ func (p *{{ toLower .PointName}}JacExtended) double(q *{{ toUpper .PointName }})
 const MultiExpHelpers = `
 
 import (
+	"github.com/consensys/gurvy/utils/parallel"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"sync"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use

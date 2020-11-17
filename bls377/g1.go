@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/bls377/fr"
 	"github.com/consensys/gurvy/utils"
-	"github.com/consensys/gurvy/utils/debug"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -491,7 +490,6 @@ func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
 func BatchJacobianToAffineG1(points []G1Jac, result []G1) {
-	debug.Assert(len(result) == len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 

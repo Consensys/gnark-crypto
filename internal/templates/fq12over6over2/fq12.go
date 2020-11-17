@@ -5,6 +5,9 @@ const Fq12 = `
 
 import (
 	"math/big"
+	"encoding/binary"
+	"errors"
+	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
 )
 
 // E12 is a degree two finite field extension of fp6
