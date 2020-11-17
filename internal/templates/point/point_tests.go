@@ -565,15 +565,15 @@ parameters := gopter.DefaultTestParameters()
 				g.AddAssign(&{{ toLower .PointName}}Gen)
 			}
 
-			var op1MultiExp {{ toLower .PointName }}Jac
+			var op1MultiExp {{ toUpper .PointName }}
 			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul {{ toLower .PointName }}Jac
+			var op1ScalarMul {{ toUpper .PointName }}
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}Gen, &finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -921,7 +921,7 @@ func Benchmark{{ toUpper .PointName}}MultiExp{{ toUpper .PointName}}(b *testing.
 		samplePoints[i-1] = {{ toLower .PointName}}GenAff
 	}
 
-	var testPoint {{ toLower .PointName }}Jac
+	var testPoint {{ toUpper .PointName }}
 
 	for i := 5; i <= pow; i++ {
 		using := 1 << i

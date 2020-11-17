@@ -468,15 +468,15 @@ func TestG2Ops(t *testing.T) {
 				g.AddAssign(&g2Gen)
 			}
 
-			var op1MultiExp g2Jac
+			var op1MultiExp G2
 			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul g2Jac
+			var op1ScalarMul G2
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&g2Gen, &finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -1255,7 +1255,7 @@ func BenchmarkG2MultiExpG2(b *testing.B) {
 		samplePoints[i-1] = g2GenAff
 	}
 
-	var testPoint g2Jac
+	var testPoint G2
 
 	for i := 5; i <= pow; i++ {
 		using := 1 << i

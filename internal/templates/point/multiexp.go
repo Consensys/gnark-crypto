@@ -6,7 +6,7 @@ const MultiExpCore = `
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *{{ toLower .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toLower .PointName }}Jac {
+func (p *{{ toUpper .PointName }}) MultiExp(points []{{ toUpper .PointName }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toUpper .PointName }} {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -83,14 +83,19 @@ func (p *{{ toLower .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
+	var pJac {{ toLower .PointName }}Jac
+	pJac.FromAffine(p)
+
 	switch C {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.msmC{{$c}}(points, scalars, opt)	
+		pJac.msmC{{$c}}(points, scalars, opt)	
 	{{end}}
 	default:
 		panic("unimplemented")
 	}
+	p.FromJacobian(&pJac)
+	return p
 }
 
 // msmReduceChunk{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
