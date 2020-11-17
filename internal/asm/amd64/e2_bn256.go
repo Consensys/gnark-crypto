@@ -20,88 +20,88 @@ import (
 
 func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
 	// 	var a, b fp.Element
-	// 	a.Double(&x.A0).Double(&a).Double(&a).fq2.F.Add(&a, &x.A0).fq2.F.Sub(&a, &x.A1)
-	// 	b.Double(&x.A1).Double(&b).Double(&b).fq2.F.Add(&b, &x.A1).fq2.F.Add(&b, &x.A0)
+	// 	a.Double(&x.A0).Double(&a).Double(&a).fq2.Add(&a, &x.A0).fq2.Sub(&a, &x.A1)
+	// 	b.Double(&x.A1).Double(&b).Double(&b).fq2.Add(&b, &x.A1).fq2.Add(&b, &x.A0)
 	// 	z.A0.Set(&a)
 	// 	z.A1.Set(&b)
-	registers := FnHeader("mulNonResE2", 0, 16)
+	registers := fq2.FnHeader("mulNonResE2", 0, 16)
 
-	a := registers.PopN(fq2.F.NbWords)
-	b := registers.PopN(fq2.F.NbWords)
+	a := registers.PopN(fq2.NbWords)
+	b := registers.PopN(fq2.NbWords)
 	x := registers.Pop()
 
-	MOVQ("x+8(FP)", x)
-	fq2.F.Mov(x, a) // a = a0
+	fq2.MOVQ("x+8(FP)", x)
+	fq2.Mov(x, a) // a = a0
 
-	fq2.F.Add(a, a)
-	fq2.F.Reduce(&registers, a, a)
+	fq2.Add(a, a)
+	fq2.Reduce(&registers, a, a)
 
-	fq2.F.Add(a, a)
-	fq2.F.Reduce(&registers, a, a)
+	fq2.Add(a, a)
+	fq2.Reduce(&registers, a, a)
 
-	fq2.F.Add(a, a)
-	fq2.F.Reduce(&registers, a, a)
+	fq2.Add(a, a)
+	fq2.Reduce(&registers, a, a)
 
-	fq2.F.Add(x, a)
-	fq2.F.Reduce(&registers, a, a)
+	fq2.Add(x, a)
+	fq2.Reduce(&registers, a, a)
 
-	fq2.F.Mov(x, b, fq2.F.NbWords) // b = a1
-	fq2.F.Sub(b, a)
-	fq2.F.ReduceAfterSub(&registers, a, true)
+	fq2.Mov(x, b, fq2.NbWords) // b = a1
+	fq2.Sub(b, a)
+	fq2.ReduceAfterSub(&registers, a, true)
 
-	fq2.F.Add(b, b)
-	fq2.F.Reduce(&registers, b, b)
+	fq2.Add(b, b)
+	fq2.Reduce(&registers, b, b)
 
-	fq2.F.Add(b, b)
-	fq2.F.Reduce(&registers, b, b)
+	fq2.Add(b, b)
+	fq2.Reduce(&registers, b, b)
 
-	fq2.F.Add(b, b)
-	fq2.F.Reduce(&registers, b, b)
+	fq2.Add(b, b)
+	fq2.Reduce(&registers, b, b)
 
-	fq2.F.Add(x, b, fq2.F.NbWords)
-	fq2.F.Reduce(&registers, b, b)
-	fq2.F.Add(x, b)
-	fq2.F.Reduce(&registers, b, b)
+	fq2.Add(x, b, fq2.NbWords)
+	fq2.Reduce(&registers, b, b)
+	fq2.Add(x, b)
+	fq2.Reduce(&registers, b, b)
 
-	MOVQ("res+0(FP)", x)
-	fq2.F.Mov(a, x)
-	fq2.F.Mov(b, x, 0, fq2.F.NbWords)
+	fq2.MOVQ("res+0(FP)", x)
+	fq2.Mov(a, x)
+	fq2.Mov(b, x, 0, fq2.NbWords)
 
-	RET()
+	fq2.RET()
 }
 
 func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 	// var a, b fp.Element
-	// a.fq2.F.Add(&x.A0, &x.A1)
-	// b.fq2.F.Sub(&x.A0, &x.A1)
+	// a.fq2.Add(&x.A0, &x.A1)
+	// b.fq2.Sub(&x.A0, &x.A1)
 	// a.Mul(&a, &b)
 	// b.Mul(&x.A0, &x.A1).Double(&b)
 	// z.A0.Set(&a)
 	// z.A1.Set(&b)
-	registers := FnHeader("squareAdxE2", 16, 16, DX, AX)
+	registers := fq2.FnHeader("squareAdxE2", 16, 16, DX, AX)
 
-	noAdx := NewLabel()
+	noAdx := fq2.NewLabel()
 	// check ADX instruction support
-	CMPB("·supportAdx(SB)", 1)
-	JNE(noAdx)
+	fq2.CMPB("·supportAdx(SB)", 1)
+	fq2.JNE(noAdx)
 
-	a := registers.PopN(fq2.F.NbWords)
-	b := registers.PopN(fq2.F.NbWords)
+	a := registers.PopN(fq2.NbWords)
+	b := registers.PopN(fq2.NbWords)
 	{
 		x := registers.Pop()
 
-		MOVQ("x+8(FP)", x)
-		fq2.F.Mov(x, a, fq2.F.NbWords) // a = a1
-		fq2.F.Mov(x, b)                // b = a0
+		fq2.MOVQ("x+8(FP)", x)
+		fq2.Mov(x, a, fq2.NbWords) // a = a1
+		fq2.Mov(x, b)              // b = a0
 
 		// a = a0 + a1
-		fq2.F.Add(b, a)
-		fq2.F.Reduce(&registers, a, a)
+		fq2.Add(b, a)
+		fq2.Reduce(&registers, a, a)
 
 		// b = a0 - a1
-		fq2.F.Sub(x, b, fq2.F.NbWords)
+		fq2.Sub(x, b, fq2.NbWords)
 		registers.Push(x)
-		fq2.F.ReduceAfterSub(&registers, b, true)
+		fq2.ReduceAfterSub(&registers, b, true)
 	}
 
 	// a = a * b
@@ -115,8 +115,8 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 		uglyHook := func(i int) {
 			registers.Push(b[i])
 		}
-		t := fq2.F.MulADX(&registers, yat, xat, uglyHook)
-		fq2.F.Reduce(&registers, t, a)
+		t := fq2.MulADX(&registers, yat, xat, uglyHook)
+		fq2.Reduce(&registers, t, a)
 
 		registers.Push(t...)
 	}
@@ -124,74 +124,74 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 	// b = a0 * a1 * 2
 	{
 		r := registers.Pop()
-		MOVQ("x+8(FP)", r)
+		fq2.MOVQ("x+8(FP)", r)
 		yat := func(i int) string {
-			return r.At(i + fq2.F.NbWords)
+			return r.At(i + fq2.NbWords)
 		}
 		xat := func(i int) string {
 			return r.At(i)
 		}
-		b = fq2.F.MulADX(&registers, yat, xat, nil)
+		b = fq2.MulADX(&registers, yat, xat, nil)
 		registers.Push(r)
 
 		// reduce b
-		fq2.F.Reduce(&registers, b, b)
+		fq2.Reduce(&registers, b, b)
 
 		// double b (no reduction)
-		fq2.F.Add(b, b)
+		fq2.Add(b, b)
 	}
 
 	// result.a1 = b
 	r := registers.Pop()
-	MOVQ("res+0(FP)", r)
-	fq2.F.Reduce(&registers, b, r, fq2.F.NbWords)
+	fq2.MOVQ("res+0(FP)", r)
+	fq2.Reduce(&registers, b, r, fq2.NbWords)
 
 	// result.a0 = a
-	fq2.F.Mov(a, r)
+	fq2.Mov(a, r)
 
-	RET()
+	fq2.RET()
 
 	// No adx
-	LABEL(noAdx)
-	MOVQ("res+0(FP)", AX)
-	MOVQ(AX, "(SP)")
-	MOVQ("x+8(FP)", AX)
-	MOVQ(AX, "8(SP)")
-	WriteLn("CALL ·squareGenericE2(SB)")
-	RET()
+	fq2.LABEL(noAdx)
+	fq2.MOVQ("res+0(FP)", AX)
+	fq2.MOVQ(AX, "(SP)")
+	fq2.MOVQ("x+8(FP)", AX)
+	fq2.MOVQ(AX, "8(SP)")
+	fq2.WriteLn("CALL ·squareGenericE2(SB)")
+	fq2.RET()
 }
 
 func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	// var a, b, c fp.Element
-	// a.fq2.F.Add(&x.A0, &x.A1)
-	// b.fq2.F.Add(&y.A0, &y.A1)
+	// a.fq2.Add(&x.A0, &x.A1)
+	// b.fq2.Add(&y.A0, &y.A1)
 	// a.Mul(&a, &b)
 	// b.Mul(&x.A0, &y.A0)
 	// c.Mul(&x.A1, &y.A1)
-	// z.A1.fq2.F.Sub(&a, &b).fq2.F.Sub(&z.A1, &c)
-	// z.A0.fq2.F.Sub(&b, &c)
-	registers := FnHeader("mulAdxE2", 24, 24, DX, AX)
+	// z.A1.fq2.Sub(&a, &b).fq2.Sub(&z.A1, &c)
+	// z.A0.fq2.Sub(&b, &c)
+	registers := fq2.FnHeader("mulAdxE2", 24, 24, DX, AX)
 
-	noAdx := NewLabel()
+	noAdx := fq2.NewLabel()
 	// check ADX instruction support
-	CMPB("·supportAdx(SB)", 1)
-	JNE(noAdx)
+	fq2.CMPB("·supportAdx(SB)", 1)
+	fq2.JNE(noAdx)
 
-	a := registers.PopN(fq2.F.NbWords)
-	b := registers.PopN(fq2.F.NbWords)
+	a := registers.PopN(fq2.NbWords)
+	b := registers.PopN(fq2.NbWords)
 	{
 		x := registers.Pop()
 
-		MOVQ("x+8(FP)", x)
+		fq2.MOVQ("x+8(FP)", x)
 
-		fq2.F.Mov(x, a, fq2.F.NbWords) // a = x.a1
-		fq2.F.Add(x, a)                // a = x.a0 + x.a1
-		fq2.F.Reduce(&registers, a, a)
+		fq2.Mov(x, a, fq2.NbWords) // a = x.a1
+		fq2.Add(x, a)              // a = x.a0 + x.a1
+		fq2.Reduce(&registers, a, a)
 
-		MOVQ("y+16(FP)", x)
-		fq2.F.Mov(x, b, fq2.F.NbWords) // b = y.a1
-		fq2.F.Add(x, b)                // b = y.a0 + y.a1
-		fq2.F.Reduce(&registers, b, b)
+		fq2.MOVQ("y+16(FP)", x)
+		fq2.Mov(x, b, fq2.NbWords) // b = y.a1
+		fq2.Add(x, b)              // b = y.a0 + y.a1
+		fq2.Reduce(&registers, b, b)
 
 		registers.Push(x)
 	}
@@ -207,8 +207,8 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 		uglyHook := func(i int) {
 			registers.Push(b[i])
 		}
-		t := fq2.F.MulADX(&registers, yat, xat, uglyHook)
-		fq2.F.Reduce(&registers, t, a)
+		t := fq2.MulADX(&registers, yat, xat, uglyHook)
+		fq2.Reduce(&registers, t, a)
 
 		registers.Push(t...)
 	}
@@ -217,24 +217,24 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	{
 		r := registers.Pop()
 		yat := func(i int) string {
-			MOVQ("y+16(FP)", r)
+			fq2.MOVQ("y+16(FP)", r)
 			return r.At(i)
 		}
 		xat := func(i int) string {
-			MOVQ("x+8(FP)", r)
+			fq2.MOVQ("x+8(FP)", r)
 			return r.At(i)
 		}
-		b = fq2.F.MulADX(&registers, yat, xat, nil)
+		b = fq2.MulADX(&registers, yat, xat, nil)
 		registers.Push(r)
-		fq2.F.Reduce(&registers, b, b)
+		fq2.Reduce(&registers, b, b)
 	}
 	// a - = b
-	fq2.F.Sub(b, a)
-	fq2.F.ReduceAfterSub(&registers, a, true)
+	fq2.Sub(b, a)
+	fq2.ReduceAfterSub(&registers, a, true)
 
 	// push a to the stack for later use
-	for i := 0; i < fq2.F.NbWords; i++ {
-		PUSHQ(a[i])
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.PUSHQ(a[i])
 	}
 	registers.Push(a...)
 
@@ -243,55 +243,55 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	{
 		r := registers.Pop()
 		yat := func(i int) string {
-			MOVQ("y+16(FP)", r)
-			return r.At(i + fq2.F.NbWords)
+			fq2.MOVQ("y+16(FP)", r)
+			return r.At(i + fq2.NbWords)
 		}
 		xat := func(i int) string {
-			MOVQ("x+8(FP)", r)
-			return r.At(i + fq2.F.NbWords)
+			fq2.MOVQ("x+8(FP)", r)
+			return r.At(i + fq2.NbWords)
 		}
-		c = fq2.F.MulADX(&registers, yat, xat, nil)
+		c = fq2.MulADX(&registers, yat, xat, nil)
 		registers.Push(r)
-		fq2.F.Reduce(&registers, c, c)
+		fq2.Reduce(&registers, c, c)
 	}
 
 	// b = b - c
-	fq2.F.Sub(c, b)
-	fq2.F.ReduceAfterSub(&registers, b, true)
+	fq2.Sub(c, b)
+	fq2.ReduceAfterSub(&registers, b, true)
 
 	// dereference result
 	r := registers.Pop()
-	MOVQ("res+0(FP)", r)
+	fq2.MOVQ("res+0(FP)", r)
 
 	// z.A0 = b
-	fq2.F.Mov(b, r)
+	fq2.Mov(b, r)
 
 	// restore a
 	a = b
-	for i := fq2.F.NbWords - 1; i >= 0; i-- {
-		POPQ(a[i])
+	for i := fq2.NbWords - 1; i >= 0; i-- {
+		fq2.POPQ(a[i])
 	}
 
 	// a = a - c
-	fq2.F.Sub(c, a)
+	fq2.Sub(c, a)
 	registers.Push(c...)
 
 	// reduce a
-	fq2.F.ReduceAfterSub(&registers, a, true)
+	fq2.ReduceAfterSub(&registers, a, true)
 
 	// z.A1 = a
-	fq2.F.Mov(a, r, 0, fq2.F.NbWords)
+	fq2.Mov(a, r, 0, fq2.NbWords)
 
-	RET()
+	fq2.RET()
 
 	// No adx
-	LABEL(noAdx)
-	MOVQ("res+0(FP)", AX)
-	MOVQ(AX, "(SP)")
-	MOVQ("x+8(FP)", AX)
-	MOVQ(AX, "8(SP)")
-	MOVQ("y+16(FP)", AX)
-	MOVQ(AX, "16(SP)")
-	WriteLn("CALL ·mulGenericE2(SB)")
-	RET()
+	fq2.LABEL(noAdx)
+	fq2.MOVQ("res+0(FP)", AX)
+	fq2.MOVQ(AX, "(SP)")
+	fq2.MOVQ("x+8(FP)", AX)
+	fq2.MOVQ(AX, "8(SP)")
+	fq2.MOVQ("y+16(FP)", AX)
+	fq2.MOVQ(AX, "16(SP)")
+	fq2.WriteLn("CALL ·mulGenericE2(SB)")
+	fq2.RET()
 }

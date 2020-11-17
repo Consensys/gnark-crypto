@@ -24,8 +24,6 @@ package fr
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
-import "math/bits"
-
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }
