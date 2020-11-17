@@ -66,8 +66,8 @@ func TestPairing(t *testing.T) {
 
 			var res, resa, resb, resab, zero GT
 
-			var aG1 g1Jac
-			var bG2 g2Jac
+			var aG1 G1Jac
+			var bG2 G2Jac
 
 			var g1affine, ag1 G1
 			var g2affine, bg2 G2

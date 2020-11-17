@@ -13,9 +13,9 @@ package bls377
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cd https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
-func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
+func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
-	var xg, xxg, xxxg, res, t g2Jac
+	var xg, xxg, xxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen)      //.Neg(&xg)
 	xxg.ScalarMultiplication(&xg, &xGen)   //.Neg(&xxg)
 	xxxg.ScalarMultiplication(&xxg, &xGen) //.Neg(&xxxg)
@@ -48,7 +48,7 @@ func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cf https://eprint.iacr.org/2019/403.pdf, 5
 func (p *G2) ClearCofactor(a *G2) *G2 {
-	var _p g2Jac
+	var _p G2Jac
 	_p.FromAffine(a)
 	_p.ClearCofactor(&_p)
 	p.FromJacobian(&_p)

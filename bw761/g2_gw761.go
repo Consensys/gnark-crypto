@@ -15,9 +15,9 @@ import "math/big"
 
 // ClearCofactor maps a point in E(Fp) to E(Fp2-)[r]
 // https://eprint.iacr.org/2020/351.pdf
-func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
+func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
-	var points [4]g2Jac
+	var points [4]G2Jac
 	points[0].Set(a)
 	points[1].ScalarMultiplication(a, &xGen)
 	points[2].ScalarMultiplication(&points[1], &xGen)
@@ -33,7 +33,7 @@ func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
 	scalars[5].SetInt64(117)
 	scalars[6].SetInt64(109)
 
-	var p1, p2, tmp g2Jac
+	var p1, p2, tmp G2Jac
 	p1.ScalarMultiplication(&points[3], &scalars[0])
 	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
@@ -57,7 +57,7 @@ func (p *g2Jac) ClearCofactor(a *g2Jac) *g2Jac {
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cf https://eprint.iacr.org/2019/403.pdf, 5
 func (p *G2) ClearCofactor(a *G2) *G2 {
-	var _p g2Jac
+	var _p G2Jac
 	_p.FromAffine(a)
 	_p.ClearCofactor(&_p)
 	p.FromJacobian(&_p)

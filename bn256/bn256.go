@@ -29,15 +29,15 @@ var bCurveCoeff fp.Element
 var bTwistCurveCoeff fptower.E2
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-var g1Gen g1Jac
-var g2Gen g2Jac
+var g1Gen G1Jac
+var g2Gen G2Jac
 
 var g1GenAff G1
 var g2GenAff G2
 
 // point at infinity
-var g1Infinity g1Jac
-var g2Infinity g2Jac
+var g1Infinity G1Jac
+var g2Infinity G2Jac
 
 // optimal Ate loop counter
 var loopCounter [66]int8

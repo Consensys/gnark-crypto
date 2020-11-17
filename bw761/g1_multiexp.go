@@ -96,7 +96,7 @@ func (p *G1) MultiExp(points []G1, scalars []fr.Element, opts ...*CPUSemaphore) 
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
-	var pJac g1Jac
+	var pJac G1Jac
 	pJac.FromAffine(p)
 
 	switch C {
@@ -118,7 +118,7 @@ func (p *G1) MultiExp(points []G1, scalars []fr.Element, opts ...*CPUSemaphore) 
 }
 
 // msmReduceChunkG1 reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunkG1(p *g1Jac, c int, chChunks []chan g1Jac) *g1Jac {
+func msmReduceChunkG1(p *G1Jac, c int, chChunks []chan G1Jac) *G1Jac {
 	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
@@ -132,7 +132,7 @@ func msmReduceChunkG1(p *g1Jac, c int, chChunks []chan g1Jac) *g1Jac {
 }
 
 func msmProcessChunkG1(chunk uint64,
-	chRes chan<- g1Jac,
+	chRes chan<- G1Jac,
 	buckets []g1JacExtended,
 	c uint64,
 	points []G1,
@@ -181,7 +181,7 @@ func msmProcessChunkG1(chunk uint64,
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var runningSum, tj, total g1Jac
+	var runningSum, tj, total G1Jac
 	runningSum.Set(&g1Infinity)
 	total.Set(&g1Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
@@ -195,20 +195,20 @@ func msmProcessChunkG1(chunk uint64,
 	close(chRes)
 }
 
-func (p *g1Jac) msmC4(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1Jac {
+func (p *G1Jac) msmC4(points []G1, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 4                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
 	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan g1Jac
+	var chChunks [nbChunks]chan G1Jac
 
 	// wait group to wait for all the go routines to start
 	var wg sync.WaitGroup
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		chChunks[chunk] = make(chan g1Jac, 1)
+		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g1Jac, points []G1, scalars []fr.Element) {
+		go func(j uint64, chRes chan G1Jac, points []G1, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g1JacExtended
 			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
@@ -224,20 +224,20 @@ func (p *g1Jac) msmC4(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1J
 	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *g1Jac) msmC8(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1Jac {
+func (p *G1Jac) msmC8(points []G1, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 8                          // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
 	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan g1Jac
+	var chChunks [nbChunks]chan G1Jac
 
 	// wait group to wait for all the go routines to start
 	var wg sync.WaitGroup
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		chChunks[chunk] = make(chan g1Jac, 1)
+		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g1Jac, points []G1, scalars []fr.Element) {
+		go func(j uint64, chRes chan G1Jac, points []G1, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g1JacExtended
 			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
@@ -253,20 +253,20 @@ func (p *g1Jac) msmC8(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1J
 	return msmReduceChunkG1(p, c, chChunks[:])
 }
 
-func (p *g1Jac) msmC16(points []G1, scalars []fr.Element, opt *CPUSemaphore) *g1Jac {
+func (p *G1Jac) msmC16(points []G1, scalars []fr.Element, opt *CPUSemaphore) *G1Jac {
 	const c = 16                         // scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
 	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan g1Jac
+	var chChunks [nbChunks]chan G1Jac
 
 	// wait group to wait for all the go routines to start
 	var wg sync.WaitGroup
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-		chChunks[chunk] = make(chan g1Jac, 1)
+		chChunks[chunk] = make(chan G1Jac, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan g1Jac, points []G1, scalars []fr.Element) {
+		go func(j uint64, chRes chan G1Jac, points []G1, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1 << (c - 1)]g1JacExtended
 			msmProcessChunkG1(j, chRes, buckets[:], c, points, scalars)
@@ -304,7 +304,7 @@ func (p *G1) fromJacExtended(Q *g1JacExtended) *G1 {
 }
 
 // fromJacExtended sets Q in Jacobian coords
-func (p *g1Jac) fromJacExtended(Q *g1JacExtended) *g1Jac {
+func (p *G1Jac) fromJacExtended(Q *g1JacExtended) *G1Jac {
 	if Q.ZZ.IsZero() {
 		p.Set(&g1Infinity)
 		return p
@@ -316,7 +316,7 @@ func (p *g1Jac) fromJacExtended(Q *g1JacExtended) *g1Jac {
 }
 
 // unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
-func (p *g1Jac) unsafeFromJacExtended(Q *g1JacExtended) *g1Jac {
+func (p *G1Jac) unsafeFromJacExtended(Q *g1JacExtended) *G1Jac {
 	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
 	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
 	p.Z = Q.ZZZ
