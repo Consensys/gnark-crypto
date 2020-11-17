@@ -17,9 +17,8 @@
 package fptower
 
 import (
-	"math/big"
-
 	"github.com/consensys/gurvy/bls377/fp"
+	"math/big"
 )
 
 // E2 is a degree two finite field extension of fp.Element
@@ -192,11 +191,9 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	// precomputation
 	var b, c, d, e, f, x0 E2
 	var _b, o fp.Element
-	c.SetOne()
-	for c.Legendre() == 1 {
-		// TODO use something deterministic here, without possible error return
-		_, _ = c.SetRandom()
-	}
+
+	c.A1.SetOne() // c must be a non square (works for p=1 mod 12 hence 1 mod 4, only bls377 has such a p currently)
+
 	q := fp.Modulus()
 	var exp, one big.Int
 	one.SetUint64(1)
