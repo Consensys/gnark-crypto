@@ -488,7 +488,7 @@ func TestG2Ops(t *testing.T) {
 func TestG2MultiExp(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 2
 
 	properties := gopter.NewProperties(parameters)
 

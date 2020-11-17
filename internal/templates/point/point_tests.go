@@ -585,7 +585,7 @@ parameters := gopter.DefaultTestParameters()
 func Test{{ toUpper .PointName}}MultiExp(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 2
 
 	properties := gopter.NewProperties(parameters)
 
