@@ -830,7 +830,7 @@ func Benchmark{{ toUpper .PointName}}Add(b *testing.B) {
 	}
 }
 
-func Benchmark{{ toLower .PointName}}JacExtendedAdd(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}JacExtendedAdd(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
@@ -842,7 +842,7 @@ func Benchmark{{ toLower .PointName}}JacExtendedAdd(b *testing.B) {
 	}
 }
 
-func Benchmark{{ toLower .PointName}}JacExtendedSub(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}JacExtendedSub(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
@@ -854,7 +854,7 @@ func Benchmark{{ toLower .PointName}}JacExtendedSub(b *testing.B) {
 	}
 }
 
-func Benchmark{{ toLower .PointName}}JacExtendedDouble(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}JacExtendedDouble(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 
@@ -867,7 +867,7 @@ func Benchmark{{ toLower .PointName}}JacExtendedDouble(b *testing.B) {
 }
 
 
-func Benchmark{{ toLower .PointName}}JacExtendedDoubleNeg(b *testing.B) {
+func Benchmark{{ toUpper .PointName}}JacExtendedDoubleNeg(b *testing.B) {
 	var a {{ toLower .PointName}}JacExtended
 	a.double(&{{ toLower .PointName}}GenAff)
 

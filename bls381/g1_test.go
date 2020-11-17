@@ -1160,7 +1160,7 @@ func BenchmarkG1Add(b *testing.B) {
 	}
 }
 
-func Benchmarkg1JacExtendedAdd(b *testing.B) {
+func BenchmarkG1JacExtendedAdd(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
@@ -1172,7 +1172,7 @@ func Benchmarkg1JacExtendedAdd(b *testing.B) {
 	}
 }
 
-func Benchmarkg1JacExtendedSub(b *testing.B) {
+func BenchmarkG1JacExtendedSub(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
@@ -1184,7 +1184,7 @@ func Benchmarkg1JacExtendedSub(b *testing.B) {
 	}
 }
 
-func Benchmarkg1JacExtendedDouble(b *testing.B) {
+func BenchmarkG1JacExtendedDouble(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
@@ -1196,7 +1196,7 @@ func Benchmarkg1JacExtendedDouble(b *testing.B) {
 	}
 }
 
-func Benchmarkg1JacExtendedDoubleNeg(b *testing.B) {
+func BenchmarkG1JacExtendedDoubleNeg(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
