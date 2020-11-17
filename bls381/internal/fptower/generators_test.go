@@ -1,6 +1,8 @@
 package fptower
 
 import (
+	"crypto/rand"
+
 	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/leanovate/gopter"
@@ -12,16 +14,10 @@ import (
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3, a4, a5 uint64
-		a0 = genParams.NextUint64() % 13402431016077863595
-		a1 = genParams.NextUint64() % 2210141511517208575
-		a2 = genParams.NextUint64() % 7435674573564081700
-		a3 = genParams.NextUint64() % 7239337960414712511
-		a4 = genParams.NextUint64() % 5412103778470702295
-		a5 = genParams.NextUint64() % 1873798617647539866
-		elmt := fp.Element{
-			a0, a1, a2, a3, a4, a5,
-		}
+		var elmt fp.Element
+		var b [fp.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
@@ -64,14 +60,10 @@ func GenE12() gopter.Gen {
 // GenFr generates an Fr element
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3 uint64
-		a0 = genParams.NextUint64() % 18446744069414584321
-		a1 = genParams.NextUint64() % 6034159408538082302
-		a2 = genParams.NextUint64() % 3691218898639771653
-		a3 = genParams.NextUint64() % 8353516859464449352
-		elmt := fr.Element{
-			a0, a1, a2, a3,
-		}
+		var elmt fr.Element
+		var b [fr.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}

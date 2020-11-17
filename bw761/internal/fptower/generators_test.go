@@ -1,6 +1,8 @@
 package fptower
 
 import (
+	"crypto/rand"
+
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/fr"
 	"github.com/leanovate/gopter"
@@ -11,22 +13,10 @@ import (
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 uint64
-		a0 = genParams.NextUint64() % 17626244516597989515
-		a1 = genParams.NextUint64() % 16614129118623039618
-		a2 = genParams.NextUint64() % 1588918198704579639
-		a3 = genParams.NextUint64() % 10998096788944562424
-		a4 = genParams.NextUint64() % 8204665564953313070
-		a5 = genParams.NextUint64() % 9694500593442880912
-		a6 = genParams.NextUint64() % 274362232328168196
-		a7 = genParams.NextUint64() % 8105254717682411801
-		a8 = genParams.NextUint64() % 5945444129596489281
-		a9 = genParams.NextUint64() % 13341377791855249032
-		a10 = genParams.NextUint64() % 15098257552581525310
-		a11 = genParams.NextUint64() % 81882988782276106
-		elmt := fp.Element{
-			a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11,
-		}
+		var elmt fp.Element
+		var b [fp.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
@@ -59,16 +49,10 @@ func GenE6() gopter.Gen {
 // GenFr generates an Fp element
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3, a4, a5 uint64
-		a0 = genParams.NextUint64() % 9586122913090633729
-		a1 = genParams.NextUint64() % 1660523435060625408
-		a2 = genParams.NextUint64() % 2230234197602682880
-		a3 = genParams.NextUint64() % 1883307231910630287
-		a4 = genParams.NextUint64() % 14284016967150029115
-		a5 = genParams.NextUint64() % 121098312706494698
-		elmt := fr.Element{
-			a0, a1, a2, a3, a4, a5,
-		}
+		var elmt fr.Element
+		var b [fr.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}

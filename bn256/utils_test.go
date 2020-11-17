@@ -1,6 +1,8 @@
 package bn256
 
 import (
+	"math/rand"
+
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/bn256/internal/fptower"
@@ -10,14 +12,10 @@ import (
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3 uint64
-		a0 = genParams.NextUint64() % 4332616871279656263
-		a1 = genParams.NextUint64() % 10917124144477883021
-		a2 = genParams.NextUint64() % 13281191951274694749
-		a3 = genParams.NextUint64() % 3486998266802970665
-		elmt := fp.Element{
-			a0, a1, a2, a3,
-		}
+		var elmt fp.Element
+		var b [fp.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
@@ -60,14 +58,10 @@ func GenE12() gopter.Gen {
 // GenFr generates an Fr element
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var a0, a1, a2, a3 uint64
-		a0 = genParams.NextUint64() % 4891460686036598785
-		a1 = genParams.NextUint64() % 2896914383306846353
-		a2 = genParams.NextUint64() % 13281191951274694749
-		a3 = genParams.NextUint64() % 3486998266802970665
-		elmt := fr.Element{
-			a0, a1, a2, a3,
-		}
+		var elmt fr.Element
+		var b [fr.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
