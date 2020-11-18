@@ -28,16 +28,14 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
-			// create a cloudflare point
-			cloudflarePoint := new(cloudflare.G1)
-
-			if _, err := cloudflarePoint.Unmarshal(start.Marshal()); err != nil {
+			other, err := cloudflareG1(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
 
-			// reconstruct a gurvy point from cloudflare bytes
-			err := end.Unmarshal(cloudflarePoint.Marshal())
+			// reconstruct a gurvy point from  bytes
+			err = end.Unmarshal(other.Marshal())
 			if err != nil {
 				return false
 			}
@@ -53,16 +51,14 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
-			// create a google point
-			googlePoint := new(google.G1)
-
-			if _, err := googlePoint.Unmarshal(start.Marshal()); err != nil {
+			other, err := googleG1(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
 
-			// reconstruct a gurvy point from google bytes
-			err := end.Unmarshal(googlePoint.Marshal())
+			// reconstruct a gurvy point from  bytes
+			err = end.Unmarshal(other.Marshal())
 			if err != nil {
 				return false
 			}
@@ -88,16 +84,14 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
-			// create a cloudflare point
-			cloudflarePoint := new(cloudflare.G2)
-
-			if _, err := cloudflarePoint.Unmarshal(start.Marshal()); err != nil {
+			other, err := cloudflareG2(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
 
-			// reconstruct a gurvy point from cloudflare bytes
-			err := end.Unmarshal(cloudflarePoint.Marshal())
+			// reconstruct a gurvy point from  bytes
+			err = end.Unmarshal(other.Marshal())
 			if err != nil {
 				return false
 			}
@@ -113,16 +107,14 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
-			// create a google point
-			googlePoint := new(google.G2)
-
-			if _, err := googlePoint.Unmarshal(start.Marshal()); err != nil {
+			other, err := googleG2(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
 
-			// reconstruct a gurvy point from google bytes
-			err := end.Unmarshal(googlePoint.Marshal())
+			// reconstruct a gurvy point from  bytes
+			err = end.Unmarshal(other.Marshal())
 			if err != nil {
 				return false
 			}
@@ -196,13 +188,13 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			exp.ToBigIntRegular(&bExp)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
-			gPoint := new(google.G1)
-			cPoint := new(cloudflare.G1)
-			if _, err := gPoint.Unmarshal(start.Marshal()); err != nil {
+			gPoint, err := googleG1(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := cPoint.Unmarshal(start.Marshal()); err != nil {
+			cPoint, err := cloudflareG1(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
@@ -235,17 +227,16 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			exp.ToBigIntRegular(&bExp)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
-			gPoint := new(google.G2)
-			cPoint := new(cloudflare.G2)
-			if _, err := gPoint.Unmarshal(start.Marshal()); err != nil {
+			gPoint, err := googleG2(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := cPoint.Unmarshal(start.Marshal()); err != nil {
+			cPoint, err := cloudflareG2(&start)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-
 			// perform the scalar multiplications
 			gPoint.ScalarMult(gPoint, &bExp)
 			cPoint.ScalarMult(cPoint, &bExp)
@@ -284,47 +275,43 @@ func TestPointAdditionInterop(t *testing.T) {
 			g2.ScalarMultiplication(&g2GenAff, &ab)
 
 			// do the same with google and cloud flare
-			g1g := new(google.G1)
-			g1c := new(cloudflare.G1)
-			g2g := new(google.G2)
-			g2c := new(cloudflare.G2)
-			g1gGen := new(google.G1)
-			g1cGen := new(cloudflare.G1)
-			g2gGen := new(google.G2)
-			g2cGen := new(cloudflare.G2)
-
-			if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+			g1g, err := googleG1(&g1)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+			g1c, err := cloudflareG1(&g1)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-
-			if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+			g2g, err := googleG2(&g2)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+			g2c, err := cloudflareG2(&g2)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-
-			if _, err := g1gGen.Unmarshal(g1GenAff.Marshal()); err != nil {
+			g1gGen, err := googleG1(&g1GenAff)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g1cGen.Unmarshal(g1GenAff.Marshal()); err != nil {
+			g1cGen, err := cloudflareG1(&g1GenAff)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-
-			if _, err := g2gGen.Unmarshal(g2GenAff.Marshal()); err != nil {
+			g2gGen, err := googleG2(&g2GenAff)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g2cGen.Unmarshal(g2GenAff.Marshal()); err != nil {
+			g2cGen, err := cloudflareG2(&g2GenAff)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
@@ -390,25 +377,24 @@ func TestPairingInterop(t *testing.T) {
 			g1.ScalarMultiplication(&g1GenAff, &ab)
 			g2.ScalarMultiplication(&g2GenAff, &ab)
 
-			g1g := new(google.G1)
-			g1c := new(cloudflare.G1)
-			g2g := new(google.G2)
-			g2c := new(cloudflare.G2)
-
-			if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+			g1g, err := googleG1(&g1)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+			g2g, err := googleG2(&g2)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
 
-			if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+			g1c, err := cloudflareG1(&g1)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
-			if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+			g2c, err := cloudflareG2(&g2)
+			if err != nil {
 				t.Log(err)
 				return false
 			}
@@ -445,13 +431,12 @@ func BenchmarkPairingInterop(b *testing.B) {
 	g2.ScalarMultiplication(&g2GenAff, &ab)
 
 	b.Run("[bn256]google_pairing", func(b *testing.B) {
-		g1g := new(google.G1)
-		g2g := new(google.G2)
-
-		if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+		g1g, err := googleG1(&g1)
+		if err != nil {
 			b.Fatal(err)
 		}
-		if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+		g2g, err := googleG2(&g2)
+		if err != nil {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
@@ -460,14 +445,12 @@ func BenchmarkPairingInterop(b *testing.B) {
 		}
 	})
 	b.Run("[bn256]cloudflare_pairing", func(b *testing.B) {
-		g1c := new(cloudflare.G1)
-		g2c := new(cloudflare.G2)
-
-		if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+		g1c, err := cloudflareG1(&g1)
+		if err != nil {
 			b.Fatal(err)
 		}
-
-		if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+		g2c, err := cloudflareG2(&g2)
+		if err != nil {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
@@ -483,4 +466,68 @@ func BenchmarkPairingInterop(b *testing.B) {
 		}
 	})
 
+}
+
+func BenchmarkPointAdditionInterop(b *testing.B) {
+	var g1 G1Affine
+	var ab big.Int
+	ab.SetUint64(42)
+	g1.ScalarMultiplication(&g1GenAff, &ab)
+
+	b.Run("[bn256]cloudflare_add_jacobian", func(b *testing.B) {
+		g1g, err := cloudflareG1(&g1)
+		if err != nil {
+			b.Fatal(err)
+		}
+		g1gen, err := cloudflareG1(&g1GenAff)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			g1g.Add(g1g, g1gen)
+		}
+	})
+
+	b.Run("[bn256]gurvy_add_jacobian", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var _g1 G1Jac
+			_g1.FromAffine(&g1)
+			_g1.AddAssign(&g1Gen)
+		}
+	})
+
+}
+
+func cloudflareG1(p *G1Affine) (*cloudflare.G1, error) {
+	r := new(cloudflare.G1)
+	if _, err := r.Unmarshal(p.Marshal()); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func cloudflareG2(p *G2Affine) (*cloudflare.G2, error) {
+	r := new(cloudflare.G2)
+	if _, err := r.Unmarshal(p.Marshal()); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func googleG1(p *G1Affine) (*google.G1, error) {
+	r := new(google.G1)
+	if _, err := r.Unmarshal(p.Marshal()); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func googleG2(p *G2Affine) (*google.G2, error) {
+	r := new(google.G2)
+	if _, err := r.Unmarshal(p.Marshal()); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
