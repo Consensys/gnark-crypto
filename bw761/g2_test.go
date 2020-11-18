@@ -660,7 +660,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMultiplicationG2Affine(&g2GenAff, sampleScalars[:])
+			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -709,7 +709,7 @@ func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMultiplicationG2Affine(&g2GenAff, sampleScalars[:using])
+				_ = BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:using])
 			}
 		})
 	}

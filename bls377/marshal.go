@@ -25,6 +25,7 @@ import (
 
 	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/bls377/fr"
+	"github.com/consensys/gurvy/bls377/internal/fptower"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -42,6 +43,9 @@ const (
 	mCompressedLargest    byte = 0b101 << 5
 	mCompressedInfinity   byte = 0b110 << 5
 )
+
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const SizeOfGT = fptower.SizeOfGT
 
 // Encoder writes bls377 object values to an output stream
 type Encoder struct {

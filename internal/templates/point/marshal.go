@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
+	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/consensys/gurvy/utils/parallel"
@@ -42,6 +43,8 @@ const (
 )
 {{- end}}
 
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const SizeOfGT = fptower.SizeOfGT
 
 
 // Encoder writes {{.Name}} object values to an output stream

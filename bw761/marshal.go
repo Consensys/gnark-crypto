@@ -25,6 +25,7 @@ import (
 
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/fr"
+	"github.com/consensys/gurvy/bw761/internal/fptower"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
@@ -42,6 +43,9 @@ const (
 	mCompressedLargest    byte = 0b101 << 5
 	mCompressedInfinity   byte = 0b110 << 5
 )
+
+// SizeOfGT represents the size in bytes that a GT element need in binary form
+const SizeOfGT = fptower.SizeOfGT
 
 // Encoder writes bw761 object values to an output stream
 type Encoder struct {

@@ -490,10 +490,10 @@ func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
 	return p
 }
 
-// BatchScalarMultiplicationG2Affine multiplies the same base (generator) by all scalars
+// BatchScalarMultiplicationG2 multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG2Affine(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

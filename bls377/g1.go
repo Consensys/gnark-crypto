@@ -534,10 +534,10 @@ func BatchJacobianToAffineG1Affine(points []G1Jac, result []G1Affine) {
 
 }
 
-// BatchScalarMultiplicationG1Affine multiplies the same base (generator) by all scalars
+// BatchScalarMultiplicationG1 multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG1Affine(base *G1Affine, scalars []fr.Element) []G1Affine {
+func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

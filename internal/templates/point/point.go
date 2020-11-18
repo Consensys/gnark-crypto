@@ -644,10 +644,10 @@ func BatchJacobianToAffine{{ $TAffine }}(points []{{ $TJacobian }}, result []{{ 
 {{end}}
 
 
-// BatchScalarMultiplication{{ $TAffine }} multiplies the same base (generator) by all scalars
+// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplication{{ $TAffine }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
+func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

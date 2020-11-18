@@ -728,7 +728,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMultiplication{{ $TAffine }}(&{{ toLower .PointName}}GenAff, sampleScalars[:])
+			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{ toLower .PointName}}GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -777,7 +777,7 @@ func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMultiplication{{ $TAffine }}(&{{ toLower .PointName}}GenAff, sampleScalars[:using])
+				_ = BatchScalarMultiplication{{ toUpper .PointName }}(&{{ toLower .PointName}}GenAff, sampleScalars[:using])
 			}
 		})
 	}
