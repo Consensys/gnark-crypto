@@ -265,8 +265,8 @@ func (z *E6) Exp(x *E6, e big.Int) *E6 {
 }
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
-const sizeOfFp = 96
 const SizeOfGT = sizeOfFp * 6
+const sizeOfFp = 96
 
 // Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte array.

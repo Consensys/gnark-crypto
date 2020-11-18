@@ -23,15 +23,18 @@ import (
 	"github.com/consensys/goff/field"
 )
 
+// Fq2Amd64 ...
 type Fq2Amd64 struct {
 	*amd64.FFAmd64
 	curveName string
 }
 
+// NewFq2Amd64 ...
 func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
 	return &Fq2Amd64{amd64.NewFFAmd64(w, F), curveName}
 }
 
+// Generate ...
 func (fq2 *Fq2Amd64) Generate() error {
 	fq2.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 

@@ -14,9 +14,7 @@
 
 package amd64
 
-import (
-	. "github.com/consensys/bavard/amd64"
-)
+import "github.com/consensys/bavard/amd64"
 
 func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
 	// 	var a, b fp.Element
@@ -78,7 +76,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 	// b.Mul(&x.A0, &x.A1).Double(&b)
 	// z.A0.Set(&a)
 	// z.A1.Set(&b)
-	registers := fq2.FnHeader("squareAdxE2", 16, 16, DX, AX)
+	registers := fq2.FnHeader("squareAdxE2", 16, 16, amd64.DX, amd64.AX)
 
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
@@ -153,10 +151,10 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 
 	// No adx
 	fq2.LABEL(noAdx)
-	fq2.MOVQ("res+0(FP)", AX)
-	fq2.MOVQ(AX, "(SP)")
-	fq2.MOVQ("x+8(FP)", AX)
-	fq2.MOVQ(AX, "8(SP)")
+	fq2.MOVQ("res+0(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "(SP)")
+	fq2.MOVQ("x+8(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "8(SP)")
 	fq2.WriteLn("CALL ·squareGenericE2(SB)")
 	fq2.RET()
 }
@@ -170,7 +168,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	// c.Mul(&x.A1, &y.A1)
 	// z.A1.fq2.Sub(&a, &b).fq2.Sub(&z.A1, &c)
 	// z.A0.fq2.Sub(&b, &c)
-	registers := fq2.FnHeader("mulAdxE2", 24, 24, DX, AX)
+	registers := fq2.FnHeader("mulAdxE2", 24, 24, amd64.DX, amd64.AX)
 
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
@@ -238,7 +236,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	}
 	registers.Push(a...)
 
-	var c []Register
+	var c []amd64.Register
 	// c = x.A1 * y.A1
 	{
 		r := registers.Pop()
@@ -286,12 +284,12 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 
 	// No adx
 	fq2.LABEL(noAdx)
-	fq2.MOVQ("res+0(FP)", AX)
-	fq2.MOVQ(AX, "(SP)")
-	fq2.MOVQ("x+8(FP)", AX)
-	fq2.MOVQ(AX, "8(SP)")
-	fq2.MOVQ("y+16(FP)", AX)
-	fq2.MOVQ(AX, "16(SP)")
+	fq2.MOVQ("res+0(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "(SP)")
+	fq2.MOVQ("x+8(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "8(SP)")
+	fq2.MOVQ("y+16(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "16(SP)")
 	fq2.WriteLn("CALL ·mulGenericE2(SB)")
 	fq2.RET()
 }

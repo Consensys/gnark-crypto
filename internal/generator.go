@@ -244,7 +244,6 @@ func GenerateFq12over6over2(conf curveConfig) error {
 }
 
 type genOpts struct {
-	opts      []func(*bavard.Bavard) error
 	file      string
 	templates []string
 	buildTag  string
