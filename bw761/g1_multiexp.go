@@ -29,6 +29,16 @@ import (
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
 func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G1Affine {
+	var _p G1Jac
+	_p.MultiExp(points, scalars, opts...)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+// optionally, takes as parameter a CPUSemaphore struct
+// enabling to set max number of cpus to use
+func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G1Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -96,25 +106,20 @@ func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CP
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
-	var pJac G1Jac
-	pJac.FromAffine(p)
-
 	switch C {
 
 	case 4:
-		pJac.msmC4(points, scalars, opt)
+		return p.msmC4(points, scalars, opt)
 
 	case 8:
-		pJac.msmC8(points, scalars, opt)
+		return p.msmC8(points, scalars, opt)
 
 	case 16:
-		pJac.msmC16(points, scalars, opt)
+		return p.msmC16(points, scalars, opt)
 
 	default:
 		panic("unimplemented")
 	}
-	p.FromJacobian(&pJac)
-	return p
 }
 
 // msmReduceChunkG1Affine reduces the weighted sum of the buckets into the result of the multiExp

@@ -29,6 +29,16 @@ import (
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
 func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G2Affine {
+	var _p G2Jac
+	_p.MultiExp(points, scalars, opts...)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+// optionally, takes as parameter a CPUSemaphore struct
+// enabling to set max number of cpus to use
+func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSemaphore) *G2Jac {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -96,64 +106,59 @@ func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CP
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
-	var pJac G2Jac
-	pJac.FromAffine(p)
-
 	switch C {
 
 	case 4:
-		pJac.msmC4(points, scalars, opt)
+		return p.msmC4(points, scalars, opt)
 
 	case 5:
-		pJac.msmC5(points, scalars, opt)
+		return p.msmC5(points, scalars, opt)
 
 	case 6:
-		pJac.msmC6(points, scalars, opt)
+		return p.msmC6(points, scalars, opt)
 
 	case 7:
-		pJac.msmC7(points, scalars, opt)
+		return p.msmC7(points, scalars, opt)
 
 	case 8:
-		pJac.msmC8(points, scalars, opt)
+		return p.msmC8(points, scalars, opt)
 
 	case 9:
-		pJac.msmC9(points, scalars, opt)
+		return p.msmC9(points, scalars, opt)
 
 	case 10:
-		pJac.msmC10(points, scalars, opt)
+		return p.msmC10(points, scalars, opt)
 
 	case 11:
-		pJac.msmC11(points, scalars, opt)
+		return p.msmC11(points, scalars, opt)
 
 	case 12:
-		pJac.msmC12(points, scalars, opt)
+		return p.msmC12(points, scalars, opt)
 
 	case 13:
-		pJac.msmC13(points, scalars, opt)
+		return p.msmC13(points, scalars, opt)
 
 	case 14:
-		pJac.msmC14(points, scalars, opt)
+		return p.msmC14(points, scalars, opt)
 
 	case 15:
-		pJac.msmC15(points, scalars, opt)
+		return p.msmC15(points, scalars, opt)
 
 	case 16:
-		pJac.msmC16(points, scalars, opt)
+		return p.msmC16(points, scalars, opt)
 
 	case 20:
-		pJac.msmC20(points, scalars, opt)
+		return p.msmC20(points, scalars, opt)
 
 	case 21:
-		pJac.msmC21(points, scalars, opt)
+		return p.msmC21(points, scalars, opt)
 
 	case 22:
-		pJac.msmC22(points, scalars, opt)
+		return p.msmC22(points, scalars, opt)
 
 	default:
 		panic("unimplemented")
 	}
-	p.FromJacobian(&pJac)
-	return p
 }
 
 // msmReduceChunkG2Affine reduces the weighted sum of the buckets into the result of the multiExp
