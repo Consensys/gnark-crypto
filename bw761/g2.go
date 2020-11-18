@@ -608,6 +608,18 @@ const SizeOfG2AffineCompressed = 96
 // SizeOfG2AffineUncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
 const SizeOfG2AffineUncompressed = SizeOfG2AffineCompressed * 2
 
+// Marshal converts p to a byte slice (without point compression)
+func (p *G2Affine) Marshal() []byte {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *G2Affine) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err
+}
+
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // we follow the BLS381 style encoding as specified in ZCash and now IETF

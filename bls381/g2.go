@@ -614,6 +614,18 @@ const SizeOfG2AffineCompressed = 48 * 2
 // SizeOfG2AffineUncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
 const SizeOfG2AffineUncompressed = SizeOfG2AffineCompressed * 2
 
+// Marshal converts p to a byte slice (without point compression)
+func (p *G2Affine) Marshal() []byte {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *G2Affine) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err
+}
+
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
@@ -639,7 +651,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A1 | p.X.A0
+	// p.X.A0 | p.X.A1
 	tmp = p.X.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[88:96], tmp[0])
@@ -680,7 +692,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// not compressed
 	// we store the Y coordinate
-	// p.Y.A1 | p.Y.A0
+	// p.Y.A0 | p.Y.A1
 	tmp = p.Y.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[184:192], tmp[0])
@@ -700,16 +712,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 	binary.BigEndian.PutUint64(res[96:104], tmp[5])
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A1 | p.X.A0
-	tmp = p.X.A0
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[88:96], tmp[0])
-	binary.BigEndian.PutUint64(res[80:88], tmp[1])
-	binary.BigEndian.PutUint64(res[72:80], tmp[2])
-	binary.BigEndian.PutUint64(res[64:72], tmp[3])
-	binary.BigEndian.PutUint64(res[56:64], tmp[4])
-	binary.BigEndian.PutUint64(res[48:56], tmp[5])
-
+	// p.X.A0 | p.X.A1
 	tmp = p.X.A1
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[40:48], tmp[0])
@@ -718,6 +721,15 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 	binary.BigEndian.PutUint64(res[16:24], tmp[3])
 	binary.BigEndian.PutUint64(res[8:16], tmp[4])
 	binary.BigEndian.PutUint64(res[0:8], tmp[5])
+
+	tmp = p.X.A0
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[88:96], tmp[0])
+	binary.BigEndian.PutUint64(res[80:88], tmp[1])
+	binary.BigEndian.PutUint64(res[72:80], tmp[2])
+	binary.BigEndian.PutUint64(res[64:72], tmp[3])
+	binary.BigEndian.PutUint64(res[56:64], tmp[4])
+	binary.BigEndian.PutUint64(res[48:56], tmp[5])
 
 	res[0] |= mUncompressed
 
@@ -773,9 +785,9 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	if mData == mUncompressed {
 		// read Y coordinate
 		// p.Y.A1 | p.Y.A0
-		p.Y.A0.SetBytes(buf[144 : 144+fp.Bytes])
-
 		p.Y.A1.SetBytes(buf[96 : 96+fp.Bytes])
+
+		p.Y.A0.SetBytes(buf[144 : 144+fp.Bytes])
 
 		return SizeOfG2AffineUncompressed, nil
 	}
@@ -864,9 +876,9 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	p.X.A0.SetBytes(buf[48 : 48+fp.Bytes])
-
 	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
+
+	p.X.A0.SetBytes(buf[48 : 48+fp.Bytes])
 
 	// restore buf
 	buf[0] |= mData

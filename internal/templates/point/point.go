@@ -789,6 +789,22 @@ const SizeOf{{ $TAffine }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "fpt
 const SizeOf{{ $TAffine }}Uncompressed = SizeOf{{ $TAffine }}Compressed * 2
 
 
+
+// Marshal converts p to a byte slice (without point compression)
+func (p *{{ $TAffine }}) Marshal() ([]byte) {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *{{ $TAffine }}) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err 
+}
+
+
+
+
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 {{- if ge .FpUnusedBits 3}}
@@ -825,7 +841,7 @@ func (p *{{ $TAffine }}) Bytes() (res [SizeOf{{ $TAffine }}Compressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq .CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A0 | p.X.A1
 		{{- $offset := $sizeOfFp}}
 		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A1"}}
@@ -859,7 +875,7 @@ func (p *{{ $TAffine }}) RawBytes() (res [SizeOf{{ $TAffine }}Uncompressed]byte)
 	// not compressed
 	// we store the Y coordinate
 	{{- if eq .CoordType "fptower.E2"}}
-		// p.Y.A1 | p.Y.A0
+		// p.Y.A0 | p.Y.A1
 		{{- $offset := mul $sizeOfFp 3}}
 		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.Y.A0"}}
 
@@ -871,10 +887,11 @@ func (p *{{ $TAffine }}) RawBytes() (res [SizeOf{{ $TAffine }}Uncompressed]byte)
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq .CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A0 | p.X.A1
 		{{- $offset := $sizeOfFp}}
-		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X.A1"}}
+		{{- template "putFp" dict "all" . "OffSet" $offset "From" "p.X.A0"}}
+		
 	{{- else}}
 		{{- template "putFp" dict "all" . "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -942,11 +959,11 @@ func (p *{{ $TAffine }}) SetBytes(buf []byte) (int, error)  {
 		// read Y coordinate
 		{{- if eq .CoordType "fptower.E2"}}
 			// p.Y.A1 | p.Y.A0
-			{{- $offset := mul $sizeOfFp 3}}
-			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
-
 			{{- $offset := mul $sizeOfFp 2}}
 			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
+
+			{{- $offset := mul $sizeOfFp 3}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
 			
 		{{- else}}
 			{{- template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
@@ -1063,8 +1080,8 @@ func (p *{{ $TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) 
 	{{- if eq .CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
 		{{- $offset := $sizeOfFp}}
-		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
+		{{- template "readFp" dict "all" . "OffSet"  $offset "To" "p.X.A0"}}
 	{{- else}}
 		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
 	{{- end}}
