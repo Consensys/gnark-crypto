@@ -268,6 +268,113 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestPointAdditionInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BN256] checking point addition", prop.ForAll(
+		func(a fp.Element) bool {
+			var g1 G1Affine
+			var g2 G2Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			g1.ScalarMultiplication(&g1GenAff, &ab)
+			g2.ScalarMultiplication(&g2GenAff, &ab)
+
+			// do the same with google and cloud flare
+			g1g := new(google.G1)
+			g1c := new(cloudflare.G1)
+			g2g := new(google.G2)
+			g2c := new(cloudflare.G2)
+			g1gGen := new(google.G1)
+			g1cGen := new(cloudflare.G1)
+			g2gGen := new(google.G2)
+			g2cGen := new(cloudflare.G2)
+
+			if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			if _, err := g1gGen.Unmarshal(g1GenAff.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g1cGen.Unmarshal(g1GenAff.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			if _, err := g2gGen.Unmarshal(g2GenAff.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g2cGen.Unmarshal(g2GenAff.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			// add g1 to g1Gen and g2 to g2gen
+			var _g1 G1Jac
+			var _g2 G2Jac
+			_g1.FromAffine(&g1)
+			_g2.FromAffine(&g2)
+
+			_g1.AddAssign(&g1Gen)
+			g1.FromJacobian(&_g1)
+
+			_g2.AddAssign(&g2Gen)
+			g2.FromJacobian(&_g2)
+
+			// results
+			g1c.Add(g1c, g1cGen)
+			g1g.Add(g1g, g1gGen)
+			g2c.Add(g2c, g2cGen)
+			g2g.Add(g2g, g2gGen)
+
+			if !(bytes.Equal(g1.Marshal(), g1c.Marshal())) {
+				t.Log("g1 point addition doesn't match google implementation")
+				return false
+			}
+
+			if !(bytes.Equal(g1.Marshal(), g1g.Marshal())) {
+				t.Log("g1 point addition doesn't match cloudflare implementation")
+				return false
+			}
+
+			if !(bytes.Equal(g2.Marshal(), g2c.Marshal())) {
+				t.Log("g2 point addition doesn't match google implementation")
+				return false
+			}
+
+			if !(bytes.Equal(g2.Marshal(), g2g.Marshal())) {
+				t.Log("g2 point addition doesn't match cloudflare implementation")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestPairingInterop(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
