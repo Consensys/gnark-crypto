@@ -95,7 +95,7 @@ func (p *{{ toUpper .PointName }}) MultiExp(points []{{ toUpper .PointName }}, s
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
-	var pJac {{ toUpper .PointName}}Jac
+	var pJac {{ $TJacobian }}
 	pJac.FromAffine(p)
 
 	switch C {
@@ -111,7 +111,7 @@ func (p *{{ toUpper .PointName }}) MultiExp(points []{{ toUpper .PointName }}, s
 }
 
 // msmReduceChunk{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName}}Jac, c int, chChunks []chan {{ toUpper .PointName}}Jac)  *{{ toUpper .PointName}}Jac {
+func msmReduceChunk{{ toUpper .PointName }}(p *{{ $TJacobian }}, c int, chChunks []chan {{ $TJacobian }})  *{{ $TJacobian }} {
 	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
@@ -126,8 +126,8 @@ func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName}}Jac, c int
 
 
 func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
-	 chRes chan<- {{ toUpper .PointName}}Jac,
-	 buckets []{{ toLower .PointName}}JacExtended,
+	 chRes chan<- {{ $TJacobian }},
+	 buckets []{{ $TJacobianExtended }},
 	 c uint64,
 	 points []{{ toUpper .PointName }},
 	 scalars []fr.Element) {
@@ -178,7 +178,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var runningSum, tj, total {{ toUpper .PointName}}Jac
+	var runningSum, tj, total {{ $TJacobian }}
 	runningSum.Set(&{{ toLower .PointName }}Infinity)
 	total.Set(&{{ toLower .PointName }}Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
@@ -248,7 +248,7 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 
 
 // setInfinity sets p to O
-func (p *{{ toLower .PointName}}JacExtended) setInfinity() *{{ toLower .PointName}}JacExtended {
+func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	p.X.SetOne()
 	p.Y.SetOne()
 	p.ZZ = {{.CoordType}}{}
@@ -257,7 +257,7 @@ func (p *{{ toLower .PointName}}JacExtended) setInfinity() *{{ toLower .PointNam
 }
 
 // fromJacExtended sets Q in affine coords
-func (p *{{ toUpper .PointName }})  fromJacExtended (Q *{{ toLower .PointName}}JacExtended) *{{ toUpper .PointName }} {
+func (p *{{ toUpper .PointName }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ toUpper .PointName }} {
 	if Q.ZZ.IsZero() {
 		p.X = {{.CoordType}}{}
 		p.Y = {{.CoordType}}{}
@@ -269,7 +269,7 @@ func (p *{{ toUpper .PointName }})  fromJacExtended (Q *{{ toLower .PointName}}J
 }
 
 // fromJacExtended sets Q in Jacobian coords
-func (p *{{ toUpper .PointName}}Jac) fromJacExtended(Q *{{ toLower .PointName}}JacExtended) *{{ toUpper .PointName}}Jac {
+func (p *{{ $TJacobian }}) fromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	if Q.ZZ.IsZero() {
 		p.Set(&{{ toLower .PointName }}Infinity)
 		return p
@@ -281,7 +281,7 @@ func (p *{{ toUpper .PointName}}Jac) fromJacExtended(Q *{{ toLower .PointName}}J
 }
 
 // unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
-func (p *{{ toUpper .PointName}}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName}}JacExtended) *{{ toUpper .PointName}}Jac {
+func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
 	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
 	p.Z = Q.ZZZ
@@ -291,26 +291,26 @@ func (p *{{ toUpper .PointName}}Jac) unsafeFromJacExtended(Q *{{ toLower .PointN
 
 // sub same as add, but will negate a.Y 
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName}}JacExtended) sub(a *{{ toUpper .PointName }}) *{{ toLower .PointName}}JacExtended {
+func (p *{{ $TJacobianExtended }}) sub(a *{{ toUpper .PointName }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" true}}
 }
 
 
 // add
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName}}JacExtended) add(a *{{ toUpper .PointName }}) *{{ toLower .PointName}}JacExtended {
+func (p *{{ $TJacobianExtended }}) add(a *{{ toUpper .PointName }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" false}}
 }
 
 // doubleNeg same as double, but will negate q.Y
-func (p *{{ toLower .PointName}}JacExtended) doubleNeg(q *{{ toUpper .PointName }}) *{{ toLower .PointName}}JacExtended {
+func (p *{{ $TJacobianExtended }}) doubleNeg(q *{{ toUpper .PointName }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ toLower .PointName}}JacExtended) double(q *{{ toUpper .PointName }}) *{{ toLower .PointName}}JacExtended {
+func (p *{{ $TJacobianExtended }}) double(q *{{ toUpper .PointName }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" false}}
 }
 

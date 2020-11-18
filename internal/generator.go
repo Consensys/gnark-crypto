@@ -129,13 +129,13 @@ func main() {
 				{data: conf, dir: conf.dir, file: "marshal.go", templates: []string{point.Marshal}},
 				{data: conf, dir: conf.dir, file: "marshal_test.go", templates: []string{point.MarshalTests}},
 
-				{data: g1, dir: conf.dir, file: "g1.go", templates: []string{point.Point}},
-				{data: g1, dir: conf.dir, file: "g1_test.go", templates: []string{point.PointTests}},
-				{data: g1, dir: conf.dir, file: "g1_multiexp.go", templates: []string{point.MultiExpCore}},
+				{data: g1, dir: conf.dir, file: "g1.go", templates: []string{point.Types, point.Point}},
+				{data: g1, dir: conf.dir, file: "g1_test.go", templates: []string{point.Types, point.PointTests}},
+				{data: g1, dir: conf.dir, file: "g1_multiexp.go", templates: []string{point.Types, point.MultiExpCore}},
 
-				{data: g2, dir: conf.dir, file: "g2.go", templates: []string{point.Point}},
-				{data: g2, dir: conf.dir, file: "g2_test.go", templates: []string{point.PointTests}},
-				{data: g2, dir: conf.dir, file: "g2_multiexp.go", templates: []string{point.MultiExpCore}},
+				{data: g2, dir: conf.dir, file: "g2.go", templates: []string{point.Types, point.Point}},
+				{data: g2, dir: conf.dir, file: "g2_test.go", templates: []string{point.Types, point.PointTests}},
+				{data: g2, dir: conf.dir, file: "g2_multiexp.go", templates: []string{point.Types, point.MultiExpCore}},
 			}
 
 			if conf.Name != "bw761" {
