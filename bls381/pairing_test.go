@@ -38,8 +38,8 @@ func ExampleMillerLoop() {
 	rFr.ToBigIntRegular(&r)
 
 	// computes r*g1Gen, r*g2Gen
-	var rg1 G1
-	var rg2 G2
+	var rg1 G1Affine
+	var rg2 G2Affine
 	rg1.ScalarMultiplication(&g1GenAff, &r)
 	rg2.ScalarMultiplication(&g2GenAff, &r)
 
@@ -97,8 +97,8 @@ func TestPairing(t *testing.T) {
 
 			var res, resa, resb, resab, zero GT
 
-			var ag1 G1
-			var bg2 G2
+			var ag1 G1Affine
+			var bg2 G2Affine
 
 			var abigint, bbigint, ab big.Int
 
@@ -132,8 +132,8 @@ func TestPairing(t *testing.T) {
 
 func BenchmarkPairing(b *testing.B) {
 
-	var g1GenAff G1
-	var g2GenAff G2
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
 
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)

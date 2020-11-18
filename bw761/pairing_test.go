@@ -69,8 +69,8 @@ func TestPairing(t *testing.T) {
 			var aG1 G1Jac
 			var bG2 G2Jac
 
-			var g1affine, ag1 G1
-			var g2affine, bg2 G2
+			var g1affine, ag1 G1Affine
+			var g2affine, bg2 G2Affine
 
 			var abigint, bbigint, ab big.Int
 
@@ -108,8 +108,8 @@ func TestPairing(t *testing.T) {
 
 func BenchmarkPairing(b *testing.B) {
 
-	var g1GenAff G1
-	var g2GenAff G2
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
 
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)

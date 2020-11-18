@@ -70,7 +70,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
 	// TODO double check memory usage and factorize this
 
-	var buf [SizeOfG2Uncompressed]byte
+	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
 
 	switch t := v.(type) {
@@ -100,17 +100,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-		read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		nbBytes := SizeOfG1Compressed
+		nbBytes := SizeOfG1AffineCompressed
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
-			nbBytes = SizeOfG1Uncompressed
+			nbBytes = SizeOfG1AffineUncompressed
 			// we read more.
-			read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
+			read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
@@ -120,17 +120,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		return
 	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-		read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		nbBytes := SizeOfG2Compressed
+		nbBytes := SizeOfG2AffineCompressed
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
-			nbBytes = SizeOfG2Uncompressed
+			nbBytes = SizeOfG2AffineUncompressed
 			// we read more.
-			read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
+			read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
@@ -151,17 +151,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG1Compressed
+			nbBytes := SizeOfG1AffineCompressed
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG1Uncompressed
+				nbBytes = SizeOfG1AffineUncompressed
 				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
+				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -202,17 +202,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG2Compressed
+			nbBytes := SizeOfG2AffineCompressed
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG2Uncompressed
+				nbBytes = SizeOfG2AffineUncompressed
 				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
+				read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -357,7 +357,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1Compressed]byte
+		var buf [SizeOfG1AffineCompressed]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].Bytes()
@@ -376,7 +376,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG2Compressed]byte
+		var buf [SizeOfG2AffineCompressed]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].Bytes()
@@ -431,7 +431,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1Uncompressed]byte
+		var buf [SizeOfG1AffineUncompressed]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].RawBytes()
@@ -450,7 +450,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG2Uncompressed]byte
+		var buf [SizeOfG2AffineUncompressed]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].RawBytes()

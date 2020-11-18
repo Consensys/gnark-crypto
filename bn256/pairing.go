@@ -102,7 +102,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1, Q G2) *GT {
+func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
 	var result GT
 	result.SetOne()
@@ -160,7 +160,7 @@ func MillerLoop(P G1, Q G2) *GT {
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
 // Q, R are in jacobian coordinates
-func lineEval(Q, R *G2Jac, P *G1, result *lineEvaluation) {
+func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 
 	// converts _Q and _R to projective coords
 	var _Q, _R g2Proj
@@ -195,7 +195,7 @@ func mulAssign(z *GT, l *lineEvaluation) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1, ch chan struct{}) {
+func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
 
 	var Q1, Qbuf, Qneg G2Jac
 	Q1.Set(Q)

@@ -43,9 +43,9 @@ var g2Infinity G2Jac
 var loopCounter [64]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
-//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+//  endomorphisms phi1 and phi2 for <G1Affine> and <G2Affine>. lambda is such that <r, phi-lambda> lies above
 // <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
-// of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// of phi1 (resp phi2) restricted to <G1Affine> (resp <G2Affine>)
 // cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
@@ -66,14 +66,14 @@ var xGen big.Int
 
 // expose the tower -- github.com/consensys/gnark uses it in a gnark circuit
 
-// // E2 is a degree two finite field extension of fp.Element
-// type E2 = E2
+// E2 is a degree two finite field extension of fp.Element
+type E2 = fptower.E2
 
-// // E6 is a degree three finite field extension of fp2
-// type E6 = E6
+// E6 is a degree three finite field extension of fp2
+type E6 = fptower.E6
 
-// // E12 is a degree two finite field extension of fp6
-// type E12 = E12
+// E12 is a degree two finite field extension of fp6
+type E12 = fptower.E12
 
 func init() {
 

@@ -53,14 +53,14 @@ func sign0(u fp.Element) bool {
 }
 
 // ----------------------------------------------------------------------------------------
-// G1
+// G1Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func svdwMapG1(u fp.Element) G1 {
+func svdwMapG1(u fp.Element) G1Affine {
 
 	var twoInv, tmp fp.Element
-	var res G1
+	var res G1Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
@@ -127,15 +127,15 @@ func svdwMapG1(u fp.Element) G1 {
 
 // MapToCurveG1Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToCurveG1Svdw(t fp.Element) G1 {
+func MapToCurveG1Svdw(t fp.Element) G1Affine {
 	res := svdwMapG1(t)
 	return res
 }
 
 // EncodeToCurveG1Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
-func EncodeToCurveG1Svdw(msg, dst []byte) (G1, error) {
-	var res G1
+func EncodeToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
 	t, err := hashToFp(msg, dst, 1)
 	if err != nil {
 		return res, err
@@ -146,8 +146,8 @@ func EncodeToCurveG1Svdw(msg, dst []byte) (G1, error) {
 
 // HashToCurveG1Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG1Svdw(msg, dst []byte) (G1, error) {
-	var res G1
+func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
 	u, err := hashToFp(msg, dst, 2)
 	if err != nil {
 		return res, err
@@ -163,15 +163,15 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1, error) {
 }
 
 // ----------------------------------------------------------------------------------------
-// G2
+// G2Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func svdwMapG2(u fptower.E2) G2 {
+func svdwMapG2(u fptower.E2) G2Affine {
 
 	var twoInv fp.Element
 	var tmp fptower.E2
-	var res G2
+	var res G2Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
@@ -239,7 +239,7 @@ func svdwMapG2(u fptower.E2) G2 {
 
 // MapToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToCurveG2Svdw(t fptower.E2) G2 {
+func MapToCurveG2Svdw(t fptower.E2) G2Affine {
 	res := svdwMapG2(t)
 	res.ClearCofactor(&res)
 	return res
@@ -247,8 +247,8 @@ func MapToCurveG2Svdw(t fptower.E2) G2 {
 
 // EncodeToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
-func EncodeToCurveG2Svdw(msg, dst []byte) (G2, error) {
-	var res G2
+func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
+	var res G2Affine
 	_t, err := hashToFp(msg, dst, 2)
 	if err != nil {
 		return res, err
@@ -262,8 +262,8 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2, error) {
 
 // HashToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG2Svdw(msg, dst []byte) (G2, error) {
-	var res G2
+func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
+	var res G2Affine
 	u, err := hashToFp(msg, dst, 4)
 	if err != nil {
 		return res, err
