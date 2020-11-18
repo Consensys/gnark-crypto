@@ -5,9 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"sync"
-	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/goff/field"
@@ -17,6 +15,8 @@ import (
 	"github.com/consensys/gurvy/internal/templates/pairing"
 	"github.com/consensys/gurvy/internal/templates/point"
 )
+
+var bgen = bavard.NewBatchGenerator(copyrightHolder, "gurvy")
 
 //go:generate go run generator.go
 func main() {
@@ -114,7 +114,8 @@ func main() {
 			conf.Fp, _ = field.NewField("fp", "Element", conf.fp)
 			conf.Fr, _ = field.NewField("fr", "Element", conf.fr)
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
-			conf.dir = filepath.Join(baseDir, conf.Name)
+			dir := filepath.Join(baseDir, conf.Name)
+			conf.dir = dir
 
 			// generate base fields
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(conf.dir, "fr")))
@@ -123,31 +124,30 @@ func main() {
 			g1 := pconf{conf, conf.G1}
 			g2 := pconf{conf, conf.G2}
 
-			toGenerate := []genOpts{
-				{data: conf, dir: conf.dir, file: "doc.go", doc: doc},
-				{data: conf, dir: conf.dir, file: "multiexp_helpers.go", templates: []string{point.MultiExpHelpers}},
-				{data: conf, dir: conf.dir, file: "marshal.go", templates: []string{point.Marshal}},
-				{data: conf, dir: conf.dir, file: "marshal_test.go", templates: []string{point.MarshalTests}},
-
-				{data: g1, dir: conf.dir, file: "g1.go", templates: []string{point.Types, point.Point}},
-				{data: g1, dir: conf.dir, file: "g1_test.go", templates: []string{point.Types, point.PointTests}},
-				{data: g1, dir: conf.dir, file: "g1_multiexp.go", templates: []string{point.Types, point.MultiExpCore}},
-
-				{data: g2, dir: conf.dir, file: "g2.go", templates: []string{point.Types, point.Point}},
-				{data: g2, dir: conf.dir, file: "g2_test.go", templates: []string{point.Types, point.PointTests}},
-				{data: g2, dir: conf.dir, file: "g2_multiexp.go", templates: []string{point.Types, point.MultiExpCore}},
+			entries := []bavard.Entry{
+				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "doc.go"), PackageDoc: doc},
+				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "multiexp_helpers.go"), Templates: []string{point.MultiExpHelpers}},
+				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "marshal.go"), Templates: []string{point.Marshal}},
+				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "marshal_test.go"), Templates: []string{point.MarshalTests}},
+				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1.go"), Templates: []string{point.Types, point.Point}},
+				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1_test.go"), Templates: []string{point.Types, point.PointTests}},
+				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1_multiexp.go"), Templates: []string{point.Types, point.MultiExpCore}},
+				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2.go"), Templates: []string{point.Types, point.Point}},
+				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2_test.go"), Templates: []string{point.Types, point.PointTests}},
+				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2_multiexp.go"), Templates: []string{point.Types, point.MultiExpCore}},
 			}
 
 			if conf.Name != "bw761" {
 				assertNoError(GenerateFq12over6over2(conf))
-				toGenerate = append(toGenerate, genOpts{
-					data: conf, dir: conf.dir, file: "pairing_test.go", templates: []string{pairing.PairingTests},
+				entries = append(entries, bavard.Entry{
+					PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "pairing_test.go"), Templates: []string{pairing.PairingTests},
 				})
 			}
 
-			for _, g := range toGenerate {
-				generate(g)
+			if err := bgen.Generate(entries...); err != nil {
+				panic(err) // TODO handle
 			}
+
 		}(conf)
 
 	}
@@ -208,17 +208,19 @@ func defaultCRange() []int {
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
 func GenerateFq12over6over2(conf curveConfig) error {
 	dir := filepath.Join(conf.dir, "internal", fpTower)
-	for _, g := range []genOpts{
-		{data: conf, dir: dir, file: "e2.go", templates: []string{fq12over6over2.Fq2Common}},
-		{data: conf, dir: dir, file: "e2_amd64.go", templates: []string{fq12over6over2.Fq2Amd64}},
-		{data: conf, dir: dir, file: "e2_test.go", templates: []string{fq12over6over2.Fq2Tests}},
-		{data: conf, dir: dir, file: "e6.go", templates: []string{fq12over6over2.Fq6}},
-		{data: conf, dir: dir, file: "e6_test.go", templates: []string{fq12over6over2.Fq6Tests}},
-		{data: conf, dir: dir, file: "e12.go", templates: []string{fq12over6over2.Fq12}},
-		{data: conf, dir: dir, file: "e12_test.go", templates: []string{fq12over6over2.Fq12Tests}},
-		{data: conf, dir: dir, file: "e2_fallback.go", templates: []string{fq12over6over2.Fq2FallBack}, buildTag: "!amd64"},
-	} {
-		generate(g)
+	entries := []bavard.Entry{
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2.go"), Templates: []string{fq12over6over2.Fq2Common}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_amd64.go"), Templates: []string{fq12over6over2.Fq2Amd64}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_test.go"), Templates: []string{fq12over6over2.Fq2Tests}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e6.go"), Templates: []string{fq12over6over2.Fq6}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e6_test.go"), Templates: []string{fq12over6over2.Fq6Tests}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e12.go"), Templates: []string{fq12over6over2.Fq12}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e12_test.go"), Templates: []string{fq12over6over2.Fq12Tests}},
+		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_fallback.go"), Templates: []string{fq12over6over2.Fq2FallBack}, BuildTag: "!amd64"},
+	}
+
+	if err := bgen.Generate(entries...); err != nil {
+		return err
 	}
 
 	{
@@ -241,74 +243,4 @@ func GenerateFq12over6over2(conf curveConfig) error {
 	}
 
 	return nil
-}
-
-type genOpts struct {
-	file      string
-	templates []string
-	buildTag  string
-	dir       string
-	doc       string
-	data      interface{}
-}
-
-func generate(g genOpts) {
-	opts := []func(*bavard.Bavard) error{
-		bavard.Apache2(copyrightHolder, 2020),
-		bavard.GeneratedBy("gurvy"),
-		bavard.Funcs(helpers()),
-		bavard.Format(false),
-		bavard.Import(false),
-	}
-	if g.buildTag != "" {
-		opts = append(opts, bavard.BuildTag(g.buildTag))
-	}
-	file := filepath.Join(g.dir, g.file)
-
-	opts = append(opts, bavard.Package(filepath.Base(filepath.Dir(file)), g.doc))
-
-	if err := bavard.Generate(file, g.templates, g.data, opts...); err != nil {
-		panic(err)
-	}
-}
-
-// Template helpers (txt/template)
-func helpers() template.FuncMap {
-	// functions used in template
-	return template.FuncMap{
-		"divides": divides,
-	}
-}
-
-// return true if c1 divides c2, that is, c2 % c1 == 0
-func divides(c1, c2 interface{}) bool {
-	switch cc1 := c1.(type) {
-	case int:
-		switch cc2 := c2.(type) {
-		case int:
-			return cc2%cc1 == 0
-		case string:
-			c2Int, err := strconv.Atoi(cc2)
-			if err != nil {
-				panic(err)
-			}
-			return c2Int%cc1 == 0
-		}
-	case string:
-		c1Int, err := strconv.Atoi(cc1)
-		if err != nil {
-			panic(err)
-		}
-		switch cc2 := c2.(type) {
-		case int:
-			return cc2%c1Int == 0
-		case string:
-			c2Int, err := strconv.Atoi(cc2)
-			if err != nil {
-				panic(err)
-			}
-			return c2Int%c1Int == 0
-		}
-	}
-	panic("unexpected type")
 }
