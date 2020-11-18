@@ -216,6 +216,17 @@ func (z *E12) Conjugate(x *E12) *E12 {
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = {{ $sizeOfFp }} * 12
 
+// Marshal converts z to a byte slice
+func (z *E12) Marshal() ([]byte) {
+	b := z.Bytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (z *E12) Unmarshal(buf []byte) error {
+	return z.SetBytes(buf)
+}
+
 // Bytes returns the regular (non montgomery) value 
 // of z as a big-endian byte array.
 // z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...

@@ -135,6 +135,53 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 
 }
 
+func TestGTSerializationInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BN256] GT: gurvy -> cloudflare -> gurvy should stay constant", prop.ForAll(
+		func(start *GT) bool {
+			var end GT
+			cgt := new(cloudflare.GT)
+
+			if _, err := cgt.Unmarshal(start.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			err := end.Unmarshal(cgt.Marshal())
+			if err != nil {
+				return false
+			}
+			return start.Equal(&end)
+		},
+		GenE12(),
+	))
+
+	properties.Property("[BN256] GT: gurvy -> google -> gurvy should stay constant", prop.ForAll(
+		func(start *GT) bool {
+			var end GT
+			cgt := new(google.GT)
+
+			if _, ok := cgt.Unmarshal(start.Marshal()); !ok {
+				return false
+			}
+
+			err := end.Unmarshal(cgt.Marshal())
+			if err != nil {
+				return false
+			}
+			return start.Equal(&end)
+		},
+		GenE12(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+
 func TestScalarMultiplicationInterop(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -218,5 +265,66 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 		GenFp(),
 		GenFp(),
 	))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestPairingInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BN256] pairing check interop", prop.ForAll(
+		func(a fp.Element) bool {
+			var g1 G1Affine
+			var g2 G2Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			g1.ScalarMultiplication(&g1GenAff, &ab)
+			g2.ScalarMultiplication(&g2GenAff, &ab)
+
+			g1g := new(google.G1)
+			g1c := new(cloudflare.G1)
+			g2g := new(google.G2)
+			g2c := new(cloudflare.G2)
+
+			if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+			if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+				t.Log(err)
+				return false
+			}
+
+			// pairings
+			pc := cloudflare.Pair(g1c, g2c)
+			gc := google.Pair(g1g, g2g)
+			c := Pair(g1, g2)
+
+			if !(bytes.Equal(c.Marshal(), gc.Marshal())) {
+				t.Log("pairing doesn't match google implementation")
+				return false
+			}
+
+			if !(bytes.Equal(c.Marshal(), pc.Marshal())) {
+				t.Log("pairing doesn't match cloudflare implementation")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

@@ -27,6 +27,28 @@ type lineEvaluation struct {
 	r2 fptower.E2
 }
 
+// Pair ...
+func Pair(P G1Affine, Q G2Affine) GT {
+	return FinalExponentiation(MillerLoop(P, Q))
+}
+
+// PairingCheck calculates the pairing for a set of points and return true if the result is One
+// func PairingCheck(a []*G1Affine, b []*G2Affine) bool {
+// 	var result GT
+// 	result.SetOne()
+
+// 	for i := 0; i < len(a); i++ {
+// 		if a[i].IsInfinity() || b[i].IsInfinity() {
+// 			continue
+// 		}
+// 		result.Mul(&result, MillerLoop(*a[i], *b[i]))
+// 	}
+// 	var one GT
+// 	one.SetOne()
+// 	p := FinalExponentiation(&result)
+// 	return p.Equal(&one)
+// }
+
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
