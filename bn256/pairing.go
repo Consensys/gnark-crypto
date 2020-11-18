@@ -41,7 +41,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	var mt [4]GT // mt[i] is m^(t^i)
 
 	// easy part
-	mt[0].Set(z)
+	mt[0].Set(&result)
 	var temp GT
 	temp.Conjugate(&mt[0])
 	mt[0].Inverse(&mt[0])
