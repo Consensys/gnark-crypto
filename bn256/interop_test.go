@@ -328,3 +328,52 @@ func TestPairingInterop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+func BenchmarkPairingInterop(b *testing.B) {
+	var g1 G1Affine
+	var g2 G2Affine
+	var ab big.Int
+	ab.SetUint64(42)
+	g1.ScalarMultiplication(&g1GenAff, &ab)
+	g2.ScalarMultiplication(&g2GenAff, &ab)
+
+	b.Run("[bn256]google_pairing", func(b *testing.B) {
+		g1g := new(google.G1)
+		g2g := new(google.G2)
+
+		if _, err := g1g.Unmarshal(g1.Marshal()); err != nil {
+			b.Fatal(err)
+		}
+		if _, err := g2g.Unmarshal(g2.Marshal()); err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = google.Pair(g1g, g2g)
+		}
+	})
+	b.Run("[bn256]cloudflare_pairing", func(b *testing.B) {
+		g1c := new(cloudflare.G1)
+		g2c := new(cloudflare.G2)
+
+		if _, err := g1c.Unmarshal(g1.Marshal()); err != nil {
+			b.Fatal(err)
+		}
+
+		if _, err := g2c.Unmarshal(g2.Marshal()); err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = cloudflare.Pair(g1c, g2c)
+		}
+	})
+
+	b.Run("[bn256]gurvy_pairing", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = Pair(g1, g2)
+		}
+	})
+
+}
