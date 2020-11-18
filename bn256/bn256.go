@@ -32,8 +32,8 @@ var bTwistCurveCoeff fptower.E2
 var g1Gen G1Jac
 var g2Gen G2Jac
 
-var g1GenAff G1
-var g2GenAff G2
+var g1GenAff G1Affine
+var g2GenAff G2Affine
 
 // point at infinity
 var g1Infinity G1Jac
@@ -110,7 +110,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1Aff G1, g2Aff G2) {
+func Generators() (g1Aff G1Affine, g2Aff G2Affine) {
 	g1Aff = g1GenAff
 	g2Aff = g2GenAff
 	return

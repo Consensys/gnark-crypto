@@ -15,7 +15,7 @@ import (
 )
 
 
-// To encode G1 and G2 points, we mask the most significant bits with these bits to specify without ambiguity
+// To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 {{- if ge .FpUnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
@@ -65,7 +65,7 @@ func NewDecoder(r io.Reader) *Decoder {
 
 
 // Decode reads the binary encoding of v from the stream
-// type must be *uint64, *fr.Element, *fp.Element, *G1, *G2, *[]G1 or *[]G2
+// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
@@ -103,7 +103,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		t.SetBytes(buf[:fp.Limbs * 8])
 		return
-	case *G1:
+	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
 		dec.n += int64(read)
@@ -123,7 +123,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return 
-	case *G2:
+	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
 		dec.n += int64(read)
@@ -143,14 +143,14 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		_, err = t.SetBytes(buf[:nbBytes])
 		return 
-	case *[]G1:
+	case *[]G1Affine:
 		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
 		if len(*t) != int(sliceLen) {
-			*t = make([]G1, sliceLen)
+			*t = make([]G1Affine, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
@@ -194,14 +194,14 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		}
 		
 		return nil
-	case *[]G2:
+	case *[]G2Affine:
 		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
 		if len(*t) != int(sliceLen) {
-			*t = make([]G2, sliceLen)
+			*t = make([]G2Affine, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
 		for i := 0; i < len(*t); i++ {
@@ -305,7 +305,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1, *G2, []G1 or []G2
+// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine or []G2Affine
 func (enc *Encoder) Encode(v interface{}) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -355,17 +355,17 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return 
-	case *G1:
+	case *G1Affine:
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return  
-	case *G2:
+	case *G2Affine:
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return 
-	case []G1:
+	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
@@ -384,7 +384,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 			}
 		}
 		return nil
-	case []G2:
+	case []G2Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
 		if err != nil {
@@ -432,11 +432,11 @@ func TestEncoder(t *testing.T) {
 	var inA uint64
 	var inB fr.Element 
 	var inC fp.Element 
-	var inD G1
-	var inE G1
-	var inF G2
-	var inG []G1
-	var inH []G2
+	var inD G1Affine
+	var inE G1Affine
+	var inF G2Affine
+	var inG []G1Affine
+	var inH []G2Affine
 
 	// set values of inputs
 	inA = rand.Uint64()
@@ -445,8 +445,8 @@ func TestEncoder(t *testing.T) {
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	// inE --> infinity
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
-	inG = make([]G1, 2)
-	inH = make([]G2, 0)
+	inG = make([]G1Affine, 2)
+	inH = make([]G2Affine, 0)
 	inG[1] = inD 
 
 	// encode them, compressed and raw
@@ -469,13 +469,13 @@ func TestEncoder(t *testing.T) {
 		var outA uint64
 		var outB fr.Element 
 		var outC fp.Element 
-		var outD G1
-		var outE G1
+		var outD G1Affine
+		var outE G1Affine
 		outE.X.SetOne()
 		outE.Y.SetUint64(42)
-		var outF G2
-		var outG []G1
-		var outH []G2
+		var outF G2Affine
+		var outG []G1Affine
+		var outH []G2Affine
 
 		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH}
 		for _, v := range toDecode {
@@ -493,10 +493,10 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(Element) failed")
 		}
 		if !inD.Equal(&outD) || !inE.Equal(&outE) {
-			t.Fatal("decode(encode(G1) failed")
+			t.Fatal("decode(encode(G1Affine) failed")
 		}
 		if !inF.Equal(&outF) {
-			t.Fatal("decode(encode(G2) failed")
+			t.Fatal("decode(encode(G2Affine) failed")
 		}
 		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
 			t.Fatal("decode(encode(slice(points))) failed")
@@ -521,8 +521,8 @@ func TestEncoder(t *testing.T) {
 
 
 func TestIsCompressed(t *testing.T) {
-	var g1Inf, g1 G1
-	var g2Inf, g2 G2
+	var g1Inf, g1 G1Affine
+	var g2Inf, g2 G2Affine
 
 	g1 = g1GenAff
 	g2 = g2GenAff

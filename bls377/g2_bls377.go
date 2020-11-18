@@ -47,7 +47,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 // cf https://eprint.iacr.org/2019/403.pdf, 5
-func (p *G2) ClearCofactor(a *G2) *G2 {
+func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.ClearCofactor(&_p)

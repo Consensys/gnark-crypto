@@ -31,7 +31,7 @@ import (
 
 // ------------------------------------------------------------
 // utils
-func fuzzJacobianG1(p *G1Jac, f fp.Element) G1Jac {
+func fuzzJacobianG1Affine(p *G1Jac, f fp.Element) G1Jac {
 	var res G1Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
 	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
@@ -39,7 +39,7 @@ func fuzzJacobianG1(p *G1Jac, f fp.Element) G1Jac {
 	return res
 }
 
-func fuzzExtendedJacobianG1(p *g1JacExtended, f fp.Element) g1JacExtended {
+func fuzzExtendedJacobianG1Affine(p *g1JacExtended, f fp.Element) g1JacExtended {
 	var res g1JacExtended
 	var ff, fff fp.Element
 	ff.Square(&f)
@@ -54,7 +54,7 @@ func fuzzExtendedJacobianG1(p *g1JacExtended, f fp.Element) g1JacExtended {
 // ------------------------------------------------------------
 // tests
 
-func TestG1IsOnCurve(t *testing.T) {
+func TestG1AffineIsOnCurve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -63,7 +63,7 @@ func TestG1IsOnCurve(t *testing.T) {
 	genFuzz1 := GenFp()
 	properties.Property("[BLS381] g1Gen (affine) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
-			var op1, op2 G1
+			var op1, op2 G1Affine
 			op1.FromJacobian(&g1Gen)
 			op2.FromJacobian(&g1Gen)
 			op2.Y.Mul(&op2.Y, &a)
@@ -78,7 +78,7 @@ func TestG1IsOnCurve(t *testing.T) {
 			op1.Set(&g1Gen)
 			op3.Set(&g1Gen)
 
-			op2 = fuzzJacobianG1(&g1Gen, a)
+			op2 = fuzzJacobianG1Affine(&g1Gen, a)
 			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
@@ -88,13 +88,13 @@ func TestG1IsOnCurve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1Serialization(t *testing.T) {
+func TestG1AffineSerialization(t *testing.T) {
 
 	// test round trip serialization of infinity
 	{
 		// compressed
 		{
-			var p1, p2 G1
+			var p1, p2 G1Affine
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.Bytes()
@@ -102,7 +102,7 @@ func TestG1Serialization(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if n != SizeOfG1Compressed {
+			if n != SizeOfG1AffineCompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
 			if !(p2.X.IsZero() && p2.Y.IsZero()) {
@@ -112,7 +112,7 @@ func TestG1Serialization(t *testing.T) {
 
 		// uncompressed
 		{
-			var p1, p2 G1
+			var p1, p2 G1Affine
 			p2.X.SetRandom()
 			p2.Y.SetRandom()
 			buf := p1.RawBytes()
@@ -120,7 +120,7 @@ func TestG1Serialization(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if n != SizeOfG1Uncompressed {
+			if n != SizeOfG1AffineUncompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
 			if !(p2.X.IsZero() && p2.Y.IsZero()) {
@@ -137,7 +137,7 @@ func TestG1Serialization(t *testing.T) {
 
 	properties.Property("[BLS381] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
 		func(a, b fp.Element) bool {
-			var start, end G1
+			var start, end G1Affine
 			start.X = a
 			start.Y = b
 
@@ -146,7 +146,7 @@ func TestG1Serialization(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			if n != SizeOfG1Uncompressed {
+			if n != SizeOfG1AffineUncompressed {
 				return false
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
@@ -157,7 +157,7 @@ func TestG1Serialization(t *testing.T) {
 
 	properties.Property("[BLS381] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G1
+			var start, end G1Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
@@ -167,7 +167,7 @@ func TestG1Serialization(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			if n != SizeOfG1Compressed {
+			if n != SizeOfG1AffineCompressed {
 				return false
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
@@ -178,7 +178,7 @@ func TestG1Serialization(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1Conversions(t *testing.T) {
+func TestG1AffineConversions(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -189,8 +189,8 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
-			g := fuzzJacobianG1(&g1Gen, a)
-			var op1 G1
+			g := fuzzJacobianG1Affine(&g1Gen, a)
+			var op1 G1Affine
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g1Gen.X) && op1.Y.Equal(&g1Gen.Y)
 		},
@@ -204,9 +204,9 @@ func TestG1Conversions(t *testing.T) {
 			g.Y.Set(&g1Gen.Y)
 			g.ZZ.Set(&g1Gen.Z)
 			g.ZZZ.Set(&g1Gen.Z)
-			gfuzz := fuzzExtendedJacobianG1(&g, a)
+			gfuzz := fuzzExtendedJacobianG1Affine(&g, a)
 
-			var op1 G1
+			var op1 G1Affine
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g1Gen.X) && op1.Y.Equal(&g1Gen.Y)
 		},
@@ -216,7 +216,7 @@ func TestG1Conversions(t *testing.T) {
 	properties.Property("[BLS381] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		func(a fp.Element) bool {
 			var g G1Jac
-			var op1 G1
+			var op1 G1Affine
 			op1.X.Set(&g1Gen.X)
 			op1.Y.Set(&g1Gen.Y)
 
@@ -232,7 +232,7 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
-			var g G1
+			var g G1Affine
 			g.X.SetZero()
 			g.Y.SetZero()
 			var op1 G1Jac
@@ -245,7 +245,7 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
-			var g G1
+			var g G1Affine
 			var op1 g1JacExtended
 			var zero fp.Element
 			op1.X.Set(&g1Gen.X)
@@ -270,8 +270,8 @@ func TestG1Conversions(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		func(a, b fp.Element) bool {
-			op1 := fuzzJacobianG1(&g1Gen, a)
-			op2 := fuzzJacobianG1(&g1Gen, b)
+			op1 := fuzzJacobianG1Affine(&g1Gen, a)
+			op2 := fuzzJacobianG1Affine(&g1Gen, b)
 			return op1.Equal(&op2)
 		},
 		genFuzz1,
@@ -281,7 +281,7 @@ func TestG1Conversions(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1Ops(t *testing.T) {
+func TestG1AffineOps(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -294,8 +294,8 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
-			fop2 := fuzzJacobianG1(&g1Gen, b)
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop2 := fuzzJacobianG1Affine(&g1Gen, b)
 			var op1, op2 G1Jac
 			op1.Set(&fop1).AddAssign(&fop2)
 			op2.Double(&fop2)
@@ -307,8 +307,8 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		func(a, b fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
-			fop2 := fuzzJacobianG1(&g1Gen, b)
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop2 := fuzzJacobianG1Affine(&g1Gen, b)
 			fop2.Neg(&fop2)
 			fop1.AddAssign(&fop2)
 			return fop1.Equal(&g1Infinity)
@@ -319,7 +319,7 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
 			fop1.AddAssign(&g1Infinity)
 			var op2 G1Jac
 			op2.Set(&g1Infinity)
@@ -331,8 +331,8 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
-			var p1, p1Neg G1
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			var p1, p1Neg G1Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -350,8 +350,8 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
-			var p1, p1Neg G1
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			var p1, p1Neg G1Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
@@ -369,9 +369,9 @@ func TestG1Ops(t *testing.T) {
 
 	properties.Property("[BLS381] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1(&g1Gen, a)
+			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
 			fop1.Neg(&fop1)
-			var op2 G1
+			var op2 G1Affine
 			op2.FromJacobian(&g1Gen)
 			fop1.AddMixed(&op2)
 			return fop1.Equal(&g1Infinity)
@@ -448,7 +448,7 @@ func TestG1Ops(t *testing.T) {
 			g.Set(&g1Gen)
 
 			// mixer ensures that all the words of a fpElement are set
-			samplePoints := make([]G1, 30)
+			samplePoints := make([]G1Affine, 30)
 			sampleScalars := make([]fr.Element, 30)
 
 			for i := 1; i <= 30; i++ {
@@ -459,12 +459,12 @@ func TestG1Ops(t *testing.T) {
 				g.AddAssign(&g1Gen)
 			}
 
-			var op1MultiExp G1
+			var op1MultiExp G1Affine
 			op1MultiExp.MultiExp(samplePoints, sampleScalars)
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
-			var op1ScalarMul G1
+			var op1ScalarMul G1Affine
 			finalBigScalar.SetString("9455").MulAssign(&mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
@@ -476,7 +476,7 @@ func TestG1Ops(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1MultiExp(t *testing.T) {
+func TestG1AffineMultiExp(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 2
@@ -489,7 +489,7 @@ func TestG1MultiExp(t *testing.T) {
 	const nbSamples = 500
 
 	// multi exp points
-	var samplePoints [nbSamples]G1
+	var samplePoints [nbSamples]G1Affine
 	var g G1Jac
 	g.Set(&g1Gen)
 	for i := 1; i <= nbSamples; i++ {
@@ -1004,7 +1004,7 @@ func TestG1MultiExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1CofactorCleaning(t *testing.T) {
+func TestG1AffineCofactorCleaning(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -1039,7 +1039,7 @@ func TestG1CofactorCleaning(t *testing.T) {
 
 }
 
-func TestG1BatchScalarMultiplication(t *testing.T) {
+func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -1062,7 +1062,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
+			result := BatchScalarMultiplicationG1Affine(&g1GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -1070,7 +1070,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 
 			for i := 0; i < len(result); i++ {
 				var expectedJac G1Jac
-				var expected G1
+				var expected G1Affine
 				var b big.Int
 				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
@@ -1089,7 +1089,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
-func BenchmarkG1BatchScalarMul(b *testing.B) {
+func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -1111,13 +1111,13 @@ func BenchmarkG1BatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:using])
+				_ = BatchScalarMultiplicationG1Affine(&g1GenAff, sampleScalars[:using])
 			}
 		})
 	}
 }
 
-func BenchmarkG1ScalarMul(b *testing.B) {
+func BenchmarkG1AffineScalarMul(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()
@@ -1143,7 +1143,7 @@ func BenchmarkG1ScalarMul(b *testing.B) {
 
 }
 
-func BenchmarkG1CofactorClearing(b *testing.B) {
+func BenchmarkG1AffineCofactorClearing(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
 	for i := 0; i < b.N; i++ {
@@ -1151,7 +1151,7 @@ func BenchmarkG1CofactorClearing(b *testing.B) {
 	}
 }
 
-func BenchmarkG1Add(b *testing.B) {
+func BenchmarkG1AffineAdd(b *testing.B) {
 	var a G1Jac
 	a.Double(&g1Gen)
 	b.ResetTimer()
@@ -1160,11 +1160,11 @@ func BenchmarkG1Add(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacExtendedAdd(b *testing.B) {
+func BenchmarkG1AffineJacExtendedAdd(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
-	var c G1
+	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1172,11 +1172,11 @@ func BenchmarkG1JacExtendedAdd(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacExtendedSub(b *testing.B) {
+func BenchmarkG1AffineJacExtendedSub(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
-	var c G1
+	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1184,11 +1184,11 @@ func BenchmarkG1JacExtendedSub(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacExtendedDouble(b *testing.B) {
+func BenchmarkG1AffineJacExtendedDouble(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
-	var c G1
+	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1196,11 +1196,11 @@ func BenchmarkG1JacExtendedDouble(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacExtendedDoubleNeg(b *testing.B) {
+func BenchmarkG1AffineJacExtendedDoubleNeg(b *testing.B) {
 	var a g1JacExtended
 	a.double(&g1GenAff)
 
-	var c G1
+	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1208,11 +1208,11 @@ func BenchmarkG1JacExtendedDoubleNeg(b *testing.B) {
 	}
 }
 
-func BenchmarkG1AddMixed(b *testing.B) {
+func BenchmarkG1AffineAddMixed(b *testing.B) {
 	var a G1Jac
 	a.Double(&g1Gen)
 
-	var c G1
+	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1221,7 +1221,7 @@ func BenchmarkG1AddMixed(b *testing.B) {
 
 }
 
-func BenchmarkG1Double(b *testing.B) {
+func BenchmarkG1AffineDouble(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
 	b.ResetTimer()
@@ -1231,7 +1231,7 @@ func BenchmarkG1Double(b *testing.B) {
 
 }
 
-func BenchmarkG1MultiExpG1(b *testing.B) {
+func BenchmarkG1AffineMultiExpG1Affine(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -1239,7 +1239,7 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
 	const nbSamples = 1 << pow
 
-	var samplePoints [nbSamples]G1
+	var samplePoints [nbSamples]G1Affine
 	var sampleScalars [nbSamples]fr.Element
 
 	for i := 1; i <= nbSamples; i++ {
@@ -1249,7 +1249,7 @@ func BenchmarkG1MultiExpG1(b *testing.B) {
 		samplePoints[i-1] = g1GenAff
 	}
 
-	var testPoint G1
+	var testPoint G1Affine
 
 	for i := 5; i <= pow; i++ {
 		using := 1 << i

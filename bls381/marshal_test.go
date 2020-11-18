@@ -34,11 +34,11 @@ func TestEncoder(t *testing.T) {
 	var inA uint64
 	var inB fr.Element
 	var inC fp.Element
-	var inD G1
-	var inE G1
-	var inF G2
-	var inG []G1
-	var inH []G2
+	var inD G1Affine
+	var inE G1Affine
+	var inF G2Affine
+	var inG []G1Affine
+	var inH []G2Affine
 
 	// set values of inputs
 	inA = rand.Uint64()
@@ -47,8 +47,8 @@ func TestEncoder(t *testing.T) {
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	// inE --> infinity
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
-	inG = make([]G1, 2)
-	inH = make([]G2, 0)
+	inG = make([]G1Affine, 2)
+	inH = make([]G2Affine, 0)
 	inG[1] = inD
 
 	// encode them, compressed and raw
@@ -70,13 +70,13 @@ func TestEncoder(t *testing.T) {
 		var outA uint64
 		var outB fr.Element
 		var outC fp.Element
-		var outD G1
-		var outE G1
+		var outD G1Affine
+		var outE G1Affine
 		outE.X.SetOne()
 		outE.Y.SetUint64(42)
-		var outF G2
-		var outG []G1
-		var outH []G2
+		var outF G2Affine
+		var outG []G1Affine
+		var outH []G2Affine
 
 		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH}
 		for _, v := range toDecode {
@@ -94,10 +94,10 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(Element) failed")
 		}
 		if !inD.Equal(&outD) || !inE.Equal(&outE) {
-			t.Fatal("decode(encode(G1) failed")
+			t.Fatal("decode(encode(G1Affine) failed")
 		}
 		if !inF.Equal(&outF) {
-			t.Fatal("decode(encode(G2) failed")
+			t.Fatal("decode(encode(G2Affine) failed")
 		}
 		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
 			t.Fatal("decode(encode(slice(points))) failed")
@@ -119,8 +119,8 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestIsCompressed(t *testing.T) {
-	var g1Inf, g1 G1
-	var g2Inf, g2 G2
+	var g1Inf, g1 G1Affine
+	var g2Inf, g2 G2Affine
 
 	g1 = g1GenAff
 	g2 = g2GenAff

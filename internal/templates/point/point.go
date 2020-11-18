@@ -3,6 +3,7 @@ package point
 // Types ...
 const Types = `
 
+{{ $TAffine := print (toUpper .PointName) "Affine" }}
 {{ $TJacobian := print (toUpper .PointName) "Jac" }}
 {{ $TJacobianExtended := print (toLower .PointName) "JacExtended" }}
 {{ $TProjective := print (toLower .PointName) "Proj" }}
@@ -26,8 +27,8 @@ import (
 	{{if eq .CoordType "fptower.E2"}}"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"{{end}}
 )
 
-// {{ toUpper .PointName }} point in affine coordinates
-type {{ toUpper .PointName }} struct {
+// {{ $TAffine }} point in affine coordinates
+type {{ $TAffine }} struct {
 	X, Y {{.CoordType}}
 }
 
@@ -53,7 +54,7 @@ type {{ $TProjective }} struct {
 
 
 // ScalarMultiplication computes and returns p = a*s
-func (p *{{ toUpper .PointName}}) ScalarMultiplication(a *{{ toUpper .PointName}}, s *big.Int) *{{ toUpper .PointName}} {
+func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -64,13 +65,13 @@ func (p *{{ toUpper .PointName}}) ScalarMultiplication(a *{{ toUpper .PointName}
 
 
 // Equal tests if two points (in Affine coordinates) are equal
-func (p *{{ toUpper .PointName }}) Equal(a *{{ toUpper .PointName }}) bool {
+func (p *{{ $TAffine }}) Equal(a *{{ $TAffine }}) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
 }
 
 
 // Neg computes -G
-func (p *{{ toUpper .PointName }}) Neg(a *{{ toUpper .PointName }}) *{{ toUpper .PointName }} {
+func (p *{{ $TAffine }}) Neg(a *{{ $TAffine }}) *{{ $TAffine }} {
 	p.X = a.X
 	p.Y.Neg(&a.Y)
 	return p
@@ -80,7 +81,7 @@ func (p *{{ toUpper .PointName }}) Neg(a *{{ toUpper .PointName }}) *{{ toUpper 
 
 
 // FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *{{ toUpper .PointName }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ toUpper .PointName }} {
+func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 
 	var a, b {{.CoordType}}
 
@@ -100,7 +101,7 @@ func (p *{{ toUpper .PointName }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ toUppe
 
 
 
-func (p *{{ toUpper .PointName }}) String() string {
+func (p *{{ $TAffine }}) String() string {
 	var x, y {{.CoordType}}
 	x.Set(&p.X)
 	y.Set(&p.Y)
@@ -108,19 +109,19 @@ func (p *{{ toUpper .PointName }}) String() string {
 }
 
 // IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
-func (p *{{ toUpper .PointName }}) IsInfinity() bool {
+func (p *{{ $TAffine }}) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
 // IsOnCurve returns true if p in on the curve
-func (p *{{ toUpper .PointName}}) IsOnCurve() bool {
+func (p *{{ $TAffine }}) IsOnCurve() bool {
 	var point {{ $TJacobian }}
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
 // IsInSubGroup returns true if p is in the correct subgroup, false otherwise
-func (p *{{ toUpper .PointName}}) IsInSubGroup() bool {
+func (p *{{ $TAffine }}) IsInSubGroup() bool {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(p)
 	return _p.IsOnCurve() && _p.IsInSubGroup()
@@ -142,10 +143,10 @@ func (p *{{ $TJacobian }}) Equal(a *{{ $TJacobian }}) bool {
 	if p.Z.IsZero() && a.Z.IsZero() {
 		return true
 	}
-	_p := {{ toUpper .PointName }}{}
+	_p := {{ $TAffine }}{}
 	_p.FromJacobian(p)
 
-	_a := {{ toUpper .PointName }}{}
+	_a := {{ $TAffine }}{}
 	_a.FromJacobian(a)
 
 	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
@@ -224,7 +225,7 @@ func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 
 // AddMixed point addition
 // http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
-func (p *{{ $TJacobian }}) AddMixed(a *{{ toUpper .PointName }}) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -328,13 +329,13 @@ func (p *{{ $TJacobian }}) String() string {
 	if p.Z.IsZero() {
 		return "O"
 	}
-	_p := {{ toUpper .PointName }}{}
+	_p := {{ $TAffine }}{}
 	_p.FromJacobian(p)
 	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
 }
 
 // FromAffine sets p = Q, p in Jacboian, Q in affine
-func (p *{{ $TJacobian }}) FromAffine(Q *{{ toUpper .PointName }}) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) FromAffine(Q *{{ $TAffine }}) *{{ $TJacobian }} {
 	if Q.X.IsZero() && Q.Y.IsZero() {
 		p.Z.SetZero()
 		p.X.SetOne()
@@ -380,8 +381,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		}
 	{{else if eq .PointName "g2"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-		// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
-		// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+		// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+		// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 		// polynomials in x, a short vector of this Zmodule is
 		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
 		// is the infinity.
@@ -401,8 +402,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	{{end}}
 {{else if eq .Name "bw761" }}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
-	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 	// polynomials in x, a short vector of this Zmodule is
 	// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
 	// is the infinity.
@@ -423,8 +424,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	}
 {{else}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-	// Z[r,0]+Z[-lambda{{ toUpper .PointName}}, 1] is the kernel
-	// of (u,v)->u+lambda{{ toUpper .PointName}}v mod r. Expressing r, lambda{{ toUpper .PointName}} as
+	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 	// polynomials in x, a short vector of this Zmodule is
 	// 1, x**2. So we check that p+x**2*phi(p)
 	// is the infinity.
@@ -486,7 +487,7 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 {{ if .GLV}}
 
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
-func (p *{{ toUpper .PointName }}Jac) phi(a *{{ toUpper .PointName }}Jac) *{{ toUpper .PointName }}Jac {
+func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(a)
 	{{if eq .CoordType "fptower.E2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
@@ -593,10 +594,10 @@ func (p *{{ $TProjective }}) FromJacobian(Q *{{ $TJacobian }}) *{{ $TProjective 
 {{/* note batch inversion for g2 elements with E2 that is curve specific is a bit more troublesome to implement */}}
 {{if eq .PointName "g1"}}
 
-// BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
+// BatchJacobianToAffine{{ $TAffine }} converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, result []{{ toUpper .PointName}}) {
+func BatchJacobianToAffine{{ $TAffine }}(points []{{ $TJacobian }}, result []{{ $TAffine }}) {
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -643,10 +644,10 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 {{end}}
 
 
-// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
+// BatchScalarMultiplication{{ $TAffine }} multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointName}}, scalars []fr.Element) []{{ toUpper .PointName }} {
+func BatchScalarMultiplication{{ $TAffine }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
@@ -706,11 +707,11 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 
 	{{if eq .PointName "g1"}}
 		// convert our base exp table into affine to use AddMixed
-		baseTableAff := make([]{{ toUpper .PointName }}, (1<<(c-1)))
-		BatchJacobianToAffine{{ toUpper .PointName }}(baseTable, baseTableAff)
+		baseTableAff := make([]{{ $TAffine }}, (1<<(c-1)))
+		BatchJacobianToAffine{{ $TAffine }}(baseTable, baseTableAff)
 		toReturn := make([]{{ $TJacobian }}, len(scalars))
 	{{else}}
-		toReturn := make([]{{ toUpper .PointName }}, len(scalars))
+		toReturn := make([]{{ $TAffine }}, len(scalars))
 	{{end}}
 
 	// for each digit, take value in the base table, double it c time, voila.
@@ -768,8 +769,8 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 	})
 
 	{{if eq .PointName "g1"}}
-		toReturnAff := make([]{{ toUpper .PointName }}, len(scalars))
-		BatchJacobianToAffine{{ toUpper .PointName }}(toReturn, toReturnAff)
+		toReturnAff := make([]{{ $TAffine }}, len(scalars))
+		BatchJacobianToAffine{{ $TAffine }}(toReturn, toReturnAff)
 		return toReturnAff
 	{{else}}
 		return toReturn
@@ -781,11 +782,11 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ toUpper .PointNa
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 
 
-// SizeOf{{ toUpper .PointName }}Compressed represents the size in bytes that a {{ toUpper .PointName }} need in binary form, compressed
-const SizeOf{{ toUpper .PointName }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "fptower.E2"}} * 2 {{- end}}
+// SizeOf{{ $TAffine }}Compressed represents the size in bytes that a {{ $TAffine }} need in binary form, compressed
+const SizeOf{{ $TAffine }}Compressed = {{ $sizeOfFp }} {{- if eq .CoordType "fptower.E2"}} * 2 {{- end}}
 
-// SizeOf{{ toUpper .PointName }}Uncompressed represents the size in bytes that a {{ toUpper .PointName }} need in binary form, uncompressed
-const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }}Compressed * 2
+// SizeOf{{ $TAffine }}Uncompressed represents the size in bytes that a {{ $TAffine }} need in binary form, uncompressed
+const SizeOf{{ $TAffine }}Uncompressed = SizeOf{{ $TAffine }}Compressed * 2
 
 
 // Bytes returns binary representation of p
@@ -804,7 +805,7 @@ const SizeOf{{ toUpper .PointName }}Uncompressed = SizeOf{{ toUpper .PointName }
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 {{- end}}
-func (p *{{ toUpper .PointName }}) Bytes() (res [SizeOf{{ toUpper .PointName }}Compressed]byte) {
+func (p *{{ $TAffine }}) Bytes() (res [SizeOf{{ $TAffine }}Compressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
@@ -840,7 +841,7 @@ func (p *{{ toUpper .PointName }}) Bytes() (res [SizeOf{{ toUpper .PointName }}C
 
 // RawBytes returns binary representation of p (stores X and Y coordinate)
 // see Bytes() for a compressed representation
-func (p *{{ toUpper .PointName }}) RawBytes() (res [SizeOf{{ toUpper .PointName }}Uncompressed]byte) {
+func (p *{{ $TAffine }}) RawBytes() (res [SizeOf{{ $TAffine }}Uncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
@@ -889,8 +890,8 @@ func (p *{{ toUpper .PointName }}) RawBytes() (res [SizeOf{{ toUpper .PointName 
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
 // note that this doesn't check if the resulting point is on the curve or in the correct subgroup
-func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
-	if len(buf) < SizeOf{{ toUpper .PointName }}Compressed {
+func (p *{{ $TAffine }}) SetBytes(buf []byte) (int, error)  {
+	if len(buf) < SizeOf{{ $TAffine }}Compressed {
 		return 0, io.ErrShortBuffer
 	}
 
@@ -900,7 +901,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 
 	// check buffer size
 	if (mData == mUncompressed) {{- if ge .FpUnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
-		if len(buf) < SizeOf{{ toUpper .PointName }}Uncompressed {
+		if len(buf) < SizeOf{{ $TAffine }}Uncompressed {
 			return 0, io.ErrShortBuffer
 		}
 	} 
@@ -909,14 +910,14 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 	if (mData == mCompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return SizeOf{{ toUpper .PointName }}Compressed, nil
+		return SizeOf{{ $TAffine }}Compressed, nil
 	}
 
 	{{- if ge .FpUnusedBits 3}} 
 	if (mData == mUncompressedInfinity) {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return SizeOf{{ toUpper .PointName }}Uncompressed, nil
+		return SizeOf{{ $TAffine }}Uncompressed, nil
 	}
 	{{- end}} 
 
@@ -951,7 +952,7 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 			{{- template "readFp" dict "all" . "OffSet" $sizeOfFp "To" "p.Y"}}
 		{{- end}}
 
-		return SizeOf{{ toUpper .PointName }}Uncompressed, nil
+		return SizeOf{{ $TAffine }}Uncompressed, nil
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
@@ -986,14 +987,14 @@ func (p *{{ toUpper .PointName }}) SetBytes(buf []byte) (int, error)  {
 
 	p.Y = Y
 
-	return SizeOf{{ toUpper .PointName }}Compressed, nil 
+	return SizeOf{{ $TAffine }}Compressed, nil 
 }
 
 
 
 // unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
 // it computes the Y coordinate from the already set X coordinate and is compute intensive
-func (p *{{ toUpper .PointName }}) unsafeComputeY() error  {
+func (p *{{ $TAffine }}) unsafeComputeY() error  {
 	// stored in unsafeSetCompressedBytes
 	{{ if eq .CoordType "fptower.E2"}}
 	mData := byte(p.Y.A0[0])
@@ -1041,7 +1042,7 @@ func (p *{{ toUpper .PointName }}) unsafeComputeY() error  {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *{{ toUpper .PointName }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
+func (p *{{ $TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
