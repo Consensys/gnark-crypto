@@ -4,19 +4,20 @@ package point
 const Marshal = `
 import (
 	"io"
-	"math/big"
-	"runtime"
+	"reflect"
+	"errors"
 	"encoding/binary"
+	"sync/atomic"
 
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fp"
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
-	"github.com/consensys/gurvy/utils/debug"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/utils/parallel"
 )
 
 
-// To encode G1 and G2 points, we mask the most significant bits with these bits to specify without ambiguity
+// To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
-{{- if ge .UnusedBits 3}}
+{{- if ge .FpUnusedBits 3}}
 // we follow the BLS381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
@@ -43,20 +44,20 @@ const (
 
 
 
-// Encoder writes {{.CurveName}} object values to an output stream
+// Encoder writes {{.Name}} object values to an output stream
 type Encoder struct {
 	w io.Writer
 	n int64 		// written bytes
 	raw bool 		// raw vs compressed encoding 
 }
 
-// Decoder reads {{.CurveName}} object values from an inbound stream
+// Decoder reads {{.Name}} object values from an inbound stream
 type Decoder struct {
 	r io.Reader
 	n int64 // read bytes
 }
 
-// NewDecoder returns a binary decoder supporting curve {{.CurveName}} objects in both 
+// NewDecoder returns a binary decoder supporting curve {{.Name}} objects in both 
 // compressed and uncompressed (raw) forms
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r}
@@ -68,13 +69,13 @@ func NewDecoder(r io.Reader) *Decoder {
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
-		return errors.New("{{.CurveName}} decoder: unsupported type, need pointer")
+		return errors.New("{{.Name}} decoder: unsupported type, need pointer")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
 	// TODO double check memory usage and factorize this
 
-	var buf [SizeOfG2Uncompressed]byte
+	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
 
 	switch t := v.(type) {
@@ -104,17 +105,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-		read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		nbBytes := SizeOfG1Compressed
+		nbBytes := SizeOfG1AffineCompressed
 		// most significant byte contains metadata 
 		if !isCompressed(buf[0]) {
-			nbBytes = SizeOfG1Uncompressed
+			nbBytes = SizeOfG1AffineUncompressed
 			// we read more. 
-			read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
+			read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
@@ -124,17 +125,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		return 
 	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-		read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		nbBytes := SizeOfG2Compressed
+		nbBytes := SizeOfG2AffineCompressed
 		// most significant byte contains metadata 
 		if !isCompressed(buf[0]) {
-			nbBytes = SizeOfG2Uncompressed
+			nbBytes = SizeOfG2AffineUncompressed
 			// we read more. 
-			read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
+			read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
@@ -155,17 +156,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG1Compressed])
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG1Compressed
+			nbBytes := SizeOfG1AffineCompressed
 			// most significant byte contains metadata 
 			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG1Uncompressed
+				nbBytes = SizeOfG1AffineUncompressed
 				// we read more. 
-				read, err = io.ReadFull(dec.r, buf[SizeOfG1Compressed:SizeOfG1Uncompressed])
+				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -206,17 +207,17 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		for i := 0; i < len(*t); i++ {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG2Compressed])
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG2Compressed
+			nbBytes := SizeOfG2AffineCompressed
 			// most significant byte contains metadata 
 			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG2Uncompressed
+				nbBytes = SizeOfG2AffineUncompressed
 				// we read more. 
-				read, err = io.ReadFull(dec.r, buf[SizeOfG2Compressed:SizeOfG2Uncompressed])
+				read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
 					return
@@ -245,7 +246,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		
 		return nil
 	default:
-		return errors.New("{{.CurveName}} encoder: unsupported type")
+		return errors.New("{{.Name}} encoder: unsupported type")
 	}
 }
 
@@ -281,11 +282,11 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
-	return !((mData == mUncompressed){{- if ge .UnusedBits 3}}||(mData == mUncompressedInfinity) {{- end}})
+	return !((mData == mUncompressed){{- if ge .FpUnusedBits 3}}||(mData == mUncompressedInfinity) {{- end}})
 }
 
 
-// NewEncoder returns a binary encoder supporting curve {{.CurveName}} objects
+// NewEncoder returns a binary encoder supporting curve {{.Name}} objects
 func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 	// default settings
 	enc := &Encoder {
@@ -372,7 +373,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+		var buf [SizeOfG1Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].{{- $.Raw}}Bytes()
@@ -391,7 +392,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG2{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+		var buf [SizeOfG2Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
 
 		for i := 0; i < len(t); i++ {
 			buf = t[i].{{- $.Raw}}Bytes()
@@ -403,7 +404,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("{{.CurveName}} encoder: unsupported type")
+		return errors.New("{{.Name}} encoder: unsupported type")
 	}
 }
 {{end}}
@@ -414,10 +415,14 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 const MarshalTests = `
 import (
 	"testing"
+	"math/rand"
+	"math/big"
+	"bytes"
+	"io" 
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/gen"
-	"github.com/leanovate/gopter/prop"
+
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 )
 
 func TestEncoder(t *testing.T) {
@@ -488,10 +493,10 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(Element) failed")
 		}
 		if !inD.Equal(&outD) || !inE.Equal(&outE) {
-			t.Fatal("decode(encode(G1) failed")
+			t.Fatal("decode(encode(G1Affine) failed")
 		}
 		if !inF.Equal(&outF) {
-			t.Fatal("decode(encode(G2) failed")
+			t.Fatal("decode(encode(G2Affine) failed")
 		}
 		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
 			t.Fatal("decode(encode(slice(points))) failed")

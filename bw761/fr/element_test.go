@@ -33,6 +33,18 @@ import (
 
 var benchResElement Element
 
+func BenchmarkElementSetBytes(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	bb := x.Bytes()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		benchResElement.SetBytes(bb[:])
+	}
+
+}
+
 func BenchmarkElementInverse(b *testing.B) {
 	var x Element
 	x.SetRandom()
@@ -44,6 +56,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	}
 
 }
+
 func BenchmarkElementExp(b *testing.B) {
 	var x Element
 	x.SetRandom()
@@ -399,7 +412,6 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 }
 
 func TestElementAdd(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -541,7 +553,6 @@ func TestElementAdd(t *testing.T) {
 }
 
 func TestElementSub(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -683,7 +694,6 @@ func TestElementSub(t *testing.T) {
 }
 
 func TestElementMul(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -825,7 +835,6 @@ func TestElementMul(t *testing.T) {
 }
 
 func TestElementDiv(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -944,7 +953,6 @@ func TestElementDiv(t *testing.T) {
 }
 
 func TestElementExp(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1060,7 +1068,6 @@ func TestElementExp(t *testing.T) {
 }
 
 func TestElementSquare(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1156,7 +1163,6 @@ func TestElementSquare(t *testing.T) {
 }
 
 func TestElementInverse(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1235,7 +1241,6 @@ func TestElementInverse(t *testing.T) {
 }
 
 func TestElementSqrt(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1314,7 +1319,6 @@ func TestElementSqrt(t *testing.T) {
 }
 
 func TestElementDouble(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1410,7 +1414,6 @@ func TestElementDouble(t *testing.T) {
 }
 
 func TestElementNeg(t *testing.T) {
-
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort

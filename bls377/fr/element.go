@@ -46,18 +46,17 @@ const Limbs = 4
 // Bits number bits needed to represent Element
 const Bits = 253
 
+// Bytes number bytes needed to represent Element
+const Bytes = Limbs * 8
+
 // field modulus stored as big.Int
 var _modulus big.Int
-var onceModulus sync.Once
 
 // Modulus returns q as a big.Int
 // q =
 //
 // 8444461749428370424248824938781546531375899335154063827935233455917409239041
 func Modulus() *big.Int {
-	onceModulus.Do(func() {
-		_modulus.SetString("8444461749428370424248824938781546531375899335154063827935233455917409239041", 10)
-	})
 	return new(big.Int).Set(&_modulus)
 }
 
@@ -77,25 +76,19 @@ var rSquare = Element{
 	81024008013859129,
 }
 
-// Bytes returns the regular (non montgomery) value
-// of z as a big-endian byte array.
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[24:32], _z[0])
-	binary.BigEndian.PutUint64(res[16:24], _z[1])
-	binary.BigEndian.PutUint64(res[8:16], _z[2])
-	binary.BigEndian.PutUint64(res[0:8], _z[3])
-
-	return
+var bigIntDefault [Limbs]big.Word
+var bigIntPool = sync.Pool{
+	New: func() interface{} {
+		return new(big.Int).SetBits(bigIntDefault[:])
+	},
 }
 
-// SetBytes interprets e as the bytes of a big-endian unsigned integer,
-// sets z to that value (in Montgomery form), and returns z.
-func (z *Element) SetBytes(e []byte) *Element {
-	var tmp big.Int
-	tmp.SetBytes(e)
-	z.SetBigInt(&tmp)
-	return z
+func init() {
+	_modulus.SetString("8444461749428370424248824938781546531375899335154063827935233455917409239041", 10)
+	for i := 0; i < len(bigIntDefault); i++ {
+		bigIntDefault[i] = big.Word(0x1)
+	}
+
 }
 
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
@@ -228,9 +221,11 @@ func (z *Element) LexicographicallyLargest() bool {
 }
 
 // SetRandom sets z to a random element < q
-func (z *Element) SetRandom() *Element {
-	bytes := make([]byte, 32)
-	io.ReadFull(rand.Reader, bytes)
+func (z *Element) SetRandom() (*Element, error) {
+	var bytes [32]byte
+	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
+		return nil, err
+	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
 	z[1] = binary.BigEndian.Uint64(bytes[8:16])
 	z[2] = binary.BigEndian.Uint64(bytes[16:24])
@@ -247,7 +242,7 @@ func (z *Element) SetRandom() *Element {
 		z[3], _ = bits.Sub64(z[3], 1345280370688173398, b)
 	}
 
-	return z
+	return z, nil
 }
 
 // One returns 1 (in montgommery form)
@@ -621,8 +616,9 @@ func (z Element) ToRegular() Element {
 
 // String returns the string form of an Element in Montgomery form
 func (z *Element) String() string {
-	var _z big.Int
-	return z.ToBigIntRegular(&_z).String()
+	vv := bigIntPool.Get().(*big.Int)
+	defer bigIntPool.Put(vv)
+	return z.ToBigIntRegular(vv).String()
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form
@@ -642,15 +638,42 @@ func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
 	return z.ToBigInt(res)
 }
 
+// Bytes returns the regular (non montgomery) value
+// of z as a big-endian byte array.
+func (z *Element) Bytes() (res [Limbs * 8]byte) {
+	_z := z.ToRegular()
+	binary.BigEndian.PutUint64(res[24:32], _z[0])
+	binary.BigEndian.PutUint64(res[16:24], _z[1])
+	binary.BigEndian.PutUint64(res[8:16], _z[2])
+	binary.BigEndian.PutUint64(res[0:8], _z[3])
+
+	return
+}
+
+// SetBytes interprets e as the bytes of a big-endian unsigned integer,
+// sets z to that value (in Montgomery form), and returns z.
+func (z *Element) SetBytes(e []byte) *Element {
+	// get a big int from our pool
+	vv := bigIntPool.Get().(*big.Int)
+	vv.SetBytes(e)
+
+	// set big int
+	z.SetBigInt(vv)
+
+	// put temporary object back in pool
+	bigIntPool.Put(vv)
+
+	return z
+}
+
 // SetBigInt sets z to v (regular form) and returns z in Montgomery form
 func (z *Element) SetBigInt(v *big.Int) *Element {
 	z.SetZero()
 
 	var zero big.Int
-	q := Modulus()
 
 	// fast path
-	c := v.Cmp(q)
+	c := v.Cmp(&_modulus)
 	if c == 0 {
 		// v == 0
 		return z
@@ -659,11 +682,19 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 		return z.setBigInt(v)
 	}
 
-	// copy input + modular reduction
-	vv := new(big.Int).Set(v)
-	vv.Mod(v, q)
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
 
-	return z.setBigInt(vv)
+	// copy input + modular reduction
+	vv.Set(v)
+	vv.Mod(v, &_modulus)
+
+	// set big int byte value
+	z.setBigInt(vv)
+
+	// release object into pool
+	bigIntPool.Put(vv)
+	return z
 }
 
 // setBigInt assumes 0 <= v < q
@@ -689,11 +720,18 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 
 // SetString creates a big.Int with s (in base 10) and calls SetBigInt on z
 func (z *Element) SetString(s string) *Element {
-	x, ok := new(big.Int).SetString(s, 10)
-	if !ok {
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
+	if _, ok := vv.SetString(s, 10); !ok {
 		panic("Element.SetString failed -> can't parse number in base10 into a big.Int")
 	}
-	return z.SetBigInt(x)
+	z.SetBigInt(vv)
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
+	return z
 }
 
 var (

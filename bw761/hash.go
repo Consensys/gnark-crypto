@@ -52,7 +52,7 @@ func sign0(u fp.Element) bool {
 }
 
 // ----------------------------------------------------------------------------------------
-// G1
+// G1Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
@@ -95,7 +95,7 @@ func svdwMapG1(u fp.Element) G1Affine {
 	// 18. gx2 = gx2 + A
 	gx2.Mul(&gx2, &x2)
 	gx2.Add(&gx2, &bCurveCoeff)
-	e2 := gx2.Legendre() - e1 // 2 if is_square(gx2) AND NOT e1
+	E2 := gx2.Legendre() - e1 // 2 if is_square(gx2) AND NOT e1
 	x3.Square(&tv2)
 	x3.Mul(&x3, &tv3)
 	x3.Square(&x3)
@@ -106,7 +106,7 @@ func svdwMapG1(u fp.Element) G1Affine {
 	} else {
 		x.Set(&x3)
 	}
-	if e2 == 2 {
+	if E2 == 2 {
 		x.Set(&x2)
 	}
 	gx.Square(&x)
@@ -163,7 +163,7 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 }
 
 // ----------------------------------------------------------------------------------------
-// G2
+// G2Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
@@ -206,7 +206,7 @@ func svdwMapG2(u fp.Element) G2Affine {
 	// 18. gx2 = gx2 + A
 	gx2.Mul(&gx2, &x2)
 	gx2.Add(&gx2, &bTwistCurveCoeff)
-	e2 := gx2.Legendre() - e1 // 2 if is_square(gx2) AND NOT e1
+	E2 := gx2.Legendre() - e1 // 2 if is_square(gx2) AND NOT e1
 	x3.Square(&tv2)
 	x3.Mul(&x3, &tv3)
 	x3.Square(&x3)
@@ -217,7 +217,7 @@ func svdwMapG2(u fp.Element) G2Affine {
 	} else {
 		x.Set(&x3)
 	}
-	if e2 == 2 {
+	if E2 == 2 {
 		x.Set(&x2)
 	}
 	gx.Square(&x)

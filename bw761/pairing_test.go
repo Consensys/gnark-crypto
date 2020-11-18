@@ -38,23 +38,24 @@ func TestPairing(t *testing.T) {
 	genR2 := GenFr()
 
 	properties.Property("Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a *e6) bool {
-			var b e6
+		func(a *GT) bool {
+			var b GT
 			b.Set(a)
-			b.FinalExponentiation(a)
-			a.FinalExponentiation(a)
+			b = FinalExponentiation(a)
+			*a = FinalExponentiation(a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a *e6) bool {
-			var one e6
+		func(a *GT) bool {
+			var one GT
 			var e big.Int
 			e.SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177", 10)
 			one.SetOne()
-			a.FinalExponentiation(a).Exp(a, e)
+			*a = FinalExponentiation(a)
+			a.Exp(a, e)
 			return a.Equal(&one)
 		},
 		genA,
@@ -121,7 +122,7 @@ func BenchmarkPairing(b *testing.B) {
 
 func BenchmarkFinalExponentiation(b *testing.B) {
 
-	var a e6
+	var a GT
 	a.SetRandom()
 
 	b.ResetTimer()

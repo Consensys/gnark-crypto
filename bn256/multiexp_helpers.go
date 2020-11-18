@@ -17,10 +17,9 @@
 package bn256
 
 import (
-	"sync"
-
 	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/utils/parallel"
+	"sync"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use

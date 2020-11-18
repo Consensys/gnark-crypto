@@ -14,13 +14,15 @@
 
 package bls377
 
+import "github.com/consensys/gurvy/bls377/internal/fptower"
+
 // GT target group of the pairing
-type GT = e12
+type GT = fptower.E12
 
 type lineEvaluation struct {
-	r0 e2
-	r1 e2
-	r2 e2
+	r0 fptower.E2
+	r1 fptower.E2
+	r2 fptower.E2
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -33,19 +35,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	result.FinalExponentiation(&result)
-
-	return result
-}
-
-// FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-func (z *GT) FinalExponentiation(x *GT) *GT {
-
 	// https://eprint.iacr.org/2016/130.pdf
-	var result GT
-	result.Set(x)
-
-	// memalloc
 	var t [6]GT
 
 	// easy part
@@ -57,16 +47,16 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	// hard part (up to permutation)
 	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].expt(&result)
+	t[5].Expt(&result)
 	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])
 
-	t[0].expt(&t[3])
-	t[2].expt(&t[0])
-	t[4].expt(&t[2])
+	t[0].Expt(&t[3])
+	t[2].Expt(&t[0])
+	t[4].Expt(&t[2])
 
 	t[4].Mul(&t[1], &t[4])
-	t[1].expt(&t[4])
+	t[1].Expt(&t[4])
 	t[3].InverseUnitary(&t[3])
 	t[1].Mul(&t[3], &t[1])
 	t[1].Mul(&t[1], &result)
@@ -87,9 +77,15 @@ func (z *GT) FinalExponentiation(x *GT) *GT {
 
 	result.Set(&t[5])
 
-	z.Set(&result)
-	return z
+	return result
 }
+
+// // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
+// func (z *GT) FinalExponentiation(x *GT) *GT {
+
+// 	z.Set(&result)
+// 	return z
+// }
 
 // MillerLoop Miller loop
 func MillerLoop(P G1Affine, Q G2Affine) *GT {
@@ -111,12 +107,12 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 
 		result.Square(&result)
 		<-ch
-		result.mulAssign(&evaluations[j])
+		mulAssign(&result, &evaluations[j])
 		j++
 
 		if loopCounter[i] == 1 {
 			<-ch
-			result.mulAssign(&evaluations[j])
+			mulAssign(&result, &evaluations[j])
 			j++
 		}
 	}
@@ -149,7 +145,7 @@ func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
 	result.r0.MulByElement(&result.r0, &P.Y)
 }
 
-func (z *GT) mulAssign(l *lineEvaluation) *GT {
+func mulAssign(z *GT, l *lineEvaluation) *GT {
 
 	var a, b, c GT
 	a.MulByVW(z, &l.r1)
@@ -188,102 +184,4 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, P *G1Affine, ch ch
 	}
 
 	close(ch)
-}
-
-// MulByVW set z to x*(y*v*w) and return z
-// here y*v*w means the GT element with C1.B1=y and all other components 0
-func (z *GT) MulByVW(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B1, &yNR)
-	result.C0.B1.Mul(&x.C1.B2, &yNR)
-	result.C0.B2.Mul(&x.C1.B0, y)
-	result.C1.B0.Mul(&x.C0.B2, &yNR)
-	result.C1.B1.Mul(&x.C0.B0, y)
-	result.C1.B2.Mul(&x.C0.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// MulByV set z to x*(y*v) and return z
-// here y*v means the GT element with C0.B1=y and all other components 0
-func (z *GT) MulByV(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C0.B2, &yNR)
-	result.C0.B1.Mul(&x.C0.B0, y)
-	result.C0.B2.Mul(&x.C0.B1, y)
-	result.C1.B0.Mul(&x.C1.B2, &yNR)
-	result.C1.B1.Mul(&x.C1.B0, y)
-	result.C1.B2.Mul(&x.C1.B1, y)
-	z.Set(&result)
-	return z
-}
-
-// MulByV2W set z to x*(y*v^2*w) and return z
-// here y*v^2*w means the GT element with C1.B2=y and all other components 0
-func (z *GT) MulByV2W(x *GT, y *e2) *GT {
-
-	var result GT
-	var yNR e2
-
-	yNR.MulByNonResidue(y)
-	result.C0.B0.Mul(&x.C1.B0, &yNR)
-	result.C0.B1.Mul(&x.C1.B1, &yNR)
-	result.C0.B2.Mul(&x.C1.B2, &yNR)
-	result.C1.B0.Mul(&x.C0.B1, &yNR)
-	result.C1.B1.Mul(&x.C0.B2, &yNR)
-	result.C1.B2.Mul(&x.C0.B0, y)
-	z.Set(&result)
-	return z
-}
-
-// expt set z to x^t in GT and return z
-func (z *GT) expt(x *GT) *GT {
-	// const tAbsVal uint64 = 9586122913090633729
-	// tAbsVal in binary: 1000010100001000110000000000000000000000000000000000000000000001
-	// drop the low 46 bits (all 0 except the least significant bit): 100001010000100011 = 136227
-	// Shortest addition chains can be found at https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html
-
-	var result, x33 GT
-
-	// a shortest addition chain for 136227
-	result.Set(x)                    // 0                1
-	result.CyclotomicSquare(&result) // 1( 0)            2
-	result.CyclotomicSquare(&result) // 2( 1)            4
-	result.CyclotomicSquare(&result) // 3( 2)            8
-	result.CyclotomicSquare(&result) // 4( 3)           16
-	result.CyclotomicSquare(&result) // 5( 4)           32
-	result.Mul(&result, x)           // 6( 5, 0)        33
-	x33.Set(&result)                 // save x33 for step 14
-	result.CyclotomicSquare(&result) // 7( 6)           66
-	result.CyclotomicSquare(&result) // 8( 7)          132
-	result.CyclotomicSquare(&result) // 9( 8)          264
-	result.CyclotomicSquare(&result) // 10( 9)          528
-	result.CyclotomicSquare(&result) // 11(10)         1056
-	result.CyclotomicSquare(&result) // 12(11)         2112
-	result.CyclotomicSquare(&result) // 13(12)         4224
-	result.Mul(&result, &x33)        // 14(13, 6)      4257
-	result.CyclotomicSquare(&result) // 15(14)         8514
-	result.CyclotomicSquare(&result) // 16(15)        17028
-	result.CyclotomicSquare(&result) // 17(16)        34056
-	result.CyclotomicSquare(&result) // 18(17)        68112
-	result.Mul(&result, x)           // 19(18, 0)     68113
-	result.CyclotomicSquare(&result) // 20(19)       136226
-	result.Mul(&result, x)           // 21(20, 0)    136227
-
-	// the remaining 46 bits
-	for i := 0; i < 46; i++ {
-		result.CyclotomicSquare(&result)
-	}
-	result.Mul(&result, x)
-
-	z.Set(&result)
-	return z
 }

@@ -60,9 +60,9 @@ var loopCounter1 [64]int8
 var loopCounter2 [127]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
-//  endomorphisms phi1 and phi2 for <G1> and <G2>. lambda is such that <r, phi-lambda> lies above
+//  endomorphisms phi1 and phi2 for <G1Affine> and <G2Affine>. lambda is such that <r, phi-lambda> lies above
 // <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
-// of phi1 (resp phi2) restricted to <G1> (resp <G2>)
+// of phi1 (resp phi2) restricted to <G1Affine> (resp <G2Affine>)
 // cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
@@ -113,9 +113,7 @@ func init() {
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
-func Generators() (g1 G1Jac, g2 G2Jac, g1Aff G1Affine, g2Aff G2Affine) {
-	g1 = g1Gen
-	g2 = g2Gen
+func Generators() (g1Aff G1Affine, g2Aff G2Affine) {
 	g1Aff = g1GenAff
 	g2Aff = g2GenAff
 	return

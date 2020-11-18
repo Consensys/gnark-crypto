@@ -19,26 +19,27 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard"
-	. "github.com/consensys/bavard/amd64"
 	"github.com/consensys/goff/asm/amd64"
 	"github.com/consensys/goff/field"
 )
 
+// Fq2Amd64 ...
 type Fq2Amd64 struct {
-	F         *amd64.FFAmd64
+	*amd64.FFAmd64
 	curveName string
 }
 
+// NewFq2Amd64 ...
 func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
-	ffamd64 := amd64.NewFFAmd64(w, F)
-	return &Fq2Amd64{ffamd64, curveName}
+	return &Fq2Amd64{amd64.NewFFAmd64(w, F), curveName}
 }
 
+// Generate ...
 func (fq2 *Fq2Amd64) Generate() error {
-	WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
+	fq2.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
-	WriteLn("#include \"textflag.h\"")
-	WriteLn("#include \"funcdata.h\"")
+	fq2.WriteLn("#include \"textflag.h\"")
+	fq2.WriteLn("#include \"funcdata.h\"")
 
 	fq2.generateAddE2()
 	fq2.generateDoubleE2()
@@ -56,202 +57,202 @@ func (fq2 *Fq2Amd64) Generate() error {
 
 func (fq2 *Fq2Amd64) generateAddE2() {
 	stackSize := 0
-	if fq2.F.NbWords > amd64.SmallModulus {
-		stackSize = fq2.F.NbWords * 8
+	if fq2.NbWords > amd64.SmallModulus {
+		stackSize = fq2.NbWords * 8
 	}
-	registers := FnHeader("add"+strings.ToUpper(fq2.F.ElementName), stackSize, 24)
+	registers := fq2.FnHeader("addE2", stackSize, 24)
 
 	// registers
 	x := registers.Pop()
 	y := registers.Pop()
 	r := registers.Pop()
-	t := registers.PopN(fq2.F.NbWords)
+	t := registers.PopN(fq2.NbWords)
 
-	MOVQ("x+8(FP)", x)
+	fq2.MOVQ("x+8(FP)", x)
 
 	// move t = x
-	fq2.F.Mov(x, t)
+	fq2.Mov(x, t)
 
-	MOVQ("y+16(FP)", y)
+	fq2.MOVQ("y+16(FP)", y)
 
 	// t = t + y = x + y
-	fq2.F.Add(y, t)
+	fq2.Add(y, t)
 
 	// reduce
-	MOVQ("res+0(FP)", r)
-	fq2.F.Reduce(&registers, t, r)
+	fq2.MOVQ("res+0(FP)", r)
+	fq2.Reduce(&registers, t, r)
 
-	// move x+offset(fq2.F.NbWords) into t
-	fq2.F.Mov(x, t, fq2.F.NbWords)
+	// move x+offset(fq2.NbWords) into t
+	fq2.Mov(x, t, fq2.NbWords)
 
-	// add y+offset(fq2.F.NbWords) into t
-	fq2.F.Add(y, t, fq2.F.NbWords)
+	// add y+offset(fq2.NbWords) into t
+	fq2.Add(y, t, fq2.NbWords)
 
-	// reduce t into r with offset fq2.F.NbWords
-	fq2.F.Reduce(&registers, t, r, fq2.F.NbWords)
+	// reduce t into r with offset fq2.NbWords
+	fq2.Reduce(&registers, t, r, fq2.NbWords)
 
-	RET()
+	fq2.RET()
 
 }
 
 func (fq2 *Fq2Amd64) generateDoubleE2() {
 	// func header
 	stackSize := 0
-	if fq2.F.NbWords > amd64.SmallModulus {
-		stackSize = fq2.F.NbWords * 8
+	if fq2.NbWords > amd64.SmallModulus {
+		stackSize = fq2.NbWords * 8
 	}
-	registers := FnHeader("double"+strings.ToUpper(fq2.F.ElementName), stackSize, 16)
+	registers := fq2.FnHeader("doubleE2", stackSize, 16)
 
 	// registers
 	x := registers.Pop()
 	r := registers.Pop()
-	t := registers.PopN(fq2.F.NbWords)
+	t := registers.PopN(fq2.NbWords)
 
-	MOVQ("res+0(FP)", r)
-	MOVQ("x+8(FP)", x)
+	fq2.MOVQ("res+0(FP)", r)
+	fq2.MOVQ("x+8(FP)", x)
 
-	fq2.F.Mov(x, t)
-	fq2.F.Add(t, t)
-	fq2.F.Reduce(&registers, t, r)
-	fq2.F.Mov(x, t, fq2.F.NbWords)
-	fq2.F.Add(t, t)
-	fq2.F.Reduce(&registers, t, r, fq2.F.NbWords)
+	fq2.Mov(x, t)
+	fq2.Add(t, t)
+	fq2.Reduce(&registers, t, r)
+	fq2.Mov(x, t, fq2.NbWords)
+	fq2.Add(t, t)
+	fq2.Reduce(&registers, t, r, fq2.NbWords)
 
-	RET()
+	fq2.RET()
 }
 
 func (fq2 *Fq2Amd64) generateNegE2() {
-	registers := FnHeader("neg"+strings.ToUpper(fq2.F.ElementName), 0, 16)
+	registers := fq2.FnHeader("negE2", 0, 16)
 
-	nonZeroA := NewLabel()
-	nonZeroB := NewLabel()
-	B := NewLabel()
+	nonZeroA := fq2.NewLabel()
+	nonZeroB := fq2.NewLabel()
+	B := fq2.NewLabel()
 
 	// registers
 	x := registers.Pop()
 	r := registers.Pop()
 	q := registers.Pop()
-	t := registers.PopN(fq2.F.NbWords)
+	t := registers.PopN(fq2.NbWords)
 
-	MOVQ("res+0(FP)", r)
-	MOVQ("x+8(FP)", x)
+	fq2.MOVQ("res+0(FP)", r)
+	fq2.MOVQ("x+8(FP)", x)
 
 	// t = x
-	fq2.F.Mov(x, t)
+	fq2.Mov(x, t)
 
 	// x = t[0] | ... | t[n]
-	MOVQ(t[0], x)
-	for i := 1; i < fq2.F.NbWords; i++ {
-		ORQ(t[i], x)
+	fq2.MOVQ(t[0], x)
+	for i := 1; i < fq2.NbWords; i++ {
+		fq2.ORQ(t[i], x)
 	}
 
-	TESTQ(x, x)
+	fq2.TESTQ(x, x)
 
 	// if x != 0, we jump to nonzero label
-	JNE(nonZeroA)
+	fq2.JNE(nonZeroA)
 
 	// if x == 0, we set the result to zero and continue
-	for i := 0; i < fq2.F.NbWords; i++ {
-		MOVQ(x, r.At(i+fq2.F.NbWords))
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(x, r.At(i+fq2.NbWords))
 	}
-	JMP(B)
+	fq2.JMP(B)
 
-	LABEL(nonZeroA)
+	fq2.LABEL(nonZeroA)
 
 	// z = x - q
-	for i := 0; i < fq2.F.NbWords; i++ {
-		MOVQ(fq2.F.Q[i], q)
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(fq2.Q[i], q)
 		if i == 0 {
-			SUBQ(t[i], q)
+			fq2.SUBQ(t[i], q)
 		} else {
-			SBBQ(t[i], q)
+			fq2.SBBQ(t[i], q)
 		}
-		MOVQ(q, r.At(i))
+		fq2.MOVQ(q, r.At(i))
 	}
 
-	LABEL(B)
-	MOVQ("x+8(FP)", x)
-	fq2.F.Mov(x, t, fq2.F.NbWords)
+	fq2.LABEL(B)
+	fq2.MOVQ("x+8(FP)", x)
+	fq2.Mov(x, t, fq2.NbWords)
 
 	// x = t[0] | ... | t[n]
-	MOVQ(t[0], x)
-	for i := 1; i < fq2.F.NbWords; i++ {
-		ORQ(t[i], x)
+	fq2.MOVQ(t[0], x)
+	for i := 1; i < fq2.NbWords; i++ {
+		fq2.ORQ(t[i], x)
 	}
 
-	TESTQ(x, x)
+	fq2.TESTQ(x, x)
 
 	// if x != 0, we jump to nonzero label
-	JNE(nonZeroB)
+	fq2.JNE(nonZeroB)
 
 	// if x == 0, we set the result to zero and return
-	for i := 0; i < fq2.F.NbWords; i++ {
-		MOVQ(x, r.At(i+fq2.F.NbWords))
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(x, r.At(i+fq2.NbWords))
 	}
-	RET()
+	fq2.RET()
 
-	LABEL(nonZeroB)
+	fq2.LABEL(nonZeroB)
 
 	// z = x - q
-	for i := 0; i < fq2.F.NbWords; i++ {
-		MOVQ(fq2.F.Q[i], q)
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(fq2.Q[i], q)
 		if i == 0 {
-			SUBQ(t[i], q)
+			fq2.SUBQ(t[i], q)
 		} else {
-			SBBQ(t[i], q)
+			fq2.SBBQ(t[i], q)
 		}
-		MOVQ(q, r.At(i+fq2.F.NbWords))
+		fq2.MOVQ(q, r.At(i+fq2.NbWords))
 	}
 
-	RET()
+	fq2.RET()
 
 }
 
 func (fq2 *Fq2Amd64) generateSubE2() {
-	registers := FnHeader("sub"+strings.ToUpper(fq2.F.ElementName), 0, 24)
+	registers := fq2.FnHeader("subE2", 0, 24)
 
 	// registers
-	t := registers.PopN(fq2.F.NbWords)
+	t := registers.PopN(fq2.NbWords)
 	x := registers.Pop()
 	y := registers.Pop()
 
-	MOVQ("x+8(FP)", x)
-	MOVQ("y+16(FP)", y)
+	fq2.MOVQ("x+8(FP)", x)
+	fq2.MOVQ("y+16(FP)", y)
 
-	fq2.F.Mov(x, t)
+	fq2.Mov(x, t)
 
 	// z = x - y mod q
 	// move t = x
-	fq2.F.Sub(y, t)
+	fq2.Sub(y, t)
 
-	if fq2.F.NbWords > 6 {
-		fq2.F.ReduceAfterSub(&registers, t, false)
+	if fq2.NbWords > 6 {
+		fq2.ReduceAfterSub(&registers, t, false)
 	} else {
-		fq2.F.ReduceAfterSub(&registers, t, true)
+		fq2.ReduceAfterSub(&registers, t, true)
 	}
 
 	r := registers.Pop()
-	MOVQ("res+0(FP)", r)
-	fq2.F.Mov(t, r)
+	fq2.MOVQ("res+0(FP)", r)
+	fq2.Mov(t, r)
 	registers.Push(r)
 
-	fq2.F.Mov(x, t, fq2.F.NbWords)
+	fq2.Mov(x, t, fq2.NbWords)
 
 	// z = x - y mod q
 	// move t = x
-	fq2.F.Sub(y, t, fq2.F.NbWords)
+	fq2.Sub(y, t, fq2.NbWords)
 
-	if fq2.F.NbWords > 6 {
-		fq2.F.ReduceAfterSub(&registers, t, false)
+	if fq2.NbWords > 6 {
+		fq2.ReduceAfterSub(&registers, t, false)
 	} else {
-		fq2.F.ReduceAfterSub(&registers, t, true)
+		fq2.ReduceAfterSub(&registers, t, true)
 	}
 
 	r = x
-	MOVQ("res+0(FP)", r)
+	fq2.MOVQ("res+0(FP)", r)
 
-	fq2.F.Mov(t, r, 0, fq2.F.NbWords)
+	fq2.Mov(t, r, 0, fq2.NbWords)
 
-	RET()
+	fq2.RET()
 
 }

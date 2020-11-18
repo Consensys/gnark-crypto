@@ -3,10 +3,22 @@ package point
 // MultiExpCore ...
 const MultiExpCore = `
 
+import (
+	"runtime"
+	"math"
+	"sync"
+	"github.com/consensys/gurvy/{{toLower .Name}}/fr"
+	{{if eq .CoordType "fptower.E2"}}
+	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
+	{{else}}
+	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
+	{{end}}
+)
+
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}Affine, scalars []fr.Element, opts ...*CPUSemaphore) *{{ toUpper .PointName }}Jac {
+func (p *{{ $TAffine }}) MultiExp(points []{{ $TAffine }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ $TAffine }} {
 	// note: 
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -83,18 +95,23 @@ func (p *{{ toUpper .PointName }}Jac) MultiExp(points []{{ toUpper .PointName }}
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	scalars = partitionScalars(scalars, C)
 
+	var pJac {{ $TJacobian }}
+	pJac.FromAffine(p)
+
 	switch C {
 	{{range $c :=  .CRange}}
 	case {{$c}}:
-		return p.msmC{{$c}}(points, scalars, opt)	
+		pJac.msmC{{$c}}(points, scalars, opt)	
 	{{end}}
 	default:
 		panic("unimplemented")
 	}
+	p.FromJacobian(&pJac)
+	return p
 }
 
-// msmReduceChunk{{ toUpper .PointName }} reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c int, chChunks []chan {{ toUpper .PointName }}Jac)  *{{ toUpper .PointName }}Jac {
+// msmReduceChunk{{ $TAffine }} reduces the weighted sum of the buckets into the result of the multiExp
+func msmReduceChunk{{ $TAffine }}(p *{{ $TJacobian }}, c int, chChunks []chan {{ $TJacobian }})  *{{ $TJacobian }} {
 	totalj := <-chChunks[len(chChunks)-1]
 	p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
@@ -108,11 +125,11 @@ func msmReduceChunk{{ toUpper .PointName }}(p *{{ toUpper .PointName }}Jac, c in
 }
 
 
-func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
-	 chRes chan<- {{ toUpper .PointName }}Jac,
-	 buckets []{{ toLower .PointName }}JacExtended,
+func msmProcessChunk{{ $TAffine }}(chunk uint64,
+	 chRes chan<- {{ $TJacobian }},
+	 buckets []{{ $TJacobianExtended }},
 	 c uint64,
-	 points []{{ toUpper .PointName }}Affine,
+	 points []{{ $TAffine }},
 	 scalars []fr.Element) {
 
 
@@ -161,7 +178,7 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var runningSum, tj, total {{ toUpper .PointName }}Jac
+	var runningSum, tj, total {{ $TJacobian }}
 	runningSum.Set(&{{ toLower .PointName }}Infinity)
 	total.Set(&{{ toLower .PointName }}Infinity)
 	for k := len(buckets) - 1; k >= 0; k-- {
@@ -179,27 +196,28 @@ func msmProcessChunk{{ toUpper .PointName }}(chunk uint64,
 
 {{range $c :=  .CRange}}
 
-func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointName }}Affine, scalars []fr.Element, opt *CPUSemaphore) *{{ toUpper $.PointName }}Jac {
-	{{- $cDividesBits := divides $c $.RBitLen}}
+func (p *{{ $TJacobian }}) msmC{{$c}}(points []{{ $TAffine }}, scalars []fr.Element, opt *CPUSemaphore) *{{ $TJacobian }} {
+	{{-  $frBits := mul $.Fr.NbWords 64}}
+	{{- $cDividesBits := divides $c $frBits}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
 	
 	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan {{ toUpper $.PointName }}Jac
+	var chChunks [nbChunks]chan {{ $TJacobian }}
 
 	// wait group to wait for all the go routines to start
 	var wg sync.WaitGroup
 	
 	{{- if not $cDividesBits }}
-	// c doesn't divide {{$.RBitLen}}, last window is smaller we can allocate less buckets
+	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	chChunks[nbChunks-1] = make(chan {{ toUpper $.PointName }}Jac, 1)
+	chChunks[nbChunks-1] = make(chan {{ $TJacobian }}, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling 
 	wg.Add(1)
-	go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+	go func(j uint64, chRes chan {{ $TJacobian }}, points []{{ $TAffine }}, scalars []fr.Element) {
 		wg.Done()
-		var buckets [1<<(lastC-1)]{{ toLower $.PointName }}JacExtended
-		msmProcessChunk{{ toUpper $.PointName }}(j, chRes, buckets[:], c, points, scalars)
+		var buckets [1<<(lastC-1)]{{ $TJacobianExtended }}
+		msmProcessChunk{{ $TAffine }}(j, chRes, buckets[:], c, points, scalars)
 		opt.chCpus <- struct{}{} // release token in the semaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
@@ -207,13 +225,13 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 	{{ else}}
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 	{{- end}}
-		chChunks[chunk] = make(chan {{ toUpper $.PointName }}Jac, 1)
+		chChunks[chunk] = make(chan {{ $TJacobian }}, 1)
 		<-opt.chCpus  // wait to have a cpu before scheduling 
 		wg.Add(1)
-		go func(j uint64, chRes chan {{ toUpper $.PointName }}Jac, points []{{ toUpper $.PointName }}Affine, scalars []fr.Element) {
+		go func(j uint64, chRes chan {{ $TJacobian }}, points []{{ $TAffine }}, scalars []fr.Element) {
 			wg.Done()
-			var buckets [1<<(c-1)]{{ toLower $.PointName }}JacExtended
-			msmProcessChunk{{ toUpper $.PointName }}(j, chRes,  buckets[:], c, points, scalars)
+			var buckets [1<<(c-1)]{{ $TJacobianExtended }}
+			msmProcessChunk{{ $TAffine }}(j, chRes,  buckets[:], c, points, scalars)
 			opt.chCpus <- struct{}{} // release token in the semaphore
 		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
@@ -223,18 +241,14 @@ func (p *{{ toUpper $.PointName }}Jac) msmC{{$c}}(points []{{ toUpper $.PointNam
 
 	// all my tasks are scheduled, I can let other func use avaiable tokens in the semaphore
 	opt.lock.Unlock() 
-	return msmReduceChunk{{ toUpper $.PointName }}(p, c, chChunks[:])
+	return msmReduceChunk{{ $TAffine }}(p, c, chChunks[:])
 }
 {{end}}
 
 
-//  {{ toLower .PointName }}JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
-type {{ toLower .PointName }}JacExtended struct {
-	X, Y, ZZ, ZZZ {{.CoordType}}
-}
 
 // setInfinity sets p to O
-func (p *{{ toLower .PointName }}JacExtended) setInfinity() *{{ toLower .PointName }}JacExtended {
+func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	p.X.SetOne()
 	p.Y.SetOne()
 	p.ZZ = {{.CoordType}}{}
@@ -243,7 +257,7 @@ func (p *{{ toLower .PointName }}JacExtended) setInfinity() *{{ toLower .PointNa
 }
 
 // fromJacExtended sets Q in affine coords
-func (p *{{ toUpper .PointName }}Affine)  fromJacExtended (Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Affine {
+func (p *{{ $TAffine }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ $TAffine }} {
 	if Q.ZZ.IsZero() {
 		p.X = {{.CoordType}}{}
 		p.Y = {{.CoordType}}{}
@@ -255,7 +269,7 @@ func (p *{{ toUpper .PointName }}Affine)  fromJacExtended (Q *{{ toLower .PointN
 }
 
 // fromJacExtended sets Q in Jacobian coords
-func (p *{{ toUpper .PointName }}Jac) fromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
+func (p *{{ $TJacobian }}) fromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	if Q.ZZ.IsZero() {
 		p.Set(&{{ toLower .PointName }}Infinity)
 		return p
@@ -267,7 +281,7 @@ func (p *{{ toUpper .PointName }}Jac) fromJacExtended(Q *{{ toLower .PointName }
 }
 
 // unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
-func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .PointName }}JacExtended) *{{ toUpper .PointName }}Jac {
+func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
 	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
 	p.Z = Q.ZZZ
@@ -277,26 +291,26 @@ func (p *{{ toUpper .PointName }}Jac) unsafeFromJacExtended(Q *{{ toLower .Point
 
 // sub same as add, but will negate a.Y 
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) sub(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ $TJacobianExtended }}) sub(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" true}}
 }
 
 
 // add
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ toLower .PointName }}JacExtended) add(a *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ $TJacobianExtended }}) add(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" false}}
 }
 
 // doubleNeg same as double, but will negate q.Y
-func (p *{{ toLower .PointName }}JacExtended) doubleNeg(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ $TJacobianExtended }}) doubleNeg(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}Affine) *{{ toLower .PointName }}JacExtended {
+func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" false}}
 }
 
@@ -396,7 +410,9 @@ func (p *{{ toLower .PointName }}JacExtended) double(q *{{ toUpper .PointName }}
 const MultiExpHelpers = `
 
 import (
-	"github.com/consensys/gurvy/{{ toLower .CurveName}}/fr"
+	"github.com/consensys/gurvy/utils/parallel"
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"sync"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use

@@ -24,23 +24,138 @@ import (
 
 	"github.com/consensys/gurvy/bls377/fp"
 	"github.com/consensys/gurvy/bls377/fr"
+	"github.com/consensys/gurvy/bls377/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
 )
 
-// G2Jac is a point with e2 coordinates
+// G2Affine point in affine coordinates
+type G2Affine struct {
+	X, Y fptower.E2
+}
+
+// G2Jac is a point with fptower.E2 coordinates
 type G2Jac struct {
-	X, Y, Z e2
+	X, Y, Z fptower.E2
+}
+
+//  g2JacExtended parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+type g2JacExtended struct {
+	X, Y, ZZ, ZZZ fptower.E2
 }
 
 // g2Proj point in projective coordinates
 type g2Proj struct {
-	x, y, z e2
+	x, y, z fptower.E2
 }
 
-// G2Affine point in affine coordinates
-type G2Affine struct {
-	X, Y e2
+// -------------------------------------------------------------------------------------------------
+// Affine
+
+// ScalarMultiplication computes and returns p = a*s
+func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
+	var _p G2Jac
+	_p.FromAffine(a)
+	_p.mulGLV(&_p, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// Equal tests if two points (in Affine coordinates) are equal
+func (p *G2Affine) Equal(a *G2Affine) bool {
+	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
+}
+
+// Neg computes -G
+func (p *G2Affine) Neg(a *G2Affine) *G2Affine {
+	p.X = a.X
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// FromJacobian rescale a point in Jacobian coord in z=1 plane
+func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
+
+	var a, b fptower.E2
+
+	if p1.Z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
+	}
+
+	a.Inverse(&p1.Z)
+	b.Square(&a)
+	p.X.Mul(&p1.X, &b)
+	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
+
+	return p
+}
+
+func (p *G2Affine) String() string {
+	var x, y fptower.E2
+	x.Set(&p.X)
+	y.Set(&p.Y)
+	return "E([" + x.String() + "," + y.String() + "]),"
+}
+
+// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
+func (p *G2Affine) IsInfinity() bool {
+	return p.X.IsZero() && p.Y.IsZero()
+}
+
+// IsOnCurve returns true if p in on the curve
+func (p *G2Affine) IsOnCurve() bool {
+	var point G2Jac
+	point.FromAffine(p)
+	return point.IsOnCurve() // call this function to handle infinity point
+}
+
+// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+func (p *G2Affine) IsInSubGroup() bool {
+	var _p G2Jac
+	_p.FromAffine(p)
+	return _p.IsOnCurve() && _p.IsInSubGroup()
+}
+
+// -------------------------------------------------------------------------------------------------
+// Jacobian
+
+// Set set p to the provided point
+func (p *G2Jac) Set(a *G2Jac) *G2Jac {
+	p.X, p.Y, p.Z = a.X, a.Y, a.Z
+	return p
+}
+
+// Equal tests if two points (in Jacobian coordinates) are equal
+func (p *G2Jac) Equal(a *G2Jac) bool {
+
+	if p.Z.IsZero() && a.Z.IsZero() {
+		return true
+	}
+	_p := G2Affine{}
+	_p.FromJacobian(p)
+
+	_a := G2Affine{}
+	_a.FromJacobian(a)
+
+	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+}
+
+// Neg computes -G
+func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
+	*p = *a
+	p.Y.Neg(&a.Y)
+	return p
+}
+
+// SubAssign substracts two points on the curve
+func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
+	var tmp G2Jac
+	tmp.Set(a)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
+	return p
 }
 
 // AddAssign point addition in montgomery form
@@ -58,7 +173,7 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 		return p
 	}
 
-	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V e2
+	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V fptower.E2
 	Z1Z1.Square(&a.Z)
 	Z2Z2.Square(&p.Z)
 	U1.Mul(&a.X, &Z2Z2)
@@ -113,7 +228,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 	}
 
 	// get some Element from our pool
-	var Z1Z1, U2, S2, H, HH, I, J, r, V e2
+	var Z1Z1, U2, S2, H, HH, I, J, r, V fptower.E2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
 	S2.Mul(&a.Y, &p.Z).
@@ -159,7 +274,7 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
 	// get some Element from our pool
-	var XX, YY, YYYY, ZZ, S, M, T e2
+	var XX, YY, YYYY, ZZ, S, M, T fptower.E2
 
 	XX.Square(&p.X)
 	YY.Square(&p.Y)
@@ -193,96 +308,6 @@ func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
-// ScalarMultiplication computes and returns p = a*s
-func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
-	var _p G2Jac
-	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
-	p.FromJacobian(&_p)
-	return p
-}
-
-// Set set p to the provided point
-func (p *G2Jac) Set(a *G2Jac) *G2Jac {
-	p.X, p.Y, p.Z = a.X, a.Y, a.Z
-	return p
-}
-
-// Equal tests if two points (in Jacobian coordinates) are equal
-func (p *G2Jac) Equal(a *G2Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
-	}
-	_p := G2Affine{}
-	_p.FromJacobian(p)
-
-	_a := G2Affine{}
-	_a.FromJacobian(a)
-
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
-}
-
-// Equal tests if two points (in Affine coordinates) are equal
-func (p *G2Affine) Equal(a *G2Affine) bool {
-	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
-}
-
-// Neg computes -G
-func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
-	*p = *a
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// Neg computes -G
-func (p *G2Affine) Neg(a *G2Affine) *G2Affine {
-	p.X = a.X
-	p.Y.Neg(&a.Y)
-	return p
-}
-
-// SubAssign substracts two points on the curve
-func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
-	var tmp G2Jac
-	tmp.Set(a)
-	tmp.Y.Neg(&tmp.Y)
-	p.AddAssign(&tmp)
-	return p
-}
-
-// FromJacobian rescale a point in Jacobian coord in z=1 plane
-func (p *G2Affine) FromJacobian(p1 *G2Jac) *G2Affine {
-
-	var a, b e2
-
-	if p1.Z.IsZero() {
-		p.X.SetZero()
-		p.Y.SetZero()
-		return p
-	}
-
-	a.Inverse(&p1.Z)
-	b.Square(&a)
-	p.X.Mul(&p1.X, &b)
-	p.Y.Mul(&p1.Y, &b).Mul(&p.Y, &a)
-
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	// memalloc
-	var buf e2
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
 func (p *G2Jac) String() string {
 	if p.Z.IsZero() {
 		return "O"
@@ -306,21 +331,9 @@ func (p *G2Jac) FromAffine(Q *G2Affine) *G2Jac {
 	return p
 }
 
-func (p *G2Affine) String() string {
-	var x, y e2
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
-}
-
-// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
-func (p *G2Affine) IsInfinity() bool {
-	return p.X.IsZero() && p.Y.IsZero()
-}
-
 // IsOnCurve returns true if p in on the curve
 func (p *G2Jac) IsOnCurve() bool {
-	var left, right, tmp e2
+	var left, right, tmp fptower.E2
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	tmp.Square(&p.Z).
@@ -332,23 +345,9 @@ func (p *G2Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
-// IsOnCurve returns true if p in on the curve
-func (p *G2Affine) IsOnCurve() bool {
-	var point G2Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
-}
-
-// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
-func (p *G2Affine) IsInSubGroup() bool {
-	var _p G2Jac
-	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
-}
-
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG2, 1] is the kernel
-// of (u,v)->u+lambdaG2v mod r. Expressing r, lambdaG2 as
+// Z[r,0]+Z[-lambdaG2Affine, 1] is the kernel
+// of (u,v)->u+lambdaG2Affinev mod r. Expressing r, lambdaG2Affine as
 // polynomials in x, a short vector of this Zmodule is
 // 1, x**2. So we check that p+x**2*phi(p)
 // is the infinity.
@@ -478,10 +477,29 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
-// BatchScalarMultiplicationG2 multiplies the same base (generator) by all scalars
+// -------------------------------------------------------------------------------------------------
+// Jacobian extended
+
+// -------------------------------------------------------------------------------------------------
+// Projective
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
+	// memalloc
+	var buf fptower.E2
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
+	return p
+}
+
+// BatchScalarMultiplicationG2Affine multiplies the same base (generator) by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMultiplicationG2Affine(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
@@ -590,11 +608,11 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 
 }
 
-// SizeOfG2Compressed represents the size in bytes that a G2Affine need in binary form, compressed
-const SizeOfG2Compressed = 48 * 2
+// SizeOfG2AffineCompressed represents the size in bytes that a G2Affine need in binary form, compressed
+const SizeOfG2AffineCompressed = 48 * 2
 
-// SizeOfG2Uncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
-const SizeOfG2Uncompressed = SizeOfG2Compressed * 2
+// SizeOfG2AffineUncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
+const SizeOfG2AffineUncompressed = SizeOfG2AffineCompressed * 2
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
@@ -602,7 +620,7 @@ const SizeOfG2Uncompressed = SizeOfG2Compressed * 2
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
-func (p *G2Affine) Bytes() (res [SizeOfG2Compressed]byte) {
+func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
@@ -647,7 +665,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2Compressed]byte) {
 
 // RawBytes returns binary representation of p (stores X and Y coordinate)
 // see Bytes() for a compressed representation
-func (p *G2Affine) RawBytes() (res [SizeOfG2Uncompressed]byte) {
+func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
@@ -713,17 +731,16 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2Uncompressed]byte) {
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
 // note that this doesn't check if the resulting point is on the curve or in the correct subgroup
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
-	if len(buf) < SizeOfG2Compressed {
+	if len(buf) < SizeOfG2AffineCompressed {
 		return 0, io.ErrShortBuffer
 	}
 
 	// most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask // clear meta data
 
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
-		if len(buf) < SizeOfG2Uncompressed {
+		if len(buf) < SizeOfG2AffineUncompressed {
 			return 0, io.ErrShortBuffer
 		}
 	}
@@ -732,64 +749,39 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return SizeOfG2Compressed, nil
+		return SizeOfG2AffineCompressed, nil
 	}
 	if mData == mUncompressedInfinity {
 		p.X.SetZero()
 		p.Y.SetZero()
-		return SizeOfG2Uncompressed, nil
+		return SizeOfG2AffineUncompressed, nil
 	}
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
-	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
-	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
-	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
-	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
-	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
-	tmp.ToMont()
-	p.X.A0.Set(&tmp)
+	p.X.A0.SetBytes(buf[48 : 48+fp.Bytes])
 
-	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.A1.Set(&tmp)
+	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// uncompressed point
 	if mData == mUncompressed {
 		// read Y coordinate
 		// p.Y.A1 | p.Y.A0
-		tmp[0] = binary.BigEndian.Uint64(buf[184:192])
-		tmp[1] = binary.BigEndian.Uint64(buf[176:184])
-		tmp[2] = binary.BigEndian.Uint64(buf[168:176])
-		tmp[3] = binary.BigEndian.Uint64(buf[160:168])
-		tmp[4] = binary.BigEndian.Uint64(buf[152:160])
-		tmp[5] = binary.BigEndian.Uint64(buf[144:152])
-		tmp.ToMont()
-		p.Y.A0.Set(&tmp)
+		p.Y.A0.SetBytes(buf[144 : 144+fp.Bytes])
 
-		tmp[0] = binary.BigEndian.Uint64(buf[136:144])
-		tmp[1] = binary.BigEndian.Uint64(buf[128:136])
-		tmp[2] = binary.BigEndian.Uint64(buf[120:128])
-		tmp[3] = binary.BigEndian.Uint64(buf[112:120])
-		tmp[4] = binary.BigEndian.Uint64(buf[104:112])
-		tmp[5] = binary.BigEndian.Uint64(buf[96:104])
-		tmp.ToMont()
-		p.Y.A1.Set(&tmp)
+		p.Y.A1.SetBytes(buf[96 : 96+fp.Bytes])
 
-		return SizeOfG2Uncompressed, nil
+		return SizeOfG2AffineUncompressed, nil
 	}
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y e2
+	var YSquared, Y fptower.E2
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
@@ -812,7 +804,7 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 
 	p.Y = Y
 
-	return SizeOfG2Compressed, nil
+	return SizeOfG2AffineCompressed, nil
 }
 
 // unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
@@ -823,7 +815,7 @@ func (p *G2Affine) unsafeComputeY() error {
 	mData := byte(p.Y.A0[0])
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y e2
+	var YSquared, Y fptower.E2
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &bTwistCurveCoeff)
@@ -857,7 +849,6 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
-	buf[0] &= ^mMask
 
 	if mData == mCompressedInfinity {
 		p.X.SetZero()
@@ -868,28 +859,17 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read X
 
-	// tmp is used to convert to montgomery representation
-	var tmp fp.Element
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	tmp[0] = binary.BigEndian.Uint64(buf[88:96])
-	tmp[1] = binary.BigEndian.Uint64(buf[80:88])
-	tmp[2] = binary.BigEndian.Uint64(buf[72:80])
-	tmp[3] = binary.BigEndian.Uint64(buf[64:72])
-	tmp[4] = binary.BigEndian.Uint64(buf[56:64])
-	tmp[5] = binary.BigEndian.Uint64(buf[48:56])
-	tmp.ToMont()
-	p.X.A0.Set(&tmp)
+	p.X.A0.SetBytes(buf[48 : 48+fp.Bytes])
 
-	tmp[0] = binary.BigEndian.Uint64(buf[40:48])
-	tmp[1] = binary.BigEndian.Uint64(buf[32:40])
-	tmp[2] = binary.BigEndian.Uint64(buf[24:32])
-	tmp[3] = binary.BigEndian.Uint64(buf[16:24])
-	tmp[4] = binary.BigEndian.Uint64(buf[8:16])
-	tmp[5] = binary.BigEndian.Uint64(buf[0:8])
-	tmp.ToMont()
-	p.X.A1.Set(&tmp)
+	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
 
 	// store mData in p.Y.A0[0]
 	p.Y.A0[0] = uint64(mData)

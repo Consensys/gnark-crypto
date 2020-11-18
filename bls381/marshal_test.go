@@ -94,10 +94,10 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(Element) failed")
 		}
 		if !inD.Equal(&outD) || !inE.Equal(&outE) {
-			t.Fatal("decode(encode(G1) failed")
+			t.Fatal("decode(encode(G1Affine) failed")
 		}
 		if !inF.Equal(&outF) {
-			t.Fatal("decode(encode(G2) failed")
+			t.Fatal("decode(encode(G2Affine) failed")
 		}
 		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
 			t.Fatal("decode(encode(slice(points))) failed")

@@ -17,10 +17,9 @@
 package bw761
 
 import (
-	"sync"
-
 	"github.com/consensys/gurvy/bw761/fr"
 	"github.com/consensys/gurvy/utils/parallel"
+	"sync"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use

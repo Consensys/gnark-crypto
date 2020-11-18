@@ -17,10 +17,9 @@
 package bls381
 
 import (
-	"sync"
-
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/consensys/gurvy/utils/parallel"
+	"sync"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use
