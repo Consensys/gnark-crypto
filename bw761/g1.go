@@ -474,6 +474,57 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 	return p
 }
 
+// ClearCofactor ...
+func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
+	var _p G1Jac
+	_p.FromAffine(a)
+	_p.ClearCofactor(&_p)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// ClearCofactor maps a point in E(Fp) to E(Fp)[r]
+func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
+
+	// https://eprint.iacr.org/2020/351.pdf
+	var points [4]G1Jac
+	points[0].Set(a)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
+
+	var scalars [7]big.Int
+	scalars[0].SetInt64(103)
+	scalars[1].SetInt64(83)
+	scalars[2].SetInt64(40)
+	scalars[3].SetInt64(136)
+
+	scalars[4].SetInt64(7)
+	scalars[5].SetInt64(89)
+	scalars[6].SetInt64(130)
+
+	var p1, p2, tmp G1Jac
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
+	p1.AddAssign(&tmp)
+
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5])
+	p2.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[6])
+	p2.AddAssign(&tmp)
+	p2.phi(&p2)
+
+	p.Set(&p1).AddAssign(&p2)
+
+	return p
+
+}
+
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use

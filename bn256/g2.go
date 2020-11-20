@@ -482,6 +482,42 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
+// ClearCofactor ...
+func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
+	var _p G2Jac
+	_p.FromAffine(a)
+	_p.ClearCofactor(&_p)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// ClearCofactor ...
+func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
+
+	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
+	var points [4]G2Jac
+
+	points[0].ScalarMultiplication(a, &xGen)
+
+	points[1].Double(&points[0]).
+		AddAssign(&points[0]).
+		psi(&points[1])
+
+	points[2].psi(&points[0]).
+		psi(&points[2])
+
+	points[3].psi(a).psi(&points[3]).psi(&points[3])
+
+	var res G2Jac
+	res.Set(&g2Infinity)
+	for i := 0; i < 4; i++ {
+		res.AddAssign(&points[i])
+	}
+	p.Set(&res)
+	return p
+
+}
+
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use

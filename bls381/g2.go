@@ -480,6 +480,50 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
+// ClearCofactor ...
+func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
+	var _p G2Jac
+	_p.FromAffine(a)
+	_p.ClearCofactor(&_p)
+	p.FromJacobian(&_p)
+	return p
+}
+
+// ClearCofactor ...
+func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
+
+	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
+	var xg, xxg, xxxg, res, t G2Jac
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
+
+	res.Set(a).
+		Double(&res).
+		Double(&res).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg)
+
+	t.Set(a).
+		Neg(&t).
+		AddAssign(&xg).
+		AddAssign(&xg).
+		SubAssign(&xxg).
+		psi(&t).
+		AddAssign(a).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg).
+		psi(&t)
+
+	res.AddAssign(&t)
+	p.Set(&res)
+
+	return p
+
+}
+
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a CPUSemaphore struct
 // enabling to set max number of cpus to use

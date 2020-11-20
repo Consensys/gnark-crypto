@@ -560,6 +560,207 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 
 {{ end }}
 
+{{ if .CofactorCleaning}}
+
+// ClearCofactor ... 
+func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
+	var _p {{$TJacobian}}
+	_p.FromAffine(a)
+	_p.ClearCofactor(&_p)
+	p.FromJacobian(&_p)
+	return p
+}
+
+{{if eq .PointName "g1"}}
+
+// ClearCofactor maps a point in E(Fp) to E(Fp)[r]
+func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
+{{if eq .Name "bn256"}}
+{{else if eq .Name "bls381"}}
+	// cf https://eprint.iacr.org/2019/403.pdf, 5
+	var res {{$TJacobian}}
+	res.ScalarMultiplication(a, &xGen).AddAssign(a)
+	p.Set(&res)
+	return p
+{{else if eq .Name "bls377"}}
+	// cf https://eprint.iacr.org/2019/403.pdf, 5
+	var res {{$TJacobian}}
+	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
+	p.Set(&res)
+	return p
+{{else if eq .Name "bw761"}}
+	// https://eprint.iacr.org/2020/351.pdf
+	var points [4]{{$TJacobian}}
+	points[0].Set(a)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
+
+	var scalars [7]big.Int
+	scalars[0].SetInt64(103)
+	scalars[1].SetInt64(83)
+	scalars[2].SetInt64(40)
+	scalars[3].SetInt64(136)
+
+	scalars[4].SetInt64(7)
+	scalars[5].SetInt64(89)
+	scalars[6].SetInt64(130)
+
+	var p1, p2, tmp {{$TJacobian}}
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
+	p1.AddAssign(&tmp)
+
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5])
+	p2.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[6])
+	p2.AddAssign(&tmp)
+	p2.phi(&p2)
+
+	p.Set(&p1).AddAssign(&p2)
+
+	return p
+
+{{end}}
+}
+
+
+{{ else }}
+// ClearCofactor ...
+func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
+{{if eq .Name "bn256"}}
+	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
+	var points [4]{{$TJacobian}}
+
+	points[0].ScalarMultiplication(a, &xGen)
+
+	points[1].Double(&points[0]).
+		AddAssign(&points[0]).
+		psi(&points[1])
+
+	points[2].psi(&points[0]).
+		psi(&points[2])
+
+	points[3].psi(a).psi(&points[3]).psi(&points[3])
+
+	var res {{$TJacobian}}
+	res.Set(&g2Infinity)
+	for i := 0; i < 4; i++ {
+		res.AddAssign(&points[i])
+	}
+	p.Set(&res)
+	return p
+{{else if eq .Name "bls381"}}
+	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
+	var xg, xxg, xxxg, res, t {{$TJacobian}}
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
+
+	res.Set(a).
+		Double(&res).
+		Double(&res).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg)
+
+	t.Set(a).
+		Neg(&t).
+		AddAssign(&xg).
+		AddAssign(&xg).
+		SubAssign(&xxg).
+		psi(&t).
+		AddAssign(a).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg).
+		psi(&t)
+
+	res.AddAssign(&t)
+	p.Set(&res)
+
+	return p
+{{else if eq .Name "bls377"}}
+	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
+	var xg, xxg, xxxg, res, t {{$TJacobian}}
+	xg.ScalarMultiplication(a, &xGen)      //.Neg(&xg)
+	xxg.ScalarMultiplication(&xg, &xGen)   //.Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen) //.Neg(&xxxg)
+
+	res.Set(a).
+		Double(&res).
+		Double(&res).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg)
+
+	t.Set(a).
+		Neg(&t).
+		AddAssign(&xg).
+		AddAssign(&xg).
+		SubAssign(&xxg).
+		psi(&t).
+		AddAssign(a).
+		SubAssign(&xg).
+		SubAssign(&xxg).
+		AddAssign(&xxxg).
+		psi(&t)
+
+	res.AddAssign(&t)
+	p.Set(&res)
+
+	return p
+{{else if eq .Name "bw761"}}
+
+	var points [4]{{$TJacobian}}
+	points[0].Set(a)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
+
+	var scalars [7]big.Int
+	scalars[0].SetInt64(103)
+	scalars[1].SetInt64(83)
+	scalars[2].SetInt64(143)
+	scalars[3].SetInt64(27)
+
+	scalars[4].SetInt64(7)
+	scalars[5].SetInt64(117)
+	scalars[6].SetInt64(109)
+
+	var p1, p2, tmp {{$TJacobian}}
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
+	p1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
+	p1.AddAssign(&tmp)
+
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5]).Neg(&tmp)
+	p2.AddAssign(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[6]).Neg(&tmp)
+	p2.AddAssign(&tmp)
+	p2.phi(&p2).phi(&p2)
+
+	p.Set(&p1).AddAssign(&p2)
+
+	return p
+
+{{end}}
+
+}
+{{end}}
+
+
+{{ end }}
+
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf 
