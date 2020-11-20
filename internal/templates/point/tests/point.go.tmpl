@@ -1,7 +1,9 @@
-package point
 
-// PointTests ...
-const PointTests = `
+{{ $TAffine := print (toUpper .PointName) "Affine" }}
+{{ $TJacobian := print (toUpper .PointName) "Jac" }}
+{{ $TJacobianExtended := print (toLower .PointName) "JacExtended" }}
+{{ $TProjective := print (toLower .PointName) "Proj" }}
+
 
 import (
 	"fmt"
@@ -936,4 +938,3 @@ func Benchmark{{ $TAffine }}MultiExp{{ $TAffine }}(b *testing.B) {
 	}
 }
 
-`

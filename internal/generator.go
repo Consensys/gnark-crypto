@@ -11,9 +11,6 @@ import (
 	"github.com/consensys/goff/field"
 	"github.com/consensys/goff/generator"
 	"github.com/consensys/gurvy/internal/asm/amd64"
-	"github.com/consensys/gurvy/internal/templates/fq12over6over2"
-	"github.com/consensys/gurvy/internal/templates/pairing"
-	"github.com/consensys/gurvy/internal/templates/point"
 )
 
 var bgen = bavard.NewBatchGenerator(copyrightHolder, "gurvy")
@@ -124,28 +121,40 @@ func main() {
 			g1 := pconf{conf, conf.G1}
 			g2 := pconf{conf, conf.G2}
 
-			entries := []bavard.Entry{
-				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "doc.go"), PackageDoc: doc},
-				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "multiexp_helpers.go"), Templates: []string{point.MultiExpHelpers}},
-				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "marshal.go"), Templates: []string{point.Marshal}},
-				{PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "marshal_test.go"), Templates: []string{point.MarshalTests}},
-				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1.go"), Templates: []string{point.Types, point.Point}},
-				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1_test.go"), Templates: []string{point.Types, point.PointTests}},
-				{PackageName: conf.Name, Data: g1, File: filepath.Join(dir, "g1_multiexp.go"), Templates: []string{point.Types, point.MultiExpCore}},
-				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2.go"), Templates: []string{point.Types, point.Point}},
-				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2_test.go"), Templates: []string{point.Types, point.PointTests}},
-				{PackageName: conf.Name, Data: g2, File: filepath.Join(dir, "g2_multiexp.go"), Templates: []string{point.Types, point.MultiExpCore}},
+			entriesF := []bavard.EntryF{
+				{File: filepath.Join(dir, "multiexp_helpers.go"), TemplateF: "multiexp*"},
+				{File: filepath.Join(dir, "marshal.go"), TemplateF: "marshal*", PackageDoc: doc},
+				{File: filepath.Join(dir, "marshal_test.go"), TemplateF: "tests/marshal*"},
+			}
+			if err := bgen.GenerateF(conf, conf.Name, "./templates/point", entriesF...); err != nil {
+				panic(err) // TODO handle
+			}
+
+			// G1
+			entriesF = []bavard.EntryF{
+				{File: filepath.Join(dir, "g1.go"), TemplateF: "point*"},
+				{File: filepath.Join(dir, "g1_test.go"), TemplateF: "tests/point*"},
+			}
+			if err := bgen.GenerateF(g1, conf.Name, "./templates/point", entriesF...); err != nil {
+				panic(err) // TODO handle
+			}
+
+			// G2
+			entriesF = []bavard.EntryF{
+				{File: filepath.Join(dir, "g2.go"), TemplateF: "point*"},
+				{File: filepath.Join(dir, "g2_test.go"), TemplateF: "tests/point*"},
+			}
+			if err := bgen.GenerateF(g2, conf.Name, "./templates/point", entriesF...); err != nil {
+				panic(err) // TODO handle
 			}
 
 			if conf.Name != "bw761" {
 				assertNoError(GenerateFq12over6over2(conf))
-				entries = append(entries, bavard.Entry{
-					PackageName: conf.Name, Data: conf, File: filepath.Join(dir, "pairing_test.go"), Templates: []string{pairing.PairingTests},
-				})
-			}
-
-			if err := bgen.Generate(entries...); err != nil {
-				panic(err) // TODO handle
+				if err := bgen.GenerateF(conf, conf.Name, "./templates/pairing", bavard.EntryF{
+					File: filepath.Join(dir, "pairing_test.go"), TemplateF: "tests/*.go.tmpl",
+				}); err != nil {
+					panic(err) // TODO handle
+				}
 			}
 
 		}(conf)
@@ -208,18 +217,18 @@ func defaultCRange() []int {
 // GenerateFq12over6over2 generates a tower 2->6->12 over fp
 func GenerateFq12over6over2(conf curveConfig) error {
 	dir := filepath.Join(conf.dir, "internal", fpTower)
-	entries := []bavard.Entry{
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2.go"), Templates: []string{fq12over6over2.Fq2Common}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_amd64.go"), Templates: []string{fq12over6over2.Fq2Amd64}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_test.go"), Templates: []string{fq12over6over2.Fq2Tests}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e6.go"), Templates: []string{fq12over6over2.Fq6}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e6_test.go"), Templates: []string{fq12over6over2.Fq6Tests}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e12.go"), Templates: []string{fq12over6over2.Fq12}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e12_test.go"), Templates: []string{fq12over6over2.Fq12Tests}},
-		{PackageName: fpTower, Data: conf, File: filepath.Join(dir, "e2_fallback.go"), Templates: []string{fq12over6over2.Fq2FallBack}, BuildTag: "!amd64"},
+	entries := []bavard.EntryF{
+		{File: filepath.Join(dir, "e2.go"), TemplateF: "fq2*"},
+		{File: filepath.Join(dir, "e6.go"), TemplateF: "fq6*"},
+		{File: filepath.Join(dir, "e12.go"), TemplateF: "fq12*"},
+		{File: filepath.Join(dir, "e2_amd64.go"), TemplateF: "amd64.fq2*"},
+		{File: filepath.Join(dir, "e2_fallback.go"), TemplateF: "fallback.fq2*", BuildTag: "!amd64"},
+		{File: filepath.Join(dir, "e2_test.go"), TemplateF: "tests/fq2*"},
+		{File: filepath.Join(dir, "e6_test.go"), TemplateF: "tests/fq6*"},
+		{File: filepath.Join(dir, "e12_test.go"), TemplateF: "tests/fq12*"},
 	}
 
-	if err := bgen.Generate(entries...); err != nil {
+	if err := bgen.GenerateF(conf, fpTower, "./templates/fq12over6over2", entries...); err != nil {
 		return err
 	}
 

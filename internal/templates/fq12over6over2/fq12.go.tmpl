@@ -1,8 +1,3 @@
-package fq12over6over2
-
-// Fq12 ...
-const Fq12 = `
-
 import (
 	"math/big"
 	"encoding/binary"
@@ -336,5 +331,3 @@ func (z *E12) SetBytes(e []byte) error {
 {{define "readFp"}}
 	{{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}
-
-`

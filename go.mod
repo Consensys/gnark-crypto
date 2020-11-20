@@ -3,7 +3,7 @@ module github.com/consensys/gurvy
 go 1.15
 
 require (
-	github.com/consensys/bavard v0.1.7-0.20201118205911-64cdee573396
+	github.com/consensys/bavard v0.1.7-0.20201120162630-86d982ed34b6
 	github.com/consensys/goff v0.3.7-0.20201117225239-8cc5a305b2fe
 	github.com/ethereum/go-ethereum v1.9.24
 	github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1
