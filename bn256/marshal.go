@@ -470,3 +470,504 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		return errors.New("<no value> encoder: unsupported type")
 	}
 }
+
+// SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed
+const SizeOfG1AffineCompressed = 32
+
+// SizeOfG1AffineUncompressed represents the size in bytes that a G1Affine need in binary form, uncompressed
+const SizeOfG1AffineUncompressed = SizeOfG1AffineCompressed * 2
+
+// Marshal converts p to a byte slice (without point compression)
+func (p *G1Affine) Marshal() []byte {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *G1Affine) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err
+}
+
+// Bytes returns binary representation of p
+// will store X coordinate in regular form and a parity bit
+// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// we use the 2 most significant bits instead
+// 00 -> uncompressed
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
+// 01 -> compressed infinity point
+// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		res[0] = mCompressedInfinity
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	msbMask := mCompressedSmallest
+	// compressed, we need to know if Y is lexicographically bigger than -Y
+	// if p.Y ">" -p.Y
+	if p.Y.LexicographicallyLargest() {
+		msbMask = mCompressedLargest
+	}
+
+	// we store X  and mask the most significant word with our metadata mask
+	tmp = p.X
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[24:32], tmp[0])
+	binary.BigEndian.PutUint64(res[16:24], tmp[1])
+	binary.BigEndian.PutUint64(res[8:16], tmp[2])
+	binary.BigEndian.PutUint64(res[0:8], tmp[3])
+
+	res[0] |= msbMask
+
+	return
+}
+
+// RawBytes returns binary representation of p (stores X and Y coordinate)
+// see Bytes() for a compressed representation
+func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+
+		res[0] = mUncompressed
+
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	// not compressed
+	// we store the Y coordinate
+	tmp = p.Y
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[56:64], tmp[0])
+	binary.BigEndian.PutUint64(res[48:56], tmp[1])
+	binary.BigEndian.PutUint64(res[40:48], tmp[2])
+	binary.BigEndian.PutUint64(res[32:40], tmp[3])
+
+	// we store X  and mask the most significant word with our metadata mask
+	tmp = p.X
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[24:32], tmp[0])
+	binary.BigEndian.PutUint64(res[16:24], tmp[1])
+	binary.BigEndian.PutUint64(res[8:16], tmp[2])
+	binary.BigEndian.PutUint64(res[0:8], tmp[3])
+
+	res[0] |= mUncompressed
+
+	return
+}
+
+// SetBytes sets p from binary representation in buf and returns number of consumed bytes
+// bytes in buf must match either RawBytes() or Bytes() output
+// if buf is too short io.ErrShortBuffer is returned
+// if buf contains compressed representation (output from Bytes()) and we're unable to compute
+// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+func (p *G1Affine) SetBytes(buf []byte) (int, error) {
+	if len(buf) < SizeOfG1AffineCompressed {
+		return 0, io.ErrShortBuffer
+	}
+
+	// most significant byte
+	mData := buf[0] & mMask
+
+	// check buffer size
+	if mData == mUncompressed {
+		if len(buf) < SizeOfG1AffineUncompressed {
+			return 0, io.ErrShortBuffer
+		}
+	}
+
+	// if infinity is encoded in the metadata, we don't need to read the buffer
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOfG1AffineCompressed, nil
+	}
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
+
+	// read X coordinate
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
+
+	// uncompressed point
+	if mData == mUncompressed {
+		// read Y coordinate
+		p.Y.SetBytes(buf[32 : 32+fp.Bytes])
+
+		return SizeOfG1AffineUncompressed, nil
+	}
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y fp.Element
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bCurveCoeff)
+	if Y.Sqrt(&YSquared) == nil {
+		return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return SizeOfG1AffineCompressed, nil
+}
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *G1Affine) unsafeComputeY() error {
+	// stored in unsafeSetCompressedBytes
+
+	mData := byte(p.Y[0])
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y fp.Element
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bCurveCoeff)
+	if Y.Sqrt(&YSquared) == nil {
+		return errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+
+	// read the most significant byte
+	mData := buf[0] & mMask
+
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
+
+	// read X coordinate
+	p.X.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
+
+	// store mData in p.Y[0]
+	p.Y[0] = uint64(mData)
+
+	// recomputing Y will be done asynchronously
+	return
+}
+
+// SizeOfG2AffineCompressed represents the size in bytes that a G2Affine need in binary form, compressed
+const SizeOfG2AffineCompressed = 32 * 2
+
+// SizeOfG2AffineUncompressed represents the size in bytes that a G2Affine need in binary form, uncompressed
+const SizeOfG2AffineUncompressed = SizeOfG2AffineCompressed * 2
+
+// Marshal converts p to a byte slice (without point compression)
+func (p *G2Affine) Marshal() []byte {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *G2Affine) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err
+}
+
+// Bytes returns binary representation of p
+// will store X coordinate in regular form and a parity bit
+// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// we use the 2 most significant bits instead
+// 00 -> uncompressed
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
+// 01 -> compressed infinity point
+// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		res[0] = mCompressedInfinity
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	msbMask := mCompressedSmallest
+	// compressed, we need to know if Y is lexicographically bigger than -Y
+	// if p.Y ">" -p.Y
+	if p.Y.LexicographicallyLargest() {
+		msbMask = mCompressedLargest
+	}
+
+	// we store X  and mask the most significant word with our metadata mask
+	// p.X.A0 | p.X.A1
+	tmp = p.X.A0
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[56:64], tmp[0])
+	binary.BigEndian.PutUint64(res[48:56], tmp[1])
+	binary.BigEndian.PutUint64(res[40:48], tmp[2])
+	binary.BigEndian.PutUint64(res[32:40], tmp[3])
+
+	tmp = p.X.A1
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[24:32], tmp[0])
+	binary.BigEndian.PutUint64(res[16:24], tmp[1])
+	binary.BigEndian.PutUint64(res[8:16], tmp[2])
+	binary.BigEndian.PutUint64(res[0:8], tmp[3])
+
+	res[0] |= msbMask
+
+	return
+}
+
+// RawBytes returns binary representation of p (stores X and Y coordinate)
+// see Bytes() for a compressed representation
+func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+
+		res[0] = mUncompressed
+
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	// not compressed
+	// we store the Y coordinate
+	// p.Y.A0 | p.Y.A1
+	tmp = p.Y.A0
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[120:128], tmp[0])
+	binary.BigEndian.PutUint64(res[112:120], tmp[1])
+	binary.BigEndian.PutUint64(res[104:112], tmp[2])
+	binary.BigEndian.PutUint64(res[96:104], tmp[3])
+
+	tmp = p.Y.A1
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[88:96], tmp[0])
+	binary.BigEndian.PutUint64(res[80:88], tmp[1])
+	binary.BigEndian.PutUint64(res[72:80], tmp[2])
+	binary.BigEndian.PutUint64(res[64:72], tmp[3])
+
+	// we store X  and mask the most significant word with our metadata mask
+	// p.X.A0 | p.X.A1
+	tmp = p.X.A1
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[24:32], tmp[0])
+	binary.BigEndian.PutUint64(res[16:24], tmp[1])
+	binary.BigEndian.PutUint64(res[8:16], tmp[2])
+	binary.BigEndian.PutUint64(res[0:8], tmp[3])
+
+	tmp = p.X.A0
+	tmp.FromMont()
+	binary.BigEndian.PutUint64(res[56:64], tmp[0])
+	binary.BigEndian.PutUint64(res[48:56], tmp[1])
+	binary.BigEndian.PutUint64(res[40:48], tmp[2])
+	binary.BigEndian.PutUint64(res[32:40], tmp[3])
+
+	res[0] |= mUncompressed
+
+	return
+}
+
+// SetBytes sets p from binary representation in buf and returns number of consumed bytes
+// bytes in buf must match either RawBytes() or Bytes() output
+// if buf is too short io.ErrShortBuffer is returned
+// if buf contains compressed representation (output from Bytes()) and we're unable to compute
+// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+func (p *G2Affine) SetBytes(buf []byte) (int, error) {
+	if len(buf) < SizeOfG2AffineCompressed {
+		return 0, io.ErrShortBuffer
+	}
+
+	// most significant byte
+	mData := buf[0] & mMask
+
+	// check buffer size
+	if mData == mUncompressed {
+		if len(buf) < SizeOfG2AffineUncompressed {
+			return 0, io.ErrShortBuffer
+		}
+	}
+
+	// if infinity is encoded in the metadata, we don't need to read the buffer
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOfG2AffineCompressed, nil
+	}
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
+
+	// read X coordinate
+	// p.X.A1 | p.X.A0
+	p.X.A0.SetBytes(buf[32 : 32+fp.Bytes])
+
+	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
+
+	// uncompressed point
+	if mData == mUncompressed {
+		// read Y coordinate
+		// p.Y.A1 | p.Y.A0
+		p.Y.A1.SetBytes(buf[64 : 64+fp.Bytes])
+
+		p.Y.A0.SetBytes(buf[96 : 96+fp.Bytes])
+
+		return SizeOfG2AffineUncompressed, nil
+	}
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y fptower.E2
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bTwistCurveCoeff)
+	if YSquared.Legendre() == -1 {
+		return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+	Y.Sqrt(&YSquared)
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return SizeOfG2AffineCompressed, nil
+}
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *G2Affine) unsafeComputeY() error {
+	// stored in unsafeSetCompressedBytes
+
+	mData := byte(p.Y.A0[0])
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y fptower.E2
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &bTwistCurveCoeff)
+	if YSquared.Legendre() == -1 {
+		return errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+	Y.Sqrt(&YSquared)
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+
+	// read the most significant byte
+	mData := buf[0] & mMask
+
+	if mData == mCompressedInfinity {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask
+
+	// read X coordinate
+	// p.X.A1 | p.X.A0
+	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
+
+	p.X.A0.SetBytes(buf[32 : 32+fp.Bytes])
+
+	// restore buf
+	buf[0] |= mData
+
+	// store mData in p.Y.A0[0]
+	p.Y.A0[0] = uint64(mData)
+
+	// recomputing Y will be done asynchronously
+	return
+}

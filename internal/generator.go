@@ -122,7 +122,8 @@ func main() {
 			g2 := pconf{conf, conf.G2}
 
 			entriesF := []bavard.EntryF{
-				{File: filepath.Join(dir, "multiexp_helpers.go"), TemplateF: "multiexp*"},
+				{File: filepath.Join(dir, "multiexp.go"), TemplateF: "multiexp*"},
+				{File: filepath.Join(dir, "multiexp_test.go"), TemplateF: "tests/multiexp*"},
 				{File: filepath.Join(dir, "marshal.go"), TemplateF: "marshal*", PackageDoc: doc},
 				{File: filepath.Join(dir, "marshal_test.go"), TemplateF: "tests/marshal*"},
 			}

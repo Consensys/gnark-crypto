@@ -1,3 +1,11 @@
+{{ $G1TAffine := print (toUpper .G1.PointName) "Affine" }}
+{{ $G1TJacobian := print (toUpper .G1.PointName) "Jac" }}
+{{ $G1TJacobianExtended := print (toLower .G1.PointName) "JacExtended" }}
+
+{{ $G2TAffine := print (toUpper .G2.PointName) "Affine" }}
+{{ $G2TJacobian := print (toUpper .G2.PointName) "Jac" }}
+{{ $G2TJacobianExtended := print (toLower .G2.PointName) "JacExtended" }}
+
 
 import (
 	"io"
@@ -407,4 +415,361 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		return errors.New("{{.Name}} encoder: unsupported type")
 	}
 }
+{{end}}
+
+
+{{- $sizeOfFp := mul .Fp.NbWords 8}}
+
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+
+
+
+{{define "marshalpoint"}}
+
+
+
+
+
+// SizeOf{{ $.TAffine }}Compressed represents the size in bytes that a {{ $.TAffine }} need in binary form, compressed
+const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}}
+
+// SizeOf{{ $.TAffine }}Uncompressed represents the size in bytes that a {{ $.TAffine }} need in binary form, uncompressed
+const SizeOf{{ $.TAffine }}Uncompressed = SizeOf{{ $.TAffine }}Compressed * 2
+
+
+
+// Marshal converts p to a byte slice (without point compression)
+func (p *{{ $.TAffine }}) Marshal() ([]byte) {
+	b := p.RawBytes()
+	return b[:]
+}
+
+// Unmarshal is an allias to SetBytes()
+func (p *{{ $.TAffine }}) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err 
+}
+
+
+
+
+// Bytes returns binary representation of p
+// will store X coordinate in regular form and a parity bit
+{{- if ge .all.FpUnusedBits 3}}
+// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+{{- else}}
+// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// we use the 2 most significant bits instead
+// 00 -> uncompressed
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
+// 01 -> compressed infinity point
+// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+{{- end}}
+func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		res[0] = mCompressedInfinity
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	msbMask := mCompressedSmallest
+	// compressed, we need to know if Y is lexicographically bigger than -Y
+	// if p.Y ">" -p.Y 
+	if p.Y.LexicographicallyLargest() { 
+		msbMask = mCompressedLargest
+	}
+
+	// we store X  and mask the most significant word with our metadata mask
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.X.A0 | p.X.A1
+		{{- $offset := $.sizeOfFp}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
+	{{- else}}
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
+	{{- end}}
+
+	res[0] |= msbMask
+
+	return
+}
+
+
+// RawBytes returns binary representation of p (stores X and Y coordinate)
+// see Bytes() for a compressed representation
+func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byte) {
+
+	// check if p is infinity point
+	if p.X.IsZero() && p.Y.IsZero() {
+		{{if ge .all.FpUnusedBits 3}}
+			res[0] = mUncompressedInfinity
+		{{else}}
+			res[0] = mUncompressed 
+		{{end}}
+		return
+	}
+
+	// tmp is used to convert from montgomery representation to regular
+	var tmp fp.Element
+
+	// not compressed
+	// we store the Y coordinate
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.Y.A0 | p.Y.A1
+		{{- $offset := mul $.sizeOfFp 3}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.A0"}}
+
+		{{- $offset := mul $.sizeOfFp 2}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.A1"}}
+	{{- else}}
+		{{- template "putFp" dict "all" .all "OffSet" $.sizeOfFp "From" "p.Y"}}
+	{{- end}}
+
+	// we store X  and mask the most significant word with our metadata mask
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.X.A0 | p.X.A1
+		{{- $offset := $.sizeOfFp}}
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
+		
+	{{- else}}
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
+	{{- end}}
+
+	res[0] |= mUncompressed
+
+	return 
+}
+
+// SetBytes sets p from binary representation in buf and returns number of consumed bytes
+// bytes in buf must match either RawBytes() or Bytes() output
+// if buf is too short io.ErrShortBuffer is returned
+// if buf contains compressed representation (output from Bytes()) and we're unable to compute
+// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
+	if len(buf) < SizeOf{{ $.TAffine }}Compressed {
+		return 0, io.ErrShortBuffer
+	}
+
+	// most significant byte
+	mData := buf[0] & mMask
+	
+
+	// check buffer size
+	if (mData == mUncompressed) {{- if ge .all.FpUnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
+		if len(buf) < SizeOf{{ $.TAffine }}Uncompressed {
+			return 0, io.ErrShortBuffer
+		}
+	} 
+
+	// if infinity is encoded in the metadata, we don't need to read the buffer
+	if (mData == mCompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOf{{ $.TAffine }}Compressed, nil
+	}
+
+	{{- if ge .all.FpUnusedBits 3}} 
+	if (mData == mUncompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOf{{ $.TAffine }}Uncompressed, nil
+	}
+	{{- end}} 
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask 
+
+	// read X coordinate
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.X.A1 | p.X.A0
+		{{- $offset := $.sizeOfFp}}
+		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
+	{{- else}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+	{{- end}}
+
+	// restore buf
+	buf[0] |= mData
+
+	// uncompressed point
+	if mData == mUncompressed {
+		// read Y coordinate
+		{{- if eq $.CoordType "fptower.E2"}}
+			// p.Y.A1 | p.Y.A0
+			{{- $offset := mul $.sizeOfFp 2}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
+
+			{{- $offset := mul $.sizeOfFp 3}}
+			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
+			
+		{{- else}}
+			{{- template "readFp" dict "all" . "OffSet" $.sizeOfFp "To" "p.Y"}}
+		{{- end}}
+
+		return SizeOf{{ $.TAffine }}Uncompressed, nil
+	}
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y {{$.CoordType}}
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
+
+	{{- if eq $.CoordType "fptower.E2"}}
+		if YSquared.Legendre() == -1 {
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+		Y.Sqrt(&YSquared)
+	{{- else}}
+		if Y.Sqrt(&YSquared) == nil {
+			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+	{{- end}}
+
+	
+	if Y.LexicographicallyLargest()  { 
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return SizeOf{{ $.TAffine }}Compressed, nil 
+}
+
+
+
+// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
+// it computes the Y coordinate from the already set X coordinate and is compute intensive
+func (p *{{ $.TAffine }}) unsafeComputeY() error  {
+	// stored in unsafeSetCompressedBytes
+	{{ if eq $.CoordType "fptower.E2"}}
+	mData := byte(p.Y.A0[0])
+	{{ else}}
+	mData := byte(p.Y[0])
+	{{ end}}
+
+
+	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	var YSquared, Y {{$.CoordType}}
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
+
+	{{- if eq $.CoordType "fptower.E2"}}
+		if YSquared.Legendre() == -1 {
+			return errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+		Y.Sqrt(&YSquared)
+	{{- else}}
+		if Y.Sqrt(&YSquared) == nil {
+			return errors.New("invalid compressed coordinate: square root doesn't exist")
+		}
+	{{- end}}
+
+	
+	if Y.LexicographicallyLargest()  { 
+		// Y ">" -Y
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if mData == mCompressedLargest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	return nil
+}
+
+// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
+// assumes buf[:8] mask is set to compressed
+// returns true if point is infinity and need no further processing
+// it sets X coordinate and uses Y for scratch space to store decompression metadata
+func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
+
+	// read the most significant byte
+	mData := buf[0] & mMask
+	
+	if (mData == mCompressedInfinity) {
+		p.X.SetZero()
+		p.Y.SetZero()
+		isInfinity = true
+		return
+	}
+
+	// read X
+
+	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
+	buf[0] &= ^mMask 
+
+	// read X coordinate
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.X.A1 | p.X.A0
+		{{- $offset := $.sizeOfFp}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
+		{{- template "readFp" dict "all" . "OffSet"  $offset "To" "p.X.A0"}}
+	{{- else}}
+		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+	{{- end}}
+
+	// restore buf
+	buf[0] |= mData
+
+	{{ if eq $.CoordType "fptower.E2"}}
+	// store mData in p.Y.A0[0]
+	p.Y.A0[0] = uint64(mData)
+	{{ else}}
+	// store mData in p.Y[0]
+	p.Y[0] = uint64(mData)
+	{{ end}}
+
+	// recomputing Y will be done asynchronously
+	return
+}
+
+
+
+{{end}}
+
+
+
+
+{{define "putFp"}}
+	tmp = {{$.From}}
+	tmp.FromMont() 
+	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+			{{- $j := mul $i 8}}
+			{{- $j := add $j $.OffSet}}
+			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $k $i}}
+			{{- $jj := add $j 8}}
+			binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
+	{{- end}}
+{{end}}
+
+{{define "readFp"}}
+	{{$.To}}.SetBytes(buf[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}

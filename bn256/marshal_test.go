@@ -23,6 +23,11 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+
+	"github.com/consensys/gurvy/bn256/internal/fptower"
+
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
 )
@@ -181,4 +186,184 @@ func TestIsCompressed(t *testing.T) {
 		}
 	}
 
+}
+
+func TestG1AffineSerialization(t *testing.T) {
+
+	// test round trip serialization of infinity
+	{
+		// compressed
+		{
+			var p1, p2 G1Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.Bytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG1AffineCompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+
+		// uncompressed
+		{
+			var p1, p2 G1Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.RawBytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG1AffineUncompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1000
+
+	properties := gopter.NewProperties(parameters)
+	genFuzz1 := GenFp()
+
+	properties.Property("[G1] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
+		func(a, b fp.Element) bool {
+			var start, end G1Affine
+			start.X = a
+			start.Y = b
+
+			buf := start.RawBytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
+				return false
+			}
+			if n != SizeOfG1AffineUncompressed {
+				return false
+			}
+			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		genFuzz1,
+		genFuzz1,
+	))
+
+	properties.Property("[G1] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
+		func(a fp.Element) bool {
+			var start, end G1Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			start.ScalarMultiplication(&g1GenAff, &ab)
+
+			buf := start.Bytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
+				return false
+			}
+			if n != SizeOfG1AffineCompressed {
+				return false
+			}
+			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG2AffineSerialization(t *testing.T) {
+
+	// test round trip serialization of infinity
+	{
+		// compressed
+		{
+			var p1, p2 G2Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.Bytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG2AffineCompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+
+		// uncompressed
+		{
+			var p1, p2 G2Affine
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.RawBytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOfG2AffineUncompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1000
+
+	properties := gopter.NewProperties(parameters)
+	genFuzz1 := GenE2()
+
+	properties.Property("[G2] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
+		func(a, b *fptower.E2) bool {
+			var start, end G2Affine
+			start.X = *a
+			start.Y = *b
+
+			buf := start.RawBytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
+				return false
+			}
+			if n != SizeOfG2AffineUncompressed {
+				return false
+			}
+			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		genFuzz1,
+		genFuzz1,
+	))
+
+	properties.Property("[G2] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
+		func(a fp.Element) bool {
+			var start, end G2Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			start.ScalarMultiplication(&g2GenAff, &ab)
+
+			buf := start.Bytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
+				return false
+			}
+			if n != SizeOfG2AffineCompressed {
+				return false
+			}
+			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

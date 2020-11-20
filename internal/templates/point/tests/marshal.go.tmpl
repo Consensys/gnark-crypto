@@ -1,3 +1,10 @@
+{{ $G1TAffine := print (toUpper .G1.PointName) "Affine" }}
+{{ $G1TJacobian := print (toUpper .G1.PointName) "Jac" }}
+{{ $G1TJacobianExtended := print (toLower .G1.PointName) "JacExtended" }}
+
+{{ $G2TAffine := print (toUpper .G2.PointName) "Affine" }}
+{{ $G2TJacobian := print (toUpper .G2.PointName) "Jac" }}
+{{ $G2TJacobianExtended := print (toLower .G2.PointName) "JacExtended" }}
 
 import (
 	"testing"
@@ -5,8 +12,13 @@ import (
 	"math/big"
 	"bytes"
 	"io" 
+	
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 
-
+	{{if ne .Name "bw761"}}
+	"github.com/consensys/gurvy/{{ toLower $.Name}}/internal/fptower"
+	{{end }}
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
 )
@@ -172,3 +184,116 @@ func TestIsCompressed(t *testing.T) {
 	}
 
 }
+
+{{- $sizeOfFp := mul .Fp.NbWords 8}}
+
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+
+
+{{define "marshalpoint"}}
+
+
+
+func Test{{ $.TAffine }}Serialization(t *testing.T) {
+
+	// test round trip serialization of infinity 
+	{
+		// compressed
+		{
+			var p1, p2 {{ $.TAffine }}
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.Bytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOf{{ $.TAffine }}Compressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+
+		// uncompressed
+		{
+			var p1, p2 {{ $.TAffine }}
+			p2.X.SetRandom()
+			p2.Y.SetRandom()
+			buf := p1.RawBytes()
+			n, err := p2.SetBytes(buf[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != SizeOf{{ $.TAffine }}Uncompressed {
+				t.Fatal("invalid number of bytes consumed in buffer")
+			}
+			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+				t.Fatal("deserialization of uncompressed infinity point is not infinity")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1000
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq $.CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+	{{- else if eq $.CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+
+
+	properties.Property("[{{ toUpper $.PointName }}] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
+		{{- if eq $.CoordType "fp.Element" }}
+			func(a,b {{ $.CoordType}}) bool {
+		{{- else if eq $.CoordType "fptower.E2" }}
+			func(a,b *fptower.E2) bool {
+		{{- end}}
+				var start, end {{ $.TAffine }}
+				start.X = {{- if eq $.CoordType "fptower.E2" }}*{{- end}}a
+				start.Y = {{- if eq $.CoordType "fptower.E2" }}*{{- end}}b 
+
+				buf := start.RawBytes()
+				n, err := end.SetBytes(buf[:])
+				if err != nil {
+					return false
+				}
+				if n != SizeOf{{ $.TAffine }}Uncompressed {
+					return false
+				}
+				return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		genFuzz1,
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper $.PointName }}] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
+			func(a fp.Element) bool {
+				var start, end {{ $.TAffine }}
+				var ab big.Int
+				a.ToBigIntRegular(&ab)
+				start.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &ab)
+
+				buf := start.Bytes()
+				n, err := end.SetBytes(buf[:])
+				if err != nil {
+					return false
+				}
+				if n != SizeOf{{ $.TAffine }}Compressed {
+					return false
+				}
+				return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
+		},
+		GenFp(),
+	))
+
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+{{end}}
