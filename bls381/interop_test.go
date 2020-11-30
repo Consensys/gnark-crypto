@@ -1,6 +1,7 @@
 package bls381
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -155,4 +156,73 @@ func TestGTSerializationInterop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+}
+
+func TestScalarMultiplicationInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS381] G1: scalarMultiplication interop", prop.ForAll(
+		func(a, exp fp.Element) bool {
+			var start, end G1Affine
+			var ab, bExp big.Int
+			a.ToBigIntRegular(&ab)
+			exp.ToBigIntRegular(&bExp)
+			start.ScalarMultiplication(&g1GenAff, &ab)
+
+			g1 := bls12381.NewG1()
+			other, err := g1.FromBytes(start.Marshal())
+			if err != nil {
+				t.Log(err)
+				return false
+			}
+
+			// perform the scalar multiplications
+			otherRes := g1.MulScalarBig(g1.New(), other, &bExp)
+			end.ScalarMultiplication(&start, &bExp)
+
+			if !(bytes.Equal(g1.ToBytes(otherRes), end.Marshal())) {
+				t.Log("scalar multiplication between bls12-381 and gurvy is different")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+		GenFp(),
+	))
+
+	properties.Property("[BLS381] G2: scalarMultiplication interop", prop.ForAll(
+		func(a, exp fp.Element) bool {
+			var start, end G2Affine
+			var ab, bExp big.Int
+			a.ToBigIntRegular(&ab)
+			exp.ToBigIntRegular(&bExp)
+			start.ScalarMultiplication(&g2GenAff, &ab)
+
+			g2 := bls12381.NewG2()
+			other, err := g2.FromBytes(start.Marshal())
+			if err != nil {
+				t.Log(err)
+				return false
+			}
+
+			// perform the scalar multiplications
+			otherRes := g2.MulScalarBig(g2.New(), other, &bExp)
+			end.ScalarMultiplication(&start, &bExp)
+
+			if !(bytes.Equal(g2.ToBytes(otherRes), end.Marshal())) {
+				t.Log("scalar multiplication between bls12-381 and gurvy is different")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
