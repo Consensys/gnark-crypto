@@ -128,7 +128,7 @@ func main() {
 				{File: filepath.Join(dir, "marshal_test.go"), TemplateF: "tests/marshal*"},
 			}
 			if err := bgen.GenerateF(conf, conf.Name, "./templates/point", entriesF...); err != nil {
-				panic(err) // TODO handle
+				panic(err)
 			}
 
 			// G1
@@ -137,7 +137,7 @@ func main() {
 				{File: filepath.Join(dir, "g1_test.go"), TemplateF: "tests/point*"},
 			}
 			if err := bgen.GenerateF(g1, conf.Name, "./templates/point", entriesF...); err != nil {
-				panic(err) // TODO handle
+				panic(err)
 			}
 
 			// G2
@@ -146,7 +146,7 @@ func main() {
 				{File: filepath.Join(dir, "g2_test.go"), TemplateF: "tests/point*"},
 			}
 			if err := bgen.GenerateF(g2, conf.Name, "./templates/point", entriesF...); err != nil {
-				panic(err) // TODO handle
+				panic(err)
 			}
 
 			if conf.Name != "bw761" {
@@ -154,7 +154,7 @@ func main() {
 				if err := bgen.GenerateF(conf, conf.Name, "./templates/pairing", bavard.EntryF{
 					File: filepath.Join(dir, "pairing_test.go"), TemplateF: "tests/*.go.tmpl",
 				}); err != nil {
-					panic(err) // TODO handle
+					panic(err)
 				}
 			}
 
