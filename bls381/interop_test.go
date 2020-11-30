@@ -126,3 +126,33 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+
+func TestGTSerializationInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 5
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS381] GT: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+		func(start *GT) bool {
+			var end GT
+			*start = FinalExponentiation(start) // ensure we are in correct subgroup..
+			gt := bls12381.NewGT()
+			other, err := gt.FromBytes(start.Marshal())
+			if err != nil {
+				t.Log(err)
+				return false
+			}
+			// reconstruct a GT from  bytes
+			err = end.Unmarshal(gt.ToBytes(other))
+			if err != nil {
+				return false
+			}
+			return start.Equal(&end)
+		},
+		GenE12(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}

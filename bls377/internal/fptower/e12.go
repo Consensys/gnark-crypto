@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/consensys/gurvy/bls377/fp"
+	"github.com/consensys/gurvy/bls377/fr"
 	"math/big"
 )
 
@@ -363,4 +364,13 @@ func (z *E12) SetBytes(e []byte) error {
 	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
 
 	return nil
+}
+
+var frModulus = fr.Modulus()
+
+func (z *E12) IsValid() bool {
+	var one, _z E12
+	one.SetOne()
+	_z.Exp(z, *frModulus)
+	return _z.Equal(&one)
 }
