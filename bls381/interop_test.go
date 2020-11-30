@@ -295,3 +295,47 @@ func TestPointAdditionInterop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+func TestPairingInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS381] pairing check interop", prop.ForAll(
+		func(a fp.Element) bool {
+			var g1 G1Affine
+			var g2 G2Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			g1.ScalarMultiplication(&g1GenAff, &ab)
+			g2.ScalarMultiplication(&g2GenAff, &ab)
+
+			// do the same with other lib
+			otherG1, err := bls12381.NewG1().FromBytes(g1.Marshal())
+			if err != nil {
+				return false
+			}
+			otherG2, err := bls12381.NewG2().FromBytes(g2.Marshal())
+			if err != nil {
+				return false
+			}
+
+			// pairings
+			engine := bls12381.NewEngine()
+			engine.AddPair(otherG1, otherG2)
+			otherResult := engine.Result()
+			c := Pair(g1, g2)
+
+			if !(bytes.Equal(c.Marshal(), bls12381.NewGT().ToBytes(otherResult))) {
+				t.Log("pairing doesn't match other implementation")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
