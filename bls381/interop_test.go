@@ -226,3 +226,72 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+func TestPointAdditionInterop(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS381] checking point addition", prop.ForAll(
+		func(a fp.Element) bool {
+			var g1 G1Affine
+			var g2 G2Affine
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			g1.ScalarMultiplication(&g1GenAff, &ab)
+			g2.ScalarMultiplication(&g2GenAff, &ab)
+
+			// do the same with other lib
+			bls12381g1 := bls12381.NewG1()
+			otherG1, err := bls12381g1.FromBytes(g1.Marshal())
+			if err != nil {
+				return false
+			}
+			otherG1Gen, err := bls12381g1.FromBytes(g1GenAff.Marshal())
+			if err != nil {
+				return false
+			}
+			bls12381g2 := bls12381.NewG2()
+			otherG2, err := bls12381g2.FromBytes(g2.Marshal())
+			if err != nil {
+				return false
+			}
+			otherG2Gen, err := bls12381g2.FromBytes(g2GenAff.Marshal())
+			if err != nil {
+				return false
+			}
+
+			// add g1 to g1Gen and g2 to g2gen
+			var _g1 G1Jac
+			var _g2 G2Jac
+			_g1.FromAffine(&g1)
+			_g2.FromAffine(&g2)
+
+			_g1.AddAssign(&g1Gen)
+			g1.FromJacobian(&_g1)
+
+			_g2.AddAssign(&g2Gen)
+			g2.FromJacobian(&_g2)
+
+			// results
+			r1 := bls12381g1.Add(bls12381g1.New(), otherG1, otherG1Gen)
+			r2 := bls12381g2.Add(bls12381g2.New(), otherG2, otherG2Gen)
+
+			if !(bytes.Equal(g1.Marshal(), bls12381g1.ToBytes(r1))) {
+				t.Log("g1 point addition doesn't match other implementation")
+				return false
+			}
+
+			if !(bytes.Equal(g2.Marshal(), bls12381g2.ToBytes(r2))) {
+				t.Log("g2 point addition doesn't match other implementation")
+				return false
+			}
+
+			return true
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
