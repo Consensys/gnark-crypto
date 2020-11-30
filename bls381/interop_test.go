@@ -339,3 +339,37 @@ func TestPairingInterop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+func BenchmarkPairingInterop(b *testing.B) {
+	var g1 G1Affine
+	var g2 G2Affine
+	var ab big.Int
+	ab.SetUint64(42)
+	g1.ScalarMultiplication(&g1GenAff, &ab)
+	g2.ScalarMultiplication(&g2GenAff, &ab)
+
+	b.Run("[BLS381]bls12381_pairing", func(b *testing.B) {
+		otherG1, err := bls12381.NewG1().FromBytes(g1.Marshal())
+		if err != nil {
+			b.Fatal(err)
+		}
+		otherG2, err := bls12381.NewG2().FromBytes(g2.Marshal())
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			engine := bls12381.NewEngine()
+			engine.AddPair(otherG1, otherG2)
+			_ = engine.Result()
+		}
+	})
+
+	b.Run("[BLS381]gurvy_pairing", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = Pair(g1, g2)
+		}
+	})
+
+}
