@@ -73,8 +73,5 @@ func (z *E12) Expt(x *E12) *E12 {
 			result.Mul(&result, x)
 		}
 	}
-	result.Conjugate(&result) // because tAbsVal is negative
-
-	z.Set(&result)
-	return z
+	return z.Conjugate(&result) // because tAbsVal is negative
 }

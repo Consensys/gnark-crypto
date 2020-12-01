@@ -52,7 +52,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		Mul(&result, &t[0])
 
 	// hard part (up to permutation)
-	t[0].InverseUnitary(&result).Square(&t[0])
+	t[0].InverseUnitary(&result).CyclotomicSquare(&t[0])
 	t[5].Expt(&result)
 	t[1].CyclotomicSquare(&t[5])
 	t[3].Mul(&t[0], &t[5])

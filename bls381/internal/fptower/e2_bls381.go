@@ -24,8 +24,9 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	a.Mul(&a, &b)
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
-	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
+	a.Sub(&a, &c)
+	z.A1.Sub(&a, &b)
+	z.A0.Sub(&b, &c)
 	return z
 }
 
@@ -51,22 +52,22 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	return z
 }
 
+var twoInv = fp.Element{
+	1730508156817200468,
+	9606178027640717313,
+	7150789853162776431,
+	7936136305760253186,
+	15245073033536294050,
+	1728177566264616342,
+}
+
 // MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 
-	twoinv := fp.Element{
-		1730508156817200468,
-		9606178027640717313,
-		7150789853162776431,
-		7936136305760253186,
-		15245073033536294050,
-		1728177566264616342,
-	}
-
 	var tmp fp.Element
 	tmp.Add(&x.A0, &x.A1)
-	z.A1.Sub(&x.A1, &x.A0).Mul(&z.A1, &twoinv)
-	z.A0.Set(&tmp).Mul(&z.A0, &twoinv)
+	z.A1.Sub(&x.A1, &x.A0).Mul(&z.A1, &twoInv)
+	z.A0.Set(&tmp).Mul(&z.A0, &twoInv)
 
 	return z
 }
