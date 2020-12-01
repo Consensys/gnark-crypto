@@ -43,15 +43,6 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// MulByNonResidue multiplies a E2 by (1,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var a fp.Element
-	a.Sub(&x.A0, &x.A1)
-	z.A1.Add(&x.A0, &x.A1)
-	z.A0.Set(&a)
-	return z
-}
-
 var twoInv = fp.Element{
 	1730508156817200468,
 	9606178027640717313,

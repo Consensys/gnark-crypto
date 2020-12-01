@@ -51,3 +51,12 @@ func doubleE2(res, x *E2)
 
 //go:noescape
 func negE2(res, x *E2)
+
+//go:noescape
+func mulNonResE2(res, x *E2)
+
+// MulByNonResidue multiplies a E2 by (1,1)
+func (z *E2) MulByNonResidue(x *E2) *E2 {
+	mulNonResE2(z, x)
+	return z
+}
