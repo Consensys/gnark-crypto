@@ -81,7 +81,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	t[5].Mul(&t[5], &t[4])
 	t[5].Mul(&t[5], &t[1])
 
-	result.Set(&t[5])
+	result.Conjugate(&t[5])
 
 	return result
 }

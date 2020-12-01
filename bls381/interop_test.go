@@ -297,7 +297,6 @@ func TestPointAdditionInterop(t *testing.T) {
 }
 
 func TestPairingInterop(t *testing.T) {
-	t.Skip("wip")
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
