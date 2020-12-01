@@ -1,7 +1,5 @@
 package fptower
 
-import "math/bits"
-
 // MulByV2NRInv set z to x*(y*v^2*(1,1)^{-1}) and return z
 func (z *E12) MulByV2NRInv(x *E12, y *E2) *E12 {
 
@@ -58,20 +56,26 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 	return z
 }
 
+func (z *E12) nSquare(n int) {
+	for i := 0; i < n; i++ {
+		z.CyclotomicSquare(z)
+	}
+}
+
 // Expt set z to x^t in E12 and return z
 func (z *E12) Expt(x *E12) *E12 {
 
-	const tAbsVal uint64 = 15132376222941642752 // negative
-
 	var result E12
-	result.Set(x)
-
-	l := bits.Len64(tAbsVal) - 2
-	for i := l; i >= 0; i-- {
-		result.CyclotomicSquare(&result)
-		if tAbsVal&(1<<uint(i)) != 0 {
-			result.Mul(&result, x)
-		}
-	}
+	result.CyclotomicSquare(x)
+	result.Mul(&result, x)
+	result.nSquare(2)
+	result.Mul(&result, x)
+	result.nSquare(3)
+	result.Mul(&result, x)
+	result.nSquare(9)
+	result.Mul(&result, x)
+	result.nSquare(32)
+	result.Mul(&result, x)
+	result.nSquare(16)
 	return z.Conjugate(&result) // because tAbsVal is negative
 }

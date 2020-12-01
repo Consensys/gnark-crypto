@@ -48,20 +48,12 @@ func (z *E12) Frobenius(x *E12) *E12 {
 // FrobeniusSquare set z to Frobenius^2(x), and return z
 func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	// Algorithm 29 from https://eprint.iacr.org/2010/354.pdf
-	var t [6]E2
-
-	t[1].MulByNonResidue2Power2(&x.C0.B1)
-	t[2].MulByNonResidue2Power4(&x.C0.B2)
-	t[3].MulByNonResidue2Power1(&x.C1.B0)
-	t[4].MulByNonResidue2Power3(&x.C1.B1)
-	t[5].MulByNonResidue2Power5(&x.C1.B2)
-
 	z.C0.B0 = x.C0.B0
-	z.C0.B1 = t[1]
-	z.C0.B2 = t[2]
-	z.C1.B0 = t[3]
-	z.C1.B1 = t[4]
-	z.C1.B2 = t[5]
+	z.C0.B1.MulByNonResidue2Power2(&x.C0.B1)
+	z.C0.B2.MulByNonResidue2Power4(&x.C0.B2)
+	z.C1.B0.MulByNonResidue2Power1(&x.C1.B0)
+	z.C1.B1.MulByNonResidue2Power3(&x.C1.B1)
+	z.C1.B2.MulByNonResidue2Power5(&x.C1.B2)
 
 	return z
 }
