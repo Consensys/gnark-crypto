@@ -147,31 +147,27 @@ func fp4Square(a, b, c, d *E2) {
 // CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E12) CyclotomicSquare(x *E12) *E12 {
 
-	var res, b, a E12
-	var tmp E2
+	var rc0, bc0, rc1, bc1 E6
+	rc0 = x.C0
+	rc1 = x.C1
 
-	// A
-	fp4Square(&x.C0.B0, &x.C1.B1, &b.C0.B0, &b.C1.B1)
-	a.C0.B0.Set(&x.C0.B0)
-	a.C1.B1.Neg(&x.C1.B1)
+	fp4Square(&rc0.B0, &rc1.B1, &bc0.B0, &bc1.B1)
+	fp4Square(&rc0.B1, &rc1.B2, &bc0.B2, &bc1.B0)
+	bc1.B0.MulByNonResidue(&bc1.B0)
 
-	// B
-	tmp.MulByNonResidueInv(&x.C1.B0)
-	fp4Square(&x.C0.B2, &tmp, &b.C0.B1, &b.C1.B2)
-	b.C0.B1.MulByNonResidue(&b.C0.B1)
-	b.C1.B2.MulByNonResidue(&b.C1.B2)
-	a.C0.B1.Set(&x.C0.B1)
-	a.C1.B2.Neg(&x.C1.B2)
+	{
+		var tmp E2
+		tmp.MulByNonResidueInv(&rc1.B0)
+		fp4Square(&rc0.B2, &tmp, &bc0.B1, &bc1.B2)
+	}
 
-	// C
-	fp4Square(&x.C0.B1, &x.C1.B2, &b.C0.B2, &b.C1.B0)
-	b.C1.B0.MulByNonResidue(&b.C1.B0)
-	a.C0.B2.Set(&x.C0.B2)
-	a.C1.B0.Neg(&x.C1.B0)
+	bc0.B1.MulByNonResidue(&bc0.B1)
+	bc1.B2.MulByNonResidue(&bc1.B2)
 
-	res.Set(&b)
-	b.Sub(&b, &a).Double(&b)
-	z.Add(&res, &b)
+	rc1.Add(&bc1, &rc1).Double(&rc1)
+	z.C1.Add(&rc1, &bc1)
+	rc0.Sub(&bc0, &rc0).Double(&rc0)
+	z.C0.Add(&rc0, &bc0)
 
 	return z
 }

@@ -63,8 +63,8 @@ func (z *E12) nSquare(n int) {
 }
 
 // Expt set z to x^t in E12 and return z
+// const t uint64 = 15132376222941642752 // negative
 func (z *E12) Expt(x *E12) *E12 {
-
 	var result E12
 	result.CyclotomicSquare(x)
 	result.Mul(&result, x)

@@ -104,21 +104,19 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	y[0].Mul(&y[0], &mt[0])
 
 	// compute addition chain
-	var t [2]GT
-
-	t[0].CyclotomicSquare(&y[6])
-	t[0].Mul(&t[0], &y[4])
-	t[0].Mul(&t[0], &y[5])
-	t[1].Mul(&y[3], &y[5])
-	t[1].Mul(&t[1], &t[0])
-	t[0].Mul(&t[0], &y[2])
-	t[1].CyclotomicSquare(&t[1])
-	t[1].Mul(&t[1], &t[0])
-	t[1].CyclotomicSquare(&t[1])
-	t[0].Mul(&t[1], &y[1])
-	t[1].Mul(&t[1], &y[0])
-	t[0].CyclotomicSquare(&t[0])
-	result.Mul(&t[0], &t[1])
+	mt[0].CyclotomicSquare(&y[6])
+	mt[0].Mul(&mt[0], &y[4])
+	mt[0].Mul(&mt[0], &y[5])
+	mt[1].Mul(&y[3], &y[5])
+	mt[1].Mul(&mt[1], &mt[0])
+	mt[0].Mul(&mt[0], &y[2])
+	mt[1].CyclotomicSquare(&mt[1])
+	mt[1].Mul(&mt[1], &mt[0])
+	mt[1].CyclotomicSquare(&mt[1])
+	mt[0].Mul(&mt[1], &y[1])
+	mt[1].Mul(&mt[1], &y[0])
+	mt[0].CyclotomicSquare(&mt[0])
+	result.Mul(&mt[0], &mt[1])
 
 	return result
 }

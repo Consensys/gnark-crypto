@@ -1,6 +1,8 @@
 package fptower
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 // MulByVW set z to x*(y*v*w) and return z
 // here y*v*w means the E12 element with C1.B1=y and all other components 0
