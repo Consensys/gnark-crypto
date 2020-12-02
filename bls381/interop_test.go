@@ -326,6 +326,7 @@ func TestPairingInterop(t *testing.T) {
 			engine.AddPair(otherG1, otherG2)
 			otherResult := engine.Result()
 			c := Pair(g1, g2)
+			c.Conjugate(&c) // account for != cofactor
 
 			if !(bytes.Equal(c.Marshal(), bls12381.NewGT().ToBytes(otherResult))) {
 				t.Log("pairing doesn't match other implementation")
