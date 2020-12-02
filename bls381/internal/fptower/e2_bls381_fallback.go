@@ -26,3 +26,9 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	z.A0.Set(&a)
 	return z
 }
+
+// Square sets z to the E2-product of x,x returns z
+func (z *E2) Square(x *E2) *E2 {
+	squareGenericE2(z, x)
+	return z
+}

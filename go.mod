@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/consensys/bavard v0.1.7-0.20201120162630-86d982ed34b6
-	github.com/consensys/goff v0.3.7-0.20201117225239-8cc5a305b2fe
+	github.com/consensys/goff v0.3.7-0.20201202222843-d27eb4e5691e
 	github.com/ethereum/go-ethereum v1.9.24
 	github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1
 	github.com/leanovate/gopter v0.2.8

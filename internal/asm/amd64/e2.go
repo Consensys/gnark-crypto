@@ -53,6 +53,7 @@ func (fq2 *Fq2Amd64) Generate() error {
 		fq2.generateMulByNonResidueE2BN256()
 	case "bls381":
 		fq2.generateMulByNonResidueE2BLS381()
+		fq2.generateSquareE2BLS381()
 	}
 
 	return nil

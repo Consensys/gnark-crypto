@@ -36,8 +36,8 @@ github.com/consensys/bavard v0.1.7-0.20201117223429-eb75ed1f049f h1:qAXg8YHGVFxe
 github.com/consensys/bavard v0.1.7-0.20201117223429-eb75ed1f049f/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
 github.com/consensys/bavard v0.1.7-0.20201120162630-86d982ed34b6 h1:MO3xYBpQZvd+nw9dJsg3KWuzaGOjgqpwEJc3OfWAxOw=
 github.com/consensys/bavard v0.1.7-0.20201120162630-86d982ed34b6/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
-github.com/consensys/goff v0.3.7-0.20201117225239-8cc5a305b2fe h1:GU1UbvvckOgLVuq3owf/G08qwcBm84LFSK8+5EAv+0A=
-github.com/consensys/goff v0.3.7-0.20201117225239-8cc5a305b2fe/go.mod h1:SqLemFU/XpxIQJNdWFVQYfPtQFhFmx6iHoLiq2iZpgM=
+github.com/consensys/goff v0.3.7-0.20201202222843-d27eb4e5691e h1:clNoc5wPNoLXVcXh7oiscf6KHsakwZHPojs8dvlT+J4=
+github.com/consensys/goff v0.3.7-0.20201202222843-d27eb4e5691e/go.mod h1:SqLemFU/XpxIQJNdWFVQYfPtQFhFmx6iHoLiq2iZpgM=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
