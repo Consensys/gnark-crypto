@@ -55,6 +55,7 @@ func innerMulAdxE2(x, y, r0, z *E2)
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
+	// TODO this shouldn't be done here.
 	if !supportAdx {
 		mulGenericE2(z, x, y)
 		return z
