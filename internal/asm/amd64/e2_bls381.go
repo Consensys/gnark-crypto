@@ -164,3 +164,88 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	fq2.WriteLn("CALL ·squareGenericE2(SB)")
 	fq2.RET()
 }
+
+func (fq2 *Fq2Amd64) generateInnerMulE2BLS381() {
+	// // r0 = b
+	// // r1 = c
+	// func innerMulE2Adx(xa0, ya0, r0, r1) {
+	// 	mov(xa0, t)
+	// 	add(xa1, t)
+	// 	reduce(t)
+	// 	store(t)
+	// 	mov(ya0, t)
+	// 	add(ya1, t)
+	// 	reduce(t)
+	// 	t = mul(nil(pop), t)
+	// 	// 6 busy
+	// 	// use AX and DX to store r0 and r1
+	// 	mov(r0, ax)
+	// 	mov(r1, dx)
+	// 	sub(dx, t)     // a -= c
+	// 	sub(ax, t)     // a -= b
+	// 	mov(dx/r1, t2) // t2 = c
+	// 	mov(t, dx/r1)  // r1 = a
+	// 	mov(ax/r0, t)  // t = b
+	// 	sub(t2, t)     // b = b - c
+	// 	reduce(t, r0)  // r0 = b - c
+	// }
+
+	registers := fq2.FnHeader("innerMulAdxE2", 0, 32, amd64.DX, amd64.AX)
+
+	t := registers.PopN(fq2.NbWords)
+	x := amd64.AX
+	y := amd64.DX
+	fq2.MOVQ("x+0(FP)", x)
+	fq2.Mov(x, t)
+	fq2.Add(x, t, fq2.NbWords)
+	fq2.Reduce(&registers, t, t)
+	for i := len(t) - 1; i >= 0; i-- {
+		fq2.PUSHQ(t[i])
+	}
+
+	fq2.MOVQ("y+8(FP)", y)
+	fq2.Mov(y, t)
+	fq2.Add(y, t, fq2.NbWords)
+	fq2.Reduce(&registers, t, t)
+
+	// 	t = mul(nil(pop), t)
+	{
+		xat := func(i int) string {
+			return string(t[i])
+		}
+		// dirty: yat = nil --> will POPQ() from stack the values for y[i]
+		tR := fq2.MulADX(&registers, nil, xat, nil)
+		registers.Push(t...)
+		t = tR
+		fq2.Reduce(&registers, t, t)
+	}
+
+	// 	// use AX and DX to store r0 and r1
+	// 	mov(r0, ax)
+	// 	mov(r1, dx)
+	// 	sub(r1, t)     // a -= c
+	// 	sub(r0, t)     // a -= b
+	// 	mov(dx/r1, t2) // t2 = c
+	// 	mov(t, dx/r1)  // r1 = a
+	// 	mov(ax/r0, t)  // t = b
+	// 	sub(t2, t)     // b = b - c
+	// 	reduce(t, r0)  // r0 = b - c
+	r0 := amd64.AX
+	z := amd64.DX
+	fq2.MOVQ("r0+16(FP)", r0)
+
+	fq2.Sub(r0, t)
+	fq2.ReduceAfterSub(&registers, t, true)
+	fq2.Sub(r0, t, fq2.NbWords)
+	fq2.ReduceAfterSub(&registers, t, true)
+
+	fq2.MOVQ("z+24(FP)", z)
+	fq2.Mov(t, z, 0, fq2.NbWords)
+
+	fq2.Mov(r0, t)
+	fq2.Sub(r0, t, fq2.NbWords)
+	fq2.ReduceAfterSub(&registers, t, true)
+	fq2.Mov(t, z)
+	fq2.RET()
+
+}

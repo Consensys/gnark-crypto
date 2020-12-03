@@ -16,18 +16,17 @@ package fptower
 
 import "github.com/consensys/gurvy/bls381/fp"
 
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
+// mulGenericE2 sets z to the E2-product of x,y, returns z
+// note: do not rename, this is referenced in the x86 assembly impl
+func mulGenericE2(z, x, y *E2) {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
 	a.Mul(&a, &b)
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
-	a.Sub(&a, &c)
-	z.A1.Sub(&a, &b)
+	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	z.A0.Sub(&b, &c)
-	return z
 }
 
 // Square sets z to the E2-product of x,x returns z

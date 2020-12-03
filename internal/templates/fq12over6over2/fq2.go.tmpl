@@ -1,7 +1,15 @@
 
 import (
 	"math/big"
+	"golang.org/x/sys/cpu"
 	"github.com/consensys/gurvy/{{toLower .Name}}/fp"
+)
+
+
+// supportAdx will be set only on amd64 that has MULX and ADDX instructions
+var (
+	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+	_          = supportAdx // used in asm
 )
 
 

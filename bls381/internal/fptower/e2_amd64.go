@@ -16,14 +16,6 @@
 
 package fptower
 
-import "golang.org/x/sys/cpu"
-
-// supportAdx will be set only on amd64 that has MULX and ADDX instructions
-var (
-	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
-	_          = supportAdx // used in asm
-)
-
 // q (modulus)
 var qE2 = [6]uint64{
 	13402431016077863595,
@@ -57,6 +49,24 @@ func mulNonResE2(res, x *E2)
 
 //go:noescape
 func squareAdxE2(res, x *E2)
+
+//go:noescape
+func innerMulAdxE2(x, y, r0, z *E2)
+
+// Mul sets z to the E2-product of x,y, returns z
+func (z *E2) Mul(x, y *E2) *E2 {
+	if !supportAdx {
+		mulGenericE2(z, x, y)
+		return z
+	}
+	var bc E2
+
+	bc.A0.Mul(&x.A0, &y.A0)
+	bc.A1.Mul(&x.A1, &y.A1)
+
+	innerMulAdxE2(x, y, &bc, z)
+	return z
+}
 
 // MulByNonResidue multiplies a E2 by (1,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {

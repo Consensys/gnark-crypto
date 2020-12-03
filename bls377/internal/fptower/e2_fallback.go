@@ -37,11 +37,3 @@ func negE2(z, x *E2) {
 	z.A0.Neg(&x.A0)
 	z.A1.Neg(&x.A1)
 }
-
-func squareAdxE2(z, x *E2) {
-	panic("not implemented")
-}
-
-func mulAdxE2(z, x, y *E2) {
-	panic("not implemented")
-}

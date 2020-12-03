@@ -54,6 +54,7 @@ func (fq2 *Fq2Amd64) Generate() error {
 	case "bls381":
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateSquareE2BLS381()
+		fq2.generateInnerMulE2BLS381()
 	}
 
 	return nil

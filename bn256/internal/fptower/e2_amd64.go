@@ -16,14 +16,6 @@
 
 package fptower
 
-import "golang.org/x/sys/cpu"
-
-// supportAdx will be set only on amd64 that has MULX and ADDX instructions
-var (
-	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
-	_          = supportAdx // used in asm
-)
-
 // q (modulus)
 var qE2 = [4]uint64{
 	4332616871279656263,
