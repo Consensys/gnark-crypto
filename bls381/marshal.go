@@ -577,7 +577,7 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 // if buf is too short io.ErrShortBuffer is returned
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
-// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+// this check if the resulting point is on the curve and in the correct subgroup
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	if len(buf) < SizeOfG1AffineCompressed {
 		return 0, io.ErrShortBuffer
@@ -619,6 +619,11 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 		// read Y coordinate
 		p.Y.SetBytes(buf[48 : 48+fp.Bytes])
 
+		// subgroup check
+		if !p.IsInSubGroup() {
+			return 0, errors.New("invalid point: subgroup check failed")
+		}
+
 		return SizeOfG1AffineUncompressed, nil
 	}
 
@@ -644,6 +649,11 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	}
 
 	p.Y = Y
+
+	// subgroup check
+	if !p.IsInSubGroup() {
+		return 0, errors.New("invalid point: subgroup check failed")
+	}
 
 	return SizeOfG1AffineCompressed, nil
 }
@@ -677,6 +687,11 @@ func (p *G1Affine) unsafeComputeY() error {
 	}
 
 	p.Y = Y
+
+	// subgroup check
+	if !p.IsInSubGroup() {
+		return errors.New("invalid point: subgroup check failed")
+	}
 
 	return nil
 }
@@ -848,7 +863,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 // if buf is too short io.ErrShortBuffer is returned
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
-// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+// this check if the resulting point is on the curve and in the correct subgroup
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	if len(buf) < SizeOfG2AffineCompressed {
 		return 0, io.ErrShortBuffer
@@ -896,6 +911,11 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 
 		p.Y.A0.SetBytes(buf[144 : 144+fp.Bytes])
 
+		// subgroup check
+		if !p.IsInSubGroup() {
+			return 0, errors.New("invalid point: subgroup check failed")
+		}
+
 		return SizeOfG2AffineUncompressed, nil
 	}
 
@@ -922,6 +942,11 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	}
 
 	p.Y = Y
+
+	// subgroup check
+	if !p.IsInSubGroup() {
+		return 0, errors.New("invalid point: subgroup check failed")
+	}
 
 	return SizeOfG2AffineCompressed, nil
 }
@@ -956,6 +981,11 @@ func (p *G2Affine) unsafeComputeY() error {
 	}
 
 	p.Y = Y
+
+	// subgroup check
+	if !p.IsInSubGroup() {
+		return errors.New("invalid point: subgroup check failed")
+	}
 
 	return nil
 }

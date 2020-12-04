@@ -26,8 +26,6 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 
-	"github.com/consensys/gurvy/bls381/internal/fptower"
-
 	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
 )
@@ -233,13 +231,13 @@ func TestG1AffineSerialization(t *testing.T) {
 	parameters.MinSuccessfulTests = 1000
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenFp()
 
 	properties.Property("[G1] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
-		func(a, b fp.Element) bool {
+		func(a fp.Element) bool {
 			var start, end G1Affine
-			start.X = a
-			start.Y = b
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.RawBytes()
 			n, err := end.SetBytes(buf[:])
@@ -251,8 +249,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		genFuzz1,
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[G1] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(
@@ -323,13 +320,13 @@ func TestG2AffineSerialization(t *testing.T) {
 	parameters.MinSuccessfulTests = 1000
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenE2()
 
 	properties.Property("[G2] Affine SetBytes(RawBytes) should stay the same", prop.ForAll(
-		func(a, b *fptower.E2) bool {
+		func(a fp.Element) bool {
 			var start, end G2Affine
-			start.X = *a
-			start.Y = *b
+			var ab big.Int
+			a.ToBigIntRegular(&ab)
+			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.RawBytes()
 			n, err := end.SetBytes(buf[:])
@@ -341,8 +338,7 @@ func TestG2AffineSerialization(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		genFuzz1,
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[G2] Affine SetBytes(Bytes()) should stay the same", prop.ForAll(

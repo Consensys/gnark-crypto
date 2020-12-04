@@ -313,12 +313,18 @@ func (z *E12) SetBytes(e []byte) error {
 	{{- $offset := mul $sizeOfFp 0}}
 	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B2.A1"}}
 
+	// TODO is it the right place?  
+	//if !z.IsInSubGroup() {
+	//	return errors.New("subgroup check failed")
+	//}
+
 	return nil
 }
 
 var frModulus = fr.Modulus()
 
-func (z *E12) IsValid() bool {
+// IsInSubGroup ensures GT/E12 is in correct sugroup
+func (z *E12) IsInSubGroup() bool {
 	var one, _z E12
 	one.SetOne()
 	_z.Exp(z, *frModulus)

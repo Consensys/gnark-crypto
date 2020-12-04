@@ -555,7 +555,7 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 // if buf is too short io.ErrShortBuffer is returned
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
-// note that this doesn't check if the resulting point is on the curve or in the correct subgroup
+// this check if the resulting point is on the curve and in the correct subgroup
 func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	if len(buf) < SizeOf{{ $.TAffine }}Compressed {
 		return 0, io.ErrShortBuffer
@@ -618,6 +618,11 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 			{{- template "readFp" dict "all" . "OffSet" $.sizeOfFp "To" "p.Y"}}
 		{{- end}}
 
+		// subgroup check 
+		if !p.IsInSubGroup() {
+			return 0, errors.New("invalid point: subgroup check failed")
+		}
+
 		return SizeOf{{ $.TAffine }}Uncompressed, nil
 	}
 
@@ -652,6 +657,11 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	}
 
 	p.Y = Y
+
+	// subgroup check 
+	if !p.IsInSubGroup() {
+		return 0, errors.New("invalid point: subgroup check failed")
+	}
 
 	return SizeOf{{ $.TAffine }}Compressed, nil 
 }
@@ -700,6 +710,11 @@ func (p *{{ $.TAffine }}) unsafeComputeY() error  {
 	}
 
 	p.Y = Y
+
+	// subgroup check 
+	if !p.IsInSubGroup() {
+		return errors.New("invalid point: subgroup check failed")
+	}
 
 	return nil
 }
