@@ -62,21 +62,11 @@ func mulNonResE2(res, x *E2)
 func squareAdxE2(res, x *E2)
 
 //go:noescape
-func innerMulAdxE2(x, y, r0, z *E2)
+func mulAdxE2(z, x, y *E2)
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
-	// TODO this shouldn't be done here. 
-	if !supportAdx {
-		mulGenericE2(z, x, y)
-		return z
-	}
-	var bc E2
-
-	bc.A0.Mul(&x.A0, &y.A0)
-	bc.A1.Mul(&x.A1, &y.A1)
-
-	innerMulAdxE2(x, y, &bc, z)
+	mulAdxE2(z, x, y)
 	return z
 }
 

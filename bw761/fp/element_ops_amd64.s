@@ -31,7 +31,6 @@ TEXT ·mul(SB), $96-24
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C + A
 	
-NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l1
     XORQ DX, DX
@@ -1454,7 +1453,6 @@ TEXT ·square(SB), $96-16
 	// t[N-1] = C + A
 
 	
-NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l2
     XORQ DX, DX

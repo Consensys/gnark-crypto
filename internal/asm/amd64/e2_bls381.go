@@ -15,6 +15,8 @@
 package amd64
 
 import (
+	"fmt"
+
 	"github.com/consensys/bavard/amd64"
 )
 
@@ -67,12 +69,19 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	// 	z.A1.Set(&b)
 	// 	return z
 	// }
-	registers := fq2.FnHeader("squareAdxE2", 16, 16, amd64.DX, amd64.AX)
+	registers := fq2.FnHeader("squareAdxE2", 8*fq2.NbWords+8, 16, amd64.DX, amd64.AX)
 
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
 	fq2.JNE(noAdx)
+
+	a0SP := make([]string, fq2.NbWords)
+	offsetSP := 16 // we use one push/pop in the mul, need some extra space.
+	for i := 0; i < fq2.NbWords; i++ {
+		a0SP[i] = fmt.Sprintf("-%d(SP)", offsetSP)
+		offsetSP += 8
+	}
 
 	var a []amd64.Register
 	{
@@ -86,8 +95,9 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 		// a0 = a0 - a1
 		fq2.Sub(x, a0, fq2.NbWords)
 		fq2.ReduceAfterSub(&registers, a0, true)
-		for i := len(a0) - 1; i >= 0; i-- {
-			fq2.PUSHQ(a0[i])
+		for i := 0; i < len(a0); i++ {
+			// fq2.PUSHQ(a0[i])
+			fq2.MOVQ(a0[i], a0SP[i])
 		}
 
 		a1 := registers.PopN(fq2.NbWords)
@@ -104,11 +114,14 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 
 	// a = a * b
 	{
+		yat := func(i int) string {
+			return string(a0SP[i])
+		}
 		xat := func(i int) string {
 			return string(a[i])
 		}
 		// dirty: yat = nil --> will POPQ() from stack the values for y[i]
-		t := fq2.MulADX(&registers, nil, xat, nil)
+		t := fq2.MulADX(&registers, yat, xat, nil)
 		registers.Push(a...)
 		a = t
 		fq2.Reduce(&registers, a, a)
@@ -165,87 +178,170 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	fq2.RET()
 }
 
-func (fq2 *Fq2Amd64) generateInnerMulE2BLS381() {
-	// // r0 = b
-	// // r1 = c
-	// func innerMulE2Adx(xa0, ya0, r0, r1) {
-	// 	mov(xa0, t)
-	// 	add(xa1, t)
-	// 	reduce(t)
-	// 	store(t)
-	// 	mov(ya0, t)
-	// 	add(ya1, t)
-	// 	reduce(t)
-	// 	t = mul(nil(pop), t)
-	// 	// 6 busy
-	// 	// use AX and DX to store r0 and r1
-	// 	mov(r0, ax)
-	// 	mov(r1, dx)
-	// 	sub(dx, t)     // a -= c
-	// 	sub(ax, t)     // a -= b
-	// 	mov(dx/r1, t2) // t2 = c
-	// 	mov(t, dx/r1)  // r1 = a
-	// 	mov(ax/r0, t)  // t = b
-	// 	sub(t2, t)     // b = b - c
-	// 	reduce(t, r0)  // r0 = b - c
-	// }
+func (fq2 *Fq2Amd64) generateMulE2BLS381() {
+	// var a, b, c fp.Element
+	// a.Add(&x.A0, &x.A1)
+	// b.Add(&y.A0, &y.A1)
+	// a.Mul(&a, &b)
+	// b.Mul(&x.A0, &y.A0)
+	// c.Mul(&x.A1, &y.A1)
+	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	// z.A0.Sub(&b, &c)
 
-	registers := fq2.FnHeader("innerMulAdxE2", 0, 32, amd64.DX, amd64.AX)
+	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
+	registers := fq2.FnHeader("mulAdxE2", 3*8*fq2.NbWords+8, 24, amd64.DX, amd64.AX)
+
+	noAdx := fq2.NewLabel()
+	// check ADX instruction support
+	fq2.CMPB("·supportAdx(SB)", 1)
+	fq2.JNE(noAdx)
+
+	// first: let's name our local variables on the stack
+	xA0yA0 := make([]string, fq2.NbWords) // Mul(&x.A0, &y.A0)
+	xA1yA1 := make([]string, fq2.NbWords) // Mul(&x.A1, &y.A1)
+	xA0xA1 := make([]string, fq2.NbWords) // Add(&x.A0, &x.A1)
+
+	// we use one push/pop in the mul, need some extra space, hence +16
+	offsetSP := 16
+	for i := 0; i < fq2.NbWords; i++ {
+		xA0yA0[i] = fmt.Sprintf("-%d(SP)", offsetSP)
+		offsetSP += 8
+	}
+	for i := 0; i < fq2.NbWords; i++ {
+		xA1yA1[i] = fmt.Sprintf("-%d(SP)", offsetSP)
+		offsetSP += 8
+	}
+	for i := 0; i < fq2.NbWords; i++ {
+		xA0xA1[i] = fmt.Sprintf("-%d(SP)", offsetSP)
+		offsetSP += 8
+	}
 
 	t := registers.PopN(fq2.NbWords)
 	x := amd64.AX
 	y := amd64.DX
-	fq2.MOVQ("x+0(FP)", x)
+	fq2.MOVQ("x+8(FP)", x)
+	fq2.Mov(x, t)
+
+	{
+		// Mul(&x.A0, &y.A0)
+		yat := func(i int) string {
+			ry := amd64.DX
+			fq2.MOVQ("y+16(FP)", ry)
+			return ry.At(i)
+		}
+		xat := func(i int) string {
+			return string(t[i])
+		}
+		tr := fq2.MulADX(&registers, yat, xat, nil)
+		registers.Push(t...)
+		fq2.Reduce(&registers, tr, tr)
+		t = registers.PopN(fq2.NbWords)
+		// save our registers
+		for i := 0; i < fq2.NbWords; i++ {
+			fq2.MOVQ(tr[i], xA0yA0[i])
+		}
+		registers.Push(tr...)
+	}
+
+	fq2.MOVQ("x+8(FP)", x)
+	fq2.Mov(x, t, fq2.NbWords)
+	{
+		// Mul(&x.A1, &y.A1)
+		yat := func(i int) string {
+			ry := amd64.DX
+			fq2.MOVQ("y+16(FP)", ry)
+			return ry.At(i + fq2.NbWords)
+		}
+		xat := func(i int) string {
+			return string(t[i])
+		}
+		tr := fq2.MulADX(&registers, yat, xat, nil)
+		registers.Push(t...)
+		fq2.Reduce(&registers, tr, tr)
+		t = registers.PopN(fq2.NbWords)
+		// save our registers
+		for i := 0; i < fq2.NbWords; i++ {
+			fq2.MOVQ(tr[i], xA1yA1[i])
+		}
+		registers.Push(tr...)
+	}
+
+	fq2.MOVQ("x+8(FP)", x)
 	fq2.Mov(x, t)
 	fq2.Add(x, t, fq2.NbWords)
 	fq2.Reduce(&registers, t, t)
-	for i := len(t) - 1; i >= 0; i-- {
-		fq2.PUSHQ(t[i])
+
+	// save our registers
+	for i := 0; i < len(t); i++ {
+		fq2.MOVQ(t[i], xA0xA1[i])
 	}
 
-	fq2.MOVQ("y+8(FP)", y)
+	fq2.MOVQ("y+16(FP)", y)
 	fq2.Mov(y, t)
 	fq2.Add(y, t, fq2.NbWords)
 	fq2.Reduce(&registers, t, t)
 
-	// 	t = mul(nil(pop), t)
 	{
+		yat := func(i int) string {
+			return string(xA0xA1[i])
+		}
 		xat := func(i int) string {
 			return string(t[i])
 		}
-		// dirty: yat = nil --> will POPQ() from stack the values for y[i]
-		tR := fq2.MulADX(&registers, nil, xat, nil)
+		tR := fq2.MulADX(&registers, yat, xat, nil)
 		registers.Push(t...)
 		t = tR
 		fq2.Reduce(&registers, t, t)
 	}
 
-	// 	// use AX and DX to store r0 and r1
-	// 	mov(r0, ax)
-	// 	mov(r1, dx)
-	// 	sub(r1, t)     // a -= c
-	// 	sub(r0, t)     // a -= b
-	// 	mov(dx/r1, t2) // t2 = c
-	// 	mov(t, dx/r1)  // r1 = a
-	// 	mov(ax/r0, t)  // t = b
-	// 	sub(t2, t)     // b = b - c
-	// 	reduce(t, r0)  // r0 = b - c
-	r0 := amd64.AX
 	z := amd64.DX
-	fq2.MOVQ("r0+16(FP)", r0)
+	fq2.MOVQ("z+0(FP)", z)
+	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 
-	fq2.Sub(r0, t)
+	for i := 0; i < fq2.NbWords; i++ {
+		if i == 0 {
+			fq2.SUBQ(xA0yA0[i], t[i])
+		} else {
+			fq2.SBBQ(xA0yA0[i], t[i])
+		}
+	}
 	fq2.ReduceAfterSub(&registers, t, true)
-	fq2.Sub(r0, t, fq2.NbWords)
+	for i := 0; i < fq2.NbWords; i++ {
+		if i == 0 {
+			fq2.SUBQ(xA1yA1[i], t[i])
+		} else {
+			fq2.SBBQ(xA1yA1[i], t[i])
+		}
+	}
 	fq2.ReduceAfterSub(&registers, t, true)
 
-	fq2.MOVQ("z+24(FP)", z)
 	fq2.Mov(t, z, 0, fq2.NbWords)
 
-	fq2.Mov(r0, t)
-	fq2.Sub(r0, t, fq2.NbWords)
+	// z.A0.Sub(&b, &c)
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(xA0yA0[i], t[i])
+	}
+
+	for i := 0; i < fq2.NbWords; i++ {
+		if i == 0 {
+			fq2.SUBQ(xA1yA1[i], t[i])
+		} else {
+			fq2.SBBQ(xA1yA1[i], t[i])
+		}
+	}
 	fq2.ReduceAfterSub(&registers, t, true)
 	fq2.Mov(t, z)
+	fq2.RET()
+
+	// No adx
+	fq2.LABEL(noAdx)
+	fq2.MOVQ("z+0(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "(SP)")
+	fq2.MOVQ("x+8(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "8(SP)")
+	fq2.MOVQ("y+16(FP)", amd64.AX)
+	fq2.MOVQ(amd64.AX, "16(SP)")
+	fq2.WriteLn("CALL ·mulGenericE2(SB)")
 	fq2.RET()
 
 }
