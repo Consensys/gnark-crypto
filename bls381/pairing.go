@@ -51,36 +51,30 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		Mul(&result, &t[0])
 
 	// hard part (up to permutation)
-	t[0].InverseUnitary(&result).CyclotomicSquare(&t[0])
-	t[5].Expt(&result)
-	t[1].CyclotomicSquare(&t[5])
-	t[3].Mul(&t[0], &t[5])
-
-	t[0].Expt(&t[3])
-	t[2].Expt(&t[0])
-	t[4].Expt(&t[2])
-
-	t[4].Mul(&t[1], &t[4])
-	t[1].Expt(&t[4])
-	t[3].InverseUnitary(&t[3])
-	t[1].Mul(&t[3], &t[1])
-	t[1].Mul(&t[1], &result)
-
-	t[0].Mul(&t[0], &result)
-	t[0].FrobeniusCube(&t[0])
-
+	// Alg.2 from https://eprint.iacr.org/2016/130.pdf
+	t[0].CyclotomicSquare(&result)
+	t[1].Expt(&t[0])
+	t[2].ExptHalf(&t[1])
 	t[3].InverseUnitary(&result)
-	t[4].Mul(&t[3], &t[4])
-	t[4].Frobenius(&t[4])
+	t[1].Mul(&t[1], &t[3])
+	t[1].InverseUnitary(&t[1])
+	t[1].Mul(&t[1], &t[2])
+	t[2].Expt(&t[1])
+	t[3].Expt(&t[2])
+	t[1].InverseUnitary(&t[1])
+	t[3].Mul(&t[1], &t[3])
+	t[1].InverseUnitary(&t[1])
+	t[1].FrobeniusCube(&t[1])
+	t[2].FrobeniusSquare(&t[2])
+	t[1].Mul(&t[1], &t[2])
+	t[2].Expt(&t[3])
+	t[2].Mul(&t[2], &t[0])
+	t[2].Mul(&t[2], &result)
+	t[1].Mul(&t[1], &t[2])
+	t[2].Frobenius(&t[3])
+	t[1].Mul(&t[1], &t[2])
 
-	t[5].Mul(&t[2], &t[5])
-	t[5].FrobeniusSquare(&t[5])
-
-	t[5].Mul(&t[5], &t[0])
-	t[5].Mul(&t[5], &t[4])
-	t[5].Mul(&t[5], &t[1])
-
-	result.Set(&t[5])
+	result.Set(&t[1])
 
 	return result
 }

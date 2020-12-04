@@ -62,9 +62,9 @@ func (z *E12) nSquare(n int) {
 	}
 }
 
-// Expt set z to x^t in E12 and return z
-// const t uint64 = 15132376222941642752 // negative
-func (z *E12) Expt(x *E12) *E12 {
+// Expt set z to x^(t/2) in E12 and return z
+// const t/2 uint64 = 7566188111470821376 // negative
+func (z *E12) ExptHalf(x *E12) *E12 {
 	var result E12
 	result.CyclotomicSquare(x)
 	result.Mul(&result, x)
@@ -76,6 +76,14 @@ func (z *E12) Expt(x *E12) *E12 {
 	result.Mul(&result, x)
 	result.nSquare(32)
 	result.Mul(&result, x)
-	result.nSquare(16)
+	result.nSquare(15)
 	return z.Conjugate(&result) // because tAbsVal is negative
+}
+
+// Expt set z to x^t in E12 and return z
+// const t uint64 = 15132376222941642752 // negative
+func (z *E12) Expt(x *E12) *E12 {
+	var result E12
+	result.ExptHalf(x)
+	return z.CyclotomicSquare(&result)
 }
