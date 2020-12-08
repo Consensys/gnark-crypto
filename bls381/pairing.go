@@ -109,6 +109,8 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 		}
 	}
 
+	result.Conjugate(&result)
+
 	return &result
 }
 
