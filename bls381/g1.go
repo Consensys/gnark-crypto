@@ -530,7 +530,7 @@ func (p *G1Jac) unsafeFromJacExtended(Q *g1JacExtended) *G1Jac {
 }
 
 // sub same as add, but will negate a.Y
-// http://www.hyperelliptic.org/EFD/ g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *g1JacExtended) sub(a *G1Affine) *g1JacExtended {
 
 	//if a is infinity return p
@@ -592,7 +592,7 @@ func (p *g1JacExtended) sub(a *G1Affine) *g1JacExtended {
 }
 
 // add
-// http://www.hyperelliptic.org/EFD/ g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *g1JacExtended) add(a *G1Affine) *g1JacExtended {
 
 	//if a is infinity return p
@@ -677,7 +677,7 @@ func (p *g1JacExtended) doubleNeg(q *G1Affine) *g1JacExtended {
 }
 
 // double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/ g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g1JacExtended) double(q *G1Affine) *g1JacExtended {
 
 	var U, S, M, _M, Y3 fp.Element

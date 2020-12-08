@@ -162,7 +162,7 @@ func (p *{{ $TJacobian }}) SubAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 
 
 // AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 
 	// p is infinity, return a
@@ -215,7 +215,7 @@ func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 // AddMixed point addition
-// http://www.hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 
 	//if a is infinity return p
@@ -265,7 +265,7 @@ func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 }
 
 // Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(q)
 	p.DoubleAssign()
@@ -273,7 +273,7 @@ func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 // DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/{{ toLower .PointName }}p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
 	// get some Element from our pool
@@ -808,14 +808,14 @@ func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{
 
 
 // sub same as add, but will negate a.Y 
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ $TJacobianExtended }}) sub(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" true}}
 }
 
 
 // add
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ $TJacobianExtended }}) add(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" false}}
 }
@@ -827,7 +827,7 @@ func (p *{{ $TJacobianExtended }}) doubleNeg(q *{{ $TAffine }}) *{{ $TJacobianEx
 
 
 // double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/ {{ toLower .PointName }}p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" false}}
 }

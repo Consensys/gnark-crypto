@@ -156,7 +156,7 @@ func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
 }
 
 // AddAssign point addition in montgomery form
-// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 
 	// p is infinity, return a
@@ -209,7 +209,7 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 }
 
 // AddMixed point addition
-// http://www.hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	//if a is infinity return p
@@ -259,7 +259,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 }
 
 // Double doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 	p.Set(q)
 	p.DoubleAssign()
@@ -267,7 +267,7 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 }
 
 // DoubleAssign doubles a point in Jacobian coordinates
-// https://hyperelliptic.org/EFD/g2p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
 	// get some Element from our pool
@@ -557,7 +557,7 @@ func (p *G2Jac) unsafeFromJacExtended(Q *g2JacExtended) *G2Jac {
 }
 
 // sub same as add, but will negate a.Y
-// http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
@@ -619,7 +619,7 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 }
 
 // add
-// http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#addition-madd-2008-s
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
@@ -704,7 +704,7 @@ func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
 }
 
 // double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/ g2p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
 
 	var U, S, M, _M, Y3 fptower.E2
