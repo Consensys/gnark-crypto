@@ -121,9 +121,9 @@ func tripleMillerLoop(P [3]G1Affine, Q [3]G2Affine) *GT {
 	result.SetOne()
 
 	/*
-	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
-	}
+		if P.IsInfinity() || Q.IsInfinity() {
+			return &result
+		}
 	*/
 
 	var ch [3]chan struct{}

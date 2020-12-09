@@ -142,7 +142,7 @@ func TestPairing(t *testing.T) {
 
 			// FE( ML(a,b) * ML(c,d) * ML(e,f) )
 			simpleProd = FinalExponentiation(simpleProd.Mul(MillerLoop(g1GenAff, g2GenAff), MillerLoop(ag1, g2GenAff)).
-					Mul(&simpleProd, MillerLoop(g1GenAff, bg2)))
+				Mul(&simpleProd, MillerLoop(g1GenAff, bg2)))
 
 			tabP := [3]G1Affine{g1GenAff, ag1, g1GenAff}
 			tabQ := [3]G2Affine{g2GenAff, g2GenAff, bg2}
