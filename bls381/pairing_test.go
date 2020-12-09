@@ -124,6 +124,38 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BLS381] tripleMillerLoop should be equal to the product of three MilleLoops", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var simpleProd, factorizedProd GT
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			// FE( ML(a,b) * ML(c,d) * ML(e,f) )
+			simpleProd = FinalExponentiation(simpleProd.Mul(MillerLoop(g1GenAff, g2GenAff), MillerLoop(ag1, g2GenAff)).
+					Mul(&simpleProd, MillerLoop(g1GenAff, bg2)))
+
+			tabP := [3]G1Affine{g1GenAff, ag1, g1GenAff}
+			tabQ := [3]G2Affine{g2GenAff, g2GenAff, bg2}
+
+			// FE( 3ML([a,c,e] ; [b,d,f]) ) -> saves 2 squares in Fqk
+			factorizedProd = FinalExponentiation(tripleMillerLoop(tabP, tabQ))
+
+			return simpleProd.Equal(&factorizedProd)
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -144,6 +176,20 @@ func BenchmarkPairing(b *testing.B) {
 	}
 }
 
+func BenchmarkMillerLoop(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MillerLoop(g1GenAff, g2GenAff)
+	}
+}
+
 func BenchmarkFinalExponentiation(b *testing.B) {
 
 	var a GT
@@ -154,4 +200,37 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 		FinalExponentiation(&a)
 	}
 
+}
+
+func BenchmarkTripleMillerLoop(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	tabP := [3]G1Affine{g1GenAff, g1GenAff, g1GenAff}
+	tabQ := [3]G2Affine{g2GenAff, g2GenAff, g2GenAff}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tripleMillerLoop(tabP, tabQ)
+	}
+}
+
+func BenchmarkNaiveTripleMillerLoop(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+	var res GT
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		res.Mul(MillerLoop(g1GenAff, g2GenAff), MillerLoop(g1GenAff, g2GenAff)).
+			Mul(&res, MillerLoop(g1GenAff, g2GenAff))
+	}
 }

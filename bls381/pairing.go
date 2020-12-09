@@ -114,6 +114,49 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	return &result
 }
 
+// tripleMillerLoop Miller loop
+func tripleMillerLoop(P [3]G1Affine, Q [3]G2Affine) *GT {
+
+	var result GT
+	result.SetOne()
+
+	/*
+	if P.IsInfinity() || Q.IsInfinity() {
+		return &result
+	}
+	*/
+
+	var ch [3]chan struct{}
+	var evaluations [3][68]lineEvaluation
+	for k := 0; k < 3; k++ {
+		ch[k] = make(chan struct{}, 10)
+		go preCompute(&evaluations[k], &Q[k], &P[k], ch[k])
+	}
+
+	j := 0
+	for i := len(loopCounter) - 2; i >= 0; i-- {
+
+		result.Square(&result)
+		for k := 0; k < 3; k++ {
+			<-ch[k]
+			mulAssign(&result, &evaluations[k][j])
+		}
+		j++
+
+		if loopCounter[i] == 1 {
+			for k := 0; k < 3; k++ {
+				<-ch[k]
+				mulAssign(&result, &evaluations[k][j])
+			}
+			j++
+		}
+	}
+
+	result.Conjugate(&result)
+
+	return &result
+}
+
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
 // Q, R are in jacobian coordinates
 func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
