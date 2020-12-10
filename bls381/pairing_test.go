@@ -124,7 +124,26 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BLS381] tripleMillerLoop should be equal to the product of three MilleLoops", prop.ForAll(
+	properties.Property("[BLS381] xMillerLoop should be equal to MillerLoop for x=1", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var f, xf GT
+
+			// FE( ML(a,b) )
+			f = FinalExponentiation(MillerLoop(g1GenAff, g2GenAff))
+
+			tabP := []G1Affine{g1GenAff}
+			tabQ := []G2Affine{g2GenAff}
+
+			// FE( xML([a] ; [b]) )
+			xf = FinalExponentiation(xMillerLoop(tabP, tabQ))
+
+			return f.Equal(&xf)
+		},
+		genR1,
+		genR2,
+	))
+	properties.Property("[BLS381] xMillerLoop should be equal to the product of x MillerLoops", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var simpleProd, factorizedProd GT
@@ -140,22 +159,22 @@ func TestPairing(t *testing.T) {
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
-			// FE( ML(a,b) * ML(c,d) * ML(e,f) )
+			// FE( ML(a,b) * ML(c,d) * ML(e,f) * ML(g,h) )
 			simpleProd = FinalExponentiation(simpleProd.Mul(MillerLoop(g1GenAff, g2GenAff), MillerLoop(ag1, g2GenAff)).
-				Mul(&simpleProd, MillerLoop(g1GenAff, bg2)))
+				Mul(&simpleProd, MillerLoop(g1GenAff, bg2)).
+				Mul(&simpleProd, MillerLoop(ag1, bg2)))
 
-			tabP := [3]G1Affine{g1GenAff, ag1, g1GenAff}
-			tabQ := [3]G2Affine{g2GenAff, g2GenAff, bg2}
+			tabP := []G1Affine{g1GenAff, ag1, g1GenAff, ag1}
+			tabQ := []G2Affine{g2GenAff, g2GenAff, bg2, bg2}
 
-			// FE( 3ML([a,c,e] ; [b,d,f]) ) -> saves 2 squares in Fqk
-			factorizedProd = FinalExponentiation(tripleMillerLoop(tabP, tabQ))
+			// FE( xML([a,c,e,g] ; [b,d,f,h]) ) -> saves 3 squares in Fqk
+			factorizedProd = FinalExponentiation(xMillerLoop(tabP, tabQ))
 
 			return simpleProd.Equal(&factorizedProd)
 		},
 		genR1,
 		genR2,
 	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -202,6 +221,7 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 
 }
 
+/*
 func BenchmarkTripleMillerLoop(b *testing.B) {
 
 	var g1GenAff G1Affine
@@ -234,3 +254,4 @@ func BenchmarkNaiveTripleMillerLoop(b *testing.B) {
 			Mul(&res, MillerLoop(g1GenAff, g2GenAff))
 	}
 }
+*/

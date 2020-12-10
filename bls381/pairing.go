@@ -114,21 +114,23 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	return &result
 }
 
-// tripleMillerLoop Miller loop
-func tripleMillerLoop(P [3]G1Affine, Q [3]G2Affine) *GT {
+// xMillerLoop Miller loop
+func xMillerLoop(P []G1Affine, Q []G2Affine) *GT {
 
 	var result GT
 	result.SetOne()
 
+	nP := len(P)
+
 	/*
-		if P.IsInfinity() || Q.IsInfinity() {
-			return &result
+		if nP != len(Q) {
+			return errors.New("Number of elements to pair do not match.")
 		}
 	*/
 
-	var ch [3]chan struct{}
-	var evaluations [3][68]lineEvaluation
-	for k := 0; k < 3; k++ {
+	var ch = make([]chan struct{}, nP)
+	var evaluations = make([][68]lineEvaluation, nP)
+	for k := 0; k < nP; k++ {
 		ch[k] = make(chan struct{}, 10)
 		go preCompute(&evaluations[k], &Q[k], &P[k], ch[k])
 	}
@@ -137,14 +139,14 @@ func tripleMillerLoop(P [3]G1Affine, Q [3]G2Affine) *GT {
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		for k := 0; k < 3; k++ {
+		for k := 0; k < nP; k++ {
 			<-ch[k]
 			mulAssign(&result, &evaluations[k][j])
 		}
 		j++
 
 		if loopCounter[i] == 1 {
-			for k := 0; k < 3; k++ {
+			for k := 0; k < nP; k++ {
 				<-ch[k]
 				mulAssign(&result, &evaluations[k][j])
 			}
