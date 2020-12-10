@@ -123,6 +123,7 @@ func xMillerLoop(P []G1Affine, Q []G2Affine) *GT {
 	nP := len(P)
 
 	/*
+		// also, infinity?
 		if nP != len(Q) {
 			return errors.New("Number of elements to pair do not match.")
 		}

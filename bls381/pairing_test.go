@@ -220,38 +220,3 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 	}
 
 }
-
-/*
-func BenchmarkTripleMillerLoop(b *testing.B) {
-
-	var g1GenAff G1Affine
-	var g2GenAff G2Affine
-
-	g1GenAff.FromJacobian(&g1Gen)
-	g2GenAff.FromJacobian(&g2Gen)
-
-	tabP := [3]G1Affine{g1GenAff, g1GenAff, g1GenAff}
-	tabQ := [3]G2Affine{g2GenAff, g2GenAff, g2GenAff}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		tripleMillerLoop(tabP, tabQ)
-	}
-}
-
-func BenchmarkNaiveTripleMillerLoop(b *testing.B) {
-
-	var g1GenAff G1Affine
-	var g2GenAff G2Affine
-	var res GT
-
-	g1GenAff.FromJacobian(&g1Gen)
-	g2GenAff.FromJacobian(&g2Gen)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		res.Mul(MillerLoop(g1GenAff, g2GenAff), MillerLoop(g1GenAff, g2GenAff)).
-			Mul(&res, MillerLoop(g1GenAff, g2GenAff))
-	}
-}
-*/
