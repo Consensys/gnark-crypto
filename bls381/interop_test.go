@@ -325,7 +325,7 @@ func TestPairingInterop(t *testing.T) {
 			engine := bls12381.NewEngine()
 			engine.AddPair(otherG1, otherG2)
 			otherResult := engine.Result()
-			c := Pair(g1, g2)
+			c, _ := Pair([]G1Affine{g1}, []G2Affine{g2})
 
 			if !(bytes.Equal(c.Marshal(), bls12381.NewGT().ToBytes(otherResult))) {
 				t.Log("pairing doesn't match other implementation")
@@ -368,7 +368,7 @@ func BenchmarkPairingInterop(b *testing.B) {
 	b.Run("[BLS381]gurvy_pairing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = Pair(g1, g2)
+			_, _ = Pair([]G1Affine{g1}, []G2Affine{g2})
 		}
 	})
 

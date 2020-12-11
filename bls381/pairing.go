@@ -15,6 +15,7 @@
 package bls381
 
 import (
+	"errors"
 	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 
@@ -28,8 +29,9 @@ type lineEvaluation struct {
 }
 
 // Pair ...
-func Pair(P G1Affine, Q G2Affine) GT {
-	return FinalExponentiation(MillerLoop(P, Q))
+func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
+	f, e := MillerLoop(P, Q)
+	return FinalExponentiation(f), e
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -80,54 +82,21 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *GT {
-
-	var result GT
-	result.SetOne()
-
-	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
-	}
-
-	ch := make(chan struct{}, 10)
-
-	var evaluations [68]lineEvaluation
-	go preCompute(&evaluations, &Q, &P, ch)
-
-	j := 0
-	for i := len(loopCounter) - 2; i >= 0; i-- {
-
-		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations[j])
-		j++
-
-		if loopCounter[i] == 1 {
-			<-ch
-			mulAssign(&result, &evaluations[j])
-			j++
-		}
-	}
-
-	result.Conjugate(&result)
-
-	return &result
-}
-
-// xMillerLoop Miller loop
-func xMillerLoop(P []G1Affine, Q []G2Affine) *GT {
+func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 
 	var result GT
 	result.SetOne()
 
 	nP := len(P)
+	if nP != len(Q) || len(Q) == 0 {
+		return &result, errors.New("Invalid inputs sizes.")
+	}
 
-	/*
-		// also, infinity?
-		if nP != len(Q) {
-			return errors.New("Number of elements to pair do not match.")
-		}
-	*/
+	if P[0].IsInfinity() || Q[0].IsInfinity() {
+		copy(P, P[1:])
+		copy(Q, Q[1:])
+		return MillerLoop(P, Q)
+	}
 
 	var ch = make([]chan struct{}, nP)
 	var evaluations = make([][68]lineEvaluation, nP)
@@ -157,7 +126,7 @@ func xMillerLoop(P []G1Affine, Q []G2Affine) *GT {
 
 	result.Conjugate(&result)
 
-	return &result
+	return &result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
