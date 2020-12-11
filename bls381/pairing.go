@@ -30,8 +30,11 @@ type lineEvaluation struct {
 
 // Pair ...
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
-	f, e := MillerLoop(P, Q)
-	return FinalExponentiation(f), e
+	f, err := MillerLoop(P, Q)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(f), nil
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -88,22 +91,23 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 	result.SetOne()
 
 	nP := len(P)
-	if nP != len(Q) || len(Q) == 0 {
-		return &result, errors.New("Invalid inputs sizes.")
-	}
-
-	if P[0].IsInfinity() || Q[0].IsInfinity() {
-		copy(P, P[1:])
-		copy(Q, Q[1:])
-		return MillerLoop(P, Q)
+	if nP == 0 || nP != len(Q) {
+		return &result, errors.New("Invalid inputs sizes")
 	}
 
 	var ch = make([]chan struct{}, nP)
 	var evaluations = make([][68]lineEvaluation, nP)
+	var countInf = 0
 	for k := 0; k < nP; k++ {
-		ch[k] = make(chan struct{}, 10)
-		go preCompute(&evaluations[k], &Q[k], &P[k], ch[k])
+		if P[k].IsInfinity() || Q[k].IsInfinity() {
+			countInf++
+			continue;
+		}
+		ch[k-countInf] = make(chan struct{}, 10)
+		go preCompute(&evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
 	}
+
+	nP = nP - countInf
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
