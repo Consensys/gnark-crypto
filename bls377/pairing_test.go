@@ -44,8 +44,8 @@ func ExampleMillerLoop() {
 	rg2.ScalarMultiplication(&g2GenAff, &r)
 
 	// Computes e(g1GenAff, ag2) and e(ag1, g2GenAff)
-	e1 := FinalExponentiation(MillerLoop(g1GenAff, rg2))
-	E2 := FinalExponentiation(MillerLoop(rg1, g2GenAff))
+	e1, _ := Pair([]G1Affine{g1GenAff}, []G2Affine{rg2})
+	E2, _ := Pair([]G1Affine{rg1}, []G2Affine{g2GenAff})
 
 	// checks that bilinearity property holds
 	check := e1.Equal(&E2)
@@ -109,9 +109,9 @@ func TestPairing(t *testing.T) {
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
-			res = FinalExponentiation(MillerLoop(g1GenAff, g2GenAff))
-			resa = FinalExponentiation(MillerLoop(ag1, g2GenAff))
-			resb = FinalExponentiation(MillerLoop(g1GenAff, bg2))
+			res, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
+			resb, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{bg2})
 
 			resab.Exp(&res, ab)
 			resa.Exp(&resa, bbigint)
@@ -124,6 +124,63 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BLS377] MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var simpleProd, factorizedProd GT
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P0 := []G1Affine{g1GenAff}
+			P1 := []G1Affine{ag1}
+			Q0 := []G2Affine{g2GenAff}
+			Q1 := []G2Affine{bg2}
+
+			// FE( ML(a,b) * ML(c,d) * ML(e,f) * ML(g,h) )
+			M1, _ := MillerLoop(P0, Q0)
+			M2, _ := MillerLoop(P1, Q0)
+			M3, _ := MillerLoop(P0, Q1)
+			M4, _ := MillerLoop(P1, Q1)
+			simpleProd.Mul(M1, M2).Mul(&simpleProd, M3).Mul(&simpleProd, M4)
+			simpleProd = FinalExponentiation(&simpleProd)
+
+			tabP := []G1Affine{g1GenAff, ag1, g1GenAff, ag1}
+			tabQ := []G2Affine{g2GenAff, g2GenAff, bg2, bg2}
+
+			// FE( ML([a,c,e,g] ; [b,d,f,h]) ) -> saves 3 squares in Fqk
+			factorizedProd, _ = Pair(tabP, tabQ)
+
+			return simpleProd.Equal(&factorizedProd)
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.Property("[BLS377] PairingCheck", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var P, PNeg G1Affine
+			var Q G2Affine
+			PNeg.Neg(&P)
+			tabP := []G1Affine{P, PNeg}
+			tabQ := []G2Affine{Q, Q}
+
+			res, _ := PairingCheck(tabP, tabQ)
+
+			return res
+		},
+		genR1,
+		genR2,
+	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -140,7 +197,21 @@ func BenchmarkPairing(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		FinalExponentiation(MillerLoop(g1GenAff, g2GenAff))
+		Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+	}
+}
+
+func BenchmarkMillerLoop(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MillerLoop([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
 	}
 }
 
