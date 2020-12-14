@@ -14,7 +14,10 @@
 
 package bls377
 
-import "github.com/consensys/gurvy/bls377/internal/fptower"
+import (
+	"errors"
+	"github.com/consensys/gurvy/bls377/internal/fptower"
+)
 
 // GT target group of the pairing
 type GT = fptower.E12
@@ -23,6 +26,26 @@ type lineEvaluation struct {
 	r0 fptower.E2
 	r1 fptower.E2
 	r2 fptower.E2
+}
+
+// Pair ...
+func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
+	f, err := MillerLoop(P, Q)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(f), nil
+}
+
+// PairingCheck ...
+func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
+	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f == one, nil
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -80,44 +103,51 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-// // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-// func (z *GT) FinalExponentiation(x *GT) *GT {
-
-// 	z.Set(&result)
-// 	return z
-// }
-
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *GT {
+func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 
 	var result GT
 	result.SetOne()
 
-	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
+	nP := len(P)
+	if nP == 0 || nP != len(Q) {
+		return &result, errors.New("Invalid inputs sizes")
 	}
 
-	ch := make(chan struct{}, 20)
+	var ch = make([]chan struct{}, nP)
+	var evaluations = make([][69]lineEvaluation, nP)
+	var countInf = 0
+	for k := 0; k < nP; k++ {
+		if P[k].IsInfinity() || Q[k].IsInfinity() {
+			countInf++
+			continue
+		}
+		ch[k-countInf] = make(chan struct{}, 10)
+		go preCompute(&evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
+	}
 
-	var evaluations [69]lineEvaluation
-	go preCompute(&evaluations, &Q, &P, ch)
+	nP = nP - countInf
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations[j])
+		for k := 0; k < nP; k++ {
+			<-ch[k]
+			mulAssign(&result, &evaluations[k][j])
+		}
 		j++
 
 		if loopCounter[i] == 1 {
-			<-ch
-			mulAssign(&result, &evaluations[j])
+			for k := 0; k < nP; k++ {
+				<-ch[k]
+				mulAssign(&result, &evaluations[k][j])
+			}
 			j++
 		}
 	}
 
-	return &result
+	return &result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P

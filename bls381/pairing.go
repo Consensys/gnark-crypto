@@ -112,7 +112,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 	for k := 0; k < nP; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
 			countInf++
-			continue;
+			continue
 		}
 		ch[k-countInf] = make(chan struct{}, 10)
 		go preCompute(&evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
