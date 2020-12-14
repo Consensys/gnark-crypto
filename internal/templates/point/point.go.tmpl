@@ -43,6 +43,11 @@ type {{ $TProjective }} struct {
 // -------------------------------------------------------------------------------------------------
 // Affine 
 
+// Set set p to the provided point
+func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
+       p.X, p.Y = a.X, a.Y
+       return p
+}
 
 // ScalarMultiplication computes and returns p = a*s
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
