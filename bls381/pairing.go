@@ -37,6 +37,17 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	return FinalExponentiation(f), nil
 }
 
+// PairingCheck ...
+func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
+	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f == one, nil
+}
+
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 	var result GT
