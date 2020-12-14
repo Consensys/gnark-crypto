@@ -168,11 +168,10 @@ func TestPairing(t *testing.T) {
 	properties.Property("[BLS381] PairingCheck", prop.ForAll(
 		func(a, b fr.Element) bool {
 
-			var P, PNeg G1Affine
-			var Q G2Affine
-			PNeg.Neg(&P)
-			tabP := []G1Affine{P, PNeg}
-			tabQ := []G2Affine{Q, Q}
+			var g1GenAffNeg G1Affine
+			g1GenAffNeg.Neg(&g1GenAff)
+			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
+			tabQ := []G2Affine{g2GenAff, g2GenAff}
 
 			res, _ := PairingCheck(tabP, tabQ)
 

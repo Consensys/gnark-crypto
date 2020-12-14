@@ -402,7 +402,7 @@ func TestPairingInterop(t *testing.T) {
 			// pairings
 			pc := cloudflare.Pair(g1c, g2c)
 			gc := google.Pair(g1g, g2g)
-			c := Pair(g1, g2)
+			c, _ := Pair([]G1Affine{g1}, []G2Affine{g2})
 
 			if !(bytes.Equal(c.Marshal(), gc.Marshal())) {
 				t.Log("pairing doesn't match google implementation")
@@ -462,7 +462,7 @@ func BenchmarkPairingInterop(b *testing.B) {
 	b.Run("[bn256]gurvy_pairing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = Pair(g1, g2)
+			_, _ = Pair([]G1Affine{g1}, []G2Affine{g2})
 		}
 	})
 
