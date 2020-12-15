@@ -418,6 +418,7 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
     RET
 
 TEXT ·squareAdxE2(SB), $56-16
+NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l4
     MOVQ x+8(FP), DX
@@ -1203,6 +1204,7 @@ CALL ·squareGenericE2(SB)
     RET
 
 TEXT ·mulAdxE2(SB), $152-24
+NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l5
     MOVQ x+8(FP), AX

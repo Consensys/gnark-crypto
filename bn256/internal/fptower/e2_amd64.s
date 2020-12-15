@@ -244,6 +244,7 @@ l2:
     RET
 
 TEXT ·mulAdxE2(SB), $24-24
+NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l4
     MOVQ x+8(FP), R9
@@ -892,6 +893,7 @@ CALL ·mulGenericE2(SB)
     RET
 
 TEXT ·squareAdxE2(SB), $16-16
+NO_LOCAL_POINTERS
     CMPB ·supportAdx(SB), $0x0000000000000001
     JNE l5
     MOVQ x+8(FP), R9

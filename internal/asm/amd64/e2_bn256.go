@@ -77,7 +77,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256() {
 	// z.A0.Set(&a)
 	// z.A1.Set(&b)
 	registers := fq2.FnHeader("squareAdxE2", 16, 16, amd64.DX, amd64.AX)
-
+	fq2.WriteLn("NO_LOCAL_POINTERS")
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
@@ -169,7 +169,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN256() {
 	// z.A1.fq2.Sub(&a, &b).fq2.Sub(&z.A1, &c)
 	// z.A0.fq2.Sub(&b, &c)
 	registers := fq2.FnHeader("mulAdxE2", 24, 24, amd64.DX, amd64.AX)
-
+	fq2.WriteLn("NO_LOCAL_POINTERS")
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
