@@ -34,8 +34,8 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cloudflare/cloudflare-go v0.10.2-0.20190916151808-a80f83b9add9/go.mod h1:1MxXX1Ux4x6mqPmjkUgTP1CdXIBXKX7T+Jk9Gxrmx+U=
 github.com/consensys/bavard v0.1.7-0.20201204163638-82d1cb261299 h1:g0P1a1Lfa60MoPE9Wzx1lyWnIE3cu14jBUQtsLIGhNU=
 github.com/consensys/bavard v0.1.7-0.20201204163638-82d1cb261299/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
-github.com/consensys/goff v0.3.7-0.20201215051507-948806e32fd5 h1:hmdvjxnP5kvAfRqtYir9K+EQZzKErqs4GmQa23QrGjU=
-github.com/consensys/goff v0.3.7-0.20201215051507-948806e32fd5/go.mod h1:61ZNiCXkJ/ufIRXQ9YyQ6iiTkp5d1A3aFVRzw2U+om0=
+github.com/consensys/goff v0.3.7-0.20201215220452-730797f3e384 h1:4wCOFsh5dwxvHNgncpPrqHL9jOYZS3eKKKJv2Dv8MOM=
+github.com/consensys/goff v0.3.7-0.20201215220452-730797f3e384/go.mod h1:61ZNiCXkJ/ufIRXQ9YyQ6iiTkp5d1A3aFVRzw2U+om0=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=

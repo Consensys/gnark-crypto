@@ -62,7 +62,7 @@ func (z *E12) nSquare(n int) {
 	}
 }
 
-// Expt set z to x^(t/2) in E12 and return z
+// ExptHalf set z to x^(t/2) in E12 and return z
 // const t/2 uint64 = 7566188111470821376 // negative
 func (z *E12) ExptHalf(x *E12) *E12 {
 	var result E12

@@ -18,14 +18,7 @@ package fptower
 
 import (
 	"github.com/consensys/gurvy/bls381/fp"
-	"golang.org/x/sys/cpu"
 	"math/big"
-)
-
-// supportAdx will be set only on amd64 that has MULX and ADDX instructions
-var (
-	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
-	_          = supportAdx // used in asm
 )
 
 // E2 is a degree two finite field extension of fp.Element

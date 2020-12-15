@@ -227,6 +227,8 @@ func GenerateFq12over6over2(conf curveConfig) error {
 		{File: filepath.Join(dir, "e2_test.go"), TemplateF: "tests/fq2*"},
 		{File: filepath.Join(dir, "e6_test.go"), TemplateF: "tests/fq6*"},
 		{File: filepath.Join(dir, "e12_test.go"), TemplateF: "tests/fq12*"},
+		{File: filepath.Join(dir, "asm.go"), TemplateF: "asm.go*", BuildTag: "!noadx"},
+		{File: filepath.Join(dir, "asm_noadx.go"), TemplateF: "asm_noadx*", BuildTag: "noadx"},
 	}
 
 	if err := bgen.GenerateF(conf, fpTower, "./templates/fq12over6over2", entries...); err != nil {

@@ -17,11 +17,8 @@
 package fp
 
 import (
-	"golang.org/x/sys/cpu"
 	"math/bits"
 )
-
-var supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 // madd0 hi = a*b + c (discards lo bits)
 func madd0(a, b, c uint64) (hi uint64) {
