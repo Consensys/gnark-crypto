@@ -28,7 +28,7 @@ type lineEvaluation struct {
 	r2 fptower.E2
 }
 
-// Pair ...
+// Pair calculates the reduced pairing for a set of points
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
 	if err != nil {
@@ -37,7 +37,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	return FinalExponentiation(f), nil
 }
 
-// PairingCheck ...
+// PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
 	if err != nil {
