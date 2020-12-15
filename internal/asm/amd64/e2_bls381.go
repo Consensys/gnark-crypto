@@ -70,7 +70,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	// 	return z
 	// }
 	registers := fq2.FnHeader("squareAdxE2", 8*fq2.NbWords+8, 16, amd64.DX, amd64.AX)
-
+	fq2.WriteLn("NO_LOCAL_POINTERS")
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
@@ -190,7 +190,7 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 
 	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
 	registers := fq2.FnHeader("mulAdxE2", 3*8*fq2.NbWords+8, 24, amd64.DX, amd64.AX)
-
+	fq2.WriteLn("NO_LOCAL_POINTERS")
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
