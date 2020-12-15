@@ -16,6 +16,8 @@ package bls381
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 
@@ -34,7 +36,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	if err != nil {
 		return GT{}, err
 	}
-	return FinalExponentiation(f), nil
+	return FinalExponentiation(&f), nil
 }
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
@@ -95,30 +97,41 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
+var lineEvalPool = sync.Pool{
+	New: func() interface{} {
+		return new([68]lineEvaluation)
+	},
+}
+
 // MillerLoop Miller loop
-func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
-
-	var result GT
-	result.SetOne()
-
+func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	nP := len(P)
 	if nP == 0 || nP != len(Q) {
-		return &result, errors.New("Invalid inputs sizes")
+		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var ch = make([]chan struct{}, nP)
-	var evaluations = make([][68]lineEvaluation, nP)
+	var (
+		ch          = make([]chan struct{}, 0, nP)
+		evaluations = make([]*[68]lineEvaluation, 0, nP)
+	)
+
 	var countInf = 0
 	for k := 0; k < nP; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
 			countInf++
 			continue
 		}
-		ch[k-countInf] = make(chan struct{}, 10)
-		go preCompute(&evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
+
+		ch = append(ch, make(chan struct{}, 10))
+		evaluations = append(evaluations, lineEvalPool.Get().(*[68]lineEvaluation))
+
+		go preCompute(evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
 	}
 
 	nP = nP - countInf
+
+	var result GT
+	result.SetOne()
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
@@ -141,7 +154,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 
 	result.Conjugate(&result)
 
-	return &result, nil
+	// release objects into the pool
+	for i := 0; i < len(evaluations); i++ {
+		lineEvalPool.Put(evaluations[i])
+	}
+
+	return result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P

@@ -16,6 +16,8 @@ package bn256
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/consensys/gurvy/bn256/internal/fptower"
 )
 
@@ -34,7 +36,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	if err != nil {
 		return GT{}, err
 	}
-	return FinalExponentiation(f), nil
+	return FinalExponentiation(&f), nil
 }
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
@@ -120,36 +122,42 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
+var lineEvalPool = sync.Pool{
+	New: func() interface{} {
+		return new([86]lineEvaluation)
+	},
+}
+
 // MillerLoop Miller loop
-func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
-
-	var result GT
-	result.SetOne()
-
+func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	nP := len(P)
 	if nP == 0 || nP != len(Q) {
-		return &result, errors.New("Invalid inputs sizes")
+		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var ch = make([]chan struct{}, nP)
-	var evaluations = make([][86]lineEvaluation, nP)
-	var Qjac = make([]G2Jac, nP)
-	var Q1 = make([]G2Jac, nP)
-	var Q2 = make([]G2Jac, nP)
-	var Paff = make([]G1Affine, nP)
-	var lEval = make([]lineEvaluation, nP)
-	var countInf = 0
+	var (
+		ch          = make([]chan struct{}, 0, nP)
+		evaluations = make([]*[86]lineEvaluation, 0, nP)
+		Qjac        = make([]G2Jac, nP)
+		Q1          = make([]G2Jac, nP)
+		Q2          = make([]G2Jac, nP)
+		Paff        = make([]G1Affine, nP)
+		lEval       = make([]lineEvaluation, nP)
+	)
 
+	var countInf = 0
 	for k := 0; k < nP; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
 			countInf++
 			continue
 		}
 
-		ch[k-countInf] = make(chan struct{}, 10)
+		ch = append(ch, make(chan struct{}, 10))
+		evaluations = append(evaluations, lineEvalPool.Get().(*[86]lineEvaluation))
+
 		Qjac[k-countInf].FromAffine(&Q[k])
 		Paff[k-countInf].Set(&P[k])
-		go preCompute(&evaluations[k-countInf], &Qjac[k-countInf], &Paff[k-countInf], ch[k-countInf])
+		go preCompute(evaluations[k-countInf], &Qjac[k-countInf], &Paff[k-countInf], ch[k-countInf])
 
 		//Q1[k] = Frob(Q[k])
 		Q1[k-countInf].X.Conjugate(&Q[k].X).MulByNonResidue1Power2(&Q1[k-countInf].X)
@@ -163,6 +171,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 	}
 
 	nP = nP - countInf
+
+	var result GT
+	result.SetOne()
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
@@ -183,6 +194,13 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 		}
 	}
 
+	// release objects into the pool
+	go func() {
+		for i := 0; i < len(evaluations); i++ {
+			lineEvalPool.Put(evaluations[i])
+		}
+	}()
+
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	for k := 0; k < nP; k++ {
 
@@ -195,7 +213,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (*GT, error) {
 		mulAssign(&result, &lEval[k])
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P

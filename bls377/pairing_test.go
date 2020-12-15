@@ -150,7 +150,7 @@ func TestPairing(t *testing.T) {
 			M2, _ := MillerLoop(P1, Q0)
 			M3, _ := MillerLoop(P0, Q1)
 			M4, _ := MillerLoop(P1, Q1)
-			simpleProd.Mul(M1, M2).Mul(&simpleProd, M3).Mul(&simpleProd, M4)
+			simpleProd.Mul(&M1, &M2).Mul(&simpleProd, &M3).Mul(&simpleProd, &M4)
 			simpleProd = FinalExponentiation(&simpleProd)
 
 			tabP := []G1Affine{g1GenAff, ag1, g1GenAff, ag1}
