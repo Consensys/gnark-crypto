@@ -14,7 +14,12 @@
 
 package bls377
 
-import "github.com/consensys/gurvy/bls377/internal/fptower"
+import (
+	"errors"
+	"sync"
+
+	"github.com/consensys/gurvy/bls377/internal/fptower"
+)
 
 // GT target group of the pairing
 type GT = fptower.E12
@@ -23,6 +28,26 @@ type lineEvaluation struct {
 	r0 fptower.E2
 	r1 fptower.E2
 	r2 fptower.E2
+}
+
+// Pair calculates the reduced pairing for a set of points
+func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
+	f, err := MillerLoop(P, Q)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(&f), nil
+}
+
+// PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
+	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
@@ -80,44 +105,66 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-// // FinalExponentiation sets z to the final expo x**((p**12 - 1)/r), returns z
-// func (z *GT) FinalExponentiation(x *GT) *GT {
-
-// 	z.Set(&result)
-// 	return z
-// }
+var lineEvalPool = sync.Pool{
+	New: func() interface{} {
+		return new([69]lineEvaluation)
+	},
+}
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *GT {
+func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
+	nP := len(P)
+	if nP == 0 || nP != len(Q) {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+
+	var (
+		ch          = make([]chan struct{}, 0, nP)
+		evaluations = make([]*[69]lineEvaluation, 0, nP)
+	)
+
+	var countInf = 0
+	for k := 0; k < nP; k++ {
+		if P[k].IsInfinity() || Q[k].IsInfinity() {
+			countInf++
+			continue
+		}
+		ch = append(ch, make(chan struct{}, 10))
+		evaluations = append(evaluations, lineEvalPool.Get().(*[69]lineEvaluation))
+
+		go preCompute(evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
+	}
+
+	nP = nP - countInf
 
 	var result GT
 	result.SetOne()
-
-	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
-	}
-
-	ch := make(chan struct{}, 20)
-
-	var evaluations [69]lineEvaluation
-	go preCompute(&evaluations, &Q, &P, ch)
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations[j])
+		for k := 0; k < nP; k++ {
+			<-ch[k]
+			mulAssign(&result, &evaluations[k][j])
+		}
 		j++
 
 		if loopCounter[i] == 1 {
-			<-ch
-			mulAssign(&result, &evaluations[j])
+			for k := 0; k < nP; k++ {
+				<-ch[k]
+				mulAssign(&result, &evaluations[k][j])
+			}
 			j++
 		}
 	}
 
-	return &result
+	// release objects into the pool
+	for i := 0; i < len(evaluations); i++ {
+		lineEvalPool.Put(evaluations[i])
+	}
+
+	return result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P

@@ -49,6 +49,12 @@ type g2Proj struct {
 // -------------------------------------------------------------------------------------------------
 // Affine
 
+// Set set p to the provided point
+func (p *G2Affine) Set(a *G2Affine) *G2Affine {
+	p.X, p.Y = a.X, a.Y
+	return p
+}
+
 // ScalarMultiplication computes and returns p = a*s
 func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac

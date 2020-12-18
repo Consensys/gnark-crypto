@@ -15,6 +15,9 @@
 package bn256
 
 import (
+	"errors"
+	"sync"
+
 	"github.com/consensys/gurvy/bn256/internal/fptower"
 )
 
@@ -27,27 +30,25 @@ type lineEvaluation struct {
 	r2 fptower.E2
 }
 
-// Pair ...
-func Pair(P G1Affine, Q G2Affine) GT {
-	return FinalExponentiation(MillerLoop(P, Q))
+// Pair calculates the reduced pairing for a set of points
+func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
+	f, err := MillerLoop(P, Q)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(&f), nil
 }
 
-// PairingCheck calculates the pairing for a set of points and return true if the result is One
-// func PairingCheck(a []*G1Affine, b []*G2Affine) bool {
-// 	var result GT
-// 	result.SetOne()
-
-// 	for i := 0; i < len(a); i++ {
-// 		if a[i].IsInfinity() || b[i].IsInfinity() {
-// 			continue
-// 		}
-// 		result.Mul(&result, MillerLoop(*a[i], *b[i]))
-// 	}
-// 	var one GT
-// 	one.SetOne()
-// 	p := FinalExponentiation(&result)
-// 	return p.Equal(&one)
-// }
+// PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
+	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
+}
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
 func FinalExponentiation(z *GT, _z ...*GT) GT {
@@ -121,61 +122,98 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
+var lineEvalPool = sync.Pool{
+	New: func() interface{} {
+		return new([86]lineEvaluation)
+	},
+}
+
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *GT {
+func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
+	nP := len(P)
+	if nP == 0 || nP != len(Q) {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+
+	var (
+		ch          = make([]chan struct{}, 0, nP)
+		evaluations = make([]*[86]lineEvaluation, 0, nP)
+		Qjac        = make([]G2Jac, nP)
+		Q1          = make([]G2Jac, nP)
+		Q2          = make([]G2Jac, nP)
+		Paff        = make([]G1Affine, nP)
+		lEval       = make([]lineEvaluation, nP)
+	)
+
+	var countInf = 0
+	for k := 0; k < nP; k++ {
+		if P[k].IsInfinity() || Q[k].IsInfinity() {
+			countInf++
+			continue
+		}
+
+		ch = append(ch, make(chan struct{}, 10))
+		evaluations = append(evaluations, lineEvalPool.Get().(*[86]lineEvaluation))
+
+		Qjac[k-countInf].FromAffine(&Q[k])
+		Paff[k-countInf].Set(&P[k])
+		go preCompute(evaluations[k-countInf], &Qjac[k-countInf], &Paff[k-countInf], ch[k-countInf])
+
+		//Q1[k] = Frob(Q[k])
+		Q1[k-countInf].X.Conjugate(&Q[k].X).MulByNonResidue1Power2(&Q1[k-countInf].X)
+		Q1[k-countInf].Y.Conjugate(&Q[k].Y).MulByNonResidue1Power3(&Q1[k-countInf].Y)
+		Q1[k-countInf].Z.SetOne()
+
+		// Q2[k] = -Frob2(Q[k])
+		Q2[k-countInf].X.MulByNonResidue2Power2(&Q[k].X)
+		Q2[k-countInf].Y.MulByNonResidue2Power3(&Q[k].Y).Neg(&Q2[k-countInf].Y)
+		Q2[k-countInf].Z.SetOne()
+	}
+
+	nP = nP - countInf
 
 	var result GT
 	result.SetOne()
-
-	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
-	}
-
-	ch := make(chan struct{}, 30)
-
-	var evaluations [86]lineEvaluation
-	var Qjac G2Jac
-	Qjac.FromAffine(&Q)
-	go preCompute(&evaluations, &Qjac, &P, ch)
 
 	j := 0
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations[j])
+		for k := 0; k < nP; k++ {
+			<-ch[k]
+			mulAssign(&result, &evaluations[k][j])
+		}
 		j++
 
 		if loopCounter[i] != 0 {
-			<-ch
-			mulAssign(&result, &evaluations[j])
+			for k := 0; k < nP; k++ {
+				<-ch[k]
+				mulAssign(&result, &evaluations[k][j])
+			}
 			j++
 		}
 	}
 
+	// release objects into the pool
+	go func() {
+		for i := 0; i < len(evaluations); i++ {
+			lineEvalPool.Put(evaluations[i])
+		}
+	}()
+
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
-	var Q1, Q2 G2Jac
+	for k := 0; k < nP; k++ {
 
-	//Q1 = Frob(Q)
-	Q1.X.Conjugate(&Q.X).MulByNonResidue1Power2(&Q1.X)
-	Q1.Y.Conjugate(&Q.Y).MulByNonResidue1Power3(&Q1.Y)
-	Q1.Z.SetOne()
+		lineEval(&Qjac[k], &Q1[k], &Paff[k], &lEval[k])
+		mulAssign(&result, &lEval[k])
 
-	// Q2 = -Frob2(Q)
-	Q2.X.MulByNonResidue2Power2(&Q.X)
-	Q2.Y.MulByNonResidue2Power3(&Q.Y).Neg(&Q2.Y)
-	Q2.Z.SetOne()
+		Qjac[k].AddAssign(&Q1[k])
+		lineEval(&Qjac[k], &Q2[k], &Paff[k], &lEval[k])
 
-	var lEval lineEvaluation
-	lineEval(&Qjac, &Q1, &P, &lEval)
-	mulAssign(&result, &lEval)
+		mulAssign(&result, &lEval[k])
+	}
 
-	Qjac.AddAssign(&Q1)
-
-	lineEval(&Qjac, &Q2, &P, &lEval)
-	mulAssign(&result, &lEval)
-
-	return &result
+	return result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
