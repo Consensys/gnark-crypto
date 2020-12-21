@@ -122,10 +122,10 @@ func main() {
 			g2 := pconf{conf, conf.G2}
 
 			entriesF := []bavard.EntryF{
-				{File: filepath.Join(dir, "multiexp.go"), TemplateF: "multiexp*"},
-				{File: filepath.Join(dir, "multiexp_test.go"), TemplateF: "tests/multiexp*"},
-				{File: filepath.Join(dir, "marshal.go"), TemplateF: "marshal*", PackageDoc: doc},
-				{File: filepath.Join(dir, "marshal_test.go"), TemplateF: "tests/marshal*"},
+				{File: filepath.Join(dir, "multiexp.go"), TemplateF: []string{"multiexp.go.tmpl"}},
+				{File: filepath.Join(dir, "multiexp_test.go"), TemplateF: []string{"tests/multiexp.go.tmpl"}},
+				{File: filepath.Join(dir, "marshal.go"), TemplateF: []string{"marshal.go.tmpl"}, PackageDoc: doc},
+				{File: filepath.Join(dir, "marshal_test.go"), TemplateF: []string{"tests/marshal.go.tmpl"}},
 			}
 			if err := bgen.GenerateF(conf, conf.Name, "./templates/point", entriesF...); err != nil {
 				panic(err)
@@ -133,8 +133,8 @@ func main() {
 
 			// G1
 			entriesF = []bavard.EntryF{
-				{File: filepath.Join(dir, "g1.go"), TemplateF: "point*"},
-				{File: filepath.Join(dir, "g1_test.go"), TemplateF: "tests/point*"},
+				{File: filepath.Join(dir, "g1.go"), TemplateF: []string{"point.go.tmpl"}},
+				{File: filepath.Join(dir, "g1_test.go"), TemplateF: []string{"tests/point.go.tmpl"}},
 			}
 			if err := bgen.GenerateF(g1, conf.Name, "./templates/point", entriesF...); err != nil {
 				panic(err)
@@ -142,8 +142,8 @@ func main() {
 
 			// G2
 			entriesF = []bavard.EntryF{
-				{File: filepath.Join(dir, "g2.go"), TemplateF: "point*"},
-				{File: filepath.Join(dir, "g2_test.go"), TemplateF: "tests/point*"},
+				{File: filepath.Join(dir, "g2.go"), TemplateF: []string{"point.go.tmpl"}},
+				{File: filepath.Join(dir, "g2_test.go"), TemplateF: []string{"tests/point.go.tmpl"}},
 			}
 			if err := bgen.GenerateF(g2, conf.Name, "./templates/point", entriesF...); err != nil {
 				panic(err)
@@ -152,7 +152,7 @@ func main() {
 			if conf.Name != "bw761" {
 				assertNoError(GenerateFq12over6over2(conf))
 				if err := bgen.GenerateF(conf, conf.Name, "./templates/pairing", bavard.EntryF{
-					File: filepath.Join(dir, "pairing_test.go"), TemplateF: "tests/*.go.tmpl",
+					File: filepath.Join(dir, "pairing_test.go"), TemplateF: []string{"tests/pairing.go.tmpl"},
 				}); err != nil {
 					panic(err)
 				}
@@ -219,16 +219,16 @@ func defaultCRange() []int {
 func GenerateFq12over6over2(conf curveConfig) error {
 	dir := filepath.Join(conf.dir, "internal", fpTower)
 	entries := []bavard.EntryF{
-		{File: filepath.Join(dir, "e2.go"), TemplateF: "fq2*"},
-		{File: filepath.Join(dir, "e6.go"), TemplateF: "fq6*"},
-		{File: filepath.Join(dir, "e12.go"), TemplateF: "fq12*"},
-		{File: filepath.Join(dir, "e2_amd64.go"), TemplateF: "amd64.fq2*"},
-		{File: filepath.Join(dir, "e2_fallback.go"), TemplateF: "fallback.fq2*", BuildTag: "!amd64"},
-		{File: filepath.Join(dir, "e2_test.go"), TemplateF: "tests/fq2*"},
-		{File: filepath.Join(dir, "e6_test.go"), TemplateF: "tests/fq6*"},
-		{File: filepath.Join(dir, "e12_test.go"), TemplateF: "tests/fq12*"},
-		{File: filepath.Join(dir, "asm.go"), TemplateF: "asm.go*", BuildTag: "!noadx"},
-		{File: filepath.Join(dir, "asm_noadx.go"), TemplateF: "asm_noadx*", BuildTag: "noadx"},
+		{File: filepath.Join(dir, "e2.go"), TemplateF: []string{"fq2.go.tmpl"}},
+		{File: filepath.Join(dir, "e6.go"), TemplateF: []string{"fq6.go.tmpl"}},
+		{File: filepath.Join(dir, "e12.go"), TemplateF: []string{"fq12.go.tmpl"}},
+		{File: filepath.Join(dir, "e2_amd64.go"), TemplateF: []string{"amd64.fq2.go.tmpl"}},
+		{File: filepath.Join(dir, "e2_fallback.go"), TemplateF: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
+		{File: filepath.Join(dir, "e2_test.go"), TemplateF: []string{"tests/fq2.go.tmpl"}},
+		{File: filepath.Join(dir, "e6_test.go"), TemplateF: []string{"tests/fq6.go.tmpl"}},
+		{File: filepath.Join(dir, "e12_test.go"), TemplateF: []string{"tests/fq12.go.tmpl"}},
+		{File: filepath.Join(dir, "asm.go"), TemplateF: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
+		{File: filepath.Join(dir, "asm_noadx.go"), TemplateF: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
 	}
 
 	if err := bgen.GenerateF(conf, fpTower, "./templates/fq12over6over2", entries...); err != nil {
