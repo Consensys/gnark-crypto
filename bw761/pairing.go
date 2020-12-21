@@ -25,19 +25,12 @@ import (
 type GT = fptower.E6
 
 // Pair calculates the reduced pairing for a set of points
-// TODO for compatibility with other curves, need refactoring and testing for infinity points.
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
-	nP := len(P)
-	if nP == 0 || nP != len(Q) {
-		return GT{}, errors.New("invalid inputs sizes")
+	f, err := MillerLoop(P, Q)
+	if err != nil {
+		return GT{}, err
 	}
-	mRes := make([]*GT, nP)
-	for i := 0; i < nP; i++ {
-		tmp := MillerLoop(P[i], Q[i])
-		mRes[i] = &tmp
-	}
-
-	return FinalExponentiation(mRes[0], mRes[1:]...), nil
+	return FinalExponentiation(&f), nil
 }
 
 type lineEvaluation struct {
@@ -175,10 +168,16 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) GT {
+func MillerLoop(_P []G1Affine, _Q []G2Affine) (GT, error) {
+	// TODO fixme @youssef
+	if (len(_P) != len(_Q)) || (len(_P) != 1) {
+		return GT{}, errors.New("wip: not implemented")
+	}
+	P := _P[0]
+	Q := _Q[0]
 
 	if P.IsInfinity() || Q.IsInfinity() {
-		return GT{}
+		return GT{}, nil
 	}
 	var result GT
 	ch := make(chan struct{}, 213)
@@ -251,7 +250,7 @@ func MillerLoop(P G1Affine, Q G2Affine) GT {
 	// div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
 	result.Frobenius(&result).MulAssign(&mxplusone)
 
-	return result
+	return result, nil
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
