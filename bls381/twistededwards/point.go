@@ -17,6 +17,7 @@ limitations under the License.
 package twistededwards
 
 import (
+	"math/big"
 	"math/bits"
 
 	"github.com/consensys/gurvy/bls381/fr"
@@ -38,6 +39,30 @@ func (p *PointProj) Set(p1 *PointProj) *PointProj {
 	p.Y.Set(&p1.Y)
 	p.Z.Set(&p1.Z)
 	return p
+}
+
+// Set sets p to p1 and return it
+func (p *Point) Set(p1 *Point) *Point {
+	p.X.Set(&p1.X)
+	p.Y.Set(&p1.Y)
+	return p
+}
+
+// Equal returns true if p=p1 false otherwise
+func (p *Point) Equal(p1 *Point) bool {
+	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y)
+}
+
+// Equal returns true if p=p1 false otherwise
+// If one point is on the affine chart Z=0 it returns false
+func (p *PointProj) Equal(p1 *PointProj) bool {
+	if p.Z.IsZero() || p1.Z.IsZero() {
+		return false
+	}
+	var pAffine, p1Affine Point
+	pAffine.FromProj(p)
+	p1Affine.FromProj(p1)
+	return pAffine.Equal(&p1Affine)
 }
 
 // NewPoint creates a new instance of Point
@@ -63,7 +88,7 @@ func (p *Point) IsOnCurve() bool {
 		Mul(&tmp, &ecurve.D)
 	rhs.SetOne().Add(&rhs, &tmp)
 
-	return rhs.Equal(&lhs)
+	return lhs.Equal(&rhs)
 }
 
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
@@ -97,6 +122,13 @@ func (p *Point) Add(p1, p2 *Point) *Point {
 // modifies p
 func (p *Point) Double(p1 *Point) *Point {
 	p.Add(p1, p1)
+	return p
+}
+
+// Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
+// modifies p
+func (p *Point) Neg(p1 *Point) *Point {
+	p.X.Neg(&p1.X)
 	return p
 }
 
@@ -176,12 +208,19 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 	return p
 }
 
+// Neg sets p to -p1 and returns it
+func (p *PointProj) Neg(p1 *PointProj) *PointProj {
+	p.X.Neg(&p1.X)
+	return p
+}
+
 // ScalarMul scalar multiplication of a point
 // p1 points on the twisted Edwards curve
 // c parameters of the twisted Edwards curve
 // scal scalar NOT in Montgomery form
 // modifies p
-func (p *Point) ScalarMul(p1 *Point, scalar fr.Element) *Point {
+//func (p *Point) ScalarMul(p1 *Point, scalar fr.Element) *Point {
+func (p *Point) ScalarMul(p1 *Point, scalar *big.Int) *Point {
 
 	var resProj, p1Proj PointProj
 	resProj.X.SetZero()
@@ -192,11 +231,14 @@ func (p *Point) ScalarMul(p1 *Point, scalar fr.Element) *Point {
 
 	const wordSize = bits.UintSize
 
-	for i := 4 - 1; i >= 0; i-- {
-		for j := 0; j < wordSize; j++ {
+	sWords := scalar.Bits()
+
+	for i := len(sWords) - 1; i >= 0; i-- {
+		ithWord := sWords[i]
+		for k := 0; k < 64; k++ { // TODO it assumes 64 bits arch, add a check to change 64 to 32 if necessary
 			resProj.Double(&resProj)
-			b := (scalar[i] & (uint64(1) << uint64(wordSize-1-j))) >> uint64(wordSize-1-j)
-			if b == 1 {
+			kthBit := (ithWord >> (63 - k)) & 1
+			if kthBit == 1 {
 				resProj.Add(&resProj, &p1Proj)
 			}
 		}

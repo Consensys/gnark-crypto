@@ -17,6 +17,8 @@ limitations under the License.
 package twistededwards
 
 import (
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gurvy/bn256/fr"
@@ -131,11 +133,14 @@ func TestScalarMul(t *testing.T) {
 	// set curve parameters
 	ed := GetEdwardsCurve()
 
-	var scalar fr.Element
-	scalar.SetUint64(23902374).FromMont()
+	var scalar big.Int
+	scalar.SetUint64(23902374)
 
 	var p Point
-	p.ScalarMul(&ed.Base, scalar)
+	p.ScalarMul(&ed.Base, &scalar)
+
+	fmt.Println(p.X.String())
+	fmt.Println(p.Y.String())
 
 	var expectedX, expectedY fr.Element
 
@@ -149,4 +154,14 @@ func TestScalarMul(t *testing.T) {
 		t.Fatal("wrong y coordinate")
 	}
 
+	// test consistancy with negation
+	var expected, base Point
+	expected.Set(&ed.Base).Neg(&expected)
+	scalar.Set(&ed.Order).Lsh(&scalar, 3) // multiply by cofactor=8
+	scalar.Sub(&scalar, big.NewInt(1))
+	base.Set(&ed.Base)
+	base.ScalarMul(&base, &scalar)
+	if !base.Equal(&expected) {
+		t.Fatal("Mul by order-1 not consistant with neg")
+	}
 }
