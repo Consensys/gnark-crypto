@@ -86,9 +86,12 @@ func TestPairing(t *testing.T) {
 			ag1.FromJacobian(&aG1)
 			bg2.FromJacobian(&bG2)
 
-			res = FinalExponentiation(MillerLoop(g1affine, g2affine))
-			resa = FinalExponentiation(MillerLoop(ag1, g2affine))
-			resb = FinalExponentiation(MillerLoop(g1affine, bg2))
+			tmp := MillerLoop(g1affine, g2affine)
+			res = FinalExponentiation(&tmp)
+			tmp = MillerLoop(ag1, g2affine)
+			resa = FinalExponentiation(&tmp)
+			tmp = MillerLoop(g1affine, bg2)
+			resb = FinalExponentiation(&tmp)
 			resab.Exp(&res, ab)
 			resa.Exp(&resa, bbigint)
 			resb.Exp(&resb, abigint)
@@ -116,7 +119,8 @@ func BenchmarkPairing(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		FinalExponentiation(MillerLoop(g1GenAff, g2GenAff))
+		tmp := MillerLoop(g1GenAff, g2GenAff)
+		FinalExponentiation(&tmp)
 	}
 }
 

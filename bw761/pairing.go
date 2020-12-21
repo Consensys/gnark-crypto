@@ -15,12 +15,30 @@
 package bw761
 
 import (
+	"errors"
+
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/internal/fptower"
 )
 
 // GT target group of the pairing
 type GT = fptower.E6
+
+// Pair calculates the reduced pairing for a set of points
+// TODO for compatibility with other curves, need refactoring and testing for infinity points.
+func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
+	nP := len(P)
+	if nP == 0 || nP != len(Q) {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+	mRes := make([]*GT, nP)
+	for i := 0; i < nP; i++ {
+		tmp := MillerLoop(P[i], Q[i])
+		mRes[i] = &tmp
+	}
+
+	return FinalExponentiation(mRes[0], mRes[1:]...), nil
+}
 
 type lineEvaluation struct {
 	r0 fp.Element
@@ -157,14 +175,12 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Miller loop
-func MillerLoop(P G1Affine, Q G2Affine) *GT {
-
-	var result GT
+func MillerLoop(P G1Affine, Q G2Affine) GT {
 
 	if P.IsInfinity() || Q.IsInfinity() {
-		return &result
+		return GT{}
 	}
-
+	var result GT
 	ch := make(chan struct{}, 213)
 
 	var evaluations1 [69]lineEvaluation
@@ -235,7 +251,7 @@ func MillerLoop(P G1Affine, Q G2Affine) *GT {
 	// div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
 	result.Frobenius(&result).MulAssign(&mxplusone)
 
-	return &result
+	return result
 }
 
 // lineEval computes the evaluation of the line through Q, R (on the twist) at P
