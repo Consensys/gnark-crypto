@@ -133,6 +133,20 @@ func BenchmarkPairing(b *testing.B) {
 	}
 }
 
+func BenchmarkMillerLoop(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MillerLoop([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+	}
+}
+
 func BenchmarkFinalExponentiation(b *testing.B) {
 
 	var a GT
