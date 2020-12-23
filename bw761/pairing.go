@@ -24,6 +24,12 @@ import (
 // GT target group of the pairing
 type GT = fptower.E6
 
+type lineEvaluation struct {
+	r0 fp.Element
+	r1 fp.Element
+	r2 fp.Element
+}
+
 // Pair calculates the reduced pairing for a set of points
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
@@ -33,10 +39,15 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	return FinalExponentiation(&f), nil
 }
 
-type lineEvaluation struct {
-	r0 fp.Element
-	r1 fp.Element
-	r2 fp.Element
+// PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
+	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
 }
 
 // FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
