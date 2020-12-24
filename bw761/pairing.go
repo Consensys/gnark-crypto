@@ -199,9 +199,8 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var (
-
-		ch1          = make([]chan struct{}, 0, nP)
-		ch2          = make([]chan struct{}, 0, nP)
+		ch1 = make([]chan struct{}, 0, nP)
+		ch2 = make([]chan struct{}, 0, nP)
 
 		evaluations1 = make([]*[69]lineEvaluation, 0, nP)
 		evaluations2 = make([]*[144]lineEvaluation, 0, nP)
