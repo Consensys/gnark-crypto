@@ -16,6 +16,7 @@ package bw761
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/consensys/gurvy/bw761/internal/fptower"
@@ -178,45 +179,81 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
+var lineEvalPool1 = sync.Pool{
+	New: func() interface{} {
+		return new([69]lineEvaluation)
+	},
+}
+
+var lineEvalPool2 = sync.Pool{
+	New: func() interface{} {
+		return new([144]lineEvaluation)
+	},
+}
+
 // MillerLoop Miller loop
-func MillerLoop(_P []G1Affine, _Q []G2Affine) (GT, error) {
-	// TODO fixme @youssef
-	if (len(_P) != len(_Q)) || (len(_P) != 1) {
-		return GT{}, errors.New("wip: not implemented")
+func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
+	nP := len(P)
+	if nP == 0 || nP != len(Q) {
+		return GT{}, errors.New("invalid inputs sizes")
 	}
-	P := _P[0]
-	Q := _Q[0]
 
-	if P.IsInfinity() || Q.IsInfinity() {
-		return GT{}, nil
+	var (
+
+		ch1          = make([]chan struct{}, 0, nP)
+		ch2          = make([]chan struct{}, 0, nP)
+
+		evaluations1 = make([]*[69]lineEvaluation, 0, nP)
+		evaluations2 = make([]*[144]lineEvaluation, 0, nP)
+		Paff         = make([]G1Affine, nP)
+		xQjac        = make([]G2Jac, nP)
+		QjacSaved    = make([]G2Jac, nP)
+	)
+
+	var countInf = 0
+	for k := 0; k < nP; k++ {
+		if P[k].IsInfinity() || Q[k].IsInfinity() {
+			countInf++
+			continue
+		}
+
+		xQjac[k-countInf].FromAffine(&Q[k])
+		QjacSaved[k-countInf].FromAffine(&Q[k])
+		Paff[k-countInf].Set(&P[k])
+		ch1 = append(ch1, make(chan struct{}, 10))
+		evaluations1 = append(evaluations1, lineEvalPool1.Get().(*[69]lineEvaluation))
+
+		go preCompute1(evaluations1[k-countInf], &xQjac[k-countInf], &Paff[k-countInf], ch1[k-countInf])
 	}
-	var result GT
-	ch := make(chan struct{}, 213)
 
-	var evaluations1 [69]lineEvaluation
-	var evaluations2 [144]lineEvaluation
-
-	var xQjac, QjacSaved G2Jac
-	xQjac.FromAffine(&Q)
-	QjacSaved.FromAffine(&Q)
+	nP = nP - countInf
 
 	// Miller loop part 1
 	// computes f(P), div(f)=x(Q)-([x]Q)-(x-1)(O)
+	var result GT
 	result.SetOne()
-	go preCompute1(&evaluations1, &xQjac, &P, ch)
 	j := 0
 	for i := len(loopCounter1) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations1[j])
+		for k := 0; k < nP; k++ {
+			<-ch1[k]
+			mulAssign(&result, &evaluations1[k][j])
+		}
 		j++
 
 		if loopCounter1[i] != 0 {
-			<-ch
-			mulAssign(&result, &evaluations1[j])
+			for k := 0; k < nP; k++ {
+				<-ch1[k]
+				mulAssign(&result, &evaluations1[k][j])
+			}
 			j++
 		}
+	}
+
+	// release objects into the pool
+	for i := 0; i < len(evaluations1); i++ {
+		lineEvalPool1.Put(evaluations1[i])
 	}
 
 	// store mx=g(P), mxInv=1/g(P), div(g)=x(Q)-([x]Q)-(x-1)(O), because the second Miller loop
@@ -225,36 +262,54 @@ func MillerLoop(_P []G1Affine, _Q []G2Affine) (GT, error) {
 	var mx, mxInv, mxplusone GT
 	mx.Set(&result)
 	mxInv.Inverse(&result)
-
-	// finishes the computation of g(P), div(g)=(x+1)(Q)-([x+1]Q)-x(O) (drop the vertical line)
-	var lEval lineEvaluation
-	lineEval(&xQjac, &QjacSaved, &P, &lEval)
 	mxplusone.Set(&mx)
-	mulAssign(&mxplusone, &lEval)
 
-	// Miller loop part 2 (xQjac = [x]Q)
-	// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
-	go preCompute2(&evaluations2, &xQjac, &P, ch)
+	var lEval = make([]lineEvaluation, nP)
+
+	for k := 0; k < nP; k++ {
+		// finishes the computation of g(P), div(g)=(x+1)(Q)-([x+1]Q)-x(O) (drop the vertical line)
+		lineEval(&xQjac[k], &QjacSaved[k], &Paff[k], &lEval[k])
+		mulAssign(&mxplusone, &lEval[k])
+
+		ch2 = append(ch2, make(chan struct{}, 10))
+		evaluations2 = append(evaluations2, lineEvalPool2.Get().(*[144]lineEvaluation))
+
+		// Miller loop part 2 (xQjac = [x]Q)
+		// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
+		go preCompute2(evaluations2[k], &xQjac[k], &Paff[k], ch2[k])
+	}
+
 	j = 0
 	for i := len(loopCounter2) - 2; i >= 0; i-- {
 
 		result.Square(&result)
-		<-ch
-		mulAssign(&result, &evaluations2[j])
+		for k := 0; k < nP; k++ {
+			<-ch2[k]
+			mulAssign(&result, &evaluations2[k][j])
+		}
 		j++
 
 		if loopCounter2[i] == 1 {
-			<-ch
-			mulAssign(&result, &evaluations2[j]).MulAssign(&mx) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			for k := 0; k < nP; k++ {
+				<-ch2[k]
+				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			}
+			result.MulAssign(&mx)
 			j++
 		} else if loopCounter2[i] == -1 {
-			<-ch
-			mulAssign(&result, &evaluations2[j]).MulAssign(&mxInv) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			for k := 0; k < nP; k++ {
+				<-ch2[k]
+				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
+			}
+			result.MulAssign(&mxInv)
 			j++
 		}
 	}
 
-	close(ch)
+	// release objects into the pool
+	for i := 0; i < len(evaluations2); i++ {
+		lineEvalPool2.Put(evaluations2[i])
+	}
 
 	// g(P)*(f(P)**q)
 	// div(g)=(x+1)(Q)-([x+1]Q)-x(O)
