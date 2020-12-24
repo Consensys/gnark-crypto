@@ -86,21 +86,18 @@ func TestPairing(t *testing.T) {
 			ag1.FromJacobian(&aG1)
 			bg2.FromJacobian(&bG2)
 
-			tmp, err := MillerLoop([]G1Affine{g1affine}, []G2Affine{g2affine})
+			res, err := Pair([]G1Affine{g1affine}, []G2Affine{g2affine})
 			if err != nil {
 				t.Fatal(err)
 			}
-			res = FinalExponentiation(&tmp)
-			tmp, err = MillerLoop([]G1Affine{ag1}, []G2Affine{g2affine})
+			resa, err = Pair([]G1Affine{ag1}, []G2Affine{g2affine})
 			if err != nil {
 				t.Fatal(err)
 			}
-			resa = FinalExponentiation(&tmp)
-			tmp, err = MillerLoop([]G1Affine{g1affine}, []G2Affine{bg2})
+			resb, err = Pair([]G1Affine{g1affine}, []G2Affine{bg2})
 			if err != nil {
 				t.Fatal(err)
 			}
-			resb = FinalExponentiation(&tmp)
 			resab.Exp(&res, ab)
 			resa.Exp(&resa, bbigint)
 			resb.Exp(&resb, abigint)
@@ -110,6 +107,61 @@ func TestPairing(t *testing.T) {
 		},
 		genR1,
 		genR2,
+	))
+
+	properties.Property("MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var simpleProd, factorizedProd GT
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P0 := []G1Affine{g1GenAff}
+			P1 := []G1Affine{ag1}
+			Q0 := []G2Affine{g2GenAff}
+			Q1 := []G2Affine{bg2}
+
+			// FE( ML(a,b) * ML(c,d) * ML(e,f) * ML(g,h) )
+			M1, _ := MillerLoop(P0, Q0)
+			M2, _ := MillerLoop(P1, Q0)
+			M3, _ := MillerLoop(P0, Q1)
+			M4, _ := MillerLoop(P1, Q1)
+			simpleProd.Mul(&M1, &M2).Mul(&simpleProd, &M3).Mul(&simpleProd, &M4)
+			simpleProd = FinalExponentiation(&simpleProd)
+
+			tabP := []G1Affine{g1GenAff, ag1, g1GenAff, ag1}
+			tabQ := []G2Affine{g2GenAff, g2GenAff, bg2, bg2}
+
+			// FE( ML([a,c,e,g] ; [b,d,f,h]) ) -> saves 3 squares in Fqk
+			factorizedProd, _ = Pair(tabP, tabQ)
+
+			return simpleProd.Equal(&factorizedProd)
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.Property("PairingCheck", prop.ForAll(
+		func() bool {
+
+			var g1GenAffNeg G1Affine
+			g1GenAffNeg.Neg(&g1GenAff)
+			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
+			tabQ := []G2Affine{g2GenAff, g2GenAff}
+
+			res, _ := PairingCheck(tabP, tabQ)
+
+			return res
+		},
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
