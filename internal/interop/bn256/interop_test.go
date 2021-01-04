@@ -1,10 +1,12 @@
-package bn256
+package interop
 
 import (
 	"bytes"
+	"crypto/rand"
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gurvy/bn256"
 	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -15,6 +17,17 @@ import (
 
 // Test against go-ethereum/crypto/bn256 implementations (google and cloudflare)
 
+var (
+	g1Gen    bn256.G1Jac
+	g2Gen    bn256.G2Jac
+	g1GenAff bn256.G1Affine
+	g2GenAff bn256.G2Affine
+)
+
+func init() {
+	g1Gen, g2Gen, g1GenAff, g2GenAff = bn256.Generators()
+}
+
 func TestG1AffineSerializationInterop(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -23,7 +36,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 
 	properties.Property("[BN256] G1: gurvy -> cloudflare -> gurvy should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G1Affine
+			var start, end bn256.G1Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
@@ -41,12 +54,12 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.Property("[BN256] G1: gurvy -> google -> gurvy should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G1Affine
+			var start, end bn256.G1Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
@@ -64,7 +77,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -79,7 +92,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 
 	properties.Property("[BN256] G2: gurvy -> cloudflare -> gurvy should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G2Affine
+			var start, end bn256.G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
@@ -97,12 +110,12 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.Property("[BN256] G2: gurvy -> google -> gurvy should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
-			var start, end G2Affine
+			var start, end bn256.G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
@@ -120,7 +133,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -133,9 +146,9 @@ func TestGTSerializationInterop(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BN256] GT: gurvy -> cloudflare -> gurvy should stay constant", prop.ForAll(
-		func(start *GT) bool {
-			var end GT
+	properties.Property("[BN256] bn256.GT: gurvy -> cloudflare -> gurvy should stay constant", prop.ForAll(
+		func(start *bn256.GT) bool {
+			var end bn256.GT
 			cgt := new(cloudflare.GT)
 
 			if _, err := cgt.Unmarshal(start.Marshal()); err != nil {
@@ -149,12 +162,12 @@ func TestGTSerializationInterop(t *testing.T) {
 			}
 			return start.Equal(&end)
 		},
-		GenE12(),
+		genGT(),
 	))
 
-	properties.Property("[BN256] GT: gurvy -> google -> gurvy should stay constant", prop.ForAll(
-		func(start *GT) bool {
-			var end GT
+	properties.Property("[BN256] bn256.GT: gurvy -> google -> gurvy should stay constant", prop.ForAll(
+		func(start *bn256.GT) bool {
+			var end bn256.GT
 			cgt := new(google.GT)
 
 			if _, ok := cgt.Unmarshal(start.Marshal()); !ok {
@@ -167,7 +180,7 @@ func TestGTSerializationInterop(t *testing.T) {
 			}
 			return start.Equal(&end)
 		},
-		GenE12(),
+		genGT(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -182,7 +195,7 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 
 	properties.Property("[BN256] G1: scalarMultiplication interop", prop.ForAll(
 		func(a, exp fp.Element) bool {
-			var start, end G1Affine
+			var start, end bn256.G1Affine
 			var ab, bExp big.Int
 			a.ToBigIntRegular(&ab)
 			exp.ToBigIntRegular(&bExp)
@@ -215,13 +228,13 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			}
 			return true
 		},
-		GenFp(),
-		GenFp(),
+		genFp(),
+		genFp(),
 	))
 
 	properties.Property("[BN256] G2: scalarMultiplication interop", prop.ForAll(
 		func(a, exp fp.Element) bool {
-			var start, end G2Affine
+			var start, end bn256.G2Affine
 			var ab, bExp big.Int
 			a.ToBigIntRegular(&ab)
 			exp.ToBigIntRegular(&bExp)
@@ -253,8 +266,8 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			}
 			return true
 		},
-		GenFp(),
-		GenFp(),
+		genFp(),
+		genFp(),
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
@@ -267,8 +280,8 @@ func TestPointAdditionInterop(t *testing.T) {
 
 	properties.Property("[BN256] checking point addition", prop.ForAll(
 		func(a fp.Element) bool {
-			var g1 G1Affine
-			var g2 G2Affine
+			var g1 bn256.G1Affine
+			var g2 bn256.G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			g1.ScalarMultiplication(&g1GenAff, &ab)
@@ -317,8 +330,8 @@ func TestPointAdditionInterop(t *testing.T) {
 			}
 
 			// add g1 to g1Gen and g2 to g2gen
-			var _g1 G1Jac
-			var _g2 G2Jac
+			var _g1 bn256.G1Jac
+			var _g2 bn256.G2Jac
 			_g1.FromAffine(&g1)
 			_g2.FromAffine(&g2)
 
@@ -356,7 +369,7 @@ func TestPointAdditionInterop(t *testing.T) {
 
 			return true
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -370,8 +383,8 @@ func TestPairingInterop(t *testing.T) {
 
 	properties.Property("[BN256] pairing check interop", prop.ForAll(
 		func(a fp.Element) bool {
-			var g1 G1Affine
-			var g2 G2Affine
+			var g1 bn256.G1Affine
+			var g2 bn256.G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
 			g1.ScalarMultiplication(&g1GenAff, &ab)
@@ -402,7 +415,7 @@ func TestPairingInterop(t *testing.T) {
 			// pairings
 			pc := cloudflare.Pair(g1c, g2c)
 			gc := google.Pair(g1g, g2g)
-			c, _ := Pair([]G1Affine{g1}, []G2Affine{g2})
+			c, _ := bn256.Pair([]bn256.G1Affine{g1}, []bn256.G2Affine{g2})
 
 			if !(bytes.Equal(c.Marshal(), gc.Marshal())) {
 				t.Log("pairing doesn't match google implementation")
@@ -416,15 +429,15 @@ func TestPairingInterop(t *testing.T) {
 
 			return true
 		},
-		GenFp(),
+		genFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func BenchmarkPairingInterop(b *testing.B) {
-	var g1 G1Affine
-	var g2 G2Affine
+func BenchmarkPairingInteropBN256(b *testing.B) {
+	var g1 bn256.G1Affine
+	var g2 bn256.G2Affine
 	var ab big.Int
 	ab.SetUint64(42)
 	g1.ScalarMultiplication(&g1GenAff, &ab)
@@ -462,14 +475,14 @@ func BenchmarkPairingInterop(b *testing.B) {
 	b.Run("[bn256]gurvy_pairing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = Pair([]G1Affine{g1}, []G2Affine{g2})
+			_, _ = bn256.Pair([]bn256.G1Affine{g1}, []bn256.G2Affine{g2})
 		}
 	})
 
 }
 
-func BenchmarkPointAdditionInterop(b *testing.B) {
-	var g1 G1Affine
+func BenchmarkPointAdditionInteropBN256(b *testing.B) {
+	var g1 bn256.G1Affine
 	var ab big.Int
 	ab.SetUint64(42)
 	g1.ScalarMultiplication(&g1GenAff, &ab)
@@ -492,7 +505,7 @@ func BenchmarkPointAdditionInterop(b *testing.B) {
 	b.Run("[bn256]gurvy_add_jacobian", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			var _g1 G1Jac
+			var _g1 bn256.G1Jac
 			_g1.FromAffine(&g1)
 			_g1.AddAssign(&g1Gen)
 		}
@@ -500,7 +513,7 @@ func BenchmarkPointAdditionInterop(b *testing.B) {
 
 }
 
-func cloudflareG1(p *G1Affine) (*cloudflare.G1, error) {
+func cloudflareG1(p *bn256.G1Affine) (*cloudflare.G1, error) {
 	r := new(cloudflare.G1)
 	if _, err := r.Unmarshal(p.Marshal()); err != nil {
 		return nil, err
@@ -508,7 +521,7 @@ func cloudflareG1(p *G1Affine) (*cloudflare.G1, error) {
 	return r, nil
 }
 
-func cloudflareG2(p *G2Affine) (*cloudflare.G2, error) {
+func cloudflareG2(p *bn256.G2Affine) (*cloudflare.G2, error) {
 	r := new(cloudflare.G2)
 	if _, err := r.Unmarshal(p.Marshal()); err != nil {
 		return nil, err
@@ -516,7 +529,7 @@ func cloudflareG2(p *G2Affine) (*cloudflare.G2, error) {
 	return r, nil
 }
 
-func googleG1(p *G1Affine) (*google.G1, error) {
+func googleG1(p *bn256.G1Affine) (*google.G1, error) {
 	r := new(google.G1)
 	if _, err := r.Unmarshal(p.Marshal()); err != nil {
 		return nil, err
@@ -524,10 +537,70 @@ func googleG1(p *G1Affine) (*google.G1, error) {
 	return r, nil
 }
 
-func googleG2(p *G2Affine) (*google.G2, error) {
+func googleG2(p *bn256.G2Affine) (*google.G2, error) {
 	r := new(google.G2)
 	if _, err := r.Unmarshal(p.Marshal()); err != nil {
 		return nil, err
 	}
 	return r, nil
+}
+
+func genFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+		var b [fp.Bytes]byte
+		rand.Read(b[:])
+		elmt.SetBytes(b[:])
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+func genGT() gopter.Gen {
+	return gopter.CombineGens(
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+		genFp(),
+	).Map(func(values []interface{}) *bn256.GT {
+		var b [fp.Bytes * 12]byte
+		rand.Read(b[:])
+		var r bn256.GT
+		offset := 0
+		r.C0.B0.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C0.B0.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C0.B1.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C0.B1.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C0.B2.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C0.B2.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+
+		r.C1.B0.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C1.B0.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C1.B1.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C1.B1.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C1.B2.A0.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+		r.C1.B2.A1.SetBytes(b[offset : offset+fp.Bytes])
+		offset += fp.Bytes
+
+		return &r
+	})
 }
