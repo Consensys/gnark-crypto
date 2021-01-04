@@ -1149,6 +1149,8 @@ TEXT ·neg(SB), NOSPLIT, $0-16
     JNE l4
     MOVQ AX, 0(DX)
     MOVQ AX, 8(DX)
+    MOVQ AX, 16(DX)
+    MOVQ AX, 24(DX)
     RET
 l4:
     MOVQ $0x3c208c16d87cfd47, CX

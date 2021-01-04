@@ -3806,6 +3806,12 @@ TEXT ·neg(SB), NOSPLIT, $0-16
     MOVQ AX, 24(DX)
     MOVQ AX, 32(DX)
     MOVQ AX, 40(DX)
+    MOVQ AX, 48(DX)
+    MOVQ AX, 56(DX)
+    MOVQ AX, 64(DX)
+    MOVQ AX, 72(DX)
+    MOVQ AX, 80(DX)
+    MOVQ AX, 88(DX)
     RET
 l5:
     MOVQ $0xf49d00000000008b, CX
