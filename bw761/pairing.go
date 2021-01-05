@@ -51,7 +51,7 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	return f.Equal(&one), nil
 }
 
-// FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
+// FinalExponentiation computes the final expo x**(c*(p**3-1)(p+1)(p**2-p+1)/r)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -71,6 +71,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		MulAssign(&buf)
 
 	// hard part exponent: a multiple of (p**2 - p + 1)/r
+	// cofactor in exponent = 3(x**3-x**2+1)
 	// Appendix B of https://eprint.iacr.org/2020/351.pdf
 	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
 	var f [8]GT
