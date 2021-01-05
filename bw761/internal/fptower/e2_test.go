@@ -146,7 +146,7 @@ func TestE2Ops(t *testing.T) {
 	genB := GenE2()
 	genfp := GenFp()
 
-	properties.Property("[BN256] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E2) bool {
 			var c E2
 			c.Set(a)
@@ -157,7 +157,7 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BN256] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
 			d.Inverse(b)
@@ -169,7 +169,7 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BN256] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Inverse(a).Inverse(&b)
@@ -178,7 +178,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] neg twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Neg(a).Neg(&b)
@@ -187,7 +187,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] square and mul should output the same result", prop.ForAll(
+	properties.Property("[BW761] square and mul should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
 			b.Mul(a, a)
@@ -197,7 +197,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
 		func(a *E2, b fp.Element) bool {
 			var c E2
 			var d fp.Element
@@ -209,7 +209,7 @@ func TestE2Ops(t *testing.T) {
 		genfp,
 	))
 
-	properties.Property("[BN256] Double and mul by 2 should output the same result", prop.ForAll(
+	properties.Property("[BW761] Double and mul by 2 should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			var c fp.Element
@@ -221,7 +221,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] Mulbynonres should be the same as multiplying by (0,1)", prop.ForAll(
+	properties.Property("[BW761] Mulbynonres should be the same as multiplying by (0,1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d E2
 			b.A1.SetOne()
@@ -232,7 +232,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] a + pi(a), a-pi(a) should be real", prop.ForAll(
+	properties.Property("[BW761] a + pi(a), a-pi(a) should be real", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d E2
 			var e, f fp.Element

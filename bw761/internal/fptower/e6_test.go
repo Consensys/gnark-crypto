@@ -1,8 +1,10 @@
 package fptower
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/consensys/gurvy/bw761/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -181,14 +183,14 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 func TestE6Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 1
+	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
 
 	genA := GenE6()
 	genB := GenE6()
 
-	properties.Property("[BN256] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
 			var c E6
 			c.Set(a)
@@ -199,7 +201,7 @@ func TestE6Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BN256] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
 			var c, d E6
 			d.Inverse(b)
@@ -211,7 +213,7 @@ func TestE6Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BN256] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BW761] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Inverse(a).Inverse(&b)
@@ -220,7 +222,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] square and mul should output the same result", prop.ForAll(
+	properties.Property("[BW761] square and mul should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b, c E6
 			b.Mul(a, a)
@@ -230,7 +232,46 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] pi**6=id", prop.ForAll(
+	properties.Property("[BW761] Frobenius(a) = a^q", prop.ForAll(
+		func(a *E6) bool {
+			var res1, res2 E6
+			res1.Frobenius(a)
+			res2.Exp(a, *fp.Modulus())
+
+			return res2.Equal(&res2)
+		},
+		genA,
+	))
+
+	properties.Property("[BW761] FrobeniusSquare(a) = a^(q^2)", prop.ForAll(
+		func(a *E6) bool {
+			var res1, res2 E6
+			var q, q2 big.Int
+			q = *fp.Modulus()
+			q2.Mul(&q, &q)
+			res1.FrobeniusSquare(a)
+			res2.Exp(a, q2)
+
+			return res2.Equal(&res2)
+		},
+		genA,
+	))
+
+	properties.Property("[BW761] FrobeniusCube(a) = a^(q^3)", prop.ForAll(
+		func(a *E6) bool {
+			var res1, res2 E6
+			var q, q3 big.Int
+			q = *fp.Modulus()
+			q3.Mul(&q, &q).Mul(&q3, &q)
+			res1.FrobeniusCube(a)
+			res2.Exp(a, q3)
+
+			return res2.Equal(&res2)
+		},
+		genA,
+	))
+
+	properties.Property("[BW761] pi**6=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.Frobenius(a).
@@ -244,7 +285,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] (pi**2)**3=id", prop.ForAll(
+	properties.Property("[BW761] (pi**2)**3=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.FrobeniusSquare(a).
@@ -255,7 +296,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] (pi**3)**2=id", prop.ForAll(
+	properties.Property("[BW761] (pi**3)**2=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
 			b.FrobeniusCube(a).
@@ -265,7 +306,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN256] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BW761] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E6) bool {
 			var b, c, d E6
 			b.Frobenius(a)
