@@ -43,7 +43,7 @@ type {{ $TProjective }} struct {
 // -------------------------------------------------------------------------------------------------
 // Affine 
 
-// Set set p to the provided point
+// Set sets p to the provided point
 func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
        p.X, p.Y = a.X, a.Y
        return p
@@ -127,7 +127,7 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
 // -------------------------------------------------------------------------------------------------
 // Jacobian 
 
-// Set set p to the provided point
+// Set sets p to the provided point
 func (p *{{ $TJacobian }}) Set(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
@@ -929,18 +929,25 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 
 
 // -------------------------------------------------------------------------------------------------
-// Projective
+// Homogenous projective
 
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *{{ $TProjective }}) FromJacobian(Q *{{ $TJacobian }}) *{{ $TProjective }} {
-	// memalloc
-	var buf {{.CoordType}}
-	buf.Square(&Q.Z)
+// Set sets p to the provided point
+func (p *{{ $TProjective }}) Set(a *{{ $TProjective }}) *{{ $TProjective }} {
+	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
 
-	p.x.Mul(&Q.X, &Q.Z)
+// FromAffine sets p = Q, p in homogenous projective, Q in affine
+func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.z.SetZero()
+		p.x.SetOne()
+		p.y.SetOne()
+		return p
+	}
+	p.z.SetOne()
+	p.x.Set(&Q.X)
 	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
 	return p
 }
 
