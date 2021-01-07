@@ -49,9 +49,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BLS381() {
 	fq2.MOVQ("res+0(FP)", x)
 	fq2.Mov(a, x)
 	registers.Push(a...)
-	fq2.Reduce(&registers, b, b)
-
-	fq2.Mov(b, x, 0, fq2.NbWords)
+	fq2.Reduce(&registers, b, x, fq2.NbWords)
 
 	fq2.RET()
 }

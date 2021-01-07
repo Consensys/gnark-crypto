@@ -282,7 +282,7 @@ func (z *Element) Mul(x, y *Element) *Element {
 // Square z = x * x mod q
 // see https://hackmd.io/@zkteam/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
-	square(z, x)
+	mul(z, x, x)
 	return z
 }
 
@@ -373,74 +373,6 @@ func _mulGeneric(z, x, y *Element) {
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
 		c[2], z[1] = madd2(m, 6968279316240510977, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		z[3], z[2] = madd3(m, 1345280370688173398, c[0], c[2], c[1])
-	}
-
-	// if z > q --> z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 1345280370688173398 || (z[3] == 1345280370688173398 && (z[2] < 6968279316240510977 || (z[2] == 6968279316240510977 && (z[1] < 6461107452199829505 || (z[1] == 6461107452199829505 && (z[0] < 725501752471715841))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 725501752471715841, 0)
-		z[1], b = bits.Sub64(z[1], 6461107452199829505, b)
-		z[2], b = bits.Sub64(z[2], 6968279316240510977, b)
-		z[3], _ = bits.Sub64(z[3], 1345280370688173398, b)
-	}
-}
-
-func _squareGeneric(z, x *Element) {
-
-	var t [4]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, x[0])
-		m := c[0] * 725501752471715839
-		c[2] = madd0(m, 725501752471715841, c[0])
-		c[1], c[0] = madd1(v, x[1], c[1])
-		c[2], t[0] = madd2(m, 6461107452199829505, c[2], c[0])
-		c[1], c[0] = madd1(v, x[2], c[1])
-		c[2], t[1] = madd2(m, 6968279316240510977, c[2], c[0])
-		c[1], c[0] = madd1(v, x[3], c[1])
-		t[3], t[2] = madd3(m, 1345280370688173398, c[0], c[2], c[1])
-	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 725501752471715839
-		c[2] = madd0(m, 725501752471715841, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 6461107452199829505, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 6968279316240510977, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		t[3], t[2] = madd3(m, 1345280370688173398, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 725501752471715839
-		c[2] = madd0(m, 725501752471715841, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 6461107452199829505, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 6968279316240510977, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
-		t[3], t[2] = madd3(m, 1345280370688173398, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, x[0], t[0])
-		m := c[0] * 725501752471715839
-		c[2] = madd0(m, 725501752471715841, c[0])
-		c[1], c[0] = madd2(v, x[1], c[1], t[1])
-		c[2], z[0] = madd2(m, 6461107452199829505, c[2], c[0])
-		c[1], c[0] = madd2(v, x[2], c[1], t[2])
-		c[2], z[1] = madd2(m, 6968279316240510977, c[2], c[0])
-		c[1], c[0] = madd2(v, x[3], c[1], t[3])
 		z[3], z[2] = madd3(m, 1345280370688173398, c[0], c[2], c[1])
 	}
 
@@ -581,6 +513,27 @@ func _reduceGeneric(z *Element) {
 		z[1], b = bits.Sub64(z[1], 6461107452199829505, b)
 		z[2], b = bits.Sub64(z[2], 6968279316240510977, b)
 		z[3], _ = bits.Sub64(z[3], 1345280370688173398, b)
+	}
+}
+
+func mulByConstant(z *Element, c uint8) {
+	switch c {
+	case 0:
+		z.SetZero()
+		return
+	case 1:
+		return
+	case 2:
+		z.Double(z)
+		return
+	case 3:
+		_z := *z
+		z.Double(z).Add(z, &_z)
+	case 5:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z)
+	default:
+		panic("not implemented")
 	}
 }
 

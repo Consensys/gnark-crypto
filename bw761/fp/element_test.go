@@ -281,7 +281,7 @@ func init() {
 
 }
 
-func TestElementInverseZero(t *testing.T) {
+func TestElementNegZero(t *testing.T) {
 	var a, b Element
 	b.SetZero()
 	for a.IsZero() {
@@ -289,7 +289,7 @@ func TestElementInverseZero(t *testing.T) {
 	}
 	a.Neg(&b)
 	if !a.IsZero() {
-		t.Fatal("inverse(0) != 0")
+		t.Fatal("neg(0) != 0")
 	}
 }
 
@@ -361,6 +361,83 @@ func TestElementBytes(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementMulByConstants(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	implemented := []uint8{0, 1, 2, 3, 5}
+	properties.Property("mulByConstant", prop.ForAll(
+		func(a testPairElement) bool {
+			for _, c := range implemented {
+				var constant Element
+				constant.SetUint64(uint64(c))
+
+				b := a.element
+				b.Mul(&b, &constant)
+
+				aa := a.element
+				mulByConstant(&aa, c)
+
+				if !aa.Equal(&b) {
+					return false
+				}
+			}
+
+			return true
+		},
+		genA,
+	))
+
+	properties.Property("MulBy3(x) == Mul(x, 3)", prop.ForAll(
+		func(a testPairElement) bool {
+			var constant Element
+			constant.SetUint64(3)
+
+			b := a.element
+			b.Mul(&b, &constant)
+
+			MulBy3(&a.element)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("MulBy5(x) == Mul(x, 5)", prop.ForAll(
+		func(a testPairElement) bool {
+			var constant Element
+			constant.SetUint64(5)
+
+			b := a.element
+			b.Mul(&b, &constant)
+
+			MulBy5(&a.element)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
+
 }
 
 func TestElementLegendre(t *testing.T) {
@@ -1137,16 +1214,6 @@ func TestElementSquare(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Square: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Square(&a.element)
-			_squareGeneric(&d, &a.element)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
 	specialValueTest := func() {
 		// test special values
 		testValues := make([]Element, len(staticTestValues))
@@ -1160,13 +1227,6 @@ func TestElementSquare(t *testing.T) {
 
 			var d, e big.Int
 			d.Mul(&aBig, &aBig).Mod(&d, Modulus())
-
-			// checking asm against generic impl
-			var cGeneric Element
-			_squareGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Square failed special test values: asm and generic impl don't match")
-			}
 
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Square failed special test values")

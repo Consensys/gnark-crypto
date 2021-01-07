@@ -41,6 +41,8 @@ func (fq2 *Fq2Amd64) Generate() error {
 	fq2.WriteLn("#include \"textflag.h\"")
 	fq2.WriteLn("#include \"funcdata.h\"")
 
+	fq2.GenerateDefines()
+
 	fq2.generateAddE2()
 	fq2.generateDoubleE2()
 	fq2.generateSubE2()

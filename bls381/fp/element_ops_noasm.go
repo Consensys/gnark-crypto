@@ -24,12 +24,18 @@ package fp
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
-func mul(z, x, y *Element) {
-	_mulGeneric(z, x, y)
+// MulBy3 x *= 3
+func MulBy3(x *Element) {
+	mulByConstant(x, 3)
 }
 
-func square(z, x *Element) {
-	_squareGeneric(z, x)
+// MulBy5 x *= 5
+func MulBy5(x *Element) {
+	mulByConstant(x, 5)
+}
+
+func mul(z, x, y *Element) {
+	_mulGeneric(z, x, y)
 }
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation

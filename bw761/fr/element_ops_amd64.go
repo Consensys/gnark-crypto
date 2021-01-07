@@ -16,11 +16,11 @@
 
 package fr
 
-// q'[0], see montgommery multiplication algorithm
-var (
-	qElementInv0 uint64 = 9586122913090633727
-	_                   = qElementInv0 // used in asm
-)
+//go:noescape
+func MulBy3(x *Element)
+
+//go:noescape
+func MulBy5(x *Element)
 
 //go:noescape
 func add(res, x, y *Element)
@@ -36,9 +36,6 @@ func double(res, x *Element)
 
 //go:noescape
 func mul(res, x, y *Element)
-
-//go:noescape
-func square(res, x *Element)
 
 //go:noescape
 func fromMont(res *Element)
