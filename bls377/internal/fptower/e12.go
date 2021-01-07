@@ -139,35 +139,37 @@ func (z *E12) Square(x *E12) *E12 {
 func fp4Square(a, b, c, d *E2) {
 	var tmp E2
 	c.Square(a)
-	tmp.Square(b).MulByNonResidue(&tmp)
+	tmp.Square(b)
+	d.Add(a, b).Square(d).Sub(d, c).Sub(d, &tmp)
+	tmp.MulByNonResidue(&tmp)
 	c.Add(c, &tmp)
-	d.Mul(a, b).Double(d)
+}
+
+func fp4SquareS(a, b, c, d *E2) {
+	var tmp E2
+	c.Square(a)
+	tmp.Square(b)
+	d.Add(a, b).Square(d).Sub(d, c).Sub(d, &tmp)
+	c.MulByNonResidue(c)
+	c.Add(c, &tmp)
 }
 
 // CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E12) CyclotomicSquare(x *E12) *E12 {
+	var t [6]E2
 
-	var rc0, bc0, rc1, bc1 E6
-	rc0 = x.C0
-	rc1 = x.C1
+	fp4Square(&x.C0.B0, &x.C1.B1, &t[0], &t[1])
+	fp4Square(&x.C0.B1, &x.C1.B2, &t[2], &t[3])
+	fp4SquareS(&x.C0.B2, &x.C1.B0, &t[4], &t[5])
 
-	fp4Square(&rc0.B0, &rc1.B1, &bc0.B0, &bc1.B1)
-	fp4Square(&rc0.B1, &rc1.B2, &bc0.B2, &bc1.B0)
-	bc1.B0.MulByNonResidue(&bc1.B0)
+	t[3].MulByNonResidue(&t[3])
 
-	{
-		var tmp E2
-		tmp.MulByNonResidueInv(&rc1.B0)
-		fp4Square(&rc0.B2, &tmp, &bc0.B1, &bc1.B2)
-	}
-
-	bc0.B1.MulByNonResidue(&bc0.B1)
-	bc1.B2.MulByNonResidue(&bc1.B2)
-
-	rc1.Add(&bc1, &rc1).Double(&rc1)
-	z.C1.Add(&rc1, &bc1)
-	rc0.Sub(&bc0, &rc0).Double(&rc0)
-	z.C0.Add(&rc0, &bc0)
+	z.C0.B0.Sub(&t[0], &x.C0.B0).Double(&z.C0.B0).Add(&z.C0.B0, &t[0])
+	z.C0.B1.Sub(&t[4], &x.C0.B1).Double(&z.C0.B1).Add(&z.C0.B1, &t[4])
+	z.C0.B2.Sub(&t[2], &x.C0.B2).Double(&z.C0.B2).Add(&z.C0.B2, &t[2])
+	z.C1.B0.Add(&t[3], &x.C1.B0).Double(&z.C1.B0).Add(&z.C1.B0, &t[3])
+	z.C1.B1.Add(&t[1], &x.C1.B1).Double(&z.C1.B1).Add(&z.C1.B1, &t[1])
+	z.C1.B2.Add(&t[5], &x.C1.B2).Double(&z.C1.B2).Add(&z.C1.B2, &t[5])
 
 	return z
 }
