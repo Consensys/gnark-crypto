@@ -41,7 +41,7 @@ type {{ $TProjective }} struct {
 
 
 // -------------------------------------------------------------------------------------------------
-// Affine 
+// Affine
 
 // Set sets p to the provided point
 func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
@@ -125,7 +125,7 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
 
 
 // -------------------------------------------------------------------------------------------------
-// Jacobian 
+// Jacobian
 
 // Set sets p to the provided point
 func (p *{{ $TJacobian }}) Set(a *{{ $TJacobian }}) *{{ $TJacobian }} {
@@ -564,7 +564,7 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 
 {{ if .CofactorCleaning}}
 
-// ClearCofactor ... 
+// ClearCofactor ...
 func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 	var _p {{$TJacobian}}
 	_p.FromAffine(a)
@@ -767,7 +767,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 
 // -------------------------------------------------------------------------------------------------
-// Jacobian extended 
+// Jacobian extended
 
 
 // setInfinity sets p to O
@@ -812,7 +812,7 @@ func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{
 }
 
 
-// sub same as add, but will negate a.Y 
+// sub same as add, but will negate a.Y
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ $TJacobianExtended }}) sub(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" true}}
@@ -882,7 +882,7 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 		return p
 	}
 
-	var P, R {{.all.CoordType}} 
+	var P, R {{.all.CoordType}}
 
 	// p2: a, p1: p
 	P.Mul(&a.X, &p.ZZ)
@@ -901,12 +901,12 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 			{{ else }}
 				return p.double(a)
 			{{end}}
-			
-		} 
+
+		}
 		p.ZZ = {{.all.CoordType}}{}
 		p.ZZZ = {{.all.CoordType}}{}
 		return p
-	} 
+	}
 
 	var PP, PPP, Q, Q2, RR, X3, Y3 {{.all.CoordType}}
 
@@ -934,6 +934,19 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 // Set sets p to the provided point
 func (p *{{ $TProjective }}) Set(a *{{ $TProjective }}) *{{ $TProjective }} {
 	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *{{ $TProjective }}) FromJacobian(Q *{{ $TJacobian }}) *{{ $TProjective }} {
+	// memalloc
+	var buf {{.CoordType}}
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
 	return p
 }
 
@@ -1027,7 +1040,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		cost += nbPoints*((fr.Limbs*64) + nbChunks)
 		if cost < min {
 			min = cost
-			bestC = c 
+			bestC = c
 		}
 	}
 	c := uint64(bestC) // window size
@@ -1036,7 +1049,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		nbChunks++
 	}
 	mask := uint64((1 << c) - 1)	// low c bits are 1
-	msbWindow := uint64(1 << (c -1)) 
+	msbWindow := uint64(1 << (c -1))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -1098,10 +1111,10 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 				if bits == 0 {
 					continue
 				}
-				
+
 				// if msbWindow bit is set, we need to substract
 				if bits & msbWindow == 0 {
-					// add 
+					// add
 					{{if eq .PointName "g1"}}
 						p.AddMixed(&baseTableAff[bits-1])
 					{{else}}
@@ -1121,13 +1134,13 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 				}
 			}
 
-			// set our result point 
+			// set our result point
 			{{if eq .PointName "g1"}}
 				toReturn[i] = p
 			{{else}}
 				toReturn[i].FromJacobian(&p)
 			{{end}}
-			
+
 		}
 	})
 
@@ -1139,6 +1152,3 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		return toReturn
 	{{end}}
 }
-
-
-

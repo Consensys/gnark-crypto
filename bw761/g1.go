@@ -752,6 +752,19 @@ func (p *g1Proj) Set(a *g1Proj) *g1Proj {
 	return p
 }
 
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
+	// memalloc
+	var buf fp.Element
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
+	return p
+}
+
 // FromAffine sets p = Q, p in homogenous projective, Q in affine
 func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
 	if Q.X.IsZero() && Q.Y.IsZero() {
