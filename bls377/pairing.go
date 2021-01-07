@@ -118,7 +118,10 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var evaluations = make([]*[69]lineEvaluation, 0, nP)
+	var (
+		ch          = make([]chan struct{}, 0, nP)
+		evaluations = make([]*[69]lineEvaluation, 0, nP)
+	)
 
 	var countInf = 0
 	for k := 0; k < nP; k++ {
@@ -126,9 +129,10 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			countInf++
 			continue
 		}
+		ch = append(ch, make(chan struct{}, 10))
 		evaluations = append(evaluations, lineEvalPool.Get().(*[69]lineEvaluation))
 
-		preCompute(evaluations[k-countInf], &Q[k])
+		go preCompute(evaluations[k-countInf], &Q[k], ch[k-countInf])
 	}
 
 	nP = nP - countInf
@@ -141,12 +145,14 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		result.Square(&result)
 		for k := 0; k < nP; k++ {
+			<-ch[k]
 			lineEval(&result, &evaluations[k][j], &P[k])
 		}
 		j++
 
 		if loopCounter[i] == 1 {
 			for k := 0; k < nP; k++ {
+				<-ch[k]
 				lineEval(&result, &evaluations[k][j], &P[k])
 			}
 			j++
@@ -172,7 +178,7 @@ func lineEval(z *GT, l *lineEvaluation, P *G1Affine) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine) {
+func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, ch chan struct{}) {
 
 	var Qproj g2Proj
 	Qproj.FromAffine(Q)
@@ -182,13 +188,16 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine) {
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
 		Qproj.DoubleStep(&evaluations[j])
+		ch <- struct{}{}
 
 		if loopCounter[i] != 0 {
 			j++
+			ch <- struct{}{}
 			Qproj.AddMixedStep(&evaluations[j], Q)
 		}
 		j++
 	}
+	close(ch)
 }
 
 // DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
