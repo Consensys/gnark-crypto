@@ -153,7 +153,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		if loopCounter[i] == 1 {
 			for k := 0; k < nP; k++ {
 				<-ch[k]
-                lineEval(&result, &evaluations[k][j], &P[k])
+				lineEval(&result, &evaluations[k][j], &P[k])
 			}
 			j++
 		}
