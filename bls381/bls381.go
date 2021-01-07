@@ -25,7 +25,7 @@ const ID = gurvy.BLS381
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element
 
-// twist ...
+// twist
 var twist fptower.E2
 
 // bTwistCurveCoeff b coeff of the twist (defined over Fp2) curve

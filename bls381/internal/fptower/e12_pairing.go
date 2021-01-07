@@ -56,7 +56,7 @@ func (z *E12) MulByWNRInv(x *E12, y *E2) *E12 {
 	return z
 }
 
-// MulBy014 ...
+// MulBy014 multiplication by sparse element
 func (z *E12) MulBy014(c0, c1, c4 *E2) *E12 {
 
 	var z0, z1, z2, z3, z4, z5, tmp1, tmp2 E2
