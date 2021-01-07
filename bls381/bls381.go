@@ -25,8 +25,14 @@ const ID = gurvy.BLS381
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element
 
+// twist ...
+var twist fptower.E2
+
 // bTwistCurveCoeff b coeff of the twist (defined over Fp2) curve
 var bTwistCurveCoeff fptower.E2
+
+// twoInv 1/2 mod p (needed for DoubleStep in Miller loop)
+var twoInv fp.Element
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
@@ -67,9 +73,11 @@ var xGen big.Int
 func init() {
 
 	bCurveCoeff.SetUint64(4)
-	bTwistCurveCoeff.A0.SetUint64(1)
-	bTwistCurveCoeff.A1.SetUint64(1)
-	bTwistCurveCoeff.MulByElement(&bTwistCurveCoeff, &bCurveCoeff)
+	twist.A0.SetUint64(1)
+	twist.A1.SetUint64(1)
+	bTwistCurveCoeff.MulByElement(&twist, &bCurveCoeff)
+
+	twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
 
 	g1Gen.X.SetString("3685416753713387016781088315183077757961620795782546409894578378688607592378376318836054947676345821548104185464507")
 	g1Gen.Y.SetString("1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569")
