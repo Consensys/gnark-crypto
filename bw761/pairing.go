@@ -200,9 +200,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var (
-		ch1 = make([]chan struct{}, 0, nP)
-		ch2 = make([]chan struct{}, 0, nP)
-
 		evaluations1 = make([]*[69]lineEvaluation, 0, nP)
 		evaluations2 = make([]*[144]lineEvaluation, 0, nP)
 		Paff         = make([]G1Affine, nP)
@@ -220,10 +217,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		xQjac[k-countInf].FromAffine(&Q[k])
 		QjacSaved[k-countInf].FromAffine(&Q[k])
 		Paff[k-countInf].Set(&P[k])
-		ch1 = append(ch1, make(chan struct{}, 10))
 		evaluations1 = append(evaluations1, lineEvalPool1.Get().(*[69]lineEvaluation))
 
-		go preCompute1(evaluations1[k-countInf], &xQjac[k-countInf], &Paff[k-countInf], ch1[k-countInf])
+		preCompute1(evaluations1[k-countInf], &xQjac[k-countInf], &Paff[k-countInf])
 	}
 
 	nP = nP - countInf
@@ -237,14 +233,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		result.Square(&result)
 		for k := 0; k < nP; k++ {
-			<-ch1[k]
 			mulAssign(&result, &evaluations1[k][j])
 		}
 		j++
 
 		if loopCounter1[i] != 0 {
 			for k := 0; k < nP; k++ {
-				<-ch1[k]
 				mulAssign(&result, &evaluations1[k][j])
 			}
 			j++
@@ -271,12 +265,11 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		lineEval(&xQjac[k], &QjacSaved[k], &Paff[k], &lEval[k])
 		mulAssign(&mxplusone, &lEval[k])
 
-		ch2 = append(ch2, make(chan struct{}, 10))
 		evaluations2 = append(evaluations2, lineEvalPool2.Get().(*[144]lineEvaluation))
 
 		// Miller loop part 2 (xQjac = [x]Q)
 		// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
-		go preCompute2(evaluations2[k], &xQjac[k], &Paff[k], ch2[k])
+		preCompute2(evaluations2[k], &xQjac[k], &Paff[k])
 	}
 
 	j = 0
@@ -284,21 +277,18 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		result.Square(&result)
 		for k := 0; k < nP; k++ {
-			<-ch2[k]
 			mulAssign(&result, &evaluations2[k][j])
 		}
 		j++
 
 		if loopCounter2[i] == 1 {
 			for k := 0; k < nP; k++ {
-				<-ch2[k]
 				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
 			}
 			result.MulAssign(&mx)
 			j++
 		} else if loopCounter2[i] == -1 {
 			for k := 0; k < nP; k++ {
-				<-ch2[k]
 				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
 			}
 			result.MulAssign(&mxInv)
@@ -356,7 +346,7 @@ func mulAssign(z *GT, l *lineEvaluation) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine) {
 
 	var Q1, Qbuf G2Jac
 	Q1.Set(Q)
@@ -370,13 +360,11 @@ func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan
 		Q.Double(&Q1).Neg(Q)
 		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
 		Q.Neg(Q)
-		ch <- struct{}{}
 		j++
 
 		if loopCounter1[i] == 1 {
 			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
 			Q.AddAssign(&Qbuf)
-			ch <- struct{}{}
 			j++
 		}
 	}
@@ -384,7 +372,7 @@ func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine) {
 
 	var Q1, Qbuf, Qneg G2Jac
 	Q1.Set(Q)
@@ -399,18 +387,15 @@ func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch cha
 		Q.Double(&Q1).Neg(Q)
 		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
 		Q.Neg(Q)
-		ch <- struct{}{}
 		j++
 
 		if loopCounter2[i] == 1 {
 			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
 			Q.AddAssign(&Qbuf)
-			ch <- struct{}{}
 			j++
 		} else if loopCounter2[i] == -1 {
 			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q)+(-Qbuf)+(-Q+Qbuf)-3(O)
 			Q.AddAssign(&Qneg)
-			ch <- struct{}{}
 			j++
 		}
 	}

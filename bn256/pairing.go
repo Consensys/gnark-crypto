@@ -136,7 +136,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var (
-		ch          = make([]chan struct{}, 0, nP)
 		evaluations = make([]*[86]lineEvaluation, 0, nP)
 		Qjac        = make([]G2Jac, nP)
 		Q1          = make([]G2Jac, nP)
@@ -152,12 +151,11 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			continue
 		}
 
-		ch = append(ch, make(chan struct{}, 10))
 		evaluations = append(evaluations, lineEvalPool.Get().(*[86]lineEvaluation))
 
 		Qjac[k-countInf].FromAffine(&Q[k])
 		Paff[k-countInf].Set(&P[k])
-		go preCompute(evaluations[k-countInf], &Qjac[k-countInf], &Paff[k-countInf], ch[k-countInf])
+		preCompute(evaluations[k-countInf], &Qjac[k-countInf], &Paff[k-countInf])
 
 		//Q1[k] = Frob(Q[k])
 		Q1[k-countInf].X.Conjugate(&Q[k].X).MulByNonResidue1Power2(&Q1[k-countInf].X)
@@ -180,14 +178,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		result.Square(&result)
 		for k := 0; k < nP; k++ {
-			<-ch[k]
 			mulAssign(&result, &evaluations[k][j])
 		}
 		j++
 
 		if loopCounter[i] != 0 {
 			for k := 0; k < nP; k++ {
-				<-ch[k]
 				mulAssign(&result, &evaluations[k][j])
 			}
 			j++
@@ -253,7 +249,7 @@ func mulAssign(z *GT, l *lineEvaluation) *GT {
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine) {
 
 	var Q1, Qbuf, Qneg G2Jac
 	Q1.Set(Q)
@@ -268,21 +264,16 @@ func preCompute(evaluations *[86]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan 
 		Q.Double(&Q1).Neg(Q)
 		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
 		Q.Neg(Q)
-		ch <- struct{}{}
 		j++
 
 		if loopCounter[i] == 1 {
 			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
 			Q.AddAssign(&Qbuf)
-			ch <- struct{}{}
 			j++
 		} else if loopCounter[i] == -1 {
 			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q)+(-Qbuf)+(-Q+Qbuf)-3(O)
 			Q.AddAssign(&Qneg)
-			ch <- struct{}{}
 			j++
 		}
 	}
-
-	close(ch)
 }
