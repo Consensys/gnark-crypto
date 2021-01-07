@@ -192,8 +192,8 @@ func preCompute(evaluations *[69]lineEvaluation, Q *G2Affine, ch chan struct{}) 
 
 		if loopCounter[i] != 0 {
 			j++
-			ch <- struct{}{}
 			Qproj.AddMixedStep(&evaluations[j], Q)
+			ch <- struct{}{}
 		}
 		j++
 	}
