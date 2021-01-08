@@ -16,7 +16,6 @@ package bn256
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/consensys/gurvy/bn256/internal/fptower"
 )
@@ -122,137 +121,83 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-var lineEvalPool = sync.Pool{
-	New: func() interface{} {
-		return new([88]lineEvaluation)
-	},
-}
-
 // MillerLoop Miller loop
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
-	nP := len(P)
-	if nP == 0 || nP != len(Q) {
+	n := len(P)
+	if n == 0 || n != len(Q) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var (
-		ch          = make([]chan struct{}, 0, nP)
-		evaluations = make([]*[88]lineEvaluation, 0, nP)
-		Paff        = make([]G1Affine, nP)
-	)
+	// filter infinity points
+	p := make([]G1Affine, 0, n)
+	q := make([]G2Affine, 0, n)
 
-	var countInf = 0
-	for k := 0; k < nP; k++ {
+	for k := 0; k < n; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
-			countInf++
 			continue
 		}
-
-		ch = append(ch, make(chan struct{}, 10))
-		evaluations = append(evaluations, lineEvalPool.Get().(*[88]lineEvaluation))
-
-		Paff[k-countInf].Set(&P[k])
-		go preCompute(evaluations[k-countInf], &Q[k], ch[k-countInf])
+		p = append(p, P[k])
+		q = append(q, Q[k])
 	}
+	n = len(p)
 
-	nP = nP - countInf
+	// projective points for Q
+	qProj := make([]g2Proj, n)
+	qNeg := make([]G2Affine, n)
+	for k := 0; k < n; k++ {
+		qProj[k].FromAffine(&q[k])
+		qNeg[k].Neg(&q[k])
+	}
 
 	var result GT
 	result.SetOne()
 
-	j := 0
+	var l lineEvaluation
+
 	for i := len(loopCounter) - 2; i >= 0; i-- {
-
 		result.Square(&result)
-		for k := 0; k < nP; k++ {
-			<-ch[k]
-			lineEval(&result, &evaluations[k][j], &Paff[k])
-		}
-		j++
 
-		if loopCounter[i] != 0 {
-			for k := 0; k < nP; k++ {
-				<-ch[k]
-				lineEval(&result, &evaluations[k][j], &Paff[k])
+		for k := 0; k < n; k++ {
+			qProj[k].DoubleStep(&l)
+			lineEval(&result, &l, &p[k])
+
+			if loopCounter[i] == 1 {
+				qProj[k].AddMixedStep(&l, &q[k])
+				lineEval(&result, &l, &p[k])
+			} else if loopCounter[i] == -1 {
+				qProj[k].AddMixedStep(&l, &qNeg[k])
+				lineEval(&result, &l, &p[k])
 			}
-			j++
 		}
 	}
 
+	var Q1, Q2 G2Affine
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
-	for k := 0; k < nP; k++ {
-		<-ch[k]
-		lineEval(&result, &evaluations[k][j], &Paff[k])
-	}
-	j++
-	for k := 0; k < nP; k++ {
-		<-ch[k]
-		lineEval(&result, &evaluations[k][j], &Paff[k])
-	}
+	for k := 0; k < n; k++ {
+		//Q1 = Frob(Q)
+		Q1.X.Conjugate(&q[k].X).MulByNonResidue1Power2(&Q1.X)
+		Q1.Y.Conjugate(&q[k].Y).MulByNonResidue1Power3(&Q1.Y)
 
-	// release objects into the pool
-	go func() {
-		for i := 0; i < len(evaluations); i++ {
-			lineEvalPool.Put(evaluations[i])
-		}
-	}()
+		// Q2 = -Frob2(Q)
+		Q2.X.MulByNonResidue2Power2(&q[k].X)
+		Q2.Y.MulByNonResidue2Power3(&q[k].Y).Neg(&Q2.Y)
+
+		qProj[k].AddMixedStep(&l, &Q1)
+		lineEval(&result, &l, &p[k])
+		qProj[k].AddMixedStep(&l, &Q2)
+		lineEval(&result, &l, &p[k])
+	}
 
 	return result, nil
 }
 
-func lineEval(z *GT, l *lineEvaluation, P *G1Affine) *GT {
+func lineEval(result *GT, l *lineEvaluation, P *G1Affine) *GT {
 
 	l.r0.MulByElement(&l.r0, &P.Y)
 	l.r1.MulByElement(&l.r1, &P.X)
+	result.MulBy034(&l.r0, &l.r1, &l.r2)
 
-	z.MulBy034(&l.r0, &l.r1, &l.r2)
-
-	return z
-}
-
-// precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[88]lineEvaluation, Q *G2Affine, ch chan struct{}) {
-
-	var Qproj g2Proj
-	Qproj.FromAffine(Q)
-	var Qneg G2Affine
-	Qneg.Neg(Q)
-
-	j := 0
-
-	for i := len(loopCounter) - 2; i >= 0; i-- {
-
-		Qproj.DoubleStep(&evaluations[j])
-		ch <- struct{}{}
-
-		if loopCounter[i] == 1 {
-			j++
-			Qproj.AddMixedStep(&evaluations[j], Q)
-			ch <- struct{}{}
-		} else if loopCounter[i] == -1 {
-			j++
-			Qproj.AddMixedStep(&evaluations[j], &Qneg)
-			ch <- struct{}{}
-		}
-		j++
-	}
-
-	var Q1, Q2 G2Affine
-	//Q1 = Frob(Q)
-	Q1.X.Conjugate(&Q.X).MulByNonResidue1Power2(&Q1.X)
-	Q1.Y.Conjugate(&Q.Y).MulByNonResidue1Power3(&Q1.Y)
-
-	// Q2 = -Frob2(Q)
-	Q2.X.MulByNonResidue2Power2(&Q.X)
-	Q2.Y.MulByNonResidue2Power3(&Q.Y).Neg(&Q2.Y)
-
-	Qproj.AddMixedStep(&evaluations[j], &Q1)
-	ch <- struct{}{}
-	j++
-	Qproj.AddMixedStep(&evaluations[j], &Q2)
-	ch <- struct{}{}
-
-	close(ch)
+	return result
 }
 
 // DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
