@@ -135,41 +135,40 @@ func (z *E12) Square(x *E12) *E12 {
 	return z
 }
 
-// squares an element a+by interpreted as an Fp4 elmt, where y**2= non_residue_e2
-func fp4Square(a, b, c, d *E2) {
-	var tmp E2
-	c.Square(a)
-	tmp.Square(b)
-	d.Add(a, b).Square(d).Sub(d, c).Sub(d, &tmp)
-	tmp.MulByNonResidue(&tmp)
-	c.Add(c, &tmp)
-}
-
-func fp4SquareS(a, b, c, d *E2) {
-	var tmp E2
-	c.Square(a)
-	tmp.Square(b)
-	d.Add(a, b).Square(d).Sub(d, c).Sub(d, &tmp)
-	c.MulByNonResidue(c)
-	c.Add(c, &tmp)
-}
-
 // CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E12) CyclotomicSquare(x *E12) *E12 {
-	var t [6]E2
 
-	fp4Square(&x.C0.B0, &x.C1.B1, &t[0], &t[1])
-	fp4Square(&x.C0.B1, &x.C1.B2, &t[2], &t[3])
-	fp4SquareS(&x.C0.B2, &x.C1.B0, &t[4], &t[5])
+	// x=(x0,x1,x2,x3,x4,x5,x6,x7) in E2^6
+	// cyclosquare(x)=(3*x4^2*u + 3*x0^2 - 2*x0,
+	//					3*x2^2*u + 3*x3^2 - 2*x1,
+	//					3*x5^2*u + 3*x1^2 - 2*x2,
+	//					6*x1*x5*u + 2*x3,
+	//					6*x0*x4 + 2*x4,
+	//					6*x2*x3 + 2*x5)
 
-	t[3].MulByNonResidue(&t[3])
+	var t [9]E2
+
+	t[0].Square(&x.C1.B1)
+	t[1].Square(&x.C0.B0)
+	t[6].Add(&x.C1.B1, &x.C0.B0).Square(&t[6]).Sub(&t[6], &t[0]).Sub(&t[6], &t[1]) // 2*x4*x0
+	t[2].Square(&x.C0.B2)
+	t[3].Square(&x.C1.B0)
+	t[7].Add(&x.C0.B2, &x.C1.B0).Square(&t[7]).Sub(&t[7], &t[2]).Sub(&t[7], &t[3]) // 2*x2*x3
+	t[4].Square(&x.C1.B2)
+	t[5].Square(&x.C0.B1)
+	t[8].Add(&x.C1.B2, &x.C0.B1).Square(&t[8]).Sub(&t[8], &t[4]).Sub(&t[8], &t[5]).MulByNonResidue(&t[8]) // 2*x5*x1*u
+
+	t[0].MulByNonResidue(&t[0]).Add(&t[0], &t[1]) // x4^2*u + x0^2
+	t[2].MulByNonResidue(&t[2]).Add(&t[2], &t[3]) // x2^2*u + x3^2
+	t[4].MulByNonResidue(&t[4]).Add(&t[4], &t[5]) // x5^2*u + x1^2
 
 	z.C0.B0.Sub(&t[0], &x.C0.B0).Double(&z.C0.B0).Add(&z.C0.B0, &t[0])
-	z.C0.B1.Sub(&t[4], &x.C0.B1).Double(&z.C0.B1).Add(&z.C0.B1, &t[4])
-	z.C0.B2.Sub(&t[2], &x.C0.B2).Double(&z.C0.B2).Add(&z.C0.B2, &t[2])
-	z.C1.B0.Add(&t[3], &x.C1.B0).Double(&z.C1.B0).Add(&z.C1.B0, &t[3])
-	z.C1.B1.Add(&t[1], &x.C1.B1).Double(&z.C1.B1).Add(&z.C1.B1, &t[1])
-	z.C1.B2.Add(&t[5], &x.C1.B2).Double(&z.C1.B2).Add(&z.C1.B2, &t[5])
+	z.C0.B1.Sub(&t[2], &x.C0.B1).Double(&z.C0.B1).Add(&z.C0.B1, &t[2])
+	z.C0.B2.Sub(&t[4], &x.C0.B2).Double(&z.C0.B2).Add(&z.C0.B2, &t[4])
+
+	z.C1.B0.Add(&t[8], &x.C1.B0).Double(&z.C1.B0).Add(&z.C1.B0, &t[8])
+	z.C1.B1.Add(&t[6], &x.C1.B1).Double(&z.C1.B1).Add(&z.C1.B1, &t[6])
+	z.C1.B2.Add(&t[7], &x.C1.B2).Double(&z.C1.B2).Add(&z.C1.B2, &t[7])
 
 	return z
 }
