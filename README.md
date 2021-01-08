@@ -61,7 +61,7 @@ These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled
 |G2::ScalarMul|	88423|	141000|
 |G2::Add	|598|	871|
 |G2::Double	|371|	386|
-|Pairing	|478244	|606000|
+|Pairing	|478244	|489258|
 
 
 ----
@@ -80,7 +80,7 @@ These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled
 |G2::ScalarMul|	159068|	273000|
 |G2::Add	|1162|	1240|
 |G2::Double	|727|	799|
-|Pairing	|676513	|949000|
+|Pairing	|676513	|707984|
 
 *note that some routines don't have assembly implementation in `goff` yet.
 
