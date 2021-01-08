@@ -49,7 +49,7 @@ type g1Proj struct {
 // -------------------------------------------------------------------------------------------------
 // Affine
 
-// Set set p to the provided point
+// Set sets p to the provided point
 func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	p.X, p.Y = a.X, a.Y
 	return p
@@ -124,7 +124,7 @@ func (p *G1Affine) IsInSubGroup() bool {
 // -------------------------------------------------------------------------------------------------
 // Jacobian
 
-// Set set p to the provided point
+// Set sets p to the provided point
 func (p *G1Jac) Set(a *G1Jac) *G1Jac {
 	p.X, p.Y, p.Z = a.X, a.Y, a.Z
 	return p
@@ -709,7 +709,13 @@ func (p *g1JacExtended) double(q *G1Affine) *g1JacExtended {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Projective
+// Homogenous projective
+
+// Set sets p to the provided point
+func (p *g1Proj) Set(a *g1Proj) *g1Proj {
+	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
 
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
@@ -721,6 +727,20 @@ func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
 	p.y.Set(&Q.Y)
 	p.z.Mul(&Q.Z, &buf)
 
+	return p
+}
+
+// FromAffine sets p = Q, p in homogenous projective, Q in affine
+func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.z.SetZero()
+		p.x.SetOne()
+		p.y.SetOne()
+		return p
+	}
+	p.z.SetOne()
+	p.x.Set(&Q.X)
+	p.y.Set(&Q.Y)
 	return p
 }
 

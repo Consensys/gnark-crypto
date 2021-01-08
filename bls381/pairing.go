@@ -125,7 +125,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		ch = append(ch, make(chan struct{}, 10))
 		evaluations = append(evaluations, lineEvalPool.Get().(*[68]lineEvaluation))
 
-		go preCompute(evaluations[k-countInf], &Q[k], &P[k], ch[k-countInf])
+		go preCompute(evaluations[k-countInf], &Q[k], ch[k-countInf])
 	}
 
 	nP = nP - countInf
@@ -139,14 +139,14 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.Square(&result)
 		for k := 0; k < nP; k++ {
 			<-ch[k]
-			mulAssign(&result, &evaluations[k][j])
+			lineEval(&result, &evaluations[k][j], &P[k])
 		}
 		j++
 
 		if loopCounter[i] == 1 {
 			for k := 0; k < nP; k++ {
 				<-ch[k]
-				mulAssign(&result, &evaluations[k][j])
+				lineEval(&result, &evaluations[k][j], &P[k])
 			}
 			j++
 		}
@@ -162,70 +162,112 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	return result, nil
 }
 
-// lineEval computes the evaluation of the line through Q, R (on the twist) at P
-// Q, R are in jacobian coordinates
-func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
+func lineEval(z *GT, l *lineEvaluation, P *G1Affine) *GT {
 
-	// converts _Q and _R to projective coords
-	var _Q, _R g2Proj
-	_Q.FromJacobian(Q)
-	_R.FromJacobian(R)
+	l.r2.MulByElement(&l.r2, &P.Y)
+	l.r1.MulByElement(&l.r1, &P.X)
 
-	result.r1.Mul(&_Q.y, &_R.z)
-	result.r0.Mul(&_Q.z, &_R.x)
-	result.r2.Mul(&_Q.x, &_R.y)
-
-	_Q.z.Mul(&_Q.z, &_R.y)
-	_Q.x.Mul(&_Q.x, &_R.z)
-	_Q.y.Mul(&_Q.y, &_R.x)
-
-	result.r1.Sub(&result.r1, &_Q.z)
-	result.r0.Sub(&result.r0, &_Q.x)
-	result.r2.Sub(&result.r2, &_Q.y)
-
-	result.r1.MulByElement(&result.r1, &P.X)
-	result.r0.MulByElement(&result.r0, &P.Y)
-}
-
-// multiplies a result of a line evaluation to the current pairing result, taking care of mapping it
-// back to the original  The line evaluation l is f(P) where div(f)=(P')+(Q')+(-P'-Q')-3(O), the support
-// being on the twist.
-func mulAssign(z *GT, l *lineEvaluation) *GT {
-
-	var a, b, c GT
-	a.MulByVWNRInv(z, &l.r1)
-	b.MulByV2NRInv(z, &l.r0)
-	c.MulByWNRInv(z, &l.r2)
-	z.Add(&a, &b).Add(z, &c)
-
+	z.MulBy014(&l.r0, &l.r1, &l.r2)
 	return z
 }
 
 // precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, P *G1Affine, ch chan struct{}) {
+func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, ch chan struct{}) {
 
-	var Q1, Q2, Qbuf G2Jac
-	Q1.FromAffine(Q)
-	Q2.FromAffine(Q)
-	Qbuf.FromAffine(Q)
+	var Qproj g2Proj
+	Qproj.FromAffine(Q)
 
 	j := 0
 
 	for i := len(loopCounter) - 2; i >= 0; i-- {
 
-		Q1.Set(&Q2)
-		Q2.Double(&Q1).Neg(&Q2)
-		lineEval(&Q1, &Q2, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q2)-3(O)
+		Qproj.DoubleStep(&evaluations[j])
 		ch <- struct{}{}
-		Q2.Neg(&Q2)
-		j++
 
-		if loopCounter[i] == 1 {
-			lineEval(&Q2, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q2)+(Q)+(-Q2-Q)-3(O)
-			ch <- struct{}{}
-			Q2.AddMixed(Q)
+		if loopCounter[i] != 0 {
 			j++
+			Qproj.AddMixedStep(&evaluations[j], Q)
+			ch <- struct{}{}
 		}
+		j++
 	}
 	close(ch)
+}
+
+// DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
+
+	// get some Element from our pool
+	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E2
+	t0.Mul(&p.x, &p.y)
+	A.MulByElement(&t0, &twoInv)
+	B.Square(&p.y)
+	C.Square(&p.z)
+	D.Double(&C).
+		Add(&D, &C)
+	E.Mul(&D, &bTwistCurveCoeff)
+	F.Double(&E).
+		Add(&F, &E)
+	G.Add(&B, &F)
+	G.MulByElement(&G, &twoInv)
+	H.Add(&p.y, &p.z).
+		Square(&H)
+	t1.Add(&B, &C)
+	H.Sub(&H, &t1)
+	I.Sub(&E, &B)
+	J.Square(&p.x)
+	EE.Square(&E)
+	K.Double(&EE).
+		Add(&K, &EE)
+
+	// X, Y, Z
+	p.x.Sub(&B, &F).
+		Mul(&p.x, &A)
+	p.y.Square(&G).
+		Sub(&p.y, &K)
+	p.z.Mul(&B, &H)
+
+	// Line evaluation
+	evaluations.r0.Set(&I)
+	evaluations.r1.Double(&J).
+		Add(&evaluations.r1, &J)
+	evaluations.r2.Neg(&H)
+}
+
+// AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
+
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fptower.E2
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
+	C.Square(&O)
+	D.Square(&L)
+	E.Mul(&L, &D)
+	F.Mul(&p.z, &C)
+	G.Mul(&p.x, &D)
+	t0.Double(&G)
+	H.Add(&E, &F).
+		Sub(&H, &t0)
+	t1.Mul(&p.y, &E)
+
+	// X, Y, Z
+	p.x.Mul(&L, &H)
+	p.y.Sub(&G, &H).
+		Mul(&p.y, &O).
+		Sub(&p.y, &t1)
+	p.z.Mul(&E, &p.z)
+
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
+
+	// Line evaluation
+	evaluations.r0.Set(&J)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&L)
 }
