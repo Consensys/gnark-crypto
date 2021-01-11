@@ -159,14 +159,24 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		for k := 0; k < n; k++ {
 			qProj[k].DoubleStep(&l)
-			lineEval(&result, &l, &p[k])
+			// line evaluation
+			l.r0.MulByElement(&l.r0, &p[k].Y)
+			l.r1.MulByElement(&l.r1, &p[k].X)
+			result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			if loopCounter[i] == 1 {
 				qProj[k].AddMixedStep(&l, &q[k])
-				lineEval(&result, &l, &p[k])
+				// line evaluation
+				l.r0.MulByElement(&l.r0, &p[k].Y)
+				l.r1.MulByElement(&l.r1, &p[k].X)
+				result.MulBy034(&l.r0, &l.r1, &l.r2)
+
 			} else if loopCounter[i] == -1 {
 				qProj[k].AddMixedStep(&l, &qNeg[k])
-				lineEval(&result, &l, &p[k])
+				// line evaluation
+				l.r0.MulByElement(&l.r0, &p[k].Y)
+				l.r1.MulByElement(&l.r1, &p[k].X)
+				result.MulBy034(&l.r0, &l.r1, &l.r2)
 			}
 		}
 	}
@@ -183,21 +193,19 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		Q2.Y.MulByNonResidue2Power3(&q[k].Y).Neg(&Q2.Y)
 
 		qProj[k].AddMixedStep(&l, &Q1)
-		lineEval(&result, &l, &p[k])
+		// line evaluation
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
+
 		qProj[k].AddMixedStep(&l, &Q2)
-		lineEval(&result, &l, &p[k])
+		// line evaluation
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
 	}
 
 	return result, nil
-}
-
-func lineEval(result *GT, l *lineEvaluation, P *G1Affine) *GT {
-
-	l.r0.MulByElement(&l.r0, &P.Y)
-	l.r1.MulByElement(&l.r1, &P.X)
-	result.MulBy034(&l.r0, &l.r1, &l.r2)
-
-	return result
 }
 
 // DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
