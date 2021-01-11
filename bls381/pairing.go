@@ -16,7 +16,6 @@ package bls381
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
@@ -97,106 +96,86 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-var lineEvalPool = sync.Pool{
-	New: func() interface{} {
-		return new([68]lineEvaluation)
-	},
-}
-
 // MillerLoop Miller loop
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
-	nP := len(P)
-	if nP == 0 || nP != len(Q) {
+	// check input size match
+	n := len(P)
+	if n == 0 || n != len(Q) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var (
-		ch          = make([]chan struct{}, 0, nP)
-		evaluations = make([]*[68]lineEvaluation, 0, nP)
-	)
+	// filter infinity points
+	p := make([]G1Affine, 0, n)
+	q := make([]G2Affine, 0, n)
 
-	var countInf = 0
-	for k := 0; k < nP; k++ {
+	for k := 0; k < n; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
-			countInf++
 			continue
 		}
-
-		ch = append(ch, make(chan struct{}, 10))
-		evaluations = append(evaluations, lineEvalPool.Get().(*[68]lineEvaluation))
-
-		go preCompute(evaluations[k-countInf], &Q[k], ch[k-countInf])
+		p = append(p, P[k])
+		q = append(q, Q[k])
 	}
 
-	nP = nP - countInf
+	n = len(p)
+
+	// projective points for Q
+	qProj := make([]g2Proj, n)
+	for k := 0; k < n; k++ {
+		qProj[k].FromAffine(&q[k])
+	}
 
 	var result GT
 	result.SetOne()
 
-	j := 0
-	for i := len(loopCounter) - 2; i >= 0; i-- {
+	var l lineEvaluation
 
+	// i == 62
+	for k := 0; k < n; k++ {
+		qProj[k].DoubleStep(&l)
+		// line eval
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		l.r2.MulByElement(&l.r2, &p[k].Y)
+		result.MulBy014(&l.r0, &l.r1, &l.r2)
+
+		qProj[k].AddMixedStep(&l, &q[k])
+		// line eval
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		l.r2.MulByElement(&l.r2, &p[k].Y)
+		result.MulBy014(&l.r0, &l.r1, &l.r2)
+	}
+
+	for i := 61; i >= 0; i-- {
 		result.Square(&result)
-		for k := 0; k < nP; k++ {
-			<-ch[k]
-			lineEval(&result, &evaluations[k][j], &P[k])
-		}
-		j++
 
-		if loopCounter[i] == 1 {
-			for k := 0; k < nP; k++ {
-				<-ch[k]
-				lineEval(&result, &evaluations[k][j], &P[k])
-			}
-			j++
+		for k := 0; k < n; k++ {
+			qProj[k].DoubleStep(&l)
+			// line eval
+			l.r1.MulByElement(&l.r1, &p[k].X)
+			l.r2.MulByElement(&l.r2, &p[k].Y)
+			result.MulBy014(&l.r0, &l.r1, &l.r2)
+		}
+
+		if loopCounter[i] == 0 {
+			continue
+		}
+
+		for k := 0; k < n; k++ {
+			qProj[k].AddMixedStep(&l, &q[k])
+			// line eval
+			l.r1.MulByElement(&l.r1, &p[k].X)
+			l.r2.MulByElement(&l.r2, &p[k].Y)
+			result.MulBy014(&l.r0, &l.r1, &l.r2)
 		}
 	}
 
 	result.Conjugate(&result)
 
-	// release objects into the pool
-	for i := 0; i < len(evaluations); i++ {
-		lineEvalPool.Put(evaluations[i])
-	}
-
 	return result, nil
-}
-
-func lineEval(z *GT, l *lineEvaluation, P *G1Affine) *GT {
-
-	l.r2.MulByElement(&l.r2, &P.Y)
-	l.r1.MulByElement(&l.r1, &P.X)
-
-	z.MulBy014(&l.r0, &l.r1, &l.r2)
-	return z
-}
-
-// precomputes the line evaluations used during the Miller loop.
-func preCompute(evaluations *[68]lineEvaluation, Q *G2Affine, ch chan struct{}) {
-
-	var Qproj g2Proj
-	Qproj.FromAffine(Q)
-
-	j := 0
-
-	for i := len(loopCounter) - 2; i >= 0; i-- {
-
-		Qproj.DoubleStep(&evaluations[j])
-		ch <- struct{}{}
-
-		if loopCounter[i] != 0 {
-			j++
-			Qproj.AddMixedStep(&evaluations[j], Q)
-			ch <- struct{}{}
-		}
-		j++
-	}
-	close(ch)
 }
 
 // DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
+func (p *g2Proj) DoubleStep(l *lineEvaluation) {
 
 	// get some Element from our pool
 	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E2
@@ -229,15 +208,16 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	p.z.Mul(&B, &H)
 
 	// Line evaluation
-	evaluations.r0.Set(&I)
-	evaluations.r1.Double(&J).
-		Add(&evaluations.r1, &J)
-	evaluations.r2.Neg(&H)
+	l.r0.Set(&I)
+	l.r1.Double(&J).
+		Add(&l.r1, &J)
+	l.r2.Neg(&H)
+
 }
 
 // AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
+func (p *g2Proj) AddMixedStep(l *lineEvaluation, a *G2Affine) {
 
 	// get some Element from our pool
 	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fptower.E2
@@ -267,7 +247,7 @@ func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 		Sub(&J, &t2)
 
 	// Line evaluation
-	evaluations.r0.Set(&J)
-	evaluations.r1.Neg(&O)
-	evaluations.r2.Set(&L)
+	l.r0.Set(&J)
+	l.r1.Neg(&O)
+	l.r2.Set(&L)
 }
