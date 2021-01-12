@@ -23,9 +23,20 @@ import (
 	"github.com/consensys/gurvy/bls377/fr"
 )
 
+func TestMarshal(t *testing.T) {
+
+	var point, unmarshalPoint PointAffine
+	point.Set(&edwards.Base)
+	b := point.Marshal()
+	unmarshalPoint.Unmarshal(b)
+	if !point.Equal(&unmarshalPoint) {
+		t.Fatal("error unmarshal(marshal(point))")
+	}
+}
+
 func TestAdd(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 
 	p1.X.SetString("3315552591512299779303184808712317385227287137589771172094219636545300751065")
 	p1.Y.SetString("3118680409475531351463685519263752131825008658604944897513392250405379901249")
@@ -51,7 +62,7 @@ func TestAdd(t *testing.T) {
 
 func TestAddProj(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 	var p1proj, p2proj PointProj
 
 	p1.X.SetString("3315552591512299779303184808712317385227287137589771172094219636545300751065")
@@ -82,7 +93,7 @@ func TestAddProj(t *testing.T) {
 
 func TestDouble(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 
 	p.X.SetString("4054273413031690150214184383897121503625518951056633275177212354976965625455")
 	p.Y.SetString("3656215305282548767146189541242947042444006653545844852001327067666733281531")
@@ -104,7 +115,7 @@ func TestDouble(t *testing.T) {
 
 func TestDoubleProj(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 	var pproj PointProj
 
 	p.X.SetString("4054273413031690150214184383897121503625518951056633275177212354976965625455")
@@ -135,7 +146,7 @@ func TestScalarMul(t *testing.T) {
 	var scalar big.Int
 	scalar.SetUint64(23902374)
 
-	var p Point
+	var p PointAffine
 	p.ScalarMul(&ed.Base, &scalar)
 
 	var expectedX, expectedY fr.Element
@@ -151,7 +162,7 @@ func TestScalarMul(t *testing.T) {
 	}
 
 	// test consistancy with negation
-	var expected, base Point
+	var expected, base PointAffine
 	expected.Set(&ed.Base).Neg(&expected)
 	scalar.Set(&ed.Order).Lsh(&scalar, 3) // multiply by cofactor=8
 	scalar.Sub(&scalar, big.NewInt(1))

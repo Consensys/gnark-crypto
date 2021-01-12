@@ -8,9 +8,20 @@ import (
 	"testing"
 )
 
+func TestMarshal(t *testing.T) {
+
+	var point, unmarshalPoint PointAffine
+	point.Set(&edwards.Base)
+	b := point.Marshal()
+	unmarshalPoint.Unmarshal(b)
+	if !point.Equal(&unmarshalPoint) {
+		t.Fatal("error unmarshal(marshal(point))")
+	}
+}
+
 func TestAdd(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 
 	p1.X.SetString("21793328330329971148710654283888115697962123987759099803244199498744022094670")
 	p1.Y.SetString("2101040637884652362150023747029283466236613497763786920682459476507158507058")
@@ -36,7 +47,7 @@ func TestAdd(t *testing.T) {
 
 func TestAddProj(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 	var p1proj, p2proj PointProj
 
 	p1.X.SetString("21793328330329971148710654283888115697962123987759099803244199498744022094670")
@@ -67,7 +78,7 @@ func TestAddProj(t *testing.T) {
 
 func TestDouble(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 
 	p.X.SetString("21793328330329971148710654283888115697962123987759099803244199498744022094670")
 	p.Y.SetString("2101040637884652362150023747029283466236613497763786920682459476507158507058")
@@ -90,7 +101,7 @@ func TestDouble(t *testing.T) {
 
 func TestDoubleProj(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 	var pproj PointProj
 
 	p.X.SetString("21793328330329971148710654283888115697962123987759099803244199498744022094670")
@@ -122,7 +133,7 @@ func TestScalarMul(t *testing.T) {
 	var scalar big.Int
 	scalar.SetUint64(23902374)
 
-	var p Point
+	var p PointAffine
 	p.ScalarMul(&ed.Base, &scalar)
 
 	var expectedX, expectedY fr.Element
@@ -138,7 +149,7 @@ func TestScalarMul(t *testing.T) {
 	}
 
 	// test consistancy with negation
-	var expected, base Point
+	var expected, base PointAffine
 	expected.Set(&ed.Base).Neg(&expected)
 	scalar.Set(&ed.Order).Lsh(&scalar, 3) // multiply by cofactor=8
 	scalar.Sub(&scalar, big.NewInt(1))

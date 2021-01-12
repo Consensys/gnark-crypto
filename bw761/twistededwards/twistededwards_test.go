@@ -23,9 +23,20 @@ import (
 	"github.com/consensys/gurvy/bw761/fr"
 )
 
+func TestMarshal(t *testing.T) {
+
+	var point, unmarshalPoint PointAffine
+	point.Set(&edwards.Base)
+	b := point.Marshal()
+	unmarshalPoint.Unmarshal(b)
+	if !point.Equal(&unmarshalPoint) {
+		t.Fatal("error unmarshal(marshal(point))")
+	}
+}
+
 func TestAdd(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 
 	p1.X.SetString("4660805967172645089332027186447592360624693072714941456967820085096911052783894439404581260403897471106649733701")
 	p1.Y.SetString("79342197333265570482692723254078325538912461654698423568563311515262945474856990363451062603548870121784984328098")
@@ -51,7 +62,7 @@ func TestAdd(t *testing.T) {
 
 func TestAddProj(t *testing.T) {
 
-	var p1, p2 Point
+	var p1, p2 PointAffine
 	var p1proj, p2proj PointProj
 
 	p1.X.SetString("4660805967172645089332027186447592360624693072714941456967820085096911052783894439404581260403897471106649733701")
@@ -82,7 +93,7 @@ func TestAddProj(t *testing.T) {
 
 func TestDouble(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 
 	p.X.SetString("246748149935170006442122218590173395404179842918432028026503324708836243766162535400260211821848008636603589465819")
 	p.Y.SetString("134422508542478271447341601263363314500854362589728108085433776240031286906803332386842498538810110264566838724397")
@@ -104,7 +115,7 @@ func TestDouble(t *testing.T) {
 
 func TestDoubleProj(t *testing.T) {
 
-	var p Point
+	var p PointAffine
 	var pproj PointProj
 
 	p.X.SetString("246748149935170006442122218590173395404179842918432028026503324708836243766162535400260211821848008636603589465819")
@@ -135,7 +146,7 @@ func TestScalarMul(t *testing.T) {
 	var scalar big.Int
 	scalar.SetUint64(23902374)
 
-	var p Point
+	var p PointAffine
 	p.ScalarMul(&ed.Base, &scalar)
 
 	var expectedX, expectedY fr.Element
@@ -151,7 +162,7 @@ func TestScalarMul(t *testing.T) {
 	}
 
 	// test consistancy with negation
-	var expected, base Point
+	var expected, base PointAffine
 	expected.Set(&ed.Base).Neg(&expected)
 	scalar.Set(&ed.Order).Lsh(&scalar, 3) // multiply by cofactor=8
 	scalar.Sub(&scalar, big.NewInt(1))

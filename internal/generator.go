@@ -158,6 +158,13 @@ func main() {
 				}
 			}
 
+			// twisted Edwards
+			if err := bgen.GenerateF(conf, "twistededwards", "./templates/point", bavard.EntryF{
+				File: filepath.Join(dir, "/twistededwards/point.go"), TemplateF: []string{"pointtwistededwards.go.tmpl"},
+			}); err != nil {
+				panic(err)
+			}
+
 		}(conf)
 
 	}

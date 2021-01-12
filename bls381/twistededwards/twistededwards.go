@@ -28,7 +28,7 @@ type CurveParams struct {
 	A, D     fr.Element // in Montgomery form
 	Cofactor fr.Element // not in Montgomery form
 	Order    big.Int
-	Base     Point
+	Base     PointAffine
 }
 
 var edwards CurveParams
@@ -36,11 +36,20 @@ var initOnce sync.Once
 
 // GetEdwardsCurve returns the twisted Edwards curve on BLS381's Fr
 func GetEdwardsCurve() CurveParams {
-	initOnce.Do(initEdBLS381)
-	return edwards
+
+	// copy to keep Order private
+	var res CurveParams
+
+	res.A.Set(&edwards.A)
+	res.D.Set(&edwards.D)
+	res.Cofactor.Set(&edwards.Cofactor)
+	res.Order.Set(&edwards.Order)
+	res.Base.Set(&edwards.Base)
+
+	return res
 }
 
-func initEdBLS381() {
+func init() {
 
 	edwards.A.SetString("52435875175126190479447740508185965837690552500527637822603658699938581184512") // -1
 	edwards.D.SetString("19257038036680949359750312669786877991949435402254120286184196891950884077233") // -(10240/10241)
