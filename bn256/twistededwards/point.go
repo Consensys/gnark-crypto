@@ -17,56 +17,13 @@
 package twistededwards
 
 import (
+	"crypto/subtle"
 	"io"
 	"math/big"
 	"math/bits"
 
 	"github.com/consensys/gurvy/bn256/fr"
 )
-
-// size in byte of (x,y)
-const sizeOfPointAffine = fr.Limbs * 16
-
-// Bytes returns the point as bytes array x||y, where
-// x and y are in big endian.
-func (p *PointAffine) Bytes() [sizeOfPointAffine]byte {
-
-	var res [sizeOfPointAffine]byte
-	x := p.X.Bytes()
-	y := p.Y.Bytes()
-	copy(res[:], x[:])
-	copy(res[fr.Limbs*8:], y[:])
-	return res
-}
-
-// Marshal converts p to a byte slice
-func (p *PointAffine) Marshal() []byte {
-	b := p.Bytes()
-	return b[:]
-}
-
-// SetBytes sets p from the buf, where bug is interpreted
-// as a sizeOfPointAffine+ byte slice, where the first 32 bytes
-// are interpreted as x in big endian, the next 32 bytes are
-// interpreted as y in big endian. Returns the number of read bytes
-// and an error if the buffer is too short.
-// Returns the number of bytes read.
-func (p *PointAffine) SetBytes(buf []byte) (int, error) {
-
-	if len(buf) < sizeOfPointAffine {
-		return 0, io.ErrShortBuffer
-	}
-
-	p.X.SetBytes(buf[:fr.Limbs*8])
-	p.Y.SetBytes(buf[fr.Limbs*8:])
-	return 64, nil
-}
-
-// Unmarshal alias to SetBytes()
-func (p *PointAffine) Unmarshal(b []byte) error {
-	_, err := p.SetBytes(b)
-	return err
-}
 
 // PointAffine point on a twisted Edwards curve
 type PointAffine struct {
@@ -76,6 +33,104 @@ type PointAffine struct {
 // PointProj point in projective coordinates
 type PointProj struct {
 	X, Y, Z fr.Element
+}
+
+const (
+	//following https://tools.ietf.org/html/rfc8032#section-3.1,
+	// an fr element x is negative if its binary encoding is
+	// lexicographically larger than -x.
+	mCompressedNegative = 0x80
+	mCompressedPositive = 0x00
+	mUnmask             = 0x7f
+
+	// size in byte of (x,y)
+	sizePointCompressed = fr.Limbs * 8
+)
+
+// Bytes returns the point as bytes array x||y, where
+// x and y are in big endian.
+// Follows https://tools.ietf.org/html/rfc8032#section-3.1,
+// as the twisted Edwards implementation is primarily used
+// for eddsa.
+func (p *PointAffine) Bytes() [sizePointCompressed]byte {
+
+	var res [sizePointCompressed]byte
+	var mask uint
+
+	y := p.Y.Bytes()
+
+	if p.X.LexicographicallyLargest() {
+		mask = mCompressedNegative
+	} else {
+		mask = mCompressedPositive
+	}
+	// p.Y must be in little endian
+	y[0] |= byte(mask) // msb of y
+	for i, j := 0, sizePointCompressed-1; i < j; i, j = i+1, j-1 {
+		y[i], y[j] = y[j], y[i]
+	}
+	subtle.ConstantTimeCopy(1, res[:], y[:])
+	return res
+}
+
+// Marshal converts p to a byte slice
+func (p *PointAffine) Marshal() []byte {
+	b := p.Bytes()
+	return b[:]
+}
+
+func computeX(y *fr.Element) (x fr.Element) {
+	var one, num, den fr.Element
+	one.SetOne()
+	num.Square(y)
+	den.Mul(&num, &edwards.D)
+	num.Sub(&one, &num)
+	den.Sub(&edwards.A, &den)
+	x.Div(&num, &den)
+	x.Sqrt(&x)
+	return
+}
+
+// SetBytes sets p from the buf, where bug is interpreted
+// as a sizePointCompressed+ byte slice, where the first 32 bytes
+// are interpreted as x in big endian, the next 32 bytes are
+// interpreted as y in big endian. Returns the number of read bytes
+// and an error if the buffer is too short.
+// Returns the number of bytes read.
+// Follows https://tools.ietf.org/html/rfc8032#section-3.1,
+// as the twisted Edwards implementation is primarily used
+// for eddsa.
+func (p *PointAffine) SetBytes(buf []byte) (int, error) {
+
+	if len(buf) < sizePointCompressed {
+		return 0, io.ErrShortBuffer
+	}
+	bufCopy := make([]byte, sizePointCompressed)
+	subtle.ConstantTimeCopy(1, bufCopy, buf[:sizePointCompressed])
+	for i, j := 0, sizePointCompressed-1; i < j; i, j = i+1, j-1 {
+		bufCopy[i], bufCopy[j] = bufCopy[j], bufCopy[i]
+	}
+	isLexicographicallyLargest := (mCompressedNegative&bufCopy[0])>>7 == 1
+	bufCopy[0] &= mUnmask
+	p.Y.SetBytes(bufCopy)
+	p.X = computeX(&p.Y)
+	if isLexicographicallyLargest {
+		if !p.X.LexicographicallyLargest() {
+			p.X.Neg(&p.X)
+		}
+	} else {
+		if p.X.LexicographicallyLargest() {
+			p.X.Neg(&p.X)
+		}
+	}
+
+	return 32, nil
+}
+
+// Unmarshal alias to SetBytes()
+func (p *PointAffine) Unmarshal(b []byte) error {
+	_, err := p.SetBytes(b)
+	return err
 }
 
 // Set sets p to p1 and return it

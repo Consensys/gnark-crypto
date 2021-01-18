@@ -28,10 +28,13 @@ func TestMarshal(t *testing.T) {
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&edwards.Base)
-	b := point.Marshal()
-	unmarshalPoint.Unmarshal(b)
-	if !point.Equal(&unmarshalPoint) {
-		t.Fatal("error unmarshal(marshal(point))")
+	for i := 0; i < 20; i++ {
+		b := point.Marshal()
+		unmarshalPoint.Unmarshal(b)
+		if !point.Equal(&unmarshalPoint) {
+			t.Fatal("error unmarshal(marshal(point))")
+		}
+		point.Add(&point, &edwards.Base)
 	}
 }
 
