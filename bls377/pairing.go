@@ -61,7 +61,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	}
 
 	// https://eprint.iacr.org/2016/130.pdf
-	var t [6]GT
+	var t [3]GT
 
 	// easy part
 	t[0].Conjugate(&result)
@@ -71,36 +71,27 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		Mul(&result, &t[0])
 
 	// hard part (up to permutation)
-	t[0].InverseUnitary(&result).Square(&t[0])
-	t[5].Expt(&result)
-	t[1].CyclotomicSquare(&t[5])
-	t[3].Mul(&t[0], &t[5])
-
-	t[0].Expt(&t[3])
+	// Daiki Hayashida and Kenichiro Hayasaka
+	// and Tadanori Teruya
+	// https://eprint.iacr.org/2020/875.pdf
+	t[0].CyclotomicSquare(&result)
+	t[1].Expt(&result)
+	t[2].InverseUnitary(&result)
+	t[1].Mul(&t[1], &t[2])
+	t[2].Expt(&t[1])
+	t[1].InverseUnitary(&t[1])
+	t[1].Mul(&t[1], &t[2])
+	t[2].Expt(&t[1])
+	t[1].Frobenius(&t[1])
+	t[1].Mul(&t[1], &t[2])
+	result.Mul(&result, &t[0])
+	t[0].Expt(&t[1])
 	t[2].Expt(&t[0])
-	t[4].Expt(&t[2])
-
-	t[4].Mul(&t[1], &t[4])
-	t[1].Expt(&t[4])
-	t[3].InverseUnitary(&t[3])
-	t[1].Mul(&t[3], &t[1])
-	t[1].Mul(&t[1], &result)
-
-	t[0].Mul(&t[0], &result)
-	t[0].FrobeniusCube(&t[0])
-
-	t[3].InverseUnitary(&result)
-	t[4].Mul(&t[3], &t[4])
-	t[4].Frobenius(&t[4])
-
-	t[5].Mul(&t[2], &t[5])
-	t[5].FrobeniusSquare(&t[5])
-
-	t[5].Mul(&t[5], &t[0])
-	t[5].Mul(&t[5], &t[4])
-	t[5].Mul(&t[5], &t[1])
-
-	result.Set(&t[5])
+	t[0].FrobeniusSquare(&t[1])
+	t[1].InverseUnitary(&t[1])
+	t[1].Mul(&t[1], &t[2])
+	t[1].Mul(&t[1], &t[0])
+	result.Mul(&result, &t[1])
 
 	return result
 }
