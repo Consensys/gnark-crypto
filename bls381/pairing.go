@@ -68,27 +68,27 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		Mul(&result, &t[0])
 
 	// hard part (up to permutation)
-    // Daiki Hayashida and Kenichiro Hayasaka
-    // and Tadanori Teruya
+	// Daiki Hayashida and Kenichiro Hayasaka
+	// and Tadanori Teruya
 	// https://eprint.iacr.org/2020/875.pdf
 	t[0].CyclotomicSquare(&result)
 	t[1].ExptHalf(&t[0])
 	t[2].InverseUnitary(&result)
-    t[1].Mul(&t[1], &t[2])
+	t[1].Mul(&t[1], &t[2])
 	t[2].Expt(&t[1])
 	t[1].InverseUnitary(&t[1])
-    t[1].Mul(&t[1], &t[2])
+	t[1].Mul(&t[1], &t[2])
 	t[2].Expt(&t[1])
 	t[1].Frobenius(&t[1])
-    t[1].Mul(&t[1], &t[2])
-    result.Mul(&result, &t[0])
+	t[1].Mul(&t[1], &t[2])
+	result.Mul(&result, &t[0])
 	t[0].Expt(&t[1])
 	t[2].Expt(&t[0])
 	t[0].FrobeniusSquare(&t[1])
 	t[1].InverseUnitary(&t[1])
-    t[1].Mul(&t[1], &t[2])
-    t[1].Mul(&t[1], &t[0])
-    result.Mul(&result, &t[1])
+	t[1].Mul(&t[1], &t[2])
+	t[1].Mul(&t[1], &t[0])
+	result.Mul(&result, &t[1])
 
 	return result
 }
