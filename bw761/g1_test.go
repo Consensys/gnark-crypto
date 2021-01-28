@@ -53,6 +53,28 @@ func fuzzExtendedJacobianG1Affine(p *g1JacExtended, f fp.Element) g1JacExtended 
 // ------------------------------------------------------------
 // tests
 
+func TestMapToCurve(t *testing.T) {
+
+	var rfp fp.Element
+	for i := 0; i < 1000; i++ {
+		rfp.SetRandom()
+		g := MapToCurveG2Svdw(rfp)
+		if !g.IsOnCurve() {
+			t.Fatal(fmt.Sprintf("not on curve  g1 %d", i))
+		}
+	}
+
+	// var r fptower.E2
+	// for i := 0; i < 1000; i++ {
+	// 	r.SetRandom()
+	// 	g := MapToCurveG2Svdw(r)
+	// 	if !g.IsOnCurve() {
+	// 		t.Fatal(fmt.Sprintf("not on curve  g2 %d", i))
+	// 	}
+	// }
+
+}
+
 func TestG1AffineIsOnCurve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

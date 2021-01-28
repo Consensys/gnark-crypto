@@ -15,6 +15,7 @@
 package bls381
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/consensys/gurvy/bls381/fp"
@@ -59,22 +60,16 @@ func sign0(u fp.Element) bool {
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
 func svdwMapG1(u fp.Element) G1Affine {
 
-	var twoInv, tmp fp.Element
 	var res G1Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fp.Element
 	z.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559784")
-	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bCurveCoeff)
-	twoInv.SetUint64(2).Inverse(&twoInv)
-	c2.Neg(&z).Mul(&c2, &twoInv)
-	tmp.Square(&z)
-	c3.Double(&tmp).Add(&c3, &tmp).Mul(&c3, &c1).Neg(&c3).Sqrt(&c3) // sgn0(c3) MUST equal 1
-	if !sign0(c3) {
-		c3.Neg(&c3)
-	}
-	c4.Double(&tmp).Add(&c4, &tmp).Inverse(&c4).Mul(&c4, &c1).Double(&c4).Double(&c4)
+	c1.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559764")
+	c2.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279895")
+	c3.SetString("1927147321036348305845581543641869736490261581240228788663217113677552313184642189544059651790356084963912195330986")
+	c4.SetString("1037661736538950805700908473338938114662895545910113155456459516772897094571698705596252348292707764750565181774763")
 
 	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fp.Element
 	one.SetOne()
@@ -103,8 +98,10 @@ func svdwMapG1(u fp.Element) G1Affine {
 	x3.Mul(&x3, &c4)
 	x3.Add(&x3, &z)
 	if e1 == 1 {
+		fmt.Println("e1==1")
 		x.Set(&x1)
 	} else {
+		fmt.Println("e1==-1")
 		x.Set(&x3)
 	}
 	if e2 == 2 {
@@ -114,7 +111,8 @@ func svdwMapG1(u fp.Element) G1Affine {
 	// gx = gx + A
 	gx.Mul(&gx, &x)
 	gx.Add(&gx, &bCurveCoeff)
-	y.Sqrt(&gx)
+	y.Sqrt(&gx) // -> gx not a square :/
+
 	e3 := sign0(u) && sign0(y)
 	if !e3 {
 		y.Neg(&y)
@@ -170,7 +168,6 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
 func svdwMapG2(u fptower.E2) G2Affine {
 
-	var twoInv fp.Element
 	var tmp fptower.E2
 	var res G2Affine
 
@@ -178,11 +175,12 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fptower.E2
 	z.A1.SetString("1")
-	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bTwistCurveCoeff)
-	twoInv.SetUint64(2).Inverse(&twoInv)
-	c2.Neg(&z).MulByElement(&c2, &twoInv)
-	tmp.Square(&z)
-	c3.Double(&tmp).Add(&c3, &tmp).Mul(&c3, &c1).Neg(&c3).Sqrt(&c3) // sgn0(c3) MUST equal 1
+	c2.A1.SetString("2001204777610833696708894912867952078278441409969503942666029068062015825245418932221343814564507832018947136279893")
+	c3.A0.SetString("1826144227623338632285672886195758920790815402959686876801174463088618484222073023039003289567103936843087804762178")
+	c3.A1.SetString("3276987779355557806373750845889189077968193680945900882488430245112227261734582917308126182608378421639625449960584")
+	c4.A0.SetString("2668273036814444928945193217157269437704588546626005256888038757416021100327225242961791752752677109358596181706530")
+	c4.A1.SetString("4")
+
 	// TODO find norms for which sqrt to take for fp2 elements
 	if !sign0(c3.A0) {
 		c3.Neg(&c3)

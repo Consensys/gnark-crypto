@@ -59,22 +59,16 @@ func sign0(u fp.Element) bool {
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
 func svdwMapG1(u fp.Element) G1Affine {
 
-	var twoInv, tmp fp.Element
 	var res G1Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fp.Element
 	z.SetOne()
-	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bCurveCoeff)
-	twoInv.SetUint64(2).Inverse(&twoInv)
-	c2.Neg(&z).Mul(&c2, &twoInv)
-	tmp.Square(&z)
-	c3.Double(&tmp).Add(&c3, &tmp).Mul(&c3, &c1).Neg(&c3).Sqrt(&c3) // sgn0(c3) MUST equal 1
-	if !sign0(c3) {
-		c3.Neg(&c3)
-	}
-	c4.Double(&tmp).Add(&c4, &tmp).Inverse(&c4).Mul(&c4, &c1).Double(&c4).Double(&c4)
+	c1.SetString("2")
+	c2.SetString("129332213006484547005326366847446766768196756377457330269942131333360234174170411387484444069786680062220160729088")
+	c3.SetString("97648839010665214827241242728596775338087731732850880761532715038339062821120154619091300503722809961039397351015")
+	c4.SetString("172442950675312729340435155796595689024262341836609773693256175111146978898893881849979258759715573416293547638782")
 
 	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fp.Element
 	one.SetOne()
@@ -169,8 +163,6 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
 func svdwMapG2(u fptower.E2) G2Affine {
 
-	var twoInv fp.Element
-	var tmp fptower.E2
 	var res G2Affine
 
 	// constants
@@ -178,16 +170,14 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	var z, c1, c2, c3, c4 fptower.E2
 	z.A0.SetString("2")
 	z.A1.SetString("1")
-	c1.Square(&z).Mul(&c1, &z).Add(&c1, &bTwistCurveCoeff)
-	twoInv.SetUint64(2).Inverse(&twoInv)
-	c2.Neg(&z).MulByElement(&c2, &twoInv)
-	tmp.Square(&z)
-	c3.Double(&tmp).Add(&c3, &tmp).Mul(&c3, &c1).Neg(&c3).Sqrt(&c3) // sgn0(c3) MUST equal 1
-	// TODO find norms for which sqrt to take for fp2 elements
-	if !sign0(c3.A0) {
-		c3.Neg(&c3)
-	}
-	c4.Double(&tmp).Add(&c4, &tmp).Inverse(&c4).Mul(&c4, &c1).Double(&c4).Double(&c4)
+	c1.A0.SetString("38")
+	c1.A1.SetString("103465770405187637604261093477957413414557405101965864215953705066688187339336329109987555255829344049776128583288")
+	c2.A0.SetString("258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458176")
+	c2.A1.SetString("129332213006484547005326366847446766768196756377457330269942131333360234174170411387484444069786680062220160729088")
+	c3.A0.SetString("141354814213091513024678201993701334402983894315682828752154607295963278662565530559432544731234911957814229457027")
+	c3.A1.SetString("105105533309732059517333177844331590042891296673681156116453121436104838422613314245519046656808355505493854902221")
+	c4.A0.SetString("86221475337656364670217577898297844512131170918304886846628087555573489449446940924989629379857786708146773819395")
+	c4.A1.SetString("137954360540250183472348124637276551219409873469287818954604940088917583119115105479983407007772458733034838111024")
 
 	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fptower.E2
 	one.SetOne()
