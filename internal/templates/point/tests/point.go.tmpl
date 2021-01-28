@@ -68,6 +68,36 @@ import (
 // ------------------------------------------------------------
 // tests
 
+func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element"}}
+	genFuzz1 := GenFp()
+	{{- else if eq .CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+
+	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
+		func(a {{ .CoordType}}) bool {
+			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			return g.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should be deterministic", prop.ForAll(
+		func(a {{ .CoordType}}) bool {
+			g1 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			g2 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			return g1.Equal(&g2)
+		},
+		genFuzz1,
+	))
+}
+
 func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

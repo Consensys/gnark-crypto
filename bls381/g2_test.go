@@ -53,6 +53,32 @@ func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f *fptower.E2) g2JacExtended
 // ------------------------------------------------------------
 // tests
 
+func TestMapToCurveG2(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	genFuzz1 := GenE2()
+
+	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
+		func(a fptower.E2) bool {
+			g := MapToCurveG2Svdw(a)
+			return g.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
+		func(a fptower.E2) bool {
+			g1 := MapToCurveG2Svdw(a)
+			g2 := MapToCurveG2Svdw(a)
+			return g1.Equal(&g2)
+		},
+		genFuzz1,
+	))
+}
+
 func TestG2AffineIsOnCurve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

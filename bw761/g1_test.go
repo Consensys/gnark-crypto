@@ -53,26 +53,30 @@ func fuzzExtendedJacobianG1Affine(p *g1JacExtended, f fp.Element) g1JacExtended 
 // ------------------------------------------------------------
 // tests
 
-func TestMapToCurve(t *testing.T) {
+func TestMapToCurveG1(t *testing.T) {
 
-	var rfp fp.Element
-	for i := 0; i < 1000; i++ {
-		rfp.SetRandom()
-		g := MapToCurveG2Svdw(rfp)
-		if !g.IsOnCurve() {
-			t.Fatal(fmt.Sprintf("not on curve  g1 %d", i))
-		}
-	}
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
 
-	// var r fptower.E2
-	// for i := 0; i < 1000; i++ {
-	// 	r.SetRandom()
-	// 	g := MapToCurveG2Svdw(r)
-	// 	if !g.IsOnCurve() {
-	// 		t.Fatal(fmt.Sprintf("not on curve  g2 %d", i))
-	// 	}
-	// }
+	properties := gopter.NewProperties(parameters)
+	genFuzz1 := GenFp()
 
+	properties.Property("[G1] Svsw mapping should output point on the curve", prop.ForAll(
+		func(a fp.Element) bool {
+			g := MapToCurveG1Svdw(a)
+			return g.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[G1] Svsw mapping should be deterministic", prop.ForAll(
+		func(a fp.Element) bool {
+			g1 := MapToCurveG1Svdw(a)
+			g2 := MapToCurveG1Svdw(a)
+			return g1.Equal(&g2)
+		},
+		genFuzz1,
+	))
 }
 
 func TestG1AffineIsOnCurve(t *testing.T) {
