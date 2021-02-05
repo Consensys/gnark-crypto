@@ -318,9 +318,9 @@ func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 
 	for i := len(sWords) - 1; i >= 0; i-- {
 		ithWord := sWords[i]
-		for k := 0; k < 64; k++ { // TODO it assumes 64 bits arch, add a check to change 64 to 32 if necessary
+		for k := 0; k < wordSize; k++ { 
 			resProj.Double(&resProj)
-			kthBit := (ithWord >> (63 - k)) & 1
+			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
 			if kthBit == 1 {
 				resProj.Add(&resProj, &p1Proj)
 			}

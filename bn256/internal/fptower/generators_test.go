@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 
 	"github.com/consensys/gurvy/bn256/fp"
-	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/leanovate/gopter"
 )
 
@@ -49,19 +48,4 @@ func GenE12() gopter.Gen {
 	).Map(func(values []interface{}) *E12 {
 		return &E12{C0: *values[0].(*E6), C1: *values[1].(*E6)}
 	})
-}
-
-// ------------------------------------------------------------
-// pairing generators
-
-// GenFr generates an Fr element
-func GenFr() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var elmt fr.Element
-		var b [fr.Bytes]byte
-		rand.Read(b[:])
-		elmt.SetBytes(b[:])
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
-		return genResult
-	}
 }

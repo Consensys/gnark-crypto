@@ -18,7 +18,6 @@ package twistededwards
 
 import (
 	"math/big"
-	"sync"
 
 	"github.com/consensys/gurvy/bls381/fr"
 )
@@ -32,7 +31,6 @@ type CurveParams struct {
 }
 
 var edwards CurveParams
-var initOnce sync.Once
 
 // GetEdwardsCurve returns the twisted Edwards curve on BLS381's Fr
 func GetEdwardsCurve() CurveParams {

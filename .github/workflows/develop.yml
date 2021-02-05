@@ -77,7 +77,7 @@ jobs:
         GOARCH=386 go test -v -short ./...
   
   slack-workflow-status:
-    if: always()
+    if: failure()
     name: post workflow status to slack
     needs:
       - staticcheck
@@ -85,7 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build notification
-        if: failure()
         uses: act10ns/slack@v1
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
