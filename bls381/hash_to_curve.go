@@ -15,7 +15,6 @@
 package bls381
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/gurvy/bls381/fp"
@@ -98,10 +97,8 @@ func svdwMapG1(u fp.Element) G1Affine {
 	x3.Mul(&x3, &c4)
 	x3.Add(&x3, &z)
 	if e1 == 1 {
-		fmt.Println("e1==1")
 		x.Set(&x1)
 	} else {
-		fmt.Println("e1==-1")
 		x.Set(&x3)
 	}
 	if e2 == 2 {

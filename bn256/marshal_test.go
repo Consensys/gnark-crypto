@@ -228,7 +228,11 @@ func TestG1AffineSerialization(t *testing.T) {
 	}
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 1000
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 100
+	} else {
+		parameters.MinSuccessfulTests = 1000
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -317,7 +321,11 @@ func TestG2AffineSerialization(t *testing.T) {
 	}
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 1000
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 100
+	} else {
+		parameters.MinSuccessfulTests = 1000
+	}
 
 	properties := gopter.NewProperties(parameters)
 

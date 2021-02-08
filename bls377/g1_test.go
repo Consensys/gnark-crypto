@@ -422,7 +422,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 500
+	const nbSamples = 10
 
 	properties.Property("[BLS377] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {

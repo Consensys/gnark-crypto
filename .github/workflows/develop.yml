@@ -43,8 +43,7 @@ jobs:
         git update-index --assume-unchanged go.sum
         if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
   
-  test-short:
-    if: github.ref != 'refs/heads/master'
+  test:
     strategy:
       matrix:
         go-version: [1.15.x]
@@ -77,18 +76,17 @@ jobs:
         GOARCH=386 go test -v -run=Ops -short ./...
   
   slack-workflow-status:
-    if: failure()
+    if: always()
     name: post workflow status to slack
     needs:
       - staticcheck
-      - test-short
+      - test
     runs-on: ubuntu-latest
     steps:
       - name: Build notification
-        uses: act10ns/slack@v1
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with: 
-          status: ${{ job.status }}
-          steps: ${{ toJson(steps) }}
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
           channel: '#team-gnark'
+          include_jobs: false

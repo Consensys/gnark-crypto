@@ -38,7 +38,7 @@ func TestMultiExpg1(t *testing.T) {
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 500
+	const nbSamples = 143
 
 	// multi exp points
 	var samplePoints [nbSamples]G1Affine
@@ -57,367 +57,404 @@ func TestMultiExpg1(t *testing.T) {
 	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
-	properties.Property("[G1] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 4)
-			result.msmC4(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 5)
-			result.msmC5(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 6)
-			result.msmC6(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 7)
-			result.msmC7(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 8)
-			result.msmC8(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 9)
-			result.msmC9(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 10)
-			result.msmC10(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 11)
-			result.msmC11(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 12)
-			result.msmC12(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 13)
-			result.msmC13(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 14)
-			result.msmC14(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G1] Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G1Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 15)
-			result.msmC15(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	if !testing.Short() {
+	if testing.Short() {
+		// we test only c = 5 and c = 16
+
+		properties.Property("[G1] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var r5, r16, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 5)
+				r5.msmC5(samplePoints[:], scalars, opt)
+
+				opt.lock.Lock()
+				scalars = partitionScalars(sampleScalars[:], 16)
+				r16.msmC16(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return r5.Equal(&expected) && r16.Equal(&expected)
+			},
+			genScalar,
+		))
+	} else {
+
+		properties.Property("[G1] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 4)
+				result.msmC4(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 5)
+				result.msmC5(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 6)
+				result.msmC6(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 7)
+				result.msmC7(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 8)
+				result.msmC8(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 9)
+				result.msmC9(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 10)
+				result.msmC10(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 11)
+				result.msmC11(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 12)
+				result.msmC12(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 13)
+				result.msmC13(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 14)
+				result.msmC14(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G1] Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G1Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 15)
+				result.msmC15(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
 
 		properties.Property("[G1] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
@@ -449,10 +486,6 @@ func TestMultiExpg1(t *testing.T) {
 			genScalar,
 		))
 
-	}
-
-	if !testing.Short() {
-
 		properties.Property("[G1] Multi exponentation (c=20) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
@@ -483,10 +516,6 @@ func TestMultiExpg1(t *testing.T) {
 			genScalar,
 		))
 
-	}
-
-	if !testing.Short() {
-
 		properties.Property("[G1] Multi exponentation (c=21) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
@@ -516,10 +545,6 @@ func TestMultiExpg1(t *testing.T) {
 			},
 			genScalar,
 		))
-
-	}
-
-	if !testing.Short() {
 
 		properties.Property("[G1] Multi exponentation (c=22) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
@@ -633,7 +658,7 @@ func TestMultiExpg2(t *testing.T) {
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 500
+	const nbSamples = 143
 
 	// multi exp points
 	var samplePoints [nbSamples]G2Affine
@@ -652,367 +677,404 @@ func TestMultiExpg2(t *testing.T) {
 	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
-	properties.Property("[G2] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 4)
-			result.msmC4(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 5)
-			result.msmC5(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 6)
-			result.msmC6(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 7)
-			result.msmC7(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 8)
-			result.msmC8(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 9)
-			result.msmC9(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 10)
-			result.msmC10(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 11)
-			result.msmC11(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 12)
-			result.msmC12(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 13)
-			result.msmC13(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 14)
-			result.msmC14(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	properties.Property("[G2] Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
-		func(mixer fr.Element) bool {
-
-			var result, expected G2Jac
-
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
-					FromMont()
-			}
-
-			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], 15)
-			result.msmC15(samplePoints[:], scalars, opt)
-
-			// compute expected result with double and add
-			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-			return result.Equal(&expected)
-		},
-		genScalar,
-	))
-
-	if !testing.Short() {
+	if testing.Short() {
+		// we test only c = 5 and c = 16
+
+		properties.Property("[G2] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var r5, r16, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 5)
+				r5.msmC5(samplePoints[:], scalars, opt)
+
+				opt.lock.Lock()
+				scalars = partitionScalars(sampleScalars[:], 16)
+				r16.msmC16(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return r5.Equal(&expected) && r16.Equal(&expected)
+			},
+			genScalar,
+		))
+	} else {
+
+		properties.Property("[G2] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 4)
+				result.msmC4(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 5)
+				result.msmC5(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=6) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 6)
+				result.msmC6(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=7) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 7)
+				result.msmC7(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 8)
+				result.msmC8(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=9) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 9)
+				result.msmC9(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=10) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 10)
+				result.msmC10(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=11) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 11)
+				result.msmC11(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=12) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 12)
+				result.msmC12(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=13) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 13)
+				result.msmC13(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=14) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 14)
+				result.msmC14(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
+
+		properties.Property("[G2] Multi exponentation (c=15) should be consistant with sum of square", prop.ForAll(
+			func(mixer fr.Element) bool {
+
+				var result, expected G2Jac
+
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						MulAssign(&mixer).
+						FromMont()
+				}
+
+				// semaphore to limit number of cpus
+				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt.lock.Lock()
+				scalars := partitionScalars(sampleScalars[:], 15)
+				result.msmC15(samplePoints[:], scalars, opt)
+
+				// compute expected result with double and add
+				var finalScalar, mixerBigInt big.Int
+				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+
+				return result.Equal(&expected)
+			},
+			genScalar,
+		))
 
 		properties.Property("[G2] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
@@ -1044,10 +1106,6 @@ func TestMultiExpg2(t *testing.T) {
 			genScalar,
 		))
 
-	}
-
-	if !testing.Short() {
-
 		properties.Property("[G2] Multi exponentation (c=20) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
@@ -1078,10 +1136,6 @@ func TestMultiExpg2(t *testing.T) {
 			genScalar,
 		))
 
-	}
-
-	if !testing.Short() {
-
 		properties.Property("[G2] Multi exponentation (c=21) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
@@ -1111,10 +1165,6 @@ func TestMultiExpg2(t *testing.T) {
 			},
 			genScalar,
 		))
-
-	}
-
-	if !testing.Short() {
 
 		properties.Property("[G2] Multi exponentation (c=22) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {

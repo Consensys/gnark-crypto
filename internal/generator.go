@@ -92,14 +92,14 @@ func main() {
 				PointName:        "g1",
 				GLV:              true,
 				CofactorCleaning: true,
-				CRange:           []int{4, 8, 16},
+				CRange:           []int{4, 5, 8, 16},
 			},
 			G2: pointConfig{
 				CoordType:        "fp.Element",
 				PointName:        "g2",
 				GLV:              true,
 				CofactorCleaning: true,
-				CRange:           []int{4, 8, 16},
+				CRange:           []int{4, 5, 8, 16},
 			},
 		},
 	} {

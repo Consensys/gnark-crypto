@@ -17,7 +17,6 @@ limitations under the License.
 package twistededwards
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -152,9 +151,6 @@ func TestScalarMul(t *testing.T) {
 
 	var p PointAffine
 	p.ScalarMul(&ed.Base, &scalar)
-
-	fmt.Println(p.X.String())
-	fmt.Println(p.Y.String())
 
 	var expectedX, expectedY fr.Element
 
