@@ -1,0 +1,94 @@
+on: [push, pull_request]
+name: CI
+jobs:
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15.x
+    - name: checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/Library/Caches/go-build
+          %LocalAppData%\go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: gofmt
+      run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
+    - name: go vet
+      run: go vet ./...
+    - name: staticcheck
+      run: |
+        go get -u honnef.co/go/tools/cmd/staticcheck
+        staticcheck ./...
+    - name: gosec
+      run: |
+        go get -u github.com/securego/gosec/cmd/gosec
+        gosec bls377/... bn256/... bls371/... bw761/... utils/... 
+    - name: install deps
+      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
+    - name: generated files should not be modified
+      run: |
+        go generate ./...
+        git update-index --assume-unchanged go.mod
+        git update-index --assume-unchanged go.sum
+        if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
+  
+  test-short:
+    if: github.ref != 'refs/heads/master'
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    needs:
+      - staticcheck
+    steps:
+    - name: install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: checkout code
+      uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/Library/Caches/go-build
+          %LocalAppData%\go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Test
+      run: |
+        go test -v -short ./...
+        go test -v -race -short ./...
+        go test -v -tags=noadx -short ./...
+        GOARCH=386 go test -v -short ./...
+  
+  slack-workflow-status:
+    if: failure()
+    name: post workflow status to slack
+    needs:
+      - staticcheck
+      - test-short
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build notification
+        uses: act10ns/slack@v1
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with: 
+          status: ${{ job.status }}
+          steps: ${{ toJson(steps) }}
+          channel: '#team-gnark'

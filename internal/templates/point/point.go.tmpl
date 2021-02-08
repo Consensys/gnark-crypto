@@ -33,10 +33,12 @@ type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
+{{if eq .PointName "g2"}}
 // {{ $TProjective }} point in projective coordinates
 type {{ $TProjective }} struct {
 	x, y, z {{.CoordType}}
 }
+{{end}}
 
 
 
@@ -928,6 +930,7 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 {{ end }}
 
 
+{{if eq .PointName "g2"}}
 // -------------------------------------------------------------------------------------------------
 // Homogenous projective
 
@@ -964,7 +967,7 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 	return p
 }
 
-
+{{end }}
 
 
 {{/* note batch inversion for g2 elements with E2 that is curve specific is a bit more troublesome to implement */}}

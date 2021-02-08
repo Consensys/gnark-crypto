@@ -16,6 +16,12 @@ package fptower
 
 import "github.com/consensys/gurvy/bls381/fp"
 
+// used with !amd64, make staticcheck happier.
+var (
+	_ = mulGenericE2
+	_ = squareGenericE2
+)
+
 // mulGenericE2 sets z to the E2-product of x,y, returns z
 // note: do not rename, this is referenced in the x86 assembly impl
 func mulGenericE2(z, x, y *E2) {
