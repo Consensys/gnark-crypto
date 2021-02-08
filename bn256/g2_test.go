@@ -599,7 +599,7 @@ func BenchmarkG2AffineAddMixed(b *testing.B) {
 
 }
 
-func BenchmarkG2AffineDouble(b *testing.B) {
+func BenchmarkG2JacDouble(b *testing.B) {
 	var a G2Jac
 	a.Set(&g2Gen)
 	b.ResetTimer()
