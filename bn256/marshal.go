@@ -594,19 +594,11 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 		return SizeOfG1AffineCompressed, nil
 	}
 
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask
-
-	// read X coordinate
-	p.X.SetBytes(buf[0 : 0+fp.Bytes])
-
-	// restore buf
-	buf[0] |= mData
-
 	// uncompressed point
 	if mData == mUncompressed {
-		// read Y coordinate
-		p.Y.SetBytes(buf[32 : 32+fp.Bytes])
+		// read X and Y coordinates
+		p.X.SetBytes(buf[:fp.Bytes])
+		p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2])
 
 		// subgroup check
 		if !p.IsInSubGroup() {
@@ -616,7 +608,18 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 		return SizeOfG1AffineUncompressed, nil
 	}
 
-	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	// we have a compressed coordinate
+	// we need to
+	// 	1. copy the buffer (to keep this method thread safe)
+	// 	2. we need to solve the curve equation to compute Y
+
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask
+
+	// read X coordinate
+	p.X.SetBytes(bufX[:fp.Bytes])
+
 	var YSquared, Y fp.Element
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
@@ -701,17 +704,13 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		return
 	}
 
-	// read X
-
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask
+	// we need to copy the input buffer (to keep this method thread safe)
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(buf[0 : 0+fp.Bytes])
-
-	// restore buf
-	buf[0] |= mData
-
+	p.X.SetBytes(bufX[:fp.Bytes])
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)
 
@@ -866,25 +865,15 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 		return SizeOfG2AffineCompressed, nil
 	}
 
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask
-
-	// read X coordinate
-	// p.X.A1 | p.X.A0
-	p.X.A0.SetBytes(buf[32 : 32+fp.Bytes])
-
-	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
-
-	// restore buf
-	buf[0] |= mData
-
 	// uncompressed point
 	if mData == mUncompressed {
-		// read Y coordinate
+		// read X and Y coordinates
+		// p.X.A1 | p.X.A0
+		p.X.A1.SetBytes(buf[:fp.Bytes])
+		p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2])
 		// p.Y.A1 | p.Y.A0
-		p.Y.A1.SetBytes(buf[64 : 64+fp.Bytes])
-
-		p.Y.A0.SetBytes(buf[96 : 96+fp.Bytes])
+		p.Y.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3])
+		p.Y.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4])
 
 		// subgroup check
 		if !p.IsInSubGroup() {
@@ -894,7 +883,20 @@ func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 		return SizeOfG2AffineUncompressed, nil
 	}
 
-	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	// we have a compressed coordinate
+	// we need to
+	// 	1. copy the buffer (to keep this method thread safe)
+	// 	2. we need to solve the curve equation to compute Y
+
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask
+
+	// read X coordinate
+	// p.X.A1 | p.X.A0
+	p.X.A1.SetBytes(bufX[:fp.Bytes])
+	p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2])
+
 	var YSquared, Y fptower.E2
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
@@ -981,19 +983,15 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		return
 	}
 
-	// read X
-
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask
+	// we need to copy the input buffer (to keep this method thread safe)
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	p.X.A1.SetBytes(buf[0 : 0+fp.Bytes])
-
-	p.X.A0.SetBytes(buf[32 : 32+fp.Bytes])
-
-	// restore buf
-	buf[0] |= mData
+	p.X.A1.SetBytes(bufX[:fp.Bytes])
+	p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2])
 
 	// store mData in p.Y.A0[0]
 	p.Y.A0[0] = uint64(mData)

@@ -587,35 +587,19 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	}
 	{{- end}} 
 
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask 
-
-	// read X coordinate
-	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
-		{{- $offset := $.sizeOfFp}}
-		{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.X.A0"}}
-		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
-	{{- else}}
-		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
-	{{- end}}
-
-	// restore buf
-	buf[0] |= mData
-
 	// uncompressed point
 	if mData == mUncompressed {
-		// read Y coordinate
+		// read X and Y coordinates
 		{{- if eq $.CoordType "fptower.E2"}}
+			// p.X.A1 | p.X.A0
+			p.X.A1.SetBytes(buf[:fp.Bytes])
+			p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
 			// p.Y.A1 | p.Y.A0
-			{{- $offset := mul $.sizeOfFp 2}}
-			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A1"}}
-
-			{{- $offset := mul $.sizeOfFp 3}}
-			{{- template "readFp" dict "all" . "OffSet" $offset "To" "p.Y.A0"}}
-			
+			p.Y.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
+			p.Y.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
 		{{- else}}
-			{{- template "readFp" dict "all" . "OffSet" $.sizeOfFp "To" "p.Y"}}
+			p.X.SetBytes(buf[:fp.Bytes])
+			p.Y.SetBytes(buf[fp.Bytes:fp.Bytes*2])
 		{{- end}}
 
 		// subgroup check 
@@ -626,7 +610,25 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 		return SizeOf{{ $.TAffine }}Uncompressed, nil
 	}
 
-	// we have a compressed coordinate, we need to solve the curve equation to compute Y
+	// we have a compressed coordinate
+	// we need to 
+	// 	1. copy the buffer (to keep this method thread safe) 
+	// 	2. we need to solve the curve equation to compute Y
+
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask 
+
+	// read X coordinate
+	{{- if eq $.CoordType "fptower.E2"}}
+		// p.X.A1 | p.X.A0
+		p.X.A1.SetBytes(bufX[:fp.Bytes])
+		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+	{{- else}}
+		p.X.SetBytes(bufX[:fp.Bytes])
+	{{- end}}
+
+
 	var YSquared, Y {{$.CoordType}}
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
@@ -735,31 +737,24 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 		return
 	}
 
-	// read X
-
-	// TODO that's not elegant as it modifies buf; buf is now consumable only in 1 go routine
-	buf[0] &= ^mMask 
+	// we need to copy the input buffer (to keep this method thread safe)
+	var bufX [fp.Bytes]byte
+	copy(bufX[:fp.Bytes], buf[:fp.Bytes])
+	bufX[0] &= ^mMask 
 
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
-		{{- $offset := $.sizeOfFp}}
-		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X.A1"}}
-		{{- template "readFp" dict "all" . "OffSet"  $offset "To" "p.X.A0"}}
+		p.X.A1.SetBytes(bufX[:fp.Bytes])
+		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+		
+		// store mData in p.Y.A0[0]
+		p.Y.A0[0] = uint64(mData)
 	{{- else}}
-		{{- template "readFp" dict "all" . "OffSet" 0 "To" "p.X"}}
+		p.X.SetBytes(bufX[:fp.Bytes])
+		// store mData in p.Y[0]
+		p.Y[0] = uint64(mData)
 	{{- end}}
-
-	// restore buf
-	buf[0] |= mData
-
-	{{ if eq $.CoordType "fptower.E2"}}
-	// store mData in p.Y.A0[0]
-	p.Y.A0[0] = uint64(mData)
-	{{ else}}
-	// store mData in p.Y[0]
-	p.Y[0] = uint64(mData)
-	{{ end}}
 
 	// recomputing Y will be done asynchronously
 	return
@@ -783,8 +778,4 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 			{{- $jj := add $j 8}}
 			binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
 	{{- end}}
-{{end}}
-
-{{define "readFp"}}
-	{{$.To}}.SetBytes(buf[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}
