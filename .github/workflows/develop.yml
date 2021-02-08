@@ -46,8 +46,8 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.15.x]
-        os: [ubuntu-latest]
+        go-version: [1.14.x, 1.15.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
@@ -73,7 +73,11 @@ jobs:
         go test -v -short ./...
         go test -v -race -short ./...
         go test -v -tags=noadx -short ./...
-        GOARCH=386 go test -v -run=Ops -short ./...
+    - name: Test (32bits)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        GOARCH=386 go test -v -short ./bn256/...
+        GOARCH=386 go test -v -short ./bls381/...
   
   slack-workflow-status:
     if: always()
