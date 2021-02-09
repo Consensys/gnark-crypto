@@ -100,5 +100,4 @@ jobs:
         with:
           repo_token: ${{secrets.GITHUB_TOKEN}}
           slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-gnark'
-          include_jobs: false
+          channel: '#team-gnark-build'
