@@ -565,7 +565,89 @@ func (p *G1Jac) unsafeFromJacExtended(Q *g1JacExtended) *G1Jac {
 	return p
 }
 
-// subsubMixed same as add, but will negate a.Y
+// add point in ZZ coords
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
+func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
+	//if q is infinity return p
+	if q.ZZ.IsZero() {
+		return p
+	}
+	// p is infinity, return q
+	if p.ZZ.IsZero() {
+		return q
+	}
+
+	var A, B fp.Element
+
+	// p2: q, p1: p
+	A.Mul(&q.X, &p.ZZ)
+	A.Sub(&A, &p.X)
+
+	B.Mul(&q.Y, &p.ZZZ)
+	B.Sub(&B, &p.Y)
+
+	if A.IsZero() {
+		if B.IsZero() {
+			return p.double(q)
+
+		}
+		p.ZZ = fp.Element{}
+		p.ZZZ = fp.Element{}
+		return p
+	}
+
+	// get some Element from our pool
+	var U1, U2, S1, S2, P, R, PP, PPP, Q, Q2, V fp.Element
+	U1.Mul(&p.X, &q.ZZ)
+	U2.Mul(&q.X, &p.ZZ)
+	S1.Mul(&p.Y, &q.ZZZ)
+	S2.Mul(&q.Y, &p.ZZZ)
+	P.Sub(&U2, &U1)
+	R.Sub(&S2, &S1)
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&U1, &PP)
+	Q2.Double(&Q)
+	V.Mul(&S1, &PPP)
+
+	p.X.Square(&R).
+		Sub(&p.X, &PPP).
+		Sub(&p.X, &Q2)
+	p.Y.Sub(&p.Y, &p.X).
+		Mul(&p.Y, &R).
+		Sub(&p.Y, &V)
+	p.ZZ.Mul(&p.ZZ, &q.ZZ).
+		Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &q.ZZZ).
+		Mul(&p.ZZZ, &PPP)
+
+	return p
+}
+
+// double point in ZZ coords
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
+	// get some Element from our pool
+	var U, S, M, _M, Y3 fp.Element
+
+	U.Double(&q.Y)
+	p.ZZ.Square(&U)
+	p.ZZZ.Mul(&U, &p.ZZ)
+	S.Mul(&q.X, &p.ZZ)
+	_M.Square(&q.X)
+	M.Double(&_M).
+		Add(&M, &_M) // -> + a, but a=0 here
+	p.X.Square(&M).
+		Sub(&p.X, &S).
+		Sub(&p.X, &S)
+	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
+	U.Mul(&p.ZZZ, &q.Y)
+	p.Y.Sub(&Y3, &U)
+
+	return p
+}
+
+// subMixed same as addMixed, but will negate a.Y
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *g1JacExtended) subMixed(a *G1Affine) *g1JacExtended {
 
@@ -680,59 +762,6 @@ func (p *g1JacExtended) addMixed(a *G1Affine) *g1JacExtended {
 	p.Y.Sub(&Y3, &R)
 	p.ZZ.Mul(&p.ZZ, &PP)
 	p.ZZZ.Mul(&p.ZZZ, &PPP)
-
-	return p
-
-}
-
-// doubleNeg same as double, but will negate q.Y
-func (p *g1JacExtended) doubleNeg(q *G1Affine) *g1JacExtended {
-
-	var U, S, M, _M, Y3 fp.Element
-
-	U.Double(&q.Y)
-
-	U.Neg(&U)
-
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-
-	p.Y.Add(&Y3, &U)
-
-	return p
-
-}
-
-// double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *g1JacExtended) double(q *G1Affine) *g1JacExtended {
-
-	var U, S, M, _M, Y3 fp.Element
-
-	U.Double(&q.Y)
-
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-
-	p.Y.Sub(&Y3, &U)
 
 	return p
 

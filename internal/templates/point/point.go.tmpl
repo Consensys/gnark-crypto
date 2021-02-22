@@ -813,37 +813,104 @@ func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{
 	return p
 }
 
+// add point in ZZ coords
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
+func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
+	//if q is infinity return p
+	if q.ZZ.IsZero() {
+		return p
+	}
+	// p is infinity, return q
+	if p.ZZ.IsZero() {
+		return q
+	}
 
-// subsubMixed same as add, but will negate a.Y
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ $TJacobianExtended }}) subMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "add" dict "all" . "negate" true}}
+	var A, B {{.CoordType}}
+
+	// p2: q, p1: p
+	A.Mul(&q.X, &p.ZZ)
+	A.Sub(&A, &p.X)
+
+	B.Mul(&q.Y, &p.ZZZ)
+	B.Sub(&B, &p.Y)
+
+	if A.IsZero() {
+		if B.IsZero() {
+				return p.double(q)
+
+		}
+		p.ZZ = {{.CoordType}}{}
+		p.ZZZ = {{.CoordType}}{}
+		return p
+	}
+
+	// get some Element from our pool
+    var U1, U2, S1, S2, P, R, PP, PPP, Q, Q2, V  {{.CoordType}}
+    U1.Mul(&p.X, &q.ZZ)
+    U2.Mul(&q.X, &p.ZZ)
+    S1.Mul(&p.Y, &q.ZZZ)
+    S2.Mul(&q.Y, &p.ZZZ)
+    P.Sub(&U2, &U1)
+    R.Sub(&S2, &S1)
+    PP.Square(&P)
+    PPP.Mul(&P, &PP)
+    Q.Mul(&U1, &PP)
+    Q2.Double(&Q)
+    V.Mul(&S1, &PPP)
+
+    p.X.Square(&R).
+        Sub(&p.X, &PPP).
+        Sub(&p.X, &Q2)
+    p.Y.Sub(&p.Y, &p.X).
+        Mul(&p.Y, &R).
+        Sub(&p.Y, &V)
+    p.ZZ.Mul(&p.ZZ, &q.ZZ).
+        Mul(&p.ZZ, &PP)
+    p.ZZZ.Mul(&p.ZZZ, &q.ZZZ).
+        Mul(&p.ZZZ, &PPP)
+
+    return p
 }
 
+// double point in ZZ coords
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
+	// get some Element from our pool
+    var U, S, M, _M, Y3 {{.CoordType}}
+
+	U.Double(&q.Y)
+	p.ZZ.Square(&U)
+	p.ZZZ.Mul(&U, &p.ZZ)
+	S.Mul(&q.X, &p.ZZ)
+	_M.Square(&q.X)
+	M.Double(&_M).
+		Add(&M, &_M) // -> + a, but a=0 here
+	p.X.Square(&M).
+		Sub(&p.X, &S).
+		Sub(&p.X, &S)
+	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
+	U.Mul(&p.ZZZ, &q.Y)
+    p.Y.Sub(&Y3, &U)
+
+	return p
+}
+
+// subMixed same as addMixed, but will negate a.Y
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *{{ $TJacobianExtended }}) subMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+	{{ template "mAdd" dict "all" . "negate" true}}
+}
 
 // addMixed
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ $TJacobianExtended }}) addMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "add" dict "all" . "negate" false}}
-}
-
-// doubleNeg same as double, but will negate q.Y
-func (p *{{ $TJacobianExtended }}) doubleNeg(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "double" dict "all" . "negate" true}}
-}
-
-
-// double point in ZZ coords
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "double" dict "all" . "negate" false}}
+	{{ template "mAdd" dict "all" . "negate" false}}
 }
 
 // doubleNegMixed same as double, but will negate q.Y
 func (p *{{ $TJacobianExtended }}) doubleNegMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
-
 
 // doubleMixed point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
@@ -882,35 +949,7 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 	return p
 {{end}}
 
-
-{{define "double" }}
-	var U, S, M, _M, Y3 {{.all.CoordType}}
-
-	U.Double(&q.Y)
-	{{if .negate}}
-		U.Neg(&U)
-	{{end}}
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-	{{if .negate}}
-		p.Y.Add(&Y3, &U)
-	{{else}}
-		p.Y.Sub(&Y3, &U)
-	{{end}}
-
-	return p
-{{end}}
-
-{{define "add" }}
+{{define "mAdd" }}
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
 		return p
