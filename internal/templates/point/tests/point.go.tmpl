@@ -366,7 +366,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -378,8 +378,8 @@ parameters := gopter.DefaultTestParameters()
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 {{ $TJacobianExtended }}
-			o1.double(&p1Neg)
-			o2.doubleNeg(&p1)
+			o1.doubleMixed(&p1Neg)
+			o2.doubleNegMixed(&p1)
 
 			return 	o1.X.Equal(&o2.X) &&
 					o1.Y.Equal(&o2.Y) &&
@@ -658,7 +658,7 @@ func Benchmark{{ $TAffine }}Add(b *testing.B) {
 
 func Benchmark{{ $TAffine }}JacExtendedAdd(b *testing.B) {
 	var a {{ $TJacobianExtended }}
-	a.double(&{{ toLower .PointName}}GenAff)
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
 
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
@@ -670,7 +670,7 @@ func Benchmark{{ $TAffine }}JacExtendedAdd(b *testing.B) {
 
 func Benchmark{{ $TAffine }}JacExtendedSub(b *testing.B) {
 	var a {{ $TJacobianExtended }}
-	a.double(&{{ toLower .PointName}}GenAff)
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
 
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
@@ -682,26 +682,26 @@ func Benchmark{{ $TAffine }}JacExtendedSub(b *testing.B) {
 
 func Benchmark{{ $TAffine }}JacExtendedDouble(b *testing.B) {
 	var a {{ $TJacobianExtended }}
-	a.double(&{{ toLower .PointName}}GenAff)
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
 
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.double(&c)
+		a.doubleMixed(&c)
 	}
 }
 
 
 func Benchmark{{ $TAffine }}JacExtendedDoubleNeg(b *testing.B) {
 	var a {{ $TJacobianExtended }}
-	a.double(&{{ toLower .PointName}}GenAff)
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
 
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.doubleNeg(&c)
+		a.doubleNegMixed(&c)
 	}
 }
 
