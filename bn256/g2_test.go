@@ -264,7 +264,7 @@ func TestG2AffineOps(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BN256] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
+	properties.Property("[BN256] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		func(a *fptower.E2) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			var p1, p1Neg G2Affine
@@ -272,8 +272,8 @@ func TestG2AffineOps(t *testing.T) {
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 g2JacExtended
-			o1.add(&p1Neg)
-			o2.sub(&p1)
+			o1.addMixed(&p1Neg)
+			o2.subMixed(&p1)
 
 			return o1.X.Equal(&o2.X) &&
 				o1.Y.Equal(&o2.Y) &&
@@ -546,7 +546,7 @@ func BenchmarkG2AffineJacExtendedAdd(b *testing.B) {
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.add(&c)
+		a.addMixed(&c)
 	}
 }
 
@@ -558,7 +558,7 @@ func BenchmarkG2AffineJacExtendedSub(b *testing.B) {
 	c.FromJacobian(&g2Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.sub(&c)
+		a.subMixed(&c)
 	}
 }
 

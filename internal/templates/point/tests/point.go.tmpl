@@ -343,7 +343,7 @@ parameters := gopter.DefaultTestParameters()
 		genFuzz1,
 	))
 
-	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		{{- if eq .CoordType "fp.Element" }}
 			func(a {{ .CoordType}}) bool {
 		{{- else if eq .CoordType "fptower.E2" }}
@@ -355,8 +355,8 @@ parameters := gopter.DefaultTestParameters()
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 {{ $TJacobianExtended }}
-			o1.add(&p1Neg)
-			o2.sub(&p1)
+			o1.addMixed(&p1Neg)
+			o2.subMixed(&p1)
 
 			return 	o1.X.Equal(&o2.X) &&
 					o1.Y.Equal(&o2.Y) &&
@@ -664,7 +664,7 @@ func Benchmark{{ $TAffine }}JacExtendedAdd(b *testing.B) {
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.add(&c)
+		a.addMixed(&c)
 	}
 }
 
@@ -676,7 +676,7 @@ func Benchmark{{ $TAffine }}JacExtendedSub(b *testing.B) {
 	c.FromJacobian(&{{ toLower .PointName}}Gen)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.sub(&c)
+		a.subMixed(&c)
 	}
 }
 
