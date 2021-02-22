@@ -326,10 +326,10 @@ func msmProcessChunkG1Affine(chunk uint64,
 		// if msbWindow bit is set, we need to substract
 		if bits&msbWindow == 0 {
 			// add
-			buckets[bits-1].add(&points[i])
+			buckets[bits-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[bits & ^msbWindow].sub(&points[i])
+			buckets[bits & ^msbWindow].subMixed(&points[i])
 		}
 	}
 
@@ -1172,10 +1172,10 @@ func msmProcessChunkG2Affine(chunk uint64,
 		// if msbWindow bit is set, we need to substract
 		if bits&msbWindow == 0 {
 			// add
-			buckets[bits-1].add(&points[i])
+			buckets[bits-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[bits & ^msbWindow].sub(&points[i])
+			buckets[bits & ^msbWindow].subMixed(&points[i])
 		}
 	}
 

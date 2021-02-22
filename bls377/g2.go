@@ -568,9 +568,9 @@ func (p *G2Jac) unsafeFromJacExtended(Q *g2JacExtended) *G2Jac {
 	return p
 }
 
-// sub same as add, but will negate a.Y
+// subsubMixed same as add, but will negate a.Y
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -603,7 +603,7 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 	if P.IsZero() {
 		if R.IsZero() {
 
-			return p.doubleNeg(a)
+			return p.doubleNegMixed(a)
 
 		}
 		p.ZZ = fptower.E2{}
@@ -630,9 +630,9 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 
 }
 
-// add
+// addMixed
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
+func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
 	if a.X.IsZero() && a.Y.IsZero() {
@@ -661,7 +661,7 @@ func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
 	if P.IsZero() {
 		if R.IsZero() {
 
-			return p.double(a)
+			return p.doubleMixed(a)
 
 		}
 		p.ZZ = fptower.E2{}
@@ -736,6 +736,67 @@ func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
 	U.Mul(&p.ZZZ, &q.Y)
 
 	p.Y.Sub(&Y3, &U)
+
+	return p
+
+}
+
+// doubleNegMixed same as double, but will negate q.Y
+func (p *g2JacExtended) doubleNegMixed(q *G2Affine) *g2JacExtended {
+
+	var U, V, W, S, XX, M, S2, L fptower.E2
+
+	U.Double(&q.Y)
+
+	U.Neg(&U)
+
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	S2.Double(&S)
+	L.Mul(&W, &q.Y)
+
+	p.X.Square(&M).
+		Sub(&p.X, &S2)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Add(&p.Y, &L)
+
+	p.ZZ.Set(&V)
+	p.ZZZ.Set(&W)
+
+	return p
+
+}
+
+// doubleMixed point in ZZ coords
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
+
+	var U, V, W, S, XX, M, S2, L fptower.E2
+
+	U.Double(&q.Y)
+
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	S2.Double(&S)
+	L.Mul(&W, &q.Y)
+
+	p.X.Square(&M).
+		Sub(&p.X, &S2)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Sub(&p.Y, &L)
+
+	p.ZZ.Set(&V)
+	p.ZZZ.Set(&W)
 
 	return p
 

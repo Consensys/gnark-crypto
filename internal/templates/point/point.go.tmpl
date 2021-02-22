@@ -814,33 +814,76 @@ func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{
 }
 
 
-// sub same as add, but will negate a.Y
+// subsubMixed same as add, but will negate a.Y
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ $TJacobianExtended }}) sub(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+func (p *{{ $TJacobianExtended }}) subMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" true}}
 }
 
 
-// add
+// addMixed
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ $TJacobianExtended }}) add(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+func (p *{{ $TJacobianExtended }}) addMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "add" dict "all" . "negate" false}}
 }
 
 // doubleNeg same as double, but will negate q.Y
 func (p *{{ $TJacobianExtended }}) doubleNeg(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "mDouble" dict "all" . "negate" true}}
+	{{ template "double" dict "all" . "negate" true}}
 }
 
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "mDouble" dict "all" . "negate" false}}
+	{{ template "double" dict "all" . "negate" false}}
+}
+
+// doubleNegMixed same as double, but will negate q.Y
+func (p *{{ $TJacobianExtended }}) doubleNegMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
 
+// doubleMixed point in ZZ coords
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+	{{ template "mDouble" dict "all" . "negate" false}}
+}
+
 {{define "mDouble" }}
+	var U, V, W, S, XX, M, S2, L {{.all.CoordType}}
+
+	U.Double(&q.Y)
+	{{if .negate}}
+		U.Neg(&U)
+	{{end}}
+	V.Square(&U)
+    W.Mul(&U, &V)
+    S.Mul(&q.X, &V)
+    XX.Square(&q.X)
+    M.Double(&XX).
+        Add(&M, &XX) // -> + a, but a=0 here
+    S2.Double(&S)
+    L.Mul(&W, &q.Y)
+
+    p.X.Square(&M).
+        Sub(&p.X, &S2)
+    p.Y.Sub(&S, &p.X).
+        Mul(&p.Y, &M).
+	{{if .negate}}
+        Add(&p.Y, &L)
+	{{else}}
+        Sub(&p.Y, &L)
+	{{end}}
+    p.ZZ.Set(&V)
+    p.ZZZ.Set(&W)
+
+	return p
+{{end}}
+
+
+{{define "double" }}
 	var U, S, M, _M, Y3 {{.all.CoordType}}
 
 	U.Double(&q.Y)
@@ -899,9 +942,9 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TAffine }}) *{{ $TJacobianExten
 	if P.IsZero() {
 		if R.IsZero() {
 			{{if .negate}}
-				return p.doubleNeg(a)
+				return p.doubleNegMixed(a)
 			{{ else }}
-				return p.double(a)
+				return p.doubleMixed(a)
 			{{end}}
 
 		}
