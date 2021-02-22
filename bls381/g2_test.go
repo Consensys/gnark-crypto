@@ -495,7 +495,7 @@ func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineScalarMul(b *testing.B) {
+func BenchmarkG2JacScalarMul(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()
@@ -529,7 +529,7 @@ func BenchmarkG2AffineCofactorClearing(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineAdd(b *testing.B) {
+func BenchmarkG2JacAdd(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 	b.ResetTimer()
@@ -538,55 +538,7 @@ func BenchmarkG2AffineAdd(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineJacExtendedAdd(b *testing.B) {
-	var a g2JacExtended
-	a.doubleMixed(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.addMixed(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedSub(b *testing.B) {
-	var a g2JacExtended
-	a.doubleMixed(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.subMixed(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedDouble(b *testing.B) {
-	var a g2JacExtended
-	a.doubleMixed(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.doubleMixed(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedDoubleNeg(b *testing.B) {
-	var a g2JacExtended
-	a.doubleMixed(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.doubleNegMixed(&c)
-	}
-}
-
-func BenchmarkG2AffineAddMixed(b *testing.B) {
+func BenchmarkG2JacAddMixed(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 
@@ -607,4 +559,73 @@ func BenchmarkG2JacDouble(b *testing.B) {
 		a.DoubleAssign()
 	}
 
+}
+
+func BenchmarkG2JacExtAddMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.addMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtSubMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.subMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtDoubleMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtDoubleNegMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleNegMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtAdd(b *testing.B) {
+	var a, c g2JacExtended
+	a.doubleMixed(&g2GenAff)
+	c.double(&a)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.add(&c)
+	}
+}
+
+func BenchmarkG2JacExtDouble(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.double(&a)
+	}
 }
