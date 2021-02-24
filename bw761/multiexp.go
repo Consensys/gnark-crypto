@@ -300,17 +300,19 @@ func msmProcessChunkG1Affine(chunk uint64,
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var runningSum, tj, total G1Jac
-	runningSum.Set(&g1Infinity)
-	total.Set(&g1Infinity)
+	var runningSum, total g1JacExtended
+	runningSum.setInfinity()
+	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			runningSum.AddAssign(tj.unsafeFromJacExtended(&buckets[k]))
+			runningSum.add(&buckets[k])
 		}
-		total.AddAssign(&runningSum)
+		total.add(&runningSum)
 	}
 
-	chRes <- total
+	var totJac G1Jac
+	totJac.unsafeFromJacExtended(&total)
+	chRes <- totJac
 	close(chRes)
 }
 
@@ -606,17 +608,19 @@ func msmProcessChunkG2Affine(chunk uint64,
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
-	var runningSum, tj, total G2Jac
-	runningSum.Set(&g2Infinity)
-	total.Set(&g2Infinity)
+	var runningSum, total g2JacExtended
+	runningSum.setInfinity()
+	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].ZZ.IsZero() {
-			runningSum.AddAssign(tj.unsafeFromJacExtended(&buckets[k]))
+			runningSum.add(&buckets[k])
 		}
-		total.AddAssign(&runningSum)
+		total.add(&runningSum)
 	}
 
-	chRes <- total
+	var totJac G2Jac
+	totJac.unsafeFromJacExtended(&total)
+	chRes <- totJac
 	close(chRes)
 }
 
