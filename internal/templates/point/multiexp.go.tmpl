@@ -238,22 +238,23 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 }
 
 // msmReduceChunk{{ $.TAffine }} reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan {{ $.TJacobian }})  *{{ $.TJacobian }} {
+func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan {{ $.TJacobianExtended }})  *{{ $.TJacobian }} {
 	totalj := <-chChunks[len(chChunks)-1]
-	p.Set(&totalj)
+	p.unsafeFromJacExtended(&totalj)
+	var tj {{ $.TJacobian }}
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
 			p.DoubleAssign()
 		}
 		totalj := <-chChunks[j]
-		p.AddAssign(&totalj)
+		p.AddAssign(tj.unsafeFromJacExtended(&totalj))
 	}
 	return p
 }
 
 
 func msmProcessChunk{{ $.TAffine }}(chunk uint64,
-	 chRes chan<- {{ $.TJacobian }},
+	 chRes chan<- {{ $.TJacobianExtended }},
 	 buckets []{{ $.TJacobianExtended }},
 	 c uint64,
 	 points []{{ $.TAffine }},
@@ -315,9 +316,7 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 		total.add(&runningSum)
 	}
 
-	var totJac {{ $.TJacobian }}
-	totJac.unsafeFromJacExtended(&total)
-	chRes <- totJac
+	chRes <- total
 	close(chRes)
 }
 
@@ -331,7 +330,7 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
 
 	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan {{ $.TJacobian }}
+	var chChunks [nbChunks]chan {{ $.TJacobianExtended }}
 
 	// wait group to wait for all the go routines to start
 	var wg sync.WaitGroup
@@ -339,10 +338,10 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	{{- if not $cDividesBits }}
 	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	chChunks[nbChunks-1] = make(chan {{ $.TJacobian }}, 1)
+	chChunks[nbChunks-1] = make(chan {{ $.TJacobianExtended }}, 1)
 	<-opt.chCpus  // wait to have a cpu before scheduling
 	wg.Add(1)
-	go func(j uint64, chRes chan {{ $.TJacobian }}, points []{{ $.TAffine }}, scalars []fr.Element) {
+	go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
 		msmProcessChunk{{ $.TAffine }}(j, chRes, buckets[:], c, points, scalars)
@@ -353,10 +352,10 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	{{ else}}
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 	{{- end}}
-		chChunks[chunk] = make(chan {{ $.TJacobian }}, 1)
+		chChunks[chunk] = make(chan {{ $.TJacobianExtended }}, 1)
 		<-opt.chCpus  // wait to have a cpu before scheduling
 		wg.Add(1)
-		go func(j uint64, chRes chan {{ $.TJacobian }}, points []{{ $.TAffine }}, scalars []fr.Element) {
+		go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
 			msmProcessChunk{{ $.TAffine }}(j, chRes,  buckets[:], c, points, scalars)
