@@ -527,6 +527,12 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 // -------------------------------------------------------------------------------------------------
 // Jacobian extended
 
+// Set sets p to the provided point
+func (p *g2JacExtended) Set(a *g2JacExtended) *g2JacExtended {
+	p.X, p.Y, p.ZZ, p.ZZZ = a.X, a.Y, a.ZZ, a.ZZZ
+	return p
+}
+
 // setInfinity sets p to O
 func (p *g2JacExtended) setInfinity() *g2JacExtended {
 	p.X.SetOne()
@@ -577,17 +583,19 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 	}
 	// p is infinity, return q
 	if p.ZZ.IsZero() {
-		return q
+		p.Set(q)
+		return p
 	}
 
-	var A, B fptower.E2
+	var A, B, X1ZZ2, X2ZZ1, Y1ZZZ2, Y2ZZZ1 fptower.E2
 
 	// p2: q, p1: p
-	A.Mul(&q.X, &p.ZZ)
-	A.Sub(&A, &p.X)
-
-	B.Mul(&q.Y, &p.ZZZ)
-	B.Sub(&B, &p.Y)
+	X2ZZ1.Mul(&q.X, &p.ZZ)
+	X1ZZ2.Mul(&p.X, &q.ZZ)
+	A.Sub(&X2ZZ1, &X1ZZ2)
+	Y2ZZZ1.Mul(&q.Y, &p.ZZZ)
+	Y1ZZZ2.Mul(&p.Y, &q.ZZZ)
+	B.Sub(&Y2ZZZ1, &Y1ZZZ2)
 
 	if A.IsZero() {
 		if B.IsZero() {
@@ -600,7 +608,7 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 	}
 
 	// get some Element from our pool
-	var U1, U2, S1, S2, P, R, PP, PPP, Q, Q2, V fptower.E2
+	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fptower.E2
 	U1.Mul(&p.X, &q.ZZ)
 	U2.Mul(&q.X, &p.ZZ)
 	S1.Mul(&p.Y, &q.ZZZ)
@@ -610,13 +618,13 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 	PP.Square(&P)
 	PPP.Mul(&P, &PP)
 	Q.Mul(&U1, &PP)
-	Q2.Double(&Q)
 	V.Mul(&S1, &PPP)
 
 	p.X.Square(&R).
 		Sub(&p.X, &PPP).
-		Sub(&p.X, &Q2)
-	p.Y.Sub(&p.Y, &p.X).
+		Sub(&p.X, &Q).
+		Sub(&p.X, &Q)
+	p.Y.Sub(&Q, &p.X).
 		Mul(&p.Y, &R).
 		Sub(&p.Y, &V)
 	p.ZZ.Mul(&p.ZZ, &q.ZZ).
@@ -631,21 +639,25 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
 	// get some Element from our pool
-	var U, S, M, _M, Y3 fptower.E2
+	var U, V, W, S, XX, M fptower.E2
 
 	U.Double(&q.Y)
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	U.Mul(&W, &q.Y)
+
 	p.X.Square(&M).
 		Sub(&p.X, &S).
 		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-	p.Y.Sub(&Y3, &U)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Sub(&p.Y, &U)
+	p.ZZ.Mul(&V, &q.ZZ)
+	p.ZZZ.Mul(&W, &q.ZZZ)
 
 	return p
 }
