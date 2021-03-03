@@ -75,7 +75,7 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	CMOVQCS rb11, ra11;       \
 
 // mul(res, x, y *Element)
-TEXT ·mul(SB), $120-24
+TEXT ·mul(SB), $96-24
 
 	// the algorithm is described here
 	// https://hackmd.io/@zkteam/modular_multiplication
@@ -1876,7 +1876,7 @@ l1:
 	CALL ·_mulGeneric(SB)
 	RET
 
-TEXT ·fromMont(SB), $104-8
+TEXT ·fromMont(SB), $96-8
 	NO_LOCAL_POINTERS
 
 	// the algorithm is described here

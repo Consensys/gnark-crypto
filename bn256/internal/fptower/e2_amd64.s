@@ -493,7 +493,7 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
 	MOVQ R9, 56(R10)
 	RET
 
-TEXT ·mulAdxE2(SB), $88-24
+TEXT ·mulAdxE2(SB), $64-24
 	NO_LOCAL_POINTERS
 
 	// var a, b, c fp.Element

@@ -68,8 +68,8 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 		fq2.generateSquareE2BN256(forceADXCheck)
 	case "bls381":
 		fq2.generateMulByNonResidueE2BLS381()
-		fq2.generateSquareE2BLS381()
-		fq2.generateMulE2BLS381()
+		fq2.generateSquareE2BLS381(forceADXCheck)
+		fq2.generateMulE2BLS381(forceADXCheck)
 	}
 
 	return nil

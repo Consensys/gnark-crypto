@@ -20,47 +20,47 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, "gurvy")
 func main() {
 	var wg sync.WaitGroup
 	for _, conf := range []curveConfig{
-		// // BN256
-		// {
-		// 	Name: "bn256",
-		// 	fr:   "21888242871839275222246405745257275088548364400416034343698204186575808495617",
-		// 	fp:   "21888242871839275222246405745257275088696311157297823662689037894645226208583",
-		// 	G1: pointConfig{
-		// 		CoordType:        "fp.Element",
-		// 		PointName:        "g1",
-		// 		GLV:              true,
-		// 		CofactorCleaning: false,
-		// 		CRange:           defaultCRange(),
-		// 	},
-		// 	G2: pointConfig{
-		// 		CoordType:        "fptower.E2",
-		// 		PointName:        "g2",
-		// 		GLV:              true,
-		// 		CofactorCleaning: true,
-		// 		CRange:           defaultCRange(),
-		// 	},
-		// },
+		// BN256
+		{
+			Name: "bn256",
+			fr:   "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+			fp:   "21888242871839275222246405745257275088696311157297823662689037894645226208583",
+			G1: pointConfig{
+				CoordType:        "fp.Element",
+				PointName:        "g1",
+				GLV:              true,
+				CofactorCleaning: false,
+				CRange:           defaultCRange(),
+			},
+			G2: pointConfig{
+				CoordType:        "fptower.E2",
+				PointName:        "g2",
+				GLV:              true,
+				CofactorCleaning: true,
+				CRange:           defaultCRange(),
+			},
+		},
 
 		// BLS377
-		// {
-		// 	Name: "bls377",
-		// 	fr:   "8444461749428370424248824938781546531375899335154063827935233455917409239041",
-		// 	fp:   "258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
-		// 	G1: pointConfig{
-		// 		CoordType:        "fp.Element",
-		// 		PointName:        "g1",
-		// 		GLV:              true,
-		// 		CofactorCleaning: true,
-		// 		CRange:           defaultCRange(),
-		// 	},
-		// 	G2: pointConfig{
-		// 		CoordType:        "fptower.E2",
-		// 		PointName:        "g2",
-		// 		GLV:              true,
-		// 		CofactorCleaning: true,
-		// 		CRange:           defaultCRange(),
-		// 	},
-		// },
+		{
+			Name: "bls377",
+			fr:   "8444461749428370424248824938781546531375899335154063827935233455917409239041",
+			fp:   "258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
+			G1: pointConfig{
+				CoordType:        "fp.Element",
+				PointName:        "g1",
+				GLV:              true,
+				CofactorCleaning: true,
+				CRange:           defaultCRange(),
+			},
+			G2: pointConfig{
+				CoordType:        "fptower.E2",
+				PointName:        "g2",
+				GLV:              true,
+				CofactorCleaning: true,
+				CRange:           defaultCRange(),
+			},
+		},
 
 		// BLS381
 		{
@@ -84,25 +84,25 @@ func main() {
 		},
 
 		// BW761
-		// {
-		// 	Name: "bw761",
-		// 	fr:   "258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
-		// 	fp:   "6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299",
-		// 	G1: pointConfig{
-		// 		CoordType:        "fp.Element",
-		// 		PointName:        "g1",
-		// 		GLV:              true,
-		// 		CofactorCleaning: true,
-		// 		CRange:           []int{4, 5, 8, 16},
-		// 	},
-		// 	G2: pointConfig{
-		// 		CoordType:        "fp.Element",
-		// 		PointName:        "g2",
-		// 		GLV:              true,
-		// 		CofactorCleaning: true,
-		// 		CRange:           []int{4, 5, 8, 16},
-		// 	},
-		// },
+		{
+			Name: "bw761",
+			fr:   "258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177",
+			fp:   "6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299",
+			G1: pointConfig{
+				CoordType:        "fp.Element",
+				PointName:        "g1",
+				GLV:              true,
+				CofactorCleaning: true,
+				CRange:           []int{4, 5, 8, 16},
+			},
+			G2: pointConfig{
+				CoordType:        "fp.Element",
+				PointName:        "g2",
+				GLV:              true,
+				CofactorCleaning: true,
+				CRange:           []int{4, 5, 8, 16},
+			},
+		},
 	} {
 		wg.Add(1)
 		// for each curve, generate the needed files
@@ -251,7 +251,7 @@ func GenerateFq12over6over2(conf curveConfig) error {
 			return err
 		}
 
-		if conf.Name == "bn256" {
+		if conf.Name == "bn256" || conf.Name == "bls381" {
 			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
 		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
@@ -269,7 +269,7 @@ func GenerateFq12over6over2(conf curveConfig) error {
 		}
 	}
 
-	if conf.Name == "bn256" {
+	if conf.Name == "bn256" || conf.Name == "bls381" {
 		{
 			// fq2 assembly
 			fName := filepath.Join(dir, "e2_adx_amd64.s")

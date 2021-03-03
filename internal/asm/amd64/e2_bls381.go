@@ -53,7 +53,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BLS381() {
 	fq2.RET()
 }
 
-func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
+func (fq2 *Fq2Amd64) generateSquareE2BLS381(forceCheck bool) {
 	// // Square sets z to the E2-product of x,x returns z
 	// func (z *E2) Square(x *E2) *E2 {
 	// 	// algo 22 https://eprint.iacr.org/2010/354.pdf
@@ -66,9 +66,13 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	// 	z.A1.Set(&b)
 	// 	return z
 	// }
-	const minStackSize = 16
+	const argSize = 16
+	minStackSize := 0
+	if forceCheck {
+		minStackSize = argSize
+	}
 	stackSize := fq2.StackSize(fq2.NbWords*3, 2, minStackSize)
-	registers := fq2.FnHeader("squareAdxE2", stackSize, 16, amd64.DX, amd64.AX)
+	registers := fq2.FnHeader("squareAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
 	defer fq2.AssertCleanStack(stackSize, minStackSize)
 	fq2.WriteLn("NO_LOCAL_POINTERS")
 
@@ -78,9 +82,11 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	`)
 
 	noAdx := fq2.NewLabel()
-	// check ADX instruction support
-	fq2.CMPB("·supportAdx(SB)", 1)
-	fq2.JNE(noAdx)
+	if forceCheck {
+		// check ADX instruction support
+		fq2.CMPB("·supportAdx(SB)", 1)
+		fq2.JNE(noAdx)
+	}
 
 	// used in the mul operation
 	op1 := registers.PopN(fq2.NbWords)
@@ -147,18 +153,20 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	fq2.RET()
 
 	// No adx
-	fq2.LABEL(noAdx)
-	fq2.MOVQ("res+0(FP)", amd64.AX)
-	fq2.MOVQ(amd64.AX, "(SP)")
-	fq2.MOVQ("x+8(FP)", amd64.AX)
-	fq2.MOVQ(amd64.AX, "8(SP)")
-	fq2.WriteLn("CALL ·squareGenericE2(SB)")
-	fq2.RET()
+	if forceCheck {
+		fq2.LABEL(noAdx)
+		fq2.MOVQ("res+0(FP)", amd64.AX)
+		fq2.MOVQ(amd64.AX, "(SP)")
+		fq2.MOVQ("x+8(FP)", amd64.AX)
+		fq2.MOVQ(amd64.AX, "8(SP)")
+		fq2.WriteLn("CALL ·squareGenericE2(SB)")
+		fq2.RET()
+	}
 
 	fq2.Push(&registers, a0a1...)
 }
 
-func (fq2 *Fq2Amd64) generateMulE2BLS381() {
+func (fq2 *Fq2Amd64) generateMulE2BLS381(forceCheck bool) {
 	// var a, b, c fp.Element
 	// a.Add(&x.A0, &x.A1)
 	// b.Add(&y.A0, &y.A1)
@@ -170,7 +178,10 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 
 	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
 	const argSize = 24
-	minStackSize := argSize
+	minStackSize := 0
+	if forceCheck {
+		minStackSize = argSize
+	}
 	stackSize := fq2.StackSize(fq2.NbWords*4, 2, minStackSize)
 	registers := fq2.FnHeader("mulAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
 	defer fq2.AssertCleanStack(stackSize, minStackSize)
@@ -190,8 +201,10 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 
 	lblNoAdx := fq2.NewLabel()
 	// check ADX instruction support
-	fq2.CMPB("·supportAdx(SB)", 1)
-	fq2.JNE(lblNoAdx)
+	if forceCheck {
+		fq2.CMPB("·supportAdx(SB)", 1)
+		fq2.JNE(lblNoAdx)
+	}
 
 	// used in the mul operation
 	op1 := registers.PopN(fq2.NbWords)
@@ -279,15 +292,18 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 	fq2.RET()
 
 	// No adx
-	fq2.LABEL(lblNoAdx)
-	fq2.MOVQ("z+0(FP)", amd64.AX)
-	fq2.MOVQ(amd64.AX, "(SP)")
-	fq2.MOVQ("x+8(FP)", amd64.AX)
-	fq2.MOVQ(amd64.AX, "8(SP)")
-	fq2.MOVQ("y+16(FP)", amd64.AX)
-	fq2.MOVQ(amd64.AX, "16(SP)")
-	fq2.WriteLn("CALL ·mulGenericE2(SB)")
-	fq2.RET()
+	if forceCheck {
+		fq2.LABEL(lblNoAdx)
+		fq2.MOVQ("z+0(FP)", amd64.AX)
+		fq2.MOVQ(amd64.AX, "(SP)")
+		fq2.MOVQ("x+8(FP)", amd64.AX)
+		fq2.MOVQ(amd64.AX, "8(SP)")
+		fq2.MOVQ("y+16(FP)", amd64.AX)
+		fq2.MOVQ(amd64.AX, "16(SP)")
+		fq2.WriteLn("CALL ·mulGenericE2(SB)")
+		fq2.RET()
+
+	}
 
 	fq2.Push(&registers, aStack...)
 	fq2.Push(&registers, cStack...)
