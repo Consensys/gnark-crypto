@@ -71,125 +71,79 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	registers := fq2.FnHeader("squareAdxE2", stackSize, 16, amd64.DX, amd64.AX)
 	defer fq2.AssertCleanStack(stackSize, minStackSize)
 	fq2.WriteLn("NO_LOCAL_POINTERS")
+
+	fq2.WriteLn(`
+	// z.A0 = (x.A0 + x.A1) * (x.A0 - x.A1)
+	// z.A1 = 2 * x.A0 * x.A1
+	`)
+
 	noAdx := fq2.NewLabel()
 	// check ADX instruction support
 	fq2.CMPB("·supportAdx(SB)", 1)
 	fq2.JNE(noAdx)
 
-	a0SP := fq2.PopN(&registers, true)
-	// a0SP := make([]string, fq2.NbWords)
-	// offsetSP := 16 // we use one push/pop in the mul, need some extra space.
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	a0SP[i] = fmt.Sprintf("-%d(SP)", offsetSP)
-	// 	offsetSP += 8
-	// }
+	// used in the mul operation
+	op1 := registers.PopN(fq2.NbWords)
+	res := registers.PopN(fq2.NbWords)
 
-	var a []amd64.Register
-	{
-		x := amd64.DX
-		fq2.MOVQ("x+8(FP)", x)
-
-		a0 := registers.PopN(fq2.NbWords)
-
-		fq2.Mov(x, a0) // a0
-
-		zero := amd64.BP
-		fq2.XORQ(zero, zero)
-		// a0 = a0 - a1
-		fq2.Sub(x, a0, fq2.NbWords)
-		fq2.reduceAfterSubNoJump(&registers, zero, a0)
-		for i := 0; i < len(a0); i++ {
-			// fq2.PUSHQ(a0[i])
-			fq2.MOVQ(a0[i], a0SP[i])
-		}
-
-		a1 := registers.PopN(fq2.NbWords)
-		a = a0
-		fq2.Mov(x, a)               // a = a0
-		fq2.Mov(x, a1, fq2.NbWords) // a = a0
-
-		// a = a0 + a1
-		fq2.Add(a1, a)
-		registers.Push(a1...)
-
-		fq2.Reduce(&registers, a)
+	xat := func(i int) string {
+		return string(op1[i])
 	}
+
+	ax := amd64.AX
+	dx := amd64.DX
+
+	// b = a0 * a1 * 2
+
+	fq2.Comment("2 * x.A0 * x.A1")
+	fq2.MOVQ("x+8(FP)", ax)
+
+	fq2.LabelRegisters("2 * x.A1", op1...)
+	fq2.Mov(ax, op1, fq2.NbWords)
+	fq2.Add(op1, op1) // op1, no reduce
+
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("x+8(FP)", dx)
+		return dx.At(i)
+	}, res)
+	fq2.ReduceElement(res, op1)
+
+	fq2.MOVQ("x+8(FP)", ax)
+
+	fq2.LabelRegisters("x.A1", op1...)
+	fq2.Mov(ax, op1, fq2.NbWords)
+
+	fq2.MOVQ("res+0(FP)", dx)
+	fq2.Mov(res, dx, 0, fq2.NbWords)
+	fq2.Mov(op1, res)
+
+	// op1 and res both contains x.A1 at this point
+	// res+0(FP) (z.A1) must not be referenced.
+
+	// a = a0 + a1
+	fq2.Comment("Add(&x.A0, &x.A1)")
+	fq2.Add(ax, op1)
+	//--> must save on stack
+	a0a1 := fq2.PopN(&registers, true)
+	fq2.Mov(op1, a0a1)
+
+	zero := amd64.BP
+	fq2.XORQ(zero, zero)
+
+	// b = a0 - a1
+	fq2.Comment("Sub(&x.A0, &x.A1)")
+	fq2.Mov(ax, op1)
+	fq2.Sub(res, op1)
+	fq2.reduceAfterSubNoJumpScratch(zero, op1, res) // using res as scratch registers
 
 	// a = a * b
-	{
-		a10 := amd64.BP
-		fq2.MOVQ(a0SP[0], a10)
-		fq2.MOVQ(a[0], a0SP[0])
-		registers.Push(a[0])
-		yat := func(i int) string {
-			if i == 0 {
-				return string(a10)
-			}
-			return string(a0SP[i])
-		}
-		xat := func(i int) string {
-			if i == 0 {
-				return string(a0SP[0])
-			}
-			return string(a[i])
-		}
-		t := registers.PopN(fq2.NbWords)
-		fq2.MulADX(&registers, xat, yat, t)
-		registers.Push(a[1:]...)
-		fq2.Push(&registers, a0SP...)
-		a = t
-		fq2.Reduce(&registers, a)
-	}
+	fq2.MulADX(&registers, xat, func(i int) string { return string(a0a1[i]) }, res)
+	fq2.ReduceElement(res, op1)
 
-	// // result.a1 = b
-	r := amd64.DX
-	fq2.MOVQ("res+0(FP)", r)
+	fq2.MOVQ("res+0(FP)", ax)
+	fq2.Mov(res, ax)
 
-	// we need to save x.A0 in case z == x
-	{
-		x := amd64.BP
-		fq2.MOVQ("x+8(FP)", amd64.BP)
-		b := registers.PopN(fq2.NbWords)
-		fq2.Mov(x, b) // b = a0
-		// registers.Push(x)
-		// result.a0 = a
-		fq2.Mov(a, r)
-		registers.Push(a...)
-
-		// b = a0 * a1 * 2
-		yat := func(i int) string {
-			ry := amd64.DX
-			fq2.MOVQ("x+8(FP)", ry)
-			return ry.At(i + fq2.NbWords)
-		}
-
-		b00 := fq2.Pop(&registers, true)
-		fq2.MOVQ(b[0], b00)
-		registers.Push(b[0])
-		xat := func(i int) string {
-			if i == 0 {
-				return string(b00)
-			}
-			return string(b[i])
-		}
-		t := registers.PopN(fq2.NbWords)
-		fq2.MulADX(&registers, xat, yat, t)
-		fq2.Push(&registers, b00)
-		registers.Push(b[1:]...)
-		// reduce b
-		fq2.Reduce(&registers, t)
-
-		// double b (no reduction)
-		fq2.Add(t, t)
-
-		// result.a1 = b
-		r = amd64.DX
-
-		fq2.Reduce(&registers, t)
-		fq2.MOVQ("res+0(FP)", r)
-		fq2.Mov(t, r, 0, fq2.NbWords)
-	}
-
+	// result.a0 = a
 	fq2.RET()
 
 	// No adx
@@ -200,6 +154,8 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381() {
 	fq2.MOVQ(amd64.AX, "8(SP)")
 	fq2.WriteLn("CALL ·squareGenericE2(SB)")
 	fq2.RET()
+
+	fq2.Push(&registers, a0a1...)
 }
 
 func (fq2 *Fq2Amd64) generateMulE2BLS381() {
