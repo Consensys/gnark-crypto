@@ -42,8 +42,6 @@ func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
 	}
 }
 
-const commentSeparator = "---------------------------------------------------------------------------------------------"
-
 // Generate ...
 func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
@@ -243,7 +241,7 @@ func (fq2 *Fq2Amd64) generateSubE2() {
 	fq2.Sub(xy, t)
 	fq2.MOVQ("x+8(FP)", xy)
 
-	fq2.reduceAfterSubNoJump(&registers, zero, t)
+	fq2.modReduceAfterSub(&registers, zero, t)
 
 	r := registers.Pop()
 	fq2.MOVQ("res+0(FP)", r)
@@ -257,7 +255,7 @@ func (fq2 *Fq2Amd64) generateSubE2() {
 	fq2.MOVQ("y+16(FP)", xy)
 	fq2.Sub(xy, t, fq2.NbWords)
 
-	fq2.reduceAfterSubNoJump(&registers, zero, t)
+	fq2.modReduceAfterSub(&registers, zero, t)
 
 	r = xy
 	fq2.MOVQ("res+0(FP)", r)
@@ -268,27 +266,13 @@ func (fq2 *Fq2Amd64) generateSubE2() {
 
 }
 
-func (fq2 *Fq2Amd64) reduceAfterSubWithJump(registers *ramd64.Registers, t []ramd64.Register) {
-	noReduce := fq2.NewLabel()
-	fq2.JCC(noReduce)
-	q := registers.Pop()
-	fq2.MOVQ(fq2.Q[0], q)
-	fq2.ADDQ(q, t[0])
-	for i := 1; i < fq2.NbWords; i++ {
-		fq2.MOVQ(fq2.Q[i], q)
-		fq2.ADCQ(q, t[i])
-	}
-	fq2.LABEL(noReduce)
-	registers.Push(q)
-}
-
-func (fq2 *Fq2Amd64) reduceAfterSubNoJump(registers *ramd64.Registers, zero ramd64.Register, t []ramd64.Register) {
+func (fq2 *Fq2Amd64) modReduceAfterSub(registers *ramd64.Registers, zero ramd64.Register, t []ramd64.Register) {
 	q := registers.PopN(fq2.NbWords)
-	fq2.reduceAfterSubNoJumpScratch(zero, t, q)
+	fq2.modReduceAfterSubScratch(zero, t, q)
 	registers.Push(q...)
 }
 
-func (fq2 *Fq2Amd64) reduceAfterSubNoJumpScratch(zero ramd64.Register, t, scratch []ramd64.Register) {
+func (fq2 *Fq2Amd64) modReduceAfterSubScratch(zero ramd64.Register, t, scratch []ramd64.Register) {
 	fq2.Mov(fq2.Q, scratch)
 	for i := 0; i < fq2.NbWords; i++ {
 		fq2.CMOVQCC(zero, scratch[i])

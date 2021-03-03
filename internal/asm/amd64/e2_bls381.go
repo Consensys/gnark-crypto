@@ -40,7 +40,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BLS381() {
 
 	// a = x.A0 - x.A1
 	fq2.Sub(x, a, fq2.NbWords)
-	fq2.reduceAfterSubNoJumpScratch(tr, a, b)
+	fq2.modReduceAfterSubScratch(tr, a, b)
 	// b = x.A0 + x.A1
 	fq2.Mov(x, b, fq2.NbWords) // b = a1
 	fq2.Add(x, b)
@@ -140,7 +140,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BLS381(forceCheck bool) {
 	fq2.Comment("Sub(&x.A0, &x.A1)")
 	fq2.Mov(ax, op1)
 	fq2.Sub(res, op1)
-	fq2.reduceAfterSubNoJumpScratch(zero, op1, res) // using res as scratch registers
+	fq2.modReduceAfterSubScratch(zero, op1, res) // using res as scratch registers
 
 	// a = a * b
 	fq2.MulADX(&registers, xat, func(i int) string { return string(a0a1[i]) }, res)
@@ -274,10 +274,10 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381(forceCheck bool) {
 	fq2.Mov(aStack, op1)
 	fq2.Sub(res, op1) // a -= b
 	fq2.Mov(res, aStack)
-	fq2.reduceAfterSubNoJumpScratch(zero, op1, res)
+	fq2.modReduceAfterSubScratch(zero, op1, res)
 
 	fq2.Sub(cStack, op1) // a -= c
-	fq2.reduceAfterSubNoJumpScratch(zero, op1, res)
+	fq2.modReduceAfterSubScratch(zero, op1, res)
 
 	fq2.MOVQ("z+0(FP)", ax)
 	fq2.Mov(op1, ax, 0, fq2.NbWords)
@@ -285,7 +285,7 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381(forceCheck bool) {
 	// b = b - c
 	fq2.Mov(aStack, res)
 	fq2.Sub(cStack, res) // b -= c
-	fq2.reduceAfterSubNoJumpScratch(zero, res, op1)
+	fq2.modReduceAfterSubScratch(zero, res, op1)
 
 	fq2.Mov(res, ax)
 

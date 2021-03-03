@@ -55,7 +55,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
 	zero := registers.Pop()
 	fq2.XORQ(zero, zero)
 	fq2.Sub(b, a)
-	fq2.reduceAfterSubNoJump(&registers, zero, a)
+	fq2.modReduceAfterSub(&registers, zero, a)
 	registers.Push(zero)
 
 	fq2.Add(b, b)
@@ -145,7 +145,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256(forceCheck bool) {
 	// b = a0 - a1
 	fq2.Comment("Sub(&x.A0, &x.A1)")
 	fq2.Sub(res, op2)
-	fq2.reduceAfterSubNoJumpScratch(zero, op2, res) // using res as scratch registers
+	fq2.modReduceAfterSubScratch(zero, op2, res) // using res as scratch registers
 
 	// a = a * b
 	fq2.mulElement()
@@ -257,10 +257,10 @@ func (fq2 *Fq2Amd64) generateMulE2BN256(forceCheck bool) {
 	// a = a - b -c
 	fq2.Mov(aStack, op1)
 	fq2.Sub(res, op1) // a -= b
-	fq2.reduceAfterSubNoJumpScratch(zero, op1, op2)
+	fq2.modReduceAfterSubScratch(zero, op1, op2)
 
 	fq2.Sub(cStack, op1) // a -= c
-	fq2.reduceAfterSubNoJumpScratch(zero, op1, op2)
+	fq2.modReduceAfterSubScratch(zero, op1, op2)
 
 	fq2.MOVQ("res+0(FP)", ax)
 	fq2.Mov(op1, ax, 0, fq2.NbWords)
@@ -268,7 +268,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN256(forceCheck bool) {
 	// b = b - c
 	fq2.Mov(cStack, op2)
 	fq2.Sub(op2, res) // b -= c
-	fq2.reduceAfterSubNoJumpScratch(zero, res, op1)
+	fq2.modReduceAfterSubScratch(zero, res, op1)
 
 	fq2.Mov(res, ax)
 
