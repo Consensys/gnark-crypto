@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard"
+	ramd64 "github.com/consensys/bavard/amd64"
 	"github.com/consensys/goff/asm/amd64"
 	"github.com/consensys/goff/field"
 )
@@ -27,21 +28,33 @@ import (
 type Fq2Amd64 struct {
 	*amd64.FFAmd64
 	curveName string
+	w         io.Writer
+	F         *field.Field
 }
 
 // NewFq2Amd64 ...
 func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
-	return &Fq2Amd64{amd64.NewFFAmd64(w, F), curveName}
+	return &Fq2Amd64{
+		amd64.NewFFAmd64(w, F),
+		curveName,
+		w,
+		F,
+	}
 }
 
+const commentSeparator = "---------------------------------------------------------------------------------------------"
+
 // Generate ...
-func (fq2 *Fq2Amd64) Generate() error {
+func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
 	fq2.WriteLn("#include \"textflag.h\"")
 	fq2.WriteLn("#include \"funcdata.h\"")
 
 	fq2.GenerateDefines()
+	if strings.ToLower(fq2.curveName) == "bn256" {
+		fq2.generateMulDefine()
+	}
 
 	fq2.generateAddE2()
 	fq2.generateDoubleE2()
@@ -50,9 +63,9 @@ func (fq2 *Fq2Amd64) Generate() error {
 
 	switch strings.ToLower(fq2.curveName) {
 	case "bn256":
-		fq2.generateMulE2BN256()
-		fq2.generateSquareE2BN256()
 		fq2.generateMulByNonResidueE2BN256()
+		fq2.generateMulE2BN256(forceADXCheck)
+		fq2.generateSquareE2BN256(forceADXCheck)
 	case "bls381":
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateSquareE2BLS381()
@@ -63,11 +76,7 @@ func (fq2 *Fq2Amd64) Generate() error {
 }
 
 func (fq2 *Fq2Amd64) generateAddE2() {
-	stackSize := 0
-	if fq2.NbWords > amd64.SmallModulus {
-		stackSize = fq2.NbWords * 8
-	}
-	registers := fq2.FnHeader("addE2", stackSize, 24)
+	registers := fq2.FnHeader("addE2", 0, 24)
 
 	// registers
 	x := registers.Pop()
@@ -86,8 +95,9 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 	fq2.Add(y, t)
 
 	// reduce
+	fq2.Reduce(&registers, t)
 	fq2.MOVQ("res+0(FP)", r)
-	fq2.Reduce(&registers, t, r)
+	fq2.Mov(t, r)
 
 	// move x+offset(fq2.NbWords) into t
 	fq2.Mov(x, t, fq2.NbWords)
@@ -96,7 +106,8 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 	fq2.Add(y, t, fq2.NbWords)
 
 	// reduce t into r with offset fq2.NbWords
-	fq2.Reduce(&registers, t, r, fq2.NbWords)
+	fq2.Reduce(&registers, t)
+	fq2.Mov(t, r, 0, fq2.NbWords)
 
 	fq2.RET()
 
@@ -104,11 +115,7 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 
 func (fq2 *Fq2Amd64) generateDoubleE2() {
 	// func header
-	stackSize := 0
-	if fq2.NbWords > amd64.SmallModulus {
-		stackSize = fq2.NbWords * 8
-	}
-	registers := fq2.FnHeader("doubleE2", stackSize, 16)
+	registers := fq2.FnHeader("doubleE2", 0, 16)
 
 	// registers
 	x := registers.Pop()
@@ -120,10 +127,12 @@ func (fq2 *Fq2Amd64) generateDoubleE2() {
 
 	fq2.Mov(x, t)
 	fq2.Add(t, t)
-	fq2.Reduce(&registers, t, r)
+	fq2.Reduce(&registers, t)
+	fq2.Mov(t, r)
 	fq2.Mov(x, t, fq2.NbWords)
 	fq2.Add(t, t)
-	fq2.Reduce(&registers, t, r, fq2.NbWords)
+	fq2.Reduce(&registers, t)
+	fq2.Mov(t, r, 0, fq2.NbWords)
 
 	fq2.RET()
 }
@@ -220,46 +229,70 @@ func (fq2 *Fq2Amd64) generateSubE2() {
 
 	// registers
 	t := registers.PopN(fq2.NbWords)
-	x := registers.Pop()
-	y := registers.Pop()
+	xy := registers.Pop()
 
-	fq2.MOVQ("x+8(FP)", x)
-	fq2.MOVQ("y+16(FP)", y)
+	zero := registers.Pop()
+	fq2.XORQ(zero, zero)
 
-	fq2.Mov(x, t)
+	fq2.MOVQ("x+8(FP)", xy)
+	fq2.Mov(xy, t)
 
 	// z = x - y mod q
 	// move t = x
-	fq2.Sub(y, t)
+	fq2.MOVQ("y+16(FP)", xy)
+	fq2.Sub(xy, t)
+	fq2.MOVQ("x+8(FP)", xy)
 
-	if fq2.NbWords > 6 {
-		fq2.ReduceAfterSub(&registers, t, false)
-	} else {
-		fq2.ReduceAfterSub(&registers, t, true)
-	}
+	fq2.reduceAfterSubNoJump(&registers, zero, t)
 
 	r := registers.Pop()
 	fq2.MOVQ("res+0(FP)", r)
 	fq2.Mov(t, r)
 	registers.Push(r)
 
-	fq2.Mov(x, t, fq2.NbWords)
+	fq2.Mov(xy, t, fq2.NbWords)
 
 	// z = x - y mod q
 	// move t = x
-	fq2.Sub(y, t, fq2.NbWords)
+	fq2.MOVQ("y+16(FP)", xy)
+	fq2.Sub(xy, t, fq2.NbWords)
 
-	if fq2.NbWords > 6 {
-		fq2.ReduceAfterSub(&registers, t, false)
-	} else {
-		fq2.ReduceAfterSub(&registers, t, true)
-	}
+	fq2.reduceAfterSubNoJump(&registers, zero, t)
 
-	r = x
+	r = xy
 	fq2.MOVQ("res+0(FP)", r)
 
 	fq2.Mov(t, r, 0, fq2.NbWords)
 
 	fq2.RET()
 
+}
+
+func (fq2 *Fq2Amd64) reduceAfterSubWithJump(registers *ramd64.Registers, t []ramd64.Register) {
+	noReduce := fq2.NewLabel()
+	fq2.JCC(noReduce)
+	q := registers.Pop()
+	fq2.MOVQ(fq2.Q[0], q)
+	fq2.ADDQ(q, t[0])
+	for i := 1; i < fq2.NbWords; i++ {
+		fq2.MOVQ(fq2.Q[i], q)
+		fq2.ADCQ(q, t[i])
+	}
+	fq2.LABEL(noReduce)
+	registers.Push(q)
+}
+
+func (fq2 *Fq2Amd64) reduceAfterSubNoJump(registers *ramd64.Registers, zero ramd64.Register, t []ramd64.Register) {
+	q := registers.PopN(fq2.NbWords)
+	fq2.reduceAfterSubNoJumpScratch(zero, t, q)
+	registers.Push(q...)
+}
+
+func (fq2 *Fq2Amd64) reduceAfterSubNoJumpScratch(zero ramd64.Register, t, scratch []ramd64.Register) {
+	fq2.Mov(fq2.Q, scratch)
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.CMOVQCC(zero, scratch[i])
+	}
+	// add registers (q or 0) to t, and set to result
+	fq2.Add(scratch, t)
 }

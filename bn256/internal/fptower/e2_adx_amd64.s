@@ -1,4 +1,4 @@
-// +build !amd64_adx
+// +build amd64_adx
 
 // Copyright 2020 ConsenSys Software Inc.
 //
@@ -493,7 +493,7 @@ TEXT ·mulNonResE2(SB), NOSPLIT, $0-16
 	MOVQ R9, 56(R10)
 	RET
 
-TEXT ·mulAdxE2(SB), $88-24
+TEXT ·mulAdxE2(SB), $64-24
 	NO_LOCAL_POINTERS
 
 	// var a, b, c fp.Element
@@ -505,8 +505,6 @@ TEXT ·mulAdxE2(SB), $88-24
 	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	// z.A0.Sub(&b, &c)
 
-	CMPB ·supportAdx(SB), $1
-	JNE  l4
 	MOVQ x+8(FP), AX
 	MOVQ y+16(FP), DX
 	MOVQ 32(AX), R14
@@ -638,24 +636,11 @@ TEXT ·mulAdxE2(SB), $88-24
 	MOVQ    R13, 24(AX)
 	RET
 
-l4:
-	MOVQ res+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ x+8(FP), AX
-	MOVQ AX, 8(SP)
-	MOVQ y+16(FP), AX
-	MOVQ AX, 16(SP)
-	CALL ·mulGenericE2(SB)
-	RET
-
-TEXT ·squareAdxE2(SB), $16-16
+TEXT ·squareAdxE2(SB), NOSPLIT, $0-16
 	NO_LOCAL_POINTERS
 
 	// z.A0 = (x.A0 + x.A1) * (x.A0 - x.A1)
 	// z.A1 = 2 * x.A0 * x.A1
-
-	CMPB ·supportAdx(SB), $1
-	JNE  l5
 
 	// 2 * x.A0 * x.A1
 	MOVQ x+8(FP), AX
@@ -744,12 +729,4 @@ TEXT ·squareAdxE2(SB), $16-16
 	MOVQ R11, 8(AX)
 	MOVQ R12, 16(AX)
 	MOVQ R13, 24(AX)
-	RET
-
-l5:
-	MOVQ res+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ x+8(FP), AX
-	MOVQ AX, 8(SP)
-	CALL ·squareGenericE2(SB)
 	RET
