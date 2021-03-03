@@ -169,153 +169,117 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 	// z.A0.Sub(&b, &c)
 
 	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
-	_ = fq2.FnHeader("mulAdxE2", 3*8*fq2.NbWords+8, 24, amd64.DX, amd64.AX)
+	const argSize = 24
+	minStackSize := argSize
+	stackSize := fq2.StackSize(fq2.NbWords*4, 2, minStackSize)
+	registers := fq2.FnHeader("mulAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
+	defer fq2.AssertCleanStack(stackSize, minStackSize)
+
 	fq2.WriteLn("NO_LOCAL_POINTERS")
-	noAdx := fq2.NewLabel()
-	fq2.JMP(noAdx)
-	// // check ADX instruction support
-	// fq2.CMPB("·supportAdx(SB)", 1)
-	// fq2.JNE(noAdx)
 
-	// // first: let's name our local variables on the stack
-	// xA0yA0 := make([]string, fq2.NbWords) // Mul(&x.A0, &y.A0)
-	// xA1yA1 := make([]string, fq2.NbWords) // Mul(&x.A1, &y.A1)
-	// xA0xA1 := make([]string, fq2.NbWords) // Add(&x.A0, &x.A1)
+	fq2.WriteLn(`
+	// var a, b, c fp.Element
+	// a.Add(&x.A0, &x.A1)
+	// b.Add(&y.A0, &y.A1)
+	// a.Mul(&a, &b)
+	// b.Mul(&x.A0, &y.A0)
+	// c.Mul(&x.A1, &y.A1)
+	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	// z.A0.Sub(&b, &c)
+	`)
 
-	// // we use one push/pop in the mul, need some extra space, hence +16
-	// offsetSP := 16
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	xA0yA0[i] = fmt.Sprintf("-%d(SP)", offsetSP)
-	// 	offsetSP += 8
-	// }
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	xA1yA1[i] = fmt.Sprintf("-%d(SP)", offsetSP)
-	// 	offsetSP += 8
-	// }
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	xA0xA1[i] = fmt.Sprintf("-%d(SP)", offsetSP)
-	// 	offsetSP += 8
-	// }
+	lblNoAdx := fq2.NewLabel()
+	// check ADX instruction support
+	fq2.CMPB("·supportAdx(SB)", 1)
+	fq2.JNE(lblNoAdx)
 
-	// t := registers.PopN(fq2.NbWords)
-	// x := amd64.AX
-	// y := amd64.DX
-	// fq2.MOVQ("x+8(FP)", x)
-	// fq2.Mov(x, t)
+	// used in the mul operation
+	op1 := registers.PopN(fq2.NbWords)
+	res := registers.PopN(fq2.NbWords)
 
-	// {
-	// 	// Mul(&x.A0, &y.A0)
-	// 	yat := func(i int) string {
-	// 		ry := amd64.DX
-	// 		fq2.MOVQ("y+16(FP)", ry)
-	// 		return ry.At(i)
-	// 	}
-	// 	xat := func(i int) string {
-	// 		return string(t[i])
-	// 	}
-	// 	tr := fq2.MulADX(&registers, yat, xat, nil)
-	// 	registers.Push(t...)
-	// 	fq2.Reduce(&registers, tr)
-	// 	t = registers.PopN(fq2.NbWords)
-	// 	// save our registers
-	// 	for i := 0; i < fq2.NbWords; i++ {
-	// 		fq2.MOVQ(tr[i], xA0yA0[i])
-	// 	}
-	// 	registers.Push(tr...)
-	// }
+	xat := func(i int) string {
+		return string(op1[i])
+	}
 
-	// fq2.MOVQ("x+8(FP)", x)
-	// fq2.Mov(x, t, fq2.NbWords)
-	// {
-	// 	// Mul(&x.A1, &y.A1)
-	// 	yat := func(i int) string {
-	// 		ry := amd64.DX
-	// 		fq2.MOVQ("y+16(FP)", ry)
-	// 		return ry.At(i + fq2.NbWords)
-	// 	}
-	// 	xat := func(i int) string {
-	// 		return string(t[i])
-	// 	}
-	// 	tr := fq2.MulADX(&registers, yat, xat, nil)
-	// 	registers.Push(t...)
-	// 	fq2.Reduce(&registers, tr)
-	// 	t = registers.PopN(fq2.NbWords)
-	// 	// save our registers
-	// 	for i := 0; i < fq2.NbWords; i++ {
-	// 		fq2.MOVQ(tr[i], xA1yA1[i])
-	// 	}
-	// 	registers.Push(tr...)
-	// }
+	ax := amd64.AX
+	dx := amd64.DX
 
-	// fq2.MOVQ("x+8(FP)", x)
-	// fq2.Mov(x, t)
-	// fq2.Add(x, t, fq2.NbWords)
-	// fq2.Reduce(&registers, t)
+	aStack := fq2.PopN(&registers, true)
+	cStack := fq2.PopN(&registers, true)
 
-	// // save our registers
-	// for i := 0; i < len(t); i++ {
-	// 	fq2.MOVQ(t[i], xA0xA1[i])
-	// }
+	fq2.MOVQ("x+8(FP)", ax)
 
-	// fq2.MOVQ("y+16(FP)", y)
-	// fq2.Mov(y, t)
-	// fq2.Add(y, t, fq2.NbWords)
-	// fq2.Reduce(&registers, t)
+	// c = x.A1 * y.A1
+	fq2.Mov(ax, op1, fq2.NbWords)
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("y+16(FP)", dx)
+		return dx.At(i + fq2.NbWords)
+	}, res)
+	fq2.ReduceElement(res, op1)
+	// res = x.A1 * y.A1
+	// pushing on stack for later use.
+	fq2.Mov(res, cStack)
 
-	// {
-	// 	yat := func(i int) string {
-	// 		return string(xA0xA1[i])
-	// 	}
-	// 	xat := func(i int) string {
-	// 		return string(t[i])
-	// 	}
-	// 	tR := fq2.MulADX(&registers, yat, xat, nil)
-	// 	registers.Push(t...)
-	// 	t = tR
-	// 	fq2.Reduce(&registers, t)
-	// }
+	fq2.MOVQ("x+8(FP)", ax)
+	fq2.MOVQ("y+16(FP)", dx)
 
-	// z := amd64.DX
-	// fq2.MOVQ("z+0(FP)", z)
-	// // z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	// a = x.a0 + x.a1
+	fq2.Mov(ax, op1, fq2.NbWords)
+	fq2.Add(ax, op1)
+	fq2.Mov(op1, aStack)
 
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	if i == 0 {
-	// 		fq2.SUBQ(xA0yA0[i], t[i])
-	// 	} else {
-	// 		fq2.SBBQ(xA0yA0[i], t[i])
-	// 	}
-	// }
-	// fq2.ReduceAfterSub(&registers, t, true)
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	if i == 0 {
-	// 		fq2.SUBQ(xA1yA1[i], t[i])
-	// 	} else {
-	// 		fq2.SBBQ(xA1yA1[i], t[i])
-	// 	}
-	// }
-	// fq2.ReduceAfterSub(&registers, t, true)
+	// b = y.a0 + y.a1
+	fq2.Mov(dx, op1)
+	fq2.Add(dx, op1, fq2.NbWords)
+	// --> note, we don't reduce, as this is used as input to the mul which accept input of size D-1/2 -1
+	// TODO @gbotrel prove the upper bound / lower bound case for the no_carry mul
 
-	// fq2.Mov(t, z, 0, fq2.NbWords)
+	// a = 	a * b = (x.a0 + x.a1) *  (y.a0 + y.a1)
+	fq2.MulADX(&registers, xat, func(i int) string {
+		return string(aStack[i])
+	}, res)
+	fq2.ReduceElement(res, op1)
 
-	// // z.A0.Sub(&b, &c)
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	fq2.MOVQ(xA0yA0[i], t[i])
-	// }
+	// moving result to the stack.
+	fq2.Mov(res, aStack)
 
-	// for i := 0; i < fq2.NbWords; i++ {
-	// 	if i == 0 {
-	// 		fq2.SUBQ(xA1yA1[i], t[i])
-	// 	} else {
-	// 		fq2.SBBQ(xA1yA1[i], t[i])
-	// 	}
-	// }
-	// fq2.ReduceAfterSub(&registers, t, true)
-	// fq2.Mov(t, z)
-	// fq2.RET()
+	// b = x.A0 * y.AO
+	fq2.MOVQ("x+8(FP)", ax)
+
+	fq2.Mov(ax, op1)
+
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("y+16(FP)", dx)
+		return dx.At(i)
+	}, res)
+	fq2.ReduceElement(res, op1)
+
+	zero := dx
+	fq2.XORQ(zero, zero)
+
+	// a = a - b -c
+	fq2.Mov(aStack, op1)
+	fq2.Sub(res, op1) // a -= b
+	fq2.Mov(res, aStack)
+	fq2.reduceAfterSubNoJumpScratch(zero, op1, res)
+
+	fq2.Sub(cStack, op1) // a -= c
+	fq2.reduceAfterSubNoJumpScratch(zero, op1, res)
+
+	fq2.MOVQ("z+0(FP)", ax)
+	fq2.Mov(op1, ax, 0, fq2.NbWords)
+
+	// b = b - c
+	fq2.Mov(aStack, res)
+	fq2.Sub(cStack, res) // b -= c
+	fq2.reduceAfterSubNoJumpScratch(zero, res, op1)
+
+	fq2.Mov(res, ax)
+
+	fq2.RET()
 
 	// No adx
-	fq2.LABEL(noAdx)
+	fq2.LABEL(lblNoAdx)
 	fq2.MOVQ("z+0(FP)", amd64.AX)
 	fq2.MOVQ(amd64.AX, "(SP)")
 	fq2.MOVQ("x+8(FP)", amd64.AX)
@@ -324,5 +288,8 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381() {
 	fq2.MOVQ(amd64.AX, "16(SP)")
 	fq2.WriteLn("CALL ·mulGenericE2(SB)")
 	fq2.RET()
+
+	fq2.Push(&registers, aStack...)
+	fq2.Push(&registers, cStack...)
 
 }
