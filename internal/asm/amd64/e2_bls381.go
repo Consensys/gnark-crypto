@@ -30,25 +30,25 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BLS381() {
 	registers := fq2.FnHeader("mulNonResE2", 0, 16)
 
 	a := registers.PopN(fq2.NbWords)
+	b := registers.PopN(fq2.NbWords)
 	x := registers.Pop()
+	tr := registers.Pop() // zero or r
+	fq2.XORQ(tr, tr)      // set to zero
 
 	fq2.MOVQ("x+8(FP)", x)
 	fq2.Mov(x, a) // a = a0
 
 	// a = x.A0 - x.A1
 	fq2.Sub(x, a, fq2.NbWords)
-	fq2.reduceAfterSubWithJump(&registers, a)
-
+	fq2.reduceAfterSubNoJumpScratch(tr, a, b)
 	// b = x.A0 + x.A1
-	b := registers.PopN(fq2.NbWords)
 	fq2.Mov(x, b, fq2.NbWords) // b = a1
 	fq2.Add(x, b)
 
-	fq2.MOVQ("res+0(FP)", x)
-	fq2.Mov(a, x)
-	registers.Push(a...)
-	fq2.Reduce(&registers, b)
-	fq2.Mov(b, x, 0, fq2.NbWords)
+	fq2.MOVQ("res+0(FP)", tr)
+	fq2.Mov(a, tr)
+	fq2.ReduceElement(b, a)
+	fq2.Mov(b, tr, 0, fq2.NbWords)
 
 	fq2.RET()
 }
