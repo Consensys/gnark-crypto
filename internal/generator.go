@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -250,8 +251,11 @@ func GenerateFq12over6over2(conf curveConfig) error {
 			return err
 		}
 
+		if conf.Name == "bn256" || conf.Name == "bls381" {
+			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
+		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
-		if err := Fq2Amd64.Generate(); err != nil {
+		if err := Fq2Amd64.Generate(true); err != nil {
 			_ = f.Close()
 			return err
 		}
@@ -263,7 +267,32 @@ func GenerateFq12over6over2(conf curveConfig) error {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+	}
 
+	if conf.Name == "bn256" || conf.Name == "bls381" {
+		{
+			// fq2 assembly
+			fName := filepath.Join(dir, "e2_adx_amd64.s")
+			f, err := os.Create(fName)
+			if err != nil {
+				return err
+			}
+
+			_, _ = io.WriteString(f, "// +build amd64_adx\n")
+			Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
+			if err := Fq2Amd64.Generate(false); err != nil {
+				_ = f.Close()
+				return err
+			}
+			_ = f.Close()
+
+			cmd := exec.Command("asmfmt", "-w", fName)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

@@ -187,6 +187,32 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	}
 }
 
+func TestE2MulMaxed(t *testing.T) {
+	// let's pick a and b, with maxed A0 and A1
+	var a, b E2
+	fpMaxValue := fp.Element{
+		4332616871279656263,
+		10917124144477883021,
+		13281191951274694749,
+		3486998266802970665,
+	}
+	fpMaxValue[0]--
+
+	a.A0 = fpMaxValue
+	a.A1 = fpMaxValue
+	b.A0 = fpMaxValue
+	b.A1 = fpMaxValue
+
+	// [BN256] mul & inverse should leave an element invariant", prop.ForAll(
+	var c, d E2
+	d.Inverse(&b)
+	c.Set(&a)
+	c.Mul(&c, &b).Mul(&c, &d)
+	if !c.Equal(&a) {
+		t.Fatal("mul with max fp failed")
+	}
+}
+
 func TestE2Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
