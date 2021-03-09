@@ -1436,9 +1436,9 @@ func (z *Element) Inverse(x *Element) *Element {
 	v := *x
 
 	var carry, borrow, t, t2 uint64
-	var bigger, uIsOne, vIsOne bool
+	var bigger bool
 
-	for !uIsOne && !vIsOne {
+	for {
 		for v[0]&1 == 0 {
 
 			// v = v >> 1
@@ -1645,10 +1645,21 @@ func (z *Element) Inverse(x *Element) *Element {
 			v[10], borrow = bits.Sub64(v[10], u[10], borrow)
 			v[11], _ = bits.Sub64(v[11], u[11], borrow)
 
-			// r >= s
-			bigger = !(r[11] < s[11] || (r[11] == s[11] && (r[10] < s[10] || (r[10] == s[10] && (r[9] < s[9] || (r[9] == s[9] && (r[8] < s[8] || (r[8] == s[8] && (r[7] < s[7] || (r[7] == s[7] && (r[6] < s[6] || (r[6] == s[6] && (r[5] < s[5] || (r[5] == s[5] && (r[4] < s[4] || (r[4] == s[4] && (r[3] < s[3] || (r[3] == s[3] && (r[2] < s[2] || (r[2] == s[2] && (r[1] < s[1] || (r[1] == s[1] && (r[0] < s[0])))))))))))))))))))))))
+			// s = s - r
+			s[0], borrow = bits.Sub64(s[0], r[0], 0)
+			s[1], borrow = bits.Sub64(s[1], r[1], borrow)
+			s[2], borrow = bits.Sub64(s[2], r[2], borrow)
+			s[3], borrow = bits.Sub64(s[3], r[3], borrow)
+			s[4], borrow = bits.Sub64(s[4], r[4], borrow)
+			s[5], borrow = bits.Sub64(s[5], r[5], borrow)
+			s[6], borrow = bits.Sub64(s[6], r[6], borrow)
+			s[7], borrow = bits.Sub64(s[7], r[7], borrow)
+			s[8], borrow = bits.Sub64(s[8], r[8], borrow)
+			s[9], borrow = bits.Sub64(s[9], r[9], borrow)
+			s[10], borrow = bits.Sub64(s[10], r[10], borrow)
+			s[11], borrow = bits.Sub64(s[11], r[11], borrow)
 
-			if bigger {
+			if borrow == 1 {
 
 				// s = s + q
 				s[0], carry = bits.Add64(s[0], 17626244516597989515, 0)
@@ -1665,21 +1676,6 @@ func (z *Element) Inverse(x *Element) *Element {
 				s[11], _ = bits.Add64(s[11], 81882988782276106, carry)
 
 			}
-
-			// s = s - r
-			s[0], borrow = bits.Sub64(s[0], r[0], 0)
-			s[1], borrow = bits.Sub64(s[1], r[1], borrow)
-			s[2], borrow = bits.Sub64(s[2], r[2], borrow)
-			s[3], borrow = bits.Sub64(s[3], r[3], borrow)
-			s[4], borrow = bits.Sub64(s[4], r[4], borrow)
-			s[5], borrow = bits.Sub64(s[5], r[5], borrow)
-			s[6], borrow = bits.Sub64(s[6], r[6], borrow)
-			s[7], borrow = bits.Sub64(s[7], r[7], borrow)
-			s[8], borrow = bits.Sub64(s[8], r[8], borrow)
-			s[9], borrow = bits.Sub64(s[9], r[9], borrow)
-			s[10], borrow = bits.Sub64(s[10], r[10], borrow)
-			s[11], _ = bits.Sub64(s[11], r[11], borrow)
-
 		} else {
 
 			// u = u - v
@@ -1696,10 +1692,21 @@ func (z *Element) Inverse(x *Element) *Element {
 			u[10], borrow = bits.Sub64(u[10], v[10], borrow)
 			u[11], _ = bits.Sub64(u[11], v[11], borrow)
 
-			// s >= r
-			bigger = !(s[11] < r[11] || (s[11] == r[11] && (s[10] < r[10] || (s[10] == r[10] && (s[9] < r[9] || (s[9] == r[9] && (s[8] < r[8] || (s[8] == r[8] && (s[7] < r[7] || (s[7] == r[7] && (s[6] < r[6] || (s[6] == r[6] && (s[5] < r[5] || (s[5] == r[5] && (s[4] < r[4] || (s[4] == r[4] && (s[3] < r[3] || (s[3] == r[3] && (s[2] < r[2] || (s[2] == r[2] && (s[1] < r[1] || (s[1] == r[1] && (s[0] < r[0])))))))))))))))))))))))
+			// r = r - s
+			r[0], borrow = bits.Sub64(r[0], s[0], 0)
+			r[1], borrow = bits.Sub64(r[1], s[1], borrow)
+			r[2], borrow = bits.Sub64(r[2], s[2], borrow)
+			r[3], borrow = bits.Sub64(r[3], s[3], borrow)
+			r[4], borrow = bits.Sub64(r[4], s[4], borrow)
+			r[5], borrow = bits.Sub64(r[5], s[5], borrow)
+			r[6], borrow = bits.Sub64(r[6], s[6], borrow)
+			r[7], borrow = bits.Sub64(r[7], s[7], borrow)
+			r[8], borrow = bits.Sub64(r[8], s[8], borrow)
+			r[9], borrow = bits.Sub64(r[9], s[9], borrow)
+			r[10], borrow = bits.Sub64(r[10], s[10], borrow)
+			r[11], borrow = bits.Sub64(r[11], s[11], borrow)
 
-			if bigger {
+			if borrow == 1 {
 
 				// r = r + q
 				r[0], carry = bits.Add64(r[0], 17626244516597989515, 0)
@@ -1716,31 +1723,13 @@ func (z *Element) Inverse(x *Element) *Element {
 				r[11], _ = bits.Add64(r[11], 81882988782276106, carry)
 
 			}
-
-			// r = r - s
-			r[0], borrow = bits.Sub64(r[0], s[0], 0)
-			r[1], borrow = bits.Sub64(r[1], s[1], borrow)
-			r[2], borrow = bits.Sub64(r[2], s[2], borrow)
-			r[3], borrow = bits.Sub64(r[3], s[3], borrow)
-			r[4], borrow = bits.Sub64(r[4], s[4], borrow)
-			r[5], borrow = bits.Sub64(r[5], s[5], borrow)
-			r[6], borrow = bits.Sub64(r[6], s[6], borrow)
-			r[7], borrow = bits.Sub64(r[7], s[7], borrow)
-			r[8], borrow = bits.Sub64(r[8], s[8], borrow)
-			r[9], borrow = bits.Sub64(r[9], s[9], borrow)
-			r[10], borrow = bits.Sub64(r[10], s[10], borrow)
-			r[11], _ = bits.Sub64(r[11], s[11], borrow)
-
 		}
-		uIsOne = (u[0] == 1) && (u[11]|u[10]|u[9]|u[8]|u[7]|u[6]|u[5]|u[4]|u[3]|u[2]|u[1]) == 0
-		vIsOne = (v[0] == 1) && (v[11]|v[10]|v[9]|v[8]|v[7]|v[6]|v[5]|v[4]|v[3]|v[2]|v[1]) == 0
+		if (u[0] == 1) && (u[11]|u[10]|u[9]|u[8]|u[7]|u[6]|u[5]|u[4]|u[3]|u[2]|u[1]) == 0 {
+			return z.Set(&r)
+		}
+		if (v[0] == 1) && (v[11]|v[10]|v[9]|v[8]|v[7]|v[6]|v[5]|v[4]|v[3]|v[2]|v[1]) == 0 {
+			return z.Set(&s)
+		}
 	}
 
-	if uIsOne {
-		z.Set(&r)
-	} else {
-		z.Set(&s)
-	}
-
-	return z
 }

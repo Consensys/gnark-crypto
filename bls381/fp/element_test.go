@@ -260,6 +260,11 @@ func init() {
 		staticTestValues = append(staticTestValues, a)
 	}
 
+	for i := 0; i <= 3; i++ {
+		staticTestValues = append(staticTestValues, Element{uint64(i)})
+		staticTestValues = append(staticTestValues, Element{0, uint64(i)})
+	}
+
 	{
 		a := qElement
 		a[5]--
@@ -349,6 +354,44 @@ func TestElementBytes(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementInverseExp(t *testing.T) {
+	// inverse must be equal to exp^-2
+	exp := Modulus()
+	exp.Sub(exp, new(big.Int).SetUint64(2))
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("inv == exp^-2", prop.ForAll(
+		func(a testPairElement) bool {
+			var b Element
+			b.Set(&a.element)
+			a.element.Inverse(&a.element)
+			b.Exp(b, exp)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
 }
 
 func TestElementMulByConstants(t *testing.T) {
