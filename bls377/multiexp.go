@@ -403,7 +403,6 @@ func (p *G1Jac) msmC5(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -445,7 +444,6 @@ func (p *G1Jac) msmC6(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -487,7 +485,6 @@ func (p *G1Jac) msmC7(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -558,7 +555,6 @@ func (p *G1Jac) msmC9(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -600,7 +596,6 @@ func (p *G1Jac) msmC10(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -642,7 +637,6 @@ func (p *G1Jac) msmC11(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -684,7 +678,6 @@ func (p *G1Jac) msmC12(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -726,7 +719,6 @@ func (p *G1Jac) msmC13(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -768,7 +760,6 @@ func (p *G1Jac) msmC14(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -810,7 +801,6 @@ func (p *G1Jac) msmC15(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -881,7 +871,6 @@ func (p *G1Jac) msmC20(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -923,7 +912,6 @@ func (p *G1Jac) msmC21(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -965,7 +953,6 @@ func (p *G1Jac) msmC22(points []G1Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1251,7 +1238,6 @@ func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1293,7 +1279,6 @@ func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1335,7 +1320,6 @@ func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1406,7 +1390,6 @@ func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1448,7 +1431,6 @@ func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1490,7 +1472,6 @@ func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1532,7 +1513,6 @@ func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1574,7 +1554,6 @@ func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1616,7 +1595,6 @@ func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1658,7 +1636,6 @@ func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1729,7 +1706,6 @@ func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1771,7 +1747,6 @@ func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -1813,7 +1788,6 @@ func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, opt *CPUSemaphor
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)

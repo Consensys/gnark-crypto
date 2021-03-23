@@ -136,10 +136,6 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 {{ template "multiexp" dict "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
 
 
-
-
-
-
 {{define "multiexp" }}
 
 
@@ -216,8 +212,6 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	// if C > 16 && nbPoints < 1 << 23 {
 	// 	C = 16
 	// }
-
-
 
 	// take all the cpus to ourselves
 	opt.lock.Lock()
@@ -350,7 +344,7 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-	{{ else}}
+	{{- else}}
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 	{{- end}}
 		chChunks[chunk] = make(chan {{ $.TJacobianExtended }}, 1)

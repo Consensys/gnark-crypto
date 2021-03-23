@@ -367,7 +367,6 @@ func (p *G1Jac) msmC5(points []G1Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g1JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)
@@ -675,7 +674,6 @@ func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, opt *CPUSemaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-
 		chChunks[chunk] = make(chan g2JacExtended, 1)
 		<-opt.chCpus // wait to have a cpu before scheduling
 		wg.Add(1)

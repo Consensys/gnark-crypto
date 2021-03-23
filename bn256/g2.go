@@ -20,10 +20,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/gurvy/bn256/fr"
+	"github.com/consensys/gurvy/bn256/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
-
-	"github.com/consensys/gurvy/bn256/internal/fptower"
 )
 
 // G2Affine point in affine coordinates
@@ -230,7 +229,6 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V fptower.E2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
@@ -276,7 +274,6 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
-	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T fptower.E2
 
 	XX.Square(&p.X)
@@ -410,9 +407,7 @@ func (p *G2Jac) psi(a *G2Jac) *G2Jac {
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	p.Set(a)
-
 	p.X.MulByElement(&p.X, &thirdRootOneG2)
-
 	return p
 }
 
@@ -493,7 +488,6 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 
 // ClearCofactor ...
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
-
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]G2Jac
 
@@ -601,7 +595,6 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 		return p
 	}
 
-	// get some Element from our pool
 	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fptower.E2
 	U1.Mul(&p.X, &q.ZZ)
 	U2.Mul(&q.X, &p.ZZ)
@@ -632,7 +625,6 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
-	// get some Element from our pool
 	var U, V, W, S, XX, M fptower.E2
 
 	U.Double(&q.Y)
@@ -667,10 +659,7 @@ func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
 	// p is infinity, return a
 	if p.ZZ.IsZero() {
 		p.X = a.X
-		p.Y = a.Y
-
-		p.Y.Neg(&p.Y)
-
+		p.Y.Neg(&a.Y)
 		p.ZZ.SetOne()
 		p.ZZZ.SetOne()
 		return p
@@ -683,14 +672,11 @@ func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
 	P.Sub(&P, &p.X)
 
 	R.Mul(&a.Y, &p.ZZZ)
-
 	R.Neg(&R)
-
 	R.Sub(&R, &p.Y)
 
 	if P.IsZero() {
 		if R.IsZero() {
-
 			return p.doubleNegMixed(a)
 
 		}
@@ -730,7 +716,6 @@ func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
 	if p.ZZ.IsZero() {
 		p.X = a.X
 		p.Y = a.Y
-
 		p.ZZ.SetOne()
 		p.ZZZ.SetOne()
 		return p
@@ -743,12 +728,10 @@ func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
 	P.Sub(&P, &p.X)
 
 	R.Mul(&a.Y, &p.ZZZ)
-
 	R.Sub(&R, &p.Y)
 
 	if P.IsZero() {
 		if R.IsZero() {
-
 			return p.doubleMixed(a)
 
 		}
@@ -782,9 +765,7 @@ func (p *g2JacExtended) doubleNegMixed(q *G2Affine) *g2JacExtended {
 	var U, V, W, S, XX, M, S2, L fptower.E2
 
 	U.Double(&q.Y)
-
 	U.Neg(&U)
-
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
@@ -799,12 +780,10 @@ func (p *g2JacExtended) doubleNegMixed(q *G2Affine) *g2JacExtended {
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
 		Add(&p.Y, &L)
-
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
 	return p
-
 }
 
 // doubleMixed point in ZZ coords
@@ -814,7 +793,6 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	var U, V, W, S, XX, M, S2, L fptower.E2
 
 	U.Double(&q.Y)
-
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
@@ -829,12 +807,10 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
 		Sub(&p.Y, &L)
-
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
 	return p
-
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -848,7 +824,6 @@ func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	// memalloc
 	var buf fptower.E2
 	buf.Square(&Q.Z)
 
@@ -933,7 +908,6 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		}
 		selectors[chunk] = d
 	}
-
 	toReturn := make([]G2Affine, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
@@ -961,26 +935,19 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 				// if msbWindow bit is set, we need to substract
 				if bits&msbWindow == 0 {
 					// add
-
 					p.AddAssign(&baseTable[bits-1])
-
 				} else {
 					// sub
-
 					t := baseTable[bits & ^msbWindow]
 					t.Neg(&t)
 					p.AddAssign(&t)
-
 				}
 			}
 
 			// set our result point
-
 			toReturn[i].FromJacobian(&p)
 
 		}
 	})
-
 	return toReturn
-
 }

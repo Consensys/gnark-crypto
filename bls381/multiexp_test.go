@@ -28,7 +28,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestMultiExpg1(t *testing.T) {
+func TestMultiExpG1(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 2
@@ -616,7 +616,7 @@ func TestMultiExpg1(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func BenchmarkMultiExpg1(b *testing.B) {
+func BenchmarkMultiExpG1(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -648,7 +648,7 @@ func BenchmarkMultiExpg1(b *testing.B) {
 	}
 }
 
-func TestMultiExpg2(t *testing.T) {
+func TestMultiExpG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 2
@@ -1236,7 +1236,7 @@ func TestMultiExpg2(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func BenchmarkMultiExpg2(b *testing.B) {
+func BenchmarkMultiExpG2(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")

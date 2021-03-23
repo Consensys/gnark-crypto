@@ -19,11 +19,10 @@ package bn256
 import (
 	"math/big"
 
+	"github.com/consensys/gurvy/bn256/fp"
 	"github.com/consensys/gurvy/bn256/fr"
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
-
-	"github.com/consensys/gurvy/bn256/fp"
 )
 
 // G1Affine point in affine coordinates
@@ -225,7 +224,6 @@ func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V fp.Element
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
@@ -271,7 +269,6 @@ func (p *G1Jac) Double(q *G1Jac) *G1Jac {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G1Jac) DoubleAssign() *G1Jac {
 
-	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T fp.Element
 
 	XX.Square(&p.X)
@@ -385,9 +382,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G1Jac) phi(a *G1Jac) *G1Jac {
 	p.Set(a)
-
 	p.X.Mul(&p.X, &thirdRootOneG1)
-
 	return p
 }
 
@@ -540,7 +535,6 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 		return p
 	}
 
-	// get some Element from our pool
 	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fp.Element
 	U1.Mul(&p.X, &q.ZZ)
 	U2.Mul(&q.X, &p.ZZ)
@@ -571,7 +565,6 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
-	// get some Element from our pool
 	var U, V, W, S, XX, M fp.Element
 
 	U.Double(&q.Y)
@@ -606,10 +599,7 @@ func (p *g1JacExtended) subMixed(a *G1Affine) *g1JacExtended {
 	// p is infinity, return a
 	if p.ZZ.IsZero() {
 		p.X = a.X
-		p.Y = a.Y
-
-		p.Y.Neg(&p.Y)
-
+		p.Y.Neg(&a.Y)
 		p.ZZ.SetOne()
 		p.ZZZ.SetOne()
 		return p
@@ -622,14 +612,11 @@ func (p *g1JacExtended) subMixed(a *G1Affine) *g1JacExtended {
 	P.Sub(&P, &p.X)
 
 	R.Mul(&a.Y, &p.ZZZ)
-
 	R.Neg(&R)
-
 	R.Sub(&R, &p.Y)
 
 	if P.IsZero() {
 		if R.IsZero() {
-
 			return p.doubleNegMixed(a)
 
 		}
@@ -669,7 +656,6 @@ func (p *g1JacExtended) addMixed(a *G1Affine) *g1JacExtended {
 	if p.ZZ.IsZero() {
 		p.X = a.X
 		p.Y = a.Y
-
 		p.ZZ.SetOne()
 		p.ZZZ.SetOne()
 		return p
@@ -682,12 +668,10 @@ func (p *g1JacExtended) addMixed(a *G1Affine) *g1JacExtended {
 	P.Sub(&P, &p.X)
 
 	R.Mul(&a.Y, &p.ZZZ)
-
 	R.Sub(&R, &p.Y)
 
 	if P.IsZero() {
 		if R.IsZero() {
-
 			return p.doubleMixed(a)
 
 		}
@@ -721,9 +705,7 @@ func (p *g1JacExtended) doubleNegMixed(q *G1Affine) *g1JacExtended {
 	var U, V, W, S, XX, M, S2, L fp.Element
 
 	U.Double(&q.Y)
-
 	U.Neg(&U)
-
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
@@ -738,12 +720,10 @@ func (p *g1JacExtended) doubleNegMixed(q *G1Affine) *g1JacExtended {
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
 		Add(&p.Y, &L)
-
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
 	return p
-
 }
 
 // doubleMixed point in ZZ coords
@@ -753,7 +733,6 @@ func (p *g1JacExtended) doubleMixed(q *G1Affine) *g1JacExtended {
 	var U, V, W, S, XX, M, S2, L fp.Element
 
 	U.Double(&q.Y)
-
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
@@ -768,12 +747,10 @@ func (p *g1JacExtended) doubleMixed(q *G1Affine) *g1JacExtended {
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
 		Sub(&p.Y, &L)
-
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
 	return p
-
 }
 
 // BatchJacobianToAffineG1Affine converts points in Jacobian coordinates to Affine coordinates
@@ -884,7 +861,6 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		}
 		selectors[chunk] = d
 	}
-
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := make([]G1Affine, (1 << (c - 1)))
 	BatchJacobianToAffineG1Affine(baseTable, baseTableAff)
@@ -915,28 +891,21 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 				// if msbWindow bit is set, we need to substract
 				if bits&msbWindow == 0 {
 					// add
-
 					p.AddMixed(&baseTableAff[bits-1])
-
 				} else {
 					// sub
-
 					t := baseTableAff[bits & ^msbWindow]
 					t.Neg(&t)
 					p.AddMixed(&t)
-
 				}
 			}
 
 			// set our result point
-
 			toReturn[i] = p
 
 		}
 	})
-
 	toReturnAff := make([]G1Affine, len(scalars))
 	BatchJacobianToAffineG1Affine(toReturn, toReturnAff)
 	return toReturnAff
-
 }

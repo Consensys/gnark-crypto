@@ -11,11 +11,11 @@ import (
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
-	{{if eq .CoordType "fptower.E2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
-	{{end}}
+	{{- end}}
 )
 
 // {{ $TAffine }} point in affine coordinates
@@ -33,12 +33,12 @@ type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
-{{if eq .PointName "g2"}}
+{{- if eq .PointName "g2"}}
 // {{ $TProjective }} point in projective coordinates
 type {{ $TProjective }} struct {
 	x, y, z {{.CoordType}}
 }
-{{end}}
+{{- end}}
 
 
 
@@ -237,7 +237,6 @@ func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V {{.CoordType}}
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
@@ -283,7 +282,6 @@ func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
-	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T {{.CoordType}}
 
 	XX.Square(&p.X)
@@ -367,8 +365,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{if eq .Name "bn256" }}
-	{{if eq .PointName "g1"}}
+{{- if eq .Name "bn256" }}
+	{{- if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
 		// the point is on the curve.
@@ -397,7 +395,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 			return res.IsOnCurve() && res.Z.IsZero()
 
 		}
-	{{end}}
+	{{- end}}
 {{else if eq .Name "bw761" }}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
@@ -438,7 +436,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		return res.IsOnCurve() && res.Z.IsZero()
 
 	}
-{{end}}
+{{- end}}
 
 
 // mulWindowed 2-bits windowed exponentiation
@@ -487,11 +485,11 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(a)
-	{{if eq .CoordType "fptower.E2"}}
+	{{- if eq .CoordType "fptower.E2"}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
-	{{else}}
+	{{- else}}
 		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})
-	{{end}}
+	{{- end}}
 	return p
 }
 
@@ -575,11 +573,11 @@ func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 	return p
 }
 
-{{if eq .PointName "g1"}}
+{{- if eq .PointName "g1"}}
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
-{{if eq .Name "bn256"}}
+{{- if eq .Name "bn256"}}
 {{else if eq .Name "bls381"}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
@@ -630,14 +628,14 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{end}}
+{{- end}}
 }
 
 
 {{ else }}
 // ClearCofactor ...
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
-{{if eq .Name "bn256"}}
+{{- if eq .Name "bn256"}}
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]{{$TJacobian}}
 
@@ -757,10 +755,10 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{end}}
+{{- end}}
 
 }
-{{end}}
+{{- end}}
 
 
 {{ end }}
@@ -851,7 +849,6 @@ func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobi
 		return p
 	}
 
-	// get some Element from our pool
 	var U1, U2, S1, S2, P, R, PP, PPP, Q, V {{.CoordType}}
     U1.Mul(&p.X, &q.ZZ)
     U2.Mul(&q.X, &p.ZZ)
@@ -882,7 +879,6 @@ func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobi
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
-	// get some Element from our pool
 	var U, V, W, S, XX, M {{.CoordType}}
 
 	U.Double(&q.Y)
@@ -933,9 +929,9 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 	var U, V, W, S, XX, M, S2, L {{.all.CoordType}}
 
 	U.Double(&q.Y)
-	{{if .negate}}
+	{{- if .negate}}
 		U.Neg(&U)
-	{{end}}
+	{{- end}}
 	V.Square(&U)
     W.Mul(&U, &V)
     S.Mul(&q.X, &V)
@@ -949,16 +945,16 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
         Sub(&p.X, &S2)
     p.Y.Sub(&S, &p.X).
         Mul(&p.Y, &M).
-	{{if .negate}}
+	{{- if .negate}}
         Add(&p.Y, &L)
-	{{else}}
+	{{- else}}
         Sub(&p.Y, &L)
-	{{end}}
+	{{- end}}
     p.ZZ.Set(&V)
     p.ZZZ.Set(&W)
 
 	return p
-{{end}}
+{{- end}}
 
 {{define "mAdd" }}
 	//if a is infinity return p
@@ -968,10 +964,11 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 	// p is infinity, return a
 	if p.ZZ.IsZero() {
 		p.X = a.X
-		p.Y = a.Y
-		{{if .negate}}
-		p.Y.Neg(&p.Y)
-		{{end}}
+		{{- if .negate}}
+			p.Y.Neg(&a.Y)
+		{{- else }}
+			p.Y = a.Y
+		{{- end}}
 		p.ZZ.SetOne()
 		p.ZZZ.SetOne()
 		return p
@@ -984,18 +981,18 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 	P.Sub(&P, &p.X)
 
 	R.Mul(&a.Y, &p.ZZZ)
-	{{if .negate}}
+	{{- if .negate}}
 		R.Neg(&R)
-	{{end}}
+	{{- end}}
 	R.Sub(&R, &p.Y)
 
 	if P.IsZero() {
 		if R.IsZero() {
-			{{if .negate}}
+			{{- if .negate}}
 				return p.doubleNegMixed(a)
 			{{ else }}
 				return p.doubleMixed(a)
-			{{end}}
+			{{- end}}
 
 		}
 		p.ZZ = {{.all.CoordType}}{}
@@ -1023,7 +1020,7 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 {{ end }}
 
 
-{{if eq .PointName "g2"}}
+{{- if eq .PointName "g2"}}
 // -------------------------------------------------------------------------------------------------
 // Homogenous projective
 
@@ -1035,7 +1032,6 @@ func (p *{{ $TProjective }}) Set(a *{{ $TProjective }}) *{{ $TProjective }} {
 
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *{{ $TProjective }}) FromJacobian(Q *{{ $TJacobian }}) *{{ $TProjective }} {
-	// memalloc
 	var buf {{.CoordType}}
 	buf.Square(&Q.Z)
 
@@ -1064,7 +1060,7 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 
 
 {{/* note batch inversion for g2 elements with E2 that is curve specific is a bit more troublesome to implement */}}
-{{if eq .PointName "g1"}}
+{{- if eq .PointName "g1"}}
 
 // BatchJacobianToAffine{{ $TAffine }} converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
@@ -1113,7 +1109,7 @@ func BatchJacobianToAffine{{ $TAffine }}(points []{{ $TJacobian }}, result []{{ 
 	})
 
 }
-{{end}}
+{{- end}}
 
 
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
@@ -1177,14 +1173,14 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		selectors[chunk] = d
 	}
 
-	{{if eq .PointName "g1"}}
+	{{- if eq .PointName "g1"}}
 		// convert our base exp table into affine to use AddMixed
 		baseTableAff := make([]{{ $TAffine }}, (1<<(c-1)))
 		BatchJacobianToAffine{{ $TAffine }}(baseTable, baseTableAff)
 		toReturn := make([]{{ $TJacobian }}, len(scalars))
-	{{else}}
+	{{- else}}
 		toReturn := make([]{{ $TAffine }}, len(scalars))
-	{{end}}
+	{{- end}}
 
 	// for each digit, take value in the base table, double it c time, voila.
 	parallel.Execute( len(pScalars), func(start, end int) {
@@ -1211,40 +1207,40 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 				// if msbWindow bit is set, we need to substract
 				if bits & msbWindow == 0 {
 					// add
-					{{if eq .PointName "g1"}}
+					{{- if eq .PointName "g1"}}
 						p.AddMixed(&baseTableAff[bits-1])
-					{{else}}
+					{{- else}}
 						p.AddAssign(&baseTable[bits-1])
-					{{end}}
+					{{- end}}
 				} else {
 					// sub
-					{{if eq .PointName "g1"}}
+					{{- if eq .PointName "g1"}}
 						t := baseTableAff[bits & ^msbWindow]
 						t.Neg(&t)
 						p.AddMixed(&t)
-					{{else}}
+					{{- else}}
 						t := baseTable[bits & ^msbWindow]
 						t.Neg(&t)
 						p.AddAssign(&t)
-					{{end}}
+					{{- end}}
 				}
 			}
 
 			// set our result point
-			{{if eq .PointName "g1"}}
+			{{- if eq .PointName "g1"}}
 				toReturn[i] = p
-			{{else}}
+			{{- else}}
 				toReturn[i].FromJacobian(&p)
-			{{end}}
+			{{- end}}
 
 		}
 	})
 
-	{{if eq .PointName "g1"}}
+	{{- if eq .PointName "g1"}}
 		toReturnAff := make([]{{ $TAffine }}, len(scalars))
 		BatchJacobianToAffine{{ $TAffine }}(toReturn, toReturnAff)
 		return toReturnAff
-	{{else}}
+	{{- else}}
 		return toReturn
-	{{end}}
+	{{- end}}
 }
