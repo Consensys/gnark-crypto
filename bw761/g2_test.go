@@ -264,7 +264,7 @@ func TestG2AffineOps(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BW761] [Jacobian Extended] add (-G) should equal sub(G)", prop.ForAll(
+	properties.Property("[BW761] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			var p1, p1Neg G2Affine
@@ -272,8 +272,8 @@ func TestG2AffineOps(t *testing.T) {
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 g2JacExtended
-			o1.add(&p1Neg)
-			o2.sub(&p1)
+			o1.addMixed(&p1Neg)
+			o2.subMixed(&p1)
 
 			return o1.X.Equal(&o2.X) &&
 				o1.Y.Equal(&o2.Y) &&
@@ -283,7 +283,7 @@ func TestG2AffineOps(t *testing.T) {
 		genFuzz1,
 	))
 
-	properties.Property("[BW761] [Jacobian Extended] double (-G) should equal doubleNeg(G)", prop.ForAll(
+	properties.Property("[BW761] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
 		func(a fp.Element) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			var p1, p1Neg G2Affine
@@ -291,8 +291,8 @@ func TestG2AffineOps(t *testing.T) {
 			p1Neg = p1
 			p1Neg.Y.Neg(&p1Neg.Y)
 			var o1, o2 g2JacExtended
-			o1.double(&p1Neg)
-			o2.doubleNeg(&p1)
+			o1.doubleMixed(&p1Neg)
+			o2.doubleNegMixed(&p1)
 
 			return o1.X.Equal(&o2.X) &&
 				o1.Y.Equal(&o2.Y) &&
@@ -490,7 +490,7 @@ func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineScalarMul(b *testing.B) {
+func BenchmarkG2JacScalarMul(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()
@@ -524,7 +524,7 @@ func BenchmarkG2AffineCofactorClearing(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineAdd(b *testing.B) {
+func BenchmarkG2JacAdd(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 	b.ResetTimer()
@@ -533,55 +533,7 @@ func BenchmarkG2AffineAdd(b *testing.B) {
 	}
 }
 
-func BenchmarkG2AffineJacExtendedAdd(b *testing.B) {
-	var a g2JacExtended
-	a.double(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.add(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedSub(b *testing.B) {
-	var a g2JacExtended
-	a.double(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.sub(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedDouble(b *testing.B) {
-	var a g2JacExtended
-	a.double(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.double(&c)
-	}
-}
-
-func BenchmarkG2AffineJacExtendedDoubleNeg(b *testing.B) {
-	var a g2JacExtended
-	a.double(&g2GenAff)
-
-	var c G2Affine
-	c.FromJacobian(&g2Gen)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.doubleNeg(&c)
-	}
-}
-
-func BenchmarkG2AffineAddMixed(b *testing.B) {
+func BenchmarkG2JacAddMixed(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)
 
@@ -602,4 +554,73 @@ func BenchmarkG2JacDouble(b *testing.B) {
 		a.DoubleAssign()
 	}
 
+}
+
+func BenchmarkG2JacExtAddMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.addMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtSubMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.subMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtDoubleMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtDoubleNegMixed(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	var c G2Affine
+	c.FromJacobian(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleNegMixed(&c)
+	}
+}
+
+func BenchmarkG2JacExtAdd(b *testing.B) {
+	var a, c g2JacExtended
+	a.doubleMixed(&g2GenAff)
+	c.double(&a)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.add(&c)
+	}
+}
+
+func BenchmarkG2JacExtDouble(b *testing.B) {
+	var a g2JacExtended
+	a.doubleMixed(&g2GenAff)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.double(&a)
+	}
 }

@@ -20,10 +20,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/gurvy/bls381/fr"
+	"github.com/consensys/gurvy/bls381/internal/fptower"
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/utils/parallel"
-
-	"github.com/consensys/gurvy/bls381/internal/fptower"
 )
 
 // G2Affine point in affine coordinates
@@ -230,7 +229,6 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 		return p
 	}
 
-	// get some Element from our pool
 	var Z1Z1, U2, S2, H, HH, I, J, r, V fptower.E2
 	Z1Z1.Square(&p.Z)
 	U2.Mul(&a.X, &Z1Z1)
@@ -276,7 +274,6 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *G2Jac) DoubleAssign() *G2Jac {
 
-	// get some Element from our pool
 	var XX, YY, YYYY, ZZ, S, M, T fptower.E2
 
 	XX.Square(&p.X)
@@ -408,9 +405,7 @@ func (p *G2Jac) psi(a *G2Jac) *G2Jac {
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	p.Set(a)
-
 	p.X.MulByElement(&p.X, &thirdRootOneG2)
-
 	return p
 }
 
@@ -491,7 +486,6 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 
 // ClearCofactor ...
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
-
 	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
 	var xg, xxg, xxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
@@ -526,6 +520,12 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 // -------------------------------------------------------------------------------------------------
 // Jacobian extended
+
+// Set sets p to the provided point
+func (p *g2JacExtended) Set(a *g2JacExtended) *g2JacExtended {
+	p.X, p.Y, p.ZZ, p.ZZZ = a.X, a.Y, a.ZZ, a.ZZZ
+	return p
+}
 
 // setInfinity sets p to O
 func (p *g2JacExtended) setInfinity() *g2JacExtended {
@@ -568,42 +568,32 @@ func (p *G2Jac) unsafeFromJacExtended(Q *g2JacExtended) *G2Jac {
 	return p
 }
 
-// sub same as add, but will negate a.Y
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+// add point in ZZ coords
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
+func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
+	//if q is infinity return p
+	if q.ZZ.IsZero() {
 		return p
 	}
-	// p is infinity, return a
+	// p is infinity, return q
 	if p.ZZ.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-
-		p.Y.Neg(&p.Y)
-
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
+		p.Set(q)
 		return p
 	}
 
-	var P, R fptower.E2
+	var A, B, X1ZZ2, X2ZZ1, Y1ZZZ2, Y2ZZZ1 fptower.E2
 
-	// p2: a, p1: p
-	P.Mul(&a.X, &p.ZZ)
-	P.Sub(&P, &p.X)
+	// p2: q, p1: p
+	X2ZZ1.Mul(&q.X, &p.ZZ)
+	X1ZZ2.Mul(&p.X, &q.ZZ)
+	A.Sub(&X2ZZ1, &X1ZZ2)
+	Y2ZZZ1.Mul(&q.Y, &p.ZZZ)
+	Y1ZZZ2.Mul(&p.Y, &q.ZZZ)
+	B.Sub(&Y2ZZZ1, &Y1ZZZ2)
 
-	R.Mul(&a.Y, &p.ZZZ)
-
-	R.Neg(&R)
-
-	R.Sub(&R, &p.Y)
-
-	if P.IsZero() {
-		if R.IsZero() {
-
-			return p.doubleNeg(a)
+	if A.IsZero() {
+		if B.IsZero() {
+			return p.double(q)
 
 		}
 		p.ZZ = fptower.E2{}
@@ -611,134 +601,222 @@ func (p *g2JacExtended) sub(a *G2Affine) *g2JacExtended {
 		return p
 	}
 
-	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
-
+	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fptower.E2
+	U1.Mul(&p.X, &q.ZZ)
+	U2.Mul(&q.X, &p.ZZ)
+	S1.Mul(&p.Y, &q.ZZZ)
+	S2.Mul(&q.Y, &p.ZZZ)
+	P.Sub(&U2, &U1)
+	R.Sub(&S2, &S1)
 	PP.Square(&P)
 	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
+	Q.Mul(&U1, &PP)
+	V.Mul(&S1, &PPP)
+
+	p.X.Square(&R).
+		Sub(&p.X, &PPP).
+		Sub(&p.X, &Q).
+		Sub(&p.X, &Q)
+	p.Y.Sub(&Q, &p.X).
+		Mul(&p.Y, &R).
+		Sub(&p.Y, &V)
+	p.ZZ.Mul(&p.ZZ, &q.ZZ).
+		Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &q.ZZZ).
+		Mul(&p.ZZZ, &PPP)
 
 	return p
-
-}
-
-// add
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *g2JacExtended) add(a *G2Affine) *g2JacExtended {
-
-	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
-		return p
-	}
-	// p is infinity, return a
-	if p.ZZ.IsZero() {
-		p.X = a.X
-		p.Y = a.Y
-
-		p.ZZ.SetOne()
-		p.ZZZ.SetOne()
-		return p
-	}
-
-	var P, R fptower.E2
-
-	// p2: a, p1: p
-	P.Mul(&a.X, &p.ZZ)
-	P.Sub(&P, &p.X)
-
-	R.Mul(&a.Y, &p.ZZZ)
-
-	R.Sub(&R, &p.Y)
-
-	if P.IsZero() {
-		if R.IsZero() {
-
-			return p.double(a)
-
-		}
-		p.ZZ = fptower.E2{}
-		p.ZZZ = fptower.E2{}
-		return p
-	}
-
-	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
-
-	PP.Square(&P)
-	PPP.Mul(&P, &PP)
-	Q.Mul(&p.X, &PP)
-	RR.Square(&R)
-	X3.Sub(&RR, &PPP)
-	Q2.Double(&Q)
-	p.X.Sub(&X3, &Q2)
-	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
-	R.Mul(&p.Y, &PPP)
-	p.Y.Sub(&Y3, &R)
-	p.ZZ.Mul(&p.ZZ, &PP)
-	p.ZZZ.Mul(&p.ZZZ, &PPP)
-
-	return p
-
-}
-
-// doubleNeg same as double, but will negate q.Y
-func (p *g2JacExtended) doubleNeg(q *G2Affine) *g2JacExtended {
-
-	var U, S, M, _M, Y3 fptower.E2
-
-	U.Double(&q.Y)
-
-	U.Neg(&U)
-
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
-
-	p.Y.Add(&Y3, &U)
-
-	return p
-
 }
 
 // double point in ZZ coords
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *g2JacExtended) double(q *G2Affine) *g2JacExtended {
-
-	var U, S, M, _M, Y3 fptower.E2
+func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
+	var U, V, W, S, XX, M fptower.E2
 
 	U.Double(&q.Y)
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	U.Mul(&W, &q.Y)
 
-	p.ZZ.Square(&U)
-	p.ZZZ.Mul(&U, &p.ZZ)
-	S.Mul(&q.X, &p.ZZ)
-	_M.Square(&q.X)
-	M.Double(&_M).
-		Add(&M, &_M) // -> + a, but a=0 here
 	p.X.Square(&M).
 		Sub(&p.X, &S).
 		Sub(&p.X, &S)
-	Y3.Sub(&S, &p.X).Mul(&Y3, &M)
-	U.Mul(&p.ZZZ, &q.Y)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Sub(&p.Y, &U)
+	p.ZZ.Mul(&V, &q.ZZ)
+	p.ZZZ.Mul(&W, &q.ZZZ)
 
-	p.Y.Sub(&Y3, &U)
+	return p
+}
+
+// subMixed same as addMixed, but will negate a.Y
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
+
+	//if a is infinity return p
+	if a.X.IsZero() && a.Y.IsZero() {
+		return p
+	}
+	// p is infinity, return a
+	if p.ZZ.IsZero() {
+		p.X = a.X
+		p.Y.Neg(&a.Y)
+		p.ZZ.SetOne()
+		p.ZZZ.SetOne()
+		return p
+	}
+
+	var P, R fptower.E2
+
+	// p2: a, p1: p
+	P.Mul(&a.X, &p.ZZ)
+	P.Sub(&P, &p.X)
+
+	R.Mul(&a.Y, &p.ZZZ)
+	R.Neg(&R)
+	R.Sub(&R, &p.Y)
+
+	if P.IsZero() {
+		if R.IsZero() {
+			return p.doubleNegMixed(a)
+
+		}
+		p.ZZ = fptower.E2{}
+		p.ZZZ = fptower.E2{}
+		return p
+	}
+
+	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
+
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&p.X, &PP)
+	RR.Square(&R)
+	X3.Sub(&RR, &PPP)
+	Q2.Double(&Q)
+	p.X.Sub(&X3, &Q2)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
+	R.Mul(&p.Y, &PPP)
+	p.Y.Sub(&Y3, &R)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
 
 	return p
 
+}
+
+// addMixed
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
+
+	//if a is infinity return p
+	if a.X.IsZero() && a.Y.IsZero() {
+		return p
+	}
+	// p is infinity, return a
+	if p.ZZ.IsZero() {
+		p.X = a.X
+		p.Y = a.Y
+		p.ZZ.SetOne()
+		p.ZZZ.SetOne()
+		return p
+	}
+
+	var P, R fptower.E2
+
+	// p2: a, p1: p
+	P.Mul(&a.X, &p.ZZ)
+	P.Sub(&P, &p.X)
+
+	R.Mul(&a.Y, &p.ZZZ)
+	R.Sub(&R, &p.Y)
+
+	if P.IsZero() {
+		if R.IsZero() {
+			return p.doubleMixed(a)
+
+		}
+		p.ZZ = fptower.E2{}
+		p.ZZZ = fptower.E2{}
+		return p
+	}
+
+	var PP, PPP, Q, Q2, RR, X3, Y3 fptower.E2
+
+	PP.Square(&P)
+	PPP.Mul(&P, &PP)
+	Q.Mul(&p.X, &PP)
+	RR.Square(&R)
+	X3.Sub(&RR, &PPP)
+	Q2.Double(&Q)
+	p.X.Sub(&X3, &Q2)
+	Y3.Sub(&Q, &p.X).Mul(&Y3, &R)
+	R.Mul(&p.Y, &PPP)
+	p.Y.Sub(&Y3, &R)
+	p.ZZ.Mul(&p.ZZ, &PP)
+	p.ZZZ.Mul(&p.ZZZ, &PPP)
+
+	return p
+
+}
+
+// doubleNegMixed same as double, but will negate q.Y
+func (p *g2JacExtended) doubleNegMixed(q *G2Affine) *g2JacExtended {
+
+	var U, V, W, S, XX, M, S2, L fptower.E2
+
+	U.Double(&q.Y)
+	U.Neg(&U)
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	S2.Double(&S)
+	L.Mul(&W, &q.Y)
+
+	p.X.Square(&M).
+		Sub(&p.X, &S2)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Add(&p.Y, &L)
+	p.ZZ.Set(&V)
+	p.ZZZ.Set(&W)
+
+	return p
+}
+
+// doubleMixed point in ZZ coords
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
+
+	var U, V, W, S, XX, M, S2, L fptower.E2
+
+	U.Double(&q.Y)
+	V.Square(&U)
+	W.Mul(&U, &V)
+	S.Mul(&q.X, &V)
+	XX.Square(&q.X)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	S2.Double(&S)
+	L.Mul(&W, &q.Y)
+
+	p.X.Square(&M).
+		Sub(&p.X, &S2)
+	p.Y.Sub(&S, &p.X).
+		Mul(&p.Y, &M).
+		Sub(&p.Y, &L)
+	p.ZZ.Set(&V)
+	p.ZZZ.Set(&W)
+
+	return p
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -752,7 +830,6 @@ func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	// memalloc
 	var buf fptower.E2
 	buf.Square(&Q.Z)
 
@@ -837,7 +914,6 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		}
 		selectors[chunk] = d
 	}
-
 	toReturn := make([]G2Affine, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
@@ -865,26 +941,19 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 				// if msbWindow bit is set, we need to substract
 				if bits&msbWindow == 0 {
 					// add
-
 					p.AddAssign(&baseTable[bits-1])
-
 				} else {
 					// sub
-
 					t := baseTable[bits & ^msbWindow]
 					t.Neg(&t)
 					p.AddAssign(&t)
-
 				}
 			}
 
 			// set our result point
-
 			toReturn[i].FromJacobian(&p)
 
 		}
 	})
-
 	return toReturn
-
 }

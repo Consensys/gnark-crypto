@@ -25,7 +25,7 @@ import (
 
 {{define "multiexp" }}
 
-func TestMultiExp{{$.PointName}}(t *testing.T) {
+func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 2
@@ -132,10 +132,6 @@ func TestMultiExp{{$.PointName}}(t *testing.T) {
 	}
 
 
-
-
-
-
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
@@ -177,7 +173,7 @@ func TestMultiExp{{$.PointName}}(t *testing.T) {
 
 
 
-func BenchmarkMultiExp{{ $.PointName }}(b *testing.B) {
+func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
