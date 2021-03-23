@@ -239,17 +239,18 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 
 // msmReduceChunk{{ $.TAffine }} reduces the weighted sum of the buckets into the result of the multiExp
 func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan {{ $.TJacobianExtended }})  *{{ $.TJacobian }} {
+	var _p {{ $.TJacobianExtended }}
 	totalj := <-chChunks[len(chChunks)-1]
-	p.unsafeFromJacExtended(&totalj)
-	var tj {{ $.TJacobian }}
+    _p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
-			p.DoubleAssign()
+			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
-		p.AddAssign(tj.unsafeFromJacExtended(&totalj))
+		_p.add(&totalj)
 	}
-	return p
+
+	return p.unsafeFromJacExtended(&_p)
 }
 
 

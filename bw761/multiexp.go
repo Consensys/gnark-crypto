@@ -238,17 +238,18 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CPUSe
 
 // msmReduceChunkG1Affine reduces the weighted sum of the buckets into the result of the multiExp
 func msmReduceChunkG1Affine(p *G1Jac, c int, chChunks []chan g1JacExtended) *G1Jac {
+	var _p g1JacExtended
 	totalj := <-chChunks[len(chChunks)-1]
-	p.unsafeFromJacExtended(&totalj)
-	var tj G1Jac
+	_p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
-			p.DoubleAssign()
+			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
-		p.AddAssign(tj.unsafeFromJacExtended(&totalj))
+		_p.add(&totalj)
 	}
-	return p
+
+	return p.unsafeFromJacExtended(&_p)
 }
 
 func msmProcessChunkG1Affine(chunk uint64,
@@ -545,17 +546,18 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSe
 
 // msmReduceChunkG2Affine reduces the weighted sum of the buckets into the result of the multiExp
 func msmReduceChunkG2Affine(p *G2Jac, c int, chChunks []chan g2JacExtended) *G2Jac {
+	var _p g2JacExtended
 	totalj := <-chChunks[len(chChunks)-1]
-	p.unsafeFromJacExtended(&totalj)
-	var tj G2Jac
+	_p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
-			p.DoubleAssign()
+			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
-		p.AddAssign(tj.unsafeFromJacExtended(&totalj))
+		_p.add(&totalj)
 	}
-	return p
+
+	return p.unsafeFromJacExtended(&_p)
 }
 
 func msmProcessChunkG2Affine(chunk uint64,
