@@ -1,0 +1,749 @@
+
+{{ $TAffine := print (toUpper .PointName) "Affine" }}
+{{ $TJacobian := print (toUpper .PointName) "Jac" }}
+{{ $TJacobianExtended := print (toLower .PointName) "JacExtended" }}
+{{ $TProjective := print (toLower .PointName) "Proj" }}
+
+
+import (
+	"fmt"
+	"math/big"
+	"testing"
+
+	{{if eq .CoordType "fptower.E2"}}
+	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
+	{{else}}
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	{{end}}
+	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+// ------------------------------------------------------------
+// utils
+
+{{- if eq .CoordType "fp.Element" }}
+	func fuzzJacobian{{ $TAffine }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
+		var res {{ $TJacobian }}
+		res.X.Mul(&p.X, &f).Mul(&res.X, &f)
+		res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
+		res.Z.Mul(&p.Z, &f)
+		return res
+	}
+
+	func fuzzExtendedJacobian{{ $TAffine }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}) {{ $TJacobianExtended }} {
+		var res {{ $TJacobianExtended }}
+		var ff, fff {{ .CoordType}}
+		ff.Square(&f)
+		fff.Mul(&ff, &f)
+		res.X.Mul(&p.X, &ff)
+		res.Y.Mul(&p.Y, &fff)
+		res.ZZ.Mul(&p.ZZ, &ff)
+		res.ZZZ.Mul(&p.ZZZ, &fff)
+		return res
+	}
+{{- else if eq .CoordType "fptower.E2" }}
+	func fuzzJacobian{{ $TAffine }}(p *{{ $TJacobian }}, f *fptower.E2) {{ $TJacobian }} {
+		var res {{ $TJacobian }}
+		res.X.Mul(&p.X, f).Mul(&res.X, f)
+		res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
+		res.Z.Mul(&p.Z, f)
+		return res
+	}
+
+	func fuzzExtendedJacobian{{ $TAffine }}(p *{{ $TJacobianExtended }}, f *fptower.E2) {{ $TJacobianExtended }} {
+		var res {{ $TJacobianExtended }}
+		var ff, fff {{ .CoordType}}
+		ff.Square(f)
+		fff.Mul(&ff, f)
+		res.X.Mul(&p.X, &ff)
+		res.Y.Mul(&p.Y, &fff)
+		res.ZZ.Mul(&p.ZZ, &ff)
+		res.ZZZ.Mul(&p.ZZZ, &fff)
+		return res
+	}
+{{- end}}
+
+// ------------------------------------------------------------
+// tests
+
+func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element"}}
+	genFuzz1 := GenFp()
+	{{- else if eq .CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+
+	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
+		func(a {{ .CoordType}}) bool {
+			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			return g.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should be deterministic", prop.ForAll(
+		func(a {{ .CoordType}}) bool {
+			g1 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			g2 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			return g1.Equal(&g2)
+		},
+		genFuzz1,
+	))
+}
+
+func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+	{{- else if eq .CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+	{{- end}}
+	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			var op1, op2 {{ $TAffine }}
+			op1.FromJacobian(&{{ toLower .PointName}}Gen)
+			op2.FromJacobian(&{{ toLower .PointName}}Gen)
+			{{- if eq .CoordType "fp.Element" }}
+				op2.Y.Mul(&op2.Y, &a)
+			{{- else if eq .CoordType "fptower.E2" }}
+			op2.Y.Mul(&op2.Y, a)
+			{{- end}}
+			return op1.IsOnCurve() && !op2.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			var op1, op2, op3 {{ $TJacobian }}
+			op1.Set(&{{ toLower .PointName}}Gen)
+			op3.Set(&{{ toLower .PointName}}Gen)
+
+			op2 = fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName}}Gen, a)
+			{{- if eq .CoordType "fp.Element" }}
+				op3.Y.Mul(&op3.Y, &a)
+			{{- else if eq .CoordType "fptower.E2" }}
+				op3.Y.Mul(&op3.Y, a)
+			{{- end}}
+			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
+		},
+		genFuzz1,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+func Test{{ $TAffine }}Conversions(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+		genFuzz2 := GenFp()
+	{{- else if eq .CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+		genFuzz2 := GenE2()
+	{{- end}}
+
+	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of the Jacobian representative", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			g := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			var op1 {{ $TAffine }}
+			op1.FromJacobian(&g)
+			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
+		},
+		genFuzz1,
+	))
+
+
+	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			var g {{ $TJacobianExtended }}
+			g.X.Set(&{{ toLower .PointName }}Gen.X)
+			g.Y.Set(&{{ toLower .PointName }}Gen.Y)
+			g.ZZ.Set(&{{ toLower .PointName }}Gen.Z)
+			g.ZZZ.Set(&{{ toLower .PointName }}Gen.Z)
+			gfuzz := fuzzExtendedJacobian{{ $TAffine }}(&g, a)
+
+			var op1 {{ $TAffine }}
+			op1.fromJacExtended(&gfuzz)
+			return op1.X.Equal(&{{ toLower .PointName }}Gen.X) && op1.Y.Equal(&{{ toLower .PointName }}Gen.Y)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] Jacobian representation should be the same as the affine representative", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			var g {{ $TJacobian }}
+			var op1 {{ $TAffine }}
+			op1.X.Set(&{{ toLower .PointName }}Gen.X)
+			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
+
+			var one {{ .CoordType}}
+			one.SetOne()
+
+			g.FromAffine(&op1)
+
+			return g.X.Equal(&{{ toLower .PointName }}Gen.X) && g.Y.Equal(&{{ toLower .PointName }}Gen.Y) && g.Z.Equal(&one)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
+		func() bool {
+			var g {{ $TAffine }}
+			g.X.SetZero()
+			g.Y.SetZero()
+			var op1 {{ $TJacobian }}
+			op1.FromAffine(&g)
+			var one, zero {{ .CoordType}}
+			one.SetOne()
+			return op1.X.Equal(&one) && op1.Y.Equal(&one) && op1.Z.Equal(&zero)
+		},
+	))
+
+	properties.Property("[{{ toUpper .Name }}] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
+		func() bool {
+			var g {{ $TAffine }}
+			var op1 {{ $TJacobianExtended }}
+			var zero {{ .CoordType}}
+			op1.X.Set(&{{ toLower .PointName }}Gen.X)
+			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
+			g.fromJacExtended(&op1)
+			return g.X.Equal(&zero) && g.Y.Equal(&zero)
+		},
+	))
+
+	properties.Property("[{{ toUpper .Name }}] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
+		func() bool {
+			var g {{ $TJacobian }}
+			var op1 {{ $TJacobianExtended }}
+			var zero, one {{ .CoordType}}
+			one.SetOne()
+			op1.X.Set(&{{ toLower .PointName }}Gen.X)
+			op1.Y.Set(&{{ toLower .PointName }}Gen.Y)
+			g.fromJacExtended(&op1)
+			return g.X.Equal(&one) && g.Y.Equal(&one) && g.Z.Equal(&zero)
+		},
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a, b {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
+		{{- end}}
+			op1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			op2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
+			return op1.Equal(&op2)
+		},
+		genFuzz1,
+		genFuzz2,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func Test{{ $TAffine }}Ops(t *testing.T) {
+
+parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+	{{- if eq .CoordType "fp.Element" }}
+		genFuzz1 := GenFp()
+		genFuzz2 := GenFp()
+	{{- else if eq .CoordType "fptower.E2" }}
+		genFuzz1 := GenE2()
+		genFuzz2 := GenE2()
+	{{- end}}
+
+	genScalar := GenFr()
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a, b {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			fop2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
+			var op1, op2 {{ $TJacobian }}
+			op1.Set(&fop1).AddAssign(&fop2)
+			op2.Double(&fop2)
+			return op1.Equal(&op2)
+		},
+		genFuzz1,
+		genFuzz2,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a, b {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a, b *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			fop2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
+			fop2.Neg(&fop2)
+			fop1.AddAssign(&fop2)
+			return fop1.Equal(&{{ toLower .PointName }}Infinity)
+		},
+		genFuzz1,
+		genFuzz2,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			fop1.AddAssign(&{{ toLower .PointName }}Infinity)
+			var op2 {{ $TJacobian }}
+			op2.Set(&{{ toLower .PointName }}Infinity)
+			op2.AddAssign(&{{ toLower .PointName }}Gen)
+			return fop1.Equal(&{{ toLower .PointName }}Gen) && op2.Equal(&{{ toLower .PointName }}Gen)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			var p1,p1Neg {{ $TAffine }}
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 {{ $TJacobianExtended }}
+			o1.addMixed(&p1Neg)
+			o2.subMixed(&p1)
+
+			return 	o1.X.Equal(&o2.X) &&
+					o1.Y.Equal(&o2.Y) &&
+					o1.ZZ.Equal(&o2.ZZ) &&
+					o1.ZZZ.Equal(&o2.ZZZ)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			var p1,p1Neg {{ $TAffine }}
+			p1.FromJacobian(&fop1)
+			p1Neg = p1
+			p1Neg.Y.Neg(&p1Neg.Y)
+			var o1, o2 {{ $TJacobianExtended }}
+			o1.doubleMixed(&p1Neg)
+			o2.doubleNegMixed(&p1)
+
+			return 	o1.X.Equal(&o2.X) &&
+					o1.Y.Equal(&o2.Y) &&
+					o1.ZZ.Equal(&o2.ZZ) &&
+					o1.ZZZ.Equal(&o2.ZZZ)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
+		{{- if eq .CoordType "fp.Element" }}
+			func(a {{ .CoordType}}) bool {
+		{{- else if eq .CoordType "fptower.E2" }}
+			func(a *fptower.E2) bool {
+		{{- end}}
+			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
+			fop1.Neg(&fop1)
+			var op2 {{ $TAffine }}
+			op2.FromJacobian(&{{ toLower .PointName }}Gen)
+			fop1.AddMixed(&op2)
+			return fop1.Equal(&{{ toLower .PointName }}Infinity)
+		},
+		genFuzz1,
+	))
+
+	properties.Property("[{{ toUpper .Name }}] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
+		func(s fr.Element) bool {
+
+			r := fr.Modulus()
+			var g {{ $TJacobian }}
+			g.ScalarMultiplication(&{{ toLower .PointName}}Gen, r)
+
+			var scalar, blindedScalard, rminusone big.Int
+			var op1, op2, op3, gneg {{ $TJacobian }}
+			rminusone.SetUint64(1).Sub(r, &rminusone)
+			op3.ScalarMultiplication(&{{ toLower .PointName}}Gen, &rminusone)
+			gneg.Neg(&{{ toLower .PointName}}Gen)
+			s.ToBigIntRegular(&scalar)
+			blindedScalard.Add(&scalar, r)
+			op1.ScalarMultiplication(&{{ toLower .PointName}}Gen, &scalar)
+			op2.ScalarMultiplication(&{{ toLower .PointName}}Gen, &blindedScalard)
+
+			return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName}}Infinity) && !op1.Equal(&{{ toLower .PointName}}Infinity) && gneg.Equal(&op3)
+
+		},
+		genScalar,
+	))
+
+	{{ if eq .CoordType "fptower.E2" }}
+		properties.Property("[{{ toUpper .Name }}] psi should map points from E' to itself", prop.ForAll(
+			func() bool {
+				var a {{ $TJacobian }}
+				a.psi(&{{ toLower .PointName }}Gen)
+				return a.IsOnCurve() && !a.Equal(&g2Gen)
+			},
+		))
+	{{ end }}
+
+    {{if .GLV}}
+        properties.Property("[{{ toUpper .Name }}] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
+            func(s fr.Element) bool {
+
+                r := fr.Modulus()
+                var g {{ $TJacobian }}
+                g.mulGLV(&{{ toLower .PointName}}Gen, r)
+
+                var scalar, blindedScalard, rminusone big.Int
+                var op1, op2, op3, gneg {{ $TJacobian }}
+                rminusone.SetUint64(1).Sub(r, &rminusone)
+                op3.mulGLV(&{{ toLower .PointName}}Gen, &rminusone)
+                gneg.Neg(&{{ toLower .PointName}}Gen)
+                s.ToBigIntRegular(&scalar)
+                blindedScalard.Add(&scalar, r)
+                op1.mulGLV(&{{ toLower .PointName}}Gen, &scalar)
+                op2.mulGLV(&{{ toLower .PointName}}Gen, &blindedScalard)
+
+                return op1.Equal(&op2) && g.Equal(&{{ toLower .PointName}}Infinity) && !op1.Equal(&{{ toLower .PointName}}Infinity) && gneg.Equal(&op3)
+
+            },
+            genScalar,
+        ))
+
+        properties.Property("[{{ toUpper .Name }}] GLV and Double and Add should output the same result", prop.ForAll(
+            func(s fr.Element) bool {
+
+                var r big.Int
+                var op1, op2 {{ $TJacobian }}
+                s.ToBigIntRegular(&r)
+                op1.mulWindowed(&{{ toLower .PointName}}Gen, &r)
+                op2.mulGLV(&{{ toLower .PointName}}Gen, &r)
+                return op1.Equal(&op2) && !op1.Equal(&{{ toLower .PointName}}Infinity)
+
+            },
+            genScalar,
+        ))
+    {{end}}
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+{{if .CofactorCleaning }}
+func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{ toUpper .Name }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
+		func() bool {
+			var a, x, b {{ .CoordType }}
+			a.SetRandom()
+			{{if eq .CoordType "fp.Element" }}
+				{{if eq .PointName "g2" }}
+					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+				{{else}}
+					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+				{{end}}
+				for x.Legendre() != 1 {
+					a.SetRandom()
+					{{if eq .PointName "g2" }}
+						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+					{{else}}
+						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+					{{end}}
+				}
+			{{else if eq .CoordType "fptower.E2" }}
+				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+				for x.Legendre() != 1 {
+					a.SetRandom()
+					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+				}
+			{{end}}
+			b.Sqrt(&x)
+			var point, pointCleared, infinity {{ $TJacobian }}
+			point.X.Set(&a)
+			point.Y.Set(&b)
+			point.Z.SetOne()
+			pointCleared.ClearCofactor(&point)
+			infinity.Set(&{{ toLower .PointName}}Infinity)
+			return point.IsOnCurve() && pointCleared.IsInSubGroup() && !pointCleared.Equal(&infinity)
+		},
+	))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+{{end}}
+
+func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	genScalar := GenFr()
+
+	// size of the multiExps
+	const nbSamples = 10
+
+	properties.Property("[{{ toUpper .Name }}] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+		func(mixer fr.Element) bool {
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					MulAssign(&mixer).
+					FromMont()
+			}
+
+			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{ toLower .PointName}}GenAff, sampleScalars[:])
+
+			if len(result) != len(sampleScalars) {
+				return false
+			}
+
+			for i := 0; i < len(result); i++ {
+				var expectedJac {{ $TJacobian }}
+				var expected {{ $TAffine }}
+				var b big.Int
+				expectedJac.mulGLV(&{{ toLower .PointName}}Gen, sampleScalars[i].ToBigInt(&b))
+				expected.FromJacobian(&expectedJac)
+				if !result[i].Equal(&expected) {
+					return false
+				}
+			}
+			return true
+		},
+		genScalar,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+// ------------------------------------------------------------
+// benches
+
+func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const pow = 15
+	const nbSamples = 1 << pow
+
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+	}
+
+	for i := 5; i <= pow; i++ {
+		using := 1 << i
+
+		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				_ = BatchScalarMultiplication{{ toUpper .PointName }}(&{{ toLower .PointName}}GenAff, sampleScalars[:using])
+			}
+		})
+	}
+}
+
+func Benchmark{{ $TJacobian }}ScalarMul(b *testing.B) {
+
+	var scalar big.Int
+	r := fr.Modulus()
+	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
+	scalar.Add(&scalar, r)
+
+	var doubleAndAdd {{ $TJacobian }}
+
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.mulWindowed(&{{ toLower .PointName}}Gen, &scalar)
+		}
+	})
+
+    {{if .GLV}}
+	var glv {{ $TJacobian }}
+	b.Run("GLV", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			glv.mulGLV(&{{ toLower .PointName}}Gen, &scalar)
+		}
+	})
+    {{end}}
+
+}
+
+
+{{if .CofactorCleaning}}
+func Benchmark{{ $TAffine }}CofactorClearing(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Set(&{{ toLower .PointName }}Gen)
+	for i := 0; i < b.N; i++ {
+		a.ClearCofactor(&a)
+	}
+}
+{{end}}
+
+func Benchmark{{ $TJacobian }}Add(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Double(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.AddAssign(&{{ toLower .PointName}}Gen)
+	}
+}
+
+func Benchmark{{ $TJacobian }}AddMixed(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Double(&{{ toLower .PointName}}Gen)
+
+	var c {{ $TAffine }}
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.AddMixed(&c)
+	}
+
+}
+
+func Benchmark{{ $TJacobian }}Double(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Set(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.DoubleAssign()
+	}
+
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtAddMixed(b *testing.B) {
+	var a {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+
+	var c {{ $TAffine }}
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.addMixed(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtSubMixed(b *testing.B) {
+	var a {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+
+	var c {{ $TAffine }}
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.subMixed(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtDoubleMixed(b *testing.B) {
+	var a {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+
+	var c {{ $TAffine }}
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleMixed(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtDoubleNegMixed(b *testing.B) {
+	var a {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+
+	var c {{ $TAffine }}
+	c.FromJacobian(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.doubleNegMixed(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtAdd(b *testing.B) {
+	var a, c {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+    c.double(&a)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.add(&c)
+	}
+}
+
+func Benchmark{{ toUpper .PointName}}JacExtDouble(b *testing.B) {
+	var a {{ $TJacobianExtended }}
+	a.doubleMixed(&{{ toLower .PointName}}GenAff)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.double(&a)
+	}
+}
