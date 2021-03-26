@@ -20,8 +20,8 @@ import (
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
-	"github.com/consensys/goff/asm/amd64"
-	"github.com/consensys/goff/field"
+	"github.com/consensys/gurvy/field"
+	"github.com/consensys/gurvy/field/asm/amd64"
 )
 
 // Fq2Amd64 ...

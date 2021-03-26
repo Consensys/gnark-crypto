@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/goff/field"
-	"github.com/consensys/goff/generator"
 	"github.com/consensys/gurvy/curve/internal/asm/amd64"
+	"github.com/consensys/gurvy/field"
+	"github.com/consensys/gurvy/field/generator"
 )
 
 var bgen = bavard.NewBatchGenerator(copyrightHolder, "gurvy")
