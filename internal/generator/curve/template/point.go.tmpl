@@ -9,7 +9,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gurvy/utils"
-	"github.com/consensys/gurvy/utils/parallel"
+	"github.com/consensys/gurvy/internal/parallel"
 	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
 	{{- if eq .CoordType "fptower.E2"}}
 	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"

@@ -15,6 +15,9 @@ import (
 	"github.com/consensys/gurvy/field/internal/templates/element"
 )
 
+// TODO @gbotrel --> pattern for code generation is different than gurvy/internal because a binary like goff can generate
+// base field. in Go 1.16, can embed the template in the binary, and use same pattern than gurvy/internal
+
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
 func GenerateFF(F *field.Field, outputDir string) error {
 	// source file templates

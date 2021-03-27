@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gurvy/internal/asm/amd64"
 	"github.com/consensys/gurvy/internal/generator/config"
+	"github.com/consensys/gurvy/internal/generator/tower/asm/amd64"
 )
 
 // Generate generates a tower 2->6->12 over fp
