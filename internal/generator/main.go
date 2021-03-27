@@ -11,6 +11,8 @@ import (
 	"github.com/consensys/gurvy/field"
 	"github.com/consensys/gurvy/field/generator"
 	"github.com/consensys/gurvy/internal/generator/config"
+	"github.com/consensys/gurvy/internal/generator/crypto/hash/mimc"
+	"github.com/consensys/gurvy/internal/generator/crypto/signature/eddsa"
 	"github.com/consensys/gurvy/internal/generator/curve"
 	"github.com/consensys/gurvy/internal/generator/edwards"
 	"github.com/consensys/gurvy/internal/generator/fft"
@@ -33,14 +35,30 @@ func main() {
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 			curveDir := filepath.Join(baseDir, conf.Name)
 
+			// generate base field
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
 
+			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
+
+			// generate G1, G2, multiExp, ...
 			assertNoError(curve.Generate(conf, curveDir, bgen))
+
+			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))
+
+			// generate twisted edwards companion curves
 			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
+
+			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
+
+			// generate mimc on fr
+			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate eddsa on companion curves
+			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
 
 		}(conf)
 
