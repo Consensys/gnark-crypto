@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gurvy/internal/generator/edwards"
 	"github.com/consensys/gurvy/internal/generator/fft"
 	"github.com/consensys/gurvy/internal/generator/pairing"
+	"github.com/consensys/gurvy/internal/generator/polynomial"
 	"github.com/consensys/gurvy/internal/generator/tower"
 )
 
@@ -53,6 +54,9 @@ func main() {
 
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
+
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
