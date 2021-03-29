@@ -57,7 +57,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
 		bavard.Package(F.PackageName),
-		bavard.GeneratedBy("consensys/crypto"),
+		bavard.GeneratedBy("gurvy"),
 		bavard.Funcs(template.FuncMap{"toTitle": strings.Title}),
 	}
 	optsWithPackageDoc := append(bavardOpts, bavard.Package(F.PackageName, "contains field arithmetic operations for modulus "+F.Modulus))

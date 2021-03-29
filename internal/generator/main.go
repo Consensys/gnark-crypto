@@ -21,7 +21,14 @@ import (
 	"github.com/consensys/gurvy/internal/generator/tower"
 )
 
-var bgen = bavard.NewBatchGenerator(copyrightHolder, "gurvy")
+const (
+	fpTower         = "fptower"
+	copyrightHolder = "ConsenSys Software Inc."
+	copyrightYear   = 2020
+	baseDir         = "../../"
+)
+
+var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "gurvy")
 
 //go:generate go run main.go
 func main() {
@@ -82,9 +89,3 @@ func assertNoError(err error) {
 		os.Exit(-1)
 	}
 }
-
-const (
-	fpTower         = "fptower"
-	copyrightHolder = "ConsenSys Software Inc."
-	baseDir         = "../../"
-)
