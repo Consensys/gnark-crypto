@@ -8,7 +8,7 @@
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/utils"
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/internal/parallel"
 	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/fr"
 	{{- if eq .CoordType "fptower.E2"}}
@@ -509,7 +509,7 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	table[3].phi(a)
 
 	// split the scalar, modifies +-a, phi(a) accordingly
-	k := utils.SplitScalar(s, &glvBasis)
+	k := curve.SplitScalar(s, &glvBasis)
 
 	if k[0].Cmp(&zero) == -1 {
 		k[0].Neg(&k[0])

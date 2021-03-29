@@ -7,7 +7,6 @@ import (
 	"github.com/consensys/gurvy/curve/bn254/fp"
 	"github.com/consensys/gurvy/curve/bn254/fr"
 	"github.com/consensys/gurvy/curve/bn254/internal/fptower"
-	"github.com/consensys/gurvy/utils"
 )
 
 // E: y**2=x**3+3
@@ -59,7 +58,7 @@ var lambdaGLV big.Int
 
 // glvBasis stores R-linearly independant vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
-var glvBasis utils.Lattice
+var glvBasis curve.Lattice
 
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
 var endo struct {
@@ -102,7 +101,7 @@ func init() {
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10) // (36*x**3+18*x**2+6*x+1)
 	_r := fr.Modulus()
-	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	curve.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	endo.u.A0.SetString("21575463638280843010398324269430826099269044274347216827212613867836435027261")
 	endo.u.A1.SetString("10307601595873709700152284273816112264069230130616436755625194854815875713954")
@@ -111,7 +110,7 @@ func init() {
 
 	// binary decomposition of 15132376222941642752 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)
-	utils.NafDecomposition(optimaAteLoop, loopCounter[:])
+	curve.NafDecomposition(optimaAteLoop, loopCounter[:])
 
 	xGen.SetString("4965661367192848881", 10)
 

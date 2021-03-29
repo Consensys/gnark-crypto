@@ -19,10 +19,10 @@ package bls377
 import (
 	"math/big"
 
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bls377/fp"
 	"github.com/consensys/gurvy/curve/bls377/fr"
 	"github.com/consensys/gurvy/internal/parallel"
-	"github.com/consensys/gurvy/utils"
 )
 
 // G1Affine point in affine coordinates
@@ -411,7 +411,7 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 	table[3].phi(a)
 
 	// split the scalar, modifies +-a, phi(a) accordingly
-	k := utils.SplitScalar(s, &glvBasis)
+	k := curve.SplitScalar(s, &glvBasis)
 
 	if k[0].Cmp(&zero) == -1 {
 		k[0].Neg(&k[0])

@@ -44,6 +44,8 @@ The APIs are consistent accross the curves. For example, [here is `bn254` godoc]
 
 ## Benchmarks
 
+TODO point to https://hackmd.io/@zkteam/eccbench
+
 Here are our measurements comparing `gurvy` (and [`goff` our finite field library](https://github.com/consensys/gurvy)) with [`mcl`](https://github.com/herumi/mcl).
 
 These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled. 

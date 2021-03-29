@@ -1,4 +1,4 @@
-package utils
+package curve
 
 import (
 	"math/big"

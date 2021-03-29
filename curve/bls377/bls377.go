@@ -7,7 +7,6 @@ import (
 	"github.com/consensys/gurvy/curve/bls377/fp"
 	"github.com/consensys/gurvy/curve/bls377/fr"
 	"github.com/consensys/gurvy/curve/bls377/internal/fptower"
-	"github.com/consensys/gurvy/utils"
 )
 
 // E: y**2=x**3+1
@@ -59,7 +58,7 @@ var lambdaGLV big.Int
 
 // glvBasis stores R-linearly independant vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
-var glvBasis utils.Lattice
+var glvBasis curve.Lattice
 
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp12
 var endo struct {
@@ -112,7 +111,7 @@ func init() {
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("91893752504881257701523279626832445440", 10) //(x**2-1)
 	_r := fr.Modulus()
-	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	curve.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	endo.u.A0.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410946")
 	endo.v.A0.SetString("216465761340224619389371505802605247630151569547285782856803747159100223055385581585702401816380679166954762214499")

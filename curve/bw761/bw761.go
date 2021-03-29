@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bw761/fp"
 	"github.com/consensys/gurvy/curve/bw761/fr"
-	"github.com/consensys/gurvy/utils"
 )
 
 // https://eprint.iacr.org/2020/351.pdf
@@ -70,7 +69,7 @@ var lambdaGLV big.Int
 
 // glvBasis stores R-linearly independant vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
-var glvBasis utils.Lattice
+var glvBasis curve.Lattice
 
 // generator of the curve
 var xGen big.Int
@@ -95,7 +94,7 @@ func init() {
 	loopCounter1 = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
 
 	T, _ := new(big.Int).SetString("91893752504881257691937156713741811711", 10)
-	utils.NafDecomposition(T, loopCounter2[:])
+	curve.NafDecomposition(T, loopCounter2[:])
 
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
@@ -106,7 +105,7 @@ func init() {
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945", 10) // (x**5-3*x**4+3*x**3-x+1)
 	_r := fr.Modulus()
-	utils.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	curve.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
 	xGen.SetString("9586122913090633729", 10)
 

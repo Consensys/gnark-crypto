@@ -17,9 +17,9 @@ package bls377
 import (
 	"math/big"
 
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bls377/fp"
 	"github.com/consensys/gurvy/curve/bls377/internal/fptower"
-	"github.com/consensys/gurvy/utils"
 )
 
 // hashToFp hashes msg to count prime field elements.
@@ -31,7 +31,7 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 	L := 64
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := utils.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := curve.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
