@@ -23,14 +23,14 @@ import (
 
 	bls377 "github.com/consensys/gurvy/curve/bls377/fr/mimc"
 	bls381 "github.com/consensys/gurvy/curve/bls381/fr/mimc"
-	bn256 "github.com/consensys/gurvy/curve/bn256/fr/mimc"
+	bn254 "github.com/consensys/gurvy/curve/bn254/fr/mimc"
 	bw761 "github.com/consensys/gurvy/curve/bw761/fr/mimc"
 )
 
 type Hash uint
 
 const (
-	MIMC_BN256 Hash = iota
+	MIMC_BN254 Hash = iota
 	MIMC_BLS381
 	MIMC_BLS377
 	MIMC_BW761
@@ -38,7 +38,7 @@ const (
 
 // size of digests in bytes
 var digestSize = []uint8{
-	MIMC_BN256:  32,
+	MIMC_BN254:  32,
 	MIMC_BLS381: 48,
 	MIMC_BLS377: 48,
 	MIMC_BW761:  96,
@@ -47,8 +47,8 @@ var digestSize = []uint8{
 // New creates the corresponding mimc hash function.
 func (m Hash) New(seed string) hash.Hash {
 	switch m {
-	case MIMC_BN256:
-		return bn256.NewMiMC(seed)
+	case MIMC_BN254:
+		return bn254.NewMiMC(seed)
 	case MIMC_BLS381:
 		return bls381.NewMiMC(seed)
 	case MIMC_BLS377:
@@ -63,8 +63,8 @@ func (m Hash) New(seed string) hash.Hash {
 // String returns the mimc ID to string format.
 func (m Hash) String() string {
 	switch m {
-	case MIMC_BN256:
-		return "MIMC_BN256"
+	case MIMC_BN254:
+		return "MIMC_BN254"
 	case MIMC_BLS381:
 		return "MIMC_BLS381"
 	case MIMC_BLS377:

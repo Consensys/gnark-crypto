@@ -24,7 +24,7 @@ import (
 	gamd64 "github.com/consensys/gurvy/field/asm/amd64"
 )
 
-func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
+func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN254() {
 	// 	var a, b fp.Element
 	// 	a.Double(&x.A0).Double(&a).Double(&a).fq2.Add(&a, &x.A0).fq2.Sub(&a, &x.A1)
 	// 	b.Double(&x.A1).Double(&b).Double(&b).fq2.Add(&b, &x.A1).fq2.Add(&b, &x.A0)
@@ -79,7 +79,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN256() {
 	fq2.RET()
 }
 
-func (fq2 *Fq2Amd64) generateSquareE2BN256(forceCheck bool) {
+func (fq2 *Fq2Amd64) generateSquareE2BN254(forceCheck bool) {
 
 	const argSize = 16
 	minStackSize := 0
@@ -170,7 +170,7 @@ func (fq2 *Fq2Amd64) generateSquareE2BN256(forceCheck bool) {
 
 }
 
-func (fq2 *Fq2Amd64) generateMulE2BN256(forceCheck bool) {
+func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 	const argSize = 24
 	minStackSize := 0
 	if forceCheck {

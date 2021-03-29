@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package gurvy is an elliptic curve (+pairing) library. Also provides fft, MiMC, eddsa and field arithmetic.
-// Supported curves are bls381, bls377, bn256 and bw761 and their twisted edwards "companion curves"
+// Supported curves are bls381, bls377, bn254 and bw761 and their twisted edwards "companion curves"
 package gurvy
 
 // do not modify the order of this enum
@@ -23,7 +23,7 @@ const (
 	UNKNOWN ID = iota
 	BLS377
 	BLS381
-	BN256
+	BN254
 	BW761
 )
 
@@ -36,8 +36,8 @@ func (id ID) String() string {
 		return "bls377"
 	case BLS381:
 		return "bls381"
-	case BN256:
-		return "bn256"
+	case BN254:
+		return "bn254"
 	case BW761:
 		return "bw761"
 	default:

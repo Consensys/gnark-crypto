@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/consensys/gurvy)](https://goreportcard.com/badge/github.com/consensys/gurvy) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gurvy)](https://pkg.go.dev/mod/github.com/consensys/gurvy)
 
 
-`gurvy` implements Elliptic Curve Cryptography (+Pairing) for BLS381, BLS377 and BN256. 
+`gurvy` implements Elliptic Curve Cryptography (+Pairing) for BLS381, BLS377 and BN254. 
 
 It is actively developed and maintained by the team (zkteam@consensys.net) behind:
 * [`gnark`: a framework to execute (and verify) algorithms in zero-knowledge](https://github.com/consensys/gnark) 
@@ -18,7 +18,7 @@ It is actively developed and maintained by the team (zkteam@consensys.net) behin
 ## Curves supported
 
 * BLS12-381 (Zcash)
-* BN256 (Ethereum)
+* BN254 (Ethereum)
 * BLS377 (ZEXE)
 * BW6-761 (EC supporting pairing on BLS377 field of definition)
 
@@ -40,7 +40,7 @@ Note if that if you use go modules, in `go.mod` the module path is case sensitiv
 ### Documentation
 [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gurvy)](https://pkg.go.dev/mod/github.com/consensys/gurvy)
 
-The APIs are consistent accross the curves. For example, [here is `bn256` godoc](https://pkg.go.dev/github.com/consensys/gurvy/bn256#pkg-overview).
+The APIs are consistent accross the curves. For example, [here is `bn254` godoc](https://pkg.go.dev/github.com/consensys/gurvy/bn254#pkg-overview).
 
 ## Benchmarks
 
@@ -48,7 +48,7 @@ Here are our measurements comparing `gurvy` (and [`goff` our finite field librar
 
 These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled. 
 
-|bn256|mcl(ns/op)|gurvy & goff (ns/op)|
+|bn254|mcl(ns/op)|gurvy & goff (ns/op)|
 | -------- | -------- | -------- |
 |Fp::Add	|3.32|	3.44|
 |Fp::Mul	|18.43|	16.1|

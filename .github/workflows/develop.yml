@@ -41,7 +41,7 @@ jobs:
     - name: gosec
       run: |
         go get -u github.com/securego/gosec/cmd/gosec
-        gosec curve/bls377/... curve/bn256/... curve/bls371/... curve/bw761/... curve/utils/... 
+        gosec curve/bls377/... curve/bn254/... curve/bls371/... curve/bw761/... curve/utils/... 
     - name: install deps
       run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: generated files should not be modified
@@ -84,7 +84,7 @@ jobs:
     - name: Test (32bits)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        GOARCH=386 go test -v -short ./curve/bn256/...
+        GOARCH=386 go test -v -short ./curve/bn254/...
         GOARCH=386 go test -v -short ./curve/bls381/...
   
   slack-workflow-status:

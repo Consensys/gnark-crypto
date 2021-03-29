@@ -38,4 +38,4 @@ playground
 *.sage.py
 
 
-bn256/benchesres/**
+bn254/benchesres/**

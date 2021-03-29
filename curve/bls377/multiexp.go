@@ -160,7 +160,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*CPUSe
 	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
 	// * number of CPUs
 	// * cache friendliness (which depends on the host, G1 or G2... )
-	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
+	//	--> for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
 	// for each msmCX
 	// step 1
@@ -995,7 +995,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*CPUSe
 	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
 	// * number of CPUs
 	// * cache friendliness (which depends on the host, G1 or G2... )
-	//	--> for example, on BN256, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
+	//	--> for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
 	// for each msmCX
 	// step 1

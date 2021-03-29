@@ -50,7 +50,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"funcdata.h\"")
 
 	fq2.GenerateDefines()
-	if strings.ToLower(fq2.curveName) == "bn256" {
+	if strings.ToLower(fq2.curveName) == "bn254" {
 		fq2.generateMulDefine()
 	}
 
@@ -60,10 +60,10 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.generateNegE2()
 
 	switch strings.ToLower(fq2.curveName) {
-	case "bn256":
-		fq2.generateMulByNonResidueE2BN256()
-		fq2.generateMulE2BN256(forceADXCheck)
-		fq2.generateSquareE2BN256(forceADXCheck)
+	case "bn254":
+		fq2.generateMulByNonResidueE2BN254()
+		fq2.generateMulE2BN254(forceADXCheck)
+		fq2.generateSquareE2BN254(forceADXCheck)
 	case "bls381":
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateSquareE2BLS381(forceADXCheck)

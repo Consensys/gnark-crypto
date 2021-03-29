@@ -205,7 +205,7 @@ func TestE2MulMaxed(t *testing.T) {
 	b.A0 = fpMaxValue
 	b.A1 = fpMaxValue
 
-	// [BN256] mul & inverse should leave an element invariant", prop.ForAll(
+	// [BN254] mul & inverse should leave an element invariant", prop.ForAll(
 	var c, d E2
 	d.Inverse(&b)
 	c.Set(&a)

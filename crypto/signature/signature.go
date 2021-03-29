@@ -86,7 +86,7 @@ type SignatureScheme uint
 const maxSignatures = 4
 
 const (
-	EDDSA_BN256 SignatureScheme = iota
+	EDDSA_BN254 SignatureScheme = iota
 	EDDSA_BLS381
 	EDDSA_BLS377
 	EDDSA_BW761

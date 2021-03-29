@@ -365,7 +365,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{- if eq .Name "bn256" }}
+{{- if eq .Name "bn254" }}
 	{{- if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
@@ -577,7 +577,7 @@ func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
-{{- if eq .Name "bn256"}}
+{{- if eq .Name "bn254"}}
 {{else if eq .Name "bls381"}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
@@ -635,7 +635,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{ else }}
 // ClearCofactor ...
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
-{{- if eq .Name "bn256"}}
+{{- if eq .Name "bn254"}}
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]{{$TJacobian}}
 

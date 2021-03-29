@@ -42,7 +42,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			return err
 		}
 
-		if conf.Name == "bn256" || conf.Name == "bls381" {
+		if conf.Name == "bn254" || conf.Name == "bls381" {
 			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
 		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
@@ -60,7 +60,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 	}
 
-	if conf.Name == "bn256" || conf.Name == "bls381" {
+	if conf.Name == "bn254" || conf.Name == "bls381" {
 		{
 			// fq2 assembly
 			fName := filepath.Join(baseDir, "e2_adx_amd64.s")
