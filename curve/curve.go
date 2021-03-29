@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package gurvy is an elliptic curve (+pairing) library. Also provides fft, MiMC, eddsa and field arithmetic.
+// Package curve is an elliptic curve (+pairing) library. Also provides fft, MiMC, eddsa and field arithmetic.
 // Supported curves are bls381, bls377, bn254 and bw761 and their twisted edwards "companion curves"
-package gurvy
+package curve
 
 // do not modify the order of this enum
 const (

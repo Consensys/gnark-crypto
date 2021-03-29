@@ -3,7 +3,7 @@ package bn254
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy"
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bn254/fp"
 	"github.com/consensys/gurvy/curve/bn254/fr"
 	"github.com/consensys/gurvy/curve/bn254/internal/fptower"
@@ -20,7 +20,7 @@ import (
 // Fr: r=21888242871839275222246405745257275088548364400416034343698204186575808495617
 
 // ID bn254 ID
-const ID = gurvy.BN254
+const ID = curve.BN254
 
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element

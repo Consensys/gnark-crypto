@@ -17,7 +17,7 @@ package bw761
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy"
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bw761/fp"
 	"github.com/consensys/gurvy/curve/bw761/fr"
 	"github.com/consensys/gurvy/utils"
@@ -34,7 +34,7 @@ import (
 // Fr: r=258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
 
 // ID bls377 ID
-const ID = gurvy.BW761
+const ID = curve.BW761
 
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element

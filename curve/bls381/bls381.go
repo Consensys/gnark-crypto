@@ -3,7 +3,7 @@ package bls381
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy"
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bls381/fp"
 	"github.com/consensys/gurvy/curve/bls381/fr"
 	"github.com/consensys/gurvy/curve/bls381/internal/fptower"
@@ -20,7 +20,7 @@ import (
 // Fr: r=52435875175126190479447740508185965837690552500527637822603658699938581184513 (x**4-x**2+1)
 
 // ID bls381 ID
-const ID = gurvy.BLS381
+const ID = curve.BLS381
 
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element

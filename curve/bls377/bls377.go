@@ -3,7 +3,7 @@ package bls377
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy"
+	"github.com/consensys/gurvy/curve"
 	"github.com/consensys/gurvy/curve/bls377/fp"
 	"github.com/consensys/gurvy/curve/bls377/fr"
 	"github.com/consensys/gurvy/curve/bls377/internal/fptower"
@@ -20,7 +20,7 @@ import (
 // Fr: r=8444461749428370424248824938781546531375899335154063827935233455917409239041 (x**4-x**2+1)
 
 // ID bls377 ID
-const ID = gurvy.BLS377
+const ID = curve.BLS377
 
 // bCurveCoeff b coeff of the curve
 var bCurveCoeff fp.Element
