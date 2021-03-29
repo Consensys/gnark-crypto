@@ -34,7 +34,7 @@ func main() {
 			conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
 			conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
-			curveDir := filepath.Join(baseDir, conf.Name)
+			curveDir := filepath.Join(baseDir, "curve", conf.Name)
 
 			// generate base field
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))

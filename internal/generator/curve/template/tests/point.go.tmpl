@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	{{if eq .CoordType "fptower.E2"}}
-	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/internal/fptower"
 	{{else}}
-	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/fp"
 	{{end}}
-	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )

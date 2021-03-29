@@ -10,11 +10,11 @@ import (
 
 	"github.com/consensys/gurvy/utils"
 	"github.com/consensys/gurvy/internal/parallel"
-	"github.com/consensys/gurvy/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/fr"
 	{{- if eq .CoordType "fptower.E2"}}
-	"github.com/consensys/gurvy/{{ toLower .Name}}/internal/fptower"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/internal/fptower"
 	{{else}}
-	"github.com/consensys/gurvy/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/curve/{{ toLower .Name}}/fp"
 	{{- end}}
 )
 

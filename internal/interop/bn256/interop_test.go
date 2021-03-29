@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gurvy/bn256"
-	"github.com/consensys/gurvy/bn256/fp"
+	"github.com/consensys/gurvy/curve/bn256"
+	"github.com/consensys/gurvy/curve/bn256/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 

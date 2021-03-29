@@ -8,8 +8,8 @@ import (
 
 	bls12381 "github.com/kilic/bls12-381"
 
-	"github.com/consensys/gurvy/bls381"
-	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/curve/bls381"
+	"github.com/consensys/gurvy/curve/bls381/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
