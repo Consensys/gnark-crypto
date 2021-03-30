@@ -87,9 +87,9 @@ const maxSignatures = 4
 
 const (
 	EDDSA_BN254 SignatureScheme = iota
-	EDDSA_BLS381
-	EDDSA_BLS377
-	EDDSA_BW761
+	EDDSA_BLS12_381
+	EDDSA_BLS12_377
+	EDDSA_BW6_761
 )
 
 var signatures = make([]func(io.Reader) (Signer, error), maxSignatures)

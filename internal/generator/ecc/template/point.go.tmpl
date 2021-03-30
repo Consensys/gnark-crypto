@@ -10,11 +10,11 @@ import (
 
 	"github.com/consensys/gurvy/ecc"
 	"github.com/consensys/gurvy/internal/parallel"
-	"github.com/consensys/gurvy/ecc/{{ toLower .Name}}/fr"
+	"github.com/consensys/gurvy/ecc/{{.Name}}/fr"
 	{{- if eq .CoordType "fptower.E2"}}
-	"github.com/consensys/gurvy/ecc/{{ toLower .Name}}/internal/fptower"
+	"github.com/consensys/gurvy/ecc/{{.Name}}/internal/fptower"
 	{{else}}
-	"github.com/consensys/gurvy/ecc/{{ toLower .Name}}/fp"
+	"github.com/consensys/gurvy/ecc/{{.Name}}/fp"
 	{{- end}}
 )
 
@@ -396,7 +396,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		}
 	{{- end}}
-{{else if eq .Name "bw761" }}
+{{else if eq .Name "bw6-761" }}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
@@ -578,19 +578,19 @@ func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if eq .Name "bn254"}}
-{{else if eq .Name "bls381"}}
+{{else if eq .Name "bls12-381"}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if eq .Name "bls377"}}
+{{else if eq .Name "bls12-377"}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if eq .Name "bw761"}}
+{{else if eq .Name "bw6-761"}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
@@ -657,7 +657,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	}
 	p.Set(&res)
 	return p
-{{else if eq .Name "bls381"}}
+{{else if eq .Name "bls12-381"}}
 	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
 	var xg, xxg, xxxg, res, t {{$TJacobian}}
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
@@ -687,7 +687,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 
 	return p
-{{else if eq .Name "bls377"}}
+{{else if eq .Name "bls12-377"}}
 	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
 	var xg, xxg, xxxg, res, t {{$TJacobian}}
 	xg.ScalarMultiplication(a, &xGen)      //.Neg(&xg)
@@ -717,7 +717,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 
 	return p
-{{else if eq .Name "bw761"}}
+{{else if eq .Name "bw6-761"}}
 
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)

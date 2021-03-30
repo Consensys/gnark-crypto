@@ -1,10 +1,15 @@
 package config
 
-import "github.com/consensys/gurvy/field"
+import (
+	"github.com/consensys/gurvy/ecc"
+	"github.com/consensys/gurvy/field"
+)
 
 // Curve describes parameters of the curve useful for the template
 type Curve struct {
 	Name      string
+	Package   string
+	EnumID    string
 	FpModulus string
 	FrModulus string
 
@@ -13,7 +18,21 @@ type Curve struct {
 	FpUnusedBits int
 	G1           Point
 	G2           Point
-	dir          string
+}
+
+func (c *Curve) ID() ecc.ID {
+	switch c.Name {
+	case "bn254":
+		return ecc.BN254
+	case "bls12-381":
+		return ecc.BLS12_381
+	case "bls12-377":
+		return ecc.BLS12_377
+	case "bw6-761":
+		return ecc.BW6_761
+	default:
+		panic("not implemented")
+	}
 }
 
 type Point struct {

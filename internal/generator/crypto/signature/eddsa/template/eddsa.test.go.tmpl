@@ -5,7 +5,7 @@ import (
 
 	"github.com/consensys/gurvy/crypto/signature"
 	"github.com/consensys/gurvy/crypto/hash"
-	"github.com/consensys/gurvy/ecc/{{ toLower .Name }}/fr"
+	"github.com/consensys/gurvy/ecc/{{.Name}}/fr"
 )
 
 func TestSerialization(t *testing.T) {
@@ -13,13 +13,13 @@ func TestSerialization(t *testing.T) {
 	src := rand.NewSource(0)
 	r := rand.New(src)
 
-	privKey1, err := signature.EDDSA_{{ toUpper .Name }}.New(r)
+	privKey1, err := signature.EDDSA_{{ .EnumID }}.New(r)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pubKey1 := privKey1.Public()
 
-	privKey2, err := signature.EDDSA_{{ toUpper .Name }}.New(r)
+	privKey2, err := signature.EDDSA_{{ .EnumID }}.New(r)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,12 +56,12 @@ func TestEddsaMIMC(t *testing.T) {
 	r := rand.New(src)
 
 	// create eddsa obj and sign a message
-	privKey, err := signature.EDDSA_{{ toUpper .Name }}.New(r)
+	privKey, err := signature.EDDSA_{{ .EnumID }}.New(r)
 	if err != nil {
 		t.Fatal(nil)
 	}
 	pubKey := privKey.Public()
-	hFunc := hash.MIMC_{{ toUpper .Name }}.New("seed")
+	hFunc := hash.MIMC_{{ .EnumID }}.New("seed")
 
 	var frMsg fr.Element
 	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
@@ -103,7 +103,7 @@ func TestEddsaSHA256(t *testing.T) {
 	// create eddsa obj and sign a message
 	// create eddsa obj and sign a message
 
-	privKey, err := signature.EDDSA_{{ toUpper .Name }}.New(r)
+	privKey, err := signature.EDDSA_{{ .EnumID }}.New(r)
 	pubKey := privKey.Public()
 	if err != nil {
 		t.Fatal(err)
@@ -141,10 +141,10 @@ func BenchmarkVerify(b *testing.B) {
 	src := rand.NewSource(0)
 	r := rand.New(src)
 
-	hFunc := hash.MIMC_{{ toUpper .Name }}.New("seed")
+	hFunc := hash.MIMC_{{ .EnumID }}.New("seed")
 
 	// create eddsa obj and sign a message
-	privKey, err := signature.EDDSA_{{ toUpper .Name }}.New(r)
+	privKey, err := signature.EDDSA_{{ .EnumID }}.New(r)
 	pubKey := privKey.Public()
 	if err != nil {
 		b.Fatal(err)

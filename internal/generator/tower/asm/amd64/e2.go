@@ -16,27 +16,28 @@ package amd64
 
 import (
 	"io"
-	"strings"
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
+	"github.com/consensys/gurvy/ecc"
 	"github.com/consensys/gurvy/field"
 	"github.com/consensys/gurvy/field/asm/amd64"
+	"github.com/consensys/gurvy/internal/generator/config"
 )
 
 // Fq2Amd64 ...
 type Fq2Amd64 struct {
 	*amd64.FFAmd64
-	curveName string
-	w         io.Writer
-	F         *field.Field
+	config config.Curve
+	w      io.Writer
+	F      *field.Field
 }
 
 // NewFq2Amd64 ...
-func NewFq2Amd64(w io.Writer, F *field.Field, curveName string) *Fq2Amd64 {
+func NewFq2Amd64(w io.Writer, F *field.Field, config config.Curve) *Fq2Amd64 {
 	return &Fq2Amd64{
 		amd64.NewFFAmd64(w, F),
-		curveName,
+		config,
 		w,
 		F,
 	}
@@ -50,7 +51,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"funcdata.h\"")
 
 	fq2.GenerateDefines()
-	if strings.ToLower(fq2.curveName) == "bn254" {
+	if fq2.config.ID() == ecc.BN254 {
 		fq2.generateMulDefine()
 	}
 
@@ -59,12 +60,12 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.generateSubE2()
 	fq2.generateNegE2()
 
-	switch strings.ToLower(fq2.curveName) {
-	case "bn254":
+	switch fq2.config.ID() {
+	case ecc.BN254:
 		fq2.generateMulByNonResidueE2BN254()
 		fq2.generateMulE2BN254(forceADXCheck)
 		fq2.generateSquareE2BN254(forceADXCheck)
-	case "bls381":
+	case ecc.BLS12_381:
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateSquareE2BLS381(forceADXCheck)
 		fq2.generateMulE2BLS381(forceADXCheck)

@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gurvy/ecc"
 	"github.com/consensys/gurvy/internal/generator/config"
 	"github.com/consensys/gurvy/internal/generator/tower/asm/amd64"
 )
 
 // Generate generates a tower 2->6->12 over fp
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	if conf.Name == "bw761" {
+	if conf.ID() == ecc.BW6_761 {
 		return nil
 	}
 
@@ -42,10 +43,10 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			return err
 		}
 
-		if conf.Name == "bn254" || conf.Name == "bls381" {
+		if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
 			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
 		}
-		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
+		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
 		if err := Fq2Amd64.Generate(true); err != nil {
 			_ = f.Close()
 			return err
@@ -60,7 +61,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 	}
 
-	if conf.Name == "bn254" || conf.Name == "bls381" {
+	if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
 		{
 			// fq2 assembly
 			fName := filepath.Join(baseDir, "e2_adx_amd64.s")
@@ -70,7 +71,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			}
 
 			_, _ = io.WriteString(f, "// +build amd64_adx\n")
-			Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf.Name)
+			Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
 			if err := Fq2Amd64.Generate(false); err != nil {
 				_ = f.Close()
 				return err

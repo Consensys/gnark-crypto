@@ -2,14 +2,14 @@ import (
 	"hash"
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc/{{ toLower .Name }}/fr"
+	"github.com/consensys/gurvy/ecc/{{ .Name }}/fr"
 	"golang.org/x/crypto/sha3"
 )
 
 const mimcNbRounds = 91
 
 // BlockSize size that mimc consumes
-const BlockSize = 32{{ if eq .Name "bw761" }}+16{{ end }}
+const BlockSize = 32{{ if eq .Name "bw6-761" }}+16{{ end }}
 
 // Params constants for the mimc hash function
 type Params []fr.Element
@@ -143,7 +143,7 @@ func (d *digest) checksum() fr.Element {
 		m.Add(&m, &d.h)
 		d.h = m
 	}
-{{ else if eq .Name "bls381" }}
+{{ else if eq .Name "bls12-381" }}
 	// plain execution of a mimc run
 	// m: message
 	// k: encryption key
@@ -160,7 +160,7 @@ func (d *digest) checksum() fr.Element {
 		m.Add(&m, &d.h)
 		d.h = m
 	}
-{{ else if eq .Name "bls377" }}
+{{ else if eq .Name "bls12-377" }}
 	// plain execution of a mimc run
 	// m: message
 	// k: encryption key
@@ -173,7 +173,7 @@ func (d *digest) checksum() fr.Element {
 		m.Add(&m, &d.h)
 		d.h = m
 	}
-{{ else if eq .Name "bw761" }}
+{{ else if eq .Name "bw6-761" }}
 	// plain execution of a mimc run
 	// m: message
 	// k: encryption key

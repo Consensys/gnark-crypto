@@ -21,27 +21,27 @@ package hash
 import (
 	"hash"
 
-	bls377 "github.com/consensys/gurvy/ecc/bls377/fr/mimc"
-	bls381 "github.com/consensys/gurvy/ecc/bls381/fr/mimc"
+	bls377 "github.com/consensys/gurvy/ecc/bls12-377/fr/mimc"
+	bls381 "github.com/consensys/gurvy/ecc/bls12-381/fr/mimc"
 	bn254 "github.com/consensys/gurvy/ecc/bn254/fr/mimc"
-	bw761 "github.com/consensys/gurvy/ecc/bw761/fr/mimc"
+	bw761 "github.com/consensys/gurvy/ecc/bw6-761/fr/mimc"
 )
 
 type Hash uint
 
 const (
 	MIMC_BN254 Hash = iota
-	MIMC_BLS381
-	MIMC_BLS377
-	MIMC_BW761
+	MIMC_BLS12_381
+	MIMC_BLS12_377
+	MIMC_BW6_761
 )
 
 // size of digests in bytes
 var digestSize = []uint8{
-	MIMC_BN254:  32,
-	MIMC_BLS381: 48,
-	MIMC_BLS377: 48,
-	MIMC_BW761:  96,
+	MIMC_BN254:     32,
+	MIMC_BLS12_381: 48,
+	MIMC_BLS12_377: 48,
+	MIMC_BW6_761:   96,
 }
 
 // New creates the corresponding mimc hash function.
@@ -49,11 +49,11 @@ func (m Hash) New(seed string) hash.Hash {
 	switch m {
 	case MIMC_BN254:
 		return bn254.NewMiMC(seed)
-	case MIMC_BLS381:
+	case MIMC_BLS12_381:
 		return bls381.NewMiMC(seed)
-	case MIMC_BLS377:
+	case MIMC_BLS12_377:
 		return bls377.NewMiMC(seed)
-	case MIMC_BW761:
+	case MIMC_BW6_761:
 		return bw761.NewMiMC(seed)
 	default:
 		panic("Unknown mimc ID")
@@ -65,11 +65,11 @@ func (m Hash) String() string {
 	switch m {
 	case MIMC_BN254:
 		return "MIMC_BN254"
-	case MIMC_BLS381:
+	case MIMC_BLS12_381:
 		return "MIMC_BLS381"
-	case MIMC_BLS377:
+	case MIMC_BLS12_377:
 		return "MIMC_BLS377"
-	case MIMC_BW761:
+	case MIMC_BW6_761:
 		return "MIMC_BW761"
 	default:
 		panic("Unknown mimc ID")
