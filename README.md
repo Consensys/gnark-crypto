@@ -1,56 +1,58 @@
-# gurvy
+# gnark-crypto
 
-[![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/consensys/gurvy)](https://goreportcard.com/badge/github.com/consensys/gurvy) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gurvy)](https://pkg.go.dev/mod/github.com/consensys/gurvy)
+[![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/consensys/gnark-crypto)](https://goreportcard.com/badge/github.com/consensys/gnark-crypto) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto)
 
 
-`gurvy` implements Elliptic Curve Cryptography (+Pairing) for BLS381, BLS377 and BN254. 
-
-It is actively developed and maintained by the team (zkteam@consensys.net) behind:
+`gnark-crypto` is actively developed and maintained by the team (zkteam@consensys.net) behind:
 * [`gnark`: a framework to execute (and verify) algorithms in zero-knowledge](https://github.com/consensys/gnark) 
-* [`goff`: fast finite field arithmetic in Golang](https://github.com/consensys/goff)
 
 
 ## Warning
-**`gurvy` has not been audited and is provided as-is, use at your own risk. In particular, `gurvy` makes no security guarantees such as constant time implementation or side-channel attack resistance.**
+**`gnark-crypto` has not been audited and is provided as-is, use at your own risk. In particular, `gnark-crypto` makes no security guarantees such as constant time implementation or side-channel attack resistance.**
 
-`gurvy` is optimized for 64bits architectures (x86 `amd64`) and tested on Unix (Linux / macOS).
+`gnark-crypto` is optimized for 64bits architectures (x86 `amd64`) and tested on Unix (Linux / macOS).
 
-## Curves supported
+## Documentation
 
-* BLS12-381 (Zcash)
-* BN254 (Ethereum)
-* BLS377 (ZEXE)
-* BW6-761 (EC supporting pairing on BLS377 field of definition)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto)
+
+Packages:
+
+| Package  | Description |
+| ------------- | ------------- |
+| curve  |  provides implementation of BN254 (Ethereum), BLS12-381(ZCash), BLS377 (ZEXE) and BW6-761 (EC supporting pairing on BLS377 field of definition), alongside with their twisted edwards "companion" curves. provides Pairing, Multi Exponentiation, FFT algorithms  |
+| crypto  | provides implementation of MiMC and EdDSA (on the twisted edwards curve) |
+| field  |  provides code generation for efficient field arithmetic for any moduli |
 
 
 ## Getting started
 
 ### Go version
 
-`gurvy` is tested with the last 2 major releases of Go (1.14 and 1.15).
+`gnark-crypto` is tested with the last 2 major releases of Go (1.14 and 1.15).
 
-### Install `gurvy` 
+### Install `gnark-crypto` 
 
 ```bash
-go get github.com/consensys/gurvy
+go get github.com/consensys/gnark-crypto
 ```
 
 Note if that if you use go modules, in `go.mod` the module path is case sensitive (use `consensys` and not `ConsenSys`).
 
 ### Documentation
-[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gurvy)](https://pkg.go.dev/mod/github.com/consensys/gurvy)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto)
 
-The APIs are consistent accross the curves. For example, [here is `bn254` godoc](https://pkg.go.dev/github.com/consensys/gurvy/bn254#pkg-overview).
+The APIs are consistent accross the curves. For example, [here is `bn254` godoc](https://pkg.go.dev/github.com/consensys/gnark-crypto/bn254#pkg-overview).
 
 ## Benchmarks
 
 TODO point to https://hackmd.io/@zkteam/eccbench
 
-Here are our measurements comparing `gurvy` (and [`goff` our finite field library](https://github.com/consensys/gurvy)) with [`mcl`](https://github.com/herumi/mcl).
+Here are our measurements comparing `gnark-crypto` (and [`goff` our finite field library](https://github.com/consensys/gnark-crypto)) with [`mcl`](https://github.com/herumi/mcl).
 
 These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled. 
 
-|bn254|mcl(ns/op)|gurvy & goff (ns/op)|
+|bn254|mcl(ns/op)|gnark-crypto & goff (ns/op)|
 | -------- | -------- | -------- |
 |Fp::Add	|3.32|	3.44|
 |Fp::Mul	|18.43|	16.1|
@@ -69,7 +71,7 @@ These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled
 ----
 
 
-|bls381|mcl(ns/op)|gurvy & goff (ns/op)|
+|bls381|mcl(ns/op)|gnark-crypto & goff (ns/op)|
 | -------- | -------- | -------- |
 |Fp::Add	|5.42|	4.6|
 |Fp::Mul	|33.63|	29.3|
@@ -89,7 +91,7 @@ These benchmarks ran on a AWS z1d.3xlarge instance, with hyperthreading disabled
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/consensys/gurvy/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/consensys/gnark-crypto/tags). 
 
 
 ## License

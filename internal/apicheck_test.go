@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/consensys/gurvy/curve/bls377"
-	"github.com/consensys/gurvy/curve/bls381"
-	"github.com/consensys/gurvy/curve/bn254"
-	"github.com/consensys/gurvy/curve/bw761"
+	"github.com/consensys/gurvy/ecc/bls377"
+	"github.com/consensys/gurvy/ecc/bls381"
+	"github.com/consensys/gurvy/ecc/bn254"
+	"github.com/consensys/gurvy/ecc/bw761"
 )
 
 // note: pairing API is not code generated, and don't use interfaces{} for performance reasons

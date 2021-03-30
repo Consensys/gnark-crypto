@@ -1,26 +1,26 @@
 {{ define "import_fr" }}
 
 {{ if eq .Name "bls377"}}
-	"github.com/consensys/gurvy/curve/bls377/fr"
+	"github.com/consensys/gurvy/ecc/bls377/fr"
 {{ else if eq .Name "bls381"}}
-	"github.com/consensys/gurvy/curve/bls381/fr"
+	"github.com/consensys/gurvy/ecc/bls381/fr"
 {{ else if eq .Name "bn254"}}
-	"github.com/consensys/gurvy/curve/bn254/fr"
+	"github.com/consensys/gurvy/ecc/bn254/fr"
 {{ else if eq .Name "bw761"}}
-	"github.com/consensys/gurvy/curve/bw761/fr"
+	"github.com/consensys/gurvy/ecc/bw761/fr"
 {{end}}
 
 {{end}}
 
 {{ define "import_curve" }}
 {{if eq .Name "bls377"}}
-	curve "github.com/consensys/gurvy/curve/bls377"
+	curve "github.com/consensys/gurvy/ecc/bls377"
 {{else if eq .Name "bls381"}}
-	curve "github.com/consensys/gurvy/curve/bls381"
+	curve "github.com/consensys/gurvy/ecc/bls381"
 {{else if eq .Name "bn254"}}
-	curve "github.com/consensys/gurvy/curve/bn254"	
+	curve "github.com/consensys/gurvy/ecc/bn254"	
 {{else if eq .Name "bw761"}}
-	curve "github.com/consensys/gurvy/curve/bw761"	
+	curve "github.com/consensys/gurvy/ecc/bw761"	
 {{end}}
 
 

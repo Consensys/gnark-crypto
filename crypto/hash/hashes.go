@@ -21,10 +21,10 @@ package hash
 import (
 	"hash"
 
-	bls377 "github.com/consensys/gurvy/curve/bls377/fr/mimc"
-	bls381 "github.com/consensys/gurvy/curve/bls381/fr/mimc"
-	bn254 "github.com/consensys/gurvy/curve/bn254/fr/mimc"
-	bw761 "github.com/consensys/gurvy/curve/bw761/fr/mimc"
+	bls377 "github.com/consensys/gurvy/ecc/bls377/fr/mimc"
+	bls381 "github.com/consensys/gurvy/ecc/bls381/fr/mimc"
+	bn254 "github.com/consensys/gurvy/ecc/bn254/fr/mimc"
+	bw761 "github.com/consensys/gurvy/ecc/bw761/fr/mimc"
 )
 
 type Hash uint

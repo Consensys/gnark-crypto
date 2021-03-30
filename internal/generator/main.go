@@ -13,7 +13,7 @@ import (
 	"github.com/consensys/gurvy/internal/generator/config"
 	"github.com/consensys/gurvy/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gurvy/internal/generator/crypto/signature/eddsa"
-	"github.com/consensys/gurvy/internal/generator/curve"
+	"github.com/consensys/gurvy/internal/generator/ecc"
 	"github.com/consensys/gurvy/internal/generator/edwards"
 	"github.com/consensys/gurvy/internal/generator/fft"
 	"github.com/consensys/gurvy/internal/generator/pairing"
@@ -41,7 +41,7 @@ func main() {
 			conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
 			conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
-			curveDir := filepath.Join(baseDir, "curve", conf.Name)
+			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
 			// generate base field
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
@@ -51,7 +51,7 @@ func main() {
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
 
 			// generate G1, G2, multiExp, ...
-			assertNoError(curve.Generate(conf, curveDir, bgen))
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
 
 			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))
@@ -77,7 +77,7 @@ func main() {
 	wg.Wait()
 
 	// run go fmt on whole directory
-	cmd := exec.Command("gofmt", "-s", "-w", "../../")
+	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
