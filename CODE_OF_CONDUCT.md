@@ -1,4 +1,4 @@
-# Contributor goff Code of Conduct
+# Contributor gnark-crypto Code of Conduct
 
 ## Our Pledge
 

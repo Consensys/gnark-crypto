@@ -1,4 +1,4 @@
-# Contributing to goff
+# Contributing to gnark-crypto
 
 ### Table of Contents
 
@@ -13,21 +13,20 @@
 
 
 ## Code of Conduct
-* This project is governed by the [goff Code of Conduct](CODE_OF_CONDUCT.md). By participating, 
+* This project is governed by the [gnark-crypto Code of Conduct](CODE_OF_CONDUCT.md). By participating, 
 you are agreeing to uphold this code. Please report unacceptable behavior.
 ## How to Contribute
 
 ### Reporting Bugs
 #### Before Submitting A Bug 
 * Ensure the bug is not already reported by searching on GitHub under 
-[Issues](https://github.com/consensys/goff/issues).
+[Issues](https://github.com/consensys/gnark-crypto/issues).
 #### How Do I Submit a (Good) Bug?
 * If you are unable to find an open issue addressing the problem, open a new one. Be sure to include a 
 **title and clear description**, as much relevant information as possible, and a **code sample** or 
 an **executable test case** demonstrating the unexpected behavior.
 * Describe the **exact steps** to **reproduce the problem** in as many details as possible. When 
-listing steps, don't just say what you did, but explain how you did it. For example, the exact 
-commands used in the terminal to start `goff`. 
+listing steps, don't just say what you did, but explain how you did it. 
 * Provide **specific examples** to demonstrate the steps. Include links to files or GitHub projects, or 
 copy/pasteable snippets, which you use in those examples. If you're providing snippets in the issue, 
 use [Markdown code blocks](https://help.github.com/articles/getting-started-with-writing-and-formatting-on-github/).
@@ -39,7 +38,7 @@ happens and under which conditions it normally happens.
 
 ### Suggesting Enhancements
 #### Before Submitting An Enhancement Suggestion
-* [Search](https://github.com/consensys/goff/issues) to see if the enhancement has already been 
+* [Search](https://github.com/consensys/gnark-crypto/issues) to see if the enhancement has already been 
 suggested. If it has, add a comment to the existing issue instead of opening a new one.
 
 #### How Do I Submit A (Good) Enhancement Suggestion?
