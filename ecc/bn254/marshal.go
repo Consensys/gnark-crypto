@@ -32,7 +32,7 @@ import (
 
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
-// we have less than 3 bits available on the msw, so we can't follow BLS381 style encoding.
+// we have less than 3 bits available on the msw, so we can't follow BLS12-381 style encoding.
 // the difference is the case where a point is infinity and uncompressed is not flagged
 const (
 	mMask               byte = 0b11 << 6
@@ -491,7 +491,7 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
 // 10 -> compressed, use smallest lexicographically square root of Y^2
@@ -738,7 +738,7 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
 // 10 -> compressed, use smallest lexicographically square root of Y^2

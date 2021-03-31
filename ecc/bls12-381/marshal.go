@@ -32,7 +32,7 @@ import (
 
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
-// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
@@ -494,7 +494,7 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
@@ -749,7 +749,7 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
-// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.

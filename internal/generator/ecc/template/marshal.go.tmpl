@@ -24,7 +24,7 @@ import (
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 {{- if ge .FpUnusedBits 3}}
-// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
@@ -37,7 +37,7 @@ const (
 	mCompressedInfinity   byte = 0b110 << 5
 )
 {{- else}}
-// we have less than 3 bits available on the msw, so we can't follow BLS381 style encoding.
+// we have less than 3 bits available on the msw, so we can't follow BLS12-381 style encoding.
 // the difference is the case where a point is infinity and uncompressed is not flagged
 const (
 	mMask               byte = 0b11 << 6
@@ -457,12 +457,12 @@ func (p *{{ $.TAffine }}) Unmarshal(buf []byte) error {
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 {{- if ge .all.FpUnusedBits 3}}
-// we follow the BLS381 style encoding as specified in ZCash and now IETF
+// we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 {{- else}}
-// as we have less than 3 bits available in our coordinate, we can't follow BLS381 style encoding (ZCash/IETF)
+// as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
 // 10 -> compressed, use smallest lexicographically square root of Y^2
