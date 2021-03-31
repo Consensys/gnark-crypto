@@ -30,6 +30,8 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: install deps
+      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: gofmt
       run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
     - name: go vet
@@ -42,8 +44,6 @@ jobs:
       run: |
         go get -u github.com/securego/gosec/cmd/gosec
         gosec -exclude G204 ./...
-    - name: install deps
-      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: generated files should not be modified
       run: |
         go generate ./...
