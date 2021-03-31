@@ -196,10 +196,6 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	}
 }
 
-func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
-	// TODO 
-	t.Skip("not implemented")
-}
 
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {

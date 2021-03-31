@@ -245,7 +245,6 @@ func (fq2 *Fq2Amd64) generateMulE2BLS381(forceCheck bool) {
 	fq2.Mov(dx, op1)
 	fq2.Add(dx, op1, fq2.NbWords)
 	// --> note, we don't reduce, as this is used as input to the mul which accept input of size D-1/2 -1
-	// TODO @gbotrel prove the upper bound / lower bound case for the no_carry mul
 
 	// a = 	a * b = (x.a0 + x.a1) *  (y.a0 + y.a1)
 	fq2.MulADX(&registers, xat, func(i int) string {

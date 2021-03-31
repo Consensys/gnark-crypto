@@ -179,7 +179,11 @@ func precomputeExpTable(w fr.Element, table []fr.Element) {
 	n := len(table)
 
 	// see if it makes sense to parallelize exp tables pre-computation
-	interval := (n - 1) / (runtime.NumCPU() / 4)
+	interval := 0
+	if runtime.NumCPU() >= 4 {
+		interval = (n - 1) / (runtime.NumCPU() / 4)
+	}
+	
 	// this ratio roughly correspond to the number of multiplication one can do in place of a Exp operation
 	const ratioExpMul = 6000 / 17
 

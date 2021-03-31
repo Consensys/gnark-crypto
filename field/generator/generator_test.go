@@ -61,7 +61,6 @@ func TestIntegration(t *testing.T) {
 				q, _ = rand.Prime(rand.Reader, i)
 				nbWords = len(q.Bits())
 				const B = (^uint64(0) >> 1) - 1
-				// TODO platform specific here
 				if uint64(q.Bits()[nbWords-1]) <= B {
 					break
 				}

@@ -210,11 +210,6 @@ func TestElementCmp(t *testing.T) {
 	}
 }
 
-func TestElementSetInterface(t *testing.T) {
-	// TODO
-	t.Skip("not implemented")
-}
-
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element

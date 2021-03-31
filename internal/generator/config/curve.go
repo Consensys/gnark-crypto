@@ -45,7 +45,6 @@ type Point struct {
 
 var Curves []Curve
 
-// TODO @gbotrel should be in the multiexp
 func defaultCRange() []int {
 	// default range for C values in the multiExp
 	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
