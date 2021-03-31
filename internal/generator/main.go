@@ -81,6 +81,11 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
+
+	cmd = exec.Command("asmfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
 }
 
 func assertNoError(err error) {

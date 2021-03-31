@@ -3,7 +3,6 @@ package tower
 import (
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -53,12 +52,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		_ = f.Close()
 
-		cmd := exec.Command("asmfmt", "-w", fName)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return err
-		}
 	}
 
 	if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
@@ -78,12 +71,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			}
 			_ = f.Close()
 
-			cmd := exec.Command("asmfmt", "-w", fName)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
 		}
 	}
 

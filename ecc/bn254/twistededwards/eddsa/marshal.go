@@ -41,7 +41,9 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	if len(buf) < sizePublicKey {
 		return n, io.ErrShortBuffer
 	}
-	pk.A.SetBytes(buf[:sizeFr])
+	if _, err := pk.A.SetBytes(buf[:sizeFr]); err != nil {
+		return 0, err
+	}
 	n += sizeFr
 	if !pk.A.IsOnCurve() {
 		return n, errNotOnCurve
@@ -72,7 +74,9 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 	if len(buf) < sizePrivateKey {
 		return n, io.ErrShortBuffer
 	}
-	privKey.PublicKey.A.SetBytes(buf[:sizeFr])
+	if _, err := privKey.PublicKey.A.SetBytes(buf[:sizeFr]); err != nil {
+		return 0, err
+	}
 	n += sizeFr
 	if !privKey.PublicKey.A.IsOnCurve() {
 		return n, errNotOnCurve
@@ -112,7 +116,9 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	if len(buf) < sizeSignature {
 		return n, io.ErrShortBuffer
 	}
-	sig.R.SetBytes(buf[:sizeFr])
+	if _, err := sig.R.SetBytes(buf[:sizeFr]); err != nil {
+		return 0, err
+	}
 	n += sizeFr
 	if !sig.R.IsOnCurve() {
 		return n, errNotOnCurve

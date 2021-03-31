@@ -41,7 +41,7 @@ jobs:
     - name: gosec
       run: |
         go get -u github.com/securego/gosec/cmd/gosec
-        gosec ecc/...
+        gosec -exclude G204 ./...
     - name: install deps
       run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: generated files should not be modified

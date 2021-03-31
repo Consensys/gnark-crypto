@@ -308,8 +308,8 @@ func (fq2 *Fq2Amd64) generateMulDefine() {
 	wd := writerDefine{fq2.w}
 	tw := gamd64.NewFFAmd64(&wd, fq2.F)
 
-	io.WriteString(fq2.w, "// this code is generated and identical to fp.Mul(...)\n")
-	io.WriteString(fq2.w, "#define MUL() \\ \n")
+	_, _ = io.WriteString(fq2.w, "// this code is generated and identical to fp.Mul(...)\n")
+	_, _ = io.WriteString(fq2.w, "#define MUL() \\ \n")
 	tw.MulADX(&r, xat, yat, res)
 }
 
