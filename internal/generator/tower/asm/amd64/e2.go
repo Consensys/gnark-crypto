@@ -19,10 +19,10 @@ import (
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/field"
-	"github.com/consensys/gurvy/field/asm/amd64"
-	"github.com/consensys/gurvy/internal/generator/config"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
 // Fq2Amd64 ...

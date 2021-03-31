@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gurvy/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {

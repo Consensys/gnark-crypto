@@ -3,7 +3,7 @@ package twistededwards
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 // CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2

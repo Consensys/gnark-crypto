@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gurvy/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 func TestMarshal(t *testing.T) {

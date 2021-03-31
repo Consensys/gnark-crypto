@@ -17,9 +17,9 @@ package bn254
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bn254/fp"
-	"github.com/consensys/gurvy/ecc/bn254/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
 
 // hashToFp hashes msg to count prime field elements.

@@ -1,6 +1,6 @@
 package fptower
 
-import "github.com/consensys/gurvy/ecc/bw6-761/fp"
+import "github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 
 // Expt set z to x^t in E6 and return z
 func (z *E6) Expt(x *E6) *E6 {

@@ -21,10 +21,10 @@ package hash
 import (
 	"hash"
 
-	bls377 "github.com/consensys/gurvy/ecc/bls12-377/fr/mimc"
-	bls381 "github.com/consensys/gurvy/ecc/bls12-381/fr/mimc"
-	bn254 "github.com/consensys/gurvy/ecc/bn254/fr/mimc"
-	bw761 "github.com/consensys/gurvy/ecc/bw6-761/fr/mimc"
+	bls377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/mimc"
+	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
+	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/mimc"
 )
 
 type Hash uint

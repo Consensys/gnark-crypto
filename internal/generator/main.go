@@ -8,17 +8,17 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gurvy/field"
-	"github.com/consensys/gurvy/field/generator"
-	"github.com/consensys/gurvy/internal/generator/config"
-	"github.com/consensys/gurvy/internal/generator/crypto/hash/mimc"
-	"github.com/consensys/gurvy/internal/generator/crypto/signature/eddsa"
-	"github.com/consensys/gurvy/internal/generator/ecc"
-	"github.com/consensys/gurvy/internal/generator/edwards"
-	"github.com/consensys/gurvy/internal/generator/fft"
-	"github.com/consensys/gurvy/internal/generator/pairing"
-	"github.com/consensys/gurvy/internal/generator/polynomial"
-	"github.com/consensys/gurvy/internal/generator/tower"
+	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/field/generator"
+	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/signature/eddsa"
+	"github.com/consensys/gnark-crypto/internal/generator/ecc"
+	"github.com/consensys/gnark-crypto/internal/generator/edwards"
+	"github.com/consensys/gnark-crypto/internal/generator/fft"
+	"github.com/consensys/gnark-crypto/internal/generator/pairing"
+	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/tower"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 	baseDir         = "../../"
 )
 
-var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "gurvy")
+var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/gnark-crypto")
 
 //go:generate go run main.go
 func main() {

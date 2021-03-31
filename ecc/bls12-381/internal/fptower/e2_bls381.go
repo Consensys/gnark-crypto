@@ -14,7 +14,7 @@
 
 package fptower
 
-import "github.com/consensys/gurvy/ecc/bls12-381/fp"
+import "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
 // used with !amd64, make staticcheck happier.
 var (

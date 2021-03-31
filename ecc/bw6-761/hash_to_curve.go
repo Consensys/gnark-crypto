@@ -17,8 +17,8 @@ package bw6761
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bw6-761/fp"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 )
 
 // hashToFp hashes msg to count prime field elements.

@@ -15,7 +15,7 @@
 package fptower
 
 import (
-	"github.com/consensys/gurvy/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 )
 
 // Mul sets z to the E2-product of x,y, returns z

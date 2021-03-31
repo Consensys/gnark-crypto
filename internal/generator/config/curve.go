@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/field"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/field"
 )
 
 // Curve describes parameters of the curve useful for the template

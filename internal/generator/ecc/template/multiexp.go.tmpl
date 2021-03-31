@@ -8,15 +8,15 @@
 
 
 import (
-	"github.com/consensys/gurvy/internal/parallel"
-	"github.com/consensys/gurvy/ecc/{{.Name}}/fr"
+	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"sync"
 	"math"
 	"runtime"
 )
 
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use
-// this is thread safe and can be used accross parallel calls of gurvy.MultiExp
+// this is thread safe and can be used accross parallel calls of MultiExp
 type CPUSemaphore struct {
 	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
 	lock sync.Mutex

@@ -17,9 +17,9 @@ package bls12377
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bls12-377/fp"
-	"github.com/consensys/gurvy/ecc/bls12-377/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 )
 
 // hashToFp hashes msg to count prime field elements.

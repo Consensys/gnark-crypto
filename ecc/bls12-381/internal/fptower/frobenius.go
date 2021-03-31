@@ -14,7 +14,7 @@
 
 package fptower
 
-import "github.com/consensys/gurvy/ecc/bls12-381/fp"
+import "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
 // Frobenius set z to Frobenius(x), return z
 func (z *E12) Frobenius(x *E12) *E12 {

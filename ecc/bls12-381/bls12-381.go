@@ -3,10 +3,10 @@ package bls12381
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bls12-381/fp"
-	"github.com/consensys/gurvy/ecc/bls12-381/fr"
-	"github.com/consensys/gurvy/ecc/bls12-381/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 )
 
 // E: y**2=x**3+4

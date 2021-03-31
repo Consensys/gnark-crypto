@@ -1,4 +1,4 @@
-module github.com/consensys/gurvy
+module github.com/consensys/gnark-crypto
 
 go 1.16
 

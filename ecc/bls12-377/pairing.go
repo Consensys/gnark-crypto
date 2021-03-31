@@ -18,7 +18,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/consensys/gurvy/ecc/bls12-377/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 )
 
 // GT target group of the pairing

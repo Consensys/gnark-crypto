@@ -1,10 +1,10 @@
 package main
 
 import (
-	bls377 "github.com/consensys/gurvy/ecc/bls12-377"
-	bls381 "github.com/consensys/gurvy/ecc/bls12-381"
-	"github.com/consensys/gurvy/ecc/bn254"
-	bw761 "github.com/consensys/gurvy/ecc/bw6-761"
+	bls377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
+	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761"
 )
 
 // note: pairing API is not code generated, and don't use interfaces{} for performance reasons

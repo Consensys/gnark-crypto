@@ -3,10 +3,10 @@ package bn254
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bn254/fp"
-	"github.com/consensys/gurvy/ecc/bn254/fr"
-	"github.com/consensys/gurvy/ecc/bn254/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
 
 // E: y**2=x**3+3

@@ -18,11 +18,6 @@ limitations under the License.
 // a verifier and a signature. It eases up testing the
 // corresponding ZK implementations accross different
 // curves.
-// Interfaces in golang's https://golang.org/pkg/crypto/ package cannot
-// be implemented for the eddsa implementations that are
-// in gurvy because of the usage of custom hash functions
-// that cannot be recorded in golang's https://golang.org/pkg/crypto/
-// package.
 package signature
 
 import (

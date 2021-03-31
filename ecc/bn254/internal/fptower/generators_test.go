@@ -3,7 +3,7 @@ package fptower
 import (
 	"crypto/rand"
 
-	"github.com/consensys/gurvy/ecc/bn254/fp"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/leanovate/gopter"
 )
 

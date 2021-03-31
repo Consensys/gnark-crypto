@@ -17,7 +17,7 @@ package bn254
 import (
 	"errors"
 
-	"github.com/consensys/gurvy/ecc/bn254/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
 
 // GT target group of the pairing

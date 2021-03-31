@@ -8,8 +8,8 @@ import (
 
 	bls12381 "github.com/kilic/bls12-381"
 
-	bls381 "github.com/consensys/gurvy/ecc/bls12-381"
-	"github.com/consensys/gurvy/ecc/bls12-381/fp"
+	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -33,7 +33,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BLS381] G1: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+	properties.Property("[BLS381] G1: gnark-crypto -> bls12-381 -> gnark-crypto should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
 			var start, end bls381.G1Affine
 			var ab big.Int
@@ -46,7 +46,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 				t.Log(err)
 				return false
 			}
-			// reconstruct a gurvy point from  bytes
+			// reconstruct a gnark-crypto point from  bytes
 			err = end.Unmarshal(g1.ToBytes(other))
 			if err != nil {
 				return false
@@ -56,7 +56,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 		genFp(),
 	))
 
-	properties.Property("[BLS381] G1 compressed: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+	properties.Property("[BLS381] G1 compressed: gnark-crypto -> bls12-381 -> gnark-crypto should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
 			var start, end bls381.G1Affine
 			var ab big.Int
@@ -70,7 +70,7 @@ func TestG1AffineSerializationInterop(t *testing.T) {
 				t.Log(err)
 				return false
 			}
-			// reconstruct a gurvy point from  bytes
+			// reconstruct a gnark-crypto point from  bytes
 			err = end.Unmarshal(g1.ToCompressed(other))
 			if err != nil {
 				return false
@@ -90,7 +90,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BLS381] G2: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+	properties.Property("[BLS381] G2: gnark-crypto -> bls12-381 -> gnark-crypto should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
 			var start, end bls381.G2Affine
 			var ab big.Int
@@ -103,7 +103,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 				t.Log(err)
 				return false
 			}
-			// reconstruct a gurvy point from  bytes
+			// reconstruct a gnark-crypto point from  bytes
 			err = end.Unmarshal(g2.ToBytes(other))
 			if err != nil {
 				return false
@@ -113,7 +113,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 		genFp(),
 	))
 
-	properties.Property("[BLS381] G2 compressed: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+	properties.Property("[BLS381] G2 compressed: gnark-crypto -> bls12-381 -> gnark-crypto should stay constant", prop.ForAll(
 		func(a fp.Element) bool {
 			var start, end bls381.G2Affine
 			var ab big.Int
@@ -127,7 +127,7 @@ func TestG2AffineSerializationInterop(t *testing.T) {
 				t.Log(err)
 				return false
 			}
-			// reconstruct a gurvy point from  bytes
+			// reconstruct a gnark-crypto point from  bytes
 			err = end.Unmarshal(g2.ToCompressed(other))
 			if err != nil {
 				return false
@@ -147,7 +147,7 @@ func TestGTSerializationInterop(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BLS381] bls381.GT: gurvy -> bls12-381 -> gurvy should stay constant", prop.ForAll(
+	properties.Property("[BLS381] bls381.GT: gnark-crypto -> bls12-381 -> gnark-crypto should stay constant", prop.ForAll(
 		func(start *bls381.GT) bool {
 			var end bls381.GT
 			*start = bls381.FinalExponentiation(start) // ensure we are in correct subgroup..
@@ -197,7 +197,7 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			end.ScalarMultiplication(&start, &bExp)
 
 			if !(bytes.Equal(g1.ToBytes(otherRes), end.Marshal())) {
-				t.Log("scalar multiplication between bls12-381 and gurvy is different")
+				t.Log("scalar multiplication between bls12-381 and gnark-crypto is different")
 				return false
 			}
 
@@ -227,7 +227,7 @@ func TestScalarMultiplicationInterop(t *testing.T) {
 			end.ScalarMultiplication(&start, &bExp)
 
 			if !(bytes.Equal(g2.ToBytes(otherRes), end.Marshal())) {
-				t.Log("scalar multiplication between bls12-381 and gurvy is different")
+				t.Log("scalar multiplication between bls12-381 and gnark-crypto is different")
 				return false
 			}
 
@@ -378,7 +378,7 @@ func BenchmarkPairingInterop(b *testing.B) {
 		}
 	})
 
-	b.Run("[BLS381]gurvy_pairing", func(b *testing.B) {
+	b.Run("[BLS381]gnark-crypto_pairing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = bls381.Pair([]bls381.G1Affine{g1}, []bls381.G2Affine{g2})

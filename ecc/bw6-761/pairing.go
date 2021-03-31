@@ -18,8 +18,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/consensys/gurvy/ecc/bw6-761/fp"
-	"github.com/consensys/gurvy/ecc/bw6-761/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
 )
 
 // GT target group of the pairing

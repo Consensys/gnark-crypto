@@ -10,13 +10,13 @@ import (
 	"text/template"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gurvy/field"
-	"github.com/consensys/gurvy/field/asm/amd64"
-	"github.com/consensys/gurvy/field/internal/templates/element"
+	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/internal/templates/element"
 )
 
-// TODO @gbotrel --> pattern for code generation is different than gurvy/internal because a binary like goff can generate
-// base field. in Go 1.16, can embed the template in the binary, and use same pattern than gurvy/internal
+// TODO @gbotrel --> pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
+// base field. in Go 1.16, can embed the template in the binary, and use same pattern than gnark-crypto/internal
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
 func GenerateFF(F *field.Field, outputDir string) error {
@@ -57,7 +57,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
 		bavard.Package(F.PackageName),
-		bavard.GeneratedBy("gurvy"),
+		bavard.GeneratedBy("consensys/gnark-crypto"),
 		bavard.Funcs(template.FuncMap{"toTitle": strings.Title}),
 	}
 	optsWithPackageDoc := append(bavardOpts, bavard.Package(F.PackageName, "contains field arithmetic operations for modulus "+F.Modulus))

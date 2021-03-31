@@ -15,7 +15,7 @@
 package fptower
 
 import (
-	"github.com/consensys/gurvy/ecc/bw6-761/fp"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 )
 
 // E2 is a degree-two finite field extension of fp.Element

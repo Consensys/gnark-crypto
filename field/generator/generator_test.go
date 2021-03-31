@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/consensys/gurvy/field"
+	"github.com/consensys/gnark-crypto/field"
 )
 
 // integration test will create modulus for various field sizes and run tests

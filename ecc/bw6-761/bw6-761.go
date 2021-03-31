@@ -17,9 +17,9 @@ package bw6761
 import (
 	"math/big"
 
-	"github.com/consensys/gurvy/ecc"
-	"github.com/consensys/gurvy/ecc/bw6-761/fp"
-	"github.com/consensys/gurvy/ecc/bw6-761/fr"
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
 
 // https://eprint.iacr.org/2020/351.pdf

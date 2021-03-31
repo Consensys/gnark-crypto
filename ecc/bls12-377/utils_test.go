@@ -3,9 +3,9 @@ package bls12377
 import (
 	"math/rand"
 
-	"github.com/consensys/gurvy/ecc/bls12-377/fp"
-	"github.com/consensys/gurvy/ecc/bls12-377/fr"
-	"github.com/consensys/gurvy/ecc/bls12-377/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 	"github.com/leanovate/gopter"
 )
 
