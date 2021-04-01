@@ -1,13 +1,10 @@
-module github.com/consensys/gurvy
+module github.com/consensys/gnark-crypto
 
-go 1.15
+go 1.16
 
 require (
-	github.com/consensys/bavard v0.1.8-0.20210302234946-daa97270b001
-	github.com/consensys/goff v0.3.13-0.20210309040837-23eea852ae42
-	github.com/ethereum/go-ethereum v1.9.25
-	github.com/kilic/bls12-381 v0.0.0-20201226121925-69dacb279461
+	github.com/consensys/bavard v0.1.8-0.20210329205436-c3e862ba4e5f
 	github.com/leanovate/gopter v0.2.9
-	golang.org/x/sys v0.0.0-20210303074136-134d130e1a04
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/sys v0.0.0-20210326220804-49726bf1d181
 )

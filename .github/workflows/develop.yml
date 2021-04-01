@@ -30,6 +30,8 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: install deps
+      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: gofmt
       run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
     - name: go vet
@@ -41,9 +43,7 @@ jobs:
     - name: gosec
       run: |
         go get -u github.com/securego/gosec/cmd/gosec
-        gosec bls377/... bn256/... bls371/... bw761/... utils/... 
-    - name: install deps
-      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
+        gosec -exclude G204 ./...
     - name: generated files should not be modified
       run: |
         go generate ./...
@@ -76,6 +76,8 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: install deps
+      run: go get golang.org/x/tools/cmd/goimports && go get github.com/klauspost/asmfmt/cmd/asmfmt
     - name: Test
       run: |
         go test -v -short ./...
@@ -84,8 +86,8 @@ jobs:
     - name: Test (32bits)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        GOARCH=386 go test -v -short ./bn256/...
-        GOARCH=386 go test -v -short ./bls381/...
+        GOARCH=386 go test -v -short ./ecc/bn254/...
+        GOARCH=386 go test -v -short ./ecc/bls12-381/...
   
   slack-workflow-status:
     if: always()

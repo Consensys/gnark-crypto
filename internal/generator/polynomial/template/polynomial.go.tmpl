@@ -1,0 +1,25 @@
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+// Polynomial polynomial represented by coefficients {{ toLower .Name }} fr field.
+type Polynomial []fr.Element
+
+// Degree returns the degree of the polynomial, which is the length of Data.
+func (p Polynomial) Degree() uint64 {
+	res := uint64(len(p) - 1)
+	return res
+}
+
+// Eval evaluates p at v
+func (p Polynomial) Eval(v interface{}) interface{} {
+	var res, _v fr.Element
+	_v.Set(v.(*fr.Element))
+	s := len(p)
+	res.Set(&p[s-1])
+	for i := s - 2; i >= 0; i-- {
+		res.Mul(&res, &_v)
+		res.Add(&res, &p[i])
+	}
+	return &res
+}
