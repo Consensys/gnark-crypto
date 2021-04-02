@@ -14,6 +14,7 @@ import (
     "runtime"
     "math/bits"
 	
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -73,13 +74,13 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 5)
 				r5.msmC5(samplePoints[:], scalars, opt)
 				
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars = partitionScalars(sampleScalars[:], 16)
 				r16.msmC16(samplePoints[:], scalars, opt)
 		
@@ -112,8 +113,8 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 
 			// semaphore to limit number of cpus
-			opt := NewCPUSemaphore(runtime.NumCPU())
-			opt.lock.Lock()
+			opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+			opt.Lock.Lock()
 			scalars := partitionScalars(sampleScalars[:], {{$c}})
 			result.msmC{{$c}}(samplePoints[:], scalars, opt)
 	
