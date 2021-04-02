@@ -35,13 +35,14 @@ func (z *E2) Mul(x, y *E2) *E2 {
 func (z *E2) Square(x *E2) *E2 {
 	//algo 22 https://eprint.iacr.org/2010/354.pdf
 	var c0, c2 fp.Element
-	// TODO @gbotrel --> can remove an add here
-	c2.Double(&x.A1).Double(&c2).Add(&c2, &x.A1).Add(&c2, &x.A0)
 	c0.Add(&x.A0, &x.A1)
+	c2.Double(&x.A1).Double(&c2).Add(&c2, &c0)
+
 	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2)
-	z.A1.Mul(&x.A0, &x.A1).Double(&z.A1)
-	// TODO @gbotrel can remove one sub here.
-	z.A0.Sub(&c0, &z.A1).Sub(&z.A0, &z.A1).Sub(&z.A0, &z.A1)
+	c2.Mul(&x.A0, &x.A1).Double(&c2)
+	z.A1 = c2
+	fp.MulBy3(&c2)
+	z.A0.Sub(&c0, &c2)
 
 	return z
 }
