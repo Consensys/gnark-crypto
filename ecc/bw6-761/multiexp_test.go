@@ -71,7 +71,7 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -107,7 +107,7 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -137,7 +137,7 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -167,7 +167,7 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -197,7 +197,7 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -233,7 +233,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g1Gen)
@@ -245,7 +245,7 @@ func TestMultiExpG1(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
 
@@ -331,7 +331,7 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -367,7 +367,7 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -397,7 +397,7 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -427,7 +427,7 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -457,7 +457,7 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
@@ -493,7 +493,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g2Gen)
@@ -505,7 +505,7 @@ func TestMultiExpG2(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G2Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 

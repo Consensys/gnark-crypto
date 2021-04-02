@@ -273,24 +273,6 @@ func One() Element {
 	return one
 }
 
-// MulAssign is deprecated
-// Deprecated: use Mul instead
-func (z *Element) MulAssign(x *Element) *Element {
-	return z.Mul(z, x)
-}
-
-// AddAssign is deprecated
-// Deprecated: use Add instead
-func (z *Element) AddAssign(x *Element) *Element {
-	return z.Add(z, x)
-}
-
-// SubAssign is deprecated
-// Deprecated: use Sub instead
-func (z *Element) SubAssign(x *Element) *Element {
-	return z.Sub(z, x)
-}
-
 // API with assembly impl
 
 // Mul z = x * y mod q

@@ -152,12 +152,12 @@ func (z *E2) MulAssign(x *E2) *E2 {
 func (z *E2) Square(x *E2) *E2 {
 	// algo 22 https://eprint.iacr.org/2010/354.pdf
 	var c0, c2 fp.Element
-	c2.Double(&x.A1).Double(&c2).Neg(&c2).AddAssign(&x.A0)
+	c2.Double(&x.A1).Double(&c2).Neg(&c2).Add(&c2, &x.A0)
 	c0.Add(&x.A0, &x.A1)
 	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2) = x1**2+(u**2)x2**2+(u**2+1)x1x2
 	c2.Mul(&x.A0, &x.A1)
 	z.A1.Double(&c2)
-	z.A0.Add(&c0, &z.A1).AddAssign(&c2)
+	z.A0.Add(&c0, &z.A1).Add(&z.A0, &c2)
 	return z
 }
 
