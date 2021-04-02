@@ -21,9 +21,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/crypto/hash"
-	"github.com/consensys/gnark-crypto/crypto/signature"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/signature"
 )
 
 func TestSerialization(t *testing.T) {
