@@ -8,7 +8,7 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	doc := "provides in-place discrete Fourier transform"
+	doc := "provides in-place discrete Fourier transform."
 	entries := []bavard.EntryF{
 		{File: filepath.Join(baseDir, "domain_test.go"), TemplateF: []string{"tests/domain.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "domain.go"), TemplateF: []string{"domain.go.tmpl", "imports.go.tmpl"}},

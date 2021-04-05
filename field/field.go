@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package field provides Golang code generation for efficient field arithmetic operations.
 package field
 
 import (

@@ -8,8 +8,9 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+	doc := "provides MiMC hash function using Miyaguchi–Preneel construction."
 	entriesF := []bavard.EntryF{
-		{File: filepath.Join(baseDir, "mimc.go"), TemplateF: []string{"mimc.go.tmpl"}},
+		{File: filepath.Join(baseDir, "mimc.go"), TemplateF: []string{"mimc.go.tmpl"}, PackageDoc: doc},
 	}
 	return bgen.GenerateF(conf, "mimc", "./crypto/hash/mimc/template", entriesF...)
 
