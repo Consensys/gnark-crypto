@@ -7,11 +7,12 @@ import (
 
 // Curve describes parameters of the curve useful for the template
 type Curve struct {
-	Name      string
-	Package   string
-	EnumID    string
-	FpModulus string
-	FrModulus string
+	Name         string
+	CurvePackage string
+	Package      string // current package being generated
+	EnumID       string
+	FpModulus    string
+	FrModulus    string
 
 	Fp           *field.Field
 	Fr           *field.Field

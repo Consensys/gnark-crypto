@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,55 +58,20 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
 		bavard.Package(F.PackageName),
 		bavard.GeneratedBy("consensys/gnark-crypto"),
-		bavard.Funcs(template.FuncMap{"toTitle": strings.Title}),
+		bavard.Funcs(template.FuncMap{"toTitle": strings.Title, "shorten": shorten}),
 	}
-	bModulus, _ := new(big.Int).SetString(F.Modulus, 10)
-
-	packageDoc := fmt.Sprintf(`contains field arithmetic operations for modulus = 0x%s. 
-
-The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x for the modular multiplication on amd64, see also https://hackmd.io/@zkteam/modular_multiplication)
- 
-The modulus is hardcoded in all the operations.
-
-Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
-	type %s [%d]uint64
-
-Example API signature
-	// Mul z = x * y mod q
-	func (z *Element) Mul(x, y *Element) *Element 
-
-and can be used like so:
-	var a, b Element
-	a.SetUint64(2)
-	b.SetString("984896738")
-
-	a.Mul(a, b)
-
-	a.Sub(a, a)
-	.Add(a, b)
-	.Inv(a)
-	
-	b.Exp(b, new(big.Int).SetUint64(42))
-	b.Neg(b)
-
-Modulus
-	0x%s // base 16
-	%s // base 10
-	`, shorten(bModulus.Text(16)), F.ElementName, F.NbWords, bModulus.Text(16), F.Modulus)
-
-	optsWithPackageDoc := append(bavardOpts, bavard.Package(F.PackageName, packageDoc))
 
 	// generate source file
-	if err := bavard.Generate(pathSrc, src, F, optsWithPackageDoc...); err != nil {
+	if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 		return err
 	}
 	// generate arithmetics source file
-	if err := bavard.Generate(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
 		return err
 	}
 
 	// generate test file
-	if err := bavard.Generate(pathTest, tst, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathTest, tst, F, bavardOpts...); err != nil {
 		return err
 	}
 
@@ -198,7 +162,7 @@ Modulus
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		if err := bavard.Generate(pathSrc, src, F, bavardOpts...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
 	}
@@ -217,7 +181,18 @@ Modulus
 		if F.ASM {
 			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64"))
 		}
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	{
+		// generate doc.go
+		src := []string{
+			element.Doc,
+		}
+		pathSrc := filepath.Join(outputDir, "doc.go")
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
 	}
@@ -231,7 +206,7 @@ Modulus
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noadx"))
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}
@@ -244,7 +219,7 @@ Modulus
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noadx"))
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}

@@ -2,7 +2,7 @@ import (
 	"io"
 
 	"github.com/consensys/gnark-crypto/polynomial"
-	{{toLower .Package}} "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/polynomial"
+	{{toLower .CurvePackage}} "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/polynomial"
 )
 
 // Scheme mock commitment, useful for testing polynomial based IOP
@@ -22,7 +22,7 @@ func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
 
 // Commit returns nil
 func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
-	res := &MockDigest{Digest: p.({{ toLower .Package }}.Polynomial)}
+	res := &MockDigest{Digest: p.({{ toLower .CurvePackage }}.Polynomial)}
 	return res
 }
 

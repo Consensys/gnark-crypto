@@ -1,7 +1,9 @@
-github.com/consensys/bavard v0.1.8-0.20210329205436-c3e862ba4e5f h1:Smz/coLzPOgl74T1haF8SfqPAkB760cSO59+FyLPzG0=
-github.com/consensys/bavard v0.1.8-0.20210329205436-c3e862ba4e5f/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
-github.com/consensys/bavard v0.1.8-0.20210405223420-6124be78621b h1:TZoLdn6tehRC6OTlKVuYDqwIJotpcGZj3PMzv6fc62c=
-github.com/consensys/bavard v0.1.8-0.20210405223420-6124be78621b/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
+github.com/consensys/bavard v0.1.8-0.20210406025751-9d7732285dc8 h1:crvgEZ8E7gDzugwgsUIz4Clrtg/801QUkq5dhNHD5QY=
+github.com/consensys/bavard v0.1.8-0.20210406025751-9d7732285dc8/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
+github.com/consensys/bavard v0.1.8-0.20210406030959-0667cd328a44 h1:12SY5Wq9ULSWK6RYDmLkjv3/qcVNu4BY4M9wwR3Knpg=
+github.com/consensys/bavard v0.1.8-0.20210406030959-0667cd328a44/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
+github.com/consensys/bavard v0.1.8-0.20210406032232-f3452dc9b572 h1:+R8G1+Ftumd0DaveLgMIjrFPcAS4G8MsVXWXiyZL5BY=
+github.com/consensys/bavard v0.1.8-0.20210406032232-f3452dc9b572/go.mod h1:Bpd0/3mZuaj6Sj+PqrmIquiOKy397AKGThQPaGzNXAQ=
 github.com/leanovate/gopter v0.2.9 h1:fQjYxZaynp97ozCzfOyOuAGOU4aU/z37zf/tOujFk7c=
 github.com/leanovate/gopter v0.2.9/go.mod h1:U2L/78B+KVFIx2VmW6onHJQzXtFb+p5y3y2Sh+Jxxv8=
 golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 h1:It14KIkyBFYkHkwZ7k45minvA9aorojkyjGk9KJ5B/w=

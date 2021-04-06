@@ -1,7 +1,6 @@
 package eddsa
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -9,18 +8,14 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	doc := fmt.Sprintf(`provides EdDSA signature scheme on %s twisted edwards curve. `+`
-
-See also
-
-https://en.wikipedia.org/wiki/EdDSA
-`, conf.Name)
 	// eddsa
-	entriesF := []bavard.EntryF{
-		{File: filepath.Join(baseDir, "eddsa.go"), TemplateF: []string{"eddsa.go.tmpl"}, PackageDoc: doc},
-		{File: filepath.Join(baseDir, "eddsa_test.go"), TemplateF: []string{"eddsa.test.go.tmpl"}},
-		{File: filepath.Join(baseDir, "marshal.go"), TemplateF: []string{"marshal.go.tmpl"}},
+	conf.Package = "eddsa"
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+		{File: filepath.Join(baseDir, "eddsa.go"), Templates: []string{"eddsa.go.tmpl"}},
+		{File: filepath.Join(baseDir, "eddsa_test.go"), Templates: []string{"eddsa.test.go.tmpl"}},
+		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
 	}
-	return bgen.GenerateF(conf, "eddsa", "./crypto/signature/eddsa/template", entriesF...)
+	return bgen.Generate(conf, conf.Package, "./crypto/signature/eddsa/template", entries...)
 
 }
