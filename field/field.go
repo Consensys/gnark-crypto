@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package field provides Golang code generation for efficient field arithmetic operations.
 package field
 
 import (
@@ -24,10 +25,12 @@ var (
 	errParseModulus       = errors.New("can't parse modulus")
 )
 
+// Field precomputed values used in template for code generation of field element APIs
 type Field struct {
 	PackageName          string
 	ElementName          string
 	Modulus              string
+	ModulusHex           string
 	NbWords              int
 	NbBits               int
 	NbWordsLastIndex     int
@@ -55,8 +58,9 @@ type Field struct {
 	NonResidue []uint64 // (montgomery form)
 }
 
-// -------------------------------------------------------------------------------------------------
-// Field data precompute functions
+// NewField returns a data structure with needed informations to generate apis for field element
+//
+// See field/generator package
 func NewField(packageName, elementName, modulus string) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
@@ -69,6 +73,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		PackageName: packageName,
 		ElementName: elementName,
 		Modulus:     modulus,
+		ModulusHex:  bModulus.Text(16),
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()

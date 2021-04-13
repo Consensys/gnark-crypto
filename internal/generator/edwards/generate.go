@@ -8,8 +8,13 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	return bgen.GenerateF(conf, "twistededwards", "./edwards/template", bavard.EntryF{
-		File: filepath.Join(baseDir, "point.go"), TemplateF: []string{"pointtwistededwards.go.tmpl"},
-	})
+	conf.Package = "twistededwards"
+
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "point.go"), Templates: []string{"pointtwistededwards.go.tmpl"}},
+		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+	}
+
+	return bgen.Generate(conf, conf.Package, "./edwards/template", entries...)
 
 }

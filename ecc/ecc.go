@@ -14,8 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc is an elliptic curve (+pairing) library.
-// Provides implementation for bls12-381, bls12-377, bn254, bw6-761 and their twisted edwards "companion curves"
+// Package ecc provides bls12-381, bls12-377, bn254 and bw6-761 elliptic curves implementation (+pairing).
+//
+// Also
+//
+//	* Multi exponentiation
+//	* FFT
+//	* Polynomial commitment schemes
+//	* MiMC
+//	* twisted edwards "companion curves"
+//	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
 
 import "sync"
