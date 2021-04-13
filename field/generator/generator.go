@@ -19,6 +19,11 @@ import (
 // base field. in Go 1.16, can embed the template in the binary, and use same pattern than gnark-crypto/internal
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
+//
+// Example usage
+//
+// 	fp, _ = field.NewField("fp", "Element", fpModulus")
+// 	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
 func GenerateFF(F *field.Field, outputDir string) error {
 	// source file templates
 	src := []string{

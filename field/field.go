@@ -25,6 +25,7 @@ var (
 	errParseModulus       = errors.New("can't parse modulus")
 )
 
+// Field precomputed values used in template for code generation of field element APIs
 type Field struct {
 	PackageName          string
 	ElementName          string
@@ -57,8 +58,9 @@ type Field struct {
 	NonResidue []uint64 // (montgomery form)
 }
 
-// -------------------------------------------------------------------------------------------------
-// Field data precompute functions
+// NewField returns a data structure with needed informations to generate apis for field element
+//
+// See field/generator package
 func NewField(packageName, elementName, modulus string) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
