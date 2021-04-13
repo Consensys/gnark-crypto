@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package polynomial provides interfaces for polynomial and polynomial commitment schemes defined in gnark-crypto/ecc/.../fr.
 package polynomial
 
 import "io"

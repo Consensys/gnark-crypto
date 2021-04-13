@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package hash gathers the different custom hash functions (which
-// are not available in golang's crypto library) built for being
-// within a ZKP scheme. The structure of the package is similar to what
-// can be found in golang's crypto/ package.
+// Package hash provides MiMC hash function defined over curves implemented in gnark-crypto/ecc.
+//
+// Originally developed and used in a ZKP context.
 package hash
 
 import (
