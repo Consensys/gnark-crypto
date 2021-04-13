@@ -95,7 +95,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
-					MulAssign(&domain.CardinalityInv)
+					Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
 		// put it back as we found it
@@ -105,7 +105,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 	} else {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
-				a[i].MulAssign(&domain.CardinalityInv)
+				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
 	}

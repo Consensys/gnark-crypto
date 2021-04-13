@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -70,18 +71,18 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 5)
 				r5.msmC5(samplePoints[:], scalars, opt)
 
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars = partitionScalars(sampleScalars[:], 16)
 				r16.msmC16(samplePoints[:], scalars, opt)
 
@@ -106,13 +107,13 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 4)
 				result.msmC4(samplePoints[:], scalars, opt)
 
@@ -136,13 +137,13 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 5)
 				result.msmC5(samplePoints[:], scalars, opt)
 
@@ -166,13 +167,13 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 8)
 				result.msmC8(samplePoints[:], scalars, opt)
 
@@ -196,13 +197,13 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 16)
 				result.msmC16(samplePoints[:], scalars, opt)
 
@@ -232,7 +233,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g1Gen)
@@ -244,7 +245,7 @@ func TestMultiExpG1(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
 
@@ -330,18 +331,18 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 5)
 				r5.msmC5(samplePoints[:], scalars, opt)
 
-				opt.lock.Lock()
+				opt.Lock.Lock()
 				scalars = partitionScalars(sampleScalars[:], 16)
 				r16.msmC16(samplePoints[:], scalars, opt)
 
@@ -366,13 +367,13 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 4)
 				result.msmC4(samplePoints[:], scalars, opt)
 
@@ -396,13 +397,13 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 5)
 				result.msmC5(samplePoints[:], scalars, opt)
 
@@ -426,13 +427,13 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 8)
 				result.msmC8(samplePoints[:], scalars, opt)
 
@@ -456,13 +457,13 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
 				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
+				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
+				opt.Lock.Lock()
 				scalars := partitionScalars(sampleScalars[:], 16)
 				result.msmC16(samplePoints[:], scalars, opt)
 
@@ -492,7 +493,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g2Gen)
@@ -504,7 +505,7 @@ func TestMultiExpG2(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G2Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 

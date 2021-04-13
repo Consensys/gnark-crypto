@@ -8,9 +8,11 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	entriesF := []bavard.EntryF{
-		{File: filepath.Join(baseDir, "mimc.go"), TemplateF: []string{"mimc.go.tmpl"}},
+	conf.Package = "mimc"
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+		{File: filepath.Join(baseDir, "mimc.go"), Templates: []string{"mimc.go.tmpl"}},
 	}
-	return bgen.GenerateF(conf, "mimc", "./crypto/hash/mimc/template", entriesF...)
+	return bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...)
 
 }

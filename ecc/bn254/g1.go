@@ -753,10 +753,10 @@ func (p *g1JacExtended) doubleMixed(q *G1Affine) *g1JacExtended {
 	return p
 }
 
-// BatchJacobianToAffineG1Affine converts points in Jacobian coordinates to Affine coordinates
+// BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchJacobianToAffineG1Affine(points []G1Jac, result []G1Affine) {
+func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -863,7 +863,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	}
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := make([]G1Affine, (1 << (c - 1)))
-	BatchJacobianToAffineG1Affine(baseTable, baseTableAff)
+	BatchJacobianToAffineG1(baseTable, baseTableAff)
 	toReturn := make([]G1Jac, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voila.
@@ -906,6 +906,6 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		}
 	})
 	toReturnAff := make([]G1Affine, len(scalars))
-	BatchJacobianToAffineG1Affine(toReturn, toReturnAff)
+	BatchJacobianToAffineG1(toReturn, toReturnAff)
 	return toReturnAff
 }

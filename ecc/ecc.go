@@ -14,9 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc is an elliptic curve (+pairing) library.
-// Provides implementation for bls12-381, bls12-377, bn254, bw6-761 and their twisted edwards "companion curves"
+// Package ecc provides bls12-381, bls12-377, bn254 and bw6-761 elliptic curves implementation (+pairing).
+//
+// Also
+//
+//	* Multi exponentiation
+//	* FFT
+//	* Polynomial commitment schemes
+//	* MiMC
+//	* twisted edwards "companion curves"
+//	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
+
+import "sync"
 
 // do not modify the order of this enum
 const (
@@ -43,4 +53,24 @@ func (id ID) String() string {
 	default:
 		panic("unimplemented ecc ID")
 	}
+}
+
+// CPUSemaphore enables users to set optional number of CPUs the multiexp will use
+// this is thread safe and can be used accross parallel calls of MultiExp
+type CPUSemaphore struct {
+	ChCPU chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
+	Lock  sync.Mutex
+}
+
+// NewCPUSemaphore returns a new multiExp options to be used with MultiExp
+// this option can be shared between different MultiExp calls and will ensure only numCpus are used
+// through a semaphore
+func NewCPUSemaphore(numCpus int) *CPUSemaphore {
+	toReturn := &CPUSemaphore{
+		ChCPU: make(chan struct{}, numCpus),
+	}
+	for i := 0; i < numCpus; i++ {
+		toReturn.ChCPU <- struct{}{}
+	}
+	return toReturn
 }
