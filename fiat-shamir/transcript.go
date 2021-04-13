@@ -19,7 +19,7 @@ import (
 	"errors"
 	"hash"
 
-	gnark_hash "github.com/consensys/gnark-crypto/crypto/hash"
+	gnark_hash "github.com/consensys/gnark-crypto/hash"
 )
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
