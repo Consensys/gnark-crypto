@@ -32,6 +32,7 @@ type Polynomial interface {
 type Digest interface {
 	io.WriterTo
 	io.ReaderFrom
+	Bytes() []byte
 }
 
 // OpeningProof interface that an opening proof
