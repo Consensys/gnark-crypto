@@ -24,7 +24,7 @@ import (
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
 var (
-	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript.")
+	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
