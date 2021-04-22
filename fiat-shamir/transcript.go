@@ -111,14 +111,19 @@ func NewTranscript(h HashFS, challenges ...string) Transcript {
 // binded to other values.
 func (m *Transcript) Bind(challenge string, value []byte) error {
 
-	if challengeNumber, ok := m.challengeOrder[challenge]; ok {
-		if m.isComputed[challengeNumber] {
-			return errChallengeAlreadyComputed
-		}
-		m.bindings[challengeNumber] = append(m.bindings[challengeNumber], value...)
-		return nil
+	challengeNumber, ok := m.challengeOrder[challenge]
+
+	if !ok {
+		return errChallengeNotFound
 	}
-	return errChallengeNotFound
+
+	if m.isComputed[challengeNumber] {
+		return errChallengeAlreadyComputed
+	}
+	m.bindings[challengeNumber] = append(m.bindings[challengeNumber], value...)
+
+	return nil
+
 }
 
 // ComputeChallenge computes the challenge corresponding to the given name.
@@ -140,7 +145,7 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 		bName := []byte(challenge)
 		_, err := m.h.Write(bName)
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
 
 		// write the previous challenge if it's not the first challenge
@@ -153,7 +158,10 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 		}
 
 		// write the binded values in the order they were added
-		m.h.Write(m.bindings[challengeNumber])
+		_, err = m.h.Write(m.bindings[challengeNumber])
+		if err != nil {
+			return nil, err
+		}
 
 		// compute the hash of the accumulated values
 		res := m.h.Sum(nil)
