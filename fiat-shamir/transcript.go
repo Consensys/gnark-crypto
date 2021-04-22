@@ -154,7 +154,10 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 				return nil, errPreviousChallengeNotComputed
 			}
 			bPreviousChallenge := m.challenges[challengeNumber-1]
-			m.h.Write(bPreviousChallenge[:])
+			_, err = m.h.Write(bPreviousChallenge[:])
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// write the binded values in the order they were added
