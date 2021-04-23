@@ -33,16 +33,27 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 
 	if coset != 0 {
 		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
-		}
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTable[coset-1][i])
+			if domain.PrecomputeReversedTable == 0 {
+				BitReverse(domain.CosetTable[coset-1])
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.CosetTable[coset-1][i])
+					}
+				})
+				BitReverse(domain.CosetTable[coset-1])
+			} else {
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.CosetTableReversed[coset-1][i])
+					}
+				})
 			}
-		})
-		// put it back as we found it
-		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &domain.CosetTable[coset-1][i])
+				}
+			})
 		}
 	}
 
@@ -90,17 +101,30 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 	// scale by CardinalityInv (+ cosetTableInv is coset!=0)
 	if coset != 0 {
 		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
-		}
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
-					Mul(&a[i], &domain.CardinalityInv)
+			if domain.PrecomputeReversedTable == 0 {
+				BitReverse(domain.CosetTableInv[coset-1])
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
+							Mul(&a[i], &domain.CardinalityInv)
+					}
+				})
+				BitReverse(domain.CosetTableInv[coset-1])
+			} else {
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.CosetTableInvReversed[coset-1][i]).
+							Mul(&a[i], &domain.CardinalityInv)
+					}
+				})
 			}
-		})
-		// put it back as we found it
-		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
+						Mul(&a[i], &domain.CardinalityInv)
+				}
+			})
 		}
 	} else {
 		parallel.Execute(len(a), func(start, end int) {

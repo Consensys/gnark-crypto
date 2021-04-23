@@ -14,7 +14,7 @@ import (
 func TestFFT(t *testing.T) {
 	const maxSize = 1 << 10
 
-	domain := NewDomain(maxSize, 0)
+	domain := NewDomain(maxSize, 0, true)
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 5
@@ -161,14 +161,30 @@ func BenchmarkFFT(b *testing.B) {
 	}
 
 	for i := 8; i < 20; i++ {
-		b.Run("fft 2**"+strconv.Itoa(i)+"bits", func(b *testing.B) {
-			sizeDomain := 1 << i
-			_pol := make([]fr.Element, sizeDomain)
+		sizeDomain := 1 << i
+		_pol := make([]fr.Element, sizeDomain)
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (no cosets)", func(b *testing.B) {
 			copy(_pol, pol)
-			domain := NewDomain(uint64(sizeDomain), 0)
+			domain := NewDomain(uint64(sizeDomain), 0, false)
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				domain.FFT(_pol, DIT, 0)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets without precomputations)", func(b *testing.B) {
+			copy(_pol, pol)
+			domain := NewDomain(uint64(sizeDomain), 1, false)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(_pol, DIT, 1)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets with precomputations)", func(b *testing.B) {
+			copy(_pol, pol)
+			domain := NewDomain(uint64(sizeDomain), 1, true)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(_pol, DIT, 1)
 			}
 		})
 	}
