@@ -132,51 +132,47 @@ func (m *Transcript) Bind(challenge string, value []byte) error {
 // * H(name || binded_values... ) if it's is the first challenge
 func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 
-	if challengeNumber, ok := m.challengeOrder[challenge]; ok {
-
-		// if the challenge was already computed we return it
-		if m.isComputed[challengeNumber] {
-			return m.challenges[challengeNumber], nil
-		}
-
-		m.h.Reset()
-
-		// write the challenge name, the purpose is to have a domain separator
-		bName := []byte(challenge)
-		_, err := m.h.Write(bName)
-		if err != nil {
-			return nil, err
-		}
-
-		// write the previous challenge if it's not the first challenge
-		if challengeNumber != 0 {
-			if !m.isComputed[challengeNumber-1] {
-				return nil, errPreviousChallengeNotComputed
-			}
-			bPreviousChallenge := m.challenges[challengeNumber-1]
-			_, err = m.h.Write(bPreviousChallenge[:])
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		// write the binded values in the order they were added
-		_, err = m.h.Write(m.bindings[challengeNumber])
-		if err != nil {
-			return nil, err
-		}
-
-		// compute the hash of the accumulated values
-		res := m.h.Sum(nil)
-
-		m.challenges[challengeNumber] = make([]byte, len(res))
-		copy(m.challenges[challengeNumber], res)
-		m.isComputed[challengeNumber] = true
-
-		return res, nil
-
+	challengeNumber, ok := m.challengeOrder[challenge]
+	if !ok {
+		return nil, errChallengeNotFound
 	}
 
-	return nil, errChallengeNotFound
+	// if the challenge was already computed we return it
+	if m.isComputed[challengeNumber] {
+		return m.challenges[challengeNumber], nil
+	}
+
+	m.h.Reset()
+
+	// write the challenge name, the purpose is to have a domain separator
+	bName := []byte(challenge)
+	if _, err := m.h.Write(bName); err != nil {
+		return nil, err
+	}
+
+	// write the previous challenge if it's not the first challenge
+	if challengeNumber != 0 {
+		if !m.isComputed[challengeNumber-1] {
+			return nil, errPreviousChallengeNotComputed
+		}
+		bPreviousChallenge := m.challenges[challengeNumber-1]
+		if _, err := m.h.Write(bPreviousChallenge[:]); err != nil {
+			return nil, err
+		}
+	}
+
+	// write the binded values in the order they were added
+	if _, err := m.h.Write(m.bindings[challengeNumber]); err != nil {
+		return nil, err
+	}
+
+	// compute the hash of the accumulated values
+	res := m.h.Sum(nil)
+
+	m.challenges[challengeNumber] = make([]byte, len(res))
+	copy(m.challenges[challengeNumber], res)
+	m.isComputed[challengeNumber] = true
+
+	return res, nil
 
 }
