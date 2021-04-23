@@ -19,12 +19,12 @@ package mockcommitment
 import (
 	"io"
 
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
 
 // MockDigest contains the polynomial itself
 type MockDigest struct {
-	Digest polynomial.Polynomial
+	d fr.Element
 }
 
 // WriteTo mock impementation
@@ -35,4 +35,10 @@ func (md *MockDigest) WriteTo(w io.Writer) (n int64, err error) {
 // ReadFrom mock impementation
 func (md *MockDigest) ReadFrom(r io.Reader) (n int64, err error) {
 	return 0, nil
+}
+
+// Bytes serializes the digest
+func (md *MockDigest) Bytes() []byte {
+	b := md.d.Bytes()
+	return b[:]
 }
