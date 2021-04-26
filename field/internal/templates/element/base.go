@@ -410,7 +410,9 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
 	default:
-		panic("not implemented")
+		var y {{.ElementName}}
+		y.SetUint64(uint64(c))
+		z.Mul(z, &y)
 	}
 }
 

@@ -27,7 +27,8 @@ tasks.txt
 
 # generated files during integratrion tests
 internal/tests/integration/
-
+field/internal/dev.go 
+field/internal/dev/**
 
 .vscode
 

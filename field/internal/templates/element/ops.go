@@ -12,6 +12,9 @@ func MulBy3(x *{{.ElementName}})
 func MulBy5(x *{{.ElementName}})
 
 //go:noescape
+func MulBy13(x *{{.ElementName}})
+
+//go:noescape
 func add(res,x,y *{{.ElementName}})
 
 //go:noescape
