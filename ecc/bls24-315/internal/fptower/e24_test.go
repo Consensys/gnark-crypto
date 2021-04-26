@@ -18,6 +18,7 @@ package fptower
 
 import (
 	"testing"
+	"fmt"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -227,6 +228,32 @@ func TestE24Ops(t *testing.T) {
 			g.Double(&a.D2.C0)
 
 			return c.D0.C1.Equal(&h) && c.D0.C0.Equal(&e) && c.D1.C0.Equal(&h) && c.D1.C1.Equal(&f) && c.D2.C1.Equal(&h) && c.D2.C0.Equal(&g)
+		},
+		genA,
+	))
+
+    properties.Property("[BLS24-315] test MulBy012", prop.ForAll(
+		func(a *E24) bool {
+			var l, b E24
+            var r[3]E4
+
+            r[0].SetRandom()
+            r[1].SetRandom()
+            r[2].SetRandom()
+
+            l.D0.C0.Set(&r[0])
+            l.D0.C1.Set(&r[1])
+            l.D1.C0.Set(&r[2])
+
+            fmt.Printf("a = %v\n", a.String())
+            fmt.Printf("l = %v\n", l.String())
+
+            b.Mul(a, &l)
+            fmt.Printf("a*l = %v\n", b.String())
+            a.MulBy012(&r[0], &r[1], &r[2])
+            fmt.Printf("mulby012 = %v\n", a.String())
+
+			return a.Equal(&b)
 		},
 		genA,
 	))
