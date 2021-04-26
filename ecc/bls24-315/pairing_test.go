@@ -58,44 +58,6 @@ func ExampleMillerLoop() {
 // ------------------------------------------------------------
 // tests
 
-func TestQuick(t *testing.T) {
-
-	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
-
-	properties := gopter.NewProperties(parameters)
-
-	genR1 := GenFr()
-	genR2 := GenFr()
-
-	properties.Property("[BLS24-315] e(aG1,G2)=e(G1,aG2)", prop.ForAll(
-		func(a, b fr.Element) bool {
-
-			var resa, resb, zero GT
-
-			var ag1 G1Affine
-			var ag2 G2Affine
-
-			var abigint big.Int
-
-			a.ToBigIntRegular(&abigint)
-
-			ag1.ScalarMultiplication(&g1GenAff, &abigint)
-			ag2.ScalarMultiplication(&g2GenAff, &abigint)
-
-			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
-			resb, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{ag2})
-
-			return resa.Equal(&resb) && !resb.Equal(&zero)
-
-		},
-		genR1,
-		genR2,
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
 func TestPairing(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -103,11 +65,10 @@ func TestPairing(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	// genA := GenE24()
+	genA := GenE24()
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-    /*
 	properties.Property("[BLS24-315] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a *GT) bool {
 			var b GT
@@ -130,7 +91,6 @@ func TestPairing(t *testing.T) {
 		},
 		genA,
 	))
-    */
 
 	properties.Property("[BLS24-315] bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {

@@ -171,9 +171,9 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 
 	// Line evaluation
 	evaluations.r0.Neg(&H)
-	evaluations.r1.Double(&J).
-		Add(&evaluations.r1, &J)
-	evaluations.r2.Set(&I)
+	evaluations.r1.Set(&I)
+	evaluations.r2.Double(&J).
+		Add(&evaluations.r2, &J)
 }
 
 // AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
@@ -209,6 +209,6 @@ func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 
 	// Line evaluation
 	evaluations.r0.Set(&L)
-	evaluations.r1.Neg(&O)
-	evaluations.r2.Set(&J)
+	evaluations.r1.Set(&J)
+	evaluations.r2.Neg(&O)
 }
