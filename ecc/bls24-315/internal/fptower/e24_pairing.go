@@ -1,5 +1,30 @@
 package fptower
 
+import (
+	"math/bits"
+)
+
+// Expt set z to x^t in E24 and return z (t is the seed of the curve)
+func (z *E24) Expt(x *E24) *E24 {
+
+	const tAbsVal uint64 = 3218079743
+
+	var result E24
+	result.Set(x)
+
+	l := bits.Len64(tAbsVal) - 2
+	for i := l; i >= 0; i-- {
+		result.Square(&result)
+		if tAbsVal&(1<<uint(i)) != 0 {
+			result.Mul(&result, x)
+		}
+	}
+
+	z.Conjugate(&result)
+
+	return z
+}
+
 // MulBy012 multiplication by sparse element
 // https://eprint.iacr.org/2019/077.pdf
 func (z *E24) MulBy012(c0, c1, c2 *E4) *E24 {
