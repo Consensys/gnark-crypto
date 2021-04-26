@@ -47,7 +47,7 @@ var g1Infinity G1Jac
 var g2Infinity G2Jac
 
 // optimal Ate loop counter (=trace-1 = x in BLS24 family)
-var loopCounter [32]int8
+var loopCounter [33]int8
 var finalExponent big.Int
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
@@ -135,7 +135,8 @@ func init() {
 	*/
 
 	// binary decomposition of 3218079743 little endian
-	loopCounter = [32]int8{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1}
+	optimaAteLoop, _ := new(big.Int).SetString("3218079743", 10)
+	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 
 	xGen.SetString("3218079743", 10)
 

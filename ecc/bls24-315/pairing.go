@@ -88,8 +88,10 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	// projective points for Q
 	qProj := make([]g2Proj, n)
+	qNeg := make([]G2Affine, n)
 	for k := 0; k < n; k++ {
 		qProj[k].FromAffine(&q[k])
+		qNeg[k].Neg(&q[k])
 	}
 
 	var result GT
@@ -97,36 +99,30 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	var l lineEvaluation
 
-	// i == 30
-	for k := 0; k < n; k++ {
-		qProj[k].DoubleStep(&l)
-		// line eval
-		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r2.MulByElement(&l.r2, &p[k].X)
-		result.MulBy012(&l.r0, &l.r1, &l.r2)
-	}
-
-	for i := 29; i >= 0; i-- {
+	for i := len(loopCounter) - 2; i >= 0; i-- {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
 			qProj[k].DoubleStep(&l)
-			// line eval
+			// line evaluation
 			l.r0.MulByElement(&l.r0, &p[k].Y)
 			l.r2.MulByElement(&l.r2, &p[k].X)
 			result.MulBy012(&l.r0, &l.r1, &l.r2)
-		}
 
-		if loopCounter[i] == 0 {
-			continue
-		}
+			if loopCounter[i] == 1 {
+				qProj[k].AddMixedStep(&l, &q[k])
+				// line evaluation
+				l.r0.MulByElement(&l.r0, &p[k].Y)
+				l.r2.MulByElement(&l.r2, &p[k].X)
+				result.MulBy012(&l.r0, &l.r1, &l.r2)
 
-		for k := 0; k < n; k++ {
-			qProj[k].AddMixedStep(&l, &q[k])
-			// line eval
-			l.r0.MulByElement(&l.r0, &p[k].Y)
-			l.r2.MulByElement(&l.r2, &p[k].X)
-			result.MulBy012(&l.r0, &l.r1, &l.r2)
+			} else if loopCounter[i] == -1 {
+				qProj[k].AddMixedStep(&l, &qNeg[k])
+				// line evaluation
+				l.r0.MulByElement(&l.r0, &p[k].Y)
+				l.r2.MulByElement(&l.r2, &p[k].X)
+				result.MulBy012(&l.r0, &l.r1, &l.r2)
+			}
 		}
 	}
 
