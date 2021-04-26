@@ -156,8 +156,8 @@ func (z *E4) IsZero() bool {
 
 // MulByNonResidue mul x by (0,1)
 func (z *E4) MulByNonResidue(x *E4) *E4 {
-	z.B1 = x.B0
-	z.B0.MulByNonResidue(&x.B1)
+	z.B1, z.B0 = x.B0, x.B1
+	z.B0.MulByNonResidue(&z.B0)
 	return z
 }
 

@@ -4,15 +4,15 @@ package fptower
 // https://eprint.iacr.org/2019/077.pdf
 func (z *E24) MulBy012(c0, c1, c2 *E4) *E24 {
 
-    var z0, z1, z2, z3, z4, z5, tmp1, tmp2 E4
+	var z0, z1, z2, z3, z4, z5, tmp1, tmp2 E4
 	var t [12]E4
 
-    z0 = z.D0.C0
-    z1 = z.D0.C1
-    z2 = z.D1.C0
-    z3 = z.D1.C1
-    z4 = z.D2.C0
-    z5 = z.D2.C1
+	z0 = z.D0.C0
+	z1 = z.D0.C1
+	z2 = z.D1.C0
+	z3 = z.D1.C1
+	z4 = z.D2.C0
+	z5 = z.D2.C1
 
 	tmp1.MulByNonResidue(c1)
 	tmp2.MulByNonResidue(c2)
