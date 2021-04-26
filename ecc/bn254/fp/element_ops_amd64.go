@@ -23,6 +23,9 @@ func MulBy3(x *Element)
 func MulBy5(x *Element)
 
 //go:noescape
+func MulBy13(x *Element)
+
+//go:noescape
 func add(res, x, y *Element)
 
 //go:noescape

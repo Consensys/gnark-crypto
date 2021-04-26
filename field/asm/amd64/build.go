@@ -165,6 +165,7 @@ func Generate(w io.Writer, F *field.Field) error {
 	// mul by constants
 	f.generateMulBy3()
 	f.generateMulBy5()
+	f.generateMulBy13()
 
 	return nil
 }

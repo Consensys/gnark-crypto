@@ -45,6 +45,30 @@ func BenchmarkElementSetBytes(b *testing.B) {
 
 }
 
+func BenchmarkElementMulByConstants(b *testing.B) {
+	b.Run("mulBy3", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy3(&benchResElement)
+		}
+	})
+	b.Run("mulBy5", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy5(&benchResElement)
+		}
+	})
+	b.Run("mulBy13", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy13(&benchResElement)
+		}
+	})
+}
+
 func BenchmarkElementInverse(b *testing.B) {
 	var x Element
 	x.SetRandom()
@@ -414,7 +438,7 @@ func TestElementMulByConstants(t *testing.T) {
 
 	genA := gen()
 
-	implemented := []uint8{0, 1, 2, 3, 5}
+	implemented := []uint8{0, 1, 2, 3, 5, 13}
 	properties.Property("mulByConstant", prop.ForAll(
 		func(a testPairElement) bool {
 			for _, c := range implemented {
@@ -461,6 +485,21 @@ func TestElementMulByConstants(t *testing.T) {
 			b.Mul(&b, &constant)
 
 			MulBy5(&a.element)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("MulBy13(x) == Mul(x, 13)", prop.ForAll(
+		func(a testPairElement) bool {
+			var constant Element
+			constant.SetUint64(13)
+
+			b := a.element
+			b.Mul(&b, &constant)
+
+			MulBy13(&a.element)
 
 			return a.element.Equal(&b)
 		},
