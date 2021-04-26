@@ -122,7 +122,7 @@ func (d *Domain) reverseCosetTables() {
 	d.CosetTableInvReversed = make([][]fr.Element, nbCosets)
 	for i := 0; i < nbCosets; i++ {
 		d.CosetTableReversed[i] = make([]fr.Element, d.Cardinality)
-		d.CosetTableReversed[i] = make([]fr.Element, d.Cardinality)
+		d.CosetTableInvReversed[i] = make([]fr.Element, d.Cardinality)
 		copy(d.CosetTableReversed[i], d.CosetTable[i])
 		copy(d.CosetTableInvReversed[i], d.CosetTableInv[i])
 		BitReverse(d.CosetTableReversed[i])
