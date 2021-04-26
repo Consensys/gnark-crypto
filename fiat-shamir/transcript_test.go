@@ -14,7 +14,10 @@
 
 package fiatshamir
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func initTranscript() Transcript {
 
@@ -29,25 +32,6 @@ func initTranscript() Transcript {
 	fs.Bind("gamma", values[5])
 
 	return fs
-}
-
-func eq(a, b []byte) bool {
-
-	res := true
-
-	// slices should be allocated...
-	if a == nil || b == nil {
-		return false
-	}
-
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		res = res && (a[i] == b[i])
-	}
-	return res
-
 }
 
 func TestTranscript(t *testing.T) {
@@ -82,13 +66,13 @@ func TestTranscript(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !eq(alpha, alphaBis) {
+	if !bytes.Equal(alpha, alphaBis) {
 		t.Fatal("computing the same challenge twice should return the same value")
 	}
-	if !eq(beta, betaBis) {
+	if !bytes.Equal(beta, betaBis) {
 		t.Fatal("computing the same challenge twice should return the same value")
 	}
-	if !eq(gamma, gammaBis) {
+	if !bytes.Equal(gamma, gammaBis) {
 		t.Fatal("computing the same challenge twice should return the same value")
 	}
 

@@ -38,10 +38,12 @@ func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
 	return 0, nil
 }
 
-// Commit returns nil
+// Commit returns the first coefficient of p
 func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
-	res := &MockDigest{Digest: p.(bls12381.Polynomial)}
-	return res
+	_p := p.(bls12381.Polynomial)
+	var res MockDigest
+	res.d.Set(&_p[0])
+	return &res
 }
 
 // Open computes an opening proof of _p at _val.

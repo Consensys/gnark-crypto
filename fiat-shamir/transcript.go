@@ -19,12 +19,12 @@ import (
 	"errors"
 	"hash"
 
-	gnark_hash "github.com/consensys/gnark-crypto/crypto/hash"
+	gnark_hash "github.com/consensys/gnark-crypto/hash"
 )
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
 var (
-	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript.")
+	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
@@ -111,14 +111,19 @@ func NewTranscript(h HashFS, challenges ...string) Transcript {
 // binded to other values.
 func (m *Transcript) Bind(challenge string, value []byte) error {
 
-	if challengeNumber, ok := m.challengeOrder[challenge]; ok {
-		if m.isComputed[challengeNumber] {
-			return errChallengeAlreadyComputed
-		}
-		m.bindings[challengeNumber] = append(m.bindings[challengeNumber], value...)
-		return nil
+	challengeNumber, ok := m.challengeOrder[challenge]
+
+	if !ok {
+		return errChallengeNotFound
 	}
-	return errChallengeNotFound
+
+	if m.isComputed[challengeNumber] {
+		return errChallengeAlreadyComputed
+	}
+	m.bindings[challengeNumber] = append(m.bindings[challengeNumber], value...)
+
+	return nil
+
 }
 
 // ComputeChallenge computes the challenge corresponding to the given name.
@@ -127,45 +132,47 @@ func (m *Transcript) Bind(challenge string, value []byte) error {
 // * H(name || binded_values... ) if it's is the first challenge
 func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 
-	if challengeNumber, ok := m.challengeOrder[challenge]; ok {
-
-		// if the challenge was already computed we return it
-		if m.isComputed[challengeNumber] {
-			return m.challenges[challengeNumber], nil
-		}
-
-		m.h.Reset()
-
-		// write the challenge name, the purpose is to have a domain separator
-		bName := []byte(challenge)
-		_, err := m.h.Write(bName)
-		if err != nil {
-			return nil, nil
-		}
-
-		// write the previous challenge if it's not the first challenge
-		if challengeNumber != 0 {
-			if !m.isComputed[challengeNumber-1] {
-				return nil, errPreviousChallengeNotComputed
-			}
-			bPreviousChallenge := m.challenges[challengeNumber-1]
-			m.h.Write(bPreviousChallenge[:])
-		}
-
-		// write the binded values in the order they were added
-		m.h.Write(m.bindings[challengeNumber])
-
-		// compute the hash of the accumulated values
-		res := m.h.Sum(nil)
-
-		m.challenges[challengeNumber] = make([]byte, len(res))
-		copy(m.challenges[challengeNumber], res)
-		m.isComputed[challengeNumber] = true
-
-		return res, nil
-
+	challengeNumber, ok := m.challengeOrder[challenge]
+	if !ok {
+		return nil, errChallengeNotFound
 	}
 
-	return nil, errChallengeNotFound
+	// if the challenge was already computed we return it
+	if m.isComputed[challengeNumber] {
+		return m.challenges[challengeNumber], nil
+	}
+
+	m.h.Reset()
+
+	// write the challenge name, the purpose is to have a domain separator
+	bName := []byte(challenge)
+	if _, err := m.h.Write(bName); err != nil {
+		return nil, err
+	}
+
+	// write the previous challenge if it's not the first challenge
+	if challengeNumber != 0 {
+		if !m.isComputed[challengeNumber-1] {
+			return nil, errPreviousChallengeNotComputed
+		}
+		bPreviousChallenge := m.challenges[challengeNumber-1]
+		if _, err := m.h.Write(bPreviousChallenge[:]); err != nil {
+			return nil, err
+		}
+	}
+
+	// write the binded values in the order they were added
+	if _, err := m.h.Write(m.bindings[challengeNumber]); err != nil {
+		return nil, err
+	}
+
+	// compute the hash of the accumulated values
+	res := m.h.Sum(nil)
+
+	m.challenges[challengeNumber] = make([]byte, len(res))
+	copy(m.challenges[challengeNumber], res)
+	m.isComputed[challengeNumber] = true
+
+	return res, nil
 
 }
