@@ -16,19 +16,9 @@
 
 package mockcommitment
 
-import (
-	"io"
-)
-
 // MockBatchProofsSinglePoint empty struct
 type MockBatchProofsSinglePoint struct{}
 
-// WriteTo mock impementation
-func (mp *MockBatchProofsSinglePoint) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
-}
-
-// ReadFrom mock impementation
-func (mp *MockBatchProofsSinglePoint) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
+	panic("not implemented")
 }

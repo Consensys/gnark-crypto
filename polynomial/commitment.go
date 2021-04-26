@@ -30,23 +30,19 @@ type Polynomial interface {
 
 // Digest interface that a polynomial commitment should implement
 type Digest interface {
-	io.WriterTo
-	io.ReaderFrom
-	Bytes() []byte
+	Marshal() []byte
 }
 
 // OpeningProof interface that an opening proof
 // should implement.
 type OpeningProof interface {
-	io.WriterTo
-	io.ReaderFrom
+	Marshal() []byte
 }
 
 // BatchOpeningProofSinglePoint interface that a bacth opening proof (single point)
 // should implement.
 type BatchOpeningProofSinglePoint interface {
-	io.WriterTo
-	io.ReaderFrom
+	Marshal() []byte
 }
 
 // CommitmentScheme interface for an additively homomorphic
