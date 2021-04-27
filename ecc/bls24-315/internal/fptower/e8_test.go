@@ -19,6 +19,7 @@ package fptower
 import (
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -169,6 +170,29 @@ func TestE8Ops(t *testing.T) {
 		},
 		genA,
 	))
+
+	properties.Property("[BLS24-315] Frobenius of x in E8 should be equal to x^q", prop.ForAll(
+        func(a *E8) bool {
+			var b, c E8
+			q := fp.Modulus()
+			b.Frobenius(a)
+			c.Exp(a, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] FrobeniusSquare of x in E8 should be equal to x^(q^2)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusSquare(a)
+			c.Exp(a, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 

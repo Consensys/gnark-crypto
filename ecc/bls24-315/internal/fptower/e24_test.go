@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -267,6 +268,29 @@ func TestE24Ops(t *testing.T) {
 		},
 		genA,
 	))
+
+	properties.Property("[BLS24-315] Frobenius of x in E24 should be equal to x^q", prop.ForAll(
+		func(a *E24) bool {
+			var b, c E24
+			q := fp.Modulus()
+			b.Frobenius(a)
+			c.Exp(a, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] FrobeniusSquare of x in E24 should be equal to x^(q^2)", prop.ForAll(
+		func(a *E24) bool {
+			var b, c E24
+            q := fp.Modulus()
+			b.FrobeniusSquare(a)
+			c.Exp(a, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 

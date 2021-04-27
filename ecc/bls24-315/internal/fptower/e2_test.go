@@ -332,6 +332,17 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Frobenius in E2 should be a conjugate", prop.ForAll(
+		func(a *E2) bool {
+			var b, c E2
+			q := fp.Modulus()
+			b.Frobenius(a)
+			c.Exp(*a, q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS24-315] square(sqrt) should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d, e E2
