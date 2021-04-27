@@ -260,7 +260,7 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 
 	enc := curve.NewEncoder(w)
 
-	toEncode := []interface{}{d.Cardinality, d.Depth, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
+	toEncode := []interface{}{d.Cardinality, d.Depth, d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
@@ -276,7 +276,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := curve.NewDecoder(r)
 
-	toDecode := []interface{}{&d.Cardinality, &d.Depth, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
+	toDecode := []interface{}{&d.Cardinality, &d.Depth, &d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
@@ -285,5 +285,11 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	d.preComputeTwiddles()
+
+	// store the bit reversed coset tables if needed
+	if d.Depth > 0 && d.PrecomputeReversedTable == 1 {
+		d.reverseCosetTables()
+	}
+
 	return dec.BytesRead(), nil
 }
