@@ -116,6 +116,24 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
+		func(a *E4) bool {
+			var b, c, d, s E4
+
+			s.Square(a)
+			a.Set(&s)
+			b.Set(&s)
+
+			a.Sqrt(a)
+			b.Sqrt(&b)
+
+			c.Square(a)
+			d.Square(&b)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -177,6 +195,18 @@ func TestE4Ops(t *testing.T) {
 			b.Square(a)
 			c := b.Legendre()
 			return c == 1
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] square(sqrt) should leave an element invariant", prop.ForAll(
+		func(a *E4) bool {
+			var b, c, d, e E4
+			b.Square(a)
+			c.Sqrt(&b)
+			d.Square(&c)
+			e.Neg(a)
+			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
 		},
 		genA,
 	))
@@ -290,6 +320,15 @@ func BenchmarkE4Square(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
+	}
+}
+
+func BenchmarkE4Sqrt(b *testing.B) {
+	var a E4
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Sqrt(&a)
 	}
 }
 

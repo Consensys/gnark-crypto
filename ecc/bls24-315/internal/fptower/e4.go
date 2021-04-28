@@ -246,3 +246,45 @@ func (z *E4) Legendre() int {
 	z.norm(&n)
 	return n.Legendre()
 }
+
+// Sqrt sets z to the square root of and returns z
+// The function does not test wether the square root
+// exists or not, it's up to the caller to call
+// Legendre beforehand.
+// cf https://eprint.iacr.org/2012/685.pdf (algo 10)
+func (z *E4) Sqrt(x *E4) *E4 {
+
+	// precomputation
+	var b, c, d, e, f, x0, _g E4
+	var _b, o E2
+
+	// c must be a non square (works for p=1 mod 12 hence 1 mod 4, only bls377 has such a p currently)
+	c.B1.SetOne()
+
+	q := fp.Modulus()
+	var exp, one big.Int
+	one.SetUint64(1)
+	exp.Mul(q, q).Sub(&exp, &one).Rsh(&exp, 1)
+	d.Exp(&c, exp)
+	e.Mul(&d, &c).Inverse(&e)
+	f.Mul(&d, &c).Square(&f)
+
+	// computation
+	exp.Rsh(&exp, 1)
+	b.Exp(x, exp)
+	b.norm(&_b)
+	o.SetOne()
+	if _b.Equal(&o) {
+		x0.Square(&b).Mul(&x0, x)
+		_b.Set(&x0.B0).Sqrt(&_b)
+        _g.B0.Set(&_b)
+		z.Conjugate(&b).Mul(z, &_g)
+		return z
+	}
+	x0.Square(&b).Mul(&x0, x).Mul(&x0, &f)
+	_b.Set(&x0.B0).Sqrt(&_b)
+    _g.B0.Set(&_b)
+	z.Conjugate(&b).Mul(z, &_g).Mul(z, &e)
+
+	return z
+}

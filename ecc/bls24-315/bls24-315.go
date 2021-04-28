@@ -63,13 +63,11 @@ var lambdaGLV big.Int
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 
-/*
 // psi o pi o psi**-1, where psi:E->E' is the degree 6 iso defined over Fp24
 var endo struct {
 	u fptower.E4
 	v fptower.E4
 }
-*/
 
 // generator of the curve
 var xGen big.Int
@@ -129,10 +127,8 @@ func init() {
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
-	/*
-		endo.u.A0.SetString("")
-		endo.v.A0.SetString("")
-	*/
+	endo.u.B0.A0.SetString("17432737665785421589107433512831558061649422754130449334965277047994983947893909429238815314776")
+	endo.v.B0.A0.SetString("13266452002786802757645810648664867986567631927642464177452792960815113608167203350720036682455")
 
 	// binary decomposition of 3218079743 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("3218079743", 10)
