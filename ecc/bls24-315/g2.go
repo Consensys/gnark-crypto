@@ -395,6 +395,15 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
 }
 
+// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+func (p *G2Jac) psi(a *G2Jac) *G2Jac {
+	p.Set(a)
+	p.X.Frobenius(&p.X).Mul(&p.X, &endo.u)
+	p.Y.Frobenius(&p.Y).Mul(&p.Y, &endo.v)
+	p.Z.Frobenius(&p.Z)
+	return p
+}
+
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	p.Set(a)
@@ -468,8 +477,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
-/*
-// ClearCofactor ...
+// ClearCofactor sends a point in the twisted curve to a point in G2Affine
 func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
@@ -478,11 +486,45 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ClearCofactor ...
+// ClearCofactor sends a point in the twisted curve to a point in G2Jac
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
+    // https://eprint.iacr.org/2017/419.pdf, section 4.2
+    // multiply by (3x^4-3)*cofacor
+    var xg, xxg, xxxg, xxxxg, res, t G2Jac
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen).Neg(&xxxxg)
 
+	res.Set(&xxxxg).
+		SubAssign(a)
+
+	t.Set(&xxxg).
+		psi(&t).
+		AddAssign(&res)
+
+	res.Set(&xxg).
+		psi(&res).
+		psi(&res).
+		AddAssign(&t)
+
+	t.Set(&xg).
+		psi(&t).
+		psi(&t).
+		psi(&t).
+		AddAssign(&res)
+
+	res.Double(a).
+		psi(&res).
+		psi(&res).
+		psi(&res).
+		psi(&res).
+		AddAssign(&t)
+
+	p.Set(&res)
+
+    return p
 }
-*/
 
 // -------------------------------------------------------------------------------------------------
 // Jacobian extended

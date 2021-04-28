@@ -340,6 +340,14 @@ func TestG2AffineOps(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property("[BLS12-377] psi should map points from E' to itself", prop.ForAll(
+		func() bool {
+			var a G2Jac
+			a.psi(&g2Gen)
+			return a.IsOnCurve() && !a.Equal(&g2Gen)
+		},
+	))
+
 	properties.Property("[BLS24-315] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
@@ -380,7 +388,6 @@ func TestG2AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-/*
 func TestG2AffineCofactorCleaning(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -393,6 +400,12 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 			var a, x, b fptower.E4
 			a.SetRandom()
 
+			x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+			for x.Legendre() != 1 {
+				a.SetRandom()
+				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
+			}
+
 			b.Sqrt(&x)
 			var point, pointCleared, infinity G2Jac
 			point.X.Set(&a)
@@ -404,9 +417,7 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 		},
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
 }
-*/
 
 func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
@@ -511,7 +522,6 @@ func BenchmarkG2JacScalarMul(b *testing.B) {
 	})
 }
 
-/*
 func BenchmarkG2AffineCofactorClearing(b *testing.B) {
 	var a G2Jac
 	a.Set(&g2Gen)
@@ -519,7 +529,6 @@ func BenchmarkG2AffineCofactorClearing(b *testing.B) {
 		a.ClearCofactor(&a)
 	}
 }
-*/
 
 func BenchmarkG2JacAdd(b *testing.B) {
 	var a G2Jac
