@@ -53,7 +53,6 @@ func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f *fptower.E4) g2JacExtended
 // ------------------------------------------------------------
 // tests
 
-/*
 func TestMapToCurveG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -79,7 +78,6 @@ func TestMapToCurveG2(t *testing.T) {
 		genFuzz1,
 	))
 }
-*/
 
 func TestG2AffineIsOnCurve(t *testing.T) {
 

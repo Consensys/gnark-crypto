@@ -19,7 +19,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
-	// "github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"
 )
 
 // hashToFp hashes msg to count prime field elements.
@@ -156,7 +156,6 @@ func HashToCurveG1Svdw(msg, dst []byte) (G1Affine, error) {
 	return res, nil
 }
 
-/*
 // ----------------------------------------------------------------------------------------
 // G2Affine
 
@@ -226,7 +225,7 @@ func svdwMapG2(u fptower.E4) G2Affine {
 	gx.Mul(&gx, &x)
 	gx.Add(&gx, &bTwistCurveCoeff)
 	y.Sqrt(&gx)
-	e3 := sign0(u.B0) && sign0(y.B0)
+	e3 := sign0(u.B0.A0) && sign0(y.B0.A0)
 	if !e3 {
 		y.Neg(&y)
 	}
@@ -253,8 +252,8 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 		return res, err
 	}
 	var t fptower.E4
-	t.A0.Set(&_t[0])
-	t.A1.Set(&_t[1])
+	t.B0.A0.Set(&_t[0])
+	t.B1.A0.Set(&_t[1])
 	res = MapToCurveG2Svdw(t)
 	return res, nil
 }
@@ -268,10 +267,10 @@ func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 		return res, err
 	}
 	var u0, u1 fptower.E4
-	u0.B0.Set(&u[0])
-	u0.B1.Set(&u[1])
-	u1.B0.Set(&u[2])
-	u1.B1.Set(&u[3])
+	u0.B0.A0.Set(&u[0])
+	u0.B1.A0.Set(&u[1])
+	u1.B0.A0.Set(&u[2])
+	u1.B1.A0.Set(&u[3])
 	Q0 := MapToCurveG2Svdw(u0)
 	Q1 := MapToCurveG2Svdw(u1)
 	var _Q0, _Q1, _res G2Jac
@@ -281,4 +280,3 @@ func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	res.FromJacobian(&_res)
 	return res, nil
 }
-*/
