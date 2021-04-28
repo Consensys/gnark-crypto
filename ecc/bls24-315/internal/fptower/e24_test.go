@@ -283,7 +283,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusSquare of x in E24 should be equal to x^(q^2)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusSquare(a)
 			c.Exp(a, *q).Exp(&c, *q)
 			return c.Equal(&b)
@@ -294,7 +294,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusCube of x in E24 should be equal to x^(q^3)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusCube(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
@@ -305,7 +305,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusQuad of x in E24 should be equal to x^(q^4)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusQuad(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
@@ -316,7 +316,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusFive of x in E24 should be equal to x^(q^5)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusFive(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
@@ -327,7 +327,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusSix of x in E24 should be equal to x^(q^6)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusSix(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
@@ -338,7 +338,7 @@ func TestE24Ops(t *testing.T) {
 	properties.Property("[BLS24-315] FrobeniusSeven of x in E24 should be equal to x^(q^7)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
-            q := fp.Modulus()
+			q := fp.Modulus()
 			b.FrobeniusSeven(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)

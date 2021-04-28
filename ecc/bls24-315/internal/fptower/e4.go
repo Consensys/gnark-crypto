@@ -277,13 +277,13 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	if _b.Equal(&o) {
 		x0.Square(&b).Mul(&x0, x)
 		_b.Set(&x0.B0).Sqrt(&_b)
-        _g.B0.Set(&_b)
+		_g.B0.Set(&_b)
 		z.Conjugate(&b).Mul(z, &_g)
 		return z
 	}
 	x0.Square(&b).Mul(&x0, x).Mul(&x0, &f)
 	_b.Set(&x0.B0).Sqrt(&_b)
-    _g.B0.Set(&_b)
+	_g.B0.Set(&_b)
 	z.Conjugate(&b).Mul(z, &_g).Mul(z, &e)
 
 	return z

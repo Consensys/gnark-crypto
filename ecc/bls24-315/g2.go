@@ -488,9 +488,9 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 
 // ClearCofactor sends a point in the twisted curve to a point in G2Jac
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
-    // https://eprint.iacr.org/2017/419.pdf, section 4.2
-    // multiply by (3x^4-3)*cofacor
-    var xg, xxg, xxxg, xxxxg, res, t G2Jac
+	// https://eprint.iacr.org/2017/419.pdf, section 4.2
+	// multiply by (3x^4-3)*cofacor
+	var xg, xxg, xxxg, xxxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
 	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
@@ -523,7 +523,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	p.Set(&res)
 
-    return p
+	return p
 }
 
 // -------------------------------------------------------------------------------------------------

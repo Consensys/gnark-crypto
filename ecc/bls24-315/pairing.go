@@ -59,7 +59,18 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	result.Exp(&result, finalExponent)
+	// https://eprint.iacr.org/2012/232.pdf, section 7
+	var t GT
+
+	// easy part
+	t.Conjugate(&result)
+	result.Inverse(&result)
+	t.Mul(&t, &result)
+	result.FrobeniusQuad(&t).
+		Mul(&result, &t)
+
+		// hard part (naive)
+	result.Exp(&result, finalExponentHardPart)
 
 	return result
 }
