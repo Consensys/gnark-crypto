@@ -215,6 +215,39 @@ func TestE8Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] FrobeniusFive of x in E8 should be equal to x^(q^5)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusFive(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] FrobeniusSix of x in E8 should be equal to x^(q^6)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusSix(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] FrobeniusSeven of x in E8 should be equal to x^(q^7)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusSeven(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }

@@ -24,12 +24,17 @@ var frobCoeff struct {
     cTwo fp.Element
     dTwo fp.Element
     eTwo fp.Element
-    bThree fp.Element
     cThree fp.Element
     dThree fp.Element
     eThree fp.Element
     dQuad fp.Element
     eQuad fp.Element
+    dFive fp.Element
+    eFive fp.Element
+    dSix fp.Element
+    eSix fp.Element
+    dSeven fp.Element
+    eSeven fp.Element
 }
 
 func init() {
@@ -82,13 +87,6 @@ func init() {
         17281049885654821422,
         214020232334507350,
     }
-    frobCoeff.bThree = fp.Element{
-        8431819647309378609,
-        2779570725743559026,
-        13963483320145043377,
-        4889343876951054201,
-        280783099323629353,
-    }
     frobCoeff.cThree = fp.Element{
         319632480799633719,
         12918588655636006616,
@@ -123,6 +121,48 @@ func init() {
         1307418789688509602,
         11960473000634917703,
         283892625570574947,
+    }
+    frobCoeff.dFive = fp.Element{
+        7656143506020821809,
+        15522360441012336084,
+        13642716999828979021,
+        14792837482779749780,
+        272819313239264506,
+    }
+    frobCoeff.eFive = fp.Element{
+        5276991711591121542,
+        1764125630309599080,
+        4048361144298871290,
+        17215093588476212969,
+        305552045589664998,
+    }
+    frobCoeff.dSix = fp.Element{
+        18078622854523849680,
+        1984927455914812303,
+        2087856039593753391,
+        10384413649565796150,
+        62117205619808039,
+    }
+    frobCoeff.eSix = fp.Element{
+        11164601423358853174,
+        17475228851327880835,
+        18222098035255651149,
+        13126167188689647896,
+        69872393236067596,
+    }
+    frobCoeff.dSeven = fp.Element{
+        2851480573204638815,
+        1335734525939490983,
+        5345966389475061568,
+        16856815570427136360,
+        235013868839987029,
+    }
+    frobCoeff.eSeven = fp.Element{
+        5645112930776823478,
+        18225942248104338392,
+        1960505104705117898,
+        6830679938910416819,
+        243434839969856959,
     }
 }
 
@@ -209,8 +249,7 @@ func (z *E2) FrobeniusCube(x *E2) *E2 {
 func (z *E4) FrobeniusCube(x *E4) *E4 {
 
 	z.Set(x)
-    z.B0.FrobeniusCube(&z.B0)
-    z.B1.FrobeniusCube(&z.B1).MulByElement(&z.B1, &frobCoeff.bThree)
+    z.Conjugate(z).Frobenius(z)
 
 	return z
 }
@@ -252,6 +291,111 @@ func (z *E24) FrobeniusQuad(x *E24) *E24 {
     z.D0.FrobeniusQuad(&z.D0)
     z.D1.FrobeniusQuad(&z.D1).MulByElement(&z.D1, &frobCoeff.dQuad)
     z.D2.FrobeniusQuad(&z.D2).MulByElement(&z.D2, &frobCoeff.eQuad)
+
+	return z
+}
+
+// FrobeniusFive sets z in E2 to x^q5, returns z
+func (z *E2) FrobeniusFive(x *E2) *E2 {
+
+	z.Set(x)
+	z.Conjugate(z)
+
+	return z
+}
+
+// FrobeniusFive sets z in E4 to x^q5, returns z
+func (z *E4) FrobeniusFive(x *E4) *E4 {
+
+	z.Set(x)
+	z.Frobenius(z)
+
+	return z
+}
+
+// FrobeniusFive sets z in E8 to x^q5, returns z
+func (z *E8) FrobeniusFive(x *E8) *E8 {
+
+	z.Set(x)
+	z.Conjugate(z).Frobenius(z)
+
+	return z
+}
+
+// FrobeniusFive sets z in E24 to x^q5, returns z
+func (z *E24) FrobeniusFive(x *E24) *E24 {
+
+	z.Set(x)
+    z.D0.FrobeniusFive(&z.D0)
+    z.D1.FrobeniusFive(&z.D1).MulByElement(&z.D1, &frobCoeff.dFive)
+    z.D2.FrobeniusFive(&z.D2).MulByElement(&z.D2, &frobCoeff.eFive)
+
+	return z
+}
+
+// FrobeniusSix sets z in E4 to x^q6, returns z
+func (z *E4) FrobeniusSix(x *E4) *E4 {
+
+	z.Set(x)
+    z.Conjugate(z)
+
+	return z
+}
+
+// FrobeniusSix sets z in E8 to x^q6, returns z
+func (z *E8) FrobeniusSix(x *E8) *E8 {
+
+	z.Set(x)
+    z.Conjugate(z).FrobeniusSquare(z)
+
+	return z
+}
+
+// FrobeniusSix sets z in E24 to x^q6, returns z
+func (z *E24) FrobeniusSix(x *E24) *E24 {
+
+	z.Set(x)
+    z.D0.FrobeniusSix(&z.D0)
+    z.D1.FrobeniusSix(&z.D1).MulByElement(&z.D1, &frobCoeff.dSix)
+    z.D2.FrobeniusSix(&z.D2).MulByElement(&z.D2, &frobCoeff.eSix)
+
+	return z
+}
+
+// FrobeniusSeven sets z in E2 to x^q7, returns z
+func (z *E2) FrobeniusSeven(x *E2) *E2 {
+
+	z.Set(x)
+    z.Conjugate(z)
+
+	return z
+}
+
+// FrobeniusSeven sets z in E4 to x^q7, returns z
+func (z *E4) FrobeniusSeven(x *E4) *E4 {
+
+	z.Set(x)
+    z.FrobeniusCube(z)
+
+	return z
+}
+
+// FrobeniusSeven sets z in E8 to x^q7, returns z
+func (z *E8) FrobeniusSeven(x *E8) *E8 {
+
+	z.Set(x)
+    z.Conjugate(z).FrobeniusCube(z)
+
+	return z
+}
+
+// FrobeniusSeven sets z in E24 to x^q6, returns z
+func (z *E24) FrobeniusSeven(x *E24) *E24 {
+
+	z.Set(x)
+    z.D0.FrobeniusSeven(&z.D0)
+    z.D1.FrobeniusSeven(&z.D1).MulByElement(&z.D1, &frobCoeff.dSeven)
+    z.D2.FrobeniusSeven(&z.D2).MulByElement(&z.D2, &frobCoeff.eSeven)
 
 	return z
 }
