@@ -203,6 +203,17 @@ func TestE4Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] FrobeniusCube of x in E4 should be equal to x^(q^3)", prop.ForAll(
+		func(a *E4) bool {
+			var b, c E4
+            q := fp.Modulus()
+			b.FrobeniusCube(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }

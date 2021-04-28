@@ -193,6 +193,27 @@ func TestE8Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] FrobeniusCube of x in E8 should be equal to x^(q^3)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusCube(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] FrobeniusQuad of x in E8 should be equal to x^(q^4)", prop.ForAll(
+		func(a *E8) bool {
+			var b, c E8
+            q := fp.Modulus()
+			b.FrobeniusQuad(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
