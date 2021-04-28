@@ -49,7 +49,7 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	return f.Equal(&one), nil
 }
 
-// FinalExponentiation...
+// FinalExponentiation computes the final expo x**(p**12-1)(p**4+1)(p**8 - p**4 +1)/r
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -60,19 +60,52 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	}
 
 	// https://eprint.iacr.org/2012/232.pdf, section 7
-	var t GT
+	var t [9]GT
 
 	// easy part
-	t.Conjugate(&result)
+	t[0].Conjugate(&result)
 	result.Inverse(&result)
-	t.Mul(&t, &result)
-	result.FrobeniusQuad(&t).
-		Mul(&result, &t)
+	t[0].Mul(&t[0], &result)
+	result.FrobeniusQuad(&t[0]).
+		Mul(&result, &t[0])
 
-		// hard part (naive)
-	result.Exp(&result, finalExponentHardPart)
+    // hard part
+    t[0].Expt(&result)
+    t[1].Expt(&t[0])
+    t[0].InverseUnitary(&t[0])
+    t[0].Square(&t[0])
+    t[0].Mul(&t[0], &t[1])
+    t[0].Mul(&t[0], &result)
+    t[1].Expt(&t[0])
+    t[2].Expt(&t[1])
+    t[3].Expt(&t[2])
+    t[4].Expt(&t[3])
+    t[5].InverseUnitary(&t[0])
+    t[4].Mul(&t[4], &t[5])
+    t[5].Expt(&t[4])
+    t[6].Expt(&t[5])
+    t[7].Expt(&t[6])
+    t[8].Square(&result)
+    t[8].Mul(&result, &t[8])
+    t[7].Mul(&t[7], &t[8])
 
-	return result
+    t[6].Frobenius(&t[6])
+    t[5].FrobeniusSquare(&t[5])
+    t[4].FrobeniusCube(&t[4])
+    t[3].FrobeniusQuad(&t[3])
+    t[2].FrobeniusFive(&t[2])
+    t[1].FrobeniusSix(&t[1])
+    t[0].FrobeniusSeven(&t[0])
+
+    result.Mul(&t[7], &t[6]).
+        Mul(&result, &t[5]).
+        Mul(&result, &t[4]).
+        Mul(&result, &t[3]).
+        Mul(&result, &t[2]).
+        Mul(&result, &t[1]).
+        Mul(&result, &t[0])
+
+    return result
 }
 
 // MillerLoop Miller loop
