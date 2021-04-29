@@ -141,6 +141,76 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.Frobenius(a)
+			a.Frobenius(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius square) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusSquare(a)
+			a.FrobeniusSquare(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius cube) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusCube(a)
+			a.FrobeniusCube(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius quad) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusQuad(a)
+			a.FrobeniusQuad(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Five) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusFive(a)
+			a.FrobeniusFive(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Six) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusSix(a)
+			a.FrobeniusSix(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Seven) should output the same result", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.FrobeniusSeven(a)
+			a.FrobeniusSeven(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -345,8 +415,8 @@ func TestE24Ops(t *testing.T) {
 		},
 		genA,
 	))
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 // ------------------------------------------------------------
