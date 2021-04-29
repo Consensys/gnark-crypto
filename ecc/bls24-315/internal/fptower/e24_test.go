@@ -326,10 +326,16 @@ func TestE24Ops(t *testing.T) {
 
 	properties.Property("[BLS24-315] test Expt", prop.ForAll(
 		func(a *E24) bool {
-			var b, c E24
+			var b, c, t E24
 			var seed big.Int
 
 			seed.SetString("3218079743", 10)
+
+            t.Conjugate(a)
+            a.Inverse(a)
+            t.Mul(&t, a)
+            a.FrobeniusQuad(&t).
+                Mul(a, &t)
 
 			b.Exp(a, seed).Conjugate(&b) // seed is negative
 			c.Expt(a)
