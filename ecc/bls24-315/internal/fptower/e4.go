@@ -161,6 +161,16 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 	return z
 }
 
+// MulByNonResidueInv mul x by (0,1)^{-1}
+func (z *E4) MulByNonResidueInv(x *E4) *E4 {
+	a := x.B1
+    var uInv E2
+    uInv.A1.SetString("6108483493771298205388567675447533806912846525679192205394505462405828322019437284165171866703")
+	z.B1.Mul(&x.B0, &uInv)
+	z.B0 = a
+	return z
+}
+
 // Mul set z=x*y in E4 and return z
 func (z *E4) Mul(x, y *E4) *E4 {
 	var a, b, c E2

@@ -96,6 +96,26 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
+		func(a *E4) bool {
+			var b E4
+			b.MulByNonResidue(a)
+			a.MulByNonResidue(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
+		func(a *E4) bool {
+			var b E4
+			b.MulByNonResidueInv(a)
+			a.MulByNonResidueInv(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS24-315] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E4) bool {
 			var b E4
@@ -207,6 +227,15 @@ func TestE4Ops(t *testing.T) {
 			d.Square(&c)
 			e.Neg(a)
 			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
+		func(a *E4) bool {
+			var b E4
+			b.MulByNonResidue(a).MulByNonResidueInv(&b)
+			return a.Equal(&b)
 		},
 		genA,
 	))
@@ -341,6 +370,23 @@ func BenchmarkE4Inverse(b *testing.B) {
 	}
 }
 
+func BenchmarkE4MulNonRes(b *testing.B) {
+	var a E4
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidue(&a)
+	}
+}
+
+func BenchmarkE4MulNonResInv(b *testing.B) {
+	var a E4
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidueInv(&a)
+	}
+}
 func BenchmarkE4Conjugate(b *testing.B) {
 	var a E4
 	a.SetRandom()
