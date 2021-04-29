@@ -14,7 +14,7 @@ func (z *E24) Expt(x *E24) *E24 {
 
 	l := bits.Len64(tAbsVal) - 2
 	for i := l; i >= 0; i-- {
-		result.Square(&result)
+		result.CyclotomicSquare(&result)
 		if tAbsVal&(1<<uint(i)) != 0 {
 			result.Mul(&result, x)
 		}

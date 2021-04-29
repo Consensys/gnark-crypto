@@ -73,7 +73,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
     t[0].Expt(&result)
     t[1].Expt(&t[0])
     t[0].InverseUnitary(&t[0])
-    t[0].Square(&t[0])
+    t[0].CyclotomicSquare(&t[0])
     t[0].Mul(&t[0], &t[1])
     t[0].Mul(&t[0], &result)
     t[1].Expt(&t[0])
@@ -85,7 +85,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
     t[5].Expt(&t[4])
     t[6].Expt(&t[5])
     t[7].Expt(&t[6])
-    t[8].Square(&result)
+    t[8].CyclotomicSquare(&result)
     t[8].Mul(&result, &t[8])
     t[7].Mul(&t[7], &t[8])
 
