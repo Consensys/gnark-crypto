@@ -405,6 +405,17 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
+		func(a *E2) bool {
+			var b, c E2
+			b.Neg(a)
+			c.A0.Neg(&a.A0)
+			c.A1.Neg(&a.A1)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 	if supportAdx {
