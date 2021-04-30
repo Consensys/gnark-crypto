@@ -27,10 +27,8 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	a.Double(&c).Double(&a)
-	z.A0.Double(&a).Add(&z.A0, &a).Add(&z.A0, &c)
-
-	z.A0.Add(&z.A0, &b)
+	fp.MulBy13(&c)
+	z.A0.Add(&c, &b)
 	return z
 }
 
@@ -52,11 +50,10 @@ func (z *E2) Square(x *E2) *E2 {
 
 // MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var c0 fp.Element
 	a := x.A0
-	b := x.A1 // fetching x.A1 in the function below is slower
-	c0.Double(&b).Double(&c0)
-	z.A0.Double(&c0).Add(&z.A0, &c0).Add(&z.A0, &b)
+	b := x.A1
+	fp.MulBy13(&b)
+	z.A0 = b
 	z.A1 = a
 	return z
 }
@@ -80,14 +77,13 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
 	//var a, b, t0, t1, tmp fp.Element
-	var t0, t1, t2, tmp fp.Element
+	var t0, t1 fp.Element
 	a := &x.A0 // creating the buffers a, b is faster than querying &x.A0, &x.A1 in the functions call below
 	b := &x.A1
 	t0.Square(a)
 	t1.Square(b)
-	t2.Double(&t1).Double(&t2)
-	tmp.Double(&t2).Add(&tmp, &t2).Add(&tmp, &t1)
-	t0.Sub(&t0, &tmp)
+	fp.MulBy13(&t1)
+	t0.Sub(&t0, &t1)
 	t1.Inverse(&t0)
 	z.A0.Mul(a, &t1)
 	z.A1.Mul(b, &t1).Neg(&z.A1)
