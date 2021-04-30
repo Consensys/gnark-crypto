@@ -431,7 +431,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 			}
 

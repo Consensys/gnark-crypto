@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
+	gecc "github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
@@ -46,6 +47,10 @@ func main() {
 			// generate base field
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
+
+			if conf.ID() == gecc.BLS24_315 {
+				return // TODO temporary we just generate field arithmetic;
+			}
 
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))

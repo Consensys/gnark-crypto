@@ -28,7 +28,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	a.Double(&c).Double(&a)
-	z.A0.Double(&a).AddAssign(&a).AddAssign(&c)
+	z.A0.Double(&a).Add(&z.A0, &a).Add(&z.A0, &c)
 
 	z.A0.Add(&z.A0, &b)
 	return z
@@ -39,13 +39,13 @@ func (z *E2) Square(x *E2) *E2 {
 	//algo 22 https://eprint.iacr.org/2010/354.pdf
 	var c0, c2 fp.Element
 	c0.Double(&x.A1).Double(&c0)
-	c2.Double(&c0).AddAssign(&c0).AddAssign(&x.A1).
-		AddAssign(&x.A0)
+	c2.Double(&c0).Add(&c2, &c0).Add(&c2, &x.A1).
+		Add(&c2, &x.A0)
 	c0.Add(&x.A0, &x.A1)
 	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2)
 	z.A1.Mul(&x.A0, &x.A1).Double(&z.A1)
 	c2.Double(&z.A1).Double(&c2).Double(&c2) // 8 z.A1
-	z.A0.Sub(&c0, &c2).AddAssign(&z.A1)
+	z.A0.Sub(&c0, &c2).Add(&z.A0, &z.A1)
 
 	return z
 }
@@ -56,7 +56,7 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 	a := x.A0
 	b := x.A1 // fetching x.A1 in the function below is slower
 	c0.Double(&b).Double(&c0)
-	z.A0.Double(&c0).AddAssign(&c0).AddAssign(&b)
+	z.A0.Double(&c0).Add(&z.A0, &c0).Add(&z.A0, &b)
 	z.A1 = a
 	return z
 }
@@ -86,7 +86,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 	t0.Square(a)
 	t1.Square(b)
 	t2.Double(&t1).Double(&t2)
-	tmp.Double(&t2).AddAssign(&t2).AddAssign(&t1)
+	tmp.Double(&t2).Add(&tmp, &t2).Add(&tmp, &t1)
 	t0.Sub(&t0, &tmp)
 	t1.Inverse(&t0)
 	z.A0.Mul(a, &t1)
@@ -100,6 +100,6 @@ func (z *E2) norm(x *fp.Element) {
 	var tmp0, tmp1 fp.Element
 	x.Square(&z.A1)
 	tmp0.Double(x).Double(&tmp0)
-	tmp1.Double(&tmp0).AddAssign(&tmp0).AddAssign(x)
+	tmp1.Double(&tmp0).Add(&tmp1, &tmp0).Add(&tmp1, x)
 	x.Square(&z.A0).Sub(x, &tmp1)
 }
