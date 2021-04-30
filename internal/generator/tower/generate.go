@@ -17,20 +17,20 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return nil
 	}
 
-	entries := []bavard.EntryF{
-		{File: filepath.Join(baseDir, "e2.go"), TemplateF: []string{"fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6.go"), TemplateF: []string{"fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12.go"), TemplateF: []string{"fq12.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e2_amd64.go"), TemplateF: []string{"amd64.fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e2_fallback.go"), TemplateF: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
-		{File: filepath.Join(baseDir, "e2_test.go"), TemplateF: []string{"tests/fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6_test.go"), TemplateF: []string{"tests/fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12_test.go"), TemplateF: []string{"tests/fq12.go.tmpl"}},
-		{File: filepath.Join(baseDir, "asm.go"), TemplateF: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
-		{File: filepath.Join(baseDir, "asm_noadx.go"), TemplateF: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "e2.go"), Templates: []string{"fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e6.go"), Templates: []string{"fq6.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e12.go"), Templates: []string{"fq12.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"amd64.fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e2_fallback.go"), Templates: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
+		{File: filepath.Join(baseDir, "e2_test.go"), Templates: []string{"tests/fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{"tests/fq6.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e12_test.go"), Templates: []string{"tests/fq12.go.tmpl"}},
+		{File: filepath.Join(baseDir, "asm.go"), Templates: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
+		{File: filepath.Join(baseDir, "asm_noadx.go"), Templates: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
 	}
 
-	if err := bgen.GenerateF(conf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
+	if err := bgen.Generate(conf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
 		return err
 	}
 

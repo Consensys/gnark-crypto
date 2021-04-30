@@ -211,25 +211,6 @@ func One() {{.ElementName}} {
 }
 
 
-// MulAssign is deprecated
-// Deprecated: use Mul instead
-func (z *{{.ElementName}}) MulAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Mul(z, x)
-}
-
-// AddAssign is deprecated
-// Deprecated: use Add instead
-func (z *{{.ElementName}}) AddAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Add(z, x)
-}
-
-// SubAssign is deprecated
-// Deprecated: use Sub instead
-func (z *{{.ElementName}}) SubAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Sub(z, x)
-}
-
-
 // API with assembly impl
 
 // Mul z = x * y mod q 
@@ -429,7 +410,9 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
 	default:
-		panic("not implemented")
+		var y {{.ElementName}}
+		y.SetUint64(uint64(c))
+		z.Mul(z, &y)
 	}
 }
 

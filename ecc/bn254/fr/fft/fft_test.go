@@ -31,7 +31,8 @@ import (
 func TestFFT(t *testing.T) {
 	const maxSize = 1 << 10
 
-	domain := NewDomain(maxSize, 0)
+	domainWithPrecompute := NewDomain(maxSize, 1, true)
+	domainWOPrecompute := NewDomain(maxSize, 1, false)
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 5
@@ -51,11 +52,67 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domain.FFT(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIF, 0)
 			BitReverse(pol)
 
-			sample := domain.Generator
+			sample := domainWithPrecompute.Generator
 			sample.Exp(sample, big.NewInt(int64(ithpower)))
+
+			eval := evaluatePolynomial(backupPol, sample)
+
+			return eval.Equal(&pol[ithpower])
+
+		},
+		gen.IntRange(0, maxSize-1),
+	))
+
+	properties.Property("DIF FFT on cosets with precomputed values should be consistent with dual basis", prop.ForAll(
+
+		// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+		func(ithpower int) bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWithPrecompute.FFT(pol, DIF, 1)
+			BitReverse(pol)
+
+			sample := domainWithPrecompute.Generator
+			sample.Exp(sample, big.NewInt(int64(ithpower))).
+				Mul(&sample, &domainWithPrecompute.FinerGenerator)
+
+			eval := evaluatePolynomial(backupPol, sample)
+
+			return eval.Equal(&pol[ithpower])
+
+		},
+		gen.IntRange(0, maxSize-1),
+	))
+
+	properties.Property("DIF FFT on cosets W/O precompute should be consistent with dual basis", prop.ForAll(
+
+		// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+		func(ithpower int) bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWOPrecompute.FFT(pol, DIF, 1)
+			BitReverse(pol)
+
+			sample := domainWOPrecompute.Generator
+			sample.Exp(sample, big.NewInt(int64(ithpower))).
+				Mul(&sample, &domainWOPrecompute.FinerGenerator)
 
 			eval := evaluatePolynomial(backupPol, sample)
 
@@ -79,9 +136,9 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domain.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
 
-			sample := domain.Generator
+			sample := domainWithPrecompute.Generator
 			sample.Exp(sample, big.NewInt(int64(ithpower)))
 
 			eval := evaluatePolynomial(backupPol, sample)
@@ -105,8 +162,58 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domain.FFT(pol, DIT, 0)
-			domain.FFTInverse(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFTInverse(pol, DIF, 0)
+			BitReverse(pol)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && pol[i].Equal(&backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on cosets, with precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			BitReverse(pol)
+			domainWithPrecompute.FFT(pol, DIT, 1)
+			domainWithPrecompute.FFTInverse(pol, DIF, 1)
+			BitReverse(pol)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && pol[i].Equal(&backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on cosets, without precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			BitReverse(pol)
+			domainWOPrecompute.FFT(pol, DIT, 1)
+			domainWOPrecompute.FFTInverse(pol, DIF, 1)
 			BitReverse(pol)
 
 			check := true
@@ -129,8 +236,54 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domain.FFTInverse(pol, DIF, 0)
-			domain.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFTInverse(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && (pol[i] == backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("DIT FFT(DIF FFT)==id on cosets, with precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWithPrecompute.FFTInverse(pol, DIF, 1)
+			domainWithPrecompute.FFT(pol, DIT, 1)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && (pol[i] == backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("DIT FFT(DIF FFT)==id on cosets, without precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWOPrecompute.FFTInverse(pol, DIF, 1)
+			domainWOPrecompute.FFT(pol, DIT, 1)
 
 			check := true
 			for i := 0; i < len(pol); i++ {
@@ -178,14 +331,30 @@ func BenchmarkFFT(b *testing.B) {
 	}
 
 	for i := 8; i < 20; i++ {
-		b.Run("fft 2**"+strconv.Itoa(i)+"bits", func(b *testing.B) {
-			sizeDomain := 1 << i
-			_pol := make([]fr.Element, sizeDomain)
+		sizeDomain := 1 << i
+		_pol := make([]fr.Element, sizeDomain)
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (no cosets)", func(b *testing.B) {
 			copy(_pol, pol)
-			domain := NewDomain(uint64(sizeDomain), 0)
+			domain := NewDomain(uint64(sizeDomain), 0, false)
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				domain.FFT(_pol, DIT, 0)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets without precomputations)", func(b *testing.B) {
+			copy(_pol, pol)
+			domain := NewDomain(uint64(sizeDomain), 1, false)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(_pol, DIT, 1)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets with precomputations)", func(b *testing.B) {
+			copy(_pol, pol)
+			domain := NewDomain(uint64(sizeDomain), 1, true)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(_pol, DIT, 1)
 			}
 		})
 	}

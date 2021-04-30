@@ -10,30 +10,11 @@
 import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"github.com/consensys/gnark-crypto/ecc"
 	"sync"
 	"math"
 	"runtime"
 )
-
-// CPUSemaphore enables users to set optional number of CPUs the multiexp will use
-// this is thread safe and can be used accross parallel calls of MultiExp
-type CPUSemaphore struct {
-	chCpus chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
-	lock sync.Mutex
-}
-
-// NewCPUSemaphore returns a new multiExp options to be used with MultiExp
-// this option can be shared between different MultiExp calls and will ensure only numCpus are used
-// through a semaphore
-func NewCPUSemaphore(numCpus int) *CPUSemaphore {
-	toReturn := &CPUSemaphore{
-		chCpus: make(chan struct{}, numCpus),
-	}
-	for i:=0; i < numCpus; i++ {
-		toReturn.chCpus <- struct{}{}
-	}
-	return toReturn
-}
 
 // selector stores the index, mask and shifts needed to select bits from a scalar
 // it is used during the multiExp algorithm or the batch scalar multiplication
@@ -140,9 +121,9 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a CPUSemaphore struct
+// optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ $.TAffine }} {
+func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *{{ $.TAffine }} {
 	var _p {{$.TJacobian}}
 	_p.MultiExp(points, scalars, opts...)
 	p.FromJacobian(&_p)
@@ -150,9 +131,9 @@ func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elemen
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a CPUSemaphore struct
+// optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, opts ...*CPUSemaphore) *{{ $.TJacobian }} {
+func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *{{ $.TJacobian }} {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -179,11 +160,11 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *CPUSemaphore
+	var opt *ecc.CPUSemaphore
 	if len(opts) > 0 {
 		opt = opts[0]
 	} else {
-		opt = NewCPUSemaphore(runtime.NumCPU())
+		opt = ecc.NewCPUSemaphore(runtime.NumCPU())
 	}
 
 	var C uint64
@@ -214,7 +195,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	// }
 
 	// take all the cpus to ourselves
-	opt.lock.Lock()
+	opt.Lock.Lock()
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
@@ -318,7 +299,7 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 
 {{range $c :=  $.CRange}}
 
-func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, opt *CPUSemaphore) *{{ $.TJacobian }} {
+func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, opt *ecc.CPUSemaphore) *{{ $.TJacobian }} {
 	{{- $frBits := mul $.FrNbWords 64}}
 	{{- $cDividesBits := divides $c $frBits}}
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
@@ -334,13 +315,13 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	chChunks[nbChunks-1] = make(chan {{ $.TJacobianExtended }}, 1)
-	<-opt.chCpus  // wait to have a cpu before scheduling
+	<-opt.ChCPU  // wait to have a cpu before scheduling
 	wg.Add(1)
 	go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
 		wg.Done()
 		var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
 		msmProcessChunk{{ $.TAffine }}(j, chRes, buckets[:], c, points, scalars)
-		opt.chCpus <- struct{}{} // release token in the semaphore
+		opt.ChCPU <- struct{}{} // release token in the semaphore
 	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
 
 	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
@@ -348,13 +329,13 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 	{{- end}}
 		chChunks[chunk] = make(chan {{ $.TJacobianExtended }}, 1)
-		<-opt.chCpus  // wait to have a cpu before scheduling
+		<-opt.ChCPU  // wait to have a cpu before scheduling
 		wg.Add(1)
 		go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
 			wg.Done()
 			var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
 			msmProcessChunk{{ $.TAffine }}(j, chRes,  buckets[:], c, points, scalars)
-			opt.chCpus <- struct{}{} // release token in the semaphore
+			opt.ChCPU <- struct{}{} // release token in the semaphore
 		}(uint64(chunk), chChunks[chunk], points, scalars)
 	}
 
@@ -362,7 +343,7 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	wg.Wait()
 
 	// all my tasks are scheduled, I can let other func use avaiable tokens in the semaphore
-	opt.lock.Unlock()
+	opt.Lock.Unlock()
 	return msmReduceChunk{{ $.TAffine }}(p, c, chChunks[:])
 }
 {{end}}

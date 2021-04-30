@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package amd64 contains syntactic sugar to generate amd64 assembly code in goff
+// Package amd64 contains syntactic sugar to generate amd64 assembly code
 package amd64
 
 import (
@@ -165,6 +165,7 @@ func Generate(w io.Writer, F *field.Field) error {
 	// mul by constants
 	f.generateMulBy3()
 	f.generateMulBy5()
+	f.generateMulBy13()
 
 	return nil
 }

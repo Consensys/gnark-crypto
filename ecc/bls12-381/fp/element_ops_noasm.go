@@ -34,6 +34,11 @@ func MulBy5(x *Element) {
 	mulByConstant(x, 5)
 }
 
+// MulBy13 x *= 13
+func MulBy13(x *Element) {
+	mulByConstant(x, 13)
+}
+
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }

@@ -14,10 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package signature defines interfaces for a signer,
-// a verifier and a signature. It eases up testing the
-// corresponding ZK implementations accross different
-// curves.
+// Package signature defines interfaces for a Signer and a PublicKey similarly to go/crypto standard package.
 package signature
 
 import (
@@ -90,8 +87,8 @@ const (
 var signatures = make([]func(io.Reader) (Signer, error), maxSignatures)
 
 // Register registers a key pair generating function for a given signature scheme.
-// We cannot import the corresponding constructors directly due to import cycles.
 func Register(ss SignatureScheme, f func(io.Reader) (Signer, error)) {
+	// we cannot import the corresponding constructors directly due to import cycles.
 	signatures[ss] = f
 }
 

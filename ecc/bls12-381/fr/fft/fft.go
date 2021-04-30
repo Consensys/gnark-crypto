@@ -50,18 +50,31 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 
 	numCPU := uint64(runtime.NumCPU())
 
+	// if coset != 0, scale by coset table
 	if coset != 0 {
-		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
+		scale := func(cosetTable []fr.Element) {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &cosetTable[i])
+				}
+			})
 		}
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTable[coset-1][i])
-			}
-		})
-		// put it back as we found it
 		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
+			if domain.PrecomputeReversedTable == 0 {
+				// no precomputed coset, we adjust the index of the coset table
+				n := uint64(len(a))
+				nn := uint64(64 - bits.TrailingZeros64(n))
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						irev := bits.Reverse64(uint64(i)) >> nn
+						a[i].Mul(&a[i], &domain.CosetTable[coset-1][int(irev)])
+					}
+				})
+			} else {
+				scale(domain.CosetTableReversed[coset-1])
+			}
+		} else {
+			scale(domain.CosetTable[coset-1])
 		}
 	}
 
@@ -107,27 +120,45 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 	}
 
 	// scale by CardinalityInv (+ cosetTableInv is coset!=0)
-	if coset != 0 {
-		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
-		}
+	if coset == 0 {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
-					MulAssign(&domain.CardinalityInv)
+				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
-		// put it back as we found it
-		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
-		}
-	} else {
+		return
+	}
+
+	scale := func(cosetTable []fr.Element) {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
-				a[i].MulAssign(&domain.CardinalityInv)
+				a[i].Mul(&a[i], &cosetTable[i]).
+					Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
 	}
+	if decimation == DIT {
+		scale(domain.CosetTableInv[coset-1])
+		return
+	}
+
+	// decimation == DIF
+	if domain.PrecomputeReversedTable != 0 {
+		scale(domain.CosetTableInvReversed[coset-1])
+		return
+	}
+
+	// no precomputed coset, we adjust the index of the coset table
+	n := uint64(len(a))
+	nn := uint64(64 - bits.TrailingZeros64(n))
+	parallel.Execute(len(a), func(start, end int) {
+		for i := start; i < end; i++ {
+			irev := bits.Reverse64(uint64(i)) >> nn
+			a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][int(irev)]).
+				Mul(&a[i], &domain.CardinalityInv)
+		}
+	})
+
 }
 
 func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
