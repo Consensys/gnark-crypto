@@ -36,9 +36,9 @@ func (z *E2) Mul(x, y *E2) *E2 {
 func (z *E2) Square(x *E2) *E2 {
 	//algo 22 https://eprint.iacr.org/2010/354.pdf
 	var c0, c2 fp.Element
-	c0.Double(&x.A1).Double(&c0)
-	c2.Double(&c0).Add(&c2, &c0).Add(&c2, &x.A1).
-		Add(&c2, &x.A0)
+	c0 = x.A1
+	fp.MulBy13(&c0)
+	c2.Add(&c0, &x.A0)
 	c0.Add(&x.A0, &x.A1)
 	c0.Mul(&c0, &c2) // (x1+x2)*(x1+(u**2)x2)
 	z.A1.Mul(&x.A0, &x.A1).Double(&z.A1)
@@ -50,11 +50,8 @@ func (z *E2) Square(x *E2) *E2 {
 
 // MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	a := x.A0
-	b := x.A1
-	fp.MulBy13(&b)
-	z.A0 = b
-	z.A1 = a
+	z.A0, z.A1 = x.A1, x.A0
+	fp.MulBy13(&z.A0)
 	return z
 }
 
