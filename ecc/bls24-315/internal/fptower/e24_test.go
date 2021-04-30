@@ -331,11 +331,11 @@ func TestE24Ops(t *testing.T) {
 
 			seed.SetString("3218079743", 10)
 
-            t.Conjugate(a)
-            a.Inverse(a)
-            t.Mul(&t, a)
-            a.FrobeniusQuad(&t).
-                Mul(a, &t)
+			t.Conjugate(a)
+			a.Inverse(a)
+			t.Mul(&t, a)
+			a.FrobeniusQuad(&t).
+				Mul(a, &t)
 
 			b.Exp(a, seed).Conjugate(&b) // seed is negative
 			c.Expt(a)
