@@ -168,7 +168,7 @@ func (fq2 *Fq2Amd64) generateNegE2() {
 
 	// if x == 0, we set the result to zero and continue
 	for i := 0; i < fq2.NbWords; i++ {
-		fq2.MOVQ(x, r.At(i+fq2.NbWords))
+		fq2.MOVQ(x, r.At(i))
 	}
 	fq2.JMP(B)
 
