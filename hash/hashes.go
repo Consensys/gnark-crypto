@@ -33,6 +33,7 @@ const (
 	MIMC_BLS12_381
 	MIMC_BLS12_377
 	MIMC_BW6_761
+	MIMC_BLS24_315
 )
 
 // size of digests in bytes
@@ -41,6 +42,7 @@ var digestSize = []uint8{
 	MIMC_BLS12_381: 48,
 	MIMC_BLS12_377: 48,
 	MIMC_BW6_761:   96,
+	MIMC_BLS24_315: 48, // TODO
 }
 
 // New creates the corresponding mimc hash function.
