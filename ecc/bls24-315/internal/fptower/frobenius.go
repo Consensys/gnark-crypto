@@ -16,6 +16,28 @@ package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 
+// Frobenius sets z in E4 to x^q, returns z
+func (z *E4) Frobenius(x *E4) *E4 {
+
+	var t [2]E2
+
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+
+	t[0].Conjugate(&x.B0)
+	t[1].Conjugate(&x.B1).MulByElement(&t[1], &frobCoeffA)
+
+	z.B0 = t[0]
+	z.B1 = t[1]
+
+	return z
+}
+
 // Frobenius sets z in E24 to x^q, returns z
 func (z *E24) Frobenius(x *E24) *E24 {
 
