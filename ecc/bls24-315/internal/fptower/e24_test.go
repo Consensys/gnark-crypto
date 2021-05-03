@@ -161,51 +161,11 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-315] Having the receiver as operand (frobenius cube) should output the same result", prop.ForAll(
-		func(a *E24) bool {
-			var b E24
-			b.FrobeniusCube(a)
-			a.FrobeniusCube(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[BLS24-315] Having the receiver as operand (frobenius quad) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.FrobeniusQuad(a)
 			a.FrobeniusQuad(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Five) should output the same result", prop.ForAll(
-		func(a *E24) bool {
-			var b E24
-			b.FrobeniusFive(a)
-			a.FrobeniusFive(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Six) should output the same result", prop.ForAll(
-		func(a *E24) bool {
-			var b E24
-			b.FrobeniusSix(a)
-			a.FrobeniusSix(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Having the receiver as operand (frobenius Seven) should output the same result", prop.ForAll(
-		func(a *E24) bool {
-			var b E24
-			b.FrobeniusSeven(a)
-			a.FrobeniusSeven(a)
 			return a.Equal(&b)
 		},
 		genA,
@@ -367,56 +327,12 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-315] FrobeniusCube of x in E24 should be equal to x^(q^3)", prop.ForAll(
-		func(a *E24) bool {
-			var b, c E24
-			q := fp.Modulus()
-			b.FrobeniusCube(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[BLS24-315] FrobeniusQuad of x in E24 should be equal to x^(q^4)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
 			q := fp.Modulus()
 			b.FrobeniusQuad(a)
 			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusFive of x in E24 should be equal to x^(q^5)", prop.ForAll(
-		func(a *E24) bool {
-			var b, c E24
-			q := fp.Modulus()
-			b.FrobeniusFive(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSix of x in E24 should be equal to x^(q^6)", prop.ForAll(
-		func(a *E24) bool {
-			var b, c E24
-			q := fp.Modulus()
-			b.FrobeniusSix(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSeven of x in E24 should be equal to x^(q^7)", prop.ForAll(
-		func(a *E24) bool {
-			var b, c E24
-			q := fp.Modulus()
-			b.FrobeniusSeven(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
 		},
 		genA,
