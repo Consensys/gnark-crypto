@@ -19,7 +19,6 @@ package fptower
 import (
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -236,72 +235,6 @@ func TestE4Ops(t *testing.T) {
 			var b E4
 			b.MulByNonResidue(a).MulByNonResidueInv(&b)
 			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Frobenius of x in E4 should be equal to x^q", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.Frobenius(a)
-			c.Exp(a, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSquare of x in E4 should be equal to x^(q^2)", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.FrobeniusSquare(a)
-			c.Exp(a, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusCube of x in E4 should be equal to x^(q^3)", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.FrobeniusCube(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusFive of x in E4 should be equal to x^(q^5)", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.FrobeniusFive(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSix of x in E4 should be equal to x^(q^6)", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.FrobeniusSix(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSeven of x in E4 should be equal to x^(q^7)", prop.ForAll(
-		func(a *E4) bool {
-			var b, c E4
-			q := fp.Modulus()
-			b.FrobeniusSeven(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
 		},
 		genA,
 	))

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     http://wwwApache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,163 +16,114 @@ package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 
-var frobCoeff struct {
-	a fp.Element
-	b fp.Element
-	c fp.Element
-	d fp.Element
-	e fp.Element
-	f fp.Element
-	g fp.Element
-	h fp.Element
-	i fp.Element
-	j fp.Element
-	k fp.Element
-	l fp.Element
-}
+// Frobenius sets z in E24 to x^q, returns z
+func (z *E24) Frobenius(x *E24) *E24 {
 
-func init() {
-	frobCoeff.a = fp.Element{
+	var t [12]E2
+
+	frobCoeffA := fp.Element{
 		18078622854523849680,
 		1984927455914812303,
 		2087856039593753391,
 		10384413649565796150,
 		62117205619808039,
 	}
-	frobCoeff.b = fp.Element{
+	frobCoeffB := fp.Element{
 		16303043965024461850,
 		18121025051155953387,
 		13066506537353112078,
 		1182352075644000644,
 		250600645981871933,
 	}
-	frobCoeff.c = fp.Element{
+	frobCoeffC := fp.Element{
 		7336511025221188090,
 		2603771785376329468,
 		6562537755091890776,
 		9030934061021684028,
 		49077327029958380,
 	}
-	frobCoeff.d = fp.Element{
+	frobCoeffD := fp.Element{
 		2418585497346853195,
 		4985300007263584554,
 		14090834255033678869,
 		8443077587606433532,
 		99465464973580433,
 	}
-	frobCoeff.e = fp.Element{
+	frobCoeffE := fp.Element{
 		16266452697653617742,
 		3469624274549632133,
 		1532064828142410068,
 		17281049885654821422,
 		214020232334507350,
 	}
-	frobCoeff.f = fp.Element{
+	frobCoeffF := fp.Element{
 		319632480799633719,
 		12918588655636006616,
 		7080179244737088245,
 		5761903421758065752,
 		223741986209306126,
 	}
-	frobCoeff.g = fp.Element{
+	frobCoeffG := fp.Element{
 		8984310047302919300,
 		2498109052167961353,
 		1307418789688509602,
 		11960473000634917703,
 		283892625570574947,
 	}
-	frobCoeff.h = fp.Element{
+	frobCoeffH := fp.Element{
 		7656143506020821809,
 		15522360441012336084,
 		13642716999828979021,
 		14792837482779749780,
 		272819313239264506,
 	}
-	frobCoeff.i = fp.Element{
+	frobCoeffI := fp.Element{
 		5276991711591121542,
 		1764125630309599080,
 		4048361144298871290,
 		17215093588476212969,
 		305552045589664998,
 	}
-	frobCoeff.j = fp.Element{
-		11164601423358853174,
-		17475228851327880835,
-		18222098035255651149,
-		13126167188689647896,
-		69872393236067596,
-	}
-	frobCoeff.k = fp.Element{
+	frobCoeffK := fp.Element{
 		2851480573204638815,
 		1335734525939490983,
 		5345966389475061568,
 		16856815570427136360,
 		235013868839987029,
 	}
-	frobCoeff.l = fp.Element{
-		5645112930776823478,
-		18225942248104338392,
-		1960505104705117898,
-		6830679938910416819,
-		243434839969856959,
+	frobCoeffFD := fp.Element{
+		13058879110013405254,
+		6425951730151460541,
+		8330799211860746257,
+		12501476947590434451,
+		327313527801552489,
 	}
-}
 
-// Frobenius sets z in E2 to x^q, returns z
-func (z *E2) Frobenius(x *E2) *E2 {
+	t[0].Conjugate(&x.D0.C0.B0)
+	t[1].Conjugate(&x.D0.C0.B1).MulByElement(&t[1], &frobCoeffA)
+	t[2].Conjugate(&x.D0.C1.B0).MulByElement(&t[2], &frobCoeffB)
+	t[3].Conjugate(&x.D0.C1.B1).MulByElement(&t[3], &frobCoeffF)
+	t[4].Conjugate(&x.D1.C0.B0).MulByElement(&t[4], &frobCoeffC)
+	t[5].Conjugate(&x.D1.C0.B1).MulByElement(&t[5], &frobCoeffK)
+	t[6].Conjugate(&x.D1.C1.B0).MulByElement(&t[6], &frobCoeffE)
+	t[7].Conjugate(&x.D1.C1.B1).MulByElement(&t[7], &frobCoeffI)
+	t[8].Conjugate(&x.D2.C0.B0).MulByElement(&t[8], &frobCoeffD)
+	t[9].Conjugate(&x.D2.C0.B1).MulByElement(&t[9], &frobCoeffG)
+	t[10].Conjugate(&x.D2.C1.B0).MulByElement(&t[10], &frobCoeffH)
+	t[11].Conjugate(&x.D2.C1.B1).MulByElement(&t[11], &frobCoeffFD)
 
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// Frobenius sets z in E4 to x^q, returns z
-func (z *E4) Frobenius(x *E4) *E4 {
-
-	z.Set(x)
-	z.B0.Frobenius(&z.B0)
-	z.B1.Frobenius(&z.B1).MulByElement(&z.B1, &frobCoeff.a)
-
-	return z
-}
-
-// Frobenius sets z in E8 to x^q, returns z
-func (z *E8) Frobenius(x *E8) *E8 {
-
-	z.Set(x)
-	z.C0.Frobenius(&z.C0)
-	z.C1.Frobenius(&z.C1).MulByElement(&z.C1, &frobCoeff.b)
-
-	return z
-}
-
-// Frobenius sets z in E24 to x^q, returns z
-func (z *E24) Frobenius(x *E24) *E24 {
-
-	z.Set(x)
-	z.D0.Frobenius(&z.D0)
-	z.D1.Frobenius(&z.D1).MulByElement(&z.D1, &frobCoeff.c)
-	z.D2.Frobenius(&z.D2).MulByElement(&z.D2, &frobCoeff.d)
-
-	return z
-}
-
-// FrobeniusSquare sets z in E4 to x^q2, returns z
-func (z *E4) FrobeniusSquare(x *E4) *E4 {
-
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// FrobeniusSquare sets z in E8 to x^q2, returns z
-func (z *E8) FrobeniusSquare(x *E8) *E8 {
-
-	z.Set(x)
-	z.C0.FrobeniusSquare(&z.C0)
-	z.C1.FrobeniusSquare(&z.C1).MulByElement(&z.C1, &frobCoeff.a)
+	z.D0.C0.B0 = t[0]
+	z.D0.C0.B1 = t[1]
+	z.D0.C1.B0 = t[2]
+	z.D0.C1.B1 = t[3]
+	z.D1.C0.B0 = t[4]
+	z.D1.C0.B1 = t[5]
+	z.D1.C1.B0 = t[6]
+	z.D1.C1.B1 = t[7]
+	z.D2.C0.B0 = t[8]
+	z.D2.C0.B1 = t[9]
+	z.D2.C1.B0 = t[10]
+	z.D2.C1.B1 = t[11]
 
 	return z
 }
@@ -180,38 +131,57 @@ func (z *E8) FrobeniusSquare(x *E8) *E8 {
 // FrobeniusSquare sets z in E24 to x^q2, returns z
 func (z *E24) FrobeniusSquare(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusSquare(&z.D0)
-	z.D1.FrobeniusSquare(&z.D1).MulByElement(&z.D1, &frobCoeff.d)
-	z.D2.FrobeniusSquare(&z.D2).MulByElement(&z.D2, &frobCoeff.e)
+	var t [6]E4
 
-	return z
-}
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+	frobCoeffD := fp.Element{
+		2418585497346853195,
+		4985300007263584554,
+		14090834255033678869,
+		8443077587606433532,
+		99465464973580433,
+	}
+	frobCoeffE := fp.Element{
+		16266452697653617742,
+		3469624274549632133,
+		1532064828142410068,
+		17281049885654821422,
+		214020232334507350,
+	}
+	frobCoeffG := fp.Element{
+		8984310047302919300,
+		2498109052167961353,
+		1307418789688509602,
+		11960473000634917703,
+		283892625570574947,
+	}
+	frobCoeffI := fp.Element{
+		5276991711591121542,
+		1764125630309599080,
+		4048361144298871290,
+		17215093588476212969,
+		305552045589664998,
+	}
 
-// FrobeniusCube sets z in E2 to x^q3, returns z
-func (z *E2) FrobeniusCube(x *E2) *E2 {
+	t[0].Conjugate(&x.D0.C0)
+	t[1].Conjugate(&x.D0.C1).MulByElement(&t[1], &frobCoeffA)
+	t[2].Conjugate(&x.D1.C0).MulByElement(&t[2], &frobCoeffD)
+	t[3].Conjugate(&x.D1.C1).MulByElement(&t[3], &frobCoeffG)
+	t[4].Conjugate(&x.D2.C0).MulByElement(&t[4], &frobCoeffE)
+	t[5].Conjugate(&x.D2.C1).MulByElement(&t[5], &frobCoeffI)
 
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// FrobeniusCube sets z in E4 to x^q3, returns z
-func (z *E4) FrobeniusCube(x *E4) *E4 {
-
-	z.Set(x)
-	z.Conjugate(z).Frobenius(z)
-
-	return z
-}
-
-// FrobeniusCube sets z in E8 to x^q3, returns z
-func (z *E8) FrobeniusCube(x *E8) *E8 {
-
-	z.Set(x)
-	z.C0.FrobeniusCube(&z.C0)
-	z.C1.FrobeniusCube(&z.C1).MulByElement(&z.C1, &frobCoeff.f)
+	z.D0.C0 = t[0]
+	z.D0.C1 = t[1]
+	z.D1.C0 = t[2]
+	z.D1.C1 = t[3]
+	z.D2.C0 = t[4]
+	z.D2.C1 = t[5]
 
 	return z
 }
@@ -219,19 +189,96 @@ func (z *E8) FrobeniusCube(x *E8) *E8 {
 // FrobeniusCube sets z in E24 to x^q3, returns z
 func (z *E24) FrobeniusCube(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusCube(&z.D0)
-	z.D1.FrobeniusCube(&z.D1).MulByElement(&z.D1, &frobCoeff.b)
-	z.D2.FrobeniusCube(&z.D2).MulByElement(&z.D2, &frobCoeff.a)
+	var t [12]fp.Element
+	var l [6]E2
 
-	return z
-}
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+	frobCoeffB := fp.Element{
+		16303043965024461850,
+		18121025051155953387,
+		13066506537353112078,
+		1182352075644000644,
+		250600645981871933,
+	}
+	frobCoeffF := fp.Element{
+		319632480799633719,
+		12918588655636006616,
+		7080179244737088245,
+		5761903421758065752,
+		223741986209306126,
+	}
+	frobCoeffJ := fp.Element{
+		11164601423358853174,
+		17475228851327880835,
+		18222098035255651149,
+		13126167188689647896,
+		69872393236067596,
+	}
+	frobCoeffAF := fp.Element{
+		10207398536808766439,
+		5090217204211969558,
+		2984832822385684689,
+		14091405450872849707,
+		92299658961565459,
+	}
+	frobCoeffAJ := fp.Element{
+		8431819647309378609,
+		2779570725743559026,
+		13963483320145043377,
+		4889343876951054201,
+		280783099323629353,
+	}
+	frobCoeffJF := fp.Element{
+		7744065947324042954,
+		10292653599731916330,
+		8971160115001708522,
+		9511854104758784599,
+		119158318734131266,
+	}
 
-// FrobeniusQuad sets z in E8 to x^q4, returns z
-func (z *E8) FrobeniusQuad(x *E8) *E8 {
+	l[0].Conjugate(&x.D0.C0.B0)
+	t[0].Mul(&x.D0.C0.B1.A0, &frobCoeffA).Neg(&t[0])
+	t[1].Mul(&x.D0.C0.B1.A1, &frobCoeffA)
+	l[1].Conjugate(&x.D0.C1.B0).MulByElement(&l[1], &frobCoeffF)
+	t[2].Mul(&x.D0.C1.B1.A0, &frobCoeffAF).Neg(&t[2])
+	t[3].Mul(&x.D0.C1.B1.A1, &frobCoeffAF)
+	l[2].Conjugate(&x.D1.C0.B0).MulByElement(&l[2], &frobCoeffB)
+	t[4].Mul(&x.D1.C0.B1.A0, &frobCoeffF).Neg(&t[4])
+	t[5].Mul(&x.D1.C0.B1.A1, &frobCoeffF)
+	l[3].Conjugate(&x.D1.C1.B0).MulByElement(&l[3], &frobCoeffJ)
+	t[6].Mul(&x.D1.C1.B1.A0, &frobCoeffAJ).Neg(&t[6])
+	t[7].Mul(&x.D1.C1.B1.A1, &frobCoeffAJ)
+	l[4].Conjugate(&x.D2.C0.B0).MulByElement(&l[4], &frobCoeffA)
+	t[8].Mul(&x.D2.C0.B1.A0, &frobCoeffJ).Neg(&t[8])
+	t[9].Mul(&x.D2.C0.B1.A1, &frobCoeffJ)
+	l[5].Conjugate(&x.D2.C1.B0).MulByElement(&l[5], &frobCoeffAF)
+	t[10].Mul(&x.D2.C1.B1.A0, &frobCoeffJF).Neg(&t[10])
+	t[11].Mul(&x.D2.C1.B1.A1, &frobCoeffJF)
 
-	z.Set(x)
-	z.Conjugate(z)
+	z.D0.C0.B0 = l[0]
+	z.D0.C0.B1.A0 = t[0]
+	z.D0.C0.B1.A1 = t[1]
+	z.D0.C1.B0 = l[1]
+	z.D0.C1.B1.A0 = t[2]
+	z.D0.C1.B1.A1 = t[3]
+	z.D1.C0.B0 = l[2]
+	z.D1.C0.B1.A0 = t[4]
+	z.D1.C0.B1.A1 = t[5]
+	z.D1.C1.B0 = l[3]
+	z.D1.C1.B1.A0 = t[6]
+	z.D1.C1.B1.A1 = t[7]
+	z.D2.C0.B0 = l[4]
+	z.D2.C0.B1.A0 = t[8]
+	z.D2.C0.B1.A1 = t[9]
+	z.D2.C1.B0 = l[5]
+	z.D2.C1.B1.A0 = t[10]
+	z.D2.C1.B1.A1 = t[11]
 
 	return z
 }
@@ -239,37 +286,30 @@ func (z *E8) FrobeniusQuad(x *E8) *E8 {
 // FrobeniusQuad sets z in E24 to x^q4, returns z
 func (z *E24) FrobeniusQuad(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusQuad(&z.D0)
-	z.D1.FrobeniusQuad(&z.D1).MulByElement(&z.D1, &frobCoeff.e)
-	z.D2.FrobeniusQuad(&z.D2).MulByElement(&z.D2, &frobCoeff.g)
+	var t [3]E8
 
-	return z
-}
+	frobCoeffE := fp.Element{
+		16266452697653617742,
+		3469624274549632133,
+		1532064828142410068,
+		17281049885654821422,
+		214020232334507350,
+	}
+	frobCoeffG := fp.Element{
+		8984310047302919300,
+		2498109052167961353,
+		1307418789688509602,
+		11960473000634917703,
+		283892625570574947,
+	}
 
-// FrobeniusFive sets z in E2 to x^q5, returns z
-func (z *E2) FrobeniusFive(x *E2) *E2 {
+	t[0].Conjugate(&x.D0)
+	t[1].Conjugate(&x.D1).MulByElement(&t[1], &frobCoeffE)
+	t[2].Conjugate(&x.D2).MulByElement(&t[2], &frobCoeffG)
 
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// FrobeniusFive sets z in E4 to x^q5, returns z
-func (z *E4) FrobeniusFive(x *E4) *E4 {
-
-	z.Set(x)
-	z.Frobenius(z)
-
-	return z
-}
-
-// FrobeniusFive sets z in E8 to x^q5, returns z
-func (z *E8) FrobeniusFive(x *E8) *E8 {
-
-	z.Set(x)
-	z.Conjugate(z).Frobenius(z)
+	z.D0 = t[0]
+	z.D1 = t[1]
+	z.D2 = t[2]
 
 	return z
 }
@@ -277,28 +317,124 @@ func (z *E8) FrobeniusFive(x *E8) *E8 {
 // FrobeniusFive sets z in E24 to x^q5, returns z
 func (z *E24) FrobeniusFive(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusFive(&z.D0)
-	z.D1.FrobeniusFive(&z.D1).MulByElement(&z.D1, &frobCoeff.h)
-	z.D2.FrobeniusFive(&z.D2).MulByElement(&z.D2, &frobCoeff.i)
+	var t [12]fp.Element
+	var l [6]E2
 
-	return z
-}
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+	frobCoeffB := fp.Element{
+		16303043965024461850,
+		18121025051155953387,
+		13066506537353112078,
+		1182352075644000644,
+		250600645981871933,
+	}
+	frobCoeffH := fp.Element{
+		7656143506020821809,
+		15522360441012336084,
+		13642716999828979021,
+		14792837482779749780,
+		272819313239264506,
+	}
+	frobCoeffI := fp.Element{
+		5276991711591121542,
+		1764125630309599080,
+		4048361144298871290,
+		17215093588476212969,
+		305552045589664998,
+	}
+	frobCoeffF := fp.Element{
+		319632480799633719,
+		12918588655636006616,
+		7080179244737088245,
+		5761903421758065752,
+		223741986209306126,
+	}
+	frobCoeffG := fp.Element{
+		8984310047302919300,
+		2498109052167961353,
+		1307418789688509602,
+		11960473000634917703,
+		283892625570574947,
+	}
+	frobCoeffL := fp.Element{
+		5645112930776823478,
+		18225942248104338392,
+		1960505104705117898,
+		6830679938910416819,
+		243434839969856959,
+	}
+	frobCoeffFD := fp.Element{
+		13058879110013405254,
+		6425951730151460541,
+		8330799211860746257,
+		12501476947590434451,
+		327313527801552489,
+	}
+	frobCoeffAI := fp.Element{
+		10243989804179610547,
+		1294873907108739196,
+		14519274531596386700,
+		16439451714571580545,
+		128880072608930041,
+	}
+	frobCoeffBI := fp.Element{
+		727187402902488583,
+		2160726396282041862,
+		9488801604646905992,
+		6242823465495166323,
+		293822977913479012,
+	}
+	frobCoeffFI := fp.Element{
+		5212217854919037858,
+		3428763655718880347,
+		10705372970263735200,
+		16863686029799265607,
+		107886436103450362,
+	}
 
-// FrobeniusSix sets z in E4 to x^q6, returns z
-func (z *E4) FrobeniusSix(x *E4) *E4 {
+	l[0].Conjugate(&x.D0.C0.B0)
+	l[1].Conjugate(&x.D0.C0.B1).MulByElement(&l[1], &frobCoeffA)
+	t[0].Mul(&x.D0.C1.B0.A0, &frobCoeffB).Neg(&t[0])
+	t[1].Mul(&x.D0.C1.B0.A1, &frobCoeffB)
+	t[2].Mul(&x.D0.C1.B1.A0, &frobCoeffF).Neg(&t[2])
+	t[3].Mul(&x.D0.C1.B1.A1, &frobCoeffF)
+	l[2].Conjugate(&x.D1.C0.B0).MulByElement(&l[2], &frobCoeffH)
+	l[3].Conjugate(&x.D1.C0.B1).MulByElement(&l[3], &frobCoeffFD)
+	t[4].Mul(&x.D1.C1.B0.A0, &frobCoeffG).Neg(&t[4])
+	t[5].Mul(&x.D1.C1.B0.A1, &frobCoeffG)
+	t[6].Mul(&x.D1.C1.B1.A0, &frobCoeffL).Neg(&t[6])
+	t[7].Mul(&x.D1.C1.B1.A1, &frobCoeffL)
+	l[4].Conjugate(&x.D2.C0.B0).MulByElement(&l[4], &frobCoeffI)
+	l[5].Conjugate(&x.D2.C0.B1).MulByElement(&l[5], &frobCoeffAI)
+	t[8].Mul(&x.D2.C1.B0.A0, &frobCoeffBI).Neg(&t[8])
+	t[9].Mul(&x.D2.C1.B0.A1, &frobCoeffBI)
+	t[10].Mul(&x.D2.C1.B1.A0, &frobCoeffFI).Neg(&t[10])
+	t[11].Mul(&x.D2.C1.B1.A1, &frobCoeffFI)
 
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// FrobeniusSix sets z in E8 to x^q6, returns z
-func (z *E8) FrobeniusSix(x *E8) *E8 {
-
-	z.Set(x)
-	z.Conjugate(z).FrobeniusSquare(z)
+	z.D0.C0.B0 = l[0]
+	z.D0.C0.B1 = l[1]
+	z.D0.C1.B0.A0 = t[0]
+	z.D0.C1.B0.A1 = t[1]
+	z.D0.C1.B1.A0 = t[2]
+	z.D0.C1.B1.A1 = t[3]
+	z.D1.C0.B0 = l[2]
+	z.D1.C0.B1 = l[3]
+	z.D1.C1.B0.A0 = t[4]
+	z.D1.C1.B0.A1 = t[5]
+	z.D1.C1.B1.A0 = t[6]
+	z.D1.C1.B1.A1 = t[7]
+	z.D2.C0.B0 = l[4]
+	z.D2.C0.B1 = l[5]
+	z.D2.C1.B0.A0 = t[8]
+	z.D2.C1.B0.A1 = t[9]
+	z.D2.C1.B1.A0 = t[10]
+	z.D2.C1.B1.A1 = t[11]
 
 	return z
 }
@@ -306,37 +442,50 @@ func (z *E8) FrobeniusSix(x *E8) *E8 {
 // FrobeniusSix sets z in E24 to x^q6, returns z
 func (z *E24) FrobeniusSix(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusSix(&z.D0)
-	z.D1.FrobeniusSix(&z.D1).MulByElement(&z.D1, &frobCoeff.a)
-	z.D2.FrobeniusSix(&z.D2).MulByElement(&z.D2, &frobCoeff.j)
+	var l [3]E4
+	var t [6]E2
 
-	return z
-}
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+	frobCoeffJ := fp.Element{
+		11164601423358853174,
+		17475228851327880835,
+		18222098035255651149,
+		13126167188689647896,
+		69872393236067596,
+	}
+	frobCoeffAJ := fp.Element{
+		8431819647309378609,
+		2779570725743559026,
+		13963483320145043377,
+		4889343876951054201,
+		280783099323629353,
+	}
 
-// FrobeniusSeven sets z in E2 to x^q7, returns z
-func (z *E2) FrobeniusSeven(x *E2) *E2 {
+	l[0].Conjugate(&x.D0.C0)
+	t[0].MulByElement(&x.D0.C1.B0, &frobCoeffA).Neg(&t[0])
+	t[1].MulByElement(&x.D0.C1.B1, &frobCoeffA)
+	l[1].Conjugate(&x.D1.C0).MulByElement(&l[1], &frobCoeffA)
+	t[2].MulByElement(&x.D1.C1.B0, &frobCoeffJ).Neg(&t[2])
+	t[3].MulByElement(&x.D1.C1.B1, &frobCoeffJ)
+	l[2].Conjugate(&x.D2.C0).MulByElement(&l[2], &frobCoeffJ)
+	t[4].MulByElement(&x.D2.C1.B0, &frobCoeffAJ).Neg(&t[4])
+	t[5].MulByElement(&x.D2.C1.B1, &frobCoeffAJ)
 
-	z.Set(x)
-	z.Conjugate(z)
-
-	return z
-}
-
-// FrobeniusSeven sets z in E4 to x^q7, returns z
-func (z *E4) FrobeniusSeven(x *E4) *E4 {
-
-	z.Set(x)
-	z.FrobeniusCube(z)
-
-	return z
-}
-
-// FrobeniusSeven sets z in E8 to x^q7, returns z
-func (z *E8) FrobeniusSeven(x *E8) *E8 {
-
-	z.Set(x)
-	z.Conjugate(z).FrobeniusCube(z)
+	z.D0.C0 = l[0]
+	z.D0.C1.B0 = t[0]
+	z.D0.C1.B1 = t[1]
+	z.D1.C0 = l[1]
+	z.D1.C1.B0 = t[2]
+	z.D1.C1.B1 = t[3]
+	z.D2.C0 = l[2]
+	z.D2.C1.B0 = t[4]
+	z.D2.C1.B1 = t[5]
 
 	return z
 }
@@ -344,10 +493,124 @@ func (z *E8) FrobeniusSeven(x *E8) *E8 {
 // FrobeniusSeven sets z in E24 to x^q6, returns z
 func (z *E24) FrobeniusSeven(x *E24) *E24 {
 
-	z.Set(x)
-	z.D0.FrobeniusSeven(&z.D0)
-	z.D1.FrobeniusSeven(&z.D1).MulByElement(&z.D1, &frobCoeff.k)
-	z.D2.FrobeniusSeven(&z.D2).MulByElement(&z.D2, &frobCoeff.l)
+	var t [12]fp.Element
+	var l [6]E2
+
+	frobCoeffA := fp.Element{
+		18078622854523849680,
+		1984927455914812303,
+		2087856039593753391,
+		10384413649565796150,
+		62117205619808039,
+	}
+	frobCoeffF := fp.Element{
+		319632480799633719,
+		12918588655636006616,
+		7080179244737088245,
+		5761903421758065752,
+		223741986209306126,
+	}
+	frobCoeffK := fp.Element{
+		2851480573204638815,
+		1335734525939490983,
+		5345966389475061568,
+		16856815570427136360,
+		235013868839987029,
+	}
+	frobCoeffL := fp.Element{
+		5645112930776823478,
+		18225942248104338392,
+		1960505104705117898,
+		6830679938910416819,
+		243434839969856959,
+	}
+	frobCoeffH := fp.Element{
+		7656143506020821809,
+		15522360441012336084,
+		13642716999828979021,
+		14792837482779749780,
+		272819313239264506,
+	}
+	frobCoeffAF := fp.Element{
+		10207398536808766439,
+		5090217204211969558,
+		2984832822385684689,
+		14091405450872849707,
+		92299658961565459,
+	}
+	frobCoeffBI := fp.Element{
+		727187402902488583,
+		2160726396282041862,
+		9488801604646905992,
+		6242823465495166323,
+		293822977913479012,
+	}
+	frobCoeffAI := fp.Element{
+		10243989804179610547,
+		1294873907108739196,
+		14519274531596386700,
+		16439451714571580545,
+		128880072608930041,
+	}
+	frobCoeffAAI := fp.Element{
+		2786706716532555131,
+		3000372551348772250,
+		12002978215439925478,
+		16505408011750188998,
+		37348259353772393,
+	}
+	frobCoeffAL := fp.Element{
+		17526132454530308989,
+		2266389129490409976,
+		14743920570050287166,
+		3313284525881932648,
+		59007679372862445,
+	}
+	frobCoeffFL := fp.Element{
+		13451563391819823035,
+		16785290525216462404,
+		7720540147878050510,
+		2772280578926415900,
+		15586777141884903,
+	}
+
+	l[0].Conjugate(&x.D0.C0.B0)
+	t[0].Mul(&x.D0.C0.B1.A0, &frobCoeffA).Neg(&t[0])
+	t[1].Mul(&x.D0.C0.B1.A1, &frobCoeffA)
+	t[2].Neg(&x.D0.C1.B0.A0).Mul(&t[2], &frobCoeffF)
+	t[3].Mul(&x.D0.C1.B0.A1, &frobCoeffF)
+	l[1].Conjugate(&x.D0.C1.B1).MulByElement(&l[1], &frobCoeffAF)
+	l[2].Conjugate(&x.D1.C0.B0).MulByElement(&l[2], &frobCoeffK)
+	t[4].Mul(&x.D1.C0.B1.A0, &frobCoeffBI).Neg(&t[4])
+	t[5].Mul(&x.D1.C0.B1.A1, &frobCoeffBI)
+	t[6].Neg(&x.D1.C1.B0.A0).Mul(&t[6], &frobCoeffAI)
+	t[7].Mul(&x.D1.C1.B0.A1, &frobCoeffAI)
+	l[3].Conjugate(&x.D1.C1.B1).MulByElement(&l[3], &frobCoeffAAI)
+	l[4].Conjugate(&x.D2.C0.B0).MulByElement(&l[4], &frobCoeffL)
+	t[8].Mul(&x.D2.C0.B1.A0, &frobCoeffAL).Neg(&t[8])
+	t[9].Mul(&x.D2.C0.B1.A1, &frobCoeffAL)
+	t[10].Neg(&x.D2.C1.B0.A0).Mul(&t[10], &frobCoeffFL)
+	t[11].Mul(&x.D2.C1.B0.A1, &frobCoeffFL)
+	l[5].Conjugate(&x.D2.C1.B1).MulByElement(&l[5], &frobCoeffH)
+
+	z.D0.C0.B0 = l[0]
+	z.D0.C0.B1.A0 = t[0]
+	z.D0.C0.B1.A1 = t[1]
+	z.D0.C1.B0.A0 = t[2]
+	z.D0.C1.B0.A1 = t[3]
+	z.D0.C1.B1 = l[1]
+	z.D1.C0.B0 = l[2]
+	z.D1.C0.B1.A0 = t[4]
+	z.D1.C0.B1.A1 = t[5]
+	z.D1.C1.B0.A0 = t[6]
+	z.D1.C1.B0.A1 = t[7]
+	z.D1.C1.B1 = l[3]
+	z.D2.C0.B0 = l[4]
+	z.D2.C0.B1.A0 = t[8]
+	z.D2.C0.B1.A1 = t[9]
+	z.D2.C1.B0.A0 = t[10]
+	z.D2.C1.B0.A1 = t[11]
+	z.D2.C1.B1 = l[5]
 
 	return z
 }

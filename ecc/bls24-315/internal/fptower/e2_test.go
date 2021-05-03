@@ -332,50 +332,6 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-315] Frobenius in E2 should be a conjugate", prop.ForAll(
-		func(a *E2) bool {
-			var b, c E2
-			q := fp.Modulus()
-			b.Frobenius(a)
-			c.Exp(*a, q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusCube of x in E2 should be equal to x^(q^3)", prop.ForAll(
-		func(a *E2) bool {
-			var b, c E2
-			q := fp.Modulus()
-			b.FrobeniusCube(a)
-			c.Exp(*a, q).Exp(c, q).Exp(c, q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusFive of x in E2 should be equal to x^(q^5)", prop.ForAll(
-		func(a *E2) bool {
-			var b, c E2
-			q := fp.Modulus()
-			b.FrobeniusFive(a)
-			c.Exp(*a, q).Exp(c, q).Exp(c, q).Exp(c, q).Exp(c, q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] FrobeniusSeven of x in E2 should be equal to x^(q^7)", prop.ForAll(
-		func(a *E2) bool {
-			var b, c E2
-			q := fp.Modulus()
-			b.FrobeniusSeven(a)
-			c.Exp(*a, q).Exp(c, q).Exp(c, q).Exp(c, q).Exp(c, q).Exp(c, q).Exp(c, q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[BLS24-315] square(sqrt) should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d, e E2
