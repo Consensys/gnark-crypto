@@ -19,6 +19,7 @@ package mockcommitment
 import (
 	"io"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/polynomial"
 	"github.com/consensys/gnark-crypto/polynomial"
 )
@@ -30,19 +31,19 @@ type Scheme struct{}
 
 // WriteTo panics
 func (s *Scheme) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // ReadFrom panics
 func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // Commit returns the first coefficient of p
 func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
 	_p := p.(bls12377.Polynomial)
-	var res MockDigest
-	res.d.Set(&_p[0])
+	var res fr.Element
+	res.Set(&_p[0])
 	return &res
 }
 

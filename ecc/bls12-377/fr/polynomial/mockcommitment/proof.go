@@ -16,19 +16,9 @@
 
 package mockcommitment
 
-import (
-	"io"
-)
-
 // MockProof empty struct
 type MockProof struct{}
 
-// WriteTo mock impementation
-func (mp *MockProof) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
-}
-
-// ReadFrom mock impementation
-func (mp *MockProof) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+func (mp *MockProof) Marshal() []byte {
+	panic("not implemented")
 }

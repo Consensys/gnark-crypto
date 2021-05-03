@@ -2,6 +2,7 @@ import (
 	"io"
 
 	"github.com/consensys/gnark-crypto/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	{{toLower .CurvePackage}} "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/polynomial"
 )
 
@@ -12,19 +13,19 @@ type Scheme struct{}
 
 // WriteTo panics
 func (s *Scheme) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // ReadFrom panics
 func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // Commit returns the first coefficient of p
 func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
 	_p := p.({{ toLower .CurvePackage }}.Polynomial)
-	var res MockDigest
-	res.d.Set(&_p[0])
+	var res fr.Element 
+	res.Set(&_p[0])
 	return &res
 }
 
