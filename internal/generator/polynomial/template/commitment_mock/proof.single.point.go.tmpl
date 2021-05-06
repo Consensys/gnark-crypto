@@ -1,6 +1,10 @@
+import "github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 
 // MockBatchProofsSinglePoint empty struct
-type MockBatchProofsSinglePoint struct{}
+type MockBatchProofsSinglePoint struct {
+	Point         fr.Element
+	ClaimedValues []fr.Element
+}
 
 func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
 	panic("not implemented")

@@ -20,10 +20,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	bn254_pol "github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
+	bls12381_pol "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 	"github.com/consensys/gnark-crypto/polynomial"
 )
 
@@ -34,7 +34,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	domain := fft.NewDomain(uint64(sizePol), 0, false)
 
 	// build random polynomial
-	pol := make(bn254_pol.Polynomial, sizePol)
+	pol := make(bls12381_pol.Polynomial, sizePol)
 	for i := 0; i < sizePol; i++ {
 		pol[i].SetRandom()
 	}
@@ -74,7 +74,7 @@ func buildScheme() Scheme {
 	var s Scheme
 	s.Size = 64
 	s.Domain = fft.NewDomain(64, 0, false)
-	s.Srs.G1 = make([]bn254.G1Affine, 64)
+	s.Srs.G1 = make([]bls12381.G1Affine, 64)
 
 	// generate the SRS
 	var alpha fr.Element
@@ -83,7 +83,7 @@ func buildScheme() Scheme {
 	var alphaBigInt big.Int
 	alpha.ToBigIntRegular(&alphaBigInt)
 
-	_, _, gen1Aff, gen2Aff := bn254.Generators()
+	_, _, gen1Aff, gen2Aff := bls12381.Generators()
 	s.Srs.G1[0].Set(&gen1Aff)
 	s.Srs.G2[0].Set(&gen2Aff)
 	s.Srs.G2[1].ScalarMultiplication(&gen2Aff, &alphaBigInt)
@@ -100,24 +100,24 @@ func TestCommit(t *testing.T) {
 	s := buildScheme()
 
 	// create a polynomial
-	f := make(bn254_pol.Polynomial, 60)
+	f := make(bls12381_pol.Polynomial, 60)
 	for i := 0; i < 60; i++ {
 		f[i].SetRandom()
 	}
 
 	// commit using the method from KZG
 	_kzgCommit := s.Commit(&f)
-	var kzgCommit bn254.G1Affine
-	kzgCommit.Set(_kzgCommit.(*bn254.G1Affine))
+	var kzgCommit bls12381.G1Affine
+	kzgCommit.Set(_kzgCommit.(*bls12381.G1Affine))
 
 	// check commitment using manual commit
 	var x fr.Element
 	x.SetString("1234")
 	_fx := f.Eval(&x)
-	fx := bn254_pol.FromInterface(_fx)
+	fx := bls12381_pol.FromInterface(_fx)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
-	var manualCommit bn254.G1Affine
+	var manualCommit bls12381.G1Affine
 	manualCommit.Set(&s.Srs.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
@@ -128,8 +128,8 @@ func TestCommit(t *testing.T) {
 
 }
 
-func randomPolynomial() bn254_pol.Polynomial {
-	f := make(bn254_pol.Polynomial, 60)
+func randomPolynomial() bls12381_pol.Polynomial {
+	f := make(bls12381_pol.Polynomial, 60)
 	for i := 0; i < 60; i++ {
 		f[i].SetRandom()
 	}

@@ -16,8 +16,13 @@
 
 package mockcommitment
 
+import "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+
 // MockProof empty struct
-type MockProof struct{}
+type MockProof struct {
+	Point        fr.Element
+	ClaimedValue fr.Element
+}
 
 func (mp *MockProof) Marshal() []byte {
 	panic("not implemented")

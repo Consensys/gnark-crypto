@@ -19,13 +19,13 @@ package kzg
 import (
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	bn254_pol "github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
+	bls12381_pol "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 )
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
-func dividePolyByXminusA(d fft.Domain, f bn254_pol.Polynomial, fa, a fr.Element) bn254_pol.Polynomial {
+func dividePolyByXminusA(d fft.Domain, f bls12381_pol.Polynomial, fa, a fr.Element) bls12381_pol.Polynomial {
 
 	// padd f so it has size d.Cardinality
 	_f := make([]fr.Element, d.Cardinality)

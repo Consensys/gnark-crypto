@@ -1,6 +1,10 @@
+import "github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 
 // MockProof empty struct
-type MockProof struct{}
+type MockProof struct {
+	Point        fr.Element
+	ClaimedValue fr.Element
+}
 
 func (mp *MockProof) Marshal() []byte {
 	panic("not implemented")
