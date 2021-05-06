@@ -16,8 +16,13 @@
 
 package mockcommitment
 
+import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+
 // MockBatchProofsSinglePoint empty struct
-type MockBatchProofsSinglePoint struct{}
+type MockBatchProofsSinglePoint struct {
+	Point         fr.Element
+	ClaimedValues []fr.Element
+}
 
 func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
 	panic("not implemented")
