@@ -61,8 +61,19 @@ type Proof struct {
 	H bw6761.G1Affine
 }
 
-func (mp *Proof) Marshal() []byte {
-	panic("not implemented")
+// Marshal serializes a proof as H||point||claimed_value.
+// The point H is not compressed.
+func (p *Proof) Marshal() []byte {
+
+	sizeFr := fr.Limbs * 8
+	res := make([]byte, 4*sizeFr)
+
+	bH := p.H.RawBytes()
+	copy(res, bH[:])
+	copy(res[2*sizeFr:], p.Point.Marshal())
+	copy(res[3*sizeFr:], p.ClaimedValue.Marshal())
+
+	return res
 }
 
 type BatchProofsSinglePoint struct {
@@ -77,8 +88,27 @@ type BatchProofsSinglePoint struct {
 	H bw6761.G1Affine
 }
 
-func (mp *BatchProofsSinglePoint) Marshal() []byte {
-	panic("not implemented")
+// Marshal serializes a proof as H||point||claimed_values.
+// The point H is not compressed.
+func (p *BatchProofsSinglePoint) Marshal() []byte {
+
+	sizeFr := fr.Limbs * 8
+	nbClaimedValues := len(p.ClaimedValues)
+
+	// 2 for H, 1 for point, nbClaimedValues for the claimed values
+	res := make([]byte, (3+nbClaimedValues)*sizeFr)
+
+	bH := p.H.RawBytes()
+	copy(res, bH[:])
+	copy(res[2*sizeFr:], p.Point.Marshal())
+	acc := 3 * sizeFr
+	for i := 0; i < nbClaimedValues; i++ {
+		copy(res[acc:], p.ClaimedValues[i].Marshal())
+		acc += sizeFr
+	}
+
+	return res
+
 }
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.

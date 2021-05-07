@@ -25,34 +25,6 @@ var (
 	ErrVerifyBatchOpeningSinglePoint = errors.New("error verifying batch opening proof at single point")
 )
 
-// Polynomial interface that a polynomial should implement
-type Polynomial interface {
-
-	// Degree returns the degree of the polynomial
-	Degree() uint64
-
-	// Eval computes the evaluation of the polynomial at v
-	Eval(v interface{}) interface{}
-
-	// Returns a copy of the polynomial
-	Clone() Polynomial
-
-	// Add adds p1 to p, modifying p
-	Add(p1, p2 Polynomial) Polynomial
-
-	// AddConstantInPlace adds a constant to the polynomial, modifying p
-	AddConstantInPlace(c interface{})
-
-	// AddConstantInPlace subs a constant to the polynomial, modifying p
-	SubConstantInPlace(c interface{})
-
-	// ScaleInPlace multiplies the polynomial by a constant c, modifying p
-	ScaleInPlace(c interface{})
-
-	// Equal checks equality between two polynomials
-	Equal(p1 Polynomial) bool
-}
-
 // Digest interface that a polynomial commitment should implement
 type Digest interface {
 	Marshal() []byte
