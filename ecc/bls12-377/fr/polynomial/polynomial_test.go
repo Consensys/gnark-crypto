@@ -135,12 +135,16 @@ func TestPolynomialAdd(t *testing.T) {
 
 	// build unbalanced polynomials
 	f1 := make(Polynomial, 20)
+	f1Backup := make(Polynomial, 20)
 	for i := 0; i < 20; i++ {
 		f1[i].SetOne()
+		f1Backup[i].SetOne()
 	}
 	f2 := make(Polynomial, 10)
+	f2Backup := make(Polynomial, 10)
 	for i := 0; i < 10; i++ {
 		f2[i].SetOne()
+		f2Backup[i].SetOne()
 	}
 
 	// expected result
@@ -155,22 +159,51 @@ func TestPolynomialAdd(t *testing.T) {
 		expectedSum[i].Set(&one)
 	}
 
-	// set different combinations
+	// caller is empty
 	var g Polynomial
 	g.Add(&f1, &f2)
 	if !g.Equal(&expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
+	if !f1.Equal(&f1Backup) {
+		t.Fatal("side effect, f1 should not have been modified")
+	}
+	if !f2.Equal(&f2Backup) {
+		t.Fatal("side effect, f2 should not have been modified")
+	}
 
+	// all operands are distincts
 	_f1 := f1.Clone()
 	_f1.Add(&f1, &f2)
 	if !_f1.Equal(&expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
+	if !f1.Equal(&f1Backup) {
+		t.Fatal("side effect, f1 should not have been modified")
+	}
+	if !f2.Equal(&f2Backup) {
+		t.Fatal("side effect, f2 should not have been modified")
+	}
 
+	// first operand = caller
+	_f1 = f1.Clone()
 	_f2 := f2.Clone()
-	_f2.Add(&f1, &f2)
-	if !_f2.Equal(&expectedSum) {
+	_f1.Add(_f1, _f2)
+	if !_f1.Equal(&expectedSum) {
 		t.Fatal("add polynomials fails")
+	}
+	if !_f2.Equal(&f2Backup) {
+		t.Fatal("side effect, _f2 should not have been modified")
+	}
+
+	// second operand = caller
+	_f1 = f1.Clone()
+	_f2 = f2.Clone()
+	_f1.Add(_f2, _f1)
+	if !_f1.Equal(&expectedSum) {
+		t.Fatal("add polynomials fails")
+	}
+	if !_f2.Equal(&f2Backup) {
+		t.Fatal("side effect, _f2 should not have been modified")
 	}
 }
