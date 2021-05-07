@@ -17,7 +17,9 @@
 package kzg
 
 import (
+	"bytes"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -72,8 +74,8 @@ func TestDividePolyByXminusA(t *testing.T) {
 func buildScheme() Scheme {
 
 	var s Scheme
-	s.Size = 64
-	s.Domain = fft.NewDomain(64, 0, false)
+	d := fft.NewDomain(64, 0, false)
+	s.Domain = *d
 	s.Srs.G1 = make([]bls12381.G1Affine, 64)
 
 	// generate the SRS
@@ -92,6 +94,32 @@ func buildScheme() Scheme {
 	}
 
 	return s
+}
+
+func TestSerialization(t *testing.T) {
+
+	// create a KZG scheme
+	s := buildScheme()
+
+	// serialize it...
+	var buf bytes.Buffer
+	_, err := s.WriteTo(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// reconstruct the scheme
+	var _s Scheme
+	_, err = _s.ReadFrom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// compare
+	if !reflect.DeepEqual(&s, &_s) {
+		t.Fatal("scheme serialization failed")
+	}
+
 }
 
 func TestCommit(t *testing.T) {

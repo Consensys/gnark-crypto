@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"io"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -34,12 +35,8 @@ type Digest = bls12381.G1Affine
 // Scheme stores KZG data
 type Scheme struct {
 
-	// Size of the Srs.G1. Polynomial of degree up to Size-1 can be committed.
-	// For Plonk use case, Size should be a power of 2.
-	Size uint64
-
 	// Domain to perform polynomial division. The size of the domain is the lowest power of 2 greater than Size.
-	Domain *fft.Domain
+	Domain fft.Domain
 
 	// Srs stores the result of the MPC
 	Srs struct {
@@ -111,12 +108,72 @@ func (p *BatchProofsSinglePoint) Marshal() []byte {
 
 }
 
+// WriteTo writes binary encoding of the scheme data.
+// It writes only the SRS, the fft fomain is reconstructed
+// from it.
+func (s *Scheme) WriteTo(w io.Writer) (int64, error) {
+
+	// encode the fft
+	n, err := s.Domain.WriteTo(w)
+	if err != nil {
+		return n, err
+	}
+
+	// encode the SRS
+	enc := bls12381.NewEncoder(w)
+
+	toEncode := []interface{}{
+		&s.Srs.G2[0],
+		&s.Srs.G2[1],
+		s.Srs.G1,
+	}
+
+	for _, v := range toEncode {
+		if err := enc.Encode(v); err != nil {
+			return n + enc.BytesWritten(), err
+		}
+	}
+
+	return n + enc.BytesWritten(), nil
+}
+
+// ReadFrom decodes KZG data from reader.
+// The kzg data should have been encoded using WriteTo.
+// Only the points from the SRS are actually encoded in the
+// reader, the fft domain is reconstructed from it.
+func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
+
+	// decode the fft
+	n, err := s.Domain.ReadFrom(r)
+	if err != nil {
+		return n, err
+	}
+
+	// decode the SRS
+	dec := bls12381.NewDecoder(r)
+
+	toDecode := []interface{}{
+		&s.Srs.G2[0],
+		&s.Srs.G2[1],
+		&s.Srs.G1,
+	}
+
+	for _, v := range toDecode {
+		if err := dec.Decode(v); err != nil {
+			return n + dec.BytesRead(), err
+		}
+	}
+
+	return n + dec.BytesRead(), nil
+
+}
+
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
 func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
 
 	// TODO raise an error instead?
-	if p.Degree() >= s.Size {
+	if p.Degree() >= s.Domain.Cardinality {
 		panic("[Commit] Size of polynomial exceeds the size supported by the scheme")
 	}
 
@@ -153,7 +210,7 @@ func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) polynomial.Ope
 
 	// compute H
 	_p := p.(*bls12381_pol.Polynomial)
-	h := dividePolyByXminusA(*s.Domain, *_p, res.ClaimedValue, res.Point)
+	h := dividePolyByXminusA(s.Domain, *_p, res.ClaimedValue, res.Point)
 
 	// commit to H
 	c := s.Commit(&h)
@@ -259,7 +316,7 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 
 	// compute H
 	_sumGammaiTimesPol := sumGammaiTimesPol.(*bls12381_pol.Polynomial)
-	h := dividePolyByXminusA(*s.Domain, *_sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	h := dividePolyByXminusA(s.Domain, *_sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 	c := s.Commit(&h)
 	res.H.Set(c.(*bls12381.G1Affine))
 
