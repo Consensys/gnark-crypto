@@ -470,7 +470,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
-// ClearCofactor ...
+// ClearCofactor maps a point in curve to r-torsion
 func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
@@ -479,7 +479,8 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ClearCofactor ...
+// ClearCofactor maps a point in curve to r-torsion
+
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	var points [4]G2Jac

@@ -475,7 +475,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	return p
 }
 
-// ClearCofactor ...
+// ClearCofactor maps a point in curve to r-torsion
 func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
@@ -484,7 +484,8 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ClearCofactor ...
+// ClearCofactor maps a point in curve to r-torsion
+
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
 	var xg, xxg, xxxg, res, t G2Jac

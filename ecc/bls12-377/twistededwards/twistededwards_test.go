@@ -167,7 +167,7 @@ func TestScalarMul(t *testing.T) {
 	// test consistancy with negation
 	var expected, base PointAffine
 	expected.Set(&ed.Base).Neg(&expected)
-	scalar.Set(&ed.Order).Lsh(&scalar, 3) // multiply by cofactor=8
+	scalar.Set(&ed.Order).Lsh(&scalar, 2) // multiply by cofactor=4
 	scalar.Sub(&scalar, big.NewInt(1))
 	base.Set(&ed.Base)
 	base.ScalarMul(&base, &scalar)
