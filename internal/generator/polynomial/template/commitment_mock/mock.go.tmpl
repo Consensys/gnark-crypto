@@ -22,16 +22,16 @@ func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 // Commit returns the first coefficient of p
-func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
-	_p := p.(*{{ toLower .CurvePackage }}.Polynomial)
+func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
+	_p := p.(*{{ .CurvePackage }}.Polynomial)
 	var res fr.Element
 	res.Set(&(*_p)[0])
-	return &res
+	return &res, nil
 }
 
 // Open computes an opening proof of _p at _val.
 // Returns a MockProof, which is an empty interface.
-func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) polynomial.OpeningProof {
+func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.OpeningProof, error) {
 
 	claimedValue := p.Eval(point)
 	var _claimedValue fr.Element
@@ -44,7 +44,7 @@ func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) polynomial.Ope
 	return &MockProof{
 		Point:        _point,
 		ClaimedValue: _claimedValue,
-	}
+	}, nil
 }
 
 // Verify mock implementation of verify
@@ -53,7 +53,7 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 }
 
 // BatchOpenSinglePoint computes a batch opening proof for _p at _val.
-func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) polynomial.BatchOpeningProofSinglePoint {
+func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) (polynomial.BatchOpeningProofSinglePoint, error) {
 
 	var res MockBatchProofsSinglePoint
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
@@ -64,7 +64,7 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 		res.ClaimedValues[i].Set(claimedValue.(*fr.Element))
 	}
 
-	return &res
+	return &res, nil
 }
 
 // BatchVerifySinglePoint computes a batch opening proof for

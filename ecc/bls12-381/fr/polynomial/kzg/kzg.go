@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"errors"
 	"io"
 	"math/big"
 
@@ -27,6 +28,11 @@ import (
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/polynomial"
+)
+
+var (
+	errNbDigestsNeqNbPolynomials = errors.New("number of digests is not the same as the number of polynomials")
+	errUnsupportedSize           = errors.New("the size of the polynomials exceeds the capacity of the SRS")
 )
 
 // Digest commitment of a polynomial
@@ -170,11 +176,10 @@ func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
+func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 
-	// TODO raise an error instead?
 	if p.Degree() >= s.Domain.Cardinality {
-		panic("[Commit] Size of polynomial exceeds the size supported by the scheme")
+		return nil, errUnsupportedSize
 	}
 
 	var res Digest
@@ -191,12 +196,12 @@ func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
 	})
 	res.MultiExp(s.Srs.G1, pCopy)
 
-	return &res
+	return &res, nil
 }
 
 // Open computes an opening proof of _p at _val.
 // Returns a MockProof, which is an empty interface.
-func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) polynomial.OpeningProof {
+func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.OpeningProof, error) {
 
 	if p.Degree() >= s.Domain.Cardinality {
 		panic("[Open] Size of polynomial exceeds the size supported by the scheme")
@@ -213,10 +218,13 @@ func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) polynomial.Ope
 	h := dividePolyByXminusA(s.Domain, *_p, res.ClaimedValue, res.Point)
 
 	// commit to H
-	c := s.Commit(&h)
+	c, err := s.Commit(&h)
+	if err != nil {
+		return nil, err
+	}
 	res.H.Set(c.(*bls12381.G1Affine))
 
-	return &res
+	return &res, nil
 }
 
 // Verify verifies a KZG opening proof at a single point
@@ -274,11 +282,11 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 }
 
 // BatchOpenSinglePoint creates a batch opening proof of several polynomials at a single point
-func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) polynomial.BatchOpeningProofSinglePoint {
+func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) (polynomial.BatchOpeningProofSinglePoint, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
-		panic("The number of polynomials and digests don't match")
+		return nil, errNbDigestsNeqNbPolynomials
 	}
 
 	var res BatchProofsSinglePoint
@@ -295,11 +303,20 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	fs.Bind("gamma", res.Point.Marshal())
-	for i := 0; i < len(digests); i++ {
-		fs.Bind("gamma", digests[i].Marshal())
+	err := fs.Bind("gamma", res.Point.Marshal())
+	if err != nil {
+		return nil, err
 	}
-	gammaByte, _ := fs.ComputeChallenge("gamma") // TODO handle error
+	for i := 0; i < len(digests); i++ {
+		err := fs.Bind("gamma", digests[i].Marshal())
+		if err != nil {
+			return nil, err
+		}
+	}
+	gammaByte, err := fs.ComputeChallenge("gamma")
+	if err != nil {
+		return nil, err
+	}
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
 
@@ -317,10 +334,13 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	// compute H
 	_sumGammaiTimesPol := sumGammaiTimesPol.(*bls12381_pol.Polynomial)
 	h := dividePolyByXminusA(s.Domain, *_sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	c := s.Commit(&h)
+	c, err := s.Commit(&h)
+	if err != nil {
+		return nil, err
+	}
 	res.H.Set(c.(*bls12381.G1Affine))
 
-	return &res
+	return &res, nil
 }
 
 func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpeningProof polynomial.BatchOpeningProofSinglePoint) error {
@@ -330,16 +350,25 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	_batchOpeningProof := batchOpeningProof.(*BatchProofsSinglePoint)
 
 	if len(digests) != len(_batchOpeningProof.ClaimedValues) {
-		panic("size of digests and size of proof don't match")
+		return errNbDigestsNeqNbPolynomials
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	fs.Bind("gamma", _batchOpeningProof.Point.Marshal())
-	for i := 0; i < len(digests); i++ {
-		fs.Bind("gamma", digests[i].Marshal())
+	err := fs.Bind("gamma", _batchOpeningProof.Point.Marshal())
+	if err != nil {
+		return err
 	}
-	gammaByte, _ := fs.ComputeChallenge("gamma") // TODO handle error
+	for i := 0; i < len(digests); i++ {
+		err := fs.Bind("gamma", digests[i].Marshal())
+		if err != nil {
+			return err
+		}
+	}
+	gammaByte, err := fs.ComputeChallenge("gamma")
+	if err != nil {
+		return err
+	}
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
 

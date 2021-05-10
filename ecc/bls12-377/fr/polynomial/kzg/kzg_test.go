@@ -134,7 +134,10 @@ func TestCommit(t *testing.T) {
 	}
 
 	// commit using the method from KZG
-	_kzgCommit := s.Commit(&f)
+	_kzgCommit, err := s.Commit(&f)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var kzgCommit bls12377.G1Affine
 	kzgCommit.Set(_kzgCommit.(*bls12377.G1Affine))
 
@@ -173,15 +176,21 @@ func TestVerifySinglePoint(t *testing.T) {
 	f := randomPolynomial()
 
 	// commit the polynomial
-	digest := s.Commit(&f)
+	digest, err := s.Commit(&f)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof := s.Open(&point, &f)
+	proof, err := s.Open(&point, &f)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// verify correct proof
-	err := s.Verify(digest, proof)
+	err = s.Verify(digest, proof)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,16 +219,20 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// commit the polynomials
 	digests := make([]polynomial.Digest, 10)
 	for i := 0; i < 10; i++ {
-		digests[i] = s.Commit(f[i])
+		digests[i], _ = s.Commit(f[i])
+
 	}
 
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof := s.BatchOpenSinglePoint(&point, digests, f)
+	proof, err := s.BatchOpenSinglePoint(&point, digests, f)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// verify correct proof
-	err := s.BatchVerifySinglePoint(digests, proof)
+	err = s.BatchVerifySinglePoint(digests, proof)
 	if err != nil {
 		t.Fatal(err)
 	}
