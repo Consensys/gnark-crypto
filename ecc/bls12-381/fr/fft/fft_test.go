@@ -31,8 +31,9 @@ import (
 func TestFFT(t *testing.T) {
 	const maxSize = 1 << 10
 
-	domainWithPrecompute := NewDomain(maxSize, 1, true)
-	domainWOPrecompute := NewDomain(maxSize, 1, false)
+	nbCosets := 3
+	domainWithPrecompute := NewDomain(maxSize, 2, true)
+	domainWOPrecompute := NewDomain(maxSize, 2, false)
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 5
@@ -186,15 +187,20 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			BitReverse(pol)
-			domainWithPrecompute.FFT(pol, DIT, 1)
-			domainWithPrecompute.FFTInverse(pol, DIF, 1)
-			BitReverse(pol)
-
 			check := true
-			for i := 0; i < len(pol); i++ {
-				check = check && pol[i].Equal(&backupPol[i])
+
+			for i := 1; i <= nbCosets; i++ {
+
+				BitReverse(pol)
+				domainWithPrecompute.FFT(pol, DIT, uint64(i))
+				domainWithPrecompute.FFTInverse(pol, DIF, uint64(i))
+				BitReverse(pol)
+
+				for i := 0; i < len(pol); i++ {
+					check = check && pol[i].Equal(&backupPol[i])
+				}
 			}
+
 			return check
 		},
 	))
@@ -211,15 +217,20 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			BitReverse(pol)
-			domainWOPrecompute.FFT(pol, DIT, 1)
-			domainWOPrecompute.FFTInverse(pol, DIF, 1)
-			BitReverse(pol)
-
 			check := true
-			for i := 0; i < len(pol); i++ {
-				check = check && pol[i].Equal(&backupPol[i])
+
+			for i := 1; i <= nbCosets; i++ {
+
+				BitReverse(pol)
+				domainWOPrecompute.FFT(pol, DIT, uint64(i))
+				domainWOPrecompute.FFTInverse(pol, DIF, uint64(i))
+				BitReverse(pol)
+
+				for i := 0; i < len(pol); i++ {
+					check = check && pol[i].Equal(&backupPol[i])
+				}
 			}
+
 			return check
 		},
 	))

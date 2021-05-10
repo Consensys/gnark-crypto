@@ -179,7 +179,7 @@ func (d *Domain) preComputeTwiddles() {
 		cosetGensInv[0].Set(&d.FinerGeneratorInv)
 		for i := 1; i < nbCosets; i++ {
 			cosetGens[i].Mul(&cosetGens[i-1], &d.FinerGenerator)
-			cosetGensInv[i].Mul(&cosetGensInv[1], &d.FinerGeneratorInv)
+			cosetGensInv[i].Mul(&cosetGensInv[i-1], &d.FinerGeneratorInv)
 		}
 		wg.Add(2 + 2*nbCosets)
 		go twiddles(d.Twiddles, d.Generator)
@@ -237,9 +237,13 @@ func precomputeExpTable(w fr.Element, table []fr.Element) {
 }
 
 func precomputeExpTableChunk(w fr.Element, power uint64, table []fr.Element) {
-	table[0].Exp(w, new(big.Int).SetUint64(power))
-	for i := 1; i < len(table); i++ {
-		table[i].Mul(&table[i-1], &w)
+	
+	// this condition ensures that creating a domain of size 1 with cosets don't fail
+	if len(table) > 0 {
+		table[0].Exp(w, new(big.Int).SetUint64(power))
+		for i := 1; i < len(table); i++ {
+			table[i].Mul(&table[i-1], &w)
+		}
 	}
 }
 
