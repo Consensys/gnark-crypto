@@ -1,22 +1,27 @@
 package fptower
 
 import (
-	"math/bits"
+	"github.com/consensys/gnark-crypto/ecc"
+	"math/big"
 )
 
 // Expt set z to x^t in E12 and return z (t is the generator of the BN curve)
 func (z *E12) Expt(x *E12) *E12 {
 
-	const tAbsVal uint64 = 4965661367192848881
+	var tAbsNAF [63]int8
+	optimaAteLoop, _ := new(big.Int).SetString("4965661367192848881", 10)
+	ecc.NafDecomposition(optimaAteLoop, tAbsNAF[:])
 
-	var result E12
+	var result, xInv E12
 	result.Set(x)
+	xInv.Conjugate(x)
 
-	l := bits.Len64(tAbsVal) - 2
-	for i := l; i >= 0; i-- {
+	for i := 61; i >= 0; i-- {
 		result.CyclotomicSquare(&result)
-		if tAbsVal&(1<<uint(i)) != 0 {
+		if tAbsNAF[i] == 1 {
 			result.Mul(&result, x)
+		} else if tAbsNAF[i] == -1 {
+			result.Mul(&result, &xInv)
 		}
 	}
 
