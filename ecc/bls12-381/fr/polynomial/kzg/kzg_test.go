@@ -29,6 +29,53 @@ import (
 	"github.com/consensys/gnark-crypto/polynomial"
 )
 
+var _alphaSetup fr.Element
+
+func init() {
+	//_alphaSetup.SetRandom()
+	_alphaSetup.SetString("1234")
+}
+
+// NewKZG returns a new Scheme instance
+// this is used for test purposes
+func NewKZG(size int, alpha fr.Element) Scheme {
+
+	var s Scheme
+	d := fft.NewDomain(uint64(size), 0, false)
+	s.Domain = *d
+	s.SRS.G1 = make([]bls12381.G1Affine, size)
+
+	// generate the SRS
+	var alphaBigInt big.Int
+	alpha.ToBigIntRegular(&alphaBigInt)
+
+	_, _, gen1Aff, gen2Aff := bls12381.Generators()
+	s.SRS.G1[0] = gen1Aff
+	s.SRS.G2[0] = gen2Aff
+	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &alphaBigInt)
+
+	alphas := make([]fr.Element, size-1)
+	alphas[0] = alpha
+	for i := 1; i < len(alphas); i++ {
+		alphas[i].Mul(&alphas[i-1], &alpha)
+	}
+	for i := 0; i < len(alphas); i++ {
+		alphas[i].FromMont()
+	}
+	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	copy(s.SRS.G1[1:], g1s)
+
+	return s
+}
+
+func randomPolynomial(size int) bls12381_pol.Polynomial {
+	f := make(bls12381_pol.Polynomial, size)
+	for i := 0; i < size; i++ {
+		f[i].SetRandom()
+	}
+	return f
+}
+
 func TestDividePolyByXminusA(t *testing.T) {
 
 	sizePol := 230
@@ -71,35 +118,10 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 }
 
-func buildScheme() Scheme {
-
-	var s Scheme
-	d := fft.NewDomain(64, 0, false)
-	s.Domain = *d
-	s.Srs.G1 = make([]bls12381.G1Affine, 64)
-
-	// generate the SRS
-	var alpha fr.Element
-	//alpha.SetRandom()
-	alpha.SetString("1234")
-	var alphaBigInt big.Int
-	alpha.ToBigIntRegular(&alphaBigInt)
-
-	_, _, gen1Aff, gen2Aff := bls12381.Generators()
-	s.Srs.G1[0].Set(&gen1Aff)
-	s.Srs.G2[0].Set(&gen2Aff)
-	s.Srs.G2[1].ScalarMultiplication(&gen2Aff, &alphaBigInt)
-	for i := 1; i < 64; i++ {
-		s.Srs.G1[i].ScalarMultiplication(&s.Srs.G1[i-1], &alphaBigInt)
-	}
-
-	return s
-}
-
 func TestSerialization(t *testing.T) {
 
 	// create a KZG scheme
-	s := buildScheme()
+	s := NewKZG(64, _alphaSetup)
 
 	// serialize it...
 	var buf bytes.Buffer
@@ -125,7 +147,7 @@ func TestSerialization(t *testing.T) {
 func TestCommit(t *testing.T) {
 
 	// create a KZG scheme
-	s := buildScheme()
+	s := NewKZG(64, _alphaSetup)
 
 	// create a polynomial
 	f := make(bls12381_pol.Polynomial, 60)
@@ -148,7 +170,7 @@ func TestCommit(t *testing.T) {
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
 	var manualCommit bls12381.G1Affine
-	manualCommit.Set(&s.Srs.G1[0])
+	manualCommit.Set(&s.SRS.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
 	// compare both results
@@ -158,21 +180,13 @@ func TestCommit(t *testing.T) {
 
 }
 
-func randomPolynomial() bls12381_pol.Polynomial {
-	f := make(bls12381_pol.Polynomial, 60)
-	for i := 0; i < 60; i++ {
-		f[i].SetRandom()
-	}
-	return f
-}
-
 func TestVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := buildScheme()
+	s := NewKZG(64, _alphaSetup)
 
 	// create a polynomial
-	f := randomPolynomial()
+	f := randomPolynomial(60)
 
 	// commit the polynomial
 	digest, err := s.Commit(&f)
@@ -206,12 +220,12 @@ func TestVerifySinglePoint(t *testing.T) {
 func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := buildScheme()
+	s := NewKZG(64, _alphaSetup)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
 	for i := 0; i < 10; i++ {
-		_f := randomPolynomial()
+		_f := randomPolynomial(60)
 		f[i] = &_f
 	}
 
@@ -244,4 +258,118 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 		t.Fatal("verifying wrong proof should have failed")
 	}
 
+}
+
+const benchSize = 1 << 16
+
+func BenchmarkKZGCommit(b *testing.B) {
+	// kzg scheme
+	s := NewKZG(benchSize, _alphaSetup)
+
+	// random polynomial
+	p := randomPolynomial(benchSize / 2)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = s.Commit(&p)
+	}
+}
+
+func BenchmarkKZGOpen(b *testing.B) {
+	// kzg scheme
+	s := NewKZG(benchSize, _alphaSetup)
+
+	// random polynomial
+	p := randomPolynomial(benchSize / 2)
+	var r fr.Element
+	r.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = s.Open(r, &p)
+	}
+}
+
+func BenchmarkKZGVerify(b *testing.B) {
+	// kzg scheme
+	s := NewKZG(benchSize, _alphaSetup)
+
+	// random polynomial
+	p := randomPolynomial(benchSize / 2)
+	var r fr.Element
+	r.SetRandom()
+
+	// commit
+	comm, err := s.Commit(&p)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// open
+	openingProof, err := s.Open(r, &p)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Verify(comm, openingProof)
+	}
+}
+
+func BenchmarkKZGBatchOpen10(b *testing.B) {
+	// kzg scheme
+	s := NewKZG(benchSize, _alphaSetup)
+
+	// 10 random polynomials
+	var ps [10]polynomial.Polynomial
+	for i := 0; i < 10; i++ {
+		_p := randomPolynomial(benchSize / 2)
+		ps[i] = &_p
+	}
+
+	// commitments
+	var commitments [10]polynomial.Digest
+	for i := 0; i < 10; i++ {
+		commitments[i], _ = s.Commit(ps[i])
+	}
+
+	var r fr.Element
+	r.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.BatchOpenSinglePoint(r, commitments[:], ps[:])
+	}
+}
+
+func BenchmarkKZGBatchVerify10(b *testing.B) {
+	// kzg scheme
+	s := NewKZG(benchSize, _alphaSetup)
+
+	// 10 random polynomials
+	var ps [10]polynomial.Polynomial
+	for i := 0; i < 10; i++ {
+		_p := randomPolynomial(benchSize / 2)
+		ps[i] = &_p
+	}
+
+	// commitments
+	var commitments [10]polynomial.Digest
+	for i := 0; i < 10; i++ {
+		commitments[i], _ = s.Commit(ps[i])
+	}
+
+	var r fr.Element
+	r.SetRandom()
+
+	proof, err := s.BatchOpenSinglePoint(r, commitments[:], ps[:])
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.BatchVerifySinglePoint(commitments[:], proof)
+	}
 }

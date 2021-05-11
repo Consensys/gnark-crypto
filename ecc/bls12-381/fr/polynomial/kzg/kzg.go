@@ -44,8 +44,8 @@ type Scheme struct {
 	// Domain to perform polynomial division. The size of the domain is the lowest power of 2 greater than Size.
 	Domain fft.Domain
 
-	// Srs stores the result of the MPC
-	Srs struct {
+	// SRS stores the result of the MPC
+	SRS struct {
 		G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
 		G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
 	}
@@ -129,9 +129,9 @@ func (s *Scheme) WriteTo(w io.Writer) (int64, error) {
 	enc := bls12381.NewEncoder(w)
 
 	toEncode := []interface{}{
-		&s.Srs.G2[0],
-		&s.Srs.G2[1],
-		s.Srs.G1,
+		&s.SRS.G2[0],
+		&s.SRS.G2[1],
+		s.SRS.G1,
 	}
 
 	for _, v := range toEncode {
@@ -159,9 +159,9 @@ func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
-		&s.Srs.G2[0],
-		&s.Srs.G2[1],
-		&s.Srs.G1,
+		&s.SRS.G2[0],
+		&s.SRS.G2[1],
+		&s.SRS.G1,
 	}
 
 	for _, v := range toDecode {
@@ -194,7 +194,7 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 			pCopy[i].FromMont()
 		}
 	})
-	res.MultiExp(s.Srs.G1, pCopy)
+	res.MultiExp(s.SRS.G1, pCopy)
 
 	return &res, nil
 }
@@ -237,7 +237,7 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 	var claimedValueG1Aff bls12381.G1Affine
 	var claimedValueBigInt big.Int
 	_proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplication(&s.Srs.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplication(&s.SRS.G1[0], &claimedValueBigInt)
 
 	// [f(alpha) - f(a)]G1Jac
 	var fminusfaG1Jac, tmpG1Jac bls12381.G1Jac
@@ -253,8 +253,8 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	_proof.Point.ToBigIntRegular(&pointBigInt)
-	genG2Jac.FromAffine(&s.Srs.G2[0])
-	alphaG2Jac.FromAffine(&s.Srs.G2[1])
+	genG2Jac.FromAffine(&s.SRS.G2[0])
+	alphaG2Jac.FromAffine(&s.SRS.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
@@ -270,7 +270,7 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 	// e([-H(alpha)]G1Aff, G2gen).e([-H(alpha)]G1Aff, [alpha-a]G2Aff) ==? 1
 	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{fminusfaG1Aff, negH},
-		[]bls12381.G2Affine{s.Srs.G2[0], xminusaG2Aff},
+		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -382,7 +382,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	var sumGammaiTimesEvalBigInt big.Int
 	sumGammaiTimesEval.ToBigIntRegular(&sumGammaiTimesEvalBigInt)
 	var sumGammaiTimesEvalG1Aff bls12381.G1Affine
-	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&s.Srs.G1[0], &sumGammaiTimesEvalBigInt)
+	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&s.SRS.G1[0], &sumGammaiTimesEvalBigInt)
 
 	var acc fr.Element
 	acc.SetOne()
@@ -412,8 +412,8 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	_batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
-	genG2Jac.FromAffine(&s.Srs.G2[0])
-	alphaG2Jac.FromAffine(&s.Srs.G2[1])
+	genG2Jac.FromAffine(&s.SRS.G2[0])
+	alphaG2Jac.FromAffine(&s.SRS.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
@@ -429,7 +429,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	// check the pairing equation
 	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{sumGammiDiffG1Aff, negH},
-		[]bls12381.G2Affine{s.Srs.G2[0], xminusaG2Aff},
+		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
