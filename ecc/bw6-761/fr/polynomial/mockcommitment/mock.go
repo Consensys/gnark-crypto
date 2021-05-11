@@ -19,7 +19,8 @@ package mockcommitment
 import (
 	"io"
 
-	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	"github.com/consensys/gnark-crypto/polynomial"
 )
 
@@ -30,44 +31,62 @@ type Scheme struct{}
 
 // WriteTo panics
 func (s *Scheme) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // ReadFrom panics
 func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+	panic("not implemented")
 }
 
 // Commit returns the first coefficient of p
-func (s *Scheme) Commit(p polynomial.Polynomial) polynomial.Digest {
-	_p := p.(bn254.Polynomial)
-	var res MockDigest
-	res.d.Set(&_p[0])
-	return &res
+func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
+	_p := p.(*bw6761.Polynomial)
+	var res fr.Element
+	res.Set(&(*_p)[0])
+	return &res, nil
 }
 
 // Open computes an opening proof of _p at _val.
 // Returns a MockProof, which is an empty interface.
-func (s *Scheme) Open(_val interface{}, _p polynomial.Polynomial) polynomial.OpeningProof {
-	return &MockProof{}
+func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.OpeningProof, error) {
+
+	claimedValue := p.Eval(point)
+	var _claimedValue fr.Element
+	_claimedValue.Set(claimedValue.(*fr.Element))
+
+	// ensure we get a copy of point
+	var _point fr.Element
+	_point.Set(point.(*fr.Element))
+
+	return &MockProof{
+		Point:        _point,
+		ClaimedValue: _claimedValue,
+	}, nil
 }
 
 // Verify mock implementation of verify
-func (s *Scheme) Verify(point interface{}, commitment polynomial.Digest, proof polynomial.OpeningProof) error {
+func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningProof) error {
 	return nil
 }
 
 // BatchOpenSinglePoint computes a batch opening proof for _p at _val.
-func (s *Scheme) BatchOpenSinglePoint(point interface{}, polynomials interface{}) polynomial.BatchOpeningProofSinglePoint {
-	return &MockProof{}
+func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) (polynomial.BatchOpeningProofSinglePoint, error) {
+
+	var res MockBatchProofsSinglePoint
+	res.ClaimedValues = make([]fr.Element, len(polynomials))
+	res.Point.Set(point.(*fr.Element))
+
+	for i := 0; i < len(polynomials); i++ {
+		claimedValue := polynomials[i].Eval(point)
+		res.ClaimedValues[i].Set(claimedValue.(*fr.Element))
+	}
+
+	return &res, nil
 }
 
 // BatchVerifySinglePoint computes a batch opening proof for
-func (s *Scheme) BatchVerifySinglePoint(
-	point interface{},
-	claimedValues interface{},
-	commitments interface{},
-	batchOpeningProof polynomial.BatchOpeningProofSinglePoint) error {
+func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpeningProof polynomial.BatchOpeningProofSinglePoint) error {
 
 	return nil
 

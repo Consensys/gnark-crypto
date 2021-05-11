@@ -16,19 +16,14 @@
 
 package mockcommitment
 
-import (
-	"io"
-)
+import "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 
 // MockProof empty struct
-type MockProof struct{}
-
-// WriteTo mock impementation
-func (mp *MockProof) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
+type MockProof struct {
+	Point        fr.Element
+	ClaimedValue fr.Element
 }
 
-// ReadFrom mock impementation
-func (mp *MockProof) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+func (mp *MockProof) Marshal() []byte {
+	panic("not implemented")
 }

@@ -581,6 +581,13 @@ func (z *Element) Bytes() (res [Limbs * 8]byte) {
 	return
 }
 
+// Marshal returns the regular (non montgomery) value
+// of z as a big-endian byte slice.
+func (z *Element) Marshal() []byte {
+	b := z.Bytes()
+	return b[:]
+}
+
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value (in Montgomery form), and returns z.
 func (z *Element) SetBytes(e []byte) *Element {

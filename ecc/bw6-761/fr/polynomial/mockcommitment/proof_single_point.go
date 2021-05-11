@@ -16,19 +16,14 @@
 
 package mockcommitment
 
-import (
-	"io"
-)
+import "github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 
 // MockBatchProofsSinglePoint empty struct
-type MockBatchProofsSinglePoint struct{}
-
-// WriteTo mock impementation
-func (mp *MockBatchProofsSinglePoint) WriteTo(w io.Writer) (n int64, err error) {
-	return 0, nil
+type MockBatchProofsSinglePoint struct {
+	Point         fr.Element
+	ClaimedValues []fr.Element
 }
 
-// ReadFrom mock impementation
-func (mp *MockBatchProofsSinglePoint) ReadFrom(r io.Reader) (n int64, err error) {
-	return 0, nil
+func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
+	panic("not implemented")
 }

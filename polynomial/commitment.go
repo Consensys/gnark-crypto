@@ -15,38 +15,31 @@
 // Package polynomial provides interfaces for polynomial and polynomial commitment schemes defined in gnark-crypto/ecc/.../fr.
 package polynomial
 
-import "io"
-
-var (
-	ErrVerifyOpeningProof            = "error verifying opening proof"
-	ErrVerifyBatchOpeningSinglePoint = "error verifying batch opening proof at single point"
+import (
+	"errors"
+	"io"
 )
 
-// Polynomial interface that a polynomial should implement
-type Polynomial interface {
-	Degree() uint64
-	Eval(v interface{}) interface{}
-}
+var (
+	ErrVerifyOpeningProof            = errors.New("error verifying opening proof")
+	ErrVerifyBatchOpeningSinglePoint = errors.New("error verifying batch opening proof at single point")
+)
 
 // Digest interface that a polynomial commitment should implement
 type Digest interface {
-	io.WriterTo
-	io.ReaderFrom
-	Bytes() []byte
+	Marshal() []byte
 }
 
 // OpeningProof interface that an opening proof
 // should implement.
 type OpeningProof interface {
-	io.WriterTo
-	io.ReaderFrom
+	Marshal() []byte
 }
 
 // BatchOpeningProofSinglePoint interface that a bacth opening proof (single point)
 // should implement.
 type BatchOpeningProofSinglePoint interface {
-	io.WriterTo
-	io.ReaderFrom
+	Marshal() []byte
 }
 
 // CommitmentScheme interface for an additively homomorphic
@@ -59,23 +52,22 @@ type CommitmentScheme interface {
 
 	Commit(p Polynomial) Digest
 
-	Open(val interface{}, p Polynomial) OpeningProof
+	Open(point interface{}, p Polynomial) OpeningProof
 
 	// Verify verifies an opening proof of commitment at point
-	Verify(point interface{}, commitment Digest, proof OpeningProof) error
+	Verify(commitment Digest, proof OpeningProof) error
 
 	// BatchOpenSinglePoint creates a batch opening proof at _val of a list of polynomials.
 	// It's an interactive protocol, made non interactive using Fiat Shamir.
-	BatchOpenSinglePoint(point interface{}, polynomials interface{}) BatchOpeningProofSinglePoint
+	// point is the point at which the polynomials are opened.
+	// digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
+	// polynomials is the list of polynomials to open.
+	BatchOpenSinglePoint(point interface{}, digests []Digest, polynomials []Polynomial) BatchOpeningProofSinglePoint
 
 	// BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
 	// point: point at which the polynomials are evaluated
 	// claimedValues: claimed values of the polynomials at _val
 	// commitments: list of commitments to the polynomials which are opened
 	// batchOpeningProof: the batched opening proof at a single point of the polynomials.
-	BatchVerifySinglePoint(
-		point interface{},
-		claimedValues interface{},
-		commitments interface{},
-		batchOpeningProof BatchOpeningProofSinglePoint) error
+	BatchVerifySinglePoint(digests []Digest, batchOpeningProof BatchOpeningProofSinglePoint) error
 }
