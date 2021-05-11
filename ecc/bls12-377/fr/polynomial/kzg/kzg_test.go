@@ -42,10 +42,9 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 
 	// evaluate the polynomial at a random point
-	var point, evaluation fr.Element
+	var point fr.Element
 	point.SetRandom()
-	_evaluation := pol.Eval(&point)
-	evaluation.Set(_evaluation.(*fr.Element))
+	evaluation := pol.Eval(&point).(fr.Element)
 
 	// compute f-f(a)/x-a
 	h := dividePolyByXminusA(*domain, pol, evaluation, point)
@@ -55,13 +54,14 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 
 	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
-	var randPoint, hRandPoint, polRandpoint, xminusa fr.Element
+	var randPoint, xminusa fr.Element
 	randPoint.SetRandom()
-	_r := pol.Eval(&randPoint)
-	polRandpoint.Set(_r.(*fr.Element)).Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
-	_r = h.Eval(&randPoint)
-	hRandPoint.Set(_r.(*fr.Element)) // h(rand)
-	xminusa.Sub(&randPoint, &point)  // rand-point
+
+	polRandpoint := pol.Eval(&randPoint).(fr.Element)
+	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
+
+	hRandPoint := h.Eval(&randPoint).(fr.Element)
+	xminusa.Sub(&randPoint, &point) // rand-point
 
 	// f(rand)-f(point)	==? h(rand)*(rand-point)
 	hRandPoint.Mul(&hRandPoint, &xminusa)
@@ -144,8 +144,7 @@ func TestCommit(t *testing.T) {
 	// check commitment using manual commit
 	var x fr.Element
 	x.SetString("1234")
-	_fx := f.Eval(&x)
-	fx := bls12377_pol.FromInterface(_fx)
+	fx := f.Eval(&x).(fr.Element)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
 	var manualCommit bls12377.G1Affine

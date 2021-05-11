@@ -192,8 +192,8 @@ func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.Op
 	// build the proof
 	var res Proof
 	claimedValue := p.Eval(point)
-	res.Point = {{ .CurvePackage }}_pol.FromInterface(point)
-	res.ClaimedValue = {{ .CurvePackage }}_pol.FromInterface(claimedValue)
+	res.Point.SetInterface(point)
+	res.ClaimedValue.SetInterface(claimedValue)
 
 	// compute H
 	_p := p.(*{{ .CurvePackage }}_pol.Polynomial)
@@ -277,11 +277,11 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
 	for i := 0; i < len(polynomials); i++ {
 		_val := polynomials[i].Eval(point)
-		res.ClaimedValues[i] = {{ .CurvePackage }}_pol.FromInterface(_val)
+		res.ClaimedValues[i].SetInterface(_val)
 	}
 
 	// set the point at which the evaluation is done
-	res.Point = {{ .CurvePackage }}_pol.FromInterface(point)
+	res.Point.SetInterface(point)
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")

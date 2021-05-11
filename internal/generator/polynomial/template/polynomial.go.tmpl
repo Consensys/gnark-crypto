@@ -1,177 +1,118 @@
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/polynomial"
 )
-
-func FromInterface(i1 interface{}) fr.Element {
-
-	var val fr.Element
-
-	switch c1 := i1.(type) {
-	case fr.Element:
-		val.Set(&c1)
-	case *fr.Element:
-		val.Set(c1)
-	case big.Int:
-		val.SetBigInt(&c1)
-	case *big.Int:
-		val.SetBigInt(c1)
-	case uint64:
-		val.SetUint64(c1)
-	case string:
-		val.SetString(c1)
-	case []byte:
-		val.SetBytes(c1)
-	default:
-		panic("unsupported type")
-	}
-
-	return val
-}
 
 // Polynomial polynomial represented by coefficients bn254 fr field.
 type Polynomial []fr.Element
 
 // Degree returns the degree of the polynomial, which is the length of Data.
 func (p *Polynomial) Degree() uint64 {
-	res := uint64(len(*p) - 1)
-	return res
+	return uint64(len(*p) - 1)
 }
 
 // Eval evaluates p at v
+// returns a fr.Element 
 func (p *Polynomial) Eval(v interface{}) interface{} {
+	var _v fr.Element
+	_v.SetInterface(v)
 
-	var res fr.Element
-
-	_v := FromInterface(v)
-	_p := *p
-
-	s := len(_p)
-	res.Set(&_p[s-1])
-	for i := s - 2; i >= 0; i-- {
+	res := (*p)[len(*p) - 1]
+	for i := len(*p) - 2; i >= 0; i-- {
 		res.Mul(&res, &_v)
-		res.Add(&res, &_p[i])
+		res.Add(&res, &(*p)[i])
 	}
-	return &res
+
+	return res
 }
 
 // Clone returns a copy of the polynomial
 func (p *Polynomial) Clone() polynomial.Polynomial {
-	_pCopy := make(Polynomial, len(*p))
-	copy(_pCopy, *p)
-	return &_pCopy
+	_p := make(Polynomial, len(*p))
+	copy(_p, *p)
+	return &_p
 }
 
 // AddConstantInPlace adds a constant to the polynomial, modifying p
 func (p *Polynomial) AddConstantInPlace(c interface{}) {
+	var _c fr.Element
+	_c.SetInterface(c)
 
-	_c := FromInterface(c)
-	_p := *p
-
-	parallel.Execute(len(_p), func(start, end int) {
-		for i := start; i < end; i++ {
-			_p[i].Add(&_p[i], &_c)
-		}
-	})
-
+	for i := 0; i < len(*p); i++ {
+		(*p)[i].Add(&(*p)[i], &_c)
+	}
 }
 
-// AddConstantInPlace subs a constant to the polynomial, modifying p
+// SubConstantInPlace subs a constant to the polynomial, modifying p
 func (p *Polynomial) SubConstantInPlace(c interface{}) {
+	var _c fr.Element
+	_c.SetInterface(c)
 
-	_c := FromInterface(c)
-	_p := *p
-
-	parallel.Execute(len(_p), func(start, end int) {
-		for i := start; i < end; i++ {
-			_p[i].Sub(&_p[i], &_c)
-		}
-	})
+	for i := 0; i < len(*p); i++ {
+		(*p)[i].Sub(&(*p)[i], &_c)
+	}
 }
 
 // ScaleInPlace multiplies p by v, modifying p
 func (p *Polynomial) ScaleInPlace(c interface{}) {
+	var _c fr.Element
+	_c.SetInterface(c)
 
-	_c := FromInterface(c)
-	_p := *p
-
-	parallel.Execute(len(_p), func(start, end int) {
-		for i := start; i < end; i++ {
-			_p[i].Mul(&_p[i], &_c)
-		}
-	})
+	for i := 0; i < len(*p); i++ {
+		(*p)[i].Mul(&(*p)[i], &_c)
+	}
 }
 
-// Add adds p1 to p, modifying p.
-// This function allocates a new slice each times it is called.
+// Add adds p1 to p2
+// This function allocates a new slice unless p == p1 or p == p2
 func (p *Polynomial) Add(p1, p2 polynomial.Polynomial) polynomial.Polynomial {
 
-	_p1 := *(p1).(*Polynomial)
-	_p2 := *(p2.(*Polynomial))
-
-	// if p is one of the operand and is the polynomial of greatest degree, no allocation is needed
-	if p == p1 && len(_p1) > len(_p2) {
-		parallel.Execute(len(_p2), func(start, end int) {
-			for i := start; i < end; i++ {
-				_p1[i].Add(&_p1[i], &_p2[i])
-			}
-		})
-		return p
-	}
-	if p == p2 && len(_p2) > len(_p1) {
-		parallel.Execute(len(_p1), func(start, end int) {
-			for i := start; i < end; i++ {
-				_p2[i].Add(&_p1[i], &_p2[i])
-			}
-		})
-		return p
+	bigger := *(p1.(*Polynomial))
+	smaller := *(p2.(*Polynomial))
+	if len(bigger) < len(smaller) {
+		bigger, smaller = smaller, bigger 
 	}
 
-	// here p is not one of the operand, we allocate a new polynomial
-	maxSize := len(_p1)
-	if maxSize < len(_p2) {
-		maxSize = len(_p2)
-	}
-	res := make(Polynomial, maxSize)
-	if len(_p1) < len(_p2) {
-		copy(res, _p2)
-		parallel.Execute(len(_p1), func(start, end int) {
-			for i := start; i < end; i++ {
-				res[i].Add(&_p1[i], &_p2[i])
-			}
-		})
-	} else {
-		copy(res, _p1)
-		parallel.Execute(len(_p2), func(start, end int) {
-			for i := start; i < end; i++ {
-				res[i].Add(&_p1[i], &_p2[i])
-			}
-		})
+	if len(*p) == len(bigger) && (&(*p)[0] == &bigger[0]) {
+		for i:=0; i < len(smaller); i++ {
+			(*p)[i].Add(&(*p)[i], &smaller[i])
+		}
+		return p 
 	}
 
+	if len(*p) == len(smaller) && (&(*p)[0] == &smaller[0]) {
+		for i:=0; i < len(smaller); i++ {
+			(*p)[i].Add(&(*p)[i], &bigger[i])
+		}
+		*p = append(*p, bigger[len(smaller):]...)
+		return p 
+	}
+
+	res := make(Polynomial, len(bigger))
+	copy(res, bigger)
+	for i:=0; i < len(smaller); i++ {
+		res[i].Add(&res[i], &smaller[i])
+	}
 	*p = res
-	return &res
-
+	return p
 }
 
 // Equal checks equality between two polynomials
 func (p *Polynomial) Equal(p1 polynomial.Polynomial) bool {
+	_p1 := *(p1.(*Polynomial))
+    if (p == nil) != (_p1 == nil) { 
+        return false
+    }
 
-	_p1 := *(p1).(*Polynomial)
-	_p := *p
+    if len(*p) != len(_p1) {
+        return false
+    }
 
-	if len(_p1) != len(_p) {
-		return false
-	}
-
-	for i := 0; i < len(_p1); i++ {
-		if !_p1[i].Equal(&_p[i]) {
+    for i := range _p1 {
+		if !(*p)[i].Equal(&_p1[i]) {
 			return false
 		}
-	}
-	return true
+    }
 
+    return true
 }
