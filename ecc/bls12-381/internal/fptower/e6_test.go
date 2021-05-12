@@ -35,6 +35,7 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 
 	genA := GenE6()
 	genB := GenE6()
+	genE2 := GenE2()
 
 	properties.Property("[BLS12-381] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E6) bool {
@@ -125,6 +126,17 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-381] Having the receiver as operand (mul by E2) should output the same result", prop.ForAll(
+		func(a *E6, b *E2) bool {
+			var c E6
+			c.MulByE2(a, b)
+			a.MulByE2(a, b)
+			return a.Equal(&c)
+		},
+		genA,
+		genE2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -137,6 +149,7 @@ func TestE6Ops(t *testing.T) {
 
 	genA := GenE6()
 	genB := GenE6()
+	genE2 := GenE2()
 
 	properties.Property("[BLS12-381] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
@@ -208,6 +221,44 @@ func TestE6Ops(t *testing.T) {
 			return a.Equal(&c)
 		},
 		genA,
+	))
+
+	properties.Property("[BLS12-381] MulByE2 MulByE2 inverse should leave an element invariant", prop.ForAll(
+		func(a *E6, b *E2) bool {
+			var c E6
+			var d E2
+			d.Inverse(b)
+			c.MulByE2(a, b).MulByE2(&c, &d)
+			return c.Equal(a)
+		},
+		genA,
+		genE2,
+	))
+
+	properties.Property("[BLS12-381] Mul and MulBy01 should output the same result", prop.ForAll(
+		func(a *E6, c0, c1 *E2) bool {
+			var b E6
+			b.B0.Set(c0)
+			b.B1.Set(c1)
+			b.Mul(&b, a)
+			a.MulBy01(c0, c1)
+			return b.Equal(a)
+		},
+		genA,
+		genE2,
+		genE2,
+	))
+
+	properties.Property("[BLS12-381] Mul and MulBy1 should output the same result", prop.ForAll(
+		func(a *E6, c1 *E2) bool {
+			var b E6
+			b.B1.Set(c1)
+			b.Mul(&b, a)
+			a.MulBy1(c1)
+			return b.Equal(a)
+		},
+		genA,
+		genE2,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))

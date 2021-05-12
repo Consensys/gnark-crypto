@@ -174,7 +174,7 @@ func (p *PointAffine) IsOnCurve() bool {
 
 	tmp.Mul(&p.Y, &p.Y)
 	lhs.Mul(&p.X, &p.X).
-		Mul(&lhs, &ecurve.A).
+		Neg(&lhs).
 		Add(&lhs, &tmp)
 
 	tmp.Mul(&p.X, &p.X).
@@ -198,9 +198,9 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yu.Mul(&p1.Y, &p2.X)
 	pRes.X.Add(&xv, &yu)
 
-	xu.Mul(&p1.X, &p2.X).Mul(&xu, &ecurve.A)
+	xu.Mul(&p1.X, &p2.X)
 	yv.Mul(&p1.Y, &p2.Y)
-	pRes.Y.Sub(&yv, &xu)
+	pRes.Y.Add(&yv, &xu)
 
 	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &ecurve.D)
 	one.SetOne()
@@ -216,7 +216,20 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 // Double doubles point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
-	p.Add(p1, p1)
+
+	var xx, yy, xy, denum, two fr.Element
+	xx.Square(&p.X)
+	yy.Square(&p.Y)
+	xy.Mul(&p.X, &p.Y)
+	denum.Sub(&yy, &xx)
+
+	p.X.Double(&xy).Div(&p.X, &denum)
+
+	two.SetOne().Double(&two)
+	denum.Neg(&denum).Add(&denum, &two)
+
+	p.Y.Add(&xx, &yy).Div(&p.Y, &denum)
+
 	return p
 }
 
@@ -265,8 +278,7 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &p1.Z).
 		Mul(&res.X, &F)
-	H.Mul(&ecurve.A, &C)
-	res.Y.Sub(&D, &H).
+	res.Y.Add(&D, &C).
 		Mul(&res.Y, &p.Z).
 		Mul(&res.Y, &G)
 	res.Z.Mul(&F, &G)
@@ -281,14 +293,12 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 
 	var res PointProj
 
-	ecurve := GetEdwardsCurve()
-
 	var B, C, D, E, F, H, J, tmp fr.Element
 
 	B.Add(&p1.X, &p1.Y).Square(&B)
 	C.Square(&p1.X)
 	D.Square(&p1.Y)
-	E.Mul(&ecurve.A, &C)
+	E.Neg(&C)
 	F.Add(&E, &D)
 	H.Square(&p1.Z)
 	tmp.Double(&H)

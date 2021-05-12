@@ -19,6 +19,7 @@ package fptower
 import (
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -297,15 +298,46 @@ func TestE12Ops(t *testing.T) {
 	properties.Property("[BLS12-381] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
-			b.FrobeniusCube(a).
-				FrobeniusCube(&b)
+			b.Conjugate(a)
 			a.Inverse(a)
 			b.Mul(&b, a)
-			a.Set(&b)
-			b.FrobeniusSquare(&b).Mul(&b, a)
-			c.Square(&b)
-			d.CyclotomicSquare(&b)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquare(a)
 			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-381] Frobenius of x in E12 should be equal to x^q", prop.ForAll(
+		func(a *E12) bool {
+			var b, c E12
+			q := fp.Modulus()
+			b.Frobenius(a)
+			c.Exp(a, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-381] FrobeniusSquare of x in E12 should be equal to x^(q^2)", prop.ForAll(
+		func(a *E12) bool {
+			var b, c E12
+			q := fp.Modulus()
+			b.FrobeniusSquare(a)
+			c.Exp(a, *q).Exp(&c, *q)
+			return c.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-381] FrobeniusCube of x in E12 should be equal to x^(q^3)", prop.ForAll(
+		func(a *E12) bool {
+			var b, c E12
+			q := fp.Modulus()
+			b.FrobeniusCube(a)
+			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
+			return c.Equal(&b)
 		},
 		genA,
 	))
