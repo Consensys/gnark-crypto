@@ -298,14 +298,12 @@ func TestE12Ops(t *testing.T) {
 	properties.Property("[BLS12-381] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
-			b.FrobeniusCube(a).
-				FrobeniusCube(&b)
+			b.Conjugate(a)
 			a.Inverse(a)
 			b.Mul(&b, a)
-			a.Set(&b)
-			b.FrobeniusSquare(&b).Mul(&b, a)
-			c.Square(&b)
-			d.CyclotomicSquare(&b)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquare(a)
 			return c.Equal(&d)
 		},
 		genA,
