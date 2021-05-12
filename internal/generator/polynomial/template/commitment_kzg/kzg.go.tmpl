@@ -51,19 +51,19 @@ type Proof struct {
 // The point H is not compressed.
 func (p *Proof) Marshal() []byte {
 
-	sizeFr := fr.Limbs * 8
-	res := make([]byte, 4*sizeFr)
+	var res [4*fr.Bytes]byte
 
 	bH := p.H.RawBytes()
-	copy(res, bH[:])
-	copy(res[2*sizeFr:], p.Point.Marshal())
-	copy(res[3*sizeFr:], p.ClaimedValue.Marshal())
+	copy(res[:], bH[:])
+	be := p.Point.Bytes()
+	copy(res[2*fr.Bytes:], be[:])
+	be = p.ClaimedValue.Bytes()
+	copy(res[3*fr.Bytes:], be[:])
 
-	return res
+	return res[:]
 }
 
 type BatchProofsSinglePoint struct {
-
 	// Point at which the polynomials are evaluated
 	Point fr.Element
 
@@ -77,20 +77,20 @@ type BatchProofsSinglePoint struct {
 // Marshal serializes a proof as H||point||claimed_values.
 // The point H is not compressed.
 func (p *BatchProofsSinglePoint) Marshal() []byte {
-
-	sizeFr := fr.Limbs * 8
 	nbClaimedValues := len(p.ClaimedValues)
 
 	// 2 for H, 1 for point, nbClaimedValues for the claimed values
-	res := make([]byte, (3+nbClaimedValues)*sizeFr)
+	res := make([]byte, (3+nbClaimedValues)*fr.Bytes)
 
 	bH := p.H.RawBytes()
 	copy(res, bH[:])
-	copy(res[2*sizeFr:], p.Point.Marshal())
-	acc := 3 * sizeFr
+	be := p.Point.Bytes()
+	copy(res[2*fr.Bytes:], be[:])
+	offset := 3 * fr.Bytes
 	for i := 0; i < nbClaimedValues; i++ {
-		copy(res[acc:], p.ClaimedValues[i].Marshal())
-		acc += sizeFr
+		be = p.ClaimedValues[i].Bytes()
+		copy(res[offset:], be[:])
+		offset += fr.Bytes
 	}
 
 	return res
@@ -277,8 +277,7 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	// compute the purported values
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
 	for i := 0; i < len(polynomials); i++ {
-		_val := polynomials[i].Eval(point)
-		res.ClaimedValues[i].SetInterface(_val)
+		res.ClaimedValues[i] = polynomials[i].Eval(point).(fr.Element)
 	}
 
 	// set the point at which the evaluation is done
@@ -286,13 +285,11 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	err := fs.Bind("gamma", res.Point.Marshal())
-	if err != nil {
+	if err := fs.Bind("gamma", res.Point.Marshal()); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(digests); i++ {
-		err := fs.Bind("gamma", digests[i].Marshal())
-		if err != nil {
+		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
 			return nil, err
 		}
 	}
