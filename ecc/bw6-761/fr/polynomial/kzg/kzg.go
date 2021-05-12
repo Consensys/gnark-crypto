@@ -33,6 +33,8 @@ import (
 var (
 	errNbDigestsNeqNbPolynomials = errors.New("number of digests is not the same as the number of polynomials")
 	errUnsupportedSize           = errors.New("the size of the polynomials exceeds the capacity of the SRS")
+	errDigestNotInG1             = errors.New("the digest is not in G1")
+	errProofNotInG1              = errors.New("the proof is not in G1")
 )
 
 // Digest commitment of a polynomial
@@ -233,6 +235,16 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 	_commitment := commitment.(*bw6761.G1Affine)
 	_proof := proof.(*Proof)
 
+	// verify that the committed quotient and the commitment are in the correct subgroup
+	subgroupCheck := _proof.H.IsInSubGroup()
+	if !subgroupCheck {
+		return errProofNotInG1
+	}
+	subgroupCheck = _commitment.IsInSubGroup()
+	if !subgroupCheck {
+		return errDigestNotInG1
+	}
+
 	// comm(f(a))
 	var claimedValueG1Aff bw6761.G1Affine
 	var claimedValueBigInt big.Int
@@ -346,8 +358,23 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 
 	_batchOpeningProof := batchOpeningProof.(*BatchProofsSinglePoint)
 
+	// check consistancy between numbers of claims vs number of digests
 	if len(digests) != len(_batchOpeningProof.ClaimedValues) {
 		return errNbDigestsNeqNbPolynomials
+	}
+
+	// subgroup checks for digests and the proof
+	subgroupCheck := true
+	for i := 0; i < len(digests); i++ {
+		_digest := digests[i].(*bw6761.G1Affine)
+		subgroupCheck = subgroupCheck && _digest.IsInSubGroup()
+	}
+	if !subgroupCheck {
+		return errDigestNotInG1
+	}
+	subgroupCheck = subgroupCheck && _batchOpeningProof.H.IsInSubGroup()
+	if !subgroupCheck {
+		return errProofNotInG1
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
