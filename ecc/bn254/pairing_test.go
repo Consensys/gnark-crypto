@@ -17,7 +17,6 @@
 package bn254
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -25,35 +24,6 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
-
-// ------------------------------------------------------------
-// examples
-
-func ExampleMillerLoop() {
-
-	// samples a random scalar r
-	var r big.Int
-	var rFr fr.Element
-	rFr.SetRandom()
-	rFr.ToBigIntRegular(&r)
-
-	// computes r*g1Gen, r*g2Gen
-	var rg1 G1Affine
-	var rg2 G2Affine
-	rg1.ScalarMultiplication(&g1GenAff, &r)
-	rg2.ScalarMultiplication(&g2GenAff, &r)
-
-	// Computes e(g1GenAff, ag2) and e(ag1, g2GenAff)
-	e1, _ := Pair([]G1Affine{g1GenAff}, []G2Affine{rg2})
-	E2, _ := Pair([]G1Affine{rg1}, []G2Affine{g2GenAff})
-
-	// checks that bilinearity property holds
-	check := e1.Equal(&E2)
-
-	fmt.Printf("%t\n", check)
-	// Output: true
-
-}
 
 // ------------------------------------------------------------
 // tests
@@ -88,6 +58,21 @@ func TestPairing(t *testing.T) {
 			*a = FinalExponentiation(a)
 			a.Exp(a, *e)
 			return a.Equal(&one)
+		},
+		genA,
+	))
+
+	properties.Property("[BN254] Expt and Exp(t) should output the same result in the cyclotomic subgroup", prop.ForAll(
+		func(a *GT) bool {
+			var b, c, d GT
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			c.Expt(a)
+			d.Exp(a, xGen)
+			return c.Equal(&d)
 		},
 		genA,
 	))
