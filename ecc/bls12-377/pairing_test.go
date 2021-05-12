@@ -62,7 +62,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Expt and Exp(t) should output the same result in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BLS12-377] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
 		func(a *GT) bool {
 			var b, c, d GT
 			b.Conjugate(a)
@@ -70,8 +70,8 @@ func TestPairing(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusSquare(&b).Mul(a, &b)
 
-			c.Expt(a)
-			d.Exp(a, xGen)
+			c.Expt(a).Expt(&c)
+			d.Exp(a, xGen).Exp(&d, xGen)
 			return c.Equal(&d)
 		},
 		genA,
