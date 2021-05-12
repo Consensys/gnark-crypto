@@ -34,16 +34,22 @@ func dividePolyByXminusA(d fft.Domain, f bls12381_pol.Polynomial, fa, a fr.Eleme
 	// compute the quotient (f-f(a))/(x-a)
 	d.FFT(_f, fft.DIF, 0)
 
-	var acc, sub fr.Element
-	acc.SetOne()
-	n := d.Cardinality
-	nn := uint64(64 - bits.TrailingZeros64(n))
+	// bit reverse shift
+	bShift := uint64(64 - bits.TrailingZeros64(d.Cardinality))
+
+	accumulator := fr.One()
+
+	s := make([]fr.Element, len(_f))
+	for i := 0; i < len(s); i++ {
+		irev := bits.Reverse64(uint64(i)) >> bShift
+		s[irev].Sub(&accumulator, &a)
+		accumulator.Mul(&accumulator, &d.Generator)
+	}
+	s = fr.BatchInvert(s)
+
 	for i := 0; i < len(_f); i++ {
-		irev := bits.Reverse64(uint64(i)) >> nn
-		// TODO perform batch inversion
-		sub.Sub(&acc, &a)
-		_f[irev].Sub(&_f[irev], &fa).Div(&_f[irev], &sub)
-		acc.Mul(&acc, &d.Generator)
+		_f[i].Sub(&_f[i], &fa)
+		_f[i].Mul(&_f[i], &s[i])
 	}
 
 	d.FFTInverse(_f, fft.DIT, 0)

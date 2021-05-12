@@ -416,4 +416,38 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 	}
 }
 
+
+// BatchInvert returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
+	res := make([]{{.ElementName}}, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	accumulator := One()
+
+	for i:=0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i] = accumulator
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}
+
 `
