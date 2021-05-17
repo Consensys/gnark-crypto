@@ -50,9 +50,9 @@ type CommitmentScheme interface {
 	io.WriterTo
 	io.ReaderFrom
 
-	Commit(p Polynomial) Digest
+	Commit(p Polynomial) (Digest, error)
 
-	Open(point interface{}, p Polynomial) OpeningProof
+	Open(point interface{}, p Polynomial) (OpeningProof, error)
 
 	// Verify verifies an opening proof of commitment at point
 	Verify(commitment Digest, proof OpeningProof) error
@@ -62,7 +62,7 @@ type CommitmentScheme interface {
 	// point is the point at which the polynomials are opened.
 	// digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 	// polynomials is the list of polynomials to open.
-	BatchOpenSinglePoint(point interface{}, digests []Digest, polynomials []Polynomial) BatchOpeningProofSinglePoint
+	BatchOpenSinglePoint(point interface{}, digests []Digest, polynomials []Polynomial) (BatchOpeningProofSinglePoint, error)
 
 	// BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
 	// point: point at which the polynomials are evaluated
