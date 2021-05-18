@@ -26,6 +26,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "mockcommitment", "proof.go"), Templates: []string{"commitment_mock/proof.go.tmpl"}},
 		{File: filepath.Join(baseDir, "mockcommitment", "proof_single_point.go"), Templates: []string{"commitment_mock/proof.single.point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "mockcommitment", "mock.go"), Templates: []string{"commitment_mock/mock.go.tmpl"}},
+		{File: filepath.Join(baseDir, "mockcommitment", "mock_test.go"), Templates: []string{"commitment_mock/mock.test.go.tmpl"}},
 	}
 	if err := bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...); err != nil {
 		return err
