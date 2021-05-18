@@ -96,11 +96,12 @@ func TestAddProj(t *testing.T) {
 
 func TestDouble(t *testing.T) {
 
-	var p PointAffine
+	var _p, p PointAffine
 
 	p.X.SetString("4054273413031690150214184383897121503625518951056633275177212354976965625455")
 	p.Y.SetString("3656215305282548767146189541242947042444006653545844852001327067666733281531")
 
+	_p.Double(&p)
 	p.Double(&p)
 
 	var expectedX, expectedY fr.Element
@@ -114,6 +115,14 @@ func TestDouble(t *testing.T) {
 	if !p.Y.Equal(&expectedY) {
 		t.Fatal("wrong y coordinate")
 	}
+
+	if !_p.X.Equal(&expectedX) {
+		t.Fatal("wrong x coordinate")
+	}
+	if !_p.Y.Equal(&expectedY) {
+		t.Fatal("wrong y coordinate")
+	}
+
 }
 
 func TestDoubleProj(t *testing.T) {

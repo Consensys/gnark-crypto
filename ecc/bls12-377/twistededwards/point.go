@@ -217,6 +217,7 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 // modifies p
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
+	p.Set(p1)
 	var xx, yy, xy, denum, two fr.Element
 	xx.Square(&p.X)
 	yy.Square(&p.Y)
