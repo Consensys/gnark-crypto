@@ -37,7 +37,7 @@ func TestPairing(t *testing.T) {
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-	properties.Property("Having the receiver as operand (final expo) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a *GT) bool {
 			var b GT
 			b.Set(a)
@@ -48,7 +48,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
+	properties.Property("[BW6-761] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
 		func(a *GT) bool {
 			var one GT
 			var e big.Int
@@ -61,7 +61,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("FinalExp(a) should be equal to a^e", prop.ForAll(
+	properties.Property("[BW6-761] FinalExp(a) should be equal to a^e", prop.ForAll(
 		func(a *GT) bool {
 
 			// e = 3(x^3-x^2+1)(q^6-1)/r
@@ -81,7 +81,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("easy part of FinalExp(a) should be equal to a^e", prop.ForAll(
+	properties.Property("[BW6-761] easy part of FinalExp(a) should be equal to a^e", prop.ForAll(
 		func(elt *GT) bool {
 
 			// e = (q^3-1)(q+1)
@@ -105,7 +105,7 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("bilinearity", prop.ForAll(
+	properties.Property("[BW6-761] bilinearity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var res, resa, resb, resab, zero GT
@@ -153,7 +153,7 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
+	properties.Property("[BW6-761] MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var simpleProd, factorizedProd GT
@@ -194,7 +194,7 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("PairingCheck", prop.ForAll(
+	properties.Property("[BW6-761] PairingCheck", prop.ForAll(
 		func() bool {
 
 			var g1GenAffNeg G1Affine
@@ -206,6 +206,48 @@ func TestPairing(t *testing.T) {
 
 			return res
 		},
+	))
+
+	properties.Property("[BW6-761] MillerLoop should skip pairs with a point at infinity", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var one GT
+
+			var ag1, g1Inf G1Affine
+			var bg2, g2Inf G2Affine
+
+			var abigint, bbigint big.Int
+
+			one.SetOne()
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			g1Inf.FromJacobian(&g1Infinity)
+			g2Inf.FromJacobian(&g2Infinity)
+
+			// e([0,c] ; [b,d])
+			tabP := []G1Affine{g1Inf, ag1}
+			tabQ := []G2Affine{g2GenAff, bg2}
+			res1, _ := Pair(tabP, tabQ)
+
+			// e([a,c] ; [0,d])
+			tabP = []G1Affine{g1GenAff, ag1}
+			tabQ = []G2Affine{g2Inf, bg2}
+			res2, _ := Pair(tabP, tabQ)
+
+			// e([0,c] ; [d,0])
+			tabP = []G1Affine{g1Inf, ag1}
+			tabQ = []G2Affine{bg2, g2Inf}
+			res3, _ := Pair(tabP, tabQ)
+
+			return res1.Equal(&res2) && !res2.Equal(&res3) && res3.Equal(&one)
+		},
+		genR1,
+		genR2,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -253,4 +295,18 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 		FinalExponentiation(&a)
 	}
 
+}
+
+func BenchmarkMultiPairing(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Pair([]G1Affine{g1GenAff, g1GenAff, g1GenAff}, []G2Affine{g2GenAff, g2GenAff, g2GenAff})
+	}
 }
