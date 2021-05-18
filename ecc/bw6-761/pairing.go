@@ -64,7 +64,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	var buf GT
 
 	// easy part exponent: (p**3 - 1)*(p+1)
-	buf.FrobeniusCube(&result)
+	buf.Conjugate(&result)
 	result.Inverse(&result)
 	buf.Mul(&buf, &result)
 	result.Frobenius(&buf).
@@ -87,7 +87,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	fp[8].Expt(&fp[7])
 	fp[9].Expt(&fp[8])
 
-	result.FrobeniusCube(&fp[5]).
+	result.Conjugate(&fp[5]).
 		MulAssign(&fp[3]).
 		MulAssign(&fp[6]).
 		CyclotomicSquare(&result)
@@ -98,14 +98,14 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		MulAssign(&f[3]).
 		MulAssign(&f4fp2).
 		MulAssign(&fp[8])
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f[5]).
 		MulAssign(&fp[0]).
 		CyclotomicSquare(&result)
 
-	buf.FrobeniusCube(&f[7])
+	buf.Conjugate(&f[7])
 	result.MulAssign(&buf)
 
 	result.MulAssign(&fp[9]).
@@ -116,7 +116,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	f4fp2fp5.Mul(&f4fp2, &fp[5])
 	buf.Mul(&f2fp4, &f[3]).
 		MulAssign(&fp[3])
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f4fp2fp5).
@@ -125,7 +125,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		CyclotomicSquare(&result)
 
 	buf.Mul(&fp[0], &fp[9])
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 	result.MulAssign(&f[0]).
 		MulAssign(&f[7]).
@@ -135,7 +135,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	var fp6fp8, f5fp7 GT
 	fp6fp8.Mul(&fp[6], &fp[8])
 	f5fp7.Mul(&f[5], &fp[7])
-	buf.FrobeniusCube(&fp6fp8)
+	buf.Conjugate(&fp6fp8)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f5fp7).
@@ -147,7 +147,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	f1f7.Mul(&f[1], &f[7])
 
 	buf.Mul(&f1f7, &f[2])
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f3f6).
@@ -156,7 +156,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	buf.Mul(&f4fp2, &f5fp7).
 		MulAssign(&fp6fp8)
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f[0]).
@@ -165,14 +165,14 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		MulAssign(&fp[5]).
 		CyclotomicSquare(&result)
 
-	buf.FrobeniusCube(&f3f6)
+	buf.Conjugate(&f3f6)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&fp[1]).
 		CyclotomicSquare(&result)
 
 	buf.Mul(&f2fp4, &f4fp2fp5).MulAssign(&fp[9])
-	buf.FrobeniusCube(&buf)
+	buf.Conjugate(&buf)
 	result.MulAssign(&buf)
 
 	result.MulAssign(&f1f7).MulAssign(&f5fp7).MulAssign(&fp[0])
@@ -261,7 +261,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// f(P)=g(P)**(u**2-u-1)*h(P), div(h)=(x**2-x-1)([x]Q)-([x**2-x-1][x]Q)-(x**2-x-2)(O)
 	var mx, mxInv, mxplusone GT
 	mx.Set(&result)
-	mxInv.Inverse(&result)
+	mxInv.Conjugate(&result)
 	mxplusone.Set(&mx)
 
 	var lEval = make([]lineEvaluation, nP)

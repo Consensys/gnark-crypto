@@ -168,6 +168,15 @@ func (z *E6) MulByE2(x *E6, y *E2) *E6 {
 	return z
 }
 
+// Conjugate conjugates an element in E6
+func (z *E6) Conjugate(x *E6) *E6 {
+	z.B0.Conjugate(&x.B0)
+	z.B1.Conjugate(&x.B1).Neg(&z.B1)
+	z.B2.Conjugate(&x.B2)
+
+	return z
+}
+
 // Square sets z to the E6-product of x,x, returns z
 func (z *E6) Square(x *E6) *E6 {
 

@@ -94,7 +94,7 @@ func TestPairing(t *testing.T) {
 			res1.Exp(elt, e)
 
 			// opt
-			buf.FrobeniusCube(elt)
+			buf.Conjugate(elt)
 			res2.Inverse(elt)
 			buf.Mul(&buf, &res2)
 			res2.Frobenius(&buf).

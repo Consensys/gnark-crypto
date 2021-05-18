@@ -42,16 +42,6 @@ func (z *E6) FrobeniusSquare(x *E6) *E6 {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x), return z
-func (z *E6) FrobeniusCube(x *E6) *E6 {
-
-	z.B0.Conjugate(&x.B0)
-	z.B1.Conjugate(&x.B1).Neg(&z.B1) // Frob^3 on Fp^3 acts as a conjugation
-	z.B2.Conjugate(&x.B2)
-
-	return z
-}
-
 // MulByNonResidue1Power1 set z=x*(0,1)^(1*(p^1-1)/3) and return z
 func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
 	// 4922464560225523242118178942575080391082002530232324381063048548642823052024664478336818169867474395270858391911405337707247735739826664939444490469542109391530482826728203582549674992333383150446779312029624171857054392282775649

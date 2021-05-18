@@ -167,11 +167,11 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (frobenius cube) should output the same result", prop.ForAll(
+	properties.Property("[BW761] Having the receiver as operand (conjugate) should output the same result", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
-			b.FrobeniusSquare(a)
-			a.FrobeniusSquare(a)
+			b.Conjugate(a)
+			a.Conjugate(a)
 			return a.Equal(&b)
 		},
 		genA,
@@ -257,13 +257,13 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] FrobeniusCube(a) = a^(q^3)", prop.ForAll(
+	properties.Property("[BW761] Conjugate(a) = a^(q^3)", prop.ForAll(
 		func(a *E6) bool {
 			var res1, res2 E6
 			var q, q3 big.Int
 			q = *fp.Modulus()
 			q3.Mul(&q, &q).Mul(&q3, &q)
-			res1.FrobeniusCube(a)
+			res1.Conjugate(a)
 			res2.Exp(a, q3)
 
 			return res2.Equal(&res2)
@@ -299,8 +299,8 @@ func TestE6Ops(t *testing.T) {
 	properties.Property("[BW761] (pi**3)**2=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
-			b.FrobeniusCube(a).
-				FrobeniusCube(&b)
+			b.Conjugate(a).
+				Conjugate(&b)
 			return b.Equal(a)
 		},
 		genA,
