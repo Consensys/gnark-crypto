@@ -187,6 +187,13 @@ func TestVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// verify the claimed valued
+	_proof := proof.(*Proof)
+	expected := f.Eval(point).(fr.Element)
+	if !_proof.ClaimedValue.Equal(&expected) {
+		t.Fatal("inconsistant claimed value")
+	}
+
 	// verify correct proof
 	err = s.Verify(digest, proof)
 	if err != nil {
@@ -194,7 +201,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify wrong proof
-	_proof := proof.(*Proof)
+	_proof = proof.(*Proof)
 	_proof.ClaimedValue.Double(&_proof.ClaimedValue)
 	err = s.Verify(digest, _proof)
 	if err == nil {
@@ -229,6 +236,15 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// verify the claimed values
+	_proof := proof.(*BatchProofsSinglePoint)
+	for i := 0; i < 10; i++ {
+		expectedClaim := f[i].Eval(point).(fr.Element)
+		if !expectedClaim.Equal(&_proof.ClaimedValues[i]) {
+			t.Fatal("inconsistant claimed values")
+		}
+	}
+
 	// verify correct proof
 	err = s.BatchVerifySinglePoint(digests, proof)
 	if err != nil {
@@ -236,7 +252,6 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify wrong proof
-	_proof := proof.(*BatchProofsSinglePoint)
 	_proof.ClaimedValues[0].Double(&_proof.ClaimedValues[0])
 	err = s.BatchVerifySinglePoint(digests, _proof)
 	if err == nil {

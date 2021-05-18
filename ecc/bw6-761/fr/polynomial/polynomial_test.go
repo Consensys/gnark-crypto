@@ -45,7 +45,7 @@ func TestPolynomialEval(t *testing.T) {
 	den.Sub(&point, &one)
 	expectedEval.Div(&expectedEval, &den)
 
-	// compute purpoted evaluation
+	// compute purported evaluation
 	purportedEval := f.Eval(&point).(fr.Element)
 
 	// check
