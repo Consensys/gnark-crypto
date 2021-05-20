@@ -46,6 +46,50 @@ func (z *E6) Expt(x *E6) *E6 {
 	return z
 }
 
+// Expc2 set z to x^c2 in E6 and return z
+// ht, hy = 13, 9
+// c1 = ht+hy = 22 (10110)
+func (z *E6) Expc2(x *E6) *E6 {
+
+	var result E6
+
+	result.CyclotomicSquare(x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+
+	z.Set(&result)
+
+	return z
+}
+
+// Expc1 set z to x^c1 in E6 and return z
+// ht, hy = 13, 9
+// c1 = ht**2+3*hy**2 = 412 (110011100)
+func (z *E6) Expc1(x *E6) *E6 {
+
+	var result E6
+
+	result.CyclotomicSquare(x)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
+
+	z.Set(&result)
+
+	return z
+}
+
 // MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
 func (z *E6) MulByVMinusThree(x *E6, y *fp.Element) *E6 {
 

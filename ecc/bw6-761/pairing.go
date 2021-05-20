@@ -70,112 +70,71 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	result.Frobenius(&buf).
 		MulAssign(&buf)
 
-	// hard part exponent: a multiple of (p**2 - p + 1)/r
-	// cofactor in exponent = 3(x**3-x**2+1)
-	// Appendix B of https://eprint.iacr.org/2020/351.pdf
-	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
-	var f [8]GT
-	var fp [10]GT
-
-	f[0].Set(&result)
-	for i := 1; i < len(f); i++ {
-		f[i].Expt(&f[i-1])
-	}
-	for i := range f {
-		fp[i].Frobenius(&f[i])
-	}
-	fp[8].Expt(&fp[7])
-	fp[9].Expt(&fp[8])
-
-	result.Conjugate(&fp[5]).
-		MulAssign(&fp[3]).
-		MulAssign(&fp[6]).
-		CyclotomicSquare(&result)
-
-	var f4fp2 GT
-	f4fp2.Mul(&f[4], &fp[2])
-	buf.Mul(&f[0], &f[1]).
-		MulAssign(&f[3]).
-		MulAssign(&f4fp2).
-		MulAssign(&fp[8])
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f[5]).
-		MulAssign(&fp[0]).
-		CyclotomicSquare(&result)
-
-	buf.Conjugate(&f[7])
-	result.MulAssign(&buf)
-
-	result.MulAssign(&fp[9]).
-		CyclotomicSquare(&result)
-
-	var f2fp4, f4fp2fp5 GT
-	f2fp4.Mul(&f[2], &fp[4])
-	f4fp2fp5.Mul(&f4fp2, &fp[5])
-	buf.Mul(&f2fp4, &f[3]).
-		MulAssign(&fp[3])
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f4fp2fp5).
-		MulAssign(&f[6]).
-		MulAssign(&fp[7]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&fp[0], &fp[9])
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-	result.MulAssign(&f[0]).
-		MulAssign(&f[7]).
-		MulAssign(&fp[1]).
-		CyclotomicSquare(&result)
-
-	var fp6fp8, f5fp7 GT
-	fp6fp8.Mul(&fp[6], &fp[8])
-	f5fp7.Mul(&f[5], &fp[7])
-	buf.Conjugate(&fp6fp8)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f5fp7).
-		MulAssign(&fp[2]).
-		CyclotomicSquare(&result)
-
-	var f3f6, f1f7 GT
-	f3f6.Mul(&f[3], &f[6])
-	f1f7.Mul(&f[1], &f[7])
-
-	buf.Mul(&f1f7, &f[2])
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f3f6).
-		MulAssign(&fp[9]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&f4fp2, &f5fp7).
-		MulAssign(&fp6fp8)
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f[0]).
-		MulAssign(&fp[0]).
-		MulAssign(&fp[3]).
-		MulAssign(&fp[5]).
-		CyclotomicSquare(&result)
-
-	buf.Conjugate(&f3f6)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&fp[1]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&f2fp4, &f4fp2fp5).MulAssign(&fp[9])
-	buf.Conjugate(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f1f7).MulAssign(&f5fp7).MulAssign(&fp[0])
+		// hard part exponent: 12(u+1)(p**2 - p + 1)/r
+	var m1, _m1, m2, _m2, m3, f0, f0_36, g0, g1, _g1, g2, g3, _g3, g4, _g4, g5, _g5, g6, gA, gB, g034, _g1g2, gC, h1, h2, h2g2C, h4 GT
+	m1.Expt(&result)
+	_m1.Conjugate(&m1)
+	m2.Expt(&m1)
+	_m2.Conjugate(&m2)
+	m3.Expt(&m2)
+	f0.Frobenius(&result).
+		Mul(&f0, &result).
+		Mul(&f0, &m2)
+	m2.CyclotomicSquare(&_m1)
+	f0.Mul(&f0, &m2)
+	f0_36.CyclotomicSquare(&f0).
+		CyclotomicSquare(&f0_36).
+		CyclotomicSquare(&f0_36).
+		Mul(&f0_36, &f0).
+		CyclotomicSquare(&f0_36).
+		CyclotomicSquare(&f0_36)
+	g0.Mul(&result, &m1).
+		Frobenius(&g0).
+		Mul(&g0, &m3).
+		Mul(&g0, &_m2).
+		Mul(&g0, &_m1)
+	g1.Expt(&g0)
+	_g1.Conjugate(&g1)
+	g2.Expt(&g1)
+	g3.Expt(&g2)
+	_g3.Conjugate(&g3)
+	g4.Expt(&g3)
+	_g4.Conjugate(&g4)
+	g5.Expt(&g4)
+	_g5.Conjugate(&g5)
+	g6.Expt(&g5)
+	gA.Mul(&g3, &_g5).
+		CyclotomicSquare(&gA).
+		Mul(&gA, &g6).
+		Mul(&gA, &g1).
+		Mul(&gA, &g0)
+	g034.Mul(&g0, &g3).
+		Mul(&g034, &_g4)
+	gB.CyclotomicSquare(&g034).
+		Mul(&gB, &g034).
+		Mul(&gB, &g5).
+		Mul(&gB, &_g1)
+	_g1g2.Mul(&_g1, &g2)
+	gC.Mul(&_g3, &_g1g2).
+		CyclotomicSquare(&gC).
+		Mul(&gC, &_g1g2).
+		Mul(&gC, &g0).
+		CyclotomicSquare(&gC).
+		Mul(&gC, &g2).
+		Mul(&gC, &g0).
+		Mul(&gC, &g4)
+		// ht, hy = 13, 9
+		// c1 = ht**2+3*hy**2 = 412
+	h1.Expc1(&gA)
+	// c2 = ht+hy = 22
+	h2.Expc2(&gB)
+	h2g2C.CyclotomicSquare(&gC).
+		Mul(&h2g2C, &h2)
+	h4.CyclotomicSquare(&h2g2C).
+		Mul(&h4, &h2g2C).
+		CyclotomicSquare(&h4)
+	result.Mul(&h1, &h4).
+		Mul(&result, &f0_36)
 
 	return result
 }
