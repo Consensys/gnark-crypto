@@ -68,7 +68,9 @@ func TestPairing(t *testing.T) {
 			b.Conjugate(a)
 			a.Inverse(a)
 			b.Mul(&b, a)
-			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			a.FrobeniusSquare(&b).
+				Mul(a, &b)
 
 			c.Expt(a).Expt(&c)
 			d.Exp(a, xGen).Exp(&d, xGen)
