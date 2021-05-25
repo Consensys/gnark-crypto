@@ -68,7 +68,7 @@ type Proof struct {
 
 // NewScheme returns a new KZG scheme.
 // This should be used for testing purpose only.
-func NewScheme(size int) *Scheme {
+func NewScheme(size int, alpha fr.Element) *Scheme {
 
 	s := &Scheme{}
 
@@ -76,8 +76,6 @@ func NewScheme(size int) *Scheme {
 	s.Domain = *d
 	s.SRS.G1 = make([]bls12381.G1Affine, size)
 
-	var alpha fr.Element
-	alpha.SetRandom()
 	var bAlpha big.Int
 	alpha.ToBigIntRegular(&bAlpha)
 
