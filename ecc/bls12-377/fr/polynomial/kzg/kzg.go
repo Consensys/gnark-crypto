@@ -66,6 +66,40 @@ type Proof struct {
 	H bls12377.G1Affine
 }
 
+// NewScheme returns a new KZG scheme.
+// This should be used for testing purpose only.
+func NewScheme(size int) *Scheme {
+
+	s := &Scheme{}
+
+	d := fft.NewDomain(uint64(size), 0, false)
+	s.Domain = *d
+	s.SRS.G1 = make([]bls12377.G1Affine, size)
+
+	var alpha fr.Element
+	alpha.SetRandom()
+	var bAlpha big.Int
+	alpha.ToBigIntRegular(&bAlpha)
+
+	_, _, gen1Aff, gen2Aff := bls12377.Generators()
+	s.SRS.G1[0] = gen1Aff
+	s.SRS.G2[0] = gen2Aff
+	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
+
+	alphas := make([]fr.Element, size-1)
+	alphas[0] = alpha
+	for i := 1; i < len(alphas); i++ {
+		alphas[i].Mul(&alphas[i-1], &alpha)
+	}
+	for i := 0; i < len(alphas); i++ {
+		alphas[i].FromMont()
+	}
+	g1s := bls12377.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	copy(s.SRS.G1[1:], g1s)
+
+	return s
+}
+
 // Marshal serializes a proof as H||point||claimed_value.
 // The point H is not compressed.
 func (p *Proof) Marshal() []byte {
