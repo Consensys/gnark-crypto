@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"math/big"
 )
 
@@ -336,20 +335,23 @@ func (z *E12) SetBytes(e []byte) error {
 
 	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
 
-	// TODO is it the right place?
-	//if !z.IsInSubGroup() {
-	//	return errors.New("subgroup check failed")
-	//}
+	if !z.IsInSubGroup() {
+		return errors.New("subgroup check failed")
+	}
 
 	return nil
 }
 
-var frModulus = fr.Modulus()
-
 // IsInSubGroup ensures GT/E12 is in correct sugroup
 func (z *E12) IsInSubGroup() bool {
-	var one, _z E12
-	one.SetOne()
-	_z.Exp(z, *frModulus)
-	return _z.Equal(&one)
+	var a, b, _b E12
+
+	a.Frobenius(z)
+	b.Expt(z).
+		Expt(&b).
+		CyclotomicSquare(&b)
+	_b.CyclotomicSquare(&b)
+	b.Mul(&b, &_b)
+
+	return a.Equal(&b)
 }

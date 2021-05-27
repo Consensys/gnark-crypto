@@ -53,12 +53,8 @@ func TestPairing(t *testing.T) {
 
 	properties.Property("[BW6-761] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
 		func(a *GT) bool {
-			var one GT
-			e := fr.Modulus()
-			one.SetOne()
-			*a = FinalExponentiation(a)
-			a.Exp(a, *e)
-			return a.Equal(&one)
+			b := FinalExponentiation(a)
+			return !a.IsInSubGroup() && b.IsInSubGroup()
 		},
 		genA,
 	))
