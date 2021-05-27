@@ -312,10 +312,6 @@ func (z *E12) SetBytes(e []byte) error {
 	{{- $offset := mul $sizeOfFp 0}}
 	{{- template "readFp" dict "all" . "OffSet" $offset "To" "z.C1.B2.A1"}}
 
-	if !z.IsInSubGroup() {
-		return errors.New("subgroup check failed")
-	}
-
 	return nil
 }
 
