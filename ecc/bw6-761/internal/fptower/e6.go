@@ -333,10 +333,6 @@ func (z *E6) SetBytes(e []byte) error {
 	z.B0.A0.SetBytes(e[offset : offset+sizeOfFp])
 	offset += sizeOfFp
 
-	if !z.IsInSubGroup() {
-		return errors.New("subgroup check failed")
-	}
-
 	return nil
 }
 

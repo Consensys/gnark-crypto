@@ -335,10 +335,6 @@ func (z *E12) SetBytes(e []byte) error {
 
 	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
 
-	if !z.IsInSubGroup() {
-		return errors.New("subgroup check failed")
-	}
-
 	return nil
 }
 
