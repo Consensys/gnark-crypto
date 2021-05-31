@@ -1,23 +1,24 @@
-package bls12381
+package bls12377
 
 import (
+	"math/big"
 	"math/rand"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 	"github.com/leanovate/gopter"
 )
-
-// ------------------------------------------------------------
-// Tower generators
 
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
 		var b [fp.Bytes]byte
-		rand.Read(b[:])
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
 		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
@@ -55,6 +56,21 @@ func GenE12() gopter.Gen {
 	})
 }
 
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
+	}
+}
+
 // ------------------------------------------------------------
 // pairing generators
 
@@ -63,7 +79,10 @@ func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
 		var b [fr.Bytes]byte
-		rand.Read(b[:])
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
 		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
