@@ -237,6 +237,7 @@ func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 // Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
+	p.Set(p1)
 	p.X.Neg(&p1.X)
 	return p
 }
@@ -328,16 +329,26 @@ func (p *PointProj) Neg(p1 *PointProj) *PointProj {
 //func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar fr.Element) *PointAffine {
 func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 
+	var _scalar big.Int
+	_scalar.Set(scalar)
+
+	p.Set(p1)
+
+	if _scalar.Sign() == -1 {
+		_scalar.Neg(&_scalar)
+		p.Neg(p)
+	}
+
 	var resProj, p1Proj PointProj
 	resProj.X.SetZero()
 	resProj.Y.SetOne()
 	resProj.Z.SetOne()
 
-	p1Proj.FromAffine(p1)
+	p1Proj.FromAffine(p)
 
 	const wordSize = bits.UintSize
 
-	sWords := scalar.Bits()
+	sWords := _scalar.Bits()
 
 	for i := len(sWords) - 1; i >= 0; i-- {
 		ithWord := sWords[i]
