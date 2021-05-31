@@ -1,8 +1,8 @@
 package bn254
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"

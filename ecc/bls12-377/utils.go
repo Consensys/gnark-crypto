@@ -1,8 +1,8 @@
 package bls12377
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
