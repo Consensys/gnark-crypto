@@ -1,8 +1,7 @@
 package bw6761
 
 import (
-	"crypto/rand"
-	"math/big"
+	"math/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
@@ -15,10 +14,7 @@ func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
-			panic(err)
-		}
+		rand.Read(b[:])
 		elmt.SetBytes(b[:])
 
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
@@ -26,40 +22,25 @@ func GenFp() gopter.Gen {
 	}
 }
 
-// GenE2 generates an fptower.E2 elmt
-func GenE2() gopter.Gen {
+// GenE3 generates an E3 elmt
+func GenE3() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *fptower.E2 {
-		return &fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
+		GenFp(),
+	).Map(func(values []interface{}) *fptower.E3 {
+		return &fptower.E3{A0: values[0].(fp.Element), A1: values[1].(fp.Element), A2: values[2].(fp.Element)}
 	})
 }
 
-// GenE6 generates an fptower.E6 elmt
+// E6 generates an E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(
-		GenE2(),
-		GenE2(),
-		GenE2(),
+		GenE3(),
+		GenE3(),
 	).Map(func(values []interface{}) *fptower.E6 {
-		return &fptower.E6{B0: *values[0].(*fptower.E2), B1: *values[1].(*fptower.E2), B2: *values[2].(*fptower.E2)}
+		return &fptower.E6{B0: *values[0].(*fptower.E3), B1: *values[1].(*fptower.E3)}
 	})
-}
-
-// GenBigInt generates a big.Int
-func GenBigInt() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var s big.Int
-		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
-			panic(err)
-		}
-		s.SetBytes(b[:])
-		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
-		return genResult
-	}
 }
 
 // ------------------------------------------------------------
@@ -70,10 +51,7 @@ func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
 		var b [fr.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
-			panic(err)
-		}
+		rand.Read(b[:])
 		elmt.SetBytes(b[:])
 
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)

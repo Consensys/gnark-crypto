@@ -11,20 +11,20 @@ import (
 // ------------------------------------------------------------
 // tests
 
-func TestE2ReceiverIsOperand(t *testing.T) {
+func TestE3ReceiverIsOperand(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE2()
-	genB := GenE2()
+	genA := GenE3()
+	genB := GenE3()
 	genfp := GenFp()
 
 	properties.Property("[BW761] Having the receiver as operand (addition) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
-			var c, d E2
+		func(a, b *E3) bool {
+			var c, d E3
 			d.Set(a)
 			c.Add(a, b)
 			a.Add(a, b)
@@ -36,8 +36,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (sub) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
-			var c, d E2
+		func(a, b *E3) bool {
+			var c, d E3
 			d.Set(a)
 			c.Sub(a, b)
 			a.Sub(a, b)
@@ -49,8 +49,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (mul) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
-			var c, d E2
+		func(a, b *E3) bool {
+			var c, d E3
 			d.Set(a)
 			c.Mul(a, b)
 			a.Mul(a, b)
@@ -62,8 +62,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (square) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Square(a)
 			a.Square(a)
 			return a.Equal(&b)
@@ -72,8 +72,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (neg) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Neg(a)
 			a.Neg(a)
 			return a.Equal(&b)
@@ -82,8 +82,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (double) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Double(a)
 			a.Double(a)
 			return a.Equal(&b)
@@ -92,8 +92,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.MulByNonResidue(a)
 			a.MulByNonResidue(a)
 			return a.Equal(&b)
@@ -102,8 +102,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Inverse(a)
 			a.Inverse(a)
 			return a.Equal(&b)
@@ -112,8 +112,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Conjugate(a)
 			a.Conjugate(a)
 			return a.Equal(&b)
@@ -122,8 +122,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
-		func(a *E2, b fp.Element) bool {
-			var c E2
+		func(a *E3, b fp.Element) bool {
+			var c E3
 			c.MulByElement(a, &b)
 			a.MulByElement(a, &b)
 			return a.Equal(&c)
@@ -135,20 +135,20 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestE2Ops(t *testing.T) {
+func TestE3Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE2()
-	genB := GenE2()
+	genA := GenE3()
+	genB := GenE3()
 	genfp := GenFp()
 
 	properties.Property("[BW761] sub & add should leave an element invariant", prop.ForAll(
-		func(a, b *E2) bool {
-			var c E2
+		func(a, b *E3) bool {
+			var c E3
 			c.Set(a)
 			c.Add(&c, b).Sub(&c, b)
 			return c.Equal(a)
@@ -158,8 +158,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] mul & inverse should leave an element invariant", prop.ForAll(
-		func(a, b *E2) bool {
-			var c, d E2
+		func(a, b *E3) bool {
+			var c, d E3
 			d.Inverse(b)
 			c.Set(a)
 			c.Mul(&c, b).Mul(&c, &d)
@@ -170,8 +170,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] inverse twice should leave an element invariant", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Inverse(a).Inverse(&b)
 			return a.Equal(&b)
 		},
@@ -179,8 +179,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] neg twice should leave an element invariant", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			b.Neg(a).Neg(&b)
 			return a.Equal(&b)
 		},
@@ -188,8 +188,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] square and mul should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b, c E2
+		func(a *E3) bool {
+			var b, c E3
 			b.Mul(a, a)
 			c.Square(a)
 			return b.Equal(&c)
@@ -198,8 +198,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
-		func(a *E2, b fp.Element) bool {
-			var c E2
+		func(a *E3, b fp.Element) bool {
+			var c E3
 			var d fp.Element
 			d.Inverse(&b)
 			c.MulByElement(a, &b).MulByElement(&c, &d)
@@ -210,8 +210,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Double and mul by 2 should output the same result", prop.ForAll(
-		func(a *E2) bool {
-			var b E2
+		func(a *E3) bool {
+			var b E3
 			var c fp.Element
 			c.SetUint64(2)
 			b.Double(a)
@@ -222,8 +222,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] Mulbynonres should be the same as multiplying by (0,1)", prop.ForAll(
-		func(a *E2) bool {
-			var b, c, d E2
+		func(a *E3) bool {
+			var b, c, d E3
 			b.A1.SetOne()
 			c.MulByNonResidue(a)
 			d.Mul(a, &b)
@@ -233,8 +233,8 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[BW761] a + pi(a), a-pi(a) should be real", prop.ForAll(
-		func(a *E2) bool {
-			var b, c, d E2
+		func(a *E3) bool {
+			var b, c, d E3
 			var e, f fp.Element
 			b.Conjugate(a)
 			c.Add(a, &b)
@@ -252,8 +252,8 @@ func TestE2Ops(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
-func BenchmarkE2Add(b *testing.B) {
-	var a, c E2
+func BenchmarkE3Add(b *testing.B) {
+	var a, c E3
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -262,8 +262,8 @@ func BenchmarkE2Add(b *testing.B) {
 	}
 }
 
-func BenchmarkE2Sub(b *testing.B) {
-	var a, c E2
+func BenchmarkE3Sub(b *testing.B) {
+	var a, c E3
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -272,8 +272,8 @@ func BenchmarkE2Sub(b *testing.B) {
 	}
 }
 
-func BenchmarkE2Mul(b *testing.B) {
-	var a, c E2
+func BenchmarkE3Mul(b *testing.B) {
+	var a, c E3
 	a.SetRandom()
 	c.SetRandom()
 	b.ResetTimer()
@@ -282,8 +282,8 @@ func BenchmarkE2Mul(b *testing.B) {
 	}
 }
 
-func BenchmarkE2MulByElement(b *testing.B) {
-	var a E2
+func BenchmarkE3MulByElement(b *testing.B) {
+	var a E3
 	var c fp.Element
 	c.SetRandom()
 	a.SetRandom()
@@ -293,8 +293,8 @@ func BenchmarkE2MulByElement(b *testing.B) {
 	}
 }
 
-func BenchmarkE2Square(b *testing.B) {
-	var a E2
+func BenchmarkE3Square(b *testing.B) {
+	var a E3
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -302,8 +302,8 @@ func BenchmarkE2Square(b *testing.B) {
 	}
 }
 
-func BenchmarkE2Inverse(b *testing.B) {
-	var a E2
+func BenchmarkE3Inverse(b *testing.B) {
+	var a E3
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -311,8 +311,8 @@ func BenchmarkE2Inverse(b *testing.B) {
 	}
 }
 
-func BenchmarkE2MulNonRes(b *testing.B) {
-	var a E2
+func BenchmarkE3MulNonRes(b *testing.B) {
+	var a E3
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -320,8 +320,8 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	}
 }
 
-func BenchmarkE2Conjugate(b *testing.B) {
-	var a E2
+func BenchmarkE3Conjugate(b *testing.B) {
+	var a E3
 	a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
