@@ -280,3 +280,65 @@ func (z *E6) SetBytes(e []byte) error {
 
 	return nil
 }
+
+// IsInSubGroup ensures GT/E6 is in correct sugroup
+func (z *E6) IsInSubGroup() bool {
+	var tmp, a, _a, b E6
+	var t [6]E6
+
+	// check z^(Phi_k(p)) == 1
+	a.Frobenius(z)
+	b.Frobenius(&a).Mul(&b, z)
+
+	if !a.Equal(&b) {
+		return false
+	}
+
+	// check z^(p+1-t) == 1
+	_a.Frobenius(z)
+	a.CyclotomicSquare(&_a).Mul(&a, &_a) // z^(3p)
+
+	// t(x)-1 = (13x^6 − 23x^5 − 9x^4 + 35x^3 + 10x + 19)/3
+	t[0].CyclotomicSquare(z) // z^2
+	t[1].CyclotomicSquare(&t[0]).
+		CyclotomicSquare(&t[1]) // z^8
+	t[2].CyclotomicSquare(&t[1]).
+		Mul(&t[2], &t[0]).
+		Mul(&t[2], z) // z^19*
+	t[3].Mul(&t[0], &t[1]).
+		Expt(&t[3]) // z^(10u)*
+	t[4].CyclotomicSquare(&t[3]).
+		Mul(&t[4], &t[3]) // z^(30u)
+	t[0].CyclotomicSquare(&t[0]).
+		Mul(&t[0], z).
+		Expt(&t[0]) // z^(5u)
+	t[4].Mul(&t[4], &t[0]).
+		Expt(&t[4]).
+		Expt(&t[4]) // z^(35u^3)*
+	t[1].Mul(&t[1], z).
+		Expt(&t[1]).
+		Expt(&t[1]).
+		Expt(&t[1]).
+		Expt(&t[1]).
+		Conjugate(&t[1]) // z^(-9u^4)*
+	t[0].Expt(&t[0]).
+		Expt(&t[0]).
+		Expt(&t[0]).
+		Conjugate(&t[0]) // z^(-5u^4)
+	t[5].CyclotomicSquare(&t[1]).
+		Mul(&t[5], &t[0]).
+		Expt(&t[5]) // z^(-23u^5)*
+	tmp.CyclotomicSquare(&t[1]).
+		Conjugate(&tmp) // z^(18u^4)
+	t[0].Mul(&t[0], &tmp).
+		Expt(&t[0]).
+		Expt(&t[0]) // z^(13u^6)*
+
+	b.Mul(&t[2], &t[3]).
+		Mul(&b, &t[4]).
+		Mul(&b, &t[1]).
+		Mul(&b, &t[5]).
+		Mul(&b, &t[0]) // z^(3(t-1))
+
+	return a.Equal(&b)
+}
