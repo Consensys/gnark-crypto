@@ -10,6 +10,7 @@
 import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/mimc"
 )
 
 const (
@@ -21,5 +22,6 @@ const (
 func Fuzz(data []byte) int {
 	fr.Fuzz(data)
 	fp.Fuzz(data)
+	mimc.Fuzz(data)
 	return fuzzNormal
 }

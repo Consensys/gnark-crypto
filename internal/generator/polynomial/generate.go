@@ -39,6 +39,8 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "kzg", "kzg.go"), Templates: []string{"commitment_kzg/kzg.go.tmpl"}},
 		{File: filepath.Join(baseDir, "kzg", "kzg_test.go"), Templates: []string{"commitment_kzg/kzg.test.go.tmpl"}},
 		{File: filepath.Join(baseDir, "kzg", "util.go"), Templates: []string{"commitment_kzg/util.go.tmpl"}},
+		{File: filepath.Join(baseDir, "kzg", "fuzz.go"), Templates: []string{"commitment_kzg/fuzz.go.tmpl"}, BuildTag: "gofuzz"},
+		{File: filepath.Join(baseDir, "kzg", "fuzz_test.go"), Templates: []string{"commitment_kzg/fuzz.test.go.tmpl"}, BuildTag: "gofuzz"},
 	}
 	if err := bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...); err != nil {
 		return err

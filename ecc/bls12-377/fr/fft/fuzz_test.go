@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"io"
 	"math/rand"
+	"runtime/debug"
 	"testing"
 	"time"
 )
@@ -35,6 +36,7 @@ func TestFuzz(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Error(r)
+			t.Error(string(debug.Stack()))
 			t.Fatal("test panicked", i, hex.EncodeToString(bytes[:i]), "seed", seed)
 		}
 	}()

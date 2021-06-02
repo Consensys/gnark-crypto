@@ -20,16 +20,15 @@ package bls12381
 
 import (
 	"encoding/hex"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"io"
 	"math/rand"
+	"runtime/debug"
 	"testing"
 	"time"
 )
 
 func TestFuzz(t *testing.T) {
-	const maxBytes = (fp.Bytes + fr.Bytes) * 2
+	const maxBytes = 1 << 10
 	const testCount = 7
 	var bytes [maxBytes]byte
 	var i int
@@ -37,6 +36,7 @@ func TestFuzz(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Error(r)
+			t.Error(string(debug.Stack()))
 			t.Fatal("test panicked", i, hex.EncodeToString(bytes[:i]), "seed", seed)
 		}
 	}()
