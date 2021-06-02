@@ -19,43 +19,7 @@ const (
 )
 
 func Fuzz(data []byte) int {
-	// wip, to test continuous fuzzing infra, we compare the result of field element multiplicaiton 
-	// in assembly and generic impl
-	middle := len(data) / 2 
-	// fr.Element
-	{
-		var a, b, c fr.Element
-		var _a, _b, _c fr.Element
-		a.SetBytes(data[:middle])
-		_a.SetBytes(data[:middle])
-		b.SetBytes(data[middle:])
-		_b.SetBytes(data[middle:])
-
-		c.Mul(&a, &b)
-		fr.MulGeneric(&_c, &_a, &_b)
-
-		if !c.Equal(&_c) {
-			panic("mul asm != mul generic on {{.Name}}/fr")
-		}
-	}
-
-	// fp.Element
-	{
-		var a, b, c fp.Element
-		var _a, _b, _c fp.Element
-		a.SetBytes(data[:middle])
-		_a.SetBytes(data[:middle])
-		b.SetBytes(data[middle:])
-		_b.SetBytes(data[middle:])
-
-		c.Mul(&a, &b)
-		fp.MulGeneric(&_c, &_a, &_b)
-
-		if !c.Equal(&_c) {
-			panic("mul asm != mul generic on {{.Name}}/fp")
-		}
-	}
-
+	fr.Fuzz(data)
+	fp.Fuzz(data)
 	return fuzzNormal
-
 }

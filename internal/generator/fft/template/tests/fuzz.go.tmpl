@@ -4,12 +4,10 @@ import (
 	"math/rand"
 	"testing"
 	"time"
-    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 )
 
 func TestFuzz(t *testing.T) {
-	const maxBytes = (fp.Bytes + fr.Bytes) * 2
+	const maxBytes = 1 << 10
 	const testCount = 7
 	var bytes [maxBytes]byte
 	var i int
@@ -28,7 +26,7 @@ func TestFuzz(t *testing.T) {
 				t.Fatal("couldn't read random bytes", err)
 			}
 
-			Fuzz(bytes[:i])
+			Fuzz(bytes[:i]) 
 		}
 	}
 

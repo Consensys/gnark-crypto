@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-func TestCSFuzzed(t *testing.T) {
+func TestFuzz(t *testing.T) {
 	const maxBytes = (fp.Bytes + fr.Bytes) * 2
 	const testCount = 7
 	var bytes [maxBytes]byte
@@ -48,9 +48,7 @@ func TestCSFuzzed(t *testing.T) {
 				t.Fatal("couldn't read random bytes", err)
 			}
 
-			if Fuzz(bytes[:i]) != fuzzNormal {
-				t.Fatal("bw6-761 fuzz failed")
-			}
+			Fuzz(bytes[:i])
 		}
 	}
 

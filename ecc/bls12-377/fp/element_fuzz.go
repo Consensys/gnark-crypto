@@ -18,37 +18,134 @@
 
 package fp
 
-// MulGeneric is a wrapper exposed and used for fuzzing purposes only
-func MulGeneric(z, x, y *Element) {
-	_mulGeneric(z, x, y)
+import (
+	"bytes"
+	"encoding/binary"
+	"io"
+	"math/big"
+	"math/bits"
+)
+
+const (
+	fuzzInteresting = 1
+	fuzzNormal      = 0
+	fuzzDiscard     = -1
+)
+
+// Fuzz arithmetic operations fuzzer
+func Fuzz(data []byte) int {
+	r := bytes.NewReader(data)
+
+	var e1, e2 Element
+	e1.SetRawBytes(r)
+	e2.SetRawBytes(r)
+
+	{
+		// mul assembly
+
+		var c, _c Element
+		a, _a, b, _b := e1, e1, e2, e2
+		c.Mul(&a, &b)
+		_mulGeneric(&_c, &_a, &_b)
+
+		if !c.Equal(&_c) {
+			panic("mul asm != mul generic on Element")
+		}
+	}
+
+	{
+		// inverse
+		inv := e1
+		inv.Inverse(&inv)
+
+		var bInv, b1, b2 big.Int
+		e1.ToBigIntRegular(&b1)
+		bInv.ModInverse(&b1, Modulus())
+		inv.ToBigIntRegular(&b2)
+
+		if b2.Cmp(&bInv) != 0 {
+			panic("inverse operation doesn't match big int result")
+		}
+	}
+
+	{
+		// a + -a == 0
+		a, b := e1, e1
+		b.Neg(&b)
+		a.Add(&a, &b)
+		if !a.IsZero() {
+			panic("a + -a != 0")
+		}
+	}
+
+	return fuzzNormal
+
 }
 
-// FromMontGeneric is a wrapper exposed and used for fuzzing purposes only
-func FromMontGeneric(z *Element) {
-	_fromMontGeneric(z)
+// SetRawBytes reads up to Bytes (bytes needed to represent Element) from reader
+// and interpret it as big endian uint64
+// used for fuzzing purposes only
+func (z *Element) SetRawBytes(r io.Reader) {
+
+	buf := make([]byte, 8)
+
+	for i := 0; i < len(z); i++ {
+		if _, err := io.ReadFull(r, buf); err != nil {
+			goto eof
+		}
+		z[i] = binary.BigEndian.Uint64(buf[:])
+	}
+eof:
+	z[5] %= qElement[5]
+
+	if z.BiggerModulus() {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], qElement[0], 0)
+		z[1], b = bits.Sub64(z[1], qElement[1], b)
+		z[2], b = bits.Sub64(z[2], qElement[2], b)
+		z[3], b = bits.Sub64(z[3], qElement[3], b)
+		z[4], b = bits.Sub64(z[4], qElement[4], b)
+		z[5], b = bits.Sub64(z[5], qElement[5], b)
+	}
+
+	return
 }
 
-// AddGeneric is a wrapper exposed and used for fuzzing purposes only
-func AddGeneric(z, x, y *Element) {
-	_addGeneric(z, x, y)
-}
+func (z *Element) BiggerModulus() bool {
+	if z[5] > qElement[5] {
+		return true
+	}
+	if z[5] < qElement[5] {
+		return false
+	}
 
-// DoubleGeneric is a wrapper exposed and used for fuzzing purposes only
-func DoubleGeneric(z, x *Element) {
-	_doubleGeneric(z, x)
-}
+	if z[4] > qElement[4] {
+		return true
+	}
+	if z[4] < qElement[4] {
+		return false
+	}
 
-// SubGeneric is a wrapper exposed and used for fuzzing purposes only
-func SubGeneric(z, x, y *Element) {
-	_subGeneric(z, x, y)
-}
+	if z[3] > qElement[3] {
+		return true
+	}
+	if z[3] < qElement[3] {
+		return false
+	}
 
-// NegGeneric is a wrapper exposed and used for fuzzing purposes only
-func NegGeneric(z, x *Element) {
-	_negGeneric(z, x)
-}
+	if z[2] > qElement[2] {
+		return true
+	}
+	if z[2] < qElement[2] {
+		return false
+	}
 
-// ReduceGeneric is a wrapper exposed and used for fuzzing purposes only
-func ReduceGeneric(z *Element) {
-	_reduceGeneric(z)
+	if z[1] > qElement[1] {
+		return true
+	}
+	if z[1] < qElement[1] {
+		return false
+	}
+
+	return z[0] >= qElement[0]
 }
