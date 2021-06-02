@@ -1,8 +1,8 @@
 package bw6761
 
 import (
-	"math/rand"
 	"math/big"
+	"math/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
@@ -58,7 +58,6 @@ func GenBigInt() gopter.Gen {
 		return genResult
 	}
 }
-
 
 // ------------------------------------------------------------
 // pairing generators
