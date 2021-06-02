@@ -26,7 +26,7 @@ import (
 // 	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
 func GenerateFF(F *field.Field, outputDir string) error {
 	// source file templates
-	src := []string{
+	sourceFiles := []string{
 		element.Base,
 		element.Reduce,
 		element.Exp,
@@ -38,7 +38,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	// test file templates
-	tst := []string{
+	testFiles := []string{
 		element.MulCIOS,
 		element.MulNoCarry,
 		element.Reduce,
@@ -51,6 +51,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	pathSrc := filepath.Join(outputDir, eName+".go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
+	pathFuzz := filepath.Join(outputDir, eName+"_fuzz.go")
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
@@ -67,7 +68,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	// generate source file
-	if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathSrc, sourceFiles, F, bavardOpts...); err != nil {
 		return err
 	}
 	// generate arithmetics source file
@@ -75,8 +76,16 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		return err
 	}
 
+	// generate fuzz file
+	bopts := make([]func(*bavard.Bavard) error, len(bavardOpts))
+	copy(bopts, bavardOpts)
+	bopts = append(bopts, bavard.BuildTag("gofuzz"))
+	if err := bavard.GenerateFromString(pathFuzz, []string{element.Fuzz}, F, bopts...); err != nil {
+		return err
+	}
+
 	// generate test file
-	if err := bavard.GenerateFromString(pathTest, tst, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathTest, testFiles, F, bavardOpts...); err != nil {
 		return err
 	}
 
