@@ -2,6 +2,7 @@ package bw6761
 
 import (
 	"math/rand"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
@@ -42,6 +43,22 @@ func GenE6() gopter.Gen {
 		return &fptower.E6{B0: *values[0].(*fptower.E3), B1: *values[1].(*fptower.E3)}
 	})
 }
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
+	}
+}
+
 
 // ------------------------------------------------------------
 // pairing generators
