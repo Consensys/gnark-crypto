@@ -19,9 +19,11 @@
 package bls12381
 
 import (
+	"bytes"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
+	"math/big"
 )
 
 const (
@@ -31,8 +33,43 @@ const (
 )
 
 func Fuzz(data []byte) int {
+	// TODO separate in multiple FuzzXXX and update continuous fuzzer scripts
+	// else, we don't really benefits for fuzzer strategy.
 	fr.Fuzz(data)
 	fp.Fuzz(data)
 	mimc.Fuzz(data)
+
+	// fuzz pairing
+	r := bytes.NewReader(data)
+	var e1, e2 fr.Element
+	e1.SetRawBytes(r)
+	e2.SetRawBytes(r)
+
+	{
+		var r, r1, r2, r1r2, zero GT
+		var b1, b2, b1b2 big.Int
+		e1.ToBigIntRegular(&b1)
+		e2.ToBigIntRegular(&b2)
+		b1b2.Mul(&b1, &b2)
+
+		var p1 G1Affine
+		var p2 G2Affine
+
+		p1.ScalarMultiplication(&g1GenAff, &b1)
+		p2.ScalarMultiplication(&g2GenAff, &b2)
+
+		r, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+		r1, _ = Pair([]G1Affine{p1}, []G2Affine{g2GenAff})
+		r2, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{p2})
+
+		r1r2.Exp(&r, b1b2)
+		r1.Exp(&r1, b2)
+		r2.Exp(&r2, b1)
+
+		if !(r1r2.Equal(&r1) && r1r2.Equal(&r2) && !r.Equal(&zero)) {
+			panic("pairing bilinearity check failed")
+		}
+	}
+
 	return fuzzNormal
 }
