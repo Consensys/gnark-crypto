@@ -90,7 +90,7 @@ func TestSerialization(t *testing.T) {
 	}
 
 	// compare
-	if !reflect.DeepEqual(&s, &_s) {
+	if !reflect.DeepEqual(s, &_s) {
 		t.Fatal("scheme serialization failed")
 	}
 
