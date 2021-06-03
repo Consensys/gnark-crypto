@@ -1,8 +1,8 @@
 package bw6761
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
