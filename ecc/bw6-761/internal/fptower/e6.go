@@ -47,8 +47,7 @@ func (z *E6) SetString(s0, s1, s2, s3, s4, s5 string) *E6 {
 
 // Set copies x into z and returns z
 func (z *E6) Set(x *E6) *E6 {
-	z.B0 = x.B0
-	z.B1 = x.B1
+	*z = *x
 	return z
 }
 
@@ -220,8 +219,7 @@ func (z *E6) Conjugate(x *E6) *E6 {
 }
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
-const SizeOfGT = sizeOfFp * 6
-const sizeOfFp = 96
+const SizeOfGT = fp.Bytes * 6
 
 // Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte array.
@@ -229,30 +227,30 @@ const sizeOfFp = 96
 func (z *E6) Bytes() (r [SizeOfGT]byte) {
 
 	offset := 0
-	var buf [sizeOfFp]byte
+	var buf [fp.Bytes]byte
 
 	buf = z.B1.A2.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
+	copy(r[offset:offset+fp.Bytes], buf[:])
+	offset += fp.Bytes
 
 	buf = z.B1.A1.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
+	copy(r[offset:offset+fp.Bytes], buf[:])
+	offset += fp.Bytes
 
 	buf = z.B1.A0.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
+	copy(r[offset:offset+fp.Bytes], buf[:])
+	offset += fp.Bytes
 
 	buf = z.B0.A2.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
+	copy(r[offset:offset+fp.Bytes], buf[:])
+	offset += fp.Bytes
 
 	buf = z.B0.A1.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
+	copy(r[offset:offset+fp.Bytes], buf[:])
+	offset += fp.Bytes
 
 	buf = z.B0.A0.Bytes()
-	copy(r[offset:offset+sizeOfFp], buf[:])
+	copy(r[offset:offset+fp.Bytes], buf[:])
 
 	return
 }
@@ -265,18 +263,18 @@ func (z *E6) SetBytes(e []byte) error {
 		return errors.New("invalid buffer size")
 	}
 	offset := 0
-	z.B1.A2.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
-	z.B1.A1.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
-	z.B1.A0.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
-	z.B0.A2.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
-	z.B0.A1.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
-	z.B0.A0.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
+	z.B1.A2.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
+	z.B1.A1.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
+	z.B1.A0.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
+	z.B0.A2.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
+	z.B0.A1.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
+	z.B0.A0.SetBytes(e[offset : offset+fp.Bytes])
+	offset += fp.Bytes
 
 	return nil
 }
