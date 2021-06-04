@@ -26,24 +26,24 @@ func GenFp() gopter.Gen {
 	}
 }
 
-// GenE2 generates an fptower.E2 elmt
-func GenE2() gopter.Gen {
+// GenE3 generates an E3 elmt
+func GenE3() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *fptower.E2 {
-		return &fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
+		GenFp(),
+	).Map(func(values []interface{}) *fptower.E3 {
+		return &fptower.E3{A0: values[0].(fp.Element), A1: values[1].(fp.Element), A2: values[2].(fp.Element)}
 	})
 }
 
-// GenE6 generates an fptower.E6 elmt
+// E6 generates an E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(
-		GenE2(),
-		GenE2(),
-		GenE2(),
+		GenE3(),
+		GenE3(),
 	).Map(func(values []interface{}) *fptower.E6 {
-		return &fptower.E6{B0: *values[0].(*fptower.E2), B1: *values[1].(*fptower.E2), B2: *values[2].(*fptower.E2)}
+		return &fptower.E6{B0: *values[0].(*fptower.E3), B1: *values[1].(*fptower.E3)}
 	})
 }
 
@@ -75,7 +75,6 @@ func GenFr() gopter.Gen {
 			panic(err)
 		}
 		elmt.SetBytes(b[:])
-
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
