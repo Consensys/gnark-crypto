@@ -26,6 +26,15 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
+	// fuzz testing
+	entries = []bavard.Entry{
+		{File: filepath.Join(baseDir, "fuzz.go"), Templates: []string{"fuzz.go.tmpl"}, BuildTag: "gofuzz"},
+		{File: filepath.Join(baseDir, "fuzz_test.go"), Templates: []string{"tests/fuzz.go.tmpl"}, BuildTag: "gofuzz"},
+	}
+	if err := bgen.Generate(conf, packageName, "./ecc/template", entries...); err != nil {
+		return err
+	}
+
 	// G1
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "g1.go"), Templates: []string{"point.go.tmpl"}},
