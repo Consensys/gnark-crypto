@@ -207,4 +207,30 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 }
 
 
+func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]{{ $.TAffine }}
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = {{ toLower .PointName}}GenAff
+	}
+
+	var testPoint {{ $.TAffine }}
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
+	}
+}
+
+
 {{end }}
