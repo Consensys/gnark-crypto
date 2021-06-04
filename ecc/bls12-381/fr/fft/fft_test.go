@@ -372,7 +372,7 @@ func BenchmarkFFT(b *testing.B) {
 
 }
 
-func BenchmarkFFTCosetNoPrecomputeDITReference(b *testing.B) {
+func BenchmarkFFTDITCosetReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
@@ -388,7 +388,7 @@ func BenchmarkFFTCosetNoPrecomputeDITReference(b *testing.B) {
 	}
 }
 
-func BenchmarkFFTNoPrecomputeDIFReference(b *testing.B) {
+func BenchmarkFFTDIFReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
