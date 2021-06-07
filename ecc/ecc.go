@@ -35,6 +35,7 @@ const (
 	BLS12_377
 	BLS12_381
 	BW6_761
+	BW6_633
 )
 
 // ID represent a unique ID for a curve
@@ -50,6 +51,8 @@ func (id ID) String() string {
 		return "bn254"
 	case BW6_761:
 		return "bw6_761"
+	case BW6_633:
+		return "bw6_633"
 	default:
 		panic("unimplemented ecc ID")
 	}

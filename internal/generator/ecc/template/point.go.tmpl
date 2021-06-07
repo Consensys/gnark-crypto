@@ -396,7 +396,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		}
 	{{- end}}
-{{else if eq .Name "bw6-761" }}
+{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
@@ -590,7 +590,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if eq .Name "bw6-761"}}
+{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
@@ -718,7 +718,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 
 	return p
-{{else if eq .Name "bw6-761"}}
+{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
 
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
