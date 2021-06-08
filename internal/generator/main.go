@@ -66,12 +66,12 @@ func main() {
 			// generate eddsa on companion curves
 			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
 
+			// generate G1, G2, multiExp, ...
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
 			if conf.ID() == gecc.BLS24_315 {
 				return // TODO temporary we just generate field arithmetic;
 			}
-
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
 
 			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))

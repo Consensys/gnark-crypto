@@ -86,7 +86,6 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 	genFuzz1 := GenE4()
-
 	properties.Property("[BLS24-315] g2Gen (affine) should be on the curve", prop.ForAll(
 		func(a *fptower.E4) bool {
 			var op1, op2 G2Affine
@@ -223,9 +222,9 @@ func TestG2AffineOps(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-
 	genFuzz1 := GenE4()
 	genFuzz2 := GenE4()
+
 	genScalar := GenFr()
 
 	properties.Property("[BLS24-315] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
@@ -338,7 +337,7 @@ func TestG2AffineOps(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("[BLS12-377] psi should map points from E' to itself", prop.ForAll(
+	properties.Property("[BLS24-315] psi should map points from E' to itself", prop.ForAll(
 		func() bool {
 			var a G2Jac
 			a.psi(&g2Gen)
@@ -415,6 +414,7 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 		},
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 }
 
 func TestG2AffineBatchScalarMultiplication(t *testing.T) {
@@ -518,6 +518,7 @@ func BenchmarkG2JacScalarMul(b *testing.B) {
 			glv.mulGLV(&g2Gen, &scalar)
 		}
 	})
+
 }
 
 func BenchmarkG2AffineCofactorClearing(b *testing.B) {

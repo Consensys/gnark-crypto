@@ -432,7 +432,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 
 
 // SizeOf{{ $.TAffine }}Compressed represents the size in bytes that a {{ $.TAffine }} need in binary form, compressed
-const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}}
+const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}} {{- if eq $.CoordType "fptower.E4"}} * 4 {{- end}}
 
 // SizeOf{{ $.TAffine }}Uncompressed represents the size in bytes that a {{ $.TAffine }} need in binary form, uncompressed
 const SizeOf{{ $.TAffine }}Uncompressed = SizeOf{{ $.TAffine }}Compressed * 2
@@ -490,10 +490,19 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A0 | p.X.A1
+		// p.X.A1 | p.X.A0
 		{{- $offset := $.sizeOfFp}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
+	{{- else if eq $.CoordType "fptower.E4"}}	
+		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 1}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 2}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 3}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -524,23 +533,41 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 	// not compressed
 	// we store the Y coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.Y.A0 | p.Y.A1
+		// p.Y.A1 | p.Y.A0
 		{{- $offset := mul $.sizeOfFp 3}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.A0"}}
 
 		{{- $offset := mul $.sizeOfFp 2}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.A1"}}
+	{{- else if eq $.CoordType "fptower.E4"}}
+		// p.Y.B1.A1 | p.Y.B1.A0 | p.Y.B0.A1 | p.Y.B0.A0
+		{{- $offset := mul $.sizeOfFp 4}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 5}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 6}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 7}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" $.sizeOfFp "From" "p.Y"}}
 	{{- end}}
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A0 | p.X.A1
+		// p.X.A1 | p.X.A0
 		{{- $offset := $.sizeOfFp}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
-		
+	{{- else if eq $.CoordType "fptower.E4"}}	
+		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 1}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 2}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 3}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -597,6 +624,17 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 			// p.Y.A1 | p.Y.A0
 			p.Y.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
 			p.Y.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+		{{- else if eq $.CoordType "fptower.E4"}}	
+			// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
+			p.X.B1.A1.SetBytes(buf[fp.Bytes*0:fp.Bytes*1])
+			p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
+			p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
+			p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+			// p.Y.B1.A1 | p.Y.B1.A0 | p.Y.B0.A1 | p.Y.B0.A0
+			p.Y.B1.A1.SetBytes(buf[fp.Bytes*4:fp.Bytes*5])
+			p.Y.B1.A0.SetBytes(buf[fp.Bytes*5:fp.Bytes*6])
+			p.Y.B0.A1.SetBytes(buf[fp.Bytes*6:fp.Bytes*7])
+			p.Y.B0.A0.SetBytes(buf[fp.Bytes*7:fp.Bytes*8])
 		{{- else}}
 			p.X.SetBytes(buf[:fp.Bytes])
 			p.Y.SetBytes(buf[fp.Bytes:fp.Bytes*2])
@@ -624,6 +662,12 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 		// p.X.A1 | p.X.A0
 		p.X.A1.SetBytes(bufX[:fp.Bytes])
 		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+	{{- else if eq $.CoordType "fptower.E4"}}
+		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
+		p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1])
+		p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
+		p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
+		p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
 	{{- else}}
 		p.X.SetBytes(bufX[:fp.Bytes])
 	{{- end}}
@@ -634,7 +678,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if eq $.CoordType "fptower.E2"}}
+	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
 		if YSquared.Legendre() == -1 {
 			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -676,6 +720,8 @@ func (p *{{ $.TAffine }}) unsafeComputeY() error  {
 	// stored in unsafeSetCompressedBytes
 	{{ if eq $.CoordType "fptower.E2"}}
 	mData := byte(p.Y.A0[0])
+	{{ else if eq $.CoordType "fptower.E4"}}
+	mData := byte(p.Y.B0.A0[0])
 	{{ else}}
 	mData := byte(p.Y[0])
 	{{ end}}
@@ -687,7 +733,7 @@ func (p *{{ $.TAffine }}) unsafeComputeY() error  {
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if eq $.CoordType "fptower.E2"}}
+	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
 		if YSquared.Legendre() == -1 {
 			return errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -750,6 +796,15 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 		
 		// store mData in p.Y.A0[0]
 		p.Y.A0[0] = uint64(mData)
+	{{- else if eq $.CoordType "fptower.E4"}}
+		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
+		p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1])
+		p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
+		p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
+		p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+		
+		// store mData in p.Y.B0.A0[0]
+		p.Y.B0.A0[0] = uint64(mData)
 	{{- else}}
 		p.X.SetBytes(bufX[:fp.Bytes])
 		// store mData in p.Y[0]

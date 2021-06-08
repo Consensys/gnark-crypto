@@ -649,6 +649,31 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	}
 }
 
+func BenchmarkMultiExpG1Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G1Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g1GenAff
+	}
+
+	var testPoint G1Affine
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
+	}
+}
+
 func TestMultiExpG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -1266,5 +1291,30 @@ func BenchmarkMultiExpG2(b *testing.B) {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
 			}
 		})
+	}
+}
+
+func BenchmarkMultiExpG2Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G2Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g2GenAff
+	}
+
+	var testPoint G2Affine
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
 	}
 }
