@@ -17,23 +17,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return nil
 	}
 
-	entries := []bavard.Entry{
-		{File: filepath.Join(baseDir, "e2.go"), Templates: []string{"fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6.go"), Templates: []string{"fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12.go"), Templates: []string{"fq12.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"amd64.fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e2_fallback.go"), Templates: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
-		{File: filepath.Join(baseDir, "e2_test.go"), Templates: []string{"tests/fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{"tests/fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12_test.go"), Templates: []string{"tests/fq12.go.tmpl"}},
-		{File: filepath.Join(baseDir, "asm.go"), Templates: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
-		{File: filepath.Join(baseDir, "asm_noadx.go"), Templates: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
-	}
-
-	if err := bgen.Generate(conf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
-		return err
-	}
-
 	{
 		// fq2 assembly
 		fName := filepath.Join(baseDir, "e2_amd64.s")
@@ -42,7 +25,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			return err
 		}
 
-		if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
+		if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 || conf.ID() == ecc.BLS24_315 {
 			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
 		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
@@ -54,7 +37,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 	}
 
-	if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
+	if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 || conf.ID() == ecc.BLS24_315 {
 		{
 			// fq2 assembly
 			fName := filepath.Join(baseDir, "e2_adx_amd64.s")
@@ -74,6 +57,26 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 	}
 
-	return nil
+	if conf.ID() == ecc.BLS24_315 {
+		entries := []bavard.Entry{
+			{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"amd64.fq2.go.tmpl"}},
+		}
+		return bgen.Generate(conf, "fptower", "./tower/template/fq12over6over2", entries...) // TODO temporary, we just generate e2 assembly.
+	}
+
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "e2.go"), Templates: []string{"fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e6.go"), Templates: []string{"fq6.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e12.go"), Templates: []string{"fq12.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"amd64.fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e2_fallback.go"), Templates: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
+		{File: filepath.Join(baseDir, "e2_test.go"), Templates: []string{"tests/fq2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{"tests/fq6.go.tmpl"}},
+		{File: filepath.Join(baseDir, "e12_test.go"), Templates: []string{"tests/fq12.go.tmpl"}},
+		{File: filepath.Join(baseDir, "asm.go"), Templates: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
+		{File: filepath.Join(baseDir, "asm_noadx.go"), Templates: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
+	}
+
+	return bgen.Generate(conf, "fptower", "./tower/template/fq12over6over2", entries...)
 
 }
