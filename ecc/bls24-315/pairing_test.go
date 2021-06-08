@@ -36,6 +36,7 @@ func TestPairing(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	genA := GenE24()
+
 	genR1 := GenFr()
 	genR2 := GenFr()
 

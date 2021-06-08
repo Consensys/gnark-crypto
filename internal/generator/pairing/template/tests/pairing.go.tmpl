@@ -19,6 +19,8 @@ func TestPairing(t *testing.T) {
 
     {{if eq .Name "bw6-761"}}
 	genA := GenE6()
+	{{else if eq .Name "bls24-315"}}
+	genA := GenE24()
     {{ else }}
 	genA := GenE12()
     {{- end}}
@@ -52,6 +54,8 @@ func TestPairing(t *testing.T) {
 			b.Mul(&b, a)
             {{if eq .Name "bw6-761"}}
 			a.Frobenius(&b).
+			{{else if eq .Name "bls24-315"}}
+			a.FrobeniusQuad(&b).
             {{ else }}
 			a.FrobeniusSquare(&b).
             {{- end}}
