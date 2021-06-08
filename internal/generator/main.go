@@ -63,6 +63,9 @@ func main() {
 			// generate twisted edwards companion curves
 			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
 
+			// generate eddsa on companion curves
+			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
+
 			if conf.ID() == gecc.BLS24_315 {
 				return // TODO temporary we just generate field arithmetic;
 			}
@@ -72,9 +75,6 @@ func main() {
 
 			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))
-
-			// generate eddsa on companion curves
-			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
 
 		}(conf)
 
