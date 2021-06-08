@@ -60,6 +60,9 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
+			// generate twisted edwards companion curves
+			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
+
 			if conf.ID() == gecc.BLS24_315 {
 				return // TODO temporary we just generate field arithmetic;
 			}
@@ -69,9 +72,6 @@ func main() {
 
 			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))
-
-			// generate twisted edwards companion curves
-			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
 
 			// generate eddsa on companion curves
 			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
