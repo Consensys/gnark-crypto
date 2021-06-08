@@ -263,6 +263,17 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] mul and mulGeneric should output the same result", prop.ForAll(
+		func(a, b *E2) bool {
+			var c, d E2
+			mulGenericE2(&c, a, b)
+			d.Mul(a, b)
+			return d.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
 	properties.Property("[BLS24-315] square and mul should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
