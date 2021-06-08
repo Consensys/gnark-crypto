@@ -11,14 +11,12 @@ import (
 	"github.com/consensys/gnark-crypto/polynomial"
 )
 
-
-var _alphaSetup fr.Element 
+var _alphaSetup fr.Element
 
 func init() {
 	//_alphaSetup.SetRandom()
 	_alphaSetup.SetString("1234")
 }
-
 
 func randomPolynomial(size int) {{ .CurvePackage }}_pol.Polynomial {
 	f := make({{ .CurvePackage }}_pol.Polynomial, size)
@@ -55,12 +53,12 @@ func TestDividePolyByXminusA(t *testing.T) {
 	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
 	var randPoint, xminusa fr.Element
 	randPoint.SetRandom()
-	
+
 	polRandpoint := pol.Eval(&randPoint).(fr.Element)
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
-	
+
 	hRandPoint := h.Eval(&randPoint).(fr.Element)
-	xminusa.Sub(&randPoint, &point)  // rand-point
+	xminusa.Sub(&randPoint, &point) // rand-point
 
 	// f(rand)-f(point)	==? h(rand)*(rand-point)
 	hRandPoint.Mul(&hRandPoint, &xminusa)
@@ -113,10 +111,10 @@ func TestCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	var kzgCommit {{ .CurvePackage }}.G1Affine
-	kzgCommit.Set(_kzgCommit.(*{{ .CurvePackage }}.G1Affine))
+	kzgCommit.Unmarshal(_kzgCommit.Marshal())
 
 	// check commitment using manual commit
-	var x  fr.Element
+	var x fr.Element
 	x.SetString("1234")
 	fx := f.Eval(&x).(fr.Element)
 	var fxbi big.Int
@@ -131,8 +129,6 @@ func TestCommit(t *testing.T) {
 	}
 
 }
-
-
 
 func TestVerifySinglePoint(t *testing.T) {
 
@@ -239,7 +235,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 	p := randomPolynomial(benchSize / 2)
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++ {
+	for i := 0; i < b.N; i++ {
 		_, _ = s.Commit(&p)
 	}
 }
@@ -250,11 +246,11 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
-	var r fr.Element 
+	var r fr.Element
 	r.SetRandom()
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++ {
+	for i := 0; i < b.N; i++ {
 		_, _ = s.Open(r, &p)
 	}
 }
@@ -265,10 +261,10 @@ func BenchmarkKZGVerify(b *testing.B) {
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
-	var r fr.Element 
+	var r fr.Element
 	r.SetRandom()
 
-	// commit 
+	// commit
 	comm, err := s.Commit(&p)
 	if err != nil {
 		b.Fatal(err)
@@ -281,7 +277,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++ {
+	for i := 0; i < b.N; i++ {
 		s.Verify(comm, openingProof)
 	}
 }
@@ -292,27 +288,25 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		_p := randomPolynomial(benchSize / 2)
 		ps[i] = &_p
 	}
 
 	// commitments
 	var commitments [10]polynomial.Digest
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		commitments[i], _ = s.Commit(ps[i])
 	}
 
-	var r fr.Element 
+	var r fr.Element
 	r.SetRandom()
 
-
 	b.ResetTimer()
-	for i:=0;i<b.N;i++ {
-		s.BatchOpenSinglePoint(r, commitments[:], ps[:]) 
+	for i := 0; i < b.N; i++ {
+		s.BatchOpenSinglePoint(r, commitments[:], ps[:])
 	}
 }
-
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// kzg scheme
@@ -320,28 +314,27 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		_p := randomPolynomial(benchSize / 2)
 		ps[i] = &_p
 	}
 
 	// commitments
 	var commitments [10]polynomial.Digest
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		commitments[i], _ = s.Commit(ps[i])
 	}
 
-	var r fr.Element 
+	var r fr.Element
 	r.SetRandom()
 
-
-	proof, err := s.BatchOpenSinglePoint(r, commitments[:], ps[:]) 
+	proof, err := s.BatchOpenSinglePoint(r, commitments[:], ps[:])
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
-	for i:=0;i<b.N;i++ {
+	for i := 0; i < b.N; i++ {
 		s.BatchVerifySinglePoint(commitments[:], proof)
 	}
 }

@@ -40,7 +40,7 @@ func TestCommit(t *testing.T) {
 	}
 
 	var _c fr.Element
-	_c.SetInterface(c)
+	_c.SetInterface(c.Marshal())
 
 	if !_c.Equal(&f[0]) {
 		t.Fatal("err mock commitment (commit)")

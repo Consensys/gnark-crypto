@@ -129,7 +129,7 @@ func TestCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	var kzgCommit bw6761.G1Affine
-	kzgCommit.Set(_kzgCommit.(*bw6761.G1Affine))
+	kzgCommit.Unmarshal(_kzgCommit.Marshal())
 
 	// check commitment using manual commit
 	var x fr.Element

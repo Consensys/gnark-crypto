@@ -18,6 +18,7 @@ package polynomial
 import (
 	"errors"
 	"io"
+	"math/big"
 )
 
 var (
@@ -25,9 +26,14 @@ var (
 	ErrVerifyBatchOpeningSinglePoint = errors.New("error verifying batch opening proof at single point")
 )
 
-// Digest interface that a polynomial commitment should implement
+// Digest interface that an additively homomorphic
+// polynomial commitment should implement.
 type Digest interface {
+	Add(d1, d2 Digest) Digest
+	Sub(d1, d2 Digest) Digest
+	ScalarMul(d Digest, s big.Int) Digest
 	Marshal() []byte
+	Unmarshal(buf []byte) error
 }
 
 // OpeningProof interface that an opening proof

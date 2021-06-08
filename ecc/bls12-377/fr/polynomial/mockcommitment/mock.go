@@ -18,16 +18,78 @@ package mockcommitment
 
 import (
 	"io"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/polynomial"
 	"github.com/consensys/gnark-crypto/polynomial"
 )
 
+// MockProof empty struct
+type MockProof struct {
+	Point        fr.Element
+	ClaimedValue fr.Element
+}
+
+func (mp *MockProof) Marshal() []byte {
+	panic("not implemented")
+}
+
+// MockBatchProofsSinglePoint empty struct
+type MockBatchProofsSinglePoint struct {
+	Point         fr.Element
+	ClaimedValues []fr.Element
+}
+
+func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
+	panic("not implemented")
+}
+
 // Scheme mock commitment, useful for testing polynomial based IOP
 // like PLONK, where the scheme should not depend on which polynomial commitment scheme
 // is used.
 type Scheme struct{}
+
+// Digest commitment of a polynomials
+type Digest struct {
+	data fr.Element
+}
+
+// Marshal serializes the point as in bls12377.G1Affine.
+func (d *Digest) Marshal() []byte {
+	return d.data.Marshal()
+}
+
+// Marshal serializes the digest.
+func (d *Digest) Unmarshal(buf []byte) error {
+	d.data.SetBytes(buf)
+	return nil
+}
+
+// Add adds two digest.
+func (d *Digest) Add(d1, d2 polynomial.Digest) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	_d2 := d2.(*Digest)
+	d.data.Add(&_d1.data, &_d2.data)
+	return d
+}
+
+// Sub adds two digest.
+func (d *Digest) Sub(d1, d2 polynomial.Digest) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	_d2 := d2.(*Digest)
+	d.data.Sub(&_d1.data, &_d2.data)
+	return d
+}
+
+// Add adds two digest.
+func (d *Digest) ScalarMul(d1 polynomial.Digest, s big.Int) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	var _s fr.Element
+	_s.SetBigInt(&s)
+	d.data.Mul(&d.data, &_d1.data)
+	return d
+}
 
 // WriteTo panics
 func (s *Scheme) WriteTo(w io.Writer) (n int64, err error) {
@@ -42,8 +104,8 @@ func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
 // Commit returns the first coefficient of p
 func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 	_p := p.(*bls12377.Polynomial)
-	var res fr.Element
-	res.SetInterface((*_p)[0])
+	var res Digest
+	res.data.SetInterface((*_p)[0])
 	return &res, nil
 }
 
