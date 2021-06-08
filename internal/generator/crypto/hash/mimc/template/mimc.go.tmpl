@@ -9,7 +9,7 @@ import (
 const mimcNbRounds = 91
 
 // BlockSize size that mimc consumes
-const BlockSize = 32{{ if eq .Name "bw6-761" }}+16{{ end }}
+const BlockSize = fr.Bytes
 
 // Params constants for the mimc hash function
 type Params []fr.Element
