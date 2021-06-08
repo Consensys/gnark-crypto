@@ -9,7 +9,7 @@ import (
 const mimcNbRounds = 91
 
 // BlockSize size that mimc consumes
-const BlockSize = 32{{ if eq .Name "bw6-761" }}+16{{ end }}
+const BlockSize = fr.Bytes
 
 // Params constants for the mimc hash function
 type Params []fr.Element
@@ -126,70 +126,36 @@ func (d *digest) checksum() fr.Element {
 }
 
 
-{{ if eq .Name "bn254" }}
-	// plain execution of a mimc run
-	// m: message
-	// k: encryption key
-	func (d *digest) encrypt(m fr.Element) {
+{{ if eq .Name "bls12-377" }}
+// plain execution of a mimc run
+// m: message
+// k: encryption key
+func (d *digest) encrypt(m fr.Element) {
 
-		for i:=0; i < len(d.Params); i++ {
-			// m = (m+k+c)^5
-			var tmp fr.Element
-			tmp.Add(&m, &d.h).Add(&tmp, &d.Params[i])
-			m.Square(&tmp).
-				Square(&m).
-				Mul(&m, &tmp)
-		}
-		m.Add(&m, &d.h)
-		d.h = m
+	for i:=0; i < len(d.Params); i++ {
+		// m = (m+k+c)^**-1
+		m.Add(&m, &d.h).Add(&m, &d.Params[i]).Inverse(&m)
 	}
-{{ else if eq .Name "bls12-381" }}
-	// plain execution of a mimc run
-	// m: message
-	// k: encryption key
-	func (d *digest) encrypt(m fr.Element) {
+	m.Add(&m, &d.h)
+	d.h = m
+}
+{{ else }}
+// plain execution of a mimc run
+// m: message
+// k: encryption key
+func (d *digest) encrypt(m fr.Element) {
 
-		for i:=0; i < len(d.Params); i++ {
-			// m = (m+k+c)^5
-			var tmp fr.Element
-			tmp.Add(&m, &d.h).Add(&tmp, &d.Params[i])
-			m.Square(&tmp).
-				Square(&m).
-				Mul(&m, &tmp)
-		}
-		m.Add(&m, &d.h)
-		d.h = m
+	for i:=0; i < len(d.Params); i++ {
+		// m = (m+k+c)^5
+		var tmp fr.Element
+		tmp.Add(&m, &d.h).Add(&tmp, &d.Params[i])
+		m.Square(&tmp).
+			Square(&m).
+			Mul(&m, &tmp)
 	}
-{{ else if eq .Name "bls12-377" }}
-	// plain execution of a mimc run
-	// m: message
-	// k: encryption key
-	func (d *digest) encrypt(m fr.Element) {
-
-		for i:=0; i < len(d.Params); i++ {
-			// m = (m+k+c)^**-1
-			m.Add(&m, &d.h).Add(&m, &d.Params[i]).Inverse(&m)
-		}
-		m.Add(&m, &d.h)
-		d.h = m
-	}
-{{ else if eq .Name "bw6-761" }}
-	// plain execution of a mimc run
-	// m: message
-	// k: encryption key
-	func (d *digest) encrypt(m fr.Element) {
-
-		for i:=0; i < len(d.Params); i++ {
-			// m = (m+k+c)^5
-			var tmp fr.Element
-			tmp.Add(&m, &d.h).Add(&tmp, &d.Params[i])
-			m.Square(&tmp).
-				Square(&m).
-				Mul(&m, &tmp)
-		}
-		m.Add(&m, &d.h)
-		d.h = m
-	}
+	m.Add(&m, &d.h)
+	d.h = m
+}
 {{end}}
 
 // Sum computes the mimc hash of msg from seed

@@ -763,7 +763,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A0 | p.X.A1
+	// p.X.A1 | p.X.A0
 	tmp = p.X.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[56:64], tmp[0])
@@ -800,7 +800,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// not compressed
 	// we store the Y coordinate
-	// p.Y.A0 | p.Y.A1
+	// p.Y.A1 | p.Y.A0
 	tmp = p.Y.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[120:128], tmp[0])
@@ -816,7 +816,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 	binary.BigEndian.PutUint64(res[64:72], tmp[3])
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A0 | p.X.A1
+	// p.X.A1 | p.X.A0
 	tmp = p.X.A1
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[24:32], tmp[0])

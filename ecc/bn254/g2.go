@@ -487,7 +487,6 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 }
 
 // ClearCofactor maps a point in curve to r-torsion
-
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]G2Jac
