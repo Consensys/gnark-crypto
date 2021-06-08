@@ -40,12 +40,17 @@ type Digest interface {
 // should implement.
 type OpeningProof interface {
 	Marshal() []byte
+	GetClaimedValue() []byte
 }
 
 // BatchOpeningProofSinglePoint interface that a bacth opening proof (single point)
 // should implement.
 type BatchOpeningProofSinglePoint interface {
 	Marshal() []byte
+
+	// GetClaimedValues get the claimed values, in the order in which the polynomials
+	// are given in the opening proof.
+	GetClaimedValues() [][]byte
 }
 
 // CommitmentScheme interface for an additively homomorphic

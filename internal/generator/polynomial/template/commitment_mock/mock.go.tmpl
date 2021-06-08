@@ -17,6 +17,11 @@ func (mp *MockProof) Marshal() []byte {
 	panic("not implemented")
 }
 
+// GetClaimedValue returns the serialized claimed value.
+func (mp *MockProof) GetClaimedValue() []byte {
+	return mp.ClaimedValue.Marshal()
+}
+
 // MockBatchProofsSinglePoint empty struct
 type MockBatchProofsSinglePoint struct {
 	Point         fr.Element
@@ -25,6 +30,16 @@ type MockBatchProofsSinglePoint struct {
 
 func (mp *MockBatchProofsSinglePoint) Marshal() []byte {
 	panic("not implemented")
+}
+
+// GetClaimedValues returns a slice of the claimed values,
+// serialized.
+func (mp *MockBatchProofsSinglePoint) GetClaimedValues() [][]byte {
+	res := make([][]byte, len(mp.ClaimedValues))
+	for i := 0; i < len(mp.ClaimedValues); i++ {
+		res[i] = mp.ClaimedValues[i].Marshal()
+	}
+	return res
 }
 
 // Scheme mock commitment, useful for testing polynomial based IOP

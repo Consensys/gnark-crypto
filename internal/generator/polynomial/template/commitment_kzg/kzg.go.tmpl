@@ -147,6 +147,11 @@ func (p *Proof) Marshal() []byte {
 	return res[:]
 }
 
+// GetClaimedValue returns the serialized claimed value.
+func (p *Proof) GetClaimedValue() []byte {
+	return p.ClaimedValue.Marshal()
+}
+
 type BatchProofsSinglePoint struct {
 	// Point at which the polynomials are evaluated
 	Point fr.Element
@@ -178,7 +183,16 @@ func (p *BatchProofsSinglePoint) Marshal() []byte {
 	}
 
 	return res
+}
 
+// GetClaimedValues returns a slice of the claimed values,
+// serialized.
+func (p *BatchProofsSinglePoint) GetClaimedValues() [][]byte {
+	res := make([][]byte, len(p.ClaimedValues))
+	for i := 0; i < len(p.ClaimedValues); i++ {
+		res[i] = p.ClaimedValues[i].Marshal()
+	}
+	return res
 }
 
 // WriteTo writes binary encoding of the scheme data.
