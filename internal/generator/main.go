@@ -51,6 +51,9 @@ func main() {
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
 
+			// generate fft on fr
+			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
+
 			if conf.ID() == gecc.BLS24_315 {
 				return // TODO temporary we just generate field arithmetic;
 			}
@@ -63,9 +66,6 @@ func main() {
 
 			// generate twisted edwards companion curves
 			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
-
-			// generate fft on fr
-			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))

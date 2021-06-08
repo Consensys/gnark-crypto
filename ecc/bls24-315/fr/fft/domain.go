@@ -17,6 +17,7 @@
 package fft
 
 import (
+	"fmt"
 	"io"
 	"math/big"
 	"math/bits"
@@ -80,6 +81,7 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
+
 	rootOfUnity.SetString("1792993287828780812362846131493071959406149719416102105453370749552622525216")
 	const maxOrderRoot uint64 = 22
 
@@ -94,7 +96,7 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 	// find generator for Z/2^(log(m))Z  and Z/2^(log(m)+cosets)Z
 	logx := uint64(bits.TrailingZeros64(x))
 	if logx > maxOrderRoot {
-		panic("m is too big: the required root of unity does not exist")
+		panic(fmt.Sprintf("m (%d) is too big: the required root of unity does not exist", m))
 	}
 	logGen := logx + depth
 	if logGen > maxOrderRoot {
