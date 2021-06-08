@@ -78,14 +78,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	var read int
 
 	switch t := v.(type) {
-	case *uint64:
-		var r uint64
-		r, err = dec.readUint64()
-		if err != nil {
-			return
-		}
-		*t = r
-		return
 	case *fr.Element:
 		read, err = io.ReadFull(dec.r, buf[:fr.Limbs*8])
 		dec.n += int64(read)
@@ -245,25 +237,21 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 		return nil
 	default:
-		return errors.New("bn254 encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("bn254 encoder: unsupported type")
+		}
+		err = binary.Read(dec.r, binary.BigEndian, t)
+		if err == nil {
+			dec.n += int64(n)
+		}
+		return
 	}
 }
 
 // BytesRead return total bytes read from reader
 func (dec *Decoder) BytesRead() int64 {
 	return dec.n
-}
-
-func (dec *Decoder) readUint64() (r uint64, err error) {
-	var read int
-	var buf [8]byte
-	read, err = io.ReadFull(dec.r, buf[:8])
-	dec.n += int64(read)
-	if err != nil {
-		return
-	}
-	r = binary.BigEndian.Uint64(buf[:8])
-	return
 }
 
 func (dec *Decoder) readUint32() (r uint32, err error) {
@@ -329,10 +317,6 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 	var written int
 	switch t := v.(type) {
-	case uint64:
-		err = binary.Write(enc.w, binary.BigEndian, t)
-		enc.n += 8
-		return
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -392,7 +376,13 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("<no value> encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("<no value> encoder: unsupported type")
+		}
+		err = binary.Write(enc.w, binary.BigEndian, t)
+		enc.n += int64(n)
+		return
 	}
 }
 
@@ -403,10 +393,6 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 	var written int
 	switch t := v.(type) {
-	case uint64:
-		err = binary.Write(enc.w, binary.BigEndian, t)
-		enc.n += 8
-		return
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -466,7 +452,13 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("<no value> encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("<no value> encoder: unsupported type")
+		}
+		err = binary.Write(enc.w, binary.BigEndian, t)
+		enc.n += int64(n)
+		return
 	}
 }
 
