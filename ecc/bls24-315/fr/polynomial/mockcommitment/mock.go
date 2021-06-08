@@ -43,7 +43,7 @@ func (s *Scheme) ReadFrom(r io.Reader) (n int64, err error) {
 func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 	_p := p.(*bls24315.Polynomial)
 	var res fr.Element
-	res.Set(&(*_p)[0])
+	res.SetInterface((*_p)[0])
 	return &res, nil
 }
 
@@ -51,18 +51,11 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 // Returns a MockProof, which is an empty interface.
 func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.OpeningProof, error) {
 
-	claimedValue := p.Eval(point)
-	var _claimedValue fr.Element
-	_claimedValue.Set(claimedValue.(*fr.Element))
+	res := MockProof{}
+	res.Point.SetInterface(point)
+	res.ClaimedValue.SetInterface(p.Eval(point))
 
-	// ensure we get a copy of point
-	var _point fr.Element
-	_point.Set(point.(*fr.Element))
-
-	return &MockProof{
-		Point:        _point,
-		ClaimedValue: _claimedValue,
-	}, nil
+	return &res, nil
 }
 
 // Verify mock implementation of verify
@@ -75,11 +68,10 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 
 	var res MockBatchProofsSinglePoint
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
-	res.Point.Set(point.(*fr.Element))
+	res.Point.SetInterface(point)
 
 	for i := 0; i < len(polynomials); i++ {
-		claimedValue := polynomials[i].Eval(point)
-		res.ClaimedValues[i].Set(claimedValue.(*fr.Element))
+		res.ClaimedValues[i].SetInterface(polynomials[i].Eval(point))
 	}
 
 	return &res, nil

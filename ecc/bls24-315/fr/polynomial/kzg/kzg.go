@@ -66,6 +66,38 @@ type Proof struct {
 	H bls24315.G1Affine
 }
 
+// NewScheme returns a new KZG scheme.
+// This should be used for testing purpose only.
+func NewScheme(size int, alpha fr.Element) *Scheme {
+
+	s := &Scheme{}
+
+	d := fft.NewDomain(uint64(size), 0, false)
+	s.Domain = *d
+	s.SRS.G1 = make([]bls24315.G1Affine, size)
+
+	var bAlpha big.Int
+	alpha.ToBigIntRegular(&bAlpha)
+
+	_, _, gen1Aff, gen2Aff := bls24315.Generators()
+	s.SRS.G1[0] = gen1Aff
+	s.SRS.G2[0] = gen2Aff
+	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
+
+	alphas := make([]fr.Element, size-1)
+	alphas[0] = alpha
+	for i := 1; i < len(alphas); i++ {
+		alphas[i].Mul(&alphas[i-1], &alpha)
+	}
+	for i := 0; i < len(alphas); i++ {
+		alphas[i].FromMont()
+	}
+	g1s := bls24315.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	copy(s.SRS.G1[1:], g1s)
+
+	return s
+}
+
 // Marshal serializes a proof as H||point||claimed_value.
 // The point H is not compressed.
 func (p *Proof) Marshal() []byte {
@@ -271,7 +303,7 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
 
-		// [alpha-a]G2Aff
+	// [alpha-a]G2Aff
 	var xminusaG2Aff bls24315.G2Affine
 	xminusaG2Aff.FromJacobian(&alphaMinusaG2Jac)
 

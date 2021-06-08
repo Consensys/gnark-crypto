@@ -21,11 +21,11 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
-	_pol "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
+	bls24315_pol "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
 )
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
-func dividePolyByXminusA(d fft.Domain, f _pol.Polynomial, fa, a fr.Element) _pol.Polynomial {
+func dividePolyByXminusA(d fft.Domain, f bls24315_pol.Polynomial, fa, a fr.Element) bls24315_pol.Polynomial {
 
 	// padd f so it has size d.Cardinality
 	_f := make([]fr.Element, d.Cardinality)

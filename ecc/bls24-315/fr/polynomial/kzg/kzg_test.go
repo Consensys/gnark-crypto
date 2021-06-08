@@ -36,38 +36,6 @@ func init() {
 	_alphaSetup.SetString("1234")
 }
 
-// NewKZG returns a new Scheme instance
-// this is used for test purposes
-func NewKZG(size int, alpha fr.Element) Scheme {
-
-	var s Scheme
-	d := fft.NewDomain(uint64(size), 0, false)
-	s.Domain = *d
-	s.SRS.G1 = make([]bls24315.G1Affine, size)
-
-	// generate the SRS
-	var alphaBigInt big.Int
-	alpha.ToBigIntRegular(&alphaBigInt)
-
-	_, _, gen1Aff, gen2Aff := bls24315.Generators()
-	s.SRS.G1[0] = gen1Aff
-	s.SRS.G2[0] = gen2Aff
-	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &alphaBigInt)
-
-	alphas := make([]fr.Element, size-1)
-	alphas[0] = alpha
-	for i := 1; i < len(alphas); i++ {
-		alphas[i].Mul(&alphas[i-1], &alpha)
-	}
-	for i := 0; i < len(alphas); i++ {
-		alphas[i].FromMont()
-	}
-	g1s := bls24315.BatchScalarMultiplicationG1(&gen1Aff, alphas)
-	copy(s.SRS.G1[1:], g1s)
-
-	return s
-}
-
 func randomPolynomial(size int) bls24315_pol.Polynomial {
 	f := make(bls24315_pol.Polynomial, size)
 	for i := 0; i < size; i++ {
@@ -121,7 +89,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 func TestSerialization(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewKZG(64, _alphaSetup)
+	s := NewScheme(64, _alphaSetup)
 
 	// serialize it...
 	var buf bytes.Buffer
@@ -138,7 +106,7 @@ func TestSerialization(t *testing.T) {
 	}
 
 	// compare
-	if !reflect.DeepEqual(&s, &_s) {
+	if !reflect.DeepEqual(s, &_s) {
 		t.Fatal("scheme serialization failed")
 	}
 
@@ -147,7 +115,7 @@ func TestSerialization(t *testing.T) {
 func TestCommit(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewKZG(64, _alphaSetup)
+	s := NewScheme(64, _alphaSetup)
 
 	// create a polynomial
 	f := make(bls24315_pol.Polynomial, 60)
@@ -183,7 +151,7 @@ func TestCommit(t *testing.T) {
 func TestVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewKZG(64, _alphaSetup)
+	s := NewScheme(64, _alphaSetup)
 
 	// create a polynomial
 	f := randomPolynomial(60)
@@ -202,6 +170,13 @@ func TestVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// verify the claimed valued
+	_proof := proof.(*Proof)
+	expected := f.Eval(point).(fr.Element)
+	if !_proof.ClaimedValue.Equal(&expected) {
+		t.Fatal("inconsistant claimed value")
+	}
+
 	// verify correct proof
 	err = s.Verify(digest, proof)
 	if err != nil {
@@ -209,7 +184,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify wrong proof
-	_proof := proof.(*Proof)
+	_proof = proof.(*Proof)
 	_proof.ClaimedValue.Double(&_proof.ClaimedValue)
 	err = s.Verify(digest, _proof)
 	if err == nil {
@@ -220,7 +195,7 @@ func TestVerifySinglePoint(t *testing.T) {
 func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewKZG(64, _alphaSetup)
+	s := NewScheme(64, _alphaSetup)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -244,6 +219,15 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// verify the claimed values
+	_proof := proof.(*BatchProofsSinglePoint)
+	for i := 0; i < 10; i++ {
+		expectedClaim := f[i].Eval(point).(fr.Element)
+		if !expectedClaim.Equal(&_proof.ClaimedValues[i]) {
+			t.Fatal("inconsistant claimed values")
+		}
+	}
+
 	// verify correct proof
 	err = s.BatchVerifySinglePoint(digests, proof)
 	if err != nil {
@@ -251,7 +235,6 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify wrong proof
-	_proof := proof.(*BatchProofsSinglePoint)
 	_proof.ClaimedValues[0].Double(&_proof.ClaimedValues[0])
 	err = s.BatchVerifySinglePoint(digests, _proof)
 	if err == nil {
@@ -264,7 +247,7 @@ const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {
 	// kzg scheme
-	s := NewKZG(benchSize, _alphaSetup)
+	s := NewScheme(benchSize, _alphaSetup)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -277,7 +260,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 
 func BenchmarkKZGOpen(b *testing.B) {
 	// kzg scheme
-	s := NewKZG(benchSize, _alphaSetup)
+	s := NewScheme(benchSize, _alphaSetup)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -292,7 +275,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 func BenchmarkKZGVerify(b *testing.B) {
 	// kzg scheme
-	s := NewKZG(benchSize, _alphaSetup)
+	s := NewScheme(benchSize, _alphaSetup)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -319,7 +302,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 
 func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// kzg scheme
-	s := NewKZG(benchSize, _alphaSetup)
+	s := NewScheme(benchSize, _alphaSetup)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -345,7 +328,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// kzg scheme
-	s := NewKZG(benchSize, _alphaSetup)
+	s := NewScheme(benchSize, _alphaSetup)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial

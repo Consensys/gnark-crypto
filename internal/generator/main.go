@@ -54,6 +54,9 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
+
 			if conf.ID() == gecc.BLS24_315 {
 				return // TODO temporary we just generate field arithmetic;
 			}
@@ -66,9 +69,6 @@ func main() {
 
 			// generate twisted edwards companion curves
 			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
-
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
