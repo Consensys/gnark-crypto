@@ -23,16 +23,16 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/twistededwards"
 	"github.com/consensys/gnark-crypto/signature"
-
 	"golang.org/x/crypto/blake2b"
 )
 
 var errNotOnCurve = errors.New("point not on curve")
 
 const (
-	sizeFr         = 32 + 8
+	sizeFr         = fr.Bytes
 	sizePublicKey  = sizeFr
 	sizeSignature  = 2 * sizeFr
 	sizePrivateKey = 2*sizeFr + 32

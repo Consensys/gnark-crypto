@@ -372,6 +372,38 @@ func BenchmarkFFT(b *testing.B) {
 
 }
 
+func BenchmarkFFTDITCosetReference(b *testing.B) {
+	const maxSize = 1 << 20
+
+	pol := make([]fr.Element, maxSize)
+	for i := uint64(0); i < maxSize; i++ {
+		pol[i].SetRandom()
+	}
+
+	domain := NewDomain(uint64(maxSize), 1, false)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIT, 1)
+	}
+}
+
+func BenchmarkFFTDIFReference(b *testing.B) {
+	const maxSize = 1 << 20
+
+	pol := make([]fr.Element, maxSize)
+	for i := uint64(0); i < maxSize; i++ {
+		pol[i].SetRandom()
+	}
+
+	domain := NewDomain(uint64(maxSize), 0, false)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF, 0)
+	}
+}
+
 func evaluatePolynomial(pol []fr.Element, val fr.Element) fr.Element {
 	var acc, res, tmp fr.Element
 	res.Set(&pol[0])
