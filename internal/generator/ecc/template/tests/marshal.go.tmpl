@@ -32,6 +32,8 @@ func TestEncoder(t *testing.T) {
 	var inF G2Affine
 	var inG []G1Affine
 	var inH []G2Affine
+	var inI []fp.Element 
+	var inJ []fr.Element 
 
 	// set values of inputs
 	inA = rand.Uint64()
@@ -43,12 +45,16 @@ func TestEncoder(t *testing.T) {
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD 
+	inI = make([]fp.Element, 3)
+	inI[2] = inD.X 
+	inJ = make([]fr.Element, 0)
+
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -71,8 +77,10 @@ func TestEncoder(t *testing.T) {
 		var outF G2Affine
 		var outG []G1Affine
 		var outH []G2Affine
+		var outI []fp.Element 
+		var outJ []fr.Element 
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -99,6 +107,14 @@ func TestEncoder(t *testing.T) {
 		for i:=0; i<len(inG);i++ {
 			if !inG[i].Equal(&outG[i]) {
 				t.Fatal("decode(encode(slice(points))) failed")	
+			}
+		}
+		if (len(inI) != len(outI)) || (len(inJ) != len(outJ)) {
+			t.Fatal("decode(encode(slice(elements))) failed")
+		}
+		for i:=0; i<len(inI);i++ {
+			if !inI[i].Equal(&outI[i]) {
+				t.Fatal("decode(encode(slice(elements))) failed")	
 			}
 		}
 		if n != dec.BytesRead() {
