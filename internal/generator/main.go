@@ -50,15 +50,6 @@ func main() {
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
 
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
-
-			// generate twisted edwards companion curves
-			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
-
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
@@ -68,8 +59,17 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
+			// generate twisted edwards companion curves
+			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
+
 			// generate eddsa on companion curves
 			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
+
+			// generate G1, G2, multiExp, ...
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
+			// generate pairing tests
+			assertNoError(pairing.Generate(conf, curveDir, bgen))
 
 		}(conf)
 

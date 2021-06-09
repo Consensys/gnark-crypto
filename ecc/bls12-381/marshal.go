@@ -75,35 +75,69 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
+	// in particular, careful attention must be given to usage of Bytes() method on Elements and Points
+	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memallocs
+	// in very large (de)serialization upstream in gnark.
+	// (but detrimental to code lisibility here)
 	// TODO double check memory usage and factorize this
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
 
 	switch t := v.(type) {
-	case *uint64:
-		var r uint64
-		r, err = dec.readUint64()
-		if err != nil {
-			return
-		}
-		*t = r
-		return
 	case *fr.Element:
-		read, err = io.ReadFull(dec.r, buf[:fr.Limbs*8])
+		read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fr.Limbs*8])
+		t.SetBytes(buf[:fr.Bytes])
 		return
 	case *fp.Element:
-		read, err = io.ReadFull(dec.r, buf[:fp.Limbs*8])
+		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fp.Limbs*8])
+		t.SetBytes(buf[:fp.Bytes])
+		return
+	case *[]fr.Element:
+		var sliceLen uint32
+		sliceLen, err = dec.readUint32()
+		if err != nil {
+			return
+		}
+		if len(*t) != int(sliceLen) {
+			*t = make([]fr.Element, sliceLen)
+		}
+
+		for i := 0; i < len(*t); i++ {
+			read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+			(*t)[i].SetBytes(buf[:fr.Bytes])
+		}
+		return
+	case *[]fp.Element:
+		var sliceLen uint32
+		sliceLen, err = dec.readUint32()
+		if err != nil {
+			return
+		}
+		if len(*t) != int(sliceLen) {
+			*t = make([]fp.Element, sliceLen)
+		}
+
+		for i := 0; i < len(*t); i++ {
+			read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+			(*t)[i].SetBytes(buf[:fp.Bytes])
+		}
 		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
@@ -248,25 +282,21 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 		return nil
 	default:
-		return errors.New("bls12-381 encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("bls12-381 encoder: unsupported type")
+		}
+		err = binary.Read(dec.r, binary.BigEndian, t)
+		if err == nil {
+			dec.n += int64(n)
+		}
+		return
 	}
 }
 
 // BytesRead return total bytes read from reader
 func (dec *Decoder) BytesRead() int64 {
 	return dec.n
-}
-
-func (dec *Decoder) readUint64() (r uint64, err error) {
-	var read int
-	var buf [8]byte
-	read, err = io.ReadFull(dec.r, buf[:8])
-	dec.n += int64(read)
-	if err != nil {
-		return
-	}
-	r = binary.BigEndian.Uint64(buf[:8])
-	return
 }
 
 func (dec *Decoder) readUint32() (r uint32, err error) {
@@ -332,10 +362,6 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 	var written int
 	switch t := v.(type) {
-	case uint64:
-		err = binary.Write(enc.w, binary.BigEndian, t)
-		enc.n += 8
-		return
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -356,6 +382,41 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
+	case []fr.Element:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+		var buf [fr.Bytes]byte
+		for i := 0; i < len(t); i++ {
+			buf = t[i].Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
+	case []fp.Element:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+		var buf [fp.Bytes]byte
+		for i := 0; i < len(t); i++ {
+			buf = t[i].Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
+
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -395,7 +456,13 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("<no value> encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("<no value> encoder: unsupported type")
+		}
+		err = binary.Write(enc.w, binary.BigEndian, t)
+		enc.n += int64(n)
+		return
 	}
 }
 
@@ -406,10 +473,6 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 	var written int
 	switch t := v.(type) {
-	case uint64:
-		err = binary.Write(enc.w, binary.BigEndian, t)
-		enc.n += 8
-		return
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -430,6 +493,41 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
+	case []fr.Element:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+		var buf [fr.Bytes]byte
+		for i := 0; i < len(t); i++ {
+			buf = t[i].Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
+	case []fp.Element:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+		var buf [fp.Bytes]byte
+		for i := 0; i < len(t); i++ {
+			buf = t[i].Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
+
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -469,7 +567,13 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		return nil
 	default:
-		return errors.New("<no value> encoder: unsupported type")
+		n := binary.Size(t)
+		if n == -1 {
+			return errors.New("<no value> encoder: unsupported type")
+		}
+		err = binary.Write(enc.w, binary.BigEndian, t)
+		enc.n += int64(n)
+		return
 	}
 }
 
@@ -771,7 +875,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A0 | p.X.A1
+	// p.X.A1 | p.X.A0
 	tmp = p.X.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[88:96], tmp[0])
@@ -812,7 +916,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// not compressed
 	// we store the Y coordinate
-	// p.Y.A0 | p.Y.A1
+	// p.Y.A1 | p.Y.A0
 	tmp = p.Y.A0
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[184:192], tmp[0])
@@ -832,7 +936,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 	binary.BigEndian.PutUint64(res[96:104], tmp[5])
 
 	// we store X  and mask the most significant word with our metadata mask
-	// p.X.A0 | p.X.A1
+	// p.X.A1 | p.X.A0
 	tmp = p.X.A1
 	tmp.FromMont()
 	binary.BigEndian.PutUint64(res[40:48], tmp[0])

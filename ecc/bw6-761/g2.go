@@ -480,7 +480,6 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 }
 
 // ClearCofactor maps a point in curve to r-torsion
-
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	var points [4]G2Jac
@@ -518,7 +517,6 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	p.Set(&p1).AddAssign(&p2)
 
 	return p
-
 }
 
 // -------------------------------------------------------------------------------------------------

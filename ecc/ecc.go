@@ -28,18 +28,24 @@ package ecc
 
 import "sync"
 
+// ID represent a unique ID for a curve
+type ID uint16
+
 // do not modify the order of this enum
 const (
 	UNKNOWN ID = iota
 	BN254
 	BLS12_377
 	BLS12_381
+	BLS24_315
 	BW6_761
 	BW6_633
 )
 
-// ID represent a unique ID for a curve
-type ID uint16
+// Implemented return the list of curves fully implemented in gnark-crypto
+func Implemented() []ID {
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315}
+}
 
 func (id ID) String() string {
 	switch id {
@@ -53,6 +59,8 @@ func (id ID) String() string {
 		return "bw6_761"
 	case BW6_633:
 		return "bw6_633"
+	case BLS24_315:
+		return "bls24_315"
 	default:
 		panic("unimplemented ecc ID")
 	}

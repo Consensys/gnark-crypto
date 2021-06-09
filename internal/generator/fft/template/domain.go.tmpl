@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"sync"
 	"io"
+	"fmt"
 
 	{{ template "import_fr" . }}
 	{{ template "import_curve" . }}
@@ -76,6 +77,9 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
     {{else if eq .Name "bw6-633"}}
 		rootOfUnity.SetString("4991787701895089137426454739366935169846548798279261157172811661565882460884369603588700158257")
 		const maxOrderRoot uint64 = 20
+	{{else if eq .Name "bls24-315"}}
+		rootOfUnity.SetString("1792993287828780812362846131493071959406149719416102105453370749552622525216")
+       const maxOrderRoot uint64 = 22
 	{{end}}
 
 	domain := &Domain{}
@@ -89,7 +93,7 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 	// find generator for Z/2^(log(m))Z  and Z/2^(log(m)+cosets)Z
 	logx := uint64(bits.TrailingZeros64(x))
 	if logx > maxOrderRoot {
-		panic("m is too big: the required root of unity does not exist")
+		panic(fmt.Sprintf("m (%d) is too big: the required root of unity does not exist", m))
 	}
 	logGen := logx + depth
 	if logGen > maxOrderRoot {

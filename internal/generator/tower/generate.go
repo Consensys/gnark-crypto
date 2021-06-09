@@ -13,7 +13,7 @@ import (
 
 // Generate generates a tower 2->6->12 over fp
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	if conf.ID() == ecc.BW6_761 || conf.ID() == ecc.BW6_633 {
+	if conf.ID() == ecc.BW6_761 || conf.ID() == ecc.BW6_633 || conf.ID() == ecc.BLS24_315 {
 		return nil
 	}
 

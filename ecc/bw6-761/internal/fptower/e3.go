@@ -22,7 +22,7 @@ type E3 struct {
 }
 
 // Equal returns true if z equals x, fasle otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
+// note this is more efficient than calling "z == x"
 func (z *E3) Equal(x *E3) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1) && z.A2.Equal(&x.A2)
 }
@@ -37,9 +37,7 @@ func (z *E3) SetString(s1, s2, s3 string) *E3 {
 
 // SetZero sets an E3 elmt to zero
 func (z *E3) SetZero() *E3 {
-	z.A0.SetZero()
-	z.A1.SetZero()
-	z.A2.SetZero()
+	*z = E3{}
 	return z
 }
 
@@ -54,9 +52,7 @@ func (z *E3) Clone() *E3 {
 
 // Set Sets a E3 elmt form another E3 elmt
 func (z *E3) Set(x *E3) *E3 {
-	z.A0 = x.A0
-	z.A1 = x.A1
-	z.A2 = x.A2
+	*z = *x
 	return z
 }
 
@@ -142,19 +138,17 @@ func (z *E3) String() string {
 
 // Conjugate conjugates an element in E3
 func (z *E3) Conjugate(x *E3) *E3 {
-	z.A0.Set(&x.A0)
-	z.A1.Neg(&x.A1)
-	z.A2.Set(&x.A2)
+	*z = *x
+	z.A1.Neg(&z.A1)
 	return z
 }
 
 // MulByElement multiplies an element in E3 by an element in fp
 func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
-	var yCopy fp.Element
-	yCopy.Set(y)
-	z.A0.Mul(&x.A0, &yCopy)
-	z.A1.Mul(&x.A1, &yCopy)
-	z.A2.Mul(&x.A2, &yCopy)
+	_y := *y
+	z.A0.Mul(&x.A0, &_y)
+	z.A1.Mul(&x.A1, &_y)
+	z.A2.Mul(&x.A2, &_y)
 	return z
 }
 
@@ -222,47 +216,50 @@ func (z *E3) Mul(x, y *E3) *E3 {
 
 	c0.Add(&x.A1, &x.A2)
 	tmp.Add(&y.A1, &y.A2)
-	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByNonResidue(&c0).Add(&c0, &t0)
+	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByNonResidue(&c0)
+
+	tmp.Add(&x.A0, &x.A2)
+	c2.Add(&y.A0, &y.A2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2)
 
 	c1.Add(&x.A0, &x.A1)
 	tmp.Add(&y.A0, &y.A1)
 	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
-	tmp.MulByNonResidue(&t2)
-	c1.Add(&c1, &tmp)
+	t2.MulByNonResidue(&t2)
 
-	tmp.Add(&x.A0, &x.A2)
-	c2.Add(&y.A0, &y.A2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2).Add(&c2, &t1)
-
-	z.A0.Set(&c0)
-	z.A1.Set(&c1)
-	z.A2.Set(&c2)
+	z.A0.Add(&c0, &t0)
+	z.A1.Add(&c1, &t2)
+	z.A2.Add(&c2, &t1)
 
 	return z
 }
 
 // MulAssign sets z to the E3-product of z,y, returns z
 func (z *E3) MulAssign(x *E3) *E3 {
-	z.Mul(z, x)
-	return z
+	return z.Mul(z, x)
 }
 
 // Square sets z to the E3-product of x,x, returns z
 func (z *E3) Square(x *E3) *E3 {
 
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var c4, c5, c1, c2, c3, c0 fp.Element
-	c4.Mul(&x.A0, &x.A1).Double(&c4)
+	var c4, c5, c1, c2, c3, c0, c6 fp.Element
+
+	c6.Double(&x.A1)
+	c4.Mul(&x.A0, &c6) // x.A0 * xA1 * 2
 	c5.Square(&x.A2)
 	c1.MulByNonResidue(&c5).Add(&c1, &c4)
 	c2.Sub(&c4, &c5)
+
 	c3.Square(&x.A0)
 	c4.Sub(&x.A0, &x.A1).Add(&c4, &x.A2)
-	c5.Mul(&x.A1, &x.A2).Double(&c5)
+	c5.Mul(&c6, &x.A2) // x.A1 * xA2 * 2
 	c4.Square(&c4)
-	c0.MulByNonResidue(&c5).Add(&c0, &c3)
-	z.A2.Add(&c2, &c4).Add(&z.A2, &c5).Sub(&z.A2, &c3)
-	z.A0.Set(&c0)
-	z.A1.Set(&c1)
+	c0.MulByNonResidue(&c5)
+	c4.Add(&c4, &c5).Sub(&c4, &c3)
+
+	z.A0.Add(&c0, &c3)
+	z.A1 = c1
+	z.A2.Add(&c2, &c4)
 
 	return z
 }

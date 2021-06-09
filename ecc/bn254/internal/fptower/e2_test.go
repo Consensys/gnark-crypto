@@ -246,6 +246,17 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[BN254] mulGeneric & mul should be equal", prop.ForAll(
+		func(a, b *E2) bool {
+			var c, d E2
+			mulGenericE2(&c, a, b)
+			d.Mul(a, b)
+			return d.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
 	properties.Property("[BN254] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
