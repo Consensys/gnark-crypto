@@ -282,15 +282,14 @@ func (z *E6) SetBytes(e []byte) error {
 	return nil
 }
 
-var order = *fr.Modulus()
+var frModulus = fr.Modulus()
 
 // IsInSubGroup ensures GT/E6 is in correct sugroup
 func (z *E6) IsInSubGroup() bool {
-	// TODO
-	var one E6
+	var one, _z E6
 	one.SetOne()
-	z.Exp(z, order)
-	return z.Equal(&one)
+	_z.Exp(z, *frModulus)
+	return _z.Equal(&one)
 	/*
 		var tmp, a, _a, b E6
 		var t [6]E6
