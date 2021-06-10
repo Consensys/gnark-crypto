@@ -341,25 +341,21 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG1Affine, 1] is the kernel
-// of (u,v)->u+lambdaG1Affinev mod r. Expressing r, lambdaG1Affine as
-// polynomials in x, a short vector of this Zmodule is
-// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
-// is the infinity.
+// 3*r*P = (x+1)*phi(P) + (-x^5 + x^4 + x)*P
 func (p *G1Jac) IsInSubGroup() bool {
 
-	var res, phip G1Jac
-	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
-		SubAssign(&phip).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		AddAssign(&phip)
+	var uP, u4P, u5P, q, r G1Jac
+	uP.ScalarMultiplication(p, &xGen)
+	u4P.ScalarMultiplication(&uP, &xGen).
+		ScalarMultiplication(&u4P, &xGen).
+		ScalarMultiplication(&u4P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen)
+	q.Set(p).SubAssign(&uP)
+	r.phi(&q).SubAssign(&uP).
+		AddAssign(&u4P).
+		AddAssign(&u5P)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
-
-	return phip.IsOnCurve() && phip.Z.IsZero()
-
+	return r.IsOnCurve() && r.Z.IsZero()
 }
 
 // mulWindowed 2-bits windowed exponentiation
@@ -476,40 +472,34 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
-	// https://eprint.iacr.org/2020/351.pdf
-	var points [4]G1Jac
-	points[0].Set(a)
-	points[1].ScalarMultiplication(a, &xGen)
-	points[2].ScalarMultiplication(&points[1], &xGen)
-	points[3].ScalarMultiplication(&points[2], &xGen)
+	var uP, vP, wP, L0, L1, tmp G1Jac
+	var v, one, uPlusOne, uMinusOne, d1, d2, d3, d4 big.Int
+	one.SetInt64(1)
+	uPlusOne.Add(&one, &xGen)
+	uMinusOne.Sub(&xGen, &one)
+	d1.SetInt64(52)
+	d2.SetInt64(20)
+	d3.SetInt64(8)
+	d4.SetInt64(28)
+	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
-	var scalars [7]big.Int
-	scalars[0].SetInt64(103)
-	scalars[1].SetInt64(83)
-	scalars[2].SetInt64(40)
-	scalars[3].SetInt64(136)
+	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
+	vP.Set(a).SubAssign(&uP).
+		ScalarMultiplication(&vP, &v)
+	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
+		AddAssign(&uP)
+	L0.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &d4)
+	L0.AddAssign(&tmp)
+	tmp.ScalarMultiplication(a, &d3)
+	L0.AddAssign(&tmp)
+	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
+	tmp.ScalarMultiplication(&vP, &d2)
+	L1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(a, &d4)
+	L1.AddAssign(&tmp)
 
-	scalars[4].SetInt64(7)
-	scalars[5].SetInt64(89)
-	scalars[6].SetInt64(130)
-
-	var p1, p2, tmp G1Jac
-	p1.ScalarMultiplication(&points[3], &scalars[0])
-	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
-	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
-	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[3])
-	p1.AddAssign(&tmp)
-
-	p2.ScalarMultiplication(&points[2], &scalars[4])
-	tmp.ScalarMultiplication(&points[1], &scalars[5])
-	p2.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[6])
-	p2.AddAssign(&tmp)
-	p2.phi(&p2)
-
-	p.Set(&p1).AddAssign(&p2)
+	p.phi(&L1).AddAssign(&L0)
 
 	return p
 }

@@ -396,7 +396,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		}
 	{{- end}}
-{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+{{else if eq .Name "bw6-761"}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
@@ -417,6 +417,24 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		return phip.IsOnCurve() && phip.Z.IsZero()
 
+	}
+{{else if eq .Name "bw6-633"}}
+    // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+    // 3*r*P = (x+1)*phi(P) + (-x^5 + x^4 + x)*P
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+        var uP, u4P, u5P, q, r {{ $TJacobian }}
+        uP.ScalarMultiplication(p, &xGen)
+        u4P.ScalarMultiplication(&uP, &xGen).
+            ScalarMultiplication(&u4P, &xGen).
+            ScalarMultiplication(&u4P, &xGen)
+        u5P.ScalarMultiplication(&u4P, &xGen)
+        q.Set(p).SubAssign(&uP)
+        r.phi(&q).SubAssign(&uP).
+            AddAssign(&u4P).
+            AddAssign(&u5P)
+
+		return r.IsOnCurve() && r.Z.IsZero()
 	}
 {{else}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
@@ -606,7 +624,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+{{else if eq .Name "bw6-761"}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
@@ -643,6 +661,37 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&p1).AddAssign(&p2)
 
 	return p
+{{else if eq .Name "bw6-633"}}
+	var uP, vP, wP, L0, L1, tmp {{$TJacobian}}
+	var v, one, uPlusOne, uMinusOne, d1, d2, d3, d4 big.Int
+	one.SetInt64(1)
+	uPlusOne.Add(&one, &xGen)
+	uMinusOne.Sub(&xGen, &one)
+	d1.SetInt64(52)
+	d2.SetInt64(20)
+	d3.SetInt64(8)
+	d4.SetInt64(28)
+	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
+
+	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
+	vP.Set(a).SubAssign(&uP).
+        ScalarMultiplication(&vP, &v)
+	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
+        AddAssign(&uP)
+	L0.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &d4)
+	L0.AddAssign(&tmp)
+	tmp.ScalarMultiplication(a, &d3)
+	L0.AddAssign(&tmp)
+	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
+	tmp.ScalarMultiplication(&vP, &d2)
+	L1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(a, &d4)
+	L1.AddAssign(&tmp)
+
+	p.phi(&L1).AddAssign(&L0)
+
+    return p
 {{- end}}
 }
 {{ else }}
@@ -768,7 +817,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 
 	return p
-{{else if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+{{else if eq .Name "bw6-761"}}
 
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
@@ -803,6 +852,39 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p2.phi(&p2).phi(&p2)
 
 	p.Set(&p1).AddAssign(&p2)
+
+	return p
+{{else if eq .Name "bw6-633"}}
+	var uP, u2P, u3P, u4P, u5P, xP, vP, wP, L0, L1, tmp {{$TJacobian}}
+	var ht, d1, d3 big.Int
+	ht.SetInt64(7) // negative
+	d1.SetInt64(13)
+	d3.SetInt64(5) // negative
+
+	uP.ScalarMultiplication(a, &xGen) // negative
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen) // negative
+	u4P.ScalarMultiplication(&u3P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen) // negative
+	vP.Set(&u2P).AddAssign(&uP).
+	    AddAssign(&u3P).
+	    Double(&vP).
+	    AddAssign(&u4P).
+	    AddAssign(a)
+	wP.Set(&uP).SubAssign(&u4P).SubAssign(&u5P)
+    xP.Set(a).AddAssign(&vP)
+	L0.Set(&uP).SubAssign(a).ScalarMultiplication(&L0, &d1)
+	tmp.ScalarMultiplication(&xP, &d3)
+	L0.AddAssign(&tmp)
+    tmp.ScalarMultiplication(a, &ht) // negative
+	L0.SubAssign(&tmp)
+	L1.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &ht)
+	L1.AddAssign(&tmp)
+	tmp.ScalarMultiplication(a, &d3)
+	L1.AddAssign(&tmp)
+
+	p.phi(&L1).AddAssign(&L0)
 
 	return p
 {{- end}}
