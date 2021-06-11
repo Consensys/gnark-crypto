@@ -39,6 +39,7 @@ const (
 	MIMC_BLS12_381
 	MIMC_BLS12_377
 	MIMC_BW6_761
+	MIMC_BLS24_315
 	MIMC_BW6_633
 )
 
@@ -99,6 +100,8 @@ func NewTranscript(h HashFS, challenges ...string) Transcript {
 		res.h = gnark_hash.MIMC_BLS12_377.New("seed")
 	case MIMC_BW6_761:
 		res.h = gnark_hash.MIMC_BW6_761.New("seed")
+	case MIMC_BLS24_315:
+		res.h = gnark_hash.MIMC_BLS24_315.New("seed")
 	case MIMC_BW6_633:
 		res.h = gnark_hash.MIMC_BW6_633.New("seed")
 	default:
