@@ -98,6 +98,13 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 	return s
 }
 
+// Clone returns a copy of d
+func (d *Digest) Clone() polynomial.Digest {
+	var res Digest
+	res.data.Set(&d.data)
+	return &res
+}
+
 // Marshal serializes the point as in bls12377.G1Affine.
 func (d *Digest) Marshal() []byte {
 	return d.data.Marshal()

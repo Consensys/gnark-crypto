@@ -29,6 +29,7 @@ var (
 // Digest interface that an additively homomorphic
 // polynomial commitment should implement.
 type Digest interface {
+	Clone() Digest
 	Add(d1, d2 Digest) Digest
 	Sub(d1, d2 Digest) Digest
 	ScalarMul(d Digest, s big.Int) Digest
