@@ -84,7 +84,7 @@ func (d *Digest) ScalarMul(d1 polynomial.Digest, s big.Int) polynomial.Digest {
 	_d1 := d1.(*Digest)
 	var _s fr.Element
 	_s.SetBigInt(&s)
-	d.data.Mul(&d.data, &_d1.data)
+	d.data.Mul(&_s, &_d1.data)
 	return d
 }
 
