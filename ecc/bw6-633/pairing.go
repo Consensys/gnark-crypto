@@ -70,79 +70,11 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	result.Frobenius(&buf).
 		Mul(&result, &buf)
 
+		// TODO: optimized final exp
 	var hardPart big.Int
 	hardPart.SetString("10578570588933065562547062384978597992853331155835751141284924746778264103565852979309327568193024494025571828396956952321571252539049685969764682225555396806532653096184378816910755084169868145683826199826919576918621133936364904100068173591988958346901101722837567209813460997866782877", 10)
 	result.Exp(&result, hardPart)
 	return result
-	/*
-			// hard part exponent: 12(u+1)(p**2 - p + 1)/r
-		var m1, _m1, m2, _m2, m3, f0, f0_36, g0, g1, _g1, g2, g3, _g3, g4, _g4, g5, _g5, g6, gA, gB, g034, _g1g2, gC, h1, h2, h2g2C, h4 GT
-		m1.Expt(&result)
-		_m1.Conjugate(&m1)
-		m2.Expt(&m1)
-		_m2.Conjugate(&m2)
-		m3.Expt(&m2)
-		f0.Frobenius(&result).
-			Mul(&f0, &result).
-			Mul(&f0, &m2)
-		m2.CyclotomicSquare(&_m1)
-		f0.Mul(&f0, &m2)
-		f0_36.CyclotomicSquare(&f0).
-			CyclotomicSquare(&f0_36).
-			CyclotomicSquare(&f0_36).
-			Mul(&f0_36, &f0).
-			CyclotomicSquare(&f0_36).
-			CyclotomicSquare(&f0_36)
-		g0.Mul(&result, &m1).
-			Frobenius(&g0).
-			Mul(&g0, &m3).
-			Mul(&g0, &_m2).
-			Mul(&g0, &_m1)
-		g1.Expt(&g0)
-		_g1.Conjugate(&g1)
-		g2.Expt(&g1)
-		g3.Expt(&g2)
-		_g3.Conjugate(&g3)
-		g4.Expt(&g3)
-		_g4.Conjugate(&g4)
-		g5.Expt(&g4)
-		_g5.Conjugate(&g5)
-		g6.Expt(&g5)
-		gA.Mul(&g3, &_g5).
-			CyclotomicSquare(&gA).
-			Mul(&gA, &g6).
-			Mul(&gA, &g1).
-			Mul(&gA, &g0)
-		g034.Mul(&g0, &g3).
-			Mul(&g034, &_g4)
-		gB.CyclotomicSquare(&g034).
-			Mul(&gB, &g034).
-			Mul(&gB, &g5).
-			Mul(&gB, &_g1)
-		_g1g2.Mul(&_g1, &g2)
-		gC.Mul(&_g3, &_g1g2).
-			CyclotomicSquare(&gC).
-			Mul(&gC, &_g1g2).
-			Mul(&gC, &g0).
-			CyclotomicSquare(&gC).
-			Mul(&gC, &g2).
-			Mul(&gC, &g0).
-			Mul(&gC, &g4)
-			// ht, hy = 13, 9
-			// c1 = ht**2+3*hy**2 = 412
-		h1.Expc1(&gA)
-		// c2 = ht+hy = 22
-		h2.Expc2(&gB)
-		h2g2C.CyclotomicSquare(&gC).
-			Mul(&h2g2C, &h2)
-		h4.CyclotomicSquare(&h2g2C).
-			Mul(&h4, &h2g2C).
-			CyclotomicSquare(&h4)
-		result.Mul(&h1, &h4).
-			Mul(&result, &f0_36)
-
-		return result
-	*/
 }
 
 // MillerLoop Miller loop
