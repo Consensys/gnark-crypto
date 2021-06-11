@@ -16,7 +16,7 @@ package bw6633
 
 import (
 	"errors"
-	"math/big"
+	// "math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/internal/fptower"
@@ -70,10 +70,97 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	result.Frobenius(&buf).
 		Mul(&result, &buf)
 
-		// TODO: optimized final exp
-	var hardPart big.Int
-	hardPart.SetString("10578570588933065562547062384978597992853331155835751141284924746778264103565852979309327568193024494025571828396956952321571252539049685969764682225555396806532653096184378816910755084169868145683826199826919576918621133936364904100068173591988958346901101722837567209813460997866782877", 10)
-	result.Exp(&result, hardPart)
+	// hard part exponent: 3(u+1)(p^2-p+1)/r
+	var m [11]GT
+	var f10, _m1, _m3, _m4, _m5, _m7, _m8, _m8m5, _m6, f11, f11f10, f12, f1, f1u, f1q, f1a GT
+	m[0].Set(&result)
+	for i := 1; i < 11; i++ {
+		m[i].Expt(&m[i-1])
+	}
+	result.Mul(&m[3], &m[1]).
+		Conjugate(&result).
+		Mul(&result, &m[2]).
+		Mul(&result, &m[0]).
+		CyclotomicSquare(&result).
+		Mul(&result, &m[4])
+	buf.Frobenius(&m[0]).Conjugate(&buf)
+	result.Mul(&result, &buf)
+	buf.CyclotomicSquare(&result).
+		CyclotomicSquare(&buf).
+		CyclotomicSquare(&buf)
+	result.Mul(&result, &buf)
+	_m1.Conjugate(&m[1])
+	_m3.Conjugate(&m[3])
+	_m4.Conjugate(&m[4])
+	_m5.Conjugate(&m[5])
+	_m7.Conjugate(&m[7])
+	f10.Mul(&m[4], &_m3).
+		CyclotomicSquare(&f10).
+		Mul(&f10, &m[2]).
+		Mul(&f10, &m[6]).
+		Mul(&f10, &_m5).
+		CyclotomicSquare(&f10).
+		Mul(&f10, &_m1).
+		Mul(&f10, &_m5).
+		Mul(&f10, &_m7).
+		CyclotomicSquare(&f10).
+		Mul(&f10, &m[0]).
+		Mul(&f10, &m[2]).
+		Mul(&f10, &m[3]).
+		Mul(&f10, &_m1).
+		CyclotomicSquare(&f10).
+		Mul(&f10, &m[0]).
+		Mul(&f10, &m[8]).
+		Mul(&f10, &_m4)
+	_m8.Conjugate(&m[8])
+	_m6.Conjugate(&m[6])
+	_m8m5.Mul(&m[5], &_m8)
+	f11.Mul(&m[7], &_m6).
+		CyclotomicSquare(&f11).
+		Mul(&f11, &m[2]).
+		Mul(&f11, &_m3).
+		Mul(&f11, &_m8m5).
+		CyclotomicSquare(&f11).
+		Mul(&f11, &_m8m5).
+		Mul(&f11, &m[9]).
+		Mul(&f11, &_m1)
+	buf.CyclotomicSquare(&f11)
+	f11.Mul(&buf, &f11)
+	f11f10.Mul(&f11, &f10)
+	buf.CyclotomicSquare(&f11f10)
+	f11f10.Mul(&f11f10, &buf)
+	f12.Mul(&m[0], &m[1]).
+		Mul(&f12, &m[2]).
+		Mul(&f12, &m[8]).
+		Mul(&f12, &m[10])
+	buf.CyclotomicSquare(&m[5])
+	f12.Mul(&f12, &buf)
+	buf.CyclotomicSquare(&m[9]).
+		Mul(&buf, &m[6]).
+		Mul(&buf, &m[4]).
+		Conjugate(&buf)
+	f12.Mul(&f12, &buf)
+	buf.CyclotomicSquare(&f12). // cyclo exp by 13: (ht**2+3*hy**2)//4
+					Mul(&buf, &f12).
+					CyclotomicSquare(&buf).
+					CyclotomicSquare(&buf)
+	f12.Mul(&f12, &buf)
+	f1.Mul(&f11f10, &f12)
+	f1u.Expt(&f1)
+	f1q.Mul(&f1u, &f1).
+		Frobenius(&f1q)
+	f1a.Conjugate(&f1u).
+		Mul(&f1a, &f1).
+		Expt(&f1a).
+		Expt(&f1a).
+		Expt(&f1a).
+		Expt(&f1a)
+	f1.Conjugate(&f1)
+	f1a.Mul(&f1a, &f1)
+
+	result.Mul(&result, &f1a).
+		Mul(&result, &f1q)
+
 	return result
 }
 
