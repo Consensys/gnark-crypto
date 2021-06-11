@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/consensys/gnark-crypto)](https://goreportcard.com/badge/github.com/consensys/gnark-crypto) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto)
 
 `gnark-crypto` provides:
-* [Elliptic curve cryptography](ecc/ecc.md) (+pairing) on BN254, BLS12-381, BLS12-377 and BW6-761
+* [Elliptic curve cryptography](ecc/ecc.md) (+pairing) on BN254, BLS12-381, BLS12-377, BW6-761 and BLS24-315
 * [Finite field arithmetic](field/field.md) (fast big.Int)
 * FFT
 * Polynomial commitment schemes
