@@ -474,14 +474,13 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	var uP, vP, wP, L0, L1, tmp G1Jac
-	var v, one, uPlusOne, uMinusOne, d1, d2, d3, d4 big.Int
+	var v, one, uPlusOne, uMinusOne, d1, d2, ht big.Int
 	one.SetInt64(1)
 	uPlusOne.Add(&one, &xGen)
 	uMinusOne.Sub(&xGen, &one)
-	d1.SetInt64(52)
-	d2.SetInt64(20)
-	d3.SetInt64(8)
-	d4.SetInt64(28)
+	d1.SetInt64(13)
+	d2.SetInt64(5)
+	ht.SetInt64(7)
 	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
 	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
@@ -490,14 +489,14 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
 		AddAssign(&uP)
 	L0.ScalarMultiplication(&wP, &d1)
-	tmp.ScalarMultiplication(&vP, &d4)
+	tmp.ScalarMultiplication(&vP, &ht)
 	L0.AddAssign(&tmp)
-	tmp.ScalarMultiplication(a, &d3)
+	tmp.Double(a)
 	L0.AddAssign(&tmp)
 	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
 	tmp.ScalarMultiplication(&vP, &d2)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(a, &d4)
+	tmp.ScalarMultiplication(a, &ht)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
