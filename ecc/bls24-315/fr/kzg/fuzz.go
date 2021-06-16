@@ -21,8 +21,7 @@ package kzg
 import (
 	"bytes"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
-	bls24315_pol "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
-	"github.com/consensys/gnark-crypto/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
 )
 
 const (
@@ -48,15 +47,14 @@ func Fuzz(data []byte) int {
 	// create polynomials
 	f := make([]polynomial.Polynomial, size/2)
 	for i := 0; i < len(f); i++ {
-		_f := make(bls24315_pol.Polynomial, size)
-		for j := 0; j < len(_f); j++ {
-			_f[j].SetRawBytes(r)
+		f[i] = make(polynomial.Polynomial, size)
+		for j := 0; j < len(f[i]); j++ {
+			f[i][j].SetRawBytes(r)
 		}
-		f[i] = &_f
 	}
 
 	// commit the polynomials
-	digests := make([]polynomial.Digest, size/2)
+	digests := make([]Digest, size/2)
 	for i := 0; i < len(digests); i++ {
 		digests[i], _ = s.Commit(f[i])
 
@@ -68,16 +66,15 @@ func Fuzz(data []byte) int {
 	}
 
 	// verify the claimed values
-	_proof := proof.(*BatchProofsSinglePoint)
 	for i := 0; i < len(f); i++ {
-		expectedClaim := f[i].Eval(point).(fr.Element)
-		if !expectedClaim.Equal(&_proof.ClaimedValues[i]) {
+		expectedClaim := f[i].Eval(&point)
+		if !expectedClaim.Equal(&proof.ClaimedValues[i]) {
 			panic("inconsistant claimed values")
 		}
 	}
 
 	// verify correct proof
-	err = s.BatchVerifySinglePoint(digests, proof)
+	err = s.BatchVerifySinglePoint(digests, &proof)
 	if err != nil {
 		panic(err)
 	}
