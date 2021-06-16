@@ -6,12 +6,13 @@
 
 
 import (
+    "math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
-	{{- if eq .CoordType "fptower.E2"}}
+	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
@@ -423,12 +424,20 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 	// polynomials in x, a short vector of this Zmodule is
+	{{- if eq .Name "bls24-315" }}
+	// 1, x**4. So we check that p+x**4*phi(p)
+	{{- else}}
 	// 1, x**2. So we check that p+x**2*phi(p)
+	{{- end}}
 	// is the infinity.
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
 		var res {{ $TJacobian }}
 		res.phi(p).
+			{{- if eq .Name "bls24-315" }}
+			ScalarMultiplication(&res, &xGen).
+			ScalarMultiplication(&res, &xGen).
+			{{- end}}
 			ScalarMultiplication(&res, &xGen).
 			ScalarMultiplication(&res, &xGen).
 			AddAssign(p)
@@ -469,13 +478,22 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 
 }
 
-{{ if eq .CoordType "fptower.E2" }}
+{{ if eq .CoordType "fptower.E2"  }}
 	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
 	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 		p.Set(a)
 		p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
 		p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
 		p.Z.Conjugate(&p.Z)
+		return p
+	}
+{{ else if eq .CoordType "fptower.E4"}}
+	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
+		p.Set(a)
+		p.X.Frobenius(&p.X).Mul(&p.X, &endo.u)
+		p.Y.Frobenius(&p.Y).Mul(&p.Y, &endo.v)
+		p.Z.Frobenius(&p.Z)
 		return p
 	}
 {{ end }}
@@ -485,7 +503,7 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 // phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
 func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(a)
-	{{- if eq .CoordType "fptower.E2"}}
+	{{- if or (eq .CoordType "fptower.E2" ) (eq .CoordType "fptower.E4" )}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{- else}}
 		p.X.Mul(&p.X, &thirdRootOne{{toUpper .PointName}})
@@ -541,7 +559,7 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	k2.SetBigInt(&k[1]).FromMont()
 
 	// loop starts from len(k1)/2 due to the bounds
-	for i := len(k1)/2 - 1; i >= 0; i-- {
+	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.Double(&res).Double(&res)
@@ -577,8 +595,7 @@ func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
-{{- if eq .Name "bn254"}}
-{{else if eq .Name "bls12-381"}}
+{{- if or (eq .Name "bls12-381") (eq .Name "bls24-315")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
@@ -627,14 +644,11 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&p1).AddAssign(&p2)
 
 	return p
-
 {{- end}}
 }
-
-
 {{ else }}
-// ClearCofactor maps a point in curve to r-torsion
 
+// ClearCofactor maps a point in curve to r-torsion
 func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if eq .Name "bn254"}}
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
@@ -718,6 +732,43 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 
 	return p
+{{else if eq .Name "bls24-315"}}
+	// https://eprint.iacr.org/2017/419.pdf, section 4.2
+	// multiply by (3x^4-3)*cofacor
+	var xg, xxg, xxxg, xxxxg, res, t G2Jac
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen).Neg(&xxxxg)
+
+	res.Set(&xxxxg).
+		SubAssign(a)
+
+	t.Set(&xxxg).
+		psi(&t).
+		AddAssign(&res)
+
+	res.Set(&xxg).
+		psi(&res).
+		psi(&res).
+		AddAssign(&t)
+
+	t.Set(&xg).
+		psi(&t).
+		psi(&t).
+		psi(&t).
+		AddAssign(&res)
+
+	res.Double(a).
+		psi(&res).
+		psi(&res).
+		psi(&res).
+		psi(&res).
+		AddAssign(&t)
+
+	p.Set(&res)
+
+	return p
 {{else if eq .Name "bw6-761"}}
 
 	var points [4]{{$TJacobian}}
@@ -755,9 +806,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&p1).AddAssign(&p2)
 
 	return p
-
 {{- end}}
-
 }
 {{- end}}
 

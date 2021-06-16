@@ -17,6 +17,7 @@
 package bw6761
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -452,7 +453,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	k2.SetBigInt(&k[1]).FromMont()
 
 	// loop starts from len(k1)/2 due to the bounds
-	for i := len(k1)/2 - 1; i >= 0; i-- {
+	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.Double(&res).Double(&res)
@@ -480,7 +481,6 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 }
 
 // ClearCofactor maps a point in curve to r-torsion
-
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	var points [4]G2Jac
@@ -518,7 +518,6 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	p.Set(&p1).AddAssign(&p2)
 
 	return p
-
 }
 
 // -------------------------------------------------------------------------------------------------
