@@ -40,9 +40,7 @@ var (
 )
 
 // Digest commitment of a polynomial.
-type Digest struct {
-	data bw6761.G1Affine
-}
+type Digest = bw6761.G1Affine
 
 // Scheme stores KZG data
 type Scheme struct {
@@ -100,59 +98,6 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 	copy(s.SRS.G1[1:], g1s)
 
 	return s
-}
-
-// Clone returns a copy of d
-func (d *Digest) Clone() *Digest {
-	var res Digest
-	res.data.Set(&d.data)
-	return &res
-}
-
-// Marshal serializes the point as in bw6761.G1Affine.
-func (d *Digest) Marshal() []byte {
-	return d.data.Marshal()
-}
-
-// Marshal serializes the point as in bw6761.G1Affine.
-func (d *Digest) Unmarshal(buf []byte) error {
-	err := d.data.Unmarshal(buf)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Add adds two digest. The API and behaviour mimics bw6761.G1Affine's,
-// i.e. the caller is modified.
-func (d *Digest) Add(d1, d2 *Digest) *Digest {
-	var p1, p2 bw6761.G1Jac
-	p1.FromAffine(&d1.data)
-	p2.FromAffine(&d2.data)
-	p1.AddAssign(&p2)
-	d.data.FromJacobian(&p1)
-	return d
-}
-
-// Sub adds two digest. The API and behaviour mimics bw6761.G1Affine's,
-// i.e. the caller is modified.
-func (d *Digest) Sub(d1, d2 *Digest) *Digest {
-	var p1, p2 bw6761.G1Jac
-	p1.FromAffine(&d1.data)
-	p2.FromAffine(&d2.data)
-	p1.SubAssign(&p2)
-	d.data.FromJacobian(&p1)
-	return d
-}
-
-// Add adds two digest. The API and behaviour mimics bw6761.G1Affine's,
-// i.e. the caller is modified.
-func (d *Digest) ScalarMul(d1 *Digest, s big.Int) *Digest {
-	var p1 bw6761.G1Affine
-	p1.Set(&d1.data)
-	p1.ScalarMultiplication(&p1, &s)
-	d.data.Set(&p1)
-	return d
 }
 
 // Marshal serializes a proof as H||point||claimed_value.
@@ -287,7 +232,7 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 		return Digest{}, errUnsupportedSize
 	}
 
-	var _res bw6761.G1Affine
+	var res bw6761.G1Affine
 
 	// ensure we don't modify p
 	pCopy := make(polynomial.Polynomial, s.Domain.Cardinality)
@@ -298,10 +243,7 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 			pCopy[i].FromMont()
 		}
 	})
-	_res.MultiExp(s.SRS.G1, pCopy)
-
-	var res Digest
-	res.data.Set(&_res)
+	res.MultiExp(s.SRS.G1, pCopy)
 
 	return res, nil
 }
@@ -329,16 +271,13 @@ func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (Proof, error)
 	if err != nil {
 		return Proof{}, err
 	}
-	res.H.Set(&c.data)
+	res.H.Set(&c)
 
 	return res, nil
 }
 
 // Verify verifies a KZG opening proof at a single point
-func (s *Scheme) Verify(d *Digest, proof *Proof) error {
-
-	var _commitment bw6761.G1Affine
-	_commitment.Set(&d.data)
+func (s *Scheme) Verify(commitment *Digest, proof *Proof) error {
 
 	// comm(f(a))
 	var claimedValueG1Aff bw6761.G1Affine
@@ -348,7 +287,7 @@ func (s *Scheme) Verify(d *Digest, proof *Proof) error {
 
 	// [f(alpha) - f(a)]G1Jac
 	var fminusfaG1Jac, tmpG1Jac bw6761.G1Jac
-	fminusfaG1Jac.FromAffine(&_commitment)
+	fminusfaG1Jac.FromAffine(commitment)
 	tmpG1Jac.FromAffine(&claimedValueG1Aff)
 	fminusfaG1Jac.SubAssign(&tmpG1Jac)
 
@@ -446,7 +385,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 		return BatchProofsSinglePoint{}, err
 	}
 
-	res.H.Set(&c.data)
+	res.H.Set(&c)
 
 	return res, nil
 }
@@ -507,7 +446,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 	var sumGammaiTimesDigestsG1Aff bw6761.G1Affine
 	_digests := make([]bw6761.G1Affine, len(digests))
 	for i := 0; i < len(digests); i++ {
-		_digests[i].Set(&digests[i].data)
+		_digests[i].Set(&digests[i])
 	}
 
 	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai)
