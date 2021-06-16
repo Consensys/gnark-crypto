@@ -25,8 +25,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	bn254_pol "github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
-	"github.com/consensys/gnark-crypto/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 )
 
 var _alphaSetup fr.Element
@@ -36,8 +35,8 @@ func init() {
 	_alphaSetup.SetString("1234")
 }
 
-func randomPolynomial(size int) bn254_pol.Polynomial {
-	f := make(bn254_pol.Polynomial, size)
+func randomPolynomial(size int) polynomial.Polynomial {
+	f := make(polynomial.Polynomial, size)
 	for i := 0; i < size; i++ {
 		f[i].SetRandom()
 	}
@@ -51,7 +50,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	domain := fft.NewDomain(uint64(sizePol), 0, false)
 
 	// build random polynomial
-	pol := make(bn254_pol.Polynomial, sizePol)
+	pol := make(polynomial.Polynomial, sizePol)
 	for i := 0; i < sizePol; i++ {
 		pol[i].SetRandom()
 	}
@@ -59,7 +58,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	// evaluate the polynomial at a random point
 	var point fr.Element
 	point.SetRandom()
-	evaluation := pol.Eval(&point).(fr.Element)
+	evaluation := pol.Eval(&point)
 
 	// compute f-f(a)/x-a
 	h := dividePolyByXminusA(*domain, pol, evaluation, point)
@@ -72,10 +71,10 @@ func TestDividePolyByXminusA(t *testing.T) {
 	var randPoint, xminusa fr.Element
 	randPoint.SetRandom()
 
-	polRandpoint := pol.Eval(&randPoint).(fr.Element)
+	polRandpoint := pol.Eval(&randPoint)
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
-	hRandPoint := h.Eval(&randPoint).(fr.Element)
+	hRandPoint := h.Eval(&randPoint)
 	xminusa.Sub(&randPoint, &point) // rand-point
 
 	// f(rand)-f(point)	==? h(rand)*(rand-point)
@@ -118,13 +117,13 @@ func TestCommit(t *testing.T) {
 	s := NewScheme(64, _alphaSetup)
 
 	// create a polynomial
-	f := make(bn254_pol.Polynomial, 60)
+	f := make(polynomial.Polynomial, 60)
 	for i := 0; i < 60; i++ {
 		f[i].SetRandom()
 	}
 
 	// commit using the method from KZG
-	_kzgCommit, err := s.Commit(&f)
+	_kzgCommit, err := s.Commit(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +133,7 @@ func TestCommit(t *testing.T) {
 	// check commitment using manual commit
 	var x fr.Element
 	x.SetString("1234")
-	fx := f.Eval(&x).(fr.Element)
+	fx := f.Eval(&x)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
 	var manualCommit bn254.G1Affine
@@ -157,7 +156,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	f := randomPolynomial(60)
 
 	// commit the polynomial
-	digest, err := s.Commit(&f)
+	digest, err := s.Commit(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,28 +164,26 @@ func TestVerifySinglePoint(t *testing.T) {
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := s.Open(&point, &f)
+	proof, err := s.Open(&point, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify the claimed valued
-	_proof := proof.(*Proof)
-	expected := f.Eval(point).(fr.Element)
-	if !_proof.ClaimedValue.Equal(&expected) {
+	expected := f.Eval(&point)
+	if !proof.ClaimedValue.Equal(&expected) {
 		t.Fatal("inconsistant claimed value")
 	}
 
 	// verify correct proof
-	err = s.Verify(digest, proof)
+	err = s.Verify(&digest, &proof)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify wrong proof
-	_proof = proof.(*Proof)
-	_proof.ClaimedValue.Double(&_proof.ClaimedValue)
-	err = s.Verify(digest, _proof)
+	proof.ClaimedValue.Double(&proof.ClaimedValue)
+	err = s.Verify(&digest, &proof)
 	if err == nil {
 		t.Fatal("verifying wrong proof should have failed")
 	}
@@ -200,12 +197,11 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
 	for i := 0; i < 10; i++ {
-		_f := randomPolynomial(60)
-		f[i] = &_f
+		f[i] = randomPolynomial(60)
 	}
 
 	// commit the polynomials
-	digests := make([]polynomial.Digest, 10)
+	digests := make([]Digest, 10)
 	for i := 0; i < 10; i++ {
 		digests[i], _ = s.Commit(f[i])
 
@@ -220,10 +216,9 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify the claimed values
-	_proof := proof.(*BatchProofsSinglePoint)
 	for i := 0; i < 10; i++ {
-		expectedClaim := f[i].Eval(point).(fr.Element)
-		if !expectedClaim.Equal(&_proof.ClaimedValues[i]) {
+		expectedClaim := f[i].Eval(&point)
+		if !expectedClaim.Equal(&proof.ClaimedValues[i]) {
 			t.Fatal("inconsistant claimed values")
 		}
 	}
@@ -235,8 +230,8 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify wrong proof
-	_proof.ClaimedValues[0].Double(&_proof.ClaimedValues[0])
-	err = s.BatchVerifySinglePoint(digests, _proof)
+	proof.ClaimedValues[0].Double(&proof.ClaimedValues[0])
+	err = s.BatchVerifySinglePoint(digests, proof)
 	if err == nil {
 		t.Fatal("verifying wrong proof should have failed")
 	}
@@ -254,7 +249,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.Commit(&p)
+		_, _ = s.Commit(p)
 	}
 }
 
@@ -269,7 +264,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.Open(r, &p)
+		_, _ = s.Open(&r, p)
 	}
 }
 
@@ -283,20 +278,20 @@ func BenchmarkKZGVerify(b *testing.B) {
 	r.SetRandom()
 
 	// commit
-	comm, err := s.Commit(&p)
+	comm, err := s.Commit(p)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// open
-	openingProof, err := s.Open(r, &p)
+	openingProof, err := s.Open(&r, p)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.Verify(comm, openingProof)
+		s.Verify(&comm, &openingProof)
 	}
 }
 
@@ -307,12 +302,11 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
 	for i := 0; i < 10; i++ {
-		_p := randomPolynomial(benchSize / 2)
-		ps[i] = &_p
+		ps[i] = randomPolynomial(benchSize / 2)
 	}
 
 	// commitments
-	var commitments [10]polynomial.Digest
+	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
 		commitments[i], _ = s.Commit(ps[i])
 	}
@@ -322,7 +316,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.BatchOpenSinglePoint(r, commitments[:], ps[:])
+		s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
 	}
 }
 
@@ -333,12 +327,11 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
 	for i := 0; i < 10; i++ {
-		_p := randomPolynomial(benchSize / 2)
-		ps[i] = &_p
+		ps[i] = randomPolynomial(benchSize / 2)
 	}
 
 	// commitments
-	var commitments [10]polynomial.Digest
+	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
 		commitments[i], _ = s.Commit(ps[i])
 	}
@@ -346,7 +339,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := s.BatchOpenSinglePoint(r, commitments[:], ps[:])
+	proof, err := s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
 	if err != nil {
 		b.Fatal(err)
 	}

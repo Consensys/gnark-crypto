@@ -24,15 +24,19 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
-	bw6761_pol "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"github.com/consensys/gnark-crypto/polynomial"
 )
 
 var (
 	errNbDigestsNeqNbPolynomials = errors.New("number of digests is not the same as the number of polynomials")
 	errUnsupportedSize           = errors.New("the size of the polynomials exceeds the capacity of the SRS")
+)
+
+var (
+	ErrVerifyOpeningProof            = errors.New("error verifying opening proof")
+	ErrVerifyBatchOpeningSinglePoint = errors.New("error verifying batch opening proof at single point")
 )
 
 // Digest commitment of a polynomial.
@@ -99,7 +103,7 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 }
 
 // Clone returns a copy of d
-func (d *Digest) Clone() polynomial.Digest {
+func (d *Digest) Clone() *Digest {
 	var res Digest
 	res.data.Set(&d.data)
 	return &res
@@ -121,12 +125,10 @@ func (d *Digest) Unmarshal(buf []byte) error {
 
 // Add adds two digest. The API and behaviour mimics bw6761.G1Affine's,
 // i.e. the caller is modified.
-func (d *Digest) Add(d1, d2 polynomial.Digest) polynomial.Digest {
-	_d1 := d1.(*Digest)
-	_d2 := d2.(*Digest)
+func (d *Digest) Add(d1, d2 *Digest) *Digest {
 	var p1, p2 bw6761.G1Jac
-	p1.FromAffine(&_d1.data)
-	p2.FromAffine(&_d2.data)
+	p1.FromAffine(&d1.data)
+	p2.FromAffine(&d2.data)
 	p1.AddAssign(&p2)
 	d.data.FromJacobian(&p1)
 	return d
@@ -134,12 +136,10 @@ func (d *Digest) Add(d1, d2 polynomial.Digest) polynomial.Digest {
 
 // Sub adds two digest. The API and behaviour mimics bw6761.G1Affine's,
 // i.e. the caller is modified.
-func (d *Digest) Sub(d1, d2 polynomial.Digest) polynomial.Digest {
-	_d1 := d1.(*Digest)
-	_d2 := d2.(*Digest)
+func (d *Digest) Sub(d1, d2 *Digest) *Digest {
 	var p1, p2 bw6761.G1Jac
-	p1.FromAffine(&_d1.data)
-	p2.FromAffine(&_d2.data)
+	p1.FromAffine(&d1.data)
+	p2.FromAffine(&d2.data)
 	p1.SubAssign(&p2)
 	d.data.FromJacobian(&p1)
 	return d
@@ -147,10 +147,9 @@ func (d *Digest) Sub(d1, d2 polynomial.Digest) polynomial.Digest {
 
 // Add adds two digest. The API and behaviour mimics bw6761.G1Affine's,
 // i.e. the caller is modified.
-func (d *Digest) ScalarMul(d1 polynomial.Digest, s big.Int) polynomial.Digest {
-	_d1 := d1.(*Digest)
+func (d *Digest) ScalarMul(d1 *Digest, s big.Int) *Digest {
 	var p1 bw6761.G1Affine
-	p1.Set(&_d1.data)
+	p1.Set(&d1.data)
 	p1.ScalarMultiplication(&p1, &s)
 	d.data.Set(&p1)
 	return d
@@ -282,20 +281,19 @@ func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
+func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 
 	if p.Degree() >= s.Domain.Cardinality {
-		return nil, errUnsupportedSize
+		return Digest{}, errUnsupportedSize
 	}
 
 	var _res bw6761.G1Affine
-	_p := p.(*bw6761_pol.Polynomial)
 
 	// ensure we don't modify p
-	pCopy := make(bw6761_pol.Polynomial, s.Domain.Cardinality)
-	copy(pCopy, *_p)
+	pCopy := make(polynomial.Polynomial, s.Domain.Cardinality)
+	copy(pCopy, p)
 
-	parallel.Execute(len(*_p), func(start, end int) {
+	parallel.Execute(len(p), func(start, end int) {
 		for i := start; i < end; i++ {
 			pCopy[i].FromMont()
 		}
@@ -305,50 +303,47 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 	var res Digest
 	res.data.Set(&_res)
 
-	return &res, nil
+	return res, nil
 }
 
-// Open computes an opening proof of _p at _val.
+// Open computes an opening proof of p at _val.
 // Returns a MockProof, which is an empty interface.
-func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.OpeningProof, error) {
+func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (Proof, error) {
 
 	if p.Degree() >= s.Domain.Cardinality {
 		panic("[Open] Size of polynomial exceeds the size supported by the scheme")
 	}
 
 	// build the proof
-	var res Proof
-	claimedValue := p.Eval(point)
-	res.Point.SetInterface(point)
-	res.ClaimedValue.SetInterface(claimedValue)
+	res := Proof{
+		Point:        *point,
+		ClaimedValue: p.Eval(point),
+	}
 
 	// compute H
-	_p := p.(*bw6761_pol.Polynomial)
-	h := dividePolyByXminusA(s.Domain, *_p, res.ClaimedValue, res.Point)
+
+	h := dividePolyByXminusA(s.Domain, p, res.ClaimedValue, res.Point)
 
 	// commit to H
-	c, err := s.Commit(&h)
+	c, err := s.Commit(h)
 	if err != nil {
-		return nil, err
+		return Proof{}, err
 	}
-	_c := c.(*Digest)
-	res.H.Set(&_c.data)
+	res.H.Set(&c.data)
 
-	return &res, nil
+	return res, nil
 }
 
 // Verify verifies a KZG opening proof at a single point
-func (s *Scheme) Verify(d polynomial.Digest, proof polynomial.OpeningProof) error {
+func (s *Scheme) Verify(d *Digest, proof *Proof) error {
 
-	_d := d.(*Digest)
 	var _commitment bw6761.G1Affine
-	_commitment.Set(&_d.data)
-	_proof := proof.(*Proof)
+	_commitment.Set(&d.data)
 
 	// comm(f(a))
 	var claimedValueG1Aff bw6761.G1Affine
 	var claimedValueBigInt big.Int
-	_proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
+	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
 	claimedValueG1Aff.ScalarMultiplication(&s.SRS.G1[0], &claimedValueBigInt)
 
 	// [f(alpha) - f(a)]G1Jac
@@ -359,12 +354,12 @@ func (s *Scheme) Verify(d polynomial.Digest, proof polynomial.OpeningProof) erro
 
 	// [-H(alpha)]G1Aff
 	var negH bw6761.G1Affine
-	negH.Neg(&_proof.H)
+	negH.Neg(&proof.H)
 
 	// [alpha-a]G2Jac
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bw6761.G2Jac
 	var pointBigInt big.Int
-	_proof.Point.ToBigIntRegular(&pointBigInt)
+	proof.Point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&s.SRS.G2[0])
 	alphaG2Jac.FromAffine(&s.SRS.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
@@ -388,13 +383,17 @@ func (s *Scheme) Verify(d polynomial.Digest, proof polynomial.OpeningProof) erro
 		return err
 	}
 	if !check {
-		return polynomial.ErrVerifyOpeningProof
+		return ErrVerifyOpeningProof
 	}
 	return nil
 }
 
-// BatchOpenSinglePoint creates a batch opening proof of several polynomials at a single point
-func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Digest, polynomials []polynomial.Polynomial) (polynomial.BatchOpeningProofSinglePoint, error) {
+// BatchOpenSinglePoint creates a batch opening proof at _val of a list of polynomials.
+// It's an interactive protocol, made non interactive using Fiat Shamir.
+// point is the point at which the polynomials are opened.
+// digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
+// polynomials is the list of polynomials to open.
+func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (*BatchProofsSinglePoint, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
@@ -406,11 +405,11 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	// compute the purported values
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
 	for i := 0; i < len(polynomials); i++ {
-		res.ClaimedValues[i] = polynomials[i].Eval(point).(fr.Element)
+		res.ClaimedValues[i] = polynomials[i].Eval(point)
 	}
 
 	// set the point at which the evaluation is done
-	res.Point.SetInterface(point)
+	res.Point.Set(point)
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
@@ -441,33 +440,34 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	}
 
 	// compute H
-	_sumGammaiTimesPol := sumGammaiTimesPol.(*bw6761_pol.Polynomial)
-	h := dividePolyByXminusA(s.Domain, *_sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	c, err := s.Commit(&h)
+	h := dividePolyByXminusA(s.Domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	c, err := s.Commit(h)
 	if err != nil {
 		return nil, err
 	}
 
-	_c := c.(*Digest)
-	res.H.Set(&_c.data)
+	res.H.Set(&c.data)
 
 	return &res, nil
 }
 
-func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpeningProof polynomial.BatchOpeningProofSinglePoint) error {
+// BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
+// point: point at which the polynomials are evaluated
+// claimedValues: claimed values of the polynomials at _val
+// commitments: list of commitments to the polynomials which are opened
+// batchOpeningProof: the batched opening proof at a single point of the polynomials.
+func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchProofsSinglePoint) error {
 
 	nbDigests := len(digests)
 
-	_batchOpeningProof := batchOpeningProof.(*BatchProofsSinglePoint)
-
 	// check consistancy between numbers of claims vs number of digests
-	if len(digests) != len(_batchOpeningProof.ClaimedValues) {
+	if len(digests) != len(batchOpeningProof.ClaimedValues) {
 		return errNbDigestsNeqNbPolynomials
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	err := fs.Bind("gamma", _batchOpeningProof.Point.Marshal())
+	err := fs.Bind("gamma", batchOpeningProof.Point.Marshal())
 	if err != nil {
 		return err
 	}
@@ -485,10 +485,10 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	gamma.SetBytes(gammaByte)
 
 	var sumGammaiTimesEval fr.Element
-	sumGammaiTimesEval.Set(&_batchOpeningProof.ClaimedValues[nbDigests-1])
+	sumGammaiTimesEval.Set(&batchOpeningProof.ClaimedValues[nbDigests-1])
 	for i := nbDigests - 2; i >= 0; i-- {
 		sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
-			Add(&sumGammaiTimesEval, &_batchOpeningProof.ClaimedValues[i])
+			Add(&sumGammaiTimesEval, &batchOpeningProof.ClaimedValues[i])
 	}
 
 	var sumGammaiTimesEvalBigInt big.Int
@@ -507,8 +507,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	var sumGammaiTimesDigestsG1Aff bw6761.G1Affine
 	_digests := make([]bw6761.G1Affine, len(digests))
 	for i := 0; i < len(digests); i++ {
-		_d := digests[i].(*Digest)
-		_digests[i].Set(&_d.data)
+		_digests[i].Set(&digests[i].data)
 	}
 
 	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai)
@@ -524,7 +523,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	// [alpha-a]G2Jac
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bw6761.G2Jac
 	var pointBigInt big.Int
-	_batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
+	batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&s.SRS.G2[0])
 	alphaG2Jac.FromAffine(&s.SRS.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
@@ -537,7 +536,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 
 	// [-H(alpha)]G1Aff
 	var negH bw6761.G1Affine
-	negH.Neg(&_batchOpeningProof.H)
+	negH.Neg(&batchOpeningProof.H)
 
 	// check the pairing equation
 	check, err := bw6761.PairingCheck(
@@ -548,7 +547,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 		return err
 	}
 	if !check {
-		return polynomial.ErrVerifyBatchOpeningSinglePoint
+		return ErrVerifyBatchOpeningSinglePoint
 	}
 	return nil
 }
