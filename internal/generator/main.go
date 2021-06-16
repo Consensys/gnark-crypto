@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
+	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
@@ -55,6 +56,9 @@ func main() {
 
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
+
+			// generate kzg on fr
+			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))

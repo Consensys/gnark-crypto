@@ -20,11 +20,12 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"math/bits"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 	"github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
@@ -37,7 +38,7 @@ var (
 )
 
 // Digest commitment of a polynomial.
-type Digest = bn254.G1Affine
+type Digest = bls12381.G1Affine
 
 // Scheme stores KZG data
 type Scheme struct {
@@ -47,8 +48,8 @@ type Scheme struct {
 
 	// SRS stores the result of the MPC
 	SRS struct {
-		G1 []bn254.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
-		G2 [2]bn254.G2Affine // [gen, [alpha]gen ]
+		G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
+		G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
 	}
 }
 
@@ -62,7 +63,7 @@ type Proof struct {
 	ClaimedValue fr.Element
 
 	// H quotient polynomial (f - f(z))/(x-z)
-	H bn254.G1Affine
+	H bls12381.G1Affine
 }
 
 // NewScheme returns a new KZG scheme.
@@ -72,12 +73,12 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 	s := &Scheme{}
 
 	s.Domain = *fft.NewDomain(uint64(size), 0, false)
-	s.SRS.G1 = make([]bn254.G1Affine, size)
+	s.SRS.G1 = make([]bls12381.G1Affine, size)
 
 	var bAlpha big.Int
 	alpha.ToBigIntRegular(&bAlpha)
 
-	_, _, gen1Aff, gen2Aff := bn254.Generators()
+	_, _, gen1Aff, gen2Aff := bls12381.Generators()
 	s.SRS.G1[0] = gen1Aff
 	s.SRS.G2[0] = gen2Aff
 	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
@@ -90,7 +91,7 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 	for i := 0; i < len(alphas); i++ {
 		alphas[i].FromMont()
 	}
-	g1s := bn254.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(s.SRS.G1[1:], g1s)
 
 	return s
@@ -112,11 +113,6 @@ func (p *Proof) Marshal() []byte {
 	return res[:]
 }
 
-// GetClaimedValue returns the serialized claimed value.
-func (p *Proof) GetClaimedValue() []byte {
-	return p.ClaimedValue.Marshal()
-}
-
 type BatchProofsSinglePoint struct {
 	// Point at which the polynomials are evaluated
 	Point fr.Element
@@ -125,7 +121,7 @@ type BatchProofsSinglePoint struct {
 	ClaimedValues []fr.Element
 
 	// H quotient polynomial Sum_i gamma**i*(f - f(z))/(x-z)
-	H bn254.G1Affine
+	H bls12381.G1Affine
 }
 
 // Marshal serializes a proof as H||point||claimed_values.
@@ -150,16 +146,6 @@ func (p *BatchProofsSinglePoint) Marshal() []byte {
 	return res
 }
 
-// GetClaimedValues returns a slice of the claimed values,
-// serialized.
-func (p *BatchProofsSinglePoint) GetClaimedValues() [][]byte {
-	res := make([][]byte, len(p.ClaimedValues))
-	for i := 0; i < len(p.ClaimedValues); i++ {
-		res[i] = p.ClaimedValues[i].Marshal()
-	}
-	return res
-}
-
 // WriteTo writes binary encoding of the scheme data.
 // It writes only the SRS, the fft fomain is reconstructed
 // from it.
@@ -172,7 +158,7 @@ func (s *Scheme) WriteTo(w io.Writer) (int64, error) {
 	}
 
 	// encode the SRS
-	enc := bn254.NewEncoder(w)
+	enc := bls12381.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&s.SRS.G2[0],
@@ -202,7 +188,7 @@ func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	// decode the SRS
-	dec := bn254.NewDecoder(r)
+	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&s.SRS.G2[0],
@@ -228,7 +214,7 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 		return Digest{}, ErrInvalidSize
 	}
 
-	var res bn254.G1Affine
+	var res bls12381.G1Affine
 
 	// ensure we don't modify p
 	pCopy := make(polynomial.Polynomial, s.Domain.Cardinality)
@@ -276,23 +262,23 @@ func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (Proof, error)
 func (s *Scheme) Verify(commitment *Digest, proof *Proof) error {
 
 	// comm(f(a))
-	var claimedValueG1Aff bn254.G1Affine
+	var claimedValueG1Aff bls12381.G1Affine
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
 	claimedValueG1Aff.ScalarMultiplication(&s.SRS.G1[0], &claimedValueBigInt)
 
 	// [f(alpha) - f(a)]G1Jac
-	var fminusfaG1Jac, tmpG1Jac bn254.G1Jac
+	var fminusfaG1Jac, tmpG1Jac bls12381.G1Jac
 	fminusfaG1Jac.FromAffine(commitment)
 	tmpG1Jac.FromAffine(&claimedValueG1Aff)
 	fminusfaG1Jac.SubAssign(&tmpG1Jac)
 
 	// [-H(alpha)]G1Aff
-	var negH bn254.G1Affine
+	var negH bls12381.G1Affine
 	negH.Neg(&proof.H)
 
 	// [alpha-a]G2Jac
-	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bn254.G2Jac
+	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	proof.Point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&s.SRS.G2[0])
@@ -302,17 +288,17 @@ func (s *Scheme) Verify(commitment *Digest, proof *Proof) error {
 		AddAssign(&alphaG2Jac)
 
 	// [alpha-a]G2Aff
-	var xminusaG2Aff bn254.G2Affine
+	var xminusaG2Aff bls12381.G2Affine
 	xminusaG2Aff.FromJacobian(&alphaMinusaG2Jac)
 
 	// [f(alpha) - f(a)]G1Aff
-	var fminusfaG1Aff bn254.G1Affine
+	var fminusfaG1Aff bls12381.G1Affine
 	fminusfaG1Aff.FromJacobian(&fminusfaG1Jac)
 
 	// e([-H(alpha)]G1Aff, G2gen).e([-H(alpha)]G1Aff, [alpha-a]G2Aff) ==? 1
-	check, err := bn254.PairingCheck(
-		[]bn254.G1Affine{fminusfaG1Aff, negH},
-		[]bn254.G2Affine{s.SRS.G2[0], xminusaG2Aff},
+	check, err := bls12381.PairingCheck(
+		[]bls12381.G1Affine{fminusfaG1Aff, negH},
+		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -428,7 +414,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 
 	var sumGammaiTimesEvalBigInt big.Int
 	sumGammaiTimesEval.ToBigIntRegular(&sumGammaiTimesEvalBigInt)
-	var sumGammaiTimesEvalG1Aff bn254.G1Affine
+	var sumGammaiTimesEvalG1Aff bls12381.G1Affine
 	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&s.SRS.G1[0], &sumGammaiTimesEvalBigInt)
 
 	var acc fr.Element
@@ -439,8 +425,8 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 		acc.Mul(&acc, &gamma)
 		gammai[i].Set(&acc).FromMont()
 	}
-	var sumGammaiTimesDigestsG1Aff bn254.G1Affine
-	_digests := make([]bn254.G1Affine, len(digests))
+	var sumGammaiTimesDigestsG1Aff bls12381.G1Affine
+	_digests := make([]bls12381.G1Affine, len(digests))
 	for i := 0; i < len(digests); i++ {
 		_digests[i].Set(&digests[i])
 	}
@@ -448,15 +434,15 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai)
 
 	// sum_i [gamma**i * (f-f(a))]G1
-	var sumGammiDiffG1Aff bn254.G1Affine
-	var t1, t2 bn254.G1Jac
+	var sumGammiDiffG1Aff bls12381.G1Affine
+	var t1, t2 bls12381.G1Jac
 	t1.FromAffine(&sumGammaiTimesDigestsG1Aff)
 	t2.FromAffine(&sumGammaiTimesEvalG1Aff)
 	t1.SubAssign(&t2)
 	sumGammiDiffG1Aff.FromJacobian(&t1)
 
 	// [alpha-a]G2Jac
-	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bn254.G2Jac
+	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&s.SRS.G2[0])
@@ -466,17 +452,17 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 		AddAssign(&alphaG2Jac)
 
 	// [alpha-a]G2Aff
-	var xminusaG2Aff bn254.G2Affine
+	var xminusaG2Aff bls12381.G2Affine
 	xminusaG2Aff.FromJacobian(&alphaMinusaG2Jac)
 
 	// [-H(alpha)]G1Aff
-	var negH bn254.G1Affine
+	var negH bls12381.G1Affine
 	negH.Neg(&batchOpeningProof.H)
 
 	// check the pairing equation
-	check, err := bn254.PairingCheck(
-		[]bn254.G1Affine{sumGammiDiffG1Aff, negH},
-		[]bn254.G2Affine{s.SRS.G2[0], xminusaG2Aff},
+	check, err := bls12381.PairingCheck(
+		[]bls12381.G1Affine{sumGammiDiffG1Aff, negH},
+		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -485,4 +471,38 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 		return ErrVerifyBatchOpeningSinglePoint
 	}
 	return nil
+}
+
+// dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
+func dividePolyByXminusA(d fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
+
+	// padd f so it has size d.Cardinality
+	_f := make([]fr.Element, d.Cardinality)
+	copy(_f, f)
+
+	// compute the quotient (f-f(a))/(x-a)
+	d.FFT(_f, fft.DIF, 0)
+
+	// bit reverse shift
+	bShift := uint64(64 - bits.TrailingZeros64(d.Cardinality))
+
+	accumulator := fr.One()
+
+	s := make([]fr.Element, len(_f))
+	for i := 0; i < len(s); i++ {
+		irev := bits.Reverse64(uint64(i)) >> bShift
+		s[irev].Sub(&accumulator, &a)
+		accumulator.Mul(&accumulator, &d.Generator)
+	}
+	s = fr.BatchInvert(s)
+
+	for i := 0; i < len(_f); i++ {
+		_f[i].Sub(&_f[i], &fa)
+		_f[i].Mul(&_f[i], &s[i])
+	}
+
+	d.FFTInverse(_f, fft.DIT, 0)
+
+	// the result is of degree deg(f)-1
+	return _f[:len(f)-1]
 }

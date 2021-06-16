@@ -15,24 +15,5 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "polynomial.go"), Templates: []string{"polynomial.go.tmpl"}},
 		{File: filepath.Join(baseDir, "polynomial_test.go"), Templates: []string{"polynomial.test.go.tmpl"}},
 	}
-	if err := bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...); err != nil {
-		return err
-	}
-
-	// kzg commitment scheme
-	conf.Package = "kzg"
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "kzg", "doc.go"), Templates: []string{"commitment_kzg/doc.go.tmpl"}},
-		{File: filepath.Join(baseDir, "kzg", "kzg.go"), Templates: []string{"commitment_kzg/kzg.go.tmpl"}},
-		{File: filepath.Join(baseDir, "kzg", "kzg_test.go"), Templates: []string{"commitment_kzg/kzg.test.go.tmpl"}},
-		{File: filepath.Join(baseDir, "kzg", "util.go"), Templates: []string{"commitment_kzg/util.go.tmpl"}},
-		{File: filepath.Join(baseDir, "kzg", "fuzz.go"), Templates: []string{"commitment_kzg/fuzz.go.tmpl"}, BuildTag: "gofuzz"},
-		{File: filepath.Join(baseDir, "kzg", "fuzz_test.go"), Templates: []string{"commitment_kzg/fuzz.test.go.tmpl"}, BuildTag: "gofuzz"},
-	}
-	if err := bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...); err != nil {
-		return err
-	}
-
-	return nil
-
+	return bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...)
 }
