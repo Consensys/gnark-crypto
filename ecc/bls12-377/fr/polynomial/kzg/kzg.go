@@ -25,18 +25,15 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/polynomial"
-	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 var (
-	errNbDigestsNeqNbPolynomials = errors.New("number of digests is not the same as the number of polynomials")
-	errUnsupportedSize           = errors.New("the size of the polynomials exceeds the capacity of the SRS")
-)
-
-var (
-	ErrVerifyOpeningProof            = errors.New("error verifying opening proof")
-	ErrVerifyBatchOpeningSinglePoint = errors.New("error verifying batch opening proof at single point")
+	ErrInvalidNbDigests              = errors.New("number of digests is not the same as the number of polynomials")
+	ErrInvalidSize                   = errors.New("the size of the polynomials exceeds the capacity of the SRS")
+	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
+	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
 )
 
 // Digest commitment of a polynomial.
@@ -74,8 +71,7 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 
 	s := &Scheme{}
 
-	d := fft.NewDomain(uint64(size), 0, false)
-	s.Domain = *d
+	s.Domain = *fft.NewDomain(uint64(size), 0, false)
 	s.SRS.G1 = make([]bls12377.G1Affine, size)
 
 	var bAlpha big.Int
@@ -229,7 +225,7 @@ func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
 func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 
 	if p.Degree() >= s.Domain.Cardinality {
-		return Digest{}, errUnsupportedSize
+		return Digest{}, ErrInvalidSize
 	}
 
 	var res bls12377.G1Affine
@@ -336,7 +332,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
-		return BatchProofsSinglePoint{}, errNbDigestsNeqNbPolynomials
+		return BatchProofsSinglePoint{}, ErrInvalidNbDigests
 	}
 
 	var res BatchProofsSinglePoint
@@ -401,7 +397,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 
 	// check consistancy between numbers of claims vs number of digests
 	if len(digests) != len(batchOpeningProof.ClaimedValues) {
-		return errNbDigestsNeqNbPolynomials
+		return ErrInvalidNbDigests
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
