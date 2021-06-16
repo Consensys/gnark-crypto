@@ -42,15 +42,47 @@ type Digest = bls12381.G1Affine
 
 // Scheme stores KZG data
 type Scheme struct {
-
 	// Domain to perform polynomial division. The size of the domain is the lowest power of 2 greater than Size.
-	Domain fft.Domain
+	Domain *fft.Domain
 
 	// SRS stores the result of the MPC
-	SRS struct {
-		G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
-		G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
+	SRS *SRS
+}
+
+// SRS stores the result of the MPC
+// len(SRS.G1) can be larger than domain size
+type SRS struct {
+	G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
+	G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
+}
+
+// NewSRS returns a new SRS using alpha as randomness source
+//
+// In production, a SRS generated through MPC should be used.
+func NewSRS(size int, alpha fr.Element) *SRS {
+	var srs SRS
+	srs.G1 = make([]bls12381.G1Affine, size)
+
+	var bAlpha big.Int
+	alpha.ToBigIntRegular(&bAlpha)
+
+	_, _, gen1Aff, gen2Aff := bls12381.Generators()
+	srs.G1[0] = gen1Aff
+	srs.G2[0] = gen2Aff
+	srs.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
+
+	alphas := make([]fr.Element, size-1)
+	alphas[0] = alpha
+	for i := 1; i < len(alphas); i++ {
+		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
+	for i := 0; i < len(alphas); i++ {
+		alphas[i].FromMont()
+	}
+	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	copy(srs.G1[1:], g1s)
+
+	return &srs
 }
 
 // Proof KZG proof for opening at a single point.
@@ -64,37 +96,6 @@ type Proof struct {
 
 	// H quotient polynomial (f - f(z))/(x-z)
 	H bls12381.G1Affine
-}
-
-// NewScheme returns a new KZG scheme.
-// This should be used for testing purpose only.
-func NewScheme(size int, alpha fr.Element) *Scheme {
-
-	s := &Scheme{}
-
-	s.Domain = *fft.NewDomain(uint64(size), 0, false)
-	s.SRS.G1 = make([]bls12381.G1Affine, size)
-
-	var bAlpha big.Int
-	alpha.ToBigIntRegular(&bAlpha)
-
-	_, _, gen1Aff, gen2Aff := bls12381.Generators()
-	s.SRS.G1[0] = gen1Aff
-	s.SRS.G2[0] = gen2Aff
-	s.SRS.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
-
-	alphas := make([]fr.Element, size-1)
-	alphas[0] = alpha
-	for i := 1; i < len(alphas); i++ {
-		alphas[i].Mul(&alphas[i-1], &alpha)
-	}
-	for i := 0; i < len(alphas); i++ {
-		alphas[i].FromMont()
-	}
-	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
-	copy(s.SRS.G1[1:], g1s)
-
-	return s
 }
 
 // Marshal serializes a proof as H||point||claimed_value.
@@ -146,64 +147,44 @@ func (p *BatchProofsSinglePoint) Marshal() []byte {
 	return res
 }
 
-// WriteTo writes binary encoding of the scheme data.
-// It writes only the SRS, the fft fomain is reconstructed
-// from it.
-func (s *Scheme) WriteTo(w io.Writer) (int64, error) {
-
-	// encode the fft
-	n, err := s.Domain.WriteTo(w)
-	if err != nil {
-		return n, err
-	}
-
+// WriteTo writes binary encoding of the SRS
+func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 	// encode the SRS
 	enc := bls12381.NewEncoder(w)
 
 	toEncode := []interface{}{
-		&s.SRS.G2[0],
-		&s.SRS.G2[1],
-		s.SRS.G1,
+		&srs.G2[0],
+		&srs.G2[1],
+		srs.G1,
 	}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
-			return n + enc.BytesWritten(), err
+			return enc.BytesWritten(), err
 		}
 	}
 
-	return n + enc.BytesWritten(), nil
+	return enc.BytesWritten(), nil
 }
 
-// ReadFrom decodes KZG data from reader.
-// The kzg data should have been encoded using WriteTo.
-// Only the points from the SRS are actually encoded in the
-// reader, the fft domain is reconstructed from it.
-func (s *Scheme) ReadFrom(r io.Reader) (int64, error) {
-
-	// decode the fft
-	n, err := s.Domain.ReadFrom(r)
-	if err != nil {
-		return n, err
-	}
-
+// ReadFrom decodes SRS data from reader.
+func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	// decode the SRS
 	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
-		&s.SRS.G2[0],
-		&s.SRS.G2[1],
-		&s.SRS.G1,
+		&srs.G2[0],
+		&srs.G2[1],
+		&srs.G1,
 	}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
-			return n + dec.BytesRead(), err
+			return dec.BytesRead(), err
 		}
 	}
 
-	return n + dec.BytesRead(), nil
-
+	return dec.BytesRead(), nil
 }
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
@@ -474,7 +455,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 }
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
-func dividePolyByXminusA(d fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
+func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
 
 	// padd f so it has size d.Cardinality
 	_f := make([]fr.Element, d.Cardinality)

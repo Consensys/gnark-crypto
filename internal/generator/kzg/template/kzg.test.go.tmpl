@@ -17,6 +17,16 @@ func init() {
 	_alphaSetup.SetString("1234")
 }
 
+// NewScheme returns a new KZG scheme.
+// This should be used for testing purpose only
+// it creates a new FFT domain and a new SRS without randomness
+func NewScheme(size int, alpha fr.Element) *Scheme {
+	return &Scheme{
+		SRS: NewSRS(size, alpha),
+		Domain: fft.NewDomain(uint64(size), 0, false),
+	}
+}
+
 func randomPolynomial(size int) polynomial.Polynomial {
 	f := make(polynomial.Polynomial, size)
 	for i := 0; i < size; i++ {
@@ -43,7 +53,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	evaluation := pol.Eval(&point)
 
 	// compute f-f(a)/x-a
-	h := dividePolyByXminusA(*domain, pol, evaluation, point)
+	h := dividePolyByXminusA(domain, pol, evaluation, point)
 
 	if len(h) != 229 {
 		t.Fatal("inconsistant size of quotient")
@@ -70,24 +80,24 @@ func TestDividePolyByXminusA(t *testing.T) {
 func TestSerialization(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewScheme(64, _alphaSetup)
+	srs := NewSRS(64, _alphaSetup)
 
 	// serialize it...
 	var buf bytes.Buffer
-	_, err := s.WriteTo(&buf)
+	_, err := srs.WriteTo(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// reconstruct the scheme
-	var _s Scheme
-	_, err = _s.ReadFrom(&buf)
+	var _srs SRS
+	_, err = _srs.ReadFrom(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// compare
-	if !reflect.DeepEqual(s, &_s) {
+	if !reflect.DeepEqual(srs, &_srs) {
 		t.Fatal("scheme serialization failed")
 	}
 
