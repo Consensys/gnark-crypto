@@ -19,17 +19,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
-	// mock commitment scheme
-	conf.Package = "mockcommitment"
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "mockcommitment", "doc.go"), Templates: []string{"commitment_mock/doc.go.tmpl"}},
-		{File: filepath.Join(baseDir, "mockcommitment", "mock.go"), Templates: []string{"commitment_mock/mock.go.tmpl"}},
-		{File: filepath.Join(baseDir, "mockcommitment", "mock_test.go"), Templates: []string{"commitment_mock/mock.test.go.tmpl"}},
-	}
-	if err := bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...); err != nil {
-		return err
-	}
-
 	// kzg commitment scheme
 	conf.Package = "kzg"
 	entries = []bavard.Entry{

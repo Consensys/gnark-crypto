@@ -33,12 +33,12 @@ import (
 var (
 	errNbDigestsNeqNbPolynomials = errors.New("number of digests is not the same as the number of polynomials")
 	errUnsupportedSize           = errors.New("the size of the polynomials exceeds the capacity of the SRS")
-	errDigestNotInG1             = errors.New("the digest is not in G1")
-	errProofNotInG1              = errors.New("the proof is not in G1")
 )
 
-// Digest commitment of a polynomial
-type Digest = bls24315.G1Affine
+// Digest commitment of a polynomial.
+type Digest struct {
+	data bls24315.G1Affine
+}
 
 // Scheme stores KZG data
 type Scheme struct {
@@ -98,6 +98,64 @@ func NewScheme(size int, alpha fr.Element) *Scheme {
 	return s
 }
 
+// Clone returns a copy of d
+func (d *Digest) Clone() polynomial.Digest {
+	var res Digest
+	res.data.Set(&d.data)
+	return &res
+}
+
+// Marshal serializes the point as in bls24315.G1Affine.
+func (d *Digest) Marshal() []byte {
+	return d.data.Marshal()
+}
+
+// Marshal serializes the point as in bls24315.G1Affine.
+func (d *Digest) Unmarshal(buf []byte) error {
+	err := d.data.Unmarshal(buf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Add adds two digest. The API and behaviour mimics bls24315.G1Affine's,
+// i.e. the caller is modified.
+func (d *Digest) Add(d1, d2 polynomial.Digest) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	_d2 := d2.(*Digest)
+	var p1, p2 bls24315.G1Jac
+	p1.FromAffine(&_d1.data)
+	p2.FromAffine(&_d2.data)
+	p1.AddAssign(&p2)
+	d.data.FromJacobian(&p1)
+	return d
+}
+
+// Sub adds two digest. The API and behaviour mimics bls24315.G1Affine's,
+// i.e. the caller is modified.
+func (d *Digest) Sub(d1, d2 polynomial.Digest) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	_d2 := d2.(*Digest)
+	var p1, p2 bls24315.G1Jac
+	p1.FromAffine(&_d1.data)
+	p2.FromAffine(&_d2.data)
+	p1.SubAssign(&p2)
+	d.data.FromJacobian(&p1)
+	return d
+}
+
+// Add adds two digest. The API and behaviour mimics bls24315.G1Affine's,
+// i.e. the caller is modified.
+func (d *Digest) ScalarMul(d1 polynomial.Digest, s big.Int) polynomial.Digest {
+	_d1 := d1.(*Digest)
+	var p1 bls24315.G1Affine
+	p1.Set(&_d1.data)
+	p1.ScalarMultiplication(&p1, &s)
+	d.data.Set(&p1)
+	return d
+}
+
 // Marshal serializes a proof as H||point||claimed_value.
 // The point H is not compressed.
 func (p *Proof) Marshal() []byte {
@@ -112,6 +170,11 @@ func (p *Proof) Marshal() []byte {
 	copy(res[3*fr.Bytes:], be[:])
 
 	return res[:]
+}
+
+// GetClaimedValue returns the serialized claimed value.
+func (p *Proof) GetClaimedValue() []byte {
+	return p.ClaimedValue.Marshal()
 }
 
 type BatchProofsSinglePoint struct {
@@ -145,7 +208,16 @@ func (p *BatchProofsSinglePoint) Marshal() []byte {
 	}
 
 	return res
+}
 
+// GetClaimedValues returns a slice of the claimed values,
+// serialized.
+func (p *BatchProofsSinglePoint) GetClaimedValues() [][]byte {
+	res := make([][]byte, len(p.ClaimedValues))
+	for i := 0; i < len(p.ClaimedValues); i++ {
+		res[i] = p.ClaimedValues[i].Marshal()
+	}
+	return res
 }
 
 // WriteTo writes binary encoding of the scheme data.
@@ -216,7 +288,7 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 		return nil, errUnsupportedSize
 	}
 
-	var res Digest
+	var _res bls24315.G1Affine
 	_p := p.(*bls24315_pol.Polynomial)
 
 	// ensure we don't modify p
@@ -228,7 +300,10 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (polynomial.Digest, error) {
 			pCopy[i].FromMont()
 		}
 	})
-	res.MultiExp(s.SRS.G1, pCopy)
+	_res.MultiExp(s.SRS.G1, pCopy)
+
+	var res Digest
+	res.data.Set(&_res)
 
 	return &res, nil
 }
@@ -256,26 +331,19 @@ func (s *Scheme) Open(point interface{}, p polynomial.Polynomial) (polynomial.Op
 	if err != nil {
 		return nil, err
 	}
-	res.H.Set(c.(*bls24315.G1Affine))
+	_c := c.(*Digest)
+	res.H.Set(&_c.data)
 
 	return &res, nil
 }
 
 // Verify verifies a KZG opening proof at a single point
-func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningProof) error {
+func (s *Scheme) Verify(d polynomial.Digest, proof polynomial.OpeningProof) error {
 
-	_commitment := commitment.(*bls24315.G1Affine)
+	_d := d.(*Digest)
+	var _commitment bls24315.G1Affine
+	_commitment.Set(&_d.data)
 	_proof := proof.(*Proof)
-
-	// verify that the committed quotient and the commitment are in the correct subgroup
-	subgroupCheck := _proof.H.IsInSubGroup()
-	if !subgroupCheck {
-		return errProofNotInG1
-	}
-	subgroupCheck = _commitment.IsInSubGroup()
-	if !subgroupCheck {
-		return errDigestNotInG1
-	}
 
 	// comm(f(a))
 	var claimedValueG1Aff bls24315.G1Affine
@@ -285,7 +353,7 @@ func (s *Scheme) Verify(commitment polynomial.Digest, proof polynomial.OpeningPr
 
 	// [f(alpha) - f(a)]G1Jac
 	var fminusfaG1Jac, tmpG1Jac bls24315.G1Jac
-	fminusfaG1Jac.FromAffine(_commitment)
+	fminusfaG1Jac.FromAffine(&_commitment)
 	tmpG1Jac.FromAffine(&claimedValueG1Aff)
 	fminusfaG1Jac.SubAssign(&tmpG1Jac)
 
@@ -379,7 +447,9 @@ func (s *Scheme) BatchOpenSinglePoint(point interface{}, digests []polynomial.Di
 	if err != nil {
 		return nil, err
 	}
-	res.H.Set(c.(*bls24315.G1Affine))
+
+	_c := c.(*Digest)
+	res.H.Set(&_c.data)
 
 	return &res, nil
 }
@@ -393,20 +463,6 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	// check consistancy between numbers of claims vs number of digests
 	if len(digests) != len(_batchOpeningProof.ClaimedValues) {
 		return errNbDigestsNeqNbPolynomials
-	}
-
-	// subgroup checks for digests and the proof
-	subgroupCheck := true
-	for i := 0; i < len(digests); i++ {
-		_digest := digests[i].(*bls24315.G1Affine)
-		subgroupCheck = subgroupCheck && _digest.IsInSubGroup()
-	}
-	if !subgroupCheck {
-		return errDigestNotInG1
-	}
-	subgroupCheck = subgroupCheck && _batchOpeningProof.H.IsInSubGroup()
-	if !subgroupCheck {
-		return errProofNotInG1
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
@@ -451,7 +507,8 @@ func (s *Scheme) BatchVerifySinglePoint(digests []polynomial.Digest, batchOpenin
 	var sumGammaiTimesDigestsG1Aff bls24315.G1Affine
 	_digests := make([]bls24315.G1Affine, len(digests))
 	for i := 0; i < len(digests); i++ {
-		_digests[i].Set(digests[i].(*bls24315.G1Affine))
+		_d := digests[i].(*Digest)
+		_digests[i].Set(&_d.data)
 	}
 
 	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai)
