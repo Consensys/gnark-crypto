@@ -393,11 +393,11 @@ func (s *Scheme) Verify(d *Digest, proof *Proof) error {
 // point is the point at which the polynomials are opened.
 // digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // polynomials is the list of polynomials to open.
-func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (*BatchProofsSinglePoint, error) {
+func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (BatchProofsSinglePoint, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
-		return nil, errNbDigestsNeqNbPolynomials
+		return BatchProofsSinglePoint{}, errNbDigestsNeqNbPolynomials
 	}
 
 	var res BatchProofsSinglePoint
@@ -414,16 +414,16 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
 	if err := fs.Bind("gamma", res.Point.Marshal()); err != nil {
-		return nil, err
+		return BatchProofsSinglePoint{}, err
 	}
 	for i := 0; i < len(digests); i++ {
 		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
-			return nil, err
+			return BatchProofsSinglePoint{}, err
 		}
 	}
 	gammaByte, err := fs.ComputeChallenge("gamma")
 	if err != nil {
-		return nil, err
+		return BatchProofsSinglePoint{}, err
 	}
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
@@ -443,12 +443,12 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	h := dividePolyByXminusA(s.Domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 	c, err := s.Commit(h)
 	if err != nil {
-		return nil, err
+		return BatchProofsSinglePoint{}, err
 	}
 
 	res.H.Set(&c.data)
 
-	return &res, nil
+	return res, nil
 }
 
 // BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
