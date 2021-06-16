@@ -28,19 +28,12 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 )
 
-var _alphaSetup fr.Element
-
-func init() {
-	//_alphaSetup.SetRandom()
-	_alphaSetup.SetString("1234")
-}
-
 // NewScheme returns a new KZG scheme.
 // This should be used for testing purpose only
 // it creates a new FFT domain and a new SRS without randomness
-func NewScheme(size int, alpha fr.Element) *Scheme {
+func NewScheme(size int) *Scheme {
 	return &Scheme{
-		SRS:    NewSRS(size, alpha),
+		SRS:    NewSRS(size, new(big.Int).SetInt64(42)),
 		Domain: fft.NewDomain(uint64(size), 0, false),
 	}
 }
@@ -98,7 +91,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 func TestSerialization(t *testing.T) {
 
 	// create a KZG scheme
-	srs := NewSRS(64, _alphaSetup)
+	srs := NewSRS(64, new(big.Int).SetInt64(42))
 
 	// serialize it...
 	var buf bytes.Buffer
@@ -124,7 +117,7 @@ func TestSerialization(t *testing.T) {
 func TestCommit(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewScheme(64, _alphaSetup)
+	s := NewScheme(64)
 
 	// create a polynomial
 	f := make(polynomial.Polynomial, 60)
@@ -142,7 +135,7 @@ func TestCommit(t *testing.T) {
 
 	// check commitment using manual commit
 	var x fr.Element
-	x.SetString("1234")
+	x.SetString("42")
 	fx := f.Eval(&x)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
@@ -160,7 +153,7 @@ func TestCommit(t *testing.T) {
 func TestVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewScheme(64, _alphaSetup)
+	s := NewScheme(64)
 
 	// create a polynomial
 	f := randomPolynomial(60)
@@ -202,7 +195,7 @@ func TestVerifySinglePoint(t *testing.T) {
 func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
-	s := NewScheme(64, _alphaSetup)
+	s := NewScheme(64)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -252,7 +245,7 @@ const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize, _alphaSetup)
+	s := NewScheme(benchSize)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -265,7 +258,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 
 func BenchmarkKZGOpen(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize, _alphaSetup)
+	s := NewScheme(benchSize)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -280,7 +273,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 func BenchmarkKZGVerify(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize, _alphaSetup)
+	s := NewScheme(benchSize)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -307,7 +300,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 
 func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize, _alphaSetup)
+	s := NewScheme(benchSize)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -332,7 +325,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize, _alphaSetup)
+	s := NewScheme(benchSize)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial

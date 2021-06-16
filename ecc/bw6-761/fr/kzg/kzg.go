@@ -59,17 +59,17 @@ type SRS struct {
 // NewSRS returns a new SRS using alpha as randomness source
 //
 // In production, a SRS generated through MPC should be used.
-func NewSRS(size int, alpha fr.Element) *SRS {
+func NewSRS(size int, bAlpha *big.Int) *SRS {
 	var srs SRS
 	srs.G1 = make([]bw6761.G1Affine, size)
 
-	var bAlpha big.Int
-	alpha.ToBigIntRegular(&bAlpha)
+	var alpha fr.Element
+	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := bw6761.Generators()
 	srs.G1[0] = gen1Aff
 	srs.G2[0] = gen2Aff
-	srs.G2[1].ScalarMultiplication(&gen2Aff, &bAlpha)
+	srs.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
