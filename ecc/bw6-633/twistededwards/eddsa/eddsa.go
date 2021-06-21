@@ -93,19 +93,19 @@ func GenerateKey(r io.Reader) (PrivateKey, error) {
 	// prune the key
 	// https://tools.ietf.org/html/rfc8032#section-5.1.5, key generation
 
-	h[0] &= 0xF8
-	h[31] &= 0x7F
-	h[31] |= 0x40
+	h1[0] &= 0xF8
+	h1[sizeFr-1] &= 0x7F
+	h1[sizeFr-1] |= 0x40
 
 	// reverse first bytes because setBytes interpret stream as big endian
 	// but in eddsa specs s is the first 32 bytes in little endian
 	for i, j := 0, sizeFr; i < j; i, j = i+1, j-1 {
 
-		h[i], h[j] = h[j], h[i]
+		h1[i], h1[j] = h1[j], h1[i]
 
 	}
 
-	copy(priv.scalar[:], h[:sizeFr])
+	copy(priv.scalar[:], h1[:sizeFr])
 
 	var bscalar big.Int
 	bscalar.SetBytes(priv.scalar[:])
