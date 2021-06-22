@@ -46,7 +46,7 @@ func TestPolynomialEval(t *testing.T) {
 	expectedEval.Div(&expectedEval, &den)
 
 	// compute purported evaluation
-	purportedEval := f.Eval(&point).(fr.Element)
+	purportedEval := f.Eval(&point)
 
 	// check
 	if !purportedEval.Equal(&expectedEval) {
@@ -160,27 +160,27 @@ func TestPolynomialAdd(t *testing.T) {
 
 	// caller is empty
 	var g Polynomial
-	g.Add(&f1, &f2)
-	if !g.Equal(&expectedSum) {
+	g.Add(f1, f2)
+	if !g.Equal(expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
-	if !f1.Equal(&f1Backup) {
+	if !f1.Equal(f1Backup) {
 		t.Fatal("side effect, f1 should not have been modified")
 	}
-	if !f2.Equal(&f2Backup) {
+	if !f2.Equal(f2Backup) {
 		t.Fatal("side effect, f2 should not have been modified")
 	}
 
 	// all operands are distincts
 	_f1 := f1.Clone()
-	_f1.Add(&f1, &f2)
-	if !_f1.Equal(&expectedSum) {
+	_f1.Add(f1, f2)
+	if !_f1.Equal(expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
-	if !f1.Equal(&f1Backup) {
+	if !f1.Equal(f1Backup) {
 		t.Fatal("side effect, f1 should not have been modified")
 	}
-	if !f2.Equal(&f2Backup) {
+	if !f2.Equal(f2Backup) {
 		t.Fatal("side effect, f2 should not have been modified")
 	}
 
@@ -188,10 +188,10 @@ func TestPolynomialAdd(t *testing.T) {
 	_f1 = f1.Clone()
 	_f2 := f2.Clone()
 	_f1.Add(_f1, _f2)
-	if !_f1.Equal(&expectedSum) {
+	if !_f1.Equal(expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
-	if !_f2.Equal(&f2Backup) {
+	if !_f2.Equal(f2Backup) {
 		t.Fatal("side effect, _f2 should not have been modified")
 	}
 
@@ -199,10 +199,10 @@ func TestPolynomialAdd(t *testing.T) {
 	_f1 = f1.Clone()
 	_f2 = f2.Clone()
 	_f1.Add(_f2, _f1)
-	if !_f1.Equal(&expectedSum) {
+	if !_f1.Equal(expectedSum) {
 		t.Fatal("add polynomials fails")
 	}
-	if !_f2.Equal(&f2Backup) {
+	if !_f2.Equal(f2Backup) {
 		t.Fatal("side effect, _f2 should not have been modified")
 	}
 }

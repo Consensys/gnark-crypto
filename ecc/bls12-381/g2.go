@@ -64,6 +64,30 @@ func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	return p
 }
 
+// Add adds two point in affine coordinates.
+// This should rarely be used as it is very inneficient compared to Jacobian
+// TODO implement affine addition formula
+func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
+	var p1, p2 G2Jac
+	p1.FromAffine(a)
+	p2.FromAffine(b)
+	p1.AddAssign(&p2)
+	p.FromJacobian(&p1)
+	return p
+}
+
+// Sub subs two point in affine coordinates.
+// This should rarely be used as it is very inneficient compared to Jacobian
+// TODO implement affine addition formula
+func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
+	var p1, p2 G2Jac
+	p1.FromAffine(a)
+	p2.FromAffine(b)
+	p1.SubAssign(&p2)
+	p.FromJacobian(&p1)
+	return p
+}
+
 // Equal tests if two points (in Affine coordinates) are equal
 func (p *G2Affine) Equal(a *G2Affine) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)

@@ -61,6 +61,29 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 	return p
 }
 
+// Add adds two point in affine coordinates. 
+// This should rarely be used as it is very inneficient compared to Jacobian 
+// TODO implement affine addition formula
+func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
+	var p1, p2 {{ $TJacobian }}
+	p1.FromAffine(a)
+	p2.FromAffine(b)
+	p1.AddAssign(&p2)
+	p.FromJacobian(&p1)
+	return p
+}
+
+// Sub subs two point in affine coordinates. 
+// This should rarely be used as it is very inneficient compared to Jacobian 
+// TODO implement affine addition formula
+func (p *{{ $TAffine }}) Sub(a, b *{{ $TAffine }}) *{{ $TAffine }} {
+	var p1, p2 {{ $TJacobian }}
+	p1.FromAffine(a)
+	p2.FromAffine(b)
+	p1.SubAssign(&p2)
+	p.FromJacobian(&p1)
+	return p
+}
 
 
 // Equal tests if two points (in Affine coordinates) are equal

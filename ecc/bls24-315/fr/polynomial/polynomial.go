@@ -18,7 +18,6 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
-	"github.com/consensys/gnark-crypto/polynomial"
 )
 
 // Polynomial polynomial represented by coefficients bn254 fr field.
@@ -31,13 +30,11 @@ func (p *Polynomial) Degree() uint64 {
 
 // Eval evaluates p at v
 // returns a fr.Element
-func (p *Polynomial) Eval(v interface{}) interface{} {
-	var _v fr.Element
-	_v.SetInterface(v)
+func (p *Polynomial) Eval(v *fr.Element) fr.Element {
 
 	res := (*p)[len(*p)-1]
 	for i := len(*p) - 2; i >= 0; i-- {
-		res.Mul(&res, &_v)
+		res.Mul(&res, v)
 		res.Add(&res, &(*p)[i])
 	}
 
@@ -45,48 +42,39 @@ func (p *Polynomial) Eval(v interface{}) interface{} {
 }
 
 // Clone returns a copy of the polynomial
-func (p *Polynomial) Clone() polynomial.Polynomial {
+func (p *Polynomial) Clone() Polynomial {
 	_p := make(Polynomial, len(*p))
 	copy(_p, *p)
-	return &_p
+	return _p
 }
 
 // AddConstantInPlace adds a constant to the polynomial, modifying p
-func (p *Polynomial) AddConstantInPlace(c interface{}) {
-	var _c fr.Element
-	_c.SetInterface(c)
-
+func (p *Polynomial) AddConstantInPlace(c *fr.Element) {
 	for i := 0; i < len(*p); i++ {
-		(*p)[i].Add(&(*p)[i], &_c)
+		(*p)[i].Add(&(*p)[i], c)
 	}
 }
 
 // SubConstantInPlace subs a constant to the polynomial, modifying p
-func (p *Polynomial) SubConstantInPlace(c interface{}) {
-	var _c fr.Element
-	_c.SetInterface(c)
-
+func (p *Polynomial) SubConstantInPlace(c *fr.Element) {
 	for i := 0; i < len(*p); i++ {
-		(*p)[i].Sub(&(*p)[i], &_c)
+		(*p)[i].Sub(&(*p)[i], c)
 	}
 }
 
 // ScaleInPlace multiplies p by v, modifying p
-func (p *Polynomial) ScaleInPlace(c interface{}) {
-	var _c fr.Element
-	_c.SetInterface(c)
-
+func (p *Polynomial) ScaleInPlace(c *fr.Element) {
 	for i := 0; i < len(*p); i++ {
-		(*p)[i].Mul(&(*p)[i], &_c)
+		(*p)[i].Mul(&(*p)[i], c)
 	}
 }
 
 // Add adds p1 to p2
 // This function allocates a new slice unless p == p1 or p == p2
-func (p *Polynomial) Add(p1, p2 polynomial.Polynomial) polynomial.Polynomial {
+func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 
-	bigger := *(p1.(*Polynomial))
-	smaller := *(p2.(*Polynomial))
+	bigger := p1
+	smaller := p2
 	if len(bigger) < len(smaller) {
 		bigger, smaller = smaller, bigger
 	}
@@ -116,18 +104,17 @@ func (p *Polynomial) Add(p1, p2 polynomial.Polynomial) polynomial.Polynomial {
 }
 
 // Equal checks equality between two polynomials
-func (p *Polynomial) Equal(p1 polynomial.Polynomial) bool {
-	_p1 := *(p1.(*Polynomial))
-	if (p == nil) != (_p1 == nil) {
+func (p *Polynomial) Equal(p1 Polynomial) bool {
+	if (*p == nil) != (p1 == nil) {
 		return false
 	}
 
-	if len(*p) != len(_p1) {
+	if len(*p) != len(p1) {
 		return false
 	}
 
-	for i := range _p1 {
-		if !(*p)[i].Equal(&_p1[i]) {
+	for i := range p1 {
+		if !(*p)[i].Equal(&p1[i]) {
 			return false
 		}
 	}
