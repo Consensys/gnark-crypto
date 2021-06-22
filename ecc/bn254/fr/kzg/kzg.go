@@ -18,7 +18,6 @@ package kzg
 
 import (
 	"errors"
-	"io"
 	"math/big"
 	"math/bits"
 
@@ -86,105 +85,31 @@ func NewSRS(size int, bAlpha *big.Int) *SRS {
 }
 
 // Proof KZG proof for opening at a single point.
+//
+// implements io.ReaderFrom and io.WriterTo
 type Proof struct {
+	// H quotient polynomial (f - f(z))/(x-z)
+	H bn254.G1Affine
 
 	// Point at which the polynomial is evaluated
 	Point fr.Element
 
 	// ClaimedValue purported value
 	ClaimedValue fr.Element
-
-	// H quotient polynomial (f - f(z))/(x-z)
-	H bn254.G1Affine
 }
 
-// Marshal serializes a proof as H||point||claimed_value.
-// The point H is not compressed.
-func (p *Proof) Marshal() []byte {
-
-	var res [4 * fr.Bytes]byte
-
-	bH := p.H.RawBytes()
-	copy(res[:], bH[:])
-	be := p.Point.Bytes()
-	copy(res[2*fr.Bytes:], be[:])
-	be = p.ClaimedValue.Bytes()
-	copy(res[3*fr.Bytes:], be[:])
-
-	return res[:]
-}
-
+// BatchProofsSinglePoint ...
+//
+// implements io.ReaderFrom and io.WriterTo
 type BatchProofsSinglePoint struct {
+	// H quotient polynomial Sum_i gamma**i*(f - f(z))/(x-z)
+	H bn254.G1Affine
+
 	// Point at which the polynomials are evaluated
 	Point fr.Element
 
 	// ClaimedValues purported values
 	ClaimedValues []fr.Element
-
-	// H quotient polynomial Sum_i gamma**i*(f - f(z))/(x-z)
-	H bn254.G1Affine
-}
-
-// Marshal serializes a proof as H||point||claimed_values.
-// The point H is not compressed.
-func (p *BatchProofsSinglePoint) Marshal() []byte {
-	nbClaimedValues := len(p.ClaimedValues)
-
-	// 2 for H, 1 for point, nbClaimedValues for the claimed values
-	res := make([]byte, (3+nbClaimedValues)*fr.Bytes)
-
-	bH := p.H.RawBytes()
-	copy(res, bH[:])
-	be := p.Point.Bytes()
-	copy(res[2*fr.Bytes:], be[:])
-	offset := 3 * fr.Bytes
-	for i := 0; i < nbClaimedValues; i++ {
-		be = p.ClaimedValues[i].Bytes()
-		copy(res[offset:], be[:])
-		offset += fr.Bytes
-	}
-
-	return res
-}
-
-// WriteTo writes binary encoding of the SRS
-func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
-	// encode the SRS
-	enc := bn254.NewEncoder(w)
-
-	toEncode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		srs.G1,
-	}
-
-	for _, v := range toEncode {
-		if err := enc.Encode(v); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
-
-	return enc.BytesWritten(), nil
-}
-
-// ReadFrom decodes SRS data from reader.
-func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
-	// decode the SRS
-	dec := bn254.NewDecoder(r)
-
-	toDecode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		&srs.G1,
-	}
-
-	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err
-		}
-	}
-
-	return dec.BytesRead(), nil
 }
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
