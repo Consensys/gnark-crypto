@@ -61,8 +61,8 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	return dec.BytesRead(), nil
 }
 
-// WriteTo writes binary encoding of a Proof
-func (proof *Proof) WriteTo(w io.Writer) (int64, error) {
+// WriteTo writes binary encoding of a OpeningProof
+func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 	enc := bn254.NewEncoder(w)
 
 	toEncode := []interface{}{
@@ -80,8 +80,8 @@ func (proof *Proof) WriteTo(w io.Writer) (int64, error) {
 	return enc.BytesWritten(), nil
 }
 
-// ReadFrom decodes Proof data from reader.
-func (proof *Proof) ReadFrom(r io.Reader) (int64, error) {
+// ReadFrom decodes OpeningProof data from reader.
+func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bn254.NewDecoder(r)
 
 	toDecode := []interface{}{
@@ -99,14 +99,14 @@ func (proof *Proof) ReadFrom(r io.Reader) (int64, error) {
 	return dec.BytesRead(), nil
 }
 
-// WriteTo writes binary encoding of a BatchProofsSinglePoint
-func (proof *BatchProofsSinglePoint) WriteTo(w io.Writer) (int64, error) {
+// WriteTo writes binary encoding of a BatchOpeningProof
+func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 	enc := bn254.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&proof.H,
 		&proof.Point,
-		&proof.ClaimedValues,
+		proof.ClaimedValues,
 	}
 
 	for _, v := range toEncode {
@@ -118,8 +118,8 @@ func (proof *BatchProofsSinglePoint) WriteTo(w io.Writer) (int64, error) {
 	return enc.BytesWritten(), nil
 }
 
-// ReadFrom decodes BatchProofsSinglePoint data from reader.
-func (proof *BatchProofsSinglePoint) ReadFrom(r io.Reader) (int64, error) {
+// ReadFrom decodes BatchOpeningProof data from reader.
+func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bn254.NewDecoder(r)
 
 	toDecode := []interface{}{
