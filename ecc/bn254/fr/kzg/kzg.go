@@ -18,7 +18,6 @@ package kzg
 
 import (
 	"errors"
-	"io"
 	"math/big"
 	"math/bits"
 
@@ -32,7 +31,7 @@ import (
 
 var (
 	ErrInvalidNbDigests              = errors.New("number of digests is not the same as the number of polynomials")
-	ErrInvalidSize                   = errors.New("the size of the polynomials exceeds the capacity of the SRS")
+	ErrInvalidPolynomialSize         = errors.New("the size of the polynomials exceeds the size of the domain")
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
 )
@@ -59,6 +58,8 @@ type SRS struct {
 // NewSRS returns a new SRS using alpha as randomness source
 //
 // In production, a SRS generated through MPC should be used.
+//
+// implements io.ReaderFrom and io.WriterTo
 func NewSRS(size int, bAlpha *big.Int) *SRS {
 	var srs SRS
 	srs.G1 = make([]bn254.G1Affine, size)
@@ -85,106 +86,32 @@ func NewSRS(size int, bAlpha *big.Int) *SRS {
 	return &srs
 }
 
-// Proof KZG proof for opening at a single point.
-type Proof struct {
+// OpeningProof KZG proof for opening at a single point.
+//
+// implements io.ReaderFrom and io.WriterTo
+type OpeningProof struct {
+	// H quotient polynomial (f - f(z))/(x-z)
+	H bn254.G1Affine
 
 	// Point at which the polynomial is evaluated
 	Point fr.Element
 
 	// ClaimedValue purported value
 	ClaimedValue fr.Element
+}
 
-	// H quotient polynomial (f - f(z))/(x-z)
+// BatchOpeningProof opening proof for many polynomials at the same point
+//
+// implements io.ReaderFrom and io.WriterTo
+type BatchOpeningProof struct {
+	// H quotient polynomial Sum_i gamma**i*(f - f(z))/(x-z)
 	H bn254.G1Affine
-}
 
-// Marshal serializes a proof as H||point||claimed_value.
-// The point H is not compressed.
-func (p *Proof) Marshal() []byte {
-
-	var res [4 * fr.Bytes]byte
-
-	bH := p.H.RawBytes()
-	copy(res[:], bH[:])
-	be := p.Point.Bytes()
-	copy(res[2*fr.Bytes:], be[:])
-	be = p.ClaimedValue.Bytes()
-	copy(res[3*fr.Bytes:], be[:])
-
-	return res[:]
-}
-
-type BatchProofsSinglePoint struct {
 	// Point at which the polynomials are evaluated
 	Point fr.Element
 
 	// ClaimedValues purported values
 	ClaimedValues []fr.Element
-
-	// H quotient polynomial Sum_i gamma**i*(f - f(z))/(x-z)
-	H bn254.G1Affine
-}
-
-// Marshal serializes a proof as H||point||claimed_values.
-// The point H is not compressed.
-func (p *BatchProofsSinglePoint) Marshal() []byte {
-	nbClaimedValues := len(p.ClaimedValues)
-
-	// 2 for H, 1 for point, nbClaimedValues for the claimed values
-	res := make([]byte, (3+nbClaimedValues)*fr.Bytes)
-
-	bH := p.H.RawBytes()
-	copy(res, bH[:])
-	be := p.Point.Bytes()
-	copy(res[2*fr.Bytes:], be[:])
-	offset := 3 * fr.Bytes
-	for i := 0; i < nbClaimedValues; i++ {
-		be = p.ClaimedValues[i].Bytes()
-		copy(res[offset:], be[:])
-		offset += fr.Bytes
-	}
-
-	return res
-}
-
-// WriteTo writes binary encoding of the SRS
-func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
-	// encode the SRS
-	enc := bn254.NewEncoder(w)
-
-	toEncode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		srs.G1,
-	}
-
-	for _, v := range toEncode {
-		if err := enc.Encode(v); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
-
-	return enc.BytesWritten(), nil
-}
-
-// ReadFrom decodes SRS data from reader.
-func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
-	// decode the SRS
-	dec := bn254.NewDecoder(r)
-
-	toDecode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		&srs.G1,
-	}
-
-	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err
-		}
-	}
-
-	return dec.BytesRead(), nil
 }
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
@@ -192,7 +119,7 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 
 	if p.Degree() >= s.Domain.Cardinality {
-		return Digest{}, ErrInvalidSize
+		return Digest{}, ErrInvalidPolynomialSize
 	}
 
 	var res bn254.G1Affine
@@ -211,36 +138,33 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 	return res, nil
 }
 
-// Open computes an opening proof of p at _val.
-// Returns a MockProof, which is an empty interface.
-func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (Proof, error) {
-
+// Open computes an opening proof of polynomial p at given point.
+func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof, error) {
 	if p.Degree() >= s.Domain.Cardinality {
-		panic("[Open] Size of polynomial exceeds the size supported by the scheme")
+		return OpeningProof{}, ErrInvalidPolynomialSize
 	}
 
 	// build the proof
-	res := Proof{
+	res := OpeningProof{
 		Point:        *point,
 		ClaimedValue: p.Eval(point),
 	}
 
 	// compute H
-
 	h := dividePolyByXminusA(s.Domain, p, res.ClaimedValue, res.Point)
 
 	// commit to H
-	c, err := s.Commit(h)
+	hCommit, err := s.Commit(h)
 	if err != nil {
-		return Proof{}, err
+		return OpeningProof{}, err
 	}
-	res.H.Set(&c)
+	res.H.Set(&hCommit)
 
 	return res, nil
 }
 
 // Verify verifies a KZG opening proof at a single point
-func (s *Scheme) Verify(commitment *Digest, proof *Proof) error {
+func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
 
 	// comm(f(a))
 	var claimedValueG1Aff bn254.G1Affine
@@ -295,14 +219,14 @@ func (s *Scheme) Verify(commitment *Digest, proof *Proof) error {
 // point is the point at which the polynomials are opened.
 // digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // polynomials is the list of polynomials to open.
-func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (BatchProofsSinglePoint, error) {
+func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (BatchOpeningProof, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
-		return BatchProofsSinglePoint{}, ErrInvalidNbDigests
+		return BatchOpeningProof{}, ErrInvalidNbDigests
 	}
 
-	var res BatchProofsSinglePoint
+	var res BatchOpeningProof
 
 	// compute the purported values
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
@@ -316,16 +240,16 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
 	if err := fs.Bind("gamma", res.Point.Marshal()); err != nil {
-		return BatchProofsSinglePoint{}, err
+		return BatchOpeningProof{}, err
 	}
 	for i := 0; i < len(digests); i++ {
 		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
-			return BatchProofsSinglePoint{}, err
+			return BatchOpeningProof{}, err
 		}
 	}
 	gammaByte, err := fs.ComputeChallenge("gamma")
 	if err != nil {
-		return BatchProofsSinglePoint{}, err
+		return BatchOpeningProof{}, err
 	}
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
@@ -345,7 +269,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	h := dividePolyByXminusA(s.Domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 	c, err := s.Commit(h)
 	if err != nil {
-		return BatchProofsSinglePoint{}, err
+		return BatchOpeningProof{}, err
 	}
 
 	res.H.Set(&c)
@@ -358,7 +282,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 // claimedValues: claimed values of the polynomials at _val
 // commitments: list of commitments to the polynomials which are opened
 // batchOpeningProof: the batched opening proof at a single point of the polynomials.
-func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchProofsSinglePoint) error {
+func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof) error {
 
 	nbDigests := len(digests)
 
