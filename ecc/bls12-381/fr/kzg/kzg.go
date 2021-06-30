@@ -35,13 +35,13 @@ var (
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
 	ErrInvalidDomain                 = errors.New("domain cardinality is smaller than polynomial degree")
+	ErrMinSRSSize                    = errors.New("minimum srs size is 2")
 )
 
 // Digest commitment of a polynomial.
 type Digest = bls12381.G1Affine
 
 // SRS stores the result of the MPC
-// len(SRS.G1) can be larger than domain size
 type SRS struct {
 	G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
 	G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
@@ -52,7 +52,10 @@ type SRS struct {
 // In production, a SRS generated through MPC should be used.
 //
 // implements io.ReaderFrom and io.WriterTo
-func NewSRS(size int, bAlpha *big.Int) *SRS {
+func NewSRS(size int, bAlpha *big.Int) (*SRS, error) {
+	if size < 2 {
+		return nil, ErrMinSRSSize
+	}
 	var srs SRS
 	srs.G1 = make([]bls12381.G1Affine, size)
 
@@ -75,7 +78,7 @@ func NewSRS(size int, bAlpha *big.Int) *SRS {
 	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
-	return &srs
+	return &srs, nil
 }
 
 // OpeningProof KZG proof for opening at a single point.
@@ -396,6 +399,7 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 
 	accumulator := fr.One()
 
+	// TODO can factorize batch inversion into this loop and avoid an extra memory allocation
 	s := make([]fr.Element, len(_f))
 	for i := 0; i < len(s); i++ {
 		irev := bits.Reverse64(uint64(i)) >> bShift

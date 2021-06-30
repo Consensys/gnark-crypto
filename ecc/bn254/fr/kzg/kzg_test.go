@@ -33,7 +33,7 @@ var testSRS *SRS
 
 func init() {
 	const srsSize = 230
-	testSRS = NewSRS(srsSize, new(big.Int).SetInt64(42))
+	testSRS, _ = NewSRS(srsSize, new(big.Int).SetInt64(42))
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -78,14 +78,17 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 }
 
-func TestSerialization(t *testing.T) {
+func TestSerializationSRS(t *testing.T) {
 
 	// create a SRS
-	srs := NewSRS(64, new(big.Int).SetInt64(42))
+	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// serialize it...
 	var buf bytes.Buffer
-	_, err := srs.WriteTo(&buf)
+	_, err = srs.WriteTo(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}
