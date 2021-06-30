@@ -33,8 +33,7 @@ import (
 // it creates a new FFT domain and a new SRS without randomness
 func NewScheme(size int) *Scheme {
 	return &Scheme{
-		SRS:    NewSRS(size, new(big.Int).SetInt64(42)),
-		Domain: fft.NewDomain(uint64(size), 0, false),
+		SRS: NewSRS(size, new(big.Int).SetInt64(42)),
 	}
 }
 
@@ -154,6 +153,7 @@ func TestVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
 	s := NewScheme(64)
+	domain := fft.NewDomain(64, 0, false)
 
 	// create a polynomial
 	f := randomPolynomial(60)
@@ -167,7 +167,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := s.Open(&point, f)
+	proof, err := s.Open(f, &point, domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,6 +196,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// create a KZG scheme
 	s := NewScheme(64)
+	domain := fft.NewDomain(64, 0, false)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -213,7 +214,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := s.BatchOpenSinglePoint(&point, digests, f)
+	proof, err := s.BatchOpenSinglePoint(f, digests, &point, domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,6 +261,8 @@ func BenchmarkKZGOpen(b *testing.B) {
 	// kzg scheme
 	s := NewScheme(benchSize)
 
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
+
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
 	var r fr.Element
@@ -267,13 +270,14 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.Open(&r, p)
+		_, _ = s.Open(p, &r, domain)
 	}
 }
 
 func BenchmarkKZGVerify(b *testing.B) {
 	// kzg scheme
 	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -287,7 +291,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 	}
 
 	// open
-	openingProof, err := s.Open(&r, p)
+	openingProof, err := s.Open(p, &r, domain)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -301,6 +305,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// kzg scheme
 	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -319,13 +324,14 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
+		s.BatchOpenSinglePoint(ps[:], commitments[:], &r, domain)
 	}
 }
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// kzg scheme
 	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -342,7 +348,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
+	proof, err := s.BatchOpenSinglePoint(ps[:], commitments[:], &r, domain)
 	if err != nil {
 		b.Fatal(err)
 	}

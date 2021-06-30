@@ -31,9 +31,10 @@ import (
 
 var (
 	ErrInvalidNbDigests              = errors.New("number of digests is not the same as the number of polynomials")
-	ErrInvalidPolynomialSize         = errors.New("the size of the polynomials exceeds the size of the domain")
+	ErrInvalidPolynomialSize         = errors.New("invalid polynomial size (larger than SRS or == 0)")
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
+	ErrInvalidDomain                 = errors.New("domain cardinality is smaller than polynomial degree")
 )
 
 // Digest commitment of a polynomial.
@@ -41,9 +42,6 @@ type Digest = bls24315.G1Affine
 
 // Scheme stores KZG data
 type Scheme struct {
-	// Domain to perform polynomial division. The size of the domain is the lowest power of 2 greater than Size.
-	Domain *fft.Domain
-
 	// SRS stores the result of the MPC
 	SRS *SRS
 }
@@ -117,15 +115,14 @@ type BatchOpeningProof struct {
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
 func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
-
-	if p.Degree() >= s.Domain.Cardinality {
+	if len(p) == 0 || len(p) > len(s.SRS.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
 
 	var res bls24315.G1Affine
 
-	// ensure we don't modify p
-	pCopy := make(polynomial.Polynomial, s.Domain.Cardinality)
+	// convert copy(p) to regular form
+	pCopy := make(polynomial.Polynomial, len(p))
 	copy(pCopy, p)
 
 	parallel.Execute(len(p), func(start, end int) {
@@ -133,15 +130,21 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 			pCopy[i].FromMont()
 		}
 	})
-	res.MultiExp(s.SRS.G1, pCopy)
+	if _, err := res.MultiExp(s.SRS.G1[:len(p)], pCopy); err != nil {
+		return Digest{}, err
+	}
 
 	return res, nil
 }
 
 // Open computes an opening proof of polynomial p at given point.
-func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof, error) {
-	if p.Degree() >= s.Domain.Cardinality {
+// fft.Domain Cardinality must be larger than p.Degree()
+func (s *Scheme) Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain) (OpeningProof, error) {
+	if len(p) == 0 || len(p) > len(s.SRS.G1) {
 		return OpeningProof{}, ErrInvalidPolynomialSize
+	}
+	if len(p) > int(domain.Cardinality) {
+		return OpeningProof{}, ErrInvalidDomain
 	}
 
 	// build the proof
@@ -151,7 +154,7 @@ func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof,
 	}
 
 	// compute H
-	h := dividePolyByXminusA(s.Domain, p, res.ClaimedValue, res.Point)
+	h := dividePolyByXminusA(domain, p, res.ClaimedValue, res.Point)
 
 	// commit to H
 	hCommit, err := s.Commit(h)
@@ -219,7 +222,7 @@ func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
 // point is the point at which the polynomials are opened.
 // digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // polynomials is the list of polynomials to open.
-func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (BatchOpeningProof, error) {
+func (s *Scheme) BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest, point *fr.Element, domain *fft.Domain) (BatchOpeningProof, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
@@ -230,8 +233,14 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 
 	// compute the purported values
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
-	for i := 0; i < len(polynomials); i++ {
-		res.ClaimedValues[i] = polynomials[i].Eval(point)
+	for i, p := range polynomials {
+		if len(p) == 0 || len(p) > len(s.SRS.G1) {
+			return BatchOpeningProof{}, ErrInvalidPolynomialSize
+		}
+		if len(p) > int(domain.Cardinality) {
+			return BatchOpeningProof{}, ErrInvalidDomain
+		}
+		res.ClaimedValues[i] = p.Eval(point)
 	}
 
 	// set the point at which the evaluation is done
@@ -266,7 +275,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	}
 
 	// compute H
-	h := dividePolyByXminusA(s.Domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 	c, err := s.Commit(h)
 	if err != nil {
 		return BatchOpeningProof{}, err
