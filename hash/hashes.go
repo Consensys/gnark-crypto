@@ -24,6 +24,7 @@ import (
 	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
 	bls315 "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
 	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+	bw633 "github.com/consensys/gnark-crypto/ecc/bw6-633/fr/mimc"
 	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/mimc"
 )
 
@@ -35,6 +36,7 @@ const (
 	MIMC_BLS12_377
 	MIMC_BW6_761
 	MIMC_BLS24_315
+	MIMC_BW6_633
 )
 
 // size of digests in bytes
@@ -44,6 +46,7 @@ var digestSize = []uint8{
 	MIMC_BLS12_377: 48,
 	MIMC_BW6_761:   96,
 	MIMC_BLS24_315: 48,
+	MIMC_BW6_633:   80,
 }
 
 // New creates the corresponding mimc hash function.
@@ -59,6 +62,8 @@ func (m Hash) New(seed string) hash.Hash {
 		return bw761.NewMiMC(seed)
 	case MIMC_BLS24_315:
 		return bls315.NewMiMC(seed)
+	case MIMC_BW6_633:
+		return bw633.NewMiMC(seed)
 	default:
 		panic("Unknown mimc ID")
 	}
@@ -77,6 +82,8 @@ func (m Hash) String() string {
 		return "MIMC_BW761"
 	case MIMC_BLS24_315:
 		return "MIMC_BLS315"
+	case MIMC_BW6_633:
+		return "MIMC_BW633"
 	default:
 		panic("Unknown mimc ID")
 	}
