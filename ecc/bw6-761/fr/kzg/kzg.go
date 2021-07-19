@@ -333,7 +333,9 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 		_digests[i].Set(&digests[i])
 	}
 
-	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai, ecc.MultiExpConfig{})
+	if _, err := sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai, ecc.MultiExpConfig{}); err != nil {
+		return err
+	}
 
 	// sum_i [gamma**i * (f-f(a))]G1
 	var sumGammiDiffG1Aff bw6761.G1Affine

@@ -128,7 +128,9 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool) []fr.Ele
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
 	var _p G1Jac
-	_p.MultiExp(points, scalars, config)
+	if _, err := _p.MultiExp(points, scalars, config); err != nil {
+		return nil, err
+	}
 	p.FromJacobian(&_p)
 	return p, nil
 }
@@ -420,7 +422,9 @@ func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, opt *ecc.CPUSema
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Affine, error) {
 	var _p G2Jac
-	_p.MultiExp(points, scalars, config)
+	if _, err := _p.MultiExp(points, scalars, config); err != nil {
+		return nil, err
+	}
 	p.FromJacobian(&_p)
 	return p, nil
 }

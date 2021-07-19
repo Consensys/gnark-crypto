@@ -129,7 +129,9 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool) []fr.Ele
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) (*{{ $.TAffine }}, error) {
 	var _p {{$.TJacobian}}
-	_p.MultiExp(points, scalars, config)
+	if _, err := _p.MultiExp(points, scalars, config); err != nil {
+		return nil, err 
+	}
 	p.FromJacobian(&_p)
 	return p, nil
 }
