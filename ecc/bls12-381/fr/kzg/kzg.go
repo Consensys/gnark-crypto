@@ -31,25 +31,17 @@ import (
 
 var (
 	ErrInvalidNbDigests              = errors.New("number of digests is not the same as the number of polynomials")
-	ErrInvalidPolynomialSize         = errors.New("the size of the polynomials exceeds the size of the domain")
+	ErrInvalidPolynomialSize         = errors.New("invalid polynomial size (larger than SRS or == 0)")
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
+	ErrInvalidDomain                 = errors.New("domain cardinality is smaller than polynomial degree")
+	ErrMinSRSSize                    = errors.New("minimum srs size is 2")
 )
 
 // Digest commitment of a polynomial.
 type Digest = bls12381.G1Affine
 
-// Scheme stores KZG data
-type Scheme struct {
-	// Domain to perform polynomial division. The size of the domain is the lowest power of 2 greater than Size.
-	Domain *fft.Domain
-
-	// SRS stores the result of the MPC
-	SRS *SRS
-}
-
 // SRS stores the result of the MPC
-// len(SRS.G1) can be larger than domain size
 type SRS struct {
 	G1 []bls12381.G1Affine  // [gen [alpha]gen , [alpha**2]gen, ... ]
 	G2 [2]bls12381.G2Affine // [gen, [alpha]gen ]
@@ -60,7 +52,10 @@ type SRS struct {
 // In production, a SRS generated through MPC should be used.
 //
 // implements io.ReaderFrom and io.WriterTo
-func NewSRS(size int, bAlpha *big.Int) *SRS {
+func NewSRS(size int, bAlpha *big.Int) (*SRS, error) {
+	if size < 2 {
+		return nil, ErrMinSRSSize
+	}
 	var srs SRS
 	srs.G1 = make([]bls12381.G1Affine, size)
 
@@ -83,7 +78,7 @@ func NewSRS(size int, bAlpha *big.Int) *SRS {
 	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
-	return &srs
+	return &srs, nil
 }
 
 // OpeningProof KZG proof for opening at a single point.
@@ -116,16 +111,15 @@ type BatchOpeningProof struct {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
-
-	if p.Degree() >= s.Domain.Cardinality {
+func Commit(p polynomial.Polynomial, srs *SRS) (Digest, error) {
+	if len(p) == 0 || len(p) > len(srs.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
 
 	var res bls12381.G1Affine
 
-	// ensure we don't modify p
-	pCopy := make(polynomial.Polynomial, s.Domain.Cardinality)
+	// convert copy(p) to regular form
+	pCopy := make(polynomial.Polynomial, len(p))
 	copy(pCopy, p)
 
 	parallel.Execute(len(p), func(start, end int) {
@@ -133,15 +127,21 @@ func (s *Scheme) Commit(p polynomial.Polynomial) (Digest, error) {
 			pCopy[i].FromMont()
 		}
 	})
-	res.MultiExp(s.SRS.G1, pCopy)
+	if _, err := res.MultiExp(srs.G1[:len(p)], pCopy); err != nil {
+		return Digest{}, err
+	}
 
 	return res, nil
 }
 
 // Open computes an opening proof of polynomial p at given point.
-func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof, error) {
-	if p.Degree() >= s.Domain.Cardinality {
+// fft.Domain Cardinality must be larger than p.Degree()
+func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *SRS) (OpeningProof, error) {
+	if len(p) == 0 || len(p) > len(srs.G1) {
 		return OpeningProof{}, ErrInvalidPolynomialSize
+	}
+	if len(p) > int(domain.Cardinality) {
+		return OpeningProof{}, ErrInvalidDomain
 	}
 
 	// build the proof
@@ -151,10 +151,10 @@ func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof,
 	}
 
 	// compute H
-	h := dividePolyByXminusA(s.Domain, p, res.ClaimedValue, res.Point)
+	h := dividePolyByXminusA(domain, p, res.ClaimedValue, res.Point)
 
 	// commit to H
-	hCommit, err := s.Commit(h)
+	hCommit, err := Commit(h, srs)
 	if err != nil {
 		return OpeningProof{}, err
 	}
@@ -164,13 +164,13 @@ func (s *Scheme) Open(point *fr.Element, p polynomial.Polynomial) (OpeningProof,
 }
 
 // Verify verifies a KZG opening proof at a single point
-func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
+func Verify(commitment *Digest, proof *OpeningProof, srs *SRS) error {
 
 	// comm(f(a))
 	var claimedValueG1Aff bls12381.G1Affine
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplication(&s.SRS.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplication(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(alpha) - f(a)]G1Jac
 	var fminusfaG1Jac, tmpG1Jac bls12381.G1Jac
@@ -186,8 +186,8 @@ func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	proof.Point.ToBigIntRegular(&pointBigInt)
-	genG2Jac.FromAffine(&s.SRS.G2[0])
-	alphaG2Jac.FromAffine(&s.SRS.G2[1])
+	genG2Jac.FromAffine(&srs.G2[0])
+	alphaG2Jac.FromAffine(&srs.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
@@ -203,7 +203,7 @@ func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
 	// e([-H(alpha)]G1Aff, G2gen).e([-H(alpha)]G1Aff, [alpha-a]G2Aff) ==? 1
 	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{fminusfaG1Aff, negH},
-		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
+		[]bls12381.G2Affine{srs.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -219,7 +219,7 @@ func (s *Scheme) Verify(commitment *Digest, proof *OpeningProof) error {
 // point is the point at which the polynomials are opened.
 // digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // polynomials is the list of polynomials to open.
-func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polynomials []polynomial.Polynomial) (BatchOpeningProof, error) {
+func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest, point *fr.Element, domain *fft.Domain, srs *SRS) (BatchOpeningProof, error) {
 
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
@@ -230,8 +230,14 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 
 	// compute the purported values
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
-	for i := 0; i < len(polynomials); i++ {
-		res.ClaimedValues[i] = polynomials[i].Eval(point)
+	for i, p := range polynomials {
+		if len(p) == 0 || len(p) > len(srs.G1) {
+			return BatchOpeningProof{}, ErrInvalidPolynomialSize
+		}
+		if len(p) > int(domain.Cardinality) {
+			return BatchOpeningProof{}, ErrInvalidDomain
+		}
+		res.ClaimedValues[i] = p.Eval(point)
 	}
 
 	// set the point at which the evaluation is done
@@ -266,8 +272,8 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 	}
 
 	// compute H
-	h := dividePolyByXminusA(s.Domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	c, err := s.Commit(h)
+	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	c, err := Commit(h, srs)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -282,7 +288,7 @@ func (s *Scheme) BatchOpenSinglePoint(point *fr.Element, digests []Digest, polyn
 // claimedValues: claimed values of the polynomials at _val
 // commitments: list of commitments to the polynomials which are opened
 // batchOpeningProof: the batched opening proof at a single point of the polynomials.
-func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof) error {
+func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, srs *SRS) error {
 
 	nbDigests := len(digests)
 
@@ -320,7 +326,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 	var sumGammaiTimesEvalBigInt big.Int
 	sumGammaiTimesEval.ToBigIntRegular(&sumGammaiTimesEvalBigInt)
 	var sumGammaiTimesEvalG1Aff bls12381.G1Affine
-	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&s.SRS.G1[0], &sumGammaiTimesEvalBigInt)
+	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&srs.G1[0], &sumGammaiTimesEvalBigInt)
 
 	var acc fr.Element
 	acc.SetOne()
@@ -350,8 +356,8 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
 	batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
-	genG2Jac.FromAffine(&s.SRS.G2[0])
-	alphaG2Jac.FromAffine(&s.SRS.G2[1])
+	genG2Jac.FromAffine(&srs.G2[0])
+	alphaG2Jac.FromAffine(&srs.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
@@ -367,7 +373,7 @@ func (s *Scheme) BatchVerifySinglePoint(digests []Digest, batchOpeningProof *Bat
 	// check the pairing equation
 	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{sumGammiDiffG1Aff, negH},
-		[]bls12381.G2Affine{s.SRS.G2[0], xminusaG2Aff},
+		[]bls12381.G2Affine{srs.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -393,6 +399,7 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 
 	accumulator := fr.One()
 
+	// TODO can factorize batch inversion into this loop and avoid an extra memory allocation
 	s := make([]fr.Element, len(_f))
 	for i := 0; i < len(s); i++ {
 		irev := bits.Reverse64(uint64(i)) >> bShift

@@ -17,6 +17,7 @@
 package bls24315
 
 import (
+	"errors"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -121,17 +122,19 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *G1Affine {
+func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G1Affine, error) {
 	var _p G1Jac
-	_p.MultiExp(points, scalars, opts...)
+	if _, err := _p.MultiExp(points, scalars, opts...); err != nil {
+		return nil, err
+	}
 	p.FromJacobian(&_p)
-	return p
+	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *G1Jac {
+func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G1Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -168,6 +171,10 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.C
 	var C uint64
 	nbPoints := len(points)
 
+	if nbPoints != len(scalars) {
+		return nil, errors.New("len(points) != len(scalars)")
+	}
+
 	// implemented msmC methods (the c we use must be in this slice)
 	implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
 
@@ -201,52 +208,52 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.C
 	switch C {
 
 	case 4:
-		return p.msmC4(points, scalars, opt)
+		return p.msmC4(points, scalars, opt), nil
 
 	case 5:
-		return p.msmC5(points, scalars, opt)
+		return p.msmC5(points, scalars, opt), nil
 
 	case 6:
-		return p.msmC6(points, scalars, opt)
+		return p.msmC6(points, scalars, opt), nil
 
 	case 7:
-		return p.msmC7(points, scalars, opt)
+		return p.msmC7(points, scalars, opt), nil
 
 	case 8:
-		return p.msmC8(points, scalars, opt)
+		return p.msmC8(points, scalars, opt), nil
 
 	case 9:
-		return p.msmC9(points, scalars, opt)
+		return p.msmC9(points, scalars, opt), nil
 
 	case 10:
-		return p.msmC10(points, scalars, opt)
+		return p.msmC10(points, scalars, opt), nil
 
 	case 11:
-		return p.msmC11(points, scalars, opt)
+		return p.msmC11(points, scalars, opt), nil
 
 	case 12:
-		return p.msmC12(points, scalars, opt)
+		return p.msmC12(points, scalars, opt), nil
 
 	case 13:
-		return p.msmC13(points, scalars, opt)
+		return p.msmC13(points, scalars, opt), nil
 
 	case 14:
-		return p.msmC14(points, scalars, opt)
+		return p.msmC14(points, scalars, opt), nil
 
 	case 15:
-		return p.msmC15(points, scalars, opt)
+		return p.msmC15(points, scalars, opt), nil
 
 	case 16:
-		return p.msmC16(points, scalars, opt)
+		return p.msmC16(points, scalars, opt), nil
 
 	case 20:
-		return p.msmC20(points, scalars, opt)
+		return p.msmC20(points, scalars, opt), nil
 
 	case 21:
-		return p.msmC21(points, scalars, opt)
+		return p.msmC21(points, scalars, opt), nil
 
 	case 22:
-		return p.msmC22(points, scalars, opt)
+		return p.msmC22(points, scalars, opt), nil
 
 	default:
 		panic("unimplemented")
@@ -956,17 +963,19 @@ func (p *G1Jac) msmC22(points []G1Affine, scalars []fr.Element, opt *ecc.CPUSema
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *G2Affine {
+func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G2Affine, error) {
 	var _p G2Jac
-	_p.MultiExp(points, scalars, opts...)
+	if _, err := _p.MultiExp(points, scalars, opts...); err != nil {
+		return nil, err
+	}
 	p.FromJacobian(&_p)
-	return p
+	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
 // optionally, takes as parameter a ecc.CPUSemaphore struct
 // enabling to set max number of cpus to use
-func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) *G2Jac {
+func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G2Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -1003,6 +1012,10 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.C
 	var C uint64
 	nbPoints := len(points)
 
+	if nbPoints != len(scalars) {
+		return nil, errors.New("len(points) != len(scalars)")
+	}
+
 	// implemented msmC methods (the c we use must be in this slice)
 	implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
 
@@ -1036,52 +1049,52 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.C
 	switch C {
 
 	case 4:
-		return p.msmC4(points, scalars, opt)
+		return p.msmC4(points, scalars, opt), nil
 
 	case 5:
-		return p.msmC5(points, scalars, opt)
+		return p.msmC5(points, scalars, opt), nil
 
 	case 6:
-		return p.msmC6(points, scalars, opt)
+		return p.msmC6(points, scalars, opt), nil
 
 	case 7:
-		return p.msmC7(points, scalars, opt)
+		return p.msmC7(points, scalars, opt), nil
 
 	case 8:
-		return p.msmC8(points, scalars, opt)
+		return p.msmC8(points, scalars, opt), nil
 
 	case 9:
-		return p.msmC9(points, scalars, opt)
+		return p.msmC9(points, scalars, opt), nil
 
 	case 10:
-		return p.msmC10(points, scalars, opt)
+		return p.msmC10(points, scalars, opt), nil
 
 	case 11:
-		return p.msmC11(points, scalars, opt)
+		return p.msmC11(points, scalars, opt), nil
 
 	case 12:
-		return p.msmC12(points, scalars, opt)
+		return p.msmC12(points, scalars, opt), nil
 
 	case 13:
-		return p.msmC13(points, scalars, opt)
+		return p.msmC13(points, scalars, opt), nil
 
 	case 14:
-		return p.msmC14(points, scalars, opt)
+		return p.msmC14(points, scalars, opt), nil
 
 	case 15:
-		return p.msmC15(points, scalars, opt)
+		return p.msmC15(points, scalars, opt), nil
 
 	case 16:
-		return p.msmC16(points, scalars, opt)
+		return p.msmC16(points, scalars, opt), nil
 
 	case 20:
-		return p.msmC20(points, scalars, opt)
+		return p.msmC20(points, scalars, opt), nil
 
 	case 21:
-		return p.msmC21(points, scalars, opt)
+		return p.msmC21(points, scalars, opt), nil
 
 	case 22:
-		return p.msmC22(points, scalars, opt)
+		return p.msmC22(points, scalars, opt), nil
 
 	default:
 		panic("unimplemented")

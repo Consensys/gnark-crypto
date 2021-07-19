@@ -28,33 +28,23 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 )
 
-// NewScheme returns a new KZG scheme.
-// This should be used for testing purpose only
-// it creates a new FFT domain and a new SRS without randomness
-func NewScheme(size int) *Scheme {
-	return &Scheme{
-		SRS:    NewSRS(size, new(big.Int).SetInt64(42)),
-		Domain: fft.NewDomain(uint64(size), 0, false),
-	}
-}
+// testSRS re-used accross tests of the KZG scheme
+var testSRS *SRS
 
-func randomPolynomial(size int) polynomial.Polynomial {
-	f := make(polynomial.Polynomial, size)
-	for i := 0; i < size; i++ {
-		f[i].SetRandom()
-	}
-	return f
+func init() {
+	const srsSize = 230
+	testSRS, _ = NewSRS(srsSize, new(big.Int).SetInt64(42))
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
 
-	sizePol := 230
+	const pSize = 230
 
-	domain := fft.NewDomain(uint64(sizePol), 0, false)
+	domain := fft.NewDomain(pSize, 0, false)
 
 	// build random polynomial
-	pol := make(polynomial.Polynomial, sizePol)
-	for i := 0; i < sizePol; i++ {
+	pol := make(polynomial.Polynomial, pSize)
+	for i := 0; i < pSize; i++ {
 		pol[i].SetRandom()
 	}
 
@@ -88,19 +78,22 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 }
 
-func TestSerialization(t *testing.T) {
+func TestSerializationSRS(t *testing.T) {
 
-	// create a KZG scheme
-	srs := NewSRS(64, new(big.Int).SetInt64(42))
-
-	// serialize it...
-	var buf bytes.Buffer
-	_, err := srs.WriteTo(&buf)
+	// create a SRS
+	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// reconstruct the scheme
+	// serialize it...
+	var buf bytes.Buffer
+	_, err = srs.WriteTo(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// reconstruct the SRS
 	var _srs SRS
 	_, err = _srs.ReadFrom(&buf)
 	if err != nil {
@@ -116,9 +109,6 @@ func TestSerialization(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 
-	// create a KZG scheme
-	s := NewScheme(64)
-
 	// create a polynomial
 	f := make(polynomial.Polynomial, 60)
 	for i := 0; i < 60; i++ {
@@ -126,7 +116,7 @@ func TestCommit(t *testing.T) {
 	}
 
 	// commit using the method from KZG
-	_kzgCommit, err := s.Commit(f)
+	_kzgCommit, err := Commit(f, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +130,7 @@ func TestCommit(t *testing.T) {
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
 	var manualCommit bw6761.G1Affine
-	manualCommit.Set(&s.SRS.G1[0])
+	manualCommit.Set(&testSRS.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
 	// compare both results
@@ -152,14 +142,13 @@ func TestCommit(t *testing.T) {
 
 func TestVerifySinglePoint(t *testing.T) {
 
-	// create a KZG scheme
-	s := NewScheme(64)
+	domain := fft.NewDomain(64, 0, false)
 
 	// create a polynomial
 	f := randomPolynomial(60)
 
 	// commit the polynomial
-	digest, err := s.Commit(f)
+	digest, err := Commit(f, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +156,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := s.Open(&point, f)
+	proof, err := Open(f, &point, domain, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,14 +168,14 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify correct proof
-	err = s.Verify(&digest, &proof)
+	err = Verify(&digest, &proof, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify wrong proof
 	proof.ClaimedValue.Double(&proof.ClaimedValue)
-	err = s.Verify(&digest, &proof)
+	err = Verify(&digest, &proof, testSRS)
 	if err == nil {
 		t.Fatal("verifying wrong proof should have failed")
 	}
@@ -194,8 +183,7 @@ func TestVerifySinglePoint(t *testing.T) {
 
 func TestBatchVerifySinglePoint(t *testing.T) {
 
-	// create a KZG scheme
-	s := NewScheme(64)
+	domain := fft.NewDomain(64, 0, false)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -206,14 +194,14 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// commit the polynomials
 	digests := make([]Digest, 10)
 	for i := 0; i < 10; i++ {
-		digests[i], _ = s.Commit(f[i])
+		digests[i], _ = Commit(f[i], testSRS)
 
 	}
 
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := s.BatchOpenSinglePoint(&point, digests, f)
+	proof, err := BatchOpenSinglePoint(f, digests, &point, domain, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,14 +215,14 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify correct proof
-	err = s.BatchVerifySinglePoint(digests, &proof)
+	err = BatchVerifySinglePoint(digests, &proof, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify wrong proof
 	proof.ClaimedValues[0].Double(&proof.ClaimedValues[0])
-	err = s.BatchVerifySinglePoint(digests, &proof)
+	err = BatchVerifySinglePoint(digests, &proof, testSRS)
 	if err == nil {
 		t.Fatal("verifying wrong proof should have failed")
 	}
@@ -244,21 +232,19 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {
-	// kzg scheme
-	s := NewScheme(benchSize)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.Commit(p)
+		_, _ = Commit(p, testSRS)
 	}
 }
 
 func BenchmarkKZGOpen(b *testing.B) {
-	// kzg scheme
-	s := NewScheme(benchSize)
+
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -267,13 +253,13 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.Open(&r, p)
+		_, _ = Open(p, &r, domain, testSRS)
 	}
 }
 
 func BenchmarkKZGVerify(b *testing.B) {
 	// kzg scheme
-	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -281,26 +267,25 @@ func BenchmarkKZGVerify(b *testing.B) {
 	r.SetRandom()
 
 	// commit
-	comm, err := s.Commit(p)
+	comm, err := Commit(p, testSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// open
-	openingProof, err := s.Open(&r, p)
+	openingProof, err := Open(p, &r, domain, testSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.Verify(&comm, &openingProof)
+		Verify(&comm, &openingProof, testSRS)
 	}
 }
 
 func BenchmarkKZGBatchOpen10(b *testing.B) {
-	// kzg scheme
-	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -311,7 +296,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// commitments
 	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
-		commitments[i], _ = s.Commit(ps[i])
+		commitments[i], _ = Commit(ps[i], testSRS)
 	}
 
 	var r fr.Element
@@ -319,13 +304,12 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
+		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, testSRS)
 	}
 }
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
-	// kzg scheme
-	s := NewScheme(benchSize)
+	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -336,19 +320,27 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// commitments
 	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
-		commitments[i], _ = s.Commit(ps[i])
+		commitments[i], _ = Commit(ps[i], testSRS)
 	}
 
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := s.BatchOpenSinglePoint(&r, commitments[:], ps[:])
+	proof, err := BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, testSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.BatchVerifySinglePoint(commitments[:], &proof)
+		BatchVerifySinglePoint(commitments[:], &proof, testSRS)
 	}
+}
+
+func randomPolynomial(size int) polynomial.Polynomial {
+	f := make(polynomial.Polynomial, size)
+	for i := 0; i < size; i++ {
+		f[i].SetRandom()
+	}
+	return f
 }
