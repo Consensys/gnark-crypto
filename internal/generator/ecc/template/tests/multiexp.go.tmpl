@@ -77,11 +77,11 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
+				scalars := partitionScalars(sampleScalars[:], 5, false)
 				r5.msmC5(samplePoints[:], scalars, opt)
 				
 				opt.Lock.Lock()
-				scalars = partitionScalars(sampleScalars[:], 16)
+				scalars = partitionScalars(sampleScalars[:], 16, false)
 				r16.msmC16(samplePoints[:], scalars, opt)
 		
 		
@@ -115,7 +115,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			// semaphore to limit number of cpus
 			opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 			opt.Lock.Lock()
-			scalars := partitionScalars(sampleScalars[:], {{$c}})
+			scalars := partitionScalars(sampleScalars[:], {{$c}}, false)
 			result.msmC{{$c}}(samplePoints[:], scalars, opt)
 	
 	
@@ -154,7 +154,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 
 			var op1MultiExp {{ $.TAffine }}
-			op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars, ecc.MultiExpConfig{})
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -200,7 +200,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -228,7 +228,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:],ecc.MultiExpConfig{})
 	}
 }
 

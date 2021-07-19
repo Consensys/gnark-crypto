@@ -66,6 +66,12 @@ func (id ID) String() string {
 	}
 }
 
+// MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
+type MultiExpConfig struct {
+	CPUSemaphore *CPUSemaphore
+	ScalarsMont  bool // indicates if the scalars are in montgommery form. Default to false.
+}
+
 // CPUSemaphore enables users to set optional number of CPUs the multiexp will use
 // this is thread safe and can be used accross parallel calls of MultiExp
 type CPUSemaphore struct {

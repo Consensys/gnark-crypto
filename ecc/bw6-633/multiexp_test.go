@@ -79,11 +79,11 @@ func TestMultiExpG1(t *testing.T) {
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
+				scalars := partitionScalars(sampleScalars[:], 5, false)
 				r5.msmC5(samplePoints[:], scalars, opt)
 
 				opt.Lock.Lock()
-				scalars = partitionScalars(sampleScalars[:], 16)
+				scalars = partitionScalars(sampleScalars[:], 16, false)
 				r16.msmC16(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -114,7 +114,7 @@ func TestMultiExpG1(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 4)
+				scalars := partitionScalars(sampleScalars[:], 4, false)
 				result.msmC4(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -144,7 +144,7 @@ func TestMultiExpG1(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
+				scalars := partitionScalars(sampleScalars[:], 5, false)
 				result.msmC5(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -174,7 +174,7 @@ func TestMultiExpG1(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 8)
+				scalars := partitionScalars(sampleScalars[:], 8, false)
 				result.msmC8(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -204,7 +204,7 @@ func TestMultiExpG1(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 16)
+				scalars := partitionScalars(sampleScalars[:], 16, false)
 				result.msmC16(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -240,7 +240,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			var op1MultiExp G1Affine
-			op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars, ecc.MultiExpConfig{})
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -283,7 +283,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -310,7 +310,7 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
 	}
 }
 
@@ -364,11 +364,11 @@ func TestMultiExpG2(t *testing.T) {
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
+				scalars := partitionScalars(sampleScalars[:], 5, false)
 				r5.msmC5(samplePoints[:], scalars, opt)
 
 				opt.Lock.Lock()
-				scalars = partitionScalars(sampleScalars[:], 16)
+				scalars = partitionScalars(sampleScalars[:], 16, false)
 				r16.msmC16(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -399,7 +399,7 @@ func TestMultiExpG2(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 4)
+				scalars := partitionScalars(sampleScalars[:], 4, false)
 				result.msmC4(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -429,7 +429,7 @@ func TestMultiExpG2(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
+				scalars := partitionScalars(sampleScalars[:], 5, false)
 				result.msmC5(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -459,7 +459,7 @@ func TestMultiExpG2(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 8)
+				scalars := partitionScalars(sampleScalars[:], 8, false)
 				result.msmC8(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -489,7 +489,7 @@ func TestMultiExpG2(t *testing.T) {
 				// semaphore to limit number of cpus
 				opt := ecc.NewCPUSemaphore(runtime.NumCPU())
 				opt.Lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 16)
+				scalars := partitionScalars(sampleScalars[:], 16, false)
 				result.msmC16(samplePoints[:], scalars, opt)
 
 				// compute expected result with double and add
@@ -525,7 +525,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			var op1MultiExp G2Affine
-			op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars, ecc.MultiExpConfig{})
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
@@ -568,7 +568,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -595,6 +595,6 @@ func BenchmarkMultiExpG2Reference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		testPoint.MultiExp(samplePoints[:], sampleScalars[:])
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
 	}
 }

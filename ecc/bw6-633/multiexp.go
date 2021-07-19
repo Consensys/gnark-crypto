@@ -43,7 +43,8 @@ type selector struct {
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
-func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
+// scalarsMont indicates wheter the provided scalars are in montgomery form
+func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
 
 	// number of c-bit radixes in a scalar
@@ -78,6 +79,11 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 		for i := start; i < end; i++ {
 			var carry int
 
+			scalar := scalars[i]
+			if scalarsMont {
+				scalar.FromMont()
+			}
+
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
 			for chunk := uint64(0); chunk < nbChunks; chunk++ {
 				s := selectors[chunk]
@@ -87,11 +93,11 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 				carry = 0
 
 				// digit = value of the c-bit window
-				digit += int((scalars[i][s.index] & s.mask) >> s.shift)
+				digit += int((scalar[s.index] & s.mask) >> s.shift)
 
 				if s.multiWordSelect {
 					// we are selecting bits over 2 words
-					digit += int(scalars[i][s.index+1]&s.maskHigh) << s.shiftHigh
+					digit += int(scalar[s.index+1]&s.maskHigh) << s.shiftHigh
 				}
 
 				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
@@ -120,21 +126,15 @@ func partitionScalars(scalars []fr.Element, c uint64) []fr.Element {
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a ecc.CPUSemaphore struct
-// enabling to set max number of cpus to use
-func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G1Affine, error) {
+func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
 	var _p G1Jac
-	if _, err := _p.MultiExp(points, scalars, opts...); err != nil {
-		return nil, err
-	}
+	_p.MultiExp(points, scalars, config)
 	p.FromJacobian(&_p)
 	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a ecc.CPUSemaphore struct
-// enabling to set max number of cpus to use
-func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G1Jac, error) {
+func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -161,11 +161,8 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.C
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *ecc.CPUSemaphore
-	if len(opts) > 0 {
-		opt = opts[0]
-	} else {
-		opt = ecc.NewCPUSemaphore(runtime.NumCPU())
+	if config.CPUSemaphore == nil {
+		config.CPUSemaphore = ecc.NewCPUSemaphore(runtime.NumCPU())
 	}
 
 	var C uint64
@@ -198,26 +195,26 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, opts ...*ecc.C
 	// }
 
 	// take all the cpus to ourselves
-	opt.Lock.Lock()
+	config.CPUSemaphore.Lock.Lock()
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, C)
+	scalars = partitionScalars(scalars, C, config.ScalarsMont)
 
 	switch C {
 
 	case 4:
-		return p.msmC4(points, scalars, opt), nil
+		return p.msmC4(points, scalars, config.CPUSemaphore), nil
 
 	case 5:
-		return p.msmC5(points, scalars, opt), nil
+		return p.msmC5(points, scalars, config.CPUSemaphore), nil
 
 	case 8:
-		return p.msmC8(points, scalars, opt), nil
+		return p.msmC8(points, scalars, config.CPUSemaphore), nil
 
 	case 16:
-		return p.msmC16(points, scalars, opt), nil
+		return p.msmC16(points, scalars, config.CPUSemaphore), nil
 
 	default:
 		panic("unimplemented")
@@ -421,21 +418,15 @@ func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, opt *ecc.CPUSema
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a ecc.CPUSemaphore struct
-// enabling to set max number of cpus to use
-func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G2Affine, error) {
+func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Affine, error) {
 	var _p G2Jac
-	if _, err := _p.MultiExp(points, scalars, opts...); err != nil {
-		return nil, err
-	}
+	_p.MultiExp(points, scalars, config)
 	p.FromJacobian(&_p)
 	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// optionally, takes as parameter a ecc.CPUSemaphore struct
-// enabling to set max number of cpus to use
-func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.CPUSemaphore) (*G2Jac, error) {
+func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
 	// duplicating (through template generation) these methods allows to declare the buckets on the stack
@@ -462,11 +453,8 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.C
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	var opt *ecc.CPUSemaphore
-	if len(opts) > 0 {
-		opt = opts[0]
-	} else {
-		opt = ecc.NewCPUSemaphore(runtime.NumCPU())
+	if config.CPUSemaphore == nil {
+		config.CPUSemaphore = ecc.NewCPUSemaphore(runtime.NumCPU())
 	}
 
 	var C uint64
@@ -499,26 +487,26 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, opts ...*ecc.C
 	// }
 
 	// take all the cpus to ourselves
-	opt.Lock.Lock()
+	config.CPUSemaphore.Lock.Lock()
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, C)
+	scalars = partitionScalars(scalars, C, config.ScalarsMont)
 
 	switch C {
 
 	case 4:
-		return p.msmC4(points, scalars, opt), nil
+		return p.msmC4(points, scalars, config.CPUSemaphore), nil
 
 	case 5:
-		return p.msmC5(points, scalars, opt), nil
+		return p.msmC5(points, scalars, config.CPUSemaphore), nil
 
 	case 8:
-		return p.msmC8(points, scalars, opt), nil
+		return p.msmC8(points, scalars, config.CPUSemaphore), nil
 
 	case 16:
-		return p.msmC16(points, scalars, opt), nil
+		return p.msmC16(points, scalars, config.CPUSemaphore), nil
 
 	default:
 		panic("unimplemented")

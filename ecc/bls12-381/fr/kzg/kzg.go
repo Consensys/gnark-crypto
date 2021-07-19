@@ -21,12 +21,12 @@ import (
 	"math/big"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 	"github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 var (
@@ -118,16 +118,7 @@ func Commit(p polynomial.Polynomial, srs *SRS) (Digest, error) {
 
 	var res bls12381.G1Affine
 
-	// convert copy(p) to regular form
-	pCopy := make(polynomial.Polynomial, len(p))
-	copy(pCopy, p)
-
-	parallel.Execute(len(p), func(start, end int) {
-		for i := start; i < end; i++ {
-			pCopy[i].FromMont()
-		}
-	})
-	if _, err := res.MultiExp(srs.G1[:len(p)], pCopy); err != nil {
+	if _, err := res.MultiExp(srs.G1[:len(p)], p, ecc.MultiExpConfig{ScalarsMont: true}); err != nil {
 		return Digest{}, err
 	}
 
@@ -342,7 +333,7 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 		_digests[i].Set(&digests[i])
 	}
 
-	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai)
+	sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai, ecc.MultiExpConfig{})
 
 	// sum_i [gamma**i * (f-f(a))]G1
 	var sumGammiDiffG1Aff bls12381.G1Affine
