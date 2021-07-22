@@ -19,7 +19,6 @@ package kzg
 import (
 	"errors"
 	"math/big"
-	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761"
@@ -27,6 +26,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	"github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 var (
@@ -384,6 +384,21 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
 func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
 
+	var s []fr.Element
+	chanS := make(chan struct{}, 1)
+
+	go func() {
+		accumulator := fr.One()
+		s = make([]fr.Element, d.Cardinality)
+		for i := 0; i < len(s); i++ {
+			s[i].Sub(&accumulator, &a)
+			accumulator.Mul(&accumulator, &d.Generator)
+		}
+		fft.BitReverse(s)
+		s = fr.BatchInvert(s)
+		close(chanS)
+	}()
+
 	// padd f so it has size d.Cardinality
 	_f := make([]fr.Element, d.Cardinality)
 	copy(_f, f)
@@ -391,25 +406,14 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 	// compute the quotient (f-f(a))/(x-a)
 	d.FFT(_f, fft.DIF, 0)
 
-	// bit reverse shift
-	bShift := uint64(64 - bits.TrailingZeros64(d.Cardinality))
+	<-chanS
 
-	accumulator := fr.One()
-
-	// TODO can factorize batch inversion into this loop and avoid an extra memory allocation
-	s := make([]fr.Element, len(_f))
-	for i := 0; i < len(s); i++ {
-		irev := bits.Reverse64(uint64(i)) >> bShift
-		s[irev].Sub(&accumulator, &a)
-		accumulator.Mul(&accumulator, &d.Generator)
-	}
-	s = fr.BatchInvert(s)
-
-	for i := 0; i < len(_f); i++ {
-		_f[i].Sub(&_f[i], &fa)
-		_f[i].Mul(&_f[i], &s[i])
-	}
-
+	parallel.Execute(len(_f), func(start, end int) {
+		for i := start; i < end; i++ {
+			_f[i].Sub(&_f[i], &fa)
+			_f[i].Mul(&_f[i], &s[i])
+		}
+	})
 	d.FFTInverse(_f, fft.DIT, 0)
 
 	// the result is of degree deg(f)-1
