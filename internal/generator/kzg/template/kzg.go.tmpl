@@ -239,8 +239,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	gamma.SetBytes(gammaByte)
 
 	// compute sum_i gamma**i*f and sum_i gamma**i*f(a)
-	var sumGammaiTimesEval fr.Element
-	sumGammaiTimesEval.Set(&res.ClaimedValues[nbDigests-1])
+	sumGammaiTimesEval := res.ClaimedValues[nbDigests-1]
 	sumGammaiTimesPol := polynomials[nbDigests-1].Clone()
 	for i := nbDigests - 2; i >= 0; i-- {
 		sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
@@ -251,12 +250,10 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 
 	// compute H
 	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	c, err := Commit(h, srs)
+	res.H, err = Commit(h, srs)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
-
-	res.H.Set(&c)
 
 	return res, nil
 }
