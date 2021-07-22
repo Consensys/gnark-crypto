@@ -15,7 +15,7 @@ var testSRS *SRS
 
 func init() {
 	const srsSize = 230
-	testSRS, _ = NewSRS(srsSize, new(big.Int).SetInt64(42))
+	testSRS, _ = NewSRS(nextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -213,19 +213,26 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 const benchSize = 1 << 16
 
-func BenchmarkKZGCommit(b *testing.B) {
 
+func BenchmarkKZGCommit(b *testing.B) {
+	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	if err != nil {
+		b.Fatal(err)
+	}
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = Commit(p, testSRS)
+		_, _ = Commit(p, benchSRS)
 	}
 }
 
 func BenchmarkKZGOpen(b *testing.B) {
-
+	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	if err != nil {
+		b.Fatal(err)
+	}
 	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// random polynomial
@@ -235,11 +242,15 @@ func BenchmarkKZGOpen(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = Open(p, &r, domain, testSRS)
+		_, _ = Open(p, &r, domain, benchSRS)
 	}
 }
 
 func BenchmarkKZGVerify(b *testing.B) {
+	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	if err != nil {
+		b.Fatal(err)
+	}
 	// kzg scheme
 	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
@@ -249,24 +260,28 @@ func BenchmarkKZGVerify(b *testing.B) {
 	r.SetRandom()
 
 	// commit
-	comm, err := Commit(p, testSRS)
+	comm, err := Commit(p, benchSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// open
-	openingProof, err := Open(p, &r, domain, testSRS)
+	openingProof, err := Open(p, &r, domain, benchSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Verify(&comm, &openingProof, testSRS)
+		Verify(&comm, &openingProof, benchSRS)
 	}
 }
 
 func BenchmarkKZGBatchOpen10(b *testing.B) {
+	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	if err != nil {
+		b.Fatal(err)
+	}
 	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
@@ -278,7 +293,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	// commitments
 	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
-		commitments[i], _ = Commit(ps[i], testSRS)
+		commitments[i], _ = Commit(ps[i], benchSRS)
 	}
 
 	var r fr.Element
@@ -286,11 +301,15 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain , testSRS)
+		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain , benchSRS)
 	}
 }
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
+	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	if err != nil {
+		b.Fatal(err)
+	}
 	domain := fft.NewDomain(uint64(benchSize), 0, false)
 
 	// 10 random polynomials
@@ -302,20 +321,20 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	// commitments
 	var commitments [10]Digest
 	for i := 0; i < 10; i++ {
-		commitments[i], _ = Commit(ps[i], testSRS)
+		commitments[i], _ = Commit(ps[i], benchSRS)
 	}
 
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := BatchOpenSinglePoint(ps[:], commitments[:],&r, domain, testSRS)
+	proof, err := BatchOpenSinglePoint(ps[:], commitments[:],&r, domain, benchSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchVerifySinglePoint(commitments[:], &proof, testSRS)
+		BatchVerifySinglePoint(commitments[:], &proof, benchSRS)
 	}
 }
 
@@ -328,4 +347,17 @@ func randomPolynomial(size int) polynomial.Polynomial {
 		f[i].SetRandom()
 	}
 	return f
+}
+
+
+func nextPowerOfTwo(_n int) int {
+	n := uint64(_n)
+	p := uint64(1)
+	if (n & (n - 1)) == 0 {
+		return _n
+	}
+	for p < n {
+		p <<= 1
+	}
+	return int(p)
 }
