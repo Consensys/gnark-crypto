@@ -264,24 +264,20 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 // commitments: list of commitments to the polynomials which are opened
 // batchOpeningProof: the batched opening proof at a single point of the polynomials.
 func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, srs *SRS) error {
-
 	nbDigests := len(digests)
 
-
 	// check consistancy between numbers of claims vs number of digests
-	if len(digests) != len(batchOpeningProof.ClaimedValues) {
+	if nbDigests != len(batchOpeningProof.ClaimedValues) {
 		return ErrInvalidNbDigests
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	err := fs.Bind("gamma", batchOpeningProof.Point.Marshal())
-	if err != nil {
-		return err
+	if err := fs.Bind("gamma", batchOpeningProof.Point.Marshal()); err != nil {
+		return err 
 	}
 	for i := 0; i < len(digests); i++ {
-		err := fs.Bind("gamma", digests[i].Marshal())
-		if err != nil {
+		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
 			return err
 		}
 	}
@@ -307,18 +303,15 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 	var acc fr.Element
 	acc.SetOne()
 	gammai := make([]fr.Element, len(digests))
-	gammai[0].SetOne().FromMont()
+	gammai[0][0] = 1 // 1 in regular form
 	for i := 1; i < len(digests); i++ {
 		acc.Mul(&acc, &gamma)
-		gammai[i].Set(&acc).FromMont()
+		gammai[i] = acc 
+		gammai[i].FromMont()
 	}
 	var sumGammaiTimesDigestsG1Aff {{ .CurvePackage }}.G1Affine
-	_digests := make([]{{ .CurvePackage }}.G1Affine, len(digests))
-	for i := 0; i < len(digests); i++ {
-		_digests[i].Set(&digests[i])
-	}
 
-	if _, err := sumGammaiTimesDigestsG1Aff.MultiExp(_digests, gammai,  ecc.MultiExpConfig{}); err != nil {
+	if _, err := sumGammaiTimesDigestsG1Aff.MultiExp(digests, gammai,  ecc.MultiExpConfig{}); err != nil {
 		return err 
 	}
 

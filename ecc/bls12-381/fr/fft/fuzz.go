@@ -21,6 +21,7 @@ package fft
 import (
 	"bytes"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
@@ -42,7 +43,7 @@ func Fuzz(data []byte) int {
 	if size > (1 << 15) {
 		size = 1 << 15
 	}
-	paddedSize := nextPowerOfTwo(uint64(size))
+	paddedSize := ecc.NextPowerOfTwo(uint64(size))
 	p1 := make([]fr.Element, paddedSize)
 	p2 := make([]fr.Element, paddedSize)
 	for i := 0; i < len(p1); i++ {
