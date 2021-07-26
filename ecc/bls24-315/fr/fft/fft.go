@@ -20,6 +20,7 @@ import (
 	"math/bits"
 	"runtime"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
@@ -80,7 +81,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(nextPowerOfTwo(numCPU))
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 	if numCPU <= 1 {
 		maxSplits = -1
 	}
@@ -106,7 +107,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(nextPowerOfTwo(numCPU))
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 	if numCPU <= 1 {
 		maxSplits = -1
 	}

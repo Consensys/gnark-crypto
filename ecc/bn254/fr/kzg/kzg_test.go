@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
@@ -33,7 +34,7 @@ var testSRS *SRS
 
 func init() {
 	const srsSize = 230
-	testSRS, _ = NewSRS(nextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
+	testSRS, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -232,7 +233,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {
-	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 }
 
 func BenchmarkKZGOpen(b *testing.B) {
-	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -264,7 +265,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 }
 
 func BenchmarkKZGVerify(b *testing.B) {
-	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -295,7 +296,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 }
 
 func BenchmarkKZGBatchOpen10(b *testing.B) {
-	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -323,7 +324,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 }
 
 func BenchmarkKZGBatchVerify10(b *testing.B) {
-	benchSRS, err := NewSRS(nextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -361,16 +362,4 @@ func randomPolynomial(size int) polynomial.Polynomial {
 		f[i].SetRandom()
 	}
 	return f
-}
-
-func nextPowerOfTwo(_n int) int {
-	n := uint64(_n)
-	p := uint64(1)
-	if (n & (n - 1)) == 0 {
-		return _n
-	}
-	for p < n {
-		p <<= 1
-	}
-	return int(p)
 }

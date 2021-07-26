@@ -52,7 +52,7 @@ type SRS struct {
 // In production, a SRS generated through MPC should be used.
 //
 // implements io.ReaderFrom and io.WriterTo
-func NewSRS(size int, bAlpha *big.Int) (*SRS, error) {
+func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	if size < 2 {
 		return nil, ErrMinSRSSize
 	}
