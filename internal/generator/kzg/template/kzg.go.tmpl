@@ -308,13 +308,15 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	
 	// compute sum_i gamma**i*f 
 	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
+	// note: if we are willing to paralellize that, we could clone the poly and scale them by
+	// gamma n in parallel, before reducing into sumGammaiTimesPol
 	sumGammaiTimesPol := make(polynomial.Polynomial, largestPoly, domain.Cardinality)
 	copy(sumGammaiTimesPol, polynomials[0])
 	gammaN := gamma
+	var pj fr.Element 
 	for i := 1; i < len(polynomials); i++ {
 		for j := 0; j < len(polynomials[i]); j++ {
-			pj := polynomials[i][j]
-			pj.Mul(&pj, &gammaN)
+			pj.Mul(&polynomials[i][j], &gammaN)
 			sumGammaiTimesPol[j].Add(&sumGammaiTimesPol[j], &pj)
 		}
 		// TODO @thomas check that we don't need to scale by gamma if polynmials[i] < largestPoly
@@ -451,7 +453,7 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 		var aNeg fr.Element
 		aNeg.Neg(&a)
 		for i := 0; i < m; i++ {
-			s[i].Sub(&d.Twiddles[0][i], &a)
+			s[i].Add(&d.Twiddles[0][i], &aNeg)
 			s[i+m].Sub(&aNeg, &d.Twiddles[0][i])
 		}
 
