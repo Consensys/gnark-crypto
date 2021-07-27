@@ -387,22 +387,13 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 
 		// we have d.Generator, d.Generator^2, d.Generator^3... computed in the d.Twiddles[0]
 		// as d.Generator^m = -d.Generator , we split the loop in 2 independent subarrays
-		chFirst := make(chan struct{}, 1)
-		go func() {
-			for i := 0; i < m; i++ {
-				s[i].Sub(&d.Twiddles[0][i], &a)
-			}
-			close(chFirst)
-		}()
-
-		// second part
 		var aNeg fr.Element
 		aNeg.Neg(&a)
 		for i := 0; i < m; i++ {
+			s[i].Sub(&d.Twiddles[0][i], &a)
 			s[i+m].Sub(&aNeg, &d.Twiddles[0][i])
 		}
 
-		<-chFirst
 		s = fr.BatchInvert(s)
 		close(chanS)
 	}()
