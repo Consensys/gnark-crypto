@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"math/bits"
 	"runtime"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
@@ -251,27 +252,35 @@ func Verify(commitment *Digest, proof *OpeningProof, srs *SRS) error {
 // polynomials is the list of polynomials to open.
 func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest, point *fr.Element, domain *fft.Domain, srs *SRS) (BatchOpeningProof, error) {
 
+	// check for invalid sizes
 	nbDigests := len(digests)
 	if nbDigests != len(polynomials) {
 		return BatchOpeningProof{}, ErrInvalidNbDigests
 	}
-
-	var res BatchOpeningProof
-
-	// compute the purported values
-	res.ClaimedValues = make([]fr.Element, len(polynomials))
-	for i, p := range polynomials {
+	for _, p := range polynomials {
 		if len(p) == 0 || len(p) > len(srs.G1) {
 			return BatchOpeningProof{}, ErrInvalidPolynomialSize
 		}
 		if len(p) > int(domain.Cardinality) {
 			return BatchOpeningProof{}, ErrInvalidDomain
 		}
-		res.ClaimedValues[i] = p.Eval(point)
+	}
+
+	var res BatchOpeningProof
+
+	// compute the purported values
+	res.ClaimedValues = make([]fr.Element, len(polynomials))
+	var wg sync.WaitGroup
+	wg.Add(len(polynomials))
+	for i := 0; i < len(polynomials); i++ {
+		go func(at int) {
+			res.ClaimedValues[at] = polynomials[at].Eval(point)
+			wg.Done()
+		}(i)
 	}
 
 	// set the point at which the evaluation is done
-	res.Point.Set(point)
+	res.Point = *point
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
@@ -290,17 +299,29 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
 
-	// compute sum_i gamma**i*f and sum_i gamma**i*f(a)
-	sumGammaiTimesEval := res.ClaimedValues[nbDigests-1]
+	// compute sum_i gamma**i*f(a)
+	var sumGammaiTimesEval fr.Element
+	chSumGammai := make(chan struct{}, 1)
+	go func() {
+		// wait for polynomial evaluations to be completed (res.ClaimedValues)
+		wg.Wait()
+		sumGammaiTimesEval = res.ClaimedValues[nbDigests-1]
+		for i := nbDigests - 2; i >= 0; i-- {
+			sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
+				Add(&sumGammaiTimesEval, &res.ClaimedValues[i])
+		}
+		close(chSumGammai)
+	}()
+
+	// compute sum_i gamma**i*f
 	sumGammaiTimesPol := polynomials[nbDigests-1].Clone()
 	for i := nbDigests - 2; i >= 0; i-- {
-		sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
-			Add(&sumGammaiTimesEval, &res.ClaimedValues[i])
 		sumGammaiTimesPol.ScaleInPlace(&gamma)
 		sumGammaiTimesPol.Add(polynomials[i], sumGammaiTimesPol)
 	}
 
 	// compute H
+	<-chSumGammai
 	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 
 	res.H, err = Commit(h, srs)
