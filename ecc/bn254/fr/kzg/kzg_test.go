@@ -44,7 +44,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	domain := fft.NewDomain(pSize, 0, false)
 
 	// build random polynomial
-	pol := make(polynomial.Polynomial, pSize)
+	pol := make(polynomial.Polynomial, pSize, domain.Cardinality)
 	for i := 0; i < pSize; i++ {
 		pol[i].SetRandom()
 	}
@@ -54,19 +54,19 @@ func TestDividePolyByXminusA(t *testing.T) {
 	point.SetRandom()
 	evaluation := pol.Eval(&point)
 
+	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
+	var randPoint, xminusa fr.Element
+	randPoint.SetRandom()
+	polRandpoint := pol.Eval(&randPoint)
+	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
+
 	// compute f-f(a)/x-a
 	h := dividePolyByXminusA(domain, pol, evaluation, point)
+	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
 		t.Fatal("inconsistant size of quotient")
 	}
-
-	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
-	var randPoint, xminusa fr.Element
-	randPoint.SetRandom()
-
-	polRandpoint := pol.Eval(&randPoint)
-	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
 	hRandPoint := h.Eval(&randPoint)
 	xminusa.Sub(&randPoint, &point) // rand-point

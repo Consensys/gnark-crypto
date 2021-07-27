@@ -182,7 +182,10 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	h := dividePolyByXminusA(domain, p, res.ClaimedValue, res.Point)
+	_p := make(polynomial.Polynomial, domain.Cardinality)
+	copy(_p, p) // pad p to be size of domain.Cardinality
+	h := dividePolyByXminusA(domain, _p, res.ClaimedValue, res.Point)
+	_p = nil // h re-use this memory
 
 	// commit to H
 	hCommit, err := Commit(h, srs)
@@ -257,12 +260,16 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	if nbDigests != len(polynomials) {
 		return BatchOpeningProof{}, ErrInvalidNbDigests
 	}
+	largestPoly := -1
 	for _, p := range polynomials {
 		if len(p) == 0 || len(p) > len(srs.G1) {
 			return BatchOpeningProof{}, ErrInvalidPolynomialSize
 		}
 		if len(p) > int(domain.Cardinality) {
 			return BatchOpeningProof{}, ErrInvalidDomain
+		}
+		if len(p) > largestPoly {
+			largestPoly = len(p)
 		}
 	}
 
@@ -314,15 +321,24 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	}()
 
 	// compute sum_i gamma**i*f
-	sumGammaiTimesPol := polynomials[nbDigests-1].Clone()
-	for i := nbDigests - 2; i >= 0; i-- {
-		sumGammaiTimesPol.ScaleInPlace(&gamma)
-		sumGammaiTimesPol.Add(polynomials[i], sumGammaiTimesPol)
+	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
+	sumGammaiTimesPol := make(polynomial.Polynomial, largestPoly, domain.Cardinality)
+	copy(sumGammaiTimesPol, polynomials[0])
+	gammaN := gamma
+	for i := 1; i < len(polynomials); i++ {
+		for j := 0; j < len(polynomials[i]); j++ {
+			pj := polynomials[i][j]
+			pj.Mul(&pj, &gammaN)
+			sumGammaiTimesPol[j].Add(&sumGammaiTimesPol[j], &pj)
+		}
+		// TODO @thomas check that we don't need to scale by gamma if polynmials[i] < largestPoly
+		gammaN.Mul(&gammaN, &gamma)
 	}
 
 	// compute H
 	<-chSumGammai
 	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	sumGammaiTimesPol = nil // same memory as h
 
 	res.H, err = Commit(h, srs)
 	if err != nil {
@@ -430,6 +446,8 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 }
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
+// @preconditions: cap(f) must be d.Cardinality
+// f memory is re-used for the result
 func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
 
 	var s []fr.Element
@@ -454,25 +472,23 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 		close(chanS)
 	}()
 
-	// padd f so it has size d.Cardinality
-	_f := make([]fr.Element, d.Cardinality)
-	copy(_f, f)
-
 	// compute the quotient (f-f(a))/(x-a)
-	d.FFT(_f, fft.DIF, 0)
+	degree := len(f) - 1 // the result if of degree  deg(f)-1
+	f = f[:d.Cardinality]
+	d.FFT(f, fft.DIF, 0)
 
 	<-chanS
 
-	nn := uint64(64 - bits.TrailingZeros64(uint64(len(_f))))
-	parallel.Execute(len(_f), func(start, end int) {
+	nn := uint64(64 - bits.TrailingZeros64(uint64(len(f))))
+	parallel.Execute(len(f), func(start, end int) {
 		for i := start; i < end; i++ {
 			irev := bits.Reverse64(uint64(i)) >> nn
-			_f[i].Sub(&_f[i], &fa)
-			_f[i].Mul(&_f[i], &s[irev])
+			f[i].Sub(&f[i], &fa)
+			f[i].Mul(&f[i], &s[irev])
 		}
 	})
-	d.FFTInverse(_f, fft.DIT, 0)
+	d.FFTInverse(f, fft.DIT, 0)
 
 	// the result is of degree deg(f)-1
-	return _f[:len(f)-1]
+	return f[:degree]
 }
