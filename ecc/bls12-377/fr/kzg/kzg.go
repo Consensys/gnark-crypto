@@ -19,6 +19,7 @@ package kzg
 import (
 	"errors"
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377"
@@ -378,14 +379,30 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 	var s []fr.Element
 	chanS := make(chan struct{}, 1)
 
+	// compute s = 1 / (x-a)
 	go func() {
-		accumulator := fr.One()
+		// TODO @gbotrel on large inputs, using parallel.Execute with all cores may be beneficial
 		s = make([]fr.Element, d.Cardinality)
-		for i := 0; i < len(s); i++ {
-			s[i].Sub(&accumulator, &a)
-			accumulator.Mul(&accumulator, &d.Generator)
+		m := len(s) / 2
+
+		// we have d.Generator, d.Generator^2, d.Generator^3... computed in the d.Twiddles[0]
+		// as d.Generator^m = -d.Generator , we split the loop in 2 independent subarrays
+		chFirst := make(chan struct{}, 1)
+		go func() {
+			for i := 0; i < m; i++ {
+				s[i].Sub(&d.Twiddles[0][i], &a)
+			}
+			close(chFirst)
+		}()
+
+		// second part
+		var aNeg fr.Element
+		aNeg.Neg(&a)
+		for i := 0; i < m; i++ {
+			s[i+m].Sub(&aNeg, &d.Twiddles[0][i])
 		}
-		fft.BitReverse(s)
+
+		<-chFirst
 		s = fr.BatchInvert(s)
 		close(chanS)
 	}()
@@ -399,10 +416,12 @@ func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Elemen
 
 	<-chanS
 
+	nn := uint64(64 - bits.TrailingZeros64(uint64(len(_f))))
 	parallel.Execute(len(_f), func(start, end int) {
 		for i := start; i < end; i++ {
+			irev := bits.Reverse64(uint64(i)) >> nn
 			_f[i].Sub(&_f[i], &fa)
-			_f[i].Mul(&_f[i], &s[i])
+			_f[i].Mul(&_f[i], &s[irev])
 		}
 	})
 	d.FFTInverse(_f, fft.DIT, 0)
