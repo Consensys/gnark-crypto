@@ -182,8 +182,8 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	_p := make(polynomial.Polynomial, domain.Cardinality)
-	copy(_p, p) // pad p to be size of domain.Cardinality
+	_p := make(polynomial.Polynomial, len(p), domain.Cardinality)
+	copy(_p, p)
 	h := dividePolyByXminusA(domain, _p, res.ClaimedValue, res.Point)
 	_p = nil // h re-use this memory
 
