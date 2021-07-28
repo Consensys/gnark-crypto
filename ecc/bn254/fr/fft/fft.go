@@ -165,7 +165,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
 		defer func() {
-			chDone <- struct{}{}
+			close(chDone)
 		}()
 	}
 	n := len(a)
@@ -227,7 +227,7 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
 		defer func() {
-			chDone <- struct{}{}
+			close(chDone)
 		}()
 	}
 	n := len(a)
