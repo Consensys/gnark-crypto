@@ -439,24 +439,33 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // f memory is re-used for the result
 func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
 
-	var s []fr.Element
-	chanS := make(chan struct{}, 1)
 	
+	
+	
+	
+	// TODO @gbotrel on large inputs, using parallel.Execute with all cores may be beneficial
+	s := make([]fr.Element, d.Cardinality)
+	m := len(s) / 2
+
 	// compute s = 1 / (x-a)
-	go func() {
-		// TODO @gbotrel on large inputs, using parallel.Execute with all cores may be beneficial
-		s = make([]fr.Element, d.Cardinality)
-		m := len(s) / 2
-
-		// we have d.Generator, d.Generator^2, d.Generator^3... computed in the d.Twiddles[0]
-		// as d.Generator^m = -d.Generator , we split the loop in 2 independent subarrays
-		var aNeg fr.Element
-		aNeg.Neg(&a)
-		for i := 0; i < m; i++ {
-			s[i].Add(&d.Twiddles[0][i], &aNeg)
-			s[i+m].Sub(&aNeg, &d.Twiddles[0][i])
+	// we have d.Generator, d.Generator^2, d.Generator^3... computed in the d.Twiddles[0]
+	// as d.Generator^m = -d.Generator , we split the loop in 2 independent subarrays
+	copy(s[:m],d.Twiddles[0])
+	copy(s[m:],d.Twiddles[0])
+	var aNeg fr.Element
+	aNeg.Neg(&a)
+	parallel.Execute(len(s), func(start, end int) {
+		for i := start; i < end; i++ {
+			if i < m {
+				s[i].Sub(&s[i], &a)
+			} else {
+				s[i].Sub(&aNeg, &s[i])
+			}
 		}
+	})
 
+	chanS := make(chan struct{}, 1)
+	go func() {
 		s = fr.BatchInvert(s)
 		close(chanS)
 	}()
