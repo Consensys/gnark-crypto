@@ -21,9 +21,13 @@ import (
 	"io"
 )
 
-// Bytes returns the binary representation of pk
-// as x||y where x, y are the coordinates of the point
+// Bytes returns the binary representation of the public key
+// follows https://tools.ietf.org/html/rfc8032#section-3.1
+// and returns a compressed representation of the point (x,y)
+//
+// x, y are the coordinates of the point
 // on the twisted Edwards as big endian integers.
+// compressed representation store x with a parity bit to recompute y
 func (pk *PublicKey) Bytes() []byte {
 	var res [sizePublicKey]byte
 	pkBin := pk.A.Bytes()
