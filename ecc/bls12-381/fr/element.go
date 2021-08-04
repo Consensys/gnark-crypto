@@ -125,7 +125,7 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case []byte:
 		return z.SetBytes(c1), nil
 	default:
-		return nil, errors.New("can't set Element from" + reflect.TypeOf(i1).String() + " value must be of type Element, *Element, uint64, int, string (interpreted as base10 integer), *big.Int, big.Int, []byte")
+		return nil, errors.New("can't set fr.Element from type " + reflect.TypeOf(i1).String())
 	}
 }
 
