@@ -25,9 +25,11 @@ package fp
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"io"
 	"math/big"
 	"math/bits"
+	"reflect"
 	"strconv"
 	"sync"
 )
@@ -103,28 +105,30 @@ func (z *Element) Set(x *Element) *Element {
 	return z
 }
 
-// SetInterface converts i1 from uint64, int, string, or Element, big.Int into Element
-// panic if provided type is not supported
-func (z *Element) SetInterface(i1 interface{}) *Element {
+// SetInterface converts provided interface into Element
+// returns an error if provided type is not supported
+// supported types: Element, *Element, uint64, int, string (interpreted as base10 integer),
+// *big.Int, big.Int, []byte
+func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	switch c1 := i1.(type) {
 	case Element:
-		return z.Set(&c1)
+		return z.Set(&c1), nil
 	case *Element:
-		return z.Set(c1)
+		return z.Set(c1), nil
 	case uint64:
-		return z.SetUint64(c1)
+		return z.SetUint64(c1), nil
 	case int:
-		return z.SetString(strconv.Itoa(c1))
+		return z.SetString(strconv.Itoa(c1)), nil
 	case string:
-		return z.SetString(c1)
+		return z.SetString(c1), nil
 	case *big.Int:
-		return z.SetBigInt(c1)
+		return z.SetBigInt(c1), nil
 	case big.Int:
-		return z.SetBigInt(&c1)
+		return z.SetBigInt(&c1), nil
 	case []byte:
-		return z.SetBytes(c1)
+		return z.SetBytes(c1), nil
 	default:
-		panic("invalid type")
+		return nil, errors.New("can't set Element from" + reflect.TypeOf(i1).String() + " value must be of type Element, *Element, uint64, int, string (interpreted as base10 integer), *big.Int, big.Int, []byte")
 	}
 }
 
