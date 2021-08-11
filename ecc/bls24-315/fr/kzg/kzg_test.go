@@ -230,6 +230,62 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 }
 
+func TestBatchVerifyMultiPoints(t *testing.T) {
+
+	domain := fft.NewDomain(64, 0, false)
+
+	// create polynomials
+	f := make([]polynomial.Polynomial, 10)
+	for i := 0; i < 10; i++ {
+		f[i] = randomPolynomial(60)
+	}
+
+	// commit the polynomials
+	digests := make([]Digest, 10)
+	for i := 0; i < 10; i++ {
+		digests[i], _ = Commit(f[i], testSRS)
+
+	}
+
+	// compute 2 batch opening proofs at 2 random points
+	points := make([]fr.Element, 2)
+	batchProofs := make([]BatchOpeningProof, 2)
+	points[0].SetRandom()
+	batchProofs[0], _ = BatchOpenSinglePoint(f[:5], digests[:5], &points[0], domain, testSRS)
+	points[1].SetRandom()
+	batchProofs[1], _ = BatchOpenSinglePoint(f[5:], digests[5:], &points[1], domain, testSRS)
+
+	// fold the 2 batch opening proofs
+	proofs := make([]OpeningProof, 2)
+	foldedDigests := make([]Digest, 2)
+	proofs[0], foldedDigests[0], _ = FoldProof(digests[:5], &batchProofs[0])
+	proofs[1], foldedDigests[1], _ = FoldProof(digests[5:], &batchProofs[1])
+
+	// check the the individual batch proofs are correct
+	err := Verify(&foldedDigests[0], &proofs[0], testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Verify(&foldedDigests[1], &proofs[1], testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// batch verify correct folded proofs
+	err = BatchVerifyMultiPoints(foldedDigests, proofs, testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// batch verify tampered folded proofs
+	proofs[0].ClaimedValue.Double(&proofs[0].ClaimedValue)
+	err = BatchVerifyMultiPoints(foldedDigests, proofs, testSRS)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+}
+
 const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {

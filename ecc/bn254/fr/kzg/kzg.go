@@ -288,21 +288,10 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	res.Point = *point
 
 	// derive the challenge gamma, binded to the point and the commitments
-	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	if err := fs.Bind("gamma", res.Point.Marshal()); err != nil {
-		return BatchOpeningProof{}, err
-	}
-	for i := 0; i < len(digests); i++ {
-		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
-			return BatchOpeningProof{}, err
-		}
-	}
-	gammaByte, err := fs.ComputeChallenge("gamma")
+	gamma, err := deriveGamma(res.Point, digests)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
-	var gamma fr.Element
-	gamma.SetBytes(gammaByte)
 
 	// compute sum_i gamma**i*f(a)
 	var sumGammaiTimesEval fr.Element
@@ -348,101 +337,186 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	return res, nil
 }
 
-// BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
-// point: point at which the polynomials are evaluated
-// claimedValues: claimed values of the polynomials at _val
-// commitments: list of commitments to the polynomials which are opened
-// batchOpeningProof: the batched opening proof at a single point of the polynomials.
-func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, srs *SRS) error {
+// FoldProof fold the digests and the proofs in batchOpeningProof using Fiat Shamir
+// to obtain an opening proof at a single point.
+//
+// * digests list of digests on which batchOpeningProof is based
+// * batchOpeningProof opening proof of digests
+// * returns the folded version of batchOpeningProof, Digest, the folded version of digests
+func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof) (OpeningProof, Digest, error) {
+
 	nbDigests := len(digests)
 
 	// check consistancy between numbers of claims vs number of digests
 	if nbDigests != len(batchOpeningProof.ClaimedValues) {
-		return ErrInvalidNbDigests
+		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
-	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
-	if err := fs.Bind("gamma", batchOpeningProof.Point.Marshal()); err != nil {
-		return err
+	gamma, err := deriveGamma(batchOpeningProof.Point, digests)
+	if err != nil {
+		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
-	for i := 0; i < len(digests); i++ {
-		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
-			return err
-		}
+
+	// fold the claimed values and digests
+	gammai := make([]fr.Element, nbDigests)
+	gammai[0].SetOne()
+	for i := 1; i < nbDigests; i++ {
+		gammai[i].Mul(&gammai[i-1], &gamma)
 	}
-	gammaByte, err := fs.ComputeChallenge("gamma")
+	foldedDigests, foldedEvaluations := fold(digests, batchOpeningProof.ClaimedValues, gammai)
+
+	// create the folded opening proof
+	var res OpeningProof
+	res.ClaimedValue.Set(&foldedEvaluations)
+	res.H.Set(&batchOpeningProof.H)
+	res.Point.Set(&batchOpeningProof.Point)
+
+	return res, foldedDigests, nil
+}
+
+// BatchVerifySinglePoint verifies a batched opening proof at a single point of a list of polynomials.
+//
+// * digests list of digests on which opening proof is done
+// * batchOpeningProof proof of correct opening on the digests
+func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, srs *SRS) error {
+
+	// fold the proof
+	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof)
 	if err != nil {
 		return err
 	}
-	var gamma fr.Element
-	gamma.SetBytes(gammaByte)
 
-	var sumGammaiTimesEval fr.Element
-	sumGammaiTimesEval.Set(&batchOpeningProof.ClaimedValues[nbDigests-1])
-	for i := nbDigests - 2; i >= 0; i-- {
-		sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
-			Add(&sumGammaiTimesEval, &batchOpeningProof.ClaimedValues[i])
+	// verify the foldedProof againts the foldedDigest
+	err = Verify(&foldedDigest, &foldedProof, srs)
+	return err
+
+}
+
+// BatchVerifyMultiPoints batch verifies a list of opening proofs at different points.
+// The purpose of the batching is to have only one pairing for verifying several proofs.
+//
+// * digests list of committed polynomials which are opened
+// * proofs list of opening proofs of the digest
+func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, srs *SRS) error {
+
+	// check consistancy nb proogs vs nb digests
+	if len(digests) != len(proofs) {
+		return ErrInvalidNbDigests
 	}
 
-	var sumGammaiTimesEvalBigInt big.Int
-	sumGammaiTimesEval.ToBigIntRegular(&sumGammaiTimesEvalBigInt)
-	var sumGammaiTimesEvalG1Aff bn254.G1Affine
-	sumGammaiTimesEvalG1Aff.ScalarMultiplication(&srs.G1[0], &sumGammaiTimesEvalBigInt)
-
-	var acc fr.Element
-	acc.SetOne()
-	gammai := make([]fr.Element, len(digests))
-	gammai[0][0] = 1 // 1 in regular form
-	for i := 1; i < len(digests); i++ {
-		acc.Mul(&acc, &gamma)
-		gammai[i] = acc
-		gammai[i].FromMont()
-	}
-	var sumGammaiTimesDigestsG1Aff bn254.G1Affine
-
-	if _, err := sumGammaiTimesDigestsG1Aff.MultiExp(digests, gammai, ecc.MultiExpConfig{}); err != nil {
-		return err
+	// if only one digest, call Verify
+	if len(digests) == 1 {
+		return Verify(&digests[0], &proofs[0], srs)
 	}
 
-	// sum_i [gamma**i * (f-f(a))]G1
-	var sumGammiDiffG1Aff bn254.G1Affine
-	var t1, t2 bn254.G1Jac
-	t1.FromAffine(&sumGammaiTimesDigestsG1Aff)
-	t2.FromAffine(&sumGammaiTimesEvalG1Aff)
-	t1.SubAssign(&t2)
-	sumGammiDiffG1Aff.FromJacobian(&t1)
+	// sample random numbers for sampling
+	randomNumbers := make([]fr.Element, len(digests))
+	randomNumbers[0].SetOne()
+	for i := 1; i < len(randomNumbers); i++ {
+		randomNumbers[i].SetRandom()
+	}
 
-	// [alpha-a]G2Jac
-	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bn254.G2Jac
-	var pointBigInt big.Int
-	batchOpeningProof.Point.ToBigIntRegular(&pointBigInt)
-	genG2Jac.FromAffine(&srs.G2[0])
-	alphaG2Jac.FromAffine(&srs.G2[1])
-	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
-		Neg(&alphaMinusaG2Jac).
-		AddAssign(&alphaG2Jac)
+	// combine random_i*quotient_i
+	var foldedQuotients bn254.G1Affine
+	quotients := make([]bn254.G1Affine, len(proofs))
+	for i := 0; i < len(randomNumbers); i++ {
+		quotients[i].Set(&proofs[i].H)
+	}
+	config := ecc.MultiExpConfig{ScalarsMont: true}
+	foldedQuotients.MultiExp(quotients, randomNumbers, config)
 
-	// [alpha-a]G2Aff
-	var xminusaG2Aff bn254.G2Affine
-	xminusaG2Aff.FromJacobian(&alphaMinusaG2Jac)
+	// fold digests and evals
+	evals := make([]fr.Element, len(digests))
+	for i := 0; i < len(randomNumbers); i++ {
+		evals[i].Set(&proofs[i].ClaimedValue)
+	}
+	foldedDigests, foldedEvals := fold(digests, evals, randomNumbers)
 
-	// [-H(alpha)]G1Aff
-	var negH bn254.G1Affine
-	negH.Neg(&batchOpeningProof.H)
+	// compute commitment to folded Eval
+	var foldedEvalsCommit bn254.G1Affine
+	var foldedEvalsBigInt big.Int
+	foldedEvals.ToBigIntRegular(&foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
 
-	// check the pairing equation
+	// compute F = foldedDigests - foldedEvalsCommit
+	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)
+
+	// combine random_i*(point_i*quotient_i)
+	var foldedPointsQuotients bn254.G1Affine
+	for i := 0; i < len(randomNumbers); i++ {
+		randomNumbers[i].Mul(&randomNumbers[i], &proofs[i].Point)
+	}
+	foldedPointsQuotients.MultiExp(quotients, randomNumbers, config)
+
+	// lhs first pairing
+	foldedDigests.Add(&foldedDigests, &foldedPointsQuotients)
+
+	// lhs second pairing
+	foldedQuotients.Neg(&foldedQuotients)
+
+	// pairing check
 	check, err := bn254.PairingCheck(
-		[]bn254.G1Affine{sumGammiDiffG1Aff, negH},
-		[]bn254.G2Affine{srs.G2[0], xminusaG2Aff},
+		[]bn254.G1Affine{foldedDigests, foldedQuotients},
+		[]bn254.G2Affine{srs.G2[0], srs.G2[1]},
 	)
 	if err != nil {
 		return err
 	}
 	if !check {
-		return ErrVerifyBatchOpeningSinglePoint
+		return ErrVerifyOpeningProof
 	}
 	return nil
+
+}
+
+// fold folds digests and evaluations using the list of factors as random numbers.
+//
+// * digests list of digests to fold
+// * evaluations list of evaluations to fold
+// * factors list of multiplicative factors used for the folding (in Montgomery form)
+func fold(digests []Digest, evaluations []fr.Element, factors []fr.Element) (Digest, fr.Element) {
+
+	// length inconsistancy between digests and evaluations should have been done before calling this function
+	nbDigests := len(digests)
+
+	// fold the claimed values
+	var foldedEvaluations, tmp fr.Element
+	for i := 0; i < nbDigests; i++ {
+		tmp.Mul(&evaluations[i], &factors[i])
+		foldedEvaluations.Add(&foldedEvaluations, &tmp)
+	}
+
+	// fold the digests
+	var foldedDigests Digest
+	foldedDigests.MultiExp(digests, factors, ecc.MultiExpConfig{ScalarsMont: true})
+
+	// folding done
+	return foldedDigests, foldedEvaluations
+
+}
+
+// deriveGamma derives a challenge using Fiat Shamir to fold proofs.
+func deriveGamma(point fr.Element, digests []Digest) (fr.Element, error) {
+
+	// derive the challenge gamma, binded to the point and the commitments
+	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
+	if err := fs.Bind("gamma", point.Marshal()); err != nil {
+		return fr.Element{}, err
+	}
+	for i := 0; i < len(digests); i++ {
+		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
+			return fr.Element{}, err
+		}
+	}
+	gammaByte, err := fs.ComputeChallenge("gamma")
+	if err != nil {
+		return fr.Element{}, err
+	}
+	var gamma fr.Element
+	gamma.SetBytes(gammaByte)
+
+	return gamma, nil
 }
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form

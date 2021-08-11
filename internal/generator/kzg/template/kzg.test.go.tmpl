@@ -12,7 +12,7 @@ import (
 )
 
 // testSRS re-used accross tests of the KZG scheme
-var testSRS *SRS 
+var testSRS *SRS
 
 func init() {
 	const srsSize = 230
@@ -30,8 +30,6 @@ func TestDividePolyByXminusA(t *testing.T) {
 	for i := 0; i < pSize; i++ {
 		pol[i].SetRandom()
 	}
-
-
 
 	// evaluate the polynomial at a random point
 	var point fr.Element
@@ -51,7 +49,6 @@ func TestDividePolyByXminusA(t *testing.T) {
 	if len(h) != 229 {
 		t.Fatal("inconsistant size of quotient")
 	}
-
 
 	hRandPoint := h.Eval(&randPoint)
 	xminusa.Sub(&randPoint, &point) // rand-point
@@ -106,7 +103,7 @@ func TestCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var kzgCommit {{ .CurvePackage }}.G1Affine
+	var kzgCommit {{ .CurvePackage}}.G1Affine
 	kzgCommit.Unmarshal(_kzgCommit.Marshal())
 
 	// check commitment using manual commit
@@ -115,7 +112,7 @@ func TestCommit(t *testing.T) {
 	fx := f.Eval(&x)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
-	var manualCommit {{ .CurvePackage }}.G1Affine
+	var manualCommit {{ .CurvePackage}}.G1Affine
 	manualCommit.Set(&testSRS.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
@@ -215,8 +212,63 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 }
 
-const benchSize = 1 << 16
+func TestBatchVerifyMultiPoints(t *testing.T) {
 
+	domain := fft.NewDomain(64, 0, false)
+
+	// create polynomials
+	f := make([]polynomial.Polynomial, 10)
+	for i := 0; i < 10; i++ {
+		f[i] = randomPolynomial(60)
+	}
+
+	// commit the polynomials
+	digests := make([]Digest, 10)
+	for i := 0; i < 10; i++ {
+		digests[i], _ = Commit(f[i], testSRS)
+
+	}
+
+	// compute 2 batch opening proofs at 2 random points
+	points := make([]fr.Element, 2)
+	batchProofs := make([]BatchOpeningProof, 2)
+	points[0].SetRandom()
+	batchProofs[0], _ = BatchOpenSinglePoint(f[:5], digests[:5], &points[0], domain, testSRS)
+	points[1].SetRandom()
+	batchProofs[1], _ = BatchOpenSinglePoint(f[5:], digests[5:], &points[1], domain, testSRS)
+
+	// fold the 2 batch opening proofs
+	proofs := make([]OpeningProof, 2)
+	foldedDigests := make([]Digest, 2)
+	proofs[0], foldedDigests[0], _ = FoldProof(digests[:5], &batchProofs[0])
+	proofs[1], foldedDigests[1], _ = FoldProof(digests[5:], &batchProofs[1])
+
+	// check the the individual batch proofs are correct
+	err := Verify(&foldedDigests[0], &proofs[0], testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Verify(&foldedDigests[1], &proofs[1], testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// batch verify correct folded proofs
+	err = BatchVerifyMultiPoints(foldedDigests, proofs, testSRS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// batch verify tampered folded proofs
+	proofs[0].ClaimedValue.Double(&proofs[0].ClaimedValue)
+	err = BatchVerifyMultiPoints(foldedDigests, proofs, testSRS)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+}
+
+const benchSize = 1 << 16
 
 func BenchmarkKZGCommit(b *testing.B) {
 	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
@@ -305,7 +357,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain , benchSRS)
+		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, benchSRS)
 	}
 }
 
@@ -331,7 +383,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := BatchOpenSinglePoint(ps[:], commitments[:],&r, domain, benchSRS)
+	proof, err := BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, benchSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -341,7 +393,6 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 		BatchVerifySinglePoint(commitments[:], &proof, benchSRS)
 	}
 }
-
 
 func randomPolynomial(size int) polynomial.Polynomial {
 	f := make(polynomial.Polynomial, size)
