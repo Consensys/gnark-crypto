@@ -320,7 +320,6 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 			pj.Mul(&polynomials[i][j], &gammaN)
 			sumGammaiTimesPol[j].Add(&sumGammaiTimesPol[j], &pj)
 		}
-		// TODO @thomas check that we don't need to scale by gamma if polynmials[i] < largestPoly
 		gammaN.Mul(&gammaN, &gamma)
 	}
 

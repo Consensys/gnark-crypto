@@ -189,7 +189,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
 	for i := 0; i < 10; i++ {
-		f[i] = randomPolynomial(60)
+		f[i] = randomPolynomial(40 + 2*i)
 	}
 
 	// commit the polynomials
@@ -237,7 +237,7 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
 	for i := 0; i < 10; i++ {
-		f[i] = randomPolynomial(60)
+		f[i] = randomPolynomial(40 + 2*i)
 	}
 
 	// commit the polynomials
