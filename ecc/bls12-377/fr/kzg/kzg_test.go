@@ -245,6 +245,27 @@ func BenchmarkKZGCommit(b *testing.B) {
 	}
 }
 
+func BenchmarkDivideByXMinusA(b *testing.B) {
+	const pSize = 1 << 22
+
+	// build random polynomial
+	pol := make(polynomial.Polynomial, pSize)
+	pol[0].SetRandom()
+	for i := 1; i < pSize; i++ {
+		pol[i] = pol[i-1]
+	}
+	var a, fa fr.Element
+	a.SetRandom()
+	fa.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dividePolyByXminusA(pol, fa, a)
+		pol = pol[:pSize]
+		pol[pSize-1] = pol[0]
+	}
+}
+
 func BenchmarkKZGOpen(b *testing.B) {
 	benchSRS, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 	if err != nil {

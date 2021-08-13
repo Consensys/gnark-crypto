@@ -435,22 +435,18 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
 // f memory is re-used for the result
 func dividePolyByXminusA(f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
-	degree  := len(f) - 1 // the result if of degree  deg(f)-1
-
 	// first we compute f-f(a)
 	f[0].Sub(&f[0], &fa)
 
 	// now we use syntetic division to divide by x-a
-	// TODO check with large polynomials, we may want to parallelize this 
-	var c, t fr.Element
-	for i := len(f) - 1; i >= 0; i-- {
-		t.Mul(&c, &a)
+	var t fr.Element
+	for i := len(f) - 2; i >= 0; i-- {
+		t.Mul(&f[i+1], &a)
 		f[i].Add(&f[i], &t)
-		c, f[i] = f[i], c
 	}
 
 	// the result is of degree deg(f)-1
-	return f[:degree]
+	return f[1:]
 }
 
 
