@@ -35,6 +35,8 @@ func fromMont(res *{{.ElementName}})
 //go:noescape
 func reduce(res *{{.ElementName}})
 
+//go:noescape
+func Butterfly(a, b *{{.ElementName}})
 
 {{end}}
 

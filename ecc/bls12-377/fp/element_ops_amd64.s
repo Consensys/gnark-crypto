@@ -372,3 +372,81 @@ TEXT ·MulBy13(SB), $40-8
 	MOVQ DI, 32(AX)
 	MOVQ R8, 40(AX)
 	RET
+
+// Butterfly(a, b *Element) sets a = a + b; b = a - b
+TEXT ·Butterfly(SB), $48-16
+	MOVQ    a+0(FP), AX
+	MOVQ    0(AX), CX
+	MOVQ    8(AX), BX
+	MOVQ    16(AX), SI
+	MOVQ    24(AX), DI
+	MOVQ    32(AX), R8
+	MOVQ    40(AX), R9
+	MOVQ    CX, R10
+	MOVQ    BX, R11
+	MOVQ    SI, R12
+	MOVQ    DI, R13
+	MOVQ    R8, R14
+	MOVQ    R9, R15
+	XORQ    AX, AX
+	MOVQ    b+8(FP), DX
+	ADDQ    0(DX), CX
+	ADCQ    8(DX), BX
+	ADCQ    16(DX), SI
+	ADCQ    24(DX), DI
+	ADCQ    32(DX), R8
+	ADCQ    40(DX), R9
+	SUBQ    0(DX), R10
+	SBBQ    8(DX), R11
+	SBBQ    16(DX), R12
+	SBBQ    24(DX), R13
+	SBBQ    32(DX), R14
+	SBBQ    40(DX), R15
+	MOVQ    CX, s0-8(SP)
+	MOVQ    BX, s1-16(SP)
+	MOVQ    SI, s2-24(SP)
+	MOVQ    DI, s3-32(SP)
+	MOVQ    R8, s4-40(SP)
+	MOVQ    R9, s5-48(SP)
+	MOVQ    $0x8508c00000000001, CX
+	MOVQ    $0x170b5d4430000000, BX
+	MOVQ    $0x1ef3622fba094800, SI
+	MOVQ    $0x1a22d9f300f5138f, DI
+	MOVQ    $0xc63b05c06ca1493b, R8
+	MOVQ    $0x01ae3a4617c510ea, R9
+	CMOVQCC AX, CX
+	CMOVQCC AX, BX
+	CMOVQCC AX, SI
+	CMOVQCC AX, DI
+	CMOVQCC AX, R8
+	CMOVQCC AX, R9
+	ADDQ    CX, R10
+	ADCQ    BX, R11
+	ADCQ    SI, R12
+	ADCQ    DI, R13
+	ADCQ    R8, R14
+	ADCQ    R9, R15
+	MOVQ    s0-8(SP), CX
+	MOVQ    s1-16(SP), BX
+	MOVQ    s2-24(SP), SI
+	MOVQ    s3-32(SP), DI
+	MOVQ    s4-40(SP), R8
+	MOVQ    s5-48(SP), R9
+	MOVQ    R10, 0(DX)
+	MOVQ    R11, 8(DX)
+	MOVQ    R12, 16(DX)
+	MOVQ    R13, 24(DX)
+	MOVQ    R14, 32(DX)
+	MOVQ    R15, 40(DX)
+
+	// reduce element(CX,BX,SI,DI,R8,R9) using temp registers (R10,R11,R12,R13,R14,R15)
+	REDUCE(CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,R15)
+
+	MOVQ a+0(FP), AX
+	MOVQ CX, 0(AX)
+	MOVQ BX, 8(AX)
+	MOVQ SI, 16(AX)
+	MOVQ DI, 24(AX)
+	MOVQ R8, 32(AX)
+	MOVQ R9, 40(AX)
+	RET

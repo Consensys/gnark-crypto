@@ -1200,6 +1200,12 @@ func BatchInvert(a []Element) []Element {
 	return res
 }
 
+func _butterflyGeneric(a, b *Element) {
+	t := *a
+	a.Add(a, b)
+	b.Sub(&t, b)
+}
+
 // Exp z = x^exponent mod q
 func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 	var bZero big.Int

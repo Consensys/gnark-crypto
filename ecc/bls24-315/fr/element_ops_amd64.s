@@ -290,3 +290,51 @@ TEXT ·MulBy13(SB), NOSPLIT, $0-8
 	MOVQ BX, 16(AX)
 	MOVQ SI, 24(AX)
 	RET
+
+// Butterfly(a, b *Element) sets a = a + b; b = a - b
+TEXT ·Butterfly(SB), NOSPLIT, $0-16
+	MOVQ    a+0(FP), AX
+	MOVQ    0(AX), CX
+	MOVQ    8(AX), BX
+	MOVQ    16(AX), SI
+	MOVQ    24(AX), DI
+	MOVQ    CX, R8
+	MOVQ    BX, R9
+	MOVQ    SI, R10
+	MOVQ    DI, R11
+	XORQ    AX, AX
+	MOVQ    b+8(FP), DX
+	ADDQ    0(DX), CX
+	ADCQ    8(DX), BX
+	ADCQ    16(DX), SI
+	ADCQ    24(DX), DI
+	SUBQ    0(DX), R8
+	SBBQ    8(DX), R9
+	SBBQ    16(DX), R10
+	SBBQ    24(DX), R11
+	MOVQ    $0x19d0c5fd00c00001, R12
+	MOVQ    $0xc8c480ece644e364, R13
+	MOVQ    $0x25fc7ec9cf927a98, R14
+	MOVQ    $0x196deac24a9da12b, R15
+	CMOVQCC AX, R12
+	CMOVQCC AX, R13
+	CMOVQCC AX, R14
+	CMOVQCC AX, R15
+	ADDQ    R12, R8
+	ADCQ    R13, R9
+	ADCQ    R14, R10
+	ADCQ    R15, R11
+	MOVQ    R8, 0(DX)
+	MOVQ    R9, 8(DX)
+	MOVQ    R10, 16(DX)
+	MOVQ    R11, 24(DX)
+
+	// reduce element(CX,BX,SI,DI) using temp registers (R8,R9,R10,R11)
+	REDUCE(CX,BX,SI,DI,R8,R9,R10,R11)
+
+	MOVQ a+0(FP), AX
+	MOVQ CX, 0(AX)
+	MOVQ BX, 8(AX)
+	MOVQ SI, 16(AX)
+	MOVQ DI, 24(AX)
+	RET

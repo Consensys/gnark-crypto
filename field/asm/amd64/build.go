@@ -167,6 +167,9 @@ func Generate(w io.Writer, F *field.Field) error {
 	f.generateMulBy5()
 	f.generateMulBy13()
 
+	// fft butterflies
+	f.generateButterfly()
+
 	return nil
 }
 
