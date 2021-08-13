@@ -164,12 +164,14 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 
 func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
-		defer func() {
-			close(chDone)
-		}()
+		defer close(chDone)
 	}
+
 	n := len(a)
 	if n == 1 {
+		return
+	} else if n == 8 {
+		kerDIF8(a, twiddles, stage)
 		return
 	}
 	m := n >> 1
@@ -180,31 +182,17 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		// 1 << stage == estimated used CPUs
 		numCPU := runtime.NumCPU() / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
-			var t fr.Element
 			for i := start; i < end; i++ {
-				t = a[i]
-				a[i].Add(&a[i], &a[i+m])
-
-				a[i+m].
-					Sub(&t, &a[i+m]).
-					Mul(&a[i+m], &twiddles[stage][i])
+				fr.Butterfly(&a[i], &a[i+m])
+				a[i+m].Mul(&a[i+m], &twiddles[stage][i])
 			}
 		}, numCPU)
 	} else {
-		var t fr.Element
-
 		// i == 0
-		t = a[0]
-		a[0].Add(&a[0], &a[m])
-		a[m].Sub(&t, &a[m])
-
+		fr.Butterfly(&a[0], &a[m])
 		for i := 1; i < m; i++ {
-			t = a[i]
-			a[i].Add(&a[i], &a[i+m])
-
-			a[i+m].
-				Sub(&t, &a[i+m]).
-				Mul(&a[i+m], &twiddles[stage][i])
+			fr.Butterfly(&a[i], &a[i+m])
+			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
 		}
 	}
 
@@ -222,16 +210,18 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
 		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil)
 	}
+
 }
 
 func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
-		defer func() {
-			close(chDone)
-		}()
+		defer close(chDone)
 	}
 	n := len(a)
 	if n == 1 {
+		return
+	} else if n == 8 {
+		kerDIT8(a, twiddles, stage)
 		return
 	}
 	m := n >> 1
@@ -256,28 +246,17 @@ func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		// 1 << stage == estimated used CPUs
 		numCPU := runtime.NumCPU() / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
-			var t, tm fr.Element
 			for k := start; k < end; k++ {
-				t = a[k]
-				tm.Mul(&a[k+m], &twiddles[stage][k])
-				a[k].Add(&a[k], &tm)
-				a[k+m].Sub(&t, &tm)
+				a[k+m].Mul(&a[k+m], &twiddles[stage][k])
+				fr.Butterfly(&a[k], &a[k+m])
 			}
 		}, numCPU)
 
 	} else {
-		var t, tm fr.Element
-		// k == 0
-		// wPow == 1
-		t = a[0]
-		a[0].Add(&a[0], &a[m])
-		a[m].Sub(&t, &a[m])
-
+		fr.Butterfly(&a[0], &a[m])
 		for k := 1; k < m; k++ {
-			t = a[k]
-			tm.Mul(&a[k+m], &twiddles[stage][k])
-			a[k].Add(&a[k], &tm)
-			a[k+m].Sub(&t, &tm)
+			a[k+m].Mul(&a[k+m], &twiddles[stage][k])
+			fr.Butterfly(&a[k], &a[k+m])
 		}
 	}
 }
@@ -294,4 +273,48 @@ func BitReverse(a []fr.Element) {
 			a[i], a[irev] = a[irev], a[i]
 		}
 	}
+}
+
+// kerDIT8 is a kernel that process a FFT of size 8
+func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
+
+	fr.Butterfly(&a[0], &a[1])
+	fr.Butterfly(&a[2], &a[3])
+	fr.Butterfly(&a[4], &a[5])
+	fr.Butterfly(&a[6], &a[7])
+	fr.Butterfly(&a[0], &a[2])
+	a[3].Mul(&a[3], &twiddles[stage+1][1])
+	fr.Butterfly(&a[1], &a[3])
+	fr.Butterfly(&a[4], &a[6])
+	a[7].Mul(&a[7], &twiddles[stage+1][1])
+	fr.Butterfly(&a[5], &a[7])
+	fr.Butterfly(&a[0], &a[4])
+	a[5].Mul(&a[5], &twiddles[stage+0][1])
+	fr.Butterfly(&a[1], &a[5])
+	a[6].Mul(&a[6], &twiddles[stage+0][2])
+	fr.Butterfly(&a[2], &a[6])
+	a[7].Mul(&a[7], &twiddles[stage+0][3])
+	fr.Butterfly(&a[3], &a[7])
+}
+
+// kerDIF8 is a kernel that process a FFT of size 8
+func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
+
+	fr.Butterfly(&a[0], &a[4])
+	fr.Butterfly(&a[1], &a[5])
+	fr.Butterfly(&a[2], &a[6])
+	fr.Butterfly(&a[3], &a[7])
+	a[5].Mul(&a[5], &twiddles[stage+0][1])
+	a[6].Mul(&a[6], &twiddles[stage+0][2])
+	a[7].Mul(&a[7], &twiddles[stage+0][3])
+	fr.Butterfly(&a[0], &a[2])
+	fr.Butterfly(&a[1], &a[3])
+	fr.Butterfly(&a[4], &a[6])
+	fr.Butterfly(&a[5], &a[7])
+	a[3].Mul(&a[3], &twiddles[stage+1][1])
+	a[7].Mul(&a[7], &twiddles[stage+1][1])
+	fr.Butterfly(&a[0], &a[1])
+	fr.Butterfly(&a[2], &a[3])
+	fr.Butterfly(&a[4], &a[5])
+	fr.Butterfly(&a[6], &a[7])
 }

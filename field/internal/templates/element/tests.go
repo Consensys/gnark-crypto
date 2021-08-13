@@ -68,6 +68,16 @@ func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 
 }
 
+func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
+	var x {{.ElementName}}
+	x.SetRandom()
+	benchRes{{.ElementName}}.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Butterfly(&x, &benchRes{{.ElementName}})
+	}
+}
+
 
 func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 	var x {{.ElementName}}
@@ -530,6 +540,44 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 		supportAdx = true 
 	}
 	
+}
+
+
+func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("butterfly0 == a -b; a +b", prop.ForAll(
+		func(a,b testPair{{.ElementName}}) bool {
+			a0, b0 := a.element, b.element 
+			
+			_butterflyGeneric(&a.element, &b.element)
+			Butterfly(&a0, &b0)
+
+			return a.element.Equal(&a0) && b.element.Equal(&b0)
+		},
+		genA,
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true 
+	}
+
 }
 
 func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {

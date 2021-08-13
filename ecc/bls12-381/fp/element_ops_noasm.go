@@ -39,6 +39,13 @@ func MulBy13(x *Element) {
 	mulByConstant(x, 13)
 }
 
+// Butterfly sets
+// a = a + b
+// b = a - b
+func Butterfly(a, b *Element) {
+	_butterflyGeneric(a, b)
+}
+
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }

@@ -27,7 +27,7 @@ type Domain struct {
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
 	// Twiddles factor for the FFT using Generator for each stage of the recursive FFT
-	Twiddles [][]fr.Element
+	Twiddles 	[][]fr.Element
 
 	// Twiddles factor for the FFT using GeneratorInv for each stage of the recursive FFT
 	TwiddlesInv [][]fr.Element
@@ -294,3 +294,5 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	return dec.BytesRead(), nil
 }
+
+

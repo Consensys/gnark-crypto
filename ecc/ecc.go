@@ -44,7 +44,7 @@ const (
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315}
 }
 
 func (id ID) String() string {

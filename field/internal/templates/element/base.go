@@ -454,4 +454,10 @@ func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
 	return res
 }
 
+func _butterflyGeneric(a, b *{{.ElementName}}) {
+	t := *a
+	a.Add(a, b)
+	b.Sub(&t, b)
+}
+
 `
