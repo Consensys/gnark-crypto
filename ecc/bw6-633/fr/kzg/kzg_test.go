@@ -41,12 +41,11 @@ func TestDividePolyByXminusA(t *testing.T) {
 
 	const pSize = 230
 
-	domain := fft.NewDomain(pSize, 0, false)
-
 	// build random polynomial
-	pol := make(polynomial.Polynomial, pSize, domain.Cardinality)
-	for i := 0; i < pSize; i++ {
-		pol[i].SetRandom()
+	pol := make(polynomial.Polynomial, pSize)
+	pol[0].SetRandom()
+	for i := 1; i < pSize; i++ {
+		pol[i] = pol[i-1]
 	}
 
 	// evaluate the polynomial at a random point
@@ -61,7 +60,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
 	// compute f-f(a)/x-a
-	h := dividePolyByXminusA(domain, pol, evaluation, point)
+	h := dividePolyByXminusA(pol, evaluation, point)
 	pol = nil // h reuses this memory
 
 	if len(h) != 229 {

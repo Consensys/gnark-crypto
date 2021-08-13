@@ -180,9 +180,9 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	_p := make(polynomial.Polynomial, len(p), domain.Cardinality)
+	_p := make(polynomial.Polynomial, len(p))
 	copy(_p, p)
-	h := dividePolyByXminusA(domain, _p, res.ClaimedValue, res.Point)
+	h := dividePolyByXminusA(_p, res.ClaimedValue, res.Point)
 	_p = nil // h re-use this memory
 
 	// commit to H
@@ -322,7 +322,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
 	// note: if we are willing to paralellize that, we could clone the poly and scale them by
 	// gamma n in parallel, before reducing into sumGammaiTimesPol
-	sumGammaiTimesPol := make(polynomial.Polynomial, largestPoly, domain.Cardinality)
+	sumGammaiTimesPol := make(polynomial.Polynomial, largestPoly)
 	copy(sumGammaiTimesPol, polynomials[0])
 	gammaN := gamma
 	var pj fr.Element
@@ -337,7 +337,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 
 	// compute H
 	<-chSumGammai
-	h := dividePolyByXminusA(domain, sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
+	h := dividePolyByXminusA(sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 	sumGammaiTimesPol = nil // same memory as h
 
 	res.H, err = Commit(h, srs)
@@ -447,12 +447,10 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
 // f memory is re-used for the result
-// @precondition: cap(f) must be d.Cardinality or this will panic
-func dividePolyByXminusA(d *fft.Domain, f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
+func dividePolyByXminusA(f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
 	degree := len(f) - 1 // the result if of degree  deg(f)-1
 
 	// first we compute f-f(a)
-	f = f[:d.Cardinality]
 	f[0].Sub(&f[0], &fa)
 
 	// now we use syntetic division to divide by x-a
