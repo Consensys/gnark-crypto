@@ -462,6 +462,16 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
+func BenchmarkG2JacIsInSubGroup(b *testing.B) {
+	var a G2Jac
+	a.Set(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.IsInSubGroup()
+	}
+
+}
+
 func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
