@@ -498,9 +498,6 @@ func deriveGamma(point fr.Element, digests []Digest, hf hash.Hash) (fr.Element, 
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
 
-	// reset the hash in case it is reused
-	hf.Reset()
-
 	return gamma, nil
 }
 

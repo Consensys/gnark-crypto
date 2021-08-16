@@ -128,6 +128,7 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 		return m.challenges[challengeNumber], nil
 	}
 
+	// reset before populating the internal state
 	m.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
@@ -158,6 +159,9 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 	m.challenges[challengeNumber] = make([]byte, len(res))
 	copy(m.challenges[challengeNumber], res)
 	m.isComputed[challengeNumber] = true
+
+	// reset the hash function in case it is used for other things
+	m.h.Reset()
 
 	return res, nil
 
