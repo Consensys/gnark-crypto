@@ -18,6 +18,7 @@ package kzg
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"math/big"
 	"reflect"
 	"testing"
@@ -199,10 +200,13 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 	}
 
+	// pick a hash function
+	hf := sha256.New()
+
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := BatchOpenSinglePoint(f, digests, &point, domain, testSRS)
+	proof, err := BatchOpenSinglePoint(f, digests, &point, hf, domain, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,14 +220,14 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify correct proof
-	err = BatchVerifySinglePoint(digests, &proof, testSRS)
+	err = BatchVerifySinglePoint(digests, &proof, hf, testSRS)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// verify wrong proof
 	proof.ClaimedValues[0].Double(&proof.ClaimedValues[0])
-	err = BatchVerifySinglePoint(digests, &proof, testSRS)
+	err = BatchVerifySinglePoint(digests, &proof, hf, testSRS)
 	if err == nil {
 		t.Fatal("verifying wrong proof should have failed")
 	}
@@ -244,22 +248,24 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 	digests := make([]Digest, 10)
 	for i := 0; i < 10; i++ {
 		digests[i], _ = Commit(f[i], testSRS)
-
 	}
+
+	// pick a hash function
+	hf := sha256.New()
 
 	// compute 2 batch opening proofs at 2 random points
 	points := make([]fr.Element, 2)
 	batchProofs := make([]BatchOpeningProof, 2)
 	points[0].SetRandom()
-	batchProofs[0], _ = BatchOpenSinglePoint(f[:5], digests[:5], &points[0], domain, testSRS)
+	batchProofs[0], _ = BatchOpenSinglePoint(f[:5], digests[:5], &points[0], hf, domain, testSRS)
 	points[1].SetRandom()
-	batchProofs[1], _ = BatchOpenSinglePoint(f[5:], digests[5:], &points[1], domain, testSRS)
+	batchProofs[1], _ = BatchOpenSinglePoint(f[5:], digests[5:], &points[1], hf, domain, testSRS)
 
 	// fold the 2 batch opening proofs
 	proofs := make([]OpeningProof, 2)
 	foldedDigests := make([]Digest, 2)
-	proofs[0], foldedDigests[0], _ = FoldProof(digests[:5], &batchProofs[0])
-	proofs[1], foldedDigests[1], _ = FoldProof(digests[5:], &batchProofs[1])
+	proofs[0], foldedDigests[0], _ = FoldProof(digests[:5], &batchProofs[0], hf)
+	proofs[1], foldedDigests[1], _ = FoldProof(digests[5:], &batchProofs[1], hf)
 
 	// check the the individual batch proofs are correct
 	err := Verify(&foldedDigests[0], &proofs[0], testSRS)
@@ -370,12 +376,15 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 		commitments[i], _ = Commit(ps[i], benchSRS)
 	}
 
+	// pick a hash function
+	hf := sha256.New()
+
 	var r fr.Element
 	r.SetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, benchSRS)
+		BatchOpenSinglePoint(ps[:], commitments[:], &r, hf, domain, benchSRS)
 	}
 }
 
@@ -398,17 +407,20 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 		commitments[i], _ = Commit(ps[i], benchSRS)
 	}
 
+	// pick a hash function
+	hf := sha256.New()
+
 	var r fr.Element
 	r.SetRandom()
 
-	proof, err := BatchOpenSinglePoint(ps[:], commitments[:], &r, domain, benchSRS)
+	proof, err := BatchOpenSinglePoint(ps[:], commitments[:], &r, hf, domain, benchSRS)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchVerifySinglePoint(commitments[:], &proof, benchSRS)
+		BatchVerifySinglePoint(commitments[:], &proof, hf, benchSRS)
 	}
 }
 

@@ -18,6 +18,7 @@ package kzg
 
 import (
 	"errors"
+	"hash"
 	"math/big"
 	"runtime"
 	"sync"
@@ -251,7 +252,7 @@ func Verify(commitment *Digest, proof *OpeningProof, srs *SRS) error {
 // point is the point at which the polynomials are opened.
 // digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // polynomials is the list of polynomials to open.
-func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest, point *fr.Element, domain *fft.Domain, srs *SRS) (BatchOpeningProof, error) {
+func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest, point *fr.Element, hf hash.Hash, domain *fft.Domain, srs *SRS) (BatchOpeningProof, error) {
 
 	// check for invalid sizes
 	nbDigests := len(digests)
@@ -288,7 +289,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	res.Point = *point
 
 	// derive the challenge gamma, binded to the point and the commitments
-	gamma, err := deriveGamma(res.Point, digests)
+	gamma, err := deriveGamma(res.Point, digests, hf)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -342,7 +343,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 // * digests list of digests on which batchOpeningProof is based
 // * batchOpeningProof opening proof of digests
 // * returns the folded version of batchOpeningProof, Digest, the folded version of digests
-func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof) (OpeningProof, Digest, error) {
+func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, hf hash.Hash) (OpeningProof, Digest, error) {
 
 	nbDigests := len(digests)
 
@@ -352,7 +353,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof) (OpeningP
 	}
 
 	// derive the challenge gamma, binded to the point and the commitments
-	gamma, err := deriveGamma(batchOpeningProof.Point, digests)
+	gamma, err := deriveGamma(batchOpeningProof.Point, digests, hf)
 	if err != nil {
 		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
@@ -378,10 +379,10 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof) (OpeningP
 //
 // * digests list of digests on which opening proof is done
 // * batchOpeningProof proof of correct opening on the digests
-func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, srs *SRS) error {
+func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, hf hash.Hash, srs *SRS) error {
 
 	// fold the proof
-	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof)
+	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof, hf)
 	if err != nil {
 		return err
 	}
@@ -496,10 +497,10 @@ func fold(digests []Digest, evaluations []fr.Element, factors []fr.Element) (Dig
 }
 
 // deriveGamma derives a challenge using Fiat Shamir to fold proofs.
-func deriveGamma(point fr.Element, digests []Digest) (fr.Element, error) {
+func deriveGamma(point fr.Element, digests []Digest, hf hash.Hash) (fr.Element, error) {
 
 	// derive the challenge gamma, binded to the point and the commitments
-	fs := fiatshamir.NewTranscript(fiatshamir.SHA256, "gamma")
+	fs := fiatshamir.NewTranscript(hf, "gamma")
 	if err := fs.Bind("gamma", point.Marshal()); err != nil {
 		return fr.Element{}, err
 	}
@@ -514,6 +515,9 @@ func deriveGamma(point fr.Element, digests []Digest) (fr.Element, error) {
 	}
 	var gamma fr.Element
 	gamma.SetBytes(gammaByte)
+
+	// reset the hash in case it is reused
+	hf.Reset()
 
 	return gamma, nil
 }

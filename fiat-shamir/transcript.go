@@ -15,11 +15,8 @@
 package fiatshamir
 
 import (
-	"crypto/sha256"
 	"errors"
 	"hash"
-
-	gnark_hash "github.com/consensys/gnark-crypto/hash"
 )
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
@@ -70,7 +67,7 @@ type Transcript struct {
 // NewTranscript returns a new transcript.
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order is important.
-func NewTranscript(h HashFS, challenges ...string) Transcript {
+func NewTranscript(h hash.Hash, challenges ...string) Transcript {
 
 	var res Transcript
 
@@ -89,24 +86,7 @@ func NewTranscript(h HashFS, challenges ...string) Transcript {
 
 	res.isComputed = make([]bool, res.nbChallenges)
 
-	switch h {
-	case SHA256:
-		res.h = sha256.New()
-	case MIMC_BN254:
-		res.h = gnark_hash.MIMC_BN254.New("seed")
-	case MIMC_BLS12_381:
-		res.h = gnark_hash.MIMC_BLS12_381.New("seed")
-	case MIMC_BLS12_377:
-		res.h = gnark_hash.MIMC_BLS12_377.New("seed")
-	case MIMC_BW6_761:
-		res.h = gnark_hash.MIMC_BW6_761.New("seed")
-	case MIMC_BLS24_315:
-		res.h = gnark_hash.MIMC_BLS24_315.New("seed")
-	case MIMC_BW6_633:
-		res.h = gnark_hash.MIMC_BW6_633.New("seed")
-	default:
-		panic("the chosen hash function is not available")
-	}
+	res.h = h
 
 	return res
 }
