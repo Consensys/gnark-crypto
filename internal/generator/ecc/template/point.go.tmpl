@@ -61,8 +61,8 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 	return p
 }
 
-// Add adds two point in affine coordinates. 
-// This should rarely be used as it is very inneficient compared to Jacobian 
+// Add adds two point in affine coordinates.
+// This should rarely be used as it is very inneficient compared to Jacobian
 // TODO implement affine addition formula
 func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 	var p1, p2 {{ $TJacobian }}
@@ -73,8 +73,8 @@ func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 	return p
 }
 
-// Sub subs two point in affine coordinates. 
-// This should rarely be used as it is very inneficient compared to Jacobian 
+// Sub subs two point in affine coordinates.
+// This should rarely be used as it is very inneficient compared to Jacobian
 // TODO implement affine addition formula
 func (p *{{ $TAffine }}) Sub(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 	var p1, p2 {{ $TJacobian }}
@@ -460,32 +460,73 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		return r.IsOnCurve() && r.Z.IsZero()
 	}
+{{else if eq .Name "bls24-315"}}
+    // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+    // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+    // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
+    // polynomials in x, a short vector of this Zmodule is
+    // 1, x**4. So we check that p+x**4*phi(p)
+    // is the infinity.
+    func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+        var res {{ $TJacobian }}
+        res.phi(p).
+            ScalarMultiplication(&res, &xGen).
+            ScalarMultiplication(&res, &xGen).
+            ScalarMultiplication(&res, &xGen).
+            ScalarMultiplication(&res, &xGen).
+            AddAssign(p)
+
+        return res.IsOnCurve() && res.Z.IsZero()
+
+    }
+
 {{else}}
-	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
-	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
-	// polynomials in x, a short vector of this Zmodule is
-	{{- if eq .Name "bls24-315" }}
-	// 1, x**4. So we check that p+x**4*phi(p)
-	{{- else}}
-	// 1, x**2. So we check that p+x**2*phi(p)
+	{{- if eq .PointName "g1"}}
+        // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+        // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
+        // polynomials in x, a short vector of this Zmodule is
+        // 1, x**2. So we check that p+x**2*phi(p)
+        // is the infinity.
+        func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+            var res {{ $TJacobian }}
+            res.phi(p).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                AddAssign(p)
+
+            return res.IsOnCurve() && res.Z.IsZero()
+
+        }
+	{{else if eq .PointName "g2"}}
+        {{if eq .Name "bls12-381"}}
+            // https://eprint.iacr.org/2019/814.pdf, 3.1
+            func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+                var res, tmp {{ $TJacobian }}
+                tmp.psi(p).psi(&tmp)
+                res.psi(&tmp).
+                    ScalarMultiplication(&res, &xGen).
+                    AddAssign(&tmp).
+                    SubAssign(p)
+
+                return res.IsOnCurve() && res.Z.IsZero()
+        }
+        {{else if eq .Name "bls12-377"}}
+            // https://eprint.iacr.org/2019/814.pdf, 3.1
+            func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+                var res, tmp {{ $TJacobian }}
+                tmp.psi(p).psi(&tmp)
+                res.psi(&tmp).
+                    ScalarMultiplication(&res, &xGen).
+                    SubAssign(&tmp).
+                    AddAssign(p)
+
+                return res.IsOnCurve() && res.Z.IsZero()
+        }
+        {{- end}}
 	{{- end}}
-	// is the infinity.
-	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
-		var res {{ $TJacobian }}
-		res.phi(p).
-			{{- if eq .Name "bls24-315" }}
-			ScalarMultiplication(&res, &xGen).
-			ScalarMultiplication(&res, &xGen).
-			{{- end}}
-			ScalarMultiplication(&res, &xGen).
-			ScalarMultiplication(&res, &xGen).
-			AddAssign(p)
-
-		return res.IsOnCurve() && res.Z.IsZero()
-
-	}
 {{- end}}
 
 

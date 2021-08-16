@@ -518,7 +518,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 					{{end}}
 				}
-			{{else}} 
+			{{else}}
 			{{/* eq .CoordType "fptower.E2" */}}
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				for x.Legendre() != 1 {
@@ -590,6 +590,16 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 // ------------------------------------------------------------
 // benches
+
+func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Set(&{{ toLower .PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.IsInSubGroup()
+	}
+
+}
 
 func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
 	// ensure every words of the scalars are filled
