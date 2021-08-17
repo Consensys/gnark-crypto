@@ -19,6 +19,7 @@ package bw6761
 import (
 	"math"
 	"math/big"
+	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
@@ -931,7 +932,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars := partitionScalars(scalars, c, false)
+	pScalars := partitionScalars(scalars, c, false, runtime.NumCPU())
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

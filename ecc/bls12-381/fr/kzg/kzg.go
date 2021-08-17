@@ -19,7 +19,6 @@ package kzg
 import (
 	"errors"
 	"math/big"
-	"runtime"
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -112,10 +111,7 @@ type BatchOpeningProof struct {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-//
-// if a ecc.CPUSemaphore is NOT provided, this function may split the multi exponentiation
-// to use all available CPUs
-func Commit(p polynomial.Polynomial, srs *SRS, opt ...*ecc.CPUSemaphore) (Digest, error) {
+func Commit(p polynomial.Polynomial, srs *SRS) (Digest, error) {
 	if len(p) == 0 || len(p) > len(srs.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
@@ -123,41 +119,8 @@ func Commit(p polynomial.Polynomial, srs *SRS, opt ...*ecc.CPUSemaphore) (Digest
 	var res bls12381.G1Affine
 
 	config := ecc.MultiExpConfig{ScalarsMont: true}
-	if len(opt) > 0 {
-		config.CPUSemaphore = opt[0]
-		if _, err := res.MultiExp(srs.G1[:len(p)], p, config); err != nil {
-			return Digest{}, err
-		}
-	} else {
-		numCpus := runtime.NumCPU()
-		if numCpus > 16 {
-			// we split the multiExp in 2.
-			// TODO with machines with more than 32 physical cores, we may want to split in more chunks
-			m := len(p) / 2
-			chPart1 := make(chan struct{}, 1)
-			config.CPUSemaphore = ecc.NewCPUSemaphore(numCpus)
-			var p1, p2 bls12381.G1Jac
-			var err1 error
-			go func() {
-				_, err1 = p1.MultiExp(srs.G1[:m], p[:m], config)
-				close(chPart1)
-			}()
-			// part 2
-			if _, err := p2.MultiExp(srs.G1[m:len(p)], p[m:], config); err != nil {
-				return Digest{}, err
-			}
-			<-chPart1 // wait for part 1
-			if err1 != nil {
-				return Digest{}, err1
-			}
-
-			p1.AddAssign(&p2)
-			res.FromJacobian(&p1)
-		} else {
-			if _, err := res.MultiExp(srs.G1[:len(p)], p, config); err != nil {
-				return Digest{}, err
-			}
-		}
+	if _, err := res.MultiExp(srs.G1[:len(p)], p, config); err != nil {
+		return Digest{}, err
 	}
 
 	return res, nil

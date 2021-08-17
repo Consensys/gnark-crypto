@@ -26,8 +26,6 @@ limitations under the License.
 //	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
 
-import "sync"
-
 // ID represent a unique ID for a curve
 type ID uint16
 
@@ -68,26 +66,6 @@ func (id ID) String() string {
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
 type MultiExpConfig struct {
-	CPUSemaphore *CPUSemaphore
-	ScalarsMont  bool // indicates if the scalars are in montgommery form. Default to false.
-}
-
-// CPUSemaphore enables users to set optional number of CPUs the multiexp will use
-// this is thread safe and can be used accross parallel calls of MultiExp
-type CPUSemaphore struct {
-	ChCPU chan struct{} // semaphore to limit number of cpus iterating through points and scalrs at the same time
-	Lock  sync.Mutex
-}
-
-// NewCPUSemaphore returns a new multiExp options to be used with MultiExp
-// this option can be shared between different MultiExp calls and will ensure only numCpus are used
-// through a semaphore
-func NewCPUSemaphore(numCpus int) *CPUSemaphore {
-	toReturn := &CPUSemaphore{
-		ChCPU: make(chan struct{}, numCpus),
-	}
-	for i := 0; i < numCpus; i++ {
-		toReturn.ChCPU <- struct{}{}
-	}
-	return toReturn
+	NbTasks     int  // go routines to be used in the multiexp. can be larger than num cpus.
+	ScalarsMont bool // indicates if the scalars are in montgommery form. Default to false.
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/ecc"
-	"sync"
 	"errors"
 	"math"
 	"runtime"
@@ -35,7 +34,7 @@ type selector struct {
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool) []fr.Element {
+func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) []fr.Element {
 	toReturn := make([]fr.Element, len(scalars))
 
 	// number of c-bit radixes in a scalar
@@ -114,7 +113,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool) []fr.Ele
 
 			}
 		}
-	})
+	}, nbTasks)
 	return toReturn
 }
 
@@ -164,56 +163,96 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	// step 3
 	// reduce the buckets weigthed sums into our result (msmReduceChunk)
 
-	if config.CPUSemaphore == nil {
-		config.CPUSemaphore = ecc.NewCPUSemaphore(runtime.NumCPU())
-	}
-
-	var C uint64
+	// ensure len(points) == len(scalars)
 	nbPoints := len(points)
-
 	if nbPoints != len(scalars) {
 		return nil, errors.New("len(points) != len(scalars)")
 	}
 
-	// implemented msmC methods (the c we use must be in this slice)
-	implementedCs := []uint64{
-		{{- range $c :=  $.CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
+	// if nbTasks is not set, use all available CPUs
+	if config.NbTasks <= 0 {
+		config.NbTasks = runtime.NumCPU()
 	}
 
-	// approximate cost (in group operations)
-	// cost = bits/c * (nbPoints + 2^{c})
-	// this needs to be verified empirically.
-	// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
-	min := math.MaxFloat64
-	for _, c := range implementedCs {
-		cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
-		cost := float64(cc) / float64(c)
-		if cost < min {
-			min = cost
-			C = c
+	// here, we compute the best C for nbPoints
+	// we split recursively until nbChunks(c) >= nbTasks,
+	bestC := func(nbPoints int) uint64 {
+		// implemented msmC methods (the c we use must be in this slice)
+		implementedCs := []uint64{
+			{{- range $c :=  $.CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
+		}
+		var C uint64
+		// approximate cost (in group operations)
+		// cost = bits/c * (nbPoints + 2^{c})
+		// this needs to be verified empirically.
+		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
+		min := math.MaxFloat64
+		for _, c := range implementedCs {
+			cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+			cost := float64(cc) / float64(c)
+			if cost < min {
+				min = cost
+				C = c
+			}
+		}
+		// empirical, needs to be tuned.
+		// if C > 16 && nbPoints < 1 << 23 {
+		// 	C = 16
+		// }
+		return C
+	}
+
+	var C uint64
+	nbSplits := 1
+	nbChunks := 0
+	for nbChunks < config.NbTasks {
+		C = bestC(nbPoints)
+		nbChunks = int(fr.Limbs * 64 / C)  // number of c-bit radixes in a scalar
+		if (fr.Limbs * 64) % C != 0 {
+			nbChunks ++
+		}
+		nbChunks *= nbSplits
+		if nbChunks < config.NbTasks {
+			nbSplits <<= 1
+			nbPoints >>= 1 
 		}
 	}
-
-	// empirical, needs to be tuned.
-	// if C > 16 && nbPoints < 1 << 23 {
-	// 	C = 16
-	// }
-
-	// take all the cpus to ourselves
-	config.CPUSemaphore.Lock.Lock()
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	scalars = partitionScalars(scalars, C, config.ScalarsMont)
+	// TODO nbTasks
+	scalars = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks) 
 
-	switch C {
+	// we have nbSplits intermediate results that we must sum together. 
+	_p := make([]{{ $.TJacobian }}, nbSplits - 1)
+	chDone := make(chan int, nbSplits - 1)
+	for i:=0; i < nbSplits-1; i++ {
+		start := i * nbPoints
+		end := start + nbPoints 
+		go func(start, end, i int) {
+			msmInner{{ $.TJacobian }}(&_p[i], int(C), points[start:end], scalars[start:end], config.NbTasks / nbSplits)
+			chDone <- i
+		}(start, end, i)
+	}
+	
+	msmInner{{ $.TJacobian }}(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], config.NbTasks / nbSplits)
+	for i:=0; i < nbSplits-1; i++ {
+		done := <-chDone
+		p.AddAssign(&_p[done])
+	}
+	close(chDone)
+	return p, nil 
+}
+
+func msmInner{{ $.TJacobian }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, scalars []fr.Element, nbTasks int)  {
+	switch c {
 	{{range $c :=  $.CRange}}
 	case {{$c}}:
-		return p.msmC{{$c}}(points, scalars, config.CPUSemaphore), nil
+		p.msmC{{$c}}(points, scalars, nbTasks)
 	{{end}}
 	default:
-		panic("unimplemented")
+		panic("not implemented")
 	}
 }
 
@@ -304,51 +343,58 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 
 {{range $c :=  $.CRange}}
 
-func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, opt *ecc.CPUSemaphore) *{{ $.TJacobian }} {
-	{{- $frBits := mul $.FrNbWords 64}}
-	{{- $cDividesBits := divides $c $frBits}}
+{{- $frBits := mul $.FrNbWords 64}}
+{{- $cDividesBits := divides $c $frBits}}
+
+func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, nbTasks int) *{{ $.TJacobian }} {
 	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) {{if not $cDividesBits }} + 1 {{end}} // number of c-bit radixes in a scalar
+	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 
-	// for each chunk, spawn a go routine that'll loop through all the scalars
-	var chChunks [nbChunks]chan {{ $.TJacobianExtended }}
-
-	// wait group to wait for all the go routines to start
-	var wg sync.WaitGroup
-
-	{{- if not $cDividesBits }}
-	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
-	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	chChunks[nbChunks-1] = make(chan {{ $.TJacobianExtended }}, 1)
-	<-opt.ChCPU  // wait to have a cpu before scheduling
-	wg.Add(1)
-	go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
-		wg.Done()
-		var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
-		msmProcessChunk{{ $.TAffine }}(j, chRes, buckets[:], c, points, scalars)
-		opt.ChCPU <- struct{}{} // release token in the semaphore
-	}(uint64(nbChunks-1), chChunks[nbChunks-1], points, scalars)
-
-	for chunk := nbChunks - 2; chunk >= 0; chunk-- {
-	{{- else}}
-	for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-	{{- end}}
-		chChunks[chunk] = make(chan {{ $.TJacobianExtended }}, 1)
-		<-opt.ChCPU  // wait to have a cpu before scheduling
-		wg.Add(1)
-		go func(j uint64, chRes chan {{ $.TJacobianExtended }}, points []{{ $.TAffine }}, scalars []fr.Element) {
-			wg.Done()
-			var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
-			msmProcessChunk{{ $.TAffine }}(j, chRes,  buckets[:], c, points, scalars)
-			opt.ChCPU <- struct{}{} // release token in the semaphore
-		}(uint64(chunk), chChunks[chunk], points, scalars)
+	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	var chChunks [nbChunks{{if not $cDividesBits }} + 1 {{end}} ]chan {{ $.TJacobianExtended }}
+	for i:=0; i < len(chChunks);i++ {
+		chChunks[i] = make(chan {{ $.TJacobianExtended }}, 1)
 	}
 
-	// wait for all goRoutines to actually start
-	wg.Wait()
 
-	// all my tasks are scheduled, I can let other func use avaiable tokens in the semaphore
-	opt.Lock.Unlock()
+	{{- if not $cDividesBits }}
+		// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
+		const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+		go func(j uint64, points []{{ $.TAffine }}, scalars []fr.Element) {
+			var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
+			msmProcessChunk{{ $.TAffine }}(j, chChunks[j], buckets[:], c, points, scalars)
+		}(uint64(nbChunks), points, scalars)
+	{{- end}}
+
+
+	// here we have nbTasks <= nbChunks
+	// so one task (ie go routine) may handle multiple chunks
+	nbChunksPerTask := nbChunks / nbTasks
+	if nbChunksPerTask < 1 {
+		nbChunksPerTask = 1
+		nbTasks = nbChunks
+	}
+
+	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
+	extraTasksOffset := 0
+
+	for i := 0; i < nbTasks; i++ {
+		_start := i*nbChunksPerTask + extraTasksOffset
+		_end := _start + nbChunksPerTask
+		if extraTasks > 0 {
+			_end++
+			extraTasks--
+			extraTasksOffset++
+		}
+		go func(start, end int, points []{{ $.TAffine }}, scalars []fr.Element) {
+			var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
+			for j:=start; j < end;j ++ {
+				msmProcessChunk{{ $.TAffine }}(uint64(j), chChunks[j],  buckets[:], c, points, scalars)
+			}
+		}(_start, _end, points, scalars)
+	}
+
+
 	return msmReduceChunk{{ $.TAffine }}(p, c, chChunks[:])
 }
 {{end}}
