@@ -111,7 +111,7 @@ type BatchOpeningProof struct {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-func Commit(p polynomial.Polynomial, srs *SRS) (Digest, error) {
+func Commit(p polynomial.Polynomial, srs *SRS, nbTasks ...int) (Digest, error) {
 	if len(p) == 0 || len(p) > len(srs.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
@@ -119,6 +119,9 @@ func Commit(p polynomial.Polynomial, srs *SRS) (Digest, error) {
 	var res bls24315.G1Affine
 
 	config := ecc.MultiExpConfig{ScalarsMont: true}
+	if len(nbTasks) > 0 {
+		config.NbTasks = nbTasks[0]
+	}
 	if _, err := res.MultiExp(srs.G1[:len(p)], p, config); err != nil {
 		return Digest{}, err
 	}
