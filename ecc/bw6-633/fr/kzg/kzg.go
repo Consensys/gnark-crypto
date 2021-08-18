@@ -332,7 +332,10 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, hf hash.H
 	for i := 1; i < nbDigests; i++ {
 		gammai[i].Mul(&gammai[i-1], &gamma)
 	}
-	foldedDigests, foldedEvaluations := fold(digests, batchOpeningProof.ClaimedValues, gammai)
+	foldedDigests, foldedEvaluations, err := fold(digests, batchOpeningProof.ClaimedValues, gammai)
+	if err != nil {
+		return OpeningProof{}, Digest{}, err
+	}
 
 	// create the folded opening proof
 	var res OpeningProof
@@ -382,7 +385,10 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, srs *SRS) e
 	randomNumbers := make([]fr.Element, len(digests))
 	randomNumbers[0].SetOne()
 	for i := 1; i < len(randomNumbers); i++ {
-		randomNumbers[i].SetRandom()
+		_, err := randomNumbers[i].SetRandom()
+		if err != nil {
+			return err
+		}
 	}
 
 	// combine random_i*quotient_i
@@ -392,14 +398,20 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, srs *SRS) e
 		quotients[i].Set(&proofs[i].H)
 	}
 	config := ecc.MultiExpConfig{ScalarsMont: true}
-	foldedQuotients.MultiExp(quotients, randomNumbers, config)
+	_, err := foldedQuotients.MultiExp(quotients, randomNumbers, config)
+	if err != nil {
+		return nil
+	}
 
 	// fold digests and evals
 	evals := make([]fr.Element, len(digests))
 	for i := 0; i < len(randomNumbers); i++ {
 		evals[i].Set(&proofs[i].ClaimedValue)
 	}
-	foldedDigests, foldedEvals := fold(digests, evals, randomNumbers)
+	foldedDigests, foldedEvals, err := fold(digests, evals, randomNumbers)
+	if err != nil {
+		return err
+	}
 
 	// compute commitment to folded Eval
 	var foldedEvalsCommit bw6633.G1Affine
@@ -415,7 +427,10 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, srs *SRS) e
 	for i := 0; i < len(randomNumbers); i++ {
 		randomNumbers[i].Mul(&randomNumbers[i], &proofs[i].Point)
 	}
-	foldedPointsQuotients.MultiExp(quotients, randomNumbers, config)
+	_, err = foldedPointsQuotients.MultiExp(quotients, randomNumbers, config)
+	if err != nil {
+		return err
+	}
 
 	// lhs first pairing
 	foldedDigests.Add(&foldedDigests, &foldedPointsQuotients)
@@ -443,7 +458,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, srs *SRS) e
 // * digests list of digests to fold
 // * evaluations list of evaluations to fold
 // * factors list of multiplicative factors used for the folding (in Montgomery form)
-func fold(digests []Digest, evaluations []fr.Element, factors []fr.Element) (Digest, fr.Element) {
+func fold(digests []Digest, evaluations []fr.Element, factors []fr.Element) (Digest, fr.Element, error) {
 
 	// length inconsistancy between digests and evaluations should have been done before calling this function
 	nbDigests := len(digests)
@@ -457,10 +472,13 @@ func fold(digests []Digest, evaluations []fr.Element, factors []fr.Element) (Dig
 
 	// fold the digests
 	var foldedDigests Digest
-	foldedDigests.MultiExp(digests, factors, ecc.MultiExpConfig{ScalarsMont: true})
+	_, err := foldedDigests.MultiExp(digests, factors, ecc.MultiExpConfig{ScalarsMont: true})
+	if err != nil {
+		return foldedDigests, foldedEvaluations, err
+	}
 
 	// folding done
-	return foldedDigests, foldedEvaluations
+	return foldedDigests, foldedEvaluations, nil
 
 }
 
