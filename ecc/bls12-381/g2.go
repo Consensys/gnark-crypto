@@ -508,32 +508,26 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 
 // ClearCofactor maps a point in curve to r-torsion
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
-	// cf https://pdfs.semanticscholar.org/e305/a02d91f222de4fe62d4b5689d3b03c7db0c3.pdf, 3.1
-	var xg, xxg, xxxg, res, t G2Jac
+	// https://eprint.iacr.org/2017/419.pdf, 4.1
+	var xg, xxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
-	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
 
-	res.Set(a).
-		Double(&res).
-		Double(&res).
+	res.Set(&xxg).
 		SubAssign(&xg).
-		SubAssign(&xxg).
-		AddAssign(&xxxg)
+		SubAssign(a)
 
-	t.Set(a).
-		Neg(&t).
-		AddAssign(&xg).
-		AddAssign(&xg).
-		SubAssign(&xxg).
-		psi(&t).
-		AddAssign(a).
-		SubAssign(&xg).
-		SubAssign(&xxg).
-		AddAssign(&xxxg).
+	t.Set(&xg).
+		SubAssign(a).
 		psi(&t)
 
 	res.AddAssign(&t)
+
+	t.Double(a)
+	t.X.MulByElement(&t.X, &thirdRootOneG1)
+
+	res.SubAssign(&t)
+
 	p.Set(&res)
 
 	return p
