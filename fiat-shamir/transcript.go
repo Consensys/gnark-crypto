@@ -15,11 +15,8 @@
 package fiatshamir
 
 import (
-	"crypto/sha256"
 	"errors"
 	"hash"
-
-	gnark_hash "github.com/consensys/gnark-crypto/hash"
 )
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
@@ -27,20 +24,6 @@ var (
 	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
-)
-
-// HashFS hash function used in Fiat Shamir. Likely snark friendly hash functions will be chosen.
-type HashFS uint
-
-// Supported hash functions for Fiat Shamir. Sha256 is arbitrary, we just need something fast non-snark friendly hash.
-const (
-	SHA256 HashFS = iota
-	MIMC_BN254
-	MIMC_BLS12_381
-	MIMC_BLS12_377
-	MIMC_BW6_761
-	MIMC_BLS24_315
-	MIMC_BW6_633
 )
 
 // Transcript handles the creation of challenges for Fiat Shamir.
@@ -70,7 +53,7 @@ type Transcript struct {
 // NewTranscript returns a new transcript.
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order is important.
-func NewTranscript(h HashFS, challenges ...string) Transcript {
+func NewTranscript(h hash.Hash, challenges ...string) Transcript {
 
 	var res Transcript
 
@@ -89,24 +72,7 @@ func NewTranscript(h HashFS, challenges ...string) Transcript {
 
 	res.isComputed = make([]bool, res.nbChallenges)
 
-	switch h {
-	case SHA256:
-		res.h = sha256.New()
-	case MIMC_BN254:
-		res.h = gnark_hash.MIMC_BN254.New("seed")
-	case MIMC_BLS12_381:
-		res.h = gnark_hash.MIMC_BLS12_381.New("seed")
-	case MIMC_BLS12_377:
-		res.h = gnark_hash.MIMC_BLS12_377.New("seed")
-	case MIMC_BW6_761:
-		res.h = gnark_hash.MIMC_BW6_761.New("seed")
-	case MIMC_BLS24_315:
-		res.h = gnark_hash.MIMC_BLS24_315.New("seed")
-	case MIMC_BW6_633:
-		res.h = gnark_hash.MIMC_BW6_633.New("seed")
-	default:
-		panic("the chosen hash function is not available")
-	}
+	res.h = h
 
 	return res
 }
@@ -148,6 +114,7 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 		return m.challenges[challengeNumber], nil
 	}
 
+	// reset before populating the internal state
 	m.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
@@ -178,6 +145,9 @@ func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
 	m.challenges[challengeNumber] = make([]byte, len(res))
 	copy(m.challenges[challengeNumber], res)
 	m.isComputed[challengeNumber] = true
+
+	// reset the hash function in case it is used for other things
+	m.h.Reset()
 
 	return res, nil
 

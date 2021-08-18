@@ -16,12 +16,13 @@ package fiatshamir
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"testing"
 )
 
 func initTranscript() Transcript {
 
-	fs := NewTranscript(SHA256, "alpha", "beta", "gamma")
+	fs := NewTranscript(sha256.New(), "alpha", "beta", "gamma")
 
 	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
 	fs.Bind("alpha", values[0])
