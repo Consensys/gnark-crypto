@@ -347,51 +347,38 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 {{- $cDividesBits := divides $c $frBits}}
 
 func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, nbTasks int) *{{ $.TJacobian }} {
-	const c  = {{$c}} 							// scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c  = {{$c}} 							// scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) 			// number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the 
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is 
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks{{if not $cDividesBits }} + 1 {{end}} ]chan {{ $.TJacobianExtended }}
 	for i:=0; i < len(chChunks);i++ {
 		chChunks[i] = make(chan {{ $.TJacobianExtended }}, 1)
 	}
 
 
-	{{- if not $cDividesBits }}
-		// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
-		const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-		go func(j uint64, points []{{ $.TAffine }}, scalars []fr.Element) {
-			var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
-			msmProcessChunk{{ $.TAffine }}(j, chChunks[j], buckets[:], c, points, scalars)
-		}(uint64(nbChunks), points, scalars)
+	{{ if not $cDividesBits }}
+
+	// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
+	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+	go func(j uint64, points []{{ $.TAffine }}, scalars []fr.Element) {
+		var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
+		msmProcessChunk{{ $.TAffine }}(j, chChunks[j], buckets[:], c, points, scalars)
+	}(uint64(nbChunks), points, scalars)
 	{{- end}}
 
-
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []{{ $.TAffine }}, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >=0; j-- {
+		go func(j int, points []{{ $.TAffine }}, scalars []fr.Element) {
 			var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
-			for j:=start; j < end;j ++ {
-				msmProcessChunk{{ $.TAffine }}(uint64(j), chChunks[j],  buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunk{{ $.TAffine }}(uint64(j), chChunks[j],  buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 

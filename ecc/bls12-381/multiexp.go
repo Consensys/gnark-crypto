@@ -379,54 +379,49 @@ func msmProcessChunkG1Affine(chunk uint64,
 }
 
 func (p *G1Jac) msmC4(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 4                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 4                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC5(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 5                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 5                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -434,45 +429,33 @@ func (p *G1Jac) msmC5(points []G1Affine, scalars []fr.Element, nbTasks int) *G1J
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC6(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 6                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 6                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -480,45 +463,33 @@ func (p *G1Jac) msmC6(points []G1Affine, scalars []fr.Element, nbTasks int) *G1J
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC7(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 7                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 7                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -526,85 +497,60 @@ func (p *G1Jac) msmC7(points []G1Affine, scalars []fr.Element, nbTasks int) *G1J
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC8(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 8                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 8                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC9(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 9                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 9                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -612,45 +558,33 @@ func (p *G1Jac) msmC9(points []G1Affine, scalars []fr.Element, nbTasks int) *G1J
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC10(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 10                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 10                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -658,45 +592,33 @@ func (p *G1Jac) msmC10(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC11(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 11                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 11                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -704,45 +626,33 @@ func (p *G1Jac) msmC11(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC12(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 12                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 12                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -750,45 +660,33 @@ func (p *G1Jac) msmC12(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC13(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 13                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 13                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -796,45 +694,33 @@ func (p *G1Jac) msmC13(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC14(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 14                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 14                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -842,45 +728,33 @@ func (p *G1Jac) msmC14(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC15(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 15                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 15                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -888,85 +762,60 @@ func (p *G1Jac) msmC15(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 16                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 16                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC20(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 20                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 20                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -974,45 +823,33 @@ func (p *G1Jac) msmC20(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC21(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 21                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 21                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -1020,45 +857,33 @@ func (p *G1Jac) msmC21(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
 func (p *G1Jac) msmC22(points []G1Affine, scalars []fr.Element, nbTasks int) *G1Jac {
-	const c = 22                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 22                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g1JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G1Affine, scalars []fr.Element) {
@@ -1066,31 +891,11 @@ func (p *G1Jac) msmC22(points []G1Affine, scalars []fr.Element, nbTasks int) *G1
 		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G1Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G1Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g1JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG1Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
@@ -1351,54 +1156,49 @@ func msmProcessChunkG2Affine(chunk uint64,
 }
 
 func (p *G2Jac) msmC4(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 4                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 4                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 5                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 5                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1406,45 +1206,33 @@ func (p *G2Jac) msmC5(points []G2Affine, scalars []fr.Element, nbTasks int) *G2J
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 6                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 6                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1452,45 +1240,33 @@ func (p *G2Jac) msmC6(points []G2Affine, scalars []fr.Element, nbTasks int) *G2J
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 7                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 7                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1498,85 +1274,60 @@ func (p *G2Jac) msmC7(points []G2Affine, scalars []fr.Element, nbTasks int) *G2J
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC8(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 8                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 8                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 9                          // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 9                   // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1584,45 +1335,33 @@ func (p *G2Jac) msmC9(points []G2Affine, scalars []fr.Element, nbTasks int) *G2J
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 10                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 10                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1630,45 +1369,33 @@ func (p *G2Jac) msmC10(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 11                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 11                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1676,45 +1403,33 @@ func (p *G2Jac) msmC11(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 12                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 12                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1722,45 +1437,33 @@ func (p *G2Jac) msmC12(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 13                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 13                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1768,45 +1471,33 @@ func (p *G2Jac) msmC13(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 14                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 14                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1814,45 +1505,33 @@ func (p *G2Jac) msmC14(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 15                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 15                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1860,85 +1539,60 @@ func (p *G2Jac) msmC15(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC16(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 16                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 16                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 20                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 20                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1946,45 +1600,33 @@ func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 21                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 21                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -1992,45 +1634,33 @@ func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
 }
 
 func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, nbTasks int) *G2Jac {
-	const c = 22                         // scalars partitioned into c-bit radixes
-	const nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	const (
+		c        = 22                  // scalars partitioned into c-bit radixes
+		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	)
 
-	// for each chunk, spawn one (or less) go routine that'll loop through all the scalars
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
+	// critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
 	var chChunks [nbChunks + 1]chan g2JacExtended
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
+
 	// c doesn't divide 256, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []G2Affine, scalars []fr.Element) {
@@ -2038,31 +1668,11 @@ func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, nbTasks int) *G2
 		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
 	}(uint64(nbChunks), points, scalars)
 
-	// here we have nbTasks <= nbChunks
-	// so one task (ie go routine) may handle multiple chunks
-	nbChunksPerTask := nbChunks / nbTasks
-	if nbChunksPerTask < 1 {
-		nbChunksPerTask = 1
-		nbTasks = nbChunks
-	}
-
-	extraTasks := nbChunks - (nbTasks * nbChunksPerTask)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		_start := i*nbChunksPerTask + extraTasksOffset
-		_end := _start + nbChunksPerTask
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func(start, end int, points []G2Affine, scalars []fr.Element) {
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		go func(j int, points []G2Affine, scalars []fr.Element) {
 			var buckets [1 << (c - 1)]g2JacExtended
-			for j := start; j < end; j++ {
-				msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
-			}
-		}(_start, _end, points, scalars)
+			msmProcessChunkG2Affine(uint64(j), chChunks[j], buckets[:], c, points, scalars)
+		}(j, points, scalars)
 	}
 
 	return msmReduceChunkG2Affine(p, c, chChunks[:])
