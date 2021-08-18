@@ -26,20 +26,6 @@ var (
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
 
-// HashFS hash function used in Fiat Shamir. Likely snark friendly hash functions will be chosen.
-type HashFS uint
-
-// Supported hash functions for Fiat Shamir. Sha256 is arbitrary, we just need something fast non-snark friendly hash.
-const (
-	SHA256 HashFS = iota
-	MIMC_BN254
-	MIMC_BLS12_381
-	MIMC_BLS12_377
-	MIMC_BW6_761
-	MIMC_BLS24_315
-	MIMC_BW6_633
-)
-
 // Transcript handles the creation of challenges for Fiat Shamir.
 type Transcript struct {
 
