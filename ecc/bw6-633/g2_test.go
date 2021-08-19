@@ -64,7 +64,7 @@ func TestMapToCurveG2(t *testing.T) {
 	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			g := MapToCurveG2Svdw(a)
-			return g.IsOnCurve()
+			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))

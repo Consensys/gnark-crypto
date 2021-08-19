@@ -85,7 +85,7 @@ func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
 	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
 			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
-			return g.IsOnCurve()
+			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))
