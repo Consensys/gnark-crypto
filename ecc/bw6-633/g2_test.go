@@ -77,6 +77,8 @@ func TestMapToCurveG2(t *testing.T) {
 		},
 		genFuzz1,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestG2AffineIsOnCurve(t *testing.T) {

@@ -123,6 +123,7 @@ func svdwMapG1(u fp.Element) G1Affine {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
 func MapToCurveG1Svdw(t fp.Element) G1Affine {
 	res := svdwMapG1(t)
+	res.ClearCofactor(&res)
 	return res
 }
 

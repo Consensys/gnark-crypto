@@ -83,21 +83,34 @@ func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
 	{{- end}}
 
 	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
+	{{- if eq .CoordType "fp.Element"}}
 		func(a {{ .CoordType}}) bool {
 			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+	{{- else }}
+		func(a *{{ .CoordType}}) bool {
+			g := MapToCurve{{ toUpper .PointName}}Svdw(*a)
+	{{- end}}
 			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should be deterministic", prop.ForAll(
+	{{- if eq .CoordType "fp.Element"}}
 		func(a {{ .CoordType}}) bool {
 			g1 := MapToCurve{{ toUpper .PointName}}Svdw(a)
 			g2 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+	{{- else }}
+        func(a *{{ .CoordType}}) bool {
+			g1 := MapToCurve{{ toUpper .PointName}}Svdw(*a)
+			g2 := MapToCurve{{ toUpper .PointName}}Svdw(*a)
+	{{- end}}
 			return g1.Equal(&g2)
 		},
 		genFuzz1,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func Test{{ $TAffine }}IsOnCurve(t *testing.T) {

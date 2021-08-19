@@ -62,21 +62,23 @@ func TestMapToCurveG2(t *testing.T) {
 	genFuzz1 := GenE4()
 
 	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
-		func(a fptower.E4) bool {
-			g := MapToCurveG2Svdw(a)
+		func(a *fptower.E4) bool {
+			g := MapToCurveG2Svdw(*a)
 			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
-		func(a fptower.E4) bool {
-			g1 := MapToCurveG2Svdw(a)
-			g2 := MapToCurveG2Svdw(a)
+		func(a *fptower.E4) bool {
+			g1 := MapToCurveG2Svdw(*a)
+			g2 := MapToCurveG2Svdw(*a)
 			return g1.Equal(&g2)
 		},
 		genFuzz1,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestG2AffineIsOnCurve(t *testing.T) {
