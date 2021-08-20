@@ -41,36 +41,35 @@ func TestPairing(t *testing.T) {
 	genR2 := GenFr()
 
 	properties.Property("[BW6-633] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a *GT) bool {
-			var b GT
-			b.Set(a)
-			b = FinalExponentiation(a)
-			*a = FinalExponentiation(a)
+		func(a GT) bool {
+			b := a
+			b = FinalExponentiation(&a)
+			a = FinalExponentiation(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[BW6-633] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a *GT) bool {
-			b := FinalExponentiation(a)
+		func(a GT) bool {
+			b := FinalExponentiation(&a)
 			return !a.IsInSubGroup() && b.IsInSubGroup()
 		},
 		genA,
 	))
 
 	properties.Property("[BW6-633] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
-		func(a *GT) bool {
+		func(a GT) bool {
 			var b, c, d GT
-			b.Conjugate(a)
-			a.Inverse(a)
-			b.Mul(&b, a)
+			b.Conjugate(&a)
+			a.Inverse(&a)
+			b.Mul(&b, &a)
 
 			a.Frobenius(&b).
-				Mul(a, &b)
+				Mul(&a, &b)
 
-			c.Expt(a).Expt(&c)
-			d.Exp(a, xGen).Exp(&d, xGen)
+			c.Expt(&a).Expt(&c)
+			d.Exp(&a, xGen).Exp(&d, xGen)
 			return c.Equal(&d)
 		},
 		genA,

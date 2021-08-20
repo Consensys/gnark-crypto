@@ -23,47 +23,25 @@ import (
 // ------------------------------------------------------------
 // utils
 
-{{- if eq .CoordType "fp.Element" }}
-	func fuzzJacobian{{ $TAffine }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
-		var res {{ $TJacobian }}
-		res.X.Mul(&p.X, &f).Mul(&res.X, &f)
-		res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
-		res.Z.Mul(&p.Z, &f)
-		return res
-	}
+func fuzzJacobian{{ $TAffine }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
+	var res {{ $TJacobian }}
+	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
+	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
+	res.Z.Mul(&p.Z, &f)
+	return res
+}
 
-	func fuzzExtendedJacobian{{ $TAffine }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}) {{ $TJacobianExtended }} {
-		var res {{ $TJacobianExtended }}
-		var ff, fff {{ .CoordType}}
-		ff.Square(&f)
-		fff.Mul(&ff, &f)
-		res.X.Mul(&p.X, &ff)
-		res.Y.Mul(&p.Y, &fff)
-		res.ZZ.Mul(&p.ZZ, &ff)
-		res.ZZZ.Mul(&p.ZZZ, &fff)
-		return res
-	}
-{{- else }}
-	func fuzzJacobian{{ $TAffine }}(p *{{ $TJacobian }}, f *{{ .CoordType}}) {{ $TJacobian }} {
-		var res {{ $TJacobian }}
-		res.X.Mul(&p.X, f).Mul(&res.X, f)
-		res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
-		res.Z.Mul(&p.Z, f)
-		return res
-	}
-
-	func fuzzExtendedJacobian{{ $TAffine }}(p *{{ $TJacobianExtended }}, f *{{ .CoordType}}) {{ $TJacobianExtended }} {
-		var res {{ $TJacobianExtended }}
-		var ff, fff {{ .CoordType}}
-		ff.Square(f)
-		fff.Mul(&ff, f)
-		res.X.Mul(&p.X, &ff)
-		res.Y.Mul(&p.Y, &fff)
-		res.ZZ.Mul(&p.ZZ, &ff)
-		res.ZZZ.Mul(&p.ZZZ, &fff)
-		return res
-	}
-{{- end}}
+func fuzzExtendedJacobian{{ $TAffine }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}) {{ $TJacobianExtended }} {
+	var res {{ $TJacobianExtended }}
+	var ff, fff {{ .CoordType}}
+	ff.Square(&f)
+	fff.Mul(&ff, &f)
+	res.X.Mul(&p.X, &ff)
+	res.Y.Mul(&p.Y, &fff)
+	res.ZZ.Mul(&p.ZZ, &ff)
+	res.ZZZ.Mul(&p.ZZZ, &fff)
+	return res
+}
 
 // ------------------------------------------------------------
 // tests
@@ -83,28 +61,17 @@ func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
 	{{- end}}
 
 	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
-	{{- if eq .CoordType "fp.Element"}}
 		func(a {{ .CoordType}}) bool {
 			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
-	{{- else }}
-		func(a *{{ .CoordType}}) bool {
-			g := MapToCurve{{ toUpper .PointName}}Svdw(*a)
-	{{- end}}
 			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should be deterministic", prop.ForAll(
-	{{- if eq .CoordType "fp.Element"}}
 		func(a {{ .CoordType}}) bool {
 			g1 := MapToCurve{{ toUpper .PointName}}Svdw(a)
 			g2 := MapToCurve{{ toUpper .PointName}}Svdw(a)
-	{{- else }}
-        func(a *{{ .CoordType}}) bool {
-			g1 := MapToCurve{{ toUpper .PointName}}Svdw(*a)
-			g2 := MapToCurve{{ toUpper .PointName}}Svdw(*a)
-	{{- end}}
 			return g1.Equal(&g2)
 		},
 		genFuzz1,
@@ -127,40 +94,24 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 		genFuzz1 := GenE4()
 	{{- end}}
 	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (affine) should be on the curve", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			var op1, op2 {{ $TAffine }}
 			op1.FromJacobian(&{{ toLower .PointName}}Gen)
 			op2.FromJacobian(&{{ toLower .PointName}}Gen)
-			{{- if eq .CoordType "fp.Element" }}
-				op2.Y.Mul(&op2.Y, &a)
-			{{- else  }}
-				op2.Y.Mul(&op2.Y, a)
-			{{- end}}
+			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[{{ toUpper .Name }}] {{ toLower .PointName}}Gen (Jacobian) should be on the curve", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			var op1, op2, op3 {{ $TJacobian }}
 			op1.Set(&{{ toLower .PointName}}Gen)
 			op3.Set(&{{ toLower .PointName}}Gen)
 
 			op2 = fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName}}Gen, a)
-			{{- if eq .CoordType "fp.Element" }}
-				op3.Y.Mul(&op3.Y, &a)
-			{{- else }}
-				op3.Y.Mul(&op3.Y, a)
-			{{- end}}
+			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
 		genFuzz1,
@@ -188,11 +139,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 	{{- end}}
 
 	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of the Jacobian representative", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			g := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			var op1 {{ $TAffine }}
 			op1.FromJacobian(&g)
@@ -203,11 +150,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 
 
 	properties.Property("[{{ toUpper .Name }}] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			var g {{ $TJacobianExtended }}
 			g.X.Set(&{{ toLower .PointName }}Gen.X)
 			g.Y.Set(&{{ toLower .PointName }}Gen.Y)
@@ -223,11 +166,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .Name }}] Jacobian representation should be the same as the affine representative", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			var g {{ $TJacobian }}
 			var op1 {{ $TAffine }}
 			op1.X.Set(&{{ toLower .PointName }}Gen.X)
@@ -282,11 +221,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a, b {{ .CoordType}}) bool {
-		{{- else }}
-			func(a, b *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a, b {{ .CoordType}}) bool {
 			op1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			op2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
 			return op1.Equal(&op2)
@@ -300,7 +235,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 
 func Test{{ $TAffine }}Ops(t *testing.T) {
 
-parameters := gopter.DefaultTestParameters()
+	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
@@ -318,11 +253,7 @@ parameters := gopter.DefaultTestParameters()
 	genScalar := GenFr()
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a, b {{ .CoordType}}) bool {
-		{{- else }}
-			func(a, b *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a, b {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			fop2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
 			var op1, op2 {{ $TJacobian }}
@@ -335,11 +266,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a, b {{ .CoordType}}) bool {
-		{{- else }}
-			func(a, b *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a, b {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			fop2 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, b)
 			fop2.Neg(&fop2)
@@ -351,11 +278,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			fop1.AddAssign(&{{ toLower .PointName }}Infinity)
 			var op2 {{ $TJacobian }}
@@ -367,11 +290,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			var p1,p1Neg {{ $TAffine }}
 			p1.FromJacobian(&fop1)
@@ -390,11 +309,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			var p1,p1Neg {{ $TAffine }}
 			p1.FromJacobian(&fop1)
@@ -413,11 +328,7 @@ parameters := gopter.DefaultTestParameters()
 	))
 
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
-		{{- if eq .CoordType "fp.Element" }}
-			func(a {{ .CoordType}}) bool {
-		{{- else }}
-			func(a *{{ .CoordType}}) bool {
-		{{- end}}
+		func(a {{ .CoordType}}) bool {
 			fop1 := fuzzJacobian{{ $TAffine }}(&{{ toLower .PointName }}Gen, a)
 			fop1.Neg(&fop1)
 			var op2 {{ $TAffine }}

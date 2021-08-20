@@ -1,3 +1,4 @@
+//go:build gofuzz
 // +build gofuzz
 
 // Copyright 2020 ConsenSys Software Inc.

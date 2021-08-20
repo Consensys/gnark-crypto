@@ -18,9 +18,9 @@ package twistededwards
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bw6-633"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -201,8 +201,8 @@ func TestOps(t *testing.T) {
 	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
-	genS1 := bw6633.GenBigInt()
-	genS2 := bw6633.GenBigInt()
+	genS1 := GenBigInt()
+	genS2 := GenBigInt()
 
 	// affine
 	properties.Property("(affine) P+(-P)=O", prop.ForAll(
@@ -365,5 +365,21 @@ func TestMarshal(t *testing.T) {
 			t.Fatal("error unmarshal(marshal(point))")
 		}
 		point.Add(&point, &edwards.Base)
+	}
+}
+
+// GenBigInt generates a big.Int
+// TODO @thomas we use fr size as max bound here
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fr.Bytes]byte
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
 	}
 }

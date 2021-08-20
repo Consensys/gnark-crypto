@@ -30,6 +30,7 @@ import (
 
 // ------------------------------------------------------------
 // utils
+
 func fuzzJacobianG1Affine(p *G1Jac, f fp.Element) G1Jac {
 	var res G1Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)

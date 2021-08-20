@@ -30,19 +30,20 @@ import (
 
 // ------------------------------------------------------------
 // utils
-func fuzzJacobianG2Affine(p *G2Jac, f *fptower.E4) G2Jac {
+
+func fuzzJacobianG2Affine(p *G2Jac, f fptower.E4) G2Jac {
 	var res G2Jac
-	res.X.Mul(&p.X, f).Mul(&res.X, f)
-	res.Y.Mul(&p.Y, f).Mul(&res.Y, f).Mul(&res.Y, f)
-	res.Z.Mul(&p.Z, f)
+	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
+	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
+	res.Z.Mul(&p.Z, &f)
 	return res
 }
 
-func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f *fptower.E4) g2JacExtended {
+func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fptower.E4) g2JacExtended {
 	var res g2JacExtended
 	var ff, fff fptower.E4
-	ff.Square(f)
-	fff.Mul(&ff, f)
+	ff.Square(&f)
+	fff.Mul(&ff, &f)
 	res.X.Mul(&p.X, &ff)
 	res.Y.Mul(&p.Y, &fff)
 	res.ZZ.Mul(&p.ZZ, &ff)
@@ -62,17 +63,17 @@ func TestMapToCurveG2(t *testing.T) {
 	genFuzz1 := GenE4()
 
 	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
-		func(a *fptower.E4) bool {
-			g := MapToCurveG2Svdw(*a)
+		func(a fptower.E4) bool {
+			g := MapToCurveG2Svdw(a)
 			return g.IsInSubGroup()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
-		func(a *fptower.E4) bool {
-			g1 := MapToCurveG2Svdw(*a)
-			g2 := MapToCurveG2Svdw(*a)
+		func(a fptower.E4) bool {
+			g1 := MapToCurveG2Svdw(a)
+			g2 := MapToCurveG2Svdw(a)
 			return g1.Equal(&g2)
 		},
 		genFuzz1,
@@ -89,24 +90,24 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	genFuzz1 := GenE4()
 	properties.Property("[BLS24-315] g2Gen (affine) should be on the curve", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			var op1, op2 G2Affine
 			op1.FromJacobian(&g2Gen)
 			op2.FromJacobian(&g2Gen)
-			op2.Y.Mul(&op2.Y, a)
+			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
 		genFuzz1,
 	))
 
 	properties.Property("[BLS24-315] g2Gen (Jacobian) should be on the curve", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			var op1, op2, op3 G2Jac
 			op1.Set(&g2Gen)
 			op3.Set(&g2Gen)
 
 			op2 = fuzzJacobianG2Affine(&g2Gen, a)
-			op3.Y.Mul(&op3.Y, a)
+			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
 		genFuzz1,
@@ -125,7 +126,7 @@ func TestG2AffineConversions(t *testing.T) {
 	genFuzz2 := GenE4()
 
 	properties.Property("[BLS24-315] Affine representation should be independent of the Jacobian representative", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			g := fuzzJacobianG2Affine(&g2Gen, a)
 			var op1 G2Affine
 			op1.FromJacobian(&g)
@@ -135,7 +136,7 @@ func TestG2AffineConversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			var g g2JacExtended
 			g.X.Set(&g2Gen.X)
 			g.Y.Set(&g2Gen.Y)
@@ -151,7 +152,7 @@ func TestG2AffineConversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] Jacobian representation should be the same as the affine representative", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			var g G2Jac
 			var op1 G2Affine
 			op1.X.Set(&g2Gen.X)
@@ -206,7 +207,7 @@ func TestG2AffineConversions(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
-		func(a, b *fptower.E4) bool {
+		func(a, b fptower.E4) bool {
 			op1 := fuzzJacobianG2Affine(&g2Gen, a)
 			op2 := fuzzJacobianG2Affine(&g2Gen, b)
 			return op1.Equal(&op2)
@@ -230,7 +231,7 @@ func TestG2AffineOps(t *testing.T) {
 	genScalar := GenFr()
 
 	properties.Property("[BLS24-315] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
-		func(a, b *fptower.E4) bool {
+		func(a, b fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			fop2 := fuzzJacobianG2Affine(&g2Gen, b)
 			var op1, op2 G2Jac
@@ -243,7 +244,7 @@ func TestG2AffineOps(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
-		func(a, b *fptower.E4) bool {
+		func(a, b fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			fop2 := fuzzJacobianG2Affine(&g2Gen, b)
 			fop2.Neg(&fop2)
@@ -255,7 +256,7 @@ func TestG2AffineOps(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			fop1.AddAssign(&g2Infinity)
 			var op2 G2Jac
@@ -267,7 +268,7 @@ func TestG2AffineOps(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			var p1, p1Neg G2Affine
 			p1.FromJacobian(&fop1)
@@ -286,7 +287,7 @@ func TestG2AffineOps(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			var p1, p1Neg G2Affine
 			p1.FromJacobian(&fop1)
@@ -305,7 +306,7 @@ func TestG2AffineOps(t *testing.T) {
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
-		func(a *fptower.E4) bool {
+		func(a fptower.E4) bool {
 			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
 			fop1.Neg(&fop1)
 			var op2 G2Affine
