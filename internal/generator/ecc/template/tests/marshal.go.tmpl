@@ -311,8 +311,6 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 
 // define Gopters generators
 
-
-
 // GenFr generates an Fr element
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
@@ -327,7 +325,6 @@ func GenFr() gopter.Gen {
 		return genResult
 	}
 }
-
 
 // GenFp generates an Fp element
 func GenFp() gopter.Gen {
