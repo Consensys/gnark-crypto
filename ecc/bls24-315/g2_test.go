@@ -28,46 +28,19 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-// ------------------------------------------------------------
-// utils
-
-func fuzzJacobianG2Affine(p *G2Jac, f fptower.E4) G2Jac {
-	var res G2Jac
-	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
-	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
-	res.Z.Mul(&p.Z, &f)
-	return res
-}
-
-func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fptower.E4) g2JacExtended {
-	var res g2JacExtended
-	var ff, fff fptower.E4
-	ff.Square(&f)
-	fff.Mul(&ff, &f)
-	res.X.Mul(&p.X, &ff)
-	res.Y.Mul(&p.Y, &fff)
-	res.ZZ.Mul(&p.ZZ, &ff)
-	res.ZZZ.Mul(&p.ZZZ, &fff)
-	return res
-}
-
-// ------------------------------------------------------------
-// tests
-
 func TestMapToCurveG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenE4()
 
 	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
 		func(a fptower.E4) bool {
 			g := MapToCurveG2Svdw(a)
 			return g.IsInSubGroup()
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
@@ -76,7 +49,7 @@ func TestMapToCurveG2(t *testing.T) {
 			g2 := MapToCurveG2Svdw(a)
 			return g1.Equal(&g2)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -88,7 +61,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenE4()
+
 	properties.Property("[BLS24-315] g2Gen (affine) should be on the curve", prop.ForAll(
 		func(a fptower.E4) bool {
 			var op1, op2 G2Affine
@@ -97,7 +70,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] g2Gen (Jacobian) should be on the curve", prop.ForAll(
@@ -110,7 +83,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -122,8 +95,6 @@ func TestG2AffineConversions(t *testing.T) {
 	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenE4()
-	genFuzz2 := GenE4()
 
 	properties.Property("[BLS24-315] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fptower.E4) bool {
@@ -132,7 +103,7 @@ func TestG2AffineConversions(t *testing.T) {
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
@@ -148,7 +119,7 @@ func TestG2AffineConversions(t *testing.T) {
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] Jacobian representation should be the same as the affine representative", prop.ForAll(
@@ -165,7 +136,7 @@ func TestG2AffineConversions(t *testing.T) {
 
 			return g.X.Equal(&g2Gen.X) && g.Y.Equal(&g2Gen.Y) && g.Z.Equal(&one)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
@@ -212,8 +183,8 @@ func TestG2AffineConversions(t *testing.T) {
 			op2 := fuzzJacobianG2Affine(&g2Gen, b)
 			return op1.Equal(&op2)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenE4(),
+		GenE4(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -225,8 +196,6 @@ func TestG2AffineOps(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenE4()
-	genFuzz2 := GenE4()
 
 	genScalar := GenFr()
 
@@ -239,8 +208,8 @@ func TestG2AffineOps(t *testing.T) {
 			op2.Double(&fop2)
 			return op1.Equal(&op2)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenE4(),
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
@@ -251,8 +220,8 @@ func TestG2AffineOps(t *testing.T) {
 			fop1.AddAssign(&fop2)
 			return fop1.Equal(&g2Infinity)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenE4(),
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
@@ -264,7 +233,7 @@ func TestG2AffineOps(t *testing.T) {
 			op2.AddAssign(&g2Gen)
 			return fop1.Equal(&g2Gen) && op2.Equal(&g2Gen)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
@@ -283,7 +252,7 @@ func TestG2AffineOps(t *testing.T) {
 				o1.ZZ.Equal(&o2.ZZ) &&
 				o1.ZZZ.Equal(&o2.ZZZ)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
@@ -302,7 +271,7 @@ func TestG2AffineOps(t *testing.T) {
 				o1.ZZ.Equal(&o2.ZZ) &&
 				o1.ZZZ.Equal(&o2.ZZZ)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
@@ -314,7 +283,7 @@ func TestG2AffineOps(t *testing.T) {
 			fop1.AddMixed(&op2)
 			return fop1.Equal(&g2Infinity)
 		},
-		genFuzz1,
+		GenE4(),
 	))
 
 	properties.Property("[BLS24-315] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
@@ -641,4 +610,24 @@ func BenchmarkG2JacExtDouble(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.double(&a)
 	}
+}
+
+func fuzzJacobianG2Affine(p *G2Jac, f fptower.E4) G2Jac {
+	var res G2Jac
+	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
+	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
+	res.Z.Mul(&p.Z, &f)
+	return res
+}
+
+func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fptower.E4) g2JacExtended {
+	var res g2JacExtended
+	var ff, fff fptower.E4
+	ff.Square(&f)
+	fff.Mul(&ff, &f)
+	res.X.Mul(&p.X, &ff)
+	res.Y.Mul(&p.Y, &fff)
+	res.ZZ.Mul(&p.ZZ, &ff)
+	res.ZZZ.Mul(&p.ZZZ, &fff)
+	return res
 }
