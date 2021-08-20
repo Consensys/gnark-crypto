@@ -26,7 +26,7 @@
 
 ### Go version
 
-`gnark-crypto` is tested with the last 2 major releases of Go (1.15 and 1.16).
+`gnark-crypto` is tested with the last 2 major releases of Go (1.16 and 1.17).
 
 ### Install `gnark-crypto` 
 
