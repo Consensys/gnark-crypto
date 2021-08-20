@@ -65,6 +65,7 @@ import (
         ))
 
         {{if eq .PointName "g2" }}
+        {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633") }}
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                     var p, res1, res2 {{ $TJacobian }}
@@ -86,6 +87,7 @@ import (
                 },
                 {{$fuzzer}},
             ))
+        {{end}}
         {{end}}
         properties.TestingRun(t, gopter.ConsoleReporter(false))
     }

@@ -63,20 +63,6 @@ func TestG2AffineEndomorphism(t *testing.T) {
 		GenFp(),
 	))
 
-	properties.Property("[BW6-761] check that psi^2(P) = -phi(P)", prop.ForAll(
-		func(a fp.Element) bool {
-			var p, res1, res2 G2Jac
-			g := MapToCurveG2Svdw(a)
-			p.FromAffine(&g)
-			res1.psi(&p).psi(&res1).Neg(&res1)
-			res2.Set(&p)
-			res2.X.MulByElement(&res2.X, &thirdRootOneG1)
-
-			return p.IsInSubGroup() && res1.Equal(&res2)
-		},
-		GenFp(),
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
