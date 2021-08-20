@@ -28,6 +28,58 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
+func TestG2AffineEndomorphism(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS24-315] check that phi(P) = lambdaGLV * P", prop.ForAll(
+		func(a fptower.E4) bool {
+			var p, res1, res2 G2Jac
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
+			res1.phi(&p)
+			res2.mulWindowed(&p, &lambdaGLV)
+
+			return p.IsInSubGroup() && res1.Equal(&res2)
+		},
+		GenE4(),
+	))
+
+	properties.Property("[BLS24-315] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
+		func(a fptower.E4) bool {
+			var p, res, tmp G2Jac
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
+			tmp.phi(&p)
+			res.phi(&tmp).
+				AddAssign(&tmp).
+				AddAssign(&p)
+
+			return res.Z.IsZero()
+		},
+		GenE4(),
+	))
+
+	properties.Property("[BLS24-315] check that psi^2(P) = -phi(P)", prop.ForAll(
+		func(a fptower.E4) bool {
+			var p, res1, res2 G2Jac
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
+			res1.psi(&p).psi(&res1).psi(&res1).psi(&res1).Neg(&res1)
+			res2.Set(&p)
+			res2.X.MulByElement(&res2.X, &thirdRootOneG1)
+
+			return p.IsInSubGroup() && res1.Equal(&res2)
+		},
+		GenE4(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestMapToCurveG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
