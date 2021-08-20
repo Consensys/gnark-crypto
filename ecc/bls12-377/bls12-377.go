@@ -11,7 +11,7 @@ import (
 
 // E: y**2=x**3+1
 // Etwist: y**2 = x**3+u**-1
-// Tower: Fp->Fp2, u**2=5 -> Fp12, v**6=u
+// Tower: Fp->Fp2, u**2=-5 -> Fp12, v**6=u
 // Generator (BLS12 family): x=9586122913090633729
 // optimal Ate loop: trace(frob)-1=x
 // trace of pi: x+1
