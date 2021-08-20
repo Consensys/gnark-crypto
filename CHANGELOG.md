@@ -1,3 +1,64 @@
+<a name="v0.5.0"></a>
+## [v0.5.0] - 2021-08-20
+
+### Feat
+- adds new curve bls24-315
+- adds new curve bw6-633
+- adds kzg polynomial commitment scheme
+- adds fiat shamir
+- Element.SetInterface returns an error instead of panicking if unsupported type
+- MultiExp now takes a nbTasks parameter and splits until we have nbTasks <= nbChunks
+- MultiExp returns error if len(points) != len(scalars)
+- ecc encoder now handles []Element so gnark don't have to
+- ecc encoders uses binary.Write and binary.Read to support basic types
+- added ecc.Implemented() that returns list of curve fully implemented
+- added Reference bencharks for continuous benchmarking. fixes [#54](https://github.com/ConsenSys/gnark-crypto/issues/54)
+- added curve level go-fuzz fuzz functions
+- **all curves:** faster GT memebership
+- **twisted Edwards:** tests use gopter, no more hardcoded values
+- **bls12-377:** change G2 generator (+Fp QNR) to match other libs
+- **bls12-377:** change G1 generator to match other libs
+- **bw6:** Pairing according to ABLR 2013/722 with Fp6/Fp3
+
+### Fix
+- use crypto/rand instead of math/rand in ecc/../utils.go
+- fixes [#51](https://github.com/ConsenSys/gnark-crypto/issues/51)
+- e2 x86 asm incorrect offset when x is 0
+- fixes [#49](https://github.com/ConsenSys/gnark-crypto/issues/49)
+- **twisted Edwards:** fixed Neg(), and fixes [#57](https://github.com/ConsenSys/gnark-crypto/issues/57)
+
+### Perf
+- **all curves:** twisted Edwards companions arithmetic with a=-1
+- **bls12:** faster G2 clear cofactor
+- **bls12:** faster G2 subgroup checks --> psi^2=phi+1
+- **bls12:** faster G2 subgroup checks
+- **bls12-377:** remove one add, one sub in e2.Square
+- **bn:** optimize Expt (no conditional branching)
+- **bn254:** Expt in 2-NAF
+- **bw6:** replace Inverse and FrobeniusCube by conjugate
+- **bw6:** new optimized final exp (hard part)
+- **bw6-633:** divide G1 cofactor formula by 4
+- **bw6-633:** optimized hard part in final exp
+- **fft:** introduced flatten kernel for n==8 and asm impl for butterfly to minimze memory writes
+
+### Refactor
+- ported accumulator/ and polynomial/ from gnark
+- moved fr/polynomial/kzg to fr/kzg
+- removed deprecated MulAssign, AddAssign and SubAssign apis
+- removed hash functions recorded in transcript.go
+- moved crypto/* under /
+- **kzg:** Proof -> OpeningProof. BatchProofsSinglePoint -> BatchOpeningProof
+- **kzg:** removed Scheme, package level methods with SRS and domain as parameter
+
+### Test
+- added mulGeneric vs mul assembly on E2
+- **curves:** use IsInSubGroup instead IsOnCurve MapToCurveG1Svdw test
+- added e2.Neg test in code generation
+
+
+
+
+
 <a name="v0.4.0"></a>
 ## [v0.4.0] - 2021-03-31
 
