@@ -46,94 +46,69 @@ func (z *E6) Expt(x *E6) *E6 {
 	return z
 }
 
-// MulByVMinusThree set z to x*(y*v**-3) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-3 = u**-1 = (-4)**-1*u)
-func (z *E6) MulByVMinusThree(x *E6, y *fp.Element) *E6 {
+// Expc2 set z to x^c2 in E6 and return z
+// ht, hy = 13, 9
+// c1 = ht+hy = 22 (10110)
+func (z *E6) Expc2(x *E6) *E6 {
 
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
+	var result E6
 
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
+	result.CyclotomicSquare(x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
 
-	z.MulByE2(x, &tmp)
+	z.Set(&result)
 
 	return z
 }
 
-// MulByVminusTwo set z to x*(y*v**-2) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-2 = (-4)**-1*u*v)
-func (z *E6) MulByVminusTwo(x *E6, y *fp.Element) *E6 {
+// Expc1 set z to x^c1 in E6 and return z
+// ht, hy = 13, 9
+// c1 = ht**2+3*hy**2 = 412 (110011100)
+func (z *E6) Expc1(x *E6) *E6 {
 
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
+	var result E6
 
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
+	result.CyclotomicSquare(x)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.Mul(&result, x)
+	result.CyclotomicSquare(&result)
+	result.CyclotomicSquare(&result)
 
-	var a E2
-	a.MulByElement(&x.B2, y)
-	z.B2.Mul(&x.B1, &tmp)
-	z.B1.Mul(&x.B0, &tmp)
-	z.B0.Set(&a)
+	z.Set(&result)
 
 	return z
 }
 
-// MulByVminusFive set z to x*(y*v**-5) and return z (Fp6(v) where v**3=u, v**6=-4, so v**-5 = (-4)**-1*v)
-func (z *E6) MulByVminusFive(x *E6, y *fp.Element) *E6 {
+// MulBy014 multiplication by sparse element (c0,c1,0,0,c4,0)
+func (z *E6) MulBy014(c0, c1, c4 *fp.Element) *E6 {
 
-	fourinv := fp.Element{
-		8571757465769615091,
-		6221412002326125864,
-		16781361031322833010,
-		18148962537424854844,
-		6497335359600054623,
-		17630955688667215145,
-		15638647242705587201,
-		830917065158682257,
-		6848922060227959954,
-		4142027113657578586,
-		12050453106507568375,
-		55644342162350184,
-	}
+	var a, b E3
+	var d fp.Element
 
-	// tmp = y*(-4)**-1 * u
-	var tmp E2
-	tmp.A0.SetZero()
-	tmp.A1.Mul(y, &fourinv)
+	a.Set(&z.B0)
+	a.MulBy01(c0, c1)
 
-	var a E2
-	a.Mul(&x.B2, &tmp)
-	z.B2.MulByElement(&x.B1, &tmp.A1)
-	z.B1.MulByElement(&x.B0, &tmp.A1)
-	z.B0.Set(&a)
+	b.Set(&z.B1)
+	b.MulBy1(c4)
+	d.Add(c1, c4)
+
+	z.B1.Add(&z.B1, &z.B0)
+	z.B1.MulBy01(c0, &d)
+	z.B1.Sub(&z.B1, &a)
+	z.B1.Sub(&z.B1, &b)
+	z.B0.MulByNonResidue(&b)
+	z.B0.Add(&z.B0, &a)
 
 	return z
 }

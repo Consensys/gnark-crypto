@@ -21,10 +21,39 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/crypto/hash"
-	"github.com/consensys/gnark-crypto/crypto/signature"
+	crand "crypto/rand"
+
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/signature"
 )
+
+func Example() {
+	// instantiate hash function
+	hFunc := hash.MIMC_BLS12_381.New("seed")
+
+	// create a eddsa key pair
+	privateKey, _ := signature.EDDSA_BLS12_381.New(crand.Reader)
+	publicKey := privateKey.Public()
+
+	// note that the message is on 4 bytes
+	msg := []byte{0xde, 0xad, 0xf0, 0x0d}
+
+	// sign the message
+	signature, _ := privateKey.Sign(msg, hFunc)
+
+	// verifies signature
+	isValid, _ := publicKey.Verify(signature, msg, hFunc)
+	if !isValid {
+		fmt.Println("1. invalid signature")
+	} else {
+		fmt.Println("1. valid signature")
+	}
+
+	// Output: 1. valid signature
+}
 
 func TestSerialization(t *testing.T) {
 

@@ -16,7 +16,6 @@ package bls12377
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 )
@@ -94,12 +93,6 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	result.Mul(&result, &t[1])
 
 	return result
-}
-
-var lineEvalPool = sync.Pool{
-	New: func() interface{} {
-		return new([69]lineEvaluation)
-	},
 }
 
 // MillerLoop Miller loop

@@ -17,7 +17,6 @@
 package bn254
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -25,35 +24,6 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
-
-// ------------------------------------------------------------
-// examples
-
-func ExampleMillerLoop() {
-
-	// samples a random scalar r
-	var r big.Int
-	var rFr fr.Element
-	rFr.SetRandom()
-	rFr.ToBigIntRegular(&r)
-
-	// computes r*g1Gen, r*g2Gen
-	var rg1 G1Affine
-	var rg2 G2Affine
-	rg1.ScalarMultiplication(&g1GenAff, &r)
-	rg2.ScalarMultiplication(&g2GenAff, &r)
-
-	// Computes e(g1GenAff, ag2) and e(ag1, g2GenAff)
-	e1, _ := Pair([]G1Affine{g1GenAff}, []G2Affine{rg2})
-	E2, _ := Pair([]G1Affine{rg1}, []G2Affine{g2GenAff})
-
-	// checks that bilinearity property holds
-	check := e1.Equal(&E2)
-
-	fmt.Printf("%t\n", check)
-	// Output: true
-
-}
 
 // ------------------------------------------------------------
 // tests
@@ -70,24 +40,36 @@ func TestPairing(t *testing.T) {
 	genR2 := GenFr()
 
 	properties.Property("[BN254] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a *GT) bool {
-			var b GT
-			b.Set(a)
-			b = FinalExponentiation(a)
-			*a = FinalExponentiation(a)
+		func(a GT) bool {
+			b := a
+			b = FinalExponentiation(&a)
+			a = FinalExponentiation(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[BN254] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a *GT) bool {
-			var one GT
-			e := fr.Modulus()
-			one.SetOne()
-			*a = FinalExponentiation(a)
-			a.Exp(a, *e)
-			return a.Equal(&one)
+		func(a GT) bool {
+			b := FinalExponentiation(&a)
+			return !a.IsInSubGroup() && b.IsInSubGroup()
+		},
+		genA,
+	))
+
+	properties.Property("[BN254] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
+		func(a GT) bool {
+			var b, c, d GT
+			b.Conjugate(&a)
+			a.Inverse(&a)
+			b.Mul(&b, &a)
+
+			a.FrobeniusSquare(&b).
+				Mul(&a, &b)
+
+			c.Expt(&a).Expt(&c)
+			d.Exp(&a, xGen).Exp(&d, xGen)
+			return c.Equal(&d)
 		},
 		genA,
 	))
@@ -180,6 +162,49 @@ func TestPairing(t *testing.T) {
 		genR1,
 		genR2,
 	))
+
+	properties.Property("[BN254] MillerLoop should skip pairs with a point at infinity", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var one GT
+
+			var ag1, g1Inf G1Affine
+			var bg2, g2Inf G2Affine
+
+			var abigint, bbigint big.Int
+
+			one.SetOne()
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			g1Inf.FromJacobian(&g1Infinity)
+			g2Inf.FromJacobian(&g2Infinity)
+
+			// e([0,c] ; [b,d])
+			tabP := []G1Affine{g1Inf, ag1}
+			tabQ := []G2Affine{g2GenAff, bg2}
+			res1, _ := Pair(tabP, tabQ)
+
+			// e([a,c] ; [0,d])
+			tabP = []G1Affine{g1GenAff, ag1}
+			tabQ = []G2Affine{g2Inf, bg2}
+			res2, _ := Pair(tabP, tabQ)
+
+			// e([0,c] ; [d,0])
+			tabP = []G1Affine{g1Inf, ag1}
+			tabQ = []G2Affine{bg2, g2Inf}
+			res3, _ := Pair(tabP, tabQ)
+
+			return res1.Equal(&res2) && !res2.Equal(&res3) && res3.Equal(&one)
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -224,4 +249,18 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 		FinalExponentiation(&a)
 	}
 
+}
+
+func BenchmarkMultiPairing(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Pair([]G1Affine{g1GenAff, g1GenAff, g1GenAff}, []G2Affine{g2GenAff, g2GenAff, g2GenAff})
+	}
 }

@@ -20,6 +20,7 @@ import (
 	"math/bits"
 	"runtime"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -50,24 +51,37 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 
 	numCPU := uint64(runtime.NumCPU())
 
+	// if coset != 0, scale by coset table
 	if coset != 0 {
-		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
+		scale := func(cosetTable []fr.Element) {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &cosetTable[i])
+				}
+			})
 		}
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTable[coset-1][i])
-			}
-		})
-		// put it back as we found it
 		if decimation == DIT {
-			BitReverse(domain.CosetTable[coset-1])
+			if domain.PrecomputeReversedTable == 0 {
+				// no precomputed coset, we adjust the index of the coset table
+				n := uint64(len(a))
+				nn := uint64(64 - bits.TrailingZeros64(n))
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						irev := bits.Reverse64(uint64(i)) >> nn
+						a[i].Mul(&a[i], &domain.CosetTable[coset-1][int(irev)])
+					}
+				})
+			} else {
+				scale(domain.CosetTableReversed[coset-1])
+			}
+		} else {
+			scale(domain.CosetTable[coset-1])
 		}
 	}
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(nextPowerOfTwo(numCPU))
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 	if numCPU <= 1 {
 		maxSplits = -1
 	}
@@ -93,7 +107,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(nextPowerOfTwo(numCPU))
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 	if numCPU <= 1 {
 		maxSplits = -1
 	}
@@ -107,37 +121,57 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 	}
 
 	// scale by CardinalityInv (+ cosetTableInv is coset!=0)
-	if coset != 0 {
-		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
-		}
+	if coset == 0 {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][i]).
-					MulAssign(&domain.CardinalityInv)
+				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
-		// put it back as we found it
-		if decimation == DIF {
-			BitReverse(domain.CosetTableInv[coset-1])
-		}
-	} else {
+		return
+	}
+
+	scale := func(cosetTable []fr.Element) {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
-				a[i].MulAssign(&domain.CardinalityInv)
+				a[i].Mul(&a[i], &cosetTable[i]).
+					Mul(&a[i], &domain.CardinalityInv)
 			}
 		})
 	}
+	if decimation == DIT {
+		scale(domain.CosetTableInv[coset-1])
+		return
+	}
+
+	// decimation == DIF
+	if domain.PrecomputeReversedTable != 0 {
+		scale(domain.CosetTableInvReversed[coset-1])
+		return
+	}
+
+	// no precomputed coset, we adjust the index of the coset table
+	n := uint64(len(a))
+	nn := uint64(64 - bits.TrailingZeros64(n))
+	parallel.Execute(len(a), func(start, end int) {
+		for i := start; i < end; i++ {
+			irev := bits.Reverse64(uint64(i)) >> nn
+			a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][int(irev)]).
+				Mul(&a[i], &domain.CardinalityInv)
+		}
+	})
+
 }
 
 func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
-		defer func() {
-			chDone <- struct{}{}
-		}()
+		defer close(chDone)
 	}
+
 	n := len(a)
 	if n == 1 {
+		return
+	} else if n == 8 {
+		kerDIF8(a, twiddles, stage)
 		return
 	}
 	m := n >> 1
@@ -148,31 +182,17 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		// 1 << stage == estimated used CPUs
 		numCPU := runtime.NumCPU() / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
-			var t fr.Element
 			for i := start; i < end; i++ {
-				t = a[i]
-				a[i].Add(&a[i], &a[i+m])
-
-				a[i+m].
-					Sub(&t, &a[i+m]).
-					Mul(&a[i+m], &twiddles[stage][i])
+				fr.Butterfly(&a[i], &a[i+m])
+				a[i+m].Mul(&a[i+m], &twiddles[stage][i])
 			}
 		}, numCPU)
 	} else {
-		var t fr.Element
-
 		// i == 0
-		t = a[0]
-		a[0].Add(&a[0], &a[m])
-		a[m].Sub(&t, &a[m])
-
+		fr.Butterfly(&a[0], &a[m])
 		for i := 1; i < m; i++ {
-			t = a[i]
-			a[i].Add(&a[i], &a[i+m])
-
-			a[i+m].
-				Sub(&t, &a[i+m]).
-				Mul(&a[i+m], &twiddles[stage][i])
+			fr.Butterfly(&a[i], &a[i+m])
+			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
 		}
 	}
 
@@ -190,16 +210,18 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
 		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil)
 	}
+
 }
 
 func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
-		defer func() {
-			chDone <- struct{}{}
-		}()
+		defer close(chDone)
 	}
 	n := len(a)
 	if n == 1 {
+		return
+	} else if n == 8 {
+		kerDIT8(a, twiddles, stage)
 		return
 	}
 	m := n >> 1
@@ -224,28 +246,17 @@ func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 		// 1 << stage == estimated used CPUs
 		numCPU := runtime.NumCPU() / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
-			var t, tm fr.Element
 			for k := start; k < end; k++ {
-				t = a[k]
-				tm.Mul(&a[k+m], &twiddles[stage][k])
-				a[k].Add(&a[k], &tm)
-				a[k+m].Sub(&t, &tm)
+				a[k+m].Mul(&a[k+m], &twiddles[stage][k])
+				fr.Butterfly(&a[k], &a[k+m])
 			}
 		}, numCPU)
 
 	} else {
-		var t, tm fr.Element
-		// k == 0
-		// wPow == 1
-		t = a[0]
-		a[0].Add(&a[0], &a[m])
-		a[m].Sub(&t, &a[m])
-
+		fr.Butterfly(&a[0], &a[m])
 		for k := 1; k < m; k++ {
-			t = a[k]
-			tm.Mul(&a[k+m], &twiddles[stage][k])
-			a[k].Add(&a[k], &tm)
-			a[k+m].Sub(&t, &tm)
+			a[k+m].Mul(&a[k+m], &twiddles[stage][k])
+			fr.Butterfly(&a[k], &a[k+m])
 		}
 	}
 }
@@ -262,4 +273,48 @@ func BitReverse(a []fr.Element) {
 			a[i], a[irev] = a[irev], a[i]
 		}
 	}
+}
+
+// kerDIT8 is a kernel that process a FFT of size 8
+func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
+
+	fr.Butterfly(&a[0], &a[1])
+	fr.Butterfly(&a[2], &a[3])
+	fr.Butterfly(&a[4], &a[5])
+	fr.Butterfly(&a[6], &a[7])
+	fr.Butterfly(&a[0], &a[2])
+	a[3].Mul(&a[3], &twiddles[stage+1][1])
+	fr.Butterfly(&a[1], &a[3])
+	fr.Butterfly(&a[4], &a[6])
+	a[7].Mul(&a[7], &twiddles[stage+1][1])
+	fr.Butterfly(&a[5], &a[7])
+	fr.Butterfly(&a[0], &a[4])
+	a[5].Mul(&a[5], &twiddles[stage+0][1])
+	fr.Butterfly(&a[1], &a[5])
+	a[6].Mul(&a[6], &twiddles[stage+0][2])
+	fr.Butterfly(&a[2], &a[6])
+	a[7].Mul(&a[7], &twiddles[stage+0][3])
+	fr.Butterfly(&a[3], &a[7])
+}
+
+// kerDIF8 is a kernel that process a FFT of size 8
+func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
+
+	fr.Butterfly(&a[0], &a[4])
+	fr.Butterfly(&a[1], &a[5])
+	fr.Butterfly(&a[2], &a[6])
+	fr.Butterfly(&a[3], &a[7])
+	a[5].Mul(&a[5], &twiddles[stage+0][1])
+	a[6].Mul(&a[6], &twiddles[stage+0][2])
+	a[7].Mul(&a[7], &twiddles[stage+0][3])
+	fr.Butterfly(&a[0], &a[2])
+	fr.Butterfly(&a[1], &a[3])
+	fr.Butterfly(&a[4], &a[6])
+	fr.Butterfly(&a[5], &a[7])
+	a[3].Mul(&a[3], &twiddles[stage+1][1])
+	a[7].Mul(&a[7], &twiddles[stage+1][1])
+	fr.Butterfly(&a[0], &a[1])
+	fr.Butterfly(&a[2], &a[3])
+	fr.Butterfly(&a[4], &a[5])
+	fr.Butterfly(&a[6], &a[7])
 }

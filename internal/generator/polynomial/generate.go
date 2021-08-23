@@ -8,8 +8,12 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	entries := []bavard.EntryF{
-		{File: filepath.Join(baseDir, "polynomial.go"), TemplateF: []string{"polynomial.go.tmpl"}},
+
+	conf.Package = "polynomial"
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+		{File: filepath.Join(baseDir, "polynomial.go"), Templates: []string{"polynomial.go.tmpl"}},
+		{File: filepath.Join(baseDir, "polynomial_test.go"), Templates: []string{"polynomial.test.go.tmpl"}},
 	}
-	return bgen.GenerateF(conf, "polynomial", "./polynomial/template/", entries...)
+	return bgen.Generate(conf, conf.Package, "./polynomial/template/", entries...)
 }

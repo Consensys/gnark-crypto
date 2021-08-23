@@ -32,6 +32,30 @@ func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 
 }
 
+func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
+	b.Run("mulBy3", func(b *testing.B){
+		benchRes{{.ElementName}}.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy3(&benchRes{{.ElementName}})
+		}
+	})
+	b.Run("mulBy5", func(b *testing.B){
+		benchRes{{.ElementName}}.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy5(&benchRes{{.ElementName}})
+		}
+	})
+	b.Run("mulBy13", func(b *testing.B){
+		benchRes{{.ElementName}}.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy13(&benchRes{{.ElementName}})
+		}
+	})
+}
+
 func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 	var x {{.ElementName}}
 	x.SetRandom()
@@ -42,6 +66,16 @@ func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 		benchRes{{.ElementName}}.Inverse(&x)
 	}
 
+}
+
+func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
+	var x {{.ElementName}}
+	x.SetRandom()
+	benchRes{{.ElementName}}.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Butterfly(&x, &benchRes{{.ElementName}})
+	}
 }
 
 
@@ -398,7 +432,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
 	genA := gen()
 
-	implemented := []uint8{0,1,2,3,5}
+	implemented := []uint8{0,1,2,3,5,13}
 	properties.Property("mulByConstant", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			for _, c := range implemented {
@@ -452,6 +486,21 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("MulBy13(x) == Mul(x, 13)", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			var constant {{.ElementName}}
+			constant.SetUint64(13)
+
+			b := a.element 
+			b.Mul(&b, &constant)
+
+			MulBy13(&a.element)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
@@ -491,6 +540,44 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 		supportAdx = true 
 	}
 	
+}
+
+
+func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("butterfly0 == a -b; a +b", prop.ForAll(
+		func(a,b testPair{{.ElementName}}) bool {
+			a0, b0 := a.element, b.element 
+			
+			_butterflyGeneric(&a.element, &b.element)
+			Butterfly(&a0, &b0)
+
+			return a.element.Equal(&a0) && b.element.Equal(&b0)
+		},
+		genA,
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true 
+	}
+
 }
 
 func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {

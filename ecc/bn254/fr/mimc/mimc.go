@@ -27,7 +27,7 @@ import (
 const mimcNbRounds = 91
 
 // BlockSize size that mimc consumes
-const BlockSize = 32
+const BlockSize = fr.Bytes
 
 // Params constants for the mimc hash function
 type Params []fr.Element

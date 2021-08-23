@@ -32,7 +32,7 @@ type CurveParams struct {
 
 var edwards CurveParams
 
-// GetEdwardsCurve returns the twisted Edwards curve on BLS381's Fr
+// GetEdwardsCurve returns the twisted Edwards curve on BLS12-381's Fr
 func GetEdwardsCurve() CurveParams {
 
 	// copy to keep Order private
@@ -49,7 +49,7 @@ func GetEdwardsCurve() CurveParams {
 
 func init() {
 
-	edwards.A.SetString("52435875175126190479447740508185965837690552500527637822603658699938581184512") // -1
+	edwards.A.SetOne().Neg(&edwards.A)
 	edwards.D.SetString("19257038036680949359750312669786877991949435402254120286184196891950884077233") // -(10240/10241)
 	edwards.Cofactor.SetUint64(8).FromMont()
 	edwards.Order.SetString("6554484396890773809930967563523245729705921265872317281365359162392183254199", 10)

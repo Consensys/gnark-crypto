@@ -21,8 +21,10 @@ import (
 	"math/big"
 	"math/bits"
 	"runtime"
+	"sync"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -57,40 +59,74 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
+	// ensure a multiexp that's splitted has the same result as a non-splitted one..
+	properties.Property("[G1] Multi exponentation (c=16) should be consistant with splitted multiexp", prop.ForAll(
+		func(mixer fr.Element) bool {
+			var samplePointsLarge [nbSamples * 13]G1Affine
+			for i := 0; i < 13; i++ {
+				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
+			}
+
+			var r16, splitted1, splitted2 G1Jac
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples * 13]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+			scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+			r16.msmC16(samplePoints[:], scalars16, runtime.NumCPU())
+
+			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
+			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
+			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+		},
+		genScalar,
+	))
+
 	if testing.Short() {
 		// we test only c = 5 and c = 16
 
 		properties.Property("[G1] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var r5, r16, expected G1Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
-						FromMont()
-				}
-
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
-				r5.msmC5(samplePoints[:], scalars, opt)
-
-				opt.lock.Lock()
-				scalars = partitionScalars(sampleScalars[:], 16)
-				r16.msmC16(samplePoints[:], scalars, opt)
+				var expected G1Jac
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
 				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
 				expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
-				return r5.Equal(&expected) && r16.Equal(&expected)
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						Mul(&sampleScalars[i-1], &mixer).
+						FromMont()
+				}
+
+				scalars5 := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+
+				nbTasks := []int{1, 2, 3, runtime.NumCPU()}
+
+				// we can have less tasks than chunks
+				// in which case each task may process multiple chunks
+				for i := 0; i < len(nbTasks); i++ {
+					var r5, r16 G1Jac
+					r5.msmC5(samplePoints[:], scalars5, nbTasks[i])
+					r16.msmC16(samplePoints[:], scalars16, nbTasks[i])
+					if !(r5.Equal(&expected) && r16.Equal(&expected)) {
+						return false
+					}
+				}
+
+				return true
 			},
 			genScalar,
 		))
@@ -106,15 +142,12 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 4)
-				result.msmC4(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
+				result.msmC4(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -136,15 +169,12 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
-				result.msmC5(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				result.msmC5(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -166,15 +196,12 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 8)
-				result.msmC8(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
+				result.msmC8(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -196,15 +223,12 @@ func TestMultiExpG1(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 16)
-				result.msmC16(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				result.msmC16(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -232,19 +256,19 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g1Gen)
 			}
 
 			var op1MultiExp G1Affine
-			op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars, ecc.MultiExpConfig{})
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
 
@@ -282,9 +306,72 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
+	}
+}
+
+func BenchmarkMultiExpG1Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G1Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g1GenAff
+	}
+
+	var testPoint G1Affine
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+	}
+}
+
+func BenchmarkManyMultiExpG1Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G1Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g1GenAff
+	}
+
+	var t1, t2, t3 G1Affine
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			t1.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		go func() {
+			t2.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		go func() {
+			t3.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		wg.Wait()
 	}
 }
 
@@ -317,40 +404,74 @@ func TestMultiExpG2(t *testing.T) {
 	scalar.Mul(&scalar, new(big.Int).SetInt64(2*nbSamples+1))
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
+	// ensure a multiexp that's splitted has the same result as a non-splitted one..
+	properties.Property("[G2] Multi exponentation (c=16) should be consistant with splitted multiexp", prop.ForAll(
+		func(mixer fr.Element) bool {
+			var samplePointsLarge [nbSamples * 13]G2Affine
+			for i := 0; i < 13; i++ {
+				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
+			}
+
+			var r16, splitted1, splitted2 G2Jac
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples * 13]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+			scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+			r16.msmC16(samplePoints[:], scalars16, runtime.NumCPU())
+
+			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
+			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
+			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+		},
+		genScalar,
+	))
+
 	if testing.Short() {
 		// we test only c = 5 and c = 16
 
 		properties.Property("[G2] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
 			func(mixer fr.Element) bool {
 
-				var r5, r16, expected G2Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
-						FromMont()
-				}
-
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
-				r5.msmC5(samplePoints[:], scalars, opt)
-
-				opt.lock.Lock()
-				scalars = partitionScalars(sampleScalars[:], 16)
-				r16.msmC16(samplePoints[:], scalars, opt)
+				var expected G2Jac
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
 				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
 				expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
-				return r5.Equal(&expected) && r16.Equal(&expected)
+				// mixer ensures that all the words of a fpElement are set
+				var sampleScalars [nbSamples]fr.Element
+
+				for i := 1; i <= nbSamples; i++ {
+					sampleScalars[i-1].SetUint64(uint64(i)).
+						Mul(&sampleScalars[i-1], &mixer).
+						FromMont()
+				}
+
+				scalars5 := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+
+				nbTasks := []int{1, 2, 3, runtime.NumCPU()}
+
+				// we can have less tasks than chunks
+				// in which case each task may process multiple chunks
+				for i := 0; i < len(nbTasks); i++ {
+					var r5, r16 G2Jac
+					r5.msmC5(samplePoints[:], scalars5, nbTasks[i])
+					r16.msmC16(samplePoints[:], scalars16, nbTasks[i])
+					if !(r5.Equal(&expected) && r16.Equal(&expected)) {
+						return false
+					}
+				}
+
+				return true
 			},
 			genScalar,
 		))
@@ -366,15 +487,12 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 4)
-				result.msmC4(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
+				result.msmC4(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -396,15 +514,12 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 5)
-				result.msmC5(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				result.msmC5(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -426,15 +541,12 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 8)
-				result.msmC8(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
+				result.msmC8(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -456,15 +568,12 @@ func TestMultiExpG2(t *testing.T) {
 
 				for i := 1; i <= nbSamples; i++ {
 					sampleScalars[i-1].SetUint64(uint64(i)).
-						MulAssign(&mixer).
+						Mul(&sampleScalars[i-1], &mixer).
 						FromMont()
 				}
 
-				// semaphore to limit number of cpus
-				opt := NewCPUSemaphore(runtime.NumCPU())
-				opt.lock.Lock()
-				scalars := partitionScalars(sampleScalars[:], 16)
-				result.msmC16(samplePoints[:], scalars, opt)
+				scalars := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				result.msmC16(samplePoints[:], scalars, runtime.NumCPU())
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -492,19 +601,19 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g2Gen)
 			}
 
 			var op1MultiExp G2Affine
-			op1MultiExp.MultiExp(samplePoints, sampleScalars)
+			op1MultiExp.MultiExp(samplePoints, sampleScalars, ecc.MultiExpConfig{})
 
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G2Affine
-			finalBigScalar.SetString("9455").MulAssign(&mixer)
+			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 
@@ -542,8 +651,71 @@ func BenchmarkMultiExpG2(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using])
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
+	}
+}
+
+func BenchmarkMultiExpG2Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G2Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g2GenAff
+	}
+
+	var testPoint G2Affine
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+	}
+}
+
+func BenchmarkManyMultiExpG2Reference(b *testing.B) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+
+	const nbSamples = 1 << 20
+
+	var samplePoints [nbSamples]G2Affine
+	var sampleScalars [nbSamples]fr.Element
+
+	for i := 1; i <= nbSamples; i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+		samplePoints[i-1] = g2GenAff
+	}
+
+	var t1, t2, t3 G2Affine
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			t1.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		go func() {
+			t2.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		go func() {
+			t3.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+			wg.Done()
+		}()
+		wg.Wait()
 	}
 }

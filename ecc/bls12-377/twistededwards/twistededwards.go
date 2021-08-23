@@ -16,7 +16,7 @@ type CurveParams struct {
 
 var edwards CurveParams
 
-// GetEdwardsCurve returns the twisted Edwards curve on BN254's Fr
+// GetEdwardsCurve returns the twisted Edwards curve on BLS12-377's Fr
 func GetEdwardsCurve() CurveParams {
 
 	// copy to keep Order private

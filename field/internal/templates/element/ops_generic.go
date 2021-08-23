@@ -18,6 +18,17 @@ func MulBy5(x *{{.ElementName}}) {
 	mulByConstant(x, 5)
 }
 
+// MulBy13 x *= 13
+func MulBy13(x *{{.ElementName}}) {
+	mulByConstant(x, 13)
+}
+
+// Butterfly sets 
+// a = a + b
+// b = a - b 
+func Butterfly(a, b *{{.ElementName}}) {
+	_butterflyGeneric(a, b)
+}
 
 func mul(z, x, y *{{.ElementName}}) {
 	_mulGeneric(z, x, y)

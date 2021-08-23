@@ -7,11 +7,12 @@ import (
 
 // Curve describes parameters of the curve useful for the template
 type Curve struct {
-	Name      string
-	Package   string
-	EnumID    string
-	FpModulus string
-	FrModulus string
+	Name         string
+	CurvePackage string
+	Package      string // current package being generated
+	EnumID       string
+	FpModulus    string
+	FrModulus    string
 
 	Fp           *field.Field
 	Fr           *field.Field
@@ -30,6 +31,10 @@ func (c *Curve) ID() ecc.ID {
 		return ecc.BLS12_377
 	case "bw6-761":
 		return ecc.BW6_761
+	case "bw6-633":
+		return ecc.BW6_633
+	case "bls24-315":
+		return ecc.BLS24_315
 	default:
 		panic("not implemented")
 	}

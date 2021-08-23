@@ -16,6 +16,8 @@ import (
 	"io"
 	"sync"
 	"strconv"
+	"errors"
+	"reflect"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
@@ -83,28 +85,30 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// SetInterface converts i1 from uint64, int, string, or {{.ElementName}}, big.Int into {{.ElementName}}
-// panic if provided type is not supported
-func (z *{{.ElementName}}) SetInterface(i1 interface{}) *{{.ElementName}} {
+// SetInterface converts provided interface into {{.ElementName}}
+// returns an error if provided type is not supported
+// supported types: {{.ElementName}}, *{{.ElementName}}, uint64, int, string (interpreted as base10 integer),
+// *big.Int, big.Int, []byte
+func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, error) {
 	switch c1 := i1.(type) {
 	case {{.ElementName}}:
-		return z.Set(&c1)
+		return z.Set(&c1), nil
 	case *{{.ElementName}}:
-		return z.Set(c1)
+		return z.Set(c1), nil
 	case uint64:
-		return z.SetUint64(c1)
+		return z.SetUint64(c1), nil
 	case int:
-		return z.SetString(strconv.Itoa(c1))
+		return z.SetString(strconv.Itoa(c1)), nil
 	case string:
-		return z.SetString(c1)
+		return z.SetString(c1), nil
 	case *big.Int:
-		return z.SetBigInt(c1)
+		return z.SetBigInt(c1), nil
 	case big.Int:
-		return z.SetBigInt(&c1)
+		return z.SetBigInt(&c1), nil
 	case []byte:
-		return z.SetBytes(c1)
+		return z.SetBytes(c1), nil
 	default:
-		panic("invalid type")
+		return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} from type " + reflect.TypeOf(i1).String())
 	}
 }
 
@@ -208,25 +212,6 @@ func One() {{.ElementName}} {
 	var one {{.ElementName}}
 	one.SetOne()
 	return one
-}
-
-
-// MulAssign is deprecated
-// Deprecated: use Mul instead
-func (z *{{.ElementName}}) MulAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Mul(z, x)
-}
-
-// AddAssign is deprecated
-// Deprecated: use Add instead
-func (z *{{.ElementName}}) AddAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Add(z, x)
-}
-
-// SubAssign is deprecated
-// Deprecated: use Sub instead
-func (z *{{.ElementName}}) SubAssign(x *{{.ElementName}}) *{{.ElementName}} {
-	return z.Sub(z, x)
 }
 
 
@@ -429,8 +414,50 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
 	default:
-		panic("not implemented")
+		var y {{.ElementName}}
+		y.SetUint64(uint64(c))
+		z.Mul(z, &y)
 	}
+}
+
+
+// BatchInvert returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
+	res := make([]{{.ElementName}}, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	accumulator := One()
+
+	for i:=0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i] = accumulator
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}
+
+func _butterflyGeneric(a, b *{{.ElementName}}) {
+	t := *a
+	a.Add(a, b)
+	b.Sub(&t, b)
 }
 
 `

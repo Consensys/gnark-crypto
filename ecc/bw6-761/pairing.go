@@ -16,7 +16,6 @@ package bw6761
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
@@ -64,354 +63,271 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	var buf GT
 
 	// easy part exponent: (p**3 - 1)*(p+1)
-	buf.FrobeniusCube(&result)
+	buf.Conjugate(&result)
 	result.Inverse(&result)
 	buf.Mul(&buf, &result)
 	result.Frobenius(&buf).
-		MulAssign(&buf)
+		Mul(&result, &buf)
 
-	// hard part exponent: a multiple of (p**2 - p + 1)/r
-	// cofactor in exponent = 3(x**3-x**2+1)
-	// Appendix B of https://eprint.iacr.org/2020/351.pdf
-	// sage code: https://gitlab.inria.fr/zk-curves/bw6-761/-/blob/master/sage/pairing.py#L922
-	var f [8]GT
-	var fp [10]GT
-
-	f[0].Set(&result)
-	for i := 1; i < len(f); i++ {
-		f[i].Expt(&f[i-1])
-	}
-	for i := range f {
-		fp[i].Frobenius(&f[i])
-	}
-	fp[8].Expt(&fp[7])
-	fp[9].Expt(&fp[8])
-
-	result.FrobeniusCube(&fp[5]).
-		MulAssign(&fp[3]).
-		MulAssign(&fp[6]).
-		CyclotomicSquare(&result)
-
-	var f4fp2 GT
-	f4fp2.Mul(&f[4], &fp[2])
-	buf.Mul(&f[0], &f[1]).
-		MulAssign(&f[3]).
-		MulAssign(&f4fp2).
-		MulAssign(&fp[8])
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f[5]).
-		MulAssign(&fp[0]).
-		CyclotomicSquare(&result)
-
-	buf.FrobeniusCube(&f[7])
-	result.MulAssign(&buf)
-
-	result.MulAssign(&fp[9]).
-		CyclotomicSquare(&result)
-
-	var f2fp4, f4fp2fp5 GT
-	f2fp4.Mul(&f[2], &fp[4])
-	f4fp2fp5.Mul(&f4fp2, &fp[5])
-	buf.Mul(&f2fp4, &f[3]).
-		MulAssign(&fp[3])
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f4fp2fp5).
-		MulAssign(&f[6]).
-		MulAssign(&fp[7]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&fp[0], &fp[9])
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-	result.MulAssign(&f[0]).
-		MulAssign(&f[7]).
-		MulAssign(&fp[1]).
-		CyclotomicSquare(&result)
-
-	var fp6fp8, f5fp7 GT
-	fp6fp8.Mul(&fp[6], &fp[8])
-	f5fp7.Mul(&f[5], &fp[7])
-	buf.FrobeniusCube(&fp6fp8)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f5fp7).
-		MulAssign(&fp[2]).
-		CyclotomicSquare(&result)
-
-	var f3f6, f1f7 GT
-	f3f6.Mul(&f[3], &f[6])
-	f1f7.Mul(&f[1], &f[7])
-
-	buf.Mul(&f1f7, &f[2])
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f3f6).
-		MulAssign(&fp[9]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&f4fp2, &f5fp7).
-		MulAssign(&fp6fp8)
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f[0]).
-		MulAssign(&fp[0]).
-		MulAssign(&fp[3]).
-		MulAssign(&fp[5]).
-		CyclotomicSquare(&result)
-
-	buf.FrobeniusCube(&f3f6)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&fp[1]).
-		CyclotomicSquare(&result)
-
-	buf.Mul(&f2fp4, &f4fp2fp5).MulAssign(&fp[9])
-	buf.FrobeniusCube(&buf)
-	result.MulAssign(&buf)
-
-	result.MulAssign(&f1f7).MulAssign(&f5fp7).MulAssign(&fp[0])
+		// hard part exponent: 12(u+1)(p**2 - p + 1)/r
+	var m1, _m1, m2, _m2, m3, f0, f0_36, g0, g1, _g1, g2, g3, _g3, g4, _g4, g5, _g5, g6, gA, gB, g034, _g1g2, gC, h1, h2, h2g2C, h4 GT
+	m1.Expt(&result)
+	_m1.Conjugate(&m1)
+	m2.Expt(&m1)
+	_m2.Conjugate(&m2)
+	m3.Expt(&m2)
+	f0.Frobenius(&result).
+		Mul(&f0, &result).
+		Mul(&f0, &m2)
+	m2.CyclotomicSquare(&_m1)
+	f0.Mul(&f0, &m2)
+	f0_36.CyclotomicSquare(&f0).
+		CyclotomicSquare(&f0_36).
+		CyclotomicSquare(&f0_36).
+		Mul(&f0_36, &f0).
+		CyclotomicSquare(&f0_36).
+		CyclotomicSquare(&f0_36)
+	g0.Mul(&result, &m1).
+		Frobenius(&g0).
+		Mul(&g0, &m3).
+		Mul(&g0, &_m2).
+		Mul(&g0, &_m1)
+	g1.Expt(&g0)
+	_g1.Conjugate(&g1)
+	g2.Expt(&g1)
+	g3.Expt(&g2)
+	_g3.Conjugate(&g3)
+	g4.Expt(&g3)
+	_g4.Conjugate(&g4)
+	g5.Expt(&g4)
+	_g5.Conjugate(&g5)
+	g6.Expt(&g5)
+	gA.Mul(&g3, &_g5).
+		CyclotomicSquare(&gA).
+		Mul(&gA, &g6).
+		Mul(&gA, &g1).
+		Mul(&gA, &g0)
+	g034.Mul(&g0, &g3).
+		Mul(&g034, &_g4)
+	gB.CyclotomicSquare(&g034).
+		Mul(&gB, &g034).
+		Mul(&gB, &g5).
+		Mul(&gB, &_g1)
+	_g1g2.Mul(&_g1, &g2)
+	gC.Mul(&_g3, &_g1g2).
+		CyclotomicSquare(&gC).
+		Mul(&gC, &_g1g2).
+		Mul(&gC, &g0).
+		CyclotomicSquare(&gC).
+		Mul(&gC, &g2).
+		Mul(&gC, &g0).
+		Mul(&gC, &g4)
+		// ht, hy = 13, 9
+		// c1 = ht**2+3*hy**2 = 412
+	h1.Expc1(&gA)
+	// c2 = ht+hy = 22
+	h2.Expc2(&gB)
+	h2g2C.CyclotomicSquare(&gC).
+		Mul(&h2g2C, &h2)
+	h4.CyclotomicSquare(&h2g2C).
+		Mul(&h4, &h2g2C).
+		CyclotomicSquare(&h4)
+	result.Mul(&h1, &h4).
+		Mul(&result, &f0_36)
 
 	return result
 }
 
-var lineEvalPool1 = sync.Pool{
-	New: func() interface{} {
-		return new([69]lineEvaluation)
-	},
-}
-
-var lineEvalPool2 = sync.Pool{
-	New: func() interface{} {
-		return new([144]lineEvaluation)
-	},
-}
-
 // MillerLoop Miller loop
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
-	nP := len(P)
-	if nP == 0 || nP != len(Q) {
+	// check input size match
+	n := len(P)
+	if n == 0 || n != len(Q) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	var (
-		ch1 = make([]chan struct{}, 0, nP)
-		ch2 = make([]chan struct{}, 0, nP)
+	// filter infinity points
+	p := make([]G1Affine, 0, n)
+	q := make([]G2Affine, 0, n)
 
-		evaluations1 = make([]*[69]lineEvaluation, 0, nP)
-		evaluations2 = make([]*[144]lineEvaluation, 0, nP)
-		Paff         = make([]G1Affine, nP)
-		xQjac        = make([]G2Jac, nP)
-		QjacSaved    = make([]G2Jac, nP)
-	)
-
-	var countInf = 0
-	for k := 0; k < nP; k++ {
+	for k := 0; k < n; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
-			countInf++
+			continue
+		}
+		p = append(p, P[k])
+		q = append(q, Q[k])
+	}
+
+	n = len(p)
+
+	// projective points for Q
+	qProj1 := make([]g2Proj, n)
+	qProj2 := make([]g2Proj, n)
+	qNeg := make([]G2Affine, n)
+	for k := 0; k < n; k++ {
+		qProj1[k].FromAffine(&q[k])
+		qProj2[k].FromAffine(&q[k])
+		qNeg[k].Neg(&q[k])
+	}
+
+	// f_{u+1,Q}(P)
+	var result1 GT
+	result1.SetOne()
+	var l lineEvaluation
+
+	// i == 62
+	for k := 0; k < n; k++ {
+		qProj1[k].DoubleStep(&l)
+		// line eval
+		l.r1.Mul(&l.r1, &p[k].X)
+		l.r2.Mul(&l.r2, &p[k].Y)
+		result1.MulBy014(&l.r0, &l.r1, &l.r2)
+	}
+
+	for i := 61; i >= 0; i-- {
+		result1.Square(&result1)
+
+		for k := 0; k < n; k++ {
+			qProj1[k].DoubleStep(&l)
+			// line evaluation
+			l.r1.Mul(&l.r1, &p[k].X)
+			l.r2.Mul(&l.r2, &p[k].Y)
+			result1.MulBy014(&l.r0, &l.r1, &l.r2)
+		}
+
+		if loopCounter1[i] == 0 {
 			continue
 		}
 
-		xQjac[k-countInf].FromAffine(&Q[k])
-		QjacSaved[k-countInf].FromAffine(&Q[k])
-		Paff[k-countInf].Set(&P[k])
-		ch1 = append(ch1, make(chan struct{}, 10))
-		evaluations1 = append(evaluations1, lineEvalPool1.Get().(*[69]lineEvaluation))
-
-		go preCompute1(evaluations1[k-countInf], &xQjac[k-countInf], &Paff[k-countInf], ch1[k-countInf])
+		for k := 0; k < n; k++ {
+			qProj1[k].AddMixedStep(&l, &q[k])
+			// line evaluation
+			l.r1.Mul(&l.r1, &p[k].X)
+			l.r2.Mul(&l.r2, &p[k].Y)
+			result1.MulBy014(&l.r0, &l.r1, &l.r2)
+		}
 	}
 
-	nP = nP - countInf
+	// f_{u^3-u^2-u,Q}(P)
+	var result2 GT
+	result2.SetOne()
 
-	// Miller loop part 1
-	// computes f(P), div(f)=x(Q)-([x]Q)-(x-1)(O)
-	var result GT
-	result.SetOne()
-	j := 0
-	for i := len(loopCounter1) - 2; i >= 0; i-- {
+	// i == 187
+	for k := 0; k < n; k++ {
+		qProj2[k].DoubleStep(&l)
+		// line evaluation
+		l.r1.Mul(&l.r1, &p[k].X)
+		l.r2.Mul(&l.r2, &p[k].Y)
+		result2.MulBy014(&l.r0, &l.r1, &l.r2)
+	}
 
-		result.Square(&result)
-		for k := 0; k < nP; k++ {
-			<-ch1[k]
-			mulAssign(&result, &evaluations1[k][j])
-		}
-		j++
+	for i := 187; i >= 0; i-- {
+		result2.Square(&result2)
 
-		if loopCounter1[i] != 0 {
-			for k := 0; k < nP; k++ {
-				<-ch1[k]
-				mulAssign(&result, &evaluations1[k][j])
+		for k := 0; k < n; k++ {
+			qProj2[k].DoubleStep(&l)
+			// line evaluation
+			l.r1.Mul(&l.r1, &p[k].X)
+			l.r2.Mul(&l.r2, &p[k].Y)
+			result2.MulBy014(&l.r0, &l.r1, &l.r2)
+
+			if loopCounter2[i] == 1 {
+				qProj2[k].AddMixedStep(&l, &q[k])
+				// line evaluation
+				l.r1.Mul(&l.r1, &p[k].X)
+				l.r2.Mul(&l.r2, &p[k].Y)
+				result2.MulBy014(&l.r0, &l.r1, &l.r2)
+
+			} else if loopCounter2[i] == -1 {
+				qProj2[k].AddMixedStep(&l, &qNeg[k])
+				// line evaluation
+				l.r1.Mul(&l.r1, &p[k].X)
+				l.r2.Mul(&l.r2, &p[k].Y)
+				result2.MulBy014(&l.r0, &l.r1, &l.r2)
 			}
-			j++
 		}
 	}
 
-	// release objects into the pool
-	for i := 0; i < len(evaluations1); i++ {
-		lineEvalPool1.Put(evaluations1[i])
-	}
+	result2.Frobenius(&result2).
+		Mul(&result2, &result1)
 
-	// store mx=g(P), mxInv=1/g(P), div(g)=x(Q)-([x]Q)-(x-1)(O), because the second Miller loop
-	// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O) and
-	// f(P)=g(P)**(u**2-u-1)*h(P), div(h)=(x**2-x-1)([x]Q)-([x**2-x-1][x]Q)-(x**2-x-2)(O)
-	var mx, mxInv, mxplusone GT
-	mx.Set(&result)
-	mxInv.Inverse(&result)
-	mxplusone.Set(&mx)
-
-	var lEval = make([]lineEvaluation, nP)
-
-	for k := 0; k < nP; k++ {
-		// finishes the computation of g(P), div(g)=(x+1)(Q)-([x+1]Q)-x(O) (drop the vertical line)
-		lineEval(&xQjac[k], &QjacSaved[k], &Paff[k], &lEval[k])
-		mulAssign(&mxplusone, &lEval[k])
-
-		ch2 = append(ch2, make(chan struct{}, 10))
-		evaluations2 = append(evaluations2, lineEvalPool2.Get().(*[144]lineEvaluation))
-
-		// Miller loop part 2 (xQjac = [x]Q)
-		// computes f(P), div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
-		go preCompute2(evaluations2[k], &xQjac[k], &Paff[k], ch2[k])
-	}
-
-	j = 0
-	for i := len(loopCounter2) - 2; i >= 0; i-- {
-
-		result.Square(&result)
-		for k := 0; k < nP; k++ {
-			<-ch2[k]
-			mulAssign(&result, &evaluations2[k][j])
-		}
-		j++
-
-		if loopCounter2[i] == 1 {
-			for k := 0; k < nP; k++ {
-				<-ch2[k]
-				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
-			}
-			result.MulAssign(&mx)
-			j++
-		} else if loopCounter2[i] == -1 {
-			for k := 0; k < nP; k++ {
-				<-ch2[k]
-				mulAssign(&result, &evaluations2[k][j]) // accumulate g(P), div(g)=x(Q)-([x]Q)-(x-1)(O)
-			}
-			result.MulAssign(&mxInv)
-			j++
-		}
-	}
-
-	// release objects into the pool
-	for i := 0; i < len(evaluations2); i++ {
-		lineEvalPool2.Put(evaluations2[i])
-	}
-
-	// g(P)*(f(P)**q)
-	// div(g)=(x+1)(Q)-([x+1]Q)-x(O)
-	// div(f)=(x**3-x**2-x)(Q)-([x**3-x**2-x](Q)-(x**3-x**2-x-1)(O)
-	result.Frobenius(&result).MulAssign(&mxplusone)
-
-	return result, nil
+	return result2, nil
 }
 
-// lineEval computes the evaluation of the line through Q, R (on the twist) at P
-// Q, R are in jacobian coordinates
-func lineEval(Q, R *G2Jac, P *G1Affine, result *lineEvaluation) {
+// DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 
-	// converts _Q and _R to projective coords
-	var _Q, _R g2Proj
-	_Q.FromJacobian(Q)
-	_R.FromJacobian(R)
+	// get some Element from our pool
+	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fp.Element
+	t0.Mul(&p.x, &p.y)
+	A.Mul(&t0, &twoInv)
+	B.Square(&p.y)
+	C.Square(&p.z)
+	D.Double(&C).
+		Add(&D, &C)
+	E.Mul(&D, &bTwistCurveCoeff)
+	F.Double(&E).
+		Add(&F, &E)
+	G.Add(&B, &F)
+	G.Mul(&G, &twoInv)
+	H.Add(&p.y, &p.z).
+		Square(&H)
+	t1.Add(&B, &C)
+	H.Sub(&H, &t1)
+	I.Sub(&E, &B)
+	J.Square(&p.x)
+	EE.Square(&E)
+	K.Double(&EE).
+		Add(&K, &EE)
 
-	result.r1.Mul(&_Q.y, &_R.z)
-	result.r0.Mul(&_Q.z, &_R.x)
-	result.r2.Mul(&_Q.x, &_R.y)
+	// X, Y, Z
+	p.x.Sub(&B, &F).
+		Mul(&p.x, &A)
+	p.y.Square(&G).
+		Sub(&p.y, &K)
+	p.z.Mul(&B, &H)
 
-	_Q.z.Mul(&_Q.z, &_R.y)
-	_Q.x.Mul(&_Q.x, &_R.z)
-	_Q.y.Mul(&_Q.y, &_R.x)
-
-	result.r1.Sub(&result.r1, &_Q.z)
-	result.r0.Sub(&result.r0, &_Q.x)
-	result.r2.Sub(&result.r2, &_Q.y)
-
-	result.r1.Mul(&result.r1, &P.X)
-	result.r0.Mul(&result.r0, &P.Y)
+	// Line evaluation
+	evaluations.r0.Set(&I)
+	evaluations.r1.Double(&J).
+		Add(&evaluations.r1, &J)
+	evaluations.r2.Neg(&H)
 }
 
-func mulAssign(z *GT, l *lineEvaluation) *GT {
+// AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 
-	var a, b, c GT
-	a.MulByVMinusThree(z, &l.r1)
-	b.MulByVminusTwo(z, &l.r0)
-	c.MulByVminusFive(z, &l.r2)
-	z.Add(&a, &b).Add(z, &c)
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fp.Element
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
+	C.Square(&O)
+	D.Square(&L)
+	E.Mul(&L, &D)
+	F.Mul(&p.z, &C)
+	G.Mul(&p.x, &D)
+	t0.Double(&G)
+	H.Add(&E, &F).
+		Sub(&H, &t0)
+	t1.Mul(&p.y, &E)
 
-	return z
-}
+	// X, Y, Z
+	p.x.Mul(&L, &H)
+	p.y.Sub(&G, &H).
+		Mul(&p.y, &O).
+		Sub(&p.y, &t1)
+	p.z.Mul(&E, &p.z)
 
-// precomputes the line evaluations used during the Miller loop.
-func preCompute1(evaluations *[69]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
 
-	var Q1, Qbuf G2Jac
-	Q1.Set(Q)
-	Qbuf.Set(Q)
-
-	j := 0
-
-	for i := len(loopCounter1) - 2; i >= 0; i-- {
-
-		Q1.Set(Q)
-		Q.Double(&Q1).Neg(Q)
-		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
-		Q.Neg(Q)
-		ch <- struct{}{}
-		j++
-
-		if loopCounter1[i] == 1 {
-			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
-			Q.AddAssign(&Qbuf)
-			ch <- struct{}{}
-			j++
-		}
-	}
-
-}
-
-// precomputes the line evaluations used during the Miller loop.
-func preCompute2(evaluations *[144]lineEvaluation, Q *G2Jac, P *G1Affine, ch chan struct{}) {
-
-	var Q1, Qbuf, Qneg G2Jac
-	Q1.Set(Q)
-	Qbuf.Set(Q)
-	Qneg.Neg(Q)
-
-	j := 0
-
-	for i := len(loopCounter2) - 2; i >= 0; i-- {
-
-		Q1.Set(Q)
-		Q.Double(&Q1).Neg(Q)
-		lineEval(&Q1, Q, P, &evaluations[j]) // f(P), div(f) = 2(Q1)+(-2Q)-3(O)
-		Q.Neg(Q)
-		ch <- struct{}{}
-		j++
-
-		if loopCounter2[i] == 1 {
-			lineEval(Q, &Qbuf, P, &evaluations[j]) // f(P), div(f) = (Q)+(Qbuf)+(-Q-Qbuf)-3(O)
-			Q.AddAssign(&Qbuf)
-			ch <- struct{}{}
-			j++
-		} else if loopCounter2[i] == -1 {
-			lineEval(Q, &Qneg, P, &evaluations[j]) // f(P), div(f) = (Q)+(-Qbuf)+(-Q+Qbuf)-3(O)
-			Q.AddAssign(&Qneg)
-			ch <- struct{}{}
-			j++
-		}
-	}
+	// Line evaluation
+	evaluations.r0.Set(&J)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&L)
 }

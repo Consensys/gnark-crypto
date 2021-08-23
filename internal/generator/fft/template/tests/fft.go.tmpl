@@ -14,7 +14,10 @@ import (
 func TestFFT(t *testing.T) {
 	const maxSize = 1 << 10
 
-	domain := NewDomain(maxSize, 0)
+	nbCosets := 3
+	domainWithPrecompute := NewDomain(maxSize, 2, true)
+	domainWOPrecompute := NewDomain(maxSize, 2, false)
+
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 5
@@ -34,11 +37,68 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domain.FFT(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIF, 0)
 			BitReverse(pol)
 
-			sample := domain.Generator
+			sample := domainWithPrecompute.Generator
 			sample.Exp(sample, big.NewInt(int64(ithpower)))
+
+			eval := evaluatePolynomial(backupPol, sample)
+
+			return eval.Equal(&pol[ithpower]) 
+
+		},
+		gen.IntRange(0, maxSize-1),
+	))
+
+
+	properties.Property("DIF FFT on cosets with precomputed values should be consistent with dual basis", prop.ForAll(
+
+		// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+		func(ithpower int) bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWithPrecompute.FFT(pol, DIF, 1)
+			BitReverse(pol)
+
+			sample := domainWithPrecompute.Generator
+			sample.Exp(sample, big.NewInt(int64(ithpower))).
+				Mul(&sample, &domainWithPrecompute.FinerGenerator)
+
+			eval := evaluatePolynomial(backupPol, sample)
+
+			return eval.Equal(&pol[ithpower])
+
+		},
+		gen.IntRange(0, maxSize-1),
+	))
+
+	properties.Property("DIF FFT on cosets W/O precompute should be consistent with dual basis", prop.ForAll(
+
+		// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+		func(ithpower int) bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWOPrecompute.FFT(pol, DIF, 1)
+			BitReverse(pol)
+
+			sample := domainWOPrecompute.Generator
+			sample.Exp(sample, big.NewInt(int64(ithpower))).
+				Mul(&sample, &domainWOPrecompute.FinerGenerator)
 
 			eval := evaluatePolynomial(backupPol, sample)
 
@@ -62,9 +122,9 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domain.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
 
-			sample := domain.Generator
+			sample := domainWithPrecompute.Generator
 			sample.Exp(sample, big.NewInt(int64(ithpower)))
 
 			eval := evaluatePolynomial(backupPol, sample)
@@ -88,14 +148,74 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domain.FFT(pol, DIT, 0)
-			domain.FFTInverse(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFTInverse(pol, DIF, 0)
 			BitReverse(pol)
 
 			check := true
 			for i := 0; i < len(pol); i++ {
 				check = check && pol[i].Equal(&backupPol[i])
 			}
+			return check
+		},
+	))
+
+	properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on cosets, with precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			check := true
+
+			for i := 1; i <= nbCosets; i++ {
+
+				BitReverse(pol)
+				domainWithPrecompute.FFT(pol, DIT, uint64(i))
+				domainWithPrecompute.FFTInverse(pol, DIF, uint64(i))
+				BitReverse(pol)
+
+				for i := 0; i < len(pol); i++ {
+					check = check && pol[i].Equal(&backupPol[i])
+				}
+			}
+
+			return check
+		},
+	))
+
+	properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on cosets, without precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			check := true
+
+			for i := 1; i <= nbCosets; i++ {
+
+				BitReverse(pol)
+				domainWOPrecompute.FFT(pol, DIT, uint64(i))
+				domainWOPrecompute.FFTInverse(pol, DIF, uint64(i))
+				BitReverse(pol)
+
+				for i := 0; i < len(pol); i++ {
+					check = check && pol[i].Equal(&backupPol[i])
+				}
+			}
+
 			return check
 		},
 	))
@@ -112,8 +232,54 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domain.FFTInverse(pol, DIF, 0)
-			domain.FFT(pol, DIT, 0)
+			domainWithPrecompute.FFTInverse(pol, DIF, 0)
+			domainWithPrecompute.FFT(pol, DIT, 0)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && (pol[i] == backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("DIT FFT(DIF FFT)==id on cosets, with precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWithPrecompute.FFTInverse(pol, DIF, 1)
+			domainWithPrecompute.FFT(pol, DIT, 1)
+
+			check := true
+			for i := 0; i < len(pol); i++ {
+				check = check && (pol[i] == backupPol[i])
+			}
+			return check
+		},
+	))
+
+	properties.Property("DIT FFT(DIF FFT)==id on cosets, without precomputed values", prop.ForAll(
+
+		func() bool {
+
+			pol := make([]fr.Element, maxSize)
+			backupPol := make([]fr.Element, maxSize)
+
+			for i := 0; i < maxSize; i++ {
+				pol[i].SetRandom()
+			}
+			copy(backupPol, pol)
+
+			domainWOPrecompute.FFTInverse(pol, DIF, 1)
+			domainWOPrecompute.FFT(pol, DIT, 1)
 
 			check := true
 			for i := 0; i < len(pol); i++ {
@@ -134,45 +300,92 @@ func BenchmarkBitReverse(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
-	for i := uint64(0); i < maxSize; i++ {
-		pol[i].SetRandom()
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
 	}
 
 	for i := 8; i < 20; i++ {
 		b.Run("bit reversing 2**"+strconv.Itoa(i)+"bits", func(b *testing.B) {
-			_pol := make([]fr.Element, 1<<i)
-			copy(_pol, pol)
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				BitReverse(_pol)
+				BitReverse(pol[:1<<i])
 			}
 		})
 	}
 
 }
 
+
 func BenchmarkFFT(b *testing.B) {
 
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
-	for i := uint64(0); i < maxSize; i++ {
-		pol[i].SetRandom()
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
 	}
 
 	for i := 8; i < 20; i++ {
-		b.Run("fft 2**"+strconv.Itoa(i)+"bits", func(b *testing.B) {
-			sizeDomain := 1 << i
-			_pol := make([]fr.Element, sizeDomain)
-			copy(_pol, pol)
-			domain := NewDomain(uint64(sizeDomain), 0)
+		sizeDomain := 1 << i
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (no cosets)", func(b *testing.B) {
+			domain := NewDomain(uint64(sizeDomain), 0, false)
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				domain.FFT(_pol, DIT, 0)
+				domain.FFT(pol[:sizeDomain], DIT, 0)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets without precomputations)", func(b *testing.B) {
+			domain := NewDomain(uint64(sizeDomain), 1, false)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(pol[:sizeDomain], DIT, 1)
+			}
+		})
+		b.Run("fft 2**"+strconv.Itoa(i)+"bits (cosets with precomputations)", func(b *testing.B) {
+			domain := NewDomain(uint64(sizeDomain), 1, true)
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				domain.FFT(pol[:sizeDomain], DIT, 1)
 			}
 		})
 	}
 
+}
+
+func BenchmarkFFTDITCosetReference(b *testing.B) {
+	const maxSize = 1 << 20
+
+	pol := make([]fr.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize, 0, false)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIT, 1)
+	}
+}
+
+func BenchmarkFFTDIFReference(b *testing.B) {
+	const maxSize = 1 << 20
+
+	pol := make([]fr.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize, 0, false)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF, 0)
+	}
 }
 
 func evaluatePolynomial(pol []fr.Element, val fr.Element) fr.Element {

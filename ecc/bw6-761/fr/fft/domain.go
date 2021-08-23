@@ -17,6 +17,7 @@
 package fft
 
 import (
+	"fmt"
 	"io"
 	"math/big"
 	"math/bits"
@@ -26,19 +27,22 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
+
+	"github.com/consensys/gnark-crypto/ecc"
 )
 
 // Domain with a power of 2 cardinality
 // compute a field element of order 2x and store it in FinerGenerator
 // all other values can be derived from x, GeneratorSqrt
 type Domain struct {
-	Cardinality       uint64
-	Depth             uint64
-	CardinalityInv    fr.Element
-	Generator         fr.Element
-	GeneratorInv      fr.Element
-	FinerGenerator    fr.Element
-	FinerGeneratorInv fr.Element
+	Cardinality             uint64
+	Depth                   uint64
+	PrecomputeReversedTable uint64 // uint64 so it is recognized by the decoder from gnark-crypto
+	CardinalityInv          fr.Element
+	Generator               fr.Element
+	GeneratorInv            fr.Element
+	FinerGenerator          fr.Element
+	FinerGeneratorInv       fr.Element
 
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
@@ -52,11 +56,13 @@ type Domain struct {
 
 	// CosetTable[i][j] = domain.Generator(i-th)Sqrt ^ j
 	// CosetTable = fft.BitReverse(CosetTable)
-	CosetTable [][]fr.Element
+	CosetTable         [][]fr.Element
+	CosetTableReversed [][]fr.Element // optional, this is computed on demand at the creation of the domain
 
 	// CosetTable[i][j] = domain.Generator(i-th)SqrtInv ^ j
 	// CosetTableInv = fft.BitReverse(CosetTableInv)
-	CosetTableInv [][]fr.Element
+	CosetTableInv         [][]fr.Element
+	CosetTableInvReversed [][]fr.Element // optional, this is computed on demand at the creation of the domain
 }
 
 // NewDomain returns a subgroup with a power of 2 cardinality
@@ -64,14 +70,16 @@ type Domain struct {
 // If depth>0, the Domain will also store a primitive (2**depth)*m root
 // of 1, with associated precomputed data. This allows to perform shifted
 // FFT/FFTInv.
+// If precomputeReversedCosetTable is set, the bit reversed cosetTable/cosetTableInv are precomputed.
 //
 // example:
 // --------
 //
-// NewDomain(m, 2) outputs a new domain to perform fft on Z/mZ, plus a primitive
+// * NewDomain(m, 0, false) outputs a new domain to perform the fft on Z/mZ.
+// * NewDomain(m, 2, false) outputs a new domain to perform fft on Z/mZ, plus a primitive
 // 2**2*m=4m-th root of 1 and associated data to compute fft/fftinv on the cosets of
 // (Z/4mZ)/(Z/mZ).
-func NewDomain(m, depth uint64) *Domain {
+func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
@@ -79,15 +87,18 @@ func NewDomain(m, depth uint64) *Domain {
 	rootOfUnity.SetString("32863578547254505029601261939868325669770508939375122462904745766352256812585773382134936404344547323199885654433")
 	const maxOrderRoot uint64 = 46
 
-	subGroup := &Domain{}
-	x := nextPowerOfTwo(m)
-	subGroup.Cardinality = uint64(x)
-	subGroup.Depth = depth
+	domain := &Domain{}
+	x := ecc.NextPowerOfTwo(m)
+	domain.Cardinality = uint64(x)
+	domain.Depth = depth
+	if precomputeReversedTable {
+		domain.PrecomputeReversedTable = 1
+	}
 
 	// find generator for Z/2^(log(m))Z  and Z/2^(log(m)+cosets)Z
 	logx := uint64(bits.TrailingZeros64(x))
 	if logx > maxOrderRoot {
-		panic("m is too big: the required root of unity does not exist")
+		panic(fmt.Sprintf("m (%d) is too big: the required root of unity does not exist", m))
 	}
 	logGen := logx + depth
 	if logGen > maxOrderRoot {
@@ -96,20 +107,39 @@ func NewDomain(m, depth uint64) *Domain {
 
 	expo := uint64(1 << (maxOrderRoot - logGen))
 	bExpo := new(big.Int).SetUint64(expo)
-	subGroup.FinerGenerator.Exp(rootOfUnity, bExpo)
-	subGroup.FinerGeneratorInv.Inverse(&subGroup.FinerGenerator)
+	domain.FinerGenerator.Exp(rootOfUnity, bExpo)
+	domain.FinerGeneratorInv.Inverse(&domain.FinerGenerator)
 
 	// Generator = FinerGenerator^2 has order x
 	expo = uint64(1 << (maxOrderRoot - logx))
 	bExpo.SetUint64(expo)
-	subGroup.Generator.Exp(rootOfUnity, bExpo) // order x
-	subGroup.GeneratorInv.Inverse(&subGroup.Generator)
-	subGroup.CardinalityInv.SetUint64(uint64(x)).Inverse(&subGroup.CardinalityInv)
+	domain.Generator.Exp(rootOfUnity, bExpo) // order x
+	domain.GeneratorInv.Inverse(&domain.Generator)
+	domain.CardinalityInv.SetUint64(uint64(x)).Inverse(&domain.CardinalityInv)
 
 	// twiddle factors
-	subGroup.preComputeTwiddles()
+	domain.preComputeTwiddles()
 
-	return subGroup
+	// store the bit reversed coset tables if needed
+	if depth > 0 && precomputeReversedTable {
+		domain.reverseCosetTables()
+	}
+
+	return domain
+}
+
+func (d *Domain) reverseCosetTables() {
+	nbCosets := (1 << d.Depth) - 1
+	d.CosetTableReversed = make([][]fr.Element, nbCosets)
+	d.CosetTableInvReversed = make([][]fr.Element, nbCosets)
+	for i := 0; i < nbCosets; i++ {
+		d.CosetTableReversed[i] = make([]fr.Element, d.Cardinality)
+		d.CosetTableInvReversed[i] = make([]fr.Element, d.Cardinality)
+		copy(d.CosetTableReversed[i], d.CosetTable[i])
+		copy(d.CosetTableInvReversed[i], d.CosetTableInv[i])
+		BitReverse(d.CosetTableReversed[i])
+		BitReverse(d.CosetTableInvReversed[i])
+	}
 }
 
 func (d *Domain) preComputeTwiddles() {
@@ -161,7 +191,7 @@ func (d *Domain) preComputeTwiddles() {
 		cosetGensInv[0].Set(&d.FinerGeneratorInv)
 		for i := 1; i < nbCosets; i++ {
 			cosetGens[i].Mul(&cosetGens[i-1], &d.FinerGenerator)
-			cosetGensInv[i].Mul(&cosetGensInv[1], &d.FinerGeneratorInv)
+			cosetGensInv[i].Mul(&cosetGensInv[i-1], &d.FinerGeneratorInv)
 		}
 		wg.Add(2 + 2*nbCosets)
 		go twiddles(d.Twiddles, d.Generator)
@@ -219,21 +249,14 @@ func precomputeExpTable(w fr.Element, table []fr.Element) {
 }
 
 func precomputeExpTableChunk(w fr.Element, power uint64, table []fr.Element) {
-	table[0].Exp(w, new(big.Int).SetUint64(power))
-	for i := 1; i < len(table); i++ {
-		table[i].Mul(&table[i-1], &w)
-	}
-}
 
-func nextPowerOfTwo(n uint64) uint64 {
-	p := uint64(1)
-	if (n & (n - 1)) == 0 {
-		return n
+	// this condition ensures that creating a domain of size 1 with cosets don't fail
+	if len(table) > 0 {
+		table[0].Exp(w, new(big.Int).SetUint64(power))
+		for i := 1; i < len(table); i++ {
+			table[i].Mul(&table[i-1], &w)
+		}
 	}
-	for p < n {
-		p <<= 1
-	}
-	return p
 }
 
 // WriteTo writes a binary representation of the domain (without the precomputed twiddle factors)
@@ -242,7 +265,7 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 
 	enc := curve.NewEncoder(w)
 
-	toEncode := []interface{}{d.Cardinality, d.Depth, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
+	toEncode := []interface{}{d.Cardinality, d.Depth, d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
@@ -258,7 +281,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := curve.NewDecoder(r)
 
-	toDecode := []interface{}{&d.Cardinality, &d.Depth, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
+	toDecode := []interface{}{&d.Cardinality, &d.Depth, &d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FinerGenerator, &d.FinerGeneratorInv}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
@@ -267,5 +290,11 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	d.preComputeTwiddles()
+
+	// store the bit reversed coset tables if needed
+	if d.Depth > 0 && d.PrecomputeReversedTable == 1 {
+		d.reverseCosetTables()
+	}
+
 	return dec.BytesRead(), nil
 }

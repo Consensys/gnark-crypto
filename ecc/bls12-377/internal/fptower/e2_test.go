@@ -205,7 +205,6 @@ func TestE2MulMaxed(t *testing.T) {
 	b.A0 = fpMaxValue
 	b.A1 = fpMaxValue
 
-	// [BN254] mul & inverse should leave an element invariant", prop.ForAll(
 	var c, d E2
 	d.Inverse(&b)
 	c.Set(&a)
@@ -342,6 +341,17 @@ func TestE2Ops(t *testing.T) {
 			d.Square(&c)
 			e.Neg(a)
 			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-377] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
+		func(a *E2) bool {
+			var b, c E2
+			b.Neg(a)
+			c.A0.Neg(&a.A0)
+			c.A1.Neg(&a.A1)
+			return c.Equal(&b)
 		},
 		genA,
 	))

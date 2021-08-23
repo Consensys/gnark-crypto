@@ -45,6 +45,30 @@ func BenchmarkElementSetBytes(b *testing.B) {
 
 }
 
+func BenchmarkElementMulByConstants(b *testing.B) {
+	b.Run("mulBy3", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy3(&benchResElement)
+		}
+	})
+	b.Run("mulBy5", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy5(&benchResElement)
+		}
+	})
+	b.Run("mulBy13", func(b *testing.B) {
+		benchResElement.SetRandom()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			MulBy13(&benchResElement)
+		}
+	})
+}
+
 func BenchmarkElementInverse(b *testing.B) {
 	var x Element
 	x.SetRandom()
@@ -55,6 +79,16 @@ func BenchmarkElementInverse(b *testing.B) {
 		benchResElement.Inverse(&x)
 	}
 
+}
+
+func BenchmarkElementButterfly(b *testing.B) {
+	var x Element
+	x.SetRandom()
+	benchResElement.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Butterfly(&x, &benchResElement)
+	}
 }
 
 func BenchmarkElementExp(b *testing.B) {
@@ -402,7 +436,7 @@ func TestElementMulByConstants(t *testing.T) {
 
 	genA := gen()
 
-	implemented := []uint8{0, 1, 2, 3, 5}
+	implemented := []uint8{0, 1, 2, 3, 5, 13}
 	properties.Property("mulByConstant", prop.ForAll(
 		func(a testPairElement) bool {
 			for _, c := range implemented {
@@ -455,6 +489,21 @@ func TestElementMulByConstants(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("MulBy13(x) == Mul(x, 13)", prop.ForAll(
+		func(a testPairElement) bool {
+			var constant Element
+			constant.SetUint64(13)
+
+			b := a.element
+			b.Mul(&b, &constant)
+
+			MulBy13(&a.element)
+
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
@@ -482,6 +531,43 @@ func TestElementLegendre(t *testing.T) {
 		func(a testPairElement) bool {
 			return a.element.Legendre() == big.Jacobi(&a.bigint, Modulus())
 		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	// if we have ADX instruction enabled, test both path in assembly
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
+
+}
+
+func TestElementButterflies(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("butterfly0 == a -b; a +b", prop.ForAll(
+		func(a, b testPairElement) bool {
+			a0, b0 := a.element, b.element
+
+			_butterflyGeneric(&a.element, &b.element)
+			Butterfly(&a0, &b0)
+
+			return a.element.Equal(&a0) && b.element.Equal(&b0)
+		},
+		genA,
 		genA,
 	))
 

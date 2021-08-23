@@ -19,9 +19,14 @@ import (
 // base field. in Go 1.16, can embed the template in the binary, and use same pattern than gnark-crypto/internal
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
+//
+// Example usage
+//
+// 	fp, _ = field.NewField("fp", "Element", fpModulus")
+// 	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
 func GenerateFF(F *field.Field, outputDir string) error {
 	// source file templates
-	src := []string{
+	sourceFiles := []string{
 		element.Base,
 		element.Reduce,
 		element.Exp,
@@ -33,7 +38,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	// test file templates
-	tst := []string{
+	testFiles := []string{
 		element.MulCIOS,
 		element.MulNoCarry,
 		element.Reduce,
@@ -46,6 +51,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	pathSrc := filepath.Join(outputDir, eName+".go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
+	pathFuzz := filepath.Join(outputDir, eName+"_fuzz.go")
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
@@ -58,21 +64,28 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
 		bavard.Package(F.PackageName),
 		bavard.GeneratedBy("consensys/gnark-crypto"),
-		bavard.Funcs(template.FuncMap{"toTitle": strings.Title}),
+		bavard.Funcs(template.FuncMap{"toTitle": strings.Title, "shorten": shorten}),
 	}
-	optsWithPackageDoc := append(bavardOpts, bavard.Package(F.PackageName, "contains field arithmetic operations for modulus "+F.Modulus))
 
 	// generate source file
-	if err := bavard.Generate(pathSrc, src, F, optsWithPackageDoc...); err != nil {
+	if err := bavard.GenerateFromString(pathSrc, sourceFiles, F, bavardOpts...); err != nil {
 		return err
 	}
 	// generate arithmetics source file
-	if err := bavard.Generate(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
+		return err
+	}
+
+	// generate fuzz file
+	bopts := make([]func(*bavard.Bavard) error, len(bavardOpts))
+	copy(bopts, bavardOpts)
+	bopts = append(bopts, bavard.BuildTag("gofuzz"))
+	if err := bavard.GenerateFromString(pathFuzz, []string{element.Fuzz}, F, bopts...); err != nil {
 		return err
 	}
 
 	// generate test file
-	if err := bavard.Generate(pathTest, tst, F, bavardOpts...); err != nil {
+	if err := bavard.GenerateFromString(pathTest, testFiles, F, bavardOpts...); err != nil {
 		return err
 	}
 
@@ -163,7 +176,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		if err := bavard.Generate(pathSrc, src, F, bavardOpts...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
 	}
@@ -182,7 +195,18 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		if F.ASM {
 			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64"))
 		}
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	{
+		// generate doc.go
+		src := []string{
+			element.Doc,
+		}
+		pathSrc := filepath.Join(outputDir, "doc.go")
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
 	}
@@ -196,7 +220,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noadx"))
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}
@@ -209,7 +233,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noadx"))
-		if err := bavard.Generate(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}
@@ -223,4 +247,12 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	return nil
+}
+
+func shorten(input string) string {
+	const maxLen = 15
+	if len(input) > maxLen {
+		return input[:6] + "..." + input[len(input)-6:]
+	}
+	return input
 }

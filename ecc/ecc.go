@@ -14,9 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc is an elliptic curve (+pairing) library.
-// Provides implementation for bls12-381, bls12-377, bn254, bw6-761 and their twisted edwards "companion curves"
+// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315 and bw6-633 elliptic curves implementation (+pairing).
+//
+// Also
+//
+//	* Multi exponentiation
+//	* FFT
+//	* Polynomial commitment schemes
+//	* MiMC
+//	* twisted edwards "companion curves"
+//	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
+
+// ID represent a unique ID for a curve
+type ID uint16
 
 // do not modify the order of this enum
 const (
@@ -24,11 +35,15 @@ const (
 	BN254
 	BLS12_377
 	BLS12_381
+	BLS24_315
 	BW6_761
+	BW6_633
 )
 
-// ID represent a unique ID for a curve
-type ID uint16
+// Implemented return the list of curves fully implemented in gnark-crypto
+func Implemented() []ID {
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315}
+}
 
 func (id ID) String() string {
 	switch id {
@@ -40,7 +55,17 @@ func (id ID) String() string {
 		return "bn254"
 	case BW6_761:
 		return "bw6_761"
+	case BW6_633:
+		return "bw6_633"
+	case BLS24_315:
+		return "bls24_315"
 	default:
 		panic("unimplemented ecc ID")
 	}
+}
+
+// MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
+type MultiExpConfig struct {
+	NbTasks     int  // go routines to be used in the multiexp. can be larger than num cpus.
+	ScalarsMont bool // indicates if the scalars are in montgommery form. Default to false.
 }

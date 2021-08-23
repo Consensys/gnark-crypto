@@ -28,30 +28,43 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-// ------------------------------------------------------------
-// utils
-func fuzzJacobianG2Affine(p *G2Jac, f fp.Element) G2Jac {
-	var res G2Jac
-	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
-	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
-	res.Z.Mul(&p.Z, &f)
-	return res
-}
+func TestG2AffineEndomorphism(t *testing.T) {
 
-func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fp.Element) g2JacExtended {
-	var res g2JacExtended
-	var ff, fff fp.Element
-	ff.Square(&f)
-	fff.Mul(&ff, &f)
-	res.X.Mul(&p.X, &ff)
-	res.Y.Mul(&p.Y, &fff)
-	res.ZZ.Mul(&p.ZZ, &ff)
-	res.ZZZ.Mul(&p.ZZZ, &fff)
-	return res
-}
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
 
-// ------------------------------------------------------------
-// tests
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BW6-761] check that phi(P) = lambdaGLV * P", prop.ForAll(
+		func(a fp.Element) bool {
+			var p, res1, res2 G2Jac
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
+			res1.phi(&p)
+			res2.mulWindowed(&p, &lambdaGLV)
+
+			return p.IsInSubGroup() && res1.Equal(&res2)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BW6-761] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
+		func(a fp.Element) bool {
+			var p, res, tmp G2Jac
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
+			tmp.phi(&p)
+			res.phi(&tmp).
+				AddAssign(&tmp).
+				AddAssign(&p)
+
+			return res.Z.IsZero()
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 func TestMapToCurveG2(t *testing.T) {
 
@@ -59,14 +72,13 @@ func TestMapToCurveG2(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenFp()
 
 	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			g := MapToCurveG2Svdw(a)
-			return g.IsOnCurve()
+			return g.IsInSubGroup()
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
@@ -75,8 +87,10 @@ func TestMapToCurveG2(t *testing.T) {
 			g2 := MapToCurveG2Svdw(a)
 			return g1.Equal(&g2)
 		},
-		genFuzz1,
+		GenFp(),
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestG2AffineIsOnCurve(t *testing.T) {
@@ -85,7 +99,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenFp()
+
 	properties.Property("[BW6-761] g2Gen (affine) should be on the curve", prop.ForAll(
 		func(a fp.Element) bool {
 			var op1, op2 G2Affine
@@ -94,7 +108,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] g2Gen (Jacobian) should be on the curve", prop.ForAll(
@@ -107,7 +121,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -119,8 +133,6 @@ func TestG2AffineConversions(t *testing.T) {
 	parameters.MinSuccessfulTests = 100
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenFp()
-	genFuzz2 := GenFp()
 
 	properties.Property("[BW6-761] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
@@ -129,7 +141,7 @@ func TestG2AffineConversions(t *testing.T) {
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
@@ -145,7 +157,7 @@ func TestG2AffineConversions(t *testing.T) {
 			op1.fromJacExtended(&gfuzz)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] Jacobian representation should be the same as the affine representative", prop.ForAll(
@@ -162,7 +174,7 @@ func TestG2AffineConversions(t *testing.T) {
 
 			return g.X.Equal(&g2Gen.X) && g.Y.Equal(&g2Gen.Y) && g.Z.Equal(&one)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
@@ -209,8 +221,8 @@ func TestG2AffineConversions(t *testing.T) {
 			op2 := fuzzJacobianG2Affine(&g2Gen, b)
 			return op1.Equal(&op2)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenFp(),
+		GenFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -222,8 +234,6 @@ func TestG2AffineOps(t *testing.T) {
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
-	genFuzz1 := GenFp()
-	genFuzz2 := GenFp()
 
 	genScalar := GenFr()
 
@@ -236,8 +246,8 @@ func TestG2AffineOps(t *testing.T) {
 			op2.Double(&fop2)
 			return op1.Equal(&op2)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenFp(),
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
@@ -248,8 +258,8 @@ func TestG2AffineOps(t *testing.T) {
 			fop1.AddAssign(&fop2)
 			return fop1.Equal(&g2Infinity)
 		},
-		genFuzz1,
-		genFuzz2,
+		GenFp(),
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
@@ -261,7 +271,7 @@ func TestG2AffineOps(t *testing.T) {
 			op2.AddAssign(&g2Gen)
 			return fop1.Equal(&g2Gen) && op2.Equal(&g2Gen)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
@@ -280,7 +290,7 @@ func TestG2AffineOps(t *testing.T) {
 				o1.ZZ.Equal(&o2.ZZ) &&
 				o1.ZZZ.Equal(&o2.ZZZ)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
@@ -299,7 +309,7 @@ func TestG2AffineOps(t *testing.T) {
 				o1.ZZ.Equal(&o2.ZZ) &&
 				o1.ZZZ.Equal(&o2.ZZZ)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
@@ -311,7 +321,7 @@ func TestG2AffineOps(t *testing.T) {
 			fop1.AddMixed(&op2)
 			return fop1.Equal(&g2Infinity)
 		},
-		genFuzz1,
+		GenFp(),
 	))
 
 	properties.Property("[BW6-761] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
@@ -431,7 +441,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					MulAssign(&mixer).
+					Mul(&sampleScalars[i-1], &mixer).
 					FromMont()
 			}
 
@@ -461,6 +471,16 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
 // ------------------------------------------------------------
 // benches
+
+func BenchmarkG2JacIsInSubGroup(b *testing.B) {
+	var a G2Jac
+	a.Set(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.IsInSubGroup()
+	}
+
+}
 
 func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 	// ensure every words of the scalars are filled
@@ -623,4 +643,24 @@ func BenchmarkG2JacExtDouble(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.double(&a)
 	}
+}
+
+func fuzzJacobianG2Affine(p *G2Jac, f fp.Element) G2Jac {
+	var res G2Jac
+	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
+	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
+	res.Z.Mul(&p.Z, &f)
+	return res
+}
+
+func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fp.Element) g2JacExtended {
+	var res g2JacExtended
+	var ff, fff fp.Element
+	ff.Square(&f)
+	fff.Mul(&ff, &f)
+	res.X.Mul(&p.X, &ff)
+	res.Y.Mul(&p.Y, &fff)
+	res.ZZ.Mul(&p.ZZ, &ff)
+	res.ZZZ.Mul(&p.ZZZ, &fff)
+	return res
 }
