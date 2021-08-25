@@ -1,6 +1,9 @@
 <a name="v0.5.0"></a>
 ## [v0.5.0] - 2021-08-20
 
+### Breaking changes
+- twisted Edwards BN-companion in reduced form (a=-1): this affect `eddsa`. `v0.4.0` and `v0.5.0` keys and signatures are not compatible. 
+
 ### Feat
 - adds new curve bls24-315
 - adds new curve bw6-633
