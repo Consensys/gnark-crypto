@@ -78,8 +78,8 @@ func TestMultiExpG1(t *testing.T) {
 					FromMont()
 			}
 
-			scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			r16.msmC16(samplePoints[:], scalars16, runtime.NumCPU())
+			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+			r16.msmC16(samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -110,20 +110,14 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars5 := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
 
-				nbTasks := []int{1, 2, 3, runtime.NumCPU()}
-
-				// we can have less tasks than chunks
-				// in which case each task may process multiple chunks
-				for i := 0; i < len(nbTasks); i++ {
-					var r5, r16 G1Jac
-					r5.msmC5(samplePoints[:], scalars5, nbTasks[i])
-					r16.msmC16(samplePoints[:], scalars16, nbTasks[i])
-					if !(r5.Equal(&expected) && r16.Equal(&expected)) {
-						return false
-					}
+				var r5, r16 G1Jac
+				r5.msmC5(samplePoints[:], scalars5, false)
+				r16.msmC16(samplePoints[:], scalars16, true)
+				if !(r5.Equal(&expected) && r16.Equal(&expected)) {
+					return false
 				}
 
 				return true
@@ -146,8 +140,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
-				result.msmC4(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
+				result.msmC4(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -173,8 +167,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				result.msmC5(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				result.msmC5(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -200,8 +194,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 6, false, runtime.NumCPU())
-				result.msmC6(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 6, false, runtime.NumCPU())
+				result.msmC6(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -227,8 +221,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 7, false, runtime.NumCPU())
-				result.msmC7(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 7, false, runtime.NumCPU())
+				result.msmC7(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -254,8 +248,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
-				result.msmC8(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
+				result.msmC8(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -281,8 +275,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 9, false, runtime.NumCPU())
-				result.msmC9(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 9, false, runtime.NumCPU())
+				result.msmC9(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -308,8 +302,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 10, false, runtime.NumCPU())
-				result.msmC10(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 10, false, runtime.NumCPU())
+				result.msmC10(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -335,8 +329,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 11, false, runtime.NumCPU())
-				result.msmC11(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 11, false, runtime.NumCPU())
+				result.msmC11(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -362,8 +356,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 12, false, runtime.NumCPU())
-				result.msmC12(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 12, false, runtime.NumCPU())
+				result.msmC12(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -389,8 +383,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 13, false, runtime.NumCPU())
-				result.msmC13(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 13, false, runtime.NumCPU())
+				result.msmC13(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -416,8 +410,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 14, false, runtime.NumCPU())
-				result.msmC14(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 14, false, runtime.NumCPU())
+				result.msmC14(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -443,8 +437,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 15, false, runtime.NumCPU())
-				result.msmC15(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 15, false, runtime.NumCPU())
+				result.msmC15(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -470,8 +464,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-				result.msmC16(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				result.msmC16(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -497,8 +491,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 20, false, runtime.NumCPU())
-				result.msmC20(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 20, false, runtime.NumCPU())
+				result.msmC20(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -524,8 +518,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 21, false, runtime.NumCPU())
-				result.msmC21(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 21, false, runtime.NumCPU())
+				result.msmC21(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -551,8 +545,8 @@ func TestMultiExpG1(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 22, false, runtime.NumCPU())
-				result.msmC22(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 22, false, runtime.NumCPU())
+				result.msmC22(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -747,8 +741,8 @@ func TestMultiExpG2(t *testing.T) {
 					FromMont()
 			}
 
-			scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			r16.msmC16(samplePoints[:], scalars16, runtime.NumCPU())
+			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+			r16.msmC16(samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -779,20 +773,14 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars5 := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				scalars16 := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
 
-				nbTasks := []int{1, 2, 3, runtime.NumCPU()}
-
-				// we can have less tasks than chunks
-				// in which case each task may process multiple chunks
-				for i := 0; i < len(nbTasks); i++ {
-					var r5, r16 G2Jac
-					r5.msmC5(samplePoints[:], scalars5, nbTasks[i])
-					r16.msmC16(samplePoints[:], scalars16, nbTasks[i])
-					if !(r5.Equal(&expected) && r16.Equal(&expected)) {
-						return false
-					}
+				var r5, r16 G2Jac
+				r5.msmC5(samplePoints[:], scalars5, false)
+				r16.msmC16(samplePoints[:], scalars16, true)
+				if !(r5.Equal(&expected) && r16.Equal(&expected)) {
+					return false
 				}
 
 				return true
@@ -815,8 +803,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
-				result.msmC4(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
+				result.msmC4(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -842,8 +830,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				result.msmC5(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+				result.msmC5(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -869,8 +857,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 6, false, runtime.NumCPU())
-				result.msmC6(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 6, false, runtime.NumCPU())
+				result.msmC6(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -896,8 +884,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 7, false, runtime.NumCPU())
-				result.msmC7(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 7, false, runtime.NumCPU())
+				result.msmC7(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -923,8 +911,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
-				result.msmC8(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
+				result.msmC8(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -950,8 +938,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 9, false, runtime.NumCPU())
-				result.msmC9(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 9, false, runtime.NumCPU())
+				result.msmC9(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -977,8 +965,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 10, false, runtime.NumCPU())
-				result.msmC10(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 10, false, runtime.NumCPU())
+				result.msmC10(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1004,8 +992,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 11, false, runtime.NumCPU())
-				result.msmC11(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 11, false, runtime.NumCPU())
+				result.msmC11(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1031,8 +1019,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 12, false, runtime.NumCPU())
-				result.msmC12(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 12, false, runtime.NumCPU())
+				result.msmC12(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1058,8 +1046,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 13, false, runtime.NumCPU())
-				result.msmC13(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 13, false, runtime.NumCPU())
+				result.msmC13(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1085,8 +1073,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 14, false, runtime.NumCPU())
-				result.msmC14(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 14, false, runtime.NumCPU())
+				result.msmC14(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1112,8 +1100,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 15, false, runtime.NumCPU())
-				result.msmC15(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 15, false, runtime.NumCPU())
+				result.msmC15(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1139,8 +1127,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-				result.msmC16(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+				result.msmC16(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1166,8 +1154,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 20, false, runtime.NumCPU())
-				result.msmC20(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 20, false, runtime.NumCPU())
+				result.msmC20(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1193,8 +1181,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 21, false, runtime.NumCPU())
-				result.msmC21(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 21, false, runtime.NumCPU())
+				result.msmC21(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int
@@ -1220,8 +1208,8 @@ func TestMultiExpG2(t *testing.T) {
 						FromMont()
 				}
 
-				scalars := partitionScalars(sampleScalars[:], 22, false, runtime.NumCPU())
-				result.msmC22(samplePoints[:], scalars, runtime.NumCPU())
+				scalars, _ := partitionScalars(sampleScalars[:], 22, false, runtime.NumCPU())
+				result.msmC22(samplePoints[:], scalars, false)
 
 				// compute expected result with double and add
 				var finalScalar, mixerBigInt big.Int

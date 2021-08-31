@@ -1344,7 +1344,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars := partitionScalars(scalars, c, false, runtime.NumCPU())
+	pScalars, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
