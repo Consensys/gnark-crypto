@@ -157,6 +157,11 @@ func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
 }
 
+// IsUint64 returns true if z[0] >= 0 and all other words are 0
+func (z *{{.ElementName}}) IsUint64() bool {
+	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
+}
+
 // Cmp compares (lexicographic order) z and x and returns:
 //
 //   -1 if z <  x
