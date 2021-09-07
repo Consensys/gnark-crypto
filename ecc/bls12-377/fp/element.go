@@ -165,6 +165,16 @@ func (z *Element) Div(x, y *Element) *Element {
 	return z
 }
 
+// Bit returns the i'th bit, with lsb == bit 0.
+// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+func (z *Element) Bit(i uint64) uint64 {
+	j := i / 64
+	if j >= 6 {
+		return 0
+	}
+	return uint64(z[j] >> (i % 64) & 1)
+}
+
 // Equal returns z == x
 func (z *Element) Equal(x *Element) bool {
 	return (z[5] == x[5]) && (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
