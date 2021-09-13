@@ -371,16 +371,13 @@ func (p *G2Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
-// https://eprint.iacr.org/2019/814.pdf, 3.1
-// z*psi^3 - psi^2 + 1 = 0 <==> -z*(psi o phi) + phi + 1 = 0
+// https://eprint.iacr.org/2021/1130.pdf, sec.4
+// psi(p) = u*P
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
-	tmp.Set(p)
-	tmp.X.MulByElement(&tmp.X, &thirdRootOneG1)
-	res.psi(&tmp).
-		ScalarMultiplication(&res, &xGen).Neg(&res).
-		AddAssign(&tmp).
-		AddAssign(p)
+	tmp.psi(p)
+	res.ScalarMultiplication(p, &xGen).
+		SubAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
 }
