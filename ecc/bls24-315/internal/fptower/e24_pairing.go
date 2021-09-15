@@ -6,6 +6,12 @@ func (z *E24) nSquare(n int) {
 	}
 }
 
+func (z *E24) nSquareCompressed(n int) {
+	for i := 0; i < n; i++ {
+		z.CyclotomicSquareCompressed(z)
+	}
+}
+
 // Expt set z to x^t in E24 and return z (t is the seed of the curve)
 func (z *E24) Expt(x *E24) *E24 {
 
@@ -19,7 +25,8 @@ func (z *E24) Expt(x *E24) *E24 {
 	result.Mul(&result, &xInv)
 	result.nSquare(2)
 	result.Mul(&result, x)
-	result.nSquare(20)
+	result.nSquareCompressed(20)
+	result.Decompress(&result)
 	result.Mul(&result, &xInv)
 
 	z.Conjugate(&result)
