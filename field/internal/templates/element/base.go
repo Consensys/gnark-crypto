@@ -475,4 +475,15 @@ func _butterflyGeneric(a, b *{{.ElementName}}) {
 	b.Sub(&t, b)
 }
 
+// BitLen returns the minimum number of bits needed to represent z
+// returns 0 if z == 0
+func (z *{{.ElementName}}) BitLen() int {
+	{{- range $i := reverse .NbWordsIndexesNoZero}}
+	if z[{{$i}}] != 0 {
+		return {{mul $i 64}} + bits.Len64(z[{{$i}}])
+	}
+	{{- end}}
+	return bits.Len64(z[0])
+}
+
 `

@@ -48,3 +48,6 @@ func reduce(res *Element)
 
 //go:noescape
 func Butterfly(a, b *Element)
+
+//go:noescape
+func inverse(res, x *Element)

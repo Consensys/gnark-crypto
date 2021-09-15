@@ -450,3 +450,356 @@ TEXT ·Butterfly(SB), $48-16
 	MOVQ R8, 32(AX)
 	MOVQ R9, 40(AX)
 	RET
+
+// inverse(res, x *Element)
+TEXT ·inverse(SB), $136-16
+	// u = q
+	// u[0] -> R9
+	// u[1] -> R10
+	// u[2] -> R11
+	// u[3] -> R12
+	// u[4] -> R13
+	// u[5] -> R14
+	MOVQ q<>+0(SB), R9
+	MOVQ q<>+8(SB), R10
+	MOVQ q<>+16(SB), R11
+	MOVQ q<>+24(SB), R12
+	MOVQ q<>+32(SB), R13
+	MOVQ q<>+40(SB), R14
+
+	// s = r^2
+	// s[0] -> s11-96(SP)
+	// s[1] -> s12-104(SP)
+	// s[2] -> s13-112(SP)
+	// s[3] -> s14-120(SP)
+	// s[4] -> s15-128(SP)
+	// s[5] -> s16-136(SP)
+	MOVQ $0xf4df1f341c341746, R8
+	MOVQ R8, s11-96(SP)
+	MOVQ $0x0a76e6a609d104f1, R8
+	MOVQ R8, s12-104(SP)
+	MOVQ $0x8de5476c4c95b6d5, R8
+	MOVQ R8, s13-112(SP)
+	MOVQ $0x67eb88a9939d83c0, R8
+	MOVQ R8, s14-120(SP)
+	MOVQ $0x9a793e85b519952d, R8
+	MOVQ R8, s15-128(SP)
+	MOVQ $0x11988fe592cae3aa, R8
+	MOVQ R8, s16-136(SP)
+
+	// v = x
+	// v[0] -> R15
+	// v[1] -> s0-8(SP)
+	// v[2] -> s1-16(SP)
+	// v[3] -> s2-24(SP)
+	// v[4] -> s3-32(SP)
+	// v[5] -> s4-40(SP)
+	MOVQ x+8(FP), R8
+	MOVQ 0(R8), AX
+	MOVQ 8(R8), DX
+	MOVQ 16(R8), CX
+	MOVQ 24(R8), BX
+	MOVQ 32(R8), SI
+	MOVQ 40(R8), DI
+	MOVQ AX, R15
+	MOVQ DX, s0-8(SP)
+	MOVQ CX, s1-16(SP)
+	MOVQ BX, s2-24(SP)
+	MOVQ SI, s3-32(SP)
+	MOVQ DI, s4-40(SP)
+
+	// if x is 0, returns 0
+	MOVQ AX, R8
+	ORQ  DX, R8
+	ORQ  CX, R8
+	ORQ  BX, R8
+	ORQ  SI, R8
+	ORQ  DI, R8
+	JEQ  l7
+
+	// r = 0
+	// r[0] -> s5-48(SP)
+	// r[1] -> s6-56(SP)
+	// r[2] -> s7-64(SP)
+	// r[3] -> s8-72(SP)
+	// r[4] -> s9-80(SP)
+	// r[5] -> s10-88(SP)
+	MOVQ $0, s5-48(SP)
+	MOVQ $0, s6-56(SP)
+	MOVQ $0, s7-64(SP)
+	MOVQ $0, s8-72(SP)
+	MOVQ $0, s9-80(SP)
+	MOVQ $0, s10-88(SP)
+
+l2:
+	BTQ  $0, AX
+	JCS  l8
+	MOVQ $0, BP
+	XORQ R8, R8
+
+l9:
+	INCQ BP
+	SHRQ $1, AX, R8
+	SHRQ $1, DX, AX
+	SHRQ $1, CX, DX
+	SHRQ $1, BX, CX
+	SHRQ $1, SI, BX
+	SHRQ $1, DI, SI
+	SHRQ $1, DI
+	BTQ  $0, AX
+	JCC  l9
+	MOVQ AX, R15
+	MOVQ DX, s0-8(SP)
+	MOVQ CX, s1-16(SP)
+	MOVQ BX, s2-24(SP)
+	MOVQ SI, s3-32(SP)
+	MOVQ DI, s4-40(SP)
+	MOVQ s11-96(SP), AX
+	MOVQ s12-104(SP), DX
+	MOVQ s13-112(SP), CX
+	MOVQ s14-120(SP), BX
+	MOVQ s15-128(SP), SI
+	MOVQ s16-136(SP), DI
+
+l10:
+	BTQ  $0, AX
+	JCC  l11
+	ADDQ q<>+0(SB), AX
+	ADCQ q<>+8(SB), DX
+	ADCQ q<>+16(SB), CX
+	ADCQ q<>+24(SB), BX
+	ADCQ q<>+32(SB), SI
+	ADCQ q<>+40(SB), DI
+
+l11:
+	SHRQ $1, AX, R8
+	SHRQ $1, DX, AX
+	SHRQ $1, CX, DX
+	SHRQ $1, BX, CX
+	SHRQ $1, SI, BX
+	SHRQ $1, DI, SI
+	SHRQ $1, DI
+	DECQ BP
+	JNE  l10
+	MOVQ AX, s11-96(SP)
+	MOVQ DX, s12-104(SP)
+	MOVQ CX, s13-112(SP)
+	MOVQ BX, s14-120(SP)
+	MOVQ SI, s15-128(SP)
+	MOVQ DI, s16-136(SP)
+
+l8:
+	MOVQ R9, AX
+	MOVQ R10, DX
+	MOVQ R11, CX
+	MOVQ R12, BX
+	MOVQ R13, SI
+	MOVQ R14, DI
+	BTQ  $0, AX
+	JCS  l12
+	MOVQ $0, BP
+	XORQ R8, R8
+
+l13:
+	INCQ BP
+	SHRQ $1, AX, R8
+	SHRQ $1, DX, AX
+	SHRQ $1, CX, DX
+	SHRQ $1, BX, CX
+	SHRQ $1, SI, BX
+	SHRQ $1, DI, SI
+	SHRQ $1, DI
+	BTQ  $0, AX
+	JCC  l13
+	MOVQ AX, R9
+	MOVQ DX, R10
+	MOVQ CX, R11
+	MOVQ BX, R12
+	MOVQ SI, R13
+	MOVQ DI, R14
+	MOVQ s5-48(SP), AX
+	MOVQ s6-56(SP), DX
+	MOVQ s7-64(SP), CX
+	MOVQ s8-72(SP), BX
+	MOVQ s9-80(SP), SI
+	MOVQ s10-88(SP), DI
+
+l14:
+	BTQ  $0, AX
+	JCC  l15
+	ADDQ q<>+0(SB), AX
+	ADCQ q<>+8(SB), DX
+	ADCQ q<>+16(SB), CX
+	ADCQ q<>+24(SB), BX
+	ADCQ q<>+32(SB), SI
+	ADCQ q<>+40(SB), DI
+
+l15:
+	SHRQ $1, AX, R8
+	SHRQ $1, DX, AX
+	SHRQ $1, CX, DX
+	SHRQ $1, BX, CX
+	SHRQ $1, SI, BX
+	SHRQ $1, DI, SI
+	SHRQ $1, DI
+	DECQ BP
+	JNE  l14
+	MOVQ AX, s5-48(SP)
+	MOVQ DX, s6-56(SP)
+	MOVQ CX, s7-64(SP)
+	MOVQ BX, s8-72(SP)
+	MOVQ SI, s9-80(SP)
+	MOVQ DI, s10-88(SP)
+
+l12:
+	// v = v - u
+	MOVQ R15, AX
+	MOVQ s0-8(SP), DX
+	MOVQ s1-16(SP), CX
+	MOVQ s2-24(SP), BX
+	MOVQ s3-32(SP), SI
+	MOVQ s4-40(SP), DI
+	SUBQ R9, AX
+	SBBQ R10, DX
+	SBBQ R11, CX
+	SBBQ R12, BX
+	SBBQ R13, SI
+	SBBQ R14, DI
+	JCC  l3
+	SUBQ R15, R9
+	SBBQ s0-8(SP), R10
+	SBBQ s1-16(SP), R11
+	SBBQ s2-24(SP), R12
+	SBBQ s3-32(SP), R13
+	SBBQ s4-40(SP), R14
+	MOVQ s5-48(SP), AX
+	MOVQ s6-56(SP), DX
+	MOVQ s7-64(SP), CX
+	MOVQ s8-72(SP), BX
+	MOVQ s9-80(SP), SI
+	MOVQ s10-88(SP), DI
+	SUBQ s11-96(SP), AX
+	SBBQ s12-104(SP), DX
+	SBBQ s13-112(SP), CX
+	SBBQ s14-120(SP), BX
+	SBBQ s15-128(SP), SI
+	SBBQ s16-136(SP), DI
+	JCC  l16
+	ADDQ q<>+0(SB), AX
+	ADCQ q<>+8(SB), DX
+	ADCQ q<>+16(SB), CX
+	ADCQ q<>+24(SB), BX
+	ADCQ q<>+32(SB), SI
+	ADCQ q<>+40(SB), DI
+
+l16:
+	MOVQ AX, s5-48(SP)
+	MOVQ DX, s6-56(SP)
+	MOVQ CX, s7-64(SP)
+	MOVQ BX, s8-72(SP)
+	MOVQ SI, s9-80(SP)
+	MOVQ DI, s10-88(SP)
+	JMP  l4
+
+l3:
+	MOVQ AX, R15
+	MOVQ DX, s0-8(SP)
+	MOVQ CX, s1-16(SP)
+	MOVQ BX, s2-24(SP)
+	MOVQ SI, s3-32(SP)
+	MOVQ DI, s4-40(SP)
+	MOVQ s11-96(SP), AX
+	MOVQ s12-104(SP), DX
+	MOVQ s13-112(SP), CX
+	MOVQ s14-120(SP), BX
+	MOVQ s15-128(SP), SI
+	MOVQ s16-136(SP), DI
+	SUBQ s5-48(SP), AX
+	SBBQ s6-56(SP), DX
+	SBBQ s7-64(SP), CX
+	SBBQ s8-72(SP), BX
+	SBBQ s9-80(SP), SI
+	SBBQ s10-88(SP), DI
+	JCC  l17
+	ADDQ q<>+0(SB), AX
+	ADCQ q<>+8(SB), DX
+	ADCQ q<>+16(SB), CX
+	ADCQ q<>+24(SB), BX
+	ADCQ q<>+32(SB), SI
+	ADCQ q<>+40(SB), DI
+
+l17:
+	MOVQ AX, s11-96(SP)
+	MOVQ DX, s12-104(SP)
+	MOVQ CX, s13-112(SP)
+	MOVQ BX, s14-120(SP)
+	MOVQ SI, s15-128(SP)
+	MOVQ DI, s16-136(SP)
+
+l4:
+	MOVQ R9, R8
+	SUBQ $1, R8
+	ORQ  R10, R8
+	ORQ  R11, R8
+	ORQ  R12, R8
+	ORQ  R13, R8
+	ORQ  R14, R8
+	JEQ  l5
+	MOVQ R15, AX
+	MOVQ s0-8(SP), DX
+	MOVQ s1-16(SP), CX
+	MOVQ s2-24(SP), BX
+	MOVQ s3-32(SP), SI
+	MOVQ s4-40(SP), DI
+	MOVQ AX, R8
+	SUBQ $1, R8
+	JNE  l2
+	ORQ  DX, R8
+	ORQ  CX, R8
+	ORQ  BX, R8
+	ORQ  SI, R8
+	ORQ  DI, R8
+	JEQ  l6
+	JMP  l2
+
+l5:
+	MOVQ res+0(FP), R8
+	MOVQ s5-48(SP), AX
+	MOVQ s6-56(SP), DX
+	MOVQ s7-64(SP), CX
+	MOVQ s8-72(SP), BX
+	MOVQ s9-80(SP), SI
+	MOVQ s10-88(SP), DI
+	MOVQ AX, 0(R8)
+	MOVQ DX, 8(R8)
+	MOVQ CX, 16(R8)
+	MOVQ BX, 24(R8)
+	MOVQ SI, 32(R8)
+	MOVQ DI, 40(R8)
+	RET
+
+l6:
+	MOVQ res+0(FP), R8
+	MOVQ s11-96(SP), AX
+	MOVQ s12-104(SP), DX
+	MOVQ s13-112(SP), CX
+	MOVQ s14-120(SP), BX
+	MOVQ s15-128(SP), SI
+	MOVQ s16-136(SP), DI
+	MOVQ AX, 0(R8)
+	MOVQ DX, 8(R8)
+	MOVQ CX, 16(R8)
+	MOVQ BX, 24(R8)
+	MOVQ SI, 32(R8)
+	MOVQ DI, 40(R8)
+	RET
+
+l7:
+	MOVQ res+0(FP), R8
+	MOVQ $0, 0(R8)
+	MOVQ $0, 8(R8)
+	MOVQ $0, 16(R8)
+	MOVQ $0, 24(R8)
+	MOVQ $0, 32(R8)
+	MOVQ $0, 40(R8)
+	RET

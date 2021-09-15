@@ -170,6 +170,9 @@ func Generate(w io.Writer, F *field.Field) error {
 	// fft butterflies
 	f.generateButterfly()
 
+	// inverse asm
+	f.generateInverse()
+
 	return nil
 }
 
