@@ -8,11 +8,15 @@ const Inverse = `
 // Inverse z = x^-1 mod q 
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
+	inverse(z, x)
+	return z
+}
+
+func _inverseGeneric(z, x *{{.ElementName}})  {
 	var _xNonMont big.Int
 	x.ToBigIntRegular( &_xNonMont)
 	_xNonMont.ModInverse(&_xNonMont, Modulus())
 	z.SetBigInt(&_xNonMont)
-	return z
 }
 
 {{ else }}
@@ -21,8 +25,19 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
+	inverse(z, x)
+	return z
+}
+
+
+
+// _inverseGeneric z = x^-1 mod q 
+// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// if x == 0, sets and returns z = x 
+func  _inverseGeneric(z, x *{{.ElementName}})  {
 	if x.IsZero() {
-		return z.Set(x)
+		z.SetZero()
+		return
 	}
 
 	// initialize u = q
@@ -42,23 +57,23 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 	v := *x
 
-	var carry, borrow, t, t2 uint64
+	var carry, borrow uint64
 	var bigger bool
 
 	for  {
 		for v[0]&1 == 0 {
-			{{ template "div2" dict "all" . "V" "v"}}
+			{{ rsh "v" .NbWords}}
 			if s[0]&1 == 1 {
 				{{ template "add_q" dict "all" . "V1" "s" }}
 			}
-			{{ template "div2" dict "all" . "V" "s"}}
+			{{ rsh "s" .NbWords}}
 		} 
 		for u[0]&1 == 0 {
-			{{ template "div2" dict "all" . "V" "u"}}
+			{{ rsh "u" .NbWords}}
 			if r[0]&1 == 1 {
 				{{ template "add_q" dict "all" . "V1" "r" }}
 			}
-			{{ template "div2" dict "all" . "V" "r"}}
+			{{ rsh "r" .NbWords}}
 		} 
 		{{ template "bigger" dict "all" . "V1" "v" "V2" "u"}}
 		if bigger  {
@@ -75,10 +90,12 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 			}
 		}
 		if (u[0] == 1) && ({{- range $i := reverse .NbWordsIndexesNoZero}}u[{{$i}}] {{if eq $i 1}}{{else}} | {{end}}{{end}} ) == 0 {
-			return z.Set(&r)
+			z.Set(&r)
+			return
 		}
 		if (v[0] == 1) && ({{- range $i := reverse .NbWordsIndexesNoZero}}v[{{$i}}] {{if eq $i 1}}{{else}} | {{end}}{{end}} ) == 0 {
-			return z.Set(&s)
+			z.Set(&s)
+			return
 		}
 	}
 
@@ -120,20 +137,15 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 {{ end }}
 
 
-{{ define "div2" }}
+{{ define "rsh V nbWords" }}
 	// {{$.V}} = {{$.V}} >> 1
-	{{- range $i :=  reverse .all.NbWordsIndexesNoZero}}
-		{{- if eq $i $.all.NbWordsLastIndex}}
-			t2 = {{$.V}}[{{$i}}] << 63
-			{{$.V}}[{{$i}}] >>= 1
-		{{- else}}
-			t2 = {{$.V}}[{{$i}}] << 63
-			{{$.V}}[{{$i}}] = ({{$.V}}[{{$i}}] >> 1) | t
+	{{$lastIndex := sub .nbWords 1}}
+	{{- range $i :=  iterate .nbWords}}
+		{{- if ne $i $lastIndex}}
+			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
 		{{- end}}
-		t = t2
 	{{- end}}
-	{{$.V}}[0] = ({{$.V}}[0] >> 1) | t
+	{{$.V}}[{{$lastIndex}}] >>= 1
 {{ end }}
-
 
 `
