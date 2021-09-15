@@ -249,7 +249,7 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW6-633] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BW6-633] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E6) bool {
 			var b, c, d E6
 			b.Conjugate(a)
@@ -258,6 +258,20 @@ func TestE6Ops(t *testing.T) {
 			a.Frobenius(&b).Mul(a, &b)
 			c.Square(a)
 			d.CyclotomicSquare(a)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BW6-633] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E6) bool {
+			var b, c, d E6
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquareCompressed(a).Decompress(&d)
 			return c.Equal(&d)
 		},
 		genA,
