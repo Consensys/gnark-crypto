@@ -303,6 +303,34 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E24) bool {
+			var b, c, d E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquare(a)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E24) bool {
+			var b, c, d E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquareCompressed(a).Decompress(&d)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS24-315] Frobenius of x in E24 should be equal to x^q", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
