@@ -1055,9 +1055,21 @@ func (z Element) ToRegular() Element {
 
 // String returns the string form of an Element in Montgomery form
 func (z *Element) String() string {
+	zz := *z
+	zz.FromMont()
+	if zz.IsUint64() {
+		return strconv.FormatUint(zz[0], 10)
+	} else {
+		var zzNeg Element
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.IsUint64() {
+			return "-" + strconv.FormatUint(zzNeg[0], 10)
+		}
+	}
 	vv := bigIntPool.Get().(*big.Int)
 	defer bigIntPool.Put(vv)
-	return z.ToBigIntRegular(vv).String()
+	return zz.ToBigInt(vv).String()
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form
