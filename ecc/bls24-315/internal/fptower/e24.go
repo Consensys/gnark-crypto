@@ -290,6 +290,62 @@ func (z *E24) Decompress(x *E24) *E24 {
 	return z
 }
 
+// BatchDecompress multiple Karabina's cyclotomic square results
+func BatchDecompress(x []E24) []E24 {
+
+	n := len(x)
+	if n == 0 {
+		return x
+	}
+
+	t0 := make([]E4, n)
+	t1 := make([]E4, n)
+	t2 := make([]E4, n)
+
+	var one E4
+	one.SetOne()
+
+	for i := 0; i < n; i++ {
+		// t0 = g4^2
+		t0[i].Square(&x[i].D2.C0)
+		// t1 = 3 * g4^2 - 2 * g3
+		t1[i].Sub(&t0[i], &x[i].D1.C1).
+			Double(&t1[i]).
+			Add(&t1[i], &t0[i])
+			// t0 = E * g5^2 + t1
+		t2[i].Square(&x[i].D2.C1)
+		t0[i].MulByNonResidue(&t2[i]).
+			Add(&t0[i], &t1[i])
+		// t1 = 4 * g2
+		t1[i].Double(&x[i].D1.C0).
+			Double(&t1[i])
+	}
+
+	t1 = BatchInvert(t1) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		// z4 = g1
+		x[i].D0.C1.Mul(&t0[i], &t1[i])
+
+		// t1 = g3 * g1
+		t1[i].Mul(&x[i].D1.C1, &x[i].D2.C0)
+		// t2 = 2 * g4^2 - 3 * g2 * g1
+		t2[i].Square(&x[i].D0.C1).
+			Sub(&t2[i], &t1[i]).
+			Double(&t2[i]).
+			Sub(&t2[i], &t1[i])
+
+		// t1 = g2 * g5
+		t1[i].Mul(&x[i].D1.C0, &x[i].D2.C1)
+		// z0 = E * (2 * g1^2 + g2 * g5 - 3 * g3 * g4) + 1
+		t2[i].Add(&t2[i], &t1[i])
+		x[i].D0.C0.MulByNonResidue(&t2[i]).
+			Add(&x[i].D0.C0, &one)
+	}
+
+	return x
+}
+
 // Granger-Scott's cyclotomic square
 // https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E24) CyclotomicSquare(x *E24) *E24 {
