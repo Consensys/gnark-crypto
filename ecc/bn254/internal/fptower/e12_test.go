@@ -323,6 +323,32 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BN254] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			// put in the cyclotomic subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			var a2, a4, a17 E12
+			a2.Set(a)
+			a4.Set(a)
+			a17.Set(a)
+			a2.nSquareCompressed(2)
+			a4.nSquareCompressed(4)
+			a17.nSquareCompressed(17)
+			batch := BatchDecompress([]E12{a2, a4, a17})
+			a2.Decompress(&a2)
+			a4.Decompress(&a4)
+			a17.Decompress(&a17)
+
+			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
+		},
+		genA,
+	))
+
 	properties.Property("[BN254] Frobenius of x in E12 should be equal to x^q", prop.ForAll(
 		func(a *E12) bool {
 			var b, c E12
