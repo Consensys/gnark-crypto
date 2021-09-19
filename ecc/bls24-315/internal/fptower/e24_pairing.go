@@ -25,15 +25,17 @@ func (z *E24) Expt(x *E24) *E24 {
 	x22.Set(&result)
 	result.nSquareCompressed(8)
 	x30.Set(&result)
-	result.nSquareCompressed(2)
-	x32.Conjugate(&result)
 
-	batch := BatchDecompress([]E24{x20, x22, x30, x32})
+	batch := BatchDecompress([]E24{x20, x22, x30})
+
+	x32.CyclotomicSquare(&batch[2]).
+		CyclotomicSquare(&x32).
+		Conjugate(&x32)
 
 	z.Mul(x, &batch[0]).
 		Mul(z, &batch[1]).
 		Mul(z, &batch[2]).
-		Mul(z, &batch[3])
+		Mul(z, &x32)
 
 	return z
 }
