@@ -43,7 +43,8 @@ type selector struct {
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
-// returns smallValues, which represent the number of scalars where only the first word is non-zero
+// returns smallValues, which represent the number of scalars which meets the following condition
+// 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
 func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]fr.Element, int) {
 	toReturn := make([]fr.Element, len(scalars))
 
@@ -95,10 +96,14 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 				scalar.FromMont()
 			}
 			if scalar.IsUint64() {
+				// everything is 0, no need to process this scalar
 				if scalar[0] == 0 {
 					continue
 				}
-				smallValues++
+				// low c-bits are 1 in mask
+				if scalar[0]&mask == scalar[0] {
+					smallValues++
+				}
 			}
 
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
