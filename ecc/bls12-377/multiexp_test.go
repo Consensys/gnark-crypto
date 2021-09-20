@@ -116,11 +116,7 @@ func TestMultiExpG1(t *testing.T) {
 				var r5, r16 G1Jac
 				r5.msmC5(samplePoints[:], scalars5, false)
 				r16.msmC16(samplePoints[:], scalars16, true)
-				if !(r5.Equal(&expected) && r16.Equal(&expected)) {
-					return false
-				}
-
-				return true
+				return (r5.Equal(&expected) && r16.Equal(&expected))
 			},
 			genScalar,
 		))
@@ -779,11 +775,7 @@ func TestMultiExpG2(t *testing.T) {
 				var r5, r16 G2Jac
 				r5.msmC5(samplePoints[:], scalars5, false)
 				r16.msmC16(samplePoints[:], scalars16, true)
-				if !(r5.Equal(&expected) && r16.Equal(&expected)) {
-					return false
-				}
-
-				return true
+				return (r5.Equal(&expected) && r16.Equal(&expected))
 			},
 			genScalar,
 		))
