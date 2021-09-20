@@ -137,6 +137,16 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
+// Bit returns the i'th bit, with lsb == bit 0.
+// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+func (z *{{.ElementName}}) Bit(i uint64) uint64 {
+	j := i / 64
+	if j >= {{.NbWords}} {
+		return 0
+	}
+	return uint64(z[j] >> (i % 64) & 1)
+}
+
 // Equal returns z == x
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 	return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] == x[{{$i}}]) &&{{end}}(z[0] == x[0])

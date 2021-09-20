@@ -195,6 +195,16 @@ func (z *Element) Div(x, y *Element) *Element {
 	return z
 }
 
+// Bit returns the i'th bit, with lsb == bit 0.
+// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+func (z *Element) Bit(i uint64) uint64 {
+	j := i / 64
+	if j >= 12 {
+		return 0
+	}
+	return uint64(z[j] >> (i % 64) & 1)
+}
+
 // Equal returns z == x
 func (z *Element) Equal(x *Element) bool {
 	return (z[11] == x[11]) && (z[10] == x[10]) && (z[9] == x[9]) && (z[8] == x[8]) && (z[7] == x[7]) && (z[6] == x[6]) && (z[5] == x[5]) && (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
@@ -1243,9 +1253,21 @@ func (z Element) ToRegular() Element {
 
 // String returns the string form of an Element in Montgomery form
 func (z *Element) String() string {
+	zz := *z
+	zz.FromMont()
+	if zz.IsUint64() {
+		return strconv.FormatUint(zz[0], 10)
+	} else {
+		var zzNeg Element
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.IsUint64() {
+			return "-" + strconv.FormatUint(zzNeg[0], 10)
+		}
+	}
 	vv := bigIntPool.Get().(*big.Int)
 	defer bigIntPool.Put(vv)
-	return z.ToBigIntRegular(vv).String()
+	return zz.ToBigInt(vv).String()
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form
