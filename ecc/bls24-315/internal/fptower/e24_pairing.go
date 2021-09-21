@@ -1,11 +1,5 @@
 package fptower
 
-func (z *E24) nSquare(n int) {
-	for i := 0; i < n; i++ {
-		z.CyclotomicSquare(z)
-	}
-}
-
 func (z *E24) nSquareCompressed(n int) {
 	for i := 0; i < n; i++ {
 		z.CyclotomicSquareCompressed(z)
