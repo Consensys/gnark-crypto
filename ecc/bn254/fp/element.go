@@ -793,17 +793,9 @@ func (z *Element) Sqrt(x *Element) *Element {
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x
 func (z *Element) Inverse(x *Element) *Element {
-	inverse(z, x)
-	return z
-}
-
-// _inverseGeneric z = x^-1 mod q
-// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
-// if x == 0, sets and returns z = x
-func _inverseGeneric(z, x *Element) {
 	if x.IsZero() {
 		z.SetZero()
-		return
+		return z
 	}
 
 	// initialize u = q
@@ -938,11 +930,11 @@ func _inverseGeneric(z, x *Element) {
 		}
 		if (u[0] == 1) && (u[3]|u[2]|u[1]) == 0 {
 			z.Set(&r)
-			return
+			return z
 		}
 		if (v[0] == 1) && (v[3]|v[2]|v[1]) == 0 {
 			z.Set(&s)
-			return
+			return z
 		}
 	}
 

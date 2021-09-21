@@ -8,16 +8,13 @@ const Inverse = `
 // Inverse z = x^-1 mod q 
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
-	inverse(z, x)
-	return z
-}
-
-func _inverseGeneric(z, x *{{.ElementName}})  {
 	var _xNonMont big.Int
 	x.ToBigIntRegular( &_xNonMont)
 	_xNonMont.ModInverse(&_xNonMont, Modulus())
 	z.SetBigInt(&_xNonMont)
+	return z
 }
+
 
 {{ else }}
 
@@ -25,19 +22,9 @@ func _inverseGeneric(z, x *{{.ElementName}})  {
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
-	inverse(z, x)
-	return z
-}
-
-
-
-// _inverseGeneric z = x^-1 mod q 
-// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
-// if x == 0, sets and returns z = x 
-func  _inverseGeneric(z, x *{{.ElementName}})  {
 	if x.IsZero() {
 		z.SetZero()
-		return
+		return z
 	}
 
 	// initialize u = q
@@ -91,11 +78,11 @@ func  _inverseGeneric(z, x *{{.ElementName}})  {
 		}
 		if (u[0] == 1) && ({{- range $i := reverse .NbWordsIndexesNoZero}}u[{{$i}}] {{if eq $i 1}}{{else}} | {{end}}{{end}} ) == 0 {
 			z.Set(&r)
-			return
+			return z
 		}
 		if (v[0] == 1) && ({{- range $i := reverse .NbWordsIndexesNoZero}}v[{{$i}}] {{if eq $i 1}}{{else}} | {{end}}{{end}} ) == 0 {
 			z.Set(&s)
-			return
+			return z
 		}
 	}
 

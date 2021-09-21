@@ -34,9 +34,6 @@ func mul(z, x, y *{{.ElementName}}) {
 	_mulGeneric(z, x, y)
 }
 
-func inverse(z, x *{{.ElementName}}) {
-	_inverseGeneric(z, x)
-}
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
