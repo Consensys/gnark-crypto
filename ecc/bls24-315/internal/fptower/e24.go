@@ -168,7 +168,186 @@ func (z *E24) Square(x *E24) *E24 {
 	return z
 }
 
-// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+// Karabina's compressed cyclotomic square
+// https://eprint.iacr.org/2010/542.pdf
+// Th. 3.2 with minor modifications to fit our tower
+func (z *E24) CyclotomicSquareCompressed(x *E24) *E24 {
+
+	var t [7]E4
+
+	// t0 = g4^2
+	t[0].Square(&x.D2.C0)
+	// t1 = g5^2
+	t[1].Square(&x.D2.C1)
+	// t5 = g4 + g5
+	t[5].Add(&x.D2.C0, &x.D2.C1)
+	// t2 = (g4 + g5)^2
+	t[2].Square(&t[5])
+
+	// t3 = g4^2 + g5^2
+	t[3].Add(&t[0], &t[1])
+	// t5 = 2 * g4 * g5
+	t[5].Sub(&t[2], &t[3])
+
+	// t6 = g3 + g2
+	t[6].Add(&x.D1.C1, &x.D1.C0)
+	// t3 = (g3 + g2)^2
+	t[3].Square(&t[6])
+	// t2 = g2^2
+	t[2].Square(&x.D1.C0)
+
+	// t6 = 2 * nr * g4 * g5
+	t[6].MulByNonResidue(&t[5])
+	// t5 = 4 * nr * g4 * g5 + 2 * g2
+	t[5].Add(&t[6], &x.D1.C0).
+		Double(&t[5])
+	// z2 = 6 * nr * g4 * g5 + 2 * g2
+	z.D1.C0.Add(&t[5], &t[6])
+
+	// t4 = nr * g5^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = nr * g5^2 + g4^2
+	t[5].Add(&t[0], &t[4])
+	// t6 = nr * g5^2 + g1^2 - g3
+	t[6].Sub(&t[5], &x.D1.C1)
+
+	// t1 = g3^2
+	t[1].Square(&x.D1.C1)
+
+	// t6 = 2 * nr * g5^2 + 2 * g4^2 - 2*g3
+	t[6].Double(&t[6])
+	// z3 = 3 * nr * g5^2 + 3 * g4^2 - 2*g3
+	z.D1.C1.Add(&t[6], &t[5])
+
+	// t4 = nr * g3^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = g2^2 + nr * g3^2
+	t[5].Add(&t[2], &t[4])
+	// t6 = g2^2 + nr * g3^2 - g4
+	t[6].Sub(&t[5], &x.D2.C0)
+	// t6 = 2 * g2^2 + 2 * nr * g3^2 - 2 * g4
+	t[6].Double(&t[6])
+	// z4 = 3 * g2^2 + 3 * nr * g3^2 - 2 * g4
+	z.D2.C0.Add(&t[6], &t[5])
+
+	// t0 = g3^2 + g2^2
+	t[0].Add(&t[2], &t[1])
+	// t5 = 2 * g2 * g3
+	t[5].Sub(&t[3], &t[0])
+	// t6 = 2 * g2 * g3 + g5
+	t[6].Add(&t[5], &x.D2.C1)
+	// t6 = 4 * g2 * g3 + 2 * g5
+	t[6].Double(&t[6])
+	// z5 = 6 * g2 * g3 + 2 * g5
+	z.D2.C1.Add(&t[5], &t[6])
+
+	return z
+}
+
+// Decompress Karabina's cyclotomic square result
+func (z *E24) Decompress(x *E24) *E24 {
+
+	var t [3]E4
+	var one E4
+	one.SetOne()
+
+	// t0 = g4^2
+	t[0].Square(&x.D2.C0)
+	// t1 = 3 * g4^2 - 2 * g3
+	t[1].Sub(&t[0], &x.D1.C1).
+		Double(&t[1]).
+		Add(&t[1], &t[0])
+		// t0 = E * g5^2 + t1
+	t[2].Square(&x.D2.C1)
+	t[0].MulByNonResidue(&t[2]).
+		Add(&t[0], &t[1])
+	// t1 = 1/(4 * g2)
+	t[1].Double(&x.D1.C0).
+		Double(&t[1]).
+		Inverse(&t[1]) // costly
+	// z1 = g4
+	z.D0.C1.Mul(&t[0], &t[1])
+
+	// t1 = g3 * g4
+	t[1].Mul(&x.D1.C1, &x.D2.C0)
+	// t2 = 2 * g1^2 - 3 * g3 * g4
+	t[2].Square(&x.D0.C1).
+		Sub(&t[2], &t[1]).
+		Double(&t[2]).
+		Sub(&t[2], &t[1])
+	// t1 = g2 * g5
+	t[1].Mul(&x.D1.C0, &x.D2.C1)
+	// z0 = E * (2 * g1^2 + g2 * g5 - 3 * g3 * g4) + 1
+	t[2].Add(&t[2], &t[1])
+	z.D0.C0.MulByNonResidue(&t[2]).
+		Add(&z.D0.C0, &one)
+
+	z.D1.C0.Set(&x.D1.C0)
+	z.D1.C1.Set(&x.D1.C1)
+	z.D2.C0.Set(&x.D2.C0)
+	z.D2.C1.Set(&x.D2.C1)
+
+	return z
+}
+
+// BatchDecompress multiple Karabina's cyclotomic square results
+func BatchDecompress(x []E24) []E24 {
+
+	n := len(x)
+	if n == 0 {
+		return x
+	}
+
+	t0 := make([]E4, n)
+	t1 := make([]E4, n)
+	t2 := make([]E4, n)
+
+	var one E4
+	one.SetOne()
+
+	for i := 0; i < n; i++ {
+		// t0 = g4^2
+		t0[i].Square(&x[i].D2.C0)
+		// t1 = 3 * g4^2 - 2 * g3
+		t1[i].Sub(&t0[i], &x[i].D1.C1).
+			Double(&t1[i]).
+			Add(&t1[i], &t0[i])
+			// t0 = E * g5^2 + t1
+		t2[i].Square(&x[i].D2.C1)
+		t0[i].MulByNonResidue(&t2[i]).
+			Add(&t0[i], &t1[i])
+		// t1 = 4 * g2
+		t1[i].Double(&x[i].D1.C0).
+			Double(&t1[i])
+	}
+
+	t1 = BatchInvert(t1) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		// z4 = g1
+		x[i].D0.C1.Mul(&t0[i], &t1[i])
+
+		// t1 = g3 * g1
+		t1[i].Mul(&x[i].D1.C1, &x[i].D2.C0)
+		// t2 = 2 * g4^2 - 3 * g2 * g1
+		t2[i].Square(&x[i].D0.C1).
+			Sub(&t2[i], &t1[i]).
+			Double(&t2[i]).
+			Sub(&t2[i], &t1[i])
+
+		// t1 = g2 * g5
+		t1[i].Mul(&x[i].D1.C0, &x[i].D2.C1)
+		// z0 = E * (2 * g1^2 + g2 * g5 - 3 * g3 * g4) + 1
+		t2[i].Add(&t2[i], &t1[i])
+		x[i].D0.C0.MulByNonResidue(&t2[i]).
+			Add(&x[i].D0.C0, &one)
+	}
+
+	return x
+}
+
+// Granger-Scott's cyclotomic square
+// https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E24) CyclotomicSquare(x *E24) *E24 {
 
 	var A, B, C, D E8

@@ -137,6 +137,16 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
+// Bit returns the i'th bit, with lsb == bit 0.
+// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+func (z *{{.ElementName}}) Bit(i uint64) uint64 {
+	j := i / 64
+	if j >= {{.NbWords}} {
+		return 0
+	}
+	return uint64(z[j] >> (i % 64) & 1)
+}
+
 // Equal returns z == x
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 	return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] == x[{{$i}}]) &&{{end}}(z[0] == x[0])
@@ -145,6 +155,11 @@ func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 // IsZero returns z == 0
 func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
+}
+
+// IsUint64 returns true if z[0] >= 0 and all other words are 0
+func (z *{{.ElementName}}) IsUint64() bool {
+	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
 }
 
 // Cmp compares (lexicographic order) z and x and returns:
@@ -458,6 +473,17 @@ func _butterflyGeneric(a, b *{{.ElementName}}) {
 	t := *a
 	a.Add(a, b)
 	b.Sub(&t, b)
+}
+
+// BitLen returns the minimum number of bits needed to represent z
+// returns 0 if z == 0
+func (z *{{.ElementName}}) BitLen() int {
+	{{- range $i := reverse .NbWordsIndexesNoZero}}
+	if z[{{$i}}] != 0 {
+		return {{mul $i 64}} + bits.Len64(z[{{$i}}])
+	}
+	{{- end}}
+	return bits.Len64(z[0])
 }
 
 `

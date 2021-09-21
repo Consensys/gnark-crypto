@@ -21,7 +21,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // E6 is a degree two finite field extension of fp3
@@ -135,7 +134,130 @@ func (z *E6) Square(x *E6) *E6 {
 	return z
 }
 
-// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+// Karabina's compressed cyclotomic square
+// https://eprint.iacr.org/2010/542.pdf
+// Th. 3.2 with minor modifications to fit our tower
+func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
+
+	var t [7]fp.Element
+
+	// t0 = g1^2
+	t[0].Square(&x.B0.A1)
+	// t1 = g5^2
+	t[1].Square(&x.B1.A2)
+	// t5 = g1 + g5
+	t[5].Add(&x.B0.A1, &x.B1.A2)
+	// t2 = (g1 + g5)^2
+	t[2].Square(&t[5])
+
+	// t3 = g1^2 + g5^2
+	t[3].Add(&t[0], &t[1])
+	// t5 = 2 * g1 * g5
+	t[5].Sub(&t[2], &t[3])
+
+	// t6 = g3 + g2
+	t[6].Add(&x.B1.A0, &x.B0.A2)
+	// t3 = (g3 + g2)^2
+	t[3].Square(&t[6])
+	// t2 = g3^2
+	t[2].Square(&x.B1.A0)
+
+	// t6 = 2 * nr * g1 * g5
+	t[6].MulByNonResidue(&t[5])
+	// t5 = 4 * nr * g1 * g5 + 2 * g3
+	t[5].Add(&t[6], &x.B1.A0).
+		Double(&t[5])
+	// z3 = 6 * nr * g1 * g5 + 2 * g3
+	z.B1.A0.Add(&t[5], &t[6])
+
+	// t4 = nr * g5^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = nr * g5^2 + g1^2
+	t[5].Add(&t[0], &t[4])
+	// t6 = nr * g5^2 + g1^2 - g2
+	t[6].Sub(&t[5], &x.B0.A2)
+
+	// t1 = g2^2
+	t[1].Square(&x.B0.A2)
+
+	// t6 = 2 * nr * g5^2 + 2 * g1^2 - 2*g2
+	t[6].Double(&t[6])
+	// z2 = 3 * nr * g5^2 + 3 * g1^2 - 2*g2
+	z.B0.A2.Add(&t[6], &t[5])
+
+	// t4 = nr * g2^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = g3^2 + nr * g2^2
+	t[5].Add(&t[2], &t[4])
+	// t6 = g3^2 + nr * g2^2 - g1
+	t[6].Sub(&t[5], &x.B0.A1)
+	// t6 = 2 * g3^2 + 2 * nr * g2^2 - 2 * g1
+	t[6].Double(&t[6])
+	// z1 = 3 * g3^2 + 3 * nr * g2^2 - 2 * g1
+	z.B0.A1.Add(&t[6], &t[5])
+
+	// t0 = g2^2 + g3^2
+	t[0].Add(&t[2], &t[1])
+	// t5 = 2 * g3 * g2
+	t[5].Sub(&t[3], &t[0])
+	// t6 = 2 * g3 * g2 + g5
+	t[6].Add(&t[5], &x.B1.A2)
+	// t6 = 4 * g3 * g2 + 2 * g5
+	t[6].Double(&t[6])
+	// z5 = 6 * g3 * g2 + 2 * g5
+	z.B1.A2.Add(&t[5], &t[6])
+
+	return z
+}
+
+// Decompress Karabina's cyclotomic square result
+func (z *E6) Decompress(x *E6) *E6 {
+
+	var t [3]fp.Element
+	var one fp.Element
+	one.SetOne()
+
+	// t0 = g1^2
+	t[0].Square(&x.B0.A1)
+	// t1 = 3 * g1^2 - 2 * g2
+	t[1].Sub(&t[0], &x.B0.A2).
+		Double(&t[1]).
+		Add(&t[1], &t[0])
+		// t0 = E * g5^2 + t1
+	t[2].Square(&x.B1.A2)
+	t[0].MulByNonResidue(&t[2]).
+		Add(&t[0], &t[1])
+	// t1 = 1/(4 * g3)
+	t[1].Double(&x.B1.A0).
+		Double(&t[1]).
+		Inverse(&t[1]) // costly
+	// z4 = g4
+	z.B1.A1.Mul(&t[0], &t[1])
+
+	// t1 = g2 * g1
+	t[1].Mul(&x.B0.A2, &x.B0.A1)
+	// t2 = 2 * g4^2 - 3 * g2 * g1
+	t[2].Square(&x.B1.A1).
+		Sub(&t[2], &t[1]).
+		Double(&t[2]).
+		Sub(&t[2], &t[1])
+	// t1 = g3 * g5
+	t[1].Mul(&x.B1.A0, &x.B1.A2)
+	// c_0 = E * (2 * g4^2 + g3 * g5 - 3 * g2 * g1) + 1
+	t[2].Add(&t[2], &t[1])
+	z.B0.A0.MulByNonResidue(&t[2]).
+		Add(&z.B0.A0, &one)
+
+	z.B0.A1.Set(&x.B0.A1)
+	z.B0.A2.Set(&x.B0.A2)
+	z.B1.A0.Set(&x.B1.A0)
+	z.B1.A2.Set(&x.B1.A2)
+
+	return z
+}
+
+// Granger-Scott's cyclotomic square
+// https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E6) CyclotomicSquare(x *E6) *E6 {
 	// x=(x0,x1,x2,x3,x4,x5,x6,x7) in E3^6
 	// cyclosquare(x)=(3*x4^2*u + 3*x0^2 - 2*x0,
@@ -282,72 +404,92 @@ func (z *E6) SetBytes(e []byte) error {
 	return nil
 }
 
-var frModulus = fr.Modulus()
-
 // IsInSubGroup ensures GT/E6 is in correct sugroup
 func (z *E6) IsInSubGroup() bool {
-	var one, _z E6
-	one.SetOne()
-	_z.Exp(z, *frModulus)
-	return _z.Equal(&one)
-	/*
-		var tmp, a, _a, b E6
-		var t [6]E6
+	var tmp, a, _a, b E6
+	var t [13]E6
 
-		// check z^(Phi_k(p)) == 1
-		a.Frobenius(z)
-		b.Frobenius(&a).Mul(&b, z)
+	// check z^(Phi_k(p)) == 1
+	a.Frobenius(z)
+	b.Frobenius(&a).Mul(&b, z)
 
-		if !a.Equal(&b) {
-			return false
-		}
+	if !a.Equal(&b) {
+		return false
+	}
 
-		// check z^(p+1-t) == 1
-		_a.Frobenius(z)
-		a.CyclotomicSquare(&_a).Mul(&a, &_a) // z^(3p)
+	// check z^(p+1-t) == 1
+	_a.Frobenius(z)
+	a.CyclotomicSquare(&_a).Mul(&a, &_a) // z^(3p)
 
-		// t(x)-1 = (13x^6 − 23x^5 − 9x^4 + 35x^3 + 10x + 19)/3
-		t[0].CyclotomicSquare(z) // z^2
-		t[1].CyclotomicSquare(&t[0]).
-			CyclotomicSquare(&t[1]) // z^8
-		t[2].CyclotomicSquare(&t[1]).
-			Mul(&t[2], &t[0]).
-			Mul(&t[2], z) // z^19*
-		t[3].Mul(&t[0], &t[1]).
-			Expt(&t[3]) // z^(10u)*
-		t[4].CyclotomicSquare(&t[3]).
-			Mul(&t[4], &t[3]) // z^(30u)
-		t[0].CyclotomicSquare(&t[0]).
-			Mul(&t[0], z).
-			Expt(&t[0]) // z^(5u)
-		t[4].Mul(&t[4], &t[0]).
-			Expt(&t[4]).
-			Expt(&t[4]) // z^(35u^3)*
-		t[1].Mul(&t[1], z).
-			Expt(&t[1]).
-			Expt(&t[1]).
-			Expt(&t[1]).
-			Expt(&t[1]).
-			Conjugate(&t[1]) // z^(-9u^4)*
-		t[0].Expt(&t[0]).
-			Expt(&t[0]).
-			Expt(&t[0]).
-			Conjugate(&t[0]) // z^(-5u^4)
-		t[5].CyclotomicSquare(&t[1]).
-			Mul(&t[5], &t[0]).
-			Expt(&t[5]) // z^(-23u^5)*
-		tmp.CyclotomicSquare(&t[1]).
-			Conjugate(&tmp) // z^(18u^4)
-		t[0].Mul(&t[0], &tmp).
-			Expt(&t[0]).
-			Expt(&t[0]) // z^(13u^6)*
+	// t(x)-1 = (-10-4x-13x^2+6x^3+7x^4-23x^5+19x^6-12x^7+2x^8+11x^9-7x^10)/3
+	t[0].CyclotomicSquare(z)     // z^2
+	t[1].CyclotomicSquare(&t[0]) // z^4
+	t[2].CyclotomicSquare(&t[1]).
+		Mul(&t[2], &t[0]).
+		Conjugate(&t[2]) // *z^(-10)
+	t[3].Expt(&t[1]).
+		Conjugate(&t[3]) // *z^(-4u)
+	t[4].Conjugate(&t[1]).
+		Mul(&t[4], &t[2]).
+		Mul(&t[4], z).
+		Expt(&t[4]).
+		Expt(&t[4]) // *z^(-13u^2)
+	t[5].Mul(&t[0], &t[1]).
+		Expt(&t[5]).
+		Expt(&t[5]).
+		Expt(&t[5]) // *z^(6u^3)
+	tmp.Expt(z).
+		Expt(&tmp).
+		Expt(&tmp) // z^(u^3)
+	t[6].Mul(&tmp, &t[5]).
+		Expt(&t[6]) // *z^(7u^4)
+	t[7].CyclotomicSquare(&t[5]).
+		CyclotomicSquare(&t[7]) // z^(24u^3)
+	tmp.Conjugate(&tmp) // z^(-u^3)
+	t[7].Mul(&t[7], &tmp).
+		Conjugate(&t[7]).
+		Expt(&t[7]).
+		Expt(&t[7]) // *z^(-23u^5)
+	t[8].Conjugate(&t[4]).
+		Expt(&t[8]).
+		Mul(&t[8], &t[5]).
+		Expt(&t[8]).
+		Expt(&t[8]).
+		Expt(&t[8]) // *z^(19u^6)
+	t[9].Conjugate(&t[5]).
+		CyclotomicSquare(&t[9]).
+		Expt(&t[9]).
+		Expt(&t[9]).
+		Expt(&t[9]).
+		Expt(&t[9]) // *z^(-12u^7)
+	tmp.Expt(&t[7]).
+		Expt(&tmp) // z^(-23u^7)
+	t[10].Conjugate(&t[9]).
+		CyclotomicSquare(&t[10]).
+		Mul(&t[10], &tmp) // z^(u^7)
+	t[11].Mul(&t[9], &t[10]).
+		Conjugate(&t[11]).
+		Expt(&t[11]).
+		Expt(&t[11]) // *z^(11u^9)
+	t[10].Expt(&t[10]).
+		CyclotomicSquare(&t[10]) // *z^(2u^8)
+	t[12].Conjugate(&t[10]).
+		CyclotomicSquare(&t[12]).
+		Expt(&t[12]).
+		Mul(&t[12], &t[11]).
+		Expt(&t[12]).
+		Conjugate(&t[12]) // *z^(-7u^10)
 
-		b.Mul(&t[2], &t[3]).
-			Mul(&b, &t[4]).
-			Mul(&b, &t[1]).
-			Mul(&b, &t[5]).
-			Mul(&b, &t[0]) // z^(3(t-1))
+	b.Mul(&t[2], &t[3]).
+		Mul(&b, &t[4]).
+		Mul(&b, &t[5]).
+		Mul(&b, &t[6]).
+		Mul(&b, &t[7]).
+		Mul(&b, &t[8]).
+		Mul(&b, &t[9]).
+		Mul(&b, &t[10]).
+		Mul(&b, &t[11]).
+		Mul(&b, &t[12]) // z^(3(t-1))
 
-		return a.Equal(&b)
-	*/
+	return a.Equal(&b)
 }

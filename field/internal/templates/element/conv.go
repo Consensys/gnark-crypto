@@ -15,9 +15,21 @@ func (z {{.ElementName}}) ToRegular() {{.ElementName}} {
 
 // String returns the string form of an {{.ElementName}} in Montgomery form
 func (z *{{.ElementName}}) String() string {
+	zz := *z
+	zz.FromMont()
+	if zz.IsUint64() {
+		return strconv.FormatUint(zz[0], 10)
+	} else {
+		var zzNeg {{.ElementName}}
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.IsUint64() {
+			return "-" + strconv.FormatUint(zzNeg[0], 10)
+		}
+	}
 	vv := bigIntPool.Get().(*big.Int)
 	defer bigIntPool.Put(vv)
-	return z.ToBigIntRegular(vv).String()
+	return zz.ToBigInt(vv).String()
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form 

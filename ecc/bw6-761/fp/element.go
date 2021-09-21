@@ -195,6 +195,16 @@ func (z *Element) Div(x, y *Element) *Element {
 	return z
 }
 
+// Bit returns the i'th bit, with lsb == bit 0.
+// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+func (z *Element) Bit(i uint64) uint64 {
+	j := i / 64
+	if j >= 12 {
+		return 0
+	}
+	return uint64(z[j] >> (i % 64) & 1)
+}
+
 // Equal returns z == x
 func (z *Element) Equal(x *Element) bool {
 	return (z[11] == x[11]) && (z[10] == x[10]) && (z[9] == x[9]) && (z[8] == x[8]) && (z[7] == x[7]) && (z[6] == x[6]) && (z[5] == x[5]) && (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
@@ -203,6 +213,11 @@ func (z *Element) Equal(x *Element) bool {
 // IsZero returns z == 0
 func (z *Element) IsZero() bool {
 	return (z[11] | z[10] | z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
+}
+
+// IsUint64 returns true if z[0] >= 0 and all other words are 0
+func (z *Element) IsUint64() bool {
+	return (z[11] | z[10] | z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
 
 // Cmp compares (lexicographic order) z and x and returns:
@@ -1206,6 +1221,45 @@ func _butterflyGeneric(a, b *Element) {
 	b.Sub(&t, b)
 }
 
+// BitLen returns the minimum number of bits needed to represent z
+// returns 0 if z == 0
+func (z *Element) BitLen() int {
+	if z[11] != 0 {
+		return 704 + bits.Len64(z[11])
+	}
+	if z[10] != 0 {
+		return 640 + bits.Len64(z[10])
+	}
+	if z[9] != 0 {
+		return 576 + bits.Len64(z[9])
+	}
+	if z[8] != 0 {
+		return 512 + bits.Len64(z[8])
+	}
+	if z[7] != 0 {
+		return 448 + bits.Len64(z[7])
+	}
+	if z[6] != 0 {
+		return 384 + bits.Len64(z[6])
+	}
+	if z[5] != 0 {
+		return 320 + bits.Len64(z[5])
+	}
+	if z[4] != 0 {
+		return 256 + bits.Len64(z[4])
+	}
+	if z[3] != 0 {
+		return 192 + bits.Len64(z[3])
+	}
+	if z[2] != 0 {
+		return 128 + bits.Len64(z[2])
+	}
+	if z[1] != 0 {
+		return 64 + bits.Len64(z[1])
+	}
+	return bits.Len64(z[0])
+}
+
 // Exp z = x^exponent mod q
 func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 	var bZero big.Int
@@ -1238,9 +1292,21 @@ func (z Element) ToRegular() Element {
 
 // String returns the string form of an Element in Montgomery form
 func (z *Element) String() string {
+	zz := *z
+	zz.FromMont()
+	if zz.IsUint64() {
+		return strconv.FormatUint(zz[0], 10)
+	} else {
+		var zzNeg Element
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.IsUint64() {
+			return "-" + strconv.FormatUint(zzNeg[0], 10)
+		}
+	}
 	vv := bigIntPool.Get().(*big.Int)
 	defer bigIntPool.Put(vv)
-	return z.ToBigIntRegular(vv).String()
+	return zz.ToBigInt(vv).String()
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form
@@ -1428,7 +1494,8 @@ func (z *Element) Sqrt(x *Element) *Element {
 // if x == 0, sets and returns z = x
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
-		return z.Set(x)
+		z.SetZero()
+		return z
 	}
 
 	// initialize u = q
@@ -1468,47 +1535,26 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	v := *x
 
-	var carry, borrow, t, t2 uint64
+	var carry, borrow uint64
 	var bigger bool
 
 	for {
 		for v[0]&1 == 0 {
 
 			// v = v >> 1
-			t2 = v[11] << 63
+
+			v[0] = v[0]>>1 | v[1]<<63
+			v[1] = v[1]>>1 | v[2]<<63
+			v[2] = v[2]>>1 | v[3]<<63
+			v[3] = v[3]>>1 | v[4]<<63
+			v[4] = v[4]>>1 | v[5]<<63
+			v[5] = v[5]>>1 | v[6]<<63
+			v[6] = v[6]>>1 | v[7]<<63
+			v[7] = v[7]>>1 | v[8]<<63
+			v[8] = v[8]>>1 | v[9]<<63
+			v[9] = v[9]>>1 | v[10]<<63
+			v[10] = v[10]>>1 | v[11]<<63
 			v[11] >>= 1
-			t = t2
-			t2 = v[10] << 63
-			v[10] = (v[10] >> 1) | t
-			t = t2
-			t2 = v[9] << 63
-			v[9] = (v[9] >> 1) | t
-			t = t2
-			t2 = v[8] << 63
-			v[8] = (v[8] >> 1) | t
-			t = t2
-			t2 = v[7] << 63
-			v[7] = (v[7] >> 1) | t
-			t = t2
-			t2 = v[6] << 63
-			v[6] = (v[6] >> 1) | t
-			t = t2
-			t2 = v[5] << 63
-			v[5] = (v[5] >> 1) | t
-			t = t2
-			t2 = v[4] << 63
-			v[4] = (v[4] >> 1) | t
-			t = t2
-			t2 = v[3] << 63
-			v[3] = (v[3] >> 1) | t
-			t = t2
-			t2 = v[2] << 63
-			v[2] = (v[2] >> 1) | t
-			t = t2
-			t2 = v[1] << 63
-			v[1] = (v[1] >> 1) | t
-			t = t2
-			v[0] = (v[0] >> 1) | t
 
 			if s[0]&1 == 1 {
 
@@ -1529,79 +1575,37 @@ func (z *Element) Inverse(x *Element) *Element {
 			}
 
 			// s = s >> 1
-			t2 = s[11] << 63
+
+			s[0] = s[0]>>1 | s[1]<<63
+			s[1] = s[1]>>1 | s[2]<<63
+			s[2] = s[2]>>1 | s[3]<<63
+			s[3] = s[3]>>1 | s[4]<<63
+			s[4] = s[4]>>1 | s[5]<<63
+			s[5] = s[5]>>1 | s[6]<<63
+			s[6] = s[6]>>1 | s[7]<<63
+			s[7] = s[7]>>1 | s[8]<<63
+			s[8] = s[8]>>1 | s[9]<<63
+			s[9] = s[9]>>1 | s[10]<<63
+			s[10] = s[10]>>1 | s[11]<<63
 			s[11] >>= 1
-			t = t2
-			t2 = s[10] << 63
-			s[10] = (s[10] >> 1) | t
-			t = t2
-			t2 = s[9] << 63
-			s[9] = (s[9] >> 1) | t
-			t = t2
-			t2 = s[8] << 63
-			s[8] = (s[8] >> 1) | t
-			t = t2
-			t2 = s[7] << 63
-			s[7] = (s[7] >> 1) | t
-			t = t2
-			t2 = s[6] << 63
-			s[6] = (s[6] >> 1) | t
-			t = t2
-			t2 = s[5] << 63
-			s[5] = (s[5] >> 1) | t
-			t = t2
-			t2 = s[4] << 63
-			s[4] = (s[4] >> 1) | t
-			t = t2
-			t2 = s[3] << 63
-			s[3] = (s[3] >> 1) | t
-			t = t2
-			t2 = s[2] << 63
-			s[2] = (s[2] >> 1) | t
-			t = t2
-			t2 = s[1] << 63
-			s[1] = (s[1] >> 1) | t
-			t = t2
-			s[0] = (s[0] >> 1) | t
 
 		}
 		for u[0]&1 == 0 {
 
 			// u = u >> 1
-			t2 = u[11] << 63
+
+			u[0] = u[0]>>1 | u[1]<<63
+			u[1] = u[1]>>1 | u[2]<<63
+			u[2] = u[2]>>1 | u[3]<<63
+			u[3] = u[3]>>1 | u[4]<<63
+			u[4] = u[4]>>1 | u[5]<<63
+			u[5] = u[5]>>1 | u[6]<<63
+			u[6] = u[6]>>1 | u[7]<<63
+			u[7] = u[7]>>1 | u[8]<<63
+			u[8] = u[8]>>1 | u[9]<<63
+			u[9] = u[9]>>1 | u[10]<<63
+			u[10] = u[10]>>1 | u[11]<<63
 			u[11] >>= 1
-			t = t2
-			t2 = u[10] << 63
-			u[10] = (u[10] >> 1) | t
-			t = t2
-			t2 = u[9] << 63
-			u[9] = (u[9] >> 1) | t
-			t = t2
-			t2 = u[8] << 63
-			u[8] = (u[8] >> 1) | t
-			t = t2
-			t2 = u[7] << 63
-			u[7] = (u[7] >> 1) | t
-			t = t2
-			t2 = u[6] << 63
-			u[6] = (u[6] >> 1) | t
-			t = t2
-			t2 = u[5] << 63
-			u[5] = (u[5] >> 1) | t
-			t = t2
-			t2 = u[4] << 63
-			u[4] = (u[4] >> 1) | t
-			t = t2
-			t2 = u[3] << 63
-			u[3] = (u[3] >> 1) | t
-			t = t2
-			t2 = u[2] << 63
-			u[2] = (u[2] >> 1) | t
-			t = t2
-			t2 = u[1] << 63
-			u[1] = (u[1] >> 1) | t
-			t = t2
-			u[0] = (u[0] >> 1) | t
 
 			if r[0]&1 == 1 {
 
@@ -1622,40 +1626,19 @@ func (z *Element) Inverse(x *Element) *Element {
 			}
 
 			// r = r >> 1
-			t2 = r[11] << 63
+
+			r[0] = r[0]>>1 | r[1]<<63
+			r[1] = r[1]>>1 | r[2]<<63
+			r[2] = r[2]>>1 | r[3]<<63
+			r[3] = r[3]>>1 | r[4]<<63
+			r[4] = r[4]>>1 | r[5]<<63
+			r[5] = r[5]>>1 | r[6]<<63
+			r[6] = r[6]>>1 | r[7]<<63
+			r[7] = r[7]>>1 | r[8]<<63
+			r[8] = r[8]>>1 | r[9]<<63
+			r[9] = r[9]>>1 | r[10]<<63
+			r[10] = r[10]>>1 | r[11]<<63
 			r[11] >>= 1
-			t = t2
-			t2 = r[10] << 63
-			r[10] = (r[10] >> 1) | t
-			t = t2
-			t2 = r[9] << 63
-			r[9] = (r[9] >> 1) | t
-			t = t2
-			t2 = r[8] << 63
-			r[8] = (r[8] >> 1) | t
-			t = t2
-			t2 = r[7] << 63
-			r[7] = (r[7] >> 1) | t
-			t = t2
-			t2 = r[6] << 63
-			r[6] = (r[6] >> 1) | t
-			t = t2
-			t2 = r[5] << 63
-			r[5] = (r[5] >> 1) | t
-			t = t2
-			t2 = r[4] << 63
-			r[4] = (r[4] >> 1) | t
-			t = t2
-			t2 = r[3] << 63
-			r[3] = (r[3] >> 1) | t
-			t = t2
-			t2 = r[2] << 63
-			r[2] = (r[2] >> 1) | t
-			t = t2
-			t2 = r[1] << 63
-			r[1] = (r[1] >> 1) | t
-			t = t2
-			r[0] = (r[0] >> 1) | t
 
 		}
 
@@ -1758,10 +1741,12 @@ func (z *Element) Inverse(x *Element) *Element {
 			}
 		}
 		if (u[0] == 1) && (u[11]|u[10]|u[9]|u[8]|u[7]|u[6]|u[5]|u[4]|u[3]|u[2]|u[1]) == 0 {
-			return z.Set(&r)
+			z.Set(&r)
+			return z
 		}
 		if (v[0] == 1) && (v[11]|v[10]|v[9]|v[8]|v[7]|v[6]|v[5]|v[4]|v[3]|v[2]|v[1]) == 0 {
-			return z.Set(&s)
+			z.Set(&s)
+			return z
 		}
 	}
 

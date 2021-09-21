@@ -1,3 +1,31 @@
+<a name="v0.5.1"></a>
+## [v0.5.1] - 2021-09-21
+
+### Pull Requests
+- Merge pull request [#76](https://github.com/ConsenSys/gnark-crypto/issues/76) from ConsenSys/msm-ones
+- Merge pull request [#75](https://github.com/ConsenSys/gnark-crypto/issues/75) from ConsenSys/feat/karabina
+
+
+### Feat
+- added element.IsUint64()
+- element.String() special path for uint64 and -uint64 values
+- added element.Bit(..) to retrieve i-th bit in a field element
+- **Fp12:** implements the Karabina cyclotomic square in E12/E6
+- **Fp24:** implements the Karabina cyclotomic square in E24/E8
+- **Fp6:** implements the Karabina cyclotomic square in E6/E3
+- **e12:** implements batch decompression for karabina cyclo square
+- **e24:** implements batch decompression for karabina cyclo square
+- **experimental:** msm splits first chunk processing if scalar is on one word
+
+
+### Perf
+- **bls12:** faster G2 membership (eprint 2021/1130 sec.4)
+- **bls12-377:** use asm MubBy5 as MulByNonResidue
+- **bls24:** mix Karabina+GS+BatchInvert for faster FinalExp (Expt)
+- **bw6-633:** fast GT-subgroup check
+
+
+
 <a name="v0.5.0"></a>
 ## [v0.5.0] - 2021-08-20
 
