@@ -85,6 +85,8 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	{{- range $i := .NbWordsIndexesFull}}
 	CMOVQCS rb{{$i}}, ra{{$i}};  \
 	{{- end}}
+
+
 `
 
 func (f *FFAmd64) GenerateDefines() {
@@ -240,7 +242,12 @@ func helpers() template.FuncMap {
 	return template.FuncMap{
 		"mul": mul,
 		"imm": imm,
+		"sub": sub,
 	}
+}
+
+func sub(a, b int) int {
+	return a - b
 }
 
 func mul(a, b int) int {

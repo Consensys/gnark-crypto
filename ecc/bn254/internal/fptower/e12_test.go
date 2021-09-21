@@ -295,7 +295,7 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN254] cyclotomic square and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BN254] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
 			b.Conjugate(a)
@@ -305,6 +305,46 @@ func TestE12Ops(t *testing.T) {
 			c.Square(a)
 			d.CyclotomicSquare(a)
 			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BN254] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E12) bool {
+			var b, c, d E12
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+			c.Square(a)
+			d.CyclotomicSquareCompressed(a).Decompress(&d)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BN254] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			// put in the cyclotomic subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			var a2, a4, a17 E12
+			a2.Set(a)
+			a4.Set(a)
+			a17.Set(a)
+			a2.nSquareCompressed(2)
+			a4.nSquareCompressed(4)
+			a17.nSquareCompressed(17)
+			batch := BatchDecompress([]E12{a2, a4, a17})
+			a2.Decompress(&a2)
+			a4.Decompress(&a4)
+			a17.Decompress(&a17)
+
+			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
 		},
 		genA,
 	))
