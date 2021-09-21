@@ -6,6 +6,12 @@ func (z *E12) nSquare(n int) {
 	}
 }
 
+func (z *E12) nSquareCompressed(n int) {
+	for i := 0; i < n; i++ {
+		z.CyclotomicSquareCompressed(z)
+	}
+}
+
 // ExptHalf set z to x^(t/2) in E12 and return z
 // const t/2 uint64 = 7566188111470821376 // negative
 func (z *E12) ExptHalf(x *E12) *E12 {
@@ -18,7 +24,8 @@ func (z *E12) ExptHalf(x *E12) *E12 {
 	result.Mul(&result, x)
 	result.nSquare(9)
 	result.Mul(&result, x)
-	result.nSquare(32)
+	result.nSquareCompressed(32)
+	result.Decompress(&result)
 	result.Mul(&result, x)
 	result.nSquare(15)
 	return z.Conjugate(&result) // because tAbsVal is negative

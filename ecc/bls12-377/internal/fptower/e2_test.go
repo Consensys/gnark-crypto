@@ -248,6 +248,20 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[BLS12-377] BatchInvert should output the same result as Inverse", prop.ForAll(
+		func(a, b, c *E2) bool {
+
+			batch := BatchInvert([]E2{*a, *b, *c})
+			a.Inverse(a)
+			b.Inverse(b)
+			c.Inverse(c)
+			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BLS12-377] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2

@@ -133,7 +133,130 @@ func (z *E6) Square(x *E6) *E6 {
 	return z
 }
 
-// CyclotomicSquare https://eprint.iacr.org/2009/565.pdf, 3.2
+// Karabina's compressed cyclotomic square
+// https://eprint.iacr.org/2010/542.pdf
+// Th. 3.2 with minor modifications to fit our tower
+func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
+
+	var t [7]fp.Element
+
+	// t0 = g1^2
+	t[0].Square(&x.B0.A1)
+	// t1 = g5^2
+	t[1].Square(&x.B1.A2)
+	// t5 = g1 + g5
+	t[5].Add(&x.B0.A1, &x.B1.A2)
+	// t2 = (g1 + g5)^2
+	t[2].Square(&t[5])
+
+	// t3 = g1^2 + g5^2
+	t[3].Add(&t[0], &t[1])
+	// t5 = 2 * g1 * g5
+	t[5].Sub(&t[2], &t[3])
+
+	// t6 = g3 + g2
+	t[6].Add(&x.B1.A0, &x.B0.A2)
+	// t3 = (g3 + g2)^2
+	t[3].Square(&t[6])
+	// t2 = g3^2
+	t[2].Square(&x.B1.A0)
+
+	// t6 = 2 * nr * g1 * g5
+	t[6].MulByNonResidue(&t[5])
+	// t5 = 4 * nr * g1 * g5 + 2 * g3
+	t[5].Add(&t[6], &x.B1.A0).
+		Double(&t[5])
+	// z3 = 6 * nr * g1 * g5 + 2 * g3
+	z.B1.A0.Add(&t[5], &t[6])
+
+	// t4 = nr * g5^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = nr * g5^2 + g1^2
+	t[5].Add(&t[0], &t[4])
+	// t6 = nr * g5^2 + g1^2 - g2
+	t[6].Sub(&t[5], &x.B0.A2)
+
+	// t1 = g2^2
+	t[1].Square(&x.B0.A2)
+
+	// t6 = 2 * nr * g5^2 + 2 * g1^2 - 2*g2
+	t[6].Double(&t[6])
+	// z2 = 3 * nr * g5^2 + 3 * g1^2 - 2*g2
+	z.B0.A2.Add(&t[6], &t[5])
+
+	// t4 = nr * g2^2
+	t[4].MulByNonResidue(&t[1])
+	// t5 = g3^2 + nr * g2^2
+	t[5].Add(&t[2], &t[4])
+	// t6 = g3^2 + nr * g2^2 - g1
+	t[6].Sub(&t[5], &x.B0.A1)
+	// t6 = 2 * g3^2 + 2 * nr * g2^2 - 2 * g1
+	t[6].Double(&t[6])
+	// z1 = 3 * g3^2 + 3 * nr * g2^2 - 2 * g1
+	z.B0.A1.Add(&t[6], &t[5])
+
+	// t0 = g2^2 + g3^2
+	t[0].Add(&t[2], &t[1])
+	// t5 = 2 * g3 * g2
+	t[5].Sub(&t[3], &t[0])
+	// t6 = 2 * g3 * g2 + g5
+	t[6].Add(&t[5], &x.B1.A2)
+	// t6 = 4 * g3 * g2 + 2 * g5
+	t[6].Double(&t[6])
+	// z5 = 6 * g3 * g2 + 2 * g5
+	z.B1.A2.Add(&t[5], &t[6])
+
+	return z
+}
+
+// Decompress Karabina's cyclotomic square result
+func (z *E6) Decompress(x *E6) *E6 {
+
+	var t [3]fp.Element
+	var one fp.Element
+	one.SetOne()
+
+	// t0 = g1^2
+	t[0].Square(&x.B0.A1)
+	// t1 = 3 * g1^2 - 2 * g2
+	t[1].Sub(&t[0], &x.B0.A2).
+		Double(&t[1]).
+		Add(&t[1], &t[0])
+		// t0 = E * g5^2 + t1
+	t[2].Square(&x.B1.A2)
+	t[0].MulByNonResidue(&t[2]).
+		Add(&t[0], &t[1])
+	// t1 = 1/(4 * g3)
+	t[1].Double(&x.B1.A0).
+		Double(&t[1]).
+		Inverse(&t[1]) // costly
+	// z4 = g4
+	z.B1.A1.Mul(&t[0], &t[1])
+
+	// t1 = g2 * g1
+	t[1].Mul(&x.B0.A2, &x.B0.A1)
+	// t2 = 2 * g4^2 - 3 * g2 * g1
+	t[2].Square(&x.B1.A1).
+		Sub(&t[2], &t[1]).
+		Double(&t[2]).
+		Sub(&t[2], &t[1])
+	// t1 = g3 * g5
+	t[1].Mul(&x.B1.A0, &x.B1.A2)
+	// c_0 = E * (2 * g4^2 + g3 * g5 - 3 * g2 * g1) + 1
+	t[2].Add(&t[2], &t[1])
+	z.B0.A0.MulByNonResidue(&t[2]).
+		Add(&z.B0.A0, &one)
+
+	z.B0.A1.Set(&x.B0.A1)
+	z.B0.A2.Set(&x.B0.A2)
+	z.B1.A0.Set(&x.B1.A0)
+	z.B1.A2.Set(&x.B1.A2)
+
+	return z
+}
+
+// Granger-Scott's cyclotomic square
+// https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E6) CyclotomicSquare(x *E6) *E6 {
 	// x=(x0,x1,x2,x3,x4,x5,x6,x7) in E3^6
 	// cyclosquare(x)=(3*x4^2*u + 3*x0^2 - 2*x0,

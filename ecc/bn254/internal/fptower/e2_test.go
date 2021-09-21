@@ -246,6 +246,20 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[BN254] BatchInvert should output the same result as Inverse", prop.ForAll(
+		func(a, b, c *E2) bool {
+
+			batch := BatchInvert([]E2{*a, *b, *c})
+			a.Inverse(a)
+			b.Inverse(b)
+			c.Inverse(c)
+			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BN254] mulGeneric & mul should be equal", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
