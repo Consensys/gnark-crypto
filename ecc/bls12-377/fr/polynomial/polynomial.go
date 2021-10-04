@@ -26,7 +26,7 @@ type Polynomial []fr.Element
 // NewPolynomial
 func NewPolynomial(size uint64) Polynomial {
 	s := ecc.NextPowerOfTwo(size)
-	res := make(Polynomial, s)
+	res := make(Polynomial, size, s)
 	return res
 }
 
