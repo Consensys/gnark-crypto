@@ -150,7 +150,8 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	// compute H
 	_p := make(polynomial.Polynomial, len(p))
 	copy(_p, p)
-	h := dividePolyByXminusA(_p, res.ClaimedValue, res.Point)
+	var h polynomial.Polynomial
+	h.DividePolyByXminusA(&_p, res.ClaimedValue, res.Point)
 
 	_p = nil // h re-use this memory
 
@@ -294,10 +295,9 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 
 	// compute H
 	<-chSumGammai
-	h := dividePolyByXminusA(sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	sumGammaiTimesPol = nil // same memory as h
+	sumGammaiTimesPol.DividePolyByXminusA(&sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
 
-	res.H, err = Commit(h, srs)
+	res.H, err = Commit(sumGammaiTimesPol, srs)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -503,23 +503,4 @@ func deriveGamma(point fr.Element, digests []Digest, hf hash.Hash) (fr.Element, 
 	gamma.SetBytes(gammaByte)
 
 	return gamma, nil
-}
-
-// dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
-// f memory is re-used for the result
-func dividePolyByXminusA(f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
-
-	// first we compute f-f(a)
-	f[0].Sub(&f[0], &fa)
-
-	// now we use syntetic division to divide by x-a
-	var t fr.Element
-	for i := len(f) - 2; i >= 0; i-- {
-		t.Mul(&f[i+1], &a)
-
-		f[i].Add(&f[i], &t)
-	}
-
-	// the result is of degree deg(f)-1
-	return f[1:]
 }

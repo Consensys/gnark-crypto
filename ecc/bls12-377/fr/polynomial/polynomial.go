@@ -242,7 +242,7 @@ func (p *Polynomial) Mul(p1, p2 *Polynomial) *Polynomial {
 
 // DividePolyByXminusA sets p to (p1 - fa)/(x-a).
 // fa is supposed to be the evaluation of p1 at a.
-func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, fa, a fr.Element) Polynomial {
+func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, fa, a fr.Element) *Polynomial {
 
 	p.resize(p, p1)
 	_p := *p
@@ -256,6 +256,6 @@ func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, fa, a fr.Element) Polyn
 		_p[i].Add(&t, &_p[i])
 	}
 
-	_p = _p[1:]
-	return _p
+	*p = _p[1:]
+	return p
 }

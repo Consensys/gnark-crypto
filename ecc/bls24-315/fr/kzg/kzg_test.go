@@ -38,47 +38,6 @@ func init() {
 	testSRS, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
 }
 
-func TestDividePolyByXminusA(t *testing.T) {
-
-	const pSize = 230
-
-	// build random polynomial
-	pol := make(polynomial.Polynomial, pSize)
-	pol[0].SetRandom()
-	for i := 1; i < pSize; i++ {
-		pol[i] = pol[i-1]
-	}
-
-	// evaluate the polynomial at a random point
-	var point fr.Element
-	point.SetRandom()
-	evaluation := pol.Eval(&point)
-
-	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
-	var randPoint, xminusa fr.Element
-	randPoint.SetRandom()
-	polRandpoint := pol.Eval(&randPoint)
-	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
-
-	// compute f-f(a)/x-a
-	h := dividePolyByXminusA(pol, evaluation, point)
-	pol = nil // h reuses this memory
-
-	if len(h) != 229 {
-		t.Fatal("inconsistant size of quotient")
-	}
-
-	hRandPoint := h.Eval(&randPoint)
-	xminusa.Sub(&randPoint, &point) // rand-point
-
-	// f(rand)-f(point)	==? h(rand)*(rand-point)
-	hRandPoint.Mul(&hRandPoint, &xminusa)
-
-	if !hRandPoint.Equal(&polRandpoint) {
-		t.Fatal("Error f-f(a)/x-a")
-	}
-}
-
 func TestSerializationSRS(t *testing.T) {
 
 	// create a SRS
@@ -320,9 +279,10 @@ func BenchmarkDivideByXMinusA(b *testing.B) {
 	a.SetRandom()
 	fa.SetRandom()
 
+	var c polynomial.Polynomial
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		dividePolyByXminusA(pol, fa, a)
+		c.DividePolyByXminusA(&pol, fa, a)
 		pol = pol[:pSize]
 		pol[pSize-1] = pol[0]
 	}
