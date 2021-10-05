@@ -17,7 +17,6 @@
 package polynomial
 
 import (
-	"crypto/rand"
 	"math/big"
 	"testing"
 
@@ -35,8 +34,10 @@ const (
 )
 
 // probabilisticCheck checks if c == Op(a, b) using Scwhartz Zippel
-func probabilisticCheck(a, b, c Polynomial, r fr.Element, op Op) bool {
+func probabilisticCheck(a, b, c Polynomial, op Op) bool {
 
+	var r fr.Element
+	r.SetRandom()
 	ar := a.Eval(&r)
 	br := b.Eval(&r)
 	cr := c.Eval(&r)
@@ -55,22 +56,6 @@ func probabilisticCheck(a, b, c Polynomial, r fr.Element, op Op) bool {
 	}
 }
 
-// GenFr generates an Fr element
-// TODO factor this, redeclared in marshal_test.go
-func GenFr() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var elmt fr.Element
-		var b [fr.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
-			panic(err)
-		}
-		elmt.SetBytes(b[:])
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
-		return genResult
-	}
-}
-
 func randomPolynomial(size int) Polynomial {
 	res := NewPolynomial(uint64(size))
 	for i := 0; i < size; i++ {
@@ -79,15 +64,46 @@ func randomPolynomial(size int) Polynomial {
 	return res
 }
 
-func TestOperands(t *testing.T) {
+func TestDivideByXMinusA(t *testing.T) {
+
+	p := randomPolynomial(16)
+	var r fr.Element
+	r.SetRandom()
+	pr := p.Eval(&r)
+	p.SubConstant(&p, pr)
+
+	var q Polynomial
+	q.DividePolyByXminusA(&p, pr, r)
+
+	xsubr := NewPolynomial(2)
+	xsubr[0].SetOne().Neg(&xsubr[0])
+	xsubr[1].SetOne()
+	probabilisticCheck(xsubr, q, p, MUL)
+
+}
+
+func TestPolynomialOperands(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
 	properties := gopter.NewProperties(parameters)
 
+	properties.Property("(Div by x-a) check operands which are not receivers are not modified", prop.ForAll(
+		func() bool {
+			a := randomPolynomial(4)
+			b := randomPolynomial(8)
+			bc := b.Copy()
+			var r fr.Element
+			r.SetRandom()
+			ar := a.Eval(&r)
+			a.DividePolyByXminusA(&b, r, ar)
+			return bc.Equal(&b)
+		},
+	))
+
 	properties.Property("(ADD) check operands which are not receivers are not modified", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			{
 				a := randomPolynomial(4)
@@ -114,11 +130,10 @@ func TestOperands(t *testing.T) {
 			}
 			return res
 		},
-		GenFr(),
 	))
 
 	properties.Property("(ADD) check operands which are not receivers are not modified", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			{
 				a := randomPolynomial(4)
@@ -145,11 +160,10 @@ func TestOperands(t *testing.T) {
 			}
 			return res
 		},
-		GenFr(),
 	))
 
 	properties.Property("(MUL) check operands which are not receivers are not modified", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			{
 				a := randomPolynomial(4)
@@ -176,7 +190,6 @@ func TestOperands(t *testing.T) {
 			}
 			return res
 		},
-		GenFr(),
 	))
 
 }
@@ -195,49 +208,99 @@ func TestPolynomialOps(t *testing.T) {
 		{16, 8, 4},
 	}
 
+	properties.Property("p(a)+c=(p+c)(a)", prop.ForAll(
+		func() bool {
+			res := true
+			for _, conf := range configs {
+				a := randomPolynomial(conf[0])
+				b := NewPolynomial(0)
+				b[0].SetRandom()
+				c := randomPolynomial(conf[2])
+				c.AddConstant(&a, b[0])
+				res = res && probabilisticCheck(a, b, c, ADD)
+			}
+			return res
+		},
+	))
+
+	properties.Property("p(a)-c=(p-c)(a)", prop.ForAll(
+		func() bool {
+			res := true
+			for _, conf := range configs {
+				a := randomPolynomial(conf[0])
+				b := NewPolynomial(0)
+				b[0].SetRandom()
+				c := randomPolynomial(conf[2])
+				c.SubConstant(&a, b[0])
+				res = res && probabilisticCheck(a, b, c, SUB)
+			}
+			return res
+		},
+	))
+
 	properties.Property("p(a)+q(a)=(p+q)(a)", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
 				c := NewPolynomial(uint64(conf[2]))
 				c.Add(&a, &b)
-				res = res && probabilisticCheck(a, b, c, r, ADD)
+				res = res && probabilisticCheck(a, b, c, ADD)
 			}
 			return res
 		},
-		GenFr(),
 	))
 
 	properties.Property("p(a)-q(a)=(p-q)(a)", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
 				c := NewPolynomial(uint64(conf[2]))
 				c.Add(&a, &b)
-				res = res && probabilisticCheck(a, b, c, r, SUB)
+				res = res && probabilisticCheck(a, b, c, SUB)
 			}
 			return res
 		},
-		GenFr(),
 	))
 
 	properties.Property("p(a)*q(a)=(p*q)(a)", prop.ForAll(
-		func(r fr.Element) bool {
+		func() bool {
 			res := true
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
 				c := NewPolynomial(uint64(conf[2]))
 				c.Add(&a, &b)
-				res = res && probabilisticCheck(a, b, c, r, MUL)
+				res = res && probabilisticCheck(a, b, c, MUL)
 			}
 			return res
 		},
-		GenFr(),
+	))
+
+	properties.Property("(x-a)*q(a)=p(a)", prop.ForAll(
+		func() bool {
+			res := true
+			for _, conf := range configs {
+				p := randomPolynomial(conf[0])
+				q := NewPolynomial(uint64(conf[2]))
+
+				var r fr.Element
+				r.SetRandom()
+				pr := p.Eval(&r)
+				p.SubConstant(&p, pr)
+
+				q.DividePolyByXminusA(&p, pr, r)
+
+				xsubr := NewPolynomial(2)
+				xsubr[0].SetOne().Neg(&xsubr[0])
+				xsubr[1].SetOne()
+				probabilisticCheck(xsubr, q, p, MUL)
+			}
+			return res
+		},
 	))
 }
 
