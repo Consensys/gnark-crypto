@@ -92,55 +92,65 @@ func addSorted(p, p1, p2 *Polynomial) {
 		(*p)[i].Add(&(*p1)[i], &(*p2)[i])
 	}
 	for ; i < len(*p1); i++ {
-		(*p)[i].Add(&(*p1)[i], &(*p2)[i])
+		(*p)[i].Set(&(*p1)[i])
 	}
 	for ; i < len(*p); i++ {
 		(*p)[i].SetZero()
 	}
 }
 
-// subSorted sets p to p1-p2, assuming len(p)>=len(p1)>=len(p2)
-func subSorted(p, p1, p2 *Polynomial) {
+// subSorted sets p to p1-p2, assuming len(p)>=len(p1)>=len(p2).
+// reverse selects the order, if true if it's p2-p1 instead of p1-p2.
+func subSorted(p, p1, p2 *Polynomial, reverse bool) {
 	i := 0
-	for ; i < len(*p2); i++ {
-		(*p)[i].Sub(&(*p1)[i], &(*p2)[i])
-	}
-	for ; i < len(*p1); i++ {
-		(*p)[i].Sub(&(*p1)[i], &(*p2)[i])
-	}
-	for ; i < len(*p); i++ {
-		(*p)[i].SetZero()
+
+	if !reverse {
+		for ; i < len(*p2); i++ {
+			(*p)[i].Sub(&(*p1)[i], &(*p2)[i])
+		}
+		for ; i < len(*p1); i++ {
+			(*p)[i].Set(&(*p1)[i])
+		}
+		for ; i < len(*p); i++ {
+			(*p)[i].SetZero()
+		}
+	} else {
+		for ; i < len(*p2); i++ {
+			(*p)[i].Sub(&(*p2)[i], &(*p1)[i])
+		}
+		for ; i < len(*p1); i++ {
+			(*p)[i].Neg(&(*p1)[i])
+		}
+		for ; i < len(*p); i++ {
+			(*p)[i].SetZero()
+		}
 	}
 }
 
 // AddConstant sets p1 to p1+c and returns p1
 func (p *Polynomial) AddConstant(p1 *Polynomial, c fr.Element) *Polynomial {
-	p.resize(p, p1)
 	if p == p1 {
 		_p := *p
 		_p[0].Add(&_p[0], &c)
 		return p
 	}
-	p = p1.Copy()
+	*p = *p1.Copy()
 	_p := *p
 	_p[0].Add(&_p[0], &c)
 	return p
-
 }
 
-// AddConstant sets p1 to p1-c and returns p1
+// SubConstant sets p1 to p1-c and returns p1
 func (p *Polynomial) SubConstant(p1 *Polynomial, c fr.Element) *Polynomial {
-	p.resize(p, p1)
 	if p == p1 {
 		_p := *p
 		_p[0].Sub(&_p[0], &c)
 		return p
 	}
-	p = p1.Copy()
+	*p = *p1.Copy()
 	_p := *p
 	_p[0].Sub(&_p[0], &c)
 	return p
-
 }
 
 // Add adds p1 to p, and return p
@@ -155,14 +165,20 @@ func (p *Polynomial) Add(p1, p2 *Polynomial) *Polynomial {
 func (p *Polynomial) Sub(p1, p2 *Polynomial) *Polynomial {
 	_p1, _p2 := sort(p1, p2)
 	p.resize(p1, p2)
-	subSorted(p, &_p1, &_p2)
+	if len(*p1) < len(*p2) {
+		subSorted(p, &_p1, &_p2, true)
+	} else {
+		subSorted(p, &_p1, &_p2, false)
+	}
 	return p
 }
 
 // Neg sets p to -p1
 func (p *Polynomial) Neg(p1 *Polynomial) *Polynomial {
 	p.resize(p1, p)
-	*p = *p1
+	if p != p1 {
+		*p = *p1.Copy()
+	}
 	for i := 0; i < len(*p); i++ {
 		(*p)[i].Neg(&(*p)[i])
 	}
@@ -222,22 +238,20 @@ func (p *Polynomial) Mul(p1, p2 *Polynomial) *Polynomial {
 	return p
 }
 
-// DividePolyByXminusA sets p to (p1 - fa)/(x-a).
-// fa is supposed to be the evaluation of p1 at a.
-func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, fa, a fr.Element) *Polynomial {
+// DividePolyByXminusA sets p to p1 // (x-a). The result corresponds to
+// (p1 - p1(a)) / (x-a).
+func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, a *fr.Element) *Polynomial {
 
-	p.resize(p, p1)
-	_p := *p
-	_p1 := *p1
-
-	_p[0].Sub(&_p1[0], &fa)
-
-	var t fr.Element
-	for i := len(_p1) - 2; i >= 1; i-- {
-		t.Mul(&a, &_p[i+1])
-		_p[i].Add(&t, &_p[i])
+	if p != p1 {
+		*p = *p1.Copy()
 	}
 
+	_p := *p
+	var t fr.Element
+	for i := len(_p) - 2; i >= 1; i-- {
+		t.Mul(a, &_p[i+1])
+		_p[i].Add(&t, &_p[i])
+	}
 	*p = _p[1:]
 	return p
 }

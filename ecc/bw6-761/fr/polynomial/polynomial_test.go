@@ -41,6 +41,7 @@ func probabilisticCheck(a, b, c Polynomial, op Op) bool {
 	ar := a.Eval(&r)
 	br := b.Eval(&r)
 	cr := c.Eval(&r)
+
 	switch op {
 	case ADD:
 		ar.Add(&ar, &br)
@@ -64,24 +65,6 @@ func randomPolynomial(size int) Polynomial {
 	return res
 }
 
-func TestDivideByXMinusA(t *testing.T) {
-
-	p := randomPolynomial(16)
-	var r fr.Element
-	r.SetRandom()
-	pr := p.Eval(&r)
-	p.SubConstant(&p, pr)
-
-	var q Polynomial
-	q.DividePolyByXminusA(&p, pr, r)
-
-	xsubr := NewPolynomial(2)
-	xsubr[0].SetOne().Neg(&xsubr[0])
-	xsubr[1].SetOne()
-	probabilisticCheck(xsubr, q, p, MUL)
-
-}
-
 func TestPolynomialOperands(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -96,8 +79,7 @@ func TestPolynomialOperands(t *testing.T) {
 			bc := b.Copy()
 			var r fr.Element
 			r.SetRandom()
-			ar := a.Eval(&r)
-			a.DividePolyByXminusA(&b, r, ar)
+			a.DividePolyByXminusA(&b, &r)
 			return bc.Equal(&b)
 		},
 	))
@@ -192,6 +174,8 @@ func TestPolynomialOperands(t *testing.T) {
 		},
 	))
 
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 }
 
 func TestPolynomialOps(t *testing.T) {
@@ -213,8 +197,7 @@ func TestPolynomialOps(t *testing.T) {
 			res := true
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
-				b := NewPolynomial(0)
-				b[0].SetRandom()
+				b := randomPolynomial(1)
 				c := randomPolynomial(conf[2])
 				c.AddConstant(&a, b[0])
 				res = res && probabilisticCheck(a, b, c, ADD)
@@ -228,8 +211,7 @@ func TestPolynomialOps(t *testing.T) {
 			res := true
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
-				b := NewPolynomial(0)
-				b[0].SetRandom()
+				b := randomPolynomial(1)
 				c := randomPolynomial(conf[2])
 				c.SubConstant(&a, b[0])
 				res = res && probabilisticCheck(a, b, c, SUB)
@@ -259,7 +241,7 @@ func TestPolynomialOps(t *testing.T) {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
 				c := NewPolynomial(uint64(conf[2]))
-				c.Add(&a, &b)
+				c.Sub(&a, &b)
 				res = res && probabilisticCheck(a, b, c, SUB)
 			}
 			return res
@@ -273,7 +255,7 @@ func TestPolynomialOps(t *testing.T) {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
 				c := NewPolynomial(uint64(conf[2]))
-				c.Add(&a, &b)
+				c.Mul(&a, &b)
 				res = res && probabilisticCheck(a, b, c, MUL)
 			}
 			return res
@@ -284,6 +266,7 @@ func TestPolynomialOps(t *testing.T) {
 		func() bool {
 			res := true
 			for _, conf := range configs {
+
 				p := randomPolynomial(conf[0])
 				q := NewPolynomial(uint64(conf[2]))
 
@@ -292,16 +275,36 @@ func TestPolynomialOps(t *testing.T) {
 				pr := p.Eval(&r)
 				p.SubConstant(&p, pr)
 
-				q.DividePolyByXminusA(&p, pr, r)
+				q.DividePolyByXminusA(&p, &pr)
 
 				xsubr := NewPolynomial(2)
-				xsubr[0].SetOne().Neg(&xsubr[0])
+				xsubr[0].Neg(&r)
 				xsubr[1].SetOne()
-				probabilisticCheck(xsubr, q, p, MUL)
+				res = res && probabilisticCheck(xsubr, q, p, MUL)
+
 			}
+
+			p := randomPolynomial(16)
+			var q Polynomial
+
+			var r fr.Element
+			r.SetRandom()
+			pr := p.Eval(&r)
+			p.SubConstant(&p, pr)
+
+			q.DividePolyByXminusA(&p, &pr)
+
+			xsubr := NewPolynomial(2)
+			xsubr[0].Neg(&r)
+			xsubr[1].SetOne()
+			res = res && probabilisticCheck(xsubr, q, p, MUL)
+
 			return res
 		},
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 }
 
 func TestPolynomialEval(t *testing.T) {
