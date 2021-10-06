@@ -61,7 +61,8 @@ func TestDividePolyByXminusA(t *testing.T) {
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
 	// compute f-f(a)/x-a
-	h := dividePolyByXminusA(pol, evaluation, point)
+	var h polynomial.Polynomial
+	h.DividePolyByXminusA(&pol, &point)
 	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
@@ -304,27 +305,6 @@ func BenchmarkKZGCommit(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Commit(p, benchSRS)
-	}
-}
-
-func BenchmarkDivideByXMinusA(b *testing.B) {
-	const pSize = 1 << 22
-
-	// build random polynomial
-	pol := make(polynomial.Polynomial, pSize)
-	pol[0].SetRandom()
-	for i := 1; i < pSize; i++ {
-		pol[i] = pol[i-1]
-	}
-	var a, fa fr.Element
-	a.SetRandom()
-	fa.SetRandom()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dividePolyByXminusA(pol, fa, a)
-		pol = pol[:pSize]
-		pol[pSize-1] = pol[0]
 	}
 }
 
