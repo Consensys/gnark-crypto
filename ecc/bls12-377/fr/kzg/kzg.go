@@ -148,14 +148,10 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	_p := make(polynomial.Polynomial, len(p))
-	copy(_p, p)
-	h := dividePolyByXminusA(_p, res.ClaimedValue, res.Point)
-
-	_p = nil // h re-use this memory
+	p.DividePolyByXminusA(p.Copy(), &res.Point)
 
 	// commit to H
-	hCommit, err := Commit(h, srs)
+	hCommit, err := Commit(p, srs)
 	if err != nil {
 		return OpeningProof{}, err
 	}
@@ -262,20 +258,6 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 		return BatchOpeningProof{}, err
 	}
 
-	// compute sum_i gamma**i*f(a)
-	var sumGammaiTimesEval fr.Element
-	chSumGammai := make(chan struct{}, 1)
-	go func() {
-		// wait for polynomial evaluations to be completed (res.ClaimedValues)
-		wg.Wait()
-		sumGammaiTimesEval = res.ClaimedValues[nbDigests-1]
-		for i := nbDigests - 2; i >= 0; i-- {
-			sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
-				Add(&sumGammaiTimesEval, &res.ClaimedValues[i])
-		}
-		close(chSumGammai)
-	}()
-
 	// compute sum_i gamma**i*f
 	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
 	// note: if we are willing to paralellize that, we could clone the poly and scale them by
@@ -293,11 +275,9 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	}
 
 	// compute H
-	<-chSumGammai
-	h := dividePolyByXminusA(sumGammaiTimesPol, sumGammaiTimesEval, res.Point)
-	sumGammaiTimesPol = nil // same memory as h
+	sumGammaiTimesPol.DividePolyByXminusA(&sumGammaiTimesPol, &res.Point)
 
-	res.H, err = Commit(h, srs)
+	res.H, err = Commit(sumGammaiTimesPol, srs)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -503,23 +483,4 @@ func deriveGamma(point fr.Element, digests []Digest, hf hash.Hash) (fr.Element, 
 	gamma.SetBytes(gammaByte)
 
 	return gamma, nil
-}
-
-// dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
-// f memory is re-used for the result
-func dividePolyByXminusA(f polynomial.Polynomial, fa, a fr.Element) polynomial.Polynomial {
-
-	// first we compute f-f(a)
-	f[0].Sub(&f[0], &fa)
-
-	// now we use syntetic division to divide by x-a
-	var t fr.Element
-	for i := len(f) - 2; i >= 0; i-- {
-		t.Mul(&f[i+1], &a)
-
-		f[i].Add(&f[i], &t)
-	}
-
-	// the result is of degree deg(f)-1
-	return f[1:]
 }

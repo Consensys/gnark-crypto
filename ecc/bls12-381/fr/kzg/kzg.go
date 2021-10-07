@@ -258,20 +258,6 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 		return BatchOpeningProof{}, err
 	}
 
-	// compute sum_i gamma**i*f(a)
-	// var sumGammaiTimesEval fr.Element
-	// chSumGammai := make(chan struct{}, 1)
-	// go func() {
-	// 	// wait for polynomial evaluations to be completed (res.ClaimedValues)
-	// 	wg.Wait()
-	// 	sumGammaiTimesEval = res.ClaimedValues[nbDigests-1]
-	// 	for i := nbDigests - 2; i >= 0; i-- {
-	// 		sumGammaiTimesEval.Mul(&sumGammaiTimesEval, &gamma).
-	// 			Add(&sumGammaiTimesEval, &res.ClaimedValues[i])
-	// 	}
-	// 	close(chSumGammai)
-	// }()
-
 	// compute sum_i gamma**i*f
 	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
 	// note: if we are willing to paralellize that, we could clone the poly and scale them by

@@ -272,14 +272,16 @@ func TestPolynomialOps(t *testing.T) {
 
 				var r fr.Element
 				r.SetRandom()
+
+				q.DividePolyByXminusA(&p, &r)
+
 				pr := p.Eval(&r)
 				p.SubConstant(&p, pr)
-
-				q.DividePolyByXminusA(&p, &pr)
 
 				xsubr := NewPolynomial(2)
 				xsubr[0].Neg(&r)
 				xsubr[1].SetOne()
+
 				res = res && probabilisticCheck(xsubr, q, p, MUL)
 
 			}
@@ -289,10 +291,11 @@ func TestPolynomialOps(t *testing.T) {
 
 			var r fr.Element
 			r.SetRandom()
+
+			q.DividePolyByXminusA(&p, &r)
+
 			pr := p.Eval(&r)
 			p.SubConstant(&p, pr)
-
-			q.DividePolyByXminusA(&p, &pr)
 
 			xsubr := NewPolynomial(2)
 			xsubr[0].Neg(&r)
