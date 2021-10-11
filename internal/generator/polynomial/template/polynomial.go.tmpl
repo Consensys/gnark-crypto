@@ -28,8 +28,8 @@ func (p *Polynomial) Eval(v *fr.Element) fr.Element {
 	return res
 }
 
-// Copy returns a copy of the polynomial
-func (p *Polynomial) Copy() *Polynomial {
+// GetCopy returns a copy of the polynomial
+func (p *Polynomial) GetCopy() *Polynomial {
 	_p := make(Polynomial, len(*p))
 	copy(_p, *p)
 	return &_p
@@ -134,7 +134,7 @@ func (p *Polynomial) AddConstant(p1 *Polynomial, c fr.Element) *Polynomial {
 		_p[0].Add(&_p[0], &c)
 		return p
 	}
-	*p = *p1.Copy()
+	*p = *p1.GetCopy()
 	_p := *p
 	_p[0].Add(&_p[0], &c)
 	return p
@@ -147,7 +147,7 @@ func (p *Polynomial) SubConstant(p1 *Polynomial, c fr.Element) *Polynomial {
 		_p[0].Sub(&_p[0], &c)
 		return p
 	}
-	*p = *p1.Copy()
+	*p = *p1.GetCopy()
 	_p := *p
 	_p[0].Sub(&_p[0], &c)
 	return p
@@ -177,7 +177,7 @@ func (p *Polynomial) Sub(p1, p2 *Polynomial) *Polynomial {
 func (p *Polynomial) Neg(p1 *Polynomial) *Polynomial {
 	p.resize(p1, p)
 	if p != p1 {
-		*p = *p1.Copy()
+		*p = *p1.GetCopy()
 	}
 	for i := 0; i < len(*p); i++ {
 		(*p)[i].Neg(&(*p)[i])
@@ -243,7 +243,7 @@ func (p *Polynomial) Mul(p1, p2 *Polynomial) *Polynomial {
 func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, a *fr.Element) *Polynomial {
 
 	if p != p1 {
-		*p = *p1.Copy()
+		*p = *p1.GetCopy()
 	}
 
 	_p := *p

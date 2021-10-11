@@ -130,7 +130,7 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	p.DividePolyByXminusA(p.Copy(), &res.Point)
+	p.DividePolyByXminusA(p.GetCopy(), &res.Point)
 
 	// commit to H
 	hCommit, err := Commit(p, srs)

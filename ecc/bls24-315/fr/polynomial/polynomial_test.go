@@ -76,7 +76,7 @@ func TestPolynomialOperands(t *testing.T) {
 		func() bool {
 			a := randomPolynomial(4)
 			b := randomPolynomial(8)
-			bc := b.Copy()
+			bc := b.GetCopy()
 			var r fr.Element
 			r.SetRandom()
 			a.DividePolyByXminusA(&b, &r)
@@ -90,8 +90,8 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
-				bc := b.Copy()
+				ac := a.GetCopy()
+				bc := b.GetCopy()
 				var c Polynomial
 				c.Add(&a, &b)
 				res = res && ac.Equal(&a) && bc.Equal(&b)
@@ -99,14 +99,14 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
+				ac := a.GetCopy()
 				b.Add(&a, &b)
 				res = res && ac.Equal(&a)
 			}
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				bc := b.Copy()
+				bc := b.GetCopy()
 				a.Add(&a, &b)
 				res = res && bc.Equal(&b)
 			}
@@ -120,8 +120,8 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
-				bc := b.Copy()
+				ac := a.GetCopy()
+				bc := b.GetCopy()
 				var c Polynomial
 				c.Sub(&a, &b)
 				res = res && ac.Equal(&a) && bc.Equal(&b)
@@ -129,14 +129,14 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
+				ac := a.GetCopy()
 				b.Sub(&a, &b)
 				res = res && ac.Equal(&a)
 			}
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				bc := b.Copy()
+				bc := b.GetCopy()
 				a.Sub(&a, &b)
 				res = res && bc.Equal(&b)
 			}
@@ -150,8 +150,8 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
-				bc := b.Copy()
+				ac := a.GetCopy()
+				bc := b.GetCopy()
 				var c Polynomial
 				c.Mul(&a, &b)
 				res = res && ac.Equal(&a) && bc.Equal(&b)
@@ -159,14 +159,14 @@ func TestPolynomialOperands(t *testing.T) {
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				ac := a.Copy()
+				ac := a.GetCopy()
 				b.Mul(&a, &b)
 				res = res && ac.Equal(&a)
 			}
 			{
 				a := randomPolynomial(4)
 				b := randomPolynomial(8)
-				bc := b.Copy()
+				bc := b.GetCopy()
 				a.Mul(&a, &b)
 				res = res && bc.Equal(&b)
 			}
