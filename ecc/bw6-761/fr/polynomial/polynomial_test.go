@@ -79,7 +79,7 @@ func TestPolynomialOperands(t *testing.T) {
 			bc := b.GetCopy()
 			var r fr.Element
 			r.SetRandom()
-			a.DividePolyByXminusA(&b, &r)
+			a.DivByXminusA(&b, &r)
 			return bc.Equal(&b)
 		},
 	))
@@ -273,7 +273,7 @@ func TestPolynomialOps(t *testing.T) {
 				var r fr.Element
 				r.SetRandom()
 
-				q.DividePolyByXminusA(&p, &r)
+				q.DivByXminusA(&p, &r)
 
 				pr := p.Eval(&r)
 				p.SubConstant(&p, pr)
@@ -292,7 +292,7 @@ func TestPolynomialOps(t *testing.T) {
 			var r fr.Element
 			r.SetRandom()
 
-			q.DividePolyByXminusA(&p, &r)
+			q.DivByXminusA(&p, &r)
 
 			pr := p.Eval(&r)
 			p.SubConstant(&p, pr)

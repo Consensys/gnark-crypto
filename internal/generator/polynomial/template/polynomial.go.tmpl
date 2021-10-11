@@ -238,9 +238,9 @@ func (p *Polynomial) Mul(p1, p2 *Polynomial) *Polynomial {
 	return p
 }
 
-// DividePolyByXminusA sets p to p1 // (x-a). The result corresponds to
+// DivByXminusA sets p to p1 // (x-a). The result corresponds to
 // (p1 - p1(a)) / (x-a).
-func (p *Polynomial) DividePolyByXminusA(p1 *Polynomial, a *fr.Element) *Polynomial {
+func (p *Polynomial) DivByXminusA(p1 *Polynomial, a *fr.Element) *Polynomial {
 
 	if p != p1 {
 		*p = *p1.GetCopy()

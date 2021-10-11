@@ -148,7 +148,7 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	}
 
 	// compute H
-	p.DividePolyByXminusA(p.GetCopy(), &res.Point)
+	p.DivByXminusA(p.GetCopy(), &res.Point)
 
 	// commit to H
 	hCommit, err := Commit(p, srs)
@@ -275,7 +275,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	}
 
 	// compute H
-	sumGammaiTimesPol.DividePolyByXminusA(&sumGammaiTimesPol, &res.Point)
+	sumGammaiTimesPol.DivByXminusA(&sumGammaiTimesPol, &res.Point)
 
 	res.H, err = Commit(sumGammaiTimesPol, srs)
 	if err != nil {
