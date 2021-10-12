@@ -25,8 +25,8 @@ import (
 // Polynomial polynomial represented by coefficients bw6-633 fr field.
 type Polynomial []fr.Element
 
-// NewPolynomial
-func NewPolynomial(size uint64) Polynomial {
+// New
+func New(size uint64) Polynomial {
 	s := ecc.NextPowerOfTwo(size)
 	res := make(Polynomial, size, s)
 	return res

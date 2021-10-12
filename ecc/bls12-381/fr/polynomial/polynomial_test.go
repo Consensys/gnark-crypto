@@ -58,7 +58,7 @@ func probabilisticCheck(a, b, c Polynomial, op Op) bool {
 }
 
 func randomPolynomial(size int) Polynomial {
-	res := NewPolynomial(uint64(size))
+	res := New(uint64(size))
 	for i := 0; i < size; i++ {
 		res[i].SetRandom()
 	}
@@ -226,7 +226,7 @@ func TestPolynomialOps(t *testing.T) {
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
-				c := NewPolynomial(uint64(conf[2]))
+				c := New(uint64(conf[2]))
 				c.Add(&a, &b)
 				res = res && probabilisticCheck(a, b, c, ADD)
 			}
@@ -240,7 +240,7 @@ func TestPolynomialOps(t *testing.T) {
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
-				c := NewPolynomial(uint64(conf[2]))
+				c := New(uint64(conf[2]))
 				c.Sub(&a, &b)
 				res = res && probabilisticCheck(a, b, c, SUB)
 			}
@@ -254,7 +254,7 @@ func TestPolynomialOps(t *testing.T) {
 			for _, conf := range configs {
 				a := randomPolynomial(conf[0])
 				b := randomPolynomial(conf[1])
-				c := NewPolynomial(uint64(conf[2]))
+				c := New(uint64(conf[2]))
 				c.Mul(&a, &b)
 				res = res && probabilisticCheck(a, b, c, MUL)
 			}
@@ -268,7 +268,7 @@ func TestPolynomialOps(t *testing.T) {
 			for _, conf := range configs {
 
 				p := randomPolynomial(conf[0])
-				q := NewPolynomial(uint64(conf[2]))
+				q := New(uint64(conf[2]))
 
 				var r fr.Element
 				r.SetRandom()
@@ -278,7 +278,7 @@ func TestPolynomialOps(t *testing.T) {
 				pr := p.Eval(&r)
 				p.SubConstant(&p, pr)
 
-				xsubr := NewPolynomial(2)
+				xsubr := New(2)
 				xsubr[0].Neg(&r)
 				xsubr[1].SetOne()
 
@@ -297,7 +297,7 @@ func TestPolynomialOps(t *testing.T) {
 			pr := p.Eval(&r)
 			p.SubConstant(&p, pr)
 
-			xsubr := NewPolynomial(2)
+			xsubr := New(2)
 			xsubr[0].Neg(&r)
 			xsubr[1].SetOne()
 			res = res && probabilisticCheck(xsubr, q, p, MUL)
