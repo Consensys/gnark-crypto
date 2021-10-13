@@ -35,7 +35,7 @@ type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
-{{- if or (eq .PointName "g2") (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+{{- if .Projective}}
 // {{ $TProjective }} point in projective coordinates
 type {{ $TProjective }} struct {
 	x, y, z {{.CoordType}}
@@ -1204,7 +1204,7 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 {{ end }}
 
 
-{{- if or (eq .PointName "g2") (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+{{- if .Projective }}
 // -------------------------------------------------------------------------------------------------
 // Homogenous projective
 
@@ -1285,8 +1285,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 				// do nothing, X and Y are zeroes in affine.
 				continue
 			}
-			var a fp.Element
-			a = result[i].X
+			a := result[i].X
 			result[i].X.Mul(&points[i].x, &a)
 			result[i].Y.Mul(&points[i].y, &a)
 		}

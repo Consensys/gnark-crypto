@@ -914,8 +914,7 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 				// do nothing, X and Y are zeroes in affine.
 				continue
 			}
-			var a fp.Element
-			a = result[i].X
+			a := result[i].X
 			result[i].X.Mul(&points[i].x, &a)
 			result[i].Y.Mul(&points[i].y, &a)
 		}

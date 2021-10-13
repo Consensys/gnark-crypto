@@ -46,6 +46,7 @@ type Point struct {
 	GLV              bool  // scalar mulitplication using GLV
 	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
 	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
+	Projective       bool  // generate projective coordinates
 }
 
 var Curves []Curve

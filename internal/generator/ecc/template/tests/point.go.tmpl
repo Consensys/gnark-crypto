@@ -2,7 +2,6 @@
 {{ $TAffine := print (toUpper .PointName) "Affine" }}
 {{ $TJacobian := print (toUpper .PointName) "Jac" }}
 {{ $TJacobianExtended := print (toLower .PointName) "JacExtended" }}
-{{ $TProjective := print (toLower .PointName) "Proj" }}
 
 {{$fuzzer := "GenFp()"}}
 {{if eq .CoordType "fptower.E2" }}
