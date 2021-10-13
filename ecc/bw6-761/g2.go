@@ -858,7 +858,7 @@ func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 
 // Neg computes -G
 func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
-	p.x = a.x
+	*p = *a
 	p.y.Neg(&a.y)
 	return p
 }
@@ -889,6 +889,9 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 	return p
 }
 
+// BatchProjectiveToAffineG2 converts points in Projective coordinates to Affine coordinates
+// performing a single field inversion (Montgomery batch inversion trick)
+// result must be allocated with len(result) == len(points)
 func BatchProjectiveToAffineG2(points []g2Proj, result []G2Affine) {
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
