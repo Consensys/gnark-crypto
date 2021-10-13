@@ -13,6 +13,7 @@ func init() {
 			GLV:              true,
 			CofactorCleaning: true,
 			CRange:           []int{4, 5, 8, 16},
+			Projective:       true,
 		},
 		G2: Point{
 			CoordType:        "fp.Element",

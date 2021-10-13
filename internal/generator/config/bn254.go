@@ -20,6 +20,7 @@ func init() {
 			GLV:              true,
 			CofactorCleaning: true,
 			CRange:           defaultCRange(),
+			Projective:       true,
 		},
 	})
 }

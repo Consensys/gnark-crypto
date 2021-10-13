@@ -42,11 +42,6 @@ type g2JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
-// g2Proj point in projective coordinates
-type g2Proj struct {
-	x, y, z fp.Element
-}
-
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -844,41 +839,6 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
-	return p
-}
-
-// -------------------------------------------------------------------------------------------------
-// Homogenous projective
-
-// Set sets p to the provided point
-func (p *g2Proj) Set(a *g2Proj) *g2Proj {
-	p.x, p.y, p.z = a.x, a.y, a.z
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	var buf fp.Element
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
-// FromAffine sets p = Q, p in homogenous projective, Q in affine
-func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
-	if Q.X.IsZero() && Q.Y.IsZero() {
-		p.z.SetZero()
-		p.x.SetOne()
-		p.y.SetOne()
-		return p
-	}
-	p.z.SetOne()
-	p.x.Set(&Q.X)
-	p.y.Set(&Q.Y)
 	return p
 }
 
