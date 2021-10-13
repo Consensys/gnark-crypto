@@ -856,6 +856,13 @@ func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 	return p
 }
 
+// Neg computes -G
+func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
+	p.x = a.x
+	p.y.Neg(&a.y)
+	return p
+}
+
 // FromJacobian converts a point from Jacobian to projective coordinates
 func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
 	var buf fp.Element
@@ -880,6 +887,48 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 	p.x.Set(&Q.X)
 	p.y.Set(&Q.Y)
 	return p
+}
+
+func BatchProjectiveToAffineG2(points []g2Proj, result []G2Affine) {
+	zeroes := make([]bool, len(points))
+	accumulator := fp.One()
+
+	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
+	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
+	for i := 0; i < len(points); i++ {
+		if points[i].z.IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		result[i].X = accumulator
+		accumulator.Mul(&accumulator, &points[i].z)
+	}
+
+	var accInverse fp.Element
+	accInverse.Inverse(&accumulator)
+
+	for i := len(points) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			// do nothing, X and Y are zeroes in affine.
+			continue
+		}
+		result[i].X.Mul(&result[i].X, &accInverse)
+		accInverse.Mul(&accInverse, &points[i].z)
+	}
+
+	// batch convert to affine.
+	parallel.Execute(len(points), func(start, end int) {
+		for i := start; i < end; i++ {
+			if zeroes[i] {
+				// do nothing, X and Y are zeroes in affine.
+				continue
+			}
+			var a fp.Element
+			a = result[i].X
+			result[i].X.Mul(&points[i].x, &a)
+			result[i].Y.Mul(&points[i].y, &a)
+		}
+	})
 }
 
 // BatchScalarMultiplicationG2 multiplies the same base (generator) by all scalars

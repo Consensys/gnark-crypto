@@ -56,10 +56,8 @@ var g1Infinity G1Jac
 var g2Infinity G2Jac
 
 // optimal Ate loop counters
-// Miller loop 1: f(P), div(f) = (x+1)(Q)-([x+1]Q)-x(O)
-// Miller loop 2: f(P), div(f) = (x**3-x**2-x)(Q) -([x**3-x**2-x]Q)-(x**3-x**2-x-1)(O)
-var loopCounter1 [64]int8
-var loopCounter2 [190]int8
+var loopCounter0 [190]int8
+var loopCounter1 [190]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
 //  endomorphisms phi1 and phi2 for <G1Affine> and <G2Affine>. lambda is such that <r, phi-lambda> lies above
@@ -95,13 +93,12 @@ func init() {
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
 
-	//binary decomposition of 9586122913090633730, little endian
 	// xGen+1
-	loopCounter1 = [64]int8{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1}
+	loopCounter0 = [190]int8{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	// xGen^3-xGen^2-xGen
 	T, _ := new(big.Int).SetString("880904806456922042166256752416502360955572640081583800319", 10)
-	ecc.NafDecomposition(T, loopCounter2[:])
+	ecc.NafDecomposition(T, loopCounter1[:])
 
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
