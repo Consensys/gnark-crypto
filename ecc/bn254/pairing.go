@@ -215,7 +215,7 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	// get some Element from our pool
 	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E2
 	t0.Mul(&p.x, &p.y)
-	A.MulByElement(&t0, &twoInv)
+	A.Halve(&t0)
 	B.Square(&p.y)
 	C.Square(&p.z)
 	D.Double(&C).
@@ -224,7 +224,7 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)
-	G.MulByElement(&G, &twoInv)
+	G.Halve(&G)
 	H.Add(&p.y, &p.z).
 		Square(&H)
 	t1.Add(&B, &C)

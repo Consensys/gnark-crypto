@@ -157,6 +157,14 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	return z
 }
 
+func (z *E2) Halve(x *E2) *E2 {
+
+	z.A0.Halve(&x.A0)
+	z.A1.Halve(&x.A1)
+
+	return z
+}
+
 // Legendre returns the Legendre symbol of z
 func (z *E2) Legendre() int {
 	var n fp.Element
