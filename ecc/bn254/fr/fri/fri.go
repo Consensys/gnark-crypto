@@ -258,7 +258,10 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 
 		// build proofs of queries at s[i]
 		t := merkletree.New(s.h)
-		t.SetIndex(uint64(si[i]))
+		err := t.SetIndex(uint64(si[i]))
+		if err != nil {
+			return proof, err
+		}
 		for k := 0; k < len(q); k++ {
 			t.Push(q[k].Marshal())
 		}
@@ -273,7 +276,10 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		}
 		proof.interactions[i][1-c].proofSet[0] = q[si[i]+1-2*c].Marshal()
 		s.h.Reset()
-		s.h.Write(proof.interactions[i][c].proofSet[0])
+		_, err = s.h.Write(proof.interactions[i][c].proofSet[0])
+		if err != nil {
+			return proof, err
+		}
 		proof.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
 
 		// get _p back to canonical basis
