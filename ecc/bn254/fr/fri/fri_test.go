@@ -2,7 +2,6 @@ package fri
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -81,17 +80,16 @@ import (
 
 func TestBuildProofOfProximity(t *testing.T) {
 
-	p := polynomial.New(16)
+	p := polynomial.New(8)
+	for i := 0; i < 8; i++ {
+		p[i].SetRandom()
+	}
 
-	iop := RADIX_2_FRI.New(16, sha256.New())
+	iop := RADIX_2_FRI.New(8, sha256.New())
 	proof, err := iop.BuildProofOfProximity(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// for i:=0; i<len(proof.interactions); i++{
-	// 	fmt.Printf("%x\n", proof.interactions[i])
-	// }
 
 	err = iop.VerifyProofOfProximity(proof)
 	if err != nil {
@@ -108,9 +106,6 @@ func TestDeriveQueriesPositions(t *testing.T) {
 	r.Mul(&s.domains[0].Generator, &s.domains[0].Generator).Mul(&r, &s.domains[0].Generator)
 	g.Set(&s.domains[0].Generator)
 	pos := s.deriveQueriesPositions(r)
-	for i := 0; i < len(pos); i++ {
-		fmt.Printf("%d\n", pos[i])
-	}
 	n := int(s.domains[0].Cardinality)
 
 	// conversion of indices from ordered to canonical, _n is the size of the slice
@@ -133,7 +128,6 @@ func TestDeriveQueriesPositions(t *testing.T) {
 		u, v := convert(pos[i], n)
 
 		var g1, g2, r1, r2 fr.Element
-		// var g1, g2 fr.Element
 		g1.Exp(g, &u).Square(&g1)
 		g2.Exp(g, &v).Square(&g2)
 

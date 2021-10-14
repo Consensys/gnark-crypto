@@ -3,7 +3,6 @@ package fri
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"hash"
 	"math/bits"
 
@@ -104,7 +103,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 
 	// computing the number of steps
 	n := ecc.NextPowerOfTwo(size)
-	nbSteps := bits.TrailingZeros(uint(n)) - 1
+	nbSteps := bits.TrailingZeros(uint(n))
 	res.nbSteps = nbSteps
 
 	// extending the domain
@@ -114,6 +113,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	res.domains = make([]*fft.Domain, nbSteps)
 	for i := 0; i < nbSteps; i++ {
 		res.domains[i] = fft.NewDomain(n, 0, false)
+		n = n >> 1
 	}
 
 	// hash function
@@ -251,13 +251,6 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 
 	for i := 0; i < s.nbSteps; i++ {
 
-		fmt.Println("[")
-		for k := 0; k < len(_p); k++ {
-			fmt.Printf("%s,\n", _p[k].String())
-		}
-		fmt.Println("]")
-		fmt.Println("")
-
 		// evaluate _p and sort the result
 		s.domains[i].FFT(_p, fft.DIF, 0)
 		fft.BitReverse(_p)
@@ -266,17 +259,22 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		// build proofs of queries at s[i]
 		t := merkletree.New(s.h)
 		t.SetIndex(uint64(si[i]))
-		for k := 0; k < len(_p); k++ {
-			t.Push(_p[k].Marshal())
+		for k := 0; k < len(q); k++ {
+			t.Push(q[k].Marshal())
 		}
 		mr, proofSet, _, numLeaves := t.Prove()
 		proof.interactions[i] = make([]partialMerkleProof, 2)
 		c := si[i] % 2
 		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
-		proof.interactions[i][1-c] = partialMerkleProof{mr, nil, numLeaves}
-		proof.interactions[i][1-c].proofSet = make([][]byte, len(proof.interactions[i][c].proofSet))
-		copy(proof.interactions[i][1-c].proofSet, proof.interactions[i][c].proofSet)
-		proof.interactions[i][1-c].proofSet[0] = q[(1-c)*(si[i]+1)+c*(si[i]-1)].Marshal()
+		proof.interactions[i][1-c] = partialMerkleProof{
+			mr,
+			make([][]byte, 2),
+			numLeaves,
+		}
+		proof.interactions[i][1-c].proofSet[0] = q[si[i]+1-2*c].Marshal()
+		s.h.Reset()
+		s.h.Write(proof.interactions[i][c].proofSet[0])
+		proof.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
 
 		// get _p back to canonical basis
 		s.domains[i].FFTInverse(_p, fft.DIF, 0)
@@ -290,15 +288,17 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		}
 
 		_p = fp
+
 	}
 
 	// last round, provide the evaluation
-	proof.evaluation = make([]fr.Element, rho)
+	proof.evaluation = make([]fr.Element, len(_p))
 	var g fr.Element
-	g.Set(&s.domains[s.nbSteps-1].Generator).Square(&g)
-	proof.evaluation[0].SetOne()
-	for i := 1; i < 8; i++ {
-		proof.evaluation[i].Mul(&proof.evaluation[i-1], &g)
+	g.SetOne()
+	for i := 0; i < rho; i++ {
+		e := _p.Eval(&g)
+		proof.evaluation[i].Set(&e)
+		g.Mul(&g, &s.domains[s.nbSteps-1].Generator)
 	}
 
 	return proof, nil
@@ -318,24 +318,60 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	// derive the si
 	// TODO use FiatShamir
-	//si := s.deriveQueriesPositions(s.domains[0].Generator)
+	si := s.deriveQueriesPositions(s.domains[0].Generator)
 
 	// check the Merkle proofs
 	for i := 0; i < len(proof.interactions); i++ {
-		for k := 0; k < 2; k++ {
-			//fmt.Printf("going there")
-			res := merkletree.VerifyProof(
-				s.h,
-				proof.interactions[i][k].merkleRoot,
-				proof.interactions[i][k].proofSet,
-				//proof.interactions[i][k].proofIndex,
-				//uint64(si[i][k]),
-				0,
-				proof.interactions[i][k].numLeaves,
-			)
-			if !res {
-				return ErrProximityTest
-			}
+
+		c := si[i] % 2
+		res := merkletree.VerifyProof(
+			s.h,
+			proof.interactions[i][c].merkleRoot,
+			proof.interactions[i][c].proofSet,
+			uint64(si[i]),
+			proof.interactions[i][c].numLeaves,
+		)
+		if !res {
+			return ErrProximityTest
+		}
+
+		proofSet := make([][]byte, len(proof.interactions[i][c].proofSet))
+		copy(proofSet[2:], proof.interactions[i][c].proofSet[2:])
+		proofSet[0] = proof.interactions[i][1-c].proofSet[0]
+		proofSet[1] = proof.interactions[i][1-c].proofSet[1]
+		res = merkletree.VerifyProof(
+			s.h,
+			proof.interactions[i][1-c].merkleRoot,
+			proofSet,
+			uint64(si[i]+1-2*c),
+			proof.interactions[i][1-c].numLeaves,
+		)
+		if !res {
+			return ErrProximityTest
+		}
+	}
+
+	// check that the evatuations lie on a line
+	dx := make([]fr.Element, rho-1)
+	dy := make([]fr.Element, rho-1)
+	var _g, g, one fr.Element
+	g.Set(&s.domains[s.nbSteps-1].Generator).Square(&g)
+	_g.Set(&g)
+	one.SetOne()
+	for i := 1; i < rho; i++ {
+		dx[i-1].Sub(&g, &one)
+		dy[i-1].Sub(&proof.evaluation[i], &proof.evaluation[i-1])
+		g.Mul(&g, &_g)
+	}
+	dx = fr.BatchInvert(dx)
+	dydx := make([]fr.Element, rho-1)
+	for i := 1; i < rho; i++ {
+		dydx[i-1].Mul(&dy[i-1], &dx[i-1])
+	}
+
+	for i := 1; i < rho-1; i++ {
+		if !dydx[0].Equal(&dydx[i]) {
+			return ErrProximityTest
 		}
 	}
 
