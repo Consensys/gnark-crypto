@@ -3,6 +3,7 @@ package fri
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"hash"
 	"math/bits"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
 var (
@@ -230,71 +232,54 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 	var proof ProofOfProximity
 	proof.interactions = make([][]partialMerkleProof, s.nbSteps)
 
-	// derive the verifier queries
-	// TODO use Fiat Shamir, for the moment take g
-	si := s.deriveQueriesPositions(s.domains[0].Generator)
-
-	// commit to _p, needed to derive x^i
-	//cp, eval, err := Commit(_p, h)
-	// cp, err := Commit(_p, h)
-	// if err != nil {
-	// 	return proof, err
-	// }
-
-	// derive the x^i
-	// TODO use FiatShamir
-	xi := make([]fr.Element, s.nbSteps)
-	xi[0].SetOne()
-	for i := 1; i < s.nbSteps; i++ {
-		xi[i].Double(&xi[i-1])
+	// Fiat Shamir transcript to derive the challenges
+	xis := make([]string, s.nbSteps)
+	for i := 0; i < s.nbSteps; i++ {
+		xis[i] = fmt.Sprintf("x%d", i)
 	}
+	fs := fiatshamir.NewTranscript(s.h, xis...)
+
+	// step 1 : fold the polynomial using the xi
+	evalsAtRound := make([][]fr.Element, s.nbSteps)
 
 	for i := 0; i < s.nbSteps; i++ {
 
 		// evaluate _p and sort the result
 		s.domains[i].FFT(_p, fft.DIF, 0)
 		fft.BitReverse(_p)
-		q := sort(_p)
+		evalsAtRound[i] = sort(_p)
 
-		// build proofs of queries at s[i]
+		// compute the root hash, needed to derive xi
 		t := merkletree.New(s.h)
-		err := t.SetIndex(uint64(si[i]))
+		for k := 0; k < len(evalsAtRound[i]); k++ {
+			t.Push(evalsAtRound[i][k].Marshal())
+		}
+		rh := t.Root()
+		err := fs.Bind(xis[i], rh)
 		if err != nil {
 			return proof, err
 		}
-		for k := 0; k < len(q); k++ {
-			t.Push(q[k].Marshal())
-		}
-		mr, proofSet, _, numLeaves := t.Prove()
-		proof.interactions[i] = make([]partialMerkleProof, 2)
-		c := si[i] % 2
-		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
-		proof.interactions[i][1-c] = partialMerkleProof{
-			mr,
-			make([][]byte, 2),
-			numLeaves,
-		}
-		proof.interactions[i][1-c].proofSet[0] = q[si[i]+1-2*c].Marshal()
-		s.h.Reset()
-		_, err = s.h.Write(proof.interactions[i][c].proofSet[0])
-		if err != nil {
-			return proof, err
-		}
-		proof.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
 
-		// get _p back to canonical basis
+		// derive the challenge
+		bxi, err := fs.ComputeChallenge(xis[i])
+		if err != nil {
+			return proof, err
+		}
+		var xi fr.Element
+		xi.SetBytes(bxi)
+
+		// put _p back in canonical basis
 		s.domains[i].FFTInverse(_p, fft.DIF, 0)
 		fft.BitReverse(_p)
 
-		// fold _p and commit it
+		// fold _p
 		fp := polynomial.New(uint64(len(_p) / 2))
 		for k := 0; k < len(_p)/2; k++ {
-			fp[k].Mul(&_p[2*k+1], &xi[i]).
+			fp[k].Mul(&_p[2*k+1], &xi).
 				Add(&fp[k], &_p[2*k])
 		}
 
 		_p = fp
-
 	}
 
 	// last round, provide the evaluation
@@ -307,6 +292,42 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		g.Mul(&g, &s.domains[s.nbSteps-1].Generator)
 	}
 
+	// step 2: provide the Merkle proofs of the queries
+
+	// derive the verifier queries
+	// TODO use Fiat Shamir, for the moment take g
+	si := s.deriveQueriesPositions(s.domains[0].Generator)
+
+	for i := 0; i < s.nbSteps; i++ {
+
+		// build proofs of queries at s[i]
+		t := merkletree.New(s.h)
+		err := t.SetIndex(uint64(si[i]))
+		if err != nil {
+			return proof, err
+		}
+		for k := 0; k < len(evalsAtRound[i]); k++ {
+			t.Push(evalsAtRound[i][k].Marshal())
+		}
+		mr, proofSet, _, numLeaves := t.Prove()
+		proof.interactions[i] = make([]partialMerkleProof, 2)
+		c := si[i] % 2
+		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
+		proof.interactions[i][1-c] = partialMerkleProof{
+			mr,
+			make([][]byte, 2),
+			numLeaves,
+		}
+		proof.interactions[i][1-c].proofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
+		s.h.Reset()
+		_, err = s.h.Write(proof.interactions[i][c].proofSet[0])
+		if err != nil {
+			return proof, err
+		}
+		proof.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
+
+	}
+
 	return proof, nil
 }
 
@@ -314,21 +335,30 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 // verification fails.
 func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
-	// derive the x^i
-	// TODO use FiatShamir
+	// Fiat Shamir transcript to derive the challenges
+	xis := make([]string, s.nbSteps)
+	for i := 0; i < s.nbSteps; i++ {
+		xis[i] = fmt.Sprintf("x%d", i)
+	}
+	fs := fiatshamir.NewTranscript(s.h, xis...)
 	xi := make([]fr.Element, s.nbSteps)
-	xi[0].SetOne()
-	for i := 1; i < s.nbSteps; i++ {
-		xi[i].Double(&xi[i-1])
+	for i := 0; i < s.nbSteps; i++ {
+		fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
+		bxi, err := fs.ComputeChallenge(xis[i])
+		if err != nil {
+			return err
+		}
+		xi[i].SetBytes(bxi)
 	}
 
 	// derive the si
 	// TODO use FiatShamir
 	si := s.deriveQueriesPositions(s.domains[0].Generator)
 
-	// check the Merkle proofs
+	// for each round check the Merkle proof and the correctness of the folding
 	for i := 0; i < len(proof.interactions); i++ {
 
+		// correctness of Merkle proof
 		c := si[i] % 2
 		res := merkletree.VerifyProof(
 			s.h,
@@ -355,9 +385,12 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 		if !res {
 			return ErrProximityTest
 		}
+
+		// correctness of the folding
+
 	}
 
-	// check that the evatuations lie on a line
+	// finally check that the evatuations lie on a line
 	dx := make([]fr.Element, rho-1)
 	dy := make([]fr.Element, rho-1)
 	var _g, g, one fr.Element

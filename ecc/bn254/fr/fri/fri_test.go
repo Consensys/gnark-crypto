@@ -2,81 +2,13 @@ package fri
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 )
-
-// func TestMerkleTree(t *testing.T) {
-
-// 	h := sha256.New()
-
-// 	var b1, b2 bytes.Buffer
-// 	for i := 0; i < 16; i++ {
-// 		var a fr.Element
-// 		a.SetRandom()
-// 		b1.Write(a.Marshal())
-// 		b2.Write(a.Marshal())
-// 	}
-
-// 	var p1, p2 merkleProof
-// 	t1 := merkletree.New(h)
-// 	err := t1.SetIndex(0)
-// 	t1.ReadAll(&b1, 32)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	mr, proofSet, proofIndex, numLeaves := t1.Prove()
-// 	fmt.Printf("num leaves: %d\n", numLeaves)
-// 	p1 = merkleProof{mr, proofSet, proofIndex, numLeaves}
-
-// 	t2 := merkletree.New(h)
-// 	err = t2.SetIndex(1)
-// 	t2.ReadAll(&b2, 32)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	mr, proofSet, proofIndex, numLeaves = t2.Prove()
-// 	p2 = merkleProof{mr, proofSet, proofIndex, numLeaves}
-
-// 	for i := 0; i < len(p1.proofSet[2]); i++ {
-// 		fmt.Printf("%x", p1.proofSet[2][i])
-// 	}
-// 	fmt.Println("")
-// 	for i := 0; i < len(p2.proofSet[2]); i++ {
-// 		fmt.Printf("%x", p2.proofSet[2][i])
-// 	}
-// 	fmt.Println("")
-
-// 	fmt.Printf("p1 index: %d\n", p1.proofIndex)
-// 	fmt.Printf("p2 index: %d\n", p2.proofIndex)
-
-// 	h.Reset()
-// 	h.Write(p1.proofSet[0])
-// 	bs1 := h.Sum(nil)
-// 	h.Reset()
-// 	h.Write(bs1)
-// 	h.Write(p1.proofSet[1])
-// 	bs1 = h.Sum(nil)
-
-// 	h.Reset()
-// 	h.Write(p2.proofSet[0])
-// 	bs2 := h.Sum(nil)
-// 	h.Reset()
-// 	h.Write(p2.proofSet[1])
-// 	h.Write(bs2)
-// 	bs2 = h.Sum(nil)
-
-// 	for i := 0; i < len(bs1); i++ {
-// 		fmt.Printf("%x", bs1[i])
-// 	}
-// 	fmt.Println("")
-// 	for i := 0; i < len(bs2); i++ {
-// 		fmt.Printf("%x", bs2[i])
-// 	}
-// }
 
 func TestBuildProofOfProximity(t *testing.T) {
 
@@ -145,4 +77,32 @@ func TestDeriveQueriesPositions(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Benchmarks
+
+func BenchmarkProximityVerification(b *testing.B) {
+
+	baseSize := 16
+
+	for i := 0; i < 10; i++ {
+
+		size := baseSize << i
+		p := polynomial.New(uint64(size))
+		for k := 0; k < size; k++ {
+			p[k].SetRandom()
+		}
+
+		iop := RADIX_2_FRI.New(uint64(size), sha256.New())
+		proof, _ := iop.BuildProofOfProximity(p)
+
+		b.Run(fmt.Sprintf("Polynomial size %d", size), func(b *testing.B) {
+			b.ResetTimer()
+			for l := 0; l < b.N; l++ {
+				iop.VerifyProofOfProximity(proof)
+			}
+		})
+
+	}
+
 }
