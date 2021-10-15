@@ -16,6 +16,37 @@ package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 
+var _p = fp.Modulus()
+
+// Frobenius sets z in E4 to x^q, returns z
+func (z *E4) Frobenius(x *E4) *E4 {
+	z.Set(x)
+	z.Exp(z, *_p)
+	return z
+}
+
+// Frobenius sets z in E4 to x^q, returns z
+func (z *E24) Frobenius(x *E24) *E24 {
+	z.Set(x)
+	z.Exp(z, *_p)
+	return z
+}
+
+// FrobeniusSquare sets z in E4 to x^(q^2), returns z
+func (z *E24) FrobeniusSquare(x *E24) *E24 {
+	z.Set(x)
+	z.Exp(z, *_p).Exp(z, *_p)
+	return z
+}
+
+// FrobeniusQuad sets z in E4 to x^(q^4), returns z
+func (z *E24) FrobeniusQuad(x *E24) *E24 {
+	z.Set(x)
+	z.Exp(z, *_p).Exp(z, *_p).Exp(z, *_p).Exp(z, *_p)
+	return z
+}
+
+/*
 // Frobenius sets z in E4 to x^q, returns z
 func (z *E4) Frobenius(x *E4) *E4 {
 
@@ -238,3 +269,4 @@ func (z *E24) FrobeniusQuad(x *E24) *E24 {
 
 	return z
 }
+*/

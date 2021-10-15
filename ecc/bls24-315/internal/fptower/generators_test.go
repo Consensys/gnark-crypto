@@ -39,23 +39,23 @@ func GenE4() gopter.Gen {
 	})
 }
 
-// E8 generates an E8 elmt
-func GenE8() gopter.Gen {
+// E12 generates an E12 elmt
+func GenE12() gopter.Gen {
 	return gopter.CombineGens(
 		GenE4(),
 		GenE4(),
-	).Map(func(values []interface{}) *E8 {
-		return &E8{C0: *values[0].(*E4), C1: *values[1].(*E4)}
+		GenE4(),
+	).Map(func(values []interface{}) *E12 {
+		return &E12{C0: *values[0].(*E4), C1: *values[1].(*E4), C2: *values[2].(*E4)}
 	})
 }
 
 // E24 generates an E24 elmt
 func GenE24() gopter.Gen {
 	return gopter.CombineGens(
-		GenE8(),
-		GenE8(),
-		GenE8(),
+		GenE12(),
+		GenE12(),
 	).Map(func(values []interface{}) *E24 {
-		return &E24{D0: *values[0].(*E8), D1: *values[1].(*E8), D2: *values[2].(*E8)}
+		return &E24{D0: *values[0].(*E12), D1: *values[1].(*E12)}
 	})
 }
