@@ -14,7 +14,7 @@ func TestBuildProofOfProximity(t *testing.T) {
 
 	p := polynomial.New(8)
 	for i := 0; i < 8; i++ {
-		p[i].SetRandom()
+		p[i].SetUint64(3 << i)
 	}
 
 	iop := RADIX_2_FRI.New(8, sha256.New())

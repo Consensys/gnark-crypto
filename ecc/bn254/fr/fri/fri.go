@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"math/big"
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
@@ -137,6 +138,18 @@ func (s radixTwoFri) log(a, g fr.Element) int {
 		_g.Mul(&_g, &g)
 	}
 	return i
+}
+
+// convertOrderCanonical convert the index i, an entry in a
+// sorted polynomial, to the corresponding entry in canonical
+// representation. n is the size of the polynomial.
+func convertSortedCanonical(i, n int) int {
+	if i%2 == 0 {
+		return i / 2
+	} else {
+		l := (n - 1 - i) / 2
+		return n - 1 - l
+	}
 }
 
 // deriveQueriesPositions derives the indices of the oracle
@@ -275,8 +288,8 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		// fold _p
 		fp := polynomial.New(uint64(len(_p) / 2))
 		for k := 0; k < len(_p)/2; k++ {
-			fp[k].Mul(&_p[2*k+1], &xi).
-				Add(&fp[k], &_p[2*k])
+			fp[k].Mul(&_p[2*k+1], &xi)
+			fp[k].Add(&fp[k], &_p[2*k])
 		}
 
 		_p = fp
@@ -355,6 +368,9 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	// TODO use FiatShamir
 	si := s.deriveQueriesPositions(s.domains[0].Generator)
 
+	var twoInv fr.Element
+	twoInv.SetUint64(2).Inverse(&twoInv)
+
 	// for each round check the Merkle proof and the correctness of the folding
 	for i := 0; i < len(proof.interactions); i++ {
 
@@ -387,10 +403,55 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 		}
 
 		// correctness of the folding
+		if i < len(proof.interactions)-1 {
 
+			var fe, fo, l, r, fn fr.Element
+
+			// even part
+			l.SetBytes(proof.interactions[i][0].proofSet[0])
+			r.SetBytes(proof.interactions[i][1].proofSet[0])
+			fe.Add(&l, &r).Mul(&fe, &twoInv)
+
+			// odd part
+			m := convertSortedCanonical(si[i], int(s.domains[i].Cardinality))
+			bm := big.NewInt(int64(m))
+			var ginv fr.Element
+			ginv.Set(&s.domains[i].GeneratorInv).Exp(ginv, bm)
+			fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
+			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
+
+			// folding
+			fo.Mul(&fo, &xi[i]).Add(&fo, &fe)
+			if !fo.Equal(&fn) {
+				return ErrProximityTest
+			}
+		}
 	}
 
-	// finally check that the evatuations lie on a line
+	// last transition
+	var fe, fo, l, r, fn fr.Element
+
+	// even part
+	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
+	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
+	fe.Add(&l, &r).Mul(&fe, &twoInv)
+
+	// odd part
+	m := convertSortedCanonical(si[s.nbSteps-1], int(s.domains[s.nbSteps-1].Cardinality))
+	bm := big.NewInt(int64(m))
+	var ginv fr.Element
+	ginv.Set(&s.domains[s.nbSteps-1].GeneratorInv).Exp(ginv, bm)
+	fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
+	_si := convertSortedCanonical(si[s.nbSteps-1], rho)
+	fn.Set(&proof.evaluation[_si])
+
+	// folding
+	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe)
+	if !fo.Equal(&fn) {
+		return ErrProximityTest
+	}
+
+	// Last step: check that the evatuations lie on a line
 	dx := make([]fr.Element, rho-1)
 	dy := make([]fr.Element, rho-1)
 	var _g, g, one fr.Element
