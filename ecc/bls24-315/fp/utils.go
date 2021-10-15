@@ -14,22 +14,37 @@
 
 package fp
 
-import "math/big"
+import "math/bits"
 
 // Halve divides a fp.Element by 2
 func (z *Element) Halve(x *Element) *Element {
 
-	var r big.Int
-	x.ToBigIntRegular(&r)
+	v := *x
 
-	if r.Bit(0)&1 == 0 {
-		r.Rsh(&r, 1)
+	var carry uint64
+	if v[0]&1 == 0 {
+		// v = v >> 1
+		v[0] = v[0]>>1 | v[1]<<63
+		v[1] = v[1]>>1 | v[2]<<63
+		v[2] = v[2]>>1 | v[3]<<63
+		v[3] = v[3]>>1 | v[4]<<63
+		v[4] >>= 1
 	} else {
-		r.Add(&r, &_modulus)
-		r.Rsh(&r, 1)
+		// v = v + q
+		v[0], carry = bits.Add64(v[0], 8063698428123676673, 0)
+		v[1], carry = bits.Add64(v[1], 4764498181658371330, carry)
+		v[2], carry = bits.Add64(v[2], 16051339359738796768, carry)
+		v[3], carry = bits.Add64(v[3], 15273757526516850351, carry)
+		v[4], _ = bits.Add64(v[4], 342900304943437392, carry)
+		// v = v >> 1
+		v[0] = v[0]>>1 | v[1]<<63
+		v[1] = v[1]>>1 | v[2]<<63
+		v[2] = v[2]>>1 | v[3]<<63
+		v[3] = v[3]>>1 | v[4]<<63
+		v[4] >>= 1
 	}
 
-	z.SetBigInt(&r)
+	z.Set(&v)
 
 	return z
 }
