@@ -19,7 +19,7 @@ package fptower
 import (
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -36,7 +36,7 @@ func TestE24Serialization(t *testing.T) {
 
 	genA := GenE24()
 
-	properties.Property("[BLS12-377] SetBytes(Bytes()) should stay constant", prop.ForAll(
+	properties.Property("[BLS24-315] SetBytes(Bytes()) should stay constant", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			buf := a.Bytes()
@@ -61,7 +61,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 	genA := GenE24()
 	genB := GenE24()
 
-	properties.Property("[BLS12-377] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E24) bool {
 			var c, d E24
 			d.Set(a)
@@ -74,7 +74,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E24) bool {
 			var c, d E24
 			d.Set(a)
@@ -87,7 +87,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E24) bool {
 			var c, d E24
 			d.Set(a)
@@ -100,7 +100,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Square(a)
@@ -110,7 +110,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Double(a)
@@ -120,7 +120,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Inverse(a)
@@ -130,7 +130,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (Cyclotomic square) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (Cyclotomic square) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.CyclotomicSquare(a)
@@ -140,7 +140,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Conjugate(a)
@@ -150,7 +150,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (Frobenius) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (Frobenius) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Frobenius(a)
@@ -160,7 +160,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (FrobeniusSquare) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (FrobeniusSquare) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.FrobeniusSquare(a)
@@ -170,7 +170,7 @@ func TestE24ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Having the receiver as operand (FrobeniusQuad) should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] Having the receiver as operand (FrobeniusQuad) should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.FrobeniusQuad(a)
@@ -193,7 +193,7 @@ func TestE24Ops(t *testing.T) {
 	genA := GenE24()
 	genB := GenE24()
 
-	properties.Property("[BLS12-377] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[BLS24-315] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E24) bool {
 			var c E24
 			c.Set(a)
@@ -204,7 +204,7 @@ func TestE24Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-377] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BLS24-315] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E24) bool {
 			var c, d E24
 			d.Inverse(b)
@@ -216,7 +216,7 @@ func TestE24Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-377] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BLS24-315] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Inverse(a).Inverse(&b)
@@ -225,7 +225,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] square and mul should output the same result", prop.ForAll(
+	properties.Property("[BLS24-315] square and mul should output the same result", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
 			b.Mul(a, a)
@@ -235,7 +235,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] a + pi(a), a-pi(a) should be real", prop.ForAll(
+	properties.Property("[BLS24-315] a + pi(a), a-pi(a) should be real", prop.ForAll(
 		func(a *E24) bool {
 			var b, c, d E24
 			var e, f, g E12
@@ -249,7 +249,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] pi**24=id", prop.ForAll(
+	properties.Property("[BLS24-315] pi**24=id", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.Frobenius(a).
@@ -281,7 +281,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] (pi**2)**12=id", prop.ForAll(
+	properties.Property("[BLS24-315] (pi**2)**12=id", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.FrobeniusSquare(a).
@@ -302,7 +302,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] (pi**4)**6=id", prop.ForAll(
+	properties.Property("[BLS24-315] (pi**4)**6=id", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			b.FrobeniusQuad(a).
@@ -317,7 +317,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BLS24-315] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E24) bool {
 			var b, c, d E24
 			b.Conjugate(a)
@@ -331,7 +331,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
+	properties.Property("[BLS24-315] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E24) bool {
 			var b, c, d E24
 			b.Conjugate(a)
@@ -345,7 +345,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
+	properties.Property("[BLS24-315] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
 			// put in the cyclotomic subgroup
@@ -371,7 +371,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Frobenius of x in E24 should be equal to x^q", prop.ForAll(
+	properties.Property("[BLS24-315] Frobenius of x in E24 should be equal to x^q", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
 			q := fp.Modulus()
@@ -383,7 +383,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] FrobeniusSquare of x in E24 should be equal to x^(q^2)", prop.ForAll(
+	properties.Property("[BLS24-315] FrobeniusSquare of x in E24 should be equal to x^(q^2)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
 			q := fp.Modulus()
@@ -394,7 +394,7 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] FrobeniusQuad of x in E24 should be equal to x^(q^3)", prop.ForAll(
+	properties.Property("[BLS24-315] FrobeniusQuad of x in E24 should be equal to x^(q^4)", prop.ForAll(
 		func(a *E24) bool {
 			var b, c E24
 			q := fp.Modulus()
