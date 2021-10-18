@@ -242,6 +242,16 @@ func (z *E4) Conjugate(x *E4) *E4 {
 	return z
 }
 
+func (z *E4) Halve(x *E4) *E4 {
+
+	z.B0.A0.Halve(&x.B0.A0)
+	z.B0.A1.Halve(&x.B0.A1)
+	z.B1.A0.Halve(&x.B1.A0)
+	z.B1.A1.Halve(&x.B1.A1)
+
+	return z
+}
+
 // norm sets x to the norm of z
 func (z *E4) norm(x *E2) {
 	var tmp E2
