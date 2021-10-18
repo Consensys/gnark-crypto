@@ -172,13 +172,11 @@ func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 			res[i] = 2 * l
 		} else {
 			res[i] = (n - 1) - 2*(n-1-l)
-		}
-
-		if l > n/2 {
 			l = l - n/2
 		}
 		n = n >> 1
 	}
+
 	return res
 }
 

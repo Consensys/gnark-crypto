@@ -8,77 +8,133 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 )
 
-func TestBuildProofOfProximity(t *testing.T) {
-
-	size := uint64(8)
-
-	p := polynomial.New(size)
-	for i := 0; i < int(size); i++ {
-		p[i].SetUint64(3 << i)
+// conversion of indices from ordered to canonical, _n is the size of the slice
+// _p is the index to convert. It returns g^u, g^v where {g^u, g^v} is the fiber
+// of g^(2*_p)
+func convert(_p, _n int) (_u, _v big.Int) {
+	if _p%2 == 0 {
+		_u.SetInt64(int64(_p / 2))
+		_v.SetInt64(int64(_p/2 + _n/2))
+	} else {
+		l := (_n - 1 - _p) / 2
+		_u.SetInt64(int64(_n - 1 - l))
+		_v.SetInt64(int64(_n - 1 - l - _n/2))
 	}
-
-	iop := RADIX_2_FRI.New(size, sha256.New())
-	proof, err := iop.BuildProofOfProximity(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = iop.VerifyProofOfProximity(proof)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	return
 }
 
-func TestDeriveQueriesPositions(t *testing.T) {
-
-	_s := RADIX_2_FRI.New(8, sha256.New())
-	s := _s.(radixTwoFri)
-	var r, g fr.Element
-	r.Mul(&s.domains[0].Generator, &s.domains[0].Generator).Mul(&r, &s.domains[0].Generator)
-	pos := s.deriveQueriesPositions(r)
-	g.Set(&s.domains[0].Generator)
-	n := int(s.domains[0].Cardinality)
-
-	// conversion of indices from ordered to canonical, _n is the size of the slice
-	// _p is the index to convert. It returns g^u, g^v where {g^u, g^v} is the fiber
-	// of g^(2*_p)
-	convert := func(_p, _n int) (_u, _v big.Int) {
-		if _p%2 == 0 {
-			_u.SetInt64(int64(_p / 2))
-			_v.SetInt64(int64(_p/2 + n/2))
-		} else {
-			l := (n - 1 - _p) / 2
-			_u.SetInt64(int64(n - 1 - l))
-			_v.SetInt64(int64(n - 1 - l - n/2))
-		}
-		return
+func randomPolynomial(size uint64, seed int32) polynomial.Polynomial {
+	p := polynomial.New(size)
+	p[0].SetUint64(uint64(seed))
+	for i := 1; i < len(p); i++ {
+		p[i].Square(&p[i-1])
 	}
+	return p
+}
 
-	for i := 0; i < len(pos); i++ {
+func TestFRI(t *testing.T) {
 
-		u, v := convert(pos[i], n)
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
 
-		var g1, g2, r1, r2 fr.Element
-		g1.Exp(g, &u).Square(&g1)
-		g2.Exp(g, &v).Square(&g2)
+	properties := gopter.NewProperties(parameters)
 
-		if !g1.Equal(&g2) {
-			t.Fatal("g1 and g2 are not in the same fiber")
-		}
-		g.Square(&g)
-		n = n >> 1
-		if i < len(pos)-1 {
-			u, v := convert(pos[i+1], n)
-			r1.Exp(g, &u)
-			r2.Exp(g, &v)
-			if !g1.Equal(&r1) && !g2.Equal(&r2) {
-				t.Fatal("g1 and g2 are not in the correct fiber")
+	size := 4096
+
+	properties.Property("Derive queries position: points should belong the same fiber", prop.ForAll(
+
+		func(m int32) bool {
+
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
+
+			var r, g fr.Element
+
+			_m := big.NewInt(int64(m))
+			r.Exp(s.domains[0].Generator, _m)
+			pos := s.deriveQueriesPositions(r)
+			g.Set(&s.domains[0].Generator)
+			n := int(s.domains[0].Cardinality)
+
+			for i := 0; i < len(pos); i++ {
+
+				u, v := convert(pos[i], n)
+
+				var g1, g2 fr.Element
+				g1.Exp(g, &u).Square(&g1)
+				g2.Exp(g, &v).Square(&g2)
+
+				if !g1.Equal(&g2) {
+					return false
+				}
+				g.Square(&g)
+				n = n >> 1
 			}
-		}
-	}
+			return true
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
+	properties.Property("Derive queries position: points should belong the correct fiber", prop.ForAll(
+
+		func(m int32) bool {
+
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
+			var r, g fr.Element
+			r.Mul(&s.domains[0].Generator, &s.domains[0].Generator).Mul(&r, &s.domains[0].Generator)
+			pos := s.deriveQueriesPositions(r)
+			g.Set(&s.domains[0].Generator)
+			n := int(s.domains[0].Cardinality)
+
+			for i := 0; i < len(pos); i++ {
+
+				u, v := convert(pos[i], n)
+
+				var g1, g2, r1, r2 fr.Element
+				g1.Exp(g, &u).Square(&g1)
+				g2.Exp(g, &v).Square(&g2)
+				g.Square(&g)
+				n = n >> 1
+				if i < len(pos)-1 {
+					u, v := convert(pos[i+1], n)
+					r1.Exp(g, &u)
+					r2.Exp(g, &v)
+					if !g1.Equal(&r1) && !g2.Equal(&r2) {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
+	properties.Property("verifying a correctly formed proof should succeed", prop.ForAll(
+
+		func(s int32) bool {
+
+			p := randomPolynomial(uint64(size), s)
+
+			iop := RADIX_2_FRI.New(uint64(size), sha256.New())
+			proof, err := iop.BuildProofOfProximity(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = iop.VerifyProofOfProximity(proof)
+			return err == nil
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 }
 
 // Benchmarks
