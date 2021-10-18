@@ -41,6 +41,16 @@ func main() {
 			defer wg.Done()
 			conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
 			conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
+
+			// sanity checks
+			info := conf.ID().Info()
+			if info.Fp.Bits != conf.Fp.NbBits {
+				panic("fp bits mismatch " + conf.Name)
+			}
+			if info.Fr.Bits != conf.Fr.NbBits {
+				panic("fr bits mismatch " + conf.Name)
+			}
+
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
