@@ -28,71 +28,53 @@ var (
 
 // Transcript handles the creation of challenges for Fiat Shamir.
 type Transcript struct {
-
-	// stores the current round number. Each time a challenge is generated,
-	// the round variable is incremented.
-	nbChallenges int
-
-	// challengeOrder maps the challenge's name to a number corresponding to its order.
-	challengeOrder map[string]int
-
-	// bindings stores the variables a challenge is binded to.
-	// The i-th entry stores the variables to which the i-th challenge is binded to.
-	bindings [][]byte
-
-	// challenges stores the computed challenges. The i-th entry stores the i-th computed challenge.
-	challenges [][]byte
-
-	// boolean table telling if the i-th challenge has been computed.
-	isComputed []bool
-
 	// hash function that is used.
 	h hash.Hash
+
+	challenges map[string]challenge
+	previous   *challenge
+}
+
+type challenge struct {
+	position   int    // position of the challenge in the transcript. order matters.
+	bindings   []byte // bindings stores the variables a challenge is binded to.
+	value      []byte // value stores the computed challenge
+	isComputed bool
 }
 
 // NewTranscript returns a new transcript.
 // h is the hash function that is used to compute the challenges.
-// challenges are the name of the challenges. The order is important.
-func NewTranscript(h hash.Hash, challenges ...string) Transcript {
-
-	var res Transcript
-
-	res.nbChallenges = len(challenges)
-
-	res.challengeOrder = make(map[string]int)
-	for i := 0; i < len(challenges); i++ {
-		res.challengeOrder[challenges[i]] = i
+// challenges are the name of the challenges. The order of the challenges IDs matters.
+func NewTranscript(h hash.Hash, challengesID ...string) Transcript {
+	n := len(challengesID)
+	t := Transcript{
+		challenges: make(map[string]challenge, n),
+		h:          h,
 	}
 
-	res.bindings = make([][]byte, res.nbChallenges)
-	res.challenges = make([][]byte, res.nbChallenges)
-	for i := 0; i < res.nbChallenges; i++ {
-		res.bindings[i] = make([]byte, 0)
+	for i := 0; i < n; i++ {
+		t.challenges[challengesID[i]] = challenge{position: i}
 	}
 
-	res.isComputed = make([]bool, res.nbChallenges)
-
-	res.h = h
-
-	return res
+	return t
 }
 
 // Bind binds the challenge to value. A challenge can be binded to an
 // arbitrary number of values, but the order in which the binded values
 // are added is important. Once a challenge is computed, it cannot be
 // binded to other values.
-func (m *Transcript) Bind(challenge string, value []byte) error {
+func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
-	challengeNumber, ok := m.challengeOrder[challenge]
-
+	challenge, ok := t.challenges[challengeID]
 	if !ok {
 		return errChallengeNotFound
 	}
 
-	if m.isComputed[challengeNumber] {
+	if challenge.isComputed {
 		return errChallengeAlreadyComputed
 	}
-	m.bindings[challengeNumber] = append(m.bindings[challengeNumber], value...)
+	challenge.bindings = append(challenge.bindings, bValue...)
+	t.challenges[challengeID] = challenge
 
 	return nil
 
@@ -102,53 +84,54 @@ func (m *Transcript) Bind(challenge string, value []byte) error {
 // The challenge is:
 // * H(name || previous_challenge || binded_values...) if the challenge is not the first one
 // * H(name || binded_values... ) if it's is the first challenge
-func (m *Transcript) ComputeChallenge(challenge string) ([]byte, error) {
+func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
-	challengeNumber, ok := m.challengeOrder[challenge]
+	challenge, ok := t.challenges[challengeID]
 	if !ok {
 		return nil, errChallengeNotFound
 	}
 
 	// if the challenge was already computed we return it
-	if m.isComputed[challengeNumber] {
-		return m.challenges[challengeNumber], nil
+	if challenge.isComputed {
+		return challenge.value, nil
 	}
 
 	// reset before populating the internal state
-	m.h.Reset()
+	t.h.Reset()
+	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	bName := []byte(challenge)
-	if _, err := m.h.Write(bName); err != nil {
+	bName := []byte(challengeID)
+	if _, err := t.h.Write(bName); err != nil {
 		return nil, err
 	}
 
 	// write the previous challenge if it's not the first challenge
-	if challengeNumber != 0 {
-		if !m.isComputed[challengeNumber-1] {
+	if challenge.position != 0 {
+		if t.previous == nil || (t.previous.position != challenge.position-1) {
 			return nil, errPreviousChallengeNotComputed
 		}
-		bPreviousChallenge := m.challenges[challengeNumber-1]
-		if _, err := m.h.Write(bPreviousChallenge[:]); err != nil {
+		if _, err := t.h.Write(t.previous.value[:]); err != nil {
 			return nil, err
 		}
 	}
 
 	// write the binded values in the order they were added
-	if _, err := m.h.Write(m.bindings[challengeNumber]); err != nil {
+	if _, err := t.h.Write(challenge.bindings); err != nil {
 		return nil, err
 	}
 
 	// compute the hash of the accumulated values
-	res := m.h.Sum(nil)
+	t.h.Sum(challenge.value)
 
-	m.challenges[challengeNumber] = make([]byte, len(res))
-	copy(m.challenges[challengeNumber], res)
-	m.isComputed[challengeNumber] = true
+	challenge.isComputed = true
+	t.challenges[challengeID] = challenge
 
-	// reset the hash function in case it is used for other things
-	m.h.Reset()
+	t.previous = &challenge
 
-	return res, nil
+	r := make([]byte, len(challenge.value))
+	copy(r, challenge.value)
+
+	return r, nil
 
 }
