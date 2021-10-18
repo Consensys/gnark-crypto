@@ -77,83 +77,17 @@ func (id ID) Info() Info {
 	// values are checked for non regression in code generation
 	switch id {
 	case BLS12_377:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BLS12_377.Fp.NbBits,
-				Bytes:   config.BLS12_377.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_377.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BLS12_377.Fr.NbBits,
-				Bytes:   config.BLS12_377.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_377.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BLS12_377)
 	case BLS12_381:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BLS12_381.Fp.NbBits,
-				Bytes:   config.BLS12_381.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_381.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BLS12_381.Fr.NbBits,
-				Bytes:   config.BLS12_381.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_381.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BLS12_381)
 	case BN254:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BN254.Fp.NbBits,
-				Bytes:   config.BN254.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BN254.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BN254.Fr.NbBits,
-				Bytes:   config.BN254.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BN254.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BN254)
 	case BW6_761:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BW6_761.Fp.NbBits,
-				Bytes:   config.BW6_761.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_761.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BW6_761.Fr.NbBits,
-				Bytes:   config.BW6_761.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_761.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BW6_761)
 	case BW6_633:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BW6_633.Fp.NbBits,
-				Bytes:   config.BW6_633.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_633.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BW6_633.Fr.NbBits,
-				Bytes:   config.BW6_633.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_633.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BW6_633)
 	case BLS24_315:
-		return Info{
-			Fp: fieldInfo{
-				Bits:    config.BLS24_315.Fp.NbBits,
-				Bytes:   config.BLS24_315.Fp.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS24_315.Fp.ModulusBig) },
-			},
-			Fr: fieldInfo{
-				Bits:    config.BLS24_315.Fr.NbBits,
-				Bytes:   config.BLS24_315.Fr.NbWords * 8,
-				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS24_315.Fr.ModulusBig) },
-			},
-		}
+		return newInfo(&config.BLS24_315)
 	default:
 		panic("unimplemented ecc ID")
 	}
@@ -163,6 +97,21 @@ type fieldInfo struct {
 	Bits    int
 	Bytes   int
 	Modulus func() *big.Int
+}
+
+func newInfo(config *config.Curve) Info {
+	return Info{
+		Fp: fieldInfo{
+			Bits:    config.Fp.NbBits,
+			Bytes:   config.Fp.NbWords * 8,
+			Modulus: func() *big.Int { return new(big.Int).Set(config.Fp.ModulusBig) },
+		},
+		Fr: fieldInfo{
+			Bits:    config.Fr.NbBits,
+			Bytes:   config.Fr.NbWords * 8,
+			Modulus: func() *big.Int { return new(big.Int).Set(config.Fr.ModulusBig) },
+		},
+	}
 }
 
 // Info contains constants related to a curve
