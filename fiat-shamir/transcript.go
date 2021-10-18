@@ -122,16 +122,15 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	}
 
 	// compute the hash of the accumulated values
-	t.h.Sum(challenge.value)
+	res := t.h.Sum(nil)
 
+	challenge.value = make([]byte, len(res))
+	copy(challenge.value, res)
 	challenge.isComputed = true
-	t.challenges[challengeID] = challenge
 
+	t.challenges[challengeID] = challenge
 	t.previous = &challenge
 
-	r := make([]byte, len(challenge.value))
-	copy(r, challenge.value)
-
-	return r, nil
+	return res, nil
 
 }
