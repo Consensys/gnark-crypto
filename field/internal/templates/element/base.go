@@ -231,11 +231,17 @@ func One() {{.ElementName}} {
 
 // Halve sets z to z / 2 (mod p) 
 func (z *{{.ElementName}}) Halve()  {
-	if z[0]&1 == 1 {
-		var carry uint64
-		{{ template "add_q" dict "all" . "V1" "z" }}
-	}
-	{{ rsh "z" .NbWords}}
+	{{- if .NoCarry}}
+		if z[0]&1 == 1 {
+			var carry uint64
+			{{ template "add_q" dict "all" . "V1" "z" }}
+		}
+		{{ rsh "z" .NbWords}}
+	{{ else}}
+		var twoInv {{.ElementName}}
+		twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
+		z.Mul(z, &twoInv)
+	{{end}}
 }
 
 
