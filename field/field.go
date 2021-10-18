@@ -29,6 +29,7 @@ var (
 type Field struct {
 	PackageName          string
 	ElementName          string
+	ModulusBig           *big.Int
 	Modulus              string
 	ModulusHex           string
 	NbWords              int
@@ -74,6 +75,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		ElementName: elementName,
 		Modulus:     modulus,
 		ModulusHex:  bModulus.Text(16),
+		ModulusBig:  new(big.Int).Set(&bModulus),
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()

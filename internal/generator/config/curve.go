@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/field"
 )
 
@@ -21,23 +20,14 @@ type Curve struct {
 	G2           Point
 }
 
-func (c *Curve) ID() ecc.ID {
-	switch c.Name {
-	case "bn254":
-		return ecc.BN254
-	case "bls12-381":
-		return ecc.BLS12_381
-	case "bls12-377":
-		return ecc.BLS12_377
-	case "bw6-761":
-		return ecc.BW6_761
-	case "bw6-633":
-		return ecc.BW6_633
-	case "bls24-315":
-		return ecc.BLS24_315
-	default:
-		panic("not implemented")
-	}
+func (conf *Curve) init() {
+	conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
+	conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
+	conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+}
+
+func (c Curve) Equal(other Curve) bool {
+	return c.Name == other.Name
 }
 
 type Point struct {

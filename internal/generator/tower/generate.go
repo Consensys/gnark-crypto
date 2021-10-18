@@ -6,14 +6,13 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/tower/asm/amd64"
 )
 
 // Generate generates a tower 2->6->12 over fp
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	if conf.ID() == ecc.BW6_761 || conf.ID() == ecc.BW6_633 || conf.ID() == ecc.BLS24_315 {
+	if conf.Equal(config.BW6_761) || conf.Equal(config.BW6_633) || conf.Equal(config.BLS24_315) {
 		return nil
 	}
 
@@ -42,7 +41,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			return err
 		}
 
-		if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
+		if conf.Equal(config.BN254) || conf.Equal(config.BLS12_381) {
 			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
 		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
@@ -54,7 +53,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 	}
 
-	if conf.ID() == ecc.BN254 || conf.ID() == ecc.BLS12_381 {
+	if conf.Equal(config.BN254) || conf.Equal(config.BLS12_381) {
 		{
 			// fq2 assembly
 			fName := filepath.Join(baseDir, "e2_adx_amd64.s")

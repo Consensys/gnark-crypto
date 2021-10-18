@@ -26,6 +26,12 @@ limitations under the License.
 //	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
 
+import (
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/internal/generator/config"
+)
+
 // ID represent a unique ID for a curve
 type ID uint16
 
@@ -46,6 +52,7 @@ func Implemented() []ID {
 }
 
 func (id ID) String() string {
+	// TODO link with config.XXX.Name ?
 	switch id {
 	case BLS12_377:
 		return "bls12_377"
@@ -70,25 +77,92 @@ func (id ID) Info() Info {
 	// values are checked for non regression in code generation
 	switch id {
 	case BLS12_377:
-		return Info{Fp: fieldInfo{Bits: 377, Bytes: 48}, Fr: fieldInfo{Bits: 253, Bytes: 32}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BLS12_377.Fp.NbBits,
+				Bytes:   config.BLS12_377.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_377.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BLS12_377.Fr.NbBits,
+				Bytes:   config.BLS12_377.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_377.Fr.ModulusBig) },
+			},
+		}
 	case BLS12_381:
-		return Info{Fp: fieldInfo{Bits: 381, Bytes: 48}, Fr: fieldInfo{Bits: 255, Bytes: 32}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BLS12_381.Fp.NbBits,
+				Bytes:   config.BLS12_381.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_381.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BLS12_381.Fr.NbBits,
+				Bytes:   config.BLS12_381.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS12_381.Fr.ModulusBig) },
+			},
+		}
 	case BN254:
-		return Info{Fp: fieldInfo{Bits: 254, Bytes: 32}, Fr: fieldInfo{Bits: 254, Bytes: 32}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BN254.Fp.NbBits,
+				Bytes:   config.BN254.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BN254.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BN254.Fr.NbBits,
+				Bytes:   config.BN254.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BN254.Fr.ModulusBig) },
+			},
+		}
 	case BW6_761:
-		return Info{Fp: fieldInfo{Bits: 761, Bytes: 96}, Fr: fieldInfo{Bits: 377, Bytes: 48}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BW6_761.Fp.NbBits,
+				Bytes:   config.BW6_761.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_761.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BW6_761.Fr.NbBits,
+				Bytes:   config.BW6_761.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_761.Fr.ModulusBig) },
+			},
+		}
 	case BW6_633:
-		return Info{Fp: fieldInfo{Bits: 633, Bytes: 80}, Fr: fieldInfo{Bits: 315, Bytes: 40}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BW6_633.Fp.NbBits,
+				Bytes:   config.BW6_633.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_633.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BW6_633.Fr.NbBits,
+				Bytes:   config.BW6_633.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BW6_633.Fr.ModulusBig) },
+			},
+		}
 	case BLS24_315:
-		return Info{Fp: fieldInfo{Bits: 315, Bytes: 40}, Fr: fieldInfo{Bits: 253, Bytes: 32}}
+		return Info{
+			Fp: fieldInfo{
+				Bits:    config.BLS24_315.Fp.NbBits,
+				Bytes:   config.BLS24_315.Fp.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS24_315.Fp.ModulusBig) },
+			},
+			Fr: fieldInfo{
+				Bits:    config.BLS24_315.Fr.NbBits,
+				Bytes:   config.BLS24_315.Fr.NbWords * 8,
+				Modulus: func() *big.Int { return new(big.Int).Set(config.BLS24_315.Fr.ModulusBig) },
+			},
+		}
 	default:
 		panic("unimplemented ecc ID")
 	}
 }
 
 type fieldInfo struct {
-	Bits  int
-	Bytes int
+	Bits    int
+	Bytes   int
+	Modulus func() *big.Int
 }
 
 // Info contains constants related to a curve

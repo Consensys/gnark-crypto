@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
@@ -39,27 +38,8 @@ func main() {
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
-			conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
-			conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
 
-			// sanity checks
-			info := conf.ID().Info()
-			if info.Fp.Bits != conf.Fp.NbBits {
-				panic("fp bits mismatch " + conf.Name)
-			}
-			if info.Fr.Bits != conf.Fr.NbBits {
-				panic("fr bits mismatch " + conf.Name)
-			}
-			if info.Fp.Bytes != (conf.Fp.NbWords * 8) {
-				panic("fp Bytes mismatch " + conf.Name)
-			}
-			if info.Fr.Bytes != (conf.Fr.NbWords * 8) {
-				panic("fr Bytes mismatch " + conf.Name)
-			}
-
-			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
-
 			// generate base field
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
