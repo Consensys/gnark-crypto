@@ -291,6 +291,32 @@ func One() Element {
 	return one
 }
 
+// Halve sets z to z / 2 (mod p)
+func (z *Element) Halve() {
+	if z[0]&1 == 1 {
+		var carry uint64
+
+		// z = z + q
+		z[0], carry = bits.Add64(z[0], 9586122913090633729, 0)
+		z[1], carry = bits.Add64(z[1], 1660523435060625408, carry)
+		z[2], carry = bits.Add64(z[2], 2230234197602682880, carry)
+		z[3], carry = bits.Add64(z[3], 1883307231910630287, carry)
+		z[4], carry = bits.Add64(z[4], 14284016967150029115, carry)
+		z[5], _ = bits.Add64(z[5], 121098312706494698, carry)
+
+	}
+
+	// z = z >> 1
+
+	z[0] = z[0]>>1 | z[1]<<63
+	z[1] = z[1]>>1 | z[2]<<63
+	z[2] = z[2]>>1 | z[3]<<63
+	z[3] = z[3]>>1 | z[4]<<63
+	z[4] = z[4]>>1 | z[5]<<63
+	z[5] >>= 1
+
+}
+
 // API with assembly impl
 
 // Mul z = x * y mod q

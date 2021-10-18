@@ -183,9 +183,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 
 	// get some Element from our pool
-	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E4
-	t0.Mul(&p.x, &p.y)
-	A.Halve(&t0)
+	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E4
+	A.Mul(&p.x, &p.y)
+	A.Halve()
 	B.Square(&p.y)
 	C.Square(&p.z)
 	D.Double(&C).
@@ -194,7 +194,7 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)
-	G.Halve(&G)
+	G.Halve()
 	H.Add(&p.y, &p.z).
 		Square(&H)
 	t1.Add(&B, &C)

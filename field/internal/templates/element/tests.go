@@ -183,8 +183,6 @@ func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
 	}
 }
 
-
-
 func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	x := {{.ElementName}}{
 		{{- range $i := .RSquare}}
@@ -958,6 +956,40 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 }
 
 {{ end }}
+
+
+
+func Test{{toTitle .ElementName}}Halve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	var twoInv {{.ElementName}}
+	twoInv.SetUint64(2)
+	twoInv.Inverse(&twoInv)
+
+	properties.Property("z.Halve must match z / 2", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.Halve()
+			d.Mul(&d, &twoInv)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 
 
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
