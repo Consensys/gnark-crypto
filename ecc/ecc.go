@@ -70,30 +70,30 @@ func (id ID) Info() Info {
 	// values are checked for non regression in code generation
 	switch id {
 	case BLS12_377:
-		return Info{Fp: struct{ Bits int }{377}, Fr: struct{ Bits int }{253}}
+		return Info{Fp: fieldInfo{Bits: 377, Bytes: 48}, Fr: fieldInfo{Bits: 253, Bytes: 32}}
 	case BLS12_381:
-		return Info{Fp: struct{ Bits int }{381}, Fr: struct{ Bits int }{255}}
+		return Info{Fp: fieldInfo{Bits: 381, Bytes: 48}, Fr: fieldInfo{Bits: 255, Bytes: 32}}
 	case BN254:
-		return Info{Fp: struct{ Bits int }{254}, Fr: struct{ Bits int }{254}}
+		return Info{Fp: fieldInfo{Bits: 254, Bytes: 32}, Fr: fieldInfo{Bits: 254, Bytes: 32}}
 	case BW6_761:
-		return Info{Fp: struct{ Bits int }{761}, Fr: struct{ Bits int }{377}}
+		return Info{Fp: fieldInfo{Bits: 761, Bytes: 96}, Fr: fieldInfo{Bits: 377, Bytes: 48}}
 	case BW6_633:
-		return Info{Fp: struct{ Bits int }{633}, Fr: struct{ Bits int }{315}}
+		return Info{Fp: fieldInfo{Bits: 633, Bytes: 80}, Fr: fieldInfo{Bits: 315, Bytes: 40}}
 	case BLS24_315:
-		return Info{Fp: struct{ Bits int }{315}, Fr: struct{ Bits int }{253}}
+		return Info{Fp: fieldInfo{Bits: 315, Bytes: 40}, Fr: fieldInfo{Bits: 253, Bytes: 32}}
 	default:
 		panic("unimplemented ecc ID")
 	}
 }
 
+type fieldInfo struct {
+	Bits  int
+	Bytes int
+}
+
 // Info contains constants related to a curve
 type Info struct {
-	Fp struct {
-		Bits int
-	}
-	Fr struct {
-		Bits int
-	}
+	Fp, Fr fieldInfo
 }
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp

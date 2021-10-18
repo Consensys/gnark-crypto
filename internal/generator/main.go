@@ -50,6 +50,12 @@ func main() {
 			if info.Fr.Bits != conf.Fr.NbBits {
 				panic("fr bits mismatch " + conf.Name)
 			}
+			if info.Fp.Bytes != (conf.Fp.NbWords * 8) {
+				panic("fp Bytes mismatch " + conf.Name)
+			}
+			if info.Fr.Bytes != (conf.Fr.NbWords * 8) {
+				panic("fr Bytes mismatch " + conf.Name)
+			}
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
