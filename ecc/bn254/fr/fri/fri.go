@@ -159,13 +159,13 @@ func convertSortedCanonical(i, n int) int {
 // the folded function.
 func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 
-	res := make([]int, s.nbSteps)
+	res := make([]int, s.nbSteps+1)
 
 	l := s.log(a, s.domains[0].Generator)
 	n := int(s.domains[0].Cardinality)
 
 	// first we convert from canonical indexation to sorted indexation
-	for i := 0; i < s.nbSteps; i++ {
+	for i := 0; i < s.nbSteps+1; i++ {
 
 		// canonical --> sorted
 		if l < n/2 {
@@ -246,10 +246,11 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 	proof.interactions = make([][]partialMerkleProof, s.nbSteps)
 
 	// Fiat Shamir transcript to derive the challenges
-	xis := make([]string, s.nbSteps)
+	xis := make([]string, s.nbSteps+1)
 	for i := 0; i < s.nbSteps; i++ {
 		xis[i] = fmt.Sprintf("x%d", i)
 	}
+	xis[s.nbSteps] = "s0"
 	fs := fiatshamir.NewTranscript(s.h, xis...)
 
 	// step 1 : fold the polynomial using the xi
@@ -308,8 +309,21 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 	// step 2: provide the Merkle proofs of the queries
 
 	// derive the verifier queries
-	// TODO use Fiat Shamir, for the moment take g
-	si := s.deriveQueriesPositions(s.domains[0].Generator)
+	for i := 0; i < len(proof.evaluation); i++ {
+		err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
+		if err != nil {
+			return proof, err
+		}
+	}
+	binSeed, err := fs.ComputeChallenge(xis[s.nbSteps])
+	if err != nil {
+		return proof, err
+	}
+	var bigSeed big.Int
+	bigSeed.SetBytes(binSeed[:s.nbSteps/8+1]) // only the first nbSteps bits are relevant
+	var gen fr.Element
+	gen.Exp(s.domains[0].Generator, &bigSeed)
+	si := s.deriveQueriesPositions(gen)
 
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -349,12 +363,14 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	// Fiat Shamir transcript to derive the challenges
-	xis := make([]string, s.nbSteps)
+	xis := make([]string, s.nbSteps+1)
 	for i := 0; i < s.nbSteps; i++ {
 		xis[i] = fmt.Sprintf("x%d", i)
 	}
+	xis[s.nbSteps] = "s0"
 	fs := fiatshamir.NewTranscript(s.h, xis...)
 	xi := make([]fr.Element, s.nbSteps)
+
 	for i := 0; i < s.nbSteps; i++ {
 		fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
 		bxi, err := fs.ComputeChallenge(xis[i])
@@ -364,14 +380,26 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 		xi[i].SetBytes(bxi)
 	}
 
-	// derive the si
-	// TODO use FiatShamir
-	si := s.deriveQueriesPositions(s.domains[0].Generator)
-
-	var twoInv fr.Element
-	twoInv.SetUint64(2).Inverse(&twoInv)
+	// derive the verifier queries
+	for i := 0; i < len(proof.evaluation); i++ {
+		err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
+		if err != nil {
+			return err
+		}
+	}
+	binSeed, err := fs.ComputeChallenge(xis[s.nbSteps])
+	if err != nil {
+		return err
+	}
+	var bigSeed big.Int
+	bigSeed.SetBytes(binSeed[:s.nbSteps/8+1]) // only the first nbSteps bits are relevant
+	var gen fr.Element
+	gen.Exp(s.domains[0].Generator, &bigSeed)
+	si := s.deriveQueriesPositions(gen)
 
 	// for each round check the Merkle proof and the correctness of the folding
+	var twoInv fr.Element
+	twoInv.SetUint64(2).Inverse(&twoInv)
 	for i := 0; i < len(proof.interactions); i++ {
 
 		// correctness of Merkle proof
@@ -413,7 +441,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 			fe.Add(&l, &r).Mul(&fe, &twoInv)
 
 			// odd part
-			m := convertSortedCanonical(si[i], int(s.domains[i].Cardinality))
+			m := convertSortedCanonical(si[i]-(si[i]%2), int(s.domains[i].Cardinality))
 			bm := big.NewInt(int64(m))
 			var ginv fr.Element
 			ginv.Set(&s.domains[i].GeneratorInv).Exp(ginv, bm)
@@ -437,12 +465,12 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	fe.Add(&l, &r).Mul(&fe, &twoInv)
 
 	// odd part
-	m := convertSortedCanonical(si[s.nbSteps-1], int(s.domains[s.nbSteps-1].Cardinality))
+	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), int(s.domains[s.nbSteps-1].Cardinality))
 	bm := big.NewInt(int64(m))
 	var ginv fr.Element
 	ginv.Set(&s.domains[s.nbSteps-1].GeneratorInv).Exp(ginv, bm)
 	fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
-	_si := convertSortedCanonical(si[s.nbSteps-1], rho)
+	_si := convertSortedCanonical(si[s.nbSteps], rho)
 	fn.Set(&proof.evaluation[_si])
 
 	// folding

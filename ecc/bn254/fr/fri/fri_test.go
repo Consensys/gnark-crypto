@@ -12,12 +12,14 @@ import (
 
 func TestBuildProofOfProximity(t *testing.T) {
 
-	p := polynomial.New(8)
-	for i := 0; i < 8; i++ {
+	size := uint64(8)
+
+	p := polynomial.New(size)
+	for i := 0; i < int(size); i++ {
 		p[i].SetUint64(3 << i)
 	}
 
-	iop := RADIX_2_FRI.New(8, sha256.New())
+	iop := RADIX_2_FRI.New(size, sha256.New())
 	proof, err := iop.BuildProofOfProximity(p)
 	if err != nil {
 		t.Fatal(err)
@@ -32,12 +34,12 @@ func TestBuildProofOfProximity(t *testing.T) {
 
 func TestDeriveQueriesPositions(t *testing.T) {
 
-	_s := RADIX_2_FRI.New(16, sha256.New())
+	_s := RADIX_2_FRI.New(8, sha256.New())
 	s := _s.(radixTwoFri)
 	var r, g fr.Element
 	r.Mul(&s.domains[0].Generator, &s.domains[0].Generator).Mul(&r, &s.domains[0].Generator)
-	g.Set(&s.domains[0].Generator)
 	pos := s.deriveQueriesPositions(r)
+	g.Set(&s.domains[0].Generator)
 	n := int(s.domains[0].Cardinality)
 
 	// conversion of indices from ordered to canonical, _n is the size of the slice
