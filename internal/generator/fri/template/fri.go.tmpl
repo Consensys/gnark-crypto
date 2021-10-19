@@ -322,7 +322,10 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	xi := make([]fr.Element, s.nbSteps)
 
 	for i := 0; i < s.nbSteps; i++ {
-		fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
+		err := fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
+		if err != nil {
+			return err
+		}
 		bxi, err := fs.ComputeChallenge(xis[i])
 		if err != nil {
 			return err
