@@ -1,7 +1,6 @@
 package fri
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"hash"
@@ -35,12 +34,6 @@ type partialMerkleProof struct {
 
 // Iopp interface that an iopp should implement
 type Iopp interface {
-
-	// Commit returns the commitment to a polynomial p.
-	// The commitment is the root of the Merkle tree corresponding
-	// to the Reed Solomon code formed by p.
-	// p is not modified after the function call.
-	Commit(p polynomial.Polynomial, h hash.Hash) (Digest, error)
 
 	// BuildProofOfProximity creates a proof of proximity that p is d-close to a polynomial
 	// of degree len(p). The proof is built non interactively using Fiat Shamir.
@@ -190,45 +183,6 @@ func sort(evaluations polynomial.Polynomial) polynomial.Polynomial {
 		q[2*i+1].Set(&evaluations[i+n])
 	}
 	return q
-}
-
-// Commit returns the commitment to a polynomial p.
-// The commitment is the root of the Merkle tree corresponding
-// to the Reed Solomon code formed by p.
-// p is not modified after the function call.
-func (s radixTwoFri) Commit(p polynomial.Polynomial, h hash.Hash) (Digest, error) {
-
-	c := s.domains[0].Cardinality
-
-	_p := polynomial.New(c)
-	copy(_p, p)
-
-	s.domains[0].FFT(_p, fft.DIF, 0)
-	fft.BitReverse(_p)
-
-	var buf bytes.Buffer
-
-	for i := 0; i < len(_p)/2; i++ {
-
-		// to ease up the query process, that is to minimize the size of the Merkle proof,
-		// the oracle stores the evaluations of _p such that contiguous elements belong to
-		// the same fiber.
-		_, err := buf.Write(_p[i].Marshal())
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = buf.Write(_p[i+len(_p)/2].Marshal())
-		if err != nil {
-			return nil, err
-		}
-	}
-	tree := merkletree.New(h)
-	err := tree.ReadAll(&buf, fr.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	return tree.Root(), nil
 }
 
 // BuildProofOfProximity generates a proof that a function, given as an oracle from
