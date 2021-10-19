@@ -67,7 +67,7 @@ func computeX(y *fr.Element) (x fr.Element) {
 	num.Square(y)
 	den.Mul(&num, &edwards.D)
 	num.Sub(&one, &num)
-	den.Sub(&edwards.A, &den)
+	den.Add(&one, &den).Neg(&den)
 	x.Div(&num, &den)
 	x.Sqrt(&x)
 	return
