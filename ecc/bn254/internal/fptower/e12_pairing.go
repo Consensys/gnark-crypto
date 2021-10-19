@@ -88,3 +88,36 @@ func (z *E12) MulBy034(c0, c3, c4 *E2) *E12 {
 
 	return z
 }
+
+// Mul034By034 multiplication of sparse element (c0,0,0,c3,c4,0) by sparse element (d0,0,0,d3,d4,0)
+func (z *E12) Mul034by034(d0, d3, d4, c0, c3, c4 *E2) *E12 {
+	var tmp, x0, x3, x4, x04, x03, x34 E2
+	x0.Mul(c0, d0)
+	x3.Mul(c3, d3)
+	x4.Mul(c4, d4)
+	tmp.Add(c0, c4)
+	x04.Add(d0, d4).
+		Mul(&x04, &tmp).
+		Sub(&x04, &x0).
+		Sub(&x04, &x4)
+	tmp.Add(c0, c3)
+	x03.Add(d0, d3).
+		Mul(&x03, &tmp).
+		Sub(&x03, &x0).
+		Sub(&x03, &x3)
+	tmp.Add(c3, c4)
+	x34.Add(d3, d4).
+		Mul(&x34, &tmp).
+		Sub(&x34, &x3).
+		Sub(&x34, &x4)
+
+	z.C0.B0.MulByNonResidue(&x4).
+		Add(&z.C0.B0, &x0)
+	z.C0.B1.Set(&x3)
+	z.C0.B2.Set(&x34)
+	z.C1.B0.Set(&x03)
+	z.C1.B1.Set(&x04)
+	z.C1.B2.SetZero()
+
+	return z
+}

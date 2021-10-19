@@ -182,6 +182,8 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var Q1, Q2 G2Affine
+	var l0 lineEvaluation
+	var tmp GT
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	for k := 0; k < n; k++ {
 		//Q1 = Frob(Q)
@@ -192,17 +194,15 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		Q2.X.MulByNonResidue2Power2(&q[k].X)
 		Q2.Y.MulByNonResidue2Power3(&q[k].Y).Neg(&Q2.Y)
 
-		qProj[k].AddMixedStep(&l, &Q1)
-		// line evaluation
-		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		result.MulBy034(&l.r0, &l.r1, &l.r2)
+		qProj[k].AddMixedStep(&l0, &Q1)
+		l0.r0.MulByElement(&l0.r0, &p[k].Y)
+		l0.r1.MulByElement(&l0.r1, &p[k].X)
 
 		qProj[k].AddMixedStep(&l, &Q2)
-		// line evaluation
 		l.r0.MulByElement(&l.r0, &p[k].Y)
 		l.r1.MulByElement(&l.r1, &p[k].X)
-		result.MulBy034(&l.r0, &l.r1, &l.r2)
+		tmp.Mul034by034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+		result.Mul(&result, &tmp)
 	}
 
 	return result, nil

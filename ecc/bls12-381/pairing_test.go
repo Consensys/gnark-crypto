@@ -17,6 +17,7 @@
 package bls12381
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -251,7 +252,7 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 
 }
 
-func BenchmarkMultiPairing(b *testing.B) {
+func BenchmarkMultiMiller(b *testing.B) {
 
 	var g1GenAff G1Affine
 	var g2GenAff G2Affine
@@ -259,8 +260,46 @@ func BenchmarkMultiPairing(b *testing.B) {
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		Pair([]G1Affine{g1GenAff, g1GenAff, g1GenAff}, []G2Affine{g2GenAff, g2GenAff, g2GenAff})
+	n := 10
+	P := make([]G1Affine, n)
+	Q := make([]G2Affine, n)
+
+	for i := 2; i <= n; i++ {
+		for j := 0; j < i; j++ {
+			P[j].Set(&g1GenAff)
+			Q[j].Set(&g2GenAff)
+		}
+		b.Run(fmt.Sprintf("%d pairs", i), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				MillerLoop(P, Q)
+			}
+		})
+	}
+}
+
+func BenchmarkMultiPair(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	n := 10
+	P := make([]G1Affine, n)
+	Q := make([]G2Affine, n)
+
+	for i := 2; i <= n; i++ {
+		for j := 0; j < i; j++ {
+			P[j].Set(&g1GenAff)
+			Q[j].Set(&g2GenAff)
+		}
+		b.Run(fmt.Sprintf("%d pairs", i), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				Pair(P, Q)
+			}
+		})
 	}
 }
