@@ -6,9 +6,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
 
-// CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
+// CurveParams curve parameters: -x^2 + y^2 = 1 + d*x^2*y^2
 type CurveParams struct {
-	A, D     fr.Element // in Montgomery form
+	D        fr.Element // in Montgomery form
 	Cofactor fr.Element // not in Montgomery form
 	Order    big.Int
 	Base     PointAffine
@@ -21,7 +21,6 @@ func GetEdwardsCurve() CurveParams {
 	// copy to keep Order private
 	var res CurveParams
 
-	res.A.Set(&edwards.A)
 	res.D.Set(&edwards.D)
 	res.Cofactor.Set(&edwards.Cofactor)
 	res.Order.Set(&edwards.Order)
@@ -32,7 +31,6 @@ func GetEdwardsCurve() CurveParams {
 
 func init() {
 
-	edwards.A.SetOne().Neg(&edwards.A)
 	edwards.D.SetUint64(79743)
 	edwards.Cofactor.SetUint64(8).FromMont()
 	edwards.Order.SetString("32333053251621136751331591711861691692049189094364332567435817881934511297123972799646723302813083835942624121493", 10)
