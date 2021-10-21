@@ -306,22 +306,14 @@ func TestOps(t *testing.T) {
 
 			params := GetEdwardsCurve()
 
-			var p1, p2 PointAffine
-			p1.ScalarMul(&params.Base, &s1)
+			var baseProj, p1, p2, p PointProj
+			baseProj.FromAffine(&params.Base)
+			p1.ScalarMul(&baseProj, &s1)
 			p2.Neg(&p1)
 
-			var _p1, _p2 PointProj
-			_p1.FromAffine(&p1)
-			_p2.FromAffine(&p2)
-			_p1.Add(&_p1, &_p2)
+			p.Add(&p1, &p2)
 
-			var p PointAffine
-			p.FromProj(&_p1)
-
-			var one fr.Element
-			one.SetOne()
-
-			return p.X.IsZero() && p.Y.Equal(&one)
+			return p.X.IsZero() && p.Y.Equal(&p.Z)
 		},
 		genS1,
 	))
@@ -332,20 +324,53 @@ func TestOps(t *testing.T) {
 
 			params := GetEdwardsCurve()
 
-			var p1, p2, inf PointAffine
-			p1.ScalarMul(&params.Base, &s)
-			p2.ScalarMul(&params.Base, &s)
+			var baseProj, p1, p2, p PointProj
+			baseProj.FromAffine(&params.Base)
+			p.ScalarMul(&baseProj, &s)
 
-			var _p1, _p2 PointProj
-			_p1.FromAffine(&p1)
-			_p2.FromAffine(&p2)
-			_p1.Add(&_p1, &_p2)
-			_p2.Double(&_p2)
+			p1.Add(&p, &p)
+			p2.Double(&p)
 
-			p1.FromProj(&_p1)
-			p2.FromProj(&_p2)
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
 
-			return p1.Equal(&p2) && !p1.Equal(&inf)
+	// mixed
+	properties.Property("(mixed) P+(-P)=O", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, pProj, p PointProj
+			var pAffine PointAffine
+			baseProj.FromAffine(&params.Base)
+			pProj.ScalarMul(&baseProj, &s)
+			pAffine.ScalarMul(&params.Base, &s)
+			pAffine.Neg(&pAffine)
+
+			p.MixedAdd(&pProj, &pAffine)
+
+			return p.X.IsZero() && p.Y.Equal(&p.Z)
+		},
+		genS1,
+	))
+
+	properties.Property("(mixed) P+P=2*P", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, pProj, p, p2 PointProj
+			var pAffine PointAffine
+			baseProj.FromAffine(&params.Base)
+			pProj.ScalarMul(&baseProj, &s)
+			pAffine.ScalarMul(&params.Base, &s)
+
+			p.MixedAdd(&pProj, &pAffine)
+			p2.Double(&pProj)
+
+			return p.Equal(&p2)
 		},
 		genS1,
 	))
