@@ -195,6 +195,53 @@ func TestReceiverIsOperand(t *testing.T) {
 
 }
 
+func TestEndomorphism(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1
+
+	properties := gopter.NewProperties(parameters)
+	genS := GenBigInt()
+
+	properties.Property("phi^2+2=0 mod Order", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var p, p1, p2 PointProj
+			p.FromAffine(&params.Base).
+				ScalarMul(&p, &s)
+
+			p1.phi(&p).
+				phi(&p1)
+			p2.Double(&p).Neg(&p2)
+
+			return p1.Equal(&p2)
+		},
+		genS,
+	))
+
+	properties.Property("(projective) phi(P)=lambda*P", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var p, p1, p2 PointProj
+			p.FromAffine(&params.Base).
+				ScalarMul(&p, &s)
+
+			p1.ScalarMul(&p, &params.lambda)
+			p2.phi(&p)
+
+			return p1.Equal(&p2)
+		},
+		genS,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+
 func TestOps(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -336,6 +383,23 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	properties.Property("(projective) GLV should match basic scalar multiplication", prop.ForAll(
+
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, p1, p2 PointProj
+			baseProj.FromAffine(&params.Base)
+
+			p1.ScalarMulBasic(&baseProj, &s)
+			p2.ScalarMul(&baseProj, &s)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
 	// mixed
 	properties.Property("(mixed) P+(-P)=O", prop.ForAll(
 		func(s big.Int) bool {
@@ -407,4 +471,33 @@ func GenBigInt() gopter.Gen {
 		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
 		return genResult
 	}
+}
+
+// ------------------------------------------------------------
+// benches
+
+func BenchmarkScalarMul(b *testing.B) {
+	params := GetEdwardsCurve()
+	var a PointProj
+	var s big.Int
+	a.FromAffine(&params.Base)
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+	s.Add(&s, &params.Order)
+
+	var doubleAndAdd PointProj
+
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.ScalarMulBasic(&a, &s)
+		}
+	})
+
+	var glv PointProj
+	b.Run("GLV", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			glv.ScalarMul(&a, &s)
+		}
+	})
 }

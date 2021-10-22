@@ -19,9 +19,11 @@ package twistededwards
 import (
 	"crypto/subtle"
 	"io"
+	"math"
 	"math/big"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
@@ -84,7 +86,7 @@ func computeX(y *fr.Element) (x fr.Element) {
 	num.Square(y)
 	den.Mul(&num, &edwards.D)
 	num.Sub(&one, &num)
-	den.Add(&one, &den).Neg(&den)
+	den.Sub(&edwards.A, &den)
 	x.Div(&num, &den)
 	x.Sqrt(&x)
 	return
@@ -174,7 +176,7 @@ func (p *PointAffine) IsOnCurve() bool {
 
 	tmp.Mul(&p.Y, &p.Y)
 	lhs.Mul(&p.X, &p.X).
-		Neg(&lhs).
+		Mul(&lhs, &ecurve.A).
 		Add(&lhs, &tmp)
 
 	tmp.Mul(&p.X, &p.X).
@@ -198,9 +200,9 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yu.Mul(&p1.Y, &p2.X)
 	pRes.X.Add(&xv, &yu)
 
-	xu.Mul(&p1.X, &p2.X)
+	xu.Mul(&p1.X, &p2.X).Mul(&xu, &ecurve.A)
 	yv.Mul(&p1.Y, &p2.Y)
-	pRes.Y.Add(&yv, &xu)
+	pRes.Y.Sub(&yv, &xu)
 
 	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &ecurve.D)
 	one.SetOne()
@@ -217,19 +219,22 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 // modifies p
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
+	ecurve := GetEdwardsCurve()
 	p.Set(p1)
-	var xx, yy, xy, denum, two fr.Element
+
+	var xx, yy, xy, denum, two, tmp fr.Element
 	xx.Square(&p.X)
 	yy.Square(&p.Y)
 	xy.Mul(&p.X, &p.Y)
-	denum.Sub(&yy, &xx)
+	tmp.Mul(&xx, &ecurve.A)
+	denum.Add(&tmp, &yy)
 
 	p.X.Double(&xy).Div(&p.X, &denum)
 
 	two.SetOne().Double(&two)
 	denum.Neg(&denum).Add(&denum, &two)
 
-	p.Y.Add(&xx, &yy).Div(&p.Y, &denum)
+	p.Y.Sub(&yy, &tmp).Div(&p.Y, &denum)
 
 	return p
 }
@@ -280,6 +285,7 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &A).
 		Mul(&res.X, &F)
+	C.Mul(&C, &ecurve.A).Neg(&C)
 	res.Y.Add(&D, &C).
 		Mul(&res.Y, &A).
 		Mul(&res.Y, &G)
@@ -311,7 +317,8 @@ func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &p1.Z).
 		Mul(&res.X, &F)
-	res.Y.Add(&D, &C).
+	H.Mul(&ecurve.A, &C)
+	res.Y.Sub(&D, &H).
 		Mul(&res.Y, &p1.Z).
 		Mul(&res.Y, &G)
 	res.Z.Mul(&F, &G)
@@ -326,12 +333,14 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 
 	var res PointProj
 
+	ecurve := GetEdwardsCurve()
+
 	var B, C, D, E, F, H, J fr.Element
 
 	B.Add(&p1.X, &p1.Y).Square(&B)
 	C.Square(&p1.X)
 	D.Square(&p1.Y)
-	E.Neg(&C)
+	E.Mul(&ecurve.A, &C)
 	F.Add(&E, &D)
 	H.Square(&p1.Z)
 	J.Sub(&F, &H).Sub(&J, &H)
@@ -352,9 +361,9 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 	return p
 }
 
-// ScalarMul scalar multiplication of a point
+// ScalarMulBasic scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
-func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
+func (p *PointProj) ScalarMulBasic(p1 *PointProj, scalar *big.Int) *PointProj {
 
 	var _scalar big.Int
 	_scalar.Set(scalar)
@@ -394,5 +403,98 @@ func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 	resProj.ScalarMul(&p1Proj, scalar)
 	p.FromProj(&resProj)
 
+	return p
+}
+
+// phi endomorphism sqrt(-2) \in O(-8)
+// (x,y,z)->\lambda*(x,y,z) s.t. \lamba^2 = -2 mod Order
+func (p *PointProj) phi(p1 *PointProj) *PointProj {
+
+	ecurve := GetEdwardsCurve()
+
+	var zz, yy, xy, f, g, h fr.Element
+	zz.Square(&p1.Z)
+	yy.Square(&p1.Y)
+	xy.Mul(&p1.X, &p1.Y)
+	f.Sub(&zz, &yy).Mul(&f, &ecurve.endo[1])
+	zz.Mul(&zz, &ecurve.endo[0])
+	g.Add(&yy, &zz).Mul(&g, &ecurve.endo[0])
+	h.Sub(&yy, &zz)
+
+	p.X.Mul(&f, &h)
+	p.Y.Mul(&g, &xy)
+	p.Z.Mul(&h, &xy)
+
+	return p
+}
+
+// ScalarMul scalar multiplication (GLV) of a point
+// p1 in projective coordinates with a scalar in big.Int
+func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
+
+	ecurve := GetEdwardsCurve()
+
+	var table [15]PointProj
+	var zero big.Int
+	var res PointProj
+	var k1, k2 fr.Element
+
+	res.X.SetZero()
+	res.Y.SetOne()
+	res.Z.SetOne()
+
+	// table[b3b2b1b0-1] = b3b2*phi(p1) + b1b0*p1
+	table[0].Set(p1)
+	table[3].phi(p1)
+
+	// split the scalar, modifies +-p1, phi(p1) accordingly
+	k := ecc.SplitScalar(scalar, &ecurve.glvBasis)
+
+	if k[0].Cmp(&zero) == -1 {
+		k[0].Neg(&k[0])
+		table[0].Neg(&table[0])
+	}
+	if k[1].Cmp(&zero) == -1 {
+		k[1].Neg(&k[1])
+		table[3].Neg(&table[3])
+	}
+
+	// precompute table (2 bits sliding window)
+	// table[b3b2b1b0-1] = b3b2*phi(p1) + b1b0*p1 if b3b2b1b0 != 0
+	table[1].Double(&table[0])
+	table[2].Set(&table[1]).Add(&table[2], &table[0])
+	table[4].Set(&table[3]).Add(&table[4], &table[0])
+	table[5].Set(&table[3]).Add(&table[5], &table[1])
+	table[6].Set(&table[3]).Add(&table[6], &table[2])
+	table[7].Double(&table[3])
+	table[8].Set(&table[7]).Add(&table[8], &table[0])
+	table[9].Set(&table[7]).Add(&table[9], &table[1])
+	table[10].Set(&table[7]).Add(&table[10], &table[2])
+	table[11].Set(&table[7]).Add(&table[11], &table[3])
+	table[12].Set(&table[11]).Add(&table[12], &table[0])
+	table[13].Set(&table[11]).Add(&table[13], &table[1])
+	table[14].Set(&table[11]).Add(&table[14], &table[2])
+
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	k1.SetBigInt(&k[0]).FromMont()
+	k2.SetBigInt(&k[1]).FromMont()
+
+	// loop starts from len(k1)/2 due to the bounds
+	// fr.Limbs == Order.limbs
+	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
+		mask := uint64(3) << 62
+		for j := 0; j < 32; j++ {
+			res.Double(&res).Double(&res)
+			b1 := (k1[i] & mask) >> (62 - 2*j)
+			b2 := (k2[i] & mask) >> (62 - 2*j)
+			if b1|b2 != 0 {
+				scalar := (b2<<2 | b1)
+				res.Add(&res, &table[scalar-1])
+			}
+			mask = mask >> 2
+		}
+	}
+
+	p.Set(&res)
 	return p
 }
