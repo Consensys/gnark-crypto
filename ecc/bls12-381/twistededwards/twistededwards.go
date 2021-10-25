@@ -49,8 +49,7 @@ func GetEdwardsCurve() CurveParams {
 
 func init() {
 
-	// Bandersnatch curve
-	// https://eprint.iacr.org/2021/1152.pdf
+	// Jubjub curve
 	edwards.A.SetOne().Neg(&edwards.A)
 	edwards.D.SetString("19257038036680949359750312669786877991949435402254120286184196891950884077233") // -(10240/10241)
 	edwards.Cofactor.SetUint64(8).FromMont()

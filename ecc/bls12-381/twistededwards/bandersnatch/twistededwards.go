@@ -57,6 +57,8 @@ func GetEdwardsCurve() CurveParams {
 
 func init() {
 
+	// Bandersnatch
+	// https://eprint.iacr.org/2021/1152.pdf
 	edwards.A.SetUint64(5).Neg(&edwards.A)
 	edwards.D.SetString("45022363124591815672509500913686876175488063829319466900776701791074614335719") // -(138827208126141220649022263972958607803/171449701953573178309673572579671231137)
 	edwards.Cofactor.SetUint64(4).FromMont()
