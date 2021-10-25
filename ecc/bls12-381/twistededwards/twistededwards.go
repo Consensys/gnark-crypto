@@ -70,3 +70,9 @@ func init() {
 	ecc.PrecomputeLattice(&edwards.Order, &edwards.lambda, &edwards.glvBasis)
 
 }
+
+// mulByA multiplies fr.Element by edwards.A
+func mulByA(x *fr.Element) {
+	x.Neg(x)
+	fr.MulBy5(x)
+}

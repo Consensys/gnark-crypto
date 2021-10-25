@@ -174,9 +174,9 @@ func (p *PointAffine) IsOnCurve() bool {
 	var lhs, rhs, tmp fr.Element
 
 	tmp.Mul(&p.Y, &p.Y)
-	lhs.Mul(&p.X, &p.X).
-		MulByA(&lhs).
-		Add(&lhs, &tmp)
+	lhs.Mul(&p.X, &p.X)
+	mulByA(&lhs)
+	lhs.Add(&lhs, &tmp)
 
 	tmp.Mul(&p.X, &p.X).
 		Mul(&tmp, &p.Y).
@@ -199,7 +199,8 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yu.Mul(&p1.Y, &p2.X)
 	pRes.X.Add(&xv, &yu)
 
-	xu.Mul(&p1.X, &p2.X).MulByA(&xu)
+	xu.Mul(&p1.X, &p2.X)
+	mulByA(&xu)
 	yv.Mul(&p1.Y, &p2.Y)
 	pRes.Y.Sub(&yv, &xu)
 
@@ -219,20 +220,20 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
 	p.Set(p1)
-	var xx, yy, xy, denum, two, tmp fr.Element
+	var xx, yy, xy, denum, two fr.Element
 
 	xx.Square(&p.X)
 	yy.Square(&p.Y)
 	xy.Mul(&p.X, &p.Y)
-	tmp.MulByA(&xx)
-	denum.Add(&tmp, &yy)
+	mulByA(&xx)
+	denum.Add(&xx, &yy)
 
 	p.X.Double(&xy).Div(&p.X, &denum)
 
 	two.SetOne().Double(&two)
 	denum.Neg(&denum).Add(&denum, &two)
 
-	p.Y.Sub(&yy, &tmp).Div(&p.Y, &denum)
+	p.Y.Sub(&yy, &xx).Div(&p.Y, &denum)
 
 	return p
 }
@@ -283,7 +284,8 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &A).
 		Mul(&res.X, &F)
-	C.MulByA(&C).Neg(&C)
+	mulByA(&C)
+	C.Neg(&C)
 	res.Y.Add(&D, &C).
 		Mul(&res.Y, &A).
 		Mul(&res.Y, &G)
@@ -315,8 +317,8 @@ func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &p1.Z).
 		Mul(&res.X, &F)
-	H.MulByA(&C)
-	res.Y.Sub(&D, &H).
+	mulByA(&C)
+	res.Y.Sub(&D, &C).
 		Mul(&res.Y, &p1.Z).
 		Mul(&res.Y, &G)
 	res.Z.Mul(&F, &G)
@@ -336,7 +338,8 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 	B.Add(&p1.X, &p1.Y).Square(&B)
 	C.Square(&p1.X)
 	D.Square(&p1.Y)
-	E.MulByA(&C)
+	E.Set(&C)
+	mulByA(&E)
 	F.Add(&E, &D)
 	H.Square(&p1.Z)
 	J.Sub(&F, &H).Sub(&J, &H)

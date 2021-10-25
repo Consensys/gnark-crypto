@@ -210,7 +210,7 @@ func TestField(t *testing.T) {
 			var z1, z2 fr.Element
 			z1.SetBigInt(&s)
 			z2.Mul(&z1, &params.A)
-			z1.MulByA(&z1)
+			mulByA(&z1)
 
 			return z1.Equal(&z2)
 		},
