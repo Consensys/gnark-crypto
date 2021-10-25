@@ -19,7 +19,6 @@ package twistededwards
 import (
 	"crypto/subtle"
 	"io"
-
 	"math/big"
 	"math/bits"
 
