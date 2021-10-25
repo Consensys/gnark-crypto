@@ -19,11 +19,14 @@ package twistededwards
 import (
 	"crypto/subtle"
 	"io"
+
 	"math"
+
 	"math/big"
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
@@ -176,7 +179,7 @@ func (p *PointAffine) IsOnCurve() bool {
 
 	tmp.Mul(&p.Y, &p.Y)
 	lhs.Mul(&p.X, &p.X).
-		Mul(&lhs, &ecurve.A).
+		MulByA(&lhs).
 		Add(&lhs, &tmp)
 
 	tmp.Mul(&p.X, &p.X).
@@ -200,7 +203,7 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yu.Mul(&p1.Y, &p2.X)
 	pRes.X.Add(&xv, &yu)
 
-	xu.Mul(&p1.X, &p2.X).Mul(&xu, &ecurve.A)
+	xu.Mul(&p1.X, &p2.X).MulByA(&xu)
 	yv.Mul(&p1.Y, &p2.Y)
 	pRes.Y.Sub(&yv, &xu)
 
@@ -219,14 +222,13 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 // modifies p
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
-	ecurve := GetEdwardsCurve()
 	p.Set(p1)
-
 	var xx, yy, xy, denum, two, tmp fr.Element
+
 	xx.Square(&p.X)
 	yy.Square(&p.Y)
 	xy.Mul(&p.X, &p.Y)
-	tmp.Mul(&xx, &ecurve.A)
+	tmp.MulByA(&xx)
 	denum.Add(&tmp, &yy)
 
 	p.X.Double(&xy).Div(&p.X, &denum)
@@ -285,7 +287,7 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &A).
 		Mul(&res.X, &F)
-	C.Mul(&C, &ecurve.A).Neg(&C)
+	C.MulByA(&C).Neg(&C)
 	res.Y.Add(&D, &C).
 		Mul(&res.Y, &A).
 		Mul(&res.Y, &G)
@@ -317,7 +319,7 @@ func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &p1.Z).
 		Mul(&res.X, &F)
-	H.Mul(&ecurve.A, &C)
+	H.MulByA(&C)
 	res.Y.Sub(&D, &H).
 		Mul(&res.Y, &p1.Z).
 		Mul(&res.Y, &G)
@@ -333,14 +335,12 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 
 	var res PointProj
 
-	ecurve := GetEdwardsCurve()
-
 	var B, C, D, E, F, H, J fr.Element
 
 	B.Add(&p1.X, &p1.Y).Square(&B)
 	C.Square(&p1.X)
 	D.Square(&p1.Y)
-	E.Mul(&ecurve.A, &C)
+	E.MulByA(&C)
 	F.Add(&E, &D)
 	H.Square(&p1.Z)
 	J.Sub(&F, &H).Sub(&J, &H)
@@ -361,6 +361,14 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 	return p
 }
 
+// setInfinity sets p to O (0:1:1)
+func (p *PointProj) setInfinity() *PointProj {
+	p.X.SetZero()
+	p.Y.SetOne()
+	p.Z.SetOne()
+	return p
+}
+
 // ScalarMulBasic scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) ScalarMulBasic(p1 *PointProj, scalar *big.Int) *PointProj {
@@ -373,9 +381,7 @@ func (p *PointProj) ScalarMulBasic(p1 *PointProj, scalar *big.Int) *PointProj {
 		p.Neg(p)
 	}
 	var resProj PointProj
-	resProj.X.SetZero()
-	resProj.Y.SetOne()
-	resProj.Z.SetOne()
+	resProj.setInfinity()
 	const wordSize = bits.UintSize
 	sWords := _scalar.Bits()
 
@@ -391,18 +397,6 @@ func (p *PointProj) ScalarMulBasic(p1 *PointProj, scalar *big.Int) *PointProj {
 	}
 
 	p.Set(&resProj)
-	return p
-}
-
-// ScalarMul scalar multiplication of a point
-// p1 in affine coordinates with a scalar in big.Int
-func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
-
-	var p1Proj, resProj PointProj
-	p1Proj.FromAffine(p1)
-	resProj.ScalarMul(&p1Proj, scalar)
-	p.FromProj(&resProj)
-
 	return p
 }
 
@@ -439,9 +433,7 @@ func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
 	var res PointProj
 	var k1, k2 fr.Element
 
-	res.X.SetZero()
-	res.Y.SetOne()
-	res.Z.SetOne()
+	res.setInfinity()
 
 	// table[b3b2b1b0-1] = b3b2*phi(p1) + b1b0*p1
 	table[0].Set(p1)
@@ -496,5 +488,17 @@ func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
 	}
 
 	p.Set(&res)
+	return p
+}
+
+// ScalarMul scalar multiplication of a point
+// p1 in affine coordinates with a scalar in big.Int
+func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
+
+	var p1Proj, resProj PointProj
+	p1Proj.FromAffine(p1)
+	resProj.ScalarMul(&p1Proj, scalar)
+	p.FromProj(&resProj)
+
 	return p
 }

@@ -242,6 +242,31 @@ func TestEndomorphism(t *testing.T) {
 
 }
 
+func TestField(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+	genS := GenBigInt()
+
+	properties.Property("MulByA(x) should match Mul(x, curve.A)", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var z1, z2 fr.Element
+			z1.SetBigInt(&s)
+			z2.Mul(&z1, &params.A)
+			z1.MulByA(&z1)
+
+			return z1.Equal(&z2)
+		},
+		genS,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestOps(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -266,7 +291,7 @@ func TestOps(t *testing.T) {
 			var one fr.Element
 			one.SetOne()
 
-			return p1.X.IsZero() && p1.Y.Equal(&one)
+			return p1.IsOnCurve() && p1.X.IsZero() && p1.Y.Equal(&one)
 		},
 		genS1,
 	))
@@ -283,7 +308,7 @@ func TestOps(t *testing.T) {
 			p1.Add(&p1, &p2)
 			p2.Double(&p2)
 
-			return p1.Equal(&p2) && !p1.Equal(&inf)
+			return p1.IsOnCurve() && p1.Equal(&p2) && !p1.Equal(&inf)
 		},
 		genS1,
 	))
@@ -305,7 +330,7 @@ func TestOps(t *testing.T) {
 			s1.Add(&s1, &s2)
 			p3.ScalarMul(&params.Base, &s1)
 
-			return p3.Equal(&p2) && !p3.Equal(&inf)
+			return p2.IsOnCurve() && p3.Equal(&p2) && !p3.Equal(&inf)
 		},
 		genS1,
 		genS2,
@@ -325,7 +350,7 @@ func TestOps(t *testing.T) {
 
 			p2.Add(&p1, &p2)
 
-			return p2.Equal(&inf)
+			return p2.IsOnCurve() && p2.Equal(&inf)
 		},
 		genS1,
 	))
@@ -342,7 +367,7 @@ func TestOps(t *testing.T) {
 			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
 			p1.ScalarMul(&p1, five)
 
-			return p2.Equal(&p1)
+			return p2.IsOnCurve() && p2.Equal(&p1)
 		},
 		genS1,
 	))
