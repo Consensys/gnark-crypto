@@ -84,7 +84,7 @@ func computeX(y *fr.Element) (x fr.Element) {
 	num.Square(y)
 	den.Mul(&num, &edwards.D)
 	num.Sub(&one, &num)
-	den.Add(&one, &den).Neg(&den)
+	den.Sub(&edwards.A, &den)
 	x.Div(&num, &den)
 	x.Sqrt(&x)
 	return
@@ -173,9 +173,9 @@ func (p *PointAffine) IsOnCurve() bool {
 	var lhs, rhs, tmp fr.Element
 
 	tmp.Mul(&p.Y, &p.Y)
-	lhs.Mul(&p.X, &p.X).
-		Neg(&lhs).
-		Add(&lhs, &tmp)
+	lhs.Mul(&p.X, &p.X)
+	mulByA(&lhs)
+	lhs.Add(&lhs, &tmp)
 
 	tmp.Mul(&p.X, &p.X).
 		Mul(&tmp, &p.Y).
@@ -199,8 +199,9 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	pRes.X.Add(&xv, &yu)
 
 	xu.Mul(&p1.X, &p2.X)
+	mulByA(&xu)
 	yv.Mul(&p1.Y, &p2.Y)
-	pRes.Y.Add(&yv, &xu)
+	pRes.Y.Sub(&yv, &xu)
 
 	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &ecurve.D)
 	one.SetOne()
@@ -219,17 +220,19 @@ func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
 	p.Set(p1)
 	var xx, yy, xy, denum, two fr.Element
+
 	xx.Square(&p.X)
 	yy.Square(&p.Y)
 	xy.Mul(&p.X, &p.Y)
-	denum.Sub(&yy, &xx)
+	mulByA(&xx)
+	denum.Add(&xx, &yy)
 
 	p.X.Double(&xy).Div(&p.X, &denum)
 
 	two.SetOne().Double(&two)
 	denum.Neg(&denum).Add(&denum, &two)
 
-	p.Y.Add(&xx, &yy).Div(&p.Y, &denum)
+	p.Y.Sub(&yy, &xx).Div(&p.Y, &denum)
 
 	return p
 }
@@ -280,6 +283,8 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &A).
 		Mul(&res.X, &F)
+	mulByA(&C)
+	C.Neg(&C)
 	res.Y.Add(&D, &C).
 		Mul(&res.Y, &A).
 		Mul(&res.Y, &G)
@@ -311,7 +316,8 @@ func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
 		Sub(&res.X, &D).
 		Mul(&res.X, &p1.Z).
 		Mul(&res.X, &F)
-	res.Y.Add(&D, &C).
+	mulByA(&C)
+	res.Y.Sub(&D, &C).
 		Mul(&res.Y, &p1.Z).
 		Mul(&res.Y, &G)
 	res.Z.Mul(&F, &G)
@@ -331,7 +337,8 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 	B.Add(&p1.X, &p1.Y).Square(&B)
 	C.Square(&p1.X)
 	D.Square(&p1.Y)
-	E.Neg(&C)
+	E.Set(&C)
+	mulByA(&E)
 	F.Add(&E, &D)
 	H.Square(&p1.Z)
 	J.Sub(&F, &H).Sub(&J, &H)
@@ -352,6 +359,14 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 	return p
 }
 
+// setInfinity sets p to O (0:1:1)
+func (p *PointProj) setInfinity() *PointProj {
+	p.X.SetZero()
+	p.Y.SetOne()
+	p.Z.SetOne()
+	return p
+}
+
 // ScalarMul scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
@@ -364,9 +379,7 @@ func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
 		p.Neg(p)
 	}
 	var resProj PointProj
-	resProj.X.SetZero()
-	resProj.Y.SetOne()
-	resProj.Z.SetOne()
+	resProj.setInfinity()
 	const wordSize = bits.UintSize
 	sWords := _scalar.Bits()
 
