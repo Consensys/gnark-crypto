@@ -37,3 +37,6 @@ field/internal/dev/**
 
 # macOS folder metadata
 .DS_Store
+
+# Goland project files
+./idea/
