@@ -34,3 +34,6 @@ field/internal/dev/**
 
 # compiled sage -> python code
 *.sage.py
+
+# macOS folder metadata
+.DS_Store
