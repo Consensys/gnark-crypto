@@ -143,7 +143,7 @@ func (p *G2Affine) IsOnCurve() bool {
 func (p *G2Affine) IsInSubGroup() bool {
 	var _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -372,20 +372,15 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG2Affine, 1] is the kernel
-// of (u,v)->u+lambdaG2Affinev mod r. Expressing r, lambdaG2Affine as
-// polynomials in x, a short vector of this Zmodule is
-// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
-// is the infinity.
+// [r]P == 0 <==> Frob(P) == [6x^2]P
 func (p *G2Jac) IsInSubGroup() bool {
+	var a, res G2Jac
+	a.X.Conjugate(&p.X).MulByNonResidue1Power2(&a.X)
+	a.Y.Conjugate(&p.Y).MulByNonResidue1Power3(&a.Y)
+	a.Z.Conjugate(&p.Z)
 
-	var res, xphip, phip G2Jac
-	phip.phi(p)
-	xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
-	res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
-	res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
-	res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
-	res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+	res.ScalarMultiplication(p, &fixedCoeff).
+		SubAssign(&a)
 
 	return res.IsOnCurve() && res.Z.IsZero()
 

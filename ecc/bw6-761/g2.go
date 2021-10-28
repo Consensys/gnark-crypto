@@ -138,7 +138,7 @@ func (p *G2Affine) IsOnCurve() bool {
 func (p *G2Affine) IsInSubGroup() bool {
 	var _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
