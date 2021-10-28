@@ -91,6 +91,17 @@ func init() {
 	_modulus.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787", 10)
 }
 
+// NewElement returns a new Element from a uint64 value
+//
+// it is equivalent to
+// 		var v NewElement
+// 		v.SetUint64(...)
+func NewElement(v uint64) Element {
+	z := Element{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
+
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *Element) SetUint64(v uint64) *Element {
 	*z = Element{v}
