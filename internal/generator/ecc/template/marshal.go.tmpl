@@ -63,12 +63,19 @@ type Encoder struct {
 type Decoder struct {
 	r io.Reader
 	n int64 // read bytes
+	subGroupCheck bool // default to true 
 }
 
 // NewDecoder returns a binary decoder supporting curve {{.Name}} objects in both 
 // compressed and uncompressed (raw) forms
-func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{r: r}
+func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
+	d := &Decoder{r: r, subGroupCheck: true }
+
+	for _, o := range options {
+		o(d)
+	}
+
+	return d
 }
 
 
@@ -163,7 +170,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 		}
-		_, err = t.SetBytes(buf[:nbBytes])
+		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
 		return 
 	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
@@ -183,7 +190,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 		}
-		_, err = t.SetBytes(buf[:nbBytes])
+		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
 		return 
 	case *[]G1Affine:
 		var sliceLen uint32
@@ -213,7 +220,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				if err != nil {
 					return
 				}
-				_, err = (*t)[i].SetBytes(buf[:nbBytes])
+				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
 				if err != nil {
 					return
 				}
@@ -225,7 +232,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		parallel.Execute(len(compressed), func(start, end int){
 			for i := start; i < end; i++ {
 				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(); err != nil {
+					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
+						atomic.AddUint64(&nbErrs, 1)
+					}
+				} else if dec.subGroupCheck {
+					if !(*t)[i].IsInSubGroup() {
 						atomic.AddUint64(&nbErrs, 1)
 					}
 				}
@@ -264,7 +275,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				if err != nil {
 					return
 				}
-				_, err = (*t)[i].SetBytes(buf[:nbBytes])
+				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
 				if err != nil {
 					return
 				}
@@ -276,7 +287,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		parallel.Execute(len(compressed), func(start, end int){
 			for i := start; i < end; i++ {
 				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(); err != nil {
+					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
+						atomic.AddUint64(&nbErrs, 1)
+					}
+				} else if dec.subGroupCheck {
+					if !(*t)[i].IsInSubGroup() {
 						atomic.AddUint64(&nbErrs, 1)
 					}
 				}
@@ -364,6 +379,14 @@ func (enc *Encoder) BytesWritten() int64 {
 func RawEncoding() func(*Encoder)  {
 	return func(enc *Encoder)  {
 		enc.raw = true
+	}
+}
+
+// NoSubgroupChecks returns an option to use in NewDecoder(...) which disable subgroup checks on the points 
+// the decoder will read. Use with caution, as crafted points from an untrusted source can lead to crypto-attacks. 
+func NoSubgroupChecks() func(*Decoder)  {
+	return func(dec *Decoder)  {
+		dec.subGroupCheck = false
 	}
 }
 
@@ -602,7 +625,7 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 	// not compressed
 	// we store the Y coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.Y.A1 | p.Y.A0
+		// p.Y.A1 | p.Y.A0
 		{{- $offset := mul $.sizeOfFp 3}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.A0"}}
 
@@ -624,7 +647,7 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A1 | p.X.A0
 		{{- $offset := $.sizeOfFp}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
@@ -646,6 +669,7 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 	return 
 }
 
+
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
 // bytes in buf must match either RawBytes() or Bytes() output
 // if buf is too short io.ErrShortBuffer is returned
@@ -653,6 +677,11 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 // the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
+	return p.setBytes(buf, true)
+}
+
+
+func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error)  {
 	if len(buf) < SizeOf{{ $.TAffine }}Compressed {
 		return 0, io.ErrShortBuffer
 	}
@@ -687,10 +716,10 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	if mData == mUncompressed {
 		// read X and Y coordinates
 		{{- if eq $.CoordType "fptower.E2"}}
-			// p.X.A1 | p.X.A0
+			// p.X.A1 | p.X.A0
 			p.X.A1.SetBytes(buf[:fp.Bytes])
 			p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
-			// p.Y.A1 | p.Y.A0
+			// p.Y.A1 | p.Y.A0
 			p.Y.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
 			p.Y.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
 		{{- else if eq $.CoordType "fptower.E4"}}	
@@ -710,7 +739,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 		{{- end}}
 
 		// subgroup check 
-		if !p.IsInSubGroup() {
+		if subGroupCheck && !p.IsInSubGroup() {
 			return 0, errors.New("invalid point: subgroup check failed")
 		}
 
@@ -728,7 +757,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A1 | p.X.A0
 		p.X.A1.SetBytes(bufX[:fp.Bytes])
 		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
 	{{- else if eq $.CoordType "fptower.E4"}}
@@ -774,7 +803,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	p.Y = Y
 
 	// subgroup check 
-	if !p.IsInSubGroup() {
+	if subGroupCheck && !p.IsInSubGroup() {
 		return 0, errors.New("invalid point: subgroup check failed")
 	}
 
@@ -785,7 +814,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 
 // unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
 // it computes the Y coordinate from the already set X coordinate and is compute intensive
-func (p *{{ $.TAffine }}) unsafeComputeY() error  {
+func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error  {
 	// stored in unsafeSetCompressedBytes
 	{{ if eq $.CoordType "fptower.E2"}}
 	mData := byte(p.Y.A0[0])
@@ -829,7 +858,7 @@ func (p *{{ $.TAffine }}) unsafeComputeY() error  {
 	p.Y = Y
 
 	// subgroup check 
-	if !p.IsInSubGroup() {
+	if subGroupCheck && !p.IsInSubGroup() {
 		return errors.New("invalid point: subgroup check failed")
 	}
 
@@ -859,7 +888,7 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A1 | p.X.A0
 		p.X.A1.SetBytes(bufX[:fp.Bytes])
 		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
 		
