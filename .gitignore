@@ -39,4 +39,4 @@ field/internal/dev/**
 .DS_Store
 
 # Goland project files
-./idea/
+/.idea/

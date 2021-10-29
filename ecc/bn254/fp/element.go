@@ -826,7 +826,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 // Inverse z = x^-1 mod q
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x
-func (z *Element) Inverse(x *Element) *Element {
+func (z *Element) InverseOld(x *Element) *Element {
 	if x.IsZero() {
 		z.SetZero()
 		return z
