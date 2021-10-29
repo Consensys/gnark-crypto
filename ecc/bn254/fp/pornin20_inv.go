@@ -4,6 +4,15 @@ import (
 	"math/big"
 )
 
+func ComputeCorrectiveFactorPornin1() {
+	numIterations := 2*Bits - 2
+	var fac Element
+	fac.SetInt64(2)
+	fac.Exp(fac, big.NewInt(int64(-numIterations)))
+	fac.Mul(&fac, &rSquare)
+
+}
+
 //Three possible ways to swap values:
 //	1. Swap by value :D
 //	2. Swap by reference
@@ -34,6 +43,40 @@ func (z *Element) SetInt64(i int64) {
 	z.Neg(z)
 }
 
+//LtAsIs compares without changing back from Montgomery form
+func (z *Element) LtAsIs(x *Element) bool {
+
+	if z[3] == x[3] {
+		if z[2] == x[2] {
+			if z[1] == x[1] {
+				return z[0] < x[0]
+			}
+			return z[1] < x[1]
+		}
+		return z[2] < x[2]
+	}
+	return z[3] < x[3]
+}
+
+func InverseIterate(a *Element, b *Element, u *Element, v *Element) {
+
+	//TODO: The two branches don't take the same amount of time
+	if a.Bit(0) == 0 {
+		a.Halve()
+		u.Halve()
+	} else {
+		if a.LtAsIs(b) {
+			*a, *b = *b, *a
+			*u, *v = *v, *a
+		}
+		//TODO: Exploit the shrinking of the lengths of a,b? Nah
+		a.Sub(a, b)
+		a.Halve()
+		u.Sub(u, v)
+		u.Halve()
+	}
+}
+
 //z is known in the algorithm as u. Renamed for receiver name consistency
 func (z *Element) Inverse(x *Element) *Element {
 
@@ -42,40 +85,44 @@ func (z *Element) Inverse(x *Element) *Element {
 		return z
 	}
 
-	var a big.Int
-	var b big.Int
+	var a Element
+	var b Element
 	var u Element
 	var v Element
-	var intScratch big.Int //Copy values when
-	var elementScratch Element
 
-	x.ToBigInt(&a)
-	b.Set(Modulus())
+	a = *x
+	b = qElement
 	u.SetOne() //TODO: Don't use u as working variable
 	v.SetZero()
 
 	//Loop bound according to P20 pg 3 footnote 2 (x is known to be invertible)
 	//for iteration := 0; iteration < 2*Bits - 2; iteration++ {
-	for a.BitLen() != 0 {
-		//TODO: The two branches don't take the same amount of time
+	for !a.IsZero() {
 		if a.Bit(0) == 0 {
-			a.Rsh(&a, 1) //TODO: okay to use a itself?
+			a.Halve()
 			u.Halve()
 		} else {
-			if a.Cmp(&b) < 0 {
-				swapBigInt(&a, &b, &intScratch)
-				elementScratch.swap(&u, &v)
+			if a.LtAsIs(&b) {
+				a, b = b, a
+				u, v = v, u
 			}
 			//TODO: Exploit the shrinking of the lengths of a,b? Nah
 			a.Sub(&a, &b)
-			a.Rsh(&a, 1)
-			u.Sub(&u, &v) //TODO: ok?
+			a.Halve()
+			u.Sub(&u, &v)
 			u.Halve()
 		}
 	}
 
 	z.Mul(&v, &rSquare) //TODO: Would it have been okay to store it in v itself?
 	return z
+}
+
+var pornin1CorrectiveFactor = Element{
+	6477271515855170771,
+	5316309407648344051,
+	16881476412543395616,
+	2198450133018044985,
 }
 
 func (z *Element) InverseOptimization1(x *Element) *Element {
