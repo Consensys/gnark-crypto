@@ -24,7 +24,6 @@ func (z *Element) LtAsIs(x *Element) bool {
 	return z[3] < x[3]
 }
 
-//z is known in the algorithm as u. Renamed for receiver name consistency
 func (z *Element) Inverse0(x *Element) *Element {
 
 	if x.IsZero() {
@@ -65,14 +64,12 @@ func (z *Element) Inverse0(x *Element) *Element {
 	return z
 }
 
-/*var pornin1CorrectiveFactor = Element{
-	6477271515855170771,
-	5316309407648344051,
-	16881476412543395616,
-	2198450133018044985,
-}*/
-
-var pornin1CorrectiveFactor = Element{64, 0, 0, 0} //Not sure why the value is so clean, but I think I like it
+var inversionCorrectionFactor = Element{
+	5658184994089520847,
+	11089936491052707196,
+	18024563689369049901,
+	817977532144045340,
+}
 
 func (z *Element) Inverse(x *Element) *Element {
 
@@ -95,7 +92,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	a = *x
 	b = qElement
-	u.SetOne()
+	u = Element{1, 0, 0, 0}
 	v.SetZero()
 
 	t := 1
@@ -121,7 +118,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			g1 *= 2
 		}
 
-		if t == 62 || iteration == 2*Bits-3 { //TODO: 63 fails. Find out why
+		if t == 62 || iteration == 2*Bits-3 { //TODO: 63 fails. Find out why. Anyway, same runtime
 			t = 0
 
 			var elementScratch Element
@@ -130,18 +127,15 @@ func (z *Element) Inverse(x *Element) *Element {
 			elementScratch.Set(&u)
 
 			//update u
-			updateFactor.SetInt64(f0)
-			u.Mul(&u, &updateFactor)
+			u.MulWord(&u, f0)
 
-			updateFactor.SetInt64(g0)
-			updateFactor.Mul(&v, &updateFactor)
+			updateFactor.MulWord(&v, g0)
 			u.Add(&u, &updateFactor)
 
 			//update v
-			updateFactor.SetInt64(f1)
-			elementScratch.Mul(&elementScratch, &updateFactor)
-			updateFactor.SetInt64(g1)
-			v.Mul(&v, &updateFactor)
+			elementScratch.MulWord(&elementScratch, f1)
+
+			v.MulWord(&v, g1)
 			v.Add(&v, &elementScratch)
 
 			f0, g0, f1, g1 = 1, 0, 0, 1
@@ -149,10 +143,8 @@ func (z *Element) Inverse(x *Element) *Element {
 		t++
 	}
 
-	//z.Mul(&v, &pornin1CorrectiveFactor)
-	z.MulWord(&v, 64)
+	z.Mul(&v, &inversionCorrectionFactor)
 	return z
-
 }
 
 /*func (z *Element) P20Inverse(x *Element) *Element {
@@ -160,8 +152,6 @@ func (z *Element) Inverse(x *Element) *Element {
 		z.SetZero()
 		return z
 	}
-
-
 }*/
 
 //TODO: Do this directly
@@ -200,9 +190,6 @@ func (z *Element) MulWordUnsigned(x *Element, y uint64) {
 		c[2], t[1] = madd2(m, 13281191951274694749, c[2], 0)
 		t[3], t[2] = madd1(m, 3486998266802970665, c[2])
 
-		/*if t[0] != 8372381935743341968 {
-			panic("Oopsy poopsy")
-		}*/
 	}
 	{
 		// round 1
