@@ -1,3 +1,15 @@
+<a name="v0.5.3"></a>
+## [v0.5.3] - 2021-10-30
+
+### Feat, perf
+- all curves: subgroup check optional in decoder (default = true), and is done in parallel when unmarshalling slices of points [#96](https://github.com/ConsenSys/gnark-crypto/issues/96)
+- **bn254:** faster G2 membership test [#95](https://github.com/ConsenSys/gnark-crypto/issues/95)
+- added element.NewElement(v uint64) convenient API 
+
+### Fix
+- **fp12:** compressed cyclotomic square (receiver == argument)
+
+
 <a name="v0.5.2"></a>
 ## [v0.5.2] - 2021-10-26
 
