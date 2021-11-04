@@ -3,6 +3,8 @@ package plookup
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"math/bits"
 	"sort"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -144,52 +146,108 @@ func computeH(cz, ch1, ch2, ct, cf []fr.Element, beta, gamma fr.Element) []fr.El
 	copy(_lh2, ch2)
 	copy(_lt, ct)
 	copy(_lf, cf)
-	domainH.FFT(_lz, fft.DIT, 1)
-	domainH.FFT(_lh1, fft.DIT, 1)
-	domainH.FFT(_lh2, fft.DIT, 1)
-	domainH.FFT(_lt, fft.DIT, 1)
-	domainH.FFT(_lf, fft.DIT, 1)
-	var u, v, w, g, m, n, one, t fr.Element
-	//nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+	domainH.FFT(_lz, fft.DIF, 1)
+	domainH.FFT(_lh1, fft.DIF, 1)
+	domainH.FFT(_lh2, fft.DIF, 1)
+	domainH.FFT(_lt, fft.DIF, 1)
+	domainH.FFT(_lf, fft.DIF, 1)
+	fmt.Println("_lz")
+	fmt.Printf("[")
+	for i := 0; i < len(_lz); i++ {
+		fmt.Printf("%s, ", _lz[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+	fmt.Println("_lh1")
+	fmt.Printf("[")
+	for i := 0; i < len(_lh1); i++ {
+		fmt.Printf("%s, ", _lh1[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+	fmt.Println("_lh2")
+	fmt.Printf("[")
+	for i := 0; i < len(_lh2); i++ {
+		fmt.Printf("%s, ", _lh2[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+	fmt.Println("_lt")
+	fmt.Printf("[")
+	for i := 0; i < len(_lt); i++ {
+		fmt.Printf("%s, ", _lt[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+	fmt.Println("_lf")
+	fmt.Printf("[")
+	for i := 0; i < len(_lf); i++ {
+		fmt.Printf("%s, ", _lf[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+
+	var u, v, w, _g, m, n, one, t fr.Element
 	t.SetUint64(2).
 		Inverse(&t)
-	g.Set(&domainH.FinerGenerator)
+	_g.Square(&domainH.Generator).
+		Exp(_g, big.NewInt(int64(s-1)))
 	one.SetOne()
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
-	for i := 0; i < s; i++ {
 
-		// _i := int(bits.Reverse64(uint64(i)) >> nn)
-		// _is := int(bits.Reverse64(uint64((i+1)%s)) >> nn)
-
-		// m = (x-1)*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX))
-		m.Sub(&g, &one).
-			Mul(&m, &_lz[i]).
-			Mul(&m, &v)
-		u.Add(&gamma, &_lf[i])
-		m.Mul(&m, &u)
-		u.Mul(&beta, &_lt[(i+1)%s]).
-			Add(&u, &_lt[(i+1)%s]).
-			Add(&u, &w)
-		m.Mul(&m, &u)
-
-		// n = (x-1)*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX)
-		n.Sub(&g, &one).
-			Mul(&n, &_lz[(i+1)%s])
-		u.Mul(&beta, &_lh1[(i+1)%s]).
-			Add(&u, &_lh1[(i+1)%s]).
-			Add(&u, &w)
-		n.Mul(&n, &u)
-		u.Mul(&beta, &_lh2[(i+1)%s]).
-			Add(&u, &_lh2[(i+1)%s]).
-			Add(&u, &w)
-		n.Mul(&n, &u)
-
-		num[i].Sub(&m, &n).
-			Mul(&num[i], &t)
+	g := make([]fr.Element, 2*s)
+	g[0].Set(&domainH.FinerGenerator)
+	for i := 1; i < 2*s; i++ {
+		g[i].Mul(&g[i-1], &domainH.Generator)
 	}
 
-	domainH.FFTInverse(num, fft.DIT, 1)
+	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+
+	for i := 0; i < 2*s; i++ {
+
+		_i := int(bits.Reverse64(uint64(i)) >> nn)
+		_is := int(bits.Reverse64(uint64((i+2)%(2*s))) >> nn)
+
+		// m = (x-g**(n-1))*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX))
+		m.Mul(&v, &_lz[_i])
+		u.Add(&gamma, &_lf[_i])
+		m.Mul(&m, &u)
+		u.Mul(&beta, &_lt[_is]).
+			Add(&u, &_lt[_i]).
+			Add(&u, &w)
+		m.Mul(&m, &u)
+
+		// n = (x-g**(n-1))*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX)
+		n.Mul(&beta, &_lh1[_is]).
+			Add(&n, &_lh1[_i]).
+			Add(&n, &w)
+		u.Mul(&beta, &_lh2[_is]).
+			Add(&u, &_lh2[_i]).
+			Add(&u, &w)
+		n.Mul(&n, &u).
+			Mul(&n, &_lz[_is])
+
+		num[_i].Sub(&m, &n)
+		u.Sub(&g[i], &_g)
+		num[_i].Mul(&num[_i], &u)
+
+		// g.Mul(&g, &domainH.Generator)
+
+	}
+
+	// DEBUG
+	fft.BitReverse(num)
+	fmt.Println("lH: ")
+	fmt.Printf("[")
+	for i := 0; i < len(num); i++ {
+		fmt.Printf("%s, ", num[i].String())
+	}
+	fmt.Printf("]")
+	fmt.Println("")
+	// END DEBUG
+
+	domainH.FFTInverse(num, fft.DIF, 1)
 
 	return num
 
@@ -323,6 +381,7 @@ func Prove(f, t Table) (Proof, error) {
 	for i := 0; i < len(_ch2); i++ {
 		fmt.Printf("%s*x**%d+", _ch2[i].String(), i)
 	}
+	fmt.Println("")
 	//  END DEBUG
 
 	// comh1, err := kzg.Commit(h1, srs)
@@ -343,22 +402,43 @@ func Prove(f, t Table) (Proof, error) {
 
 	// Compute to Z
 	lz := computeZ(lf, lt, lh1, lh2, beta, gamma)
+
+	// DEBUG
 	fmt.Println("lz:")
 	fmt.Println("[")
 	for i := 0; i < len(lz); i++ {
 		fmt.Printf("%s,\n", lz[i].String())
 	}
 	fmt.Println("]")
+	// END DEBUG
+
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
-	dNum.FFT(cz, fft.DIF, 0)
+	dNum.FFTInverse(cz, fft.DIF, 0)
+
+	// DEBUG
+	_cz := make([]fr.Element, len(lz))
+	copy(_cz, cz)
+	fft.BitReverse(_cz)
+	fmt.Printf("cz: ")
+	for i := 0; i < len(_ch2); i++ {
+		fmt.Printf("%s*x**%d+", _cz[i].String(), i)
+	}
+	fmt.Println("")
+	// END DEBUG
 
 	// compute h
-	//h := computeH(cz, ch1, ch2, ct, cf, beta, gamma)
-	// for i := 0; i < len(h); i++ {
-	// 	fmt.Printf("%s*x**%d", h[i].String(), i)
-	// }
-	// fmt.Println("")
+	fft.BitReverse(cz)
+	fft.BitReverse(ch1)
+	fft.BitReverse(ch2)
+	fft.BitReverse(ct)
+	fft.BitReverse(cf)
+	h := computeH(cz, ch1, ch2, ct, cf, beta, gamma)
+	fmt.Println("h: ")
+	for i := 0; i < len(h); i++ {
+		fmt.Printf("%s*x**%d+", h[i].String(), i)
+	}
+	fmt.Println("")
 
 	// build the opening proofs
 
