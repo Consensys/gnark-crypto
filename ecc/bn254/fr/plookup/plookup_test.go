@@ -1,7 +1,10 @@
 package plookup
 
 import (
+	"math/big"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg"
 )
 
 func TestH(t *testing.T) {
@@ -15,7 +18,12 @@ func TestH(t *testing.T) {
 		f[i].Set(&lookup[(4*i+1)%8])
 	}
 
-	_, err := Prove(f, lookup)
+	srs, err := kzg.NewSRS(64, big.NewInt(13))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Prove(srs, f, lookup)
 	if err != nil {
 		t.Fatal(err)
 	}

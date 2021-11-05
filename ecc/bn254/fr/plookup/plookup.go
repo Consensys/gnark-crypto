@@ -1,6 +1,7 @@
 package plookup
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 )
 
 var ErrNotInTable = errors.New("some value in the vector is not in the lookup table")
@@ -36,7 +38,7 @@ func (t Table) Swap(i, j int) {
 type Proof struct {
 
 	// Commitments to h1, h2
-	comh1, comh2 kzg.Digest
+	h1, h2, t, z, f kzg.Digest
 
 	// Batch opening proof of h1, h2, z, t
 	BatchedProof kzg.BatchOpeningProof
@@ -259,8 +261,14 @@ func computeH(cz, ch1, ch2, ct, cf []fr.Element, beta, gamma fr.Element) []fr.El
 }
 
 // Prove returns proof that the values in f are in t.
-// func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
-func Prove(f, t Table) (Proof, error) {
+func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
+
+	// res
+	var proof Proof
+	var err error
+
+	// hash function used for Fiat Shamir
+	hFunc := sha256.New()
 
 	// create domains
 	var dNum *fft.Domain
@@ -291,6 +299,17 @@ func Prove(f, t Table) (Proof, error) {
 	copy(cf, lf)
 	dNum.FFTInverse(ct, fft.DIF, 0)
 	dNum.FFTInverse(cf, fft.DIF, 0)
+	fft.BitReverse(ct)
+	fft.BitReverse(cf)
+	proof.t, err = kzg.Commit(ct, srs)
+	if err != nil {
+		return proof, err
+	}
+	proof.f, err = kzg.Commit(cf, srs)
+	if err != nil {
+		return proof, err
+	}
+
 	//cf[len(cf)-1].SetZero()
 
 	// DEBUG
@@ -306,20 +325,14 @@ func Prove(f, t Table) (Proof, error) {
 		fmt.Printf("%s, ", lt[i].String())
 	}
 	fmt.Printf("]\n")
-	_cf := make([]fr.Element, cardDNum)
-	copy(_cf, cf)
-	fft.BitReverse(_cf)
 	fmt.Printf("f: ")
-	for i := 0; i < len(_cf); i++ {
-		fmt.Printf("%s*x**%d+", _cf[i].String(), i)
+	for i := 0; i < len(cf); i++ {
+		fmt.Printf("%s*x**%d+", cf[i].String(), i)
 	}
 	fmt.Println("")
-	_ct := make([]fr.Element, cardDNum)
-	copy(_ct, ct)
-	fft.BitReverse(_ct)
 	fmt.Printf("t: ")
-	for i := 0; i < len(_ct); i++ {
-		fmt.Printf("%s*x**%d+", _ct[i].String(), i)
+	for i := 0; i < len(ct); i++ {
+		fmt.Printf("%s*x**%d+", ct[i].String(), i)
 	}
 	fmt.Println("")
 	// END DEBUG
@@ -369,39 +382,33 @@ func Prove(f, t Table) (Proof, error) {
 	copy(ch2, lfSortedByt[cardDNum-1:])
 	dNum.FFTInverse(ch1, fft.DIF, 0)
 	dNum.FFTInverse(ch2, fft.DIF, 0)
+	fft.BitReverse(ch1)
+	fft.BitReverse(ch2)
+
+	proof.h1, err = kzg.Commit(ch1, srs)
+	if err != nil {
+		return proof, err
+	}
+	proof.h2, err = kzg.Commit(ch2, srs)
+	if err != nil {
+		return proof, err
+	}
 
 	//  DEBUG
-	_ch1 := make([]fr.Element, cardDNum)
-	_ch2 := make([]fr.Element, cardDNum)
-	copy(_ch1, ch1)
-	copy(_ch2, ch2)
-	fft.BitReverse(_ch1)
-	fft.BitReverse(_ch2)
 	fmt.Printf("h1: ")
-	for i := 0; i < len(_ch1); i++ {
-		fmt.Printf("%s*x**%d+", _ch1[i].String(), i)
+	for i := 0; i < len(ch1); i++ {
+		fmt.Printf("%s*x**%d+", ch1[i].String(), i)
 	}
 	fmt.Println("")
 	fmt.Printf("h2: ")
-	for i := 0; i < len(_ch2); i++ {
-		fmt.Printf("%s*x**%d+", _ch2[i].String(), i)
+	for i := 0; i < len(ch2); i++ {
+		fmt.Printf("%s*x**%d+", ch2[i].String(), i)
 	}
 	fmt.Println("")
 	//  END DEBUG
 
-	// comh1, err := kzg.Commit(h1, srs)
-	// if err != nil {
-	// 	return Proof{}, err
-	// }
-	// comh2, err := kzg.Commit(h2, srs)
-	// if err != nil {
-	// 	return Proof{}, err
-	// }
-
 	// derive beta, gamma
 	var beta, gamma fr.Element
-	// beta.SetRandom()
-	// gamma.SetRandom()
 	beta.SetUint64(13)
 	gamma.SetUint64(23)
 
@@ -420,24 +427,21 @@ func Prove(f, t Table) (Proof, error) {
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
 	dNum.FFTInverse(cz, fft.DIF, 0)
+	fft.BitReverse(cz)
+	proof.z, err = kzg.Commit(cz, srs)
+	if err != nil {
+		return proof, err
+	}
 
 	// DEBUG
-	_cz := make([]fr.Element, len(lz))
-	copy(_cz, cz)
-	fft.BitReverse(_cz)
 	fmt.Printf("cz: ")
-	for i := 0; i < len(_ch2); i++ {
-		fmt.Printf("%s*x**%d+", _cz[i].String(), i)
+	for i := 0; i < len(cz); i++ {
+		fmt.Printf("%s*x**%d+", cz[i].String(), i)
 	}
 	fmt.Println("")
 	// END DEBUG
 
 	// compute h
-	fft.BitReverse(cz)
-	fft.BitReverse(ch1)
-	fft.BitReverse(ch2)
-	fft.BitReverse(ct)
-	fft.BitReverse(cf)
 	h := computeH(cz, ch1, ch2, ct, cf, beta, gamma)
 	fmt.Println("h: ")
 	for i := 0; i < len(h); i++ {
@@ -446,7 +450,59 @@ func Prove(f, t Table) (Proof, error) {
 	fmt.Println("")
 
 	// build the opening proofs
+	var nu fr.Element
+	nu.SetUint64(234)
+	proof.BatchedProof, err = kzg.BatchOpenSinglePoint(
+		[]polynomial.Polynomial{
+			ch1,
+			ch2,
+			ct,
+			cz,
+			cf,
+		},
+		[]kzg.Digest{
+			proof.h1,
+			proof.h2,
+			proof.t,
+			proof.z,
+			proof.f,
+		},
+		&nu,
+		hFunc,
+		dNum,
+		srs,
+	)
+	if err != nil {
+		return proof, err
+	}
 
-	return Proof{}, nil
+	// DEBUG
+
+	// END DEBUG
+
+	nu.Mul(&nu, &dNum.Generator)
+	proof.BatchedProofShifted, err = kzg.BatchOpenSinglePoint(
+		[]polynomial.Polynomial{
+			ch1,
+			ch2,
+			ct,
+			cz,
+		},
+		[]kzg.Digest{
+			proof.h1,
+			proof.h2,
+			proof.t,
+			proof.z,
+		},
+		&nu,
+		hFunc,
+		dNum,
+		srs,
+	)
+	if err != nil {
+		return proof, err
+	}
+
+	return proof, nil
 
 }
