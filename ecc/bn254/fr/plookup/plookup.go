@@ -175,7 +175,6 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
 
 		// m = (x-g**(n-1))*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX))
-		fmt.Printf("--- _i %d ----\n", _i)
 		m.Mul(&v, &_lz[_i])
 		u.Add(&gamma, &_lf[_i])
 		m.Mul(&m, &u)
@@ -216,23 +215,24 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	return num
 }
 
-// computeH0 returns l0 * (z-1), in bit reversed order
+// computeH0 returns l0 * (z-1), in Lagrange basis and bit reversed order
 func computeH0(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
 
-	var d, one fr.Element
+	var one fr.Element
 	one.SetOne()
 
 	var g [2]fr.Element
-	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality)))
+	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
 	g[1].Neg(&g[0])
 	g[0].Sub(&g[0], &one)
 	g[1].Sub(&g[1], &one)
-	d.Set(&domainH.FinerGenerator)
 
+	var d fr.Element
+	d.Set(&domainH.FinerGenerator)
 	den := make([]fr.Element, len(lzCosetReversed))
-	den[0].Set(&domainH.FinerGenerator)
-	for i := 1; i < len(den); i++ {
-		den[i].Mul(&den[i-1], &domainH.Generator)
+	for i := 0; i < len(den); i++ {
+		den[i].Sub(&d, &one)
+		d.Mul(&d, &domainH.Generator)
 	}
 	den = fr.BatchInvert(den)
 
@@ -241,11 +241,46 @@ func computeH0(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
 
 	for i := 0; i < len(lzCosetReversed); i++ {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
-		res[_i].Mul(&lzCosetReversed[_i], &g[i%2]).Mul(&res[_i], &den[i])
+		res[_i].Sub(&lzCosetReversed[_i], &one).
+			Mul(&res[_i], &g[i%2]).Mul(&res[_i], &den[i])
 	}
 
 	return res
+}
 
+// computeHn returns l0 * (z-1), in Lagrange basis and bit reversed order
+func computeHn(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
+
+	var one fr.Element
+	one.SetOne()
+
+	var g [2]fr.Element
+	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
+	g[1].Neg(&g[0])
+	g[0].Sub(&g[0], &one)
+	g[1].Sub(&g[1], &one)
+
+	var _g, d fr.Element
+	one.SetOne()
+	d.Set(&domainH.FinerGenerator)
+	_g.Square(&domainH.Generator).Exp(_g, big.NewInt(int64(domainH.Cardinality/2-1)))
+	den := make([]fr.Element, len(lzCosetReversed))
+	for i := 0; i < len(lzCosetReversed); i++ {
+		den[i].Sub(&d, &_g)
+		d.Mul(&d, &domainH.Generator)
+	}
+	den = fr.BatchInvert(den)
+
+	res := make([]fr.Element, len(lzCosetReversed))
+	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+
+	for i := 0; i < len(lzCosetReversed); i++ {
+		_i := int(bits.Reverse64(uint64(i)) >> nn)
+		res[_i].Sub(&lzCosetReversed[_i], &one).
+			Mul(&res[_i], &g[i%2]).Mul(&res[_i], &den[i])
+	}
+
+	return res
 }
 
 // Prove returns proof that the values in f are in t.
@@ -503,10 +538,36 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	}
 
 	// compute h0
+	ch0 := computeH0(_lz, domainH)
 
-	// compute ho
+	// DEBUG
+	_ch0 := make([]fr.Element, len(ch0))
+	copy(_ch0, ch0)
+	fft.BitReverse(_ch0)
+	fmt.Printf("ch_0: \n")
+	fmt.Printf("[")
+	for i := 0; i < len(_ch0); i++ {
+		fmt.Printf("%s, ", _ch0[i].String())
+	}
+	fmt.Printf("]\n")
+	// END DEBUG
 
 	// compute hn
+	chn := computeHn(_lz, domainH)
+
+	// DEBUG
+	_chn := make([]fr.Element, len(chn))
+	copy(_chn, chn)
+	fft.BitReverse(_chn)
+	fmt.Printf("ch_n: \n")
+	fmt.Printf("[")
+	for i := 0; i < len(_chn); i++ {
+		fmt.Printf("%s, ", _chn[i].String())
+	}
+	fmt.Printf("]\n")
+	// END DEBUG
+
+	// compute ho
 
 	// build the opening proofs
 	var nu fr.Element
