@@ -248,7 +248,7 @@ func computeH0(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
 	return res
 }
 
-// computeHn returns l0 * (z-1), in Lagrange basis and bit reversed order
+// computeHn returns ln * (z-1), in Lagrange basis and bit reversed order
 func computeHn(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
 
 	var one fr.Element
@@ -277,7 +277,47 @@ func computeHn(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
 	for i := 0; i < len(lzCosetReversed); i++ {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		res[_i].Sub(&lzCosetReversed[_i], &one).
-			Mul(&res[_i], &g[i%2]).Mul(&res[_i], &den[i])
+			Mul(&res[_i], &g[i%2]).
+			Mul(&res[_i], &den[i])
+	}
+
+	return res
+}
+
+// computeHh1h2 returns ln * (h1 - h2(g.x)), in Lagrange basis and bit reversed order
+func computeHh1h2(_lh1, _lh2 []fr.Element, domainH *fft.Domain) []fr.Element {
+
+	var one fr.Element
+	one.SetOne()
+
+	var g [2]fr.Element
+	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
+	g[1].Neg(&g[0])
+	g[0].Sub(&g[0], &one)
+	g[1].Sub(&g[1], &one)
+
+	var _g, d fr.Element
+	d.Set(&domainH.FinerGenerator)
+	_g.Square(&domainH.Generator).Exp(_g, big.NewInt(int64(domainH.Cardinality/2-1)))
+	den := make([]fr.Element, len(_lh1))
+	for i := 0; i < len(_lh1); i++ {
+		den[i].Sub(&d, &_g)
+		d.Mul(&d, &domainH.Generator)
+	}
+	den = fr.BatchInvert(den)
+
+	res := make([]fr.Element, len(_lh1))
+	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+
+	s := len(_lh1)
+	for i := 0; i < s; i++ {
+
+		_i := int(bits.Reverse64(uint64(i)) >> nn)
+		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
+
+		res[_i].Sub(&_lh1[_i], &_lh2[_is]).
+			Mul(&res[_i], &g[i%2]).
+			Mul(&res[_i], &den[i])
 	}
 
 	return res
@@ -567,7 +607,20 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	fmt.Printf("]\n")
 	// END DEBUG
 
-	// compute ho
+	// compute hh1h2
+	chh1h2 := computeHh1h2(_lh1, _lh2, domainH)
+
+	// DEBUG
+	_chh1h2 := make([]fr.Element, len(chh1h2))
+	copy(_chh1h2, chh1h2)
+	fft.BitReverse(_chh1h2)
+	fmt.Printf("_chh1h2: \n")
+	fmt.Printf("[")
+	for i := 0; i < len(_chh1h2); i++ {
+		fmt.Printf("%s, ", _chh1h2[i].String())
+	}
+	fmt.Printf("]\n")
+	// END DEBUG
 
 	// build the opening proofs
 	var nu fr.Element
