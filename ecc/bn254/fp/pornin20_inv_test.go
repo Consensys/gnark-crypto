@@ -141,16 +141,25 @@ func TestLinearComb(t *testing.T) {
 }
 
 func TestElementApproximation(t *testing.T) {
-	superCorrect := uint64(0b1101101100010011111011100011101010011100010101111101010001001)
-	correct := approximateRef(&rSquare)
-	observed := approximate(&rSquare)
+	superCorrect := uint64(0b1101101100010011111011100011100101010011100010101111101010001001)
 
+	correct := approximateRef(&rSquare)
 	if correct != superCorrect {
 		panic("oof")
 	}
 
-	if observed != correct || observed != superCorrect || correct != superCorrect {
-		panic("oops")
+	var xInt big.Int
+	for rSquare.ToBigInt(&xInt); xInt.BitLen() != 0; xInt.Rsh(&xInt, 1) {
+
+		var x Element
+		x.SetBigInt(&xInt)
+		observed := approximate(&x, x.BitLen())
+		correct = approximateRef(&x)
+
+		if observed != correct {
+			fmt.Println("At bit length ", xInt.BitLen())
+			panic("oops")
+		}
 	}
 }
 
@@ -240,4 +249,27 @@ func TestMulWord2(t *testing.T) {
 	if !quickRes.Equal(&correctRes) {
 		panic("Multiplication failed")
 	}
+}
+
+func approximateRef(x *Element) uint64 {
+
+	var asInt big.Int
+	x.ToBigInt(&asInt)
+	n := x.BitLen()
+
+	if n <= 64 {
+		return asInt.Uint64()
+	}
+
+	modulus := big.NewInt(1 << 31)
+	var lo big.Int
+	lo.Mod(&asInt, modulus)
+
+	modulus.Lsh(modulus, uint(n-64))
+	var hi big.Int
+	hi.Div(&asInt, modulus)
+	hi.Lsh(&hi, 31)
+
+	hi.Add(&hi, &lo)
+	return hi.Uint64()
 }

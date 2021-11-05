@@ -5,7 +5,6 @@ import (
 	"math/bits"
 )
 
-//TODO: Very not constant time
 func (z *Element) SetInt64(i int64) {
 	z.MulWord(&rSquare, i)
 }
@@ -147,22 +146,47 @@ func (z *Element) InverseOpt1(x *Element) *Element {
 	return z
 }
 
-func approximateRef(x *Element) uint64 {
-	lo := x[0] % (1 << 31)
-	hi := (x[3] / (1 << 29)) << 31
-
-	return lo | hi
+func max(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
-func approximate(x *Element) uint64 {
-	mask := uint64(0b1111111111111111111111111111111) //31 ones
+func min(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func approximate(x *Element, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	mask := uint64(0x7FFFFFFF) //31 ones
 	lo := mask & x[0]
 
-	hi := x[3] << 2
-	mask = uint64(0b1111111111111111111111111111111110000000000000000000000000000000) //33 ones, followed by 31 zeros
-	hi &= mask
+	hiWordIndex := (n - 1) / 64
 
-	return lo | hi
+	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, 33)
+
+	mask = ^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1)
+	hi := (x[hiWordIndex] & mask) << (64 - hiWordBitsAvailable)
+
+	mask = ^(1<<(31+hiWordBitsUsed) - 1)
+	mid := (mask & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
+}
+
+func approximatePair(x *Element, y *Element) (uint64, uint64) {
+	n := max(x.BitLen(), y.BitLen())
+
+	return approximate(x, n), approximate(y, n)
 }
 
 var inversionCorrectionFactorP20Full = Element{8862593707351107428, 14861862907286385237, 15773464367735268868, 1095622056137557639}
@@ -182,8 +206,7 @@ func (z *Element) Inverse(x *Element) *Element {
 	outerLoopIterations := 16 // ceil( (2* 254 - 1)/32 )
 
 	for i := 0; i < outerLoopIterations; i++ {
-		aApprox := approximate(&a)
-		bApprox := approximate(&b)
+		aApprox, bApprox := approximatePair(&a, &b)
 
 		//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 		var f0 int64 = 1
@@ -247,7 +270,6 @@ func (z *Element) Inverse(x *Element) *Element {
 	}
 
 	z.Mul(&v, &inversionCorrectionFactorP20Full)
-	//z.Set(&v)
 	return z
 }
 
@@ -295,15 +317,12 @@ func (z *Element) MulWordUnsigned(x *Element, y uint64) {
 		m := c[0] * 9786893198990664585
 		c[2] = madd0(m, 4332616871279656263, c[0])
 
-		//c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[0], c[1] = bits.Add64(c[1], t[1], 0)
 		c[2], t[0] = madd2(m, 10917124144477883021, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[2], c[1], t[2])
 		c[0], c[1] = bits.Add64(c[1], t[2], 0)
 		c[2], t[1] = madd2(m, 13281191951274694749, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[3], c[1], t[3])
 		c[0], c[1] = bits.Add64(c[1], t[3], 0)
 		t[3], t[2] = madd3(m, 3486998266802970665, c[0], c[2], c[1])
 	}
@@ -314,15 +333,12 @@ func (z *Element) MulWordUnsigned(x *Element, y uint64) {
 		m := c[0] * 9786893198990664585
 		c[2] = madd0(m, 4332616871279656263, c[0])
 
-		//c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[0], c[1] = bits.Add64(c[1], t[1], 0)
 		c[2], t[0] = madd2(m, 10917124144477883021, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[2], c[1], t[2])
 		c[0], c[1] = bits.Add64(c[1], t[2], 0)
 		c[2], t[1] = madd2(m, 13281191951274694749, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[3], c[1], t[3])
 		c[0], c[1] = bits.Add64(c[1], t[3], 0)
 		t[3], t[2] = madd3(m, 3486998266802970665, c[0], c[2], c[1])
 	}
@@ -333,15 +349,12 @@ func (z *Element) MulWordUnsigned(x *Element, y uint64) {
 		m := c[0] * 9786893198990664585
 		c[2] = madd0(m, 4332616871279656263, c[0])
 
-		//c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[0], c[1] = bits.Add64(c[1], t[1], 0)
 		c[2], z[0] = madd2(m, 10917124144477883021, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[2], c[1], t[2])
 		c[0], c[1] = bits.Add64(c[1], t[2], 0)
 		c[2], z[1] = madd2(m, 13281191951274694749, c[2], c[0])
 
-		//c[1], c[0] = madd2(v, y[3], c[1], t[3])
 		c[0], c[1] = bits.Add64(c[1], t[3], 0)
 		z[3], z[2] = madd3(m, 3486998266802970665, c[0], c[2], c[1])
 	}
@@ -428,18 +441,9 @@ func (z *Element) bigNumLinearComb(x *Element, xCoeff int64, y *Element, yCoeff 
 	var xTimes Element
 	var yTimes Element
 
-	xCopy := *x
-	yCopy := *y
-
 	xHi := xTimes.bigNumMultiply(x, xCoeff)
 	yHi := yTimes.bigNumMultiply(y, yCoeff)
 	hi := z.bigNumAdd(&xTimes, xHi, &yTimes, yHi)
-
-	xTimesInt := checkMult(&xCopy, xCoeff, &xTimes, xHi)
-	yTimesInt := checkMult(&yCopy, yCoeff, &yTimes, yHi)
-	var sumInt big.Int
-	sumInt.Add(&xTimesInt, &yTimesInt)
-	checkMatchBigInt(z, hi, &sumInt)
 
 	return hi
 }
