@@ -23,7 +23,12 @@ func TestH(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = Prove(srs, f, lookup)
+	proof, err := Prove(srs, f, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Verify(srs, proof)
 	if err != nil {
 		t.Fatal(err)
 	}
