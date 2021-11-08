@@ -5,147 +5,6 @@ import (
 	"math/bits"
 )
 
-func (z *Element) SetInt64(i int64) {
-	z.MulWord(&rSquare, i)
-}
-
-//LtAsIs compares without changing back from Montgomery form
-func (z *Element) LtAsIs(x *Element) bool {
-
-	if z[3] == x[3] {
-		if z[2] == x[2] {
-			if z[1] == x[1] {
-				return z[0] < x[0]
-			}
-			return z[1] < x[1]
-		}
-		return z[2] < x[2]
-	}
-	return z[3] < x[3]
-}
-
-func (z *Element) Inverse0(x *Element) *Element {
-
-	if x.IsZero() {
-		z.SetZero()
-		return z
-	}
-
-	var a Element
-	var b Element
-	var u Element
-	var v Element
-
-	a = *x
-	b = qElement
-	u.SetOne()
-	v.SetZero()
-
-	//Loop bound according to P20 pg 3 footnote 2 (x is known to be invertible)
-	//for iteration := 0; iteration < 2*Bits - 2; iteration++ {
-	for !a.IsZero() {
-		if a.Bit(0) == 0 {
-			a.Halve()
-			u.Halve()
-		} else {
-			if a.LtAsIs(&b) {
-				a, b = b, a
-				u, v = v, u
-			}
-			//TODO: Exploit the shrinking of the lengths of a,b? Nah
-			a.Sub(&a, &b)
-			a.Halve()
-			u.Sub(&u, &v)
-			u.Halve()
-		}
-	}
-
-	z.Mul(&v, &rSquare) //TODO: Would it have been okay to store it in v itself?
-	return z
-}
-
-var inversionCorrectionFactorOptimization1 = Element{
-	5658184994089520847,
-	11089936491052707196,
-	18024563689369049901,
-	817977532144045340,
-}
-
-func (z *Element) InverseOpt1(x *Element) *Element {
-
-	if x.IsZero() {
-		z.SetZero()
-		return z
-	}
-
-	var a Element
-	var b Element
-	var u Element
-	var v Element
-
-	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
-	//TODO: Better or worse to group two of them in the same var? Paper suggests it's used in "most optimized" implementation but algorithm 2 doesn't use it
-	var f0 int64 = 1
-	var g0 int64 = 0
-	var f1 int64 = 0
-	var g1 int64 = 1
-
-	a = *x
-	b = qElement
-	u = Element{1, 0, 0, 0}
-	v.SetZero()
-
-	t := 1
-	//Loop bound according to P20 pg 3 footnote 2 (x is known to be invertible)
-	for iteration := 0; iteration < 2*Bits-2; iteration++ {
-		//TODO: The two branches don't take the same amount of time
-		if a.Bit(0) == 0 {
-			a.Halve()
-		} else {
-			if a.LtAsIs(&b) {
-				a, b = b, a
-				f0, f1 = f1, f0
-				g0, g1 = g1, g0
-			}
-
-			a.Sub(&a, &b)
-			a.Halve()
-			f0 -= f1
-			g0 -= g1
-		}
-
-		f1 *= 2
-		g1 *= 2
-
-		if t == 62 || iteration == 2*Bits-3 { //TODO: 63 fails. Find out why. Anyway, same runtime
-			t = 0
-
-			var elementScratch Element
-			var updateFactor Element
-			//save u
-			elementScratch.Set(&u)
-
-			//update u
-			u.MulWord(&u, f0)
-
-			updateFactor.MulWord(&v, g0)
-			u.Add(&u, &updateFactor)
-
-			//update v
-			elementScratch.MulWord(&elementScratch, f1)
-
-			v.MulWord(&v, g1)
-			v.Add(&v, &elementScratch)
-
-			f0, g0, f1, g1 = 1, 0, 0, 1
-		}
-		t++
-	}
-
-	z.Mul(&v, &inversionCorrectionFactorOptimization1)
-	return z
-}
-
 func max(a int, b int) int {
 	if a > b {
 		return a
@@ -189,7 +48,7 @@ func approximatePair(x *Element, y *Element) (uint64, uint64) {
 	return approximate(x, n), approximate(y, n)
 }
 
-var inversionCorrectionFactorP20Full = Element{8862593707351107428, 14861862907286385237, 15773464367735268868, 1095622056137557639}
+var inversionCorrectionFactorP20Full = Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
 
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
@@ -203,16 +62,24 @@ func (z *Element) Inverse(x *Element) *Element {
 	var v = Element{0, 0, 0, 0}
 
 	// registers are 64bit, thus k = 32
-	outerLoopIterations := 16 // ceil( (2* 254 - 1)/32 )
+	const outerLoopIterations = 16 // ceil( (2* 254 - 1)/32 )
+
+	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
+	var f0, g0, f1, g1 int64
+
+	//Saved update factors to reduce the number of field multiplications
+	var pf0, pg0, pf1, pg1 int64
+
+	var bf0, bg0, bf1, bg1 big.Int
+
+	bf0.SetInt64(1)
+	bg0.SetInt64(0)
+	bf1.SetInt64(0)
+	bg1.SetInt64(1)
 
 	for i := 0; i < outerLoopIterations; i++ {
 		aApprox, bApprox := approximatePair(&a, &b)
-
-		//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
-		var f0 int64 = 1
-		var g0 int64 = 0
-		var f1 int64 = 0
-		var g1 int64 = 1
+		f0, g0, f1, g1 = 1, 0, 0, 1
 
 		for j := 0; j < 31; j++ {
 
@@ -223,15 +90,24 @@ func (z *Element) Inverse(x *Element) *Element {
 					aApprox, bApprox = bApprox, aApprox
 					f0, f1 = f1, f0
 					g0, g1 = g1, g0
+
+					bf0, bf1 = bf1, bf0
+					bg0, bg1 = bg1, bg0
 				}
 
 				aApprox = (aApprox - bApprox) / 2
 				f0 -= f1
 				g0 -= g1
+
+				bf0.Sub(&bf0, &bf1)
+				bg0.Sub(&bg0, &bg1)
 			}
 
 			f1 *= 2
 			g1 *= 2
+
+			bf1.Lsh(&bf1, 1)
+			bg1.Lsh(&bg1, 1)
 		}
 
 		scratch := a
@@ -250,27 +126,54 @@ func (z *Element) Inverse(x *Element) *Element {
 		a.bigNumRshBy31(&a, aHi)
 		b.bigNumRshBy31(&b, bHi)
 
-		var updateFactor Element
-		//save u
-		scratch.Set(&u)
+		if i%2 == 1 || i == outerLoopIterations-1 { //second condition is redundant in this case
 
-		//update u
-		u.MulWord(&u, f0)
+			f0, g0, f1, g1 = f0*pf0+g0*pf1,
+				f0*pg0+g0*pg1,
+				f1*pf0+g1*pf1,
+				f1*pg0+g1*pg1
 
-		updateFactor.MulWord(&v, g0)
-		u.Add(&u, &updateFactor)
+			var updateFactor Element
+			//save u
+			scratch.Set(&u)
 
-		//update v
-		scratch.MulWord(&scratch, f1)
+			//update u
+			u.MulWord(&u, f0)
 
-		v.MulWord(&v, g1)
-		v.Add(&v, &scratch)
+			updateFactor.MulWord(&v, g0)
+			u.Add(&u, &updateFactor)
 
-		f0, g0, f1, g1 = 1, 0, 0, 1
+			//update v
+			scratch.MulWord(&scratch, f1)
+
+			v.MulWord(&v, g1)
+			v.Add(&v, &scratch)
+
+		} else {
+			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
+		}
+
+		if !equalsBig(&bf0, f0) || !equalsBig(&bg0, g0) || !equalsBig(&bf1, f1) || !equalsBig(&bg1, g1) {
+			panic("update factors are incorrect")
+		}
+		if i%2 == 1 {
+			bf0.SetInt64(1)
+			bg0.SetInt64(0)
+			bf1.SetInt64(0)
+			bg1.SetInt64(1)
+		}
+
 	}
 
 	z.Mul(&v, &inversionCorrectionFactorP20Full)
+	//z.Set(&v)
 	return z
+}
+
+func equalsBig(a *big.Int, b int64) bool {
+	var bigB big.Int
+	bigB.SetInt64(b)
+	return a.Cmp(&bigB) == 0
 }
 
 //TODO: Do this directly
@@ -287,14 +190,15 @@ func (z *Element) MulWord(x *Element, y int64) {
 		abs = uint64(y)
 	}
 
-	z.MulWordUnsigned(x, abs)
+	z.mulWordUnsigned(x, abs)
 
 	if neg {
 		z.Neg(z)
 	}
 }
 
-func (z *Element) MulWordUnsigned(x *Element, y uint64) {
+//Would making this package private encourage Go to inline it?
+func (z *Element) mulWordUnsigned(x *Element, y uint64) {
 
 	var t [4]uint64
 	var c [3]uint64
@@ -446,55 +350,4 @@ func (z *Element) bigNumLinearComb(x *Element, xCoeff int64, y *Element, yCoeff 
 	hi := z.bigNumAdd(&xTimes, xHi, &yTimes, yHi)
 
 	return hi
-}
-
-func checkMult(x *Element, c int64, result *Element, resultHi uint64) big.Int {
-	var xInt big.Int
-	x.ToBigInt(&xInt)
-
-	xInt.Mul(&xInt, big.NewInt(c))
-
-	checkMatchBigInt(result, resultHi, &xInt)
-	return xInt
-}
-
-func checkMatchBigInt(a *Element, aHi uint64, aInt *big.Int) {
-	var modulus big.Int
-	var aIntMod big.Int
-	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, 320)
-
-	aIntMod.Mod(aInt, &modulus)
-
-	bytes := aIntMod.Bytes()
-
-	for i := 0; i < 33; i++ {
-		var word uint64
-		if i < 32 {
-			word = a[i/8]
-		} else {
-			word = aHi
-		}
-
-		i2 := (i % 8) * 8
-		byteA := byte(((255 << i2) & word) >> i2)
-		var byteInt byte
-		if i < len(bytes) {
-			byteInt = bytes[len(bytes)-i-1]
-		} else {
-			byteInt = 0
-		}
-
-		if byteInt != byteA {
-			panic("Bignum mismatch")
-		}
-	}
-}
-
-func (z *Element) ToVeryBigInt(i *big.Int, xHi uint64) {
-	z.ToBigInt(i)
-	var upperWord big.Int
-	upperWord.SetUint64(xHi)
-	upperWord.Lsh(&upperWord, 256)
-	i.Add(&upperWord, i)
 }
