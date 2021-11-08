@@ -8,10 +8,12 @@ import (
 	"math/bits"
 	"sort"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
 var (
@@ -196,7 +198,6 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 		u.Sub(&g[i], &_g)
 		num[_i].Mul(&num[_i], &u)
 
-		//num[_i].Mul(&num[_i], &d[i%2])
 	}
 
 	// DEBUG
@@ -371,6 +372,9 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	// hash function used for Fiat Shamir
 	hFunc := sha256.New()
 
+	// transcript to derive the challenge
+	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
+
 	// create domains
 	var dNum *fft.Domain
 	if len(t) <= len(f) {
@@ -441,12 +445,6 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	fmt.Println("")
 	// END DEBUG
 
-	// commit to _f
-	// cf := make([]fr.Element, cardDNum)
-	// copy(cf, lf)
-	// dNum.FFTInverse(cf, fft.DIF, 0)
-	// fft.BitReverse(cf)
-
 	// write f sorted by t
 	lfSortedByt := sortByT(lf[:len(lf)-1], t)
 
@@ -512,9 +510,19 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	//  END DEBUG
 
 	// derive beta, gamma
-	var beta, gamma fr.Element
-	beta.SetUint64(13)
-	gamma.SetUint64(23)
+	//var gamma fr.Element
+	// beta.SetUint64(13)
+	//gamma.SetUint64(23)
+	beta, err := deriveRandomness(&fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
+	if err != nil {
+		return proof, err
+	}
+	gamma, err := deriveRandomness(&fs, "gamma")
+	if err != nil {
+		return proof, err
+	}
+	fmt.Printf("beta: %s\n", beta.String())
+	fmt.Printf("gamma: %s\n", gamma.String())
 
 	// Compute to Z
 	lz := computeZ(lf, lt, lh1, lh2, beta, gamma)
@@ -670,8 +678,13 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	// END DEBUG
 
 	// compute the quotient
-	var alpha fr.Element
-	alpha.SetUint64(98)
+	// var alpha fr.Element
+	// alpha.SetUint64(98)
+	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
+	if err != nil {
+		return proof, err
+	}
+	fmt.Printf("alpha: %s\n", alpha.String())
 	ch := computeQuotient(alpha, lh, lh0, lhn, lh1h2, domainH)
 	proof.h, err = kzg.Commit(ch, srs)
 	if err != nil {
@@ -687,8 +700,12 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	// 	END DEBUG
 
 	// build the opening proofs
-	var nu fr.Element
-	nu.SetUint64(234)
+	// var nu fr.Element
+	// nu.SetUint64(234)
+	nu, err := deriveRandomness(&fs, "nu", &proof.h)
+	if err != nil {
+		return proof, err
+	}
 	proof.BatchedProof, err = kzg.BatchOpenSinglePoint(
 		[]polynomial.Polynomial{
 			ch1,
@@ -764,8 +781,32 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	// hash function that is used for Fiat Shamir
 	hFunc := sha256.New()
 
+	// transcript to derive the challenge
+	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
+
+	// derive the various challenges
+	beta, err := deriveRandomness(&fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
+	if err != nil {
+		return err
+	}
+
+	gamma, err := deriveRandomness(&fs, "gamma")
+	if err != nil {
+		return err
+	}
+
+	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
+	if err != nil {
+		return err
+	}
+
+	nu, err := deriveRandomness(&fs, "nu", &proof.h)
+	if err != nil {
+		return err
+	}
+
 	// check opening proofs
-	err := kzg.BatchVerifySinglePoint(
+	err = kzg.BatchVerifySinglePoint(
 		[]kzg.Digest{
 			proof.h1,
 			proof.h2,
@@ -802,14 +843,14 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	}
 
 	// check polynomial relation using Schwartz Zippel
-	var lhs, rhs, nu, nun, g, _g, a, v, w, beta, gamma, one fr.Element
-	nu.SetUint64(234)
+	var lhs, rhs, nun, g, _g, a, v, w, one fr.Element
 	d := fft.NewDomain(proof.size, 0, false) // only there to access to root of 1...
 	one.SetOne()
 	g.Exp(d.Generator, big.NewInt(int64(d.Cardinality-1)))
 
-	beta.SetUint64(13)
-	gamma.SetUint64(23)
+	// beta.SetUint64(13)
+	// gamma.SetUint64(23)
+
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
 
@@ -878,8 +919,9 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	fmt.Printf("lh1h2(nu)*(h1(nu)-h2(g*nu)): %s\n", lnh1h2.String())
 
 	// fold the numerator
-	var alpha fr.Element
-	alpha.SetUint64(98)
+	// var alpha fr.Element
+	// alpha.SetUint64(98)
+
 	lnh1h2.Mul(&lnh1h2, &alpha).
 		Add(&lnh1h2, &lnz).
 		Mul(&lnh1h2, &alpha).
@@ -897,4 +939,25 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	}
 
 	return nil
+}
+
+// TODO put that in fiat-shamir package
+func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bn254.G1Affine) (fr.Element, error) {
+
+	var buf [bn254.SizeOfG1AffineUncompressed]byte
+	var r fr.Element
+
+	for _, p := range points {
+		buf = p.RawBytes()
+		if err := fs.Bind(challenge, buf[:]); err != nil {
+			return r, err
+		}
+	}
+
+	b, err := fs.ComputeChallenge(challenge)
+	if err != nil {
+		return r, err
+	}
+	r.SetBytes(b)
+	return r, nil
 }
