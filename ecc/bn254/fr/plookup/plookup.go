@@ -3,7 +3,6 @@ package plookup
 import (
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/bits"
 	"sort"
@@ -144,9 +143,6 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	s := int(domainH.Cardinality)
 	num := make([]fr.Element, domainH.Cardinality)
 
-	// create domain (2*len(h1) is enough, since we divide by x^n-1)
-	fmt.Printf("domainH.FinerGenerator: %s\n", domainH.FinerGenerator.String())
-
 	var u, v, w, _g, m, n, one, t fr.Element
 	t.SetUint64(2).
 		Inverse(&t)
@@ -199,18 +195,6 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 		num[_i].Mul(&num[_i], &u)
 
 	}
-
-	// DEBUG
-	fmt.Println("lH: ")
-	fmt.Printf("[")
-	for i := 0; i < len(num); i++ {
-		fmt.Printf("%s, ", num[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	// END DEBUG
-
-	//domainH.FFTInverse(num, fft.DIT, 1)
 
 	return num
 }
@@ -418,44 +402,8 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 		return proof, err
 	}
 
-	//cf[len(cf)-1].SetZero()
-
-	// DEBUG
-	fmt.Println("lf: ")
-	fmt.Printf("[\n")
-	for i := 0; i < len(lf); i++ {
-		fmt.Printf("%s, ", lf[i].String())
-	}
-	fmt.Printf("]\n")
-	fmt.Println("lt: ")
-	fmt.Printf("[\n")
-	for i := 0; i < len(lt); i++ {
-		fmt.Printf("%s, ", lt[i].String())
-	}
-	fmt.Printf("]\n")
-	fmt.Printf("f: ")
-	for i := 0; i < len(cf); i++ {
-		fmt.Printf("%s*x**%d+", cf[i].String(), i)
-	}
-	fmt.Println("")
-	fmt.Printf("t: ")
-	for i := 0; i < len(ct); i++ {
-		fmt.Printf("%s*x**%d+", ct[i].String(), i)
-	}
-	fmt.Println("")
-	// END DEBUG
-
 	// write f sorted by t
 	lfSortedByt := sortByT(lf[:len(lf)-1], t)
-
-	// DEBUG
-	fmt.Println("lfSortedByt")
-	fmt.Printf("[")
-	for i := 0; i < len(lfSortedByt); i++ {
-		fmt.Printf("%s, ", lfSortedByt[i].String())
-	}
-	fmt.Printf("]\n")
-	// END DEBUG
 
 	// compute h1, h2, commit to them
 	lh1 := make([]fr.Element, cardDNum)
@@ -464,21 +412,6 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	ch2 := make([]fr.Element, cardDNum)
 	copy(lh1, lfSortedByt[:cardDNum])
 	copy(lh2, lfSortedByt[cardDNum-1:])
-
-	// DEBUG
-	fmt.Println("lh1:")
-	fmt.Printf("[")
-	for i := 0; i < len(lh1); i++ {
-		fmt.Printf("%s, ", lh1[i].String())
-	}
-	fmt.Printf("]\n")
-	fmt.Println("lh2:")
-	fmt.Printf("[")
-	for i := 0; i < len(lh2); i++ {
-		fmt.Printf("%s, ", lh2[i].String())
-	}
-	fmt.Printf("]\n")
-	// END DEBUG
 
 	copy(ch1, lfSortedByt[:cardDNum])
 	copy(ch2, lfSortedByt[cardDNum-1:])
@@ -496,23 +429,7 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 		return proof, err
 	}
 
-	//  DEBUG
-	fmt.Printf("h1: ")
-	for i := 0; i < len(ch1); i++ {
-		fmt.Printf("%s*x**%d+", ch1[i].String(), i)
-	}
-	fmt.Println("")
-	fmt.Printf("h2: ")
-	for i := 0; i < len(ch2); i++ {
-		fmt.Printf("%s*x**%d+", ch2[i].String(), i)
-	}
-	fmt.Println("")
-	//  END DEBUG
-
 	// derive beta, gamma
-	//var gamma fr.Element
-	// beta.SetUint64(13)
-	//gamma.SetUint64(23)
 	beta, err := deriveRandomness(&fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
 	if err != nil {
 		return proof, err
@@ -521,21 +438,9 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	fmt.Printf("beta: %s\n", beta.String())
-	fmt.Printf("gamma: %s\n", gamma.String())
 
 	// Compute to Z
 	lz := computeZ(lf, lt, lh1, lh2, beta, gamma)
-
-	// DEBUG
-	fmt.Println("lz:")
-	fmt.Println("[")
-	for i := 0; i < len(lz); i++ {
-		fmt.Printf("%s,\n", lz[i].String())
-	}
-	fmt.Println("]")
-	// END DEBUG
-
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
 	dNum.FFTInverse(cz, fft.DIF, 0)
@@ -544,14 +449,6 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-
-	// DEBUG
-	fmt.Printf("cz: ")
-	for i := 0; i < len(cz); i++ {
-		fmt.Printf("%s*x**%d+", cz[i].String(), i)
-	}
-	fmt.Println("")
-	// END DEBUG
 
 	// prepare data for computing the quotient
 	// compute the numerator
@@ -573,135 +470,30 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	domainH.FFT(_lt, fft.DIF, 1)
 	domainH.FFT(_lf, fft.DIF, 1)
 
-	// DEBUG
-	fmt.Println("_lz")
-	fmt.Printf("[")
-	for i := 0; i < len(_lz); i++ {
-		fmt.Printf("%s, ", _lz[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	fmt.Println("_lh1")
-	fmt.Printf("[")
-	for i := 0; i < len(_lh1); i++ {
-		fmt.Printf("%s, ", _lh1[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	fmt.Println("_lh2")
-	fmt.Printf("[")
-	for i := 0; i < len(_lh2); i++ {
-		fmt.Printf("%s, ", _lh2[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	fmt.Println("_lt")
-	fmt.Printf("[")
-	for i := 0; i < len(_lt); i++ {
-		fmt.Printf("%s, ", _lt[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	fmt.Println("_lf")
-	fmt.Printf("[")
-	for i := 0; i < len(_lf); i++ {
-		fmt.Printf("%s, ", _lf[i].String())
-	}
-	fmt.Printf("]")
-	fmt.Println("")
-	// END DEBUG
-
 	// compute h
 	lh := computeH(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainH)
-
-	// DEBUG
-	_lh := make([]fr.Element, len(lh))
-	copy(_lh, lh)
-	fft.BitReverse(_lh)
-	fmt.Printf("lh: \n")
-	fmt.Println("[")
-	for i := 0; i < len(_lh); i++ {
-		fmt.Printf("%s, ", _lh[i].String())
-	}
-	fmt.Println("]")
-	// END DEBUG
-
-	// fmt.Println("")
-	// proof.h, err = kzg.Commit(ch, srs)
-	// if err != nil {
-	// 	return proof, err
-	// }
 
 	// compute h0
 	lh0 := computeH0(_lz, domainH)
 
-	// DEBUG
-	_lh0 := make([]fr.Element, len(lh0))
-	copy(_lh0, lh0)
-	fft.BitReverse(_lh0)
-	fmt.Printf("lh0: \n")
-	fmt.Printf("[")
-	for i := 0; i < len(_lh0); i++ {
-		fmt.Printf("%s, ", _lh0[i].String())
-	}
-	fmt.Printf("]\n")
-	// END DEBUG
-
 	// compute hn
 	lhn := computeHn(_lz, domainH)
-
-	// DEBUG
-	_lhn := make([]fr.Element, len(lhn))
-	copy(_lhn, lhn)
-	fft.BitReverse(_lhn)
-	fmt.Printf("lhn: \n")
-	fmt.Printf("[")
-	for i := 0; i < len(_lhn); i++ {
-		fmt.Printf("%s, ", _lhn[i].String())
-	}
-	fmt.Printf("]\n")
-	// END DEBUG
 
 	// compute hh1h2
 	lh1h2 := computeHh1h2(_lh1, _lh2, domainH)
 
-	// DEBUG
-	_lh1h2 := make([]fr.Element, len(lh1h2))
-	copy(_lh1h2, lh1h2)
-	fft.BitReverse(_lh1h2)
-	fmt.Printf("_lh1h2: \n")
-	fmt.Printf("[")
-	for i := 0; i < len(_lh1h2); i++ {
-		fmt.Printf("%s, ", _lh1h2[i].String())
-	}
-	fmt.Printf("]\n")
-	// END DEBUG
-
 	// compute the quotient
-	// var alpha fr.Element
-	// alpha.SetUint64(98)
 	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
 	if err != nil {
 		return proof, err
 	}
-	fmt.Printf("alpha: %s\n", alpha.String())
 	ch := computeQuotient(alpha, lh, lh0, lhn, lh1h2, domainH)
 	proof.h, err = kzg.Commit(ch, srs)
 	if err != nil {
 		return proof, err
 	}
 
-	// DEBUG
-	fmt.Printf("q: ")
-	for i := 0; i < len(ch); i++ {
-		fmt.Printf("%s*x**%d+", ch[i].String(), i)
-	}
-	fmt.Println("")
-	// 	END DEBUG
-
 	// build the opening proofs
-	// var nu fr.Element
-	// nu.SetUint64(234)
 	nu, err := deriveRandomness(&fs, "nu", &proof.h)
 	if err != nil {
 		return proof, err
@@ -732,15 +524,6 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 		return proof, err
 	}
 
-	// DEBUG
-	fmt.Printf("h1(nu): %s\n", proof.BatchedProof.ClaimedValues[0].String())
-	fmt.Printf("h2(nu): %s\n", proof.BatchedProof.ClaimedValues[1].String())
-	fmt.Printf("t(nu): %s\n", proof.BatchedProof.ClaimedValues[2].String())
-	fmt.Printf("z(nu): %s\n", proof.BatchedProof.ClaimedValues[3].String())
-	fmt.Printf("f(nu): %s\n", proof.BatchedProof.ClaimedValues[4].String())
-	fmt.Println("")
-	// END DEBUG
-
 	nu.Mul(&nu, &dNum.Generator)
 	proof.BatchedProofShifted, err = kzg.BatchOpenSinglePoint(
 		[]polynomial.Polynomial{
@@ -763,13 +546,6 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	// DEBUG
-	fmt.Printf("h1(g*nu): %s\n", proof.BatchedProofShifted.ClaimedValues[0].String())
-	fmt.Printf("h2(g*nu): %s\n", proof.BatchedProofShifted.ClaimedValues[1].String())
-	fmt.Printf("t(g*nu): %s\n", proof.BatchedProofShifted.ClaimedValues[2].String())
-	fmt.Printf("z(g*nu): %s\n", proof.BatchedProofShifted.ClaimedValues[3].String())
-	fmt.Println("")
-	// END DEBUG
 
 	return proof, nil
 
@@ -823,10 +599,6 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		return err
 	}
 
-	// DEBUG
-	fmt.Printf("hnu: %s\n", proof.BatchedProof.ClaimedValues[5].String())
-	// END DEBUG
-
 	err = kzg.BatchVerifySinglePoint(
 		[]kzg.Digest{
 			proof.h1,
@@ -878,16 +650,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		Add(&a, &w)
 	rhs.Mul(&rhs, &a)
 
-	// DEBUG
-	fmt.Printf("lhs: %s\n", lhs.String())
-	fmt.Printf("rhs: %s\n", rhs.String())
-	// END DEBUG
-
 	lhs.Sub(&lhs, &rhs)
-
-	// DEBUG
-	fmt.Printf("lhs-rhs: %s\n", lhs.String())
-	// END DEBUG
 
 	// check consistancy of bounds
 	var l0, ln, d1, d2 fr.Element
@@ -897,26 +660,21 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	d2.Sub(&nu, &g)
 	l0.Div(&l0, &d1)
 	ln.Div(&ln, &d2)
-	fmt.Printf("l0: %s\n", l0.String())
-	fmt.Printf("ln: %s\n", ln.String())
 
 	// l0*(z-1)
 	var l0z fr.Element
 	l0z.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
 		Mul(&l0z, &l0)
-	fmt.Printf("l0(nu)*(z(nu)-1): %s\n", l0z.String())
 
 	// ln*(z-1)
 	var lnz fr.Element
 	lnz.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
 		Mul(&ln, &lnz)
-	fmt.Printf("ln(nu)*(z(nu)-1): %s\n", lnz.String())
 
 	// ln*(h1 - h2(g.x))
 	var lnh1h2 fr.Element
 	lnh1h2.Sub(&proof.BatchedProof.ClaimedValues[0], &proof.BatchedProofShifted.ClaimedValues[1]).
 		Mul(&lnh1h2, &ln)
-	fmt.Printf("lh1h2(nu)*(h1(nu)-h2(g*nu)): %s\n", lnh1h2.String())
 
 	// fold the numerator
 	// var alpha fr.Element
@@ -928,7 +686,6 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		Add(&lnh1h2, &l0z).
 		Mul(&lnh1h2, &alpha).
 		Add(&lnh1h2, &lhs)
-	fmt.Printf("folded poly at nu: %s\n", lnh1h2.String())
 
 	// (x**n-1) * h(x) evaluated at nu
 	nun.Exp(nu, big.NewInt(int64(d.Cardinality)))
