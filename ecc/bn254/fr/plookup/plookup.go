@@ -128,7 +128,7 @@ func computeZ(lf, lt, lh1, lh2 []fr.Element, beta, gamma fr.Element) []fr.Elemen
 	return z
 }
 
-// computeH computes the quotient h where
+// computeH computes the evaluation (shifted, bit reversed) of h where
 // h = (x-1)*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX)) -
 //		(x-1)*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX) )
 //
@@ -136,7 +136,6 @@ func computeZ(lf, lt, lh1, lh2 []fr.Element, beta, gamma fr.Element) []fr.Elemen
 // * _lz, _lh1, _lh2, _lt, _lf are the polynomials z, h1, h2, t, f in shifted Lagrange basis (domainH)
 // * beta, gamma are the challenges
 // * it returns h in canonical basis
-// func computeH(cz, ch1, ch2, ct, cf []fr.Element, beta, gamma fr.Element, domainH *fft.Domain) []fr.Element {
 func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, domainH *fft.Domain) []fr.Element {
 
 	// result
@@ -155,11 +154,11 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
 
-	var d [2]fr.Element
-	d[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality>>1)))
-	d[1].Neg(&d[0])
-	d[0].Sub(&d[0], &one).Inverse(&d[0])
-	d[1].Sub(&d[1], &one).Inverse(&d[1])
+	// var d [2]fr.Element
+	// d[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality>>1)))
+	// d[1].Neg(&d[0])
+	// d[0].Sub(&d[0], &one).Inverse(&d[0])
+	// d[1].Sub(&d[1], &one).Inverse(&d[1])
 
 	g := make([]fr.Element, s)
 	g[0].Set(&domainH.FinerGenerator)
@@ -197,7 +196,7 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 		u.Sub(&g[i], &_g)
 		num[_i].Mul(&num[_i], &u)
 
-		num[_i].Mul(&num[_i], &d[i%2])
+		//num[_i].Mul(&num[_i], &d[i%2])
 	}
 
 	// DEBUG
@@ -210,7 +209,7 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	fmt.Println("")
 	// END DEBUG
 
-	domainH.FFTInverse(num, fft.DIT, 1)
+	//domainH.FFTInverse(num, fft.DIT, 1)
 
 	return num
 }
@@ -319,6 +318,45 @@ func computeHh1h2(_lh1, _lh2 []fr.Element, domainH *fft.Domain) []fr.Element {
 			Mul(&res[_i], &g[i%2]).
 			Mul(&res[_i], &den[i])
 	}
+
+	return res
+}
+
+// computeQuotient computes the full quotient of the plookup protocol.
+// * alpha is the challenge to fold the numerator
+// * lh, lh0, lhn, lh1h2 are the various pieces of the numerator (Lagrange shifted form, bit reversed order)
+// * domainH fft domain
+// It returns the quotient, in canonical basis
+func computeQuotient(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainH *fft.Domain) []fr.Element {
+
+	s := len(lh)
+	res := make([]fr.Element, s)
+
+	var one fr.Element
+	one.SetOne()
+
+	var d [2]fr.Element
+	d[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality>>1)))
+	d[1].Neg(&d[0])
+	d[0].Sub(&d[0], &one).Inverse(&d[0])
+	d[1].Sub(&d[1], &one).Inverse(&d[1])
+
+	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+
+	for i := 0; i < s; i++ {
+
+		_i := int(bits.Reverse64(uint64(i)) >> nn)
+
+		res[_i].Mul(&lh1h2[_i], &alpha).
+			Add(&res[_i], &lhn[_i]).
+			Mul(&res[_i], &alpha).
+			Add(&res[_i], &lh0[_i]).
+			Mul(&res[_i], &alpha).
+			Add(&res[_i], &lh[_i]).
+			Mul(&res[_i], &d[i%2])
+	}
+
+	domainH.FFTInverse(res, fft.DIT, 1)
 
 	return res
 }
@@ -566,61 +604,87 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	// END DEBUG
 
 	// compute h
-	ch := computeH(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainH)
-	fmt.Printf("h: (len(h)= %d)\n", len(ch))
-	for i := 0; i < len(ch); i++ {
-		fmt.Printf("%s*x**%d+", ch[i].String(), i)
-	}
-	fmt.Println("")
-	proof.h, err = kzg.Commit(ch, srs)
-	if err != nil {
-		return proof, err
-	}
-
-	// compute h0
-	ch0 := computeH0(_lz, domainH)
+	lh := computeH(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainH)
 
 	// DEBUG
-	_ch0 := make([]fr.Element, len(ch0))
-	copy(_ch0, ch0)
-	fft.BitReverse(_ch0)
-	fmt.Printf("ch_0: \n")
+	_lh := make([]fr.Element, len(lh))
+	copy(_lh, lh)
+	fft.BitReverse(_lh)
+	fmt.Printf("lh: \n")
+	fmt.Println("[")
+	for i := 0; i < len(_lh); i++ {
+		fmt.Printf("%s, ", _lh[i].String())
+	}
+	fmt.Println("]")
+	// END DEBUG
+
+	// fmt.Println("")
+	// proof.h, err = kzg.Commit(ch, srs)
+	// if err != nil {
+	// 	return proof, err
+	// }
+
+	// compute h0
+	lh0 := computeH0(_lz, domainH)
+
+	// DEBUG
+	_lh0 := make([]fr.Element, len(lh0))
+	copy(_lh0, lh0)
+	fft.BitReverse(_lh0)
+	fmt.Printf("lh0: \n")
 	fmt.Printf("[")
-	for i := 0; i < len(_ch0); i++ {
-		fmt.Printf("%s, ", _ch0[i].String())
+	for i := 0; i < len(_lh0); i++ {
+		fmt.Printf("%s, ", _lh0[i].String())
 	}
 	fmt.Printf("]\n")
 	// END DEBUG
 
 	// compute hn
-	chn := computeHn(_lz, domainH)
+	lhn := computeHn(_lz, domainH)
 
 	// DEBUG
-	_chn := make([]fr.Element, len(chn))
-	copy(_chn, chn)
-	fft.BitReverse(_chn)
-	fmt.Printf("ch_n: \n")
+	_lhn := make([]fr.Element, len(lhn))
+	copy(_lhn, lhn)
+	fft.BitReverse(_lhn)
+	fmt.Printf("lhn: \n")
 	fmt.Printf("[")
-	for i := 0; i < len(_chn); i++ {
-		fmt.Printf("%s, ", _chn[i].String())
+	for i := 0; i < len(_lhn); i++ {
+		fmt.Printf("%s, ", _lhn[i].String())
 	}
 	fmt.Printf("]\n")
 	// END DEBUG
 
 	// compute hh1h2
-	chh1h2 := computeHh1h2(_lh1, _lh2, domainH)
+	lh1h2 := computeHh1h2(_lh1, _lh2, domainH)
 
 	// DEBUG
-	_chh1h2 := make([]fr.Element, len(chh1h2))
-	copy(_chh1h2, chh1h2)
-	fft.BitReverse(_chh1h2)
-	fmt.Printf("_chh1h2: \n")
+	_lh1h2 := make([]fr.Element, len(lh1h2))
+	copy(_lh1h2, lh1h2)
+	fft.BitReverse(_lh1h2)
+	fmt.Printf("_lh1h2: \n")
 	fmt.Printf("[")
-	for i := 0; i < len(_chh1h2); i++ {
-		fmt.Printf("%s, ", _chh1h2[i].String())
+	for i := 0; i < len(_lh1h2); i++ {
+		fmt.Printf("%s, ", _lh1h2[i].String())
 	}
 	fmt.Printf("]\n")
 	// END DEBUG
+
+	// compute the quotient
+	var alpha fr.Element
+	alpha.SetUint64(98)
+	ch := computeQuotient(alpha, lh, lh0, lhn, lh1h2, domainH)
+	proof.h, err = kzg.Commit(ch, srs)
+	if err != nil {
+		return proof, err
+	}
+
+	// DEBUG
+	fmt.Printf("q: ")
+	for i := 0; i < len(ch); i++ {
+		fmt.Printf("%s*x**%d+", ch[i].String(), i)
+	}
+	fmt.Println("")
+	// 	END DEBUG
 
 	// build the opening proofs
 	var nu fr.Element
@@ -738,7 +802,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	}
 
 	// check polynomial relation using Schwartz Zippel
-	var lhs, rhs, nu, nun, g, _g, e, a, v, w, beta, gamma, one fr.Element
+	var lhs, rhs, nu, nun, g, _g, a, v, w, beta, gamma, one fr.Element
 	nu.SetUint64(234)
 	d := fft.NewDomain(proof.size, 0, false) // only there to access to root of 1...
 	one.SetOne()
@@ -749,6 +813,9 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
 
+	// h(nu) where
+	// h = (x-1)*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX)) -
+	//		(x-1)*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX) )
 	lhs.Sub(&nu, &g).
 		Mul(&lhs, &proof.BatchedProof.ClaimedValues[3]).
 		Mul(&lhs, &v)
@@ -776,12 +843,10 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	// END DEBUG
 
 	lhs.Sub(&lhs, &rhs)
-	nun.Exp(nu, big.NewInt(int64(d.Cardinality)))
-	_g.Sub(&nun, &one)
-	e.Mul(&proof.BatchedProof.ClaimedValues[5], &_g)
-	if !lhs.Equal(&e) {
-		return ErrPlookupVerification
-	}
+
+	// DEBUG
+	fmt.Printf("lhs-rhs: %s\n", lhs.String())
+	// END DEBUG
 
 	// check consistancy of bounds
 	var l0, ln, d1, d2 fr.Element
@@ -793,6 +858,43 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	ln.Div(&ln, &d2)
 	fmt.Printf("l0: %s\n", l0.String())
 	fmt.Printf("ln: %s\n", ln.String())
+
+	// l0*(z-1)
+	var l0z fr.Element
+	l0z.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
+		Mul(&l0z, &l0)
+	fmt.Printf("l0(nu)*(z(nu)-1): %s\n", l0z.String())
+
+	// ln*(z-1)
+	var lnz fr.Element
+	lnz.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
+		Mul(&ln, &lnz)
+	fmt.Printf("ln(nu)*(z(nu)-1): %s\n", lnz.String())
+
+	// ln*(h1 - h2(g.x))
+	var lnh1h2 fr.Element
+	lnh1h2.Sub(&proof.BatchedProof.ClaimedValues[0], &proof.BatchedProofShifted.ClaimedValues[1]).
+		Mul(&lnh1h2, &ln)
+	fmt.Printf("lh1h2(nu)*(h1(nu)-h2(g*nu)): %s\n", lnh1h2.String())
+
+	// fold the numerator
+	var alpha fr.Element
+	alpha.SetUint64(98)
+	lnh1h2.Mul(&lnh1h2, &alpha).
+		Add(&lnh1h2, &lnz).
+		Mul(&lnh1h2, &alpha).
+		Add(&lnh1h2, &l0z).
+		Mul(&lnh1h2, &alpha).
+		Add(&lnh1h2, &lhs)
+	fmt.Printf("folded poly at nu: %s\n", lnh1h2.String())
+
+	// (x**n-1) * h(x) evaluated at nu
+	nun.Exp(nu, big.NewInt(int64(d.Cardinality)))
+	_g.Sub(&nun, &one)
+	_g.Mul(&proof.BatchedProof.ClaimedValues[5], &_g)
+	if !lnh1h2.Equal(&_g) {
+		return ErrPlookupVerification
+	}
 
 	return nil
 }
