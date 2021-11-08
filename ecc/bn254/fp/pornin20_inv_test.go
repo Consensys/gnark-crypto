@@ -6,6 +6,21 @@ import (
 	"testing"
 )
 
+func TestCorrectiveFactorConsistency(t *testing.T) {
+	var correctiveFactor Element
+	computeCorrectiveFactor(&correctiveFactor)
+
+	a := Element{239472382928373468, 3242934823798534, 345984723476857987, 23239348948234376} //TODO: randomization by banging on keyboard, replace with something better
+	a.Inverse(&a)
+	a.Mul(&a, &correctiveFactor)
+
+	var one Element
+	one.SetOne()
+	if !a.Equal(&one) {
+		panic("Not one")
+	}
+}
+
 func testBigNumMult(a *Element, c int64) {
 	var aHi uint64
 	var aTimes Element
@@ -103,21 +118,6 @@ func TestComputeCorrectiveFactor(t *testing.T) {
 	var one Element
 	one.SetOne()
 	if !c.Equal(&one) {
-		panic("Not one")
-	}
-}
-
-func TestCorrectiveFactorConsistency(t *testing.T) {
-	var correctiveFactor Element
-	computeCorrectiveFactor(&correctiveFactor)
-
-	a := Element{239472382928373468, 3242934823798534, 345984723476857987, 23239348948234376} //TODO: randomization by banging on keyboard, replace with something better
-	a.Inverse(&a)
-	a.Mul(&a, &correctiveFactor)
-
-	var one Element
-	one.SetOne()
-	if !a.Equal(&one) {
 		panic("Not one")
 	}
 }
