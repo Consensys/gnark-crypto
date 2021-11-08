@@ -86,19 +86,38 @@ func TestBigNumAddition(t *testing.T) {
 	checkMatchBigInt(&sum, sumHi, &sumInt)
 }
 
+func computeCorrectiveFactor(c *Element) {
+	c.SetOne()
+	c.Inverse(c)
+	c.InverseOld(c)
+}
+
 func TestComputeCorrectiveFactor(t *testing.T) {
 	//ComputeCorrectiveFactorPornin1()
 
 	var c Element
-	c.SetOne()
-	c.Inverse(&c)
-	c.InverseOld(&c)
+	computeCorrectiveFactor(&c)
 
 	fmt.Println(c)
 
 	var one Element
 	one.SetOne()
 	if !c.Equal(&one) {
+		panic("Not one")
+	}
+}
+
+func TestCorrectiveFactorConsistency(t *testing.T) {
+	var correctiveFactor Element
+	computeCorrectiveFactor(&correctiveFactor)
+
+	a := Element{239472382928373468, 3242934823798534, 345984723476857987, 23239348948234376} //TODO: randomization by banging on keyboard, replace with something better
+	a.Inverse(&a)
+	a.Mul(&a, &correctiveFactor)
+
+	var one Element
+	one.SetOne()
+	if !a.Equal(&one) {
 		panic("Not one")
 	}
 }
@@ -272,4 +291,57 @@ func approximateRef(x *Element) uint64 {
 
 	hi.Add(&hi, &lo)
 	return hi.Uint64()
+}
+
+//------
+
+func checkMult(x *Element, c int64, result *Element, resultHi uint64) big.Int {
+	var xInt big.Int
+	x.ToBigInt(&xInt)
+
+	xInt.Mul(&xInt, big.NewInt(c))
+
+	checkMatchBigInt(result, resultHi, &xInt)
+	return xInt
+}
+
+func checkMatchBigInt(a *Element, aHi uint64, aInt *big.Int) {
+	var modulus big.Int
+	var aIntMod big.Int
+	modulus.SetInt64(1)
+	modulus.Lsh(&modulus, 320)
+
+	aIntMod.Mod(aInt, &modulus)
+
+	bytes := aIntMod.Bytes()
+
+	for i := 0; i < 33; i++ {
+		var word uint64
+		if i < 32 {
+			word = a[i/8]
+		} else {
+			word = aHi
+		}
+
+		i2 := (i % 8) * 8
+		byteA := byte(((255 << i2) & word) >> i2)
+		var byteInt byte
+		if i < len(bytes) {
+			byteInt = bytes[len(bytes)-i-1]
+		} else {
+			byteInt = 0
+		}
+
+		if byteInt != byteA {
+			panic("Bignum mismatch")
+		}
+	}
+}
+
+func (z *Element) ToVeryBigInt(i *big.Int, xHi uint64) {
+	z.ToBigInt(i)
+	var upperWord big.Int
+	upperWord.SetUint64(xHi)
+	upperWord.Lsh(&upperWord, 256)
+	i.Add(&upperWord, i)
 }
