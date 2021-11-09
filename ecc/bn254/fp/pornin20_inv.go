@@ -117,10 +117,14 @@ func (z *Element) Inverse(x *Element) *Element {
 		if aHi&0x8000000000000000 != 0 {
 			f0, g0 = -f0, -g0
 			aHi = a.bigNumNeg(&a, aHi)
+			bf0.Neg(&bf0)
+			bg0.Neg(&bg0)
 		}
 		if bHi&0x8000000000000000 != 0 {
 			f1, g1 = -f1, -g1
 			bHi = b.bigNumNeg(&b, bHi)
+			bf1.Neg(&bf1)
+			bg1.Neg(&bg1)
 		}
 
 		a.bigNumRshBy31(&a, aHi)

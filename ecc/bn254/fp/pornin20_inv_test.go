@@ -11,12 +11,15 @@ func TestCorrectiveFactorConsistency(t *testing.T) {
 	computeCorrectiveFactor(&correctiveFactor)
 
 	a := Element{239472382928373468, 3242934823798534, 345984723476857987, 23239348948234376} //TODO: randomization by banging on keyboard, replace with something better
-	a.Inverse(&a)
-	a.Mul(&a, &correctiveFactor)
+
+	var aInv Element
+	aInv.Inverse(&a)
+	aInv.Mul(&aInv, &correctiveFactor)
+	aInv.Mul(&aInv, &a)
 
 	var one Element
 	one.SetOne()
-	if !a.Equal(&one) {
+	if !aInv.Equal(&one) {
 		panic("Not one")
 	}
 }
