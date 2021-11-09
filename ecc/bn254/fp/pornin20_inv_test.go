@@ -6,6 +6,26 @@ import (
 	"testing"
 )
 
+func BenchmarkElementInverseNew(b *testing.B) {
+	var x Element
+	x.SetString("9537083524586879850302283710748940119696335591071039437516223462175307793360")
+
+	// b.Run("inverseOld", func(b *testing.B) {
+	// 	b.ResetTimer()
+	// 	for i := 0; i < b.N; i++ {
+	// 		benchResElement.InverseOld(&x)
+	// 	}
+	// })
+
+	b.Run("inverseNew", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.Inverse(&x)
+		}
+	})
+
+}
+
 func TestComputeCorrectiveFactor(t *testing.T) {
 
 	var c Element
@@ -44,7 +64,7 @@ func TestComputeAllCorrectionFactors(t *testing.T) {
 	var b int64 = 0x4000000000000000
 	factor := Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
 	for i := 0; i < 8; i++ {
-		factor.MulWord(&factor, b)
+		factor.mulWSigned(&factor, b)
 		fmt.Println(factor)
 	}
 }
@@ -52,14 +72,14 @@ func TestComputeAllCorrectionFactors(t *testing.T) {
 func testBigNumMult(a *Element, c int64) {
 	var aHi uint64
 	var aTimes Element
-	aHi = aTimes.bigNumMultiply(a, c)
+	aHi = aTimes.mulWRegular(a, c)
 
 	checkMult(a, c, &aTimes, aHi)
 }
 
 func TestBigNumNeg(t *testing.T) {
 	var a = Element{0, 0, 0, 0}
-	aHi := a.bigNumNeg(&a, 0)
+	aHi := a.neg(&a, 0)
 	if !a.IsZero() || aHi != 0 {
 		panic("not zero")
 	}
@@ -124,7 +144,7 @@ func TestBigNumAddition(t *testing.T) {
 	sumInt.Add(&xInt, &yInt)
 
 	var sum Element
-	sumHi := sum.bigNumAdd(&x, xHi, &y, yHi)
+	sumHi := sum.add(&x, xHi, &y, yHi)
 
 	checkMatchBigInt(&sum, sumHi, &sumInt)
 }
@@ -150,7 +170,7 @@ func TestLinearComb(t *testing.T) {
 		13281191951274694749,
 		3486998266802970665,
 	}
-	bHi := b.bigNumLinearComb(&a, f1, &b, g1)
+	bHi := b.linearComb(&a, f1, &b, g1)
 	print(bHi)
 }
 
@@ -195,7 +215,7 @@ func TestMulWord(t *testing.T) {
 		0,
 		0,
 	}
-	prodFast.MulWord(&x, yWord)
+	prodFast.mulWSigned(&x, yWord)
 	prodRef.Mul(&x, &y)
 	if prodFast.Equal(&prodRef) {
 		print("Good\n")
@@ -217,7 +237,7 @@ func TestRsh(t *testing.T) {
 	a.ToVeryBigInt(&aInt, aHi)
 
 	aInt.Rsh(&aInt, 31)
-	a.bigNumRshBy31(&a, aHi)
+	a.rsh31(&a, aHi)
 
 	checkMatchBigInt(&a, 0, &aInt)
 }
@@ -231,7 +251,7 @@ func TestRshSmall(t *testing.T) {
 	}
 	aHi := uint64(0)
 
-	a.bigNumRshBy31(&a, aHi)
+	a.rsh31(&a, aHi)
 
 	if a[0] != 1<<63 {
 		panic("wrong")
@@ -258,7 +278,7 @@ func TestMulWord2(t *testing.T) {
 	var correctRes Element
 
 	correctRes.Mul(&u, &coeffElem)
-	quickRes.MulWord(&u, coeff)
+	quickRes.mulWSigned(&u, coeff)
 
 	if !quickRes.Equal(&correctRes) {
 		panic("Multiplication failed")

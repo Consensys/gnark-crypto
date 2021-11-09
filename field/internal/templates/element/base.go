@@ -307,6 +307,11 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 	{{ template "reduce" . }}
 }
 
+func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
+	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
+	{{ template "reduce" . }}
+}
+
 
 func _fromMontGeneric(z *{{.ElementName}}) {
 	// the following lines implement z = z * 1
