@@ -148,7 +148,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		b.bigNumRshBy31(&b, bHi)
 
 		if i%2 == 1 {
-
+			//Combine current update factors with previously stored ones
 			f0, g0, f1, g1 = f0*pf0+g0*pf1,
 				f0*pg0+g0*pg1,
 				f1*pf0+g1*pf1,
@@ -169,16 +169,19 @@ func (z *Element) Inverse(x *Element) *Element {
 			v.MulWord(&v, g1)
 			v.Add(&v, &scratch)
 		} else {
+			//Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
 
 	}
 
+	//Alternative to storing many correction factors. Not much slower
 	/*const pSq int64 = 0x4000000000000000
 	for ; i < 16; i+=2 {
 		v.MulWord(&v, pSq)
 	}*/
 
+	//Multiply by the appropriate correction factor
 	z.Mul(&v, &inversionCorrectionFactors[i/2-1])
 
 	return z
@@ -190,6 +193,7 @@ func (z *Element) MulWord(x *Element, y int64) {
 	var neg bool
 	var abs uint64
 
+	//This logic is somehow taking 2.38% of execution time?!
 	if y < 0 {
 		neg = true
 		abs = uint64(-y)
@@ -197,6 +201,7 @@ func (z *Element) MulWord(x *Element, y int64) {
 		neg = false
 		abs = uint64(y)
 	}
+	//</this logic>
 
 	z.mulWordUnsigned(x, abs)
 
@@ -205,7 +210,6 @@ func (z *Element) MulWord(x *Element, y int64) {
 	}
 }
 
-//Would making this package private encourage Go to inline it?
 func (z *Element) mulWordUnsigned(x *Element, y uint64) {
 
 	var t [4]uint64
@@ -308,7 +312,7 @@ func (z *Element) bigNumMultiply(x *Element, y int64) uint64 {
 	hi2, z[3] = bits.Mul64(x[3], abs)
 	z[3], carry = bits.Add64(z[3], hi, carry)
 
-	carry = hi2 + carry //can we do this when not caring about carry?
+	carry += hi2
 
 	if neg {
 		carry = z.bigNumNeg(z, carry)
@@ -319,6 +323,7 @@ func (z *Element) bigNumMultiply(x *Element, y int64) uint64 {
 
 func (z *Element) bigNumNeg(x *Element, xHi uint64) uint64 {
 
+	//Bad to use z as working variable? It's on stack anyway
 	z[0], z[1], z[2], z[3], xHi = ^x[0], ^x[1], ^x[2], ^x[3], ^xHi
 	var carry uint64
 	z[0], carry = bits.Add64(z[0], 1, 0)
@@ -342,7 +347,7 @@ func (z *Element) bigNumAdd(x *Element, xHi uint64, y *Element, yHi uint64) uint
 }
 
 func (z *Element) bigNumRshBy31(x *Element, xHi uint64) {
-	mask := uint64(0x7FFFFFFF) //31 ones
+	const mask = uint64(0x7FFFFFFF) //31 ones
 	z[0] = (x[0] >> 31) | ((x[1] & mask) << 33)
 	z[1] = (x[1] >> 31) | ((x[2] & mask) << 33)
 	z[2] = (x[2] >> 31) | ((x[3] & mask) << 33)
@@ -351,11 +356,13 @@ func (z *Element) bigNumRshBy31(x *Element, xHi uint64) {
 
 func (z *Element) bigNumLinearComb(x *Element, xCoeff int64, y *Element, yCoeff int64) uint64 {
 	var xTimes Element
-	var yTimes Element
+
+	//Removed working variable yTimes and used z instead. Seems to have hurt performance instead of improving.
+	//Generally discouraged practice?
 
 	xHi := xTimes.bigNumMultiply(x, xCoeff)
-	yHi := yTimes.bigNumMultiply(y, yCoeff)
-	hi := z.bigNumAdd(&xTimes, xHi, &yTimes, yHi)
+	yHi := z.bigNumMultiply(y, yCoeff)
+	hi := z.bigNumAdd(&xTimes, xHi, z, yHi)
 
 	return hi
 }
