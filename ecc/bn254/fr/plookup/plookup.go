@@ -54,30 +54,6 @@ type Proof struct {
 	BatchedProofShifted kzg.BatchOpeningProof
 }
 
-// sortByT sorts f by t, and put the result in res.
-// f and t are supposed to be sorted by increasing order.
-// and are supposed to be of correct size, that is len(t)=len(f)+1
-func sortByT(f, t []fr.Element) []fr.Element {
-
-	res := make([]fr.Element, 2*len(t)-1)
-	c := 0
-	i := 0
-	for i < len(f) {
-		if t[c].Cmp(&f[i]) < 0 {
-			res[i+c] = t[c]
-			c++
-		} else {
-			res[i+c] = f[i]
-			i++
-		}
-	}
-	for c < len(t) {
-		res[i+c] = t[c]
-		c++
-	}
-	return res
-}
-
 // computeZ computes Z, in Lagrange basis. Z is the accumulation of the partial
 // ratios of 2 fully split polynomials (cf https://eprint.iacr.org/2020/315.pdf)
 // * lf is the list of values that should be in lt
@@ -372,8 +348,8 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	proof.size = dNum.Cardinality
 
 	// sort f and t
-	sort.Sort(f)
-	sort.Sort(t)
+	// sort.Sort(f)
+	// sort.Sort(t)
 
 	// resize f and t
 	// note: the last element of lf does not matter
@@ -403,7 +379,10 @@ func Prove(srs *kzg.SRS, f, t Table) (Proof, error) {
 	}
 
 	// write f sorted by t
-	lfSortedByt := sortByT(lf[:len(lf)-1], t)
+	lfSortedByt := make(Table, 2*dNum.Cardinality-1)
+	copy(lfSortedByt, lt)
+	copy(lfSortedByt[dNum.Cardinality:], lf)
+	sort.Sort(lfSortedByt)
 
 	// compute h1, h2, commit to them
 	lh1 := make([]fr.Element, cardDNum)
@@ -677,9 +656,6 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		Mul(&lnh1h2, &ln)
 
 	// fold the numerator
-	// var alpha fr.Element
-	// alpha.SetUint64(98)
-
 	lnh1h2.Mul(&lnh1h2, &alpha).
 		Add(&lnh1h2, &lnz).
 		Mul(&lnh1h2, &alpha).

@@ -23,15 +23,31 @@ func TestH(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	proof, err := Prove(srs, f, lookup)
-	if err != nil {
-		t.Fatal(err)
+	// correct proof
+	{
+		proof, err := Prove(srs, f, lookup)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = Verify(srs, proof)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	err = Verify(srs, proof)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// wrong proof
+	// {
+	// 	proof, err := Prove(srs, f, lookup)
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
+
+	// 	err = Verify(srs, proof)
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
+	// }
 
 }
 
