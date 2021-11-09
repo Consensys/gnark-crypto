@@ -47,7 +47,16 @@ func approximatePair(x *Element, y *Element) (uint64, uint64) {
 	return approximate(x, n), approximate(y, n)
 }
 
-var inversionCorrectionFactorP20Full = Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
+var inversionCorrectionFactors = [8]Element{
+	{9294402098508299643, 16236581287374362326, 1806700940207652208, 128304151138745798},
+	{3785369258512301398, 3447191806671807780, 17892925251185020671, 628989039686645193},
+	{3640683342331600137, 9590128738288309796, 14138712235514295312, 1231420490468424357},
+	{4521516680493641497, 8084381843320164072, 9724766311162352044, 2024159453010255379},
+	{15621838106149573218, 3484330101846812783, 657711689591423763, 1264074572563695769},
+	{1576046162781523005, 3026941236205245694, 13031833993062009898, 554036701478437490},
+	{5738979239160164595, 3911769744532092421, 6476601505093438411, 2879139492355964105},
+	{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311},
+}
 
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
@@ -60,16 +69,14 @@ func (z *Element) Inverse(x *Element) *Element {
 	var u = Element{1, 0, 0, 0}
 	var v = Element{0, 0, 0, 0}
 
-	// registers are 64bit, thus k = 32
-	const outerLoopIterations = 16 // ceil( (2* 254 - 1)/32 )
-
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
 
 	//Saved update factors to reduce the number of field multiplications
 	var pf0, pg0, pf1, pg1 int64
 
-	for i := 0; i < outerLoopIterations; i++ {
+	var i uint
+	for i = 0; !a.IsZero() || i%2 == 1; i++ {
 		aApprox, bApprox := approximatePair(&a, &b)
 		f0, g0, f1, g1 = 1, 0, 0, 1
 
@@ -111,7 +118,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		a.bigNumRshBy31(&a, aHi)
 		b.bigNumRshBy31(&b, bHi)
 
-		if i%2 == 1 || i == outerLoopIterations-1 { //second condition is redundant in this case
+		if i%2 == 1 {
 
 			f0, g0, f1, g1 = f0*pf0+g0*pf1,
 				f0*pg0+g0*pg1,
@@ -140,7 +147,13 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	}
 
-	z.Mul(&v, &inversionCorrectionFactorP20Full)
+	/*const pSq int64 = 0x4000000000000000
+	for ; i < 16; i+=2 {
+		v.MulWord(&v, pSq)
+	}*/
+
+	z.Mul(&v, &inversionCorrectionFactors[i/2-1])
+
 	return z
 }
 

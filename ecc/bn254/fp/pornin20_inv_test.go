@@ -6,6 +6,22 @@ import (
 	"testing"
 )
 
+func TestComputeCorrectiveFactor(t *testing.T) {
+
+	var c Element
+	computeCorrectiveFactor(&c)
+
+	fmt.Println(c)
+
+	var one Element
+	one.SetOne()
+	if !c.Equal(&one) {
+		i := c.log(&rSquare, 8)
+		fmt.Println("Result is rSq^", i)
+		panic("Not one")
+	}
+}
+
 func TestCorrectiveFactorConsistency(t *testing.T) {
 	var correctiveFactor Element
 	computeCorrectiveFactor(&correctiveFactor)
@@ -21,6 +37,15 @@ func TestCorrectiveFactorConsistency(t *testing.T) {
 	one.SetOne()
 	if !aInv.Equal(&one) {
 		panic("Not one")
+	}
+}
+
+func TestComputeAllCorrectionFactors(t *testing.T) {
+	var b int64 = 0x4000000000000000
+	factor := Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
+	for i := 0; i < 8; i++ {
+		factor.MulWord(&factor, b)
+		fmt.Println(factor)
 	}
 }
 
@@ -109,39 +134,6 @@ func computeCorrectiveFactor(c *Element) {
 	c.Inverse(c)
 	c.InverseOld(c)
 }
-
-func TestComputeCorrectiveFactor(t *testing.T) {
-	//ComputeCorrectiveFactorPornin1()
-
-	var c Element
-	computeCorrectiveFactor(&c)
-
-	fmt.Println(c)
-
-	var one Element
-	one.SetOne()
-	if !c.Equal(&one) {
-		panic("Not one")
-	}
-}
-
-/*func TestRshNegCommutation(t *testing.T) {
-	b := Element {
-		0xAEB6AECF80000000,
-		8552640749534187906,
-		9455549699771608402,
-		17692725854587193526,
-	}
-	bHi := uint64(0xFFFFFFFFFFFFFFFF)
-
-	var bNeg Element
-	bNegHi := bNeg.bigNumNeg(&b, bHi)
-
-	b.bigNumRshBy31(&b, bHi)
-	bNeg.bigNumRshBy31(&bNeg, bNegHi)
-
-	bHi = b.bigNumAdd(&bNeg, bNegHi, &b, bHi)
-}*/
 
 func TestLinearComb(t *testing.T) {
 	f1 := int64(405940026)
@@ -273,10 +265,10 @@ func TestMulWord2(t *testing.T) {
 	}
 }
 
-func TestFindCorrectiveFactorDlog(t *testing.T) {
+/*func TestFindCorrectiveFactorDlog(t *testing.T) {
 	i := inversionCorrectionFactorP20Full.log(&rSquare, 40)
 	fmt.Println(i)
-}
+}*/
 
 func approximateRef(x *Element) uint64 {
 
