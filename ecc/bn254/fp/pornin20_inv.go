@@ -4,6 +4,7 @@ import (
 	"math/bits"
 )
 
+//This is not being inlined and I don't understand why
 func max(a int, b int) int {
 	if a > b {
 		return a
@@ -43,10 +44,31 @@ func approximate(x *Element, n int) uint64 {
 
 func approximatePair(x *Element, y *Element) (uint64, uint64) {
 	n := max(x.BitLen(), y.BitLen())
+	//Compute n jointly and inline?. Code for that follows. Currently, BitLen and max together are taking 1.2% of exec time. Worth it?
+
+	/*n := 192
+	var msw uint64 //Most significant word
+	msw = x[3] | y[3]
+	if msw == 0 {
+		n = 128
+		msw = x[2] | y[2]
+
+		if msw == 0 {
+			n = 64
+			msw = x[1] | y[1]
+
+			if msw == 0 {
+				n = 0
+				msw = x[0] | y[0]
+			}
+		}
+	}
+	n |= bits.Len64(msw)*/
 
 	return approximate(x, n), approximate(y, n)
 }
 
+//Which correction factor to use depends on how many iterations the outer loop takes
 var inversionCorrectionFactors = [8]Element{
 	{9294402098508299643, 16236581287374362326, 1806700940207652208, 128304151138745798},
 	{3785369258512301398, 3447191806671807780, 17892925251185020671, 628989039686645193},
@@ -75,8 +97,14 @@ func (z *Element) Inverse(x *Element) *Element {
 	//Saved update factors to reduce the number of field multiplications
 	var pf0, pg0, pf1, pg1 int64
 
+	//Used for updating u,v
+	var scratch, updateFactor Element
+
 	var i uint
-	for i = 0; !a.IsZero() || i%2 == 1; i++ {
+
+	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
+	//This also lets us get away with 8 update factors instead of 16
+	for i = 0; i%2 == 1 || !a.IsZero(); i++ {
 		aApprox, bApprox := approximatePair(&a, &b)
 		f0, g0, f1, g1 = 1, 0, 0, 1
 
@@ -102,10 +130,11 @@ func (z *Element) Inverse(x *Element) *Element {
 
 		}
 
-		scratch := a
+		scratch = a
 		aHi := a.bigNumLinearComb(&scratch, f0, &b, g0)
 		bHi := b.bigNumLinearComb(&scratch, f1, &b, g1)
 
+		//The condition means "negative"
 		if aHi&0x8000000000000000 != 0 {
 			f0, g0 = -f0, -g0
 			aHi = a.bigNumNeg(&a, aHi)
@@ -125,7 +154,6 @@ func (z *Element) Inverse(x *Element) *Element {
 				f1*pf0+g1*pf1,
 				f1*pg0+g1*pg1
 
-			var updateFactor Element
 			//save u
 			scratch.Set(&u)
 
@@ -140,7 +168,6 @@ func (z *Element) Inverse(x *Element) *Element {
 
 			v.MulWord(&v, g1)
 			v.Add(&v, &scratch)
-
 		} else {
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
