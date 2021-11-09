@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"math/big"
 	"math/bits"
 )
 
@@ -70,13 +69,6 @@ func (z *Element) Inverse(x *Element) *Element {
 	//Saved update factors to reduce the number of field multiplications
 	var pf0, pg0, pf1, pg1 int64
 
-	var bf0, bg0, bf1, bg1 big.Int
-
-	bf0.SetInt64(1)
-	bg0.SetInt64(0)
-	bf1.SetInt64(0)
-	bg1.SetInt64(1)
-
 	for i := 0; i < outerLoopIterations; i++ {
 		aApprox, bApprox := approximatePair(&a, &b)
 		f0, g0, f1, g1 = 1, 0, 0, 1
@@ -90,24 +82,17 @@ func (z *Element) Inverse(x *Element) *Element {
 					aApprox, bApprox = bApprox, aApprox
 					f0, f1 = f1, f0
 					g0, g1 = g1, g0
-
-					bf0, bf1 = bf1, bf0
-					bg0, bg1 = bg1, bg0
 				}
 
 				aApprox = (aApprox - bApprox) / 2
 				f0 -= f1
 				g0 -= g1
 
-				bf0.Sub(&bf0, &bf1)
-				bg0.Sub(&bg0, &bg1)
 			}
 
 			f1 *= 2
 			g1 *= 2
 
-			bf1.Lsh(&bf1, 1)
-			bg1.Lsh(&bg1, 1)
 		}
 
 		scratch := a
@@ -117,14 +102,10 @@ func (z *Element) Inverse(x *Element) *Element {
 		if aHi&0x8000000000000000 != 0 {
 			f0, g0 = -f0, -g0
 			aHi = a.bigNumNeg(&a, aHi)
-			bf0.Neg(&bf0)
-			bg0.Neg(&bg0)
 		}
 		if bHi&0x8000000000000000 != 0 {
 			f1, g1 = -f1, -g1
 			bHi = b.bigNumNeg(&b, bHi)
-			bf1.Neg(&bf1)
-			bg1.Neg(&bg1)
 		}
 
 		a.bigNumRshBy31(&a, aHi)
@@ -157,27 +138,10 @@ func (z *Element) Inverse(x *Element) *Element {
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
 
-		if !equalsBig(&bf0, f0) || !equalsBig(&bg0, g0) || !equalsBig(&bf1, f1) || !equalsBig(&bg1, g1) {
-			panic("update factors are incorrect")
-		}
-		if i%2 == 1 {
-			bf0.SetInt64(1)
-			bg0.SetInt64(0)
-			bf1.SetInt64(0)
-			bg1.SetInt64(1)
-		}
-
 	}
 
 	z.Mul(&v, &inversionCorrectionFactorP20Full)
-	//z.Set(&v)
 	return z
-}
-
-func equalsBig(a *big.Int, b int64) bool {
-	var bigB big.Int
-	bigB.SetInt64(b)
-	return a.Cmp(&bigB) == 0
 }
 
 //TODO: Do this directly

@@ -273,6 +273,11 @@ func TestMulWord2(t *testing.T) {
 	}
 }
 
+func TestFindCorrectiveFactorDlog(t *testing.T) {
+	i := inversionCorrectionFactorP20Full.log(&rSquare, 40)
+	fmt.Println(i)
+}
+
 func approximateRef(x *Element) uint64 {
 
 	var asInt big.Int
@@ -347,4 +352,28 @@ func (z *Element) ToVeryBigInt(i *big.Int, xHi uint64) {
 	upperWord.SetUint64(xHi)
 	upperWord.Lsh(&upperWord, 256)
 	i.Add(&upperWord, i)
+}
+
+func (z *Element) log(base *Element, max uint) int {
+	var bInv Element
+	var current Element
+	var currentInv Element
+
+	current.SetOne()
+	currentInv.SetOne()
+	bInv.InverseOld(base)
+
+	for i := 0; i < int(max); i++ {
+		if current.Equal(z) {
+			return i
+		}
+		if currentInv.Equal(z) {
+			return -i
+		}
+		if i < int(max-1) {
+			current.Mul(&current, base)
+			currentInv.Mul(&currentInv, &bInv)
+		}
+	}
+	return 1 //not found
 }
