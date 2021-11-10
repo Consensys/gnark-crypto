@@ -1309,235 +1309,7 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
-// Exp z = x^exponent mod q
-func (z *Element) Exp(x Element, exponent *big.Int) *Element {
-	var bZero big.Int
-	if exponent.Cmp(&bZero) == 0 {
-		return z.SetOne()
-	}
-
-	z.Set(&x)
-
-	for i := exponent.BitLen() - 2; i >= 0; i-- {
-		z.Square(z)
-		if exponent.Bit(i) == 1 {
-			z.Mul(z, &x)
-		}
-	}
-
-	return z
-}
-
-// ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
-func (z *Element) ToMont() *Element {
-	return z.Mul(z, &rSquare)
-}
-
-// ToRegular returns z in regular form (doesn't mutate z)
-func (z Element) ToRegular() Element {
-	return *z.FromMont()
-}
-
-// String returns the string form of an Element in Montgomery form
-func (z *Element) String() string {
-	zz := *z
-	zz.FromMont()
-	if zz.IsUint64() {
-		return strconv.FormatUint(zz[0], 10)
-	} else {
-		var zzNeg Element
-		zzNeg.Neg(z)
-		zzNeg.FromMont()
-		if zzNeg.IsUint64() {
-			return "-" + strconv.FormatUint(zzNeg[0], 10)
-		}
-	}
-	vv := bigIntPool.Get().(*big.Int)
-	defer bigIntPool.Put(vv)
-	return zz.ToBigInt(vv).String()
-}
-
-// ToBigInt returns z as a big.Int in Montgomery form
-func (z *Element) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs * 8]byte
-	binary.BigEndian.PutUint64(b[88:96], z[0])
-	binary.BigEndian.PutUint64(b[80:88], z[1])
-	binary.BigEndian.PutUint64(b[72:80], z[2])
-	binary.BigEndian.PutUint64(b[64:72], z[3])
-	binary.BigEndian.PutUint64(b[56:64], z[4])
-	binary.BigEndian.PutUint64(b[48:56], z[5])
-	binary.BigEndian.PutUint64(b[40:48], z[6])
-	binary.BigEndian.PutUint64(b[32:40], z[7])
-	binary.BigEndian.PutUint64(b[24:32], z[8])
-	binary.BigEndian.PutUint64(b[16:24], z[9])
-	binary.BigEndian.PutUint64(b[8:16], z[10])
-	binary.BigEndian.PutUint64(b[0:8], z[11])
-
-	return res.SetBytes(b[:])
-}
-
-// ToBigIntRegular returns z as a big.Int in regular form
-func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
-	z.FromMont()
-	return z.ToBigInt(res)
-}
-
-// Bytes returns the regular (non montgomery) value
-// of z as a big-endian byte array.
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[88:96], _z[0])
-	binary.BigEndian.PutUint64(res[80:88], _z[1])
-	binary.BigEndian.PutUint64(res[72:80], _z[2])
-	binary.BigEndian.PutUint64(res[64:72], _z[3])
-	binary.BigEndian.PutUint64(res[56:64], _z[4])
-	binary.BigEndian.PutUint64(res[48:56], _z[5])
-	binary.BigEndian.PutUint64(res[40:48], _z[6])
-	binary.BigEndian.PutUint64(res[32:40], _z[7])
-	binary.BigEndian.PutUint64(res[24:32], _z[8])
-	binary.BigEndian.PutUint64(res[16:24], _z[9])
-	binary.BigEndian.PutUint64(res[8:16], _z[10])
-	binary.BigEndian.PutUint64(res[0:8], _z[11])
-
-	return
-}
-
-// Marshal returns the regular (non montgomery) value
-// of z as a big-endian byte slice.
-func (z *Element) Marshal() []byte {
-	b := z.Bytes()
-	return b[:]
-}
-
-// SetBytes interprets e as the bytes of a big-endian unsigned integer,
-// sets z to that value (in Montgomery form), and returns z.
-func (z *Element) SetBytes(e []byte) *Element {
-	// get a big int from our pool
-	vv := bigIntPool.Get().(*big.Int)
-	vv.SetBytes(e)
-
-	// set big int
-	z.SetBigInt(vv)
-
-	// put temporary object back in pool
-	bigIntPool.Put(vv)
-
-	return z
-}
-
-// SetBigInt sets z to v (regular form) and returns z in Montgomery form
-func (z *Element) SetBigInt(v *big.Int) *Element {
-	z.SetZero()
-
-	var zero big.Int
-
-	// fast path
-	c := v.Cmp(&_modulus)
-	if c == 0 {
-		// v == 0
-		return z
-	} else if c != 1 && v.Cmp(&zero) != -1 {
-		// 0 < v < q
-		return z.setBigInt(v)
-	}
-
-	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
-
-	// copy input + modular reduction
-	vv.Set(v)
-	vv.Mod(v, &_modulus)
-
-	// set big int byte value
-	z.setBigInt(vv)
-
-	// release object into pool
-	bigIntPool.Put(vv)
-	return z
-}
-
-// setBigInt assumes 0 <= v < q
-func (z *Element) setBigInt(v *big.Int) *Element {
-	vBits := v.Bits()
-
-	if bits.UintSize == 64 {
-		for i := 0; i < len(vBits); i++ {
-			z[i] = uint64(vBits[i])
-		}
-	} else {
-		for i := 0; i < len(vBits); i++ {
-			if i%2 == 0 {
-				z[i/2] = uint64(vBits[i])
-			} else {
-				z[i/2] |= uint64(vBits[i]) << 32
-			}
-		}
-	}
-
-	return z.ToMont()
-}
-
-// SetString creates a big.Int with s (in base 10) and calls SetBigInt on z
-func (z *Element) SetString(s string) *Element {
-	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
-
-	if _, ok := vv.SetString(s, 10); !ok {
-		panic("Element.SetString failed -> can't parse number in base10 into a big.Int")
-	}
-	z.SetBigInt(vv)
-
-	// release object into pool
-	bigIntPool.Put(vv)
-
-	return z
-}
-
-var (
-	_bLegendreExponentElement *big.Int
-	_bSqrtExponentElement     *big.Int
-)
-
-func init() {
-	_bLegendreExponentElement, _ = new(big.Int).SetString("9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045", 16)
-	const sqrtExponentElement = "48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023"
-	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
-}
-
-// Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
-func (z *Element) Legendre() int {
-	var l Element
-	// z^((q-1)/2)
-	l.Exp(*z, _bLegendreExponentElement)
-
-	if l.IsZero() {
-		return 0
-	}
-
-	// if l == 1
-	if (l[11] == 23071597697427581) && (l[10] == 15539704305423854047) && (l[9] == 5009280847225881135) && (l[8] == 8887388221587179644) && (l[7] == 2545351818702954755) && (l[6] == 12055474021000362245) && (l[5] == 13899911246788437003) && (l[4] == 17071399330169272331) && (l[3] == 15738672438262922740) && (l[2] == 11428286765660613342) && (l[1] == 6509995272855063783) && (l[0] == 144959613005956565) {
-		return 1
-	}
-	return -1
-}
-
-// Sqrt z = √x mod q
-// if the square root doesn't exist (x is not a square mod q)
-// Sqrt leaves z unchanged and returns nil
-func (z *Element) Sqrt(x *Element) *Element {
-	// q ≡ 3 (mod 4)
-	// using  z ≡ ± x^((p+1)/4) (mod q)
-	var y, square Element
-	y.expBySqrtExp(x)
-	// y.Exp(*x, _bSqrtExponentElement)
-	// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
-	square.Square(&y)
-	if square.Equal(x) {
-		return z.Set(&y)
-	}
-	return nil
-}
+// generated by github.com/mmcloughlin/addchain
 
 func (z *Element) expBySqrtExp(x *Element) *Element {
 	// the addition chain:
@@ -2508,6 +2280,236 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	z.Mul(z, &t0)
 
 	return z
+}
+
+// Exp z = x^exponent mod q
+func (z *Element) Exp(x Element, exponent *big.Int) *Element {
+	var bZero big.Int
+	if exponent.Cmp(&bZero) == 0 {
+		return z.SetOne()
+	}
+
+	z.Set(&x)
+
+	for i := exponent.BitLen() - 2; i >= 0; i-- {
+		z.Square(z)
+		if exponent.Bit(i) == 1 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
+}
+
+// ToMont converts z to Montgomery form
+// sets and returns z = z * r^2
+func (z *Element) ToMont() *Element {
+	return z.Mul(z, &rSquare)
+}
+
+// ToRegular returns z in regular form (doesn't mutate z)
+func (z Element) ToRegular() Element {
+	return *z.FromMont()
+}
+
+// String returns the string form of an Element in Montgomery form
+func (z *Element) String() string {
+	zz := *z
+	zz.FromMont()
+	if zz.IsUint64() {
+		return strconv.FormatUint(zz[0], 10)
+	} else {
+		var zzNeg Element
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.IsUint64() {
+			return "-" + strconv.FormatUint(zzNeg[0], 10)
+		}
+	}
+	vv := bigIntPool.Get().(*big.Int)
+	defer bigIntPool.Put(vv)
+	return zz.ToBigInt(vv).String()
+}
+
+// ToBigInt returns z as a big.Int in Montgomery form
+func (z *Element) ToBigInt(res *big.Int) *big.Int {
+	var b [Limbs * 8]byte
+	binary.BigEndian.PutUint64(b[88:96], z[0])
+	binary.BigEndian.PutUint64(b[80:88], z[1])
+	binary.BigEndian.PutUint64(b[72:80], z[2])
+	binary.BigEndian.PutUint64(b[64:72], z[3])
+	binary.BigEndian.PutUint64(b[56:64], z[4])
+	binary.BigEndian.PutUint64(b[48:56], z[5])
+	binary.BigEndian.PutUint64(b[40:48], z[6])
+	binary.BigEndian.PutUint64(b[32:40], z[7])
+	binary.BigEndian.PutUint64(b[24:32], z[8])
+	binary.BigEndian.PutUint64(b[16:24], z[9])
+	binary.BigEndian.PutUint64(b[8:16], z[10])
+	binary.BigEndian.PutUint64(b[0:8], z[11])
+
+	return res.SetBytes(b[:])
+}
+
+// ToBigIntRegular returns z as a big.Int in regular form
+func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
+	z.FromMont()
+	return z.ToBigInt(res)
+}
+
+// Bytes returns the regular (non montgomery) value
+// of z as a big-endian byte array.
+func (z *Element) Bytes() (res [Limbs * 8]byte) {
+	_z := z.ToRegular()
+	binary.BigEndian.PutUint64(res[88:96], _z[0])
+	binary.BigEndian.PutUint64(res[80:88], _z[1])
+	binary.BigEndian.PutUint64(res[72:80], _z[2])
+	binary.BigEndian.PutUint64(res[64:72], _z[3])
+	binary.BigEndian.PutUint64(res[56:64], _z[4])
+	binary.BigEndian.PutUint64(res[48:56], _z[5])
+	binary.BigEndian.PutUint64(res[40:48], _z[6])
+	binary.BigEndian.PutUint64(res[32:40], _z[7])
+	binary.BigEndian.PutUint64(res[24:32], _z[8])
+	binary.BigEndian.PutUint64(res[16:24], _z[9])
+	binary.BigEndian.PutUint64(res[8:16], _z[10])
+	binary.BigEndian.PutUint64(res[0:8], _z[11])
+
+	return
+}
+
+// Marshal returns the regular (non montgomery) value
+// of z as a big-endian byte slice.
+func (z *Element) Marshal() []byte {
+	b := z.Bytes()
+	return b[:]
+}
+
+// SetBytes interprets e as the bytes of a big-endian unsigned integer,
+// sets z to that value (in Montgomery form), and returns z.
+func (z *Element) SetBytes(e []byte) *Element {
+	// get a big int from our pool
+	vv := bigIntPool.Get().(*big.Int)
+	vv.SetBytes(e)
+
+	// set big int
+	z.SetBigInt(vv)
+
+	// put temporary object back in pool
+	bigIntPool.Put(vv)
+
+	return z
+}
+
+// SetBigInt sets z to v (regular form) and returns z in Montgomery form
+func (z *Element) SetBigInt(v *big.Int) *Element {
+	z.SetZero()
+
+	var zero big.Int
+
+	// fast path
+	c := v.Cmp(&_modulus)
+	if c == 0 {
+		// v == 0
+		return z
+	} else if c != 1 && v.Cmp(&zero) != -1 {
+		// 0 < v < q
+		return z.setBigInt(v)
+	}
+
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
+	// copy input + modular reduction
+	vv.Set(v)
+	vv.Mod(v, &_modulus)
+
+	// set big int byte value
+	z.setBigInt(vv)
+
+	// release object into pool
+	bigIntPool.Put(vv)
+	return z
+}
+
+// setBigInt assumes 0 <= v < q
+func (z *Element) setBigInt(v *big.Int) *Element {
+	vBits := v.Bits()
+
+	if bits.UintSize == 64 {
+		for i := 0; i < len(vBits); i++ {
+			z[i] = uint64(vBits[i])
+		}
+	} else {
+		for i := 0; i < len(vBits); i++ {
+			if i%2 == 0 {
+				z[i/2] = uint64(vBits[i])
+			} else {
+				z[i/2] |= uint64(vBits[i]) << 32
+			}
+		}
+	}
+
+	return z.ToMont()
+}
+
+// SetString creates a big.Int with s (in base 10) and calls SetBigInt on z
+func (z *Element) SetString(s string) *Element {
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
+	if _, ok := vv.SetString(s, 10); !ok {
+		panic("Element.SetString failed -> can't parse number in base10 into a big.Int")
+	}
+	z.SetBigInt(vv)
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
+	return z
+}
+
+var (
+	_bLegendreExponentElement *big.Int
+	_bSqrtExponentElement     *big.Int
+)
+
+func init() {
+	_bLegendreExponentElement, _ = new(big.Int).SetString("9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045", 16)
+	const sqrtExponentElement = "48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+}
+
+// Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
+func (z *Element) Legendre() int {
+	var l Element
+	// z^((q-1)/2)
+	l.Exp(*z, _bLegendreExponentElement)
+
+	if l.IsZero() {
+		return 0
+	}
+
+	// if l == 1
+	if (l[11] == 23071597697427581) && (l[10] == 15539704305423854047) && (l[9] == 5009280847225881135) && (l[8] == 8887388221587179644) && (l[7] == 2545351818702954755) && (l[6] == 12055474021000362245) && (l[5] == 13899911246788437003) && (l[4] == 17071399330169272331) && (l[3] == 15738672438262922740) && (l[2] == 11428286765660613342) && (l[1] == 6509995272855063783) && (l[0] == 144959613005956565) {
+		return 1
+	}
+	return -1
+}
+
+// Sqrt z = √x mod q
+// if the square root doesn't exist (x is not a square mod q)
+// Sqrt leaves z unchanged and returns nil
+func (z *Element) Sqrt(x *Element) *Element {
+	// q ≡ 3 (mod 4)
+	// using  z ≡ ± x^((p+1)/4) (mod q)
+	var y, square Element
+	y.expBySqrtExp(x)
+	// y.Exp(*x, _bSqrtExponentElement)
+	// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
+	square.Square(&y)
+	if square.Equal(x) {
+		return z.Set(&y)
+	}
+	return nil
 }
 
 // Inverse z = x^-1 mod q

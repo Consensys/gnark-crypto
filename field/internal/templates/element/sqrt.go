@@ -59,7 +59,8 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		var one, alpha, beta, tx, square {{.ElementName}}
 		one.SetOne()
 		tx.Double(x)
-		alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
+		alpha.expBySqrtExp(&tx)
+		// alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
 		beta.Square(&alpha).
 			Mul(&beta, &tx).
 			Sub(&beta, &one).
@@ -79,7 +80,8 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		var y, b,t, w  {{.ElementName}}
 		// w = x^((s-1)/2))
-		w.Exp(*x, _bSqrtExponent{{.ElementName}})
+		w.expBySqrtExp(x)
+		// w.Exp(*x, _bSqrtExponent{{.ElementName}})
 
 		// y = x^((s+1)/2)) = w * x
 		y.Mul(x, &w)

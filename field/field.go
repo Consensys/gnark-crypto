@@ -37,35 +37,41 @@ var (
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName            string
-	ElementName            string
-	ModulusBig             *big.Int
-	Modulus                string
-	ModulusHex             string
-	NbWords                int
-	NbBits                 int
-	NbWordsLastIndex       int
-	NbWordsIndexesNoZero   []int
-	NbWordsIndexesFull     []int
-	Q                      []uint64
-	QInverse               []uint64
-	QMinusOneHalvedP       []uint64 // ((q-1) / 2 ) + 1
-	ASM                    bool
-	RSquare                []uint64
-	One                    []uint64
-	LegendreExponent       string // big.Int to base16 string
-	NoCarry                bool
-	NoCarrySquare          bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4             bool
-	SqrtAtkin              bool
-	SqrtTonelliShanks      bool
-	SqrtE                  uint64
-	SqrtS                  []uint64
-	SqrtAtkinExponent      string // big.Int to base16 string
+	PackageName          string
+	ElementName          string
+	ModulusBig           *big.Int
+	Modulus              string
+	ModulusHex           string
+	NbWords              int
+	NbBits               int
+	NbWordsLastIndex     int
+	NbWordsIndexesNoZero []int
+	NbWordsIndexesFull   []int
+	Q                    []uint64
+	QInverse             []uint64
+	QMinusOneHalvedP     []uint64 // ((q-1) / 2 ) + 1
+	ASM                  bool
+	RSquare              []uint64
+	One                  []uint64
+	LegendreExponent     string // big.Int to base16 string
+	NoCarry              bool
+	NoCarrySquare        bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4           bool
+	SqrtAtkin            bool
+	SqrtTonelliShanks    bool
+	SqrtE                uint64
+	SqrtS                []uint64
+
+	SqrtAtkinExponent     string // big.Int to base16 string
+	SqrtAtkinExponentData *addChainData
+
 	SqrtSMinusOneOver2     string // big.Int to base16 string
+	SqrtSMinusOneOver2Data *addChainData
+
 	SqrtQ3Mod4Exponent     string // big.Int to base16 string
 	SqrtQ3Mod4ExponentData *addChainData
-	SqrtG                  []uint64 // NonResidue ^  SqrtR (montgomery form)
+
+	SqrtG []uint64 // NonResidue ^  SqrtR (montgomery form)
 
 	NonResidue []uint64 // (montgomery form)
 }
@@ -175,6 +181,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			F.SqrtAtkin = true
 			e := new(big.Int).Rsh(&bModulus, 3) // e = (q - 5) / 8
 			F.SqrtAtkinExponent = e.Text(16)
+			F.SqrtAtkinExponentData = getAddChain(e)
 		} else {
 			// use Tonelli-Shanks
 			F.SqrtTonelliShanks = true
@@ -211,6 +218,8 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
 			F.SqrtSMinusOneOver2 = s.Text(16)
+
+			F.SqrtSMinusOneOver2Data = getAddChain(&s)
 		}
 	}
 
