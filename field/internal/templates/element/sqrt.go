@@ -36,6 +36,7 @@ func (z *{{.ElementName}}) Legendre() int {
 	return -1
 }
 
+
 // Sqrt z = √x mod q
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
@@ -44,7 +45,8 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// q ≡ 3 (mod 4)
 		// using  z ≡ ± x^((p+1)/4) (mod q)
 		var y, square {{.ElementName}}
-		y.Exp(*x, _bSqrtExponent{{.ElementName}})
+		y.expBySqrtExp(x)
+		// y.Exp(*x, _bSqrtExponent{{.ElementName}})
 		// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
 		square.Square(&y)
 		if square.Equal(x) {
@@ -136,4 +138,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		panic("not implemented")	
 	{{- end}}
 }
+
+
+
 `
