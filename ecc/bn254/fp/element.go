@@ -602,6 +602,7 @@ func mulByConstant(z *Element, c uint8) {
 		z.Double(z).Double(z).Add(z, &_z)
 	default:
 		var y Element
+		//Use mul word here?
 		y.SetUint64(uint64(c))
 		z.Mul(z, &y)
 	}
@@ -650,10 +651,10 @@ func _butterflyGeneric(a, b *Element) {
 // returns 0 if z == 0
 func (z *Element) BitLen() int {
 	if z[3] != 0 {
-		return 192 + bits.Len64(z[3])
+		return 192 | bits.Len64(z[3])
 	}
 	if z[2] != 0 {
-		return 128 + bits.Len64(z[2])
+		return 128 | bits.Len64(z[2])
 	}
 	if z[1] != 0 {
 		return 64 + bits.Len64(z[1])

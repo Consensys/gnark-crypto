@@ -6,6 +6,37 @@ import (
 	"testing"
 )
 
+func TestMulModRBig(t *testing.T) {
+	var a Element
+	var b Element
+
+	a.SetRandom()
+	b.SetRandom()
+
+	testMulModR(&a, &b)
+}
+
+func testMulModR(a *Element, b *Element) {
+	var aInt big.Int
+	var bInt big.Int
+
+	R := big.NewInt(1)
+	R.Lsh(R, 256)
+
+	a.ToBigInt(&aInt)
+	b.ToBigInt(&bInt)
+
+	a.mulModR(a, b)
+	aInt.Mul(&aInt, &bInt)
+	aInt.Mod(&aInt, R)
+
+	prodWords := aInt.Bits()
+
+	if prodWords[0] != big.Word(a[0]) || prodWords[1] != big.Word(a[1]) || prodWords[2] != big.Word(a[2]) || prodWords[3] != big.Word(a[3]) {
+		panic("mismatch")
+	}
+}
+
 func BenchmarkElementInverseNew(b *testing.B) {
 	var x Element
 	x.SetString("9537083524586879850302283710748940119696335591071039437516223462175307793360")
@@ -25,6 +56,79 @@ func BenchmarkElementInverseNew(b *testing.B) {
 	})
 
 }
+
+//Copied from field.go
+// https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm
+// r > q, modifies rinv and qinv such that rinv.r - qinv.q = 1
+func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
+	var s1, s2, t1, t2, qi, tmpMuls, riPlusOne, tmpMult, a, b big.Int
+	t1.SetUint64(1)
+	rInv.Set(big.NewInt(1))
+	qInv.Set(big.NewInt(0))
+	a.Set(r)
+	b.Set(q)
+
+	// r_i+1 = r_i-1 - q_i.r_i
+	// s_i+1 = s_i-1 - q_i.s_i
+	// t_i+1 = t_i-1 - q_i.s_i
+	for b.Sign() > 0 {
+		qi.Div(&a, &b)
+		riPlusOne.Mod(&a, &b)
+
+		tmpMuls.Mul(&s1, &qi)
+		tmpMult.Mul(&t1, &qi)
+
+		s2.Set(&s1)
+		t2.Set(&t1)
+
+		s1.Sub(rInv, &tmpMuls)
+		t1.Sub(qInv, &tmpMult)
+		rInv.Set(&s2)
+		qInv.Set(&t2)
+
+		a.Set(&b)
+		b.Set(&riPlusOne)
+	}
+	qInv.Neg(qInv)
+}
+
+func toUint64Slice(b *big.Int, nbWords ...int) (s []uint64) {
+	if len(nbWords) > 0 && nbWords[0] > len(b.Bits()) {
+		s = make([]uint64, nbWords[0])
+	} else {
+		s = make([]uint64, len(b.Bits()))
+	}
+
+	for i, v := range b.Bits() {
+		s[i] = (uint64)(v)
+	}
+	return
+}
+
+func TestComputeMontConstants(t *testing.T) {
+	// taken from field.go
+	_r := big.NewInt(1)
+	_r.Lsh(_r, 256)
+	_rInv := big.NewInt(1)
+	_qInv := big.NewInt(0)
+	extendedEuclideanAlgo(_r, Modulus(), _rInv, _qInv)
+	_qInv.Mod(_qInv, _r)
+	qInv := toUint64Slice(_qInv, 256)
+
+	/*_r.Mul(_rInv, _r)
+	_qInv.Mul(_qInv, Modulus())
+	_r.Sub(_r, _qInv)
+
+	if _r.Cmp(big.NewInt(1)) != 0 {
+		panic("Not inverses?")
+	}*/
+	rInv := _rInv.Bits()
+
+	fmt.Println("qInv", qInv)
+	fmt.Println("rInv", _rInv.Sign(), rInv)
+}
+
+// </copied from field.go>
 
 func TestComputeCorrectiveFactor(t *testing.T) {
 
@@ -170,7 +274,7 @@ func TestLinearComb(t *testing.T) {
 		13281191951274694749,
 		3486998266802970665,
 	}
-	bHi := b.linearComb(&a, f1, &b, g1)
+	bHi := b.linearCombNonModular(&a, f1, &b, g1)
 	print(bHi)
 }
 

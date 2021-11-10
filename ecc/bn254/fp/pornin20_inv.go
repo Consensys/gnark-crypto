@@ -71,9 +71,8 @@ func (z *Element) Inverse(x *Element) *Element {
 	var pf0, pg0, pf1, pg1 int64
 
 	var i uint
-	var carry uint64
 
-	var v, s, r Element
+	var v, s Element
 
 	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
 	//This also lets us get away with 8 update factors instead of 16
@@ -90,7 +89,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			} else {
 				s, borrow := bits.Sub64(aApprox, bApprox, 0)
 				if borrow == 1 {
-					s = (bApprox - aApprox)
+					s = bApprox - aApprox
 					bApprox = aApprox
 					f0, f1 = f1, f0
 					g0, g1 = g1, g0
@@ -108,7 +107,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		}
 
 		s = a
-		aHi := a.linearComb(&s, f0, &b, g0)
+		aHi := a.linearCombNonModular(&s, f0, &b, g0)
 		if aHi&(0b1<<63) != 0 {
 			// if aHi < 0
 			f0, g0 = -f0, -g0
@@ -116,7 +115,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		}
 		a.rsh31(&a, aHi)
 
-		bHi := b.linearComb(&s, f1, &b, g1)
+		bHi := b.linearCombNonModular(&s, f1, &b, g1)
 		if bHi&(0b1<<63) != 0 {
 			// if bHi < 0
 			f1, g1 = -f1, -g1
@@ -131,27 +130,10 @@ func (z *Element) Inverse(x *Element) *Element {
 				f1*pf0+g1*pf1,
 				f1*pg0+g1*pg1
 
-				// save u in s
 			s = u
+			u.linearComb(&u, f0, &v, g0)
+			v.linearComb(&s, f1, &v, g1)
 
-			//update u
-			u.mulWSigned(&u, f0)
-
-			r.mulWSigned(&v, g0)
-
-			u[0], carry = bits.Add64(u[0], r[0], 0)
-			u[1], carry = bits.Add64(u[1], r[1], carry)
-			u[2], carry = bits.Add64(u[2], r[2], carry)
-			u[3], _ = bits.Add64(u[3], r[3], carry)
-
-			//update v
-			s.mulWSigned(&s, f1)
-			v.mulWSigned(&v, g1)
-
-			v[0], carry = bits.Add64(v[0], s[0], 0)
-			v[1], carry = bits.Add64(v[1], s[1], carry)
-			v[2], carry = bits.Add64(v[2], s[2], carry)
-			v[3], _ = bits.Add64(v[3], s[3], carry)
 		} else {
 			//Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
@@ -212,12 +194,12 @@ func (z *Element) neg(x *Element, xHi uint64) uint64 {
 	return xHi
 }
 
-func (z *Element) add(xTimes *Element, xHi uint64, yTimes *Element, yHi uint64) uint64 {
+func (z *Element) add(x *Element, xHi uint64, y *Element, yHi uint64) uint64 {
 	var carry uint64
-	z[0], carry = bits.Add64(xTimes[0], yTimes[0], 0)
-	z[1], carry = bits.Add64(xTimes[1], yTimes[1], carry)
-	z[2], carry = bits.Add64(xTimes[2], yTimes[2], carry)
-	z[3], carry = bits.Add64(xTimes[3], yTimes[3], carry)
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], carry = bits.Add64(x[3], y[3], carry)
 	carry, _ = bits.Add64(xHi, yHi, carry)
 
 	return carry
@@ -230,11 +212,12 @@ func (z *Element) rsh31(x *Element, xHi uint64) {
 	z[3] = (x[3] >> 31) | ((xHi) << 33)
 }
 
-func (z *Element) linearComb(x *Element, xCoeff int64, y *Element, yCoeff int64) uint64 {
+//WARNING: Might need an extra high word (last carry) if BitLen(x) == BitLen(y) == 256. Not a problem here since len(p) = 254
+func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
 	var yTimes Element
 
-	yHi := yTimes.mulWRegular(y, yCoeff)
-	xHi := z.mulWRegular(x, xCoeff)
+	yHi := yTimes.mulWRegular(y, yC)
+	xHi := z.mulWRegular(x, xC)
 
 	var carry uint64
 	z[0], carry = bits.Add64(z[0], yTimes[0], 0)
@@ -244,4 +227,74 @@ func (z *Element) linearComb(x *Element, xCoeff int64, y *Element, yCoeff int64)
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
+}
+
+func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
+
+	hi := z.linearCombNonModular(x, xC, y, yC)
+
+	z.montReduce(z, hi)
+}
+
+func (z *Element) mulModR(x *Element, y *Element) {
+	var res Element
+	var carry [2]uint64 //can we stick them all in different bits in the same word?
+	var a uint64
+	var b uint64
+
+	// word 0
+	res[1], res[0] = bits.Mul64(x[0], y[0])
+
+	//word 1
+	res[2], b = bits.Mul64(x[0], y[1])
+	res[1], carry[0] = bits.Add64(res[1], b, 0)
+	a, b = bits.Mul64(x[1], y[0])
+	res[1], carry[1] = bits.Add64(res[1], b, 0)
+
+	//words 2,3
+	res[2], carry[0] = bits.Add64(res[2], a, carry[0])
+
+	res[3], a = bits.Mul64(x[2], y[0])
+	res[2], carry[1] = bits.Add64(res[2], a, carry[1])
+	a, b = bits.Mul64(x[1], y[1])
+
+	res[3], _ = bits.Add64(res[3], a, carry[1])
+
+	res[2], carry[1] = bits.Add64(res[2], b, 0)
+	a, b = bits.Mul64(x[0], y[2])
+	res[3], _ = bits.Add64(res[3], a, carry[1])
+	res[2], carry[1] = bits.Add64(res[2], b, 0)
+
+	//word 3
+	_, a = bits.Mul64(x[3], y[0])
+	res[3], _ = bits.Add64(res[3], a, carry[1])
+	_, a = bits.Mul64(x[2], y[1])
+	res[3], _ = bits.Add64(res[3], a, carry[0])
+	/*_, a = bits.Mul64(x[1], y[2])
+	res[3], _ = bits.Add64(res[3], a, 0)
+	_, a = bits.Mul64(x[0], y[3])
+	res[3], _ = bits.Add64(res[3], a, 0)*/
+	res[3] += x[1]*y[2] + x[0]*y[3]
+
+	*z = res
+}
+
+//Vanilla Mont from Koc94 section 1
+func (z *Element) montReduce(x *Element, xHi uint64) {
+	//Each inverse mod the other
+	/*qInvNeg := Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
+	rInvNeg := Element{5664406609643832080, 12421288465352154260, 16783890958096582019, 143333441873369583}
+
+	var c uint64
+	var mNeg Element
+
+	// if z > q --> z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+	}*/
 }
