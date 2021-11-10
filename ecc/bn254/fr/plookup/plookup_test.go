@@ -25,29 +25,30 @@ func TestH(t *testing.T) {
 
 	// correct proof
 	{
-		proof, err := Prove(srs, f, lookup)
+		proof, err := ProveLookupVector(srs, f, lookup)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Verify(srs, proof)
+		err = VerifyLookupVector(srs, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// wrong proof
-	// {
-	// 	proof, err := Prove(srs, f, lookup)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
+	{
+		f[0].SetRandom()
+		proof, err := ProveLookupVector(srs, f, lookup)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// 	err = Verify(srs, proof)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// }
+		err = VerifyLookupVector(srs, proof)
+		if err == nil {
+			t.Fatal(err)
+		}
+	}
 
 }
 
