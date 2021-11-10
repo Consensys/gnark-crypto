@@ -3,7 +3,6 @@ package plookup
 import (
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
@@ -21,9 +20,8 @@ var (
 // ProofLookupTables proofs that a list of tables
 type ProofLookupTables struct {
 
-	// commitments to the rows f and t
+	// commitments to the rows f
 	fs []kzg.Digest
-	ts []kzg.Digest
 
 	// lookup proof for the f and t folded
 	foldedProof ProofLookupVector
@@ -69,16 +67,14 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	// commit to the tables in f and t
 	sizeTable := len(t)
 	proof.fs = make([]kzg.Digest, sizeTable)
-	proof.ts = make([]kzg.Digest, sizeTable)
 	m := len(f[0]) + 1
 	if m < len(t[0]) {
 		m = len(t[0])
 	}
 	d := fft.NewDomain(uint64(m), 0, false)
 	lfs := make([][]fr.Element, sizeTable)
-	lts := make([][]fr.Element, sizeTable)
 	cfs := make([][]fr.Element, sizeTable)
-	cts := make([][]fr.Element, sizeTable)
+	lts := make([][]fr.Element, sizeTable)
 
 	for i := 0; i < sizeTable; i++ {
 
@@ -97,37 +93,23 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 			return proof, err
 		}
 
-		cts[i] = make([]fr.Element, d.Cardinality)
 		lts[i] = make([]fr.Element, d.Cardinality)
-		copy(cts[i], t[i])
 		copy(lts[i], t[i])
 		for j := len(t[i]); j < int(d.Cardinality); j++ {
-			cts[i][j] = t[i][len(t[i])-1]
 			lts[i][j] = t[i][len(t[i])-1]
-		}
-		d.FFTInverse(cts[i], fft.DIF, 0)
-		fft.BitReverse(cts[i])
-		proof.ts[i], err = kzg.Commit(cts[i], srs)
-		if err != nil {
-			return proof, err
 		}
 	}
 
 	// fold f and t
-	comms := make([]*kzg.Digest, 2*sizeTable)
+	comms := make([]*kzg.Digest, sizeTable)
 	for i := 0; i < sizeTable; i++ {
 		comms[i] = new(kzg.Digest)
-		comms[sizeTable+i] = new(kzg.Digest)
 		comms[i].Set(&proof.fs[i])
-		comms[sizeTable+i].Set(&proof.ts[i])
 	}
 	lambda, err := deriveRandomness(&fs, "lambda", comms...)
 	if err != nil {
 		return proof, err
 	}
-	// lambda.SetUint64(238293208029)
-	lambda.SetString("1535610991669198651944444444444444444444")
-	fmt.Printf("lambda (prover):   %s\n", lambda.String())
 	foldedf := make(Table, d.Cardinality)
 	foldedt := make(Table, d.Cardinality)
 	for i := 0; i < len(cfs[0]); i++ {
@@ -141,15 +123,6 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 
 	// call plookupVector, on foldedf[:len(foldedf)-1] to ensure that the domain size
 	// in ProveLookupVector is the same as d's
-	fmt.Println("folded f")
-	for i := 0; i < len(foldedf)-1; i++ {
-		fmt.Printf("fvector[%d].SetString(\"%s\")\n", i, foldedf[i].String())
-	}
-	fmt.Println("")
-	fmt.Println("folded t")
-	for i := 0; i < len(foldedt); i++ {
-		fmt.Printf("lookupVector[%d].SetString(\"%s\")\n", i, foldedt[i].String())
-	}
 	proof.foldedProof, err = ProveLookupVector(srs, foldedf[:len(foldedf)-1], foldedt)
 
 	return proof, err
@@ -166,37 +139,27 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 
 	// fold the commitments
 	sizeTable := len(proof.fs)
-	comms := make([]*kzg.Digest, 2*sizeTable)
+	comms := make([]*kzg.Digest, sizeTable)
 	for i := 0; i < sizeTable; i++ {
 		comms[i] = &proof.fs[i]
-		comms[sizeTable+i] = &proof.ts[i]
 	}
 	lambda, err := deriveRandomness(&fs, "lambda", comms...)
 	if err != nil {
 		return err
 	}
-	// lambda.SetUint64(238293208029)
-	lambda.SetString("1535610991669198651944444444444444444444")
-	fmt.Printf("lambda (verifier): %s\n", lambda.String())
 
 	// verify that the commitments in the inner proof are consistant
 	// with the folded commitments.
-	var comt, comf kzg.Digest
+	var comf kzg.Digest
 	comf.Set(&proof.fs[sizeTable-1])
-	comt.Set(&proof.ts[sizeTable-1])
 	var blambda big.Int
 	lambda.ToBigIntRegular(&blambda)
 	for i := sizeTable - 2; i >= 0; i-- {
 		comf.ScalarMultiplication(&comf, &blambda).
 			Add(&comf, &proof.fs[i])
-		comt.ScalarMultiplication(&comt, &blambda).
-			Add(&comt, &proof.ts[i])
 	}
 
 	if !comf.Equal(&proof.foldedProof.f) {
-		return ErrFoldedCommitment
-	}
-	if !comt.Equal(&proof.foldedProof.t) {
 		return ErrFoldedCommitment
 	}
 
