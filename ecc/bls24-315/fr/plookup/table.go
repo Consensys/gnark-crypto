@@ -21,10 +21,10 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -184,9 +184,9 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 }
 
 // TODO put that in fiat-shamir package
-func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bn254.G1Affine) (fr.Element, error) {
+func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bls24315.G1Affine) (fr.Element, error) {
 
-	var buf [bn254.SizeOfG1AffineUncompressed]byte
+	var buf [bls24315.SizeOfG1AffineUncompressed]byte
 	var r fr.Element
 
 	for _, p := range points {
