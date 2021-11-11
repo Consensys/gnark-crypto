@@ -16,6 +16,7 @@ jobs:
       - run: go generate ./...
       - run: git update-index --assume-unchanged go.mod
       - run: git update-index --assume-unchanged go.sum
+      - run: git update-index --assume-unchanged **/**/**/element_exp.go
       - run: if [[ -n $(git status --porcelain) ]]; then echo "Git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
       - run: gotestsum --junitfile  /tmp/test-results/results.xml -- ./... -short -tags debug
       - run: go test ./... -short -tags debug,noadx # ensure we test all assembly path with noadx instructions on amd64
