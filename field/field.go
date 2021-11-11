@@ -17,17 +17,9 @@ package field
 
 import (
 	"errors"
-	"log"
 	"math/big"
 
-	"github.com/mmcloughlin/addchain"
-	"github.com/mmcloughlin/addchain/acc"
-	"github.com/mmcloughlin/addchain/acc/ast"
-	"github.com/mmcloughlin/addchain/acc/ir"
-	"github.com/mmcloughlin/addchain/acc/pass"
-	"github.com/mmcloughlin/addchain/alg/ensemble"
-	"github.com/mmcloughlin/addchain/alg/exec"
-	"github.com/mmcloughlin/addchain/meta"
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
 
 var (
@@ -53,23 +45,26 @@ type Field struct {
 	ASM                  bool
 	RSquare              []uint64
 	One                  []uint64
+
 	LegendreExponent     string // big.Int to base16 string
-	NoCarry              bool
-	NoCarrySquare        bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4           bool
-	SqrtAtkin            bool
-	SqrtTonelliShanks    bool
-	SqrtE                uint64
-	SqrtS                []uint64
+	LegendreExponentData *addchain.AddChainData
+
+	NoCarry           bool
+	NoCarrySquare     bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4        bool
+	SqrtAtkin         bool
+	SqrtTonelliShanks bool
+	SqrtE             uint64
+	SqrtS             []uint64
 
 	SqrtAtkinExponent     string // big.Int to base16 string
-	SqrtAtkinExponentData *addChainData
+	SqrtAtkinExponentData *addchain.AddChainData
 
 	SqrtSMinusOneOver2     string // big.Int to base16 string
-	SqrtSMinusOneOver2Data *addChainData
+	SqrtSMinusOneOver2Data *addchain.AddChainData
 
 	SqrtQ3Mod4Exponent     string // big.Int to base16 string
-	SqrtQ3Mod4ExponentData *addChainData
+	SqrtQ3Mod4ExponentData *addchain.AddChainData
 
 	SqrtG []uint64 // NonResidue ^  SqrtR (montgomery form)
 
@@ -154,6 +149,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	legendreExponent.Sub(&bModulus, &legendreExponent)
 	legendreExponent.Rsh(&legendreExponent, 1)
 	F.LegendreExponent = legendreExponent.Text(16)
+	F.LegendreExponentData = addchain.GetAddChain(&legendreExponent)
 
 	// Sqrt pre computes
 	var qMod big.Int
@@ -169,7 +165,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		F.SqrtQ3Mod4Exponent = sqrtExponent.Text(16)
 
 		// add chain stuff
-		F.SqrtQ3Mod4ExponentData = getAddChain(&sqrtExponent)
+		F.SqrtQ3Mod4ExponentData = addchain.GetAddChain(&sqrtExponent)
 
 	} else {
 		// q ≡ 1 (mod 4)
@@ -181,7 +177,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			F.SqrtAtkin = true
 			e := new(big.Int).Rsh(&bModulus, 3) // e = (q - 5) / 8
 			F.SqrtAtkinExponent = e.Text(16)
-			F.SqrtAtkinExponentData = getAddChain(e)
+			F.SqrtAtkinExponentData = addchain.GetAddChain(e)
 		} else {
 			// use Tonelli-Shanks
 			F.SqrtTonelliShanks = true
@@ -219,7 +215,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			s.Sub(&s, &one).Rsh(&s, 1)
 			F.SqrtSMinusOneOver2 = s.Text(16)
 
-			F.SqrtSMinusOneOver2Data = getAddChain(&s)
+			F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
 		}
 	}
 
@@ -276,96 +272,4 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 		b.Set(&riPlusOne)
 	}
 	qInv.Neg(qInv)
-}
-
-func getAddChain(n *big.Int) *addChainData {
-	// Default ensemble of algorithms.
-	algorithms := ensemble.Ensemble()
-
-	// Use parallel executor.
-	ex := exec.NewParallel()
-	results := ex.Execute(n, algorithms)
-
-	// Output best result.
-	best := 0
-	for i, r := range results {
-		if r.Err != nil {
-			log.Fatal(r.Err)
-		}
-		if len(results[i].Program) < len(results[best].Program) {
-			best = i
-		}
-	}
-	r := results[best]
-	p, err := acc.Decompile(r.Program)
-	if err != nil {
-		log.Fatal(err)
-	}
-	chain, err := acc.Build(p)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	data, err := prepareAddChainData(chain)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return data
-}
-
-// Data provided to templates.
-type addChainData struct {
-	// Chain is the addition chain as a list of integers.
-	Chain addchain.Chain
-
-	// Ops is the complete sequence of addition operations required to compute
-	// the addition chain.
-	Ops addchain.Program
-
-	// Script is the condensed representation of the addition chain computation
-	// in the "addition chain calculator" language.
-	Script *ast.Chain
-
-	// Program is the intermediate representation of the addition chain
-	// computation. This representation is likely the most convenient for code
-	// generation. It contains a sequence of add, double and shift (repeated
-	// doubling) instructions required to compute the chain. Temporary variable
-	// allocation has been performed and the list of required temporaries
-	// populated.
-	Program *ir.Program
-
-	// Metadata about the addchain project and the specific release parameters.
-	// Please use this to include a reference or citation back to the addchain
-	// project in your generated output.
-	Meta *meta.Properties
-}
-
-// PrepareData builds input template data for the given addition chain script.
-func prepareAddChainData(s *ast.Chain) (*addChainData, error) {
-	// Prepare template data.
-	allocator := pass.Allocator{
-		Input:  "x",
-		Output: "z",
-		Format: "t%d",
-	}
-	// Translate to IR.
-	p, err := acc.Translate(s)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply processing passes: temporary variable allocation, and computing the
-	// full addition chain sequence and operations.
-	if err := pass.Exec(p, allocator, pass.Func(pass.Eval)); err != nil {
-		return nil, err
-	}
-
-	return &addChainData{
-		Chain:   p.Chain,
-		Ops:     p.Program,
-		Script:  s,
-		Program: p,
-		Meta:    meta.Meta,
-	}, nil
 }

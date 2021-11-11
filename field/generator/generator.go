@@ -1,22 +1,19 @@
 package generator
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 	"github.com/consensys/gnark-crypto/field/internal/templates/element"
-	"github.com/mmcloughlin/addchain/acc/ir"
-	"github.com/mmcloughlin/addchain/acc/printer"
 )
 
 // TODO @gbotrel --> pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
@@ -39,7 +36,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Sqrt,
 		element.Inverse,
-		element.ExpBy,
 	}
 
 	// test file templates
@@ -54,6 +50,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	eName := strings.ToLower(F.ElementName)
 
 	pathSrc := filepath.Join(outputDir, eName+".go")
+	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
 	pathFuzz := filepath.Join(outputDir, eName+"_fuzz.go")
@@ -66,7 +63,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	funcs := template.FuncMap{}
-	for _, f := range Functions {
+	for _, f := range addchain.Functions {
 		funcs[f.Name] = f.Func
 	}
 	funcs["toTitle"] = strings.Title
@@ -85,6 +82,11 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 	// generate arithmetics source file
 	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
+		return err
+	}
+
+	// generate fixed exp source file
+	if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
 		return err
 	}
 
@@ -267,100 +269,4 @@ func shorten(input string) string {
 		return input[:6] + "..." + input[len(input)-6:]
 	}
 	return input
-}
-
-// TODO @gbotrel add copyright + licencing
-
-// Function is a function provided to templates.
-type Function struct {
-	Name        string
-	Description string
-	Func        interface{}
-}
-
-// Signature returns the function signature.
-func (f *Function) Signature() string {
-	return reflect.ValueOf(f.Func).Type().String()
-}
-
-// Functions is the list of functions provided to templates.
-var Functions = []*Function{
-	{
-		Name:        "add_",
-		Description: "If the input operation is an `ir.Add` then return it, otherwise return `nil`",
-		Func: func(op ir.Op) ir.Op {
-			if a, ok := op.(ir.Add); ok {
-				return a
-			}
-			return nil
-		},
-	},
-	{
-		Name:        "double_",
-		Description: "If the input operation is an `ir.Double` then return it, otherwise return `nil`",
-		Func: func(op ir.Op) ir.Op {
-			if d, ok := op.(ir.Double); ok {
-				return d
-			}
-			return nil
-		},
-	},
-	{
-		Name:        "shift_",
-		Description: "If the input operation is an `ir.Shift` then return it, otherwise return `nil`",
-		Func: func(op ir.Op) ir.Op {
-			if s, ok := op.(ir.Shift); ok {
-				return s
-			}
-			return nil
-		},
-	},
-	{
-		Name:        "inc_",
-		Description: "Increment an integer",
-		Func:        func(n int) int { return n + 1 },
-	},
-	{
-		Name:        "format_",
-		Description: "Formats an addition chain script (`*ast.Chain`) as a string",
-		Func:        printer.String,
-	},
-	{
-		Name:        "split_",
-		Description: "Calls `strings.Split`",
-		Func:        strings.Split,
-	},
-	{
-		Name:        "join_",
-		Description: "Calls `strings.Join`",
-		Func:        strings.Join,
-	},
-	{
-		Name:        "lines_",
-		Description: "Split input string into lines",
-		Func: func(s string) []string {
-			var lines []string
-			scanner := bufio.NewScanner(strings.NewReader(s))
-			for scanner.Scan() {
-				lines = append(lines, scanner.Text())
-			}
-			return lines
-		},
-	},
-	{
-		Name:        "ptr_",
-		Description: "adds & if it's a value",
-		Func: func(s *ir.Operand) string {
-			if s.String() == "x" || s.String() == "z" || s.String() == "y" {
-				return ""
-			}
-			return "&"
-		},
-	},
-	{
-		Name: "last_",
-		Func: func(x int, a interface{}) bool {
-			return x == reflect.ValueOf(a).Len()-1
-		},
-	},
 }
