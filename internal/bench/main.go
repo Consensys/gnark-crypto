@@ -21,7 +21,7 @@ func main() {
 	// quick and dirty helper to benchmark field elements accross branches
 
 	var entries []entry
-	filepath.WalkDir("../../ecc", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir("../../ecc", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			if d.Name() == "fp" || d.Name() == "fr" {
 				entries = append(entries, entry{entry: d, path: path})
@@ -29,6 +29,10 @@ func main() {
 		}
 		return nil
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	const benchCount = 10
 	const regexp = "ElementSqrt"

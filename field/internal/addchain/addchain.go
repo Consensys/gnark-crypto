@@ -90,12 +90,13 @@ func GetAddChain(n *big.Int) *AddChainData {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
 	enc := gob.NewEncoder(f)
 
 	if err := enc.Encode(r.Program); err != nil {
+		_ = f.Close()
 		log.Fatal(err)
 	}
+	_ = f.Close()
 
 	return data
 }
@@ -300,12 +301,13 @@ func init() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer f.Close()
 
 		// decode the addchain.Program
 		dec := gob.NewDecoder(f)
 		var p addchain.Program
-		if err := dec.Decode(&p); err != nil {
+		err = dec.Decode(&p)
+		_ = f.Close()
+		if err != nil {
 			log.Fatal(err)
 		}
 		data := processSearchResult(p, f.Name())
@@ -313,6 +315,7 @@ func init() {
 
 		// save the data
 		mAddchains[filepath.Base(f.Name())] = data
+
 	}
 
 }
