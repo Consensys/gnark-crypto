@@ -28,26 +28,32 @@ func (z *{{.eName}}) expBy{{$.name}}(x *{{.eName}}) *{{.eName}} {
 	// Operations: {{ .data.Ops.Doubles }} squares {{ .data.Ops.Adds }} multiplies
 
 	// Allocate Temporaries.
-	var {{range $i, $e := .data.Program.Temporaries }}{{ $e }} {{- if last_ $i $.data.Program.Temporaries}} {{$.eName}} {{- else }}, {{- end}}{{- end -}}
+	var (
+		{{- range .data.Program.Temporaries }}
+		{{ . }} = new({{$.eName}})
+		{{- end -}}
+	)
+
+	// var {{range $i, $e := .data.Program.Temporaries }}{{ $e }} {{- if last_ $i $.data.Program.Temporaries}} {{$.eName}} {{- else }}, {{- end}}{{- end -}}
 
 	{{ range $i := .data.Program.Instructions }}
 	// {{ printf "Step %d: %s = x^%#x" $i.Output.Index $i.Output (index $.data.Chain $i.Output.Index) }}
 	{{- with add_ $i.Op }}
-	{{ $i.Output }}.Mul({{ ptr_ .X }}{{ .X }}, {{ ptr_ .Y }}{{ .Y }})
+	{{ $i.Output }}.Mul({{ .X }}, {{ .Y }})
 	{{ end -}}
 
 	{{- with double_ $i.Op }}
-	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{ $i.Output }}.Square({{ .X }})
 	{{ end -}}
 
 	{{- with shift_ $i.Op -}}
 	{{- $first := 0 -}}
 	{{- if ne $i.Output.Identifier .X.Identifier }}
-	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{ $i.Output }}.Square({{ .X }})
 	{{- $first = 1 -}}
 	{{- end }}
 	for s := {{ $first }}; s < {{ .S }}; s++ {
-		{{ $i.Output }}.Square({{ ptr_ .X }}{{ $i.Output }})
+		{{ $i.Output }}.Square({{ $i.Output }})
 	}
 	{{ end -}}
 	{{- end }}
