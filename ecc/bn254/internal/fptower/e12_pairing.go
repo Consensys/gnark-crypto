@@ -49,9 +49,6 @@ func (z *E12) Expt(x *E12) *E12 {
 	// Allocate Temporaries.
 	var result, t0, t1, t2, t3 E12
 
-	// Step 0: result = x
-	result.Set(x)
-
 	// Step 1: result = x^0x2
 	result.CyclotomicSquare(x)
 
@@ -141,18 +138,16 @@ func (z *E12) Expt(x *E12) *E12 {
 	t1.Mul(&t1, &t2)
 
 	// Step 60: t1 = x^0x44e992b44000
-	t2.nSquare(14)
+	t1.nSquare(14)
 
 	// Step 61: t0 = x^0x44e992b44a69
 	t0.Mul(&t0, &t1)
 
 	// Step 77: t0 = x^0x44e992b44a690000
-	t2.nSquare(16)
+	t0.nSquare(16)
 
 	// Step 78: result = x^0x44e992b44a6909f1
-	result.Mul(&result, &t0)
-
-	z.Set(&result)
+	z.Mul(&result, &t0)
 
 	return z
 }
