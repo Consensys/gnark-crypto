@@ -28,7 +28,6 @@ tasks.txt
 
 # generated files during integratrion tests
 internal/tests/integration/
-internal/generator/addchain/**
 field/internal/dev.go 
 field/internal/dev/**
 field/generator/addchain/**
