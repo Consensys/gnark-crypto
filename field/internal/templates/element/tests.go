@@ -164,7 +164,8 @@ func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	var a {{.ElementName}}
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sqrt(&a)
