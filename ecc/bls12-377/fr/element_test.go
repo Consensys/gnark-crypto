@@ -18,6 +18,7 @@ package fr
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"math/bits"
 	"testing"
@@ -1699,6 +1700,56 @@ func TestElementNeg(t *testing.T) {
 		specialValueTest()
 		supportAdx = true
 	}
+}
+
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("955b2af4d1652ab305a268f2e1bd800acd53b7f680000008508c00000000000", 16)
+	const sqrtExponentElement = "12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+	var twoInv Element
+	twoInv.SetUint64(2)
+	twoInv.Inverse(&twoInv)
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(&c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(955b2af4d1652ab305a268f2e1bd800acd53b7f680000008508c00000000000)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(&c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementHalve(t *testing.T) {
