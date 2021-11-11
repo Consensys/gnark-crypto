@@ -18,7 +18,7 @@ const FixedExp = `
 // expBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
 // 
 // uses {{ .data.Meta.Module }} {{ .data.Meta.ReleaseTag }} to generate a shorter addition chain
-func (z *{{.eName}}) expBy{{$.name}}(x *{{.eName}}) *{{.eName}} {
+func (z *{{.eName}}) expBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	// addition chain:
 	//
 	{{- range lines_ (format_ .data.Script) }}
@@ -39,21 +39,21 @@ func (z *{{.eName}}) expBy{{$.name}}(x *{{.eName}}) *{{.eName}} {
 	{{ range $i := .data.Program.Instructions }}
 	// {{ printf "Step %d: %s = x^%#x" $i.Output.Index $i.Output (index $.data.Chain $i.Output.Index) }}
 	{{- with add_ $i.Op }}
-	{{ $i.Output }}.Mul({{ .X }}, {{ .Y }})
+	{{ $i.Output }}.Mul({{ ptr_ .X }}{{ .X }}, {{ ptr_ .Y }}{{ .Y }})
 	{{ end -}}
 
 	{{- with double_ $i.Op }}
-	{{ $i.Output }}.Square({{ .X }})
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
 	{{ end -}}
 
 	{{- with shift_ $i.Op -}}
 	{{- $first := 0 -}}
 	{{- if ne $i.Output.Identifier .X.Identifier }}
-	{{ $i.Output }}.Square({{ .X }})
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
 	{{- $first = 1 -}}
 	{{- end }}
 	for s := {{ $first }}; s < {{ .S }}; s++ {
-		{{ $i.Output }}.Square({{ $i.Output }})
+		{{ $i.Output }}.Square({{ ptr_ $i.Output }}{{ $i.Output }})
 	}
 	{{ end -}}
 	{{- end }}

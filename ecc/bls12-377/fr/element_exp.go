@@ -19,7 +19,7 @@ package fr
 // expBySqrtExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x *Element) *Element {
+func (z *Element) expBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -81,10 +81,10 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16 Element
 	// Step 1: t4 = x^0x2
-	t4.Square(x)
+	t4.Square(&x)
 
 	// Step 2: z = x^0x3
-	z.Mul(x, t4)
+	z.Mul(&x, t4)
 
 	// Step 3: t1 = x^0x5
 	t1.Mul(t4, z)
@@ -99,7 +99,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	t2.Mul(t1, t0)
 
 	// Step 7: z = x^0x11
-	z.Mul(x, t2)
+	z.Mul(&x, t2)
 
 	// Step 8: t7 = x^0x16
 	t7.Mul(t1, z)
@@ -117,7 +117,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	t0.Square(t0)
 
 	// Step 13: t15 = x^0x5b
-	t15.Mul(x, t0)
+	t15.Mul(&x, t0)
 
 	// Step 14: t6 = x^0x7b
 	t6.Mul(t8, t15)
@@ -319,7 +319,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 // expByLegendreExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/955b2af4d1652ab305a268f2e1bd800acd53b7f680000008508c00000000000)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expByLegendreExp(x *Element) *Element {
+func (z *Element) expByLegendreExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -382,16 +382,16 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16 Element
 	// Step 1: t4 = x^0x2
-	t4.Square(x)
+	t4.Square(&x)
 
 	// Step 2: z = x^0x3
-	z.Mul(x, t4)
+	z.Mul(&x, t4)
 
 	// Step 3: t1 = x^0x5
 	t1.Mul(t4, z)
 
 	// Step 4: t8 = x^0x6
-	t8.Mul(x, t1)
+	t8.Mul(&x, t1)
 
 	// Step 5: t3 = x^0x8
 	t3.Mul(t4, t8)
@@ -418,7 +418,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	t0.Square(t0)
 
 	// Step 13: t15 = x^0x5b
-	t15.Mul(x, t0)
+	t15.Mul(&x, t0)
 
 	// Step 14: t6 = x^0x7b
 	t6.Mul(t9, t15)

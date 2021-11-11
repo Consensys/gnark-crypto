@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"math/bits"
 	"testing"
-	"fmt"
+	{{if .UseAddChain}}	"fmt" {{ end }}
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -959,6 +959,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 {{ end }}
 
+{{ if .UseAddChain}}
 func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -986,15 +987,12 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 	_bSqrtExponent{{.ElementName}}, _ = new(big.Int).SetString(sqrtExponent{{.ElementName}}, 16)
 
 	genA := gen()
-	var twoInv {{.ElementName}}
-	twoInv.SetUint64(2)
-	twoInv.Inverse(&twoInv)
 
 	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponent{{.ElementName}}), prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.expBySqrtExp(&c)
+			c.expBySqrtExp(c)
 			d.Exp(d, _bSqrtExponent{{.ElementName}})
 			return c.Equal(&d)
 		},
@@ -1005,7 +1003,7 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.expByLegendreExp(&c)
+			c.expByLegendreExp(c)
 			d.Exp(d, _bLegendreExponent{{.ElementName}})
 			return c.Equal(&d)
 		},
@@ -1015,6 +1013,8 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+{{ end }}
 
 
 

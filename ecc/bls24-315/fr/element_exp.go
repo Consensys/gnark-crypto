@@ -19,7 +19,7 @@ package fr
 // expBySqrtExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/32dbd584953b42564bf8fd939f24f531918901d9cc89c6c833a18bfa01)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x *Element) *Element {
+func (z *Element) expBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10      = 2*1
@@ -84,16 +84,16 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17 Element
 	// Step 1: z = x^0x2
-	z.Square(x)
+	z.Square(&x)
 
 	// Step 2: t0 = x^0x4
 	t0.Square(z)
 
 	// Step 3: t1 = x^0x5
-	t1.Mul(x, t0)
+	t1.Mul(&x, t0)
 
 	// Step 4: t6 = x^0x6
-	t6.Mul(x, t1)
+	t6.Mul(&x, t1)
 
 	// Step 5: t5 = x^0x9
 	t5.Mul(t0, t1)
@@ -307,7 +307,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 177: t8 = x^0x32dbd584953b42564bf8fd939f24f5319189
-	t8.Mul(x, t8)
+	t8.Mul(&x, t8)
 
 	// Step 190: t8 = x^0x65b7ab092a7684ac97f1fb273e49ea632312000
 	for s := 0; s < 13; s++ {
@@ -355,7 +355,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 228: t3 = x^0x65b7ab092a7684ac97f1fb273e49ea63231203b399138d9
-	t3.Mul(x, t3)
+	t3.Mul(&x, t3)
 
 	// Step 239: t3 = x^0x32dbd584953b42564bf8fd939f24f531918901d9cc89c6c800
 	for s := 0; s < 11; s++ {
@@ -395,7 +395,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 267: z = x^0x196deac24a9da12b25fc7ec9cf927a98c8c480ece644e36419d0c5fd
-	z.Mul(x, z)
+	z.Mul(&x, z)
 
 	// Step 276: z = x^0x32dbd584953b42564bf8fd939f24f531918901d9cc89c6c833a18bfa00
 	for s := 0; s < 9; s++ {
@@ -403,7 +403,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 277: z = x^0x32dbd584953b42564bf8fd939f24f531918901d9cc89c6c833a18bfa01
-	z.Mul(x, z)
+	z.Mul(&x, z)
 
 	return z
 }
@@ -411,7 +411,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 // expByLegendreExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/cb6f561254ed09592fe3f64e7c93d4c64624076732271b20ce862fe80600000)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expByLegendreExp(x *Element) *Element {
+func (z *Element) expByLegendreExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10      = 2*1
@@ -478,19 +478,19 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18 Element
 	// Step 1: t0 = x^0x2
-	t0.Square(x)
+	t0.Square(&x)
 
 	// Step 2: z = x^0x3
-	z.Mul(x, t0)
+	z.Mul(&x, t0)
 
 	// Step 3: t1 = x^0x4
-	t1.Mul(x, z)
+	t1.Mul(&x, z)
 
 	// Step 4: t2 = x^0x5
-	t2.Mul(x, t1)
+	t2.Mul(&x, t1)
 
 	// Step 5: t7 = x^0x6
-	t7.Mul(x, t2)
+	t7.Mul(&x, t2)
 
 	// Step 6: t6 = x^0x9
 	t6.Mul(z, t7)
@@ -704,7 +704,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 178: t9 = x^0x32dbd584953b42564bf8fd939f24f5319189
-	t9.Mul(x, t9)
+	t9.Mul(&x, t9)
 
 	// Step 191: t9 = x^0x65b7ab092a7684ac97f1fb273e49ea632312000
 	for s := 0; s < 13; s++ {
@@ -752,7 +752,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 229: t4 = x^0x65b7ab092a7684ac97f1fb273e49ea63231203b399138d9
-	t4.Mul(x, t4)
+	t4.Mul(&x, t4)
 
 	// Step 240: t4 = x^0x32dbd584953b42564bf8fd939f24f531918901d9cc89c6c800
 	for s := 0; s < 11; s++ {
@@ -792,7 +792,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 268: t0 = x^0x196deac24a9da12b25fc7ec9cf927a98c8c480ece644e36419d0c5fd
-	t0.Mul(x, t0)
+	t0.Mul(&x, t0)
 
 	// Step 278: t0 = x^0x65b7ab092a7684ac97f1fb273e49ea63231203b399138d90674317f400
 	for s := 0; s < 10; s++ {

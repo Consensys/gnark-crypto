@@ -19,7 +19,7 @@ package fp
 // expBySqrtExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x *Element) *Element {
+func (z *Element) expBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -136,10 +136,10 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,t20,t21,t22,t23,t24,t25,t26,t27,t28,t29,t30 Element
 	// Step 1: t14 = x^0x2
-	t14.Square(x)
+	t14.Square(&x)
 
 	// Step 2: t3 = x^0x3
-	t3.Mul(x, t14)
+	t3.Mul(&x, t14)
 
 	// Step 3: t18 = x^0x5
 	t18.Mul(t14, t3)
@@ -163,10 +163,10 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	t17.Mul(t14, t24)
 
 	// Step 10: z = x^0x12
-	z.Mul(x, t17)
+	z.Mul(&x, t17)
 
 	// Step 11: t19 = x^0x13
-	t19.Mul(x, z)
+	t19.Mul(&x, z)
 
 	// Step 12: t11 = x^0x17
 	t11.Mul(t18, z)
@@ -238,7 +238,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	t20.Square(t23)
 
 	// Step 35: t20 = x^0xff
-	t20.Mul(x, t20)
+	t20.Mul(&x, t20)
 
 	// Step 36: t30 = x^0x120
 	t30.Mul(t4, t20)
@@ -257,7 +257,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 43: t30 = x^0x245d
-	t30.Mul(x, t30)
+	t30.Mul(&x, t30)
 
 	// Step 52: t30 = x^0x48ba00
 	for s := 0; s < 9; s++ {
@@ -409,7 +409,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 202: t29 = x^0x245d049f7079c15a30f928009f5fe7d724c30d5
-	t29.Mul(x, t29)
+	t29.Mul(&x, t29)
 
 	// Step 213: t29 = x^0x122e824fb83ce0ad187c94004faff3eb926186a800
 	for s := 0; s < 11; s++ {
@@ -985,7 +985,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 	}
 
 	// Step 810: t3 = x^0x245d049f7079c15a30f928009f5fe7d724c30d503a28d10a504ebdf010f7c82e0f74c71cb09d232079d75fe4b6846090d1391da25f3fb20e3b9a7b8e7d7fe5d31422d84accf51f02c19f15dd5e1486fcd227cd0e00001
-	t3.Mul(x, t3)
+	t3.Mul(&x, t3)
 
 	// Step 821: t3 = x^0x122e824fb83ce0ad187c94004faff3eb926186a81d14688528275ef8087be41707ba638e584e91903cebaff25b423048689c8ed12f9fd9071dcd3dc73ebff2e98a116c25667a8f8160cf8aeeaf0a437e6913e68700000800
 	for s := 0; s < 11; s++ {
@@ -1025,7 +1025,7 @@ func (z *Element) expBySqrtExp(x *Element) *Element {
 // expByLegendreExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expByLegendreExp(x *Element) *Element {
+func (z *Element) expByLegendreExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -1143,10 +1143,10 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 
 	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,t20,t21,t22,t23,t24,t25,t26,t27,t28,t29,t30 Element
 	// Step 1: t15 = x^0x2
-	t15.Square(x)
+	t15.Square(&x)
 
 	// Step 2: t3 = x^0x3
-	t3.Mul(x, t15)
+	t3.Mul(&x, t15)
 
 	// Step 3: t18 = x^0x5
 	t18.Mul(t15, t3)
@@ -1170,10 +1170,10 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	z.Mul(t15, t24)
 
 	// Step 10: t0 = x^0x12
-	t0.Mul(x, z)
+	t0.Mul(&x, z)
 
 	// Step 11: t19 = x^0x13
-	t19.Mul(x, t0)
+	t19.Mul(&x, t0)
 
 	// Step 12: t11 = x^0x17
 	t11.Mul(t18, t0)
@@ -1245,7 +1245,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	t20.Square(t23)
 
 	// Step 35: t20 = x^0xff
-	t20.Mul(x, t20)
+	t20.Mul(&x, t20)
 
 	// Step 36: t30 = x^0x120
 	t30.Mul(t4, t20)
@@ -1264,7 +1264,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 43: t30 = x^0x245d
-	t30.Mul(x, t30)
+	t30.Mul(&x, t30)
 
 	// Step 52: t30 = x^0x48ba00
 	for s := 0; s < 9; s++ {
@@ -1416,7 +1416,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 202: t29 = x^0x245d049f7079c15a30f928009f5fe7d724c30d5
-	t29.Mul(x, t29)
+	t29.Mul(&x, t29)
 
 	// Step 213: t29 = x^0x122e824fb83ce0ad187c94004faff3eb926186a800
 	for s := 0; s < 11; s++ {
@@ -1992,7 +1992,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 810: t3 = x^0x245d049f7079c15a30f928009f5fe7d724c30d503a28d10a504ebdf010f7c82e0f74c71cb09d232079d75fe4b6846090d1391da25f3fb20e3b9a7b8e7d7fe5d31422d84accf51f02c19f15dd5e1486fcd227cd0e00001
-	t3.Mul(x, t3)
+	t3.Mul(&x, t3)
 
 	// Step 821: t3 = x^0x122e824fb83ce0ad187c94004faff3eb926186a81d14688528275ef8087be41707ba638e584e91903cebaff25b423048689c8ed12f9fd9071dcd3dc73ebff2e98a116c25667a8f8160cf8aeeaf0a437e6913e68700000800
 	for s := 0; s < 11; s++ {
@@ -2032,7 +2032,7 @@ func (z *Element) expByLegendreExp(x *Element) *Element {
 	}
 
 	// Step 885: z = x^0x9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045
-	z.Mul(x, z)
+	z.Mul(&x, z)
 
 	return z
 }

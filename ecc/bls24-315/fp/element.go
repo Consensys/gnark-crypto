@@ -861,7 +861,7 @@ func (z *Element) SetString(s string) *Element {
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.expByLegendreExp(z)
+	l.expByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -884,7 +884,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.expBySqrtExp(x)
+	w.expBySqrtExp(*x)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)

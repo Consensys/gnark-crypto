@@ -254,6 +254,16 @@ var Functions = []*Function{
 		},
 	},
 	{
+		Name:        "ptr_",
+		Description: "adds & if it's a value",
+		Func: func(s *ir.Operand) string {
+			if s.String() == "x" {
+				return "&"
+			}
+			return ""
+		},
+	},
+	{
 		Name: "last_",
 		Func: func(x int, a interface{}) bool {
 			return x == reflect.ValueOf(a).Len()-1

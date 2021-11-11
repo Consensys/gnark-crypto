@@ -63,8 +63,10 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	funcs := template.FuncMap{}
-	for _, f := range addchain.Functions {
-		funcs[f.Name] = f.Func
+	if F.UseAddChain {
+		for _, f := range addchain.Functions {
+			funcs[f.Name] = f.Func
+		}
 	}
 	funcs["toTitle"] = strings.Title
 	funcs["shorten"] = shorten
@@ -86,8 +88,10 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	// generate fixed exp source file
-	if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
-		return err
+	if F.UseAddChain {
+		if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
+			return err
+		}
 	}
 
 	// generate fuzz file
