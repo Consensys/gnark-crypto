@@ -337,22 +337,6 @@ func computeQuotient(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainH
 	return res
 }
 
-// func printPoly(name string, f []fr.Element) {
-// 	fmt.Printf("%s : ", name)
-// 	for i := 0; i < len(f); i++ {
-// 		fmt.Printf("%s*x**%d + ", f[i].String(), i)
-// 	}
-// 	fmt.Println("")
-// }
-
-// func printEval(name string, e []fr.Element) {
-// 	fmt.Printf("%s:\n[", name)
-// 	for i := 0; i < len(e); i++ {
-// 		fmt.Printf("%s, ", e[i].String())
-// 	}
-// 	fmt.Println("]")
-// }
-
 // ProveLookupVector returns proof that the values in f are in t.
 func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 
@@ -445,8 +429,6 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	if err != nil {
 		return proof, err
 	}
-	beta.SetUint64(2)
-	gamma.SetUint64(3)
 
 	// Compute to Z
 	lz := computeZ(lf, lt, lh1, lh2, beta, gamma)
@@ -496,7 +478,6 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	if err != nil {
 		return proof, err
 	}
-	alpha.SetUint64(4)
 	ch := computeQuotient(alpha, lh, lh0, lhn, lh1h2, domainH)
 	proof.h, err = kzg.Commit(ch, srs)
 	if err != nil {
@@ -508,7 +489,6 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	if err != nil {
 		return proof, err
 	}
-	nu.SetUint64(5)
 	proof.BatchedProof, err = kzg.BatchOpenSinglePoint(
 		[]polynomial.Polynomial{
 			ch1,
@@ -590,10 +570,6 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 	if err != nil {
 		return err
 	}
-	beta.SetUint64(2)
-	gamma.SetUint64(3)
-	alpha.SetUint64(4)
-	nu.SetUint64(5)
 
 	// check opening proofs
 	err = kzg.BatchVerifySinglePoint(
