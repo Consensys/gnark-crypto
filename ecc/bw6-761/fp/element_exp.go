@@ -16,7 +16,7 @@
 
 package fp
 
-// expBySqrtExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023)
+// expBySqrtExp is equivalent to z.Exp(x, 48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
 func (z *Element) expBySqrtExp(x Element) *Element {
@@ -1022,7 +1022,7 @@ func (z *Element) expBySqrtExp(x Element) *Element {
 	return z
 }
 
-// expByLegendreExp is equivalent to z.Exp(x, /Users/gbotrel/dev/go/src/github.com/consensys/gnark-crypto/internal/generator/addchain/9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045)
+// expByLegendreExp is equivalent to z.Exp(x, 9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
 func (z *Element) expByLegendreExp(x Element) *Element {

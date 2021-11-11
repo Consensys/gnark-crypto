@@ -310,7 +310,7 @@ func init() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		data := processSearchResult(p, f.Name())
+		data := processSearchResult(p, filepath.Base(f.Name()))
 		log.Println("read", filepath.Base(f.Name()))
 
 		// save the data
