@@ -12,6 +12,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 	"github.com/consensys/gnark-crypto/field/internal/templates/element"
 )
 
@@ -49,6 +50,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	eName := strings.ToLower(F.ElementName)
 
 	pathSrc := filepath.Join(outputDir, eName+".go")
+	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
 	pathFuzz := filepath.Join(outputDir, eName+"_fuzz.go")
@@ -60,11 +62,20 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		_ = os.Remove(filepath.Join(outputDir, eName+of))
 	}
 
+	funcs := template.FuncMap{}
+	if F.UseAddChain {
+		for _, f := range addchain.Functions {
+			funcs[f.Name] = f.Func
+		}
+	}
+	funcs["toTitle"] = strings.Title
+	funcs["shorten"] = shorten
+
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
 		bavard.Package(F.PackageName),
 		bavard.GeneratedBy("consensys/gnark-crypto"),
-		bavard.Funcs(template.FuncMap{"toTitle": strings.Title, "shorten": shorten}),
+		bavard.Funcs(funcs),
 	}
 
 	// generate source file
@@ -74,6 +85,13 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	// generate arithmetics source file
 	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
 		return err
+	}
+
+	// generate fixed exp source file
+	if F.UseAddChain {
+		if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
+			return err
+		}
 	}
 
 	// generate fuzz file

@@ -21,8 +21,8 @@ type Curve struct {
 }
 
 func (conf *Curve) init() {
-	conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus)
-	conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus)
+	conf.Fp, _ = field.NewField("fp", "Element", conf.FpModulus, true)
+	conf.Fr, _ = field.NewField("fr", "Element", conf.FrModulus, true)
 	conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 }
 

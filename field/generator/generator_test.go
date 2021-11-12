@@ -73,7 +73,7 @@ func TestIntegration(t *testing.T) {
 	for elementName, modulus := range moduli {
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
-		fIntegration, err := field.NewField("integration", elementName, modulus)
+		fIntegration, err := field.NewField("integration", elementName, modulus, false)
 		if err != nil {
 			t.Fatal(elementName, err)
 		}

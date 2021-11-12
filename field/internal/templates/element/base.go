@@ -512,4 +512,7 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+
+
+
 `

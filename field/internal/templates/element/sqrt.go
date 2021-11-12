@@ -2,6 +2,7 @@ package element
 
 const Sqrt = `
 
+{{ if not .UseAddChain}}
 var (
 	_bLegendreExponent{{.ElementName}} *big.Int
 	_bSqrtExponent{{.ElementName}} *big.Int
@@ -19,11 +20,17 @@ func init() {
 	_bSqrtExponent{{.ElementName}}, _ = new(big.Int).SetString(sqrtExponent{{.ElementName}}, 16)
 }
 
+{{- end }}
+
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *{{.ElementName}}) Legendre() int {
 	var l {{.ElementName}}
 	// z^((q-1)/2)
+	{{- if .UseAddChain}}
+	l.expByLegendreExp(*z)
+	{{- else}}
 	l.Exp(*z, _bLegendreExponent{{.ElementName}})
+	{{- end}}
 	
 	if l.IsZero() {
 		return 0
@@ -36,6 +43,7 @@ func (z *{{.ElementName}}) Legendre() int {
 	return -1
 }
 
+
 // Sqrt z = √x mod q
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
@@ -44,7 +52,11 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// q ≡ 3 (mod 4)
 		// using  z ≡ ± x^((p+1)/4) (mod q)
 		var y, square {{.ElementName}}
+		{{- if .UseAddChain}}
+		y.expBySqrtExp(*x)
+		{{- else}}
 		y.Exp(*x, _bSqrtExponent{{.ElementName}})
+		{{- end }}
 		// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
 		square.Square(&y)
 		if square.Equal(x) {
@@ -57,7 +69,11 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		var one, alpha, beta, tx, square {{.ElementName}}
 		one.SetOne()
 		tx.Double(x)
+		{{- if .UseAddChain}}
+		alpha.expBySqrtExp(tx)
+		{{ else }}
 		alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
+		{{- end }}
 		beta.Square(&alpha).
 			Mul(&beta, &tx).
 			Sub(&beta, &one).
@@ -77,7 +93,11 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		var y, b,t, w  {{.ElementName}}
 		// w = x^((s-1)/2))
+		{{- if .UseAddChain}}
+		w.expBySqrtExp(*x)
+		{{- else}}
 		w.Exp(*x, _bSqrtExponent{{.ElementName}})
+		{{- end}}
 
 		// y = x^((s+1)/2)) = w * x
 		y.Mul(x, &w)
@@ -136,4 +156,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		panic("not implemented")	
 	{{- end}}
 }
+
+
+
 `
