@@ -73,9 +73,7 @@ func (z *E12) Expt(x *E12) *E12 {
 	t0.Mul(&t3, &t1)
 
 	// Step 17: t6 = x^0x880
-	for s := 0; s < 6; s++ {
-		t6.CyclotomicSquare(&t6)
-	}
+	t6.nSquare(6)
 
 	// Step 18: t5 = x^0x884
 	t5.Mul(&t5, &t6)
@@ -84,17 +82,13 @@ func (z *E12) Expt(x *E12) *E12 {
 	t5.Mul(&t4, &t5)
 
 	// Step 26: t5 = x^0x44e80
-	for s := 0; s < 7; s++ {
-		t5.CyclotomicSquare(&t5)
-	}
+	t5.nSquare(7)
 
 	// Step 27: t4 = x^0x44e99
 	t4.Mul(&t4, &t5)
 
 	// Step 35: t4 = x^0x44e9900
-	for s := 0; s < 8; s++ {
-		t4.CyclotomicSquare(&t4)
-	}
+	t4.nSquare(8)
 
 	// Step 36: t4 = x^0x44e9929
 	t4.Mul(&t0, &t4)
@@ -103,41 +97,31 @@ func (z *E12) Expt(x *E12) *E12 {
 	t3.Mul(&t3, &t4)
 
 	// Step 43: t3 = x^0x113a64ac0
-	for s := 0; s < 6; s++ {
-		t3.CyclotomicSquare(&t3)
-	}
+	t3.nSquare(6)
 
 	// Step 44: t2 = x^0x113a64ad1
 	t2.Mul(&t2, &t3)
 
 	// Step 52: t2 = x^0x113a64ad100
-	for s := 0; s < 8; s++ {
-		t2.CyclotomicSquare(&t2)
-	}
+	t2.nSquare(8)
 
 	// Step 53: t2 = x^0x113a64ad129
 	t2.Mul(&t0, &t2)
 
 	// Step 59: t2 = x^0x44e992b44a40
-	for s := 0; s < 6; s++ {
-		t2.CyclotomicSquare(&t2)
-	}
+	t2.nSquare(6)
 
 	// Step 60: t2 = x^0x44e992b44a69
 	t2.Mul(&t0, &t2)
 
 	// Step 70: t2 = x^0x113a64ad129a400
-	for s := 0; s < 10; s++ {
-		t2.CyclotomicSquare(&t2)
-	}
+	t2.nSquare(10)
 
 	// Step 71: t1 = x^0x113a64ad129a427
 	t1.Mul(&t1, &t2)
 
 	// Step 77: t1 = x^0x44e992b44a6909c0
-	for s := 0; s < 6; s++ {
-		t1.CyclotomicSquare(&t1)
-	}
+	t1.nSquare(6)
 
 	// Step 78: t0 = x^0x44e992b44a6909e9
 	t0.Mul(&t0, &t1)
