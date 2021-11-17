@@ -7,20 +7,10 @@ import (
 	"testing"
 )
 
-func TestMulModRBig(t *testing.T) {
-	var a Element
-	var b Element
-
-	a.SetRandom()
-	b.SetRandom()
-
-	testMulModR(&a, &b)
-}
-
 func TestEuclideanAlgo(t *testing.T) {
 	//q:= Modulus()
 	var qInvNeg big.Int
-	//qInvNeg.SetString("-4759646384140481320982610724935209484903937857060724391493050186936685796471", 10)
+	//qInvNegLsb.SetString("-4759646384140481320982610724935209484903937857060724391493050186936685796471", 10)
 	qInvNeg.SetString("111032442853175714102588374283752698368366046808579839647964533820976443843465", 10)
 	//var rInv big.Int
 	//rInv.SetString("-899718596722274150243595920809187510076580371697509328435252918265935168272", 10)
@@ -92,7 +82,7 @@ func montReduceRef(u *big.Int, t *big.Int) {
 	q := Modulus()
 	var qInvNeg big.Int
 	/*_qInvNeg := Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
-	_qInvNeg.ToBigInt(&qInvNeg)*/
+	_qInvNeg.ToBigInt(&qInvNegLsb)*/
 	qInvNeg.SetString("111032442853175714102588374283752698368366046808579839647964533820976443843465", 10)
 	r := big.NewInt(1)
 	r.Lsh(r, 256)
@@ -108,45 +98,6 @@ func montReduceRef(u *big.Int, t *big.Int) {
 	if u.Cmp(q) >= 0 {
 		u.Sub(u, q)
 	}
-}
-
-func testMulModR(a *Element, b *Element) {
-	var aInt big.Int
-	var bInt big.Int
-
-	R := big.NewInt(1)
-	R.Lsh(R, 256)
-
-	a.ToBigInt(&aInt)
-	b.ToBigInt(&bInt)
-
-	a.mulModR(a, b)
-	aInt.Mul(&aInt, &bInt)
-	aInt.Mod(&aInt, R)
-
-	prodWords := aInt.Bits()
-
-	if prodWords[0] != big.Word(a[0]) || prodWords[1] != big.Word(a[1]) || prodWords[2] != big.Word(a[2]) || prodWords[3] != big.Word(a[3]) {
-		panic("mismatch")
-	}
-}
-
-func TestBigMul(t *testing.T) {
-	a := Element{6328908045029613133, 3013368335275127777, 11202430383476204652, 1716861820118984583}
-	b := Element{15657160068534626287, 5905535893367030357, 2450709579535100360, 999599677626519482}
-	var aInt big.Int
-	var bInt big.Int
-	var resInt big.Int
-
-	a.ToBigInt(&aInt)
-	b.ToBigInt(&bInt)
-
-	mulBig(&a, &a, &b)
-	resInt.Mul(&aInt, &bInt)
-	resInt.Rsh(&resInt, 256)
-
-	checkMatchBigInt(&a, 0, &resInt)
-
 }
 
 func BenchmarkElementInverseNew(b *testing.B) {
