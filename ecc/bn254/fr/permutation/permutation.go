@@ -3,7 +3,6 @@ package permutation
 import (
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/bits"
 
@@ -112,24 +111,6 @@ func computeH0(lz []fr.Element, d *fft.Domain) []fr.Element {
 	return res
 }
 
-func printPoly(name, v string, f []fr.Element) {
-	fmt.Printf("%s: ", name)
-	for i := 0; i < len(f); i++ {
-		fmt.Printf("%s*%s**%d+", f[i].String(), v, i)
-	}
-	fmt.Println("")
-}
-
-func printEval(name string, t []fr.Element) {
-	fft.BitReverse(t)
-	fmt.Printf("%s = [\n", name)
-	for i := 0; i < len(t); i++ {
-		fmt.Printf("%s, ", t[i].String())
-	}
-	fmt.Printf("]\n")
-	fft.BitReverse(t)
-}
-
 // Prove generates a proof that t1 and t2 are the same but permuted.
 // The size of t1 and t2 should be the same and a power of 2.
 func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
@@ -166,8 +147,6 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	d.FFTInverse(ct2, fft.DIF, 0)
 	fft.BitReverse(ct1)
 	fft.BitReverse(ct2)
-	printPoly("t1", "y", ct1)
-	printPoly("t2", "y", ct2)
 	proof.t1, err = kzg.Commit(ct1, srs)
 	if err != nil {
 		return proof, err
@@ -182,7 +161,6 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	epsilon.SetUint64(3)
 
 	// compute Z and commit it
 	cz := computeZ(t1, t2, epsilon)
@@ -191,7 +169,6 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	printPoly("z", "y", cz)
 	lz := make([]fr.Element, s)
 	copy(lz, cz)
 	d.FFT(lz, fft.DIF, 1)
@@ -213,11 +190,9 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	omega.SetUint64(4)
 
 	// fold the numerator and divide it by x^n-1
 	var t fr.Element
-	omega.SetUint64(4)
 	t.SetUint64(2).Neg(&t).Inverse(&t)
 	for i := 0; i < s; i++ {
 		h0[i].Mul(&omega, &h0[i]).
@@ -237,7 +212,6 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	if err != nil {
 		return proof, err
 	}
-	eta.SetUint64(5)
 
 	// compute the opening proofs
 	proof.batchedProof, err = kzg.BatchOpenSinglePoint(
@@ -313,19 +287,16 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	if err != nil {
 		return err
 	}
-	epsilon.SetUint64(3)
 
 	omega, err := deriveRandomness(&fs, "omega", &proof.z)
 	if err != nil {
 		return err
 	}
-	omega.SetUint64(4)
 
 	eta, err := deriveRandomness(&fs, "eta", &proof.q)
 	if err != nil {
 		return err
 	}
-	eta.SetUint64(5)
 
 	// check the relation
 	bs := big.NewInt(int64(proof.size))
