@@ -143,12 +143,6 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
 
-	// var d [2]fr.Element
-	// d[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality>>1)))
-	// d[1].Neg(&d[0])
-	// d[0].Sub(&d[0], &one).Inverse(&d[0])
-	// d[1].Sub(&d[1], &one).Inverse(&d[1])
-
 	g := make([]fr.Element, s)
 	g[0].Set(&domainH.FinerGenerator)
 	for i := 1; i < s; i++ {
