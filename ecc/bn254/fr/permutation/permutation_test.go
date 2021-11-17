@@ -53,3 +53,26 @@ func TestProof(t *testing.T) {
 	}
 
 }
+
+func BenchmarkProver(b *testing.B) {
+
+	srsSize := 1 << 15
+	polySize := 1 << 14
+
+	srs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
+	a := make([]fr.Element, polySize)
+	c := make([]fr.Element, polySize)
+
+	for i := 0; i < polySize; i++ {
+		a[i].SetUint64(uint64(i))
+	}
+	for i := 0; i < polySize; i++ {
+		c[i].Set(&a[(5*i)%(polySize)])
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Prove(srs, a, c)
+	}
+
+}
