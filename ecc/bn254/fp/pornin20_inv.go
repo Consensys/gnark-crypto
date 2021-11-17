@@ -231,13 +231,6 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 
 func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 
-	xCopy := *x
-	yCopy := *y
-	var p1, p2 Element
-	p1.mulWSigned(&xCopy, xC)
-	p2.mulWSigned(&yCopy, yC)
-	p1.Add(&p1, &p2)
-
 	hi := z.linearCombNonModular(x, xC, y, yC)
 
 	neg := hi&0x8000000000000000 != 0
@@ -249,10 +242,6 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 		z.Neg(z)
 	}
 	//two ifs I know this is horrible
-
-	if !p1.Equal(z) {
-		panic("mismatch")
-	}
 }
 
 func (z *Element) mulModR(x *Element, y *Element) {
@@ -372,12 +361,10 @@ func mulBig(hi *Element, x *Element, y *Element) {
 	hi[3], _ = bits.Add64(z[3], b, d)
 }
 
-//func sub(resultHi *Element, )
+var qInvNeg = Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
 
 //Vanilla Mont from Koc94 section 1
 func (z *Element) montReduce(x *Element, xHi uint64) {
-	//Each inverse mod the other
-	qInvNeg := Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
 
 	//We know the low words of u and t will add up to 0. We just need to know if there's going to be a carry, i.e. if r doesn't divide x
 	_, carry := bits.Add64(0xFFFFFFFFFFFFFFFF, x[0]|x[1]|x[2]|x[3], 0)
