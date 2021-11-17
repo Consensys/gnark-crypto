@@ -1,6 +1,7 @@
 package fp
 
 import (
+	_ "crypto/rand"
 	"fmt"
 	"math/big"
 	"testing"
@@ -14,6 +15,99 @@ func TestMulModRBig(t *testing.T) {
 	b.SetRandom()
 
 	testMulModR(&a, &b)
+}
+
+func TestEuclideanAlgo(t *testing.T) {
+	//q:= Modulus()
+	var qInvNeg big.Int
+	//qInvNeg.SetString("-4759646384140481320982610724935209484903937857060724391493050186936685796471", 10)
+	qInvNeg.SetString("111032442853175714102588374283752698368366046808579839647964533820976443843465", 10)
+	//var rInv big.Int
+	//rInv.SetString("-899718596722274150243595920809187510076580371697509328435252918265935168272", 10)
+
+	r := big.NewInt(1)
+	r.Lsh(r, 256)
+
+	q := Modulus()
+
+	var u big.Int
+	u.Mul(q, &qInvNeg)
+	fmt.Println(u.String())
+	u.Add(&u, big.NewInt(1))
+	fmt.Println(u, u.String())
+
+	qInvNeg.Mod(&qInvNeg, r)
+	fmt.Println("Reduced qInv", qInvNeg, qInvNeg.String())
+	u.Mul(q, &qInvNeg)
+	fmt.Println(u.String())
+	u.Add(&u, big.NewInt(1))
+	fmt.Println(u, u.String())
+
+}
+
+func TestMontReduce(t *testing.T) {
+	var xInt big.Int
+	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
+	var xRedInt big.Int
+	xRedInt.SetString("635522307507233077051145701706764522087344188384121418491036574122751191340", 10)
+
+	var x = Element{5632619021051350501, 15614519151907775586, 16162948170853994679, 14978651708485828588}
+	var xHi uint64 = 13112683716790278092
+
+	x.montReduce(&x, xHi)
+	checkMatchBigInt(&x, 0, &xRedInt)
+}
+
+func TestMontReduceRef(t *testing.T) {
+	q := Modulus()
+	var r big.Int
+	r.SetInt64(1)
+	r.Lsh(&r, 256)
+
+	var x big.Int
+	/*{
+		y, _ := rand.Int(rand.Reader, &r)
+		x = *y
+		fmt.Println(x)
+	}*/
+
+	x.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
+
+	var u big.Int
+	montReduceRef(&u, &x)
+
+	fmt.Println(u, u.String())
+
+	var ur big.Int
+	ur.Mul(&u, &r)
+	ur.Sub(&ur, &x)
+	ur.Mod(&ur, q)
+
+	if ur.BitLen() != 0 {
+		panic("Mismatch")
+	}
+}
+
+func montReduceRef(u *big.Int, t *big.Int) {
+	q := Modulus()
+	var qInvNeg big.Int
+	/*_qInvNeg := Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
+	_qInvNeg.ToBigInt(&qInvNeg)*/
+	qInvNeg.SetString("111032442853175714102588374283752698368366046808579839647964533820976443843465", 10)
+	r := big.NewInt(1)
+	r.Lsh(r, 256)
+
+	var m big.Int
+	m.Mul(t, &qInvNeg)
+	m.Mod(&m, r)
+
+	u.Mul(&m, q)
+	u.Add(u, t)
+	u.Div(u, r)
+
+	if u.Cmp(q) >= 0 {
+		u.Sub(u, q)
+	}
 }
 
 func testMulModR(a *Element, b *Element) {
@@ -35,6 +129,24 @@ func testMulModR(a *Element, b *Element) {
 	if prodWords[0] != big.Word(a[0]) || prodWords[1] != big.Word(a[1]) || prodWords[2] != big.Word(a[2]) || prodWords[3] != big.Word(a[3]) {
 		panic("mismatch")
 	}
+}
+
+func TestBigMul(t *testing.T) {
+	a := Element{6328908045029613133, 3013368335275127777, 11202430383476204652, 1716861820118984583}
+	b := Element{15657160068534626287, 5905535893367030357, 2450709579535100360, 999599677626519482}
+	var aInt big.Int
+	var bInt big.Int
+	var resInt big.Int
+
+	a.ToBigInt(&aInt)
+	b.ToBigInt(&bInt)
+
+	mulBig(&a, &a, &b)
+	resInt.Mul(&aInt, &bInt)
+	resInt.Rsh(&resInt, 256)
+
+	checkMatchBigInt(&a, 0, &resInt)
+
 }
 
 func BenchmarkElementInverseNew(b *testing.B) {
@@ -112,6 +224,9 @@ func TestComputeMontConstants(t *testing.T) {
 	_rInv := big.NewInt(1)
 	_qInv := big.NewInt(0)
 	extendedEuclideanAlgo(_r, Modulus(), _rInv, _qInv)
+	fmt.Println("qInv", _qInv)
+	fmt.Println("rInv", _rInv)
+
 	_qInv.Mod(_qInv, _r)
 	qInv := toUint64Slice(_qInv, 256)
 
@@ -128,7 +243,23 @@ func TestComputeMontConstants(t *testing.T) {
 	fmt.Println("rInv", _rInv.Sign(), rInv)
 }
 
-// </copied from field.go>
+func testLinearComb(x *Element, xC int64, y *Element, yC int64) {
+	var z Element
+	z.linearComb(x, xC, y, yC)
+
+	var p1, p2 Element
+	p1.mulWSigned(x, xC)
+	p2.mulWSigned(y, yC)
+	p1.Add(&p1, &p2)
+
+	if !p1.Equal(&z) {
+		panic("mismatch")
+	}
+}
+
+func TestLinearComb(t *testing.T) {
+	testLinearComb(&Element{1, 0, 0, 0}, -871749566700742666, &Element{0, 0, 0, 0}, 252938184923674574)
+}
 
 func TestComputeCorrectiveFactor(t *testing.T) {
 
@@ -259,7 +390,7 @@ func computeCorrectiveFactor(c *Element) {
 	c.InverseOld(c)
 }
 
-func TestLinearComb(t *testing.T) {
+func TestLinearCombNonModular(t *testing.T) {
 	f1 := int64(405940026)
 	g1 := int64(-117783518)
 	a := Element{
