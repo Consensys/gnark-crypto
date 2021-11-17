@@ -117,3 +117,23 @@ func TestLookupTable(t *testing.T) {
 	}
 
 }
+
+func BenchmarkPlookup(b *testing.B) {
+
+	srsSize := 1 << 15
+	polySize := 1 << 14
+
+	srs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
+	a := make(Table, polySize)
+	c := make(Table, polySize)
+
+	for i := 0; i < 1<<14; i++ {
+		a[i].SetUint64(uint64(i))
+		c[i].SetUint64(uint64((8 * i) % polySize))
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ProveLookupVector(srs, a, c)
+	}
+}
