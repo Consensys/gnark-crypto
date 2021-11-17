@@ -137,9 +137,6 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 		}
 	}
 
-	// sort foldedt and generate a proof of permutation, so the verifier can fold the public t
-	// and check the consistancy with
-
 	// call plookupVector, on foldedf[:len(foldedf)-1] to ensure that the domain size
 	// in ProveLookupVector is the same as d's
 	proof.foldedProof, err = ProveLookupVector(srs, foldedf[:len(foldedf)-1], foldedt)
