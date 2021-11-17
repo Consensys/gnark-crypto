@@ -22,11 +22,11 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -269,9 +269,9 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 }
 
 // TODO put that in fiat-shamir package
-func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bn254.G1Affine) (fr.Element, error) {
+func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bw6761.G1Affine) (fr.Element, error) {
 
-	var buf [bn254.SizeOfG1AffineUncompressed]byte
+	var buf [bw6761.SizeOfG1AffineUncompressed]byte
 	var r fr.Element
 
 	for _, p := range points {
