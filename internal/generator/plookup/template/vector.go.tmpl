@@ -314,6 +314,14 @@ func computeQuotient(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainH
 }
 
 // ProveLookupVector returns proof that the values in f are in t.
+//
+// /!\IMPORTANT/!\
+//
+// If the table t is already commited somewhere (which is the normal workflow
+// before generating a lookup proof), the commitment needs to be done on the
+// table sorted. Otherwise the commitment in proof.t will not be the same as
+// the public commitment: it will contain the same values, but permuted.
+//
 func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 
 	// res

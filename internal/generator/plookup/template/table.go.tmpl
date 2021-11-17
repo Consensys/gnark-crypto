@@ -63,24 +63,25 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	}
 
 	// commit to the tables in f and t
-	sizeTable := len(t)
-	proof.fs = make([]kzg.Digest, sizeTable)
-	m := len(f[0]) + 1
-	if m < len(t[0]) {
-		m = len(t[0])
+	nbRows := len(t)
+	proof.fs = make([]kzg.Digest, nbRows)
+	_nbColumns := len(f[0]) + 1
+	if _nbColumns < len(t[0]) {
+		_nbColumns = len(t[0])
 	}
-	d := fft.NewDomain(uint64(m), 0, false)
-	lfs := make([][]fr.Element, sizeTable)
-	cfs := make([][]fr.Element, sizeTable)
-	lts := make([][]fr.Element, sizeTable)
+	d := fft.NewDomain(uint64(_nbColumns), 0, false)
+	nbColumns := d.Cardinality
+	lfs := make([][]fr.Element, nbRows)
+	cfs := make([][]fr.Element, nbRows)
+	lts := make([][]fr.Element, nbRows)
 
-	for i := 0; i < sizeTable; i++ {
+	for i := 0; i < nbRows; i++ {
 
-		cfs[i] = make([]fr.Element, d.Cardinality)
-		lfs[i] = make([]fr.Element, d.Cardinality)
+		cfs[i] = make([]fr.Element, nbColumns)
+		lfs[i] = make([]fr.Element, nbColumns)
 		copy(cfs[i], f[i])
 		copy(lfs[i], f[i])
-		for j := len(f[i]); j < int(d.Cardinality); j++ {
+		for j := len(f[i]); j < int(nbColumns); j++ {
 			cfs[i][j] = f[i][len(f[i])-1]
 			lfs[i][j] = f[i][len(f[i])-1]
 		}
@@ -99,8 +100,8 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	}
 
 	// fold f and t
-	comms := make([]*kzg.Digest, sizeTable)
-	for i := 0; i < sizeTable; i++ {
+	comms := make([]*kzg.Digest, nbRows)
+	for i := 0; i < nbRows; i++ {
 		comms[i] = new(kzg.Digest)
 		comms[i].Set(&proof.fs[i])
 	}
@@ -108,10 +109,10 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	if err != nil {
 		return proof, err
 	}
-	foldedf := make(Table, d.Cardinality)
-	foldedt := make(Table, d.Cardinality)
-	for i := 0; i < len(cfs[0]); i++ {
-		for j := sizeTable - 1; j >= 0; j-- {
+	foldedf := make(Table, nbColumns)
+	foldedt := make(Table, nbColumns)
+	for i := 0; i < int(nbColumns); i++ {
+		for j := nbRows - 1; j >= 0; j-- {
 			foldedf[i].Mul(&foldedf[i], &lambda).
 				Add(&foldedf[i], &lfs[j][i])
 			foldedt[i].Mul(&foldedt[i], &lambda).
@@ -136,9 +137,9 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	fs := fiatshamir.NewTranscript(hFunc, "lambda")
 
 	// fold the commitments
-	sizeTable := len(proof.fs)
-	comms := make([]*kzg.Digest, sizeTable)
-	for i := 0; i < sizeTable; i++ {
+	nbRows := len(proof.fs)
+	comms := make([]*kzg.Digest, nbRows)
+	for i := 0; i < nbRows; i++ {
 		comms[i] = &proof.fs[i]
 	}
 	lambda, err := deriveRandomness(&fs, "lambda", comms...)
@@ -149,10 +150,10 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	// verify that the commitments in the inner proof are consistant
 	// with the folded commitments.
 	var comf kzg.Digest
-	comf.Set(&proof.fs[sizeTable-1])
+	comf.Set(&proof.fs[nbRows-1])
 	var blambda big.Int
 	lambda.ToBigIntRegular(&blambda)
-	for i := sizeTable - 2; i >= 0; i-- {
+	for i := nbRows - 2; i >= 0; i-- {
 		comf.ScalarMultiplication(&comf, &blambda).
 			Add(&comf, &proof.fs[i])
 	}
