@@ -4,8 +4,22 @@ import (
 	_ "crypto/rand"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 )
+
+func TestMulWRegularBf(t *testing.T) {
+	w := rand.Int63()
+	var x Element
+	x.SetRandom()
+	xBf := x
+	xHi := x.mulWRegularBr(&x, w)
+	xBfHi := xBf.mulWRegular(&xBf, w)
+
+	if xHi != xBfHi || !x.Equal(&xBf) {
+		panic("mismatch")
+	}
+}
 
 func TestEuclideanAlgo(t *testing.T) {
 	//q:= Modulus()
@@ -574,4 +588,12 @@ func (z *Element) log(base *Element, max uint) int {
 		}
 	}
 	return 1 //not found
+}
+
+// mulWSigned mul word signed (w/ montgomery reduction)
+func (z *Element) mulWSigned(x *Element, y int64) {
+	_mulWGeneric(z, x, abs(y))
+	if y < 0 {
+		z.Neg(z)
+	}
 }

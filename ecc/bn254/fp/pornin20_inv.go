@@ -153,16 +153,8 @@ func (z *Element) Inverse(x *Element) *Element {
 	return z
 }
 
-// mulWSigned mul word signed (w/ montgomery reduction)
-func (z *Element) mulWSigned(x *Element, y int64) {
-	_mulWGeneric(z, x, abs(y))
-	if y < 0 {
-		z.Neg(z)
-	}
-}
-
 // regular multiplication by one word regular (non montgomery)
-func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
 
 	w := abs(y)
 
@@ -182,6 +174,36 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 func abs(y int64) uint64 {
 	m := y >> 63
 	return uint64((y ^ m) - m)
+}
+
+// branch-free regular multiplication by one word regular (non montgomery)
+func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+
+	w := uint64(y)
+	allNeg := uint64(y >> 63)
+
+	var h1, h2, b, c, z1, z2 uint64
+
+	h1, z1 = bits.Mul64(x[0], w)
+
+	h2, z2 = bits.Mul64(x[1], w)
+	z2, c = bits.Add64(z2, h1, 0)
+	z2, b = bits.Sub64(z2, allNeg&x[0], 0)
+	z[0] = z1
+
+	h1, z1 = bits.Mul64(x[2], w)
+	z1, c = bits.Add64(z1, h2, c)
+	z1, b = bits.Sub64(z1, allNeg&x[1], b)
+	z[1] = z2
+
+	h2, z2 = bits.Mul64(x[3], w)
+	z2, c = bits.Add64(z2, h1, c)
+	z2, b = bits.Sub64(z2, allNeg&x[2], b)
+	z[2] = z1
+
+	z1, _ = bits.Sub64(h2, allNeg&x[3], b)
+	z[3] = z2
+	return z1 + c
 }
 
 func (z *Element) neg(x *Element, xHi uint64) uint64 {
