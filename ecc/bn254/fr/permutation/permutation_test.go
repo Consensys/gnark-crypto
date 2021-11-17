@@ -1,7 +1,6 @@
 package permutation
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -18,30 +17,39 @@ func TestProof(t *testing.T) {
 
 	a := make([]fr.Element, 8)
 	b := make([]fr.Element, 8)
+
 	for i := 0; i < 8; i++ {
 		a[i].SetUint64(uint64(4*i + 1))
 	}
 	for i := 0; i < 8; i++ {
 		b[i].Set(&a[(5*i)%8])
 	}
-	fmt.Print("t1 = [")
-	for i := 0; i < 8; i++ {
-		fmt.Printf("%s,", a[i].String())
-	}
-	fmt.Print("]\n")
-	fmt.Print("t2 = [")
-	for i := 0; i < 8; i++ {
-		fmt.Printf("%s,", b[i].String())
-	}
-	fmt.Print("]\n")
-	proof, err := Prove(srs, a, b)
-	if err != nil {
-		t.Fatal(err)
+
+	// correct proof
+	{
+		proof, err := Prove(srs, a, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = Verify(srs, proof)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	err = Verify(srs, proof)
-	if err != nil {
-		t.Fatal(err)
+	// wrong proof
+	{
+		a[0].SetRandom()
+		proof, err := Prove(srs, a, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = Verify(srs, proof)
+		if err == nil {
+			t.Fatal(err)
+		}
 	}
 
 }
