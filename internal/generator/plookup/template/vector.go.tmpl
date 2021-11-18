@@ -356,6 +356,8 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	copy(lf, f)
 	for i := len(f); i < cardDNum; i++ {
 		lf[i] = f[len(f)-1]
+	}
+	for i := len(t); i < cardDNum; i++ {
 		lt[i] = t[len(t)-1]
 	}
 	sort.Sort(Table(lt))
