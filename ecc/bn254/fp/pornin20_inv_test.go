@@ -49,6 +49,22 @@ func TestEuclideanAlgo(t *testing.T) {
 
 }
 
+/*func testMonReduceNeg(x *Element, xHi uint64) {
+	var asIs Element
+	var neg Element
+	asIs.montReduce(x, xHi)
+
+	negHi := neg.neg(x, xHi)
+	neg.montReduce(&neg, negHi)
+	neg.neg(&neg, negHi)
+
+	if !asIs.Equal()
+}
+
+func TestMonReduceNeg(t *testing.T) {
+
+}*/
+
 func TestMontReduce(t *testing.T) {
 	var xInt big.Int
 	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
@@ -424,7 +440,7 @@ func TestMulWord(t *testing.T) {
 	}
 }
 
-func TestRsh(t *testing.T) {
+/*func TestRsh(t *testing.T) {
 	a := Element{
 		14577615541645606912,
 		8737333314812511136,
@@ -456,7 +472,7 @@ func TestRshSmall(t *testing.T) {
 	if a[0] != 1<<63 {
 		panic("wrong")
 	}
-}
+}*/
 
 func TestMulWord2(t *testing.T) {
 	var u = Element{
@@ -588,12 +604,4 @@ func (z *Element) log(base *Element, max uint) int {
 		}
 	}
 	return 1 //not found
-}
-
-// mulWSigned mul word signed (w/ montgomery reduction)
-func (z *Element) mulWSigned(x *Element, y int64) {
-	_mulWGeneric(z, x, abs(y))
-	if y < 0 {
-		z.Neg(z)
-	}
 }
