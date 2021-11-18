@@ -260,27 +260,20 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 }
 
 func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
-
 	hi := z.linearCombNonModular(x, xC, y, yC)
-
-	neg := hi&0x8000000000000000 != 0
-	if neg {
-		hi = z.neg(z, hi)
-	}
-	z.montReduce(z, hi)
-	if neg {
-		z.Neg(z)
-	}
-	//two ifs I know this is horrible
+	z.montReduceSigned(z, hi)
 }
 
-//montReduce SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
-func (z *Element) montReduce(x *Element, xHi uint64) {
+var montNegativeCorrectionBias = Element{13555988908134432071, 10917124144477883020, 13281191951274694749, 3486998266802970665}
+
+//montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const qInvNegLsb uint64 = 0x87d20782e4866389
 
-	//neg := int64(xHi) >> 63
-	//xHi &= 0x7FFFFFFFFFFFFFFF
+	neg := (int64(xHi) >> 63) != 0
+	xHi &= 0x7FFFFFFFFFFFFFFF
+
 	var t [7]uint64
 	var C uint64
 	{
@@ -338,5 +331,9 @@ func (z *Element) montReduce(x *Element, xHi uint64) {
 		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
 		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
 		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+	}
+
+	if neg {
+		z.Add(z, &montNegativeCorrectionBias)
 	}
 }

@@ -49,23 +49,47 @@ func TestEuclideanAlgo(t *testing.T) {
 
 }
 
-/*func testMonReduceNeg(x *Element, xHi uint64) {
+func testMonReduceNeg(x *Element, xHi uint64) {
 	var asIs Element
-	var neg Element
-	asIs.montReduce(x, xHi)
+	negRed := *x
+	asIs.montReduceSigned(x, xHi)
 
-	negHi := neg.neg(x, xHi)
-	neg.montReduce(&neg, negHi)
-	neg.neg(&neg, negHi)
+	negHi := xHi
+	neg := xHi&0x8000000000000000 != 0
+	if neg {
+		negHi = negRed.neg(x, xHi)
+	}
+	negRed.montReduceSigned(&negRed, negHi)
 
-	if !asIs.Equal()
+	if neg {
+		negRed.Neg(&negRed)
+	}
+
+	var diff Element
+	diff.Sub(&negRed, &asIs)
+
+	if !diff.IsZero() {
+		panic(fmt.Sprint(diff))
+	}
 }
 
 func TestMonReduceNeg(t *testing.T) {
+	var x Element
+	x.SetRandom()
+	var xHi = rand.Uint64()
+	xHi |= 0x8000000000000000
+	testMonReduceNeg(&x, xHi)
+}
 
-}*/
+func TestMonReducePos(t *testing.T) {
+	var x Element
+	x.SetRandom()
+	var xHi = rand.Uint64()
+	xHi &= 0x7FFFFFFFFFFFFFFF
+	testMonReduceNeg(&x, xHi)
+}
 
-func TestMontReduce(t *testing.T) {
+/*func TestMontReduce(t *testing.T) {
 	var xInt big.Int
 	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
 	var xRedInt big.Int
@@ -74,9 +98,9 @@ func TestMontReduce(t *testing.T) {
 	var x = Element{5632619021051350501, 15614519151907775586, 16162948170853994679, 14978651708485828588}
 	var xHi uint64 = 13112683716790278092
 
-	x.montReduce(&x, xHi)
+	x.montReduceSigned(&x, xHi)
 	checkMatchBigInt(&x, 0, &xRedInt)
-}
+}*/
 
 func TestMontReduceRef(t *testing.T) {
 	q := Modulus()
