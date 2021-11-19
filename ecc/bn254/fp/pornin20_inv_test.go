@@ -1,10 +1,12 @@
 package fp
 
 import (
-	_ "crypto/rand"
+	crand "crypto/rand"
 	"fmt"
 	"math/big"
+	"math/bits"
 	"math/rand"
+	"strconv"
 	"testing"
 )
 
@@ -49,6 +51,14 @@ func TestEuclideanAlgo(t *testing.T) {
 
 }
 
+func (z *Element) sub(x *Element, y *Element) {
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	z[1], b = bits.Sub64(x[1], y[1], b)
+	z[2], b = bits.Sub64(x[2], y[2], b)
+	z[3], _ = bits.Sub64(x[3], y[3], b)
+}
+
 func testMonReduceNeg(x *Element, xHi uint64) {
 	var asIs Element
 	negRed := *x
@@ -66,19 +76,22 @@ func testMonReduceNeg(x *Element, xHi uint64) {
 	}
 
 	var diff Element
-	diff.Sub(&negRed, &asIs)
+	diff.sub(&negRed, &asIs)
 
 	if !diff.IsZero() {
-		panic(fmt.Sprint(diff))
+		panic(fmt.Sprint(xHi, x, ":", diff))
 	}
 }
 
 func TestMonReduceNeg(t *testing.T) {
 	var x Element
-	x.SetRandom()
-	var xHi = rand.Uint64()
-	xHi |= 0x8000000000000000
-	testMonReduceNeg(&x, xHi)
+
+	for i := 0; i < 1000; i ++ {
+		x.SetRandom()
+		xHi := rand.Uint64()
+		xHi |= 0x8000000000000000
+		testMonReduceNeg(&x, xHi)
+	}
 }
 
 func TestMonReducePos(t *testing.T) {
@@ -89,42 +102,39 @@ func TestMonReducePos(t *testing.T) {
 	testMonReduceNeg(&x, xHi)
 }
 
-/*func TestMontReduce(t *testing.T) {
-	var xInt big.Int
-	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
-	var xRedInt big.Int
-	xRedInt.SetString("635522307507233077051145701706764522087344188384121418491036574122751191340", 10)
+func TestMontReduceRefSmall(t *testing.T) {
+	var x big.Int
 
-	var x = Element{5632619021051350501, 15614519151907775586, 16162948170853994679, 14978651708485828588}
-	var xHi uint64 = 13112683716790278092
-
-	x.montReduceSigned(&x, xHi)
-	checkMatchBigInt(&x, 0, &xRedInt)
-}*/
+	x.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
+	testMontReduceRef(&x)
+}
 
 func TestMontReduceRef(t *testing.T) {
+	var r big.Int
+	r.SetInt64(1)
+	r.Lsh(&r, 320)
+	for i := 0; i < 1000; i++ {
+		y, _ := crand.Int(crand.Reader, &r)
+		testMontReduceRef(y)
+	}
+
+}
+
+func testMontReduceRef(x *big.Int) {
 	q := Modulus()
 	var r big.Int
 	r.SetInt64(1)
 	r.Lsh(&r, 256)
 
-	var x big.Int
-	/*{
-		y, _ := rand.Int(rand.Reader, &r)
-		x = *y
-		fmt.Println(x)
-	}*/
-
-	x.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
 
 	var u big.Int
-	montReduceRef(&u, &x)
+	montReduceRef(&u, x)
 
-	fmt.Println(u, u.String())
+	//fmt.Println(u, u.String())
 
 	var ur big.Int
 	ur.Mul(&u, &r)
-	ur.Sub(&ur, &x)
+	ur.Sub(&ur, x)
 	ur.Mod(&ur, q)
 
 	if ur.BitLen() != 0 {
@@ -222,6 +232,29 @@ func toUint64Slice(b *big.Int, nbWords ...int) (s []uint64) {
 	return
 }
 
+func TestCompute2Pow192Neg(t *testing.T) {
+	var twoPow192Neg big.Int
+
+	x := big.NewInt(1)
+	x.Lsh(x, 192)
+	twoPow192Neg.Neg(x)
+	twoPow192Neg.Mod(&twoPow192Neg, Modulus())
+	fmt.Println("2^192", twoPow192Neg)
+
+	x.Lsh(x,1)
+	x.Neg(x)
+	x.Mod(x, Modulus())
+	fmt.Println("2^193", *x)
+
+	fmt.Println("Highest word of 2^192 in Hex", strconv.FormatUint(3486998266802970663, 16))
+
+	computedBySub := Element{0,0,0,1}
+	computedBySub.Neg(&computedBySub)
+	fmt.Println("2^192", computedBySub)
+
+	fmt.Println("Modulus", qElement)
+}
+
 func TestComputeMontConstants(t *testing.T) {
 	// taken from field.go
 	_r := big.NewInt(1)
@@ -250,7 +283,7 @@ func TestComputeMontConstants(t *testing.T) {
 
 func testLinearComb(x *Element, xC int64, y *Element, yC int64) {
 	var z Element
-	z.linearComb(x, xC, y, yC)
+	z.linearCombSosSigned(x, xC, y, yC)
 
 	var p1, p2 Element
 	p1.mulWSigned(x, xC)
@@ -464,40 +497,6 @@ func TestMulWord(t *testing.T) {
 	}
 }
 
-/*func TestRsh(t *testing.T) {
-	a := Element{
-		14577615541645606912,
-		8737333314812511136,
-		5915853752549640268,
-		0b101110100101101110000001010110101110101001100111000110111001001,
-	}
-	aHi := uint64(0x111)
-
-	var aInt big.Int
-	a.ToVeryBigInt(&aInt, aHi)
-
-	aInt.Rsh(&aInt, 31)
-	a.rsh31(&a, aHi)
-
-	checkMatchBigInt(&a, 0, &aInt)
-}
-
-func TestRshSmall(t *testing.T) {
-	a := Element{
-		0,
-		1 << 30,
-		0,
-		0,
-	}
-	aHi := uint64(0)
-
-	a.rsh31(&a, aHi)
-
-	if a[0] != 1<<63 {
-		panic("wrong")
-	}
-}*/
-
 func TestMulWord2(t *testing.T) {
 	var u = Element{
 		15524365416767025468,
@@ -524,11 +523,6 @@ func TestMulWord2(t *testing.T) {
 		panic("Multiplication failed")
 	}
 }
-
-/*func TestFindCorrectiveFactorDlog(t *testing.T) {
-	i := inversionCorrectionFactorP20Full.log(&rSquare, 40)
-	fmt.Println(i)
-}*/
 
 func approximateRef(x *Element) uint64 {
 
@@ -628,4 +622,42 @@ func (z *Element) log(base *Element, max uint) int {
 		}
 	}
 	return 1 //not found
+}
+
+func TestMontReduceUnsigned(t *testing.T) {
+	var xInt big.Int
+	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
+	var xRedInt big.Int
+	xRedInt.SetString("635522307507233077051145701706764522087344188384121418491036574122751191340", 10)
+
+	var x = Element{5632619021051350501, 15614519151907775586, 16162948170853994679, 14978651708485828588}
+	var xHi uint64 = 13112683716790278092
+
+	x.montReduceUnsigned(&x, xHi)
+	checkMatchBigInt(&x, 0, &xRedInt)
+}
+
+func TestMontReduceUnsignedRand(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		xHi := rand.Uint64()
+		//xHi |= 0x8000000000000000	//make sure it "overflows"
+		xHi &= 0x7FFFFFFFFFFFFFFF  //make sure it doesn't "overflow"
+		var x Element
+		var res Element
+		x.SetRandom()
+		res.montReduceUnsigned(&x, xHi)
+
+		var xInt big.Int
+		var resInt big.Int
+		x.ToVeryBigInt(&xInt, xHi)
+		res.ToBigInt(&resInt)
+
+		resInt.Lsh(&resInt, 256)
+		resInt.Sub(&resInt, &xInt)
+		resInt.Mod(&resInt, Modulus())
+
+		if resInt.BitLen() != 0 {
+			panic("incorrect")
+		}
+	}
 }

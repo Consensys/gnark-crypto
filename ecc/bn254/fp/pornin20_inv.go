@@ -130,14 +130,16 @@ func (z *Element) Inverse(x *Element) *Element {
 		if i&1 == 1 {
 			//Combine current update factors with previously stored ones
 			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf0, pg0; pf1, pg1]
+			// Each finalized coefficient is no larger than 3*2^61 = 0x6000000000000000 in absolute value
+			// TODO Document the proof for that claim
 			f0, g0, f1, g1 = f0*pf0+g0*pf1,
 				f0*pg0+g0*pg1,
 				f1*pf0+g1*pf1,
 				f1*pg0+g1*pg1
 
 			s = u
-			u.linearComb(&u, f0, &v, g0)
-			v.linearComb(&s, f1, &v, g1)
+			u.linearCombSosSigned(&u, f0, &v, g0)
+			v.linearCombSosSigned(&s, f1, &v, g1)
 
 		} else {
 			//Save update factors
@@ -259,20 +261,33 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	return yHi
 }
 
-func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
+func (z *Element) linearCombSosUnsigned(x *Element, xC int64, y *Element, yC int64) {
+	hi := z.linearCombNonModular(x, xC, y, yC)
+	neg := (hi & 0x8000000000000000) != 0
+	if neg {
+		hi = z.neg(z, hi)
+	}
+	z.montReduceUnsigned(z, hi)
+	if neg {
+		z.Neg(z)
+	}
+}
+
+func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.montReduceSigned(z, hi)
 }
 
 var montNegativeCorrectionBias = Element{13555988908134432071, 10917124144477883020, 13281191951274694749, 3486998266802970665}
-
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const qInvNegLsb uint64 = 0x87d20782e4866389
 
-	neg := (int64(xHi) >> 63) != 0
+	//neg := (int64(xHi) >> 63) != 0
+	neg := xHi & 0x8000000000000000 != 0
 	xHi &= 0x7FFFFFFFFFFFFFFF
+
 
 	var t [7]uint64
 	var C uint64
@@ -335,5 +350,70 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	if neg {
 		z.Add(z, &montNegativeCorrectionBias)
+	}
+}
+
+//montReduceSigned SOS algorithm; xHi must be at most 63 bits long.
+func (z *Element) montReduceUnsigned(x *Element, xHi uint64) {
+
+	const qInvNegLsb uint64 = 0x87d20782e4866389
+
+	var t [7]uint64
+	var C uint64
+	{
+		m := x[0] * qInvNegLsb
+
+		C = madd0(m, qElement[0], x[0])
+		C, t[1] = madd2(m, qElement[1], x[1], C)
+		C, t[2] = madd2(m, qElement[2], x[2], C)
+		C, t[3] = madd2(m, qElement[3], x[3], C)
+		// the high word of m * qElement[3] is at most 62 bits
+		// x[3] + C is at most 65 bits (high word at most 1 bit)
+		// Thus the resulting C will be at most 63 bits
+		t[4] = xHi + C
+		// xHi and C are 63 bits, therefore no overflow
+
+	}
+	{
+		const i = 1
+		m := t[i] * qInvNegLsb
+
+		C = madd0(m, qElement[0], t[i+0])
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+
+		t[5] += C
+
+	}
+	{
+		const i = 2
+		m := t[i] * qInvNegLsb
+
+		C = madd0(m, qElement[0], t[i+0])
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+
+		t[6] += C
+	}
+	{
+		const i = 3
+		m := t[i] * qInvNegLsb
+
+		C = madd0(m, qElement[0], t[i+0])
+		C, z[0] = madd2(m, qElement[1], t[i+1], C)
+		C, z[1] = madd2(m, qElement[2], t[i+2], C)
+		z[3], z[2] = madd2(m, qElement[3], t[i+3], C)
+	}
+
+	// if z > q → z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+		z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+		z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
 	}
 }
