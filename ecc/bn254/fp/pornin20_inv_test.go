@@ -58,41 +58,6 @@ func (z *Element) sub(x *Element, y *Element) {
 	z[3], _ = bits.Sub64(x[3], y[3], b)
 }
 
-func testMonReduceNeg(x *Element, xHi uint64) {
-	var asIs Element
-	negRed := *x
-	asIs.montReduceSigned(x, xHi)
-
-	negHi := xHi
-	neg := xHi&0x8000000000000000 != 0
-	if neg {
-		negHi = negRed.neg(x, xHi)
-	}
-	negRed.montReduceSigned(&negRed, negHi)
-
-	if neg {
-		negRed.Neg(&negRed)
-	}
-
-	var diff Element
-	diff.sub(&negRed, &asIs)
-
-	if !diff.IsZero() {
-		panic(fmt.Sprint(xHi, x, ":", diff))
-	}
-}
-
-func TestMonReduceNeg(t *testing.T) {
-	var x Element
-
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		xHi := rand.Uint64()
-		xHi |= 0x8000000000000000
-		testMonReduceNeg(&x, xHi)
-	}
-}
-
 func TestMonReducePos(t *testing.T) {
 	var x Element
 	x.SetRandom()
