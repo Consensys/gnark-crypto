@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"math/bits"
 	"math/rand"
-	"strconv"
 	"testing"
 )
 
@@ -86,7 +85,7 @@ func testMonReduceNeg(x *Element, xHi uint64) {
 func TestMonReduceNeg(t *testing.T) {
 	var x Element
 
-	for i := 0; i < 1000; i ++ {
+	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 		xHi := rand.Uint64()
 		xHi |= 0x8000000000000000
@@ -125,7 +124,6 @@ func testMontReduceRef(x *big.Int) {
 	var r big.Int
 	r.SetInt64(1)
 	r.Lsh(&r, 256)
-
 
 	var u big.Int
 	montReduceRef(&u, x)
@@ -230,29 +228,6 @@ func toUint64Slice(b *big.Int, nbWords ...int) (s []uint64) {
 		s[i] = (uint64)(v)
 	}
 	return
-}
-
-func TestCompute2Pow192Neg(t *testing.T) {
-	var twoPow192Neg big.Int
-
-	x := big.NewInt(1)
-	x.Lsh(x, 192)
-	twoPow192Neg.Neg(x)
-	twoPow192Neg.Mod(&twoPow192Neg, Modulus())
-	fmt.Println("2^192", twoPow192Neg)
-
-	x.Lsh(x,1)
-	x.Neg(x)
-	x.Mod(x, Modulus())
-	fmt.Println("2^193", *x)
-
-	fmt.Println("Highest word of 2^192 in Hex", strconv.FormatUint(3486998266802970663, 16))
-
-	computedBySub := Element{0,0,0,1}
-	computedBySub.Neg(&computedBySub)
-	fmt.Println("2^192", computedBySub)
-
-	fmt.Println("Modulus", qElement)
 }
 
 func TestComputeMontConstants(t *testing.T) {
@@ -641,7 +616,7 @@ func TestMontReduceUnsignedRand(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		xHi := rand.Uint64()
 		//xHi |= 0x8000000000000000	//make sure it "overflows"
-		xHi &= 0x7FFFFFFFFFFFFFFF  //make sure it doesn't "overflow"
+		xHi &= 0x7FFFFFFFFFFFFFFF //make sure it doesn't "overflow"
 		var x Element
 		var res Element
 		x.SetRandom()
