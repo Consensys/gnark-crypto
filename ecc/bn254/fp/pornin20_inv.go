@@ -65,7 +65,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var v, s Element
 
-	const iterationN = 16 // 2 \ceil{ (2 * field size - 1) / 2k }
+	const iterationN = 16 // 2  ⌈ (2 * field size - 1) / 2k ⌉
 	const approxLowBitsN = k - 1
 	const approxHighBitsN = k + 1
 
@@ -76,6 +76,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		n := max(a.BitLen(), b.BitLen())
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
 
+		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
 		f0, g0, f1, g1 = 1, 0, 0, 1
 
 		for j := 0; j < approxLowBitsN; j++ {
@@ -95,10 +96,14 @@ func (z *Element) Inverse(x *Element) *Element {
 				f0 -= f1
 				g0 -= g1
 
+				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
+				//|f₁| ≤ 2ʲ still
+
 			}
 
 			f1 *= 2
 			g1 *= 2
+			//|f₁| ≤ 2ʲ⁺¹
 
 		}
 
@@ -129,9 +134,10 @@ func (z *Element) Inverse(x *Element) *Element {
 
 		if i&1 == 1 {
 			//Combine current update factors with previously stored ones
-			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf0, pg0; pf1, pg1]
-			// Each finalized coefficient is no larger than 3*2^61 = 0x6000000000000000 in absolute value
-			// TODO Document the proof for that claim
+			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
+			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
+			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
+			// Which leaves us with an extra bit for the sign
 			f0, g0, f1, g1 = f0*pf0+g0*pf1,
 				f0*pg0+g0*pg1,
 				f1*pf0+g1*pf1,
@@ -272,7 +278,11 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	const qInvNegLsb uint64 = 0x87d20782e4866389
 
 	neg := xHi&0x8000000000000000 != 0
+	//the SOS implementation requires that most significant bit is 0
+	// Let X be xHi*r + x
+	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
 	xHi &= 0x7FFFFFFFFFFFFFFF
+	// with this a negative X is now represented as 2⁶³ r + X
 
 	var t [7]uint64
 	var C uint64
@@ -334,6 +344,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 
 	if neg {
+		//We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
 		z[0], b = bits.Sub64(z[0], 0x8000000000000000, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
