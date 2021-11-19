@@ -279,15 +279,15 @@ func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64
 }
 
 var montNegativeCorrectionBias = Element{13555988908134432071, 10917124144477883020, 13281191951274694749, 3486998266802970665}
+
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const qInvNegLsb uint64 = 0x87d20782e4866389
 
 	//neg := (int64(xHi) >> 63) != 0
-	neg := xHi & 0x8000000000000000 != 0
+	neg := xHi&0x8000000000000000 != 0
 	xHi &= 0x7FFFFFFFFFFFFFFF
-
 
 	var t [7]uint64
 	var C uint64
@@ -348,6 +348,22 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
 	}
 
+	if xHi&0x8000000000000000 != 0 {
+		var b uint64
+		z[1], b = bits.Sub64(z[1], 1, 0)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+
+		//very unlikely
+		if b != 0 {
+			// z[3] = -1
+			//negative: add q
+			z[0], b = bits.Add64(z[0], 4332616871279656263, 0)
+			z[1], b = bits.Add64(z[1], 10917124144477883021, b)
+			z[2], b = bits.Add64(z[2], 13281191951274694749, b)
+			z[3], _ = bits.Add64(0xFFFFFFFFFFFFFFFF, 3486998266802970665, b)
+		}
+	}
 	if neg {
 		z.Add(z, &montNegativeCorrectionBias)
 	}

@@ -188,7 +188,7 @@ func (z *Element) classicMontReduceSigned(x *Element, xHi uint64) {
 	}
 }
 
-func (z *Element) linearClassicSigned(x *Element, xC int64, y *Element, yC int64) {
+func (z *Element) linearCombClassicSigned(x *Element, xC int64, y *Element, yC int64) {
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.classicMontReduceSigned(z, hi)
 }

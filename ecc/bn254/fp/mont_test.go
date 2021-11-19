@@ -90,8 +90,3 @@ func TestCompute2Pow192Neg(t *testing.T) {
 
 	fmt.Println("Modulus", qElement)
 }
-
-func (z *Element) linearCombClassicSigned(x *Element, xC int64, y *Element, yC int64) {
-	hi := z.linearCombNonModular(x, xC, y, yC)
-	z.classicMontReduceSigned(z, hi)
-}
