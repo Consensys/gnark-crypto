@@ -70,6 +70,8 @@ func TestIntegration(t *testing.T) {
 
 	}
 
+	moduli["e_secp256k1"] = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
+
 	for elementName, modulus := range moduli {
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
