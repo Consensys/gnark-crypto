@@ -24,6 +24,5 @@ var BN254 = Curve{
 }
 
 func init() {
-	BN254.init()
-	Curves = append(Curves, BN254)
+	addCurve(BN254)
 }

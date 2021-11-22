@@ -93,30 +93,24 @@ func (id ID) Info() Info {
 	}
 }
 
-type fieldInfo struct {
-	Bits    int
-	Bytes   int
-	Modulus func() *big.Int
-}
-
-func newInfo(config *config.Curve) Info {
+func newInfo(c *config.Curve) Info {
 	return Info{
-		Fp: fieldInfo{
-			Bits:    config.Fp.NbBits,
-			Bytes:   config.Fp.NbWords * 8,
-			Modulus: func() *big.Int { return new(big.Int).Set(config.Fp.ModulusBig) },
+		Fp: config.Field{
+			Bits:    c.FpInfo.Bits,
+			Bytes:   c.FpInfo.Bytes,
+			Modulus: func() *big.Int { return new(big.Int).Set(c.FpInfo.Modulus()) },
 		},
-		Fr: fieldInfo{
-			Bits:    config.Fr.NbBits,
-			Bytes:   config.Fr.NbWords * 8,
-			Modulus: func() *big.Int { return new(big.Int).Set(config.Fr.ModulusBig) },
+		Fr: config.Field{
+			Bits:    c.FrInfo.Bits,
+			Bytes:   c.FrInfo.Bytes,
+			Modulus: func() *big.Int { return new(big.Int).Set(c.FrInfo.Modulus()) },
 		},
 	}
 }
 
 // Info contains constants related to a curve
 type Info struct {
-	Fp, Fr fieldInfo
+	Fp, Fr config.Field
 }
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp

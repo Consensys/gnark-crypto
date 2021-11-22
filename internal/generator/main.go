@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
@@ -40,9 +41,18 @@ func main() {
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
+			var err error
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 			// generate base field
+			conf.Fp, err = field.NewField("fp", "Element", conf.FpModulus, true)
+			assertNoError(err)
+
+			conf.Fr, err = field.NewField("fr", "Element", conf.FrModulus, true)
+			assertNoError(err)
+
+			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
 
