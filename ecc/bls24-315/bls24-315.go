@@ -80,10 +80,10 @@ type E2 = fptower.E2
 type E4 = fptower.E4
 
 // E8 is a degree two finite field extension of fp4
-// type E8 = fptower.E8
+type E8 = fptower.E8
 
 // E24 is a degree three finite field extension of fp8
-// type E24 = fptower.E24
+type E24 = fptower.E24
 
 func init() {
 
