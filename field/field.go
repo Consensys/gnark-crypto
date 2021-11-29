@@ -36,6 +36,7 @@ type Field struct {
 	NbBits               int
 	NbWordsLastIndex     int
 	NbWordsIndexesNoZero []int
+	NbWordsIndexesNoLast []int
 	NbWordsIndexesFull   []int
 	Q                    []uint64
 	QInverse             []uint64
@@ -59,7 +60,7 @@ type Field struct {
 	NonResidue []uint64 // (montgomery form)
 }
 
-// NewField returns a data structure with needed informations to generate apis for field element
+// NewField returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
 func NewField(packageName, elementName, modulus string) (*Field, error) {
@@ -116,10 +117,14 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	// indexes (template helpers)
 	F.NbWordsIndexesFull = make([]int, F.NbWords)
 	F.NbWordsIndexesNoZero = make([]int, F.NbWords-1)
+	F.NbWordsIndexesNoLast = make([]int, F.NbWords-1)
 	for i := 0; i < F.NbWords; i++ {
 		F.NbWordsIndexesFull[i] = i
 		if i > 0 {
 			F.NbWordsIndexesNoZero[i-1] = i
+		}
+		if i != F.NbWords-1 {
+			F.NbWordsIndexesNoLast[i] = i
 		}
 	}
 
@@ -128,7 +133,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	// we can simplify the montgomery multiplication
 	const B = (^uint64(0) >> 1) - 1
 	F.NoCarry = (F.Q[len(F.Q)-1] <= B) && F.NbWords <= 12
-	const BSquare = (^uint64(0) >> 2)
+	const BSquare = ^uint64(0) >> 2
 	F.NoCarrySquare = F.Q[len(F.Q)-1] <= BSquare
 
 	// Legendre exponent (p-1)/2

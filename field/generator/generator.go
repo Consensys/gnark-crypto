@@ -35,6 +35,8 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Sqrt,
 		element.Inverse,
+		element.InversePornin,
+		element.BigNum,
 	}
 
 	// test file templates

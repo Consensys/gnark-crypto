@@ -6,22 +6,9 @@ const Inverse = `
 {{if eq .NoCarry false}}
 
 // Inverse z = x^-1 mod q 
-// note: allocates a big.Int (math/big)
-func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
-	var _xNonMont big.Int
-	x.ToBigIntRegular( &_xNonMont)
-	_xNonMont.ModInverse(&_xNonMont, Modulus())
-	z.SetBigInt(&_xNonMont)
-	return z
-}
-
-
-{{ else }}
-
-// Inverse z = x^-1 mod q 
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 
-func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
+func (z *{{.ElementName}}) InverseOld(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
 		z.SetZero()
 		return z
