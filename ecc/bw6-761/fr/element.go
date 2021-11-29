@@ -1100,6 +1100,185 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
+// Inverse z = x^-1 mod q
+// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// if x == 0, sets and returns z = x
+func (z *Element) InverseOld(x *Element) *Element {
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	// initialize u = q
+	var u = Element{
+		9586122913090633729,
+		1660523435060625408,
+		2230234197602682880,
+		1883307231910630287,
+		14284016967150029115,
+		121098312706494698,
+	}
+
+	// initialize s = r^2
+	var s = Element{
+		13224372171368877346,
+		227991066186625457,
+		2496666625421784173,
+		13825906835078366124,
+		9475172226622360569,
+		30958721782860680,
+	}
+
+	// r = 0
+	r := Element{}
+
+	v := *x
+
+	var carry, borrow uint64
+	var bigger bool
+
+	for {
+		for v[0]&1 == 0 {
+
+			// v = v >> 1
+
+			v[0] = v[0]>>1 | v[1]<<63
+			v[1] = v[1]>>1 | v[2]<<63
+			v[2] = v[2]>>1 | v[3]<<63
+			v[3] = v[3]>>1 | v[4]<<63
+			v[4] = v[4]>>1 | v[5]<<63
+			v[5] >>= 1
+
+			if s[0]&1 == 1 {
+
+				// s = s + q
+				s[0], carry = bits.Add64(s[0], 9586122913090633729, 0)
+				s[1], carry = bits.Add64(s[1], 1660523435060625408, carry)
+				s[2], carry = bits.Add64(s[2], 2230234197602682880, carry)
+				s[3], carry = bits.Add64(s[3], 1883307231910630287, carry)
+				s[4], carry = bits.Add64(s[4], 14284016967150029115, carry)
+				s[5], _ = bits.Add64(s[5], 121098312706494698, carry)
+
+			}
+
+			// s = s >> 1
+
+			s[0] = s[0]>>1 | s[1]<<63
+			s[1] = s[1]>>1 | s[2]<<63
+			s[2] = s[2]>>1 | s[3]<<63
+			s[3] = s[3]>>1 | s[4]<<63
+			s[4] = s[4]>>1 | s[5]<<63
+			s[5] >>= 1
+
+		}
+		for u[0]&1 == 0 {
+
+			// u = u >> 1
+
+			u[0] = u[0]>>1 | u[1]<<63
+			u[1] = u[1]>>1 | u[2]<<63
+			u[2] = u[2]>>1 | u[3]<<63
+			u[3] = u[3]>>1 | u[4]<<63
+			u[4] = u[4]>>1 | u[5]<<63
+			u[5] >>= 1
+
+			if r[0]&1 == 1 {
+
+				// r = r + q
+				r[0], carry = bits.Add64(r[0], 9586122913090633729, 0)
+				r[1], carry = bits.Add64(r[1], 1660523435060625408, carry)
+				r[2], carry = bits.Add64(r[2], 2230234197602682880, carry)
+				r[3], carry = bits.Add64(r[3], 1883307231910630287, carry)
+				r[4], carry = bits.Add64(r[4], 14284016967150029115, carry)
+				r[5], _ = bits.Add64(r[5], 121098312706494698, carry)
+
+			}
+
+			// r = r >> 1
+
+			r[0] = r[0]>>1 | r[1]<<63
+			r[1] = r[1]>>1 | r[2]<<63
+			r[2] = r[2]>>1 | r[3]<<63
+			r[3] = r[3]>>1 | r[4]<<63
+			r[4] = r[4]>>1 | r[5]<<63
+			r[5] >>= 1
+
+		}
+
+		// v >= u
+		bigger = !(v[5] < u[5] || (v[5] == u[5] && (v[4] < u[4] || (v[4] == u[4] && (v[3] < u[3] || (v[3] == u[3] && (v[2] < u[2] || (v[2] == u[2] && (v[1] < u[1] || (v[1] == u[1] && (v[0] < u[0])))))))))))
+
+		if bigger {
+
+			// v = v - u
+			v[0], borrow = bits.Sub64(v[0], u[0], 0)
+			v[1], borrow = bits.Sub64(v[1], u[1], borrow)
+			v[2], borrow = bits.Sub64(v[2], u[2], borrow)
+			v[3], borrow = bits.Sub64(v[3], u[3], borrow)
+			v[4], borrow = bits.Sub64(v[4], u[4], borrow)
+			v[5], _ = bits.Sub64(v[5], u[5], borrow)
+
+			// s = s - r
+			s[0], borrow = bits.Sub64(s[0], r[0], 0)
+			s[1], borrow = bits.Sub64(s[1], r[1], borrow)
+			s[2], borrow = bits.Sub64(s[2], r[2], borrow)
+			s[3], borrow = bits.Sub64(s[3], r[3], borrow)
+			s[4], borrow = bits.Sub64(s[4], r[4], borrow)
+			s[5], borrow = bits.Sub64(s[5], r[5], borrow)
+
+			if borrow == 1 {
+
+				// s = s + q
+				s[0], carry = bits.Add64(s[0], 9586122913090633729, 0)
+				s[1], carry = bits.Add64(s[1], 1660523435060625408, carry)
+				s[2], carry = bits.Add64(s[2], 2230234197602682880, carry)
+				s[3], carry = bits.Add64(s[3], 1883307231910630287, carry)
+				s[4], carry = bits.Add64(s[4], 14284016967150029115, carry)
+				s[5], _ = bits.Add64(s[5], 121098312706494698, carry)
+
+			}
+		} else {
+
+			// u = u - v
+			u[0], borrow = bits.Sub64(u[0], v[0], 0)
+			u[1], borrow = bits.Sub64(u[1], v[1], borrow)
+			u[2], borrow = bits.Sub64(u[2], v[2], borrow)
+			u[3], borrow = bits.Sub64(u[3], v[3], borrow)
+			u[4], borrow = bits.Sub64(u[4], v[4], borrow)
+			u[5], _ = bits.Sub64(u[5], v[5], borrow)
+
+			// r = r - s
+			r[0], borrow = bits.Sub64(r[0], s[0], 0)
+			r[1], borrow = bits.Sub64(r[1], s[1], borrow)
+			r[2], borrow = bits.Sub64(r[2], s[2], borrow)
+			r[3], borrow = bits.Sub64(r[3], s[3], borrow)
+			r[4], borrow = bits.Sub64(r[4], s[4], borrow)
+			r[5], borrow = bits.Sub64(r[5], s[5], borrow)
+
+			if borrow == 1 {
+
+				// r = r + q
+				r[0], carry = bits.Add64(r[0], 9586122913090633729, 0)
+				r[1], carry = bits.Add64(r[1], 1660523435060625408, carry)
+				r[2], carry = bits.Add64(r[2], 2230234197602682880, carry)
+				r[3], carry = bits.Add64(r[3], 1883307231910630287, carry)
+				r[4], carry = bits.Add64(r[4], 14284016967150029115, carry)
+				r[5], _ = bits.Add64(r[5], 121098312706494698, carry)
+
+			}
+		}
+		if (u[0] == 1) && (u[5]|u[4]|u[3]|u[2]|u[1]) == 0 {
+			z.Set(&r)
+			return z
+		}
+		if (v[0] == 1) && (v[5]|v[4]|v[3]|v[2]|v[1]) == 0 {
+			z.Set(&s)
+			return z
+		}
+	}
+
+}
+
 func max(a int, b int) int {
 	if a > b {
 		return a
@@ -1303,6 +1482,8 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	var C uint64
 
 	m := x[0] * qInvNegLsw
+
+	C = madd0(m, qElement[0], x[0])
 	C, t[1] = madd2(m, qElement[1], x[1], C)
 	C, t[2] = madd2(m, qElement[2], x[2], C)
 	C, t[3] = madd2(m, qElement[3], x[3], C)
@@ -1320,11 +1501,11 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], x[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], x[i+5], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
+		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1333,11 +1514,11 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], x[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], x[i+5], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
+		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1346,11 +1527,11 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], x[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], x[i+5], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
+		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1359,26 +1540,24 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], x[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], x[i+5], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
+		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
+		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
 
 		t[i+Limbs] += C
 	}
 	{
 		const i = 5
-		m = t[i] * qInvNegLsw
+		m := t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], x[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], x[i+5], C)
-
-		t[i+Limbs] += C
+		C, z[0] = madd2(m, qElement[1], t[i+1], C)
+		C, z[1] = madd2(m, qElement[2], t[i+2], C)
+		C, z[2] = madd2(m, qElement[3], t[i+3], C)
+		C, z[3] = madd2(m, qElement[4], t[i+4], C)
+		z[5], z[4] = madd2(m, qElement[5], t[i+5], C)
 	}
 
 	// if z > q --> z -= q
@@ -1423,7 +1602,9 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 // mulWSigned mul word signed (w/ montgomery reduction)
 func (z *Element) mulWSigned(x *Element, y int64) {
-	_mulWGeneric(z, x, abs(y))
+	m := y >> 63
+	_mulWGeneric(z, x, uint64((y^m)-m))
+	//multiply by abs(y)
 	if y < 0 {
 		z.Neg(z)
 	}

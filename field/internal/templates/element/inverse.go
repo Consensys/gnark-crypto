@@ -5,6 +5,12 @@ const Inverse = `
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if eq .NoCarry false}}
 
+//Fake InverseOld just for the tests to work
+func (z *{{.ElementName}}) InverseOld(x *{{.ElementName}}) *{{.ElementName}} {
+	return z.Inverse(x)
+}
+
+{{else}}
 // Inverse z = x^-1 mod q 
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 

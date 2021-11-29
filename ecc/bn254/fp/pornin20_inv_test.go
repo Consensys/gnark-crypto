@@ -22,6 +22,40 @@ func TestMulWRegularBf(t *testing.T) {
 	}
 }
 
+// regular multiplication by one word regular (non montgomery)
+func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+
+	w := abs(y)
+
+	var c uint64
+	c, z[0] = bits.Mul64(x[0], w)
+	c, z[1] = madd1(x[1], w, c)
+	c, z[2] = madd1(x[2], w, c)
+	c, z[3] = madd1(x[3], w, c)
+
+	if y < 0 {
+		c = z.neg(z, c)
+	}
+
+	return c
+}
+
+func abs(y int64) uint64 {
+	m := y >> 63
+	return uint64((y ^ m) - m)
+}
+
+func (z *Element) add(x *Element, xHi uint64, y *Element, yHi uint64) uint64 {
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], carry = bits.Add64(x[3], y[3], carry)
+	carry, _ = bits.Add64(xHi, yHi, carry)
+
+	return carry
+}
+
 func TestEuclideanAlgo(t *testing.T) {
 	//q:= Modulus()
 	var qInvNeg big.Int

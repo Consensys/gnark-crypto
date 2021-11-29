@@ -5,7 +5,7 @@ const BigNum = `
 {{/* Only used for the Pornin Extended GCD Inverse Algorithm*/}}
 {{if eq .NoCarry true}}
 
-func (z *Element) neg(x *Element, xHi uint64) uint64 {
+func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 	b := uint64(0)
 
 	{{- range $i := .NbWordsIndexesFull}}
@@ -18,7 +18,7 @@ func (z *Element) neg(x *Element, xHi uint64) uint64 {
 
 // On ARM, using the branch free version gives 21% speedup. On x86 it slows things down.
 // mulWRegular branch-free regular multiplication by one word (non montgomery)
-func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
 
 	w := uint64(y)
 	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
@@ -60,8 +60,8 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 
 
 //Requires NoCarry
-func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
-	var yTimes Element
+func (z *{{.ElementName}}) linearCombNonModular(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) uint64 {
+	var yTimes {{.ElementName}}
 
 	yHi := yTimes.mulWRegular(y, yC)
 	xHi := z.mulWRegular(x, xC)

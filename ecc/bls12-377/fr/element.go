@@ -926,6 +926,157 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
+// Inverse z = x^-1 mod q
+// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// if x == 0, sets and returns z = x
+func (z *Element) InverseOld(x *Element) *Element {
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	// initialize u = q
+	var u = Element{
+		725501752471715841,
+		6461107452199829505,
+		6968279316240510977,
+		1345280370688173398,
+	}
+
+	// initialize s = r^2
+	var s = Element{
+		2726216793283724667,
+		14712177743343147295,
+		12091039717619697043,
+		81024008013859129,
+	}
+
+	// r = 0
+	r := Element{}
+
+	v := *x
+
+	var carry, borrow uint64
+	var bigger bool
+
+	for {
+		for v[0]&1 == 0 {
+
+			// v = v >> 1
+
+			v[0] = v[0]>>1 | v[1]<<63
+			v[1] = v[1]>>1 | v[2]<<63
+			v[2] = v[2]>>1 | v[3]<<63
+			v[3] >>= 1
+
+			if s[0]&1 == 1 {
+
+				// s = s + q
+				s[0], carry = bits.Add64(s[0], 725501752471715841, 0)
+				s[1], carry = bits.Add64(s[1], 6461107452199829505, carry)
+				s[2], carry = bits.Add64(s[2], 6968279316240510977, carry)
+				s[3], _ = bits.Add64(s[3], 1345280370688173398, carry)
+
+			}
+
+			// s = s >> 1
+
+			s[0] = s[0]>>1 | s[1]<<63
+			s[1] = s[1]>>1 | s[2]<<63
+			s[2] = s[2]>>1 | s[3]<<63
+			s[3] >>= 1
+
+		}
+		for u[0]&1 == 0 {
+
+			// u = u >> 1
+
+			u[0] = u[0]>>1 | u[1]<<63
+			u[1] = u[1]>>1 | u[2]<<63
+			u[2] = u[2]>>1 | u[3]<<63
+			u[3] >>= 1
+
+			if r[0]&1 == 1 {
+
+				// r = r + q
+				r[0], carry = bits.Add64(r[0], 725501752471715841, 0)
+				r[1], carry = bits.Add64(r[1], 6461107452199829505, carry)
+				r[2], carry = bits.Add64(r[2], 6968279316240510977, carry)
+				r[3], _ = bits.Add64(r[3], 1345280370688173398, carry)
+
+			}
+
+			// r = r >> 1
+
+			r[0] = r[0]>>1 | r[1]<<63
+			r[1] = r[1]>>1 | r[2]<<63
+			r[2] = r[2]>>1 | r[3]<<63
+			r[3] >>= 1
+
+		}
+
+		// v >= u
+		bigger = !(v[3] < u[3] || (v[3] == u[3] && (v[2] < u[2] || (v[2] == u[2] && (v[1] < u[1] || (v[1] == u[1] && (v[0] < u[0])))))))
+
+		if bigger {
+
+			// v = v - u
+			v[0], borrow = bits.Sub64(v[0], u[0], 0)
+			v[1], borrow = bits.Sub64(v[1], u[1], borrow)
+			v[2], borrow = bits.Sub64(v[2], u[2], borrow)
+			v[3], _ = bits.Sub64(v[3], u[3], borrow)
+
+			// s = s - r
+			s[0], borrow = bits.Sub64(s[0], r[0], 0)
+			s[1], borrow = bits.Sub64(s[1], r[1], borrow)
+			s[2], borrow = bits.Sub64(s[2], r[2], borrow)
+			s[3], borrow = bits.Sub64(s[3], r[3], borrow)
+
+			if borrow == 1 {
+
+				// s = s + q
+				s[0], carry = bits.Add64(s[0], 725501752471715841, 0)
+				s[1], carry = bits.Add64(s[1], 6461107452199829505, carry)
+				s[2], carry = bits.Add64(s[2], 6968279316240510977, carry)
+				s[3], _ = bits.Add64(s[3], 1345280370688173398, carry)
+
+			}
+		} else {
+
+			// u = u - v
+			u[0], borrow = bits.Sub64(u[0], v[0], 0)
+			u[1], borrow = bits.Sub64(u[1], v[1], borrow)
+			u[2], borrow = bits.Sub64(u[2], v[2], borrow)
+			u[3], _ = bits.Sub64(u[3], v[3], borrow)
+
+			// r = r - s
+			r[0], borrow = bits.Sub64(r[0], s[0], 0)
+			r[1], borrow = bits.Sub64(r[1], s[1], borrow)
+			r[2], borrow = bits.Sub64(r[2], s[2], borrow)
+			r[3], borrow = bits.Sub64(r[3], s[3], borrow)
+
+			if borrow == 1 {
+
+				// r = r + q
+				r[0], carry = bits.Add64(r[0], 725501752471715841, 0)
+				r[1], carry = bits.Add64(r[1], 6461107452199829505, carry)
+				r[2], carry = bits.Add64(r[2], 6968279316240510977, carry)
+				r[3], _ = bits.Add64(r[3], 1345280370688173398, carry)
+
+			}
+		}
+		if (u[0] == 1) && (u[3]|u[2]|u[1]) == 0 {
+			z.Set(&r)
+			return z
+		}
+		if (v[0] == 1) && (v[3]|v[2]|v[1]) == 0 {
+			z.Set(&s)
+			return z
+		}
+	}
+
+}
+
 func max(a int, b int) int {
 	if a > b {
 		return a
@@ -1121,6 +1272,8 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	var C uint64
 
 	m := x[0] * qInvNegLsw
+
+	C = madd0(m, qElement[0], x[0])
 	C, t[1] = madd2(m, qElement[1], x[1], C)
 	C, t[2] = madd2(m, qElement[2], x[2], C)
 	C, t[3] = madd2(m, qElement[3], x[3], C)
@@ -1136,9 +1289,9 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
 
 		t[i+Limbs] += C
 	}
@@ -1147,22 +1300,20 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		m = t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
+		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
+		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
+		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
 
 		t[i+Limbs] += C
 	}
 	{
 		const i = 3
-		m = t[i] * qInvNegLsw
+		m := t[i] * qInvNegLsw
 
 		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], x[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], x[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], x[i+3], C)
-
-		t[i+Limbs] += C
+		C, z[0] = madd2(m, qElement[1], t[i+1], C)
+		C, z[1] = madd2(m, qElement[2], t[i+2], C)
+		z[3], z[2] = madd2(m, qElement[3], t[i+3], C)
 	}
 
 	// if z > q --> z -= q
@@ -1201,7 +1352,9 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 // mulWSigned mul word signed (w/ montgomery reduction)
 func (z *Element) mulWSigned(x *Element, y int64) {
-	_mulWGeneric(z, x, abs(y))
+	m := y >> 63
+	_mulWGeneric(z, x, uint64((y^m)-m))
+	//multiply by abs(y)
 	if y < 0 {
 		z.Neg(z)
 	}

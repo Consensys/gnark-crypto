@@ -37,7 +37,7 @@ const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
 const approxHighBitsN = k + 1
 
-func approximate(x *Element, n int) uint64 {
+func approximate(x *{{.ElementName}}, n int) uint64 {
 
 	if n <= 64 {
 		return x[0]
@@ -61,9 +61,9 @@ func approximate(x *Element, n int) uint64 {
 }
 
 //TODO: Work out formula for correction factor
-var inversionCorrectionFactor = Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
+var inversionCorrectionFactor = {{.ElementName}}{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
 
-func (z *Element) Inverse(x *Element) *Element {
+func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
 		z.SetZero()
 		return z
@@ -71,7 +71,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var a = *x
 	var b = qElement
-	var u = Element{1}
+	var u = {{.ElementName}}{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
@@ -81,7 +81,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var i uint
 
-	var v, s Element
+	var v, s {{.ElementName}}
 
 	const iterationN =   2 * ( (2 * Bits - 2) / (2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
 
@@ -195,13 +195,13 @@ func (z *Element) Inverse(x *Element) *Element {
 	return z
 }
 
-func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
+func (z *{{.ElementName}}) linearCombSosSigned(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.montReduceSigned(z, hi)
 }
 
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
-func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	const qInvNegLsw uint64 = 0x87d20782e4866389
 	const signBitRemover = ^signBitSelector
@@ -217,7 +217,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-
+	C = madd0(m, qElement[0], x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
 	C, t[{{$i}}] = madd2(m, qElement[{{$i}}], x[{{$i}}], C)
 	{{- end}}
@@ -229,7 +229,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	// xHi and C are 63 bits, therefore no overflow
 
 	{{ $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero}}
-	{{- range $i := .NbWordsIndexesNoZero}}
+	{{- range $i := .NbWordsIndexesNoZeroNoLast}}
 	{
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
@@ -237,12 +237,22 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		C = madd0(m, qElement[0], t[i+0])
 
 		{{- range $j := $NbWordsIndexesNoZeroInnerLoop}}
-		C, t[i + {{$j}}] = madd2(m, qElement[{{$j}}], x[i +  {{$j}}], C)
+		C, t[i + {{$j}}] = madd2(m, qElement[{{$j}}], t[i +  {{$j}}], C)
 		{{- end}}
 
 		t[i + Limbs] += C
 	}
 	{{- end}}
+	{
+		const i = {{.NbWordsLastIndex}}
+		m := t[i] * qInvNegLsw
+
+		C = madd0(m, qElement[0], t[i+0])
+		{{- range $j := $.NbWordsIndexesNoZeroNoLast}}
+		C, z[{{sub $j 1}}] = madd2(m, qElement[{{$j}}], t[i+{{$j}}], C)
+		{{- end}}
+		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, qElement[{{.NbWordsLastIndex}}], t[i+{{.NbWordsLastIndex}}], C)
+	}
 
     {{ template "reduce" . }}
 	if neg {
@@ -272,7 +282,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 }
 
 // mulWSigned mul word signed (w/ montgomery reduction)
-func (z *Element) mulWSigned(x *Element, y int64) {
+func (z *{{.ElementName}}) mulWSigned(x *{{.ElementName}}, y int64) {
 	m := y >> 63
 	_mulWGeneric(z, x, uint64((y ^ m) - m))
 	//multiply by abs(y)

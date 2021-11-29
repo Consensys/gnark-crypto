@@ -27,35 +27,36 @@ var (
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName          string
-	ElementName          string
-	ModulusBig           *big.Int
-	Modulus              string
-	ModulusHex           string
-	NbWords              int
-	NbBits               int
-	NbWordsLastIndex     int
-	NbWordsIndexesNoZero []int
-	NbWordsIndexesNoLast []int
-	NbWordsIndexesFull   []int
-	Q                    []uint64
-	QInverse             []uint64
-	QMinusOneHalvedP     []uint64 // ((q-1) / 2 ) + 1
-	ASM                  bool
-	RSquare              []uint64
-	One                  []uint64
-	LegendreExponent     string // big.Int to base16 string
-	NoCarry              bool
-	NoCarrySquare        bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4           bool
-	SqrtAtkin            bool
-	SqrtTonelliShanks    bool
-	SqrtE                uint64
-	SqrtS                []uint64
-	SqrtAtkinExponent    string   // big.Int to base16 string
-	SqrtSMinusOneOver2   string   // big.Int to base16 string
-	SqrtQ3Mod4Exponent   string   // big.Int to base16 string
-	SqrtG                []uint64 // NonResidue ^  SqrtR (montgomery form)
+	PackageName                string
+	ElementName                string
+	ModulusBig                 *big.Int
+	Modulus                    string
+	ModulusHex                 string
+	NbWords                    int
+	NbBits                     int
+	NbWordsLastIndex           int
+	NbWordsIndexesNoZero       []int
+	NbWordsIndexesNoLast       []int
+	NbWordsIndexesNoZeroNoLast []int
+	NbWordsIndexesFull         []int
+	Q                          []uint64
+	QInverse                   []uint64
+	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
+	ASM                        bool
+	RSquare                    []uint64
+	One                        []uint64
+	LegendreExponent           string // big.Int to base16 string
+	NoCarry                    bool
+	NoCarrySquare              bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4                 bool
+	SqrtAtkin                  bool
+	SqrtTonelliShanks          bool
+	SqrtE                      uint64
+	SqrtS                      []uint64
+	SqrtAtkinExponent          string   // big.Int to base16 string
+	SqrtSMinusOneOver2         string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
+	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
 
 	NonResidue []uint64 // (montgomery form)
 }
@@ -118,6 +119,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	F.NbWordsIndexesFull = make([]int, F.NbWords)
 	F.NbWordsIndexesNoZero = make([]int, F.NbWords-1)
 	F.NbWordsIndexesNoLast = make([]int, F.NbWords-1)
+	F.NbWordsIndexesNoZeroNoLast = make([]int, F.NbWords-2)
 	for i := 0; i < F.NbWords; i++ {
 		F.NbWordsIndexesFull[i] = i
 		if i > 0 {
@@ -125,6 +127,9 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		}
 		if i != F.NbWords-1 {
 			F.NbWordsIndexesNoLast[i] = i
+			if i > 0 {
+				F.NbWordsIndexesNoZeroNoLast[i-1] = i
+			}
 		}
 	}
 
