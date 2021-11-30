@@ -1912,7 +1912,7 @@ func testMontReduceSigned(x *Element, xHi uint64) {
 	x.toVeryBigIntSigned(&xInt, xHi)
 	res.montReduceSigned(x, xHi)
 	montReduce(&resInt, &xInt)
-	checkMatchBigInt(&res, 0, &resInt)
+	res.assertMatchBigInt(0, &resInt)
 }
 
 var rInv big.Int

@@ -293,7 +293,7 @@ func TestVeryBigIntConversion(t *testing.T) {
 	}
 	var xInt big.Int
 	x.toVeryBigIntUnsigned(&xInt, xHi)
-	checkMatchBigInt(&x, xHi, &xInt)
+	x.assertMatchBigInt(xHi, &xInt)
 }
 
 func TestBigNumAddition(t *testing.T) {
@@ -323,7 +323,7 @@ func TestBigNumAddition(t *testing.T) {
 	var sum Element
 	sumHi := sum.add(&x, xHi, &y, yHi)
 
-	checkMatchBigInt(&sum, sumHi, &sumInt)
+	sum.assertMatchBigInt(sumHi, &sumInt)
 }
 
 func computeCorrectiveFactor(c *Element) {
@@ -459,41 +459,42 @@ func checkMult(x *Element, c int64, result *Element, resultHi uint64) big.Int {
 
 	xInt.Mul(&xInt, big.NewInt(c))
 
-	checkMatchBigInt(result, resultHi, &xInt)
+	result.assertMatchBigInt(resultHi, &xInt)
 	return xInt
 }
 
-func checkMatchBigInt(a *Element, aHi uint64, aInt *big.Int) {
+func assertMatch(w []big.Word, a uint64, index int) {
+	var wI big.Word
+
+	if index < len(w) {
+		wI = w[index]
+	}
+
+	if uint64(wI) != a {
+		fmt.Printf("Disagreement on word %d\n", index)
+		panic("Bignum mismatch")
+	}
+}
+
+func (z *Element) assertMatchBigInt(aHi uint64, aInt *big.Int) {
+
+	if bits.UintSize != 64 {
+		panic("Word size 64 expected")
+	}
+
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, 320)
-
+	modulus.Lsh(&modulus, (Limbs+1)*64)
 	aIntMod.Mod(aInt, &modulus)
 
-	bytes := aIntMod.Bytes()
+	words := aIntMod.Bits()
 
-	for i := 0; i < 33; i++ {
-		var word uint64
-		if i < 32 {
-			word = a[i/8]
-		} else {
-			word = aHi
-		}
-
-		i2 := (i % 8) * 8
-		byteA := byte(((255 << i2) & word) >> i2)
-		var byteInt byte
-		if i < len(bytes) {
-			byteInt = bytes[len(bytes)-i-1]
-		} else {
-			byteInt = 0
-		}
-
-		if byteInt != byteA {
-			panic("Bignum mismatch")
-		}
+	for i := 0; i < Limbs; i++ {
+		assertMatch(words, z[i], i)
 	}
+
+	assertMatch(words, aHi, Limbs)
 }
 
 func (z *Element) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
