@@ -598,40 +598,113 @@ func (z *Element) log(base *Element, max uint) int {
 	return 1 //not found
 }
 
-func TestMontReduceUnsigned(t *testing.T) {
-	var xInt big.Int
-	xInt.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
-	var xRedInt big.Int
-	xRedInt.SetString("635522307507233077051145701706764522087344188384121418491036574122751191340", 10)
+func TestFindInversionCorrectionFactorFormula(t *testing.T) {
+	fac := big.NewInt(1)
 
-	var x = Element{5632619021051350501, 15614519151907775586, 16162948170853994679, 14978651708485828588}
-	var xHi uint64 = 13112683716790278092
+	var correctionFactor big.Int
+	inversionCorrectionFactor.ToBigInt(&correctionFactor)
+	correctionFactor.Mod(&correctionFactor, Modulus())
 
-	x.montReduceUnsigned(&x, xHi)
-	checkMatchBigInt(&x, 0, &xRedInt)
+	for i := 1; i < 100000; i++ {
+
+		fac.Lsh(fac, 1)
+		fac.Mod(fac, Modulus())
+		//fmt.Println(fac.Bits())
+
+		if fac.Cmp(&correctionFactor) == 0 {
+			fmt.Println("Match at", i)
+			return
+		}
+	}
+	panic("No match")
 }
 
-func TestMontReduceUnsignedRand(t *testing.T) {
-	for i := 0; i < 1000; i++ {
-		xHi := rand.Uint64()
-		//xHi |= 0x8000000000000000	//make sure it "overflows"
-		xHi &= 0x7FFFFFFFFFFFFFFF //make sure it doesn't "overflow"
-		var x Element
-		var res Element
-		x.SetRandom()
-		res.montReduceUnsigned(&x, xHi)
+func TestVanillaInverseNeedsMulByRSq(t *testing.T) {
+	var x Element
+	if _, err := x.SetRandom(); err != nil {
+		panic(err)
+	}
 
-		var xInt big.Int
-		var resInt big.Int
-		x.ToVeryBigInt(&xInt, xHi)
-		res.ToBigInt(&resInt)
+	var xInt big.Int
+	x.ToBigInt(&xInt)
 
-		resInt.Lsh(&resInt, 256)
-		resInt.Sub(&resInt, &xInt)
-		resInt.Mod(&resInt, Modulus())
+	var vanillaInv big.Int
+	vanillaInv.ModInverse(&xInt, Modulus())
 
-		if resInt.BitLen() != 0 {
-			panic("incorrect")
+	var montInv big.Int
+	x.InverseOld(&x)
+	x.ToBigInt(&montInv)
+
+	vanillaInv.Lsh(&vanillaInv, 512)
+	vanillaInv.Mod(&vanillaInv, Modulus())
+
+	if montInv.Cmp(&vanillaInv) != 0 {
+		panic("mismatch")
+	}
+
+}
+
+func (z *Element) setBigIntNoMont(v *big.Int) {
+	vBits := v.Bits()
+
+	if bits.UintSize == 64 {
+		for i := 0; i < len(vBits); i++ {
+			z[i] = uint64(vBits[i])
 		}
+	} else {
+		for i := 0; i < len(vBits); i++ {
+			if i%2 == 0 {
+				z[i/2] = uint64(vBits[i])
+			} else {
+				z[i/2] |= uint64(vBits[i]) << 32
+			}
+		}
+	}
+
+}
+
+func TestVanillaInverseNeedsMulByRCbMont(t *testing.T) {
+	var x Element
+	if _, err := x.SetRandom(); err != nil {
+		panic(err)
+	}
+
+	var xInt big.Int
+	x.ToBigInt(&xInt)
+
+	x.InverseOld(&x)
+
+	var vanillaInvInt big.Int
+	vanillaInvInt.ModInverse(&xInt, Modulus())
+	var vanillaInv Element
+	vanillaInv.setBigIntNoMont(&vanillaInvInt)
+
+	correctionFactorInt := big.NewInt(1)
+	correctionFactorInt.Lsh(correctionFactorInt, 3*256)
+	correctionFactorInt.Mod(correctionFactorInt, Modulus())
+	var correctionFactor Element
+	correctionFactor.setBigIntNoMont(correctionFactorInt)
+
+	vanillaInv.Mul(&vanillaInv, &correctionFactor)
+
+	if !x.Equal(&vanillaInv) {
+		panic("mismatch")
+	}
+
+}
+
+func TestInversionCorrectionFactorFormula(t *testing.T) {
+	const iterationN = 2 * ((2*Bits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
+	const kLimbs = k * Limbs
+	const power = kLimbs*6 + iterationN*(kLimbs-k+1)
+	factorInt := big.NewInt(1)
+	factorInt.Lsh(factorInt, power)
+	factorInt.Mod(factorInt, Modulus())
+
+	var refFactorInt big.Int
+	inversionCorrectionFactor.ToBigInt(&refFactorInt)
+
+	if refFactorInt.Cmp(factorInt) != 0 {
+		panic("mismatch")
 	}
 }

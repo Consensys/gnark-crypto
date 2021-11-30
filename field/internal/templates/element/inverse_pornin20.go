@@ -60,8 +60,11 @@ func approximate(x *{{.ElementName}}, n int) uint64 {
 	return lo | mid | hi
 }
 
-//TODO: Work out formula for correction factor
-var inversionCorrectionFactor = {{.ElementName}}{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
+var inversionCorrectionFactor = {{.ElementName}}{
+{{- range $cFacWord := .P20InversionCorrectiveFac}}
+	{{$cFacWord}},
+{{- end}}
+}
 
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
@@ -114,13 +117,11 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
 				//|f₁| ≤ 2ʲ still
-
 			}
 
 			f1 *= 2
 			g1 *= 2
 			//|f₁| ≤ 2ʲ⁺¹
-
 		}
 
 		s = a
@@ -136,7 +137,6 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 			{{-  if eq $i $.NbWordsLastIndex}}
 				a[{{$i}}] = (a[{{$i}}] >> approxLowBitsN) | (aHi << approxHighBitsN)
 			{{-  else  }}
-				//TODO: Make sure the +1 thing is working
 				a[{{$i}}] = (a[{{$i}}] >> approxLowBitsN) | ((a[{{add $i 1}}]) << approxHighBitsN)
 			{{- end}}
 		{{- end}}
@@ -148,16 +148,11 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 			bHi = b.neg(&b, bHi)
 		}
 		//right-shift b by k-1 bits
-		/*b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
-		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
-		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
-		b[3] = (b[3] >> approxLowBitsN) | ((bHi) << approxHighBitsN)*/
 
 		{{- range $i := .NbWordsIndexesFull}}
 			{{-  if eq $i $.NbWordsLastIndex}}
 				b[{{$i}}] = (b[{{$i}}] >> approxLowBitsN) | (bHi << approxHighBitsN)
 			{{-  else  }}
-				//TODO: Make sure the +1 thing is working
 				b[{{$i}}] = (b[{{$i}}] >> approxLowBitsN) | ((b[{{add $i 1}}]) << approxHighBitsN)
 			{{- end}}
 		{{- end}}
@@ -181,7 +176,6 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 			//Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
-
 	}
 
 	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
@@ -203,7 +197,7 @@ func (z *{{.ElementName}}) linearCombSosSigned(x *{{.ElementName}}, xC int64, y 
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
-	const qInvNegLsw uint64 = 0x87d20782e4866389
+	const qInvNegLsw uint64 = {{index .QInverse 0}}
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
 	//the SOS implementation requires that most significant bit is 0
@@ -212,7 +206,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	xHi &= signBitRemover
 	// with this a negative X is now represented as 2⁶³ r + X
 
-	var t [Limbs + 3]uint64
+	var t [2*Limbs - 1]uint64
 	var C uint64
 
 	m := x[0] * qInvNegLsw
@@ -234,6 +228,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
 
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
 		C = madd0(m, qElement[0], t[i+0])
 
 		{{- range $j := $NbWordsIndexesNoZeroInnerLoop}}
@@ -276,9 +271,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 			{{- end}}
 			z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, {{index $.Q $.NbWordsLastIndex}}, b)
 		}
-
 	}
-
 }
 
 // mulWSigned mul word signed (w/ montgomery reduction)

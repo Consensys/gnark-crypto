@@ -18,6 +18,7 @@ package field
 import (
 	"errors"
 	"math/big"
+	"math/bits"
 )
 
 var (
@@ -35,10 +36,11 @@ type Field struct {
 	NbWords                    int
 	NbBits                     int
 	NbWordsLastIndex           int
-	NbWordsIndexesNoZero       []int
-	NbWordsIndexesNoLast       []int
-	NbWordsIndexesNoZeroNoLast []int
 	NbWordsIndexesFull         []int
+	NbWordsIndexesNoLast       []int
+	NbWordsIndexesNoZero       []int
+	NbWordsIndexesNoZeroNoLast []int
+	P20InversionCorrectiveFac  []uint64
 	Q                          []uint64
 	QInverse                   []uint64
 	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
@@ -103,6 +105,19 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	extendedEuclideanAlgo(_r, &bModulus, _rInv, _qInv)
 	_qInv.Mod(_qInv, _r)
 	F.QInverse = toUint64Slice(_qInv, F.NbWords)
+
+	// Pornin20 inversion correction factors
+	if bits.UintSize != 64 {
+		panic("P20 field inversion implementation assumes 64bit words.")
+	}
+	k := 32
+	p20InversionIterationsNb := 2 * ((2*F.NbBits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
+	kLimbs := k * F.NbWords
+	power := kLimbs*6 + p20InversionIterationsNb*(kLimbs-k+1)
+	p20InversionCorrectiveFac := big.NewInt(1)
+	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(power))
+	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
+	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
 
 	//  rsquare
 	_rSquare := big.NewInt(2)

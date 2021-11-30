@@ -16,7 +16,6 @@ func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 	return xHi
 }
 
-// On ARM, using the branch free version gives 21% speedup. On x86 it slows things down.
 // mulWRegular branch-free regular multiplication by one word (non montgomery)
 func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
 

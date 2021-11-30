@@ -1217,8 +1217,13 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-//TODO: Work out formula for correction factor
-var inversionCorrectionFactor = Element{5743661648749932980, 12551916556084744593, 23273105902916091, 802172129993363311}
+var inversionCorrectionFactor = Element{
+	11895833815047052419,
+	14427697661962319307,
+	7092746980939793543,
+	12478275446743240102,
+	341414183218306161,
+}
 
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
@@ -1271,13 +1276,11 @@ func (z *Element) Inverse(x *Element) *Element {
 
 				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
 				//|f₁| ≤ 2ʲ still
-
 			}
 
 			f1 *= 2
 			g1 *= 2
 			//|f₁| ≤ 2ʲ⁺¹
-
 		}
 
 		s = a
@@ -1288,13 +1291,9 @@ func (z *Element) Inverse(x *Element) *Element {
 			aHi = a.neg(&a, aHi)
 		}
 		//right-shift a by k-1 bits
-		//TODO: Make sure the +1 thing is working
 		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		a[1] = (a[1] >> approxLowBitsN) | ((a[2]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		a[3] = (a[3] >> approxLowBitsN) | ((a[4]) << approxHighBitsN)
 		a[4] = (a[4] >> approxLowBitsN) | (aHi << approxHighBitsN)
 
@@ -1305,17 +1304,9 @@ func (z *Element) Inverse(x *Element) *Element {
 			bHi = b.neg(&b, bHi)
 		}
 		//right-shift b by k-1 bits
-		/*b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
-		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
-		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
-		b[3] = (b[3] >> approxLowBitsN) | ((bHi) << approxHighBitsN)*/
-		//TODO: Make sure the +1 thing is working
 		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
-		//TODO: Make sure the +1 thing is working
 		b[3] = (b[3] >> approxLowBitsN) | ((b[4]) << approxHighBitsN)
 		b[4] = (b[4] >> approxLowBitsN) | (bHi << approxHighBitsN)
 
@@ -1338,7 +1329,6 @@ func (z *Element) Inverse(x *Element) *Element {
 			//Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
-
 	}
 
 	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
@@ -1360,7 +1350,7 @@ func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
-	const qInvNegLsw uint64 = 0x87d20782e4866389
+	const qInvNegLsw uint64 = 8083954730842193919
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
 	//the SOS implementation requires that most significant bit is 0
@@ -1369,7 +1359,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	xHi &= signBitRemover
 	// with this a negative X is now represented as 2⁶³ r + X
 
-	var t [Limbs + 3]uint64
+	var t [2*Limbs - 1]uint64
 	var C uint64
 
 	m := x[0] * qInvNegLsw
@@ -1390,6 +1380,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 1
 		m = t[i] * qInvNegLsw
 
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
 		C = madd0(m, qElement[0], t[i+0])
 		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
 		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
@@ -1402,6 +1393,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 2
 		m = t[i] * qInvNegLsw
 
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
 		C = madd0(m, qElement[0], t[i+0])
 		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
 		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
@@ -1414,6 +1406,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 3
 		m = t[i] * qInvNegLsw
 
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
 		C = madd0(m, qElement[0], t[i+0])
 		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
 		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
@@ -1465,9 +1458,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 			z[3], b = bits.Add64(z[3], 15273757526516850351, b)
 			z[4], _ = bits.Add64(neg1, 342900304943437392, b)
 		}
-
 	}
-
 }
 
 // mulWSigned mul word signed (w/ montgomery reduction)
@@ -1492,7 +1483,6 @@ func (z *Element) neg(x *Element, xHi uint64) uint64 {
 	return xHi
 }
 
-// On ARM, using the branch free version gives 21% speedup. On x86 it slows things down.
 // mulWRegular branch-free regular multiplication by one word (non montgomery)
 func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 
