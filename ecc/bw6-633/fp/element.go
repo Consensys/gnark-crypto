@@ -1901,6 +1901,10 @@ func (z *Element) Inverse(x *Element) *Element {
 		}
 	}
 
+	if i > iterationN {
+		panic("more iterations than expected")
+	}
+
 	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
 	//If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
@@ -2140,7 +2144,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[8], b = bits.Sub64(z[8], 0, b)
 		z[9], b = bits.Sub64(z[9], 0, b)
 
-		//very unlikely
+		//Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
 		if b != 0 {
 			// z[9] = -1
 			//negative: add q

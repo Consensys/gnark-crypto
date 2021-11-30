@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"math/big"
 	"math/bits"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/leanovate/gopter"

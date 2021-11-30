@@ -45,6 +45,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Reduce,
 		element.Test,
+		element.MontRedTests,
 	}
 
 	// output files

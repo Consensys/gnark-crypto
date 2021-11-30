@@ -1,7 +1,6 @@
 package fp
 
 import (
-	crand "crypto/rand"
 	"fmt"
 	"math/big"
 	"math/bits"
@@ -90,75 +89,6 @@ func (z *Element) sub(x *Element, y *Element) {
 	z[1], b = bits.Sub64(x[1], y[1], b)
 	z[2], b = bits.Sub64(x[2], y[2], b)
 	z[3], _ = bits.Sub64(x[3], y[3], b)
-}
-
-func TestMonReducePos(t *testing.T) {
-	var x Element
-	x.SetRandom()
-	var xHi = rand.Uint64()
-	xHi &= 0x7FFFFFFFFFFFFFFF
-	testMonReduceNeg(&x, xHi)
-}
-
-func TestMontReduceRefSmall(t *testing.T) {
-	var x big.Int
-
-	x.SetString("1518345043075282886718915476446629923034923247403426348876984432860252403179691687682438634393061", 10)
-	testMontReduceRef(&x)
-}
-
-func TestMontReduceRef(t *testing.T) {
-	var r big.Int
-	r.SetInt64(1)
-	r.Lsh(&r, 320)
-	for i := 0; i < 1000; i++ {
-		y, _ := crand.Int(crand.Reader, &r)
-		testMontReduceRef(y)
-	}
-
-}
-
-func testMontReduceRef(x *big.Int) {
-	q := Modulus()
-	var r big.Int
-	r.SetInt64(1)
-	r.Lsh(&r, 256)
-
-	var u big.Int
-	montReduceRef(&u, x)
-
-	//fmt.Println(u, u.String())
-
-	var ur big.Int
-	ur.Mul(&u, &r)
-	ur.Sub(&ur, x)
-	ur.Mod(&ur, q)
-
-	if ur.BitLen() != 0 {
-		panic("Mismatch")
-	}
-}
-
-func montReduceRef(u *big.Int, t *big.Int) {
-	q := Modulus()
-	var qInvNeg big.Int
-	/*_qInvNeg := Element{9786893198990664585, 11447725176084130505, 15613922527736486528, 17688488658267049067}
-	_qInvNeg.ToBigInt(&qInvNegLsb)*/
-	qInvNeg.SetString("111032442853175714102588374283752698368366046808579839647964533820976443843465", 10)
-	r := big.NewInt(1)
-	r.Lsh(r, 256)
-
-	var m big.Int
-	m.Mul(t, &qInvNeg)
-	m.Mod(&m, r)
-
-	u.Mul(&m, q)
-	u.Add(u, t)
-	u.Div(u, r)
-
-	if u.Cmp(q) >= 0 {
-		u.Sub(u, q)
-	}
 }
 
 func BenchmarkElementInverseNew(b *testing.B) {
@@ -362,7 +292,7 @@ func TestVeryBigIntConversion(t *testing.T) {
 		1011752739694698287,
 	}
 	var xInt big.Int
-	x.ToVeryBigInt(&xInt, xHi)
+	x.toVeryBigIntUnsigned(&xInt, xHi)
 	checkMatchBigInt(&x, xHi, &xInt)
 }
 
@@ -375,7 +305,7 @@ func TestBigNumAddition(t *testing.T) {
 		1011752739694698287,
 	}
 	var xInt big.Int
-	x.ToVeryBigInt(&xInt, xHi)
+	x.toVeryBigIntUnsigned(&xInt, xHi)
 
 	yHi := uint64(22264684)
 	y := Element{
@@ -385,7 +315,7 @@ func TestBigNumAddition(t *testing.T) {
 		3486998266802970665,
 	}
 	var yInt big.Int
-	y.ToVeryBigInt(&yInt, yHi)
+	y.toVeryBigIntUnsigned(&yInt, yHi)
 
 	var sumInt big.Int
 	sumInt.Add(&xInt, &yInt)
@@ -566,12 +496,21 @@ func checkMatchBigInt(a *Element, aHi uint64, aInt *big.Int) {
 	}
 }
 
-func (z *Element) ToVeryBigInt(i *big.Int, xHi uint64) {
+func (z *Element) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
 	z.ToBigInt(i)
 	var upperWord big.Int
 	upperWord.SetUint64(xHi)
-	upperWord.Lsh(&upperWord, 256)
+	upperWord.Lsh(&upperWord, Limbs*bits.UintSize)
 	i.Add(&upperWord, i)
+}
+
+func (z *Element) toVeryBigIntSigned(i *big.Int, xHi uint64) {
+	z.toVeryBigIntUnsigned(i, xHi)
+	if signBitSelector&xHi != 0 {
+		twosCompModulus := big.NewInt(1)
+		twosCompModulus.Lsh(twosCompModulus, (Limbs+1)*bits.UintSize)
+		i.Sub(i, twosCompModulus)
+	}
 }
 
 func (z *Element) log(base *Element, max uint) int {
