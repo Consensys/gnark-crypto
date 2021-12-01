@@ -35,7 +35,6 @@ var (
 	ErrInvalidPolynomialSize         = errors.New("invalid polynomial size (larger than SRS or == 0)")
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
-	ErrInvalidDomain                 = errors.New("domain cardinality is smaller than polynomial degree")
 	ErrMinSRSSize                    = errors.New("minimum srs size is 2")
 )
 
@@ -137,9 +136,6 @@ func Open(p polynomial.Polynomial, point *fr.Element, domain *fft.Domain, srs *S
 	if len(p) == 0 || len(p) > len(srs.G1) {
 		return OpeningProof{}, ErrInvalidPolynomialSize
 	}
-	if len(p) > int(domain.Cardinality) {
-		return OpeningProof{}, ErrInvalidDomain
-	}
 
 	// build the proof
 	res := OpeningProof{
@@ -231,9 +227,6 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	for _, p := range polynomials {
 		if len(p) == 0 || len(p) > len(srs.G1) {
 			return BatchOpeningProof{}, ErrInvalidPolynomialSize
-		}
-		if len(p) > int(domain.Cardinality) {
-			return BatchOpeningProof{}, ErrInvalidDomain
 		}
 		if len(p) > largestPoly {
 			largestPoly = len(p)

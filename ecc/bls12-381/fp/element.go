@@ -91,6 +91,17 @@ func init() {
 	_modulus.SetString("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787", 10)
 }
 
+// NewElement returns a new Element from a uint64 value
+//
+// it is equivalent to
+// 		var v NewElement
+// 		v.SetUint64(...)
+func NewElement(v uint64) Element {
+	z := Element{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
+
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *Element) SetUint64(v uint64) *Element {
 	*z = Element{v}
@@ -289,6 +300,32 @@ func One() Element {
 	var one Element
 	one.SetOne()
 	return one
+}
+
+// Halve sets z to z / 2 (mod p)
+func (z *Element) Halve() {
+	if z[0]&1 == 1 {
+		var carry uint64
+
+		// z = z + q
+		z[0], carry = bits.Add64(z[0], 13402431016077863595, 0)
+		z[1], carry = bits.Add64(z[1], 2210141511517208575, carry)
+		z[2], carry = bits.Add64(z[2], 7435674573564081700, carry)
+		z[3], carry = bits.Add64(z[3], 7239337960414712511, carry)
+		z[4], carry = bits.Add64(z[4], 5412103778470702295, carry)
+		z[5], _ = bits.Add64(z[5], 1873798617647539866, carry)
+
+	}
+
+	// z = z >> 1
+
+	z[0] = z[0]>>1 | z[1]<<63
+	z[1] = z[1]>>1 | z[2]<<63
+	z[2] = z[2]>>1 | z[3]<<63
+	z[3] = z[3]>>1 | z[4]<<63
+	z[4] = z[4]>>1 | z[5]<<63
+	z[5] >>= 1
+
 }
 
 // API with assembly impl
@@ -893,22 +930,11 @@ func (z *Element) SetString(s string) *Element {
 	return z
 }
 
-var (
-	_bLegendreExponentElement *big.Int
-	_bSqrtExponentElement     *big.Int
-)
-
-func init() {
-	_bLegendreExponentElement, _ = new(big.Int).SetString("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555", 16)
-	const sqrtExponentElement = "680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab"
-	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
-}
-
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.Exp(*z, _bLegendreExponentElement)
+	l.expByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -928,7 +954,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// q ≡ 3 (mod 4)
 	// using  z ≡ ± x^((p+1)/4) (mod q)
 	var y, square Element
-	y.Exp(*x, _bSqrtExponentElement)
+	y.expBySqrtExp(*x)
 	// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
 	square.Square(&y)
 	if square.Equal(x) {

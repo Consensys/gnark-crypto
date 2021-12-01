@@ -70,6 +70,17 @@ func init() {
 	_modulus.SetString("{{.Modulus}}", 10)
 }
 
+// New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
+// 
+// it is equivalent to 
+// 		var v New{{.ElementName}}
+// 		v.SetUint64(...)
+func New{{.ElementName}}(v uint64) {{.ElementName}} {
+	z := {{.ElementName}}{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
+
 
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
@@ -227,6 +238,21 @@ func One() {{.ElementName}} {
 	var one {{.ElementName}}
 	one.SetOne()
 	return one
+}
+
+// Halve sets z to z / 2 (mod p) 
+func (z *{{.ElementName}}) Halve()  {
+	{{- if .NoCarry}}
+		if z[0]&1 == 1 {
+			var carry uint64
+			{{ template "add_q" dict "all" . "V1" "z" }}
+		}
+		{{ rsh "z" .NbWords}}
+	{{ else}}
+		var twoInv {{.ElementName}}
+		twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
+		z.Mul(z, &twoInv)
+	{{end}}
 }
 
 
@@ -485,5 +511,8 @@ func (z *{{.ElementName}}) BitLen() int {
 	{{- end}}
 	return bits.Len64(z[0])
 }
+
+
+
 
 `

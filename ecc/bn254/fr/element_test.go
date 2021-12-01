@@ -18,6 +18,7 @@ package fr
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"math/bits"
 	"testing"
@@ -173,7 +174,8 @@ func BenchmarkElementSquare(b *testing.B) {
 
 func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sqrt(&a)
@@ -1698,6 +1700,83 @@ func TestElementNeg(t *testing.T) {
 		specialValueTest()
 		supportAdx = true
 	}
+}
+
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000", 16)
+	const sqrtExponentElement = "183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementHalve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	var twoInv Element
+	twoInv.SetUint64(2)
+	twoInv.Inverse(&twoInv)
+
+	properties.Property("z.Halve must match z / 2", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.Halve()
+			d.Mul(&d, &twoInv)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementFromMont(t *testing.T) {

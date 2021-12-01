@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"math/bits"
 	"testing"
+	{{if .UseAddChain}}	"fmt" {{ end }}
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -164,7 +165,8 @@ func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	var a {{.ElementName}}
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sqrt(&a)
@@ -182,8 +184,6 @@ func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
 		benchRes{{.ElementName}}.Mul(&benchRes{{.ElementName}}, &x)
 	}
 }
-
-
 
 func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	x := {{.ElementName}}{
@@ -959,6 +959,99 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 {{ end }}
 
+{{ if .UseAddChain}}
+func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponent{{.ElementName}} *big.Int
+		_bSqrtExponent{{.ElementName}} *big.Int
+	)
+
+	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
+	{{- if .SqrtQ3Mod4}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
+	{{- else if .SqrtAtkin}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtAtkinExponent}}"
+	{{- else if .SqrtTonelliShanks}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtSMinusOneOver2}}"
+	{{- end }}
+	_bSqrtExponent{{.ElementName}}, _ = new(big.Int).SetString(sqrtExponent{{.ElementName}}, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponent{{.ElementName}}), prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+{{ end }}
+
+
+
+
+
+func Test{{toTitle .ElementName}}Halve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	var twoInv {{.ElementName}}
+	twoInv.SetUint64(2)
+	twoInv.Inverse(&twoInv)
+
+	properties.Property("z.Halve must match z / 2", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.Halve()
+			d.Mul(&d, &twoInv)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
 
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
@@ -1091,6 +1184,10 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
+
+
+
+
 
 
 `

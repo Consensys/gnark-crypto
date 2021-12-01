@@ -103,6 +103,17 @@ func init() {
 	_modulus.SetString("6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299", 10)
 }
 
+// NewElement returns a new Element from a uint64 value
+//
+// it is equivalent to
+// 		var v NewElement
+// 		v.SetUint64(...)
+func NewElement(v uint64) Element {
+	z := Element{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
+
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *Element) SetUint64(v uint64) *Element {
 	*z = Element{v}
@@ -367,6 +378,44 @@ func One() Element {
 	var one Element
 	one.SetOne()
 	return one
+}
+
+// Halve sets z to z / 2 (mod p)
+func (z *Element) Halve() {
+	if z[0]&1 == 1 {
+		var carry uint64
+
+		// z = z + q
+		z[0], carry = bits.Add64(z[0], 17626244516597989515, 0)
+		z[1], carry = bits.Add64(z[1], 16614129118623039618, carry)
+		z[2], carry = bits.Add64(z[2], 1588918198704579639, carry)
+		z[3], carry = bits.Add64(z[3], 10998096788944562424, carry)
+		z[4], carry = bits.Add64(z[4], 8204665564953313070, carry)
+		z[5], carry = bits.Add64(z[5], 9694500593442880912, carry)
+		z[6], carry = bits.Add64(z[6], 274362232328168196, carry)
+		z[7], carry = bits.Add64(z[7], 8105254717682411801, carry)
+		z[8], carry = bits.Add64(z[8], 5945444129596489281, carry)
+		z[9], carry = bits.Add64(z[9], 13341377791855249032, carry)
+		z[10], carry = bits.Add64(z[10], 15098257552581525310, carry)
+		z[11], _ = bits.Add64(z[11], 81882988782276106, carry)
+
+	}
+
+	// z = z >> 1
+
+	z[0] = z[0]>>1 | z[1]<<63
+	z[1] = z[1]>>1 | z[2]<<63
+	z[2] = z[2]>>1 | z[3]<<63
+	z[3] = z[3]>>1 | z[4]<<63
+	z[4] = z[4]>>1 | z[5]<<63
+	z[5] = z[5]>>1 | z[6]<<63
+	z[6] = z[6]>>1 | z[7]<<63
+	z[7] = z[7]>>1 | z[8]<<63
+	z[8] = z[8]>>1 | z[9]<<63
+	z[9] = z[9]>>1 | z[10]<<63
+	z[10] = z[10]>>1 | z[11]<<63
+	z[11] >>= 1
+
 }
 
 // API with assembly impl
@@ -1445,22 +1494,11 @@ func (z *Element) SetString(s string) *Element {
 	return z
 }
 
-var (
-	_bLegendreExponentElement *big.Int
-	_bSqrtExponentElement     *big.Int
-)
-
-func init() {
-	_bLegendreExponentElement, _ = new(big.Int).SetString("9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045", 16)
-	const sqrtExponentElement = "48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023"
-	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
-}
-
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.Exp(*z, _bLegendreExponentElement)
+	l.expByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -1480,7 +1518,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// q ≡ 3 (mod 4)
 	// using  z ≡ ± x^((p+1)/4) (mod q)
 	var y, square Element
-	y.Exp(*x, _bSqrtExponentElement)
+	y.expBySqrtExp(*x)
 	// as we didn't compute the legendre symbol, ensure we found y such that y * y = x
 	square.Square(&y)
 	if square.Equal(x) {

@@ -1,3 +1,43 @@
+<a name="v0.5.3"></a>
+## [v0.5.3] - 2021-10-30
+
+### Feat, perf
+- all curves: subgroup check optional in decoder (default = true), and is done in parallel when unmarshalling slices of points [#96](https://github.com/ConsenSys/gnark-crypto/issues/96)
+- **bn254:** faster G2 membership test [#95](https://github.com/ConsenSys/gnark-crypto/issues/95)
+- added element.NewElement(v uint64) convenient API 
+
+### Fix
+- **fp12:** compressed cyclotomic square (receiver == argument)
+
+
+<a name="v0.5.2"></a>
+## [v0.5.2] - 2021-10-26
+
+### Feat
+- **bw6:** optimal Tate Miller loop with shared computations
+- **bw6-761:** opt. ate with shared squares and shared doublings (alg.2)
+- add bandersnatch curve (twistedEdwards on bls12-381 with GLV)
+- added curveID.Info() which returns constants about a curve
+- added element.Halve()
+
+### Fix
+- **all twistedEdwards:** fix Add() in projective coordinates (issue 89)
+- **fiat-shamir:** added test to ensure len(challenge) > 0
+
+### Perf
+- **bn:** multiply ML external lines 2 by 2 (+multi-ML bench)
+
+### Refactor
+- **templates:** unify twistedEdwards package across curves
+
+### Pull Requests
+- Merge pull request [#93](https://github.com/ConsenSys/gnark-crypto/issues/93) from ConsenSys/bandersnatch
+- Merge pull request [#90](https://github.com/ConsenSys/gnark-crypto/issues/90) from ConsenSys/fix/tEdwards-addProj-issue89
+- Merge pull request [#82](https://github.com/ConsenSys/gnark-crypto/issues/82) from ConsenSys/perf/bn254-ML
+- Merge pull request [#88](https://github.com/ConsenSys/gnark-crypto/issues/88) from ConsenSys/issue-87/twistedEdwards
+- Merge pull request [#81](https://github.com/ConsenSys/gnark-crypto/issues/81) from ConsenSys/ML/DoubleStep-Halve
+- Merge pull request [#77](https://github.com/ConsenSys/gnark-crypto/issues/77) from ConsenSys/BW6
+
 <a name="v0.5.1"></a>
 ## [v0.5.1] - 2021-09-21
 

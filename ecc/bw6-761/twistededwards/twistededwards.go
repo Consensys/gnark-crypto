@@ -1,3 +1,19 @@
+/*
+Copyright © 2020 ConsenSys
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package twistededwards
 
 import (
@@ -39,4 +55,9 @@ func init() {
 
 	edwards.Base.X.SetString("109887223397525145051017418760180386187632078445902299543670312117371514695798874370143656894667315818446285582389")
 	edwards.Base.Y.SetString("31146823455109675839494591101665406662142618451815824757336761504421066243585705807124836638254810186490790034654")
+}
+
+// mulByA multiplies fr.Element by edwards.A
+func mulByA(x *fr.Element) {
+	x.Neg(x)
 }

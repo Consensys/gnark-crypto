@@ -26,6 +26,12 @@ limitations under the License.
 //	* EdDSA (on the "companion" twisted edwards curves)
 package ecc
 
+import (
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/internal/generator/config"
+)
+
 // ID represent a unique ID for a curve
 type ID uint16
 
@@ -46,6 +52,7 @@ func Implemented() []ID {
 }
 
 func (id ID) String() string {
+	// TODO link with config.XXX.Name ?
 	switch id {
 	case BLS12_377:
 		return "bls12_377"
@@ -62,6 +69,48 @@ func (id ID) String() string {
 	default:
 		panic("unimplemented ecc ID")
 	}
+}
+
+// Info returns constants related to a curve
+func (id ID) Info() Info {
+	// note to avoid circular dependency these are hard coded
+	// values are checked for non regression in code generation
+	switch id {
+	case BLS12_377:
+		return newInfo(&config.BLS12_377)
+	case BLS12_381:
+		return newInfo(&config.BLS12_381)
+	case BN254:
+		return newInfo(&config.BN254)
+	case BW6_761:
+		return newInfo(&config.BW6_761)
+	case BW6_633:
+		return newInfo(&config.BW6_633)
+	case BLS24_315:
+		return newInfo(&config.BLS24_315)
+	default:
+		panic("unimplemented ecc ID")
+	}
+}
+
+func newInfo(c *config.Curve) Info {
+	return Info{
+		Fp: config.Field{
+			Bits:    c.FpInfo.Bits,
+			Bytes:   c.FpInfo.Bytes,
+			Modulus: func() *big.Int { return new(big.Int).Set(c.FpInfo.Modulus()) },
+		},
+		Fr: config.Field{
+			Bits:    c.FrInfo.Bits,
+			Bytes:   c.FrInfo.Bytes,
+			Modulus: func() *big.Int { return new(big.Int).Set(c.FrInfo.Modulus()) },
+		},
+	}
+}
+
+// Info contains constants related to a curve
+type Info struct {
+	Fp, Fr config.Field
 }
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp

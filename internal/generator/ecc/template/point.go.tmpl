@@ -147,7 +147,7 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 
@@ -402,20 +402,15 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		}
 	{{else if eq .PointName "g2"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-		// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
-		// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
-		// polynomials in x, a short vector of this Zmodule is
-		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
-		// is the infinity.
+        // [r]P == 0 <==> Frob(P) == [6x^2]P
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+            var a, res G2Jac
+            a.X.Conjugate(&p.X).MulByNonResidue1Power2(&a.X)
+            a.Y.Conjugate(&p.Y).MulByNonResidue1Power3(&a.Y)
+            a.Z.Conjugate(&p.Z)
 
-			var res, xphip, phip {{ $TJacobian }}
-			phip.phi(p)
-			xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
-			res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
-			res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
-			res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
-			res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+            res.ScalarMultiplication(p, &fixedCoeff).
+                SubAssign(&a)
 
 			return res.IsOnCurve() && res.Z.IsZero()
 
@@ -597,7 +592,6 @@ func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	var table [15]{{ $TJacobian }}
-	var zero big.Int
 	var res {{ $TJacobian }}
 	var k1, k2 fr.Element
 
@@ -610,11 +604,11 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}

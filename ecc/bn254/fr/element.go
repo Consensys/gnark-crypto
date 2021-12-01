@@ -87,6 +87,17 @@ func init() {
 	_modulus.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
 }
 
+// NewElement returns a new Element from a uint64 value
+//
+// it is equivalent to
+// 		var v NewElement
+// 		v.SetUint64(...)
+func NewElement(v uint64) Element {
+	z := Element{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
+
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 func (z *Element) SetUint64(v uint64) *Element {
 	*z = Element{v}
@@ -263,6 +274,28 @@ func One() Element {
 	var one Element
 	one.SetOne()
 	return one
+}
+
+// Halve sets z to z / 2 (mod p)
+func (z *Element) Halve() {
+	if z[0]&1 == 1 {
+		var carry uint64
+
+		// z = z + q
+		z[0], carry = bits.Add64(z[0], 4891460686036598785, 0)
+		z[1], carry = bits.Add64(z[1], 2896914383306846353, carry)
+		z[2], carry = bits.Add64(z[2], 13281191951274694749, carry)
+		z[3], _ = bits.Add64(z[3], 3486998266802970665, carry)
+
+	}
+
+	// z = z >> 1
+
+	z[0] = z[0]>>1 | z[1]<<63
+	z[1] = z[1]>>1 | z[2]<<63
+	z[2] = z[2]>>1 | z[3]<<63
+	z[3] >>= 1
+
 }
 
 // API with assembly impl
@@ -757,22 +790,11 @@ func (z *Element) SetString(s string) *Element {
 	return z
 }
 
-var (
-	_bLegendreExponentElement *big.Int
-	_bSqrtExponentElement     *big.Int
-)
-
-func init() {
-	_bLegendreExponentElement, _ = new(big.Int).SetString("183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000", 16)
-	const sqrtExponentElement = "183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f"
-	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
-}
-
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.Exp(*z, _bLegendreExponentElement)
+	l.expByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -795,7 +817,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.Exp(*x, _bSqrtExponentElement)
+	w.expBySqrtExp(*x)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)

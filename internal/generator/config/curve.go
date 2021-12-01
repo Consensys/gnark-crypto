@@ -1,7 +1,8 @@
 package config
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/field"
 )
 
@@ -17,27 +18,20 @@ type Curve struct {
 	Fp           *field.Field
 	Fr           *field.Field
 	FpUnusedBits int
-	G1           Point
-	G2           Point
+
+	FpInfo, FrInfo Field
+	G1             Point
+	G2             Point
 }
 
-func (c *Curve) ID() ecc.ID {
-	switch c.Name {
-	case "bn254":
-		return ecc.BN254
-	case "bls12-381":
-		return ecc.BLS12_381
-	case "bls12-377":
-		return ecc.BLS12_377
-	case "bw6-761":
-		return ecc.BW6_761
-	case "bw6-633":
-		return ecc.BW6_633
-	case "bls24-315":
-		return ecc.BLS24_315
-	default:
-		panic("not implemented")
-	}
+type Field struct {
+	Bits    int
+	Bytes   int
+	Modulus func() *big.Int
+}
+
+func (c Curve) Equal(other Curve) bool {
+	return c.Name == other.Name
 }
 
 type Point struct {
@@ -54,4 +48,24 @@ var Curves []Curve
 func defaultCRange() []int {
 	// default range for C values in the multiExp
 	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
+}
+
+func addCurve(c Curve) {
+	// init FpInfo and FrInfo
+	c.FpInfo = newFieldInfo(c.FpModulus)
+	c.FrInfo = newFieldInfo(c.FrModulus)
+	Curves = append(Curves, c)
+}
+
+func newFieldInfo(modulus string) Field {
+	var F Field
+	var bModulus big.Int
+	if _, ok := bModulus.SetString(modulus, 10); !ok {
+		panic("invalid modulus " + modulus)
+	}
+
+	F.Bits = bModulus.BitLen()
+	F.Bytes = len(bModulus.Bits()) * 8
+	F.Modulus = func() *big.Int { return new(big.Int).Set(&bModulus) }
+	return F
 }

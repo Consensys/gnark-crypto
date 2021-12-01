@@ -18,6 +18,7 @@ package fp
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"math/bits"
 	"testing"
@@ -173,7 +174,8 @@ func BenchmarkElementSquare(b *testing.B) {
 
 func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sqrt(&a)
@@ -1710,6 +1712,83 @@ func TestElementNeg(t *testing.T) {
 		specialValueTest()
 		supportAdx = true
 	}
+}
+
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("93319e6079afb1fe0d0ba780eb955ad47e6c63aebce963a72cbb4d6cdded17c0a953607d6f52485c6d4faf41fabe24bf07442876ded203ebdae73d5c1ce1129e9b4de988a3fb9e6ba48b7522b80006", 16)
+	const sqrtExponentElement = "24cc67981e6bec7f8342e9e03ae556b51f9b18ebaf3a58e9cb2ed35b377b45f02a54d81f5bd492171b53ebd07eaf892fc1d10a1db7b480faf6b9cf57073844a7a6d37a6228fee79ae922dd48ae0001"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(93319e6079afb1fe0d0ba780eb955ad47e6c63aebce963a72cbb4d6cdded17c0a953607d6f52485c6d4faf41fabe24bf07442876ded203ebdae73d5c1ce1129e9b4de988a3fb9e6ba48b7522b80006)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementHalve(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	var twoInv Element
+	twoInv.SetUint64(2)
+	twoInv.Inverse(&twoInv)
+
+	properties.Property("z.Halve must match z / 2", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.Halve()
+			d.Mul(&d, &twoInv)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementFromMont(t *testing.T) {
