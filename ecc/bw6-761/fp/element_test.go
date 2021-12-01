@@ -2142,7 +2142,7 @@ func TestMonReduceNeg(t *testing.T) {
 }
 
 func TestMontNegMultipleOfR(t *testing.T) {
-	zero := Element{0, 0, 0, 0}
+	var zero Element
 
 	for i := 0; i < 1000; i++ {
 		testMontReduceSigned(t, &zero, mrand.Uint64()|signBitSelector)

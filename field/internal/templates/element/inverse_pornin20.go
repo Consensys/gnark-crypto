@@ -73,7 +73,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	}
 
 	var a = *x
-	var b = qElement
+	var b = q{{.ElementName}}
 	var u = {{.ElementName}}{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
@@ -215,12 +215,12 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-	C = madd0(m, qElement[0], x[0])
+	C = madd0(m, q{{.ElementName}}[0], x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
-	C, t[{{$i}}] = madd2(m, qElement[{{$i}}], x[{{$i}}], C)
+	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}[{{$i}}], x[{{$i}}], C)
 	{{- end}}
 
-	// the high word of m * qElement[{{.NbWordsLastIndex}}] is at most 62 bits
+	// the high word of m * q{{.ElementName}}[{{.NbWordsLastIndex}}] is at most 62 bits
 	// x[{{.NbWordsLastIndex}}] + C is at most 65 bits (high word at most 1 bit)
 	// Thus the resulting C will be at most 63 bits
 	t[{{.NbWords}}] = xHi + C
@@ -232,11 +232,11 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
+		//TODO: Is it better to hard-code the values of q{{$.ElementName}} as the "reduce" template does?
+		C = madd0(m, q{{$.ElementName}}[0], t[i+0])
 
 		{{- range $j := $NbWordsIndexesNoZeroInnerLoop}}
-		C, t[i + {{$j}}] = madd2(m, qElement[{{$j}}], t[i +  {{$j}}], C)
+		C, t[i + {{$j}}] = madd2(m, q{{$.ElementName}}[{{$j}}], t[i +  {{$j}}], C)
 		{{- end}}
 
 		t[i + Limbs] += C
@@ -246,11 +246,11 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{.NbWordsLastIndex}}
 		m := t[i] * qInvNegLsw
 
-		C = madd0(m, qElement[0], t[i+0])
+		C = madd0(m, q{{.ElementName}}[0], t[i+0])
 		{{- range $j := $.NbWordsIndexesNoZeroNoLast}}
-		C, z[{{sub $j 1}}] = madd2(m, qElement[{{$j}}], t[i+{{$j}}], C)
+		C, z[{{sub $j 1}}] = madd2(m, q{{$.ElementName}}[{{$j}}], t[i+{{$j}}], C)
 		{{- end}}
-		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, qElement[{{.NbWordsLastIndex}}], t[i+{{.NbWordsLastIndex}}], C)
+		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}[{{.NbWordsLastIndex}}], t[i+{{.NbWordsLastIndex}}], C)
 	}
 
     {{ template "reduce" . }}
@@ -290,7 +290,7 @@ func (z *{{.ElementName}}) mulWSigned(x *{{.ElementName}}, y int64) {
 
 // regular multiplication by one word regular (non montgomery)
 // Fewer additions than the branch-free for positive y. Could be faster on some architectures
-func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+func (z *{{.ElementName}}) mulWRegularBr(x *{{.ElementName}}, y int64) uint64 {
 
 	// w := abs(y)
 	m := y >> 63
