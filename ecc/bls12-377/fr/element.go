@@ -1355,12 +1355,34 @@ func (z *Element) mulWSigned(x *Element, y int64) {
 	}
 }
 
+// regular multiplication by one word regular (non montgomery)
+// Fewer additions than the branch-free for positive y. Could be faster on some architectures
+func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+
+	// w := abs(y)
+	m := y >> 63
+	w := uint64((y ^ m) - m)
+
+	var c uint64
+	c, z[0] = bits.Mul64(x[0], w)
+	c, z[1] = madd1(x[1], w, c)
+	c, z[2] = madd1(x[2], w, c)
+	c, z[3] = madd1(x[3], w, c)
+
+	if y < 0 {
+		c = z.neg(z, c)
+	}
+
+	return c
+}
+
 func (z *Element) neg(x *Element, xHi uint64) uint64 {
 	b := uint64(0)
+
 	z[0], b = bits.Sub64(0, x[0], 0)
-	z[1], b = bits.Sub64(0, x[1], 0)
-	z[2], b = bits.Sub64(0, x[2], 0)
-	z[3], b = bits.Sub64(0, x[3], 0)
+	z[1], b = bits.Sub64(0, x[1], b)
+	z[2], b = bits.Sub64(0, x[2], b)
+	z[3], b = bits.Sub64(0, x[3], b)
 	xHi, _ = bits.Sub64(0, xHi, b)
 
 	return xHi
