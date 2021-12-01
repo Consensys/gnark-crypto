@@ -48,10 +48,17 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+{{- range $i := $.NbWordsIndexesFull}}
+const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+{{- end}}
+
 var q{{.ElementName}} = {{.ElementName}}{
-	{{- range $i := .NbWordsIndexesFull}}
-	{{index $.Q $i}},{{end}}
+	{{- range $i := $.NbWordsIndexesFull}}
+	q{{$.ElementName}}Word{{$i}},{{end}}
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 // rSquare
 var rSquare = {{.ElementName}}{

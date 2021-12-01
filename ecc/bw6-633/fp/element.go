@@ -62,18 +62,32 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+const qElementWord0 uint64 = 15512955586897510413
+const qElementWord1 uint64 = 4410884215886313276
+const qElementWord2 uint64 = 15543556715411259941
+const qElementWord3 uint64 = 9083347379620258823
+const qElementWord4 uint64 = 13320134076191308873
+const qElementWord5 uint64 = 9318693926755804304
+const qElementWord6 uint64 = 5645674015335635503
+const qElementWord7 uint64 = 12176845843281334983
+const qElementWord8 uint64 = 18165857675053050549
+const qElementWord9 uint64 = 82862755739295587
+
 var qElement = Element{
-	15512955586897510413,
-	4410884215886313276,
-	15543556715411259941,
-	9083347379620258823,
-	13320134076191308873,
-	9318693926755804304,
-	5645674015335635503,
-	12176845843281334983,
-	18165857675053050549,
-	82862755739295587,
+	qElementWord0,
+	qElementWord1,
+	qElementWord2,
+	qElementWord3,
+	qElementWord4,
+	qElementWord5,
+	qElementWord6,
+	qElementWord7,
+	qElementWord8,
+	qElementWord9,
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = 13046692460116554043
 
 // rSquare
 var rSquare = Element{
@@ -1568,3 +1582,658 @@ func (z *Element) Inverse(x *Element) *Element {
 	}
 
 }
+<<<<<<< Updated upstream
+=======
+
+func max(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+//Though we're defining k as a constant, this code "profoundly" assumes that the processor is 64 bit
+const k = 32 // word size / 2
+const signBitSelector = uint64(1) << 63
+const approxLowBitsN = k - 1
+const approxHighBitsN = k + 1
+
+func approximate(x *Element, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 //k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (n - 1) / 64
+
+	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
+}
+
+var inversionCorrectionFactor = Element{
+	5560239329802694238,
+	14810083042945592156,
+	13996105365020929363,
+	16814612106760937943,
+	1318203285276099376,
+	6939004051788286991,
+	3973172646711533965,
+	10284588750314071901,
+	18291944773537918915,
+	56564220321537074,
+}
+
+func (z *Element) Inverse(x *Element) *Element {
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	a := *x
+	b := Element{
+		15512955586897510413,
+		4410884215886313276,
+		15543556715411259941,
+		9083347379620258823,
+		13320134076191308873,
+		9318693926755804304,
+		5645674015335635503,
+		12176845843281334983,
+		18165857675053050549,
+		82862755739295587,
+	} // b := q
+
+	u := Element{1}
+
+	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
+	var f0, g0, f1, g1 int64
+
+	//Saved update factors to reduce the number of field multiplications
+	var pf0, pg0, pf1, pg1 int64
+
+	var i uint
+
+	var v, s Element
+
+	const iterationN = 2 * ((2*Bits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
+
+	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
+	//This also lets us get away with half as many updates to u,v
+	//To make this constant-time-ish, replace the condition with i < iterationN
+	for i = 0; i&1 == 1 || !a.IsZero(); i++ {
+		n := max(a.BitLen(), b.BitLen())
+		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
+
+		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
+		f0, g0, f1, g1 = 1, 0, 0, 1
+
+		for j := 0; j < approxLowBitsN; j++ {
+
+			if aApprox&1 == 0 {
+				aApprox /= 2
+			} else {
+				s, borrow := bits.Sub64(aApprox, bApprox, 0)
+				if borrow == 1 {
+					s = bApprox - aApprox
+					bApprox = aApprox
+					f0, f1 = f1, f0
+					g0, g1 = g1, g0
+				}
+
+				aApprox = s / 2
+				f0 -= f1
+				g0 -= g1
+
+				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
+				//|f₁| ≤ 2ʲ still
+			}
+
+			f1 *= 2
+			g1 *= 2
+			//|f₁| ≤ 2ʲ⁺¹
+		}
+
+		s = a
+		aHi := a.linearCombNonModular(&s, f0, &b, g0)
+		if aHi&signBitSelector != 0 {
+			// if aHi < 0
+			f0, g0 = -f0, -g0
+			aHi = a.neg(&a, aHi)
+		}
+		//right-shift a by k-1 bits
+		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
+		a[1] = (a[1] >> approxLowBitsN) | ((a[2]) << approxHighBitsN)
+		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
+		a[3] = (a[3] >> approxLowBitsN) | ((a[4]) << approxHighBitsN)
+		a[4] = (a[4] >> approxLowBitsN) | ((a[5]) << approxHighBitsN)
+		a[5] = (a[5] >> approxLowBitsN) | ((a[6]) << approxHighBitsN)
+		a[6] = (a[6] >> approxLowBitsN) | ((a[7]) << approxHighBitsN)
+		a[7] = (a[7] >> approxLowBitsN) | ((a[8]) << approxHighBitsN)
+		a[8] = (a[8] >> approxLowBitsN) | ((a[9]) << approxHighBitsN)
+		a[9] = (a[9] >> approxLowBitsN) | (aHi << approxHighBitsN)
+
+		bHi := b.linearCombNonModular(&s, f1, &b, g1)
+		if bHi&signBitSelector != 0 {
+			// if bHi < 0
+			f1, g1 = -f1, -g1
+			bHi = b.neg(&b, bHi)
+		}
+		//right-shift b by k-1 bits
+		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
+		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
+		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
+		b[3] = (b[3] >> approxLowBitsN) | ((b[4]) << approxHighBitsN)
+		b[4] = (b[4] >> approxLowBitsN) | ((b[5]) << approxHighBitsN)
+		b[5] = (b[5] >> approxLowBitsN) | ((b[6]) << approxHighBitsN)
+		b[6] = (b[6] >> approxLowBitsN) | ((b[7]) << approxHighBitsN)
+		b[7] = (b[7] >> approxLowBitsN) | ((b[8]) << approxHighBitsN)
+		b[8] = (b[8] >> approxLowBitsN) | ((b[9]) << approxHighBitsN)
+		b[9] = (b[9] >> approxLowBitsN) | (bHi << approxHighBitsN)
+
+		if i&1 == 1 {
+			//Combine current update factors with previously stored ones
+			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
+			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
+			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
+			// Which leaves us with an extra bit for the sign
+			f0, g0, f1, g1 = f0*pf0+g0*pf1,
+				f0*pg0+g0*pg1,
+				f1*pf0+g1*pf1,
+				f1*pg0+g1*pg1
+
+			s = u
+			u.linearCombSosSigned(&u, f0, &v, g0)
+			v.linearCombSosSigned(&s, f1, &v, g1)
+
+		} else {
+			//Save update factors
+			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
+		}
+	}
+
+	if i > iterationN {
+		panic("more iterations than expected")
+	}
+
+	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
+	const pSq int64 = 1 << (2 * (k - 1))
+	//If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
+	for ; i < iterationN; i += 2 {
+		v.mulWSigned(&v, pSq)
+	}
+
+	z.Mul(&v, &inversionCorrectionFactor)
+	return z
+}
+
+func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
+	hi := z.linearCombNonModular(x, xC, y, yC)
+	z.montReduceSigned(z, hi)
+}
+
+//montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+
+	const signBitRemover = ^signBitSelector
+	neg := xHi&signBitSelector != 0
+	//the SOS implementation requires that most significant bit is 0
+	// Let X be xHi*r + x
+	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
+	xHi &= signBitRemover
+	// with this a negative X is now represented as 2⁶³ r + X
+
+	var t [2*Limbs - 1]uint64
+	var C uint64
+
+	m := x[0] * qInvNegLsw
+
+	C = madd0(m, qElementWord0, x[0])
+	C, t[1] = madd2(m, qElementWord1, x[1], C)
+	C, t[2] = madd2(m, qElementWord2, x[2], C)
+	C, t[3] = madd2(m, qElementWord3, x[3], C)
+	C, t[4] = madd2(m, qElementWord4, x[4], C)
+	C, t[5] = madd2(m, qElementWord5, x[5], C)
+	C, t[6] = madd2(m, qElementWord6, x[6], C)
+	C, t[7] = madd2(m, qElementWord7, x[7], C)
+	C, t[8] = madd2(m, qElementWord8, x[8], C)
+	C, t[9] = madd2(m, qElementWord9, x[9], C)
+
+	// the high word of m * qElement[9] is at most 62 bits
+	// x[9] + C is at most 65 bits (high word at most 1 bit)
+	// Thus the resulting C will be at most 63 bits
+	t[10] = xHi + C
+	// xHi and C are 63 bits, therefore no overflow
+
+	{
+		const i = 1
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 2
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 3
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 4
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 5
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 6
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 7
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 8
+		m = t[i] * qInvNegLsw
+
+		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
+		C = madd0(m, 15512955586897510413, t[i+0])
+		C, t[i+1] = madd2(m, 4410884215886313276, t[i+1], C)
+		C, t[i+2] = madd2(m, 15543556715411259941, t[i+2], C)
+		C, t[i+3] = madd2(m, 9083347379620258823, t[i+3], C)
+		C, t[i+4] = madd2(m, 13320134076191308873, t[i+4], C)
+		C, t[i+5] = madd2(m, 9318693926755804304, t[i+5], C)
+		C, t[i+6] = madd2(m, 5645674015335635503, t[i+6], C)
+		C, t[i+7] = madd2(m, 12176845843281334983, t[i+7], C)
+		C, t[i+8] = madd2(m, 18165857675053050549, t[i+8], C)
+		C, t[i+9] = madd2(m, 82862755739295587, t[i+9], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 9
+		m := t[i] * qInvNegLsw
+
+		C = madd0(m, qElementWord0, t[i+0])
+		C, z[0] = madd2(m, qElementWord1, t[i+1], C)
+		C, z[1] = madd2(m, qElementWord2, t[i+2], C)
+		C, z[2] = madd2(m, qElementWord3, t[i+3], C)
+		C, z[3] = madd2(m, qElementWord4, t[i+4], C)
+		C, z[4] = madd2(m, qElementWord5, t[i+5], C)
+		C, z[5] = madd2(m, qElementWord6, t[i+6], C)
+		C, z[6] = madd2(m, qElementWord7, t[i+7], C)
+		C, z[7] = madd2(m, qElementWord8, t[i+8], C)
+		z[9], z[8] = madd2(m, qElementWord9, t[i+9], C)
+	}
+
+	// if z > q --> z -= q
+	// note: this is NOT constant time
+	if !(z[9] < 82862755739295587 || (z[9] == 82862755739295587 && (z[8] < 18165857675053050549 || (z[8] == 18165857675053050549 && (z[7] < 12176845843281334983 || (z[7] == 12176845843281334983 && (z[6] < 5645674015335635503 || (z[6] == 5645674015335635503 && (z[5] < 9318693926755804304 || (z[5] == 9318693926755804304 && (z[4] < 13320134076191308873 || (z[4] == 13320134076191308873 && (z[3] < 9083347379620258823 || (z[3] == 9083347379620258823 && (z[2] < 15543556715411259941 || (z[2] == 15543556715411259941 && (z[1] < 4410884215886313276 || (z[1] == 4410884215886313276 && (z[0] < 15512955586897510413))))))))))))))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 15512955586897510413, 0)
+		z[1], b = bits.Sub64(z[1], 4410884215886313276, b)
+		z[2], b = bits.Sub64(z[2], 15543556715411259941, b)
+		z[3], b = bits.Sub64(z[3], 9083347379620258823, b)
+		z[4], b = bits.Sub64(z[4], 13320134076191308873, b)
+		z[5], b = bits.Sub64(z[5], 9318693926755804304, b)
+		z[6], b = bits.Sub64(z[6], 5645674015335635503, b)
+		z[7], b = bits.Sub64(z[7], 12176845843281334983, b)
+		z[8], b = bits.Sub64(z[8], 18165857675053050549, b)
+		z[9], _ = bits.Sub64(z[9], 82862755739295587, b)
+	}
+	if neg {
+		//We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
+		var b uint64
+		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+		z[4], b = bits.Sub64(z[4], 0, b)
+		z[5], b = bits.Sub64(z[5], 0, b)
+		z[6], b = bits.Sub64(z[6], 0, b)
+		z[7], b = bits.Sub64(z[7], 0, b)
+		z[8], b = bits.Sub64(z[8], 0, b)
+		z[9], b = bits.Sub64(z[9], 0, b)
+
+		//Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+		if b != 0 {
+			// z[9] = -1
+			//negative: add q
+			const neg1 = 0xFFFFFFFFFFFFFFFF
+
+			b = 0
+			z[0], b = bits.Add64(z[0], qElementWord0, b)
+			z[1], b = bits.Add64(z[1], qElementWord1, b)
+			z[2], b = bits.Add64(z[2], qElementWord2, b)
+			z[3], b = bits.Add64(z[3], qElementWord3, b)
+			z[4], b = bits.Add64(z[4], qElementWord4, b)
+			z[5], b = bits.Add64(z[5], qElementWord5, b)
+			z[6], b = bits.Add64(z[6], qElementWord6, b)
+			z[7], b = bits.Add64(z[7], qElementWord7, b)
+			z[8], b = bits.Add64(z[8], qElementWord8, b)
+			z[9], _ = bits.Add64(neg1, qElementWord9, b)
+		}
+	}
+}
+
+// mulWSigned mul word signed (w/ montgomery reduction)
+func (z *Element) mulWSigned(x *Element, y int64) {
+	m := y >> 63
+	_mulWGeneric(z, x, uint64((y^m)-m))
+	//multiply by abs(y)
+	if y < 0 {
+		z.Neg(z)
+	}
+}
+
+// regular multiplication by one word regular (non montgomery)
+// Fewer additions than the branch-free for positive y. Could be faster on some architectures
+func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+
+	// w := abs(y)
+	m := y >> 63
+	w := uint64((y ^ m) - m)
+
+	var c uint64
+	c, z[0] = bits.Mul64(x[0], w)
+	c, z[1] = madd1(x[1], w, c)
+	c, z[2] = madd1(x[2], w, c)
+	c, z[3] = madd1(x[3], w, c)
+	c, z[4] = madd1(x[4], w, c)
+	c, z[5] = madd1(x[5], w, c)
+	c, z[6] = madd1(x[6], w, c)
+	c, z[7] = madd1(x[7], w, c)
+	c, z[8] = madd1(x[8], w, c)
+	c, z[9] = madd1(x[9], w, c)
+
+	if y < 0 {
+		c = z.neg(z, c)
+	}
+
+	return c
+}
+
+func (z *Element) neg(x *Element, xHi uint64) uint64 {
+	b := uint64(0)
+
+	z[0], b = bits.Sub64(0, x[0], 0)
+	z[1], b = bits.Sub64(0, x[1], b)
+	z[2], b = bits.Sub64(0, x[2], b)
+	z[3], b = bits.Sub64(0, x[3], b)
+	z[4], b = bits.Sub64(0, x[4], b)
+	z[5], b = bits.Sub64(0, x[5], b)
+	z[6], b = bits.Sub64(0, x[6], b)
+	z[7], b = bits.Sub64(0, x[7], b)
+	z[8], b = bits.Sub64(0, x[8], b)
+	z[9], b = bits.Sub64(0, x[9], b)
+	xHi, _ = bits.Sub64(0, xHi, b)
+
+	return xHi
+}
+
+// mulWRegular branch-free regular multiplication by one word (non montgomery)
+func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+
+	w := uint64(y)
+	allNeg := uint64(y >> 63) // -1 if y < 0, 0 o.w
+
+	//s[0], s[1] so results are not stored immediately in z.
+	//x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
+	var s [2]uint64
+	var h [2]uint64
+
+	h[0], s[0] = bits.Mul64(x[0], w)
+
+	c := uint64(0)
+	b := uint64(0)
+
+	{
+		const curI = 1 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 1 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[1], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 2 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 2 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[2], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 3 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 3 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[3], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 4 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 4 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[4], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 5 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 5 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[5], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 6 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 6 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[6], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 7 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 7 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[7], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 8 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 8 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[8], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+
+	{
+		const curI = 9 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 9 - 1
+
+		h[curI], s[curI] = bits.Mul64(x[9], w)
+		s[curI], c = bits.Add64(s[curI], h[prevI], c)
+		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+	}
+	{
+		const curI = 10 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 9
+
+		s[curI], _ = bits.Sub64(h[prevI], allNeg&x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+
+		return s[curI] + c
+	}
+}
+
+//Requires NoCarry
+func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
+	var yTimes Element
+
+	yHi := yTimes.mulWRegular(y, yC)
+	xHi := z.mulWRegular(x, xC)
+
+	carry := uint64(0)
+	z[0], carry = bits.Add64(z[0], yTimes[0], carry)
+	z[1], carry = bits.Add64(z[1], yTimes[1], carry)
+	z[2], carry = bits.Add64(z[2], yTimes[2], carry)
+	z[3], carry = bits.Add64(z[3], yTimes[3], carry)
+	z[4], carry = bits.Add64(z[4], yTimes[4], carry)
+	z[5], carry = bits.Add64(z[5], yTimes[5], carry)
+	z[6], carry = bits.Add64(z[6], yTimes[6], carry)
+	z[7], carry = bits.Add64(z[7], yTimes[7], carry)
+	z[8], carry = bits.Add64(z[8], yTimes[8], carry)
+	z[9], carry = bits.Add64(z[9], yTimes[9], carry)
+
+	yHi, _ = bits.Add64(xHi, yHi, carry)
+
+	return yHi
+}
+>>>>>>> Stashed changes
