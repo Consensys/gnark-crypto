@@ -50,11 +50,11 @@ func defaultCRange() []int {
 	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
 }
 
-func addCurve(c Curve) {
+func addCurve(c *Curve) {
 	// init FpInfo and FrInfo
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
-	Curves = append(Curves, c)
+	Curves = append(Curves, *c)
 }
 
 func newFieldInfo(modulus string) Field {
