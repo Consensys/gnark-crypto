@@ -11,8 +11,8 @@ import (
 	"math/rand"
 	"math/big"
 	"bytes"
-	"io" 
-	
+	"io"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 
@@ -26,15 +26,15 @@ func TestEncoder(t *testing.T) {
 	// TODO need proper fuzz testing here
 
 	var inA uint64
-	var inB fr.Element 
-	var inC fp.Element 
+	var inB fr.Element
+	var inC fp.Element
 	var inD G1Affine
 	var inE G1Affine
 	var inF G2Affine
 	var inG []G1Affine
 	var inH []G2Affine
-	var inI []fp.Element 
-	var inJ []fr.Element 
+	var inI []fp.Element
+	var inJ []fr.Element
 
 	// set values of inputs
 	inA = rand.Uint64()
@@ -45,9 +45,9 @@ func TestEncoder(t *testing.T) {
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
-	inG[1] = inD 
+	inG[1] = inD
 	inI = make([]fp.Element, 3)
-	inI[2] = inD.X 
+	inI[2] = inD.X
 	inJ = make([]fr.Element, 0)
 
 
@@ -65,12 +65,12 @@ func TestEncoder(t *testing.T) {
 		}
 	}
 
-	
+
 	testDecode := func(t *testing.T, r io.Reader, n int64) {
 		dec := NewDecoder(r)
 		var outA uint64
-		var outB fr.Element 
-		var outC fp.Element 
+		var outB fr.Element
+		var outC fp.Element
 		var outD G1Affine
 		var outE G1Affine
 		outE.X.SetOne()
@@ -78,8 +78,8 @@ func TestEncoder(t *testing.T) {
 		var outF G2Affine
 		var outG []G1Affine
 		var outH []G2Affine
-		var outI []fp.Element 
-		var outJ []fr.Element 
+		var outI []fp.Element
+		var outJ []fr.Element
 
 		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ}
 		for _, v := range toDecode {
@@ -88,7 +88,7 @@ func TestEncoder(t *testing.T) {
 			}
 		}
 
-		// compare values 
+		// compare values
 		if inA != outA {
 			t.Fatal("didn't encode/decode uint64 value properly")
 		}
@@ -107,7 +107,7 @@ func TestEncoder(t *testing.T) {
 		}
 		for i:=0; i<len(inG);i++ {
 			if !inG[i].Equal(&outG[i]) {
-				t.Fatal("decode(encode(slice(points))) failed")	
+				t.Fatal("decode(encode(slice(points))) failed")
 			}
 		}
 		if (len(inI) != len(outI)) || (len(inJ) != len(outJ)) {
@@ -115,7 +115,7 @@ func TestEncoder(t *testing.T) {
 		}
 		for i:=0; i<len(inI);i++ {
 			if !inI[i].Equal(&outI[i]) {
-				t.Fatal("decode(encode(slice(elements))) failed")	
+				t.Fatal("decode(encode(slice(elements))) failed")
 			}
 		}
 		if n != dec.BytesRead() {
@@ -123,7 +123,7 @@ func TestEncoder(t *testing.T) {
 		}
 	}
 
-	// decode them 
+	// decode them
 	testDecode(t, &buf, enc.BytesWritten())
 	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
@@ -140,58 +140,58 @@ func TestIsCompressed(t *testing.T) {
 	g2 = g2GenAff
 
 	{
-		b := g1Inf.Bytes() 
+		b := g1Inf.Bytes()
 		if !isCompressed(b[0]) {
 			t.Fatal("g1Inf.Bytes() should be compressed")
 		}
 	}
 
 	{
-		b := g1Inf.RawBytes() 
+		b := g1Inf.RawBytes()
 		if isCompressed(b[0]) {
 			t.Fatal("g1Inf.RawBytes() should be uncompressed")
 		}
 	}
 
 	{
-		b := g1.Bytes() 
+		b := g1.Bytes()
 		if !isCompressed(b[0]) {
 			t.Fatal("g1.Bytes() should be compressed")
 		}
 	}
 
 	{
-		b := g1.RawBytes() 
+		b := g1.RawBytes()
 		if isCompressed(b[0]) {
 			t.Fatal("g1.RawBytes() should be uncompressed")
 		}
 	}
 
-	
+
 
 	{
-		b := g2Inf.Bytes() 
+		b := g2Inf.Bytes()
 		if !isCompressed(b[0]) {
 			t.Fatal("g2Inf.Bytes() should be compressed")
 		}
 	}
 
 	{
-		b := g2Inf.RawBytes() 
+		b := g2Inf.RawBytes()
 		if isCompressed(b[0]) {
 			t.Fatal("g2Inf.RawBytes() should be uncompressed")
 		}
 	}
 
 	{
-		b := g2.Bytes() 
+		b := g2.Bytes()
 		if !isCompressed(b[0]) {
 			t.Fatal("g2.Bytes() should be compressed")
 		}
 	}
 
 	{
-		b := g2.RawBytes() 
+		b := g2.RawBytes()
 		if isCompressed(b[0]) {
 			t.Fatal("g2.RawBytes() should be uncompressed")
 		}
@@ -211,7 +211,7 @@ func TestIsCompressed(t *testing.T) {
 
 func Test{{ $.TAffine }}Serialization(t *testing.T) {
 
-	// test round trip serialization of infinity 
+	// test round trip serialization of infinity
 	{
 		// compressed
 		{
@@ -256,7 +256,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 	} else {
 		parameters.MinSuccessfulTests = 1000
 	}
-	
+
 
 	properties := gopter.NewProperties(parameters)
 
@@ -342,7 +342,7 @@ func GenFp() gopter.Gen {
 }
 
 {{/* // e3 e6 for bw6-xxx
-// e2 e4 e8 e24 for bls24
+// e2 e4 e12 e24 for bls24
 // e2 e6 e12 else */}}
 
 {{if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
@@ -388,26 +388,26 @@ func GenFp() gopter.Gen {
 			})
 		}
 
-		// GenE8 generates an fptower.E8 elmt
-		func GenE8() gopter.Gen {
-			return gopter.CombineGens(
-				GenE4(),
-				GenE4(),
-			).Map(func(values []interface{}) fptower.E8 {
-				return fptower.E8{C0: values[0].(fptower.E4), C1: values[1].(fptower.E4)}
-			})
-		}
+        // GenE12 generates an fptower.E12 elmt
+        func GenE12() gopter.Gen {
+            return gopter.CombineGens(
+                GenE4(),
+                GenE4(),
+                GenE4(),
+            ).Map(func(values []interface{}) fptower.E12 {
+                return fptower.E12{C0: values[0].(fptower.E4), C1: values[1].(fptower.E4), C2: values[2].(fptower.E4)}
+            })
+        }
 
-		// GenE24 generates an fptower.E24 elmt
-		func GenE24() gopter.Gen {
-			return gopter.CombineGens(
-				GenE8(),
-				GenE8(),
-				GenE8(),
-			).Map(func(values []interface{}) fptower.E24 {
-				return fptower.E24{D0: values[0].(fptower.E8), D1: values[1].(fptower.E8), D2: values[2].(fptower.E8)}
-			})
-		}
+        // GenE24 generates an fptower.E24 elmt
+        func GenE24() gopter.Gen {
+            return gopter.CombineGens(
+                GenE12(),
+                GenE12(),
+            ).Map(func(values []interface{}) fptower.E24 {
+                return fptower.E24{D0: values[0].(fptower.E12), D1: values[1].(fptower.E12)}
+            })
+        }
 	{{ else }}
 		// GenE6 generates an fptower.E6 elmt
 		func GenE6() gopter.Gen {

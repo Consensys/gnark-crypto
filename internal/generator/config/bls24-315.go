@@ -24,6 +24,6 @@ var BLS24_315 = Curve{
 }
 
 func init() {
-	addCurve(BLS24_315)
+	addCurve(&BLS24_315)
 
 }
