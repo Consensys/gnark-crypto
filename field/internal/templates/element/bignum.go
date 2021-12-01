@@ -8,8 +8,9 @@ const BigNum = `
 func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 	b := uint64(0)
 
-	{{- range $i := .NbWordsIndexesFull}}
-	z[{{$i}}], b = bits.Sub64(0, x[{{$i}}], 0)
+	z[0], b = bits.Sub64(0, x[0], 0)
+	{{- range $i := .NbWordsIndexesNoZero}}
+	z[{{$i}}], b = bits.Sub64(0, x[{{$i}}], b)
 	{{- end}}
 	xHi, _ = bits.Sub64(0, xHi, b)
 
