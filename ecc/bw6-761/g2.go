@@ -138,7 +138,7 @@ func (p *G2Affine) IsOnCurve() bool {
 func (p *G2Affine) IsInSubGroup() bool {
 	var _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -430,7 +430,6 @@ func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	var table [15]G2Jac
-	var zero big.Int
 	var res G2Jac
 	var k1, k2 fr.Element
 
@@ -443,11 +442,11 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}

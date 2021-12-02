@@ -72,9 +72,13 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		return z
 	}
 
-	var a = *x
-	var b = q{{.ElementName}}
-	var u = {{.ElementName}}{1}
+	a := *x
+	b := {{.ElementName}} {
+		{{- range $qWord := $.Q}}
+		{{$qWord}},{{end}}
+	}	// b := q
+
+	u := {{.ElementName}}{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
@@ -201,7 +205,6 @@ func (z *{{.ElementName}}) linearCombSosSigned(x *{{.ElementName}}, xC int64, y 
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
-	const qInvNegLsw uint64 = {{index .QInverse 0}}
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
 	//the SOS implementation requires that most significant bit is 0
@@ -215,9 +218,9 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-	C = madd0(m, q{{.ElementName}}[0], x[0])
+	C = madd0(m, q{{.ElementName}}Word0, x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
-	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}[{{$i}}], x[{{$i}}], C)
+	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}Word{{$i}}, x[{{$i}}], C)
 	{{- end}}
 
 	// the high word of m * q{{.ElementName}}[{{.NbWordsLastIndex}}] is at most 62 bits
@@ -226,17 +229,17 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	t[{{.NbWords}}] = xHi + C
 	// xHi and C are 63 bits, therefore no overflow
 
-	{{ $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero}}
+	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}
 	{{- range $i := .NbWordsIndexesNoZeroNoLast}}
 	{
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
 
 		//TODO: Is it better to hard-code the values of q{{$.ElementName}} as the "reduce" template does?
-		C = madd0(m, q{{$.ElementName}}[0], t[i+0])
+		C = madd0(m, {{index $.Q 0}}, t[i+0])
 
-		{{- range $j := $NbWordsIndexesNoZeroInnerLoop}}
-		C, t[i + {{$j}}] = madd2(m, q{{$.ElementName}}[{{$j}}], t[i +  {{$j}}], C)
+		{{- range $j := $.NbWordsIndexesNoZero}}
+		C, t[i + {{$j}}] = madd2(m, {{index $.Q $j}}, t[i +  {{$j}}], C)
 		{{- end}}
 
 		t[i + Limbs] += C
@@ -246,11 +249,11 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{.NbWordsLastIndex}}
 		m := t[i] * qInvNegLsw
 
-		C = madd0(m, q{{.ElementName}}[0], t[i+0])
+		C = madd0(m, q{{.ElementName}}Word0, t[i+0])
 		{{- range $j := $.NbWordsIndexesNoZeroNoLast}}
-		C, z[{{sub $j 1}}] = madd2(m, q{{$.ElementName}}[{{$j}}], t[i+{{$j}}], C)
+		C, z[{{sub $j 1}}] = madd2(m, q{{$.ElementName}}Word{{$j}}, t[i+{{$j}}], C)
 		{{- end}}
-		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}[{{.NbWordsLastIndex}}], t[i+{{.NbWordsLastIndex}}], C)
+		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
 
     {{ template "reduce" . }}
@@ -271,9 +274,9 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 			b = 0
 			{{- range $i := .NbWordsIndexesNoLast}}
-			z[{{$i}}], b = bits.Add64(z[{{$i}}], {{index $.Q $i}}, b)
+			z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
 			{{- end}}
-			z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, {{index $.Q $.NbWordsLastIndex}}, b)
+			z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
 		}
 	}
 }

@@ -66,6 +66,9 @@ var endo struct {
 // generator of the curve
 var xGen big.Int
 
+// fixefCoeff t-1 = 6*xGen^2
+var fixedCoeff big.Int
+
 func init() {
 
 	bCurveCoeff.SetUint64(3)
@@ -108,6 +111,8 @@ func init() {
 	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 
 	xGen.SetString("4965661367192848881", 10)
+
+	fixedCoeff.SetString("147946756881789318990833708069417712966", 10)
 
 }
 

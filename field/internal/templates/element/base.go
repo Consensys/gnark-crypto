@@ -48,10 +48,17 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+{{- range $i := $.NbWordsIndexesFull}}
+const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+{{- end}}
+
 var q{{.ElementName}} = {{.ElementName}}{
-	{{- range $i := .NbWordsIndexesFull}}
-	{{index $.Q $i}},{{end}}
+	{{- range $i := $.NbWordsIndexesFull}}
+	q{{$.ElementName}}Word{{$i}},{{end}}
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 // rSquare
 var rSquare = {{.ElementName}}{
@@ -68,6 +75,17 @@ var bigIntPool = sync.Pool{
 
 func init() {
 	_modulus.SetString("{{.Modulus}}", 10)
+}
+
+// New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
+// 
+// it is equivalent to 
+// 		var v New{{.ElementName}}
+// 		v.SetUint64(...)
+func New{{.ElementName}}(v uint64) {{.ElementName}} {
+	z := {{.ElementName}}{v}
+	z.Mul(&z, &rSquare)
+	return z
 }
 
 

@@ -62,12 +62,20 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+const qElementWord0 uint64 = 4891460686036598785
+const qElementWord1 uint64 = 2896914383306846353
+const qElementWord2 uint64 = 13281191951274694749
+const qElementWord3 uint64 = 3486998266802970665
+
 var qElement = Element{
-	4891460686036598785,
-	2896914383306846353,
-	13281191951274694749,
-	3486998266802970665,
+	qElementWord0,
+	qElementWord1,
+	qElementWord2,
+	qElementWord3,
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = 14042775128853446655
 
 // rSquare
 var rSquare = Element{
@@ -85,6 +93,17 @@ var bigIntPool = sync.Pool{
 
 func init() {
 	_modulus.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+}
+
+// NewElement returns a new Element from a uint64 value
+//
+// it is equivalent to
+// 		var v NewElement
+// 		v.SetUint64(...)
+func NewElement(v uint64) Element {
+	z := Element{v}
+	z.Mul(&z, &rSquare)
+	return z
 }
 
 // SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
