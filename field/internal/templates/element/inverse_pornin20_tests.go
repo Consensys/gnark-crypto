@@ -42,6 +42,7 @@ func TestP20InversionApproximation(t *testing.T) {
 	}
 }
 
+//TODO: Replace most t.Fatals with t.Error
 func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	const kLimbs = k * Limbs
 	const power = kLimbs*6 + invIterationsN*(kLimbs-k+1)

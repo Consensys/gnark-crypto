@@ -1087,6 +1087,25 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
+const updateFactorIdentityMatrixRow0 = 0x7FFFFFFF80000000
+const updateFactorIdentityMatrixRow1 = 0x800000007FFFFFFF
+const updateFactorsNegationError uint64 = 2 - 1 << 32 + 1 << 34
+
+func updateFactorsNeg(c uint64) uint64 {
+	return -c - updateFactorsNegationError
+}
+
+func updateFactorsDecompose(c uint64) (int64, int64) {
+	f := int64(c & 0x00000000FFFFFFFF) - 0x000000007FFFFFFF
+	g := int64(c >> 32) - 0x000000007FFFFFFF
+	return f, g
+}
+
+func updateFactorsSub(c0 uint64, c1 uint64) uint64 {
+	c0, _ = bits.Sub64(c0, c1, 1)	//TODO: Verify
+	return c0
+}
+
 //TODO: Inline this
 var inversionCorrectionFactor = Element{
 	11111708840330028223,
@@ -1114,10 +1133,11 @@ func (z *Element) Inverse(x *Element) *Element {
 	u := Element{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
-	var f0, g0, f1, g1 int64
+	//c_i = f_i + 2^31 - 1 + 2^32 * (g_i + 2^31 - 1)
+	var c0, c1 uint64
 
 	//Saved update factors to reduce the number of field multiplications
-	var pf0, pg0, pf1, pg1 int64
+	var p0, p1 uint64
 
 	var i uint
 
@@ -1131,7 +1151,8 @@ func (z *Element) Inverse(x *Element) *Element {
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
 
 		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
-		f0, g0, f1, g1 = 1, 0, 0, 1
+		// f0, g0, f1, g1 = 1, 0, 0, 1
+		c0, c1 =  updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
 		for j := 0; j < approxLowBitsN; j++ {
 
@@ -1142,28 +1163,30 @@ func (z *Element) Inverse(x *Element) *Element {
 				if borrow == 1 {
 					s = bApprox - aApprox
 					bApprox = aApprox
-					f0, f1 = f1, f0
-					g0, g1 = g1, g0
+					c0, c1 = c1, c0
 				}
 
 				aApprox = s / 2
-				f0 -= f1
-				g0 -= g1
+
+				//f0, f1 = f1, f0
+				//g0, g1 = g1, g0
+				c0 = updateFactorsSub(c0, c1)
 
 				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
 				//|f₁| ≤ 2ʲ still
 			}
 
-			f1 *= 2
-			g1 *= 2
+			c1 *= 2
 			//|f₁| ≤ 2ʲ⁺¹
 		}
 
+		f, g := updateFactorsDecompose(c0)
+
 		s = a
-		aHi := a.linearCombNonModular(&s, f0, &b, g0)
+		aHi := a.linearCombNonModular(&s, f, &b, g)
 		if aHi&signBitSelector != 0 {
 			// if aHi < 0
-			f0, g0 = -f0, -g0
+			c0 = updateFactorsNeg(c0)
 			aHi = a.neg(&a, aHi)
 		}
 		//right-shift a by k-1 bits
@@ -1172,10 +1195,12 @@ func (z *Element) Inverse(x *Element) *Element {
 		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
 		a[3] = (a[3] >> approxLowBitsN) | (aHi << approxHighBitsN)
 
-		bHi := b.linearCombNonModular(&s, f1, &b, g1)
+		f, g = updateFactorsDecompose(c1)
+
+		bHi := b.linearCombNonModular(&s, f, &b, g)
 		if bHi&signBitSelector != 0 {
 			// if bHi < 0
-			f1, g1 = -f1, -g1
+			c1 = updateFactorsNeg(c1)
 			bHi = b.neg(&b, bHi)
 		}
 		//right-shift b by k-1 bits
@@ -1190,18 +1215,29 @@ func (z *Element) Inverse(x *Element) *Element {
 			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
 			// Which leaves us with an extra bit for the sign
-			f0, g0, f1, g1 = f0*pf0+g0*pf1,
-				f0*pg0+g0*pg1,
+
+			f, g = updateFactorsDecompose(c0)
+			f1, g1 := updateFactorsDecompose(c1)
+			pf0, pg0 := updateFactorsDecompose(p0)
+			pf1, pg1 := updateFactorsDecompose(p1)
+
+			// The values in c0, c1, p0 and p1 are no longer of use now
+			// Will the compiler know that and use the registers they're stored in for these new values?
+			// We can't do it here as long as c0, c1, p0, p1 are considered uints
+			// TODO: See if that can be changed
+
+			f, g, f1, g1 = f*pf0+g*pf1,
+				f*pg0+g*pg1,
 				f1*pf0+g1*pf1,
 				f1*pg0+g1*pg1
 
 			s = u
-			u.linearCombSosSigned(&u, f0, &v, g0)
+			u.linearCombSosSigned(&u, f, &v, g)
 			v.linearCombSosSigned(&s, f1, &v, g1)
 
 		} else {
 			//Save update factors
-			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
+			p0, p1 = c0, c1
 		}
 	}
 

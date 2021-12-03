@@ -2036,6 +2036,90 @@ func TestMontNegMultipleOfR(t *testing.T) {
 	}
 }
 
+//TODO: Tests like this are common to all fields. Move them to somewhere non-autogen
+func TestUpdateFactorDecomposition(t *testing.T) {
+	var negSeen bool
+
+	for i := 0; i < 1000; i++ {
+
+		f, g := randomizeUpdateFactors()
+
+		if f <= - (1 << 31) || f > 1 << 31 {
+			t.Fatal("f out of range")
+		}
+
+		negSeen = negSeen ||  f < 0
+
+		c := updateFactorsCompose(f, g)
+
+		fBack, gBack := updateFactorsDecompose(c)
+
+		if f != fBack || g != gBack {
+			t.Errorf("(%d, %d) -> %d -> (%d, %d)\n", f, g, c, fBack, gBack)
+		}
+	}
+
+	if !negSeen {
+		t.Fatal("No negative f factors")
+	}
+}
+
+func TestUpdateFactorInitialValues(t *testing.T) {
+
+	f0, g0 := updateFactorsDecompose(updateFactorIdentityMatrixRow0)
+	f1, g1 := updateFactorsDecompose(updateFactorIdentityMatrixRow1)
+
+	if f0 != 1 || g0 != 0 || f1 != 0 || g1 != 1 {
+		t.Error("Update factor initial value constants are incorrect")
+	}
+}
+
+func TestUpdateFactorsNeg(t *testing.T) {
+	var fMistake bool
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+		c := updateFactorsCompose(f, g)
+		nc := updateFactorsNeg(c)
+		nf, ng := updateFactorsDecompose(nc)
+		fMistake = fMistake || nf != -f
+		if nf != -f || ng != -g {
+			t.Errorf("Mismatch:\n%d, %d ->\n %d -> %d ->\n %d, %d\n", f, g, c, nc, nf, ng)
+		}
+	}
+	if fMistake {
+		t.Error("Mistake with f detected")
+	} else {
+		t.Log("All good with f")
+	}
+}
+
+func randomizeUpdateFactors() (int64, int64) {
+	var f int64
+	var g int64
+	const maxSizeLikelihood = 4
+	maxSize := mrand.Intn(maxSizeLikelihood * maxSizeLikelihood)
+	switch maxSize % maxSizeLikelihood {
+	case 0:
+		f = 0
+	case 1:
+		f = 1 << 32 - 1
+	default:
+		f = int64(mrand.Uint32())
+	}
+	f -= 1 << 31 - 1 // -2^31 < f \le 2^31
+
+	switch maxSize % maxSizeLikelihood {
+	case 0:
+		g = 0
+	case 1:
+		g = 1 << 32 - 1
+	default:
+		g = int64(mrand.Uint32())
+	}
+	g -= 1 << 31 - 1 // -2^31 < f \le 2^31
+	return f, g
+}
+
 func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 
 	var p1 big.Int
@@ -2082,8 +2166,11 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 	res.assertMatchVeryBigInt(t, 0, &resInt)
 }
 
-var rInv big.Int
+func updateFactorsCompose(f int64, g int64 ) uint64 {
+	return uint64(f + 1<<31 - 1 + (g+1<<31-1)<<32)
+}
 
+var rInv big.Int
 func montReduce(res *big.Int, x *big.Int) {
 	if rInv.BitLen() == 0 { //initialization
 		rInv.SetUint64(1)
