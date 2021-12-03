@@ -718,21 +718,38 @@ func (z Element) ToRegular() Element {
 
 // String returns the string form of an Element in Montgomery form
 func (z *Element) String() string {
+	return z.Text(10)
+}
+
+// Text returns the string representation of z in the given base.
+// Base must be between 2 and 36, inclusive. The result uses the
+// lower-case letters 'a' to 'z' for digit values 10 to 35.
+// No prefix (such as "0x") is added to the string. If z is a nil
+// pointer it returns "<nil>".
+// If -z fits in a uint64 prefix "-" is added to the string.
+func (z *Element) Text(base int) string {
+	if base < 2 || base > 36 {
+		panic("invalid base")
+	}
+	if z == nil {
+		return "<nil>"
+	}
 	zz := *z
 	zz.FromMont()
 	if zz.IsUint64() {
-		return strconv.FormatUint(zz[0], 10)
+		return strconv.FormatUint(zz[0], base)
 	} else {
 		var zzNeg Element
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
 		if zzNeg.IsUint64() {
-			return "-" + strconv.FormatUint(zzNeg[0], 10)
+			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
 	vv := bigIntPool.Get().(*big.Int)
-	defer bigIntPool.Put(vv)
-	return zz.ToBigInt(vv).String()
+	r := zz.ToBigInt(vv).Text(base)
+	bigIntPool.Put(vv)
+	return r
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form

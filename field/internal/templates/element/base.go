@@ -3,8 +3,8 @@ package element
 const Base = `
 
 // /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular, 
-// there is no security guarantees such as constant time implementation 
+// this code has not been audited and is provided as-is. In particular,
+// there is no security guarantees such as constant time implementation
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
@@ -23,7 +23,7 @@ import (
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
 // {{.ElementName}} are assumed to be in Montgomery form in all methods
 // field modulus q =
-// 
+//
 // {{.Modulus}}
 type {{.ElementName}} [{{.NbWords}}]uint64
 
@@ -36,12 +36,12 @@ const Bits = {{.NbBits}}
 // Bytes number bytes needed to represent {{.ElementName}}
 const Bytes = Limbs * 8
 
-// field modulus stored as big.Int 
-var _modulus big.Int 
+// field modulus stored as big.Int
+var _modulus big.Int
 
 // Modulus returns q as a big.Int
-// q = 
-// 
+// q =
+//
 // {{.Modulus}}
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
@@ -71,8 +71,8 @@ func init() {
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
-// 
-// it is equivalent to 
+//
+// it is equivalent to
 // 		var v New{{.ElementName}}
 // 		v.SetUint64(...)
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
@@ -140,7 +140,7 @@ func (z *{{.ElementName}}) SetOne() *{{.ElementName}} {
 }
 
 
-// Div z = x*y^-1 mod q 
+// Div z = x*y^-1 mod q
 func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var yInv {{.ElementName}}
 	yInv.Inverse( y)
@@ -178,9 +178,9 @@ func (z *{{.ElementName}}) IsUint64() bool {
 //   -1 if z <  x
 //    0 if z == x
 //   +1 if z >  x
-// 
+//
 func (z *{{.ElementName}}) Cmp(x *{{.ElementName}}) int {
-	_z := *z 
+	_z := *z
 	_x := *x
 	_z.FromMont()
 	_x.FromMont()
@@ -198,9 +198,9 @@ func (z *{{.ElementName}}) Cmp(x *{{.ElementName}}) int {
 // larger than its negation, false otherwise
 func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 	// adapted from github.com/zkcrypto/bls12_381
-	// we check if the element is larger than (q-1) / 2 
+	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
-	
+
 	_z := *z
 	_z.FromMont()
 
@@ -224,13 +224,13 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	}
 	{{- range $i :=  .NbWordsIndexesFull}}
 		{{- $k := add $i 1}}
-		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}]) 
+		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
 	{{- end}}
 	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
 
 	{{ template "reduce" . }}
 
-	return z, nil 
+	return z, nil
 }
 
 // One returns 1 (in montgommery form)
@@ -240,7 +240,7 @@ func One() {{.ElementName}} {
 	return one
 }
 
-// Halve sets z to z / 2 (mod p) 
+// Halve sets z to z / 2 (mod p)
 func (z *{{.ElementName}}) Halve()  {
 	{{- if .NoCarry}}
 		if z[0]&1 == 1 {
@@ -258,7 +258,7 @@ func (z *{{.ElementName}}) Halve()  {
 
 // API with assembly impl
 
-// Mul z = x * y mod q 
+// Mul z = x * y mod q
 // see https://hackmd.io/@zkteam/modular_multiplication
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	mul(z, x, y)
@@ -282,13 +282,13 @@ func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
 // Add z = x + y mod q
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	add(z, x, y)
-	return z 
+	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	double(z, x)
-	return z 
+	return z
 }
 
 
@@ -298,7 +298,7 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Neg z = q - x 
+// Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	neg(z, x)
 	return z
@@ -361,7 +361,7 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
-			return 
+			return
 		}
 	{{- end}}
 
@@ -390,7 +390,7 @@ func _doubleGeneric(z,  x *{{.ElementName}}) {
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
-			return 
+			return
 		}
 	{{- end}}
 

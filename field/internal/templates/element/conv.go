@@ -15,24 +15,41 @@ func (z {{.ElementName}}) ToRegular() {{.ElementName}} {
 
 // String returns the string form of an {{.ElementName}} in Montgomery form
 func (z *{{.ElementName}}) String() string {
+	return z.Text(10)
+}
+
+// Text returns the string representation of z in the given base.
+// Base must be between 2 and 36, inclusive. The result uses the
+// lower-case letters 'a' to 'z' for digit values 10 to 35.
+// No prefix (such as "0x") is added to the string. If z is a nil
+// pointer it returns "<nil>".
+// If -z fits in a uint64 prefix "-" is added to the string.
+func (z *{{.ElementName}}) Text(base int) string {
+	if base < 2 || base > 36 {
+		panic("invalid base")
+	}
+	if z == nil {
+		return "<nil>"
+	}
 	zz := *z
 	zz.FromMont()
 	if zz.IsUint64() {
-		return strconv.FormatUint(zz[0], 10)
+		return strconv.FormatUint(zz[0], base)
 	} else {
 		var zzNeg {{.ElementName}}
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
 		if zzNeg.IsUint64() {
-			return "-" + strconv.FormatUint(zzNeg[0], 10)
+			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
 	vv := bigIntPool.Get().(*big.Int)
-	defer bigIntPool.Put(vv)
-	return zz.ToBigInt(vv).String()
+	r := zz.ToBigInt(vv).Text(base)
+	bigIntPool.Put(vv)
+	return r
 }
 
-// ToBigInt returns z as a big.Int in Montgomery form 
+// ToBigInt returns z as a big.Int in Montgomery form
 func (z *{{.ElementName}}) ToBigInt(res *big.Int) *big.Int {
 	var b [Limbs*8]byte
 	{{- range $i := reverse .NbWordsIndexesFull}}
@@ -46,14 +63,14 @@ func (z *{{.ElementName}}) ToBigInt(res *big.Int) *big.Int {
 	return res.SetBytes(b[:])
 }
 
-// ToBigIntRegular returns z as a big.Int in regular form 
+// ToBigIntRegular returns z as a big.Int in regular form
 func (z {{.ElementName}}) ToBigIntRegular(res *big.Int) *big.Int {
 	z.FromMont()
 	return z.ToBigInt(res)
 }
 
 
-// Bytes returns the regular (non montgomery) value 
+// Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte array.
 func (z *{{.ElementName}}) Bytes() (res [Limbs*8]byte) {
 	_z := z.ToRegular()
@@ -65,17 +82,17 @@ func (z *{{.ElementName}}) Bytes() (res [Limbs*8]byte) {
 		binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], _z[{{$k}}])
 	{{- end}}
 
-	return 
+	return
 }
 
-// Marshal returns the regular (non montgomery) value 
+// Marshal returns the regular (non montgomery) value
 // of z as a big-endian byte slice.
 func (z *{{.ElementName}}) Marshal() []byte {
 	b := z.Bytes()
 	return b[:]
 }
 
-// SetBytes interprets e as the bytes of a big-endian unsigned integer, 
+// SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value (in Montgomery form), and returns z.
 func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 	// get a big int from our pool
@@ -85,7 +102,7 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 	// set big int
 	z.SetBigInt(vv)
 
-	// put temporary object back in pool 
+	// put temporary object back in pool
 	bigIntPool.Put(vv)
 
 	return z
@@ -96,7 +113,7 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	z.SetZero()
 
-	var zero big.Int 
+	var zero big.Int
 
 	// fast path
 	c := v.Cmp(&_modulus)
@@ -104,17 +121,17 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 		// v == 0
 		return z
 	} else if c != 1 && v.Cmp(&zero) != -1 {
-		// 0 < v < q 
+		// 0 < v < q
 		return z.setBigInt(v)
 	}
-	
+
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 
 	// copy input + modular reduction
 	vv.Set(v)
 	vv.Mod(v, &_modulus)
-	
+
 	// set big int byte value
 	z.setBigInt(vv)
 
@@ -123,7 +140,7 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q 
+// setBigInt assumes 0 <= v < q
 func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 	vBits := v.Bits()
 
@@ -145,7 +162,7 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 }
 
 // SetString creates a big.Int with number and calls SetBigInt on z
-// 
+//
 // The number prefix determines the actual base: A prefix of
 // ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
 // and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
@@ -163,7 +180,7 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 func (z *{{.ElementName}}) SetString(number string) *{{.ElementName}} {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
-	
+
 	if _, ok := vv.SetString(number, 0); !ok {
 		panic("{{.ElementName}}.SetString failed -> can't parse number into a big.Int " + number)
 	}
