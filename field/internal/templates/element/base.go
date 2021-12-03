@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"errors"
 	"reflect"
+	"strings"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)

@@ -18,6 +18,7 @@ package fp
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/bits"
@@ -25,6 +26,8 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+
+	"github.com/stretchr/testify/require"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -1815,6 +1818,45 @@ func TestElementFromMont(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementJSON(t *testing.T) {
+	assert := require.New(t)
+
+	type S struct {
+		A Element
+		B [3]Element
+		C *Element
+		D *Element
+	}
+
+	// encode to JSON
+	var s S
+	s.A.SetString("-1")
+	s.B[2].SetUint64(42)
+	s.D = new(Element).SetUint64(8000)
+
+	encoded, err := json.Marshal(&s)
+	assert.NoError(err)
+	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(string(encoded), expected)
+
+	// decode valid
+	var decoded S
+	err = json.Unmarshal([]byte(expected), &decoded)
+	assert.NoError(err)
+
+	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+
+	// decode hex and string values
+	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
+
+	var decodedS S
+	err = json.Unmarshal([]byte(withHexValues), &decodedS)
+	assert.NoError(err)
+
+	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+
 }
 
 type testPairElement struct {
