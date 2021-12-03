@@ -118,11 +118,10 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / k ⌉
 	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           //"round up" to a multiple of 2
 
-	F.P20InversionNbIterations = 2 * ((2*F.NbBits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
 	kLimbs := k * F.NbWords
-	power := kLimbs*6 + F.P20InversionNbIterations*(kLimbs-k+1)
+	p20InversionCorrectiveFacPower := kLimbs*6 + F.P20InversionNbIterations*(kLimbs-k+1)
 	p20InversionCorrectiveFac := big.NewInt(1)
-	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(power))
+	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(p20InversionCorrectiveFacPower))
 	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
 	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
 

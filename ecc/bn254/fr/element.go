@@ -1141,13 +1141,13 @@ func approximate(x *Element, n int) uint64 {
 
 //TODO: Inline this
 var inversionCorrectionFactor = Element{
-	2045725529584206919,
-	17050086538960255967,
-	8660187900693597887,
-	2960602330171163454,
+	13488105295233737379,
+	17373395488625725466,
+	6831692495576925776,
+	3282329835997625403,
 }
 
-const invIterationsN = 16
+const invIterationsN = 18
 
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
