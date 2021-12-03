@@ -2024,9 +2024,8 @@ func TestP20InversionApproximation(t *testing.T) {
 }
 
 func TestP20InversionCorrectionFactorFormula(t *testing.T) {
-	const iterationN = 2 * ((2*Bits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
 	const kLimbs = k * Limbs
-	const power = kLimbs*6 + iterationN*(kLimbs-k+1)
+	const power = kLimbs*6 + invIterationsN*(kLimbs-k+1)
 	factorInt := big.NewInt(1)
 	factorInt.Lsh(factorInt, power)
 	factorInt.Mod(factorInt, Modulus())

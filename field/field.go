@@ -41,6 +41,7 @@ type Field struct {
 	NbWordsIndexesNoZero       []int
 	NbWordsIndexesNoZeroNoLast []int
 	P20InversionCorrectiveFac  []uint64
+	P20InversionNbIterations   int
 	Q                          []uint64
 	QInverse                   []uint64
 	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
@@ -111,9 +112,15 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		panic("P20 field inversion implementation assumes 64bit words.")
 	}
 	k := 32
-	p20InversionIterationsNb := 2 * ((2*F.NbBits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
+
+	p20InvInnerLoopNbIterations := 2*F.NbBits - 1
+	// if constant time inversion then p20InvInnerLoopNbIterations-- (among other changes)
+	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / k ⌉
+	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           //"round up" to a multiple of 2
+
+	F.P20InversionNbIterations = 2 * ((2*F.NbBits-2)/(2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
 	kLimbs := k * F.NbWords
-	power := kLimbs*6 + p20InversionIterationsNb*(kLimbs-k+1)
+	power := kLimbs*6 + F.P20InversionNbIterations*(kLimbs-k+1)
 	p20InversionCorrectiveFac := big.NewInt(1)
 	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(power))
 	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)

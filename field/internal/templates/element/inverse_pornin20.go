@@ -60,11 +60,14 @@ func approximate(x *{{.ElementName}}, n int) uint64 {
 	return lo | mid | hi
 }
 
+//TODO: Inline this
 var inversionCorrectionFactor = {{.ElementName}}{
 {{- range $cFacWord := .P20InversionCorrectiveFac}}
 	{{$cFacWord}},
 {{- end}}
 }
+
+const invIterationsN = {{.P20InversionNbIterations}}
 
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
@@ -90,11 +93,9 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 	var v, s {{.ElementName}}
 
-	const iterationN =   2 * ( (2 * Bits - 2) / (2*k) + 1) // 2  ⌈ (2 * field size - 1) / 2k ⌉
-
 	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
 	//This also lets us get away with half as many updates to u,v
-	//To make this constant-time-ish, replace the condition with i < iterationN
+	//To make this constant-time-ish, replace the condition with i < invIterationsN
 	for i = 0; i&1 == 1 || !a.IsZero(); i++ {
 		n := max(a.BitLen(), b.BitLen())
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
@@ -182,14 +183,14 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		}
 	}
 
-	if i > iterationN {
+	if i > invIterationsN {
 		panic("more iterations than expected")
 	}
 
 	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
 	//If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
-	for ; i < iterationN; i += 2 {
+	for ; i < invIterationsN; i += 2 {
 		v.mulWSigned(&v, pSq)
 	}
 
