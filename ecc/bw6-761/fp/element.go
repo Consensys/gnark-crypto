@@ -1478,14 +1478,30 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 	return z.ToMont()
 }
 
-// SetString creates a big.Int with s (in base 10) and calls SetBigInt on z
-func (z *Element) SetString(s string) *Element {
+// SetString creates a big.Int with number and calls SetBigInt on z
+//
+// The number prefix determines the actual base: A prefix of
+// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
+// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// and no prefix is accepted.
+//
+// For base 16, lower and upper case letters are considered the same:
+// The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
+//
+// An underscore character ''_'' may appear between a base
+// prefix and an adjacent digit, and between successive digits; such
+// underscores do not change the value of the number.
+// Incorrect placement of underscores is reported as a panic if there
+// are no other errors.
+//
+func (z *Element) SetString(number string) *Element {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 
-	if _, ok := vv.SetString(s, 10); !ok {
-		panic("Element.SetString failed -> can't parse number in base10 into a big.Int")
+	if _, ok := vv.SetString(number, 0); !ok {
+		panic("Element.SetString failed -> can't parse number into a big.Int " + number)
 	}
+
 	z.SetBigInt(vv)
 
 	// release object into pool
