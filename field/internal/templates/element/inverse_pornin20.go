@@ -74,8 +74,8 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 	a := *x
 	b := {{.ElementName}} {
-		{{- range $qWord := $.Q}}
-		{{$qWord}},{{end}}
+		{{- range $i := .NbWordsIndexesFull}}
+		q{{$.ElementName}}Word{{$i}},{{end}}
 	}	// b := q
 
 	u := {{.ElementName}}{1}
@@ -235,11 +235,10 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of q{{$.ElementName}} as the "reduce" template does?
-		C = madd0(m, {{index $.Q 0}}, t[i+0])
+		C = madd0(m, q{{$.ElementName}}Word0, t[i+0])
 
 		{{- range $j := $.NbWordsIndexesNoZero}}
-		C, t[i + {{$j}}] = madd2(m, {{index $.Q $j}}, t[i +  {{$j}}], C)
+		C, t[i + {{$j}}] = madd2(m, q{{$.ElementName}}Word{{$j}}, t[i +  {{$j}}], C)
 		{{- end}}
 
 		t[i + Limbs] += C

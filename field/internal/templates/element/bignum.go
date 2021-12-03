@@ -6,7 +6,7 @@ const BigNum = `
 {{if eq .NoCarry true}}
 
 func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
-	b := uint64(0)
+	var b uint64
 
 	z[0], b = bits.Sub64(0, x[0], 0)
 	{{- range $i := .NbWordsIndexesNoZero}}

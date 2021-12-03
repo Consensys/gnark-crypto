@@ -1816,9 +1816,21 @@ func (z *Element) Inverse(x *Element) *Element {
 		return z
 	}
 
-	var a = *x
-	var b = qElement
-	var u = Element{1}
+	a := *x
+	b := Element{
+		qElementWord0,
+		qElementWord1,
+		qElementWord2,
+		qElementWord3,
+		qElementWord4,
+		qElementWord5,
+		qElementWord6,
+		qElementWord7,
+		qElementWord8,
+		qElementWord9,
+	} // b := q
+
+	u := Element{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
@@ -1949,7 +1961,6 @@ func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64
 //montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
-	const qInvNegLsw uint64 = 13046692460116554043
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
 	//the SOS implementation requires that most significant bit is 0
@@ -1963,16 +1974,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-	C = madd0(m, qElement[0], x[0])
-	C, t[1] = madd2(m, qElement[1], x[1], C)
-	C, t[2] = madd2(m, qElement[2], x[2], C)
-	C, t[3] = madd2(m, qElement[3], x[3], C)
-	C, t[4] = madd2(m, qElement[4], x[4], C)
-	C, t[5] = madd2(m, qElement[5], x[5], C)
-	C, t[6] = madd2(m, qElement[6], x[6], C)
-	C, t[7] = madd2(m, qElement[7], x[7], C)
-	C, t[8] = madd2(m, qElement[8], x[8], C)
-	C, t[9] = madd2(m, qElement[9], x[9], C)
+	C = madd0(m, qElementWord0, x[0])
+	C, t[1] = madd2(m, qElementWord1, x[1], C)
+	C, t[2] = madd2(m, qElementWord2, x[2], C)
+	C, t[3] = madd2(m, qElementWord3, x[3], C)
+	C, t[4] = madd2(m, qElementWord4, x[4], C)
+	C, t[5] = madd2(m, qElementWord5, x[5], C)
+	C, t[6] = madd2(m, qElementWord6, x[6], C)
+	C, t[7] = madd2(m, qElementWord7, x[7], C)
+	C, t[8] = madd2(m, qElementWord8, x[8], C)
+	C, t[9] = madd2(m, qElementWord9, x[9], C)
 
 	// the high word of m * qElement[9] is at most 62 bits
 	// x[9] + C is at most 65 bits (high word at most 1 bit)
@@ -1984,17 +1995,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 1
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2002,17 +2012,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 2
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2020,17 +2029,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 3
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2038,17 +2046,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 4
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2056,17 +2063,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 5
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2074,17 +2080,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 6
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2092,17 +2097,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 7
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2110,17 +2114,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 8
 		m = t[i] * qInvNegLsw
 
-		//TODO: Is it better to hard-code the values of qElement as the "reduce" template does?
-		C = madd0(m, qElement[0], t[i+0])
-		C, t[i+1] = madd2(m, qElement[1], t[i+1], C)
-		C, t[i+2] = madd2(m, qElement[2], t[i+2], C)
-		C, t[i+3] = madd2(m, qElement[3], t[i+3], C)
-		C, t[i+4] = madd2(m, qElement[4], t[i+4], C)
-		C, t[i+5] = madd2(m, qElement[5], t[i+5], C)
-		C, t[i+6] = madd2(m, qElement[6], t[i+6], C)
-		C, t[i+7] = madd2(m, qElement[7], t[i+7], C)
-		C, t[i+8] = madd2(m, qElement[8], t[i+8], C)
-		C, t[i+9] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C, t[i+6] = madd2(m, qElementWord6, t[i+6], C)
+		C, t[i+7] = madd2(m, qElementWord7, t[i+7], C)
+		C, t[i+8] = madd2(m, qElementWord8, t[i+8], C)
+		C, t[i+9] = madd2(m, qElementWord9, t[i+9], C)
 
 		t[i+Limbs] += C
 	}
@@ -2128,16 +2131,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 9
 		m := t[i] * qInvNegLsw
 
-		C = madd0(m, qElement[0], t[i+0])
-		C, z[0] = madd2(m, qElement[1], t[i+1], C)
-		C, z[1] = madd2(m, qElement[2], t[i+2], C)
-		C, z[2] = madd2(m, qElement[3], t[i+3], C)
-		C, z[3] = madd2(m, qElement[4], t[i+4], C)
-		C, z[4] = madd2(m, qElement[5], t[i+5], C)
-		C, z[5] = madd2(m, qElement[6], t[i+6], C)
-		C, z[6] = madd2(m, qElement[7], t[i+7], C)
-		C, z[7] = madd2(m, qElement[8], t[i+8], C)
-		z[9], z[8] = madd2(m, qElement[9], t[i+9], C)
+		C = madd0(m, qElementWord0, t[i+0])
+		C, z[0] = madd2(m, qElementWord1, t[i+1], C)
+		C, z[1] = madd2(m, qElementWord2, t[i+2], C)
+		C, z[2] = madd2(m, qElementWord3, t[i+3], C)
+		C, z[3] = madd2(m, qElementWord4, t[i+4], C)
+		C, z[4] = madd2(m, qElementWord5, t[i+5], C)
+		C, z[5] = madd2(m, qElementWord6, t[i+6], C)
+		C, z[6] = madd2(m, qElementWord7, t[i+7], C)
+		C, z[7] = madd2(m, qElementWord8, t[i+8], C)
+		z[9], z[8] = madd2(m, qElementWord9, t[i+9], C)
 	}
 
 	// if z > q --> z -= q
@@ -2176,16 +2179,16 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
 			b = 0
-			z[0], b = bits.Add64(z[0], 15512955586897510413, b)
-			z[1], b = bits.Add64(z[1], 4410884215886313276, b)
-			z[2], b = bits.Add64(z[2], 15543556715411259941, b)
-			z[3], b = bits.Add64(z[3], 9083347379620258823, b)
-			z[4], b = bits.Add64(z[4], 13320134076191308873, b)
-			z[5], b = bits.Add64(z[5], 9318693926755804304, b)
-			z[6], b = bits.Add64(z[6], 5645674015335635503, b)
-			z[7], b = bits.Add64(z[7], 12176845843281334983, b)
-			z[8], b = bits.Add64(z[8], 18165857675053050549, b)
-			z[9], _ = bits.Add64(neg1, 82862755739295587, b)
+			z[0], b = bits.Add64(z[0], qElementWord0, b)
+			z[1], b = bits.Add64(z[1], qElementWord1, b)
+			z[2], b = bits.Add64(z[2], qElementWord2, b)
+			z[3], b = bits.Add64(z[3], qElementWord3, b)
+			z[4], b = bits.Add64(z[4], qElementWord4, b)
+			z[5], b = bits.Add64(z[5], qElementWord5, b)
+			z[6], b = bits.Add64(z[6], qElementWord6, b)
+			z[7], b = bits.Add64(z[7], qElementWord7, b)
+			z[8], b = bits.Add64(z[8], qElementWord8, b)
+			z[9], _ = bits.Add64(neg1, qElementWord9, b)
 		}
 	}
 }
@@ -2228,7 +2231,7 @@ func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
 }
 
 func (z *Element) neg(x *Element, xHi uint64) uint64 {
-	b := uint64(0)
+	var b uint64
 
 	z[0], b = bits.Sub64(0, x[0], 0)
 	z[1], b = bits.Sub64(0, x[1], b)
