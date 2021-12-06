@@ -200,7 +200,7 @@ func (z *Element) IsZero() bool {
 	return (z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *Element) IsUint64() bool {
 	return (z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -277,7 +277,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[4] = binary.BigEndian.Uint64(bytes[32:40])
 	z[4] %= 342900304943437392
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -451,7 +451,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[4], z[3] = madd3(m, 342900304943437392, c[0], c[2], c[1])
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -517,7 +517,7 @@ func _mulWGeneric(z, x *Element, y uint64) {
 		z[4], z[3] = madd2(m, 342900304943437392, t[4], c2)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -583,7 +583,7 @@ func _fromMontGeneric(z *Element) {
 		z[4] = C
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -604,7 +604,7 @@ func _addGeneric(z, x, y *Element) {
 	z[3], carry = bits.Add64(x[3], y[3], carry)
 	z[4], _ = bits.Add64(x[4], y[4], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -625,7 +625,7 @@ func _doubleGeneric(z, x *Element) {
 	z[3], carry = bits.Add64(x[3], x[3], carry)
 	z[4], _ = bits.Add64(x[4], x[4], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -669,7 +669,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -781,7 +781,7 @@ func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 }
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *Element) ToMont() *Element {
 	return z.Mul(z, &rSquare)
 }
@@ -895,7 +895,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q
+// setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
@@ -1029,7 +1029,8 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
-// Inverse z = x^-1 mod q
+// InverseOld z = x⁻¹ mod q
+// TODO: Keeping this around for a while to test it against P20 on various platforms
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x
 func (z *Element) InverseOld(x *Element) *Element {
@@ -1047,7 +1048,7 @@ func (z *Element) InverseOld(x *Element) *Element {
 		342900304943437392,
 	}
 
-	// initialize s = r^2
+	// initialize s = r²
 	var s = Element{
 		7746605402484284438,
 		6457291528853138485,
@@ -1213,41 +1214,17 @@ const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
 const approxHighBitsN = k + 1
-
-func approximate(x *Element, n int) uint64 {
-
-	if n <= 64 {
-		return x[0]
-	}
-
-	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
-	lo := mask & x[0]
-
-	hiWordIndex := (n - 1) / 64
-
-	hiWordBitsAvailable := n - hiWordIndex*64
-	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
-
-	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
-	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
-
-	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
-	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
-
-	return lo | mid | hi
-}
-
-// TODO: Inline this
-var inversionCorrectionFactor = Element{
-	13359241550610159594,
-	7624632887220174691,
-	6412344873752403825,
-	11214014560053792263,
-	75428258669939399,
-}
+const inversionCorrectionFactorWord0 = 13359241550610159594
+const inversionCorrectionFactorWord1 = 7624632887220174691
+const inversionCorrectionFactorWord2 = 6412344873752403825
+const inversionCorrectionFactorWord3 = 11214014560053792263
+const inversionCorrectionFactorWord4 = 75428258669939399
 
 const invIterationsN = 22
 
+// Inverse z = x⁻¹ mod q
+// Implements "Optimized Binary GCD for Modular Inversion"
+// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
 		z.SetZero()
@@ -1370,8 +1347,38 @@ func (z *Element) Inverse(x *Element) *Element {
 		v.mulWSigned(&v, pSq)
 	}
 
-	z.Mul(&v, &inversionCorrectionFactor)
+	z.Mul(&v, &Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+	})
 	return z
+}
+
+// approximate a big number using its uppermost and lowermost bits
+func approximate(x *Element, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (n - 1) / 64
+
+	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
 }
 
 func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
@@ -1454,7 +1461,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[4], z[3] = madd2(m, qElementWord4, t[i+4], C)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64

@@ -206,7 +206,7 @@ func (z *Element) IsZero() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *Element) IsUint64() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -290,7 +290,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[5] = binary.BigEndian.Uint64(bytes[40:48])
 	z[5] %= 121098312706494698
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -494,7 +494,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[5], z[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -577,7 +577,7 @@ func _mulWGeneric(z, x *Element, y uint64) {
 		z[5], z[4] = madd2(m, 121098312706494698, t[5], c2)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -660,7 +660,7 @@ func _fromMontGeneric(z *Element) {
 		z[5] = C
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -683,7 +683,7 @@ func _addGeneric(z, x, y *Element) {
 	z[4], carry = bits.Add64(x[4], y[4], carry)
 	z[5], _ = bits.Add64(x[5], y[5], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -706,7 +706,7 @@ func _doubleGeneric(z, x *Element) {
 	z[4], carry = bits.Add64(x[4], x[4], carry)
 	z[5], _ = bits.Add64(x[5], x[5], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -754,7 +754,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -870,7 +870,7 @@ func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 }
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *Element) ToMont() *Element {
 	return z.Mul(z, &rSquare)
 }
@@ -986,7 +986,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q
+// setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
@@ -1121,7 +1121,8 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
-// Inverse z = x^-1 mod q
+// InverseOld z = x⁻¹ mod q
+// TODO: Keeping this around for a while to test it against P20 on various platforms
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x
 func (z *Element) InverseOld(x *Element) *Element {
@@ -1140,7 +1141,7 @@ func (z *Element) InverseOld(x *Element) *Element {
 		121098312706494698,
 	}
 
-	// initialize s = r^2
+	// initialize s = r²
 	var s = Element{
 		13224372171368877346,
 		227991066186625457,
@@ -1319,42 +1320,18 @@ const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
 const approxHighBitsN = k + 1
-
-func approximate(x *Element, n int) uint64 {
-
-	if n <= 64 {
-		return x[0]
-	}
-
-	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
-	lo := mask & x[0]
-
-	hiWordIndex := (n - 1) / 64
-
-	hiWordBitsAvailable := n - hiWordIndex*64
-	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
-
-	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
-	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
-
-	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
-	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
-
-	return lo | mid | hi
-}
-
-// TODO: Inline this
-var inversionCorrectionFactor = Element{
-	16386826051656692015,
-	8373462824848618879,
-	7553521018781888459,
-	595240760696852504,
-	16794241053652767540,
-	43911691917702151,
-}
+const inversionCorrectionFactorWord0 = 16386826051656692015
+const inversionCorrectionFactorWord1 = 8373462824848618879
+const inversionCorrectionFactorWord2 = 7553521018781888459
+const inversionCorrectionFactorWord3 = 595240760696852504
+const inversionCorrectionFactorWord4 = 16794241053652767540
+const inversionCorrectionFactorWord5 = 43911691917702151
 
 const invIterationsN = 26
 
+// Inverse z = x⁻¹ mod q
+// Implements "Optimized Binary GCD for Modular Inversion"
+// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
 		z.SetZero()
@@ -1480,8 +1457,39 @@ func (z *Element) Inverse(x *Element) *Element {
 		v.mulWSigned(&v, pSq)
 	}
 
-	z.Mul(&v, &inversionCorrectionFactor)
+	z.Mul(&v, &Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+		inversionCorrectionFactorWord5,
+	})
 	return z
+}
+
+// approximate a big number using its uppermost and lowermost bits
+func approximate(x *Element, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (n - 1) / 64
+
+	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
 }
 
 func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
@@ -1582,7 +1590,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[5], z[4] = madd2(m, qElementWord5, t[i+5], C)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64

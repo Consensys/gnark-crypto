@@ -5,7 +5,7 @@ const InversePornin = `
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if eq .NoCarry false}}
 
-// Inverse z = x^-1 mod q 
+// Inverse z = x⁻¹ mod q 
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	var _xNonMont big.Int
@@ -37,38 +37,15 @@ const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
 const approxHighBitsN = k + 1
 
-func approximate(x *{{.ElementName}}, n int) uint64 {
-
-	if n <= 64 {
-		return x[0]
-	}
-
-	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
-	lo := mask & x[0]
-
-	hiWordIndex := (n - 1) / 64
-
-	hiWordBitsAvailable := n - hiWordIndex * 64
-	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
-
-	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
-	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
-
-	mask_ = ^(1<<(approxLowBitsN + hiWordBitsUsed) - 1)
-	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
-
-	return lo | mid | hi
-}
-
-// TODO: Inline this
-var inversionCorrectionFactor = {{.ElementName}}{
-{{- range $cFacWord := .P20InversionCorrectiveFac}}
-	{{$cFacWord}},
+{{- range $i := .NbWordsIndexesFull}}
+const inversionCorrectionFactorWord{{$i}} = {{index $.P20InversionCorrectiveFac $i}}
 {{- end}}
-}
 
 const invIterationsN = {{.P20InversionNbIterations}}
 
+// Inverse z = x⁻¹ mod q
+// Implements "Optimized Binary GCD for Modular Inversion"
+// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
 		z.SetZero()
@@ -194,8 +171,36 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		v.mulWSigned(&v, pSq)
 	}
 
-	z.Mul(&v, &inversionCorrectionFactor)
+	z.Mul(&v, &{{.ElementName}}{
+		{{- range $i := .NbWordsIndexesFull }}
+		inversionCorrectionFactorWord{{$i}},
+		{{- end}}
+	})
 	return z
+}
+
+// approximate a big number using its uppermost and lowermost bits
+func approximate(x *{{.ElementName}}, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (n - 1) / 64
+
+	hiWordBitsAvailable := n - hiWordIndex * 64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN + hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
 }
 
 func (z *{{.ElementName}}) linearCombSosSigned(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {

@@ -1947,6 +1947,14 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	factorInt.Mod(factorInt, Modulus())
 
 	var refFactorInt big.Int
+	inversionCorrectionFactor := Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+		inversionCorrectionFactorWord5,
+	}
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
@@ -1995,7 +2003,14 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 		fac.setBigInt(&i) // back to montgomery
 
 		var facTimesFac Element
-		facTimesFac.Mul(&inversionCorrectionFactor, &fac)
+		facTimesFac.Mul(&fac, &Element{
+			inversionCorrectionFactorWord0,
+			inversionCorrectionFactorWord1,
+			inversionCorrectionFactorWord2,
+			inversionCorrectionFactorWord3,
+			inversionCorrectionFactorWord4,
+			inversionCorrectionFactorWord5,
+		})
 
 		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}

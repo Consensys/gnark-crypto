@@ -3,7 +3,7 @@ package element
 const Conv = `
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *{{.ElementName}}) ToMont() *{{.ElementName}} {
 	return z.Mul(z, &rSquare)
 }
@@ -123,7 +123,7 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q 
+// setBigInt assumes 0 ⩽ v < q
 func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 	vBits := v.Bits()
 

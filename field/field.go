@@ -195,7 +195,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			// use Tonelli-Shanks
 			F.SqrtTonelliShanks = true
 
-			// Write q-1 =2^e * s , s odd
+			// Write q-1 =2ᵉ * s , s odd
 			var s big.Int
 			one.SetUint64(1)
 			s.Sub(&bModulus, &one)
