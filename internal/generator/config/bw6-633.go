@@ -24,7 +24,5 @@ var BW6_633 = Curve{
 }
 
 func init() {
-	BW6_633.init()
-	Curves = append(Curves, BW6_633)
-
+	addCurve(&BW6_633)
 }

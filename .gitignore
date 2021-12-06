@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+*.txt
 
 # Test binary, build with `go test -c`
 *.test
@@ -29,6 +30,7 @@ tasks.txt
 internal/tests/integration/
 field/internal/dev.go 
 field/internal/dev/**
+field/generator/addchain/**
 
 .vscode
 

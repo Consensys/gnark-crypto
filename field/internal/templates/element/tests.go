@@ -4,13 +4,17 @@ const Test = `
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"math/big"
 	"math/bits"
 	mrand "math/rand"
 	"testing"
+	{{if .UseAddChain}}	"fmt" {{ end }}
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+
+	"github.com/stretchr/testify/require"
 )
 
 
@@ -165,7 +169,8 @@ func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	var a {{.ElementName}}
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sqrt(&a)
@@ -958,6 +963,65 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 {{ end }}
 
+{{ if .UseAddChain}}
+func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponent{{.ElementName}} *big.Int
+		_bSqrtExponent{{.ElementName}} *big.Int
+	)
+
+	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
+	{{- if .SqrtQ3Mod4}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
+	{{- else if .SqrtAtkin}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtAtkinExponent}}"
+	{{- else if .SqrtTonelliShanks}}
+		const sqrtExponent{{.ElementName}} = "{{.SqrtSMinusOneOver2}}"
+	{{- end }}
+	_bSqrtExponent{{.ElementName}}, _ = new(big.Int).SetString(sqrtExponent{{.ElementName}}, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponent{{.ElementName}}), prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+{{ end }}
+
+
+
 
 
 func Test{{toTitle .ElementName}}Halve(t *testing.T) {
@@ -1032,7 +1096,44 @@ func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
 
 
+func Test{{toTitle .ElementName}}JSON(t *testing.T) {
+	assert := require.New(t)
 
+	type S struct {
+		A {{.ElementName}}
+		B [3]{{.ElementName}}
+		C *{{.ElementName}}
+		D *{{.ElementName}}
+	}
+
+	// encode to JSON
+	var s S
+	s.A.SetString("-1")
+	s.B[2].SetUint64(42)
+	s.D = new({{.ElementName}}).SetUint64(8000)
+
+	encoded, err := json.Marshal(&s)
+	assert.NoError(err)
+	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(string(encoded), expected)
+
+	// decode valid
+	var decoded S
+	err = json.Unmarshal([]byte(expected), &decoded)
+	assert.NoError(err)
+
+	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+
+	// decode hex and string values
+	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
+
+	var decodedS S
+	err = json.Unmarshal([]byte(withHexValues), &decodedS)
+	assert.NoError(err)
+
+	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+
+}
 
 type testPair{{.ElementName}} struct {
 	element {{.ElementName}}
@@ -1124,6 +1225,10 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
+
+
+
+
 
 
 `

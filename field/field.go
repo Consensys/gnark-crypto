@@ -18,6 +18,8 @@ package field
 import (
 	"errors"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
 
 var (
@@ -27,46 +29,50 @@ var (
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName                string
-	ElementName                string
-	ModulusBig                 *big.Int
-	Modulus                    string
-	ModulusHex                 string
-	NbWords                    int
-	NbBits                     int
-	NbWordsLastIndex           int
-	NbWordsIndexesFull         []int
+	PackageName          string
+	ElementName          string
+	ModulusBig           *big.Int
+	Modulus              string
+	ModulusHex           string
+	NbWords              int
+	NbBits               int
+	NbWordsLastIndex     int
+	NbWordsIndexesNoZero []int
+	NbWordsIndexesFull   []int
 	NbWordsIndexesNoLast       []int
-	NbWordsIndexesNoZero       []int
 	NbWordsIndexesNoZeroNoLast []int
 	P20InversionCorrectiveFac  []uint64
 	P20InversionNbIterations   int
-	Q                          []uint64
-	QInverse                   []uint64
-	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
-	ASM                        bool
-	RSquare                    []uint64
-	One                        []uint64
-	LegendreExponent           string // big.Int to base16 string
-	NoCarry                    bool
-	NoCarrySquare              bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4                 bool
-	SqrtAtkin                  bool
-	SqrtTonelliShanks          bool
-	SqrtE                      uint64
-	SqrtS                      []uint64
-	SqrtAtkinExponent          string   // big.Int to base16 string
-	SqrtSMinusOneOver2         string   // big.Int to base16 string
-	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
-	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
-
-	NonResidue []uint64 // (montgomery form)
+	Q                    []uint64
+	QInverse             []uint64
+	QMinusOneHalvedP     []uint64 // ((q-1) / 2 ) + 1
+	ASM                  bool
+	RSquare              []uint64
+	One                  []uint64
+	LegendreExponent     string // big.Int to base16 string
+	NoCarry              bool
+	NoCarrySquare        bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4           bool
+	SqrtAtkin            bool
+	SqrtTonelliShanks    bool
+	SqrtE                uint64
+	SqrtS                []uint64
+	SqrtAtkinExponent    string   // big.Int to base16 string
+	SqrtSMinusOneOver2   string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent   string   // big.Int to base16 string
+	SqrtG                []uint64 // NonResidue ^  SqrtR (montgomery form)
+	NonResidue           []uint64 // (montgomery form)
+	LegendreExponentData   *addchain.AddChainData
+	SqrtAtkinExponentData  *addchain.AddChainData
+	SqrtSMinusOneOver2Data *addchain.AddChainData
+	SqrtQ3Mod4ExponentData *addchain.AddChainData
+	UseAddChain            bool
 }
 
 // NewField returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
-func NewField(packageName, elementName, modulus string) (*Field, error) {
+func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 10); !ok {
@@ -80,6 +86,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		Modulus:     modulus,
 		ModulusHex:  bModulus.Text(16),
 		ModulusBig:  new(big.Int).Set(&bModulus),
+		UseAddChain: useAddChain,
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
@@ -164,6 +171,9 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	legendreExponent.Sub(&bModulus, &legendreExponent)
 	legendreExponent.Rsh(&legendreExponent, 1)
 	F.LegendreExponent = legendreExponent.Text(16)
+	if F.UseAddChain {
+		F.LegendreExponentData = addchain.GetAddChain(&legendreExponent)
+	}
 
 	// Sqrt pre computes
 	var qMod big.Int
@@ -177,6 +187,12 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 		sqrtExponent.Add(&bModulus, &sqrtExponent)
 		sqrtExponent.Rsh(&sqrtExponent, 2)
 		F.SqrtQ3Mod4Exponent = sqrtExponent.Text(16)
+
+		// add chain stuff
+		if F.UseAddChain {
+			F.SqrtQ3Mod4ExponentData = addchain.GetAddChain(&sqrtExponent)
+		}
+
 	} else {
 		// q ≡ 1 (mod 4)
 		qMod.SetUint64(8)
@@ -187,6 +203,9 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			F.SqrtAtkin = true
 			e := new(big.Int).Rsh(&bModulus, 3) // e = (q - 5) / 8
 			F.SqrtAtkinExponent = e.Text(16)
+			if F.UseAddChain {
+				F.SqrtAtkinExponentData = addchain.GetAddChain(e)
+			}
 		} else {
 			// use Tonelli-Shanks
 			F.SqrtTonelliShanks = true
@@ -223,6 +242,10 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
 			F.SqrtSMinusOneOver2 = s.Text(16)
+
+			if F.UseAddChain {
+				F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
+			}
 		}
 	}
 

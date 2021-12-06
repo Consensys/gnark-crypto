@@ -18,6 +18,8 @@ package fr
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"math/bits"
 	mrand "math/rand"
@@ -25,6 +27,8 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+
+	"github.com/stretchr/testify/require"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -174,7 +178,8 @@ func BenchmarkElementSquare(b *testing.B) {
 
 func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sqrt(&a)
@@ -1701,6 +1706,53 @@ func TestElementNeg(t *testing.T) {
 	}
 }
 
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000", 16)
+	const sqrtExponentElement = "39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementHalve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -1765,6 +1817,45 @@ func TestElementFromMont(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementJSON(t *testing.T) {
+	assert := require.New(t)
+
+	type S struct {
+		A Element
+		B [3]Element
+		C *Element
+		D *Element
+	}
+
+	// encode to JSON
+	var s S
+	s.A.SetString("-1")
+	s.B[2].SetUint64(42)
+	s.D = new(Element).SetUint64(8000)
+
+	encoded, err := json.Marshal(&s)
+	assert.NoError(err)
+	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(string(encoded), expected)
+
+	// decode valid
+	var decoded S
+	err = json.Unmarshal([]byte(expected), &decoded)
+	assert.NoError(err)
+
+	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+
+	// decode hex and string values
+	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
+
+	var decodedS S
+	err = json.Unmarshal([]byte(withHexValues), &decodedS)
+	assert.NoError(err)
+
+	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+
 }
 
 type testPairElement struct {

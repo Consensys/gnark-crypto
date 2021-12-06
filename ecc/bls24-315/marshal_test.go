@@ -440,24 +440,24 @@ func GenE4() gopter.Gen {
 	})
 }
 
-// GenE8 generates an fptower.E8 elmt
-func GenE8() gopter.Gen {
+// GenE12 generates an fptower.E12 elmt
+func GenE12() gopter.Gen {
 	return gopter.CombineGens(
 		GenE4(),
 		GenE4(),
-	).Map(func(values []interface{}) fptower.E8 {
-		return fptower.E8{C0: values[0].(fptower.E4), C1: values[1].(fptower.E4)}
+		GenE4(),
+	).Map(func(values []interface{}) fptower.E12 {
+		return fptower.E12{C0: values[0].(fptower.E4), C1: values[1].(fptower.E4), C2: values[2].(fptower.E4)}
 	})
 }
 
 // GenE24 generates an fptower.E24 elmt
 func GenE24() gopter.Gen {
 	return gopter.CombineGens(
-		GenE8(),
-		GenE8(),
-		GenE8(),
+		GenE12(),
+		GenE12(),
 	).Map(func(values []interface{}) fptower.E24 {
-		return fptower.E24{D0: values[0].(fptower.E8), D1: values[1].(fptower.E8), D2: values[2].(fptower.E8)}
+		return fptower.E24{D0: values[0].(fptower.E12), D1: values[1].(fptower.E12)}
 	})
 }
 
