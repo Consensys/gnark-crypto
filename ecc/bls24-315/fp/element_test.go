@@ -77,7 +77,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		benchResElement.Inverse(&x)
+		benchResElement.InverseOld(&x)
 	}
 
 }
