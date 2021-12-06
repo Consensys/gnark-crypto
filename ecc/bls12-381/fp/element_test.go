@@ -2178,14 +2178,10 @@ func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
 
 func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
 
-	if bits.UintSize != 64 {
-		panic("Word size 64 expected")
-	}
-
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*64)
+	modulus.Lsh(&modulus, (Limbs+1)*bits.UintSize)
 	aIntMod.Mod(aInt, &modulus)
 
 	words := aIntMod.Bits()

@@ -160,10 +160,6 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		}
 	}
 
-	if i > invIterationsN {
-		panic("more iterations than expected")
-	}
-
 	// For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
 	// If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)

@@ -18,7 +18,6 @@ package field
 import (
 	"errors"
 	"math/big"
-	"math/bits"
 )
 
 var (
@@ -108,10 +107,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	F.QInverse = toUint64Slice(_qInv, F.NbWords)
 
 	// Pornin20 inversion correction factors
-	if bits.UintSize != 64 {
-		panic("P20 field inversion implementation assumes 64bit words.")
-	}
-	k := 32
+	k := 32 // Optimized for 64 bit machines, still works for 32
 
 	p20InvInnerLoopNbIterations := 2*F.NbBits - 1
 	// if constant time inversion then p20InvInnerLoopNbIterations-- (among other changes)
