@@ -2164,7 +2164,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 		}
 
 		c := updateFactorsCompose(f, g)
-		cD := c * 2//updateFactorsDouble(c)
+		cD := c * 2
 		fD, gD := updateFactorsDecompose(cD)
 
 		if fD != 2 * f || gD != 2 * g {

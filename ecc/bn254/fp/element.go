@@ -1223,20 +1223,15 @@ func (z *Element) Inverse(x *Element) *Element {
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
 			// Which leaves us with an extra bit for the sign
 
-			f, g = updateFactorsDecompose(c0)
-			f1, g1 := updateFactorsDecompose(c1)
-			pf0, pg0 := updateFactorsDecompose(p0)
-			pf1, pg1 := updateFactorsDecompose(p1)
+			f, g = updateFactorsDecompose(c0)       // f aliases f0, g aliases g0
+			f1, g1 := updateFactorsDecompose(c1)    // The right names
+			c0, p0 = updateFactorsDecompose(p0)     // c0 aliases pf0, p0 aliases pg0
+			c1, p1 = updateFactorsDecompose(p1)    // c1 aliases pg1, p1 aliases pg1
 
-			// The values in c0, c1, p0 and p1 are no longer of use now
-			// Will the compiler know that and use the registers they're stored in for these new values?
-			// We can't do it here as long as c0, c1, p0, p1 are considered uints
-			// TODO: See if that can be changed
-
-			f, g, f1, g1 = f*pf0+g*pf1,
-				f*pg0+g*pg1,
-				f1*pf0+g1*pf1,
-				f1*pg0+g1*pg1
+			f, g, f1, g1 = f*c0+g*c1,
+				f*p0+g*p1,
+				f1*c0+g1*c1,
+				f1*p0+g1*p1
 
 			s = u
 			u.linearCombSosSigned(&u, f, &v, g)
