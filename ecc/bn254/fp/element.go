@@ -1087,14 +1087,15 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-const updateFactorsConversionBias uint64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
+const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
 const updateFactorIdentityMatrixRow0 =  1
 const updateFactorIdentityMatrixRow1 = 1 << 32
 
-func updateFactorsDecompose(c uint64) (int64, int64) {
+func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
-	f := int64(c & 0x00000000FFFFFFFF) - 0x000000007FFFFFFF
-	g := int64(c >> 32) - 0x000000007FFFFFFF
+	const low32BitsFilter int64 = 0xFFFFFFFF
+	f := c & low32BitsFilter - 0x7FFFFFFF
+	g := c >> 32 & low32BitsFilter - 0x7FFFFFFF
 	return f, g
 }
 
@@ -1126,10 +1127,10 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	//c_i = f_i + 2^31 - 1 + 2^32 * (g_i + 2^31 - 1)
-	var c0, c1 uint64
+	var c0, c1 int64
 
 	//Saved update factors to reduce the number of field multiplications
-	var p0, p1 uint64
+	var p0, p1 int64
 
 	var i uint
 

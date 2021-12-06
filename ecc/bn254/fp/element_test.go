@@ -2204,7 +2204,7 @@ func TestUpdateFactorsNeg(t *testing.T) {
 
 func TestComputeUpdateFactorsNeg0(t *testing.T) {
 	c := updateFactorsCompose(0,0)
-	t.Log("c(0,0) = ", strconv.FormatUint(c, 16))
+	t.Log("c(0,0) = ", strconv.FormatInt(c, 16))
 	cn := -c
 
 	if c != cn {
@@ -2365,8 +2365,8 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 	res.assertMatchVeryBigInt(t, 0, &resInt)
 }
 
-func updateFactorsCompose(f int64, g int64 ) uint64 {
-	return uint64(f + g << 32)
+func updateFactorsCompose(f int64, g int64 ) int64 {
+	return f + g << 32
 }
 
 var rInv big.Int
