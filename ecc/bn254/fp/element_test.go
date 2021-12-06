@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"math/bits"
 	mrand "math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -2074,6 +2075,16 @@ func TestUpdateFactorInitialValues(t *testing.T) {
 	}
 }
 
+func TestComputeUpdateFactorsNeg0(t *testing.T) {
+	c := updateFactorsCompose(0,0)
+	t.Log("c(0,0) = ", strconv.FormatUint(c, 16))
+	cn := updateFactorsNeg(c)
+
+	if c != cn {
+		t.Error("Negation of zero update factors should yield the same result.")
+	}
+}
+
 func TestUpdateFactorsNeg(t *testing.T) {
 	var fMistake bool
 	for i := 0; i < 1000; i++ {
@@ -2083,7 +2094,8 @@ func TestUpdateFactorsNeg(t *testing.T) {
 		nf, ng := updateFactorsDecompose(nc)
 		fMistake = fMistake || nf != -f
 		if nf != -f || ng != -g {
-			t.Errorf("Mismatch:\n%d, %d ->\n %d -> %d ->\n %d, %d\n", f, g, c, nc, nf, ng)
+			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %s, %s",
+				i, f, g, c, nc, nf, ng, strconv.FormatInt(f, 16), strconv.FormatInt(g, 16))
 		}
 	}
 	if fMistake {
@@ -2093,31 +2105,77 @@ func TestUpdateFactorsNeg(t *testing.T) {
 	}
 }
 
-func randomizeUpdateFactors() (int64, int64) {
-	var f int64
-	var g int64
-	const maxSizeLikelihood = 4
-	maxSize := mrand.Intn(maxSizeLikelihood * maxSizeLikelihood)
-	switch maxSize % maxSizeLikelihood {
-	case 0:
-		f = 0
-	case 1:
-		f = 1 << 32 - 1
-	default:
-		f = int64(mrand.Uint32())
-	}
-	f -= 1 << 31 - 1 // -2^31 < f \le 2^31
+func TestUpdateFactorsRandomization(t *testing.T) {
+	var maxLen int
 
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+		lf, lg := abs64T32(f), abs64T32(g)
+
+		if lf + lg >= 1 << 31 {
+
+			if lf + lg == 1 << 31 {
+				maxLen++
+			} else {
+				t.Error("Sum of absolute values too large")
+			}
+		}
+	}
+
+	if maxLen == 0 {
+		t.Error("max len not observed")
+	} else {
+		t.Log(maxLen, "maxLens observed")
+	}
+}
+
+func randomizeUpdateFactor(absLimit uint32) int64 {
+	const maxSizeLikelihood = 10
+	maxSize := mrand.Intn(maxSizeLikelihood * maxSizeLikelihood)
+
+	absLimit64 := int64(absLimit)
+
+	var f int64
 	switch maxSize % maxSizeLikelihood {
 	case 0:
-		g = 0
+		f = absLimit64
 	case 1:
-		g = 1 << 32 - 1
+		f = -absLimit64
 	default:
-		g = int64(mrand.Uint32())
+		f = int64(mrand.Uint64() % (2* uint64(absLimit64) + 1)) - absLimit64
+		f -= absLimit64
 	}
-	g -= 1 << 31 - 1 // -2^31 < f \le 2^31
-	return f, g
+
+	if f > 1 << 31 {
+		return 1 << 31
+	} else if f < - 1<<31 + 1 {
+		return -1 << 31 + 1
+	}
+
+	return f
+}
+
+func abs64T32(f int64) uint32 {
+	if f >= 1 << 32 || f < - 1 << 32 {
+		panic("f out of range")
+	}
+
+	if f < 0 {
+		return uint32(-f)
+	}
+	return uint32(f)
+}
+
+func randomizeUpdateFactors() (int64, int64) {
+	var f [2]int64
+	b := mrand.Int() % 2
+
+	f[b]   = randomizeUpdateFactor(1 << 31)
+
+	//As per the paper, |f| + |g| \le 2^31.
+	f[1-b] = randomizeUpdateFactor(1 << 31 - abs64T32(f[b]))
+
+	return f[0], f[1]
 }
 
 func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {

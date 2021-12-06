@@ -1089,10 +1089,10 @@ func approximate(x *Element, n int) uint64 {
 
 const updateFactorIdentityMatrixRow0 = 0x7FFFFFFF80000000
 const updateFactorIdentityMatrixRow1 = 0x800000007FFFFFFF
-const updateFactorsNegationError uint64 = 2 - 1 << 32 + 1 << 34
+const updateFactorsNegationError uint64 = 2 * 0x7fffffff7fffffff	// neg(0,0) = (0,0), neg(0,0) = -(0,0) + err
 
 func updateFactorsNeg(c uint64) uint64 {
-	return -c - updateFactorsNegationError
+	return updateFactorsNegationError - c
 }
 
 func updateFactorsDecompose(c uint64) (int64, int64) {
