@@ -2011,12 +2011,6 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	factorInt.Mod(factorInt, Modulus())
 
 	var refFactorInt big.Int
-	inversionCorrectionFactor := Element{
-		inversionCorrectionFactorWord0,
-		inversionCorrectionFactorWord1,
-		inversionCorrectionFactorWord2,
-		inversionCorrectionFactorWord3,
-	}
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
@@ -2065,12 +2059,7 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 		fac.setBigInt(&i) // back to montgomery
 
 		var facTimesFac Element
-		facTimesFac.Mul(&fac, &Element{
-			inversionCorrectionFactorWord0,
-			inversionCorrectionFactorWord1,
-			inversionCorrectionFactorWord2,
-			inversionCorrectionFactorWord3,
-		})
+		facTimesFac.Mul(&fac, &inversionCorrectionFactor)
 
 		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}
@@ -2181,6 +2170,15 @@ func TestUpdateFactorsNeg(t *testing.T) {
 	var fMistake bool
 	for i := 0; i < 1000; i++ {
 		f, g := randomizeUpdateFactors()
+
+		if f == 0x80000000 || g == 0x80000000 {
+			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
+			// We don't have capacity to store -2^31
+			// Repeat this iteration
+			i --
+			continue
+		}
+
 		c := updateFactorsCompose(f, g)
 		nc := updateFactorsNeg(c)
 		nf, ng := updateFactorsDecompose(nc)
@@ -2203,10 +2201,10 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		f, g := randomizeUpdateFactors()
 		lf, lg := abs64T32(f), abs64T32(g)
+		absSum := lf + lg
+		if absSum >= 1 << 31 {
 
-		if lf + lg >= 1 << 31 {
-
-			if lf + lg == 1 << 31 {
+			if absSum == 1 << 31 {
 				maxLen++
 			} else {
 				t.Error("Sum of absolute values too large")
@@ -2223,12 +2221,12 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 
 func randomizeUpdateFactor(absLimit uint32) int64 {
 	const maxSizeLikelihood = 10
-	maxSize := mrand.Intn(maxSizeLikelihood * maxSizeLikelihood)
+	maxSize := mrand.Intn(maxSizeLikelihood)
 
 	absLimit64 := int64(absLimit)
 
 	var f int64
-	switch maxSize % maxSizeLikelihood {
+	switch maxSize{
 	case 0:
 		f = absLimit64
 	case 1:
