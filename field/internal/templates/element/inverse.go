@@ -11,7 +11,8 @@ func (z *{{.ElementName}}) InverseOld(x *{{.ElementName}}) *{{.ElementName}} {
 }
 
 {{else}}
-// Inverse z = x^-1 mod q 
+// InverseOld z = x⁻¹ mod q
+// TODO: Keeping this around for a while to test it against P20 on various platforms
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) InverseOld(x *{{.ElementName}}) *{{.ElementName}} {
@@ -26,7 +27,7 @@ func (z *{{.ElementName}}) InverseOld(x *{{.ElementName}}) *{{.ElementName}} {
 		{{index $.Q $i}},{{end}}
 	}
 
-	// initialize s = r^2
+	// initialize s = r²
 	var s = {{.ElementName}}{
 		{{- range $i := .RSquare}}
 		{{$i}},{{end}}

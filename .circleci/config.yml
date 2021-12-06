@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: cimg/go:1.17.1
+      - image: cimg/go:1.17.3
     steps:
       - checkout
       - run: mkdir -p  /tmp/test-results
@@ -11,8 +11,8 @@ jobs:
             - go-mod-v1-{{ checksum "go.sum" }}
       - run: if [[ -n $(gofmt -l .) ]]; then echo "Please run gofmt"; exit 1; fi
       - run: go vet -v ./...
-      - run: go get golang.org/x/tools/cmd/goimports
-      - run: go get github.com/klauspost/asmfmt/cmd/asmfmt
+      - run: go install golang.org/x/tools/cmd/goimports@latest
+      - run: go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
       - run: go generate ./...
       - run: git update-index --assume-unchanged go.mod
       - run: git update-index --assume-unchanged go.sum

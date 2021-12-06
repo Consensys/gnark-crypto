@@ -343,17 +343,17 @@ func TestG2AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.ScalarMultiplication(&g2Gen, r)
+			g.mulGLV(&g2Gen, r)
 
-			var scalar, blindedScalard, rminusone big.Int
+			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMultiplication(&g2Gen, &rminusone)
+			op3.mulWindowed(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
 			s.ToBigIntRegular(&scalar)
-			blindedScalard.Add(&scalar, r)
-			op1.ScalarMultiplication(&g2Gen, &scalar)
-			op2.ScalarMultiplication(&g2Gen, &blindedScalard)
+			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
+			op1.mulWindowed(&g2Gen, &scalar)
+			op2.mulWindowed(&g2Gen, &blindedScalar)
 
 			return op1.Equal(&op2) && g.Equal(&g2Infinity) && !op1.Equal(&g2Infinity) && gneg.Equal(&op3)
 
@@ -376,15 +376,15 @@ func TestG2AffineOps(t *testing.T) {
 			var g G2Jac
 			g.mulGLV(&g2Gen, r)
 
-			var scalar, blindedScalard, rminusone big.Int
+			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.mulGLV(&g2Gen, &rminusone)
+			op3.ScalarMultiplication(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
 			s.ToBigIntRegular(&scalar)
-			blindedScalard.Add(&scalar, r)
-			op1.mulGLV(&g2Gen, &scalar)
-			op2.mulGLV(&g2Gen, &blindedScalard)
+			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
+			op1.ScalarMultiplication(&g2Gen, &scalar)
+			op2.ScalarMultiplication(&g2Gen, &blindedScalar)
 
 			return op1.Equal(&op2) && g.Equal(&g2Infinity) && !op1.Equal(&g2Infinity) && gneg.Equal(&op3)
 

@@ -18,6 +18,8 @@ package fp
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"math/bits"
 	mrand "math/rand"
@@ -26,6 +28,8 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+
+	"github.com/stretchr/testify/require"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -78,7 +82,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		benchResElement.Inverse(&x)
+		benchResElement.InverseOld(&x)
 	}
 
 }
@@ -175,7 +179,8 @@ func BenchmarkElementSquare(b *testing.B) {
 
 func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sqrt(&a)
@@ -1702,6 +1707,53 @@ func TestElementNeg(t *testing.T) {
 	}
 }
 
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("183227397098d014dc2822db40c0ac2ecbc0b548b438e5469e10460b6c3e7ea3", 16)
+	const sqrtExponentElement = "c19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(183227397098d014dc2822db40c0ac2ecbc0b548b438e5469e10460b6c3e7ea3)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementHalve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -1766,6 +1818,45 @@ func TestElementFromMont(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementJSON(t *testing.T) {
+	assert := require.New(t)
+
+	type S struct {
+		A Element
+		B [3]Element
+		C *Element
+		D *Element
+	}
+
+	// encode to JSON
+	var s S
+	s.A.SetString("-1")
+	s.B[2].SetUint64(42)
+	s.D = new(Element).SetUint64(8000)
+
+	encoded, err := json.Marshal(&s)
+	assert.NoError(err)
+	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(string(encoded), expected)
+
+	// decode valid
+	var decoded S
+	err = json.Unmarshal([]byte(expected), &decoded)
+	assert.NoError(err)
+
+	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+
+	// decode hex and string values
+	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
+
+	var decodedS S
+	err = json.Unmarshal([]byte(withHexValues), &decodedS)
+	assert.NoError(err)
+
+	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+
 }
 
 type testPairElement struct {
@@ -1874,8 +1965,8 @@ func genFull() gopter.Gen {
 	}
 }
 
-//this is a hack so that there isn't an import error in case mrand is not used
-//TODO: Do it properly
+// this is a hack so that there isn't an import error in case mrand is not used
+// TODO: Do it properly
 func useMRand() {
 	_ = mrand.Uint64()
 }
@@ -1897,7 +1988,7 @@ func TestP20InversionApproximation(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 
-		//Normally small elements are unlikely. Here we give them a higher chance
+		// Normally small elements are unlikely. Here we give them a higher chance
 		xZeros := mrand.Int() % Limbs
 		for j := 1; j < xZeros; j++ {
 			x[Limbs-j] = 0
@@ -1920,6 +2011,12 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	factorInt.Mod(factorInt, Modulus())
 
 	var refFactorInt big.Int
+	inversionCorrectionFactor := Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+	}
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
@@ -1938,10 +2035,10 @@ func TestLinearComb(t *testing.T) {
 	}
 }
 
-//Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
+// Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
 func TestP20InversionCorrectionFactor(t *testing.T) {
 
-	//(1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
+	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
 	var one Element
 	var oneInv Element
@@ -1962,13 +2059,18 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 
 	if !oneInv.Equal(&one) {
 		var i big.Int
-		oneInv.ToBigIntRegular(&i) //no montgomery
+		oneInv.ToBigIntRegular(&i) // no montgomery
 		i.ModInverse(&i, Modulus())
 		var fac Element
-		fac.setBigInt(&i) //back to montgomery
+		fac.setBigInt(&i) // back to montgomery
 
 		var facTimesFac Element
-		facTimesFac.Mul(&inversionCorrectionFactor, &fac)
+		facTimesFac.Mul(&fac, &Element{
+			inversionCorrectionFactorWord0,
+			inversionCorrectionFactorWord1,
+			inversionCorrectionFactorWord2,
+			inversionCorrectionFactorWord3,
+		})
 
 		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}
@@ -1989,16 +2091,6 @@ func TestBigNumWMul(t *testing.T) {
 		x.SetRandom()
 		w := mrand.Int63()
 		testBigNumWMul(t, &x, w)
-	}
-}
-
-func TestBigNumWMulBr(t *testing.T) {
-	var x Element
-
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		w := mrand.Int63()
-		testBigNumWMulBr(t, &x, w)
 	}
 }
 
@@ -2195,15 +2287,6 @@ func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 	var z Element
 	z.linearCombSosSigned(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
-
-}
-
-func testBigNumWMulBr(t *testing.T, a *Element, c int64) {
-	var aHi uint64
-	var aTimes Element
-	aHi = aTimes.mulWRegularBr(a, c)
-
-	assertMulProduct(t, a, c, &aTimes, aHi)
 }
 
 func testBigNumWMul(t *testing.T, a *Element, c int64) {
@@ -2230,7 +2313,7 @@ func updateFactorsCompose(f int64, g int64 ) uint64 {
 
 var rInv big.Int
 func montReduce(res *big.Int, x *big.Int) {
-	if rInv.BitLen() == 0 { //initialization
+	if rInv.BitLen() == 0 { // initialization
 		rInv.SetUint64(1)
 		rInv.Lsh(&rInv, Limbs*bits.UintSize)
 		rInv.ModInverse(&rInv, Modulus())
@@ -2280,14 +2363,10 @@ func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
 
 func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
 
-	if bits.UintSize != 64 {
-		panic("Word size 64 expected")
-	}
-
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*64)
+	modulus.Lsh(&modulus, (Limbs+1)*bits.UintSize)
 	aIntMod.Mod(aInt, &modulus)
 
 	words := aIntMod.Bits()

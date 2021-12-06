@@ -31,6 +31,7 @@ import (
 	"math/bits"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -206,7 +207,7 @@ func (z *Element) IsZero() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *Element) IsUint64() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -290,7 +291,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[5] = binary.BigEndian.Uint64(bytes[40:48])
 	z[5] %= 121098312706494698
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -494,7 +495,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[5], z[4] = madd3(m, 121098312706494698, c[0], c[2], c[1])
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -577,7 +578,7 @@ func _mulWGeneric(z, x *Element, y uint64) {
 		z[5], z[4] = madd2(m, 121098312706494698, t[5], c2)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -660,7 +661,7 @@ func _fromMontGeneric(z *Element) {
 		z[5] = C
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -683,7 +684,7 @@ func _addGeneric(z, x, y *Element) {
 	z[4], carry = bits.Add64(x[4], y[4], carry)
 	z[5], _ = bits.Add64(x[5], y[5], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -706,7 +707,7 @@ func _doubleGeneric(z, x *Element) {
 	z[4], carry = bits.Add64(x[4], x[4], carry)
 	z[5], _ = bits.Add64(x[5], x[5], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -754,7 +755,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -870,7 +871,7 @@ func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 }
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *Element) ToMont() *Element {
 	return z.Mul(z, &rSquare)
 }
@@ -880,23 +881,41 @@ func (z Element) ToRegular() Element {
 	return *z.FromMont()
 }
 
-// String returns the string form of an Element in Montgomery form
+// String returns the decimal representation of z as generated by
+// z.Text(10).
 func (z *Element) String() string {
+	return z.Text(10)
+}
+
+// Text returns the string representation of z in the given base.
+// Base must be between 2 and 36, inclusive. The result uses the
+// lower-case letters 'a' to 'z' for digit values 10 to 35.
+// No prefix (such as "0x") is added to the string. If z is a nil
+// pointer it returns "<nil>".
+// If base == 10 and -z fits in a uint64 prefix "-" is added to the string.
+func (z *Element) Text(base int) string {
+	if base < 2 || base > 36 {
+		panic("invalid base")
+	}
+	if z == nil {
+		return "<nil>"
+	}
 	zz := *z
 	zz.FromMont()
 	if zz.IsUint64() {
-		return strconv.FormatUint(zz[0], 10)
-	} else {
+		return strconv.FormatUint(zz[0], base)
+	} else if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
 		if zzNeg.IsUint64() {
-			return "-" + strconv.FormatUint(zzNeg[0], 10)
+			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
 	vv := bigIntPool.Get().(*big.Int)
-	defer bigIntPool.Put(vv)
-	return zz.ToBigInt(vv).String()
+	r := zz.ToBigInt(vv).Text(base)
+	bigIntPool.Put(vv)
+	return r
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form
@@ -986,7 +1005,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q
+// setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
@@ -1007,14 +1026,30 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 	return z.ToMont()
 }
 
-// SetString creates a big.Int with s (in base 10) and calls SetBigInt on z
-func (z *Element) SetString(s string) *Element {
+// SetString creates a big.Int with number and calls SetBigInt on z
+//
+// The number prefix determines the actual base: A prefix of
+// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
+// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// and no prefix is accepted.
+//
+// For base 16, lower and upper case letters are considered the same:
+// The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
+//
+// An underscore character ''_'' may appear between a base
+// prefix and an adjacent digit, and between successive digits; such
+// underscores do not change the value of the number.
+// Incorrect placement of underscores is reported as a panic if there
+// are no other errors.
+//
+func (z *Element) SetString(number string) *Element {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 
-	if _, ok := vv.SetString(s, 10); !ok {
-		panic("Element.SetString failed -> can't parse number in base10 into a big.Int")
+	if _, ok := vv.SetString(number, 0); !ok {
+		panic("Element.SetString failed -> can't parse number into a big.Int " + number)
 	}
+
 	z.SetBigInt(vv)
 
 	// release object into pool
@@ -1023,22 +1058,59 @@ func (z *Element) SetString(s string) *Element {
 	return z
 }
 
-var (
-	_bLegendreExponentElement *big.Int
-	_bSqrtExponentElement     *big.Int
-)
+// MarshalJSON returns json encoding of z (z.Text(10))
+// If z == nil, returns null
+func (z *Element) MarshalJSON() ([]byte, error) {
+	if z == nil {
+		return []byte("null"), nil
+	}
+	const maxSafeBound = 15 // we encode it as number if it's small
+	s := z.Text(10)
+	if len(s) <= maxSafeBound {
+		return []byte(s), nil
+	}
+	var sbb strings.Builder
+	sbb.WriteByte('"')
+	sbb.WriteString(s)
+	sbb.WriteByte('"')
+	return []byte(sbb.String()), nil
+}
 
-func init() {
-	_bLegendreExponentElement, _ = new(big.Int).SetString("d71d230be28875631d82e03650a49d8d116cf9807a89c78f79b117dd04a4000b85aea2180000004284600000000000", 16)
-	const sqrtExponentElement = "35c748c2f8a21d58c760b80d94292763445b3e601ea271e3de6c45f741290002e16ba88600000010a11"
-	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+// UnmarshalJSON accepts numbers and strings as input
+// See Element.SetString for valid prefixes (0x, 0b, ...)
+func (z *Element) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if len(s) > Bits*3 {
+		return errors.New("value too large (max = Element.Bits * 3)")
+	}
+
+	// we accept numbers and strings, remove leading and trailing quotes if any
+	if len(s) > 0 && s[0] == '"' {
+		s = s[1:]
+	}
+	if len(s) > 0 && s[len(s)-1] == '"' {
+		s = s[:len(s)-1]
+	}
+
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
+	if _, ok := vv.SetString(s, 0); !ok {
+		return errors.New("can't parse into a big.Int: " + s)
+	}
+
+	z.SetBigInt(vv)
+
+	// release object into pool
+	bigIntPool.Put(vv)
+	return nil
 }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.Exp(*z, _bLegendreExponentElement)
+	l.expByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -1061,7 +1133,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.Exp(*x, _bSqrtExponentElement)
+	w.expBySqrtExp(*x)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
@@ -1121,7 +1193,8 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
-// Inverse z = x^-1 mod q
+// InverseOld z = x⁻¹ mod q
+// TODO: Keeping this around for a while to test it against P20 on various platforms
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x
 func (z *Element) InverseOld(x *Element) *Element {
@@ -1140,7 +1213,7 @@ func (z *Element) InverseOld(x *Element) *Element {
 		121098312706494698,
 	}
 
-	// initialize s = r^2
+	// initialize s = r²
 	var s = Element{
 		13224372171368877346,
 		227991066186625457,
@@ -1314,47 +1387,22 @@ func min(a int, b int) int {
 	return b
 }
 
-//Though we're defining k as a constant, this code "profoundly" assumes that the processor is 64 bit
 const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
 const approxHighBitsN = k + 1
-
-func approximate(x *Element, n int) uint64 {
-
-	if n <= 64 {
-		return x[0]
-	}
-
-	const mask = (uint64(1) << (k - 1)) - 1 //k-1 ones
-	lo := mask & x[0]
-
-	hiWordIndex := (n - 1) / 64
-
-	hiWordBitsAvailable := n - hiWordIndex*64
-	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
-
-	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
-	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
-
-	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
-	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
-
-	return lo | mid | hi
-}
-
-//TODO: Inline this
-var inversionCorrectionFactor = Element{
-	16386826051656692015,
-	8373462824848618879,
-	7553521018781888459,
-	595240760696852504,
-	16794241053652767540,
-	43911691917702151,
-}
+const inversionCorrectionFactorWord0 = 16386826051656692015
+const inversionCorrectionFactorWord1 = 8373462824848618879
+const inversionCorrectionFactorWord2 = 7553521018781888459
+const inversionCorrectionFactorWord3 = 595240760696852504
+const inversionCorrectionFactorWord4 = 16794241053652767540
+const inversionCorrectionFactorWord5 = 43911691917702151
 
 const invIterationsN = 26
 
+// Inverse z = x⁻¹ mod q
+// Implements "Optimized Binary GCD for Modular Inversion"
+// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
 		z.SetZero()
@@ -1373,19 +1421,19 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	u := Element{1}
 
-	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
+	// Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
 
-	//Saved update factors to reduce the number of field multiplications
+	// Saved update factors to reduce the number of field multiplications
 	var pf0, pg0, pf1, pg1 int64
 
 	var i uint
 
 	var v, s Element
 
-	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
-	//This also lets us get away with half as many updates to u,v
-	//To make this constant-time-ish, replace the condition with i < invIterationsN
+	// Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
+	// This also lets us get away with half as many updates to u,v
+	// To make this constant-time-ish, replace the condition with i < invIterationsN
 	for i = 0; i&1 == 1 || !a.IsZero(); i++ {
 		n := max(a.BitLen(), b.BitLen())
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
@@ -1410,13 +1458,13 @@ func (z *Element) Inverse(x *Element) *Element {
 				f0 -= f1
 				g0 -= g1
 
-				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
-				//|f₁| ≤ 2ʲ still
+				// Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
+				// |f₁| ≤ 2ʲ still
 			}
 
 			f1 *= 2
 			g1 *= 2
-			//|f₁| ≤ 2ʲ⁺¹
+			// |f₁| ≤ 2ʲ⁺¹
 		}
 
 		s = a
@@ -1426,7 +1474,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			f0, g0 = -f0, -g0
 			aHi = a.neg(&a, aHi)
 		}
-		//right-shift a by k-1 bits
+		// right-shift a by k-1 bits
 		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
 		a[1] = (a[1] >> approxLowBitsN) | ((a[2]) << approxHighBitsN)
 		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
@@ -1440,7 +1488,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			f1, g1 = -f1, -g1
 			bHi = b.neg(&b, bHi)
 		}
-		//right-shift b by k-1 bits
+		// right-shift b by k-1 bits
 		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
 		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
 		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
@@ -1449,7 +1497,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		b[5] = (b[5] >> approxLowBitsN) | (bHi << approxHighBitsN)
 
 		if i&1 == 1 {
-			//Combine current update factors with previously stored ones
+			// Combine current update factors with previously stored ones
 			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
 			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
@@ -1464,24 +1512,52 @@ func (z *Element) Inverse(x *Element) *Element {
 			v.linearCombSosSigned(&s, f1, &v, g1)
 
 		} else {
-			//Save update factors
+			// Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
 	}
 
-	if i > invIterationsN {
-		panic("more iterations than expected")
-	}
-
-	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
+	// For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
-	//If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
+	// If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
 		v.mulWSigned(&v, pSq)
 	}
 
-	z.Mul(&v, &inversionCorrectionFactor)
+	z.Mul(&v, &Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+		inversionCorrectionFactorWord5,
+	})
 	return z
+}
+
+// approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
+// if x fits in a word as is, no approximation necessary
+func approximate(x *Element, n int) uint64 {
+
+	if n <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (n - 1) / 64
+
+	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
 }
 
 func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
@@ -1489,12 +1565,12 @@ func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64
 	z.montReduceSigned(z, hi)
 }
 
-//montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+// montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
-	//the SOS implementation requires that most significant bit is 0
+	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
 	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
 	xHi &= signBitRemover
@@ -1582,7 +1658,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[5], z[4] = madd2(m, qElementWord5, t[i+5], C)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[5] < 121098312706494698 || (z[5] == 121098312706494698 && (z[4] < 14284016967150029115 || (z[4] == 14284016967150029115 && (z[3] < 1883307231910630287 || (z[3] == 1883307231910630287 && (z[2] < 2230234197602682880 || (z[2] == 2230234197602682880 && (z[1] < 1660523435060625408 || (z[1] == 1660523435060625408 && (z[0] < 9586122913090633729))))))))))) {
 		var b uint64
@@ -1594,7 +1670,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[5], _ = bits.Sub64(z[5], 121098312706494698, b)
 	}
 	if neg {
-		//We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
+		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
 		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -1603,10 +1679,10 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[4], b = bits.Sub64(z[4], 0, b)
 		z[5], b = bits.Sub64(z[5], 0, b)
 
-		//Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
 		if b != 0 {
 			// z[5] = -1
-			//negative: add q
+			// negative: add q
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
 			b = 0
@@ -1624,15 +1700,29 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 func (z *Element) mulWSigned(x *Element, y int64) {
 	m := y >> 63
 	_mulWGeneric(z, x, uint64((y^m)-m))
-	//multiply by abs(y)
+	// multiply by abs(y)
 	if y < 0 {
 		z.Neg(z)
 	}
 }
 
+func (z *Element) neg(x *Element, xHi uint64) uint64 {
+	var b uint64
+
+	z[0], b = bits.Sub64(0, x[0], 0)
+	z[1], b = bits.Sub64(0, x[1], b)
+	z[2], b = bits.Sub64(0, x[2], b)
+	z[3], b = bits.Sub64(0, x[3], b)
+	z[4], b = bits.Sub64(0, x[4], b)
+	z[5], b = bits.Sub64(0, x[5], b)
+	xHi, _ = bits.Sub64(0, xHi, b)
+
+	return xHi
+}
+
 // regular multiplication by one word regular (non montgomery)
 // Fewer additions than the branch-free for positive y. Could be faster on some architectures
-func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 
 	// w := abs(y)
 	m := y >> 63
@@ -1653,28 +1743,16 @@ func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
 	return c
 }
 
-func (z *Element) neg(x *Element, xHi uint64) uint64 {
-	var b uint64
-
-	z[0], b = bits.Sub64(0, x[0], 0)
-	z[1], b = bits.Sub64(0, x[1], b)
-	z[2], b = bits.Sub64(0, x[2], b)
-	z[3], b = bits.Sub64(0, x[3], b)
-	z[4], b = bits.Sub64(0, x[4], b)
-	z[5], b = bits.Sub64(0, x[5], b)
-	xHi, _ = bits.Sub64(0, xHi, b)
-
-	return xHi
-}
-
+/*
+Removed: seems slower
 // mulWRegular branch-free regular multiplication by one word (non montgomery)
-func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+func (z *Element) mulWRegularBf(x *Element, y int64) uint64 {
 
 	w := uint64(y)
-	allNeg := uint64(y >> 63) // -1 if y < 0, 0 o.w
+	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
 
-	//s[0], s[1] so results are not stored immediately in z.
-	//x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
+	// s[0], s[1] so results are not stored immediately in z.
+	// x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
 	var s [2]uint64
 	var h [2]uint64
 
@@ -1683,73 +1761,73 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 	c := uint64(0)
 	b := uint64(0)
 
-	{
-		const curI = 1 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 1 - 1
+		{
+			const curI = 1 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 1 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[1], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[1], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 2 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 2 - 1
+		{
+			const curI = 2 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 2 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[2], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[2], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 3 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 3 - 1
+		{
+			const curI = 3 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 3 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[3], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[3], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 4 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 4 - 1
+		{
+			const curI = 4 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 4 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[4], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[4], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 5 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 5 - 1
+		{
+			const curI = 5 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 5 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[5], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[5], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 	{
 		const curI = 6 % 2
 		const prevI = 1 - curI
 		const iMinusOne = 5
 
-		s[curI], _ = bits.Sub64(h[prevI], allNeg&x[iMinusOne], b)
+		s[curI], _ = bits.Sub64(h[prevI], allNeg & x[iMinusOne], b)
 		z[iMinusOne] = s[prevI]
 
 		return s[curI] + c
 	}
-}
+}*/
 
-//Requires NoCarry
+// Requires NoCarry
 func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
 	var yTimes Element
 

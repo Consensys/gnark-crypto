@@ -2,8 +2,8 @@ package element
 
 const InversePornin20Tests = `
 
-//this is a hack so that there isn't an import error in case mrand is not used
-//TODO: Do it properly
+// this is a hack so that there isn't an import error in case mrand is not used
+// TODO: Do it properly
 func useMRand() {
 	_ = mrand.Uint64()
 }
@@ -27,7 +27,7 @@ func TestP20InversionApproximation(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 
-		//Normally small elements are unlikely. Here we give them a higher chance
+		// Normally small elements are unlikely. Here we give them a higher chance
 		xZeros := mrand.Int() % Limbs
 		for j := 1; j < xZeros; j++ {
 			x[Limbs - j] = 0
@@ -51,6 +51,11 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	factorInt.Mod(factorInt, Modulus())
 
 	var refFactorInt big.Int
+	inversionCorrectionFactor := {{.ElementName}}{
+		{{- range $i := .NbWordsIndexesFull }}
+		inversionCorrectionFactorWord{{$i}},
+		{{- end}}
+	}
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
@@ -69,10 +74,10 @@ func TestLinearComb(t *testing.T) {
 	}
 }
 
-//Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
+// Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
 func TestP20InversionCorrectionFactor(t *testing.T) {
 
-	//(1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
+	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
 	var one {{.ElementName}}
 	var oneInv {{.ElementName}}
@@ -93,13 +98,17 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 
 	if !oneInv.Equal(&one) {
 		var i big.Int
-		oneInv.ToBigIntRegular(&i)	//no montgomery
+		oneInv.ToBigIntRegular(&i)	// no montgomery
 		i.ModInverse(&i, Modulus())
 		var fac {{.ElementName}}
-		fac.setBigInt(&i)	//back to montgomery
+		fac.setBigInt(&i)	// back to montgomery
 
 		var facTimesFac {{.ElementName}}
-		facTimesFac.Mul(&inversionCorrectionFactor, &fac)
+		facTimesFac.Mul(&fac, &{{.ElementName}}{
+			{{- range $i := .NbWordsIndexesFull }}
+			inversionCorrectionFactorWord{{$i}},
+			{{- end}}
+		})
 
 		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}
@@ -120,16 +129,6 @@ func TestBigNumWMul(t *testing.T) {
 		x.SetRandom()
 		w := mrand.Int63()
 		testBigNumWMul(t, &x, w)
-	}
-}
-
-func TestBigNumWMulBr(t *testing.T) {
-	var x {{.ElementName}}
-
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		w := mrand.Int63()
-		testBigNumWMulBr(t, &x, w)
 	}
 }
 
@@ -185,16 +184,8 @@ func testLinearComb(t *testing.T, x *{{.ElementName}}, xC int64, y *{{.ElementNa
 	var z {{.ElementName}}
 	z.linearCombSosSigned(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
-
 }
 
-func testBigNumWMulBr(t *testing.T, a *{{.ElementName}}, c int64) {
-	var aHi uint64
-	var aTimes {{.ElementName}}
-	aHi = aTimes.mulWRegularBr(a, c)
-
-	assertMulProduct(t, a, c, &aTimes, aHi)
-}
 
 func testBigNumWMul(t *testing.T, a *{{.ElementName}}, c int64) {
 	var aHi uint64
@@ -216,7 +207,7 @@ func testMontReduceSigned(t *testing.T, x *{{.ElementName}}, xHi uint64) {
 
 var rInv big.Int
 func montReduce(res *big.Int, x *big.Int) {
-	if rInv.BitLen() == 0 {	//initialization
+	if rInv.BitLen() == 0 {	// initialization
 		rInv.SetUint64(1)
 		rInv.Lsh(&rInv, Limbs * bits.UintSize)
 		rInv.ModInverse(&rInv, Modulus())
@@ -266,14 +257,10 @@ func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
 
 func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
 
-	if bits.UintSize != 64 {
-		panic("Word size 64 expected")
-	}
-
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs + 1) * 64)
+	modulus.Lsh(&modulus, (Limbs + 1) * bits.UintSize)
 	aIntMod.Mod(aInt, &modulus)
 
 	words := aIntMod.Bits()
