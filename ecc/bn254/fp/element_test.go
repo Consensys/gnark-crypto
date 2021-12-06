@@ -273,7 +273,7 @@ var staticTestValues []Element
 func init() {
 	staticTestValues = append(staticTestValues, Element{}) // zero
 	staticTestValues = append(staticTestValues, One())     // one
-	staticTestValues = append(staticTestValues, rSquare)   // r^2
+	staticTestValues = append(staticTestValues, rSquare)   // r²
 	var e, one Element
 	one.SetOne()
 	e.Sub(&qElement, &one)
@@ -2119,16 +2119,16 @@ func TestMontNegMultipleOfR(t *testing.T) {
 }
 
 func TestUpdateFactorSubtraction(t *testing.T) {
-	for i := 0; i < 1000; i ++ {
+	for i := 0; i < 1000; i++ {
 
 		f0, g0 := randomizeUpdateFactors()
 		f1, g1 := randomizeUpdateFactors()
 
-		for f0 - f1 > 1 << 31 || f0 - f1 <= - 1 << 31 {
+		for f0-f1 > 1<<31 || f0-f1 <= -1<<31 {
 			f1 /= 2
 		}
 
-		for g0 - g1 > 1 << 31 || g0 - g1 <= - 1 << 31 {
+		for g0-g1 > 1<<31 || g0-g1 <= -1<<31 {
 			g1 /= 2
 		}
 
@@ -2138,7 +2138,7 @@ func TestUpdateFactorSubtraction(t *testing.T) {
 		cRes := c0 - c1
 		fRes, gRes := updateFactorsDecompose(cRes)
 
-		if fRes != f0 - f1 || gRes != g0 - g1 {
+		if fRes != f0-f1 || gRes != g0-g1 {
 			t.Error(i)
 		}
 	}
@@ -2148,18 +2148,18 @@ func TestUpdateFactorsDouble(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		f, g := randomizeUpdateFactors()
 
-		if f > 1 << 30 || f < (-1 << 31 + 1)/2 {
+		if f > 1<<30 || f < (-1<<31+1)/2 {
 			f /= 2
-			if g <= 1 << 29 && g >= (-1 << 31 + 1)/4 {
-				g *= 2	//g was kept small on f's account. Now that we're halving f, we can double g
+			if g <= 1<<29 && g >= (-1<<31+1)/4 {
+				g *= 2 //g was kept small on f's account. Now that we're halving f, we can double g
 			}
 		}
 
-		if g > 1 << 30 || g < (-1 << 31 + 1)/2 {
+		if g > 1<<30 || g < (-1<<31+1)/2 {
 			g /= 2
 
-			if f <= 1 << 29 && f >= (-1 << 31 + 1)/4 {
-				f *= 2	//f was kept small on g's account. Now that we're halving g, we can double f
+			if f <= 1<<29 && f >= (-1<<31+1)/4 {
+				f *= 2 //f was kept small on g's account. Now that we're halving g, we can double f
 			}
 		}
 
@@ -2167,7 +2167,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 		cD := c * 2
 		fD, gD := updateFactorsDecompose(cD)
 
-		if fD != 2 * f || gD != 2 * g {
+		if fD != 2*f || gD != 2*g {
 			t.Error(i)
 		}
 	}
@@ -2180,9 +2180,9 @@ func TestUpdateFactorsNeg(t *testing.T) {
 
 		if f == 0x80000000 || g == 0x80000000 {
 			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
-			// We don't have capacity to store -2^31
+			// We don't have capacity to store -2³¹
 			// Repeat this iteration
-			i --
+			i--
 			continue
 		}
 
@@ -2203,7 +2203,7 @@ func TestUpdateFactorsNeg(t *testing.T) {
 }
 
 func TestComputeUpdateFactorsNeg0(t *testing.T) {
-	c := updateFactorsCompose(0,0)
+	c := updateFactorsCompose(0, 0)
 	t.Log("c(0,0) = ", strconv.FormatInt(c, 16))
 	cn := -c
 
@@ -2220,11 +2220,11 @@ func TestUpdateFactorDecomposition(t *testing.T) {
 
 		f, g := randomizeUpdateFactors()
 
-		if f <= - (1 << 31) || f > 1 << 31 {
+		if f <= -(1<<31) || f > 1<<31 {
 			t.Fatal("f out of range")
 		}
 
-		negSeen = negSeen ||  f < 0
+		negSeen = negSeen || f < 0
 
 		c := updateFactorsCompose(f, g)
 
@@ -2258,9 +2258,9 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 		f, g := randomizeUpdateFactors()
 		lf, lg := abs64T32(f), abs64T32(g)
 		absSum := lf + lg
-		if absSum >= 1 << 31 {
+		if absSum >= 1<<31 {
 
-			if absSum == 1 << 31 {
+			if absSum == 1<<31 {
 				maxLen++
 			} else {
 				t.Error(i, "Sum of absolute values too large, f =", f, ",g =", g, ",|f| + |g| =", absSum)
@@ -2281,26 +2281,26 @@ func randomizeUpdateFactor(absLimit uint32) int64 {
 
 	absLimit64 := int64(absLimit)
 	var f int64
-	switch maxSize{
+	switch maxSize {
 	case 0:
 		f = absLimit64
 	case 1:
 		f = -absLimit64
 	default:
-		f = int64(mrand.Uint64() % (2* uint64(absLimit64) + 1)) - absLimit64
+		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64
 	}
 
-	if f > 1 << 31 {
+	if f > 1<<31 {
 		return 1 << 31
-	} else if f < - 1<<31 + 1 {
-		return -1 << 31 + 1
+	} else if f < -1<<31+1 {
+		return -1<<31 + 1
 	}
 
 	return f
 }
 
 func abs64T32(f int64) uint32 {
-	if f >= 1 << 32 || f < - 1 << 32 {
+	if f >= 1<<32 || f < -1<<32 {
 		panic("f out of range")
 	}
 
@@ -2314,15 +2314,15 @@ func randomizeUpdateFactors() (int64, int64) {
 	var f [2]int64
 	b := mrand.Int() % 2
 
-	f[b]   = randomizeUpdateFactor(1 << 31)
+	f[b] = randomizeUpdateFactor(1 << 31)
 
-	//As per the paper, |f| + |g| \le 2^31.
-	f[1-b] = randomizeUpdateFactor(1 << 31 - abs64T32(f[b]))
+	//As per the paper, |f| + |g| \le 2³¹.
+	f[1-b] = randomizeUpdateFactor(1<<31 - abs64T32(f[b]))
 
 	//Patching another edge case
-	if f[0] + f[1] == - 1 << 31 {
+	if f[0]+f[1] == -1<<31 {
 		b = mrand.Int() % 2
-		f[b] ++
+		f[b]++
 	}
 
 	return f[0], f[1]
@@ -2365,11 +2365,12 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 	res.assertMatchVeryBigInt(t, 0, &resInt)
 }
 
-func updateFactorsCompose(f int64, g int64 ) int64 {
-	return f + g << 32
+func updateFactorsCompose(f int64, g int64) int64 {
+	return f + g<<32
 }
 
 var rInv big.Int
+
 func montReduce(res *big.Int, x *big.Int) {
 	if rInv.BitLen() == 0 { // initialization
 		rInv.SetUint64(1)

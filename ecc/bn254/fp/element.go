@@ -194,7 +194,7 @@ func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *Element) IsUint64() bool {
 	return (z[3] | z[2] | z[1]) == 0
 }
@@ -264,7 +264,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[3] = binary.BigEndian.Uint64(bytes[24:32])
 	z[3] %= 3486998266802970665
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -412,7 +412,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[3], z[2] = madd3(m, 3486998266802970665, c[0], c[2], c[1])
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -463,7 +463,7 @@ func _mulWGeneric(z, x *Element, y uint64) {
 		z[3], z[2] = madd2(m, 3486998266802970665, t[3], c2)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -514,7 +514,7 @@ func _fromMontGeneric(z *Element) {
 		z[3] = C
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -533,7 +533,7 @@ func _addGeneric(z, x, y *Element) {
 	z[2], carry = bits.Add64(x[2], y[2], carry)
 	z[3], _ = bits.Add64(x[3], y[3], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -552,7 +552,7 @@ func _doubleGeneric(z, x *Element) {
 	z[2], carry = bits.Add64(x[2], x[2], carry)
 	z[3], _ = bits.Add64(x[3], x[3], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -592,7 +592,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
@@ -700,7 +700,7 @@ func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 }
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *Element) ToMont() *Element {
 	return z.Mul(z, &rSquare)
 }
@@ -812,7 +812,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q
+// setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
@@ -910,7 +910,7 @@ func (z *Element) InverseOld(x *Element) *Element {
 		3486998266802970665,
 	}
 
-	// initialize s = r^2
+	// initialize s = r²
 	var s = Element{
 		17522657719365597833,
 		13107472804851548667,
@@ -982,7 +982,7 @@ func (z *Element) InverseOld(x *Element) *Element {
 
 		}
 
-		// v >= u
+		// v ⩾ u
 		bigger = !(v[3] < u[3] || (v[3] == u[3] && (v[2] < u[2] || (v[2] == u[2] && (v[1] < u[1] || (v[1] == u[1] && (v[0] < u[0])))))))
 
 		if bigger {
@@ -1087,15 +1087,15 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
-const updateFactorIdentityMatrixRow0 =  1
+const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+const updateFactorIdentityMatrixRow0 = 1
 const updateFactorIdentityMatrixRow1 = 1 << 32
 
 func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
 	const low32BitsFilter int64 = 0xFFFFFFFF
-	f := c & low32BitsFilter - 0x7FFFFFFF
-	g := c >> 32 & low32BitsFilter - 0x7FFFFFFF
+	f := c&low32BitsFilter - 0x7FFFFFFF
+	g := c>>32&low32BitsFilter - 0x7FFFFFFF
 	return f, g
 }
 
@@ -1126,7 +1126,7 @@ func (z *Element) Inverse(x *Element) *Element {
 	u := Element{1}
 
 	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
-	//c_i = f_i + 2^31 - 1 + 2^32 * (g_i + 2^31 - 1)
+	//c_i = f_i + 2³¹ - 1 + 2³² * (g_i + 2³¹ - 1)
 	var c0, c1 int64
 
 	//Saved update factors to reduce the number of field multiplications
@@ -1155,7 +1155,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
 		// f0, g0, f1, g1 = 1, 0, 0, 1
-		c0, c1 =  updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
+		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
 		for j := 0; j < approxLowBitsN; j++ {
 
@@ -1223,10 +1223,10 @@ func (z *Element) Inverse(x *Element) *Element {
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
 			// Which leaves us with an extra bit for the sign
 
-			f, g = updateFactorsDecompose(c0)       // f aliases f0, g aliases g0
-			f1, g1 := updateFactorsDecompose(c1)    // The right names
-			c0, p0 = updateFactorsDecompose(p0)     // c0 aliases pf0, p0 aliases pg0
-			c1, p1 = updateFactorsDecompose(p1)    // c1 aliases pg1, p1 aliases pg1
+			f, g = updateFactorsDecompose(c0)    // f aliases f0, g aliases g0
+			f1, g1 := updateFactorsDecompose(c1) // The right names
+			c0, p0 = updateFactorsDecompose(p0)  // c0 aliases pf0, p0 aliases pg0
+			c1, p1 = updateFactorsDecompose(p1)  // c1 aliases pg1, p1 aliases pg1
 
 			f, g, f1, g1 = f*c0+g*c1,
 				f*p0+g*p1,
@@ -1322,7 +1322,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[3], z[2] = madd2(m, qElementWord3, t[i+3], C)
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
 		var b uint64
