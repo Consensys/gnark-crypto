@@ -2135,12 +2135,80 @@ func TestUpdateFactorSubtraction(t *testing.T) {
 		c0 := updateFactorsCompose(f0, g0)
 		c1 := updateFactorsCompose(f1, g1)
 
-		cRes := updateFactorsSub(c0, c1)
+		cRes := c0 - c1
 		fRes, gRes := updateFactorsDecompose(cRes)
 
 		if fRes != f0 - f1 || gRes != g0 - g1 {
 			t.Error(i)
 		}
+	}
+}
+
+func TestUpdateFactorsDouble(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f > 1 << 30 || f < (-1 << 31 + 1)/2 {
+			f /= 2
+			if g <= 1 << 29 && g >= (-1 << 31 + 1)/4 {
+				g *= 2	//g was kept small on f's account. Now that we're halving f, we can double g
+			}
+		}
+
+		if g > 1 << 30 || g < (-1 << 31 + 1)/2 {
+			g /= 2
+
+			if f <= 1 << 29 && f >= (-1 << 31 + 1)/4 {
+				f *= 2	//f was kept small on g's account. Now that we're halving g, we can double f
+			}
+		}
+
+		c := updateFactorsCompose(f, g)
+		cD := c * 2//updateFactorsDouble(c)
+		fD, gD := updateFactorsDecompose(cD)
+
+		if fD != 2 * f || gD != 2 * g {
+			t.Error(i)
+		}
+	}
+}
+
+func TestUpdateFactorsNeg(t *testing.T) {
+	var fMistake bool
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f == 0x80000000 || g == 0x80000000 {
+			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
+			// We don't have capacity to store -2^31
+			// Repeat this iteration
+			i --
+			continue
+		}
+
+		c := updateFactorsCompose(f, g)
+		nc := -c
+		nf, ng := updateFactorsDecompose(nc)
+		fMistake = fMistake || nf != -f
+		if nf != -f || ng != -g {
+			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %s, %s",
+				i, f, g, c, nc, nf, ng, strconv.FormatInt(f, 16), strconv.FormatInt(g, 16))
+		}
+	}
+	if fMistake {
+		t.Error("Mistake with f detected")
+	} else {
+		t.Log("All good with f")
+	}
+}
+
+func TestComputeUpdateFactorsNeg0(t *testing.T) {
+	c := updateFactorsCompose(0,0)
+	t.Log("c(0,0) = ", strconv.FormatUint(c, 16))
+	cn := -c
+
+	if c != cn {
+		t.Error("Negation of zero update factors should yield the same result.")
 	}
 }
 
@@ -2179,74 +2247,6 @@ func TestUpdateFactorInitialValues(t *testing.T) {
 
 	if f0 != 1 || g0 != 0 || f1 != 0 || g1 != 1 {
 		t.Error("Update factor initial value constants are incorrect")
-	}
-}
-
-func TestComputeUpdateFactorsNeg0(t *testing.T) {
-	c := updateFactorsCompose(0,0)
-	t.Log("c(0,0) = ", strconv.FormatUint(c, 16))
-	cn := updateFactorsNeg(c)
-
-	if c != cn {
-		t.Error("Negation of zero update factors should yield the same result.")
-	}
-}
-
-func TestUpdateFactorsDouble(t *testing.T) {
-	for i := 0; i < 1000; i++ {
-		f, g := randomizeUpdateFactors()
-
-		if f > 1 << 30 || f < (-1 << 31 + 1)/2 {
-			f /= 2
-			if g <= 1 << 29 && g >= (-1 << 31 + 1)/4 {
-				g *= 2	//g was kept small on f's account. Now that we're halving f, we can double g
-			}
-		}
-
-		if g > 1 << 30 || g < (-1 << 31 + 1)/2 {
-			g /= 2
-
-			if f <= 1 << 29 && f >= (-1 << 31 + 1)/4 {
-				f *= 2	//f was kept small on g's account. Now that we're halving g, we can double f
-			}
-		}
-
-		c := updateFactorsCompose(f, g)
-		cD := updateFactorsDouble(c)
-		fD, gD := updateFactorsDecompose(cD)
-
-		if fD != 2 * f || gD != 2 * g {
-			t.Error(i)
-		}
-	}
-}
-
-func TestUpdateFactorsNeg(t *testing.T) {
-	var fMistake bool
-	for i := 0; i < 1000; i++ {
-		f, g := randomizeUpdateFactors()
-
-		if f == 0x80000000 || g == 0x80000000 {
-			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
-			// We don't have capacity to store -2^31
-			// Repeat this iteration
-			i --
-			continue
-		}
-
-		c := updateFactorsCompose(f, g)
-		nc := updateFactorsNeg(c)
-		nf, ng := updateFactorsDecompose(nc)
-		fMistake = fMistake || nf != -f
-		if nf != -f || ng != -g {
-			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %s, %s",
-				i, f, g, c, nc, nf, ng, strconv.FormatInt(f, 16), strconv.FormatInt(g, 16))
-		}
-	}
-	if fMistake {
-		t.Error("Mistake with f detected")
-	} else {
-		t.Log("All good with f")
 	}
 }
 
@@ -2366,7 +2366,7 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 }
 
 func updateFactorsCompose(f int64, g int64 ) uint64 {
-	return uint64(f + g << 32) + updateFactorsZero
+	return uint64(f + g << 32)
 }
 
 var rInv big.Int

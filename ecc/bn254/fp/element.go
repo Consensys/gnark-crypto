@@ -1087,35 +1087,15 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-//const updateFactorIdentityMatrixRow0 = 0x7FFFFFFF80000000
-//const updateFactorIdentityMatrixRow1 = 0x800000007FFFFFFF
-
 const updateFactorsConversionBias uint64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
-const updateFactorsZero uint64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
-const updateFactorsNegationError = 2 * updateFactorsZero	// neg(0,0) = (0,0), neg(0,0) = -(0,0) + err
-const updateFactorIdentityMatrixRow0 = updateFactorsZero + 1
-const updateFactorIdentityMatrixRow1 = updateFactorsZero + 1 << 32
+const updateFactorIdentityMatrixRow0 =  1
+const updateFactorIdentityMatrixRow1 = 1 << 32
 
 func updateFactorsDecompose(c uint64) (int64, int64) {
+	c += updateFactorsConversionBias
 	f := int64(c & 0x00000000FFFFFFFF) - 0x000000007FFFFFFF
 	g := int64(c >> 32) - 0x000000007FFFFFFF
 	return f, g
-}
-
-func updateFactorsSub(c0 uint64, c1 uint64) uint64 {
-	/*c0, _ = bits.Sub64(c0, c1, 1)	//TODO: Verify
-	return c0*/
-	// c_0 - c_1 = (f_0 - f_1) + 2^32 (g_0 - g_1). Must add the bias back in
-	return c0 - c1 + updateFactorsZero
-}
-
-func updateFactorsNeg(c uint64) uint64 {
-	return updateFactorsNegationError - c
-}
-
-func updateFactorsDouble(c uint64) uint64 {
-	// a + b - updateFactorsZero. General principle would work for additions as well
-	return 2 * c - updateFactorsZero
 }
 
 //TODO: Inline this
@@ -1194,7 +1174,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 				aApprox = s / 2
 
-				c0 = updateFactorsSub(c0, c1)
+				c0 = c0 - c1
 				/*F0.Sub(F0, F1)
 				G0.Sub(G0, G1)*/
 
@@ -1202,7 +1182,7 @@ func (z *Element) Inverse(x *Element) *Element {
 				//|f₁| ≤ 2ʲ still
 			}
 
-			c1 = updateFactorsDouble(c1)
+			c1 *= 2
 			//|f₁| ≤ 2ʲ⁺¹
 		}
 
@@ -1212,7 +1192,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		aHi := a.linearCombNonModular(&s, f, &b, g)
 		if aHi&signBitSelector != 0 {
 			// if aHi < 0
-			c0 = updateFactorsNeg(c0)
+			c0 = -c0
 			aHi = a.neg(&a, aHi)
 		}
 		//right-shift a by k-1 bits
@@ -1226,7 +1206,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		bHi := b.linearCombNonModular(&s, f, &b, g)
 		if bHi&signBitSelector != 0 {
 			// if bHi < 0
-			c1 = updateFactorsNeg(c1)
+			c1 = -c1
 			bHi = b.neg(&b, bHi)
 		}
 		//right-shift b by k-1 bits
