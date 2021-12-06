@@ -31,7 +31,6 @@ func min(a int, b int) int {
 	return b
 }
 
-// Though we're defining k as a constant, this code "profoundly" assumes that the processor is 64 bit
 const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
@@ -175,7 +174,8 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// approximate a big number using its uppermost and lowermost bits
+// approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
+// if x fits in a word as is, no approximation necessary
 func approximate(x *{{.ElementName}}, n int) uint64 {
 
 	if n <= 64 {
