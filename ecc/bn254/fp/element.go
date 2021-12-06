@@ -1087,13 +1087,14 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-const updateFactorIdentityMatrixRow0 = 0x7FFFFFFF80000000
-const updateFactorIdentityMatrixRow1 = 0x800000007FFFFFFF
-const updateFactorsNegationError uint64 = 2 * 0x7fffffff7fffffff	// neg(0,0) = (0,0), neg(0,0) = -(0,0) + err
+//const updateFactorIdentityMatrixRow0 = 0x7FFFFFFF80000000
+//const updateFactorIdentityMatrixRow1 = 0x800000007FFFFFFF
 
-func updateFactorsNeg(c uint64) uint64 {
-	return updateFactorsNegationError - c
-}
+const updateFactorsConversionBias uint64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
+const updateFactorsZero uint64 = 0x7fffffff7fffffff // (2^31 - 1)(2^32 + 1)
+const updateFactorsNegationError = 2 * updateFactorsZero	// neg(0,0) = (0,0), neg(0,0) = -(0,0) + err
+const updateFactorIdentityMatrixRow0 = updateFactorsZero + 1
+const updateFactorIdentityMatrixRow1 = updateFactorsZero + 1 << 32
 
 func updateFactorsDecompose(c uint64) (int64, int64) {
 	f := int64(c & 0x00000000FFFFFFFF) - 0x000000007FFFFFFF
@@ -1102,8 +1103,19 @@ func updateFactorsDecompose(c uint64) (int64, int64) {
 }
 
 func updateFactorsSub(c0 uint64, c1 uint64) uint64 {
-	c0, _ = bits.Sub64(c0, c1, 1)	//TODO: Verify
-	return c0
+	/*c0, _ = bits.Sub64(c0, c1, 1)	//TODO: Verify
+	return c0*/
+	// c_0 - c_1 = (f_0 - f_1) + 2^32 (g_0 - g_1). Must add the bias back in
+	return c0 - c1 + updateFactorsZero
+}
+
+func updateFactorsNeg(c uint64) uint64 {
+	return updateFactorsNegationError - c
+}
+
+func updateFactorsDouble(c uint64) uint64 {
+	// a + b - updateFactorsZero. General principle would work for additions as well
+	return 2 * c - updateFactorsZero
 }
 
 //TODO: Inline this
@@ -1143,6 +1155,16 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var v, s Element
 
+	/*var F0 big.Int
+	var G0 big.Int
+	var F1 big.Int
+	var G1 big.Int*/
+
+	/*F0 := big.NewInt(1)
+	G0 := big.NewInt(0)
+	F1 := big.NewInt(0)
+	G1 := big.NewInt(1)*/
+
 	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
 	//This also lets us get away with half as many updates to u,v
 	//To make this constant-time-ish, replace the condition with i < invIterationsN
@@ -1163,20 +1185,24 @@ func (z *Element) Inverse(x *Element) *Element {
 				if borrow == 1 {
 					s = bApprox - aApprox
 					bApprox = aApprox
+
 					c0, c1 = c1, c0
+
+					//F0, F1 = F1, F0
+					//G0, G1 = G1, G0
 				}
 
 				aApprox = s / 2
 
-				//f0, f1 = f1, f0
-				//g0, g1 = g1, g0
 				c0 = updateFactorsSub(c0, c1)
+				/*F0.Sub(F0, F1)
+				G0.Sub(G0, G1)*/
 
 				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
 				//|f₁| ≤ 2ʲ still
 			}
 
-			c1 *= 2
+			c1 = updateFactorsDouble(c1)
 			//|f₁| ≤ 2ʲ⁺¹
 		}
 
