@@ -17,8 +17,31 @@ func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 	return xHi
 }
 
-// mulWRegular branch-free regular multiplication by one word (non montgomery)
+// regular multiplication by one word regular (non montgomery)
+// Fewer additions than the branch-free for positive y. Could be faster on some architectures
 func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
+
+	// w := abs(y)
+	m := y >> 63
+	w := uint64((y^m)-m)
+
+	var c uint64
+	c, z[0] = bits.Mul64(x[0], w)
+	{{- range $i := .NbWordsIndexesNoZero }}
+	c, z[{{$i}}] = madd1(x[{{$i}}], w, c)
+	{{- end}}
+
+	if y < 0 {
+		c = z.neg(z, c)
+	}
+
+	return c
+}
+
+/*
+Removed: seems slower
+// mulWRegular branch-free regular multiplication by one word (non montgomery)
+func (z *{{.ElementName}}) mulWRegularBf(x *{{.ElementName}}, y int64) uint64 {
 
 	w := uint64(y)
 	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
@@ -56,7 +79,7 @@ func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
 
 		return s[curI] + c
 	}
-}
+}*/
 
 // Requires NoCarry
 func (z *{{.ElementName}}) linearCombNonModular(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) uint64 {

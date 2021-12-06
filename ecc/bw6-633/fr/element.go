@@ -1502,9 +1502,22 @@ func (z *Element) mulWSigned(x *Element, y int64) {
 	}
 }
 
+func (z *Element) neg(x *Element, xHi uint64) uint64 {
+	var b uint64
+
+	z[0], b = bits.Sub64(0, x[0], 0)
+	z[1], b = bits.Sub64(0, x[1], b)
+	z[2], b = bits.Sub64(0, x[2], b)
+	z[3], b = bits.Sub64(0, x[3], b)
+	z[4], b = bits.Sub64(0, x[4], b)
+	xHi, _ = bits.Sub64(0, xHi, b)
+
+	return xHi
+}
+
 // regular multiplication by one word regular (non montgomery)
 // Fewer additions than the branch-free for positive y. Could be faster on some architectures
-func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
+func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 
 	// w := abs(y)
 	m := y >> 63
@@ -1524,24 +1537,13 @@ func (z *Element) mulWRegularBr(x *Element, y int64) uint64 {
 	return c
 }
 
-func (z *Element) neg(x *Element, xHi uint64) uint64 {
-	var b uint64
-
-	z[0], b = bits.Sub64(0, x[0], 0)
-	z[1], b = bits.Sub64(0, x[1], b)
-	z[2], b = bits.Sub64(0, x[2], b)
-	z[3], b = bits.Sub64(0, x[3], b)
-	z[4], b = bits.Sub64(0, x[4], b)
-	xHi, _ = bits.Sub64(0, xHi, b)
-
-	return xHi
-}
-
+/*
+Removed: seems slower
 // mulWRegular branch-free regular multiplication by one word (non montgomery)
-func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+func (z *Element) mulWRegularBf(x *Element, y int64) uint64 {
 
 	w := uint64(y)
-	allNeg := uint64(y >> 63) // -1 if y < 0, 0 o.w
+	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
 
 	// s[0], s[1] so results are not stored immediately in z.
 	// x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
@@ -1553,60 +1555,60 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 	c := uint64(0)
 	b := uint64(0)
 
-	{
-		const curI = 1 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 1 - 1
+		{
+			const curI = 1 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 1 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[1], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[1], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 2 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 2 - 1
+		{
+			const curI = 2 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 2 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[2], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[2], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 3 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 3 - 1
+		{
+			const curI = 3 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 3 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[3], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[3], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 
-	{
-		const curI = 4 % 2
-		const prevI = 1 - curI
-		const iMinusOne = 4 - 1
+		{
+			const curI = 4 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 4 - 1
 
-		h[curI], s[curI] = bits.Mul64(x[4], w)
-		s[curI], c = bits.Add64(s[curI], h[prevI], c)
-		s[curI], b = bits.Sub64(s[curI], allNeg&x[iMinusOne], b)
-		z[iMinusOne] = s[prevI]
-	}
+			h[curI], s[curI] = bits.Mul64(x[4], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
 	{
 		const curI = 5 % 2
 		const prevI = 1 - curI
 		const iMinusOne = 4
 
-		s[curI], _ = bits.Sub64(h[prevI], allNeg&x[iMinusOne], b)
+		s[curI], _ = bits.Sub64(h[prevI], allNeg & x[iMinusOne], b)
 		z[iMinusOne] = s[prevI]
 
 		return s[curI] + c
 	}
-}
+}*/
 
 // Requires NoCarry
 func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {

@@ -2002,16 +2002,6 @@ func TestBigNumWMul(t *testing.T) {
 	}
 }
 
-func TestBigNumWMulBr(t *testing.T) {
-	var x Element
-
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		w := mrand.Int63()
-		testBigNumWMulBr(t, &x, w)
-	}
-}
-
 func TestVeryBigIntConversion(t *testing.T) {
 	xHi := mrand.Uint64()
 	var x Element
@@ -2064,15 +2054,6 @@ func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 	var z Element
 	z.linearCombSosSigned(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
-
-}
-
-func testBigNumWMulBr(t *testing.T, a *Element, c int64) {
-	var aHi uint64
-	var aTimes Element
-	aHi = aTimes.mulWRegularBr(a, c)
-
-	assertMulProduct(t, a, c, &aTimes, aHi)
 }
 
 func testBigNumWMul(t *testing.T, a *Element, c int64) {
