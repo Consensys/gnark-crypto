@@ -1887,8 +1887,8 @@ func genFull() gopter.Gen {
 	}
 }
 
-//this is a hack so that there isn't an import error in case mrand is not used
-//TODO: Do it properly
+// this is a hack so that there isn't an import error in case mrand is not used
+// TODO: Do it properly
 func useMRand() {
 	_ = mrand.Uint64()
 }
@@ -1910,7 +1910,7 @@ func TestP20InversionApproximation(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 
-		//Normally small elements are unlikely. Here we give them a higher chance
+		// Normally small elements are unlikely. Here we give them a higher chance
 		xZeros := mrand.Int() % Limbs
 		for j := 1; j < xZeros; j++ {
 			x[Limbs-j] = 0
@@ -1951,10 +1951,10 @@ func TestLinearComb(t *testing.T) {
 	}
 }
 
-//Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
+// Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
 func TestP20InversionCorrectionFactor(t *testing.T) {
 
-	//(1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
+	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
 	var one Element
 	var oneInv Element
@@ -1975,10 +1975,10 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 
 	if !oneInv.Equal(&one) {
 		var i big.Int
-		oneInv.ToBigIntRegular(&i) //no montgomery
+		oneInv.ToBigIntRegular(&i) // no montgomery
 		i.ModInverse(&i, Modulus())
 		var fac Element
-		fac.setBigInt(&i) //back to montgomery
+		fac.setBigInt(&i) // back to montgomery
 
 		var facTimesFac Element
 		facTimesFac.Mul(&inversionCorrectionFactor, &fac)
@@ -2099,7 +2099,7 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 var rInv big.Int
 
 func montReduce(res *big.Int, x *big.Int) {
-	if rInv.BitLen() == 0 { //initialization
+	if rInv.BitLen() == 0 { // initialization
 		rInv.SetUint64(1)
 		rInv.Lsh(&rInv, Limbs*bits.UintSize)
 		rInv.ModInverse(&rInv, Modulus())

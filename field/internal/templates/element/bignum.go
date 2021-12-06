@@ -23,8 +23,8 @@ func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
 	w := uint64(y)
 	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
 
-	//s[0], s[1] so results are not stored immediately in z.
-	//x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
+	// s[0], s[1] so results are not stored immediately in z.
+	// x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
 	var s [2]uint64
 	var h [2]uint64
 
@@ -58,8 +58,7 @@ func (z *{{.ElementName}}) mulWRegular(x *{{.ElementName}}, y int64) uint64 {
 	}
 }
 
-
-//Requires NoCarry
+// Requires NoCarry
 func (z *{{.ElementName}}) linearCombNonModular(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) uint64 {
 	var yTimes {{.ElementName}}
 

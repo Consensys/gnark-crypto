@@ -116,7 +116,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	p20InvInnerLoopNbIterations := 2*F.NbBits - 1
 	// if constant time inversion then p20InvInnerLoopNbIterations-- (among other changes)
 	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / k ⌉
-	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           //"round up" to a multiple of 2
+	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           // "round up" to a multiple of 2
 
 	kLimbs := k * F.NbWords
 	p20InversionCorrectiveFacPower := kLimbs*6 + F.P20InversionNbIterations*(kLimbs-k+1)
@@ -125,7 +125,7 @@ func NewField(packageName, elementName, modulus string) (*Field, error) {
 	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
 	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
 
-	//  rsquare
+	// rsquare
 	_rSquare := big.NewInt(2)
 	exponent := big.NewInt(int64(F.NbWords) * 64 * 2)
 	_rSquare.Exp(_rSquare, exponent, &bModulus)

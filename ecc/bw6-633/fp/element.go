@@ -1768,7 +1768,7 @@ func min(a int, b int) int {
 	return b
 }
 
-//Though we're defining k as a constant, this code "profoundly" assumes that the processor is 64 bit
+// Though we're defining k as a constant, this code "profoundly" assumes that the processor is 64 bit
 const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
@@ -1780,7 +1780,7 @@ func approximate(x *Element, n int) uint64 {
 		return x[0]
 	}
 
-	const mask = (uint64(1) << (k - 1)) - 1 //k-1 ones
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
 	lo := mask & x[0]
 
 	hiWordIndex := (n - 1) / 64
@@ -1797,7 +1797,7 @@ func approximate(x *Element, n int) uint64 {
 	return lo | mid | hi
 }
 
-//TODO: Inline this
+// TODO: Inline this
 var inversionCorrectionFactor = Element{
 	17335095338408674528,
 	1935156146725576072,
@@ -1835,19 +1835,19 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	u := Element{1}
 
-	//Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
+	// Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
 	var f0, g0, f1, g1 int64
 
-	//Saved update factors to reduce the number of field multiplications
+	// Saved update factors to reduce the number of field multiplications
 	var pf0, pg0, pf1, pg1 int64
 
 	var i uint
 
 	var v, s Element
 
-	//Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
-	//This also lets us get away with half as many updates to u,v
-	//To make this constant-time-ish, replace the condition with i < invIterationsN
+	// Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
+	// This also lets us get away with half as many updates to u,v
+	// To make this constant-time-ish, replace the condition with i < invIterationsN
 	for i = 0; i&1 == 1 || !a.IsZero(); i++ {
 		n := max(a.BitLen(), b.BitLen())
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
@@ -1872,13 +1872,13 @@ func (z *Element) Inverse(x *Element) *Element {
 				f0 -= f1
 				g0 -= g1
 
-				//Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
-				//|f₁| ≤ 2ʲ still
+				// Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
+				// |f₁| ≤ 2ʲ still
 			}
 
 			f1 *= 2
 			g1 *= 2
-			//|f₁| ≤ 2ʲ⁺¹
+			// |f₁| ≤ 2ʲ⁺¹
 		}
 
 		s = a
@@ -1888,7 +1888,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			f0, g0 = -f0, -g0
 			aHi = a.neg(&a, aHi)
 		}
-		//right-shift a by k-1 bits
+		// right-shift a by k-1 bits
 		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
 		a[1] = (a[1] >> approxLowBitsN) | ((a[2]) << approxHighBitsN)
 		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
@@ -1906,7 +1906,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			f1, g1 = -f1, -g1
 			bHi = b.neg(&b, bHi)
 		}
-		//right-shift b by k-1 bits
+		// right-shift b by k-1 bits
 		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
 		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
 		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
@@ -1919,7 +1919,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		b[9] = (b[9] >> approxLowBitsN) | (bHi << approxHighBitsN)
 
 		if i&1 == 1 {
-			//Combine current update factors with previously stored ones
+			// Combine current update factors with previously stored ones
 			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
 			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
@@ -1934,7 +1934,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			v.linearCombSosSigned(&s, f1, &v, g1)
 
 		} else {
-			//Save update factors
+			// Save update factors
 			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 		}
 	}
@@ -1943,9 +1943,9 @@ func (z *Element) Inverse(x *Element) *Element {
 		panic("more iterations than expected")
 	}
 
-	//For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
+	// For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
-	//If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
+	// If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
 		v.mulWSigned(&v, pSq)
 	}
@@ -1959,12 +1959,12 @@ func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64
 	z.montReduceSigned(z, hi)
 }
 
-//montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+// montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
-	//the SOS implementation requires that most significant bit is 0
+	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
 	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
 	xHi &= signBitRemover
@@ -2160,7 +2160,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[9], _ = bits.Sub64(z[9], 82862755739295587, b)
 	}
 	if neg {
-		//We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
+		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
 		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
 		z[1], b = bits.Sub64(z[1], 0, b)
@@ -2173,10 +2173,10 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[8], b = bits.Sub64(z[8], 0, b)
 		z[9], b = bits.Sub64(z[9], 0, b)
 
-		//Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
 		if b != 0 {
 			// z[9] = -1
-			//negative: add q
+			// negative: add q
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
 			b = 0
@@ -2198,7 +2198,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 func (z *Element) mulWSigned(x *Element, y int64) {
 	m := y >> 63
 	_mulWGeneric(z, x, uint64((y^m)-m))
-	//multiply by abs(y)
+	// multiply by abs(y)
 	if y < 0 {
 		z.Neg(z)
 	}
@@ -2255,8 +2255,8 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 	w := uint64(y)
 	allNeg := uint64(y >> 63) // -1 if y < 0, 0 o.w
 
-	//s[0], s[1] so results are not stored immediately in z.
-	//x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
+	// s[0], s[1] so results are not stored immediately in z.
+	// x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
 	var s [2]uint64
 	var h [2]uint64
 
@@ -2375,7 +2375,7 @@ func (z *Element) mulWRegular(x *Element, y int64) uint64 {
 	}
 }
 
-//Requires NoCarry
+// Requires NoCarry
 func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
 	var yTimes Element
 
