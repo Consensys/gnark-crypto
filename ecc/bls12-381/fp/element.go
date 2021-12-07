@@ -1333,6 +1333,18 @@ func min(a int, b int) int {
 	return b
 }
 
+const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+const updateFactorIdentityMatrixRow0 = 1
+const updateFactorIdentityMatrixRow1 = 1 << 32
+
+func updateFactorsDecompose(c int64) (int64, int64) {
+	c += updateFactorsConversionBias
+	const low32BitsFilter int64 = 0xFFFFFFFF
+	f := c&low32BitsFilter - 0x7FFFFFFF
+	g := c>>32&low32BitsFilter - 0x7FFFFFFF
+	return f, g
+}
+
 const k = 32 // word size / 2
 const signBitSelector = uint64(1) << 63
 const approxLowBitsN = k - 1
@@ -1368,10 +1380,11 @@ func (z *Element) Inverse(x *Element) *Element {
 	u := Element{1}
 
 	// Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
-	var f0, g0, f1, g1 int64
+	// c_i = f_i + 2³¹ - 1 + 2³² * (g_i + 2³¹ - 1)
+	var c0, c1 int64
 
 	// Saved update factors to reduce the number of field multiplications
-	var pf0, pg0, pf1, pg1 int64
+	var p0, p1 int64
 
 	var i uint
 
@@ -1385,7 +1398,8 @@ func (z *Element) Inverse(x *Element) *Element {
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
 
 		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
-		f0, g0, f1, g1 = 1, 0, 0, 1
+		// f0, g0, f1, g1 = 1, 0, 0, 1
+		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
 		for j := 0; j < approxLowBitsN; j++ {
 
@@ -1396,28 +1410,27 @@ func (z *Element) Inverse(x *Element) *Element {
 				if borrow == 1 {
 					s = bApprox - aApprox
 					bApprox = aApprox
-					f0, f1 = f1, f0
-					g0, g1 = g1, g0
+					c0, c1 = c1, c0
 				}
 
 				aApprox = s / 2
-				f0 -= f1
-				g0 -= g1
+				c0 = c0 - c1
 
 				// Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
 				// |f₁| ≤ 2ʲ still
 			}
 
-			f1 *= 2
-			g1 *= 2
+			c1 *= 2
 			// |f₁| ≤ 2ʲ⁺¹
 		}
 
+		f, g := updateFactorsDecompose(c0)
 		s = a
-		aHi := a.linearCombNonModular(&s, f0, &b, g0)
+		//aHi := a.linearCombNonModular(&s, f0, &b, g0)
+		aHi := a.linearCombNonModular(&s, f, &b, g)
 		if aHi&signBitSelector != 0 {
 			// if aHi < 0
-			f0, g0 = -f0, -g0
+			c0 = -c0
 			aHi = a.neg(&a, aHi)
 		}
 		// right-shift a by k-1 bits
@@ -1428,10 +1441,12 @@ func (z *Element) Inverse(x *Element) *Element {
 		a[4] = (a[4] >> approxLowBitsN) | ((a[5]) << approxHighBitsN)
 		a[5] = (a[5] >> approxLowBitsN) | (aHi << approxHighBitsN)
 
-		bHi := b.linearCombNonModular(&s, f1, &b, g1)
+		f, g = updateFactorsDecompose(c1)
+		bHi := b.linearCombNonModular(&s, f, &b, g)
+		//bHi := b.linearCombNonModular(&s, f1, &b, g1)
 		if bHi&signBitSelector != 0 {
 			// if bHi < 0
-			f1, g1 = -f1, -g1
+			c1 = -c1
 			bHi = b.neg(&b, bHi)
 		}
 		// right-shift b by k-1 bits
@@ -1448,18 +1463,34 @@ func (z *Element) Inverse(x *Element) *Element {
 			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
 			// Which leaves us with an extra bit for the sign
-			f0, g0, f1, g1 = f0*pf0+g0*pf1,
+
+			f, g = updateFactorsDecompose(c0)    // f aliases f0, g aliases g0
+			f1, g1 := updateFactorsDecompose(c1) // The right names
+			c0, p0 = updateFactorsDecompose(p0)  // c0 aliases pf0, p0 aliases pg0
+			c1, p1 = updateFactorsDecompose(p1)  // c1 aliases pg1, p1 aliases pg1
+
+			f, g, f1, g1 = f*c0+g*c1,
+				f*p0+g*p1,
+				f1*c0+g1*c1,
+				f1*p0+g1*p1
+
+			s = u
+			u.linearCombSosSigned(&u, f, &v, g)
+			v.linearCombSosSigned(&s, f1, &v, g1)
+
+			/*f0, g0, f1, g1 = f0*pf0+g0*pf1,
 				f0*pg0+g0*pg1,
 				f1*pf0+g1*pf1,
 				f1*pg0+g1*pg1
 
 			s = u
 			u.linearCombSosSigned(&u, f0, &v, g0)
-			v.linearCombSosSigned(&s, f1, &v, g1)
+			v.linearCombSosSigned(&s, f1, &v, g1)*/
 
 		} else {
 			// Save update factors
-			pf0, pg0, pf1, pg1 = f0, g0, f1, g1
+			//pf0, pg0, pf1, pg1 = f0, g0, f1, g1
+			p0, p1 = c0, c1
 		}
 	}
 

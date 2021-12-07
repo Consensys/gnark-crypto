@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"math/bits"
 	mrand "math/rand"
-	"strconv"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -1998,7 +1997,7 @@ func TestP20InversionApproximation(t *testing.T) {
 		aRef := approximateRef(&x)
 
 		if a != aRef {
-			t.Fatal("Approximation mismatch")
+			t.Error("Approximation mismatch")
 		}
 	}
 }
@@ -2011,10 +2010,16 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	factorInt.Mod(factorInt, Modulus())
 
 	var refFactorInt big.Int
+	inversionCorrectionFactor := Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+	}
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
-		t.Fatal("mismatch")
+		t.Error("mismatch")
 	}
 }
 
@@ -2047,7 +2052,7 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 
 		x.Mul(&x, &xInv)
 		if !x.Equal(&oneInv) {
-			t.Fatal("Correction factor is inconsistent")
+			t.Error("Correction factor is inconsistent")
 		}
 	}
 
@@ -2059,9 +2064,14 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 		fac.setBigInt(&i) // back to montgomery
 
 		var facTimesFac Element
-		facTimesFac.Mul(&fac, &inversionCorrectionFactor)
+		facTimesFac.Mul(&fac, &Element{
+			inversionCorrectionFactorWord0,
+			inversionCorrectionFactorWord1,
+			inversionCorrectionFactorWord2,
+			inversionCorrectionFactorWord3,
+		})
 
-		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
+		t.Error("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}
 }
 
@@ -2069,7 +2079,7 @@ func TestBigNumNeg(t *testing.T) {
 	var a Element
 	aHi := a.neg(&a, 0)
 	if !a.IsZero() || aHi != 0 {
-		t.Fatal("-0 != 0")
+		t.Error("-0 != 0")
 	}
 }
 
@@ -2118,6 +2128,7 @@ func TestMontNegMultipleOfR(t *testing.T) {
 	}
 }
 
+//TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 
@@ -2191,8 +2202,8 @@ func TestUpdateFactorsNeg(t *testing.T) {
 		nf, ng := updateFactorsDecompose(nc)
 		fMistake = fMistake || nf != -f
 		if nf != -f || ng != -g {
-			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %s, %s",
-				i, f, g, c, nc, nf, ng, strconv.FormatInt(f, 16), strconv.FormatInt(g, 16))
+			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %X, %X",
+				i, f, g, c, nc, nf, ng, f, g)
 		}
 	}
 	if fMistake {
@@ -2204,7 +2215,7 @@ func TestUpdateFactorsNeg(t *testing.T) {
 
 func TestComputeUpdateFactorsNeg0(t *testing.T) {
 	c := updateFactorsCompose(0, 0)
-	t.Log("c(0,0) = ", strconv.FormatInt(c, 16))
+	t.Logf("c(0,0) = %X", c)
 	cn := -c
 
 	if c != cn {
@@ -2212,7 +2223,6 @@ func TestComputeUpdateFactorsNeg0(t *testing.T) {
 	}
 }
 
-//TODO: Tests like this are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorDecomposition(t *testing.T) {
 	var negSeen bool
 
@@ -2416,7 +2426,7 @@ func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
 	}
 
 	if uint64(wI) != a {
-		t.Fatal("Bignum mismatch: disagreement on word", index)
+		t.Error("Bignum mismatch: disagreement on word", index)
 	}
 }
 

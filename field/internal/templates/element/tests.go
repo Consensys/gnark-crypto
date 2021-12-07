@@ -269,7 +269,7 @@ var staticTestValues []{{.ElementName}}
 func init() {
 	staticTestValues = append(staticTestValues, {{.ElementName}}{}) // zero
 	staticTestValues = append(staticTestValues, One()) 				// one
-	staticTestValues = append(staticTestValues, rSquare) 			// r^2
+	staticTestValues = append(staticTestValues, rSquare) 			// r²
 	var e, one {{.ElementName}}
 	one.SetOne()
 	e.Sub(&q{{.ElementName}}, &one)

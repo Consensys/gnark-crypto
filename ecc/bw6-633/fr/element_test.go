@@ -274,7 +274,7 @@ var staticTestValues []Element
 func init() {
 	staticTestValues = append(staticTestValues, Element{}) // zero
 	staticTestValues = append(staticTestValues, One())     // one
-	staticTestValues = append(staticTestValues, rSquare)   // r^2
+	staticTestValues = append(staticTestValues, rSquare)   // r²
 	var e, one Element
 	one.SetOne()
 	e.Sub(&qElement, &one)
@@ -2011,7 +2011,7 @@ func TestP20InversionApproximation(t *testing.T) {
 		aRef := approximateRef(&x)
 
 		if a != aRef {
-			t.Fatal("Approximation mismatch")
+			t.Error("Approximation mismatch")
 		}
 	}
 }
@@ -2034,7 +2034,7 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	inversionCorrectionFactor.ToBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
-		t.Fatal("mismatch")
+		t.Error("mismatch")
 	}
 }
 
@@ -2067,7 +2067,7 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 
 		x.Mul(&x, &xInv)
 		if !x.Equal(&oneInv) {
-			t.Fatal("Correction factor is inconsistent")
+			t.Error("Correction factor is inconsistent")
 		}
 	}
 
@@ -2087,7 +2087,7 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 			inversionCorrectionFactorWord4,
 		})
 
-		t.Fatal("Correction factor is consistently off by", fac, "Should be", facTimesFac)
+		t.Error("Correction factor is consistently off by", fac, "Should be", facTimesFac)
 	}
 }
 
@@ -2095,7 +2095,7 @@ func TestBigNumNeg(t *testing.T) {
 	var a Element
 	aHi := a.neg(&a, 0)
 	if !a.IsZero() || aHi != 0 {
-		t.Fatal("-0 != 0")
+		t.Error("-0 != 0")
 	}
 }
 
@@ -2144,6 +2144,216 @@ func TestMontNegMultipleOfR(t *testing.T) {
 	}
 }
 
+//TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
+func TestUpdateFactorSubtraction(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+
+		f0, g0 := randomizeUpdateFactors()
+		f1, g1 := randomizeUpdateFactors()
+
+		for f0-f1 > 1<<31 || f0-f1 <= -1<<31 {
+			f1 /= 2
+		}
+
+		for g0-g1 > 1<<31 || g0-g1 <= -1<<31 {
+			g1 /= 2
+		}
+
+		c0 := updateFactorsCompose(f0, g0)
+		c1 := updateFactorsCompose(f1, g1)
+
+		cRes := c0 - c1
+		fRes, gRes := updateFactorsDecompose(cRes)
+
+		if fRes != f0-f1 || gRes != g0-g1 {
+			t.Error(i)
+		}
+	}
+}
+
+func TestUpdateFactorsDouble(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f > 1<<30 || f < (-1<<31+1)/2 {
+			f /= 2
+			if g <= 1<<29 && g >= (-1<<31+1)/4 {
+				g *= 2 //g was kept small on f's account. Now that we're halving f, we can double g
+			}
+		}
+
+		if g > 1<<30 || g < (-1<<31+1)/2 {
+			g /= 2
+
+			if f <= 1<<29 && f >= (-1<<31+1)/4 {
+				f *= 2 //f was kept small on g's account. Now that we're halving g, we can double f
+			}
+		}
+
+		c := updateFactorsCompose(f, g)
+		cD := c * 2
+		fD, gD := updateFactorsDecompose(cD)
+
+		if fD != 2*f || gD != 2*g {
+			t.Error(i)
+		}
+	}
+}
+
+func TestUpdateFactorsNeg(t *testing.T) {
+	var fMistake bool
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f == 0x80000000 || g == 0x80000000 {
+			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
+			// We don't have capacity to store -2³¹
+			// Repeat this iteration
+			i--
+			continue
+		}
+
+		c := updateFactorsCompose(f, g)
+		nc := -c
+		nf, ng := updateFactorsDecompose(nc)
+		fMistake = fMistake || nf != -f
+		if nf != -f || ng != -g {
+			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %X, %X",
+				i, f, g, c, nc, nf, ng, f, g)
+		}
+	}
+	if fMistake {
+		t.Error("Mistake with f detected")
+	} else {
+		t.Log("All good with f")
+	}
+}
+
+func TestComputeUpdateFactorsNeg0(t *testing.T) {
+	c := updateFactorsCompose(0, 0)
+	t.Logf("c(0,0) = %X", c)
+	cn := -c
+
+	if c != cn {
+		t.Error("Negation of zero update factors should yield the same result.")
+	}
+}
+
+func TestUpdateFactorDecomposition(t *testing.T) {
+	var negSeen bool
+
+	for i := 0; i < 1000; i++ {
+
+		f, g := randomizeUpdateFactors()
+
+		if f <= -(1<<31) || f > 1<<31 {
+			t.Fatal("f out of range")
+		}
+
+		negSeen = negSeen || f < 0
+
+		c := updateFactorsCompose(f, g)
+
+		fBack, gBack := updateFactorsDecompose(c)
+
+		if f != fBack || g != gBack {
+			t.Errorf("(%d, %d) -> %d -> (%d, %d)\n", f, g, c, fBack, gBack)
+		}
+	}
+
+	if !negSeen {
+		t.Fatal("No negative f factors")
+	}
+}
+
+func TestUpdateFactorInitialValues(t *testing.T) {
+
+	f0, g0 := updateFactorsDecompose(updateFactorIdentityMatrixRow0)
+	f1, g1 := updateFactorsDecompose(updateFactorIdentityMatrixRow1)
+
+	if f0 != 1 || g0 != 0 || f1 != 0 || g1 != 1 {
+		t.Error("Update factor initial value constants are incorrect")
+	}
+}
+
+func TestUpdateFactorsRandomization(t *testing.T) {
+	var maxLen int
+
+	//t.Log("|f| + |g| is not to exceed", 1 << 31)
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+		lf, lg := abs64T32(f), abs64T32(g)
+		absSum := lf + lg
+		if absSum >= 1<<31 {
+
+			if absSum == 1<<31 {
+				maxLen++
+			} else {
+				t.Error(i, "Sum of absolute values too large, f =", f, ",g =", g, ",|f| + |g| =", absSum)
+			}
+		}
+	}
+
+	if maxLen == 0 {
+		t.Error("max len not observed")
+	} else {
+		t.Log(maxLen, "maxLens observed")
+	}
+}
+
+func randomizeUpdateFactor(absLimit uint32) int64 {
+	const maxSizeLikelihood = 10
+	maxSize := mrand.Intn(maxSizeLikelihood)
+
+	absLimit64 := int64(absLimit)
+	var f int64
+	switch maxSize {
+	case 0:
+		f = absLimit64
+	case 1:
+		f = -absLimit64
+	default:
+		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64
+	}
+
+	if f > 1<<31 {
+		return 1 << 31
+	} else if f < -1<<31+1 {
+		return -1<<31 + 1
+	}
+
+	return f
+}
+
+func abs64T32(f int64) uint32 {
+	if f >= 1<<32 || f < -1<<32 {
+		panic("f out of range")
+	}
+
+	if f < 0 {
+		return uint32(-f)
+	}
+	return uint32(f)
+}
+
+func randomizeUpdateFactors() (int64, int64) {
+	var f [2]int64
+	b := mrand.Int() % 2
+
+	f[b] = randomizeUpdateFactor(1 << 31)
+
+	//As per the paper, |f| + |g| \le 2³¹.
+	f[1-b] = randomizeUpdateFactor(1<<31 - abs64T32(f[b]))
+
+	//Patching another edge case
+	if f[0]+f[1] == -1<<31 {
+		b = mrand.Int() % 2
+		f[b]++
+	}
+
+	return f[0], f[1]
+}
+
 func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 
 	var p1 big.Int
@@ -2179,6 +2389,10 @@ func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
 	res.montReduceSigned(x, xHi)
 	montReduce(&resInt, &xInt)
 	res.assertMatchVeryBigInt(t, 0, &resInt)
+}
+
+func updateFactorsCompose(f int64, g int64) int64 {
+	return f + g<<32
 }
 
 var rInv big.Int
@@ -2228,7 +2442,7 @@ func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
 	}
 
 	if uint64(wI) != a {
-		t.Fatal("Bignum mismatch: disagreement on word", index)
+		t.Error("Bignum mismatch: disagreement on word", index)
 	}
 }
 
