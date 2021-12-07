@@ -1291,18 +1291,18 @@ func (z *Element) Inverse(x *Element) *Element {
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
 // if x fits in a word as is, no approximation necessary
-func approximate(x *Element, n int) uint64 {
+func approximate(x *Element, nBits int) uint64 {
 
-	if n <= 64 {
+	if nBits <= 64 {
 		return x[0]
 	}
 
 	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
 	lo := mask & x[0]
 
-	hiWordIndex := (n - 1) / 64
+	hiWordIndex := (nBits - 1) / 64
 
-	hiWordBitsAvailable := n - hiWordIndex*64
+	hiWordBitsAvailable := nBits - hiWordIndex*64
 	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
 
 	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
