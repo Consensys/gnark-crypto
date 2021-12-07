@@ -1,6 +1,6 @@
 package element
 
-const InversePornin20Tests = `
+const InverseTests = `
 
 // this is a hack so that there isn't an import error in case mrand is not used
 // TODO: Do it properly
@@ -9,18 +9,6 @@ func useMRand() {
 }
 
 {{if eq .NoCarry true}}
-
-func Benchmark{{.ElementName}}InverseNew(b *testing.B) {
-	var x {{.ElementName}}
-	x.SetRandom()
-
-	b.Run("inverseNew", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchRes{{.ElementName}}.Inverse(&x)
-		}
-	})
-}
 
 func TestP20InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}

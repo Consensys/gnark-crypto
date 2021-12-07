@@ -81,7 +81,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		benchResElement.InverseOld(&x)
+		benchResElement.Inverse(&x)
 	}
 
 }
@@ -2080,18 +2080,6 @@ func genFull() gopter.Gen {
 // TODO: Do it properly
 func useMRand() {
 	_ = mrand.Uint64()
-}
-
-func BenchmarkElementInverseNew(b *testing.B) {
-	var x Element
-	x.SetRandom()
-
-	b.Run("inverseNew", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.Inverse(&x)
-		}
-	})
 }
 
 func TestP20InversionApproximation(t *testing.T) {

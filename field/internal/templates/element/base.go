@@ -525,7 +525,28 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+{{ define "add_q" }}
+	// {{$.V1}} = {{$.V1}} + q 
+	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
+	{{- range $i := .all.NbWordsIndexesNoZero}}
+		{{- if eq $i $.all.NbWordsLastIndex}}
+			{{$.V1}}[{{$i}}], _ = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- else}}
+			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- end}}
+	{{- end}}
+{{ end }}
 
+{{ define "rsh V nbWords" }}
+	// {{$.V}} = {{$.V}} >> 1
+	{{$lastIndex := sub .nbWords 1}}
+	{{- range $i :=  iterate .nbWords}}
+		{{- if ne $i $lastIndex}}
+			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
+		{{- end}}
+	{{- end}}
+	{{$.V}}[{{$lastIndex}}] >>= 1
+{{ end }}
 
 
 `

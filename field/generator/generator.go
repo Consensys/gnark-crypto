@@ -36,7 +36,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Sqrt,
 		element.Inverse,
-		element.InversePornin,
 		element.BigNum,
 	}
 
@@ -46,7 +45,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Reduce,
 		element.Test,
-		element.InversePornin20Tests,
+		element.InverseTests,
 	}
 
 	// output files
