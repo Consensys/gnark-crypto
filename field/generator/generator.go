@@ -47,7 +47,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.Test,
 		element.InverseTests,
 	}
-
 	// output files
 	eName := strings.ToLower(F.ElementName)
 

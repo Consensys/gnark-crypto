@@ -2076,12 +2076,6 @@ func genFull() gopter.Gen {
 	}
 }
 
-// this is a hack so that there isn't an import error in case mrand is not used
-// TODO: Do it properly
-func useMRand() {
-	_ = mrand.Uint64()
-}
-
 func TestP20InversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {

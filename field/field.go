@@ -118,7 +118,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 
 	p20InvInnerLoopNbIterations := 2*F.NbBits - 1
 	// if constant time inversion then p20InvInnerLoopNbIterations-- (among other changes)
-	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / k ⌉
+	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / (k-1) ⌉
 	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           // "round up" to a multiple of 2
 
 	kLimbs := k * F.NbWords

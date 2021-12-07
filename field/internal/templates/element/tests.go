@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"math/bits"
-	mrand "math/rand"
+	{{if .NoCarry}} mrand "math/rand" {{end}}
 	"testing"
 	{{if .UseAddChain}}	"fmt" {{ end }}
 
