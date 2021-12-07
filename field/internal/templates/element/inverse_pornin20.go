@@ -119,6 +119,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		s = a
 
 		var g0 int64
+		// from this point on c0 aliases for f0
 		c0, g0 = updateFactorsDecompose(c0)
 		aHi := a.linearCombNonModular(&s, c0, &b, g0)
 		if aHi & signBitSelector != 0 {
@@ -137,6 +138,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		{{- end}}
 
 		var f1 int64
+		// from this point on c1 aliases for g0
 		f1, c1 = updateFactorsDecompose(c1)
 		bHi := b.linearCombNonModular(&s, f1, &b, c1)
 		if bHi & signBitSelector != 0 {
@@ -167,6 +169,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 				f1*pf0+c1*pf1,
 				f1*pg0+c1*pg1
 
+			s = u
 			u.linearCombSosSigned(&u, c0, &v, g0)
 			v.linearCombSosSigned(&s, f1, &v, c1)
 

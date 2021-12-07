@@ -1257,20 +1257,7 @@ func (z *Element) Inverse(x *Element) *Element {
 			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
 			// Which leaves us with an extra bit for the sign
 
-			/*f, g = updateFactorsDecompose(c0)    // f aliases f0, g aliases g0
-			f1, g1 := updateFactorsDecompose(c1) // The right names
-			c0, p0 = updateFactorsDecompose(p0)  // c0 aliases pf0, p0 aliases pg0
-			c1, p1 = updateFactorsDecompose(p1)  // c1 aliases pg1, p1 aliases pg1
-
-			f, g, f1, g1 = f*c0+g*c1,
-				f*p0+g*p1,
-				f1*c0+g1*c1,
-				f1*p0+g1*p1
-
-			s = u
-			u.linearCombSosSigned(&u, f, &v, g)
-			v.linearCombSosSigned(&s, f1, &v, g1)*/
-
+			// c0 aliases f0, c1 aliases g1
 			c0, g0, f1, c1 = c0*pf0+g0*pf1,
 				c0*pg0+g0*pg1,
 				f1*pf0+c1*pf1,
@@ -1282,7 +1269,6 @@ func (z *Element) Inverse(x *Element) *Element {
 
 		} else {
 			// Save update factors
-			//pf0, pg0, pf1, pg1 = f0, g0, f1, g1
 			pf0, pg0, pf1, pg1 = c0, g0, f1, c1
 		}
 	}
