@@ -451,7 +451,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	table[0].Set(a)
 	table[3].phi(a)
 
-	// split the scalar, modifies +-a, phi(a) accordingly
+	// split the scalar, modifies ±a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
@@ -514,7 +514,7 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 // ClearCofactor maps a point in curve to r-torsion
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// https://eprint.iacr.org/2017/419.pdf, section 4.2
-	// multiply by (3x^4-3)*cofacor
+	// multiply by (3x⁴-3)*cofacor
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
@@ -901,7 +901,7 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
-	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+	// cost = 2ᶜ⁻¹ + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)

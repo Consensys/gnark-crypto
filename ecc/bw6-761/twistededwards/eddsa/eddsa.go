@@ -148,10 +148,10 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 
 	// blinding factor for the private key
 	// blindingFactorBigInt must be the same size as the private key,
-	// blindingFactorBigInt = h(randomness_source||message)[:sizeFr]
+	// blindingFactorBigInt = h(randomness_source∥message)[:sizeFr]
 	var blindingFactorBigInt big.Int
 
-	// randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
+	// randSrc = privKey.randSrc ∥ msg (-> message = MSB message .. LSB message)
 	randSrc := make([]byte, 32+len(message))
 	for i, v := range privKey.randSrc {
 		randSrc[i] = v

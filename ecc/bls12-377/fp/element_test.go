@@ -1992,7 +1992,7 @@ func genFull() gopter.Gen {
 	}
 }
 
-func TestP20InversionApproximation(t *testing.T) {
+func TestElementInversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
@@ -2012,7 +2012,7 @@ func TestP20InversionApproximation(t *testing.T) {
 	}
 }
 
-func TestP20InversionCorrectionFactorFormula(t *testing.T) {
+func TestElementInversionCorrectionFactorFormula(t *testing.T) {
 	const kLimbs = k * Limbs
 	const power = kLimbs*6 + invIterationsN*(kLimbs-k+1)
 	factorInt := big.NewInt(1)
@@ -2035,7 +2035,7 @@ func TestP20InversionCorrectionFactorFormula(t *testing.T) {
 	}
 }
 
-func TestLinearComb(t *testing.T) {
+func TestElementLinearComb(t *testing.T) {
 	var x Element
 	var y Element
 
@@ -2047,7 +2047,7 @@ func TestLinearComb(t *testing.T) {
 }
 
 // Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
-func TestP20InversionCorrectionFactor(t *testing.T) {
+func TestElementInversionCorrectionFactor(t *testing.T) {
 
 	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
@@ -2089,7 +2089,7 @@ func TestP20InversionCorrectionFactor(t *testing.T) {
 	}
 }
 
-func TestBigNumNeg(t *testing.T) {
+func TestElementBigNumNeg(t *testing.T) {
 	var a Element
 	aHi := a.neg(&a, 0)
 	if !a.IsZero() || aHi != 0 {
@@ -2097,7 +2097,7 @@ func TestBigNumNeg(t *testing.T) {
 	}
 }
 
-func TestBigNumWMul(t *testing.T) {
+func TestElementBigNumWMul(t *testing.T) {
 	var x Element
 
 	for i := 0; i < 1000; i++ {
@@ -2107,7 +2107,7 @@ func TestBigNumWMul(t *testing.T) {
 	}
 }
 
-func TestVeryBigIntConversion(t *testing.T) {
+func TestElementVeryBigIntConversion(t *testing.T) {
 	xHi := mrand.Uint64()
 	var x Element
 	x.SetRandom()
@@ -2116,7 +2116,7 @@ func TestVeryBigIntConversion(t *testing.T) {
 	x.assertMatchVeryBigInt(t, xHi, &xInt)
 }
 
-func TestMontReducePos(t *testing.T) {
+func TestElementMontReducePos(t *testing.T) {
 	var x Element
 
 	for i := 0; i < 1000; i++ {
@@ -2125,7 +2125,7 @@ func TestMontReducePos(t *testing.T) {
 	}
 }
 
-func TestMonReduceNeg(t *testing.T) {
+func TestElementMontReduceNeg(t *testing.T) {
 	var x Element
 
 	for i := 0; i < 1000; i++ {
@@ -2134,7 +2134,7 @@ func TestMonReduceNeg(t *testing.T) {
 	}
 }
 
-func TestMontNegMultipleOfR(t *testing.T) {
+func TestElementMontNegMultipleOfR(t *testing.T) {
 	var zero Element
 
 	for i := 0; i < 1000; i++ {
@@ -2227,7 +2227,7 @@ func TestUpdateFactorsNeg(t *testing.T) {
 	}
 }
 
-func TestComputeUpdateFactorsNeg0(t *testing.T) {
+func TestUpdateFactorsNeg0(t *testing.T) {
 	c := updateFactorsCompose(0, 0)
 	t.Logf("c(0,0) = %X", c)
 	cn := -c
@@ -2398,7 +2398,7 @@ var rInv big.Int
 func montReduce(res *big.Int, x *big.Int) {
 	if rInv.BitLen() == 0 { // initialization
 		rInv.SetUint64(1)
-		rInv.Lsh(&rInv, Limbs*bits.UintSize)
+		rInv.Lsh(&rInv, Limbs*64)
 		rInv.ModInverse(&rInv, Modulus())
 	}
 	res.Mul(x, &rInv)
@@ -2409,7 +2409,7 @@ func (z *Element) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
 	z.ToBigInt(i)
 	var upperWord big.Int
 	upperWord.SetUint64(xHi)
-	upperWord.Lsh(&upperWord, Limbs*bits.UintSize)
+	upperWord.Lsh(&upperWord, Limbs*64)
 	i.Add(&upperWord, i)
 }
 
@@ -2417,7 +2417,7 @@ func (z *Element) toVeryBigIntSigned(i *big.Int, xHi uint64) {
 	z.toVeryBigIntUnsigned(i, xHi)
 	if signBitSelector&xHi != 0 {
 		twosCompModulus := big.NewInt(1)
-		twosCompModulus.Lsh(twosCompModulus, (Limbs+1)*bits.UintSize)
+		twosCompModulus.Lsh(twosCompModulus, (Limbs+1)*64)
 		i.Sub(i, twosCompModulus)
 	}
 }
@@ -2433,11 +2433,17 @@ func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, result
 }
 
 func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
+
 	var wI big.Word
 
 	if index < len(w) {
 		wI = w[index]
 	}
+
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+
+	a = a >> ((index * bits.UintSize) % 64)
+	a &= filter
 
 	if uint64(wI) != a {
 		t.Error("Bignum mismatch: disagreement on word", index)
@@ -2449,16 +2455,19 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*bits.UintSize)
+	modulus.Lsh(&modulus, (Limbs+1)*64)
 	aIntMod.Mod(aInt, &modulus)
 
 	words := aIntMod.Bits()
 
-	for i := 0; i < Limbs; i++ {
-		assertMatch(t, words, z[i], i)
+	const steps = 64 / bits.UintSize
+	for i := 0; i < Limbs*steps; i++ {
+		assertMatch(t, words, z[i/steps], i)
 	}
 
-	assertMatch(t, words, aHi, Limbs)
+	for i := 0; i < steps; i++ {
+		assertMatch(t, words, aHi, Limbs*steps+i)
+	}
 }
 
 func approximateRef(x *Element) uint64 {

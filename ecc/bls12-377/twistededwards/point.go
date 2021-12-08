@@ -43,7 +43,7 @@ const (
 	mCompressedPositive = 0x00
 	mUnmask             = 0x7f
 
-	// size in byte of a compressed point (point.Y --> fr.Element)
+	// size in byte of a compressed point (point.Y → fr.Element)
 	sizePointCompressed = fr.Limbs * 8
 )
 
@@ -91,7 +91,7 @@ func computeX(y *fr.Element) (x fr.Element) {
 }
 
 // SetBytes sets p from buf
-// len(buf) >= sizePointCompressed
+// len(buf) ⩾ sizePointCompressed
 // buf contains the Y coordinate masked with a parity bit to recompute the X coordinate
 // from the curve equation. See Bytes() and https://tools.ietf.org/html/rfc8032#section-3.1
 // Returns the number of read bytes and an error if the buffer is too short.

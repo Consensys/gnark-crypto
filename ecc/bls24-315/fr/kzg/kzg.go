@@ -270,7 +270,7 @@ func BatchOpenSinglePoint(polynomials []polynomial.Polynomial, digests []Digest,
 	}()
 
 	// compute sum_i gamma**i*f
-	// that is p0 + gamma * p1 + gamma^2 * p2 + ... gamma^n * pn
+	// that is p0 + gamma * p1 + gamma² * p2 + ... gammaⁿ * pn
 	// note: if we are willing to paralellize that, we could clone the poly and scale them by
 	// gamma n in parallel, before reducing into sumGammaiTimesPol
 	sumGammaiTimesPol := make(polynomial.Polynomial, largestPoly)

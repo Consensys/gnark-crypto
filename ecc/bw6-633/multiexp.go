@@ -38,13 +38,13 @@ type selector struct {
 }
 
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
-// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-// 2^{c} to the current digit, making it negative.
+// if the digit is larger than 2ᶜ⁻¹, then, we borrow 2ᶜ from the next window and substract
+// 2ᶜ to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
-// 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
+// 0 < scalar < 2ᶜ (in other words, scalars where only the c-least significant bits are non zero)
 func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]fr.Element, int) {
 	toReturn := make([]fr.Element, len(scalars))
 
@@ -127,8 +127,8 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 					continue
 				}
 
-				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-				// 2^{c} to the current digit, making it negative.
+				// if the digit is larger than 2ᶜ⁻¹, then, we borrow 2ᶜ from the next window and substract
+				// 2ᶜ to the current digit, making it negative.
 				if digit >= max {
 					digit -= (1 << c)
 					carry = 1
@@ -183,18 +183,18 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
 	// * number of CPUs
 	// * cache friendliness (which depends on the host, G1 or G2... )
-	//	--> for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
+	//	→ for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
 	// for each msmCX
 	// step 1
 	// we compute, for each scalars over c-bit wide windows, nbChunk digits
-	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-	// 2^{c} to the current digit, making it negative.
+	// if the digit is larger than 2ᶜ⁻¹, then, we borrow 2ᶜ from the next window and substract
+	// 2ᶜ to the current digit, making it negative.
 	// negative digits will be processed in the next step as adding -G into the bucket instead of G
 	// (computing -G is cheap, and this saves us half of the buckets)
 	// step 2
 	// buckets are declared on the stack
-	// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+	// notice that we have 2ᶜ⁻¹ buckets instead of 2ᶜ (see step1)
 	// we use jacobian extended formulas here as they are faster than mixed addition
 	// msmProcessChunk places points into buckets base on their selector and return the weighted bucket sum in given channel
 	// step 3
@@ -212,13 +212,13 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	// here, we compute the best C for nbPoints
-	// we split recursively until nbChunks(c) >= nbTasks,
+	// we split recursively until nbChunks(c) ⩾ nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
 		implementedCs := []uint64{4, 5, 8, 16}
 		var C uint64
 		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c})
+		// cost = bits/c * (nbPoints + 2ᶜ)
 		// this needs to be verified empirically.
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
@@ -255,7 +255,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	// if it's larger than 2ᶜ⁻¹, we have a carry we need to propagate up to the higher window
 	var smallValues int
 	scalars, smallValues = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
@@ -586,18 +586,18 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// * if c doesn't divide 64, the word size, then we're bound to select bits over 2 words of our scalars, instead of 1
 	// * number of CPUs
 	// * cache friendliness (which depends on the host, G1 or G2... )
-	//	--> for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
+	//	→ for example, on BN254, a G1 point fits into one cache line of 64bytes, but a G2 point don't.
 
 	// for each msmCX
 	// step 1
 	// we compute, for each scalars over c-bit wide windows, nbChunk digits
-	// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-	// 2^{c} to the current digit, making it negative.
+	// if the digit is larger than 2ᶜ⁻¹, then, we borrow 2ᶜ from the next window and substract
+	// 2ᶜ to the current digit, making it negative.
 	// negative digits will be processed in the next step as adding -G into the bucket instead of G
 	// (computing -G is cheap, and this saves us half of the buckets)
 	// step 2
 	// buckets are declared on the stack
-	// notice that we have 2^{c-1} buckets instead of 2^{c} (see step1)
+	// notice that we have 2ᶜ⁻¹ buckets instead of 2ᶜ (see step1)
 	// we use jacobian extended formulas here as they are faster than mixed addition
 	// msmProcessChunk places points into buckets base on their selector and return the weighted bucket sum in given channel
 	// step 3
@@ -615,13 +615,13 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	// here, we compute the best C for nbPoints
-	// we split recursively until nbChunks(c) >= nbTasks,
+	// we split recursively until nbChunks(c) ⩾ nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
 		implementedCs := []uint64{4, 5, 8, 16}
 		var C uint64
 		// approximate cost (in group operations)
-		// cost = bits/c * (nbPoints + 2^{c})
+		// cost = bits/c * (nbPoints + 2ᶜ)
 		// this needs to be verified empirically.
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
@@ -658,7 +658,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
+	// if it's larger than 2ᶜ⁻¹, we have a carry we need to propagate up to the higher window
 	var smallValues int
 	scalars, smallValues = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
