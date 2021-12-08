@@ -16,18 +16,22 @@ func (z *E12) nSquareCompressed(n int) {
 // const t/2 uint64 = 7566188111470821376 // negative
 func (z *E12) ExptHalf(x *E12) *E12 {
 	var result E12
-	result.CyclotomicSquare(x)
-	result.Mul(&result, x)
-	result.nSquare(2)
-	result.Mul(&result, x)
-	result.nSquare(3)
-	result.Mul(&result, x)
-	result.nSquare(9)
-	result.Mul(&result, x)
+	var t [2]E12
+	result.Set(x)
+	result.nSquareCompressed(15)
+	t[0].Set(&result)
 	result.nSquareCompressed(32)
-	result.Decompress(&result)
-	result.Mul(&result, x)
-	result.nSquare(15)
+	t[1].Set(&result)
+	batch := BatchDecompress([]E12{t[0], t[1]})
+	result.Mul(&batch[0], &batch[1])
+	batch[1].nSquare(9)
+	result.Mul(&result, &batch[1])
+	batch[1].nSquare(3)
+	result.Mul(&result, &batch[1])
+	batch[1].nSquare(2)
+	result.Mul(&result, &batch[1])
+	batch[1].CyclotomicSquare(&batch[1])
+	result.Mul(&result, &batch[1])
 	return z.Conjugate(&result) // because tAbsVal is negative
 }
 
