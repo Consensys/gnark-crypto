@@ -964,7 +964,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
 
-	// b = xˢ = w * w * x = y * x
+	// b = x^s = w * w * x = y * x
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s

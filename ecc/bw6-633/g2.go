@@ -367,7 +367,7 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// 3*r*P = (x+1)*phi(P) + (-x⁵ + x⁴ + x)*P
+// 3*r*P = (x+1)*phi(P) + (-x^5 + x^4 + x)*P
 func (p *G2Jac) IsInSubGroup() bool {
 
 	var uP, u4P, u5P, q, r G2Jac
@@ -435,7 +435,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	table[0].Set(a)
 	table[3].phi(a)
 
-	// split the scalar, modifies ±a, phi(a) accordingly
+	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
@@ -838,7 +838,7 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
-	// cost = 2ᶜ⁻¹ + n(scalar.nbBits+nbChunks)
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)

@@ -36,7 +36,7 @@ func (pk *PublicKey) Bytes() []byte {
 }
 
 // SetBytes sets p from binary representation in buf.
-// buf represents a public key as x∥y where x, y are
+// buf represents a public key as x||y where x, y are
 // interpreted as big endian binary numbers corresponding
 // to the coordinates of a point on the twisted Edwards.
 // It returns the number of bytes read from the buffer.
@@ -56,7 +56,7 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 }
 
 // Bytes returns the binary representation of pk,
-// as byte array publicKey∥scalar∥randSrc
+// as byte array publicKey||scalar||randSrc
 // where publicKey is as publicKey.Bytes(), and
 // scalar is in big endian, of size sizeFr.
 func (privKey *PrivateKey) Bytes() []byte {
@@ -69,7 +69,7 @@ func (privKey *PrivateKey) Bytes() []byte {
 }
 
 // SetBytes sets pk from buf, where buf is interpreted
-// as  publicKey∥scalar∥randSrc
+// as  publicKey||scalar||randSrc
 // where publicKey is as publicKey.Bytes(), and
 // scalar is in big endian, of size sizeFr.
 // It returns the number byte read.
@@ -93,7 +93,7 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 }
 
 // Bytes returns the binary representation of sig
-// as a byte array of size 3*sizeFr x∥y∥s where
+// as a byte array of size 3*sizeFr x||y||s where
 // * x, y are the coordinates of a point on the twisted
 //	Edwards represented in big endian
 // * s=r+h(r,a,m) mod l, the Hasse bound guarantess that
@@ -108,7 +108,7 @@ func (sig *Signature) Bytes() []byte {
 }
 
 // SetBytes sets sig from a buffer in binary.
-// buf is read interpreted as x∥y∥s where
+// buf is read interpreted as x||y||s where
 // * x,y are the coordinates of a point on the twisted
 //	Edwards represented in big endian
 // * s=r+h(r,a,m) mod l, the Hasse bound guarantess that

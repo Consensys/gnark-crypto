@@ -775,7 +775,7 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -813,7 +813,7 @@ func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -1071,7 +1071,7 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -1110,7 +1110,7 @@ func (p *G2Affine) unsafeComputeY(subGroupCheck bool) error {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}

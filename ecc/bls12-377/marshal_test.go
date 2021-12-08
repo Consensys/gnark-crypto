@@ -51,7 +51,7 @@ func TestEncoder(t *testing.T) {
 	inB.SetRandom()
 	inC.SetRandom()
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
-	// inE → infinity
+	// inE --> infinity
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)

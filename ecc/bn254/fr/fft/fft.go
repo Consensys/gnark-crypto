@@ -45,8 +45,8 @@ const butterflyThreshold = 16
 //
 // example:
 // -------
-// domain := NewDomain(m, 2) →  contains precomputed data for Z/mZ, and Z/4mZ
-// FFT(pol, DIT, 1) → evaluates pol on the coset 1 in (Z/4mZ)/(Z/mZ)
+// domain := NewDomain(m, 2) -->  contains precomputed data for Z/mZ, and Z/4mZ
+// FFT(pol, DIT, 1) --> evaluates pol on the coset 1 in (Z/4mZ)/(Z/mZ)
 func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 
 	numCPU := uint64(runtime.NumCPU())

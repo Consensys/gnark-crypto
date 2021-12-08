@@ -66,7 +66,7 @@ type Domain struct {
 }
 
 // NewDomain returns a subgroup with a power of 2 cardinality
-// cardinality ⩾ m
+// cardinality >= m
 // If depth>0, the Domain will also store a primitive (2**depth)*m root
 // of 1, with associated precomputed data. This allows to perform shifted
 // FFT/FFTInv.
@@ -110,7 +110,7 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 	domain.FinerGenerator.Exp(rootOfUnity, bExpo)
 	domain.FinerGeneratorInv.Inverse(&domain.FinerGenerator)
 
-	// Generator = FinerGenerator² has order x
+	// Generator = FinerGenerator^2 has order x
 	expo = uint64(1 << (maxOrderRoot - logx))
 	bExpo.SetUint64(expo)
 	domain.Generator.Exp(rootOfUnity, bExpo) // order x

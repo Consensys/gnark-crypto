@@ -114,7 +114,7 @@ func (d *digest) checksum() fr.Element {
 	var x fr.Element
 
 	// if data size is not multiple of BlockSizes we padd:
-	// .. ∥ 0xaf8 -> .. ∥ 0x0000...0af8
+	// .. || 0xaf8 -> .. || 0x0000...0af8
 	if len(d.data)%BlockSize != 0 {
 		q := len(d.data) / BlockSize
 		r := len(d.data) % BlockSize

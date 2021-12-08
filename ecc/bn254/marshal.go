@@ -620,8 +620,8 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 // as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y²
-// 11 -> compressed, use largest lexicographically square root of Y²
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
@@ -764,7 +764,7 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -802,7 +802,7 @@ func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -871,8 +871,8 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 // as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
 // we use the 2 most significant bits instead
 // 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y²
-// 11 -> compressed, use largest lexicographically square root of Y²
+// 10 -> compressed, use smallest lexicographically square root of Y^2
+// 11 -> compressed, use largest lexicographically square root of Y^2
 // 01 -> compressed infinity point
 // the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
@@ -1046,7 +1046,7 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}
@@ -1085,7 +1085,7 @@ func (p *G2Affine) unsafeComputeY(subGroupCheck bool) error {
 			Y.Neg(&Y)
 		}
 	} else {
-		// Y "⩽" -Y
+		// Y "<=" -Y
 		if mData == mCompressedLargest {
 			Y.Neg(&Y)
 		}

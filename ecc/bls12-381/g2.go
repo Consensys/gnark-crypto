@@ -442,7 +442,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	table[0].Set(a)
 	table[3].phi(a)
 
-	// split the scalar, modifies ±a, phi(a) accordingly
+	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
@@ -879,7 +879,7 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
-	// cost = 2ᶜ⁻¹ + n(scalar.nbBits+nbChunks)
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)
