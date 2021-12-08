@@ -2401,11 +2401,17 @@ func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, result
 }
 
 func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
+
 	var wI big.Word
 
 	if index < len(w) {
 		wI = w[index]
 	}
+
+	const filter = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+
+	a = a >> ((index * bits.UintSize) % 64)
+	a &= filter
 
 	if uint64(wI) != a {
 		t.Error("Bignum mismatch: disagreement on word", index)
@@ -2417,7 +2423,7 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*bits.UintSize)
+	modulus.Lsh(&modulus, Limbs*bits.UintSize+64)
 	aIntMod.Mod(aInt, &modulus)
 
 	words := aIntMod.Bits()
