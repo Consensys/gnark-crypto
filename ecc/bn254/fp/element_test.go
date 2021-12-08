@@ -2428,11 +2428,14 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 
 	words := aIntMod.Bits()
 
-	for i := 0; i < Limbs; i++ {
-		assertMatch(t, words, z[i], i)
+	const steps = 64 / bits.UintSize
+	for i := 0; i < Limbs*steps; i++ {
+		assertMatch(t, words, z[i/steps], i)
 	}
 
-	assertMatch(t, words, aHi, Limbs)
+	for i := 0; i < steps; i++ {
+		assertMatch(t, words, aHi, Limbs*steps+i)
+	}
 }
 
 func approximateRef(x *Element) uint64 {
