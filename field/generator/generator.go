@@ -36,6 +36,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Sqrt,
 		element.Inverse,
+		element.BigNum,
 	}
 
 	// test file templates
@@ -44,8 +45,8 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.MulNoCarry,
 		element.Reduce,
 		element.Test,
+		element.InverseTests,
 	}
-
 	// output files
 	eName := strings.ToLower(F.ElementName)
 

@@ -36,3 +36,6 @@ field/generator/addchain/**
 
 # compiled sage -> python code
 *.sage.py
+
+.DS_Store
+.idea

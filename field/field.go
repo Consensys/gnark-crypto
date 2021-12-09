@@ -29,44 +29,47 @@ var (
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName          string
-	ElementName          string
-	ModulusBig           *big.Int
-	Modulus              string
-	ModulusHex           string
-	NbWords              int
-	NbBits               int
-	NbWordsLastIndex     int
-	NbWordsIndexesNoZero []int
-	NbWordsIndexesFull   []int
-	Q                    []uint64
-	QInverse             []uint64
-	QMinusOneHalvedP     []uint64 // ((q-1) / 2 ) + 1
-	ASM                  bool
-	RSquare              []uint64
-	One                  []uint64
-	LegendreExponent     string // big.Int to base16 string
-	NoCarry              bool
-	NoCarrySquare        bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4           bool
-	SqrtAtkin            bool
-	SqrtTonelliShanks    bool
-	SqrtE                uint64
-	SqrtS                []uint64
-	SqrtAtkinExponent    string   // big.Int to base16 string
-	SqrtSMinusOneOver2   string   // big.Int to base16 string
-	SqrtQ3Mod4Exponent   string   // big.Int to base16 string
-	SqrtG                []uint64 // NonResidue ^  SqrtR (montgomery form)
-	NonResidue           []uint64 // (montgomery form)
-
-	LegendreExponentData   *addchain.AddChainData
-	SqrtAtkinExponentData  *addchain.AddChainData
-	SqrtSMinusOneOver2Data *addchain.AddChainData
-	SqrtQ3Mod4ExponentData *addchain.AddChainData
-	UseAddChain            bool
+	PackageName                string
+	ElementName                string
+	ModulusBig                 *big.Int
+	Modulus                    string
+	ModulusHex                 string
+	NbWords                    int
+	NbBits                     int
+	NbWordsLastIndex           int
+	NbWordsIndexesNoZero       []int
+	NbWordsIndexesFull         []int
+	NbWordsIndexesNoLast       []int
+	NbWordsIndexesNoZeroNoLast []int
+	P20InversionCorrectiveFac  []uint64
+	P20InversionNbIterations   int
+	Q                          []uint64
+	QInverse                   []uint64
+	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
+	ASM                        bool
+	RSquare                    []uint64
+	One                        []uint64
+	LegendreExponent           string // big.Int to base16 string
+	NoCarry                    bool
+	NoCarrySquare              bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4                 bool
+	SqrtAtkin                  bool
+	SqrtTonelliShanks          bool
+	SqrtE                      uint64
+	SqrtS                      []uint64
+	SqrtAtkinExponent          string   // big.Int to base16 string
+	SqrtSMinusOneOver2         string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
+	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
+	NonResidue                 []uint64 // (montgomery form)
+	LegendreExponentData       *addchain.AddChainData
+	SqrtAtkinExponentData      *addchain.AddChainData
+	SqrtSMinusOneOver2Data     *addchain.AddChainData
+	SqrtQ3Mod4ExponentData     *addchain.AddChainData
+	UseAddChain                bool
 }
 
-// NewField returns a data structure with needed informations to generate apis for field element
+// NewField returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
@@ -110,7 +113,22 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	_qInv.Mod(_qInv, _r)
 	F.QInverse = toUint64Slice(_qInv, F.NbWords)
 
-	//  rsquare
+	// Pornin20 inversion correction factors
+	k := 32 // Optimized for 64 bit machines, still works for 32
+
+	p20InvInnerLoopNbIterations := 2*F.NbBits - 1
+	// if constant time inversion then p20InvInnerLoopNbIterations-- (among other changes)
+	F.P20InversionNbIterations = (p20InvInnerLoopNbIterations-1)/(k-1) + 1 // ⌈ (2 * field size - 1) / (k-1) ⌉
+	F.P20InversionNbIterations += F.P20InversionNbIterations % 2           // "round up" to a multiple of 2
+
+	kLimbs := k * F.NbWords
+	p20InversionCorrectiveFacPower := kLimbs*6 + F.P20InversionNbIterations*(kLimbs-k+1)
+	p20InversionCorrectiveFac := big.NewInt(1)
+	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(p20InversionCorrectiveFacPower))
+	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
+	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
+
+	// rsquare
 	_rSquare := big.NewInt(2)
 	exponent := big.NewInt(int64(F.NbWords) * 64 * 2)
 	_rSquare.Exp(_rSquare, exponent, &bModulus)
@@ -124,10 +142,18 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// indexes (template helpers)
 	F.NbWordsIndexesFull = make([]int, F.NbWords)
 	F.NbWordsIndexesNoZero = make([]int, F.NbWords-1)
+	F.NbWordsIndexesNoLast = make([]int, F.NbWords-1)
+	F.NbWordsIndexesNoZeroNoLast = make([]int, F.NbWords-2)
 	for i := 0; i < F.NbWords; i++ {
 		F.NbWordsIndexesFull[i] = i
 		if i > 0 {
 			F.NbWordsIndexesNoZero[i-1] = i
+		}
+		if i != F.NbWords-1 {
+			F.NbWordsIndexesNoLast[i] = i
+			if i > 0 {
+				F.NbWordsIndexesNoZeroNoLast[i-1] = i
+			}
 		}
 	}
 
@@ -136,7 +162,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// we can simplify the montgomery multiplication
 	const B = (^uint64(0) >> 1) - 1
 	F.NoCarry = (F.Q[len(F.Q)-1] <= B) && F.NbWords <= 12
-	const BSquare = (^uint64(0) >> 2)
+	const BSquare = ^uint64(0) >> 2
 	F.NoCarrySquare = F.Q[len(F.Q)-1] <= BSquare
 
 	// Legendre exponent (p-1)/2
@@ -184,7 +210,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 			// use Tonelli-Shanks
 			F.SqrtTonelliShanks = true
 
-			// Write q-1 =2^e * s , s odd
+			// Write q-1 =2ᵉ * s , s odd
 			var s big.Int
 			one.SetUint64(1)
 			s.Sub(&bModulus, &one)

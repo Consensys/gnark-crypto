@@ -49,10 +49,17 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+{{- range $i := $.NbWordsIndexesFull}}
+const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+{{- end}}
+
 var q{{.ElementName}} = {{.ElementName}}{
-	{{- range $i := .NbWordsIndexesFull}}
-	{{index $.Q $i}},{{end}}
+	{{- range $i := $.NbWordsIndexesFull}}
+	q{{$.ElementName}}Word{{$i}},{{end}}
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 // rSquare
 var rSquare = {{.ElementName}}{
@@ -169,7 +176,7 @@ func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *{{.ElementName}}) IsUint64() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
 }
@@ -316,6 +323,11 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 	{{ else }}
 		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "NoReturn" true}}
 	{{ end }}
+	{{ template "reduce" . }}
+}
+
+func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
+	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
 	{{ template "reduce" . }}
 }
 
@@ -513,7 +525,28 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+{{ define "add_q" }}
+	// {{$.V1}} = {{$.V1}} + q 
+	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
+	{{- range $i := .all.NbWordsIndexesNoZero}}
+		{{- if eq $i $.all.NbWordsLastIndex}}
+			{{$.V1}}[{{$i}}], _ = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- else}}
+			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- end}}
+	{{- end}}
+{{ end }}
 
+{{ define "rsh V nbWords" }}
+	// {{$.V}} = {{$.V}} >> 1
+	{{$lastIndex := sub .nbWords 1}}
+	{{- range $i :=  iterate .nbWords}}
+		{{- if ne $i $lastIndex}}
+			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
+		{{- end}}
+	{{- end}}
+	{{$.V}}[{{$lastIndex}}] >>= 1
+{{ end }}
 
 
 `

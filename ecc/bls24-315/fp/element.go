@@ -63,13 +63,22 @@ func Modulus() *big.Int {
 }
 
 // q (modulus)
+const qElementWord0 uint64 = 8063698428123676673
+const qElementWord1 uint64 = 4764498181658371330
+const qElementWord2 uint64 = 16051339359738796768
+const qElementWord3 uint64 = 15273757526516850351
+const qElementWord4 uint64 = 342900304943437392
+
 var qElement = Element{
-	8063698428123676673,
-	4764498181658371330,
-	16051339359738796768,
-	15273757526516850351,
-	342900304943437392,
+	qElementWord0,
+	qElementWord1,
+	qElementWord2,
+	qElementWord3,
+	qElementWord4,
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = 8083954730842193919
 
 // rSquare
 var rSquare = Element{
@@ -192,7 +201,7 @@ func (z *Element) IsZero() bool {
 	return (z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
 func (z *Element) IsUint64() bool {
 	return (z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -269,7 +278,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[4] = binary.BigEndian.Uint64(bytes[32:40])
 	z[4] %= 342900304943437392
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -443,7 +452,73 @@ func _mulGeneric(z, x, y *Element) {
 		z[4], z[3] = madd3(m, 342900304943437392, c[0], c[2], c[1])
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
+	// note: this is NOT constant time
+	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 8063698428123676673, 0)
+		z[1], b = bits.Sub64(z[1], 4764498181658371330, b)
+		z[2], b = bits.Sub64(z[2], 16051339359738796768, b)
+		z[3], b = bits.Sub64(z[3], 15273757526516850351, b)
+		z[4], _ = bits.Sub64(z[4], 342900304943437392, b)
+	}
+}
+
+func _mulWGeneric(z, x *Element, y uint64) {
+
+	var t [5]uint64
+	{
+		// round 0
+		c1, c0 := bits.Mul64(y, x[0])
+		m := c0 * 8083954730842193919
+		c2 := madd0(m, 8063698428123676673, c0)
+		c1, c0 = madd1(y, x[1], c1)
+		c2, t[0] = madd2(m, 4764498181658371330, c2, c0)
+		c1, c0 = madd1(y, x[2], c1)
+		c2, t[1] = madd2(m, 16051339359738796768, c2, c0)
+		c1, c0 = madd1(y, x[3], c1)
+		c2, t[2] = madd2(m, 15273757526516850351, c2, c0)
+		c1, c0 = madd1(y, x[4], c1)
+		t[4], t[3] = madd3(m, 342900304943437392, c0, c2, c1)
+	}
+	{
+		// round 1
+		m := t[0] * 8083954730842193919
+		c2 := madd0(m, 8063698428123676673, t[0])
+		c2, t[0] = madd2(m, 4764498181658371330, c2, t[1])
+		c2, t[1] = madd2(m, 16051339359738796768, c2, t[2])
+		c2, t[2] = madd2(m, 15273757526516850351, c2, t[3])
+		t[4], t[3] = madd2(m, 342900304943437392, t[4], c2)
+	}
+	{
+		// round 2
+		m := t[0] * 8083954730842193919
+		c2 := madd0(m, 8063698428123676673, t[0])
+		c2, t[0] = madd2(m, 4764498181658371330, c2, t[1])
+		c2, t[1] = madd2(m, 16051339359738796768, c2, t[2])
+		c2, t[2] = madd2(m, 15273757526516850351, c2, t[3])
+		t[4], t[3] = madd2(m, 342900304943437392, t[4], c2)
+	}
+	{
+		// round 3
+		m := t[0] * 8083954730842193919
+		c2 := madd0(m, 8063698428123676673, t[0])
+		c2, t[0] = madd2(m, 4764498181658371330, c2, t[1])
+		c2, t[1] = madd2(m, 16051339359738796768, c2, t[2])
+		c2, t[2] = madd2(m, 15273757526516850351, c2, t[3])
+		t[4], t[3] = madd2(m, 342900304943437392, t[4], c2)
+	}
+	{
+		// round 4
+		m := t[0] * 8083954730842193919
+		c2 := madd0(m, 8063698428123676673, t[0])
+		c2, z[0] = madd2(m, 4764498181658371330, c2, t[1])
+		c2, z[1] = madd2(m, 16051339359738796768, c2, t[2])
+		c2, z[2] = madd2(m, 15273757526516850351, c2, t[3])
+		z[4], z[3] = madd2(m, 342900304943437392, t[4], c2)
+	}
+
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -509,7 +584,7 @@ func _fromMontGeneric(z *Element) {
 		z[4] = C
 	}
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -530,7 +605,7 @@ func _addGeneric(z, x, y *Element) {
 	z[3], carry = bits.Add64(x[3], y[3], carry)
 	z[4], _ = bits.Add64(x[4], y[4], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -551,7 +626,7 @@ func _doubleGeneric(z, x *Element) {
 	z[3], carry = bits.Add64(x[3], x[3], carry)
 	z[4], _ = bits.Add64(x[4], x[4], carry)
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -595,7 +670,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q --> z -= q
+	// if z > q → z -= q
 	// note: this is NOT constant time
 	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
 		var b uint64
@@ -707,7 +782,7 @@ func (z *Element) Exp(x Element, exponent *big.Int) *Element {
 }
 
 // ToMont converts z to Montgomery form
-// sets and returns z = z * r^2
+// sets and returns z = z * r²
 func (z *Element) ToMont() *Element {
 	return z.Mul(z, &rSquare)
 }
@@ -839,7 +914,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	return z
 }
 
-// setBigInt assumes 0 <= v < q
+// setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
@@ -1026,167 +1101,456 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
-// Inverse z = x^-1 mod q
-// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
-// if x == 0, sets and returns z = x
+func max(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+const updateFactorIdentityMatrixRow0 = 1
+const updateFactorIdentityMatrixRow1 = 1 << 32
+
+func updateFactorsDecompose(c int64) (int64, int64) {
+	c += updateFactorsConversionBias
+	const low32BitsFilter int64 = 0xFFFFFFFF
+	f := c&low32BitsFilter - 0x7FFFFFFF
+	g := c>>32&low32BitsFilter - 0x7FFFFFFF
+	return f, g
+}
+
+const k = 32 // word size / 2
+const signBitSelector = uint64(1) << 63
+const approxLowBitsN = k - 1
+const approxHighBitsN = k + 1
+const inversionCorrectionFactorWord0 = 13359241550610159594
+const inversionCorrectionFactorWord1 = 7624632887220174691
+const inversionCorrectionFactorWord2 = 6412344873752403825
+const inversionCorrectionFactorWord3 = 11214014560053792263
+const inversionCorrectionFactorWord4 = 75428258669939399
+
+const invIterationsN = 22
+
+// Inverse z = x⁻¹ mod q
+// Implements "Optimized Binary GCD for Modular Inversion"
+// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
 	if x.IsZero() {
 		z.SetZero()
 		return z
 	}
 
-	// initialize u = q
-	var u = Element{
-		8063698428123676673,
-		4764498181658371330,
-		16051339359738796768,
-		15273757526516850351,
-		342900304943437392,
-	}
+	a := *x
+	b := Element{
+		qElementWord0,
+		qElementWord1,
+		qElementWord2,
+		qElementWord3,
+		qElementWord4,
+	} // b := q
 
-	// initialize s = r^2
-	var s = Element{
-		7746605402484284438,
-		6457291528853138485,
-		14067144135019420374,
-		14705958577488011058,
-		150264569250089173,
-	}
+	u := Element{1}
 
-	// r = 0
-	r := Element{}
+	// Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
+	// c_i = f_i + 2³¹ - 1 + 2³² * (g_i + 2³¹ - 1)
+	var c0, c1 int64
 
-	v := *x
+	// Saved update factors to reduce the number of field multiplications
+	var pf0, pf1, pg0, pg1 int64
 
-	var carry, borrow uint64
-	var bigger bool
+	var i uint
 
-	for {
-		for v[0]&1 == 0 {
+	var v, s Element
 
-			// v = v >> 1
+	// Since u,v are updated every other iteration, we must make sure we terminate after evenly many iterations
+	// This also lets us get away with half as many updates to u,v
+	// To make this constant-time-ish, replace the condition with i < invIterationsN
+	for i = 0; i&1 == 1 || !a.IsZero(); i++ {
+		n := max(a.BitLen(), b.BitLen())
+		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
 
-			v[0] = v[0]>>1 | v[1]<<63
-			v[1] = v[1]>>1 | v[2]<<63
-			v[2] = v[2]>>1 | v[3]<<63
-			v[3] = v[3]>>1 | v[4]<<63
-			v[4] >>= 1
+		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
+		// f0, g0, f1, g1 = 1, 0, 0, 1
+		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-			if s[0]&1 == 1 {
+		for j := 0; j < approxLowBitsN; j++ {
 
-				// s = s + q
-				s[0], carry = bits.Add64(s[0], 8063698428123676673, 0)
-				s[1], carry = bits.Add64(s[1], 4764498181658371330, carry)
-				s[2], carry = bits.Add64(s[2], 16051339359738796768, carry)
-				s[3], carry = bits.Add64(s[3], 15273757526516850351, carry)
-				s[4], _ = bits.Add64(s[4], 342900304943437392, carry)
+			if aApprox&1 == 0 {
+				aApprox /= 2
+			} else {
+				s, borrow := bits.Sub64(aApprox, bApprox, 0)
+				if borrow == 1 {
+					s = bApprox - aApprox
+					bApprox = aApprox
+					c0, c1 = c1, c0
+				}
 
+				aApprox = s / 2
+				c0 = c0 - c1
+
+				// Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
+				// |f₁| ≤ 2ʲ still
 			}
 
-			// s = s >> 1
-
-			s[0] = s[0]>>1 | s[1]<<63
-			s[1] = s[1]>>1 | s[2]<<63
-			s[2] = s[2]>>1 | s[3]<<63
-			s[3] = s[3]>>1 | s[4]<<63
-			s[4] >>= 1
-
-		}
-		for u[0]&1 == 0 {
-
-			// u = u >> 1
-
-			u[0] = u[0]>>1 | u[1]<<63
-			u[1] = u[1]>>1 | u[2]<<63
-			u[2] = u[2]>>1 | u[3]<<63
-			u[3] = u[3]>>1 | u[4]<<63
-			u[4] >>= 1
-
-			if r[0]&1 == 1 {
-
-				// r = r + q
-				r[0], carry = bits.Add64(r[0], 8063698428123676673, 0)
-				r[1], carry = bits.Add64(r[1], 4764498181658371330, carry)
-				r[2], carry = bits.Add64(r[2], 16051339359738796768, carry)
-				r[3], carry = bits.Add64(r[3], 15273757526516850351, carry)
-				r[4], _ = bits.Add64(r[4], 342900304943437392, carry)
-
-			}
-
-			// r = r >> 1
-
-			r[0] = r[0]>>1 | r[1]<<63
-			r[1] = r[1]>>1 | r[2]<<63
-			r[2] = r[2]>>1 | r[3]<<63
-			r[3] = r[3]>>1 | r[4]<<63
-			r[4] >>= 1
-
+			c1 *= 2
+			// |f₁| ≤ 2ʲ⁺¹
 		}
 
-		// v >= u
-		bigger = !(v[4] < u[4] || (v[4] == u[4] && (v[3] < u[3] || (v[3] == u[3] && (v[2] < u[2] || (v[2] == u[2] && (v[1] < u[1] || (v[1] == u[1] && (v[0] < u[0])))))))))
+		s = a
 
-		if bigger {
+		var g0 int64
+		// from this point on c0 aliases for f0
+		c0, g0 = updateFactorsDecompose(c0)
+		aHi := a.linearCombNonModular(&s, c0, &b, g0)
+		if aHi&signBitSelector != 0 {
+			// if aHi < 0
+			c0, g0 = -c0, -g0
+			aHi = a.neg(&a, aHi)
+		}
+		// right-shift a by k-1 bits
+		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
+		a[1] = (a[1] >> approxLowBitsN) | ((a[2]) << approxHighBitsN)
+		a[2] = (a[2] >> approxLowBitsN) | ((a[3]) << approxHighBitsN)
+		a[3] = (a[3] >> approxLowBitsN) | ((a[4]) << approxHighBitsN)
+		a[4] = (a[4] >> approxLowBitsN) | (aHi << approxHighBitsN)
 
-			// v = v - u
-			v[0], borrow = bits.Sub64(v[0], u[0], 0)
-			v[1], borrow = bits.Sub64(v[1], u[1], borrow)
-			v[2], borrow = bits.Sub64(v[2], u[2], borrow)
-			v[3], borrow = bits.Sub64(v[3], u[3], borrow)
-			v[4], _ = bits.Sub64(v[4], u[4], borrow)
+		var f1 int64
+		// from this point on c1 aliases for g0
+		f1, c1 = updateFactorsDecompose(c1)
+		bHi := b.linearCombNonModular(&s, f1, &b, c1)
+		if bHi&signBitSelector != 0 {
+			// if bHi < 0
+			f1, c1 = -f1, -c1
+			bHi = b.neg(&b, bHi)
+		}
+		// right-shift b by k-1 bits
+		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
+		b[1] = (b[1] >> approxLowBitsN) | ((b[2]) << approxHighBitsN)
+		b[2] = (b[2] >> approxLowBitsN) | ((b[3]) << approxHighBitsN)
+		b[3] = (b[3] >> approxLowBitsN) | ((b[4]) << approxHighBitsN)
+		b[4] = (b[4] >> approxLowBitsN) | (bHi << approxHighBitsN)
 
-			// s = s - r
-			s[0], borrow = bits.Sub64(s[0], r[0], 0)
-			s[1], borrow = bits.Sub64(s[1], r[1], borrow)
-			s[2], borrow = bits.Sub64(s[2], r[2], borrow)
-			s[3], borrow = bits.Sub64(s[3], r[3], borrow)
-			s[4], borrow = bits.Sub64(s[4], r[4], borrow)
+		if i&1 == 1 {
+			// Combine current update factors with previously stored ones
+			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
+			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
+			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
+			// Which leaves us with an extra bit for the sign
 
-			if borrow == 1 {
+			// c0 aliases f0, c1 aliases g1
+			c0, g0, f1, c1 = c0*pf0+g0*pf1,
+				c0*pg0+g0*pg1,
+				f1*pf0+c1*pf1,
+				f1*pg0+c1*pg1
 
-				// s = s + q
-				s[0], carry = bits.Add64(s[0], 8063698428123676673, 0)
-				s[1], carry = bits.Add64(s[1], 4764498181658371330, carry)
-				s[2], carry = bits.Add64(s[2], 16051339359738796768, carry)
-				s[3], carry = bits.Add64(s[3], 15273757526516850351, carry)
-				s[4], _ = bits.Add64(s[4], 342900304943437392, carry)
+			s = u
+			u.linearCombSosSigned(&u, c0, &v, g0)
+			v.linearCombSosSigned(&s, f1, &v, c1)
 
-			}
 		} else {
-
-			// u = u - v
-			u[0], borrow = bits.Sub64(u[0], v[0], 0)
-			u[1], borrow = bits.Sub64(u[1], v[1], borrow)
-			u[2], borrow = bits.Sub64(u[2], v[2], borrow)
-			u[3], borrow = bits.Sub64(u[3], v[3], borrow)
-			u[4], _ = bits.Sub64(u[4], v[4], borrow)
-
-			// r = r - s
-			r[0], borrow = bits.Sub64(r[0], s[0], 0)
-			r[1], borrow = bits.Sub64(r[1], s[1], borrow)
-			r[2], borrow = bits.Sub64(r[2], s[2], borrow)
-			r[3], borrow = bits.Sub64(r[3], s[3], borrow)
-			r[4], borrow = bits.Sub64(r[4], s[4], borrow)
-
-			if borrow == 1 {
-
-				// r = r + q
-				r[0], carry = bits.Add64(r[0], 8063698428123676673, 0)
-				r[1], carry = bits.Add64(r[1], 4764498181658371330, carry)
-				r[2], carry = bits.Add64(r[2], 16051339359738796768, carry)
-				r[3], carry = bits.Add64(r[3], 15273757526516850351, carry)
-				r[4], _ = bits.Add64(r[4], 342900304943437392, carry)
-
-			}
-		}
-		if (u[0] == 1) && (u[4]|u[3]|u[2]|u[1]) == 0 {
-			z.Set(&r)
-			return z
-		}
-		if (v[0] == 1) && (v[4]|v[3]|v[2]|v[1]) == 0 {
-			z.Set(&s)
-			return z
+			// Save update factors
+			pf0, pg0, pf1, pg1 = c0, g0, f1, c1
 		}
 	}
 
+	// For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
+	const pSq int64 = 1 << (2 * (k - 1))
+	// If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
+	for ; i < invIterationsN; i += 2 {
+		v.mulWSigned(&v, pSq)
+	}
+
+	z.Mul(&v, &Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+	})
+	return z
+}
+
+// approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
+// if x fits in a word as is, no approximation necessary
+func approximate(x *Element, nBits int) uint64 {
+
+	if nBits <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	lo := mask & x[0]
+
+	hiWordIndex := (nBits - 1) / 64
+
+	hiWordBitsAvailable := nBits - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, approxHighBitsN)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(approxLowBitsN+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
+}
+
+func (z *Element) linearCombSosSigned(x *Element, xC int64, y *Element, yC int64) {
+	hi := z.linearCombNonModular(x, xC, y, yC)
+	z.montReduceSigned(z, hi)
+}
+
+// montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+
+	const signBitRemover = ^signBitSelector
+	neg := xHi&signBitSelector != 0
+	// the SOS implementation requires that most significant bit is 0
+	// Let X be xHi*r + x
+	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
+	xHi &= signBitRemover
+	// with this a negative X is now represented as 2⁶³ r + X
+
+	var t [2*Limbs - 1]uint64
+	var C uint64
+
+	m := x[0] * qInvNegLsw
+
+	C = madd0(m, qElementWord0, x[0])
+	C, t[1] = madd2(m, qElementWord1, x[1], C)
+	C, t[2] = madd2(m, qElementWord2, x[2], C)
+	C, t[3] = madd2(m, qElementWord3, x[3], C)
+	C, t[4] = madd2(m, qElementWord4, x[4], C)
+
+	// the high word of m * qElement[4] is at most 62 bits
+	// x[4] + C is at most 65 bits (high word at most 1 bit)
+	// Thus the resulting C will be at most 63 bits
+	t[5] = xHi + C
+	// xHi and C are 63 bits, therefore no overflow
+
+	{
+		const i = 1
+		m = t[i] * qInvNegLsw
+
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 2
+		m = t[i] * qInvNegLsw
+
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 3
+		m = t[i] * qInvNegLsw
+
+		C = madd0(m, qElementWord0, t[i+0])
+		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
+		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
+		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
+		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
+
+		t[i+Limbs] += C
+	}
+	{
+		const i = 4
+		m := t[i] * qInvNegLsw
+
+		C = madd0(m, qElementWord0, t[i+0])
+		C, z[0] = madd2(m, qElementWord1, t[i+1], C)
+		C, z[1] = madd2(m, qElementWord2, t[i+2], C)
+		C, z[2] = madd2(m, qElementWord3, t[i+3], C)
+		z[4], z[3] = madd2(m, qElementWord4, t[i+4], C)
+	}
+
+	// if z > q → z -= q
+	// note: this is NOT constant time
+	if !(z[4] < 342900304943437392 || (z[4] == 342900304943437392 && (z[3] < 15273757526516850351 || (z[3] == 15273757526516850351 && (z[2] < 16051339359738796768 || (z[2] == 16051339359738796768 && (z[1] < 4764498181658371330 || (z[1] == 4764498181658371330 && (z[0] < 8063698428123676673))))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 8063698428123676673, 0)
+		z[1], b = bits.Sub64(z[1], 4764498181658371330, b)
+		z[2], b = bits.Sub64(z[2], 16051339359738796768, b)
+		z[3], b = bits.Sub64(z[3], 15273757526516850351, b)
+		z[4], _ = bits.Sub64(z[4], 342900304943437392, b)
+	}
+	if neg {
+		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
+		var b uint64
+		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+		z[4], b = bits.Sub64(z[4], 0, b)
+
+		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+		if b != 0 {
+			// z[4] = -1
+			// negative: add q
+			const neg1 = 0xFFFFFFFFFFFFFFFF
+
+			b = 0
+			z[0], b = bits.Add64(z[0], qElementWord0, b)
+			z[1], b = bits.Add64(z[1], qElementWord1, b)
+			z[2], b = bits.Add64(z[2], qElementWord2, b)
+			z[3], b = bits.Add64(z[3], qElementWord3, b)
+			z[4], _ = bits.Add64(neg1, qElementWord4, b)
+		}
+	}
+}
+
+// mulWSigned mul word signed (w/ montgomery reduction)
+func (z *Element) mulWSigned(x *Element, y int64) {
+	m := y >> 63
+	_mulWGeneric(z, x, uint64((y^m)-m))
+	// multiply by abs(y)
+	if y < 0 {
+		z.Neg(z)
+	}
+}
+
+func (z *Element) neg(x *Element, xHi uint64) uint64 {
+	var b uint64
+
+	z[0], b = bits.Sub64(0, x[0], 0)
+	z[1], b = bits.Sub64(0, x[1], b)
+	z[2], b = bits.Sub64(0, x[2], b)
+	z[3], b = bits.Sub64(0, x[3], b)
+	z[4], b = bits.Sub64(0, x[4], b)
+	xHi, _ = bits.Sub64(0, xHi, b)
+
+	return xHi
+}
+
+// regular multiplication by one word regular (non montgomery)
+// Fewer additions than the branch-free for positive y. Could be faster on some architectures
+func (z *Element) mulWRegular(x *Element, y int64) uint64 {
+
+	// w := abs(y)
+	m := y >> 63
+	w := uint64((y ^ m) - m)
+
+	var c uint64
+	c, z[0] = bits.Mul64(x[0], w)
+	c, z[1] = madd1(x[1], w, c)
+	c, z[2] = madd1(x[2], w, c)
+	c, z[3] = madd1(x[3], w, c)
+	c, z[4] = madd1(x[4], w, c)
+
+	if y < 0 {
+		c = z.neg(z, c)
+	}
+
+	return c
+}
+
+/*
+Removed: seems slower
+// mulWRegular branch-free regular multiplication by one word (non montgomery)
+func (z *Element) mulWRegularBf(x *Element, y int64) uint64 {
+
+	w := uint64(y)
+	allNeg := uint64(y >> 63)	// -1 if y < 0, 0 o.w
+
+	// s[0], s[1] so results are not stored immediately in z.
+	// x[i] will be needed in the i+1 th iteration. We don't want to overwrite it in case x = z
+	var s [2]uint64
+	var h [2]uint64
+
+	h[0], s[0] = bits.Mul64(x[0], w)
+
+	c := uint64(0)
+	b := uint64(0)
+
+		{
+			const curI = 1 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 1 - 1
+
+			h[curI], s[curI] = bits.Mul64(x[1], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
+
+		{
+			const curI = 2 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 2 - 1
+
+			h[curI], s[curI] = bits.Mul64(x[2], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
+
+		{
+			const curI = 3 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 3 - 1
+
+			h[curI], s[curI] = bits.Mul64(x[3], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
+
+		{
+			const curI = 4 % 2
+			const prevI = 1 - curI
+			const iMinusOne = 4 - 1
+
+			h[curI], s[curI] = bits.Mul64(x[4], w)
+			s[curI], c = bits.Add64(s[curI], h[prevI], c)
+			s[curI], b = bits.Sub64(s[curI], allNeg & x[iMinusOne], b)
+			z[iMinusOne] = s[prevI]
+		}
+	{
+		const curI = 5 % 2
+		const prevI = 1 - curI
+		const iMinusOne = 4
+
+		s[curI], _ = bits.Sub64(h[prevI], allNeg & x[iMinusOne], b)
+		z[iMinusOne] = s[prevI]
+
+		return s[curI] + c
+	}
+}*/
+
+// Requires NoCarry
+func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int64) uint64 {
+	var yTimes Element
+
+	yHi := yTimes.mulWRegular(y, yC)
+	xHi := z.mulWRegular(x, xC)
+
+	carry := uint64(0)
+	z[0], carry = bits.Add64(z[0], yTimes[0], carry)
+	z[1], carry = bits.Add64(z[1], yTimes[1], carry)
+	z[2], carry = bits.Add64(z[2], yTimes[2], carry)
+	z[3], carry = bits.Add64(z[3], yTimes[3], carry)
+	z[4], carry = bits.Add64(z[4], yTimes[4], carry)
+
+	yHi, _ = bits.Add64(xHi, yHi, carry)
+
+	return yHi
 }
