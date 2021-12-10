@@ -123,7 +123,7 @@ func TestReceiverIsOperand(t *testing.T) {
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	// proj
+	// projective
 	properties.Property("Equal projective: having the receiver as operand should output the same result", prop.ForAll(
 		func() bool {
 			params := GetEdwardsCurve()
@@ -176,6 +176,74 @@ func TestReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("Neg projective: having the receiver as operand should output the same result", prop.ForAll(
+		func() bool {
+
+			params := GetEdwardsCurve()
+
+			var p1, p2 PointProj
+			p1.FromAffine(&params.Base)
+			p2.FromAffine(&params.Base)
+
+			p2.Neg(&p1)
+			p1.Neg(&p1)
+
+			return p2.Equal(&p1)
+		},
+	))
+
+	// extended
+	properties.Property("Equal extended: having the receiver as operand should output the same result", prop.ForAll(
+		func() bool {
+			params := GetEdwardsCurve()
+			var p1, baseProj PointProj
+			p1.FromAffine(&params.Base)
+			baseProj.FromAffine(&params.Base)
+
+			return p1.Equal(&p1) && p1.Equal(&baseProj)
+		},
+	))
+
+	properties.Property("Add extended: having the receiver as operand should output the same result", prop.ForAll(
+		func() bool {
+
+			params := GetEdwardsCurve()
+
+			var p1, p2, p3 PointProj
+			p1.FromAffine(&params.Base)
+			p2.FromAffine(&params.Base)
+			p3.FromAffine(&params.Base)
+
+			res := true
+
+			p3.Add(&p1, &p2)
+			p1.Add(&p1, &p2)
+			res = res && p3.Equal(&p1)
+
+			p1.FromAffine(&params.Base)
+			p2.Add(&p1, &p2)
+			res = res && p2.Equal(&p3)
+
+			return res
+		},
+	))
+
+	properties.Property("Double extended: having the receiver as operand should output the same result", prop.ForAll(
+		func() bool {
+
+			params := GetEdwardsCurve()
+
+			var p1, p2 PointProj
+			p1.FromAffine(&params.Base)
+			p2.FromAffine(&params.Base)
+
+			p2.Double(&p1)
+			p1.Double(&p1)
+
+			return p2.Equal(&p1)
+		},
+	))
+
+	properties.Property("Neg extended: having the receiver as operand should output the same result", prop.ForAll(
 		func() bool {
 
 			params := GetEdwardsCurve()
@@ -244,7 +312,7 @@ func TestOps(t *testing.T) {
 			var one fr.Element
 			one.SetOne()
 
-			return p1.IsOnCurve() && p1.X.IsZero() && p1.Y.Equal(&one)
+			return p1.IsOnCurve() && p1.IsZero()
 		},
 		genS1,
 	))
@@ -308,7 +376,7 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("[5]P=[2][2]P+P", prop.ForAll(
+	properties.Property("(affine) [5]P=[2][2]P+P", prop.ForAll(
 		func(s1 big.Int) bool {
 
 			params := GetEdwardsCurve()
@@ -325,7 +393,7 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	// proj
+	// projective
 	properties.Property("(projective) P+(-P)=O", prop.ForAll(
 		func(s1 big.Int) bool {
 
@@ -338,7 +406,7 @@ func TestOps(t *testing.T) {
 
 			p.Add(&p1, &p2)
 
-			return p.X.IsZero() && p.Y.Equal(&p.Z)
+			return p.IsZero()
 		},
 		genS1,
 	))
@@ -361,8 +429,119 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	// mixed
-	properties.Property("(mixed) P+(-P)=O", prop.ForAll(
+	properties.Property("(projective) [5]P=[2][2]P+P", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, p1, p2 PointProj
+			baseProj.FromAffine(&params.Base)
+			p1.ScalarMul(&baseProj, &s1)
+
+			five := big.NewInt(5)
+			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
+			p1.ScalarMul(&p1, five)
+
+			return p2.Equal(&p1)
+		},
+		genS1,
+	))
+
+	// extended
+	properties.Property("(extended) P+(-P)=O", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, p1, p2, p PointExtended
+			baseExtended.FromAffine(&params.Base)
+			p1.ScalarMul(&baseExtended, &s1)
+			p2.Neg(&p1)
+
+			p.Add(&p1, &p2)
+
+			return p.IsZero()
+		},
+		genS1,
+	))
+
+	properties.Property("(extended) P+P=2*P", prop.ForAll(
+
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, p1, p2, p PointExtended
+			baseExtended.FromAffine(&params.Base)
+			p.ScalarMul(&baseExtended, &s)
+
+			p1.Add(&p, &p)
+			p2.Double(&p)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(extended) [5]P=[2][2]P+P", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, p1, p2 PointExtended
+			baseExtended.FromAffine(&params.Base)
+			p1.ScalarMul(&baseExtended, &s1)
+
+			five := big.NewInt(5)
+			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
+			p1.ScalarMul(&p1, five)
+
+			return p2.Equal(&p1)
+		},
+		genS1,
+	))
+
+	// mixed affine+extended
+	properties.Property("(mixed affine+extended) P+(-P)=O", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, pExtended, p PointExtended
+			var pAffine PointAffine
+			baseExtended.FromAffine(&params.Base)
+			pExtended.ScalarMul(&baseExtended, &s)
+			pAffine.ScalarMul(&params.Base, &s)
+			pAffine.Neg(&pAffine)
+
+			p.MixedAdd(&pExtended, &pAffine)
+
+			return p.IsZero()
+		},
+		genS1,
+	))
+
+	properties.Property("(mixed affine+extended) P+P=2*P", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, pExtended, p, p2 PointExtended
+			var pAffine PointAffine
+			baseExtended.FromAffine(&params.Base)
+			pExtended.ScalarMul(&baseExtended, &s)
+			pAffine.ScalarMul(&params.Base, &s)
+
+			p.MixedAdd(&pExtended, &pAffine)
+			p2.Double(&pExtended)
+
+			return p.Equal(&p2)
+		},
+		genS1,
+	))
+
+	// mixed affine+projective
+	properties.Property("(mixed affine+proj) P+(-P)=O", prop.ForAll(
 		func(s big.Int) bool {
 
 			params := GetEdwardsCurve()
@@ -376,12 +555,12 @@ func TestOps(t *testing.T) {
 
 			p.MixedAdd(&pProj, &pAffine)
 
-			return p.X.IsZero() && p.Y.Equal(&p.Z)
+			return p.IsZero()
 		},
 		genS1,
 	))
 
-	properties.Property("(mixed) P+P=2*P", prop.ForAll(
+	properties.Property("(mixed affine+proj) P+P=2*P", prop.ForAll(
 		func(s big.Int) bool {
 
 			params := GetEdwardsCurve()
@@ -437,7 +616,25 @@ func GenBigInt() gopter.Gen {
 // ------------------------------------------------------------
 // benches
 
-func BenchmarkScalarMul(b *testing.B) {
+func BenchmarkScalarMulExtended(b *testing.B) {
+	params := GetEdwardsCurve()
+	var a PointExtended
+	var s big.Int
+	a.FromAffine(&params.Base)
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+	s.Add(&s, &params.Order)
+
+	var doubleAndAdd PointExtended
+
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.ScalarMul(&a, &s)
+		}
+	})
+}
+
+func BenchmarkScalarMulProjective(b *testing.B) {
 	params := GetEdwardsCurve()
 	var a PointProj
 	var s big.Int
@@ -451,6 +648,22 @@ func BenchmarkScalarMul(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			doubleAndAdd.ScalarMul(&a, &s)
+		}
+	})
+}
+
+func BenchmarkScalarMulAffine(b *testing.B) {
+	params := GetEdwardsCurve()
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+	s.Add(&s, &params.Order)
+
+	var doubleAndAdd PointAffine
+
+	b.Run("double and add", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			doubleAndAdd.ScalarMul(&params.Base, &s)
 		}
 	})
 }

@@ -35,6 +35,11 @@ type PointProj struct {
 	X, Y, Z fr.Element
 }
 
+// PointExtended point in extended coordinates
+type PointExtended struct {
+	X, Y, Z, T fr.Element
+}
+
 const (
 	//following https://tools.ietf.org/html/rfc8032#section-3.1,
 	// an fr element x is negative if its binary encoding is
@@ -129,14 +134,6 @@ func (p *PointAffine) Unmarshal(b []byte) error {
 }
 
 // Set sets p to p1 and return it
-func (p *PointProj) Set(p1 *PointProj) *PointProj {
-	p.X.Set(&p1.X)
-	p.Y.Set(&p1.Y)
-	p.Z.Set(&p1.Z)
-	return p
-}
-
-// Set sets p to p1 and return it
 func (p *PointAffine) Set(p1 *PointAffine) *PointAffine {
 	p.X.Set(&p1.X)
 	p.Y.Set(&p1.Y)
@@ -148,16 +145,11 @@ func (p *PointAffine) Equal(p1 *PointAffine) bool {
 	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y)
 }
 
-// Equal returns true if p=p1 false otherwise
-// If one point is on the affine chart Z=0 it returns false
-func (p *PointProj) Equal(p1 *PointProj) bool {
-	if p.Z.IsZero() || p1.Z.IsZero() {
-		return false
-	}
-	var pAffine, p1Affine PointAffine
-	pAffine.FromProj(p)
-	p1Affine.FromProj(p1)
-	return pAffine.Equal(&p1Affine)
+// IsZero returns true if p=0 false otherwise
+func (p *PointAffine) IsZero() bool {
+	var one fr.Element
+	one.SetOne()
+	return p.X.IsZero() && p.Y.Equal(&one)
 }
 
 // NewPointAffine creates a new instance of PointAffine
@@ -184,6 +176,13 @@ func (p *PointAffine) IsOnCurve() bool {
 	rhs.SetOne().Add(&rhs, &tmp)
 
 	return lhs.Equal(&rhs)
+}
+
+// Neg sets p to -p1 and returns it
+func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
+	p.Set(p1)
+	p.X.Neg(&p.X)
+	return p
 }
 
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
@@ -237,18 +236,67 @@ func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 	return p
 }
 
+// FromProj sets p in affine from p in projective
+func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
+	var I fr.Element
+	I.Inverse(&p1.Z)
+	p.X.Mul(&p1.X, &I)
+	p.Y.Mul(&p1.Y, &I)
+	return p
+}
+
+// ScalarMul scalar multiplication of a point
+// p1 in affine coordinates with a scalar in big.Int
+func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
+
+	var p1Proj, resProj PointProj
+	p1Proj.FromAffine(p1)
+	resProj.ScalarMul(&p1Proj, scalar)
+	p.FromProj(&resProj)
+
+	return p
+}
+
+//-------- Projective coordinates
+
+// Set sets p to p1 and return it
+func (p *PointProj) Set(p1 *PointProj) *PointProj {
+	p.X.Set(&p1.X)
+	p.Y.Set(&p1.Y)
+	p.Z.Set(&p1.Z)
+	return p
+}
+
+// setInfinity sets p to O (0:1:1)
+func (p *PointProj) setInfinity() *PointProj {
+	p.X.SetZero()
+	p.Y.SetOne()
+	p.Z.SetOne()
+	return p
+}
+
+// Equal returns true if p=p1 false otherwise
+// If one point is on the affine chart Z=0 it returns false
+func (p *PointProj) Equal(p1 *PointProj) bool {
+	if p.Z.IsZero() || p1.Z.IsZero() {
+		return false
+	}
+	var pAffine, p1Affine PointAffine
+	pAffine.FromProj(p)
+	p1Affine.FromProj(p1)
+	return pAffine.Equal(&p1Affine)
+}
+
+// IsZero returns true if p=0 false otherwise
+func (p *PointProj) IsZero() bool {
+	return p.X.IsZero() && p.Y.Equal(&p.Z)
+}
+
 // Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointProj) Neg(p1 *PointProj) *PointProj {
 	p.Set(p1)
 	p.X.Neg(&p.X)
-	return p
-}
-
-// FromProj sets p in affine from p in projective
-func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
-	p.X.Div(&p1.X, &p1.Z)
-	p.Y.Div(&p1.Y, &p1.Z)
 	return p
 }
 
@@ -260,11 +308,61 @@ func (p *PointProj) FromAffine(p1 *PointAffine) *PointProj {
 	return p
 }
 
+// MixedAdd adds a point in projective to a point in affine coordinates
+// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
+func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
+
+	ecurve := GetEdwardsCurve()
+
+	var B, C, D, E, F, G, H, I fr.Element
+	B.Square(&p1.Z)
+	C.Mul(&p1.X, &p2.X)
+	D.Mul(&p1.Y, &p2.Y)
+	E.Mul(&ecurve.D, &C).Mul(&E, &D)
+	F.Sub(&B, &E)
+	G.Add(&B, &E)
+	H.Add(&p1.X, &p1.Y)
+	I.Add(&p2.X, &p2.Y)
+	p.X.Mul(&H, &I).
+		Sub(&p.X, &C).
+		Sub(&p.X, &D).
+		Mul(&p.X, &p1.Z).
+		Mul(&p.X, &F)
+	mulByA(&C)
+	p.Y.Sub(&D, &C).
+		Mul(&p.Y, &p1.Z).
+		Mul(&p.Y, &G)
+	p.Z.Mul(&F, &G)
+
+	return p
+}
+
+// Double adds points in projective coordinates
+// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
+func (p *PointProj) Double(p1 *PointProj) *PointProj {
+
+	var B, C, D, E, F, H, J fr.Element
+
+	B.Add(&p1.X, &p1.Y).Square(&B)
+	C.Square(&p1.X)
+	D.Square(&p1.Y)
+	E.Set(&C)
+	mulByA(&E)
+	F.Add(&E, &D)
+	H.Square(&p1.Z)
+	J.Sub(&F, &H).Sub(&J, &H)
+	p.X.Sub(&B, &C).
+		Sub(&p.X, &D).
+		Mul(&p.X, &J)
+	p.Y.Sub(&E, &D).Mul(&p.Y, &F)
+	p.Z.Mul(&F, &J)
+
+	return p
+}
+
 // Add adds points in projective coordinates
 // cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
 func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
-
-	var res PointProj
 
 	ecurve := GetEdwardsCurve()
 
@@ -278,92 +376,18 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
 	I.Add(&p2.X, &p2.Y)
-	res.X.Mul(&H, &I).
-		Sub(&res.X, &C).
-		Sub(&res.X, &D).
-		Mul(&res.X, &A).
-		Mul(&res.X, &F)
+	p.X.Mul(&H, &I).
+		Sub(&p.X, &C).
+		Sub(&p.X, &D).
+		Mul(&p.X, &A).
+		Mul(&p.X, &F)
 	mulByA(&C)
 	C.Neg(&C)
-	res.Y.Add(&D, &C).
-		Mul(&res.Y, &A).
-		Mul(&res.Y, &G)
-	res.Z.Mul(&F, &G)
+	p.Y.Add(&D, &C).
+		Mul(&p.Y, &A).
+		Mul(&p.Y, &G)
+	p.Z.Mul(&F, &G)
 
-	p.Set(&res)
-	return p
-}
-
-// MixedAdd adds a point in projective to a point in affine coordinates
-// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
-func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
-
-	var res PointProj
-
-	ecurve := GetEdwardsCurve()
-
-	var B, C, D, E, F, G, H, I fr.Element
-	B.Square(&p1.Z)
-	C.Mul(&p1.X, &p2.X)
-	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&ecurve.D, &C).Mul(&E, &D)
-	F.Sub(&B, &E)
-	G.Add(&B, &E)
-	H.Add(&p1.X, &p1.Y)
-	I.Add(&p2.X, &p2.Y)
-	res.X.Mul(&H, &I).
-		Sub(&res.X, &C).
-		Sub(&res.X, &D).
-		Mul(&res.X, &p1.Z).
-		Mul(&res.X, &F)
-	mulByA(&C)
-	res.Y.Sub(&D, &C).
-		Mul(&res.Y, &p1.Z).
-		Mul(&res.Y, &G)
-	res.Z.Mul(&F, &G)
-
-	p.Set(&res)
-	return p
-}
-
-// Double adds points in projective coordinates
-// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
-func (p *PointProj) Double(p1 *PointProj) *PointProj {
-
-	var res PointProj
-
-	var B, C, D, E, F, H, J fr.Element
-
-	B.Add(&p1.X, &p1.Y).Square(&B)
-	C.Square(&p1.X)
-	D.Square(&p1.Y)
-	E.Set(&C)
-	mulByA(&E)
-	F.Add(&E, &D)
-	H.Square(&p1.Z)
-	J.Sub(&F, &H).Sub(&J, &H)
-	res.X.Sub(&B, &C).
-		Sub(&res.X, &D).
-		Mul(&res.X, &J)
-	res.Y.Sub(&E, &D).Mul(&res.Y, &F)
-	res.Z.Mul(&F, &J)
-
-	p.Set(&res)
-	return p
-}
-
-// Neg sets p to -p1 and returns it
-func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
-	p.Set(p1)
-	p.X.Neg(&p.X)
-	return p
-}
-
-// setInfinity sets p to O (0:1:1)
-func (p *PointProj) setInfinity() *PointProj {
-	p.X.SetZero()
-	p.Y.SetOne()
-	p.Z.SetOne()
 	return p
 }
 
@@ -398,14 +422,235 @@ func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
 	return p
 }
 
+// ------- Extended coordinates
+
+// Set sets p to p1 and return it
+func (p *PointExtended) Set(p1 *PointExtended) *PointExtended {
+	p.X.Set(&p1.X)
+	p.Y.Set(&p1.Y)
+	p.T.Set(&p1.T)
+	p.Z.Set(&p1.Z)
+	return p
+}
+
+// IsZero returns true if p=0 false otherwise
+func (p *PointExtended) IsZero() bool {
+	return p.X.IsZero() && p.Y.Equal(&p.Z) && p.T.IsZero()
+}
+
+// Equal returns true if p=p1 false otherwise
+// If one point is on the affine chart Z=0 it returns false
+func (p *PointExtended) Equal(p1 *PointExtended) bool {
+	if p.Z.IsZero() || p1.Z.IsZero() {
+		return false
+	}
+	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y) && p.T.Equal(&p1.T) && p.Z.Equal(&p1.Z)
+}
+
+// Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
+// modifies p
+func (p *PointExtended) Neg(p1 *PointExtended) *PointExtended {
+	p.Set(p1)
+	p.X.Neg(&p.X)
+	p.T.Neg(&p.T)
+	return p
+}
+
+// FromAffine sets p in projective from p in affine
+func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
+	p.X.Set(&p1.X)
+	p.Y.Set(&p1.Y)
+	p.Z.SetOne()
+	p.T.Mul(&p1.X, &p1.Y)
+	return p
+}
+
+// Add adds points in extended coordinates
+// dedicated addition
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
+func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
+
+	if p1.IsZero() || p2.IsZero() {
+		p.setInfinity()
+		return p
+	}
+
+	if p1.Equal(p2) {
+		p.Double(p1)
+		return p
+	}
+
+	var A, B, C, D, E, F, G, H, tmp fr.Element
+	tmp.Add(&p2.X, &p2.Y)
+	A.Sub(&p1.Y, &p1.X).
+		Mul(&A, &tmp)
+	tmp.Add(&p1.X, &p1.Y)
+	B.Sub(&p2.Y, &p2.X).
+		Mul(&B, &tmp)
+	C.Mul(&p1.Z, &p2.T).
+		Double(&C)
+	D.Mul(&p2.Z, &p1.T).
+		Double(&D)
+	E.Add(&D, &C)
+	F.Sub(&B, &A)
+	G.Add(&B, &A)
+	H.Sub(&D, &C)
+
+	p.X.Mul(&E, &F)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&E, &H)
+	p.Z.Mul(&F, &G)
+
+	return p
+}
+
+// MixedAdd adds a point in extended coordinates to a point in affine coordinates
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-4
+func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
+
+	var A, B, C, D, E, F, G, H, tmp fr.Element
+
+	if p1.IsZero() || p2.IsZero() {
+		p.setInfinity()
+		return p
+	}
+
+	A.Mul(&p2.X, &p1.Z)
+	B.Mul(&p2.Y, &p1.Z)
+
+	if p1.X.Equal(&A) && p1.Y.Equal(&B) {
+		p.MixedDouble(p1)
+		return p
+	}
+
+	tmp.Add(&p2.X, &p2.Y)
+	A.Sub(&p1.Y, &p1.X).
+		Mul(&A, &tmp)
+	tmp.Add(&p1.X, &p1.Y)
+	B.Sub(&p2.Y, &p2.X).
+		Mul(&B, &tmp)
+	C.Mul(&p1.Z, &p2.X).
+		Mul(&C, &p2.Y).
+		Double(&C)
+	D.Double(&p1.T)
+	E.Add(&D, &C)
+	F.Sub(&B, &A)
+	G.Add(&B, &A)
+	H.Sub(&D, &C)
+
+	p.X.Mul(&F, &E)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&E, &H)
+	p.Z.Mul(&G, &F)
+
+	return p
+}
+
+// Double adds points in extended coordinates
+// Dedicated doubling
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
+func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
+
+	if p1.IsZero() {
+		p.setInfinity()
+		return p
+	}
+
+	var A, B, C, D, E, F, G, H fr.Element
+
+	A.Square(&p1.X)
+	B.Square(&p1.Y)
+	C.Square(&p1.Z).
+		Double(&C)
+	D.Set(&A)
+	mulByA(&D)
+	E.Add(&p1.X, &p1.Y).
+		Square(&E).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	G.Add(&D, &B)
+	F.Sub(&G, &C)
+	H.Sub(&D, &B)
+
+	p.X.Mul(&E, &F)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&H, &E)
+	p.Z.Mul(&F, &G)
+
+	return p
+}
+
+// MixedDouble adds points in extended coordinates
+// Dedicated mixed doubling
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
+func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
+
+	if p1.IsZero() {
+		p.setInfinity()
+		return p
+	}
+
+	var A, B, D, E, G, H, two fr.Element
+	two.SetUint64(2)
+
+	A.Square(&p1.X)
+	B.Square(&p1.Y)
+	D.Set(&A)
+	mulByA(&D)
+	E.Add(&p1.X, &p1.Y).
+		Square(&E).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	G.Add(&D, &B)
+	H.Sub(&D, &B)
+
+	p.X.Sub(&G, &two).
+		Mul(&p.X, &E)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&H, &E)
+	p.Z.Square(&G).
+		Sub(&p.Z, &G).
+		Sub(&p.Z, &G)
+
+	return p
+}
+
+// setInfinity sets p to O (0:1:1:0)
+func (p *PointExtended) setInfinity() *PointExtended {
+	p.X.SetZero()
+	p.Y.SetOne()
+	p.Z.SetOne()
+	p.T.SetZero()
+	return p
+}
+
 // ScalarMul scalar multiplication of a point
-// p1 in affine coordinates with a scalar in big.Int
-func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
+// p1 in extended coordinates with a scalar in big.Int
+func (p *PointExtended) ScalarMul(p1 *PointExtended, scalar *big.Int) *PointExtended {
 
-	var p1Proj, resProj PointProj
-	p1Proj.FromAffine(p1)
-	resProj.ScalarMul(&p1Proj, scalar)
-	p.FromProj(&resProj)
+	var _scalar big.Int
+	_scalar.Set(scalar)
+	p.Set(p1)
+	if _scalar.Sign() == -1 {
+		_scalar.Neg(&_scalar)
+		p.Neg(p)
+	}
+	var resExtended PointExtended
+	resExtended.setInfinity()
+	const wordSize = bits.UintSize
+	sWords := _scalar.Bits()
 
+	for i := len(sWords) - 1; i >= 0; i-- {
+		ithWord := sWords[i]
+		for k := 0; k < wordSize; k++ {
+			resExtended.Double(&resExtended)
+			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
+			if kthBit == 1 {
+				resExtended.Add(&resExtended, p)
+			}
+		}
+	}
+
+	p.Set(&resExtended)
 	return p
 }
