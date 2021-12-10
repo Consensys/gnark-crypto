@@ -247,7 +247,7 @@ func (z *Element) IsZero() bool {
 	return (z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
+// IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
 	return (z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
