@@ -130,10 +130,26 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 		return z.Set(&c1), nil
 	case *{{.ElementName}}:
 		return z.Set(c1), nil
+	case uint8:
+		return z.SetUint64(uint64(c1)), nil
+	case uint16:
+		return z.SetUint64(uint64(c1)), nil
+	case uint32:
+		return z.SetUint64(uint64(c1)), nil
+	case uint:
+		return z.SetUint64(uint64(c1)), nil
 	case uint64:
 		return z.SetUint64(c1), nil
+	case int8:
+		return z.SetInt64(int64(c1)), nil
+	case int16:
+		return z.SetInt64(int64(c1)), nil
+	case int32:
+		return z.SetInt64(int64(c1)), nil
+	case int64:
+		return z.SetInt64(c1), nil
 	case int:
-		return z.SetString(strconv.Itoa(c1)), nil
+		return z.SetInt64(int64(c1)), nil
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:

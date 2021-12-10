@@ -1829,6 +1829,163 @@ func TestElementSetInt64(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestElementSetInterface(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genInt := ggen.Int
+	genInt8 := ggen.Int8
+	genInt16 := ggen.Int16
+	genInt32 := ggen.Int32
+	genInt64 := ggen.Int64
+
+	genUint := ggen.UInt
+	genUint8 := ggen.UInt8
+	genUint16 := ggen.UInt16
+	genUint32 := ggen.UInt32
+	genUint64 := ggen.UInt64
+
+	properties.Property("z.SetInterface must match z.SetString with int8", prop.ForAll(
+		func(a testPairElement, v int8) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt8(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int16", prop.ForAll(
+		func(a testPairElement, v int16) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt16(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int32", prop.ForAll(
+		func(a testPairElement, v int32) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt32(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int64", prop.ForAll(
+		func(a testPairElement, v int64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt64(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int", prop.ForAll(
+		func(a testPairElement, v int) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint8", prop.ForAll(
+		func(a testPairElement, v uint8) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint8(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint16", prop.ForAll(
+		func(a testPairElement, v uint16) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint16(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint32", prop.ForAll(
+		func(a testPairElement, v uint32) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint32(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint64", prop.ForAll(
+		func(a testPairElement, v uint64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint64(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint", prop.ForAll(
+		func(a testPairElement, v uint) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementFromMont(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()

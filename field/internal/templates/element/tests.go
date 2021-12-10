@@ -1089,6 +1089,63 @@ func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 }
 
 
+func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genInt := ggen.Int
+	genInt8 := ggen.Int8
+	genInt16 := ggen.Int16
+	genInt32 := ggen.Int32
+	genInt64 := ggen.Int64
+
+	genUint := ggen.UInt
+	genUint8 := ggen.UInt8
+	genUint16 := ggen.UInt16
+	genUint32 := ggen.UInt32
+	genUint64 := ggen.UInt64
+
+	{{setInterface .ElementName "int8"}}
+	{{setInterface .ElementName "int16"}}
+	{{setInterface .ElementName "int32"}}
+	{{setInterface .ElementName "int64"}}
+	{{setInterface .ElementName "int"}}
+
+	{{setInterface .ElementName "uint8"}}
+	{{setInterface .ElementName "uint16"}}
+	{{setInterface .ElementName "uint32"}}
+	{{setInterface .ElementName "uint64"}}
+	{{setInterface .ElementName "uint"}}
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+{{define "setInterface eName tName"}}
+
+properties.Property("z.SetInterface must match z.SetString with {{.tName}}", prop.ForAll(
+	func(a testPair{{.eName}}, v {{.tName}}) bool {
+		c := a.element
+		d := a.element
+
+		c.SetInterface(v)
+		d.SetString(fmt.Sprintf("%v",v))
+
+		return c.Equal(&d)
+	},
+	genA, gen{{toTitle .tName}}(),
+))
+
+{{end}}
 
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
