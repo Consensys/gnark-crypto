@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/leanovate/gopter"
+	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 
 	"github.com/stretchr/testify/require"
@@ -1790,6 +1791,35 @@ func TestElementHalve(t *testing.T) {
 			return c.Equal(&d)
 		},
 		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementSetInt64(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("z.SetInt64 must match z.SetString", prop.ForAll(
+		func(a testPairElement, v int64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInt64(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, ggen.Int64(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))

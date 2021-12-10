@@ -113,10 +113,26 @@ func NewElement(v uint64) Element {
 	return z
 }
 
-// SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
+// SetUint64 sets z to v and returns z
 func (z *Element) SetUint64(v uint64) *Element {
+	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = Element{v}
 	return z.Mul(z, &rSquare) // z.ToMont()
+}
+
+// SetInt64 sets z to v and returns z
+func (z *Element) SetInt64(v int64) *Element {
+
+	// absolute value of v
+	m := v >> 63
+	z.SetUint64(uint64((v ^ m) - m))
+
+	if m != 0 {
+		// v is negative
+		z.Neg(z)
+	}
+
+	return z
 }
 
 // Set z = x

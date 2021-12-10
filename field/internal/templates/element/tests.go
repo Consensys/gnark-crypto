@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"math/big"
 	"math/bits"
+	"fmt"
 	{{if .NoCarry}} mrand "math/rand" {{end}}
 	"testing"
 	{{if .UseAddChain}}	"fmt" {{ end }}
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	ggen "github.com/leanovate/gopter/gen"
 
 	"github.com/stretchr/testify/require"
 )
@@ -1049,6 +1051,37 @@ func Test{{toTitle .ElementName}}Halve(t *testing.T) {
 			return c.Equal(&d)
 		},
 		genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("z.SetInt64 must match z.SetString", prop.ForAll(
+		func(a testPair{{.ElementName}}, v int64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInt64(v)
+			d.SetString(fmt.Sprintf("%v",v))
+
+			return c.Equal(&d)
+		},
+		genA, ggen.Int64(),
 	))
 
 
