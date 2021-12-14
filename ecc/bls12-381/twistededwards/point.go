@@ -245,6 +245,15 @@ func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
 	return p
 }
 
+// FromExtended sets p in affine from p in extended coordinates
+func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
+	var I fr.Element
+	I.Inverse(&p1.Z)
+	p.X.Mul(&p1.X, &I)
+	p.Y.Mul(&p1.Y, &I)
+	return p
+}
+
 // ScalarMul scalar multiplication of a point
 // p1 in affine coordinates with a scalar in big.Int
 func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
@@ -436,15 +445,6 @@ func (p *PointExtended) Set(p1 *PointExtended) *PointExtended {
 // IsZero returns true if p=0 false otherwise
 func (p *PointExtended) IsZero() bool {
 	return p.X.IsZero() && p.Y.Equal(&p.Z) && p.T.IsZero()
-}
-
-// FromExtended sets p in affine from p in extended coordinates
-func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
-	var I fr.Element
-	I.Inverse(&p1.Z)
-	p.X.Mul(&p1.X, &I)
-	p.Y.Mul(&p1.Y, &I)
-	return p
 }
 
 // Equal returns true if p=p1 false otherwise

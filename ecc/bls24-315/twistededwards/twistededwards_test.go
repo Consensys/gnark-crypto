@@ -533,7 +533,7 @@ func TestOps(t *testing.T) {
 			pAffine.ScalarMul(&params.Base, &s)
 
 			p.MixedAdd(&pExtended, &pAffine)
-			p2.Double(&pExtended)
+			p2.MixedDouble(&pExtended)
 
 			return p.Equal(&p2)
 		},
@@ -575,6 +575,27 @@ func TestOps(t *testing.T) {
 			p2.Double(&pProj)
 
 			return p.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj PointProj
+			var baseExt PointExtended
+			var p1, p2 PointAffine
+			baseProj.FromAffine(&params.Base)
+			baseProj.ScalarMul(&baseProj, &s)
+			baseExt.FromAffine(&params.Base)
+			baseExt.ScalarMul(&baseExt, &s)
+
+			p1.FromProj(&baseProj)
+			p2.FromExtended(&baseExt)
+
+			return p1.Equal(&p2)
 		},
 		genS1,
 	))
@@ -648,22 +669,6 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			doubleAndAdd.ScalarMul(&a, &s)
-		}
-	})
-}
-
-func BenchmarkScalarMulAffine(b *testing.B) {
-	params := GetEdwardsCurve()
-	var s big.Int
-	s.SetString("52435875175126190479447705081859658376581184513", 10)
-	s.Add(&s, &params.Order)
-
-	var doubleAndAdd PointAffine
-
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMul(&params.Base, &s)
 		}
 	})
 }

@@ -579,7 +579,7 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("scalar multiplication in Proj vs Ext", prop.ForAll(
+	properties.Property("scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
 		func(s big.Int) bool {
 
 			params := GetEdwardsCurve()
