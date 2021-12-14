@@ -249,10 +249,10 @@ func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
 // p1 in affine coordinates with a scalar in big.Int
 func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 
-	var p1Proj, resProj PointProj
-	p1Proj.FromAffine(p1)
-	resProj.ScalarMul(&p1Proj, scalar)
-	p.FromProj(&resProj)
+	var p1Extended, resExtended PointExtended
+	p1Extended.FromAffine(p1)
+	resExtended.ScalarMul(&p1Extended, scalar)
+	p.FromExtended(&resExtended)
 
 	return p
 }
@@ -438,13 +438,25 @@ func (p *PointExtended) IsZero() bool {
 	return p.X.IsZero() && p.Y.Equal(&p.Z) && p.T.IsZero()
 }
 
+// FromExtended sets p in affine from p in extended coordinates
+func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
+	var I fr.Element
+	I.Inverse(&p1.Z)
+	p.X.Mul(&p1.X, &I)
+	p.Y.Mul(&p1.Y, &I)
+	return p
+}
+
 // Equal returns true if p=p1 false otherwise
 // If one point is on the affine chart Z=0 it returns false
 func (p *PointExtended) Equal(p1 *PointExtended) bool {
 	if p.Z.IsZero() || p1.Z.IsZero() {
 		return false
 	}
-	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y) && p.T.Equal(&p1.T) && p.Z.Equal(&p1.Z)
+	var pAffine, p1Affine PointAffine
+	pAffine.FromExtended(p)
+	p1Affine.FromExtended(p1)
+	return pAffine.Equal(&p1Affine)
 }
 
 // Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
@@ -469,11 +481,6 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 // dedicated addition
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
-
-	if p1.IsZero() || p2.IsZero() {
-		p.setInfinity()
-		return p
-	}
 
 	if p1.Equal(p2) {
 		p.Double(p1)
@@ -509,11 +516,6 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
 
 	var A, B, C, D, E, F, G, H, tmp fr.Element
-
-	if p1.IsZero() || p2.IsZero() {
-		p.setInfinity()
-		return p
-	}
 
 	A.Mul(&p2.X, &p1.Z)
 	B.Mul(&p2.Y, &p1.Z)
@@ -551,11 +553,6 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
 func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
-	if p1.IsZero() {
-		p.setInfinity()
-		return p
-	}
-
 	var A, B, C, D, E, F, G, H fr.Element
 
 	A.Square(&p1.X)
@@ -584,11 +581,6 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 // Dedicated mixed doubling
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
 func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
-
-	if p1.IsZero() {
-		p.setInfinity()
-		return p
-	}
 
 	var A, B, D, E, G, H, two fr.Element
 	two.SetUint64(2)
