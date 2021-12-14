@@ -75,7 +75,7 @@ TEXT ·mul(SB), $24-24
 
 	// A -> BP
 	// t[0] -> R14
-	// t[1] -> R15
+	// t[1] -> R12
 	// t[2] -> CX
 	// t[3] -> BX
 	// clear the flags
@@ -83,11 +83,11 @@ TEXT ·mul(SB), $24-24
 	MOVQ 0(R11), DX
 
 	// (A,t[0])  := x[0]*y[0] + A
-	MULXQ DI, R14, R15
+	MULXQ DI, R14, R12
 
 	// (A,t[1])  := x[1]*y[0] + A
 	MULXQ R8, AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (A,t[2])  := x[2]*y[0] + A
 	MULXQ R9, AX, BX
@@ -109,19 +109,19 @@ TEXT ·mul(SB), $24-24
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R12
+	MULXQ q<>+0(SB), AX, R13
 	ADCXQ R14, AX
-	MOVQ  R12, R14
+	MOVQ  R13, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ q<>+8(SB), AX, R15
+	ADCXQ R12, R14
+	MULXQ q<>+8(SB), AX, R12
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R12
 	MULXQ q<>+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -142,9 +142,9 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, R14
 
 	// (A,t[1])  := t[1] + x[1]*y[1] + A
-	ADCXQ BP, R15
+	ADCXQ BP, R12
 	MULXQ R8, AX, BP
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (A,t[2])  := t[2] + x[2]*y[1] + A
 	ADCXQ BP, CX
@@ -169,19 +169,19 @@ TEXT ·mul(SB), $24-24
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R12
+	MULXQ q<>+0(SB), AX, R13
 	ADCXQ R14, AX
-	MOVQ  R12, R14
+	MOVQ  R13, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ q<>+8(SB), AX, R15
+	ADCXQ R12, R14
+	MULXQ q<>+8(SB), AX, R12
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R12
 	MULXQ q<>+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -202,9 +202,9 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, R14
 
 	// (A,t[1])  := t[1] + x[1]*y[2] + A
-	ADCXQ BP, R15
+	ADCXQ BP, R12
 	MULXQ R8, AX, BP
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (A,t[2])  := t[2] + x[2]*y[2] + A
 	ADCXQ BP, CX
@@ -229,19 +229,19 @@ TEXT ·mul(SB), $24-24
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R12
+	MULXQ q<>+0(SB), AX, R13
 	ADCXQ R14, AX
-	MOVQ  R12, R14
+	MOVQ  R13, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ q<>+8(SB), AX, R15
+	ADCXQ R12, R14
+	MULXQ q<>+8(SB), AX, R12
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R12
 	MULXQ q<>+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -262,9 +262,9 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, R14
 
 	// (A,t[1])  := t[1] + x[1]*y[3] + A
-	ADCXQ BP, R15
+	ADCXQ BP, R12
 	MULXQ R8, AX, BP
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (A,t[2])  := t[2] + x[2]*y[3] + A
 	ADCXQ BP, CX
@@ -289,19 +289,19 @@ TEXT ·mul(SB), $24-24
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R12
+	MULXQ q<>+0(SB), AX, R13
 	ADCXQ R14, AX
-	MOVQ  R12, R14
+	MOVQ  R13, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ q<>+8(SB), AX, R15
+	ADCXQ R12, R14
+	MULXQ q<>+8(SB), AX, R12
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R12
 	MULXQ q<>+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R12
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -313,12 +313,12 @@ TEXT ·mul(SB), $24-24
 	ADCXQ AX, BX
 	ADOXQ BP, BX
 
-	// reduce element(R14,R15,CX,BX) using temp registers (R13,SI,R12,R11)
-	REDUCE(R14,R15,CX,BX,R13,SI,R12,R11)
+	// reduce element(R14,R12,CX,BX) using temp registers (R13,SI,AX,R11)
+	REDUCE(R14,R12,CX,BX,R13,SI,AX,R11)
 
 	MOVQ res+0(FP), AX
 	MOVQ R14, 0(AX)
-	MOVQ R15, 8(AX)
+	MOVQ R12, 8(AX)
 	MOVQ CX, 16(AX)
 	MOVQ BX, 24(AX)
 	RET
