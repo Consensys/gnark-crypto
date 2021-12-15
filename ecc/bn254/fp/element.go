@@ -107,10 +107,26 @@ func NewElement(v uint64) Element {
 	return z
 }
 
-// SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
+// SetUint64 sets z to v and returns z
 func (z *Element) SetUint64(v uint64) *Element {
+	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = Element{v}
 	return z.Mul(z, &rSquare) // z.ToMont()
+}
+
+// SetInt64 sets z to v and returns z
+func (z *Element) SetInt64(v int64) *Element {
+
+	// absolute value of v
+	m := v >> 63
+	z.SetUint64(uint64((v ^ m) - m))
+
+	if m != 0 {
+		// v is negative
+		z.Neg(z)
+	}
+
+	return z
 }
 
 // Set z = x
@@ -132,10 +148,26 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 		return z.Set(&c1), nil
 	case *Element:
 		return z.Set(c1), nil
+	case uint8:
+		return z.SetUint64(uint64(c1)), nil
+	case uint16:
+		return z.SetUint64(uint64(c1)), nil
+	case uint32:
+		return z.SetUint64(uint64(c1)), nil
+	case uint:
+		return z.SetUint64(uint64(c1)), nil
 	case uint64:
 		return z.SetUint64(c1), nil
+	case int8:
+		return z.SetInt64(int64(c1)), nil
+	case int16:
+		return z.SetInt64(int64(c1)), nil
+	case int32:
+		return z.SetInt64(int64(c1)), nil
+	case int64:
+		return z.SetInt64(c1), nil
 	case int:
-		return z.SetString(strconv.Itoa(c1)), nil
+		return z.SetInt64(int64(c1)), nil
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
@@ -195,7 +227,7 @@ func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] ⩾ 0 and all other words are 0
+// IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
 	return (z[3] | z[2] | z[1]) == 0
 }
