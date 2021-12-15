@@ -10,7 +10,6 @@ import (
 	"fmt"
 	{{if .NoCarry}} mrand "math/rand" {{end}}
 	"testing"
-	{{if .UseAddChain}}	"fmt" {{ end }}
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
