@@ -508,7 +508,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
                 return res.IsOnCurve() && res.Z.IsZero()
         }
-        {{else if eq .Name "bls12-377"}}
+        {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
@@ -676,7 +676,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if eq .Name "bls12-377"}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
@@ -802,7 +802,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{else if eq .Name "bls12-377"}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen)
