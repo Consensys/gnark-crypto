@@ -63,7 +63,10 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
-	{{if eq .Name "bls12-377"}}
+	{{if eq .Name "bls12-378"}}
+		rootOfUnity.SetString("4045585818372166415418670827807793147093034396422209590578257013290761627990")
+		const maxOrderRoot uint64 = 42
+	{{else if eq .Name "bls12-377"}}
 		rootOfUnity.SetString("8065159656716812877374967518403273466521432693661810619979959746626482506078")
 		const maxOrderRoot uint64 = 47
 	{{else if eq .Name "bls12-381"}}
@@ -294,5 +297,3 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	return dec.BytesRead(), nil
 }
-
-
