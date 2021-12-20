@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 )
 
 const (

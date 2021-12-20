@@ -1,6 +1,8 @@
 {{ define "import_fr" }}
 
-{{ if eq .Name "bls12-377"}}
+{{ if eq .Name "bls12-378"}}
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+{{ else if eq .Name "bls12-377"}}
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 {{ else if eq .Name "bls12-381"}}
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -17,7 +19,9 @@
 {{end}}
 
 {{ define "import_curve" }}
-{{if eq .Name "bls12-377"}}
+{{if eq .Name "bls12-378"}}
+	curve "github.com/consensys/gnark-crypto/ecc/bls12-378"
+{{else if eq .Name "bls12-377"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 {{else if eq .Name "bls12-381"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-381"

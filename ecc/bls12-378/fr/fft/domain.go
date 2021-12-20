@@ -24,6 +24,10 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+
+	curve "github.com/consensys/gnark-crypto/ecc/bls12-378"
+
 	"github.com/consensys/gnark-crypto/ecc"
 )
 
@@ -79,6 +83,9 @@ func NewDomain(m, depth uint64, precomputeReversedTable bool) *Domain {
 
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
+
+	rootOfUnity.SetString("4045585818372166415418670827807793147093034396422209590578257013290761627990")
+	const maxOrderRoot uint64 = 42
 
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)

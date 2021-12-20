@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
