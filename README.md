@@ -12,7 +12,7 @@
 
   
 
-`gnark-crypto` is actively developed and maintained by the team (zkteam@consensys.net | [HackMD](https://hackmd.io/@zkteam)) behind:
+`gnark-crypto` is actively developed and maintained by the team (gnark@consensys.net | [HackMD](https://hackmd.io/@zkteam)) behind:
 * [`gnark`: a framework to execute (and verify) algorithms in zero-knowledge](https://github.com/consensys/gnark) 
 
 
