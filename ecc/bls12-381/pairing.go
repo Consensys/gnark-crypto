@@ -180,7 +180,13 @@ func (p *g2Proj) DoubleStep(l *lineEvaluation) {
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bTwistCurveCoeff)
+
+		// E.Mul(&D, &bTwistCurveCoeff)
+	E.A0.Sub(&D.A0, &D.A1)
+	E.A1.Add(&D.A0, &D.A1)
+	E.Double(&E).
+		Double(&E)
+
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)

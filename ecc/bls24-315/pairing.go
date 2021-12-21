@@ -190,7 +190,11 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bTwistCurveCoeff)
+
+	// E.Mul(&D, &bTwistCurveCoeff)
+	E.B0.Set(&D.B1)
+	E.B1.MulByNonResidueInv(&D.B0)
+
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)
