@@ -470,14 +470,14 @@ func (z *Element) Halve() {
 // API with assembly impl
 
 // Mul z = x * y mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
 	mul(z, x, y)
 	return z
 }
 
 // Square z = x * x mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
 	mul(z, x, x)
 	return z

@@ -12,7 +12,7 @@
 
   
 
-`gnark-crypto` is actively developed and maintained by the team (zkteam@consensys.net | [HackMD](https://hackmd.io/@zkteam)) behind:
+`gnark-crypto` is actively developed and maintained by the team (gnark@consensys.net | [HackMD](https://hackmd.io/@gnark)) behind:
 * [`gnark`: a framework to execute (and verify) algorithms in zero-knowledge](https://github.com/consensys/gnark) 
 
 
@@ -58,7 +58,7 @@ go generate ./internal/...
 
 ## Benchmarks
 
-[Benchmarking pairing-friendly elliptic curves libraries](https://hackmd.io/@zkteam/eccbench) 
+[Benchmarking pairing-friendly elliptic curves libraries](https://hackmd.io/@gnark/eccbench) 
 
 >The libraries are implemented in different languages and some use more assembly code than others. Besides the different algorithmic and software optimizations used across, it should be noted also that some libraries target constant-time implementation for some operations making it de facto slower. However, it can be clear that consensys/gnark-crypto is one of the fastest pairing-friendly elliptic curve libraries to be used in zkp projects with different curves.
 
