@@ -75,7 +75,7 @@ type Signer interface {
 
 type SignatureScheme uint
 
-const maxSignatures = 6
+const maxSignatures = 7
 
 const (
 	EDDSA_BN254 SignatureScheme = iota
