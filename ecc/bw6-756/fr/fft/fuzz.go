@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
+
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 

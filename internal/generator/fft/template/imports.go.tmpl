@@ -10,6 +10,8 @@
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 {{ else if eq .Name "bw6-761"}}
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+{{ else if eq .Name "bw6-756"}}
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 {{ else if eq .Name "bw6-633"}}
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 {{ else if eq .Name "bls24-315"}}
@@ -29,6 +31,8 @@
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 {{else if eq .Name "bw6-761"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
+{{else if eq .Name "bw6-756"}}
+	curve "github.com/consensys/gnark-crypto/ecc/bw6-756"
 {{else if eq .Name "bw6-633"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-633"
 {{ else if eq .Name "bls24-315"}}
