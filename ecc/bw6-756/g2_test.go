@@ -38,7 +38,8 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BW6-756] check that phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res1, res2 G2Jac
-			p = fuzzJacobianG2Affine(&g2Gen, a)
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
 			res1.phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
 
@@ -50,7 +51,8 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BW6-756] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res, tmp G2Jac
-			p = fuzzJacobianG2Affine(&g2Gen, a)
+			g := MapToCurveG2Svdw(a)
+			p.FromAffine(&g)
 			tmp.phi(&p)
 			res.phi(&tmp).
 				AddAssign(&tmp).

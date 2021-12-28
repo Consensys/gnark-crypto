@@ -21,8 +21,9 @@ import (
 	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
 // Decimation is used in the FFT call to select decimation in time or in frequency
