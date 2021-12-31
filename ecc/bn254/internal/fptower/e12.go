@@ -530,3 +530,35 @@ func (z *E12) IsInSubGroup() bool {
 
 	return a.Equal(&b)
 }
+
+// Compress GT/E12 element to half its size
+// z must be in the cyclotomic subgroup
+// i.e. z^(p^4-p^2+1)=1
+// e.g. GT
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E12) Compress() E6 {
+
+	var res, tmp, one E6
+	one.SetOne()
+	tmp.Inverse(&z.C1)
+	res.Add(&z.C0, &one).
+		Mul(&res, &tmp)
+
+	return res
+}
+
+// Decompress GT/E12 a compressed element
+// element must be in the cyclotomic subgroup
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E6) Decompress() E12 {
+
+	var res, num, denum E12
+	num.C0.Set(z)
+	num.C1.SetOne()
+	denum.C0.Set(z)
+	denum.C1.SetOne().Neg(&denum.C1)
+	res.Inverse(&denum).
+		Mul(&res, &num)
+
+	return res
+}

@@ -249,6 +249,21 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-381] Compress/decompress E12 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			c := a.Compress()
+			d := c.Decompress()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS12-381] pi**12=id", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
