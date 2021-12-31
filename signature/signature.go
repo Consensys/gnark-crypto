@@ -75,7 +75,7 @@ type Signer interface {
 
 type SignatureScheme uint
 
-const maxSignatures = 7
+const maxSignatures = 8
 
 const (
 	EDDSA_BN254 SignatureScheme = iota
@@ -85,6 +85,7 @@ const (
 	EDDSA_BW6_761
 	EDDSA_BLS24_315
 	EDDSA_BW6_633
+	EDDSA_BW6_756
 )
 
 var signatures = make([]func(io.Reader) (Signer, error), maxSignatures)

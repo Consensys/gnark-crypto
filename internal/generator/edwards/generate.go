@@ -8,10 +8,6 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	if conf.Equal(config.BW6_756) {
-		return nil
-	}
-
 	conf.Package = "twistededwards"
 
 	entries := []bavard.Entry{
