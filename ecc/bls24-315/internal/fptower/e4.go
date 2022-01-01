@@ -306,9 +306,9 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	return z
 }
 
-// BatchInvert returns a new slice with every element inverted.
+// BatchInvertE4 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
-func BatchInvert(a []E4) []E4 {
+func BatchInvertE4(a []E4) []E4 {
 	res := make([]E4, len(a))
 	if len(a) == 0 {
 		return res
