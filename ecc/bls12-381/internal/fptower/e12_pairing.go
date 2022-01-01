@@ -22,7 +22,7 @@ func (z *E12) ExptHalf(x *E12) *E12 {
 	t[0].Set(&result)
 	result.nSquareCompressed(32)
 	t[1].Set(&result)
-	batch := BatchDecompress([]E12{t[0], t[1]})
+	batch := BatchDecompressKarabina([]E12{t[0], t[1]})
 	result.Mul(&batch[0], &batch[1])
 	batch[1].nSquare(9)
 	result.Mul(&result, &batch[1])

@@ -63,6 +63,11 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E6) IsZero() bool {
+	return z.B0.IsZero() && z.B1.IsZero() && z.B2.IsZero()
+}
+
 // ToMont converts to Mont form
 func (z *E6) ToMont() *E6 {
 	z.B0.ToMont()
@@ -261,4 +266,38 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B2.Mul(&c2, &t6)
 
 	return z
+}
+
+// BatchInvertE6 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE6(a []E6) []E6 {
+	res := make([]E6, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E6
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
 }
