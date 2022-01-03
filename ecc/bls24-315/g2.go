@@ -371,24 +371,15 @@ func (p *G2Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
-// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG2Affine, 1] is the kernel
-// of (u,v)->u+lambdaG2Affinev mod r. Expressing r, lambdaG2Affine as
-// polynomials in x, a short vector of this Zmodule is
-// 1, x**4. So we check that p+x**4*phi(p)
-// is the infinity.
+// https://eprint.iacr.org/2021/1130.pdf, sec.4
+// psi(p) = u*P
 func (p *G2Jac) IsInSubGroup() bool {
-
-	var res G2Jac
-	res.phi(p).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		AddAssign(p)
+	var res, tmp G2Jac
+	tmp.psi(p)
+	res.ScalarMultiplication(p, &xGen).
+		AddAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
-
 }
 
 // mulWindowed 2-bits windowed exponentiation
