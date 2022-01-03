@@ -1702,6 +1702,7 @@ const invIterationsN = 42
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
+
 	a := *x
 	b := Element{
 		qElementWord0,
