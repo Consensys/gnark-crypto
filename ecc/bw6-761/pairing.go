@@ -297,7 +297,10 @@ func (p *g1Proj) DoubleStep(evaluations *lineEvaluation) {
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bCurveCoeff)
+
+		// E.Mul(&D, &bCurveCoeff)
+	E.Neg(&D)
+
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)

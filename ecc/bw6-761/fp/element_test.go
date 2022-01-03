@@ -18,12 +18,18 @@ package fp
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"math/bits"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/leanovate/gopter"
+	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+
+	"github.com/stretchr/testify/require"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -173,7 +179,8 @@ func BenchmarkElementSquare(b *testing.B) {
 
 func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
-	a.SetRandom()
+	a.SetUint64(4)
+	a.Neg(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sqrt(&a)
@@ -282,7 +289,7 @@ var staticTestValues []Element
 func init() {
 	staticTestValues = append(staticTestValues, Element{}) // zero
 	staticTestValues = append(staticTestValues, One())     // one
-	staticTestValues = append(staticTestValues, rSquare)   // r^2
+	staticTestValues = append(staticTestValues, rSquare)   // r²
 	var e, one Element
 	one.SetOne()
 	e.Sub(&qElement, &one)
@@ -1716,6 +1723,53 @@ func TestElementNeg(t *testing.T) {
 	}
 }
 
+func TestElementFixedExp(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	var (
+		_bLegendreExponentElement *big.Int
+		_bSqrtExponentElement     *big.Int
+	)
+
+	_bLegendreExponentElement, _ = new(big.Int).SetString("9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045", 16)
+	const sqrtExponentElement = "48ba093ee0f382b461f250013ebfcfae49861aa07451a214a09d7be021ef905c1ee98e39613a4640f3aebfc96d08c121a2723b44be7f641c7734f71cfaffcba62845b09599ea3e05833e2bbabc290df9a44f9a1c000020bd27400000000023"
+	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
+
+	genA := gen()
+
+	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expBySqrtExp(c)
+			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("expByLegendreExp must match Exp(9174127dc1e70568c3e4a0027d7f9f5c930c3540e8a34429413af7c043df20b83dd31c72c2748c81e75d7f92da11824344e476897cfec838ee69ee39f5ff974c508b612b33d47c0b067c577578521bf3489f34380000417a4e800000000045)", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.expByLegendreExp(c)
+			d.Exp(d, _bLegendreExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementHalve(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -1741,6 +1795,192 @@ func TestElementHalve(t *testing.T) {
 			return c.Equal(&d)
 		},
 		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementSetInt64(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("z.SetInt64 must match z.SetString", prop.ForAll(
+		func(a testPairElement, v int64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInt64(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, ggen.Int64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementSetInterface(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genInt := ggen.Int
+	genInt8 := ggen.Int8
+	genInt16 := ggen.Int16
+	genInt32 := ggen.Int32
+	genInt64 := ggen.Int64
+
+	genUint := ggen.UInt
+	genUint8 := ggen.UInt8
+	genUint16 := ggen.UInt16
+	genUint32 := ggen.UInt32
+	genUint64 := ggen.UInt64
+
+	properties.Property("z.SetInterface must match z.SetString with int8", prop.ForAll(
+		func(a testPairElement, v int8) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt8(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int16", prop.ForAll(
+		func(a testPairElement, v int16) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt16(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int32", prop.ForAll(
+		func(a testPairElement, v int32) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt32(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int64", prop.ForAll(
+		func(a testPairElement, v int64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt64(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with int", prop.ForAll(
+		func(a testPairElement, v int) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genInt(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint8", prop.ForAll(
+		func(a testPairElement, v uint8) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint8(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint16", prop.ForAll(
+		func(a testPairElement, v uint16) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint16(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint32", prop.ForAll(
+		func(a testPairElement, v uint32) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint32(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint64", prop.ForAll(
+		func(a testPairElement, v uint64) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint64(),
+	))
+
+	properties.Property("z.SetInterface must match z.SetString with uint", prop.ForAll(
+		func(a testPairElement, v uint) bool {
+			c := a.element
+			d := a.element
+
+			c.SetInterface(v)
+			d.SetString(fmt.Sprintf("%v", v))
+
+			return c.Equal(&d)
+		},
+		genA, genUint(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -1780,6 +2020,45 @@ func TestElementFromMont(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementJSON(t *testing.T) {
+	assert := require.New(t)
+
+	type S struct {
+		A Element
+		B [3]Element
+		C *Element
+		D *Element
+	}
+
+	// encode to JSON
+	var s S
+	s.A.SetString("-1")
+	s.B[2].SetUint64(42)
+	s.D = new(Element).SetUint64(8000)
+
+	encoded, err := json.Marshal(&s)
+	assert.NoError(err)
+	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(string(encoded), expected)
+
+	// decode valid
+	var decoded S
+	err = json.Unmarshal([]byte(expected), &decoded)
+	assert.NoError(err)
+
+	assert.Equal(s, decoded, "element -> json -> element round trip failed")
+
+	// decode hex and string values
+	withHexValues := "{\"A\":\"-1\",\"B\":[0,\"0x00000\",\"0x2A\"],\"C\":null,\"D\":\"8000\"}"
+
+	var decodedS S
+	err = json.Unmarshal([]byte(withHexValues), &decodedS)
+	assert.NoError(err)
+
+	assert.Equal(s, decodedS, " json with strings  -> element  failed")
+
 }
 
 type testPairElement struct {
@@ -1982,4 +2261,517 @@ func genFull() gopter.Gen {
 		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
+}
+
+func TestElementInversionApproximation(t *testing.T) {
+	var x Element
+	for i := 0; i < 1000; i++ {
+		x.SetRandom()
+
+		// Normally small elements are unlikely. Here we give them a higher chance
+		xZeros := mrand.Int() % Limbs
+		for j := 1; j < xZeros; j++ {
+			x[Limbs-j] = 0
+		}
+
+		a := approximate(&x, x.BitLen())
+		aRef := approximateRef(&x)
+
+		if a != aRef {
+			t.Error("Approximation mismatch")
+		}
+	}
+}
+
+func TestElementInversionCorrectionFactorFormula(t *testing.T) {
+	const kLimbs = k * Limbs
+	const power = kLimbs*6 + invIterationsN*(kLimbs-k+1)
+	factorInt := big.NewInt(1)
+	factorInt.Lsh(factorInt, power)
+	factorInt.Mod(factorInt, Modulus())
+
+	var refFactorInt big.Int
+	inversionCorrectionFactor := Element{
+		inversionCorrectionFactorWord0,
+		inversionCorrectionFactorWord1,
+		inversionCorrectionFactorWord2,
+		inversionCorrectionFactorWord3,
+		inversionCorrectionFactorWord4,
+		inversionCorrectionFactorWord5,
+		inversionCorrectionFactorWord6,
+		inversionCorrectionFactorWord7,
+		inversionCorrectionFactorWord8,
+		inversionCorrectionFactorWord9,
+		inversionCorrectionFactorWord10,
+		inversionCorrectionFactorWord11,
+	}
+	inversionCorrectionFactor.ToBigInt(&refFactorInt)
+
+	if refFactorInt.Cmp(factorInt) != 0 {
+		t.Error("mismatch")
+	}
+}
+
+func TestElementLinearComb(t *testing.T) {
+	var x Element
+	var y Element
+
+	for i := 0; i < 1000; i++ {
+		x.SetRandom()
+		y.SetRandom()
+		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63())
+	}
+}
+
+// Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
+func TestElementInversionCorrectionFactor(t *testing.T) {
+
+	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
+
+	var one Element
+	var oneInv Element
+	one.SetOne()
+	oneInv.Inverse(&one)
+
+	for i := 0; i < 100; i++ {
+		var x Element
+		var xInv Element
+		x.SetRandom()
+		xInv.Inverse(&x)
+
+		x.Mul(&x, &xInv)
+		if !x.Equal(&oneInv) {
+			t.Error("Correction factor is inconsistent")
+		}
+	}
+
+	if !oneInv.Equal(&one) {
+		var i big.Int
+		oneInv.ToBigIntRegular(&i) // no montgomery
+		i.ModInverse(&i, Modulus())
+		var fac Element
+		fac.setBigInt(&i) // back to montgomery
+
+		var facTimesFac Element
+		facTimesFac.Mul(&fac, &Element{
+			inversionCorrectionFactorWord0,
+			inversionCorrectionFactorWord1,
+			inversionCorrectionFactorWord2,
+			inversionCorrectionFactorWord3,
+			inversionCorrectionFactorWord4,
+			inversionCorrectionFactorWord5,
+			inversionCorrectionFactorWord6,
+			inversionCorrectionFactorWord7,
+			inversionCorrectionFactorWord8,
+			inversionCorrectionFactorWord9,
+			inversionCorrectionFactorWord10,
+			inversionCorrectionFactorWord11,
+		})
+
+		t.Error("Correction factor is consistently off by", fac, "Should be", facTimesFac)
+	}
+}
+
+func TestElementBigNumNeg(t *testing.T) {
+	var a Element
+	aHi := a.neg(&a, 0)
+	if !a.IsZero() || aHi != 0 {
+		t.Error("-0 != 0")
+	}
+}
+
+func TestElementBigNumWMul(t *testing.T) {
+	var x Element
+
+	for i := 0; i < 1000; i++ {
+		x.SetRandom()
+		w := mrand.Int63()
+		testBigNumWMul(t, &x, w)
+	}
+}
+
+func TestElementVeryBigIntConversion(t *testing.T) {
+	xHi := mrand.Uint64()
+	var x Element
+	x.SetRandom()
+	var xInt big.Int
+	x.toVeryBigIntSigned(&xInt, xHi)
+	x.assertMatchVeryBigInt(t, xHi, &xInt)
+}
+
+func TestElementMontReducePos(t *testing.T) {
+	var x Element
+
+	for i := 0; i < 1000; i++ {
+		x.SetRandom()
+		testMontReduceSigned(t, &x, mrand.Uint64() & ^signBitSelector)
+	}
+}
+
+func TestElementMontReduceNeg(t *testing.T) {
+	var x Element
+
+	for i := 0; i < 1000; i++ {
+		x.SetRandom()
+		testMontReduceSigned(t, &x, mrand.Uint64()|signBitSelector)
+	}
+}
+
+func TestElementMontNegMultipleOfR(t *testing.T) {
+	var zero Element
+
+	for i := 0; i < 1000; i++ {
+		testMontReduceSigned(t, &zero, mrand.Uint64()|signBitSelector)
+	}
+}
+
+//TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
+func TestUpdateFactorSubtraction(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+
+		f0, g0 := randomizeUpdateFactors()
+		f1, g1 := randomizeUpdateFactors()
+
+		for f0-f1 > 1<<31 || f0-f1 <= -1<<31 {
+			f1 /= 2
+		}
+
+		for g0-g1 > 1<<31 || g0-g1 <= -1<<31 {
+			g1 /= 2
+		}
+
+		c0 := updateFactorsCompose(f0, g0)
+		c1 := updateFactorsCompose(f1, g1)
+
+		cRes := c0 - c1
+		fRes, gRes := updateFactorsDecompose(cRes)
+
+		if fRes != f0-f1 || gRes != g0-g1 {
+			t.Error(i)
+		}
+	}
+}
+
+func TestUpdateFactorsDouble(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f > 1<<30 || f < (-1<<31+1)/2 {
+			f /= 2
+			if g <= 1<<29 && g >= (-1<<31+1)/4 {
+				g *= 2 //g was kept small on f's account. Now that we're halving f, we can double g
+			}
+		}
+
+		if g > 1<<30 || g < (-1<<31+1)/2 {
+			g /= 2
+
+			if f <= 1<<29 && f >= (-1<<31+1)/4 {
+				f *= 2 //f was kept small on g's account. Now that we're halving g, we can double f
+			}
+		}
+
+		c := updateFactorsCompose(f, g)
+		cD := c * 2
+		fD, gD := updateFactorsDecompose(cD)
+
+		if fD != 2*f || gD != 2*g {
+			t.Error(i)
+		}
+	}
+}
+
+func TestUpdateFactorsNeg(t *testing.T) {
+	var fMistake bool
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+
+		if f == 0x80000000 || g == 0x80000000 {
+			// Update factors this large can only have been obtained after 31 iterations and will therefore never be negated
+			// We don't have capacity to store -2³¹
+			// Repeat this iteration
+			i--
+			continue
+		}
+
+		c := updateFactorsCompose(f, g)
+		nc := -c
+		nf, ng := updateFactorsDecompose(nc)
+		fMistake = fMistake || nf != -f
+		if nf != -f || ng != -g {
+			t.Errorf("Mismatch iteration #%d:\n%d, %d ->\n %d -> %d ->\n %d, %d\n Inputs in hex: %X, %X",
+				i, f, g, c, nc, nf, ng, f, g)
+		}
+	}
+	if fMistake {
+		t.Error("Mistake with f detected")
+	} else {
+		t.Log("All good with f")
+	}
+}
+
+func TestUpdateFactorsNeg0(t *testing.T) {
+	c := updateFactorsCompose(0, 0)
+	t.Logf("c(0,0) = %X", c)
+	cn := -c
+
+	if c != cn {
+		t.Error("Negation of zero update factors should yield the same result.")
+	}
+}
+
+func TestUpdateFactorDecomposition(t *testing.T) {
+	var negSeen bool
+
+	for i := 0; i < 1000; i++ {
+
+		f, g := randomizeUpdateFactors()
+
+		if f <= -(1<<31) || f > 1<<31 {
+			t.Fatal("f out of range")
+		}
+
+		negSeen = negSeen || f < 0
+
+		c := updateFactorsCompose(f, g)
+
+		fBack, gBack := updateFactorsDecompose(c)
+
+		if f != fBack || g != gBack {
+			t.Errorf("(%d, %d) -> %d -> (%d, %d)\n", f, g, c, fBack, gBack)
+		}
+	}
+
+	if !negSeen {
+		t.Fatal("No negative f factors")
+	}
+}
+
+func TestUpdateFactorInitialValues(t *testing.T) {
+
+	f0, g0 := updateFactorsDecompose(updateFactorIdentityMatrixRow0)
+	f1, g1 := updateFactorsDecompose(updateFactorIdentityMatrixRow1)
+
+	if f0 != 1 || g0 != 0 || f1 != 0 || g1 != 1 {
+		t.Error("Update factor initial value constants are incorrect")
+	}
+}
+
+func TestUpdateFactorsRandomization(t *testing.T) {
+	var maxLen int
+
+	//t.Log("|f| + |g| is not to exceed", 1 << 31)
+	for i := 0; i < 1000; i++ {
+		f, g := randomizeUpdateFactors()
+		lf, lg := abs64T32(f), abs64T32(g)
+		absSum := lf + lg
+		if absSum >= 1<<31 {
+
+			if absSum == 1<<31 {
+				maxLen++
+			} else {
+				t.Error(i, "Sum of absolute values too large, f =", f, ",g =", g, ",|f| + |g| =", absSum)
+			}
+		}
+	}
+
+	if maxLen == 0 {
+		t.Error("max len not observed")
+	} else {
+		t.Log(maxLen, "maxLens observed")
+	}
+}
+
+func randomizeUpdateFactor(absLimit uint32) int64 {
+	const maxSizeLikelihood = 10
+	maxSize := mrand.Intn(maxSizeLikelihood)
+
+	absLimit64 := int64(absLimit)
+	var f int64
+	switch maxSize {
+	case 0:
+		f = absLimit64
+	case 1:
+		f = -absLimit64
+	default:
+		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64
+	}
+
+	if f > 1<<31 {
+		return 1 << 31
+	} else if f < -1<<31+1 {
+		return -1<<31 + 1
+	}
+
+	return f
+}
+
+func abs64T32(f int64) uint32 {
+	if f >= 1<<32 || f < -1<<32 {
+		panic("f out of range")
+	}
+
+	if f < 0 {
+		return uint32(-f)
+	}
+	return uint32(f)
+}
+
+func randomizeUpdateFactors() (int64, int64) {
+	var f [2]int64
+	b := mrand.Int() % 2
+
+	f[b] = randomizeUpdateFactor(1 << 31)
+
+	//As per the paper, |f| + |g| \le 2³¹.
+	f[1-b] = randomizeUpdateFactor(1<<31 - abs64T32(f[b]))
+
+	//Patching another edge case
+	if f[0]+f[1] == -1<<31 {
+		b = mrand.Int() % 2
+		f[b]++
+	}
+
+	return f[0], f[1]
+}
+
+func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
+
+	var p1 big.Int
+	x.ToBigInt(&p1)
+	p1.Mul(&p1, big.NewInt(xC))
+
+	var p2 big.Int
+	y.ToBigInt(&p2)
+	p2.Mul(&p2, big.NewInt(yC))
+
+	p1.Add(&p1, &p2)
+	p1.Mod(&p1, Modulus())
+	montReduce(&p1, &p1)
+
+	var z Element
+	z.linearCombSosSigned(x, xC, y, yC)
+	z.assertMatchVeryBigInt(t, 0, &p1)
+}
+
+func testBigNumWMul(t *testing.T, a *Element, c int64) {
+	var aHi uint64
+	var aTimes Element
+	aHi = aTimes.mulWRegular(a, c)
+
+	assertMulProduct(t, a, c, &aTimes, aHi)
+}
+
+func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
+	var res Element
+	var xInt big.Int
+	var resInt big.Int
+	x.toVeryBigIntSigned(&xInt, xHi)
+	res.montReduceSigned(x, xHi)
+	montReduce(&resInt, &xInt)
+	res.assertMatchVeryBigInt(t, 0, &resInt)
+}
+
+func updateFactorsCompose(f int64, g int64) int64 {
+	return f + g<<32
+}
+
+var rInv big.Int
+
+func montReduce(res *big.Int, x *big.Int) {
+	if rInv.BitLen() == 0 { // initialization
+		rInv.SetUint64(1)
+		rInv.Lsh(&rInv, Limbs*64)
+		rInv.ModInverse(&rInv, Modulus())
+	}
+	res.Mul(x, &rInv)
+	res.Mod(res, Modulus())
+}
+
+func (z *Element) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
+	z.ToBigInt(i)
+	var upperWord big.Int
+	upperWord.SetUint64(xHi)
+	upperWord.Lsh(&upperWord, Limbs*64)
+	i.Add(&upperWord, i)
+}
+
+func (z *Element) toVeryBigIntSigned(i *big.Int, xHi uint64) {
+	z.toVeryBigIntUnsigned(i, xHi)
+	if signBitSelector&xHi != 0 {
+		twosCompModulus := big.NewInt(1)
+		twosCompModulus.Lsh(twosCompModulus, (Limbs+1)*64)
+		i.Sub(i, twosCompModulus)
+	}
+}
+
+func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, resultHi uint64) big.Int {
+	var xInt big.Int
+	x.ToBigInt(&xInt)
+
+	xInt.Mul(&xInt, big.NewInt(c))
+
+	result.assertMatchVeryBigInt(t, resultHi, &xInt)
+	return xInt
+}
+
+func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
+
+	var wI big.Word
+
+	if index < len(w) {
+		wI = w[index]
+	}
+
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+
+	a = a >> ((index * bits.UintSize) % 64)
+	a &= filter
+
+	if uint64(wI) != a {
+		t.Error("Bignum mismatch: disagreement on word", index)
+	}
+}
+
+func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	var modulus big.Int
+	var aIntMod big.Int
+	modulus.SetInt64(1)
+	modulus.Lsh(&modulus, (Limbs+1)*64)
+	aIntMod.Mod(aInt, &modulus)
+
+	words := aIntMod.Bits()
+
+	const steps = 64 / bits.UintSize
+	for i := 0; i < Limbs*steps; i++ {
+		assertMatch(t, words, z[i/steps], i)
+	}
+
+	for i := 0; i < steps; i++ {
+		assertMatch(t, words, aHi, Limbs*steps+i)
+	}
+}
+
+func approximateRef(x *Element) uint64 {
+
+	var asInt big.Int
+	x.ToBigInt(&asInt)
+	n := x.BitLen()
+
+	if n <= 64 {
+		return asInt.Uint64()
+	}
+
+	modulus := big.NewInt(1 << 31)
+	var lo big.Int
+	lo.Mod(&asInt, modulus)
+
+	modulus.Lsh(modulus, uint(n-64))
+	var hi big.Int
+	hi.Div(&asInt, modulus)
+	hi.Lsh(&hi, 31)
+
+	hi.Add(&hi, &lo)
+	return hi.Uint64()
 }

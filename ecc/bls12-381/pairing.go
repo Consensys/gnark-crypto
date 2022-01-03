@@ -121,47 +121,45 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		qProj[k].FromAffine(&q[k])
 	}
 
-	var result GT
+	var result, lines GT
 	result.SetOne()
 
-	var l lineEvaluation
+	var l1, l2 lineEvaluation
 
 	// i == 62
 	for k := 0; k < n; k++ {
-		qProj[k].DoubleStep(&l)
+		qProj[k].DoubleStep(&l1)
 		// line eval
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		l.r2.MulByElement(&l.r2, &p[k].Y)
-		result.MulBy014(&l.r0, &l.r1, &l.r2)
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		l1.r2.MulByElement(&l1.r2, &p[k].Y)
 
-		qProj[k].AddMixedStep(&l, &q[k])
+		qProj[k].AddMixedStep(&l2, &q[k])
 		// line eval
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		l.r2.MulByElement(&l.r2, &p[k].Y)
-		result.MulBy014(&l.r0, &l.r1, &l.r2)
+		l2.r1.MulByElement(&l2.r1, &p[k].X)
+		l2.r2.MulByElement(&l2.r2, &p[k].Y)
+		lines.Mul014By014(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+		result.Mul(&result, &lines)
 	}
 
 	for i := 61; i >= 0; i-- {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
-			qProj[k].DoubleStep(&l)
+			qProj[k].DoubleStep(&l1)
 			// line eval
-			l.r1.MulByElement(&l.r1, &p[k].X)
-			l.r2.MulByElement(&l.r2, &p[k].Y)
-			result.MulBy014(&l.r0, &l.r1, &l.r2)
-		}
+			l1.r1.MulByElement(&l1.r1, &p[k].X)
+			l1.r2.MulByElement(&l1.r2, &p[k].Y)
 
-		if loopCounter[i] == 0 {
-			continue
-		}
-
-		for k := 0; k < n; k++ {
-			qProj[k].AddMixedStep(&l, &q[k])
-			// line eval
-			l.r1.MulByElement(&l.r1, &p[k].X)
-			l.r2.MulByElement(&l.r2, &p[k].Y)
-			result.MulBy014(&l.r0, &l.r1, &l.r2)
+			if loopCounter[i] == 0 {
+				result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
+			} else {
+				qProj[k].AddMixedStep(&l2, &q[k])
+				// line eval
+				l2.r1.MulByElement(&l2.r1, &p[k].X)
+				l2.r2.MulByElement(&l2.r2, &p[k].Y)
+				lines.Mul014By014(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+				result.Mul(&result, &lines)
+			}
 		}
 	}
 
@@ -182,7 +180,7 @@ func (p *g2Proj) DoubleStep(l *lineEvaluation) {
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bTwistCurveCoeff)
+	E.MulBybTwistCurveCoeff(&D)
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)

@@ -89,3 +89,15 @@ func (z *E2) norm(x *fp.Element) {
 	tmp.Square(&z.A1)
 	x.Add(x, &tmp)
 }
+
+// MulBybTwistCurveCoeff multiplies by 4(1,1)
+func (z *E2) MulBybTwistCurveCoeff(x *E2) *E2 {
+
+	var res E2
+	res.A0.Sub(&x.A0, &x.A1)
+	res.A1.Add(&x.A0, &x.A1)
+	z.Double(&res).
+		Double(z)
+
+	return z
+}

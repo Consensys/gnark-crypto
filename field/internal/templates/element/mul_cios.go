@@ -20,7 +20,7 @@ const MulCIOS = `
 				C, t[{{$i}}] = madd2({{$.V2}}[{{$j}}], {{$.V1}}[{{$i}}], t[{{$i}}], C)
 			{{- end}}
 		{{ end }}
-		D = C
+		t[{{$.all.NbWords}}], D = bits.Add64(t[{{$.all.NbWords}}], C, 0)
 
 		// m = t[0]n'[0] mod W
 		m = t[0] * {{index $.all.QInverse 0}}
@@ -29,13 +29,11 @@ const MulCIOS = `
 		// Second loop
 		C = madd0(m, {{index $.all.Q 0}}, t[0])
 		{{- range $i := $.all.NbWordsIndexesNoZero}}
-			{{if eq $i $.all.NbWordsLastIndex}}
-				C, t[{{sub $i 1}}] = madd3(m, {{index $.all.Q $i}}, t[{{$i}}], C, t[{{$.all.NbWords}}])
-			{{else}}
 				C, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], C)
-			{{- end}}
 		{{- end}}
-		t[{{sub $.all.NbWords 1}}], t[{{$.all.NbWords}}] = bits.Add64(D, C, 0)
+
+		 t[{{sub $.all.NbWords 1}}], C = bits.Add64(t[{{$.all.NbWords}}], C, 0)
+		 t[{{$.all.NbWords}}], _ = bits.Add64(0, D, C)
 	{{- end}}
 
 
