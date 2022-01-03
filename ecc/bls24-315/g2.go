@@ -371,6 +371,7 @@ func (p *G2Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
+// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 // https://eprint.iacr.org/2021/1130.pdf, sec.4
 // psi(p) = u*P
 func (p *G2Jac) IsInSubGroup() bool {
@@ -380,6 +381,7 @@ func (p *G2Jac) IsInSubGroup() bool {
 		AddAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
+
 }
 
 // mulWindowed 2-bits windowed exponentiation

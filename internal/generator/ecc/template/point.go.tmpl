@@ -457,26 +457,40 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		return r.IsOnCurve() && r.Z.IsZero()
 	}
 {{else if eq .Name "bls24-315"}}
-    // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-    // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
-    // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
-    // polynomials in x, a short vector of this Zmodule is
-    // 1, x**4. So we check that p+x**4*phi(p)
-    // is the infinity.
-    func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+	{{- if eq .PointName "g1"}}
+        // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+        // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
+        // polynomials in x, a short vector of this Zmodule is
+        // 1, x**4. So we check that p+x**4*phi(p)
+        // is the infinity.
+        func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
-        var res {{ $TJacobian }}
-        res.phi(p).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            AddAssign(p)
+            var res {{ $TJacobian }}
+            res.phi(p).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                AddAssign(p)
 
-        return res.IsOnCurve() && res.Z.IsZero()
+            return res.IsOnCurve() && res.Z.IsZero()
 
-    }
+        }
+	{{else if eq .PointName "g2"}}
+        // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        // https://eprint.iacr.org/2021/1130.pdf, sec.4
+        // psi(p) = u*P
+        func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+            var res, tmp {{ $TJacobian }}
+            tmp.psi(p)
+            res.ScalarMultiplication(p, &xGen).
+                AddAssign(&tmp)
 
+            return res.IsOnCurve() && res.Z.IsZero()
+
+        }
+    {{- end}}
 {{else}}
 	{{- if eq .PointName "g1"}}
         // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
@@ -498,6 +512,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         }
 	{{else if eq .PointName "g2"}}
         {{if eq .Name "bls12-381"}}
+            // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
@@ -509,6 +524,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
                 return res.IsOnCurve() && res.Z.IsZero()
         }
         {{else if eq .Name "bls12-377"}}
+            // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
