@@ -68,7 +68,7 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gautam_botrel_2022_5815454,
+@software{gnark-crypto,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
