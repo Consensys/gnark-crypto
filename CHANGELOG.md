@@ -1,3 +1,43 @@
+<a name="v0.6.0"></a>
+## [v0.6.0] - 2021-12-22
+
+
+### Feat
+
+- **plookup:** added plookup lookup proof
+- **field:** generate optimized addition chains for Sqrt & Legendre exp functions
+- **field:** added field.SetInt64, support for intX and uintX [#109](https://github.com/ConsenSys/gnark-crypto/issues/109)
+- **field:** added UnmarshalJSON and MarshalJSON on fields
+- **field:** added field.Text(base) to return field element string in a given base, like big.Int
+- **field:** field.SetString now supports 0b 0o 0x prefixes (base 2, 8 and 16)
+- **kzg:** test tampered proofs whith quotient set to zero
+- **bls24:** Fp-Fp2-Fp4-Fp12-Fp24 tower
+
+### Fix
+- fixes [#104](https://github.com/ConsenSys/gnark-crypto/issues/104) code generation for saturated modulus like secp256k1 incorrect. added secp256k1 test
+
+### Perf
+- field inverse is ~30-70% faster (implements Pornin's optimizations)
+- **bls12-381:** faster Miller loop (sparse-sparse mul)
+- **bls12-381:** faster final exp (faster expt)
+- **bn254:** better short addition chain for Expt()
+- **bn254:** addchain with max squares (weighting mul x2.6 cyclosq)
+
+
+### Pull Requests
+- Merge pull request [#111](https://github.com/ConsenSys/gnark-crypto/issues/111) from ConsenSys/field-intX-support
+- Merge pull request [#114](https://github.com/ConsenSys/gnark-crypto/issues/114) from ConsenSys/fix-dynamic-link
+- Merge pull request [#108](https://github.com/ConsenSys/gnark-crypto/issues/108) from ConsenSys/perf/bls12381-pairing
+- Merge pull request [#106](https://github.com/ConsenSys/gnark-crypto/issues/106) from ConsenSys/improvement/field-inv-pornin20
+- Merge pull request [#105](https://github.com/ConsenSys/gnark-crypto/issues/105) from ConsenSys/field-from-json
+- Merge pull request [#83](https://github.com/ConsenSys/gnark-crypto/issues/83) from ConsenSys/experiment/BLS24
+- Merge pull request [#102](https://github.com/ConsenSys/gnark-crypto/issues/102) from ConsenSys/feat/plookup
+- Merge pull request [#97](https://github.com/ConsenSys/gnark-crypto/issues/97) from ConsenSys/feat-addchain
+- Merge pull request [#99](https://github.com/ConsenSys/gnark-crypto/issues/99) from ConsenSys/feat-addchain-expt
+
+
+
+
 <a name="v0.5.3"></a>
 ## [v0.5.3] - 2021-10-30
 
