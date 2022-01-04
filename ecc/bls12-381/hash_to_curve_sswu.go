@@ -97,7 +97,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 	var y2 fp.Element
 	// y2 = y1 * c2
-	y2.Mul(&y1, &fp.Element{17544630987809824292, 17306709551153317753, 8299808889594647786, 5930295261504720397, 675038575008112577, 167386374569371918})
+	// TODO: c2 value worked out experimentally. Derive it correctly using bigInt ops
+	y2.Mul(&y1, &fp.Element{14304544101977590919, 3350176034073442437, 17582609757678985529, 1309042698909992113, 4737065203462589718, 1706412243078167948})
 
 	var tv3 fp.Element
 	tv3.Square(&y1)
