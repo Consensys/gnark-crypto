@@ -15,6 +15,7 @@ func TestComputeC2(t *testing.T) {
 	zP.Neg(&z)
 	zP.Sqrt(&zP)
 
+	//[14304544101977590919 3350176034073442437 17582609757678985529 1309042698909992113 4737065203462589718 1706412243078167948]
 	fmt.Println(zP)
 
 	zP.Square(&zP)
@@ -79,8 +80,33 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 
 	var seen fp.Element
 	qr := sqrtRatio(&seen, u, v)
+
 	if qr != qrRef || seen != ref {
+		seen.Div(&ref, &seen)
+		fmt.Println(seen)
 		t.Error(*u, *v)
 	}
+}
 
+func TestMulByConstant(t *testing.T) {
+
+	for test := 0; test < 100; test++ {
+		var x fp.Element
+		x.SetRandom()
+
+		y := x
+
+		var yP fp.Element
+
+		y.MulByConstant(11)
+
+		for i := 0; i < 11; i++ {
+			yP.Add(&yP, &x)
+		}
+
+		if y != yP {
+			t.Fail()
+		}
+
+	}
 }
