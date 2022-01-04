@@ -1668,3 +1668,37 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 
 	return yHi
 }
+
+// Sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+func (z *Element) Sgn0() bool {
+	return z[0]%2 == 1
+}
+
+func (z *Element) SetHex(hex string) {
+	var i big.Int
+	i.SetString(hex, 16)
+	z.SetBigInt(&i)
+}
+
+func (z *Element) EvalPolynomialHex(x *Element, cHex []string) {
+	c := make([]Element, len(cHex))
+
+	for i, hex := range cHex {
+		c[i].SetHex(hex)
+	}
+
+	z.EvalPolynomial(x, c)
+}
+
+func (z *Element) EvalPolynomial(x *Element, c []Element) {
+	f := c[len(c)-1]
+
+	for i := len(c) - 2; i >= 0; i-- {
+		f.Mul(&f, x)
+		f.Add(&f, &c[i])
+	}
+
+	*z = f
+}
