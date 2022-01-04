@@ -824,6 +824,10 @@ func _reduceGeneric(z *Element) {
 	}
 }
 
+func (z *Element) MulByConstant(c uint8) {
+	mulByConstant(z, c)
+}
+
 func mulByConstant(z *Element, c uint8) {
 	switch c {
 	case 0:
@@ -840,6 +844,10 @@ func mulByConstant(z *Element, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
+
 	default:
 		var y Element
 		y.SetUint64(uint64(c))
