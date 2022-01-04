@@ -17,6 +17,7 @@
 package fptower
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
@@ -172,6 +173,7 @@ func TestE6Ops(t *testing.T) {
 
 	genA := GenE6()
 	genB := GenE6()
+	genExp := GenFp()
 
 	properties.Property("[BW6-633] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
@@ -275,6 +277,29 @@ func TestE6Ops(t *testing.T) {
 			return c.Equal(&d)
 		},
 		genA,
+	))
+
+	properties.Property("[BW6-633] Exp and CyclotomicExp results must be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E6, e fp.Element) bool {
+			var b, c, d E6
+			// put in the cyclo subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			var _e big.Int
+			k := new(big.Int).SetUint64(6)
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+
+			c.Exp(a, _e)
+			d.CyclotomicExp(a, _e)
+
+			return c.Equal(&d)
+		},
+		genA,
+		genExp,
 	))
 
 	properties.Property("[BW6-633] Frobenius of x in E6 should be equal to x^q", prop.ForAll(

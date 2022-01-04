@@ -17,6 +17,7 @@
 package fptower
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
@@ -192,6 +193,7 @@ func TestE12Ops(t *testing.T) {
 
 	genA := GenE12()
 	genB := GenE12()
+	genExp := GenFp()
 
 	properties.Property("[BN254] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E12) bool {
@@ -347,6 +349,29 @@ func TestE12Ops(t *testing.T) {
 			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
 		},
 		genA,
+	))
+
+	properties.Property("[BN254] Exp and CyclotomicExp results must be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E12, e fp.Element) bool {
+			var b, c, d E12
+			// put in the cyclo subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			var _e big.Int
+			k := new(big.Int).SetUint64(12)
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+
+			c.Exp(a, _e)
+			d.CyclotomicExp(a, _e)
+
+			return c.Equal(&d)
+		},
+		genA,
+		genExp,
 	))
 
 	properties.Property("[BN254] Frobenius of x in E12 should be equal to x^q", prop.ForAll(

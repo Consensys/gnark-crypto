@@ -19,6 +19,7 @@ package fptower
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"math/big"
 )
@@ -381,6 +382,26 @@ func (z *E12) Exp(x *E12, e big.Int) *E12 {
 				res.Mul(&res, x)
 			}
 			mask = mask >> 1
+		}
+	}
+	z.Set(&res)
+	return z
+}
+
+// CyclotomicExp sets z=x**e and returns it
+// x must be in the cyclotomic subgroup
+func (z *E12) CyclotomicExp(x *E12, e big.Int) *E12 {
+	var res, xInv E12
+	xInv.InverseUnitary(x)
+	res.SetOne()
+	eNAF := make([]int8, e.BitLen()+3)
+	n := ecc.NafDecomposition(&e, eNAF[:])
+	for i := n - 1; i >= 0; i-- {
+		res.CyclotomicSquare(&res)
+		if eNAF[i] == 1 {
+			res.Mul(&res, x)
+		} else if eNAF[i] == -1 {
+			res.Mul(&res, &xInv)
 		}
 	}
 	z.Set(&res)

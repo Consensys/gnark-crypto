@@ -20,6 +20,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 )
 
@@ -323,6 +324,26 @@ func (z *E6) Exp(x *E6, e big.Int) *E6 {
 				res.Mul(&res, x)
 			}
 			mask = mask >> 1
+		}
+	}
+	z.Set(&res)
+	return z
+}
+
+// CyclotomicExp sets z=x**e and returns it
+// x must be in the cyclotomic subgroup
+func (z *E6) CyclotomicExp(x *E6, e big.Int) *E6 {
+	var res, xInv E6
+	xInv.InverseUnitary(x)
+	res.SetOne()
+	eNAF := make([]int8, e.BitLen()+3)
+	n := ecc.NafDecomposition(&e, eNAF[:])
+	for i := n - 1; i >= 0; i-- {
+		res.CyclotomicSquare(&res)
+		if eNAF[i] == 1 {
+			res.Mul(&res, x)
+		} else if eNAF[i] == -1 {
+			res.Mul(&res, &xInv)
 		}
 	}
 	z.Set(&res)
