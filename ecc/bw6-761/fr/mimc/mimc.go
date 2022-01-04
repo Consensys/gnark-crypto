@@ -18,7 +18,6 @@ package mimc
 
 import (
 	"hash"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"golang.org/x/crypto/sha3"
@@ -38,13 +37,19 @@ func NewParams(seed string) Params {
 	// set the constants
 	res := make(Params, mimcNbRounds)
 
-	rnd := sha3.Sum256([]byte(seed))
-	value := new(big.Int).SetBytes(rnd[:])
+	bseed := ([]byte)(seed)
+
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(bseed)
+	rnd := hash.Sum(nil) // pre hash before use
+	hash.Reset()
+	hash.Write(rnd)
 
 	for i := 0; i < mimcNbRounds; i++ {
-		rnd = sha3.Sum256(value.Bytes())
-		value.SetBytes(rnd[:])
-		res[i].SetBigInt(value)
+		rnd = hash.Sum(nil)
+		res[i].SetBytes(rnd)
+		hash.Reset()
+		hash.Write(rnd)
 	}
 
 	return res
@@ -136,8 +141,8 @@ func (d *digest) checksum() fr.Element {
 	for i := 0; i < nbChunks; i++ {
 		copy(buffer[:], d.data[i*BlockSize:(i+1)*BlockSize])
 		x.SetBytes(buffer[:])
-		d.encrypt(x)
-		d.h.Add(&x, &d.h)
+		r := d.encrypt(x)
+		d.h.Add(&r, &d.h).Add(&d.h, &x)
 	}
 
 	return d.h
@@ -146,7 +151,7 @@ func (d *digest) checksum() fr.Element {
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *digest) encrypt(m fr.Element) {
+func (d *digest) encrypt(m fr.Element) (e fr.Element) {
 
 	for i := 0; i < len(d.Params); i++ {
 		// m = (m+k+c)^5
@@ -156,8 +161,8 @@ func (d *digest) encrypt(m fr.Element) {
 			Square(&m).
 			Mul(&m, &tmp)
 	}
-	m.Add(&m, &d.h)
-	d.h = m
+	e.Add(&m, &d.h)
+	return
 }
 
 // Sum computes the mimc hash of msg from seed
