@@ -153,7 +153,7 @@ func expByC2(z *fp.Element, x *fp.Element) {
 	}
 }
 
-func isogenyG1(x *fp.Element, y *fp.Element) {
+func IsogenyG1(p *G1Affine) {
 	var num fp.Element
 	var den fp.Element
 
@@ -184,9 +184,9 @@ func isogenyG1(x *fp.Element, y *fp.Element) {
 		"95fc13ab9e92ad4476d6e3eb3a56680f682b4ee96f7d03776df533978f31c1593174e4b4b7865002d6384d168ecdd0a",
 	}
 
-	num.EvalPolynomialHex(x, numCHex)
-	den.EvalPolynomialHex(x, denCHex)
-	x.Div(&num, &den)
+	num.EvalPolynomialHex(&p.X, numCHex)
+	den.EvalPolynomialHex(&p.X, denCHex)
+	p.X.Div(&num, &den)
 
 	numCHex = []string{
 		"90d97c81ba24ee0259d1f094980dcfa11ad138e48a869522b52af6c956543d3cd0c7aee9b3ba3c2be9845719707bb33",
@@ -224,7 +224,7 @@ func isogenyG1(x *fp.Element, y *fp.Element) {
 		"e0fa1d816ddc03e6b24255e0d7819c171c40f65e273b853324efcd6356caa205ca2f570f13497804415473a1d634b8f",
 	}
 
-	num.EvalPolynomialHex(y, numCHex)
-	den.EvalPolynomialHex(y, denCHex)
-	y.Div(&num, &den)
+	num.EvalPolynomialHex(&p.Y, numCHex)
+	den.EvalPolynomialHex(&p.Y, denCHex)
+	p.Y.Div(&num, &den)
 }
