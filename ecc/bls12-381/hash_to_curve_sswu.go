@@ -185,8 +185,9 @@ func IsogenyG1(p *G1Affine) {
 	}
 
 	num.EvalPolynomialHex(&p.X, numCHex)
-	den.EvalPolynomialHex(&p.X, denCHex)
-	p.X.Div(&num, &den)
+	den.EvalPolynomialHex(&p.X, append(denCHex, "1")) //TODO: Be smart about monic polys
+	var resX fp.Element
+	resX.Div(&num, &den)
 
 	numCHex = []string{
 		"90d97c81ba24ee0259d1f094980dcfa11ad138e48a869522b52af6c956543d3cd0c7aee9b3ba3c2be9845719707bb33",
@@ -206,6 +207,7 @@ func IsogenyG1(p *G1Affine) {
 		"5c129645e44cf1102a159f748c4a3fc5e673d81d7e86568d9ab0f5d396a7ce46ba1049b6579afb7866b1e715475224b",
 		"15e6be4e990f03ce4ea50b3b42df2eb5cb181d8f84965a3957add4fa95af01b2b665027efec01c7704b456be69c8b604",
 	}
+
 	denCHex = []string{
 		"16112c4c3a9c98b252181140fad0eae9601a6de578980be6eec3232b5be72e7a07f3688ef60c206d01479253b03663c1",
 		"1962d75c2381201e1a0cbd6c43c348b885c84ff731c4d59ca4a10356f453e01f78a4260763529e3532f6102c2e49a03d",
@@ -224,7 +226,9 @@ func IsogenyG1(p *G1Affine) {
 		"e0fa1d816ddc03e6b24255e0d7819c171c40f65e273b853324efcd6356caa205ca2f570f13497804415473a1d634b8f",
 	}
 
-	num.EvalPolynomialHex(&p.Y, numCHex)
-	den.EvalPolynomialHex(&p.Y, denCHex)
+	num.EvalPolynomialHex(&p.X, numCHex)
+	den.EvalPolynomialHex(&p.X, append(denCHex, "1")) //TODO: Be smart about monic polys
+	num.Mul(&num, &p.Y)
 	p.Y.Div(&num, &den)
+	p.X = resX
 }
