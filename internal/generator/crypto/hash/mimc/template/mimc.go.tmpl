@@ -22,16 +22,25 @@ func NewParams(seed string) Params {
 	bseed := ([]byte)(seed)
 
 	hash := sha3.NewLegacyKeccak256()
-	hash.Write(bseed)
+	_, err := hash.Write(bseed)
+	if err != nil { // does not happen but needed for gosec
+		panic(err)
+	}
 	rnd := hash.Sum(nil) // pre hash before use
 	hash.Reset()
-	hash.Write(rnd)
+	_, err = hash.Write(rnd)
+	if err != nil { // does not happen but needed for gosec
+		panic(err)
+	}
 
 	for i := 0; i < mimcNbRounds; i++ {
 		rnd = hash.Sum(nil)
 		res[i].SetBytes(rnd)
 		hash.Reset()
-		hash.Write(rnd)
+		_, err := hash.Write(rnd)
+		if err != nil { // does not happen but needed for gosec
+			panic(err)
+		}
 	}
 
 	return res
