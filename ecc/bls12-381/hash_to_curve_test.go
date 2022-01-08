@@ -177,7 +177,11 @@ func TestToMont(t *testing.T) {
 	}
 }
 
-func TestMapToCurveG1SSWU(t *testing.T) {
+/*func TestMapToCurveG1SSWU(t *testing.T) {
+	MapToCurveSSWU
+}*/
+
+/*func TestMapToCurveG1SSWU(t *testing.T) {
 	Q := sswuMapG1(&fp.Element{941031641141724048, 7593419090796165139, 13447299832369701844, 7664570780628181207, 16833839340160123079, 332469494419187881})
 	expected := G1Affine{
 		fp.Element{4563475290293962576, 3982361128921378550, 16152256253200838243, 12773063786225987449, 2858682674850780732, 785746258097921522},
@@ -187,11 +191,28 @@ func TestMapToCurveG1SSWU(t *testing.T) {
 	if Q != expected {
 		t.Fail()
 	}
-}
+}*/
 
 func TestEncodeToCurveG1SSWU(t *testing.T) {
 	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_"
 	seen, err := EncodeToCurveG1SSWU([]byte{}, []byte(dst))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedP := G1Affine{
+		fp.Element{4508701981465676087, 16014981725829343206, 1429121664596480851, 16754737785772897928, 14176845108067946534, 575224408015977794},
+		fp.Element{4886454369921712624, 10597955738183899813, 11346608665277124313, 7940767554533245898, 16448266045496148945, 285064240491496456},
+	}
+
+	if seen != expectedP {
+		t.Fail()
+	}
+}
+
+func TestHashToCurveG1SSWU(t *testing.T) {
+	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_"
+	seen, err := HashToCurveG1SSWU([]byte{}, []byte(dst))
 	if err != nil {
 		t.Fatal(err)
 	}
