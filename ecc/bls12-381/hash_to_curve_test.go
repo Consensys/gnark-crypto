@@ -144,16 +144,6 @@ func TestIsogenyG1(t *testing.T) {
 	}
 }
 
-func TestToMont(t *testing.T) {
-	s := []string{
-		"0 = {math/big.Word} 1\n1 = {math/big.Word} 0\n2 = {math/big.Word} 0\n3 = {math/big.Word} 0\n4 = {math/big.Word} 0\n5 = {math/big.Word} 0", "0 = {math/big.Word} 13610436265939526458\n1 = {math/big.Word} 14561699186956717708\n2 = {math/big.Word} 14865066093874793548\n3 = {math/big.Word} 14231665274560599601\n4 = {math/big.Word} 7953345632490515027\n5 = {math/big.Word} 615153679158255179", "0 = {math/big.Word} 3043931179675399695\n1 = {math/big.Word} 4878853097464208641\n2 = {math/big.Word} 11144953449459701748\n3 = {math/big.Word} 12799317866228993986\n4 = {math/big.Word} 6944570897389024363\n5 = {math/big.Word} 667881774812630462", "0 = {math/big.Word} 3865851310648910679\n1 = {math/big.Word} 12501907331811675599\n2 = {math/big.Word} 12238389446615508914\n3 = {math/big.Word} 13704265888286126455\n4 = {math/big.Word} 6553643744354805799\n5 = {math/big.Word} 1213699486410940798", "0 = {math/big.Word} 3840949932698093167\n1 = {math/big.Word} 4009333284470593689\n2 = {math/big.Word} 17357686029068793032\n3 = {math/big.Word} 1646084630507526823\n4 = {math/big.Word} 8867372532604559818\n5 = {math/big.Word} 223781729648735329", "0 = {math/big.Word} 14813126532147369080\n1 = {math/big.Word} 5868165255598339622\n2 = {math/big.Word} 1121207778909989363\n3 = {math/big.Word} 1916248906037787718\n4 = {math/big.Word} 10795077326714211317\n5 = {math/big.Word} 695812133980925453", "0 = {math/big.Word} 18387959409564224282\n1 = {math/big.Word} 14840689404063775002\n2 = {math/big.Word} 6937378136204647022\n3 = {math/big.Word} 16124506650899193496\n4 = {math/big.Word} 10018794535072793499\n5 = {math/big.Word} 256990648642259228", "0 = {math/big.Word} 9391008319020907154\n1 = {math/big.Word} 9995698222462547125\n2 = {math/big.Word} 12452769355443485242\n3 = {math/big.Word} 4007096256474708190\n4 = {math/big.Word} 8046360065487399253\n5 = {math/big.Word} 1333658353946334127", "0 = {math/big.Word} 1326156799764198676\n1 = {math/big.Word} 2227120228414737348\n2 = {math/big.Word} 2997801608460978904\n3 = {math/big.Word} 3293753599947951320\n4 = {math/big.Word} 15434944276066759143\n5 = {math/big.Word} 1342656425708745322", "0 = {math/big.Word} 5564714553045267272\n1 = {math/big.Word} 10184335806762559071\n2 = {math/big.Word} 11908592643195788647\n3 = {math/big.Word} 1408397412514387242\n4 = {math/big.Word} 12526651621772595867\n5 = {math/big.Word} 614894643076346113", "0 = {math/big.Word} 1981405961318803243\n1 = {math/big.Word} 8721076847999834889\n2 = {math/big.Word} 8023158070544658029\n3 = {math/big.Word} 9384048753164702677\n4 = {math/big.Word} 13846846214150601562\n5 = {math/big.Word} 820924745816190625", "0 = {math/big.Word} 5378519619368490326\n1 = {math/big.Word} 2542298885948939279\n2 = {math/big.Word} 1035494106593601068\n3 = {math/big.Word} 4123540199000133648\n4 = {math/big.Word} 11599759719410769113\n5 = {math/big.Word} 521334752535042167", "0 = {math/big.Word} 11958932834865370824\n1 = {math/big.Word} 11554582496232138914\n2 = {math/big.Word} 1146065373692080960\n3 = {math/big.Word} 16012727719879505514\n4 = {math/big.Word} 12016547727149151797\n5 = {math/big.Word} 1126043410829816789", "0 = {math/big.Word} 8136075262792960945\n1 = {math/big.Word} 16842212521062443814\n2 = {math/big.Word} 14930771960835430251\n3 = {math/big.Word} 6578314546905007417\n4 = {math/big.Word} 9965336544922366599\n5 = {math/big.Word} 853639996198389885", "0 = {math/big.Word} 11132792215270049017\n1 = {math/big.Word} 16993842496309820931\n2 = {math/big.Word} 3671995413309298753\n3 = {math/big.Word} 17747748751803759251\n4 = {math/big.Word} 15314888350765616635\n5 = {math/big.Word} 1590750455491226264", "0 = {math/big.Word} 3522027620651039279\n1 = {math/big.Word} 11421432582115914769\n2 = {math/big.Word} 11664931178663920988\n3 = {math/big.Word} 11509243117701410857\n4 = {math/big.Word} 9094218744705950154\n5 = {math/big.Word} 187403685399302949",
-	}
-
-	for _, e := range s {
-		textToMont(e)
-	}
-}
-
 func textToMont(s string) {
 	sLines := strings.Split(s, "\n")
 
@@ -175,4 +165,43 @@ func textToMont(s string) {
 	fmt.Println(elem)
 	elem.ToMont()
 	fmt.Println(elem)
+}
+
+func TestToMont(t *testing.T) {
+	s := []string{
+		"0 = {math/big.Word} 2395169489792401897\n1 = {math/big.Word} 16200963222643526893\n2 = {math/big.Word} 8851840347038112262\n3 = {math/big.Word} 12313931326324315193\n4 = {math/big.Word} 8203124518749309010\n5 = {math/big.Word} 468881680477278892",
+	}
+
+	for _, e := range s {
+		textToMont(e)
+	}
+}
+
+func TestMapToCurveG1SSWU(t *testing.T) {
+	Q := sswuMapG1(&fp.Element{941031641141724048, 7593419090796165139, 13447299832369701844, 7664570780628181207, 16833839340160123079, 332469494419187881})
+	expected := G1Affine{
+		fp.Element{4563475290293962576, 3982361128921378550, 16152256253200838243, 12773063786225987449, 2858682674850780732, 785746258097921522},
+		fp.Element{10945627526752281529, 13120484463621343084, 500907696078610998, 17841918537664625985, 667297683540361872, 773042732898677554},
+	}
+
+	if Q != expected {
+		t.Fail()
+	}
+}
+
+func TestEncodeToCurveG1SSWU(t *testing.T) {
+	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_"
+	seen, err := EncodeToCurveG1SSWU([]byte{}, []byte(dst))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedP := G1Affine{
+		fp.Element{4508701981465676087, 16014981725829343206, 1429121664596480851, 16754737785772897928, 14176845108067946534, 575224408015977794},
+		fp.Element{4886454369921712624, 10597955738183899813, 11346608665277124313, 7940767554533245898, 16448266045496148945, 285064240491496456},
+	}
+
+	if seen != expectedP {
+		t.Fail()
+	}
 }
