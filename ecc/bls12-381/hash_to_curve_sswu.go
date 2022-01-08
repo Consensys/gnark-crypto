@@ -10,7 +10,7 @@ import (
 
 // Using the isogenous curve E1': y² = x³ + a₁ x + b₁
 //TODO: Montgomery form
-
+/*
 const a10 uint64 = 0x5cf428082d584c1d
 const a11 uint64 = 0x98936f8da0e0f97f
 const a12 uint64 = 0xd8e8981aefd881ac
@@ -24,12 +24,19 @@ const b12 uint64 = 0xa0b9c14fcef35ef5
 const b13 uint64 = 0x2016c1f0f24f4070
 const b14 uint64 = 0x018b12e8753eee3b
 const b15 uint64 = 0x12e2908d11688030
+*/
 
 //EFFECTIVE h?
 const hEff uint64 = 0xd201000000010001
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 func sswuMapG1(u *fp.Element) G1Affine {
+
+	var A fp.Element
+	var B fp.Element
+
+	A.SetHex("144698a3b8e9433d693a02c96d4982b0ea985383ee66a8d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d")
+	B.SetHex("12e2908d11688030018b12e8753eee3b2016c1f0f24f4070a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0")
 
 	var tv1 fp.Element
 	tv1.Square(u)
@@ -43,10 +50,14 @@ func sswuMapG1(u *fp.Element) G1Affine {
 
 	var tv3 fp.Element
 	//Standard doc line 5
-	tv3.Add(&tv2, &fp.Element{1}) //TODO: Optimize? I think not
-	tv3.Mul(&tv3, &fp.Element{b10, b11, b12, b13, b14, b15})
+	var tv4 fp.Element
+	tv4.SetOne()
+	tv3.Add(&tv2, &tv4)
+	tv3.Mul(&tv3, &B)
+	//tv3.Mul(&tv3, &fp.Element{b10, b11, b12, b13, b14, b15})
 
-	tv4 := fp.Element{a10, a11, a12, a13, a14, a15}
+	tv4 = A
+	//tv4 := fp.Element{a10, a11, a12, a13, a14, a15}
 	//TODO: Std doc uses conditional move. If-then-else good enough here?
 	if tv2.IsZero() {
 		tv4.MulByConstant(Z) //WARNING: this takes less time
@@ -61,14 +72,16 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv6.Square(&tv4)
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &fp.Element{a10, a11, a12, a13, a14, a15})
+	tv5.Mul(&tv6, &A)
+	//tv5.Mul(&tv6, &fp.Element{a10, a11, a12, a13, a14, a15})
 
 	tv2.Add(&tv2, &tv5)
-	tv2.Add(&tv2, &tv3)
+	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &fp.Element{b10, b11, b12, b13, b14, b15})
+	tv5.Mul(&tv6, &B)
+	//tv5.Mul(&tv6, &fp.Element{b10, b11, b12, b13, b14, b15})
 	tv2.Add(&tv2, &tv5)
 
 	var x fp.Element
@@ -153,10 +166,12 @@ func expByC2(z *fp.Element, x *fp.Element) {
 	}
 }
 
+//IsogenyG1 Could be more efficient if we worked with projective coordinates
 func IsogenyG1(p *G1Affine) {
 	var num fp.Element
 	var den fp.Element
 
+	//TODO: Encode using consts and not strings
 	numCHex := []string{
 		"11a05f2b1e833340b809101dd99815856b303e88a2d7005ff2627b56cdb4e2c85610c2d5f2e62d6eaeac1662734649b7",
 		"17294ed3e943ab2f0588bab22147a81c7c17e75b2f6a8417f565e33c70d1e86b4838f2a6f318c356e834eef1b3cb83bb",
@@ -231,4 +246,22 @@ func IsogenyG1(p *G1Affine) {
 	num.Mul(&num, &p.Y)
 	p.Y.Div(&num, &den)
 	p.X = resX
+}
+
+// EncodeToCurveG1SSWU maps an fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	t, err := hashToFp(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+	res = sswuMapG1(&t[0])
+
+	//this is in an isogenous curve
+	IsogenyG1(&res)
+
+	res.ClearCofactor(&res)
+
+	return res, nil
 }
