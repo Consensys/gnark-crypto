@@ -19,6 +19,7 @@ package bls12381
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
@@ -642,6 +643,36 @@ func BenchmarkG1JacExtDouble(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.double(&a)
+	}
+}
+
+func BenchmarkG1EncodeToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_")
+
+	for i := 0; i < 100000; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := EncodeToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+func BenchmarkG1HashToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_")
+
+	for i := 0; i < 100000; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := HashToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
 	}
 }
 

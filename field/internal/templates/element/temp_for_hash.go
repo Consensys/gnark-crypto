@@ -16,6 +16,9 @@ func (z *{{.ElementName}}) Sgn0() bool {
 func (z *{{.ElementName}}) SetHex(hex string) {
 	var i big.Int
 	i.SetString(hex, 16)
+	if _, b := i.SetString(hex, 16); !b {
+		panic("SetString failed")
+	}
 	z.SetBigInt(&i)
 }
 
