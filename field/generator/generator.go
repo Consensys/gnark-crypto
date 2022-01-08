@@ -16,7 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/internal/templates/element"
 )
 
-// TODO @gbotrel --> pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
+// TODO @gbotrel → pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
 // base field. in Go 1.16, can embed the template in the binary, and use same pattern than gnark-crypto/internal
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
@@ -37,6 +37,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.Sqrt,
 		element.Inverse,
 		element.BigNum,
+		element.TempForHash,
 	}
 
 	// test file templates
