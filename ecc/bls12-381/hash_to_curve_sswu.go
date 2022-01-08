@@ -276,6 +276,11 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	}
 	Q0 := sswuMapG1(&u[0])
 	Q1 := sswuMapG1(&u[1])
+
+	//TODO: Add in E' first, then apply isogeny
+	IsogenyG1(&Q0)
+	IsogenyG1(&Q1)
+
 	var _Q0, _Q1, _res G1Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1)
