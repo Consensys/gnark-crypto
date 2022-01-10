@@ -151,6 +151,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case Element:
 		return z.Set(&c1), nil
 	case *Element:
+		if c1 == nil {
+			return nil, errors.New("can't set fr.Element with <nil>")
+		}
 		return z.Set(c1), nil
 	case uint8:
 		return z.SetUint64(uint64(c1)), nil
@@ -175,6 +178,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
+		if c1 == nil {
+			return nil, errors.New("can't set fr.Element with <nil>")
+		}
 		return z.SetBigInt(c1), nil
 	case big.Int:
 		return z.SetBigInt(&c1), nil
