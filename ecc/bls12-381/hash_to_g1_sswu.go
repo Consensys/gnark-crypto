@@ -166,12 +166,13 @@ func expByC2(z *fp.Element, x *fp.Element) {
 	}
 }
 
-//IsogenyG1 Could be more efficient if we worked with projective coordinates
-func IsogenyG1(p *G1Affine) {
+//isogenyG1 Could be more efficient if we worked with projective coordinates
+func isogenyG1(p *G1Affine) {
 	var num fp.Element
 	var den fp.Element
 
 	//TODO: Encode using consts and not strings
+	//TODO: Greatest current source of inefficiency
 	numCHex := []string{
 		"11a05f2b1e833340b809101dd99815856b303e88a2d7005ff2627b56cdb4e2c85610c2d5f2e62d6eaeac1662734649b7",
 		"17294ed3e943ab2f0588bab22147a81c7c17e75b2f6a8417f565e33c70d1e86b4838f2a6f318c356e834eef1b3cb83bb",
@@ -248,7 +249,7 @@ func IsogenyG1(p *G1Affine) {
 	p.X = resX
 }
 
-// EncodeToCurveG1SSWU maps an fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	var res G1Affine
@@ -259,7 +260,7 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	res = sswuMapG1(&t[0])
 
 	//this is in an isogenous curve
-	IsogenyG1(&res)
+	isogenyG1(&res)
 
 	res.ClearCofactor(&res)
 
@@ -278,8 +279,8 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	Q1 := sswuMapG1(&u[1])
 
 	//TODO: Add in E' first, then apply isogeny
-	IsogenyG1(&Q0)
-	IsogenyG1(&Q1)
+	isogenyG1(&Q0)
+	isogenyG1(&Q1)
 
 	var _Q0, _Q1, _res G1Jac
 	_Q0.FromAffine(&Q0)

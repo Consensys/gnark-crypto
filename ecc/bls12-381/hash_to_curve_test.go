@@ -137,7 +137,7 @@ func TestIsogenyG1(t *testing.T) {
 	ref.X.ToMont()
 	ref.Y.ToMont()
 
-	IsogenyG1(&p)
+	isogenyG1(&p)
 
 	if ref != p {
 		t.Fail()
