@@ -12,6 +12,8 @@ if {{$.V2}} {
 {{- end}}
 {{end}}
 
+{{ if notNil $.HashInfo.E1Prime }}
 func isogeny_x_numerator(dst *fp.Element, src *fp.Element) {
-    {{ eval_poly "dst" "False" $.HashInfo.E1Prime.XMap.NumHex "src" }}
+    {{ template "eval_poly" "dst" "False" $.HashInfo.E1Prime.XMap.Num "src" }}
 }
+{{ end }}
