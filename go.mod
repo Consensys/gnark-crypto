@@ -10,3 +10,6 @@ require (
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/sys v0.0.0-20210420205809-ac73e9fd8988
 )
+
+//TODO: Remove before PR
+replace github.com/consensys/bavard => /Users/arya/bavard
