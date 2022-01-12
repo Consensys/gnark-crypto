@@ -1,14 +1,15 @@
-{{ define "eval_poly" //arguments: destination, monic, coefficients, variable}}
+{{ define "eval_poly" }}
+{{/*arguments: destination, monic, coefficients, variable*/}}
 *{{$.V1}} = {{last $.V3}}
 
 if {{$.V2}} {
    {{$.V1}}.Add({{$.V1}}, &{{$.V4}})
 }
 
-{{ - range c := reverse $.V3}}
+{{- range $c := reverse $.V3}}
 {{$.V1}}.Mul({{$.V1}}, {{$.V4}})
 {{$.V1}}.Mul({{$.V1}}, fp.Element{ {{$c}} })
-{{ - end}}
+{{- end}}
 {{end}}
 
 func isogeny_x_numerator(dst *fp.Element, src *fp.Element) {

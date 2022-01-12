@@ -149,7 +149,7 @@ func Test{{.ElementName}}MontNegMultipleOfR(t *testing.T) {
 }
 
 func Test{{.ElementName}}0Inverse(t *testing.T) {
-	var x {{.ElementInverse}}
+	var x {{.ElementName}}
 	x.Inverse(&x)
 	if !x.IsZero() {
 		t.Fail()
