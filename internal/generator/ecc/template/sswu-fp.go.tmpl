@@ -1,19 +1,19 @@
 {{ define "eval_poly" }}
 {{/*arguments: destination, monic, coefficients, variable*/}}
-*{{$.V1}} = {{last $.V3}}
+*{{$.dst}} = fp.Element{ {{printList last $.coefficients}} }
 
-if {{$.V2}} {
-   {{$.V1}}.Add({{$.V1}}, &{{$.V4}})
-}
+{{ if $.monic }}
+{{$.dst}}.Add({{$.dst}}, {{$.x}})
+{{ end }}
 
-{{- range $c := reverse $.V3}}
-{{$.V1}}.Mul({{$.V1}}, {{$.V4}})
-{{$.V1}}.Mul({{$.V1}}, fp.Element{ {{$c}} })
+{{- range $i := slice reverse iterate len $.coefficients 1}}
+{{$.dst}}.Mul({{$.dst}}, {{$.x}})
+{{$.dst}}.Add({{$.dst}}, fp.Element{ {{printList index $.coefficients $i}} })
 {{- end}}
 {{end}}
 
 {{ if notNil $.HashInfo.E1Prime }}
-func isogeny_x_numerator(dst *fp.Element, src *fp.Element) {
-    {{ template "eval_poly" "dst" "False" $.HashInfo.E1Prime.XMap.Num "src" }}
+func isogeny_x_numerator(dst *fp.Element, x *fp.Element) {
+    {{ template "eval_poly" dict "dst" "dst" "monic" false "coefficients" $.HashInfo.E1Prime.XMap.Num "x" "x" }}
 }
 {{ end }}
