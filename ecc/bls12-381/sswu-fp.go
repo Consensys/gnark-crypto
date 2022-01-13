@@ -20,8 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 )
 
-// TODO: Replace with runtime loop?
-
 func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
 	dst.EvalPolynomial(
 		false,

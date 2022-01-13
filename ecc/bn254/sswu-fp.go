@@ -19,5 +19,3 @@ package bn254
 import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 )
-
-// TODO: Replace with runtime loop?
