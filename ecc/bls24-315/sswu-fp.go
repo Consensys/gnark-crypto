@@ -19,5 +19,3 @@ package bls24315
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 )
-
-// TODO: Replace with runtime loop?

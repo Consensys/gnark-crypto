@@ -1684,27 +1684,6 @@ func (z *Element) SetHex(hex string) {
 	z.SetBigInt(&i)
 }
 
-func (z *Element) EvalPolynomialHex(x *Element, cHex []string) {
-	c := make([]Element, len(cHex))
-
-	for i, hex := range cHex {
-		c[i].SetHex(hex)
-	}
-
-	z.EvalPolynomialOld(x, c)
-}
-
-func (z *Element) EvalPolynomialOld(x *Element, c []Element) {
-	f := c[len(c)-1]
-
-	for i := len(c) - 2; i >= 0; i-- {
-		f.Mul(&f, x)
-		f.Add(&f, &c[i])
-	}
-
-	*z = f
-}
-
 func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
 	dst := coefficients[len(coefficients)-1]
 
