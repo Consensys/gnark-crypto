@@ -25,6 +25,8 @@ package fp
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
+// TODO: Discuss why this has to be in place, and why x is not a receiver
+
 // MulBy3 x *= 3
 func MulBy3(x *Element) {
 	mulByConstant(x, 3)
@@ -33,6 +35,11 @@ func MulBy3(x *Element) {
 // MulBy5 x *= 5
 func MulBy5(x *Element) {
 	mulByConstant(x, 5)
+}
+
+// MulBy11 x *= 11
+func MulBy11(x *Element) {
+	mulByConstant(x, 11)
 }
 
 // MulBy13 x *= 13

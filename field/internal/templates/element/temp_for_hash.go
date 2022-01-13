@@ -29,10 +29,10 @@ func (z *{{.ElementName}}) EvalPolynomialHex(x *{{.ElementName}}, cHex []string)
 		c[i].SetHex(hex)
 	}
 
-	z.EvalPolynomial(x, c)
+	z.EvalPolynomialOld(x, c)
 }
 
-func (z *{{.ElementName}}) EvalPolynomial(x *{{.ElementName}}, c []{{.ElementName}}) {
+func (z *{{.ElementName}}) EvalPolynomialOld(x *{{.ElementName}}, c []{{.ElementName}}) {
 	f := c[len(c)-1]
 
 	for i := len(c) - 2; i >= 0; i-- {
@@ -41,5 +41,20 @@ func (z *{{.ElementName}}) EvalPolynomial(x *{{.ElementName}}, c []{{.ElementNam
 	}
 
 	*z = f
+}
+
+func (z *{{.ElementName}}) EvalPolynomial(monic bool, coefficients []{{.ElementName}}, x *{{.ElementName}}) {
+    dst := coefficients[len(coefficients) - 1]
+
+    if monic {
+        dst.Add(&dst, x)
+    }
+
+    for i := len(coefficients) - 2; i >= 0; i-- {
+        dst.Mul(&dst, x)
+        dst.Add(&dst, &coefficients[i])
+    }
+
+    *z = dst
 }
 `

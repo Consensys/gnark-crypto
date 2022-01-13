@@ -42,7 +42,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv1.Square(u)
 
 	//mul tv1 by Z
-	tv1.MulByConstant(Z)
+	fp.MulBy11(&tv1)
 
 	var tv2 fp.Element
 	tv2.Square(&tv1)
@@ -60,7 +60,8 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	//tv4 := fp.Element{a10, a11, a12, a13, a14, a15}
 	//TODO: Std doc uses conditional move. If-then-else good enough here?
 	if tv2.IsZero() {
-		tv4.MulByConstant(Z) //WARNING: this takes less time
+		fp.MulBy11(&tv4) //WARNING: this branch takes less time
+		//tv4.MulByConstant(Z)
 	} else {
 		tv4.Mul(&tv4, &tv2)
 		tv4.Neg(&tv4)
@@ -166,8 +167,7 @@ func expByC2(z *fp.Element, x *fp.Element) {
 	}
 }
 
-//isogenyG1 Could be more efficient if we worked with projective coordinates
-func isogenyG1(p *G1Affine) {
+func isogenyG1Old(p *G1Affine) {
 	var num fp.Element
 	var den fp.Element
 

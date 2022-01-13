@@ -95,12 +95,8 @@ func main() {
 	wg.Wait()
 
 	// format the whole directory
-	cmd := exec.Command("mathfmt", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
 
-	cmd = exec.Command("gofmt", "-s", "-w", baseDir)
+	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
@@ -109,6 +105,12 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
+
+	//mathfmt doesn't accept directories. TODO: PR?
+	/*cmd = exec.Command("mathfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())*/
 }
 
 func assertNoError(err error) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"math/big"
+	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
@@ -73,7 +74,7 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 	ref.Div(u, v)
 	var qrRef bool
 	if ref.Legendre() == -1 {
-		ref.MulByConstant(Z)
+		fp.MulBy11(&ref)
 		qrRef = false
 	} else {
 		qrRef = true
@@ -100,7 +101,7 @@ func TestMulByConstant(t *testing.T) {
 
 		var yP fp.Element
 
-		y.MulByConstant(11)
+		fp.MulBy11(&y)
 
 		for i := 0; i < 11; i++ {
 			yP.Add(&yP, &x)
@@ -228,5 +229,35 @@ func TestHashToCurveG1SSWU(t *testing.T) {
 
 	if seen != expectedP {
 		t.Fail()
+	}
+}
+
+func BenchmarkG1EncodeToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_")
+
+	for i := 0; i < 100000; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := EncodeToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+func BenchmarkG1HashToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_")
+
+	for i := 0; i < 100000; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := HashToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
 	}
 }
