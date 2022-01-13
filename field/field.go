@@ -17,10 +17,8 @@ package field
 
 import (
 	"errors"
-	"math/big"
-	"math/bits"
-
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
+	"math/big"
 )
 
 var (
@@ -305,34 +303,20 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 	qInv.Neg(qInv)
 }
 
-//HexToMontSlice takes an element written in hex, and returns how it would be stored as a field element
+//HexToMont takes an element written in hex, and returns it in Montgomery form
 //Useful for hard-coding in implementation field elements from standards documents
-func HexToMontSlice(fieldModulus *big.Int, hex string) []uint64 {
-	nbWords := (fieldModulus.BitLen()-1)/64 + 1
+func HexToMont(hex string, fieldModulus *big.Int) big.Int {
 
-	res := make([]uint64, nbWords)
-
-	//read string
 	var i big.Int
 	i.SetString(hex, 16)
 
-	//montgomery
-	i.Lsh(&i, uint(nbWords)*64)
-	i.Mod(&i, fieldModulus)
+	IntToMont(&i, fieldModulus)
 
-	words := i.Bits()
+	return i
+}
 
-	for i := 0; i < nbWords*64/bits.UintSize; i++ {
-		var word uint64
-		if i < len(words) {
-			word = uint64(words[i])
-		}
-		if bits.UintSize == 64 || i%2 == 0 {
-			res[i*bits.UintSize/64] = word
-		} else {
-			res[i/2] = res[i/2]<<32 + word
-		}
-	}
-
-	return res
+func IntToMont(i *big.Int, fieldModulus *big.Int) {
+	nbWords := (fieldModulus.BitLen()-1)/64 + 1
+	i.Lsh(i, uint(nbWords)*64)
+	i.Mod(i, fieldModulus)
 }
