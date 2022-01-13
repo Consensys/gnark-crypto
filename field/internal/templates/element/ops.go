@@ -5,6 +5,8 @@ const OpsAMD64 = `
 
 {{if .ASM}}
 
+//TODO: Add MulBy11
+
 //go:noescape
 func MulBy3(x *{{.ElementName}})
 

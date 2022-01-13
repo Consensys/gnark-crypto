@@ -499,6 +499,9 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y {{.ElementName}}
 		y.SetUint64(uint64(c))

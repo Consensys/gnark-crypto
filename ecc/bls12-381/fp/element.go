@@ -800,10 +800,6 @@ func _reduceGeneric(z *Element) {
 	}
 }
 
-func (z *Element) MulByConstant(c uint8) {
-	mulByConstant(z, c)
-}
-
 func mulByConstant(z *Element, c uint8) {
 	switch c {
 	case 0:
@@ -823,7 +819,6 @@ func mulByConstant(z *Element, c uint8) {
 	case 11:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
-
 	default:
 		var y Element
 		y.SetUint64(uint64(c))
@@ -1683,6 +1678,9 @@ func (z *Element) Sgn0() bool {
 func (z *Element) SetHex(hex string) {
 	var i big.Int
 	i.SetString(hex, 16)
+	if _, b := i.SetString(hex, 16); !b {
+		panic("SetString failed")
+	}
 	z.SetBigInt(&i)
 }
 
@@ -1693,10 +1691,10 @@ func (z *Element) EvalPolynomialHex(x *Element, cHex []string) {
 		c[i].SetHex(hex)
 	}
 
-	z.EvalPolynomial(x, c)
+	z.EvalPolynomialOld(x, c)
 }
 
-func (z *Element) EvalPolynomial(x *Element, c []Element) {
+func (z *Element) EvalPolynomialOld(x *Element, c []Element) {
 	f := c[len(c)-1]
 
 	for i := len(c) - 2; i >= 0; i-- {
@@ -1705,4 +1703,19 @@ func (z *Element) EvalPolynomial(x *Element, c []Element) {
 	}
 
 	*z = f
+}
+
+func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	*z = dst
 }

@@ -7,21 +7,18 @@ const OpsNoAsm = `
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
+// TODO: Discuss why this has to be in place, and why x is not a receiver
 
-// MulBy3 x *= 3
-func MulBy3(x *{{.ElementName}}) {
-	mulByConstant(x, 3)
+{{ $mulConsts := list 3 5 11 13 }}
+{{- range $i := $mulConsts }}
+
+// MulBy{{$i}} x *= {{$i}}
+func MulBy{{$i}}(x *{{$.ElementName}}) {
+	mulByConstant(x, {{$i}})
 }
 
-// MulBy5 x *= 5
-func MulBy5(x *{{.ElementName}}) {
-	mulByConstant(x, 5)
-}
+{{- end}}
 
-// MulBy13 x *= 13
-func MulBy13(x *{{.ElementName}}) {
-	mulByConstant(x, 13)
-}
 
 // Butterfly sets 
 // a = a + b

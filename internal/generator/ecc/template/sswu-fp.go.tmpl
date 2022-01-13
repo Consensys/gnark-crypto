@@ -1,19 +1,109 @@
+import (
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+)
+
 {{ define "eval_poly" }}
 {{/*arguments: destination, monic, coefficients, variable*/}}
-*{{$.dst}} = fp.Element{ {{printList last $.coefficients}} }
+*{{$.dst}} = fp.Element{ {{printList (last $.coefficients)}} }
 
 {{ if $.monic }}
 {{$.dst}}.Add({{$.dst}}, {{$.x}})
 {{ end }}
 
-{{- range $i := slice reverse iterate len $.coefficients 1}}
+{{$coeffsRev := reverse $.coefficients}}
+{{- range $c := slice $coeffsRev 1}}
 {{$.dst}}.Mul({{$.dst}}, {{$.x}})
-{{$.dst}}.Add({{$.dst}}, fp.Element{ {{printList index $.coefficients $i}} })
+{{$.dst}}.Add({{$.dst}}, &fp.Element{ {{printList $c}} })
 {{- end}}
 {{end}}
 
 {{ if notNil $.HashInfo.E1Prime }}
-func isogeny_x_numerator(dst *fp.Element, x *fp.Element) {
-    {{ template "eval_poly" dict "dst" "dst" "monic" false "coefficients" $.HashInfo.E1Prime.XMap.Num "x" "x" }}
+
+
+func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
+    dst.EvalPolynomial(
+        false,
+        []fp.Element {
+            {{- range $c := $.HashInfo.E1Prime.XMap.Num}}
+                { {{ printList $c }} },
+            {{- end}}
+        },
+        x)
 }
+
+func isogenyXDenominator(dst *fp.Element, x *fp.Element) {
+    dst.EvalPolynomial(
+        true,
+        []fp.Element {
+            {{- range $c := $.HashInfo.E1Prime.XMap.Den}}
+                { {{ printList $c }} },
+            {{- end}}
+        },
+        x)
+}
+
+func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
+    var _dst fp.Element
+    _dst.EvalPolynomial(
+        false,
+        []fp.Element {
+            {{- range $c := $.HashInfo.E1Prime.YMap.Num}}
+                { {{ printList $c }} },
+            {{- end}}
+        },
+        x)
+
+   dst.Mul(&_dst, y)
+}
+
+func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
+    dst.EvalPolynomial(
+        true,
+        []fp.Element {
+            {{- range $c := $.HashInfo.E1Prime.YMap.Den}}
+                { {{ printList $c }} },
+            {{- end}}
+        },
+        x)
+}
+
+func isogenyG1(p *G1Affine) {
+
+	den := make([]fp.Element, 2)
+
+	isogenyYDenominator(&den[1], &p.X)
+	isogenyXDenominator(&den[0], &p.X)
+
+	isogenyYNumerator(&p.Y, &p.X, &p.Y)
+	isogenyXNumerator(&p.X, &p.X)
+
+	den = fp.BatchInvert(den)
+
+	p.X.Mul(&p.X, &den[0])
+	p.Y.Mul(&p.Y, &den[1])
+}
+
+{{/*
+func isogenyXNumerator(dst *fp.Element, x *fp.Element) error {
+    if x == dst {
+        return fmt.Errorf("source and dest cannot be the same")
+    }
+    {{ template "eval_poly" dict "dst" "dst" "monic" false "coefficients" $.HashInfo.E1Prime.XMap.Num "x" "x" }}
+    return nil
+}
+
+
+func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) error{
+
+    if x == dst || y == dst {
+        return fmt.Errorf("source and dest cannot be the same")
+    }
+
+    {{ template "eval_poly" dict "dst" "dst" "monic" true "coefficients" $.HashInfo.E1Prime.YMap.Num "x" "x" }}
+    dst.Mul(dst, y)
+
+    return nil
+
+}
+*/}}
 {{ end }}
