@@ -1,9 +1,8 @@
 package config
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/field"
+	"math/big"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -60,6 +59,7 @@ func (c Curve) Equal(other Curve) bool {
 
 type Point struct {
 	CoordType        string
+	CoordExtDegree   uint8
 	PointName        string
 	GLV              bool  // scalar mulitplication using GLV
 	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
@@ -79,7 +79,7 @@ func addCurve(c *Curve) {
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
 	// c.Fp is nil here. TODO: Why? Fix if no good reason
-	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.HashE1)
+	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.G1, &c.HashE1)
 	Curves = append(Curves, *c)
 }
 
@@ -96,13 +96,57 @@ func newFieldInfo(modulus string) Field {
 	return F
 }
 
-func newHashSuiteInfo(fieldModulus *big.Int, suite *HashSuite) HashSuiteInfo {
-	return HashSuiteInfo{
-		A:       field.HexToMontSlice(fieldModulus, suite.AHex),
-		B:       field.HexToMontSlice(fieldModulus, suite.BHex),
-		Z:       suite.Z,
-		Isogeny: newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
+func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSuiteInfo {
+
+	fieldSize := pow(fieldModulus, G.CoordExtDegree)
+	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
+
+	//var sqrtRatioParams [][]uint64
+
+	if fieldSizeMod256%4 == 3 {
+		var c big.Int
+		c.Rsh(fieldSize, 2)
+		//append(sqrtRatioParams, field.HexToMontSlice(fieldModulus))
 	}
+
+	return HashSuiteInfo{
+		A:               field.HexToMontSlice(fieldModulus, suite.AHex),
+		B:               field.HexToMontSlice(fieldModulus, suite.BHex),
+		Z:               suite.Z,
+		Isogeny:         newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
+		FieldSizeMod256: fieldSizeMod256,
+	}
+}
+
+func pow(p *big.Int, pow uint8) *big.Int {
+
+	res := big.NewInt(1)
+
+	for i := 0; i < 8; i++ {
+		if pow|128 != 0 {
+			res.Mul(res, p)
+		}
+		if i != 8-1 {
+			res.Lsh(res, 1)
+		}
+	}
+	return res
+	/*	if p.BitLen() == 0 {
+			return 0
+		}
+
+		low := uint8(p.Bits()[0])
+		res := uint8(1)
+
+		for i := 0; i < 8; i++ {
+			if pow|128 != 0 {
+				res *= low
+			}
+			if i != 8-1 {
+				res *= res
+			}
+		}
+		return res*/
 }
 
 func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *Isogeny) *IsogenyInfo {
@@ -148,5 +192,7 @@ type HashSuiteInfo struct {
 	A []uint64
 	B []uint64
 
-	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	FieldSizeMod256 uint8
+	SqrtRatioParams [][]uint64
+	Z               int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 }
