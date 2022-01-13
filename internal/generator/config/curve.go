@@ -23,15 +23,11 @@ type Curve struct {
 	G1             Point
 	G2             Point
 
-	Hash     HashSuite
-	HashInfo HashSuiteInfo
+	HashE1     HashSuite
+	HashInfoE1 HashSuiteInfo
 }
 
-type IsogenousCurve struct {
-	AHex string
-	BHex string
-
-	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+type Isogeny struct {
 
 	//Isogeny to original curve
 	XMap RationalPolynomial
@@ -44,8 +40,12 @@ type RationalPolynomial struct {
 }
 
 type HashSuite struct {
-	E1Prime *IsogenousCurve //pointer so it's nullable. TODO: Bad practice or ok?
-	//E2Prime *IsogenousCurve
+	AHex string
+	BHex string
+
+	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+
+	Isogeny *Isogeny //pointer so it's nullable. TODO: Bad practice or ok?
 }
 
 type Field struct {
@@ -79,7 +79,7 @@ func addCurve(c *Curve) {
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
 	// c.Fp is nil here. TODO: Why? Fix if no good reason
-	c.HashInfo = newHashSuiteInfo(c.FpInfo.Modulus(), &c.Hash)
+	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.HashE1)
 	Curves = append(Curves, *c)
 }
 
@@ -98,18 +98,18 @@ func newFieldInfo(modulus string) Field {
 
 func newHashSuiteInfo(fieldModulus *big.Int, suite *HashSuite) HashSuiteInfo {
 	return HashSuiteInfo{
-		newIsogenousCurveInfoOptional(fieldModulus, suite.E1Prime),
+		A:       field.HexToMontSlice(fieldModulus, suite.AHex),
+		B:       field.HexToMontSlice(fieldModulus, suite.BHex),
+		Z:       suite.Z,
+		Isogeny: newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
 	}
 }
 
-func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *IsogenousCurve) *IsogenousCurveInfo {
+func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *Isogeny) *IsogenyInfo {
 	if isogenousCurve == nil {
 		return nil
 	}
-	return &IsogenousCurveInfo{
-		A: field.HexToMontSlice(fieldModulus, isogenousCurve.AHex),
-		B: field.HexToMontSlice(fieldModulus, isogenousCurve.BHex),
-		Z: isogenousCurve.Z,
+	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
 			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.XMap.NumHex),
 			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.XMap.DenHex),
@@ -131,13 +131,7 @@ func hexSliceToMontSliceSlice(fieldModulus *big.Int, hexSlice []string) [][]uint
 	return res
 }
 
-type IsogenousCurveInfo struct {
-	A []uint64
-	B []uint64
-
-	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-
-	//Isogeny to original curve
+type IsogenyInfo struct {
 	XMap RationalPolynomialInfo
 	YMap RationalPolynomialInfo // The y map is also evaluated on x. The result is multiplied by y.
 }
@@ -148,6 +142,11 @@ type RationalPolynomialInfo struct {
 }
 
 type HashSuiteInfo struct {
-	E1Prime *IsogenousCurveInfo //pointer so it's nullable. TODO: Bad practice or ok?
-	//E2Prime *IsogenousCurve
+	//Isogeny to original curve
+	Isogeny *IsogenyInfo //pointer so it's nullable. TODO: Bad practice or ok?
+
+	A []uint64
+	B []uint64
+
+	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 }

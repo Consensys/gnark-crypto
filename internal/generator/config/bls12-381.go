@@ -21,11 +21,11 @@ var BLS12_381 = Curve{
 		CRange:           defaultCRange(),
 		Projective:       true,
 	},
-	Hash: HashSuite{
-		E1Prime: &IsogenousCurve{
-			AHex: "144698a3b8e9433d693a02c96d4982b0ea985383ee66a8d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d",
-			BHex: "12e2908d11688030018b12e8753eee3b2016c1f0f24f4070a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0",
-			Z:    11,
+	HashE1: HashSuite{
+		AHex: "144698a3b8e9433d693a02c96d4982b0ea985383ee66a8d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d",
+		BHex: "12e2908d11688030018b12e8753eee3b2016c1f0f24f4070a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0",
+		Z:    11,
+		Isogeny: &Isogeny{
 			XMap: RationalPolynomial{
 				NumHex: []string{
 					"11a05f2b1e833340b809101dd99815856b303e88a2d7005ff2627b56cdb4e2c85610c2d5f2e62d6eaeac1662734649b7",
