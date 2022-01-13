@@ -8,6 +8,7 @@ var BLS12_381 = Curve{
 	FpModulus:    "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
 	G1: Point{
 		CoordType:        "fp.Element",
+		CoordExtDegree:   1,
 		PointName:        "g1",
 		GLV:              true,
 		CofactorCleaning: true,
@@ -15,6 +16,7 @@ var BLS12_381 = Curve{
 	},
 	G2: Point{
 		CoordType:        "fptower.E2",
+		CoordExtDegree:   2,
 		PointName:        "g2",
 		GLV:              true,
 		CofactorCleaning: true,
