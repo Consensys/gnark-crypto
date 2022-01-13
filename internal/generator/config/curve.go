@@ -106,12 +106,12 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSui
 	if fieldSizeMod256%4 == 3 {
 		var c big.Int
 		c.Rsh(fieldSize, 2)
-		//append(sqrtRatioParams, field.HexToMontSlice(fieldModulus))
+		//append(sqrtRatioParams, field.HexToMont(fieldModulus))
 	}
 
 	return HashSuiteInfo{
-		A:               field.HexToMontSlice(fieldModulus, suite.AHex),
-		B:               field.HexToMontSlice(fieldModulus, suite.BHex),
+		A:               field.HexToMont(suite.AHex, fieldModulus),
+		B:               field.HexToMont(suite.BHex, fieldModulus),
 		Z:               suite.Z,
 		Isogeny:         newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
 		FieldSizeMod256: fieldSizeMod256,
@@ -155,21 +155,21 @@ func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *Isogen
 	}
 	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
-			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.XMap.NumHex),
-			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.XMap.DenHex),
+			hexSliceToIntSlice(isogenousCurve.XMap.NumHex, fieldModulus),
+			hexSliceToIntSlice(isogenousCurve.XMap.DenHex, fieldModulus),
 		},
 		YMap: RationalPolynomialInfo{
-			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.YMap.NumHex),
-			hexSliceToMontSliceSlice(fieldModulus, isogenousCurve.YMap.DenHex),
+			hexSliceToIntSlice(isogenousCurve.YMap.NumHex, fieldModulus),
+			hexSliceToIntSlice(isogenousCurve.YMap.DenHex, fieldModulus),
 		},
 	}
 }
 
-func hexSliceToMontSliceSlice(fieldModulus *big.Int, hexSlice []string) [][]uint64 {
-	res := make([][]uint64, len(hexSlice))
+func hexSliceToIntSlice(hexSlice []string, fieldModulus *big.Int) []big.Int {
+	res := make([]big.Int, len(hexSlice))
 
 	for i, hex := range hexSlice {
-		res[i] = field.HexToMontSlice(fieldModulus, hex)
+		res[i] = field.HexToMont(hex, fieldModulus)
 	}
 
 	return res
@@ -181,18 +181,18 @@ type IsogenyInfo struct {
 }
 
 type RationalPolynomialInfo struct {
-	Num [][]uint64
-	Den [][]uint64 //Denominator is monic. The leading coefficient (1) is omitted.
+	Num []big.Int
+	Den []big.Int //Denominator is monic. The leading coefficient (1) is omitted.
 }
 
 type HashSuiteInfo struct {
 	//Isogeny to original curve
 	Isogeny *IsogenyInfo //pointer so it's nullable. TODO: Bad practice or ok?
 
-	A []uint64
-	B []uint64
+	A big.Int
+	B big.Int
 
 	FieldSizeMod256 uint8
-	SqrtRatioParams [][]uint64
+	SqrtRatioParams []big.Int
 	Z               int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 }
