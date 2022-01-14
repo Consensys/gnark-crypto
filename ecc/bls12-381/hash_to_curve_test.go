@@ -261,3 +261,20 @@ func BenchmarkG1HashToCurveSSWU(b *testing.B) {
 		}
 	}
 }
+
+func TestIntByte(t *testing.T) {
+	c1Str := "1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946"
+	var c1 big.Int
+	c1.SetString(c1Str, 10)
+
+	bytes := c1.Bytes()
+
+	fmt.Println(bytes)
+
+	var c1Back big.Int
+	c1Back.SetBytes(bytes)
+
+	if c1.Cmp(&c1Back) != 0 {
+		t.Fail()
+	}
+}

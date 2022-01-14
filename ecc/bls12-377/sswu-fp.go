@@ -18,4 +18,5 @@ package bls12377
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"math/big"
 )

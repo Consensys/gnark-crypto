@@ -309,7 +309,6 @@ func HexToMont(hex string, fieldModulus *big.Int) big.Int {
 
 	var i big.Int
 	i.SetString(hex, 16)
-
 	IntToMont(&i, fieldModulus)
 
 	return i

@@ -101,12 +101,26 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSui
 	fieldSize := pow(fieldModulus, G.CoordExtDegree)
 	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
 
-	//var sqrtRatioParams [][]uint64
+	Z := int64(suite.Z)
+	var c []big.Int
 
 	if fieldSizeMod256%4 == 3 {
-		var c big.Int
-		c.Rsh(fieldSize, 2)
-		//append(sqrtRatioParams, field.HexToMont(fieldModulus))
+		c = make([]big.Int, 2)
+		//fmt.Println(fieldSize.Text(2))
+		c[0].Rsh(fieldSize, 2)
+		//fmt.Println(c.Text(2))
+
+		c[1].SetInt64(-Z)
+		c[1].ModSqrt(&c[1], fieldModulus)
+		field.IntToMont(&c[1], fieldModulus)
+
+	} else if fieldSizeMod256%8 == 5 {
+		c[0].Rsh(fieldSize, 3)
+
+		c[1].SetInt64(-1)
+		c[1].ModSqrt(&c[1], fieldModulus)
+
+		c[2].DivMod(big.NewInt(Z), &c[1], fieldModulus)
 	}
 
 	return HashSuiteInfo{
@@ -115,6 +129,7 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSui
 		Z:               suite.Z,
 		Isogeny:         newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
 		FieldSizeMod256: fieldSizeMod256,
+		SqrtRatioParams: c,
 	}
 }
 
@@ -122,31 +137,21 @@ func pow(p *big.Int, pow uint8) *big.Int {
 
 	res := big.NewInt(1)
 
-	for i := 0; i < 8; i++ {
-		if pow|128 != 0 {
+	for ; pow != 0 && pow&128 == 0; pow *= 2 {
+	}
+
+	for {
+		if pow&128 != 0 {
 			res.Mul(res, p)
 		}
-		if i != 8-1 {
+		pow *= 2
+		if pow != 0 {
 			res.Lsh(res, 1)
+		} else {
+			break
 		}
 	}
 	return res
-	/*	if p.BitLen() == 0 {
-			return 0
-		}
-
-		low := uint8(p.Bits()[0])
-		res := uint8(1)
-
-		for i := 0; i < 8; i++ {
-			if pow|128 != 0 {
-				res *= low
-			}
-			if i != 8-1 {
-				res *= res
-			}
-		}
-		return res*/
 }
 
 func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *Isogeny) *IsogenyInfo {
