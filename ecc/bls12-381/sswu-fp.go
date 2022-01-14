@@ -18,6 +18,7 @@ package bls12381
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
+	"math/big"
 )
 
 func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
@@ -122,4 +123,42 @@ func isogenyG1(p *G1Affine) {
 
 	p.X.Mul(&p.X, &den[0])
 	p.Y.Mul(&p.Y, &den[1])
+}
+
+// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
+// The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+	var tv1 fp.Element
+	tv1.Square(v)
+	var tv2 fp.Element
+	tv2.Mul(u, v)
+	tv1.Mul(&tv1, &tv2)
+
+	var y1 fp.Element
+	{
+		var c1 big.Int
+		c1.SetBytes([]byte{6, 128, 68, 122, 142, 95, 249, 166, 146, 198, 233, 237, 144, 210, 235, 53, 217, 29, 210, 225, 60, 225, 68, 175, 217, 204, 52, 168, 61, 172, 61, 137, 7, 170, 255, 255, 172, 84, 255, 255, 238, 127, 191, 255, 255, 255, 234, 170})
+		y1.Exp(tv1, &c1)
+		//expByC1(&y1, &tv1)
+	}
+
+	y1.Mul(&y1, &tv2)
+
+	var y2 fp.Element
+	y2.Mul(&y1, &fp.Element{17544630987809824292, 17306709551153317753, 8299808889594647786, 5930295261504720397, 675038575008112577, 167386374569371918})
+
+	var tv3 fp.Element
+	tv3.Square(&y1)
+	tv3.Mul(&tv3, v)
+	isQr := tv3 == *u
+
+	if isQr {
+		*z = y1
+	} else {
+		*z = y2
+	}
+
+	return isQr
 }

@@ -1,6 +1,7 @@
 package bls12381
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"math/big"
 )
@@ -89,7 +90,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	x.Mul(&tv1, &tv3)
 
 	var y1 fp.Element
-	gx1Square := sqrtRatio(&y1, &tv2, &tv6)
+	gx1Square := sqrtRatioOld(&y1, &tv2, &tv6)
 
 	var y fp.Element
 	y.Mul(&tv1, u)
@@ -117,11 +118,11 @@ func sswuMapG1(u *fp.Element) G1Affine {
 
 const Z = 11
 
-// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// sqrtRatioOld computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+func sqrtRatioOld(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var tv1 fp.Element
 	tv1.Square(v)
 	var tv2 fp.Element
@@ -129,7 +130,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	tv1.Mul(&tv1, &tv2)
 
 	var y1 fp.Element
-	expByC2(&y1, &tv1)
+	expByC1(&y1, &tv1)
+
 	y1.Mul(&y1, &tv2)
 
 	var y2 fp.Element
@@ -152,16 +154,17 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 }
 
 //TODO: Use https://github.com/mmcloughlin/addchain for addition chain
-func expByC2(z *fp.Element, x *fp.Element) {
-	var c2 big.Int
-	c2.SetString("1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946", 10)
+func expByC1(z *fp.Element, x *fp.Element) {
+	var c1 big.Int
+	c1.SetString("1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946", 10)
+	fmt.Println("correct c1", c1.Text(2))
 	if x == z {
 		panic("Writing to z will overwrite x")
 	}
 	z.SetOne()
-	for i := c2.BitLen() - 1; i >= 0; i-- {
+	for i := c1.BitLen() - 1; i >= 0; i-- {
 		z.Square(z)
-		if c2.Bit(i) != 0 {
+		if c1.Bit(i) != 0 {
 			z.Mul(z, x)
 		}
 	}

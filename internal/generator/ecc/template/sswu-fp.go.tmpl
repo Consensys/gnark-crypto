@@ -1,10 +1,11 @@
 import (
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+    "math/big"
 )
 
 {{ define "eval_poly" }}
 {{/*arguments: destination, monic, coefficients, variable*/}}
-*{{$.dst}} = fp.Element{ {{printList (last $.coefficients)}} }
+*{{$.dst}} = fp.Element{ {{words64 (last $.coefficients)}} }
 
 {{ if $.monic }}
 {{$.dst}}.Add({{$.dst}}, {{$.x}})
@@ -13,7 +14,7 @@ import (
 {{$coeffsRev := reverse $.coefficients}}
 {{- range $c := slice $coeffsRev 1}}
 {{$.dst}}.Mul({{$.dst}}, {{$.x}})
-{{$.dst}}.Add({{$.dst}}, &fp.Element{ {{printList $c}} })
+{{$.dst}}.Add({{$.dst}}, &fp.Element{ {{words64 $c}} })
 {{- end}}
 {{end}}
 
@@ -24,7 +25,7 @@ func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
         false,
         []fp.Element {
             {{- range $c := $.HashInfoE1.Isogeny.XMap.Num}}
-                { {{ printList $c }} },
+                { {{ words64 $c }} },
             {{- end}}
         },
         x)
@@ -35,7 +36,7 @@ func isogenyXDenominator(dst *fp.Element, x *fp.Element) {
         true,
         []fp.Element {
             {{- range $c := $.HashInfoE1.Isogeny.XMap.Den}}
-                { {{ printList $c }} },
+                { {{ words64 $c }} },
             {{- end}}
         },
         x)
@@ -47,7 +48,7 @@ func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
         false,
         []fp.Element {
             {{- range $c := $.HashInfoE1.Isogeny.YMap.Num}}
-                { {{ printList $c }} },
+                { {{ words64 $c }} },
             {{- end}}
         },
         x)
@@ -60,7 +61,7 @@ func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
         true,
         []fp.Element {
             {{- range $c := $.HashInfoE1.Isogeny.YMap.Den}}
-                { {{ printList $c }} },
+                { {{ words64 $c }} },
             {{- end}}
         },
         x)
@@ -81,5 +82,48 @@ func isogenyG1(p *G1Affine) {
 	p.X.Mul(&p.X, &den[0])
 	p.Y.Mul(&p.Y, &den[1])
 }
+
+{{ end }}
+
+{{ if eq (mod $.HashInfoE1.FieldSizeMod256 4) 3 }}
+
+// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
+// The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+	var tv1 fp.Element
+	tv1.Square(v)
+	var tv2 fp.Element
+	tv2.Mul(u, v)
+	tv1.Mul(&tv1, &tv2)
+
+	var y1 fp.Element
+	{
+	var c1 big.Int
+	c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
+	y1.Exp(tv1, &c1)
+	//expByC1(&y1, &tv1)
+	}
+
+	y1.Mul(&y1, &tv2)
+
+	var y2 fp.Element
+	y2.Mul(&y1, &fp.Element{ {{ words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
+
+	var tv3 fp.Element
+	tv3.Square(&y1)
+	tv3.Mul(&tv3, v)
+	isQr := tv3 == *u
+
+	if isQr {
+		*z = y1
+	} else {
+		*z = y2
+	}
+
+	return isQr
+}
+
 
 {{ end }}
