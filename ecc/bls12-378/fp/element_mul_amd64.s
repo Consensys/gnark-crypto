@@ -54,7 +54,7 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 TEXT ·mul(SB), $24-24
 
 	// the algorithm is described here
-	// https://hackmd.io/@zkteam/modular_multiplication
+	// https://hackmd.io/@gnark/modular_multiplication
 	// however, to benefit from the ADCX and ADOX carry chains
 	// we split the inner loops in 2:
 	// for i=0 to N-1
@@ -585,7 +585,7 @@ TEXT ·fromMont(SB), $8-8
 	NO_LOCAL_POINTERS
 
 	// the algorithm is described here
-	// https://hackmd.io/@zkteam/modular_multiplication
+	// https://hackmd.io/@gnark/modular_multiplication
 	// when y = 1 we have:
 	// for i=0 to N-1
 	// 		t[i] = x[i]
