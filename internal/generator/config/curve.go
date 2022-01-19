@@ -24,8 +24,8 @@ type Curve struct {
 	G1             Point
 	G2             Point
 
-	HashE1     HashSuite
-	HashInfoE1 HashSuiteInfo
+	HashE1     *HashSuite
+	HashInfoE1 *HashSuiteInfo
 }
 
 type Isogeny struct {
@@ -81,7 +81,7 @@ func addCurve(c *Curve) {
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
 	// c.Fp is nil here. TODO: Why? Fix if no good reason
-	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.G1, &c.HashE1)
+	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.G1, c.HashE1)
 	Curves = append(Curves, *c)
 }
 
@@ -107,7 +107,11 @@ func stdSqrt(a *big.Int, modulus *big.Int) {
 	}
 }
 
-func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSuiteInfo {
+func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSuiteInfo {
+
+	if suite == nil {
+		return nil
+	}
 
 	fieldSize := pow(fieldModulus, G.CoordExtDegree)
 	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
@@ -134,7 +138,7 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSui
 		c[2].DivMod(big.NewInt(Z), &c[1], fieldModulus)
 	}
 
-	return HashSuiteInfo{
+	return &HashSuiteInfo{
 		A:               field.HexToMont(suite.AHex, fieldModulus),
 		B:               field.HexToMont(suite.BHex, fieldModulus),
 		Z:               suite.Z,

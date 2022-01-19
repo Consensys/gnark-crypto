@@ -1,24 +1,20 @@
+{{ if notNil $.HashE1 }}
+
+{{ $CoordType := .G1.CoordType }}
+
 import (
-    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
     "math/big"
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{- if or (eq $CoordType "fptower.E2") (eq $CoordType "fptower.E4") }}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{else}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{- end}}
 )
 
-{{ define "eval_poly" }}
-{{/*arguments: destination, monic, coefficients, variable*/}}
-*{{$.dst}} = fp.Element{ {{words64 (last $.coefficients)}} }
+{{ $g1Isogeny := notNil $.HashE1.Isogeny }}
 
-{{ if $.monic }}
-{{$.dst}}.Add({{$.dst}}, {{$.x}})
-{{ end }}
-
-{{$coeffsRev := reverse $.coefficients}}
-{{- range $c := slice $coeffsRev 1}}
-{{$.dst}}.Mul({{$.dst}}, {{$.x}})
-{{$.dst}}.Add({{$.dst}}, &fp.Element{ {{words64 $c}} })
-{{- end}}
-{{end}}
-
-{{ if notNil $.HashE1.Isogeny }}
+{{ if $g1Isogeny }}
 
 func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
     dst.EvalPolynomial(
@@ -103,7 +99,6 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var c1 big.Int
 	c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
 	y1.Exp(tv1, &c1)
-	//expByC1(&y1, &tv1)
 	}
 
 	y1.Mul(&y1, &tv2)
@@ -125,5 +120,188 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	return isQr
 }
 
+{{ end }}
+
+{{ if eq (mod $.HashInfoE1.FieldSizeMod256 8) 5 }}
+
+// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 5 mod 8
+// The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+
+    var tv1, tv2 {{$CoordType}}
+    tv1.Square(v)
+    tv2.Mul(&tv1, v)
+    tv1.Square(&tv1)
+    tv2.Mul(&tv2, u)
+    tv1.Mul(&tv1, &tv2)
+
+    var c1 big.Int
+    c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
+    var y1 {{$CoordType}}
+    y1.Exp(&tv1, c1)
+    y1.Mul(&y1, &tv2)
+    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 1) }} })
+    tv2.Square(&tv1)
+
+    //Line 10 in std doc
+    tv2.Mul(&tv2, &v)
+
+    if tv2 == *u {
+        y1 = tv1
+    }
+
+    tv2.Square(&y1)
+    tv2.Mul(&tv2, &v)
+
+    //Line 15
+    isQr := tv2 == *u
+    y2.Mul(&y1, {{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 2) }} } )
+    tv1.Mul(&y2, {{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 1) }} })
+    tv2.Square(&tv1)
+    tv2.Mul(&tv2, v)
+
+    var tv3 {{$CoordType}}
+    //Line 20
+    // Z = {{$.HashInfo.E1.Z}}
+    tv3.MulBy{{$.HashInfo.E1.Z}}(u)
+    if tv2 == tv3 {
+        y2 = tv1
+    }
+    if isQr {
+        *z = y1
+    } else {
+        *z = y2
+    }
+    
+    return isQr
+}
+
+{{ end }}
+
+
+// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+func sswuMapG1(u *fp.Element) G1Affine {
+
+	var tv1 fp.Element
+	tv1.Square(u)
+
+	//mul tv1 by Z
+	fp.MulBy11(&tv1)
+
+	var tv2 fp.Element
+	tv2.Square(&tv1)
+	tv2.Add(&tv2, &tv1)
+
+	var tv3 fp.Element
+	//Standard doc line 5
+	var tv4 fp.Element
+	tv4.SetOne()
+	tv3.Add(&tv2, &tv4)
+	tv3.Mul(&tv3, &fp.Element{ {{ words64 $.HashInfoE1.B }} })
+
+	tv4 = fp.Element{ {{ words64 $.HashInfoE1.A }} }
+	//TODO: Std doc uses conditional move. If-then-else good enough here?
+	if tv2.IsZero() {
+		fp.MulBy11(&tv4) //WARNING: this branch takes less time
+		//tv4.MulByConstant(Z)
+	} else {
+		tv4.Mul(&tv4, &tv2)
+		tv4.Neg(&tv4)
+	}
+	tv2.Square(&tv3)
+
+	var tv6 fp.Element
+	//Standard doc line 10
+	tv6.Square(&tv4)
+
+	var tv5 fp.Element
+	tv5.Mul(&tv6, &fp.Element{ {{ words64 $.HashInfoE1.A }} })
+
+	tv2.Add(&tv2, &tv5)
+	tv2.Mul(&tv2, &tv3)
+	tv6.Mul(&tv6, &tv4)
+
+	//Standards doc line 15
+	tv5.Mul(&tv6, &fp.Element{ {{ words64 $.HashInfoE1.B }} })
+	tv2.Add(&tv2, &tv5)
+
+	var x fp.Element
+	x.Mul(&tv1, &tv3)
+
+	var y1 fp.Element
+	gx1Square := sqrtRatio(&y1, &tv2, &tv6)
+
+	var y fp.Element
+	y.Mul(&tv1, u)
+
+	//Standards doc line 20
+	y.Mul(&y, &y1)
+
+	//TODO: Not constant time. Is it okay?
+	if gx1Square {
+		x = tv3
+		y = y1
+	}
+
+	//TODO: Not constant time
+	if u.Sgn0() != y.Sgn0() {
+		y.Neg(&y)
+	}
+
+	//Standards doc line 25
+	//TODO: Not constant time. Use Jacobian?
+	x.Div(&x, &tv4)
+
+	return G1Affine{x, y}
+}
+
+// EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	t, err := hashToFp(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+	res = sswuMapG1(&t[0])
+
+{{ if $g1Isogeny }}
+	//this is in an isogenous curve
+	isogenyG1(&res)
+{{ end }}
+
+	res.ClearCofactor(&res)
+
+	return res, nil
+}
+
+// HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	u, err := hashToFp(msg, dst, 2)
+	if err != nil {
+		return res, err
+	}
+
+	Q0 := sswuMapG1(&u[0])
+	Q1 := sswuMapG1(&u[1])
+
+{{ if $g1Isogeny }}
+	//TODO: Add in E' first, then apply isogeny
+	isogenyG1(&Q0)
+	isogenyG1(&Q1)
+{{ end }}
+
+	var _Q0, _Q1, _res G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1)
+	_res.Set(&_Q1).AddAssign(&_Q0)
+	res.FromJacobian(&_res)
+	res.ClearCofactor(&res)
+	return res, nil
+}
 
 {{ end }}

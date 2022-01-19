@@ -20,7 +20,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "multiexp_test.go"), Templates: []string{"tests/multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
-		{File: filepath.Join(baseDir, "sswu-fp.go"), Templates: []string{"sswu-fp.go.tmpl"}},
 	}
 	conf.Package = packageName
 	if err := bgen.Generate(conf, packageName, "./ecc/template", entries...); err != nil {
@@ -50,6 +49,13 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 	}
+
+	// hash To curve
+	entries = []bavard.Entry{
+		{File: filepath.Join(baseDir, "sswu-fp.go"), Templates: []string{"sswu-fp.go.tmpl"}},
+		{File: filepath.Join(baseDir, "sswu-fp_test.go"), Templates: []string{"tests/sswu-fp.go.tmpl"}},
+	}
+
 	return bgen.Generate(g2, packageName, "./ecc/template", entries...)
 
 }

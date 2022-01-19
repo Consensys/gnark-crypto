@@ -256,7 +256,6 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	return res, nil
 }
 
-// TODO: Can we return Jacobian?
 // HashToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
