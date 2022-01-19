@@ -126,7 +126,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 5 mod 8
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.3. q = 5 mod 8
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
@@ -180,6 +180,14 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 {{ end }}
 
+{{ if eq (mod $.HashInfoE1.FieldSizeMod256 8) 1 }}
+// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
+// The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+}
+{{ end }}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 func sswuMapG1(u *fp.Element) G1Affine {

@@ -107,10 +107,39 @@ func stdSqrt(a *big.Int, modulus *big.Int) {
 	}
 }
 
+// twoFactor returns the greatest m such that 2ᵐ divides x-1
+func twoFactor(x *big.Int) int {
+	if x.BitLen() <= 1 {
+		return -1 //substitute for ∞
+	}
+	if x.Bit(0) == 0 {
+		return 0 //rightmost bit of x-1 is 1
+	}
+	var m int
+	for m = 1; x.Bit(m) == 0; m++ {
+	}
+	return m
+}
+
 func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSuiteInfo {
 
 	if suite == nil {
-		return nil
+		//return nil
+		// Make up some Z value to test sqrtRatio with
+		Z := int64(0)
+
+		for {
+			if legendreFp(big.NewInt(Z), fieldModulus) == -1 {
+				break
+			}
+			if legendreFp(big.NewInt(-Z), fieldModulus) == -1 {
+				Z = -Z
+				break
+			}
+			Z += 1
+		}
+
+		suite = &HashSuite{Z: int(Z)}
 	}
 
 	fieldSize := pow(fieldModulus, G.CoordExtDegree)
@@ -119,23 +148,41 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 	Z := int64(suite.Z)
 	var c []big.Int
 
+	//TODO: Works only for fp
 	if fieldSizeMod256%4 == 3 {
 		c = make([]big.Int, 2)
-		//fmt.Println(fieldSize.Text(2))
 		c[0].Rsh(fieldSize, 2)
-		//fmt.Println(c.Text(2))
 
 		c[1].SetInt64(-Z)
 		c[1].ModSqrt(&c[1], fieldModulus)
 		field.IntToMont(&c[1], fieldModulus)
 
 	} else if fieldSizeMod256%8 == 5 {
+		c = make([]big.Int, 3)
 		c[0].Rsh(fieldSize, 3)
 
 		c[1].SetInt64(-1)
 		c[1].ModSqrt(&c[1], fieldModulus)
 
 		c[2].DivMod(big.NewInt(Z), &c[1], fieldModulus)
+	} else if fieldSizeMod256%8 == 1 {
+		ONE := big.NewInt(1)
+		c = make([]big.Int, 7)
+		c1 := twoFactor(fieldSize)
+		c[0].SetInt64(int64(c1))
+		var twoPowC1 big.Int
+		twoPowC1.Lsh(ONE, uint(c1))
+		c[1].Rsh(fieldSize, uint(c1))
+		c[2].Rsh(&c[1], 1)
+		c[3].Sub(&twoPowC1, ONE)
+		c[4].Rsh(&twoPowC1, 1)
+		powMod(&c[5], big.NewInt(Z), &c[1], fieldModulus)
+		var c7Pow big.Int
+		c7Pow.Add(&c[1], ONE)
+		c7Pow.Rsh(&c7Pow, 1)
+
+	} else {
+		panic("this is logically impossible")
 	}
 
 	return &HashSuiteInfo{
@@ -146,6 +193,44 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		FieldSizeMod256: fieldSizeMod256,
 		SqrtRatioParams: c,
 	}
+}
+
+//TODO: We probably have lots of duplicated ad-hoc utility funcs
+func legendreFp(x *big.Int, mod *big.Int) int {
+	var pow big.Int
+	pow.Rsh(mod, 1)
+	var resBig big.Int
+	powMod(&resBig, x, &pow, mod)
+	if !resBig.IsInt64() {
+		panic("legendre fail")
+	}
+	res := resBig.Int64()
+	if res > 1 || res < -1 {
+		panic("abs legendre too large")
+	}
+	return int(res)
+}
+
+func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
+	res.SetInt64(1)
+
+	for i := pow.BitLen(); ; {
+
+		if pow.Bit(i) == 1 {
+			res.Add(res, x)
+		}
+
+		if i == 0 {
+			break
+		}
+		i--
+
+		res.Lsh(res, 1)
+		res.Mod(res, mod)
+	}
+
+	res.Mod(res, mod)
+	return res
 }
 
 func pow(p *big.Int, pow uint8) *big.Int {
