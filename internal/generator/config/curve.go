@@ -5,6 +5,8 @@ import (
 	"math/big"
 )
 
+//TODO: Same data structure used in runtime and for code generation. HashInfo not needed for runtime
+
 // Curve describes parameters of the curve useful for the template
 type Curve struct {
 	Name         string
@@ -94,6 +96,15 @@ func newFieldInfo(modulus string) Field {
 	F.Bytes = len(bModulus.Bits()) * 8
 	F.Modulus = func() *big.Int { return new(big.Int).Set(&bModulus) }
 	return F
+}
+
+// stdSqrt is an in-place standardized square root, returning the even root. It assumes quadratic residuosity.
+func stdSqrt(a *big.Int, modulus *big.Int) {
+	a.ModSqrt(a, modulus)
+	//take standard value with sgn == 0
+	if a.Bit(0) == 1 {
+		a.Sub(modulus, a)
+	}
 }
 
 func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) HashSuiteInfo {

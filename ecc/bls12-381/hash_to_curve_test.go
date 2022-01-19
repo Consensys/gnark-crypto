@@ -56,20 +56,27 @@ func TestComputeC1Int(t *testing.T) {
 }
 
 func TestSqrtRatio(t *testing.T) {
-	testSqrtRatio(&fp.Element{3752852834233450803, 10015304229637369378, 6482406239105581310, 1802624635905610022, 11716583840524549243, 1670704604553607051}, &fp.Element{16538149341274582162, 2654217574689430748, 4191868356445146499, 16611300210497698397, 10619697645702806389, 130786230622822284}, t)
-	testSqrtRatio(&fp.Element{0}, &fp.Element{1}, t)
-	testSqrtRatio(&fp.Element{1}, &fp.Element{1}, t)
+	var u fp.Element
+	u.SetOne()
+	testSqrtRatio(sqrtRatio, &u, &u, t)
+	multiTestSqrtRatio(sqrtRatio, t)
+}
+
+func multiTestSqrtRatio(sqrtRatio func(*fp.Element, *fp.Element, *fp.Element) bool, t *testing.T) {
+	testSqrtRatio(sqrtRatio, &fp.Element{3752852834233450803, 10015304229637369378, 6482406239105581310, 1802624635905610022, 11716583840524549243, 1670704604553607051}, &fp.Element{16538149341274582162, 2654217574689430748, 4191868356445146499, 16611300210497698397, 10619697645702806389, 130786230622822284}, t)
+	testSqrtRatio(sqrtRatio, &fp.Element{0}, &fp.Element{1}, t)
+	testSqrtRatio(sqrtRatio, &fp.Element{1}, &fp.Element{1}, t)
 
 	for i := 0; i < 1000; i++ {
 		var u fp.Element
 		var v fp.Element
 		u.SetRandom()
 		v.SetRandom()
-		testSqrtRatio(&u, &v, t)
+		testSqrtRatio(sqrtRatio, &u, &v, t)
 	}
 }
 
-func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
+func testSqrtRatio(sqrtRatio func(*fp.Element, *fp.Element, *fp.Element) bool, u *fp.Element, v *fp.Element, t *testing.T) {
 	var ref fp.Element
 	ref.Div(u, v)
 	var qrRef bool
@@ -79,14 +86,12 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 	} else {
 		qrRef = true
 	}
-	ref.Sqrt(&ref)
 
 	var seen fp.Element
 	qr := sqrtRatio(&seen, u, v)
+	seen.Square(&seen)
 
 	if qr != qrRef || seen != ref {
-		seen.Div(&ref, &seen)
-		fmt.Println(seen)
 		t.Error(*u, *v)
 	}
 }
