@@ -141,13 +141,12 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 		var c1 big.Int
 		c1.SetBytes([]byte{6, 128, 68, 122, 142, 95, 249, 166, 146, 198, 233, 237, 144, 210, 235, 53, 217, 29, 210, 225, 60, 225, 68, 175, 217, 204, 52, 168, 61, 172, 61, 137, 7, 170, 255, 255, 172, 84, 255, 255, 238, 127, 191, 255, 255, 255, 234, 170})
 		y1.Exp(tv1, &c1)
-		//expByC1(&y1, &tv1)
 	}
 
 	y1.Mul(&y1, &tv2)
 
 	var y2 fp.Element
-	y2.Mul(&y1, &fp.Element{14304544101977590919, 3350176034073442437, 17582609757678985529, 1309042698909992113, 4737065203462589718, 1706412243078167948})
+	y2.Mul(&y1, &fp.Element{17544630987809824292, 17306709551153317753, 8299808889594647786, 5930295261504720397, 675038575008112577, 167386374569371918})
 
 	var tv3 fp.Element
 	tv3.Square(&y1)
@@ -161,4 +160,123 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	}
 
 	return isQr
+}
+
+// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+func sswuMapG1(u *fp.Element) G1Affine {
+
+	var tv1 fp.Element
+	tv1.Square(u)
+
+	//mul tv1 by Z
+	fp.MulBy11(&tv1)
+
+	var tv2 fp.Element
+	tv2.Square(&tv1)
+	tv2.Add(&tv2, &tv1)
+
+	var tv3 fp.Element
+	//Standard doc line 5
+	var tv4 fp.Element
+	tv4.SetOne()
+	tv3.Add(&tv2, &tv4)
+	tv3.Mul(&tv3, &fp.Element{18129637713272545760, 11144507692959411567, 10108153527111632324, 9745270364868568433, 14587922135379007624, 469008097655535723})
+
+	tv4 = fp.Element{3415322872136444497, 9675504606121301699, 13284745414851768802, 2873609449387478652, 2897906769629812789, 1536947672689614213}
+	//TODO: Std doc uses conditional move. If-then-else good enough here?
+	if tv2.IsZero() {
+		fp.MulBy11(&tv4) //WARNING: this branch takes less time
+		//tv4.MulByConstant(Z)
+	} else {
+		tv4.Mul(&tv4, &tv2)
+		tv4.Neg(&tv4)
+	}
+	tv2.Square(&tv3)
+
+	var tv6 fp.Element
+	//Standard doc line 10
+	tv6.Square(&tv4)
+
+	var tv5 fp.Element
+	tv5.Mul(&tv6, &fp.Element{3415322872136444497, 9675504606121301699, 13284745414851768802, 2873609449387478652, 2897906769629812789, 1536947672689614213})
+
+	tv2.Add(&tv2, &tv5)
+	tv2.Mul(&tv2, &tv3)
+	tv6.Mul(&tv6, &tv4)
+
+	//Standards doc line 15
+	tv5.Mul(&tv6, &fp.Element{18129637713272545760, 11144507692959411567, 10108153527111632324, 9745270364868568433, 14587922135379007624, 469008097655535723})
+	tv2.Add(&tv2, &tv5)
+
+	var x fp.Element
+	x.Mul(&tv1, &tv3)
+
+	var y1 fp.Element
+	gx1Square := sqrtRatio(&y1, &tv2, &tv6)
+
+	var y fp.Element
+	y.Mul(&tv1, u)
+
+	//Standards doc line 20
+	y.Mul(&y, &y1)
+
+	//TODO: Not constant time. Is it okay?
+	if gx1Square {
+		x = tv3
+		y = y1
+	}
+
+	//TODO: Not constant time
+	if u.Sgn0() != y.Sgn0() {
+		y.Neg(&y)
+	}
+
+	//Standards doc line 25
+	//TODO: Not constant time. Use Jacobian?
+	x.Div(&x, &tv4)
+
+	return G1Affine{x, y}
+}
+
+// EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	t, err := hashToFp(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+	res = sswuMapG1(&t[0])
+
+	//this is in an isogenous curve
+	isogenyG1(&res)
+
+	res.ClearCofactor(&res)
+
+	return res, nil
+}
+
+// HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	u, err := hashToFp(msg, dst, 2)
+	if err != nil {
+		return res, err
+	}
+
+	Q0 := sswuMapG1(&u[0])
+	Q1 := sswuMapG1(&u[1])
+
+	//TODO: Add in E' first, then apply isogeny
+	isogenyG1(&Q0)
+	isogenyG1(&Q1)
+
+	var _Q0, _Q1, _res G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1)
+	_res.Set(&_Q1).AddAssign(&_Q0)
+	res.FromJacobian(&_res)
+	res.ClearCofactor(&res)
+	return res, nil
 }

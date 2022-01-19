@@ -3,98 +3,11 @@ package bls12381
 import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-	"math/big"
 	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
 )
-
-func TestComputeC2(t *testing.T) {
-	var z fp.Element
-	z.SetUint64(Z)
-
-	var zP fp.Element
-	zP.Neg(&z)
-	zP.Sqrt(&zP)
-
-	//[14304544101977590919 3350176034073442437 17582609757678985529 1309042698909992113 4737065203462589718 1706412243078167948]
-	fmt.Println(zP)
-
-	zP.Square(&zP)
-	zP.Add(&zP, &z)
-
-	if !zP.IsZero() {
-		t.Fail()
-	}
-}
-
-func TestComputeC2Int(t *testing.T) {
-	z := big.NewInt(-Z)
-	z.ModSqrt(z, fp.Modulus())
-	fmt.Println(z)
-
-	z.Mul(z, z)
-	z.Add(z, big.NewInt(Z))
-	z.Mod(z, fp.Modulus())
-	if z.BitLen() != 0 {
-		t.Fail()
-	}
-}
-
-func TestComputeC1Int(t *testing.T) {
-	c1 := fp.Modulus()
-	c1.Rsh(c1, 2)
-	fmt.Println(c1)
-
-	c1.Lsh(c1, 2)
-	c1.Add(c1, big.NewInt(3))
-
-	if c1.Cmp(fp.Modulus()) != 0 {
-		t.Fail()
-	}
-}
-
-func TestSqrtRatio(t *testing.T) {
-	var u fp.Element
-	u.SetOne()
-	testSqrtRatio(sqrtRatio, &u, &u, t)
-	multiTestSqrtRatio(sqrtRatio, t)
-}
-
-func multiTestSqrtRatio(sqrtRatio func(*fp.Element, *fp.Element, *fp.Element) bool, t *testing.T) {
-	testSqrtRatio(sqrtRatio, &fp.Element{3752852834233450803, 10015304229637369378, 6482406239105581310, 1802624635905610022, 11716583840524549243, 1670704604553607051}, &fp.Element{16538149341274582162, 2654217574689430748, 4191868356445146499, 16611300210497698397, 10619697645702806389, 130786230622822284}, t)
-	testSqrtRatio(sqrtRatio, &fp.Element{0}, &fp.Element{1}, t)
-	testSqrtRatio(sqrtRatio, &fp.Element{1}, &fp.Element{1}, t)
-
-	for i := 0; i < 1000; i++ {
-		var u fp.Element
-		var v fp.Element
-		u.SetRandom()
-		v.SetRandom()
-		testSqrtRatio(sqrtRatio, &u, &v, t)
-	}
-}
-
-func testSqrtRatio(sqrtRatio func(*fp.Element, *fp.Element, *fp.Element) bool, u *fp.Element, v *fp.Element, t *testing.T) {
-	var ref fp.Element
-	ref.Div(u, v)
-	var qrRef bool
-	if ref.Legendre() == -1 {
-		fp.MulBy11(&ref)
-		qrRef = false
-	} else {
-		qrRef = true
-	}
-
-	var seen fp.Element
-	qr := sqrtRatio(&seen, u, v)
-	seen.Square(&seen)
-
-	if qr != qrRef || seen != ref {
-		t.Error(*u, *v)
-	}
-}
 
 func TestMulByConstant(t *testing.T) {
 
@@ -184,22 +97,6 @@ func TestToMont(t *testing.T) {
 	}
 }
 
-/*func TestMapToCurveG1SSWU(t *testing.T) {
-	MapToCurveSSWU
-}*/
-
-/*func TestMapToCurveG1SSWU(t *testing.T) {
-	Q := sswuMapG1(&fp.Element{941031641141724048, 7593419090796165139, 13447299832369701844, 7664570780628181207, 16833839340160123079, 332469494419187881})
-	expected := G1Affine{
-		fp.Element{4563475290293962576, 3982361128921378550, 16152256253200838243, 12773063786225987449, 2858682674850780732, 785746258097921522},
-		fp.Element{10945627526752281529, 13120484463621343084, 500907696078610998, 17841918537664625985, 667297683540361872, 773042732898677554},
-	}
-
-	if Q != expected {
-		t.Fail()
-	}
-}*/
-
 func TestEncodeToCurveG1SSWU(t *testing.T) {
 	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_"
 	seen, err := EncodeToCurveG1SSWU([]byte{}, []byte(dst))
@@ -264,22 +161,5 @@ func BenchmarkG1HashToCurveSSWU(b *testing.B) {
 		if _, err := HashToCurveG1SSWU(bytes, dst); err != nil {
 			b.Fail()
 		}
-	}
-}
-
-func TestIntByte(t *testing.T) {
-	c1Str := "1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946"
-	var c1 big.Int
-	c1.SetString(c1Str, 10)
-
-	bytes := c1.Bytes()
-
-	fmt.Println(bytes)
-
-	var c1Back big.Int
-	c1Back.SetBytes(bytes)
-
-	if c1.Cmp(&c1Back) != 0 {
-		t.Fail()
 	}
 }
