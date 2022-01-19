@@ -157,7 +157,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 		}
 	}
 
-	// See https://hackmd.io/@zkteam/modular_multiplication
+	// See https://hackmd.io/@gnark/modular_multiplication
 	// if the last word of the modulus is smaller or equal to B,
 	// we can simplify the montgomery multiplication
 	const B = (^uint64(0) >> 1) - 1

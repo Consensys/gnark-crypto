@@ -43,7 +43,7 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 	}
 	f.WriteLn(`
 	// the algorithm is described here
-	// https://hackmd.io/@zkteam/modular_multiplication
+	// https://hackmd.io/@gnark/modular_multiplication
 	// when y = 1 we have: 
 	// for i=0 to N-1
 	// 		t[i] = x[i]

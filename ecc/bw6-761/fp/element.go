@@ -179,6 +179,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case Element:
 		return z.Set(&c1), nil
 	case *Element:
+		if c1 == nil {
+			return nil, errors.New("can't set fp.Element with <nil>")
+		}
 		return z.Set(c1), nil
 	case uint8:
 		return z.SetUint64(uint64(c1)), nil
@@ -203,6 +206,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
+		if c1 == nil {
+			return nil, errors.New("can't set fp.Element with <nil>")
+		}
 		return z.SetBigInt(c1), nil
 	case big.Int:
 		return z.SetBigInt(&c1), nil
@@ -470,14 +476,14 @@ func (z *Element) Halve() {
 // API with assembly impl
 
 // Mul z = x * y mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
 	mul(z, x, y)
 	return z
 }
 
 // Square z = x * x mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
 	mul(z, x, x)
 	return z

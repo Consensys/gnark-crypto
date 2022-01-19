@@ -41,6 +41,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/mmcloughlin/addchain"
 	"github.com/mmcloughlin/addchain/acc"
@@ -55,8 +56,18 @@ import (
 
 // most of these functions are derived from github.com/mmcloughlin/addchain internal packages or examples
 
+var (
+	once        sync.Once
+	addChainDir string
+	mAddchains  map[string]*AddChainData // key is big.Int.Text(16)
+)
+
 // GetAddChain retunrs template data of a short addition chain for given big.Int
 func GetAddChain(n *big.Int) *AddChainData {
+
+	// init the cache only once.
+	once.Do(initCache)
+
 	key := n.Text(16)
 	if r, ok := mAddchains[key]; ok {
 		return r
@@ -271,13 +282,8 @@ var Functions = []*Function{
 	},
 }
 
-var (
-	addChainDir string
-	mAddchains  map[string]*AddChainData // key is big.Int.Text(16)
-)
-
 // to speed up code generation, we cache addchain search results on disk
-func init() {
+func initCache() {
 	mAddchains = make(map[string]*AddChainData)
 
 	// read existing files in addchain directory

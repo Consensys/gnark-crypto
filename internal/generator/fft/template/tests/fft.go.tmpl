@@ -363,7 +363,7 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 		pol[i] = pol[i-1]
 	}
 
-	domain := NewDomain(maxSize, 0, false)
+	domain := NewDomain(maxSize, 1, false)
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
