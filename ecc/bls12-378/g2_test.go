@@ -138,6 +138,17 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 		GenE2(),
 	))
 
+	properties.Property("[BLS12-378] IsInSubGroup and MulBy subgroup order should be the same", prop.ForAll(
+		func(a fptower.E2) bool {
+			var op1, op2 G2Jac
+			op1 = fuzzJacobianG2Affine(&g2Gen, a)
+			_r := fr.Modulus()
+			op2.ScalarMultiplication(&op1, _r)
+			return op1.IsInSubGroup() && op2.Z.IsZero()
+		},
+		GenE2(),
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

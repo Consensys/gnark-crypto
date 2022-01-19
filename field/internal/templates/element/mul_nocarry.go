@@ -1,6 +1,6 @@
 package element
 
-// MulNoCarry see https://hackmd.io/@zkteam/modular_multiplication for more info on the algorithm
+// MulNoCarry see https://hackmd.io/@gnark/modular_multiplication for more info on the algorithm
 const MulNoCarry = `
 {{ define "mul_nocarry" }}
 var t [{{.all.NbWords}}]uint64

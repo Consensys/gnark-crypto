@@ -375,10 +375,7 @@ func (p *G2Jac) IsOnCurve() bool {
 // [r]P == 0 <==> Frob(P) == [6x^2]P
 func (p *G2Jac) IsInSubGroup() bool {
 	var a, res G2Jac
-	a.X.Conjugate(&p.X).MulByNonResidue1Power2(&a.X)
-	a.Y.Conjugate(&p.Y).MulByNonResidue1Power3(&a.Y)
-	a.Z.Conjugate(&p.Z)
-
+	a.psi(p)
 	res.ScalarMultiplication(p, &fixedCoeff).
 		SubAssign(&a)
 

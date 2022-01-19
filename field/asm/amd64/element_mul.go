@@ -152,7 +152,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 
 	f.WriteLn(`
 	// the algorithm is described here
-	// https://hackmd.io/@zkteam/modular_multiplication
+	// https://hackmd.io/@gnark/modular_multiplication
 	// however, to benefit from the ADCX and ADOX carry chains
 	// we split the inner loops in 2:
 	// for i=0 to N-1

@@ -3,7 +3,7 @@ package element
 const Doc = `
 // Package {{.PackageName}} contains field arithmetic operations for modulus = 0x{{shorten .ModulusHex}}.
 // 
-// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x for the modular multiplication on amd64, see also https://hackmd.io/@zkteam/modular_multiplication)
+// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x for the modular multiplication on amd64, see also https://hackmd.io/@gnark/modular_multiplication)
 // 
 // The modulus is hardcoded in all the operations.
 // 
