@@ -129,14 +129,14 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		Z := int64(0)
 
 		for {
-			if legendreFp(big.NewInt(Z), fieldModulus) == -1 {
+			if !isQr(big.NewInt(Z), fieldModulus) {
 				break
 			}
-			if legendreFp(big.NewInt(-Z), fieldModulus) == -1 {
+			if !isQr(big.NewInt(-Z), fieldModulus) {
 				Z = -Z
 				break
 			}
-			Z += 1
+			Z++
 		}
 
 		suite = &HashSuite{Z: int(Z)}
@@ -196,28 +196,22 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 }
 
 //TODO: We probably have lots of duplicated ad-hoc utility funcs
-func legendreFp(x *big.Int, mod *big.Int) int {
-	var pow big.Int
-	pow.Rsh(mod, 1)
-	var resBig big.Int
-	powMod(&resBig, x, &pow, mod)
-	if !resBig.IsInt64() {
-		panic("legendre fail")
-	}
-	res := resBig.Int64()
-	if res > 1 || res < -1 {
-		panic("abs legendre too large")
-	}
-	return int(res)
+func isQr(x *big.Int, mod *big.Int) bool {
+
+	var sqrtSq big.Int
+	sqrtSq.ModSqrt(x, mod)
+	sqrtSq.Mul(&sqrtSq, &sqrtSq).Sub(&sqrtSq, x).Mod(&sqrtSq, mod)
+
+	return sqrtSq.BitLen() == 0
 }
 
 func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
 	res.SetInt64(1)
 
-	for i := pow.BitLen(); ; {
+	for i := pow.BitLen() - 1; ; {
 
 		if pow.Bit(i) == 1 {
-			res.Add(res, x)
+			res.Mul(res, x)
 		}
 
 		if i == 0 {
@@ -225,8 +219,7 @@ func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
 		}
 		i--
 
-		res.Lsh(res, 1)
-		res.Mod(res, mod)
+		res.Mul(res, res).Mod(res, mod)
 	}
 
 	res.Mod(res, mod)
