@@ -162,6 +162,27 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	return isQr
 }
 
+//TODO: Use addchain
+//TODO: Might duplicate functionality from mulByConst functions
+// mulByZ multiplies x by 11 and stores the result in z
+func mulByZ(z *fp.Element, x *fp.Element) {
+	var res fp.Element
+
+	res = *x
+
+	res.Double(&res)
+
+	res.Double(&res)
+
+	res.Add(&res, x)
+
+	res.Double(&res)
+
+	res.Add(&res, x)
+
+	*z = res
+}
+
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 func sswuMapG1(u *fp.Element) G1Affine {
 
@@ -169,7 +190,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv1.Square(u)
 
 	//mul tv1 by Z
-	fp.MulBy11(&tv1)
+	mulByZ(&tv1, &tv1)
 
 	var tv2 fp.Element
 	tv2.Square(&tv1)

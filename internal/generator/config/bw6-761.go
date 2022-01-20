@@ -8,6 +8,7 @@ var BW6_761 = Curve{
 	FpModulus:    "6891450384315732539396789682275657542479668912536150109513790160209623422243491736087683183289411687640864567753786613451161759120554247759349511699125301598951605099378508850372543631423596795951899700429969112842764913119068299",
 	G1: Point{
 		CoordType:        "fp.Element",
+		CoordExtDegree:   1,
 		PointName:        "g1",
 		GLV:              true,
 		CofactorCleaning: true,
@@ -16,6 +17,7 @@ var BW6_761 = Curve{
 	},
 	G2: Point{
 		CoordType:        "fp.Element",
+		CoordExtDegree:   1,
 		PointName:        "g2",
 		GLV:              true,
 		CofactorCleaning: true,

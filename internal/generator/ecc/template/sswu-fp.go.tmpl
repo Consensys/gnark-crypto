@@ -1,4 +1,4 @@
-{{ if notNil $.HashE1 }}
+{{ if notNil $.HashInfoE1 }}
 
 {{ $CoordType := .G1.CoordType }}
 
@@ -12,7 +12,7 @@ import (
 	{{- end}}
 )
 
-{{ $g1Isogeny := notNil $.HashE1.Isogeny }}
+{{ $g1Isogeny := notNil $.HashInfoE1.Isogeny }}
 
 {{ if $g1Isogeny }}
 
@@ -142,7 +142,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
     var y1 {{$CoordType}}
     y1.Exp(&tv1, c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 1) }} })
+    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -157,15 +157,15 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
     //Line 15
     isQr := tv2 == *u
-    y2.Mul(&y1, {{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 2) }} } )
-    tv1.Mul(&y2, {{$CoordType}} { {{words64 (index $.HashInfo.E1.SqrtRatioParams 1) }} })
+    y2.Mul(&y1, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 2) }} } )
+    tv1.Mul(&y2, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
     var tv3 {{$CoordType}}
     //Line 20
-    // Z = {{$.HashInfo.E1.Z}}
-    tv3.MulBy{{$.HashInfo.E1.Z}}(u)
+    // Z = {{$.HashInfoE1.Z}}
+    mulByZ(&tv3, u)
     if tv2 == tv3 {
         y2 = tv1
     }
@@ -186,8 +186,91 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+   tv1 := {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 5) }} }
+
+   var exp big.Int
+   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 3) ) }} })
+   var tv2, tv3, tv4, tv5 {{$CoordType}}
+   tv2.Exp(v, exp)
+   tv3.Mul(&tv2, &tv2)
+   tv3.Mul(&tv3, v)
+
+   // line 5
+   tv5.Mul(u, &tv3)
+
+   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 2) ) }} })
+   tv5.Mul(&tv5, exp)
+   tv5.Mul(&tv5, &tv2)
+   tv2.Mul(&tv5, v)
+   tv3.Mul(&tv5, u)
+
+   // line 10
+   tv4.Mul(&tv3, &tv2)
+   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 4) ) }} })
+   tv5.Exp(&tv4, exp)
+
+   isQr := tv5.IsOne()
+
+   tv2.Mul(&tv3, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 6) }} })
+   tv5.Mul(&tv4, &tv1)
+
+   // line 15
+
+   if !isQr {
+      tv3, tv4 = tv2, tv5
+   }
+
+   exp.Lsh( big.NewInt(1), {{ index $.HashInfoE1.SqrtRatioParams 0 }} - 2)
+   for i := {{ index $.HashInfoE1.SqrtRatioParams 0 }}; i >= 2; i -- {
+      //line 20
+      tv5.Exp(&tv4, exp)
+      e1 := tv5.IsOne()
+
+      tv2.Mul(&tv3, &tv1)
+      tv1.Mul(&tv1, &tv1)
+      tv5.Mul(&tv4, &tv1)
+
+      if !e1 {
+         tv3, tv4 = tv2, tv5
+      }
+
+      exp.Rsh(&exp,1)
+   }
+
+   *z = tv3
+   return isQr
 }
 {{ end }}
+
+//TODO: Use addchain
+//TODO: Might duplicate functionality from mulByConst functions
+// mulByZ multiplies x by {{$.HashInfoE1.Z}} and stores the result in z
+func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
+    var res {{$CoordType}}
+    {{ $ZBitsHi2Lo := reverse (bits $.HashInfoE1.Z) }}
+    {{ $op := "Add"}}
+    {{ if lt $.HashInfoE1.Z 0 }}
+        {{ $op = "Sub" }}
+        res.Neg(x)
+    {{ end }}
+    {{ if gt $.HashInfoE1.Z 0 }}
+        res = *x
+    {{ end }}
+    res.Double(&res)
+
+    {{- range $bit := noFirst (noLast $ZBitsHi2Lo) }}
+        {{ if $bit }}
+            res.{{$op}}(&res, x)
+        {{ end }}
+        res.Double(&res)
+    {{- end }}
+
+    {{ if last $ZBitsHi2Lo }}
+        res.{{$op}}(&res, x)
+    {{ end }}
+
+    *z = res
+}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 func sswuMapG1(u *fp.Element) G1Affine {
@@ -196,7 +279,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv1.Square(u)
 
 	//mul tv1 by Z
-	fp.MulBy11(&tv1)
+	mulByZ(&tv1, &tv1)
 
 	var tv2 fp.Element
 	tv2.Square(&tv1)
