@@ -146,19 +146,20 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
     tv2.Square(&tv1)
 
     //Line 10 in std doc
-    tv2.Mul(&tv2, &v)
+    tv2.Mul(&tv2, v)
 
     if tv2 == *u {
         y1 = tv1
     }
 
     tv2.Square(&y1)
-    tv2.Mul(&tv2, &v)
+    tv2.Mul(&tv2, v)
 
     //Line 15
     isQr := tv2 == *u
-    y2.Mul(&y1, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 2) }} } )
-    tv1.Mul(&y2, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
+    var y2 {{$CoordType}}
+    y2.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 2) }} } )
+    tv1.Mul(&y2, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
@@ -364,10 +365,10 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	//this is in an isogenous curve
 	isogenyG1(&res)
 {{ end }}
-
-	res.ClearCofactor(&res)
-
-	return res, nil
+ 	{{ if .G1.CofactorCleaning}}
+ 	    res.ClearCofactor(&res)
+ 	{{ end }}
+ 	return res, nil
 }
 
 // HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
@@ -393,7 +394,9 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)
 	res.FromJacobian(&_res)
-	res.ClearCofactor(&res)
+	{{ if .G1.CofactorCleaning}}
+	    res.ClearCofactor(&res)
+	{{ end }}
 	return res, nil
 }
 
