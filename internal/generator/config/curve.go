@@ -98,15 +98,6 @@ func newFieldInfo(modulus string) Field {
 	return F
 }
 
-// stdSqrt is an in-place standardized square root, returning the even root. It assumes quadratic residuosity.
-func stdSqrt(a *big.Int, modulus *big.Int) {
-	a.ModSqrt(a, modulus)
-	//take standard value with sgn == 0
-	if a.Bit(0) == 1 {
-		a.Sub(modulus, a)
-	}
-}
-
 // twoFactor returns the greatest m such that 2ᵐ divides x-1
 func twoFactor(x *big.Int) int {
 	if x.BitLen() <= 1 {
@@ -164,7 +155,10 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		c[1].SetInt64(-1)
 		c[1].ModSqrt(&c[1], fieldModulus)
 
-		c[2].DivMod(big.NewInt(Z), &c[1], fieldModulus)
+		c[2].ModInverse(&c[1], fieldModulus)
+		c[2].Mul(&c[2], big.NewInt(Z))
+
+		c[2].ModSqrt(&c[2], fieldModulus)
 
 		field.IntToMont(&c[1], fieldModulus)
 		field.IntToMont(&c[2], fieldModulus)

@@ -29,7 +29,7 @@ func testSqrtRatio(u *{{$CoordType}}, v *{{$CoordType}}, t *testing.T) {
 	var qrRef bool
 	if ref.Legendre() == -1 {
         var Z {{$CoordType}}
-        Z.SetUint64({{$.HashInfoE1.Z}})
+        Z.SetInt64({{$.HashInfoE1.Z}})
 		ref.Mul(&ref, &Z)
 		qrRef = false
 	} else {

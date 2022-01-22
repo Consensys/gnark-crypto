@@ -39,23 +39,24 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var y1 fp.Element
 	y1.Exp(tv1, &c1)
 	y1.Mul(&y1, &tv2)
-	tv1.Mul(&y1, &fp.Element{0})
+	tv1.Mul(&y1, &fp.Element{7899625277197386435, 5217716493391639390, 7472932469883704682, 7632350077606897049, 9296070723299766388, 14353472371414671016, 14644604696869838127, 11421353192299464576, 237964513547175570, 46667570639865841})
 	tv2.Square(&tv1)
 
 	//Line 10 in std doc
-	tv2.Mul(&tv2, &v)
+	tv2.Mul(&tv2, v)
 
 	if tv2 == *u {
 		y1 = tv1
 	}
 
 	tv2.Square(&y1)
-	tv2.Mul(&tv2, &v)
+	tv2.Mul(&tv2, v)
 
 	//Line 15
 	isQr := tv2 == *u
-	y2.Mul(&y1, fp.Element{0})
-	tv1.Mul(&y2, fp.Element{0})
+	var y2 fp.Element
+	y2.Mul(&y1, &fp.Element{16212120288951005687, 11690167560162600414, 9845362566212292170, 5006379754746321817, 3559960229467473872, 1378556217976105943, 4841104984578141598, 15436992508257808297, 6778583767067406308, 4544728946065242})
+	tv1.Mul(&y2, &fp.Element{7899625277197386435, 5217716493391639390, 7472932469883704682, 7632350077606897049, 9296070723299766388, 14353472371414671016, 14644604696869838127, 11421353192299464576, 237964513547175570, 46667570639865841})
 	tv2.Square(&tv1)
 	tv2.Mul(&tv2, v)
 
@@ -195,6 +196,8 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)
 	res.FromJacobian(&_res)
+
 	res.ClearCofactor(&res)
+
 	return res, nil
 }

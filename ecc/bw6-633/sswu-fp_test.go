@@ -40,7 +40,7 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 	var qrRef bool
 	if ref.Legendre() == -1 {
 		var Z fp.Element
-		Z.SetUint64(2)
+		Z.SetInt64(2)
 		ref.Mul(&ref, &Z)
 		qrRef = false
 	} else {

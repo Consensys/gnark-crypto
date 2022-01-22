@@ -210,6 +210,8 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)
 	res.FromJacobian(&_res)
+
 	res.ClearCofactor(&res)
+
 	return res, nil
 }
