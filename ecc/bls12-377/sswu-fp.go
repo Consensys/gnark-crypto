@@ -23,15 +23,16 @@ import (
 
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// The return value is undefined for u = 0
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
-	tv1 := fp.Element{13432934708832943080, 2206831062850032006, 14333447693842680516, 15082496647900565774, 10370064699282770698, 15812341292448861}
+	tv1 := fp.Element{7563926049028936178, 2688164645460651601, 12112688591437172399, 3177973240564633687, 14764383749841851163, 52487407124055189}
 
 	var exp big.Int
 	exp.SetBytes([]byte{63, 255, 255, 255, 255, 255})
 	var tv2, tv3, tv4, tv5 fp.Element
-	tv2.Exp(v, exp)
+	tv2.Exp(*v, &exp)
 	tv3.Mul(&tv2, &tv2)
 	tv3.Mul(&tv3, v)
 
@@ -39,7 +40,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	tv5.Mul(u, &tv3)
 
 	exp.SetBytes([]byte{3, 92, 116, 140, 47, 138, 33, 213, 140, 118, 11, 128, 217, 66, 146, 118, 52, 69, 179, 230, 1, 234, 39, 30, 61, 230, 196, 95, 116, 18, 144, 0, 46, 22, 186, 136, 96, 0, 0, 1, 10, 17})
-	tv5.Mul(&tv5, exp)
+	tv5.Exp(tv5, &exp)
 	tv5.Mul(&tv5, &tv2)
 	tv2.Mul(&tv5, v)
 	tv3.Mul(&tv5, u)
@@ -47,11 +48,11 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	// line 10
 	tv4.Mul(&tv3, &tv2)
 	exp.SetBytes([]byte{32, 0, 0, 0, 0, 0})
-	tv5.Exp(&tv4, exp)
+	tv5.Exp(tv4, &exp)
 
 	isQr := tv5.IsOne()
 
-	tv2.Mul(&tv3, fp.Element{0})
+	tv2.Mul(&tv3, &fp.Element{13262060633605929793, 16269117706405780335, 1787999441809606207, 11078968899094441280, 17534011895423012165, 96686002316065324})
 	tv5.Mul(&tv4, &tv1)
 
 	// line 15
@@ -63,7 +64,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	exp.Lsh(big.NewInt(1), 46-2)
 	for i := 46; i >= 2; i-- {
 		//line 20
-		tv5.Exp(&tv4, exp)
+		tv5.Exp(tv4, &exp)
 		e1 := tv5.IsOne()
 
 		tv2.Mul(&tv3, &tv1)
@@ -85,9 +86,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 //TODO: Might duplicate functionality from mulByConst functions
 // mulByZ multiplies x by 5 and stores the result in z
 func mulByZ(z *fp.Element, x *fp.Element) {
-	var res fp.Element
 
-	res = *x
+	res := *x
 
 	res.Double(&res)
 

@@ -39,7 +39,9 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 	ref.Div(u, v)
 	var qrRef bool
 	if ref.Legendre() == -1 {
-		fp.MulBy11(&ref)
+		var Z fp.Element
+		Z.SetUint64(11)
+		ref.Mul(&ref, &Z)
 		qrRef = false
 	} else {
 		qrRef = true
@@ -49,7 +51,8 @@ func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
 	qr := sqrtRatio(&seen, u, v)
 	seen.Square(&seen)
 
-	if qr != qrRef || seen != ref {
-		t.Error(*u, *v)
+	if !ref.IsZero() && qr != qrRef || seen != ref {
+		// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
+		t.Error(*u, *v, "actual qr =", qr)
 	}
 }

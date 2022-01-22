@@ -37,9 +37,9 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var c1 big.Int
 	c1.SetBytes([]byte{36, 204, 103, 152, 30, 107, 236, 127, 131, 66, 233, 224, 58, 229, 86, 181, 31, 155, 24, 235, 175, 58, 88, 233, 203, 46, 211, 91, 55, 123, 69, 240, 42, 84, 216, 31, 91, 212, 146, 23, 27, 83, 235, 208, 126, 175, 137, 47, 193, 209, 10, 29, 183, 180, 128, 250, 246, 185, 207, 87, 7, 56, 68, 167, 166, 211, 122, 98, 40, 254, 231, 154, 233, 34, 221, 72, 174, 0, 1})
 	var y1 fp.Element
-	y1.Exp(&tv1, c1)
+	y1.Exp(tv1, &c1)
 	y1.Mul(&y1, &tv2)
-	tv1.Mul(&y1, &fp.Element{12175174062465388638, 13382317189617221432, 153632921634065963, 16023698145664183155, 5360228551239893799, 8444433052832970306, 9682196376973769096, 13367273034960920244, 9082754551548314365, 61601480273317840})
+	tv1.Mul(&y1, &fp.Element{0})
 	tv2.Square(&tv1)
 
 	//Line 10 in std doc
@@ -55,7 +55,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	//Line 15
 	isQr := tv2 == *u
 	y2.Mul(&y1, fp.Element{0})
-	tv1.Mul(&y2, fp.Element{12175174062465388638, 13382317189617221432, 153632921634065963, 16023698145664183155, 5360228551239893799, 8444433052832970306, 9682196376973769096, 13367273034960920244, 9082754551548314365, 61601480273317840})
+	tv1.Mul(&y2, fp.Element{0})
 	tv2.Square(&tv1)
 	tv2.Mul(&tv2, v)
 
@@ -79,9 +79,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 //TODO: Might duplicate functionality from mulByConst functions
 // mulByZ multiplies x by 2 and stores the result in z
 func mulByZ(z *fp.Element, x *fp.Element) {
-	var res fp.Element
 
-	res = *x
+	res := *x
 
 	res.Double(&res)
 
