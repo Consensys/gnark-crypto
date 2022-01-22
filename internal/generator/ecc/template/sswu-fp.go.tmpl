@@ -140,7 +140,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
     var c1 big.Int
     c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
     var y1 {{$CoordType}}
-    y1.Exp(&tv1, c1)
+    y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
     tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
@@ -183,6 +183,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 {{ if eq (mod $.HashInfoE1.FieldSizeMod256 8) 1 }}
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// The return value is undefined for u = 0
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
@@ -191,7 +192,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
    var exp big.Int
    exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 3) ) }} })
    var tv2, tv3, tv4, tv5 {{$CoordType}}
-   tv2.Exp(v, exp)
+   tv2.Exp(*v, &exp)
    tv3.Mul(&tv2, &tv2)
    tv3.Mul(&tv3, v)
 
@@ -199,7 +200,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
    tv5.Mul(u, &tv3)
 
    exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 2) ) }} })
-   tv5.Mul(&tv5, exp)
+   tv5.Exp(tv5, &exp)
    tv5.Mul(&tv5, &tv2)
    tv2.Mul(&tv5, v)
    tv3.Mul(&tv5, u)
@@ -207,11 +208,11 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
    // line 10
    tv4.Mul(&tv3, &tv2)
    exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 4) ) }} })
-   tv5.Exp(&tv4, exp)
+   tv5.Exp(tv4, &exp)
 
    isQr := tv5.IsOne()
 
-   tv2.Mul(&tv3, {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 6) }} })
+   tv2.Mul(&tv3, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 6) }} })
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -223,7 +224,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
    exp.Lsh( big.NewInt(1), {{ index $.HashInfoE1.SqrtRatioParams 0 }} - 2)
    for i := {{ index $.HashInfoE1.SqrtRatioParams 0 }}; i >= 2; i -- {
       //line 20
-      tv5.Exp(&tv4, exp)
+      tv5.Exp(tv4, &exp)
       e1 := tv5.IsOne()
 
       tv2.Mul(&tv3, &tv1)
@@ -246,15 +247,16 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 //TODO: Might duplicate functionality from mulByConst functions
 // mulByZ multiplies x by {{$.HashInfoE1.Z}} and stores the result in z
 func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
-    var res {{$CoordType}}
+
     {{ $ZBitsHi2Lo := reverse (bits $.HashInfoE1.Z) }}
     {{ $op := "Add"}}
     {{ if lt $.HashInfoE1.Z 0 }}
         {{ $op = "Sub" }}
+        var res {{$CoordType}}
         res.Neg(x)
     {{ end }}
     {{ if gt $.HashInfoE1.Z 0 }}
-        res = *x
+        res := *x
     {{ end }}
     res.Double(&res)
 

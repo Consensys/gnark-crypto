@@ -165,6 +165,9 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		c[1].ModSqrt(&c[1], fieldModulus)
 
 		c[2].DivMod(big.NewInt(Z), &c[1], fieldModulus)
+
+		field.IntToMont(&c[1], fieldModulus)
+		field.IntToMont(&c[2], fieldModulus)
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
 		c = make([]big.Int, 7)
@@ -180,6 +183,10 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		var c7Pow big.Int
 		c7Pow.Add(&c[1], ONE)
 		c7Pow.Rsh(&c7Pow, 1)
+		powMod(&c[6], big.NewInt(Z), &c7Pow, fieldModulus)
+
+		field.IntToMont(&c[5], fieldModulus)
+		field.IntToMont(&c[6], fieldModulus)
 
 	} else {
 		panic("this is logically impossible")

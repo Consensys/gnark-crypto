@@ -219,6 +219,11 @@ func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
 }
 
+// IsOne returns z == 1 in Montgomery
+func (z *{{.ElementName}}) IsOne() bool {
+	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
+}
+
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *{{.ElementName}}) IsUint64() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0

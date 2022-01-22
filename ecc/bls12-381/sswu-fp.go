@@ -166,9 +166,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 //TODO: Might duplicate functionality from mulByConst functions
 // mulByZ multiplies x by 11 and stores the result in z
 func mulByZ(z *fp.Element, x *fp.Element) {
-	var res fp.Element
 
-	res = *x
+	res := *x
 
 	res.Double(&res)
 
