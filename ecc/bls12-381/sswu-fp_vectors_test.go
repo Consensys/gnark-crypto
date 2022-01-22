@@ -1,11 +1,8 @@
 package bls12381
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"math/rand"
-	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -63,74 +60,84 @@ func TestIsogenyG1(t *testing.T) {
 	}
 }
 
-func textToMont(s string) {
-	sLines := strings.Split(s, "\n")
-
-	var elem fp.Element
-
-	for lineIndex, sLine := range sLines {
-		if sLine == "" {
-			continue
-		}
-		lineSplit := strings.Split(sLine, " = {math/big.Word} ")
-		numString := lineSplit[1]
-		var err error
-		elem[lineIndex], err = strconv.ParseUint(numString, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	fmt.Println(elem)
-	elem.ToMont()
-	fmt.Println(elem)
-}
-
-func TestToMont(t *testing.T) {
-	s := []string{
-		"0 = {math/big.Word} 7509098555544196687\n1 = {math/big.Word} 4243872485483722269\n2 = {math/big.Word} 14878500680061908427\n3 = {math/big.Word} 16926531971033154030\n4 = {math/big.Word} 1596876708006491832\n5 = {math/big.Word} 838034401176413344",
-		"    0 = {math/big.Word} 6891547135157885641\n1 = {math/big.Word} 6138139758682421950\n2 = {math/big.Word} 6936729421058986545\n3 = {math/big.Word} 10572248604636930284\n4 = {math/big.Word} 8752427191448882401\n5 = {math/big.Word} 115857565692138085",
-	}
-
-	for _, e := range s {
-		textToMont(e)
-	}
-}
-
 func TestEncodeToCurveG1SSWU(t *testing.T) {
-	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_"
-	seen, err := EncodeToCurveG1SSWU([]byte{}, []byte(dst))
-	if err != nil {
-		t.Fatal(err)
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_NU_")
+
+	vec := []HashTestVector{
+		{"", "184bb665c37ff561a89ec2122dd343f20e0f4cbcaec84e3c3052ea81d1834e192c426074b02ed3dca4e7676ce4ce48ba", "04407b8d35af4dacc809927071fc0405218f1401a6d15af775810e4e460064bcc9468beeba82fdc751be70476c888bf3"},
+		{"abc", "009769f3ab59bfd551d53a5f846b9984c59b97d6842b20a2c565baa167945e3d026a3755b6345df8ec7e6acb6868ae6d", "1532c00cf61aa3d0ce3e5aa20c3b531a2abd2c770a790a2613818303c6b830ffc0ecf6c357af3317b9575c567f11cd2c"},
+		{"abcdef0123456789", "1974dbb8e6b5d20b84df7e625e2fbfecb2cdb5f77d5eae5fb2955e5ce7313cae8364bc2fff520a6c25619739c6bdcb6a", "15f9897e11c6441eaa676de141c8d83c37aab8667173cbe1dfd6de74d11861b961dccebcd9d289ac633455dfcc7013a3"},
+		{"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", "0a7a047c4a8397b3446450642c2ac64d7239b61872c9ae7a59707a8f4f950f101e766afe58223b3bff3a19a7f754027c", "1383aebba1e4327ccff7cf9912bda0dbc77de048b71ef8c8a81111d71dc33c5e3aa6edee9cf6f5fe525d50cc50b77cc9"},
+		{
+			"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"0e7a16a975904f131682edbb03d9560d3e48214c9986bd50417a77108d13dc957500edf96462a3d01e62dc6cd468ef11",
+			"0ae89e677711d05c30a48d6d75e76ca9fb70fe06c6dd6ff988683d89ccde29ac7d46c53bb97a59b1901abf1db66052db",
+		},
 	}
 
-	expectedP := G1Affine{
-		fp.Element{4508701981465676087, 16014981725829343206, 1429121664596480851, 16754737785772897928, 14176845108067946534, 575224408015977794},
-		fp.Element{4886454369921712624, 10597955738183899813, 11346608665277124313, 7940767554533245898, 16448266045496148945, 285064240491496456},
-	}
+	for i, c := range vec {
+		seen, err := EncodeToCurveG1SSWU([]byte(c.msg), dst)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if seen != expectedP {
-		t.Fail()
+		var x fp.Element
+		var y fp.Element
+
+		x.SetHex(c.xHex)
+		y.SetHex(c.yHex)
+
+		expectedP := G1Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i)
+		}
 	}
+}
+
+type HashTestVector struct {
+	msg  string
+	xHex string
+	yHex string
 }
 
 func TestHashToCurveG1SSWU(t *testing.T) {
-	dst := "QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_"
-	seen, err := HashToCurveG1SSWU([]byte{}, []byte(dst))
-	if err != nil {
-		t.Fatal(err)
+
+	dst := []byte("QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_")
+
+	vec := []HashTestVector{
+		{"", "052926add2207b76ca4fa57a8734416c8dc95e24501772c814278700eed6d1e4e8cf62d9c09db0fac349612b759e79a1", "08ba738453bfed09cb546dbb0783dbb3a5f1f566ed67bb6be0e8c67e2e81a4cc68ee29813bb7994998f3eae0c9c6a265"},
+		{"abc", "03567bc5ef9c690c2ab2ecdf6a96ef1c139cc0b2f284dca0a9a7943388a49a3aee664ba5379a7655d3c68900be2f6903", "0b9c15f3fe6e5cf4211f346271d7b01c8f3b28be689c8429c85b67af215533311f0b8dfaaa154fa6b88176c229f2885d"},
+		{"abcdef0123456789", "11e0b079dea29a68f0383ee94fed1b940995272407e3bb916bbf268c263ddd57a6a27200a784cbc248e84f357ce82d98", "03a87ae2caf14e8ee52e51fa2ed8eefe80f02457004ba4d486d6aa1f517c0889501dc7413753f9599b099ebcbbd2d709"},
+		{
+			"q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+			"15f68eaa693b95ccb85215dc65fa81038d69629f70aeee0d0f677cf22285e7bf58d7cb86eefe8f2e9bc3f8cb84fac488",
+			"1807a1d50c29f430b8cafc4f8638dfeeadf51211e1602a5f184443076715f91bb90a48ba1e370edce6ae1062f5e6dd38",
+		},
+		{
+			"a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"082aabae8b7dedb0e78aeb619ad3bfd9277a2f77ba7fad20ef6aabdc6c31d19ba5a6d12283553294c1825c4b3ca2dcfe",
+			"05b84ae5a942248eea39e1d91030458c40153f3b654ab7872d779ad1e942856a20c438e8d99bc8abfbf74729ce1f7ac8",
+		},
 	}
 
-	var x fp.Element
-	var y fp.Element
+	for i, c := range vec {
+		seen, err := HashToCurveG1SSWU([]byte(c.msg), dst)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	x.SetHex("052926add2207b76ca4fa57a8734416c8dc95e24501772c814278700eed6d1e4e8cf62d9c09db0fac349612b759e79a1")
-	y.SetHex("08ba738453bfed09cb546dbb0783dbb3a5f1f566ed67bb6be0e8c67e2e81a4cc68ee29813bb7994998f3eae0c9c6a265")
+		var x fp.Element
+		var y fp.Element
 
-	expectedP := G1Affine{x, y}
+		x.SetHex(c.xHex)
+		y.SetHex(c.yHex)
 
-	if seen != expectedP {
-		t.Fail()
+		expectedP := G1Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i)
+		}
 	}
 }
 

@@ -1,8 +1,6 @@
-{{ $CoordType := .G1.CoordType }}
-
 import (
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- if or (eq $CoordType "fptower.E2") (eq $CoordType "fptower.E4") }}
+	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
@@ -11,32 +9,32 @@ import (
 )
 
 func TestSqrtRatio(t *testing.T) {
-	testSqrtRatio(& {{$CoordType}}{0}, &{{$CoordType}}{1}, t)
-	testSqrtRatio(&{{$CoordType}}{1}, &{{$CoordType}}{1}, t)
+	testSqrtRatio(& {{.CoordType}}{0}, &{{.CoordType}}{1}, t)
+	testSqrtRatio(&{{.CoordType}}{1}, &{{.CoordType}}{1}, t)
 
 	for i := 0; i < 1000; i++ {
-		var u {{$CoordType}}
-		var v {{$CoordType}}
+		var u {{.CoordType}}
+		var v {{.CoordType}}
 		u.SetRandom()
 		v.SetRandom()
 		testSqrtRatio(&u, &v, t)
 	}
 }
 
-func testSqrtRatio(u *{{$CoordType}}, v *{{$CoordType}}, t *testing.T) {
-	var ref {{$CoordType}}
+func testSqrtRatio(u *{{.CoordType}}, v *{{.CoordType}}, t *testing.T) {
+	var ref {{.CoordType}}
 	ref.Div(u, v)
 	var qrRef bool
 	if ref.Legendre() == -1 {
-        var Z {{$CoordType}}
-        Z.SetInt64({{$.HashInfoE1.Z}})
+        var Z {{.CoordType}}
+        Z.SetInt64({{.Z}})
 		ref.Mul(&ref, &Z)
 		qrRef = false
 	} else {
 		qrRef = true
 	}
 
-	var seen {{$CoordType}}
+	var seen {{.CoordType}}
 	qr := sqrtRatio(&seen, u, v)
 	seen.Square(&seen)
 

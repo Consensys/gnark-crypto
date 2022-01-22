@@ -24,8 +24,7 @@ type Curve struct {
 	G1             Point
 	G2             Point
 
-	HashE1     *HashSuite
-	HashInfoE1 *HashSuiteInfo
+	HashE1 *HashSuite
 }
 
 type Isogeny struct {
@@ -80,8 +79,6 @@ func addCurve(c *Curve) {
 	// init FpInfo and FrInfo
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
-	// c.Fp is nil here. TODO: Why? Fix if no good reason
-	c.HashInfoE1 = newHashSuiteInfo(c.FpInfo.Modulus(), &c.G1, c.HashE1)
 	Curves = append(Curves, *c)
 }
 
@@ -112,28 +109,9 @@ func twoFactor(x *big.Int) int {
 	return m
 }
 
-func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSuiteInfo {
+func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
-	if suite == nil {
-		//return nil
-		// Make up some Z value to test sqrtRatio with
-		Z := int64(0)
-
-		for {
-			if !isQr(big.NewInt(Z), fieldModulus) {
-				break
-			}
-			if !isQr(big.NewInt(-Z), fieldModulus) {
-				Z = -Z
-				break
-			}
-			Z++
-		}
-
-		suite = &HashSuite{Z: int(Z)}
-	}
-
-	fieldSize := pow(fieldModulus, G.CoordExtDegree)
+	fieldSize := pow(fieldModulus, g.CoordExtDegree)
 	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
 
 	Z := int64(suite.Z)
@@ -186,24 +164,17 @@ func newHashSuiteInfo(fieldModulus *big.Int, G *Point, suite *HashSuite) *HashSu
 		panic("this is logically impossible")
 	}
 
-	return &HashSuiteInfo{
-		A:               field.HexToMont(suite.AHex, fieldModulus),
-		B:               field.HexToMont(suite.BHex, fieldModulus),
-		Z:               suite.Z,
-		Isogeny:         newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
-		FieldSizeMod256: fieldSizeMod256,
-		SqrtRatioParams: c,
+	return HashSuiteInfo{
+		A:                field.HexToMont(suite.AHex, fieldModulus),
+		B:                field.HexToMont(suite.BHex, fieldModulus),
+		Z:                suite.Z,
+		CoordType:        g.CoordType,
+		CofactorCleaning: g.CofactorCleaning,
+		Name:             name,
+		Isogeny:          newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
+		FieldSizeMod256:  fieldSizeMod256,
+		SqrtRatioParams:  c,
 	}
-}
-
-//TODO: We probably have lots of duplicated ad-hoc utility funcs
-func isQr(x *big.Int, mod *big.Int) bool {
-
-	var sqrtSq big.Int
-	sqrtSq.ModSqrt(x, mod)
-	sqrtSq.Mul(&sqrtSq, &sqrtSq).Sub(&sqrtSq, x).Mod(&sqrtSq, mod)
-
-	return sqrtSq.BitLen() == 0
 }
 
 func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
@@ -291,7 +262,10 @@ type HashSuiteInfo struct {
 	A big.Int
 	B big.Int
 
-	FieldSizeMod256 uint8
-	SqrtRatioParams []big.Int
-	Z               int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	CoordType        string
+	Name             string
+	FieldSizeMod256  uint8
+	SqrtRatioParams  []big.Int
+	Z                int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	CofactorCleaning bool
 }

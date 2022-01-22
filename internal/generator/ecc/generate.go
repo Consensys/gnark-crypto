@@ -35,6 +35,20 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
+	// hash To curve
+	if conf.HashE1 != nil {
+		entries = []bavard.Entry{
+			{File: filepath.Join(baseDir, "sswu-fp.go"), Templates: []string{"sswu-fp.go.tmpl"}},
+			{File: filepath.Join(baseDir, "sswu-fp_test.go"), Templates: []string{"tests/sswu-fp.go.tmpl"}},
+		}
+
+		hashConf := config.NewHashSuiteInfo(conf.FpInfo.Modulus(), &conf.G1, conf.Name, conf.HashE1)
+
+		if err := bgen.Generate(hashConf, packageName, "./ecc/template", entries...); err != nil {
+			return err
+		}
+	}
+
 	// G1
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "g1.go"), Templates: []string{"point.go.tmpl"}},
@@ -49,15 +63,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 	}
-
-	// hash To curve
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "sswu-fp.go"), Templates: []string{"sswu-fp.go.tmpl"}},
-		{File: filepath.Join(baseDir, "sswu-fp_test.go"), Templates: []string{"tests/sswu-fp.go.tmpl"}},
-	}
-
 	return bgen.Generate(g2, packageName, "./ecc/template", entries...)
-
 }
 
 type pconf struct {

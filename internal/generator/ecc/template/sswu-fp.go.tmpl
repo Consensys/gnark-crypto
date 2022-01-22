@@ -1,49 +1,45 @@
-{{ if notNil $.HashInfoE1 }}
-
-{{ $CoordType := .G1.CoordType }}
-
 import (
     "math/big"
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- if or (eq $CoordType "fptower.E2") (eq $CoordType "fptower.E4") }}
+	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{- end}}
 )
 
-{{ $g1Isogeny := notNil $.HashInfoE1.Isogeny }}
+{{ $g1Isogeny := notNil .Isogeny }}
 
 {{ if $g1Isogeny }}
 
-func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
+func isogenyXNumerator(dst *{{.CoordType}}, x *{{.CoordType}}) {
     dst.EvalPolynomial(
         false,
-        []fp.Element {
-            {{- range $c := $.HashInfoE1.Isogeny.XMap.Num}}
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.XMap.Num}}
                 { {{ words64 $c }} },
             {{- end}}
         },
         x)
 }
 
-func isogenyXDenominator(dst *fp.Element, x *fp.Element) {
+func isogenyXDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
     dst.EvalPolynomial(
         true,
-        []fp.Element {
-            {{- range $c := $.HashInfoE1.Isogeny.XMap.Den}}
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.XMap.Den}}
                 { {{ words64 $c }} },
             {{- end}}
         },
         x)
 }
 
-func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
-    var _dst fp.Element
+func isogenyYNumerator(dst *{{.CoordType}}, x *{{.CoordType}}, y *{{.CoordType}}) {
+    var _dst {{.CoordType}}
     _dst.EvalPolynomial(
         false,
-        []fp.Element {
-            {{- range $c := $.HashInfoE1.Isogeny.YMap.Num}}
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.YMap.Num}}
                 { {{ words64 $c }} },
             {{- end}}
         },
@@ -52,11 +48,11 @@ func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
    dst.Mul(&_dst, y)
 }
 
-func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
+func isogenyYDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
     dst.EvalPolynomial(
         true,
-        []fp.Element {
-            {{- range $c := $.HashInfoE1.Isogeny.YMap.Den}}
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.YMap.Den}}
                 { {{ words64 $c }} },
             {{- end}}
         },
@@ -65,7 +61,7 @@ func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
 
 func isogenyG1(p *G1Affine) {
 
-	den := make([]fp.Element, 2)
+	den := make([]{{.CoordType}}, 2)
 
 	isogenyYDenominator(&den[1], &p.X)
 	isogenyXDenominator(&den[0], &p.X)
@@ -81,32 +77,32 @@ func isogenyG1(p *G1Affine) {
 
 {{ end }}
 
-{{ if eq (mod $.HashInfoE1.FieldSizeMod256 4) 3 }}
+{{ if eq (mod .FieldSizeMod256 4) 3 }}
 
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
-	var tv1 fp.Element
+func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
+	var tv1 {{.CoordType}}
 	tv1.Square(v)
-	var tv2 fp.Element
+	var tv2 {{.CoordType}}
 	tv2.Mul(u, v)
 	tv1.Mul(&tv1, &tv2)
 
-	var y1 fp.Element
+	var y1 {{.CoordType}}
 	{
 	var c1 big.Int
-	c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
+	c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
 	y1.Exp(tv1, &c1)
 	}
 
 	y1.Mul(&y1, &tv2)
 
-	var y2 fp.Element
-	y2.Mul(&y1, &fp.Element{ {{ words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
+	var y2 {{.CoordType}}
+	y2.Mul(&y1, &{{.CoordType}}{ {{ words64 (index .SqrtRatioParams 1) }} })
 
-	var tv3 fp.Element
+	var tv3 {{.CoordType}}
 	tv3.Square(&y1)
 	tv3.Mul(&tv3, v)
 	isQr := tv3 == *u
@@ -122,15 +118,15 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 {{ end }}
 
-{{ if eq (mod $.HashInfoE1.FieldSizeMod256 8) 5 }}
+{{ if eq (mod .FieldSizeMod256 8) 5 }}
 
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.3. q = 5 mod 8
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
 
-    var tv1, tv2 {{$CoordType}}
+    var tv1, tv2 {{.CoordType}}
     tv1.Square(v)
     tv2.Mul(&tv1, v)
     tv1.Square(&tv1)
@@ -138,11 +134,11 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
     tv1.Mul(&tv1, &tv2)
 
     var c1 big.Int
-    c1.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 0) ) }} })
-    var y1 {{$CoordType}}
+    c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
+    var y1 {{.CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
+    tv1.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -157,15 +153,15 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
     //Line 15
     isQr := tv2 == *u
-    var y2 {{$CoordType}}
-    y2.Mul(&y1, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 2) }} } )
-    tv1.Mul(&y2, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 1) }} })
+    var y2 {{.CoordType}}
+    y2.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 2) }} } )
+    tv1.Mul(&y2, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
-    var tv3 {{$CoordType}}
+    var tv3 {{.CoordType}}
     //Line 20
-    // Z = {{$.HashInfoE1.Z}}
+    // Z = {{.Z}}
     mulByZ(&tv3, u)
     if tv2 == tv3 {
         y2 = tv1
@@ -181,18 +177,18 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 {{ end }}
 
-{{ if eq (mod $.HashInfoE1.FieldSizeMod256 8) 1 }}
+{{ if eq (mod .FieldSizeMod256 8) 1 }}
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // The return value is undefined for u = 0
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
-   tv1 := {{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 5) }} }
+func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
+   tv1 := {{.CoordType}} { {{words64 (index .SqrtRatioParams 5) }} }
 
    var exp big.Int
-   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 3) ) }} })
-   var tv2, tv3, tv4, tv5 {{$CoordType}}
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 3) ) }} })
+   var tv2, tv3, tv4, tv5 {{.CoordType}}
    tv2.Exp(*v, &exp)
    tv3.Mul(&tv2, &tv2)
    tv3.Mul(&tv3, v)
@@ -200,7 +196,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
    // line 5
    tv5.Mul(u, &tv3)
 
-   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 2) ) }} })
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 2) ) }} })
    tv5.Exp(tv5, &exp)
    tv5.Mul(&tv5, &tv2)
    tv2.Mul(&tv5, v)
@@ -208,12 +204,12 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
    // line 10
    tv4.Mul(&tv3, &tv2)
-   exp.SetBytes([]byte { {{ printList (bytes (index $.HashInfoE1.SqrtRatioParams 4) ) }} })
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 4) ) }} })
    tv5.Exp(tv4, &exp)
 
    isQr := tv5.IsOne()
 
-   tv2.Mul(&tv3, &{{$CoordType}} { {{words64 (index $.HashInfoE1.SqrtRatioParams 6) }} })
+   tv2.Mul(&tv3, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 6) }} })
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -222,8 +218,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
       tv3, tv4 = tv2, tv5
    }
 
-   exp.Lsh( big.NewInt(1), {{ index $.HashInfoE1.SqrtRatioParams 0 }} - 2)
-   for i := {{ index $.HashInfoE1.SqrtRatioParams 0 }}; i >= 2; i -- {
+   exp.Lsh( big.NewInt(1), {{ index .SqrtRatioParams 0 }} - 2)
+   for i := {{ index .SqrtRatioParams 0 }}; i >= 2; i -- {
       //line 20
       tv5.Exp(tv4, &exp)
       e1 := tv5.IsOne()
@@ -246,17 +242,17 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 //TODO: Use addchain
 //TODO: Might duplicate functionality from mulByConst functions
-// mulByZ multiplies x by {{$.HashInfoE1.Z}} and stores the result in z
-func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
+// mulByZ multiplies x by {{.Z}} and stores the result in z
+func mulByZ(z *{{.CoordType}}, x *{{.CoordType}}) {
 
-    {{ $ZBitsHi2Lo := reverse (bits $.HashInfoE1.Z) }}
+    {{ $ZBitsHi2Lo := reverse (bits .Z) }}
     {{ $op := "Add"}}
-    {{ if lt $.HashInfoE1.Z 0 }}
+    {{ if lt .Z 0 }}
         {{ $op = "Sub" }}
-        var res {{$CoordType}}
+        var res {{.CoordType}}
         res.Neg(x)
     {{ end }}
-    {{ if gt $.HashInfoE1.Z 0 }}
+    {{ if gt .Z 0 }}
         res := *x
     {{ end }}
     res.Double(&res)
@@ -276,26 +272,26 @@ func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func sswuMapG1(u *fp.Element) G1Affine {
+func sswuMapG1(u *{{.CoordType}}) G1Affine {
 
-	var tv1 fp.Element
+	var tv1 {{.CoordType}}
 	tv1.Square(u)
 
 	//mul tv1 by Z
 	mulByZ(&tv1, &tv1)
 
-	var tv2 fp.Element
+	var tv2 {{.CoordType}}
 	tv2.Square(&tv1)
 	tv2.Add(&tv2, &tv1)
 
-	var tv3 fp.Element
+	var tv3 {{.CoordType}}
 	//Standard doc line 5
-	var tv4 fp.Element
+	var tv4 {{.CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &fp.Element{ {{ words64 $.HashInfoE1.B }} })
+	tv3.Mul(&tv3, &{{.CoordType}}{ {{ words64 .B }} })
 
-	tv4 = fp.Element{ {{ words64 $.HashInfoE1.A }} }
+	tv4 = {{.CoordType}}{ {{ words64 .A }} }
 	//TODO: Std doc uses conditional move. If-then-else good enough here?
 	if tv2.IsZero() {
 		fp.MulBy11(&tv4) //WARNING: this branch takes less time
@@ -306,28 +302,28 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	}
 	tv2.Square(&tv3)
 
-	var tv6 fp.Element
+	var tv6 {{.CoordType}}
 	//Standard doc line 10
 	tv6.Square(&tv4)
 
-	var tv5 fp.Element
-	tv5.Mul(&tv6, &fp.Element{ {{ words64 $.HashInfoE1.A }} })
+	var tv5 {{.CoordType}}
+	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .A }} })
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &fp.Element{ {{ words64 $.HashInfoE1.B }} })
+	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .B }} })
 	tv2.Add(&tv2, &tv5)
 
-	var x fp.Element
+	var x {{.CoordType}}
 	x.Mul(&tv1, &tv3)
 
-	var y1 fp.Element
+	var y1 {{.CoordType}}
 	gx1Square := sqrtRatio(&y1, &tv2, &tv6)
 
-	var y fp.Element
+	var y {{.CoordType}}
 	y.Mul(&tv1, u)
 
 	//Standards doc line 20
@@ -351,7 +347,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	return G1Affine{x, y}
 }
 
-// EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// EncodeToCurveG1SSWU maps a {{.CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	var res G1Affine
@@ -365,7 +361,7 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	//this is in an isogenous curve
 	isogenyG1(&res)
 {{ end }}
- 	{{ if .G1.CofactorCleaning}}
+ 	{{ if .CofactorCleaning}}
  	    res.ClearCofactor(&res)
  	{{ end }}
  	return res, nil
@@ -394,10 +390,8 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	_Q1.FromAffine(&Q1)
 	_res.Set(&_Q1).AddAssign(&_Q0)
 	res.FromJacobian(&_res)
-	{{ if .G1.CofactorCleaning}}
+	{{ if .CofactorCleaning}}
 	    res.ClearCofactor(&res)
 	{{ end }}
 	return res, nil
 }
-
-{{ end }}
