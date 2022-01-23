@@ -6,29 +6,6 @@ import (
 	"testing"
 )
 
-func TestMulByConstant(t *testing.T) {
-
-	for test := 0; test < 100; test++ {
-		var x fp.Element
-		x.SetRandom()
-
-		y := x
-
-		var yP fp.Element
-
-		fp.MulBy11(&y)
-
-		for i := 0; i < 11; i++ {
-			yP.Add(&yP, &x)
-		}
-
-		if y != yP {
-			t.Fail()
-		}
-
-	}
-}
-
 func TestIsogenyG1(t *testing.T) {
 	p := G1Affine{
 		fp.Element{
