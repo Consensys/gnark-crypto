@@ -294,8 +294,8 @@ func sswuMapG1(u *{{.CoordType}}) G1Affine {
 	tv4 = {{.CoordType}}{ {{ words64 .A }} }
 	//TODO: Std doc uses conditional move. If-then-else good enough here?
 	if tv2.IsZero() {
-		fp.MulBy11(&tv4) //WARNING: this branch takes less time
-		//tv4.MulByConstant(Z)
+		mulByZ(&tv4, &tv4)
+		//WARNING: this branch takes less time
 	} else {
 		tv4.Mul(&tv4, &tv2)
 		tv4.Neg(&tv4)

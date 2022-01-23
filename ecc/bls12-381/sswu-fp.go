@@ -205,8 +205,8 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv4 = fp.Element{3415322872136444497, 9675504606121301699, 13284745414851768802, 2873609449387478652, 2897906769629812789, 1536947672689614213}
 	//TODO: Std doc uses conditional move. If-then-else good enough here?
 	if tv2.IsZero() {
-		fp.MulBy11(&tv4) //WARNING: this branch takes less time
-		//tv4.MulByConstant(Z)
+		mulByZ(&tv4, &tv4)
+		//WARNING: this branch takes less time
 	} else {
 		tv4.Mul(&tv4, &tv2)
 		tv4.Neg(&tv4)
