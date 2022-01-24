@@ -22,6 +22,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // E6 is a degree two finite field extension of fp3
@@ -342,7 +343,9 @@ func (z *E6) Exp(x *E6, e big.Int) *E6 {
 }
 
 // CyclotomicExp sets z=x**e and returns it
+// uses 2-NAF decomposition
 // x must be in the cyclotomic subgroup
+// TODO: use a windowed method
 func (z *E6) CyclotomicExp(x *E6, e big.Int) *E6 {
 	var res, xInv E6
 	xInv.InverseUnitary(x)
@@ -359,6 +362,74 @@ func (z *E6) CyclotomicExp(x *E6, e big.Int) *E6 {
 	}
 	z.Set(&res)
 	return z
+}
+
+// ExpGLV sets z=x**e and returns it
+// uses 2-dimensional GLV with 2-bits windowed method
+// x must be in GT
+// TODO: use 2-NAF
+// TODO: use higher dimensional decomposition
+func (p *E6) ExpGLV(a *E6, s *big.Int) *E6 {
+
+	var table [15]E6
+	var res E6
+	var k1, k2 fr.Element
+
+	res.SetOne()
+
+	// table[b3b2b1b0-1] = b3b2*Frobinius(a) + b1b0*a
+	table[0].Set(a)
+	table[3].Frobenius(a)
+
+	// split the scalar, modifies +-x, Frob(x) accordingly
+	k := ecc.SplitScalar(s, &glvBasis)
+
+	if k[0].Sign() == -1 {
+		k[0].Neg(&k[0])
+		table[0].InverseUnitary(&table[0])
+	}
+	if k[1].Sign() == -1 {
+		k[1].Neg(&k[1])
+		table[3].InverseUnitary(&table[3])
+	}
+
+	// precompute table (2 bits sliding window)
+	// table[b3b2b1b0-1] = b3b2*Frobenius(a) + b1b0*a if b3b2b1b0 != 0
+	table[1].CyclotomicSquare(&table[0])
+	table[2].Mul(&table[1], &table[0])
+	table[4].Mul(&table[3], &table[0])
+	table[5].Mul(&table[3], &table[1])
+	table[6].Mul(&table[3], &table[2])
+	table[7].CyclotomicSquare(&table[3])
+	table[8].Mul(&table[7], &table[0])
+	table[9].Mul(&table[7], &table[1])
+	table[10].Mul(&table[7], &table[2])
+	table[11].Mul(&table[7], &table[3])
+	table[12].Mul(&table[11], &table[0])
+	table[13].Mul(&table[11], &table[1])
+	table[14].Mul(&table[11], &table[2])
+
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	k1.SetBigInt(&k[0]).FromMont()
+	k2.SetBigInt(&k[1]).FromMont()
+
+	// loop starts from len(k1)/2 due to the bounds
+	for i := len(k1) / 2; i >= 0; i-- {
+		mask := uint64(3) << 62
+		for j := 0; j < 32; j++ {
+			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
+			b1 := (k1[i] & mask) >> (62 - 2*j)
+			b2 := (k2[i] & mask) >> (62 - 2*j)
+			if b1|b2 != 0 {
+				s := (b2<<2 | b1)
+				res.Mul(&res, &table[s-1])
+			}
+			mask = mask >> 2
+		}
+	}
+
+	p.Set(&res)
+	return p
 }
 
 // InverseUnitary inverse a unitary element

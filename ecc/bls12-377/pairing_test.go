@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -39,6 +40,7 @@ func TestPairing(t *testing.T) {
 	genA := GenE12()
 	genR1 := GenFr()
 	genR2 := GenFr()
+	genP := GenFp()
 
 	properties.Property("[BLS12-377] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
@@ -56,6 +58,27 @@ func TestPairing(t *testing.T) {
 			return !a.IsInSubGroup() && b.IsInSubGroup()
 		},
 		genA,
+	))
+
+	properties.Property("[BLS12-377] Exp, CyclotomicExp and ExpGLV results must be the same in GT", prop.ForAll(
+		func(a GT, e fp.Element) bool {
+			a = FinalExponentiation(&a)
+
+			var _e big.Int
+
+			k := new(big.Int).SetUint64(12)
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+
+			var b, c, d GT
+			b.Exp(&a, _e)
+			c.ExpGLV(&a, &_e)
+			d.CyclotomicExp(&a, _e)
+
+			return b.Equal(&c) && c.Equal(&d)
+		},
+		genA,
+		genP,
 	))
 
 	properties.Property("[BLS12-377] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
@@ -302,4 +325,40 @@ func BenchmarkMultiPair(b *testing.B) {
 			}
 		})
 	}
+}
+
+func BenchmarkExpGT(b *testing.B) {
+
+	var a GT
+	a.SetRandom()
+	a = FinalExponentiation(&a)
+
+	var e fp.Element
+	e.SetRandom()
+
+	k := new(big.Int).SetUint64(12)
+	e.Exp(e, k)
+	var _e big.Int
+	e.ToBigIntRegular(&_e)
+
+	b.Run(fmt.Sprintf("Naive windowed Exp"), func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Exp(&a, _e)
+		}
+	})
+
+	b.Run(fmt.Sprintf("2-NAF cyclotomic Exp"), func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.CyclotomicExp(&a, _e)
+		}
+	})
+
+	b.Run(fmt.Sprintf("windowed 2-dim GLV Exp"), func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.ExpGLV(&a, &_e)
+		}
+	})
 }
