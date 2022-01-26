@@ -16,8 +16,6 @@
 
 package fp
 
-//TODO: Add MulBy11
-
 //go:noescape
 func MulBy3(x *Element)
 

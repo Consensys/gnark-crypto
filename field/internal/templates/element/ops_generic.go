@@ -7,9 +7,7 @@ const OpsNoAsm = `
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
-// TODO: Discuss why this has to be in place, and why x is not a receiver
-
-{{ $mulConsts := list 3 5 11 13 }}
+{{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
 
 // MulBy{{$i}} x *= {{$i}}

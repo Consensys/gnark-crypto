@@ -219,7 +219,7 @@ func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
 }
 
-// IsOne returns z == 1 in Montgomery
+// IsOne returns z == 1
 func (z *{{.ElementName}}) IsOne() bool {
 	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
 }

@@ -111,7 +111,8 @@ func twoFactor(x *big.Int) int {
 
 func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
-	fieldSize := pow(fieldModulus, g.CoordExtDegree)
+	var fieldSize big.Int
+	fieldSize.Exp(fieldModulus, big.NewInt(int64(g.CoordExtDegree)), nil)
 	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
 
 	Z := int64(suite.Z)
@@ -120,7 +121,7 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 	//TODO: Works only for fp
 	if fieldSizeMod256%4 == 3 {
 		c = make([]big.Int, 2)
-		c[0].Rsh(fieldSize, 2)
+		c[0].Rsh(&fieldSize, 2)
 
 		c[1].SetInt64(-Z)
 		c[1].ModSqrt(&c[1], fieldModulus)
@@ -128,7 +129,7 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 
 	} else if fieldSizeMod256%8 == 5 {
 		c = make([]big.Int, 3)
-		c[0].Rsh(fieldSize, 3)
+		c[0].Rsh(&fieldSize, 3)
 
 		c[1].SetInt64(-1)
 		c[1].ModSqrt(&c[1], fieldModulus)
@@ -143,11 +144,11 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
 		c = make([]big.Int, 7)
-		c1 := twoFactor(fieldSize)
+		c1 := twoFactor(&fieldSize)
 		c[0].SetInt64(int64(c1))
 		var twoPowC1 big.Int
 		twoPowC1.Lsh(ONE, uint(c1))
-		c[1].Rsh(fieldSize, uint(c1))
+		c[1].Rsh(&fieldSize, uint(c1))
 		c[2].Rsh(&c[1], 1)
 		c[3].Sub(&twoPowC1, ONE)
 		c[4].Rsh(&twoPowC1, 1)
@@ -195,27 +196,6 @@ func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
 	}
 
 	res.Mod(res, mod)
-	return res
-}
-
-func pow(p *big.Int, pow uint8) *big.Int {
-
-	res := big.NewInt(1)
-
-	for ; pow != 0 && pow&128 == 0; pow *= 2 {
-	}
-
-	for {
-		if pow&128 != 0 {
-			res.Mul(res, p)
-		}
-		pow *= 2
-		if pow != 0 {
-			res.Lsh(res, 1)
-		} else {
-			break
-		}
-	}
 	return res
 }
 

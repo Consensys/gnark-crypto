@@ -244,7 +244,7 @@ func (z *Element) IsZero() bool {
 	return (z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
-// IsOne returns z == 1 in Montgomery
+// IsOne returns z == 1
 func (z *Element) IsOne() bool {
 	return (z[4] ^ 273027911707369796 | z[3] ^ 2147590337827202454 | z[2] ^ 16275985398192697234 | z[1] ^ 5736013404040042110 | z[0] ^ 15345841078474375115) == 0
 }
