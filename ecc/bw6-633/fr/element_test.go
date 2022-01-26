@@ -2415,14 +2415,6 @@ func TestElementMontNegMultipleOfR(t *testing.T) {
 	}
 }
 
-func TestElement0Inverse(t *testing.T) {
-	var x Element
-	x.Inverse(&x)
-	if !x.IsZero() {
-		t.Fail()
-	}
-}
-
 //TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
 	for i := 0; i < 1000; i++ {

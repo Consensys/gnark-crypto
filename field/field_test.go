@@ -15,6 +15,11 @@ func TestIntToMont(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	f, err := NewField("dummy", "DummyElement", modulus.Text(10), false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if modulus.Bit(0) == 0 {
 		panic("Not a prime")
 	}
@@ -26,7 +31,7 @@ func TestIntToMont(t *testing.T) {
 
 	// turn into mont
 	mont := *i
-	IntToMont(&mont, modulus)
+	f.IntToMont(&mont)
 
 	// recover initial value by unorthodox means
 	// halve nbWords * 64 times
