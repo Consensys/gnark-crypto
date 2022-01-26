@@ -315,7 +315,7 @@ func HexToMont(hex string, fieldModulus *big.Int) big.Int {
 }
 
 func IntToMont(i *big.Int, fieldModulus *big.Int) {
-	nbWords := (fieldModulus.BitLen()-1)/64 + 1
+	nbWords := fieldModulus.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
 	i.Lsh(i, uint(nbWords)*64)
 	i.Mod(i, fieldModulus)
 }

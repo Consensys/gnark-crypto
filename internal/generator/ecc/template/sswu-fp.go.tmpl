@@ -93,6 +93,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
 	var y1 {{.CoordType}}
 	{
 	var c1 big.Int
+	// c1 = {{ index .SqrtRatioParams 0 }}
 	c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
 	y1.Exp(tv1, &c1)
 	}
@@ -134,6 +135,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
     tv1.Mul(&tv1, &tv2)
 
     var c1 big.Int
+	// c1 = {{ index .SqrtRatioParams 0 }}
     c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
     var y1 {{.CoordType}}
     y1.Exp(tv1, &c1)
@@ -187,6 +189,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
    tv1 := {{.CoordType}} { {{words64 (index .SqrtRatioParams 5) }} }
 
    var exp big.Int
+   // c4 = {{ index .SqrtRatioParams 3 }}
    exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 3) ) }} })
    var tv2, tv3, tv4, tv5 {{.CoordType}}
    tv2.Exp(*v, &exp)
@@ -196,6 +199,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
    // line 5
    tv5.Mul(u, &tv3)
 
+// c3 = {{ index .SqrtRatioParams 2 }}
    exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 2) ) }} })
    tv5.Exp(tv5, &exp)
    tv5.Mul(&tv5, &tv2)
@@ -204,6 +208,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) bool {
 
    // line 10
    tv4.Mul(&tv3, &tv2)
+// c5 = {{ index .SqrtRatioParams 4 }}
    exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 4) ) }} })
    tv5.Exp(tv4, &exp)
 
