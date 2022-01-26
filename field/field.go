@@ -305,17 +305,38 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 
 //HexToMont takes an element written in hex, and returns it in Montgomery form
 //Useful for hard-coding in implementation field elements from standards documents
-func HexToMont(hex string, fieldModulus *big.Int) big.Int {
+func (f *Field) HexToMont(hex string) big.Int {
 
 	var i big.Int
 	i.SetString(hex, 16)
-	IntToMont(&i, fieldModulus)
+	f.IntToMont(&i)
 
 	return i
 }
 
-func IntToMont(i *big.Int, fieldModulus *big.Int) {
-	nbWords := fieldModulus.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
+func (f *Field) IntToMont(i *big.Int) {
+	nbWords := f.ModulusBig.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
 	i.Lsh(i, uint(nbWords)*64)
-	i.Mod(i, fieldModulus)
+	i.Mod(i, f.ModulusBig)
+}
+
+func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *big.Int {
+	res.SetInt64(1)
+
+	for i := pow.BitLen() - 1; ; {
+
+		if pow.Bit(i) == 1 {
+			res.Mul(res, x)
+		}
+
+		if i == 0 {
+			break
+		}
+		i--
+
+		res.Mul(res, res).Mod(res, f.ModulusBig)
+	}
+
+	res.Mod(res, f.ModulusBig)
+	return res
 }

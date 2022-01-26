@@ -42,7 +42,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			{File: filepath.Join(baseDir, "sswu-fp_test.go"), Templates: []string{"tests/sswu-fp.go.tmpl"}},
 		}
 
-		hashConf := config.NewHashSuiteInfo(conf.FpInfo.Modulus(), &conf.G1, conf.Name, conf.HashE1)
+		hashConf := config.NewHashSuiteInfo(conf.Fp, &conf.G1, conf.Name, conf.HashE1)
 
 		if err := bgen.Generate(hashConf, packageName, "./ecc/template", entries...); err != nil {
 			return err

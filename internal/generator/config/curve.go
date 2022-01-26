@@ -93,8 +93,9 @@ func newFieldInfo(modulus string) Field {
 	return F
 }
 
-func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+func NewHashSuiteInfo(f *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
+	fieldModulus := f.ModulusBig
 	var fieldSize big.Int
 	fieldSize.Exp(fieldModulus, big.NewInt(int64(g.CoordExtDegree)), nil)
 	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
@@ -109,7 +110,7 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 
 		c[1].SetInt64(-Z)
 		c[1].ModSqrt(&c[1], fieldModulus)
-		field.IntToMont(&c[1], fieldModulus)
+		f.IntToMont(&c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
 		c = make([]big.Int, 3)
@@ -123,8 +124,8 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 
 		c[2].ModSqrt(&c[2], fieldModulus)
 
-		field.IntToMont(&c[1], fieldModulus)
-		field.IntToMont(&c[2], fieldModulus)
+		f.IntToMont(&c[1])
+		f.IntToMont(&c[2])
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
 		c = make([]big.Int, 7)
@@ -139,74 +140,53 @@ func NewHashSuiteInfo(fieldModulus *big.Int, g *Point, name string, suite *HashS
 		c[2].Rsh(&c[1], 1)
 		c[3].Sub(&twoPowC1, ONE)
 		c[4].Rsh(&twoPowC1, 1)
-		powMod(&c[5], big.NewInt(Z), &c[1], fieldModulus)
+		f.Exp(&c[5], big.NewInt(Z), &c[1])
 		var c7Pow big.Int
 		c7Pow.Add(&c[1], ONE)
 		c7Pow.Rsh(&c7Pow, 1)
-		powMod(&c[6], big.NewInt(Z), &c7Pow, fieldModulus)
+		f.Exp(&c[6], big.NewInt(Z), &c7Pow)
 
-		field.IntToMont(&c[5], fieldModulus)
-		field.IntToMont(&c[6], fieldModulus)
+		f.IntToMont(&c[5])
+		f.IntToMont(&c[6])
 
 	} else {
 		panic("this is logically impossible")
 	}
 
 	return HashSuiteInfo{
-		A:                field.HexToMont(suite.A, fieldModulus),
-		B:                field.HexToMont(suite.B, fieldModulus),
+		A:                f.HexToMont(suite.A),
+		B:                f.HexToMont(suite.B),
 		Z:                suite.Z,
 		CoordType:        g.CoordType,
 		CofactorCleaning: g.CofactorCleaning,
 		Name:             name,
-		Isogeny:          newIsogenousCurveInfoOptional(fieldModulus, suite.Isogeny),
+		Isogeny:          newIsogenousCurveInfoOptional(f, suite.Isogeny),
 		FieldSizeMod256:  fieldSizeMod256,
 		SqrtRatioParams:  c,
 	}
 }
 
-func powMod(res *big.Int, x *big.Int, pow *big.Int, mod *big.Int) *big.Int {
-	res.SetInt64(1)
-
-	for i := pow.BitLen() - 1; ; {
-
-		if pow.Bit(i) == 1 {
-			res.Mul(res, x)
-		}
-
-		if i == 0 {
-			break
-		}
-		i--
-
-		res.Mul(res, res).Mod(res, mod)
-	}
-
-	res.Mod(res, mod)
-	return res
-}
-
-func newIsogenousCurveInfoOptional(fieldModulus *big.Int, isogenousCurve *Isogeny) *IsogenyInfo {
+func newIsogenousCurveInfoOptional(f *field.Field, isogenousCurve *Isogeny) *IsogenyInfo {
 	if isogenousCurve == nil {
 		return nil
 	}
 	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
-			hexSliceToIntSlice(isogenousCurve.XMap.Num, fieldModulus),
-			hexSliceToIntSlice(isogenousCurve.XMap.Den, fieldModulus),
+			hexSliceToIntSlice(isogenousCurve.XMap.Num, f),
+			hexSliceToIntSlice(isogenousCurve.XMap.Den, f),
 		},
 		YMap: RationalPolynomialInfo{
-			hexSliceToIntSlice(isogenousCurve.YMap.Num, fieldModulus),
-			hexSliceToIntSlice(isogenousCurve.YMap.Den, fieldModulus),
+			hexSliceToIntSlice(isogenousCurve.YMap.Num, f),
+			hexSliceToIntSlice(isogenousCurve.YMap.Den, f),
 		},
 	}
 }
 
-func hexSliceToIntSlice(hexSlice []string, fieldModulus *big.Int) []big.Int {
+func hexSliceToIntSlice(hexSlice []string, f *field.Field) []big.Int {
 	res := make([]big.Int, len(hexSlice))
 
 	for i, hex := range hexSlice {
-		res[i] = field.HexToMont(hex, fieldModulus)
+		res[i] = f.HexToMont(hex)
 	}
 
 	return res
