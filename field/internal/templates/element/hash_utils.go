@@ -1,6 +1,6 @@
 package element
 
-const TempForHash = `
+const HashUtils = `
 
 // Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
