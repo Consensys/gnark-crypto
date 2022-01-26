@@ -59,6 +59,11 @@ const invIterationsN = {{.P20InversionNbIterations}}
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
+	if x.IsZero() {
+ 		z.SetZero()
+ 		return z
+ 	}
+
 	a := *x
 	b := {{.ElementName}} {
 		{{- range $i := .NbWordsIndexesFull}}
