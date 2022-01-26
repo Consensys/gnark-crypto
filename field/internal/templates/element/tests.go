@@ -11,6 +11,7 @@ import (
 	{{if .NoCarry}} mrand "math/rand" {{end}}
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	ggen "github.com/leanovate/gopter/gen"
@@ -1414,9 +1415,21 @@ func genFull() gopter.Gen {
 	}
 }
 
+// Some utils
 
+func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
 
+	var modulus big.Int
+	var aIntMod big.Int
+	modulus.SetInt64(1)
+	modulus.Lsh(&modulus, (Limbs+1)*64)
+	aIntMod.Mod(aInt, &modulus)
 
+	slice := append(z[:], aHi)
 
+	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+		t.Error(err)
+	}
+}
 
 `
