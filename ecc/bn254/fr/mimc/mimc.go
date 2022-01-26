@@ -160,7 +160,7 @@ func (d *digest) checksum() fr.Element {
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *digest) encrypt(m fr.Element) (e fr.Element) {
+func (d *digest) encrypt(m fr.Element) fr.Element {
 
 	for i := 0; i < len(d.Params); i++ {
 		// m = (m+k+c)^5
@@ -170,8 +170,8 @@ func (d *digest) encrypt(m fr.Element) (e fr.Element) {
 			Square(&m).
 			Mul(&m, &tmp)
 	}
-	e.Add(&m, &d.h)
-	return
+	m.Add(&m, &d.h)
+	return m
 }
 
 // Sum computes the mimc hash of msg from seed
