@@ -25,6 +25,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -2235,6 +2236,23 @@ func genFull() gopter.Gen {
 	}
 }
 
+// Some utils
+
+func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	var modulus big.Int
+	var aIntMod big.Int
+	modulus.SetInt64(1)
+	modulus.Lsh(&modulus, (Limbs+1)*64)
+	aIntMod.Mod(aInt, &modulus)
+
+	slice := append(z[:], aHi)
+
+	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestElementInversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {
@@ -2681,44 +2699,6 @@ func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, result
 
 	result.assertMatchVeryBigInt(t, resultHi, &xInt)
 	return xInt
-}
-
-func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
-
-	var wI big.Word
-
-	if index < len(w) {
-		wI = w[index]
-	}
-
-	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
-
-	a = a >> ((index * bits.UintSize) % 64)
-	a &= filter
-
-	if uint64(wI) != a {
-		t.Error("Bignum mismatch: disagreement on word", index)
-	}
-}
-
-func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
-	var modulus big.Int
-	var aIntMod big.Int
-	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*64)
-	aIntMod.Mod(aInt, &modulus)
-
-	words := aIntMod.Bits()
-
-	const steps = 64 / bits.UintSize
-	for i := 0; i < Limbs*steps; i++ {
-		assertMatch(t, words, z[i/steps], i)
-	}
-
-	for i := 0; i < steps; i++ {
-		assertMatch(t, words, aHi, Limbs*steps+i)
-	}
 }
 
 func approximateRef(x *Element) uint64 {
