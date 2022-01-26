@@ -375,10 +375,9 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 // HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
-	var res G1Affine
 	u, err := hashToFp(msg, dst, 2)
 	if err != nil {
-		return res, err
+		return G1Affine{}, err
 	}
 
 	Q0 := sswuMapG1(&u[0])
@@ -390,13 +389,13 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	isogenyG1(&Q1)
 {{ end }}
 
-	var _Q0, _Q1, _res G1Jac
+	var _Q0, _Q1 G1Jac
 	_Q0.FromAffine(&Q0)
-	_Q1.FromAffine(&Q1)
-	_res.Set(&_Q1).AddAssign(&_Q0)
-	res.FromJacobian(&_res)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
 	{{ if .CofactorCleaning}}
-	    res.ClearCofactor(&res)
+	    _Q1.ClearCofactor(&_Q1)
 	{{ end }}
-	return res, nil
+
+    Q1.FromJacobian(&_Q1)
+    return Q1, nil
 }
