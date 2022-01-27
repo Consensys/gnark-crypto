@@ -19,25 +19,20 @@ func TestIntToMont(t *testing.T) {
 	properties.Property("must recover initial non-montgomery value by repeated halving", prop.ForAll(
 		func(c fieldInfo) (bool, error) {
 
-			i, err := rand.Int(rand.Reader, c.modulus)
-			if err != nil {
-				return false, err
-			}
-
 			// turn into mont
-			mont := *i
+			mont := c.i
 			c.field.IntToMont(&mont)
 
 			// recover initial value by unorthodox means
 			// halve nbWords * 64 times
 			for c.bitLen = c.nbWords * 64; c.bitLen > 0; c.bitLen-- {
 				if mont.Bit(0) != 0 {
-					mont.Add(&mont, c.modulus)
+					mont.Add(&mont, &c.modulus)
 				}
 				mont.Rsh(&mont, 1)
 			}
 
-			return mont.Cmp(i) == 0, nil
+			return mont.Cmp(&c.i) == 0, nil
 		}, gen),
 	)
 
@@ -56,11 +51,34 @@ func TestIntToMont(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestBigIntMatchUint64Slice(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 10
+	properties := gopter.NewProperties(parameters)
+	gen := genFull(t)
+
+	properties.Property("random big.int must match uint64 slice made out of .Bytes()", prop.ForAll(
+		func(c fieldInfo) (bool, error) {
+			bytes := c.i.Bytes()
+			ints := make([]uint64, (len(bytes)-1)/8+1)
+
+			for j := 0; j < len(bytes); j++ {
+				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
+			}
+
+			err := BigIntMatchUint64Slice(&c.i, ints)
+			return err == nil, err
+		}, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 type fieldInfo struct {
 	nbWords int
 	bitLen  int
-	modulus *big.Int
+	modulus big.Int
 	field   *Field
+	i       big.Int
 }
 
 func genFull(t *testing.T) gopter.Gen {
@@ -74,10 +92,11 @@ func genFull(t *testing.T) gopter.Gen {
 			c.nbWords = 5 + mrand.Intn(32)
 			c.bitLen = c.nbWords*64 - 1 - mrand.Intn(64)
 
-			c.modulus, err = rand.Prime(rand.Reader, c.bitLen)
+			temp, err := rand.Prime(rand.Reader, c.bitLen)
 			if err != nil {
 				t.Fatal(err)
 			}
+			c.modulus.Set(temp)
 
 			c.field, err = NewField("dummy", "DummyElement", c.modulus.Text(10), false)
 			if err != nil {
@@ -86,6 +105,12 @@ func genFull(t *testing.T) gopter.Gen {
 			if c.modulus.Bit(0) == 0 {
 				panic("Not a prime")
 			}
+
+			temp, err = rand.Int(rand.Reader, &c.modulus)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.i.Set(temp)
 
 			return c
 		}
