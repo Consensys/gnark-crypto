@@ -179,6 +179,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case Element:
 		return z.Set(&c1), nil
 	case *Element:
+		if c1 == nil {
+			return nil, errors.New("can't set fp.Element with <nil>")
+		}
 		return z.Set(c1), nil
 	case uint8:
 		return z.SetUint64(uint64(c1)), nil
@@ -203,6 +206,9 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
+		if c1 == nil {
+			return nil, errors.New("can't set fp.Element with <nil>")
+		}
 		return z.SetBigInt(c1), nil
 	case big.Int:
 		return z.SetBigInt(&c1), nil
@@ -1942,10 +1948,6 @@ const invIterationsN = 50
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
-	if x.IsZero() {
-		z.SetZero()
-		return z
-	}
 
 	a := *x
 	b := Element{
