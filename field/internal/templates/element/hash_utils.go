@@ -13,15 +13,6 @@ func (z *{{.ElementName}}) Sgn0() bool {
 	return nonMont[0]%2 == 1
 }
 
-func (z *{{.ElementName}}) SetHex(hex string) {
-	var i big.Int
-	i.SetString(hex, 16)
-	if _, b := i.SetString(hex, 16); !b {
-		panic("SetString failed")
-	}
-	z.SetBigInt(&i)
-}
-
 func (z *{{.ElementName}}) EvalPolynomial(monic bool, coefficients []{{.ElementName}}, x *{{.ElementName}}) {
     dst := coefficients[len(coefficients) - 1]
 
