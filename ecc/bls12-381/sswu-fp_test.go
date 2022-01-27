@@ -18,41 +18,65 @@ package bls12381
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 	"testing"
 )
 
 func TestSqrtRatio(t *testing.T) {
-	testSqrtRatio(&fp.Element{0}, &fp.Element{1}, t)
-	testSqrtRatio(&fp.Element{1}, &fp.Element{1}, t)
 
-	for i := 0; i < 1000; i++ {
-		var u fp.Element
-		var v fp.Element
-		u.SetRandom()
-		v.SetRandom()
-		testSqrtRatio(&u, &v, t)
-	}
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+	gen := genFull(t)
+
+	properties.Property("SqrtRatio must square back to the right value", prop.ForAll(
+		func(uv []fp.Element) bool {
+			u := &uv[0]
+			v := &uv[1]
+
+			var ref fp.Element
+			ref.Div(u, v)
+			var qrRef bool
+			if ref.Legendre() == -1 {
+				var Z fp.Element
+				Z.SetInt64(11)
+				ref.Mul(&ref, &Z)
+				qrRef = false
+			} else {
+				qrRef = true
+			}
+
+			var seen fp.Element
+			qr := sqrtRatio(&seen, u, v)
+			seen.Square(&seen)
+
+			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
+			return seen == ref && (ref.IsZero() || qr == qrRef)
+
+		}, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func testSqrtRatio(u *fp.Element, v *fp.Element, t *testing.T) {
-	var ref fp.Element
-	ref.Div(u, v)
-	var qrRef bool
-	if ref.Legendre() == -1 {
-		var Z fp.Element
-		Z.SetInt64(11)
-		ref.Mul(&ref, &Z)
-		qrRef = false
-	} else {
-		qrRef = true
-	}
+func genFull(t *testing.T) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-	var seen fp.Element
-	qr := sqrtRatio(&seen, u, v)
-	seen.Square(&seen)
+		genRandomPair := func() (fp.Element, fp.Element) {
+			var a, b fp.Element
 
-	if !ref.IsZero() && qr != qrRef || seen != ref {
-		// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-		t.Error(*u, *v, "actual qr =", qr)
+			if _, err := a.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			if _, err := b.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			return a, b
+		}
+		a, b := genRandomPair()
+
+		genResult := gopter.NewGenResult([]fp.Element{a, b}, gopter.NoShrinker)
+		return genResult
 	}
 }

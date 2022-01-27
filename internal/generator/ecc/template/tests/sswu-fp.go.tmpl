@@ -6,40 +6,65 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{- end}}
 	"testing"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 )
 
-func TestSqrtRatio(t *testing.T) {
-	testSqrtRatio(& {{.CoordType}}{0}, &{{.CoordType}}{1}, t)
-	testSqrtRatio(&{{.CoordType}}{1}, &{{.CoordType}}{1}, t)
 
-	for i := 0; i < 1000; i++ {
-		var u {{.CoordType}}
-		var v {{.CoordType}}
-		u.SetRandom()
-		v.SetRandom()
-		testSqrtRatio(&u, &v, t)
-	}
+func TestSqrtRatio(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+	gen := genFull(t)
+
+	properties.Property("SqrtRatio must square back to the right value", prop.ForAll(
+		func(uv []{{.CoordType}}) bool {
+			u := &uv[0]
+			v := &uv[1]
+
+			var ref {{.CoordType}}
+			ref.Div(u, v)
+			var qrRef bool
+			if ref.Legendre() == -1 {
+				var Z {{.CoordType}}
+				Z.SetInt64(11)
+				ref.Mul(&ref, &Z)
+				qrRef = false
+			} else {
+				qrRef = true
+			}
+
+			var seen {{.CoordType}}
+			qr := sqrtRatio(&seen, u, v)
+			seen.Square(&seen)
+
+			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
+			return seen == ref && (ref.IsZero() || qr == qrRef)
+
+		}, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func testSqrtRatio(u *{{.CoordType}}, v *{{.CoordType}}, t *testing.T) {
-	var ref {{.CoordType}}
-	ref.Div(u, v)
-	var qrRef bool
-	if ref.Legendre() == -1 {
-        var Z {{.CoordType}}
-        Z.SetInt64({{.Z}})
-		ref.Mul(&ref, &Z)
-		qrRef = false
-	} else {
-		qrRef = true
-	}
+func genFull(t *testing.T) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-	var seen {{.CoordType}}
-	qr := sqrtRatio(&seen, u, v)
-	seen.Square(&seen)
+		genRandomPair := func() ({{.CoordType}}, {{.CoordType}}) {
+			var a, b {{.CoordType}}
 
-	if !ref.IsZero() && qr != qrRef || seen != ref {
-        // Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-		t.Error(*u, *v, "actual qr =", qr)
+			if _, err := a.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			if _, err := b.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			return a, b
+		}
+		a, b := genRandomPair()
+
+		genResult := gopter.NewGenResult([]{{.CoordType}}{a, b}, gopter.NoShrinker)
+		return genResult
 	}
 }
