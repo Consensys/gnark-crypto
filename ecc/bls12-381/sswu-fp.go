@@ -248,7 +248,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	}
 
 	//TODO: Not constant time
-	if u.Sgn0() != y.Sgn0() {
+	if sgn0(u) != sgn0(&y) {
 		y.Neg(&y)
 	}
 
@@ -300,4 +300,15 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 
 	Q1.FromJacobian(&_Q1)
 	return Q1, nil
+}
+
+// sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// The sign of an element is not obviously related to that of its Montgomery form
+func sgn0(z *fp.Element) uint64 {
+	nonMont := *z
+	nonMont.FromMont()
+
+	return nonMont[0] % 2
 }
