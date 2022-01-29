@@ -2,11 +2,13 @@ package field
 
 import (
 	"crypto/rand"
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
+	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 )
 
 func TestIntToMont(t *testing.T) {
@@ -53,7 +55,7 @@ func TestIntToMont(t *testing.T) {
 
 func TestBigIntMatchUint64Slice(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 1
 	properties := gopter.NewProperties(parameters)
 	gen := genFull(t)
 
@@ -62,9 +64,21 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 			bytes := c.i.Bytes()
 			ints := make([]uint64, (len(bytes)-1)/8+1)
 
+			fmt.Print("Bytes in hex: [")
 			for j := 0; j < len(bytes); j++ {
+				fmt.Printf("%x,", bytes[j])
 				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
 			}
+
+			fmt.Print("]\nints in hex: [")
+			for j := 0; j < len(ints); j++ {
+				fmt.Printf("%x,", ints[j])
+			}
+			fmt.Print("]\nOriginal int in hex: [")
+			for j := 0; j < len(c.i.Bits()); j++ {
+				fmt.Printf("%x,", c.i.Bits()[j])
+			}
+			fmt.Println("]")
 
 			err := BigIntMatchUint64Slice(&c.i, ints)
 			return err == nil, err
