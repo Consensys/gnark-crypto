@@ -18,9 +18,10 @@ package field
 import (
 	"errors"
 	"fmt"
-	"github.com/consensys/gnark-crypto/field/internal/addchain"
 	"math/big"
 	"math/bits"
+
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
 
 var (
@@ -362,7 +363,7 @@ func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 		aI &= filter
 
 		if uint64(wI) != aI {
-			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x", i, uint64(wI), aI)
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
 		}
 	}
 
