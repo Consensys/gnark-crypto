@@ -358,7 +358,7 @@ func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 			wI = words[i]
 		}
 
-		aI := a[i] >> ((i * bits.UintSize) % 64)
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
 		aI &= filter
 
 		fmt.Printf("at %d: orig=%x, ints=%x\n", i, wI, aI)
