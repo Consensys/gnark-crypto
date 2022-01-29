@@ -361,8 +361,6 @@ func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
 		aI &= filter
 
-		fmt.Printf("at %d: orig=%x, ints=%x\n", i, wI, aI)
-
 		if uint64(wI) != aI {
 			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
 		}
