@@ -350,10 +350,21 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-
-
+// Select is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *{{.ElementName}}) Select(c int64, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
+	select_(z, c, x0, x1)
+	return z
+}
 
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
+
+func _selectGeneric(z *{{.ElementName}}, c int64, x0 *{{.ElementName}}, x1 *{{.ElementName}}) {
+	cC := uint64(( c | -c ) >> 63)	// "canonicized" into: 0 if c=0, -1 otherwise
+	{{- range $i := .NbWordsIndexesFull }}
+	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
+	{{- end}}
+}
 
 func _mulGeneric(z,x,y *{{.ElementName}}) {
 	{{ if .NoCarry}}

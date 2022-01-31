@@ -61,12 +61,7 @@ func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
 
-// Select is a constant-time conditional move.
-// If c=0, z = x0. Else z = x1
-func (z *{{.ElementName}}) Select(c int64, x0 *{{.ElementName}}, x1 *{{.ElementName}}) {
-	cC := uint64(( c | -c ) >> 63)	// "canonicized" into: 0 if c=0, -1 otherwise
-	{{- range $i := .NbWordsIndexesFull }}
-	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
-	{{- end}}
+func select_(res *{{.ElementName}}, c int64, x0, x1 *{{.ElementName}}) {
+	_selectGeneric(res, c, x0, x1)
 }
 `

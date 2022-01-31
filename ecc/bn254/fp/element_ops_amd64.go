@@ -48,3 +48,6 @@ func reduce(res *Element)
 
 //go:noescape
 func Butterfly(a, b *Element)
+
+//go:noescape
+func select_(res *Element, c int64, x0, x1 *Element)
