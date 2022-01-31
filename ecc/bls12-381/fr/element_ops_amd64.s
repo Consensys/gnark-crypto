@@ -338,3 +338,28 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	MOVQ SI, 16(AX)
 	MOVQ DI, 24(AX)
 	RET
+
+// select_(res *Element, c int64, x0, x1 *Element)
+TEXT ·select_(SB), NOSPLIT, $0-32
+	MOVQ    x1+24(FP), DX
+	MOVQ    x0+16(FP), AX
+	MOVQ    c+8(FP), CX
+	MOVQ    res+0(FP), SI
+	TESTQ   CX, CX
+	MOVQ    0(AX), CX
+	MOVQ    0(DX), BX
+	CMOVQEQ CX, BX
+	MOVQ    BX, 0(SI)
+	MOVQ    8(AX), CX
+	MOVQ    8(DX), BX
+	CMOVQEQ CX, BX
+	MOVQ    BX, 8(SI)
+	MOVQ    16(AX), CX
+	MOVQ    16(DX), BX
+	CMOVQEQ CX, BX
+	MOVQ    BX, 16(SI)
+	MOVQ    24(AX), CX
+	MOVQ    24(DX), BX
+	CMOVQEQ CX, BX
+	MOVQ    BX, 24(SI)
+	RET
