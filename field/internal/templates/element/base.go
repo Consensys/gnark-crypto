@@ -359,7 +359,18 @@ func (z *{{.ElementName}}) Select(c int64, x0 *{{.ElementName}}, x1 *{{.ElementN
 	{{- end}}
 	return z
 }
-	
+
+// Select2 is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *{{.ElementName}}) Select2(c int64, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
+	cC := uint64(( c | -c ) >> 63)	// "canonicized" into: 0 if c=0, -1 otherwise
+	nCc := ^cC
+	{{- range $i := .NbWordsIndexesFull }}
+	z[{{$i}}] = (nCc & x0[{{$i}}]) | (cC & x1[{{$i}}])
+	{{- end}}
+	return z
+}
+
 
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 

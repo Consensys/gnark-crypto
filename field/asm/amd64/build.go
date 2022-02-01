@@ -170,9 +170,6 @@ func Generate(w io.Writer, F *field.Field) error {
 	// fft butterflies
 	f.generateButterfly()
 
-	// select
-	f.generateSelect()
-
 	return nil
 }
 

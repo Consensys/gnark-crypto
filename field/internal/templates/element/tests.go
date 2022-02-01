@@ -26,6 +26,29 @@ import (
 
 var benchRes{{.ElementName}} {{.ElementName}}
 
+func Benchmark{{.ElementName}}Select(b *testing.B) {
+	var x, y {{.ElementName}}
+	x.SetRandom()
+	y.SetRandom()
+
+	b.Run("deep", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			benchRes{{.ElementName}}.Select(int64(i%3), &x, &y)
+		}
+	})
+
+	b.Run("shallow", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			benchRes{{.ElementName}}.Select2(int64(i%3), &x, &y)
+		}
+	})
+
+}
+
 func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 	var x {{.ElementName}}
 	x.SetRandom()

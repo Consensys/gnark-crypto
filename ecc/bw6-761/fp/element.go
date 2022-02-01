@@ -539,6 +539,26 @@ func (z *Element) Select(c int64, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// Select2 is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *Element) Select2(c int64, x0 *Element, x1 *Element) *Element {
+	cC := uint64((c | -c) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
+	nCc := ^cC
+	z[0] = (nCc & x0[0]) | (cC & x1[0])
+	z[1] = (nCc & x0[1]) | (cC & x1[1])
+	z[2] = (nCc & x0[2]) | (cC & x1[2])
+	z[3] = (nCc & x0[3]) | (cC & x1[3])
+	z[4] = (nCc & x0[4]) | (cC & x1[4])
+	z[5] = (nCc & x0[5]) | (cC & x1[5])
+	z[6] = (nCc & x0[6]) | (cC & x1[6])
+	z[7] = (nCc & x0[7]) | (cC & x1[7])
+	z[8] = (nCc & x0[8]) | (cC & x1[8])
+	z[9] = (nCc & x0[9]) | (cC & x1[9])
+	z[10] = (nCc & x0[10]) | (cC & x1[10])
+	z[11] = (nCc & x0[11]) | (cC & x1[11])
+	return z
+}
+
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z, x, y *Element) {
