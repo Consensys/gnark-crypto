@@ -1840,22 +1840,6 @@ func TestElementSelect(t *testing.T) {
 		genZ,
 	))
 
-	properties.Property("Select: must match generic implementation", prop.ForAll(
-		func(a, b Element, cond int64, z int8) bool {
-			condC := combineSelectionArguments(cond, z)
-
-			var c, d Element
-			c.Select(condC, &a, &b)
-			_selectGeneric(&d, condC, &a, &b)
-
-			return c.Equal(&d)
-		},
-		genA,
-		genB,
-		genC,
-		genZ,
-	))
-
 	properties.Property("Select: having the receiver as operand should output the same result", prop.ForAll(
 		func(a, b Element, cond int64, z int8) bool {
 			condC := combineSelectionArguments(cond, z)

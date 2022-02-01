@@ -76,7 +76,3 @@ func neg(z, x *Element) {
 func reduce(z *Element) {
 	_reduceGeneric(z)
 }
-
-func select_(res *Element, c int64, x0, x1 *Element) {
-	_selectGeneric(res, c, x0, x1)
-}

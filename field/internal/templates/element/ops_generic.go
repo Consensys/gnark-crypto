@@ -49,6 +49,7 @@ func double(z,  x *{{.ElementName}}) {
 	_doubleGeneric(z,x)
 }
 
+
 func sub(z,  x, y *{{.ElementName}}) {
 	_subGeneric(z,x,y)
 }
@@ -57,11 +58,8 @@ func neg(z,  x *{{.ElementName}}) {
 	_negGeneric(z,x)
 }
 
+
 func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
-}
-
-func select_(res *{{.ElementName}}, c int64, x0, x1 *{{.ElementName}}) {
-	_selectGeneric(res, c, x0, x1)
 }
 `
