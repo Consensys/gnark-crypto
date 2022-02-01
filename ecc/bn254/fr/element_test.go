@@ -44,22 +44,9 @@ func BenchmarkElementSelect(b *testing.B) {
 	x.SetRandom()
 	y.SetRandom()
 
-	b.Run("generic", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			benchResElement.Select(int64(i%3), &x, &y)
-		}
-	})
-
-	b.Run("asm", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			benchResElement.Select2(int64(i%3), &x, &y)
-		}
-	})
-
+	for i := 0; i < b.N; i++ {
+		benchResElement.Select(int64(i%3), &x, &y)
+	}
 }
 
 func BenchmarkElementSetBytes(b *testing.B) {
