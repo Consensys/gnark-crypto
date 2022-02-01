@@ -58,7 +58,6 @@ func neg(z,  x *{{.ElementName}}) {
 	_negGeneric(z,x)
 }
 
-
 func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }

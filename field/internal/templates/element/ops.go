@@ -38,9 +38,6 @@ func reduce(res *{{.ElementName}})
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
-//go:noescape
-func select_(res *{{.ElementName}}, c int64, x0, x1 *{{.ElementName}})
-
 {{end}}
 
 

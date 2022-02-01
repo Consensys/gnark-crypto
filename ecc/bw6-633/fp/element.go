@@ -491,13 +491,6 @@ func (z *Element) Neg(x *Element) *Element {
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
 func (z *Element) Select(c int64, x0 *Element, x1 *Element) *Element {
-	select_(z, c, x0, x1)
-	return z
-}
-
-// Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
-
-func _selectGeneric(z *Element, c int64, x0 *Element, x1 *Element) {
 	cC := uint64((c | -c) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
 	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
 	z[1] = x0[1] ^ cC&(x0[1]^x1[1])
@@ -509,7 +502,10 @@ func _selectGeneric(z *Element, c int64, x0 *Element, x1 *Element) {
 	z[7] = x0[7] ^ cC&(x0[7]^x1[7])
 	z[8] = x0[8] ^ cC&(x0[8]^x1[8])
 	z[9] = x0[9] ^ cC&(x0[9]^x1[9])
+	return z
 }
+
+// Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z, x, y *Element) {
 
