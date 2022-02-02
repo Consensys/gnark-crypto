@@ -39,8 +39,8 @@ type Proof struct {
 	shiftedProof kzg.OpeningProof
 }
 
-// EvaluateAccumulationPolynomialBitReversed returns the accumulation polynomial in Lagrange basis.
-func EvaluateAccumulationPolynomialBitReversed(lt1, lt2 []fr.Element, epsilon fr.Element) []fr.Element {
+// evaluateAccumulationPolynomialBitReversed returns the accumulation polynomial in Lagrange basis.
+func evaluateAccumulationPolynomialBitReversed(lt1, lt2 []fr.Element, epsilon fr.Element) []fr.Element {
 
 	s := len(lt1)
 	z := make([]fr.Element, s)
@@ -83,8 +83,8 @@ func evaluateFirstPartNumReverse(lt1, lt2, lz []fr.Element, epsilon fr.Element) 
 	return res
 }
 
-// evaluateSecondNumReverse computes L0 * (z-1)
-func evaluateSecondNumReverse(lz []fr.Element, d *fft.Domain) []fr.Element {
+// evaluateSecondPartNumReverse computes L0 * (z-1)
+func evaluateSecondPartNumReverse(lz []fr.Element, d *fft.Domain) []fr.Element {
 
 	var tn, o, g fr.Element
 	o.SetOne()
@@ -161,7 +161,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// compute Z and commit it
-	cz := EvaluateAccumulationPolynomialBitReversed(t1, t2, epsilon)
+	cz := evaluateAccumulationPolynomialBitReversed(t1, t2, epsilon)
 	d.FFTInverse(cz, fft.DIT)
 	proof.z, err = kzg.Commit(cz, srs)
 	if err != nil {
@@ -181,7 +181,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	lsNumFirstPart := evaluateFirstPartNumReverse(lt1, lt2, lz, epsilon)
 
 	// compute second part of the numerator
-	lsNum := evaluateSecondNumReverse(lz, d)
+	lsNum := evaluateSecondPartNumReverse(lz, d)
 
 	// derive challenge used for the folding
 	omega, err := deriveRandomness(&fs, "omega", &proof.z)
