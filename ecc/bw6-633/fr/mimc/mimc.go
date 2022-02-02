@@ -176,7 +176,7 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 }
 
 // Sum computes the mimc hash of msg from seed
-func Sum(seed string, msg []byte) ([]byte, error) {
+func Sum(msg []byte) ([]byte, error) {
 	var d digest
 	if _, err := d.Write(msg); err != nil {
 		return nil, err
