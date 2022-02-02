@@ -27,6 +27,16 @@ import (
 
 var benchRes{{.ElementName}} {{.ElementName}}
 
+func Benchmark{{.ElementName}}Select(b *testing.B) {
+	var x, y {{.ElementName}}
+	x.SetRandom()
+	y.SetRandom()
+
+	for i := 0; i < b.N; i++ {
+		benchRes{{.ElementName}}.Select(int64(i%3), &x, &y)
+	}
+}
+
 func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 	var x {{.ElementName}}
 	x.SetRandom()
@@ -1057,6 +1067,65 @@ func Test{{toTitle .ElementName}}Halve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func combineSelectionArguments(c int64, z int8) int64 {
+	if z % 3 == 0 {
+		return 0
+	}
+	return c
+}
+
+func Test{{toTitle .ElementName}}Select(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := genFull()
+	genB := genFull()
+	genC := ggen.Int64()	//the condition
+	genZ := ggen.Int8()	//to make zeros artificially more likely
+
+	properties.Property("Select: must select correctly", prop.ForAll(
+		func(a, b {{.ElementName}}, cond int64, z int8) bool {
+			condC := combineSelectionArguments(cond, z)
+
+			var c {{.ElementName}}
+			c.Select(condC, &a, &b)
+			
+			if condC == 0 {
+				return c.Equal(&a)
+			}
+			return c.Equal(&b)
+		},
+		genA,
+		genB,
+		genC,
+		genZ,
+	))
+
+	properties.Property("Select: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b {{.ElementName}}, cond int64, z int8) bool {
+			condC := combineSelectionArguments(cond, z)
+			
+			var c, d {{.ElementName}}
+			d.Set(&a)
+			c.Select(condC, &a, &b)
+			a.Select(condC, &a, &b)
+			b.Select(condC, &d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
+		},
+		genA,
+		genB,
+		genC,
+		genZ,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
