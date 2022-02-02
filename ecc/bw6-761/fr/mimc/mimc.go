@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"golang.org/x/crypto/sha3"
+	"math/big"
 )
 
 const mimcNbRounds = 91
@@ -64,6 +65,15 @@ func init() {
 type digest struct {
 	h    fr.Element
 	data []byte // data to hash
+}
+
+// GetConstants exposed to be used in gnark
+func GetConstants() []big.Int {
+	res := make([]big.Int, mimcNbRounds)
+	for i := 0; i < mimcNbRounds; i++ {
+		mimcConstants[i].ToBigIntRegular(&res[i])
+	}
+	return res
 }
 
 // NewMiMC returns a MiMCImpl object, pure-go reference implementation
