@@ -337,9 +337,9 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	// create domains
 	var dNum *fft.Domain
 	if len(t) <= len(f) {
-		dNum = fft.NewDomain(uint64(len(f)+1), 0, false)
+		dNum = fft.NewDomain(uint64(len(f)+1))
 	} else {
-		dNum = fft.NewDomain(uint64(len(t)), 0, false)
+		dNum = fft.NewDomain(uint64(len(t)))
 	}
 	cardDNum := int(dNum.Cardinality)
 
@@ -430,7 +430,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	// prepare data for computing the quotient
 	// compute the numerator
 	s := dNum.Cardinality
-	domainH := fft.NewDomain(uint64(2*s), 1, false)
+	domainH := fft.NewDomain(uint64(2*s))
 	_lz := make([]fr.Element, 2*s)
 	_lh1 := make([]fr.Element, 2*s)
 	_lh2 := make([]fr.Element, 2*s)
@@ -592,7 +592,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 
 	// check polynomial relation using Schwartz Zippel
 	var lhs, rhs, nun, g, _g, a, v, w, one fr.Element
-	d := fft.NewDomain(proof.size, 0, false) // only there to access to root of 1...
+	d := fft.NewDomain(proof.size) // only there to access to root of 1...
 	one.SetOne()
 	g.Exp(d.Generator, big.NewInt(int64(d.Cardinality-1)))
 

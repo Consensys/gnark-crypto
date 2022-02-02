@@ -41,12 +41,17 @@ const butterflyThreshold = 16
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 // if coset if set, the FFT(a) returns the evaluation of a on a coset.
-func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset bool) {
+func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset ...bool) {
 
 	numCPU := uint64(runtime.NumCPU())
 
+	_coset := false
+	if len(coset) > 0 {
+		_coset = coset[0]
+	}
+
 	// if coset != 0, scale by coset table
-	if coset {
+	if _coset {
 		scale := func(cosetTable []fr.Element) {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
@@ -84,9 +89,14 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset bool) {
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
-func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset bool) {
+func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ...bool) {
 
 	numCPU := uint64(runtime.NumCPU())
+
+	_coset := false
+	if len(coset) > 0 {
+		_coset = coset[0]
+	}
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -104,7 +114,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset bo
 	}
 
 	// scale by CardinalityInv
-	if !coset {
+	if !_coset {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CardinalityInv)

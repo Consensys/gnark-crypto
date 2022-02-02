@@ -79,7 +79,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	if _nbColumns < len(t[0]) {
 		_nbColumns = len(t[0])
 	}
-	d := fft.NewDomain(uint64(_nbColumns), 0, false)
+	d := fft.NewDomain(uint64(_nbColumns))
 	nbColumns := d.Cardinality
 	lfs := make([][]fr.Element, nbRows)
 	cfs := make([][]fr.Element, nbRows)
