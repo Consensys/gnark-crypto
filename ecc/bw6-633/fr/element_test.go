@@ -228,6 +228,28 @@ func BenchmarkElementCmp(b *testing.B) {
 	}
 }
 
+func BenchmarkElementEqual(b *testing.B) {
+	var x, y Element
+	x.SetRandom()
+	y.SetRandom()
+
+	b.Run("logical", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			x.Equal(&y)
+		}
+	})
+
+	b.Run("bitwise", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			x.EqualCt(&y)
+		}
+	})
+}
+
 func TestElementCmp(t *testing.T) {
 	var x, y Element
 
@@ -267,6 +289,18 @@ func TestElementIsRandom(t *testing.T) {
 		if x.Equal(&y) {
 			t.Fatal("2 random numbers are unlikely to be equal")
 		}
+	}
+}
+
+func TestElementNegZero(t *testing.T) {
+	var a, b Element
+	b.SetZero()
+	for a.IsZero() {
+		a.SetRandom()
+	}
+	a.Neg(&b)
+	if !a.IsZero() {
+		t.Fatal("neg(0) != 0")
 	}
 }
 
@@ -318,18 +352,6 @@ func init() {
 
 }
 
-func TestElementNegZero(t *testing.T) {
-	var a, b Element
-	b.SetZero()
-	for a.IsZero() {
-		a.SetRandom()
-	}
-	a.Neg(&b)
-	if !a.IsZero() {
-		t.Fatal("neg(0) != 0")
-	}
-}
-
 func TestElementReduce(t *testing.T) {
 	testValues := make([]Element, len(staticTestValues))
 	copy(testValues, staticTestValues)
@@ -375,6 +397,54 @@ func TestElementReduce(t *testing.T) {
 
 }
 
+func TestElementEqual(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("x.Equal(&y) iff x == y; likely false for random pairs", prop.ForAll(
+		func(a testPairElement, b testPairElement) bool {
+			return a.element.Equal(&b.element) == (a.element == b.element)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("Constant and non-constant implementations match; likely false for random pairs", prop.ForAll(
+		func(a testPairElement, b testPairElement) bool {
+			return a.element.EqualCt(&b.element) == a.element.Equal(&b.element)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("x.Equal(&y) if x == y", prop.ForAll(
+		func(a testPairElement) bool {
+			b := a.element
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("x.EqualCt(&y) if x == y", prop.ForAll(
+		func(a testPairElement) bool {
+			b := a.element
+			return a.element.EqualCt(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementBytes(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -387,7 +457,7 @@ func TestElementBytes(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property("SetBytes(Bytes()) should stayt constant", prop.ForAll(
+	properties.Property("SetBytes(Bytes()) should stay constant", prop.ForAll(
 		func(a testPairElement) bool {
 			var b Element
 			bytes := a.element.Bytes()

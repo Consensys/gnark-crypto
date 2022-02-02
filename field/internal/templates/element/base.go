@@ -209,6 +209,16 @@ func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 	return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] == x[{{$i}}]) &&{{end}}(z[0] == x[0])
 }
 
+// EqualCt returns z == x; constant-time, on average slower than Equal except on small moduli
+func (z *{{.ElementName}}) EqualCt(x *{{.ElementName}}) bool {
+	return z.Diff(x) == 0
+}
+
+// Diff returns 0 if and only if z == x; constant-time
+func (z *{{.ElementName}}) Diff(x *{{.ElementName}}) uint64 {
+return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
+}
+
 // IsZero returns z == 0
 func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
