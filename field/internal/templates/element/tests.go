@@ -405,7 +405,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 	genB := gen()
 
 	properties.Property("x.Equal(&y) iff x == y; likely false for random pairs", prop.ForAll(
-		func(a testPairElement, b testPairElement) bool {
+		func(a testPair{{.ElementName}}, b testPair{{.ElementName}}) bool {
 			return a.element.Equal(&b.element) == (a.element == b.element)
 		},
 		genA,
@@ -413,7 +413,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 	))
 
 	properties.Property("Constant and non-constant implementations match; likely false for random pairs", prop.ForAll(
-		func(a testPairElement, b testPairElement) bool {
+		func(a testPair{{.ElementName}}, b testPair{{.ElementName}}) bool {
 			return a.element.EqualCt(&b.element) == a.element.Equal(&b.element)
 		},
 		genA,
@@ -421,7 +421,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 	))
 
 	properties.Property("x.Equal(&y) if x == y", prop.ForAll(
-		func(a testPairElement) bool {
+		func(a testPair{{.ElementName}}) bool {
 			b := a.element
 			return a.element.Equal(&b)
 		},
@@ -429,7 +429,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 	))
 
 	properties.Property("x.EqualCt(&y) if x == y", prop.ForAll(
-		func(a testPairElement) bool {
+		func(a testPair{{.ElementName}}) bool {
 			b := a.element
 			return a.element.EqualCt(&b)
 		},
