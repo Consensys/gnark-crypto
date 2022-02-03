@@ -218,7 +218,7 @@ func Benchmark{{toTitle .ElementName}}Equal(b *testing.B) {
 	x.SetRandom()
 	y.SetRandom()
 
-	b.Run("logical", func(b *testing.B) {
+	b.Run("logical-random", func(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
@@ -226,7 +226,25 @@ func Benchmark{{toTitle .ElementName}}Equal(b *testing.B) {
 		}
 	})
 
-	b.Run("bitwise", func(b *testing.B) {
+	b.Run("bitwise-random", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			x.EqualCt(&y)
+		}
+	})
+
+	y = x
+
+	b.Run("logical-equal", func(b *testing.B) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			x.Equal(&y)
+		}
+	})
+
+	b.Run("bitwise-equal", func(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
