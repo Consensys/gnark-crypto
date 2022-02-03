@@ -1,3 +1,6 @@
+{{$g1Isogeny := notNil .Isogeny}}
+{{$CoordType := .Point.CoordType}}
+
 import (
     "math/big"
 	{{- if eq .CoordExtDegree 1 }}
@@ -7,25 +10,34 @@ import (
 	{{- end}}
 )
 
-{{ $g1Isogeny := notNil .Isogeny }}
+{{ define "asElement" }}
+{{ if eq $.all.ExtDegree 1}}
+{ {{ words64 $.c }} }
+{{ else }}
+{ {{ range $ci := $.c }}
+    { {{ words64 $.c }} },
+    {{ end }}
+}
+{{ end }}
+{{- end }}
 
 {{ if $g1Isogeny }}
 
-func isogenyXNumerator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+func isogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         false,
-        []{{.CoordType}} {
+        []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
-                { {{ words64 $c }} },
+                {{ template "reduce" dict "all" . "c" $c }},
             {{- end}}
         },
         x)
 }
 
-func isogenyXDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+func isogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         true,
-        []{{.CoordType}} {
+        []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Den}}
                 { {{ words64 $c }} },
             {{- end}}
@@ -33,11 +45,11 @@ func isogenyXDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
         x)
 }
 
-func isogenyYNumerator(dst *{{.CoordType}}, x *{{.CoordType}}, y *{{.CoordType}}) {
-    var _dst {{.CoordType}}
+func isogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}) {
+    var _dst {{$CoordType}}
     _dst.EvalPolynomial(
         false,
-        []{{.CoordType}} {
+        []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Num}}
                 { {{ words64 $c }} },
             {{- end}}
@@ -47,10 +59,10 @@ func isogenyYNumerator(dst *{{.CoordType}}, x *{{.CoordType}}, y *{{.CoordType}}
    dst.Mul(&_dst, y)
 }
 
-func isogenyYDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+func isogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         true,
-        []{{.CoordType}} {
+        []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Den}}
                 { {{ words64 $c }} },
             {{- end}}
@@ -60,7 +72,7 @@ func isogenyYDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
 
 func isogenyG1(p *G1Affine) {
 
-	den := make([]{{.CoordType}}, 2)
+	den := make([]{{$CoordType}}, 2)
 
 	isogenyYDenominator(&den[1], &p.X)
 	isogenyXDenominator(&den[0], &p.X)
@@ -83,24 +95,24 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 4) 3 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 	var tv1 {{.CoordType}}
 	tv1.Square(v)
-	var tv2 {{.CoordType}}
+	var tv2 {{$CoordType}}
 	tv2.Mul(u, v)
 	tv1.Mul(&tv1, &tv2)
 
-	var y1 {{.CoordType}}
+	var y1 {{$CoordType}}
 	{
 	var c1 big.Int
-	// c1 = {{ index .SqrtRatioParams 0 }}
-	c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
+	// c1 = {{ $c1 }}
+	c1.SetBytes([]byte { {{ printList (bytes $c1 ) }} })
 	y1.Exp(tv1, &c1)
 	}
 
 	y1.Mul(&y1, &tv2)
 
-	var y2 {{.CoordType}}
-	y2.Mul(&y1, &{{.CoordType}}{ {{ words64 (index .SqrtRatioParams 1) }} })
+	var y2 {{$CoordType}}
+	y2.Mul(&y1, &{{$CoordType}}{ {{ words64 (index .SqrtRatioParams 1) }} })
 
-	var tv3 {{.CoordType}}
+	var tv3 {{$CoordType}}
 	tv3.Square(&y1)
 	tv3.Mul(&tv3, v)
 
@@ -114,7 +126,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 8) 5 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.3. q = 5 mod 8
 // TODO: Test correct use of Element.Select
 
-    var tv1, tv2 {{.CoordType}}
+    var tv1, tv2 {{$CoordType}}
     tv1.Square(v)
     tv2.Mul(&tv1, v)
     tv1.Square(&tv1)
@@ -124,10 +136,10 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
     var c1 big.Int
 	// c1 = {{ index .SqrtRatioParams 0 }}
     c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
-    var y1 {{.CoordType}}
+    var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
+    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -146,7 +158,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
-    var tv3 {{.CoordType}}
+    var tv3 {{$CoordType}}
     //Line 20
     // Z = {{.Z}}
     mulByZ(&tv3, u)
@@ -165,7 +177,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
    var exp big.Int
    // c4 = {{ index .SqrtRatioParams 3 }}
    exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 3) ) }} })
-   var tv2, tv3, tv4, tv5 {{.CoordType}}
+   var tv2, tv3, tv4, tv5 {{$CoordType}}
    tv2.Exp(*v, &exp)
    tv3.Mul(&tv2, &tv2)
    tv3.Mul(&tv3, v)
@@ -188,7 +200,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
 
    isQNr := notOne(&tv5)
 
-   tv2.Mul(&tv3, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 6) }} })
+   tv2.Mul(&tv3, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 6) }} })
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -224,13 +236,13 @@ func notOne(x *{{.CoordType}}) uint64 {
 {{ end }}
 
 // mulByZ multiplies x by {{.Z}} and stores the result in z
-func mulByZ(z *{{.CoordType}}, x *{{.CoordType}}) {
+func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
     {{ $ZBitsHi2Lo := reverse (bits .Z) }}
     {{ $op := "Add"}}
     {{ if lt .Z 0 }}
         {{ $op = "Sub" }}
-        var res {{.CoordType}}
+        var res {{$CoordType}}
         res.Neg(x)
     {{ end }}
     {{ if gt .Z 0 }}
@@ -253,24 +265,24 @@ func mulByZ(z *{{.CoordType}}, x *{{.CoordType}}) {
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func sswuMapG1(u *{{.CoordType}}) G1Affine {
+func sswuMapG1(u *{{$CoordType}}) G1Affine {
 
-	var tv1 {{.CoordType}}
+	var tv1 {{$CoordType}}
 	tv1.Square(u)
 
 	//mul tv1 by Z
 	mulByZ(&tv1, &tv1)
 
-	var tv2 {{.CoordType}}
+	var tv2 {{$CoordType}}
 	tv2.Square(&tv1)
 	tv2.Add(&tv2, &tv1)
 
-	var tv3 {{.CoordType}}
+	var tv3 {{$CoordType}}
 	//Standard doc line 5
-	var tv4 {{.CoordType}}
+	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &{{.CoordType}}{ {{ words64 .B }} })
+	tv3.Mul(&tv3, &{{$CoordType}}{ {{ words64 .B }} })
 
     tv2NZero := tv2[0] {{ range $i := $.Field.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
     tv4.SetInt64({{.Z}})
@@ -281,28 +293,28 @@ func sswuMapG1(u *{{.CoordType}}) G1Affine {
 
 	tv2.Square(&tv3)
 
-	var tv6 {{.CoordType}}
+	var tv6 {{$CoordType}}
 	//Standard doc line 10
 	tv6.Square(&tv4)
 
-	var tv5 {{.CoordType}}
-	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .A }} })
+	var tv5 {{$CoordType}}
+	tv5.Mul(&tv6, &{{$CoordType}}{ {{ words64 .A }} })
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .B }} })
+	tv5.Mul(&tv6, &{{$CoordType}}{ {{ words64 .B }} })
 	tv2.Add(&tv2, &tv5)
 
-	var x {{.CoordType}}
+	var x {{$CoordType}}
 	x.Mul(&tv1, &tv3)
 
 	var y1 {{.CoordType}}
 	gx1NSquare := sqrtRatio(&y1, &tv2, &tv6)
 
-	var y {{.CoordType}}
+	var y {{$CoordType}}
 	y.Mul(&tv1, u)
 
 	//Standards doc line 20
@@ -320,7 +332,7 @@ func sswuMapG1(u *{{.CoordType}}) G1Affine {
 	return G1Affine{x, y}
 }
 
-// EncodeToCurveG1SSWU maps a {{.CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// EncodeToCurveG1SSWU maps a {{$CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	var res G1Affine
@@ -334,7 +346,7 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	//this is in an isogenous curve
 	isogenyG1(&res)
 {{ end }}
- 	{{ if .CofactorCleaning}}
+ 	{{ if .Point.CofactorCleaning}}
  	    res.ClearCofactor(&res)
  	{{ end }}
  	return res, nil
@@ -360,7 +372,7 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	var _Q0, _Q1 G1Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
-	{{ if .CofactorCleaning}}
+	{{ if .Point.CofactorCleaning}}
 	    _Q1.ClearCofactor(&_Q1)
 	{{ end }}
 
