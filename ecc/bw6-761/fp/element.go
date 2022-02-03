@@ -271,18 +271,13 @@ func (z *Element) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return (z[11] == x[11]) && (z[10] == x[10]) && (z[9] == x[9]) && (z[8] == x[8]) && (z[7] == x[7]) && (z[6] == x[6]) && (z[5] == x[5]) && (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
+	return z.EqualCt(x) == 0
 }
 
-// EqualCt returns z == x; constant-time, on average slower than Equal except on small moduli
-func (z *Element) EqualCt(x *Element) bool {
-	return z.Diff(x) == 0
-}
-
-// Diff returns 0 if and only if z == x; constant-time
-func (z *Element) Diff(x *Element) uint64 {
+// EqualCt returns 0 if and only if z == x; constant-time
+func (z *Element) EqualCt(x *Element) uint64 {
 	return (z[11] ^ x[11]) | (z[10] ^ x[10]) | (z[9] ^ x[9]) | (z[8] ^ x[8]) | (z[7] ^ x[7]) | (z[6] ^ x[6]) | (z[5] ^ x[5]) | (z[4] ^ x[4]) | (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 

@@ -204,18 +204,13 @@ func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
-	return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] == x[{{$i}}]) &&{{end}}(z[0] == x[0])
+	return z.EqualCt(x) == 0
 }
 
-// EqualCt returns z == x; constant-time, on average slower than Equal except on small moduli
-func (z *{{.ElementName}}) EqualCt(x *{{.ElementName}}) bool {
-	return z.Diff(x) == 0
-}
-
-// Diff returns 0 if and only if z == x; constant-time
-func (z *{{.ElementName}}) Diff(x *{{.ElementName}}) uint64 {
+// EqualCt returns 0 if and only if z == x; constant-time
+func (z *{{.ElementName}}) EqualCt(x *{{.ElementName}}) uint64 {
 return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
 }
 

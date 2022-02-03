@@ -213,46 +213,6 @@ func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	}
 }
 
-func Benchmark{{toTitle .ElementName}}Equal(b *testing.B) {
-	var x, y {{.ElementName}}
-	x.SetRandom()
-	y.SetRandom()
-
-	b.Run("logical-random", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			x.Equal(&y)
-		}
-	})
-
-	b.Run("bitwise-random", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			x.EqualCt(&y)
-		}
-	})
-
-	y = x
-
-	b.Run("logical-equal", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			x.Equal(&y)
-		}
-	})
-
-	b.Run("bitwise-equal", func(b *testing.B) {
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			x.EqualCt(&y)
-		}
-	})
-}
-
 func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	var x, y {{.ElementName}}
 	
@@ -430,26 +390,10 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Constant and non-constant implementations match; likely false for random pairs", prop.ForAll(
-		func(a testPair{{.ElementName}}, b testPair{{.ElementName}}) bool {
-			return a.element.EqualCt(&b.element) == a.element.Equal(&b.element)
-		},
-		genA,
-		genB,
-	))
-
 	properties.Property("x.Equal(&y) if x == y", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			b := a.element
 			return a.element.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("x.EqualCt(&y) if x == y", prop.ForAll(
-		func(a testPair{{.ElementName}}) bool {
-			b := a.element
-			return a.element.EqualCt(&b)
 		},
 		genA,
 	))
