@@ -17,6 +17,7 @@ var BLS12_381 = Curve{
 	G2: Point{
 		CoordType:        "fptower.E2",
 		CoordExtDegree:   2,
+		CoordExtRoot:     -1,
 		PointName:        "g2",
 		GLV:              true,
 		CofactorCleaning: true,

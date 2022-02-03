@@ -1,6 +1,7 @@
+{{$CoordType := .Point.CoordType}}
 import (
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
+	{{- if or (eq $CoordType "fptower.E2") (eq $CoordType "fptower.E4") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
@@ -10,7 +11,6 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-
 func TestSqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -18,15 +18,15 @@ func TestSqrtRatio(t *testing.T) {
 	gen := genFull(t)
 
 	properties.Property("SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []{{.CoordType}}) bool {
+		func(uv []{{$CoordType}}) bool {
 			u := &uv[0]
 			v := &uv[1]
 
-			var ref {{.CoordType}}
+			var ref {{$CoordType}}
 			ref.Div(u, v)
 			var qrRef bool
 			if ref.Legendre() == -1 {
-				var Z {{.CoordType}}
+				var Z {{$CoordType}}
 				Z.SetInt64(11)
 				ref.Mul(&ref, &Z)
 				qrRef = false
@@ -34,7 +34,7 @@ func TestSqrtRatio(t *testing.T) {
 				qrRef = true
 			}
 
-			var seen {{.CoordType}}
+			var seen {{$CoordType}}
 			qr := sqrtRatio(&seen, u, v)
 			seen.Square(&seen)
 
@@ -49,8 +49,8 @@ func TestSqrtRatio(t *testing.T) {
 func genFull(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() ({{.CoordType}}, {{.CoordType}}) {
-			var a, b {{.CoordType}}
+		genRandomPair := func() ({{$CoordType}}, {{$CoordType}}) {
+			var a, b {{$CoordType}}
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
@@ -64,7 +64,7 @@ func genFull(t *testing.T) gopter.Gen {
 		}
 		a, b := genRandomPair()
 
-		genResult := gopter.NewGenResult([]{{.CoordType}}{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult([]{{$CoordType}}{a, b}, gopter.NoShrinker)
 		return genResult
 	}
 }

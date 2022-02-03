@@ -41,7 +41,7 @@ type HashSuite struct {
 	A string // A is the hex-encoded Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
 	B string // B is the hex-encoded Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
 
-	Z int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	Z []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 
 	Isogeny *Isogeny
 }
@@ -58,9 +58,10 @@ func (c Curve) Equal(other Curve) bool {
 
 type Point struct {
 	CoordType        string
-	CoordExtDegree   uint8
+	CoordExtDegree   uint8 // value n, such that q = pⁿ
+	CoordExtRoot     int64 // value a, such that the field is Fp[X]/(Xⁿ - a)
 	PointName        string
-	GLV              bool  // scalar mulitplication using GLV
+	GLV              bool  // scalar multiplication using GLV
 	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
 	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
 	Projective       bool  // generate projective coordinates
@@ -93,76 +94,94 @@ func newFieldInfo(modulus string) Field {
 	return F
 }
 
-func NewHashSuiteInfo(f *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+func toInt64Slice(z []int) []int64 {
+	ret := make([]int64, len(z))
 
-	fieldModulus := f.ModulusBig
-	var fieldSize big.Int
-	fieldSize.Exp(fieldModulus, big.NewInt(int64(g.CoordExtDegree)), nil)
-	fieldSizeMod256 := uint8(fieldSize.Bits()[0])
+	for i := 0; i < len(z); i++ {
+		ret[i] = int64(z[i])
+	}
 
-	Z := int64(suite.Z)
-	var c []big.Int
+	return ret
+}
 
-	//TODO: Works only for fp
+func toBigIntSlice(z []int) []big.Int {
+	res := make([]big.Int, len(z))
+	for i := 0; i < len(z); i++ {
+		res[i].SetInt64(int64(z[i]))
+	}
+	return res
+}
+
+func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+
+	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
+	fieldSizeMod256 := uint8(f.Size.Bits()[0])
+
+	Z := toBigIntSlice(suite.Z)
+	var c [][]big.Int
+
 	if fieldSizeMod256%4 == 3 {
-		c = make([]big.Int, 2)
-		c[0].Rsh(&fieldSize, 2)
+		c = make([][]big.Int, 2)
+		c[0] = make([]big.Int, 1)
+		c[0][0].Rsh(&f.Size, 2)
 
-		c[1].SetInt64(-Z)
-		c[1].ModSqrt(&c[1], fieldModulus)
-		f.IntToMont(&c[1])
+		f.Neg(&c[1], Z).Sqrt(&c[1], c[1])
+		f.ToMont(&c[1], c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
-		c = make([]big.Int, 3)
-		c[0].Rsh(&fieldSize, 3)
+		c = make([][]big.Int, 3)
+		c[0] = make([]big.Int, 1)
+		c[0][0].Rsh(&f.Size, 3)
 
-		c[1].SetInt64(-1)
-		c[1].ModSqrt(&c[1], fieldModulus)
+		c[1] = make([]big.Int, f.Degree)
+		c[1][0].SetInt64(-1)
+		f.Sqrt(&c[1], c[1])
 
-		c[2].ModInverse(&c[1], fieldModulus)
-		c[2].Mul(&c[2], big.NewInt(Z))
+		f.Inverse(&c[2], c[1])
+		f.Mul(&c[2], Z, c[2]).Sqrt(&c[2], c[2])
 
-		c[2].ModSqrt(&c[2], fieldModulus)
-
-		f.IntToMont(&c[1])
-		f.IntToMont(&c[2])
+		f.ToMont(&c[1], c[1])
+		f.ToMont(&c[2], c[2])
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
-		c = make([]big.Int, 7)
+		c = make([][]big.Int, 3)
 
-		c[0].Sub(&fieldSize, big.NewInt(1))
-		c1 := c[0].TrailingZeroBits()
-		c[0].SetUint64(uint64(c1))
+		c[0] = make([]big.Int, 5)
+		// c1 .. c5 stored as c[0][0] .. c[0][4]
+		c[0][0].Sub(&f.Size, big.NewInt(1))
+		c1 := c[0][0].TrailingZeroBits()
+		c[0][0].SetUint64(uint64(c1))
 
 		var twoPowC1 big.Int
 		twoPowC1.Lsh(ONE, c1)
-		c[1].Rsh(&fieldSize, c1)
-		c[2].Rsh(&c[1], 1)
-		c[3].Sub(&twoPowC1, ONE)
-		c[4].Rsh(&twoPowC1, 1)
-		f.Exp(&c[5], big.NewInt(Z), &c[1])
-		var c7Pow big.Int
-		c7Pow.Add(&c[1], ONE)
-		c7Pow.Rsh(&c7Pow, 1)
-		f.Exp(&c[6], big.NewInt(Z), &c7Pow)
+		c[0][1].Rsh(&f.Size, c1)
+		c[0][2].Rsh(&c[1][0], 1)
+		c[0][3].Sub(&twoPowC1, ONE)
+		c[0][4].Rsh(&twoPowC1, 1)
 
-		f.IntToMont(&c[5])
-		f.IntToMont(&c[6])
+		// c6, c7 stored as c[1], c[2] respectively
+		f.Exp(&c[1], Z, &c[0][1])
+		var c7Pow big.Int
+		c7Pow.Add(&c[0][1], ONE)
+		c7Pow.Rsh(&c7Pow, 1)
+		f.Exp(&c[2], Z, &c7Pow)
+
+		f.ToMont(&c[1], c[1])
+		f.ToMont(&c[2], c[2])
 
 	} else {
 		panic("this is logically impossible")
 	}
 
 	return HashSuiteInfo{
-		A:                f.HexToMont(suite.A),
-		B:                f.HexToMont(suite.B),
-		Z:                suite.Z,
-		CoordType:        g.CoordType,
-		CofactorCleaning: g.CofactorCleaning,
-		Name:             name,
-		Isogeny:          newIsogenousCurveInfoOptional(f, suite.Isogeny),
-		FieldSizeMod256:  fieldSizeMod256,
-		SqrtRatioParams:  c,
+		A:               baseField.HexToMont(suite.A),
+		B:               baseField.HexToMont(suite.B),
+		Z:               suite.Z,
+		Point:           g,
+		Name:            name,
+		Isogeny:         newIsogenousCurveInfoOptional(baseField, suite.Isogeny),
+		FieldSizeMod256: fieldSizeMod256,
+		SqrtRatioParams: c,
 	}
 }
 
@@ -204,15 +223,15 @@ type RationalPolynomialInfo struct {
 
 type HashSuiteInfo struct {
 	//Isogeny to original curve
-	Isogeny *IsogenyInfo //pointer so it's nullable. TODO: Bad practice or ok?
+	Isogeny *IsogenyInfo //pointer so it's nullable.
 
 	A big.Int
 	B big.Int
 
-	CoordType        string
-	Name             string
-	FieldSizeMod256  uint8
-	SqrtRatioParams  []big.Int
-	Z                int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-	CofactorCleaning bool
+	Point           *Point
+	Name            string
+	FieldSizeMod256 uint8
+	SqrtRatioParams [][]big.Int
+	Z               []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+
 }
