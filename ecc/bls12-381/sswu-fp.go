@@ -128,8 +128,8 @@ func isogenyG1(p *G1Affine) {
 // sqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
+	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 	var tv1 fp.Element
 	tv1.Square(v)
 	var tv2 fp.Element
@@ -235,13 +235,10 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	x.Select(int(gx1NSquare), &tv3, &x)
 	y.Select(int(gx1NSquare), &y1, &y)
 
-	//TODO: Not constant time
-	if sgn0(u) != sgn0(&y) {
-		y.Neg(&y)
-	}
+	y1.Neg(&y)
+	y.Select(int(sgn0(u)^sgn0(&y)), &y, &y1)
 
 	//Standards doc line 25
-	//TODO: Not constant time. Use Jacobian?
 	x.Div(&x, &tv4)
 
 	return G1Affine{x, y}
