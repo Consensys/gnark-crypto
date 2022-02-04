@@ -1,6 +1,6 @@
 {{$CoordType := .Point.CoordType}}
 import (
-	{{- if eq .CoordExtDegree 1 }}
+	{{- if eq .Field.Degree 1 }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -32,7 +32,7 @@ func TestSqrtRatio(t *testing.T) {
 				qrRef = true
 			}
 
-			var seen {{.CoordType}}
+			var seen {{$CoordType}}
 			qr := sqrtRatio(&seen, u, v) == 0
 			seen.Square(&seen)
 
