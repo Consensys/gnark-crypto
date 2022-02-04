@@ -12,12 +12,12 @@ import (
 )
 
 {{ define "asElement" }}
-{{ if eq $ExtDegree 1}}
+{{ if eq $.ExtDegree 1}}
 { {{ words64 (index $.c 0) }} }
 {{ else }}
 { {{ range $ci := $.c }}
     { {{ words64 $.c }} },
-    {{ end }}
+  {{ end }}
 }
 {{ end }}
 {{- end }}
@@ -29,7 +29,7 @@ func isogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
-                {{ template "asElement" dict "c" $c }},
+                {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree}},
             {{- end}}
         },
         x)
@@ -114,7 +114,7 @@ func sqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
 	y1.Mul(&y1, &tv2)
 
 	var y2 {{$CoordType}}
-	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .SqrtRatioParams 1) }})
+	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .SqrtRatioParams 1)  "ExtDegree" $ExtDegree}})
 
 	var tv3 {{$CoordType}}
 	tv3.Square(&y1)
@@ -242,7 +242,8 @@ func notOne(x *{{$CoordType}}) uint64 {
 // mulByZ multiplies x by {{.Z}} and stores the result in z
 func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
-    {{ $ZBitsHi2Lo := reverse (bits .Z) }}
+{{ if eq $ExtDegree 1 }}
+    {{ $ZBitsHi2Lo := reverse (bits (index .Z 0)) }}
     {{ $op := "Add"}}
     {{ if lt .Z 0 }}
         {{ $op = "Sub" }}
@@ -266,6 +267,10 @@ func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
     {{ end }}
 
     *z = res
+
+{{ else }}
+    panic("not implemented")
+{{ end }}
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
