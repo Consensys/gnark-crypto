@@ -311,13 +311,10 @@ func sswuMapG1(u *{{.CoordType}}) G1Affine {
     x.Select(int(gx1NSquare), &tv3, &x)
     y.Select(int(gx1NSquare), &y1, &y)
 
-	//TODO: Not constant time
-	if sgn0(u) != sgn0(&y) {
-		y.Neg(&y)
-	}
+    y1.Neg(&y)
+    y.Select(int(sgn0(u)^sgn0(&y)), &y, &y1)
 
 	//Standards doc line 25
-	//TODO: Not constant time. Use Jacobian?
 	x.Div(&x, &tv4)
 
 	return G1Affine{x, y}
