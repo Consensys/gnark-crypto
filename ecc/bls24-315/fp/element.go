@@ -229,9 +229,14 @@ func (z *Element) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
+	return z.EqualCt(x) == 0
+}
+
+// EqualCt returns 0 if and only if z == x; constant-time
+func (z *Element) EqualCt(x *Element) uint64 {
+	return (z[4] ^ x[4]) | (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 
 // IsZero returns z == 0

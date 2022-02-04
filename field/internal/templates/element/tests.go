@@ -213,7 +213,6 @@ func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	}
 }
 
-
 func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	var x, y {{.ElementName}}
 	
@@ -257,6 +256,17 @@ func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	}
 }
 
+func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
+	var a, b {{.ElementName}}
+	b.SetZero()
+	for a.IsZero() {
+		a.SetRandom()
+	}
+	a.Neg(&b)
+	if !a.IsZero() {
+		t.Fatal("neg(0) != 0")
+	}
+}
 
 // -------------------------------------------------------------------------------------------------
 // Gopter tests
@@ -313,18 +323,6 @@ func init() {
 
 }
 
-func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
-	var a, b {{.ElementName}}
-	b.SetZero()
-	for a.IsZero() {
-		a.SetRandom()
-	}
-	a.Neg(&b)
-	if !a.IsZero() {
-		t.Fatal("neg(0) != 0")
-	}
-}
-
 func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	testValues := make([]{{.ElementName}}, len(staticTestValues))
 	copy(testValues, staticTestValues)
@@ -371,6 +369,38 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	
 }
 
+func Test{{toTitle .ElementName}}Equal(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("x.Equal(&y) iff x == y; likely false for random pairs", prop.ForAll(
+		func(a testPair{{.ElementName}}, b testPair{{.ElementName}}) bool {
+			return a.element.Equal(&b.element) == (a.element == b.element)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("x.Equal(&y) if x == y", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			b := a.element
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func Test{{toTitle .ElementName}}Bytes(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -383,7 +413,7 @@ func Test{{toTitle .ElementName}}Bytes(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property("SetBytes(Bytes()) should stayt constant", prop.ForAll(
+	properties.Property("SetBytes(Bytes()) should stay constant", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			var b {{.ElementName}}
 			bytes := a.element.Bytes()
