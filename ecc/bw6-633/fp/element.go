@@ -274,6 +274,11 @@ func (z *Element) IsZero() bool {
 	return (z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
+// IsOne returns z == 1
+func (z *Element) IsOne() bool {
+	return (z[9] ^ 51212299585931083 | z[8] ^ 7016548280614581879 | z[7] ^ 8411601626847721258 | z[6] ^ 1038965607738428109 | z[5] ^ 15732028589390776959 | z[4] ^ 12856030952767240260 | z[3] ^ 12638729832353218866 | z[2] ^ 17318295036095996852 | z[1] ^ 16907884053554239805 | z[0] ^ 5665001492438840506) == 0
+}
+
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
 	return (z[9] | z[8] | z[7] | z[6] | z[5] | z[4] | z[3] | z[2] | z[1]) == 0
