@@ -95,6 +95,9 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		panic("this is logically impossible")
 	}
 
+	var ZMont []big.Int
+	f.ToMont(&ZMont, Z)
+
 	return HashSuiteInfo{
 		A:                f.HexSliceToMont(suite.A),
 		B:                f.HexSliceToMont(suite.B),
@@ -106,6 +109,7 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		FieldSizeMod256:  fieldSizeMod256,
 		SqrtRatioParams:  c,
 		Field:            &f,
+		ZMont:            ZMont,
 	}
 }
 
@@ -147,6 +151,7 @@ type HashSuiteInfo struct {
 	Name             string
 	FieldSizeMod256  uint8
 	SqrtRatioParams  [][]big.Int
-	Z                []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	Z                []int     // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	ZMont            []big.Int // z, in montgomery form
 	CofactorCleaning bool
 }

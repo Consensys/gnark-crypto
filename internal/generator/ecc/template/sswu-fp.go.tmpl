@@ -11,16 +11,11 @@ import (
 	{{- end}}
 )
 
-{{ define "asElement" }}
-{{ if eq $.ExtDegree 1}}
-{ {{ words64 (index $.c 0) }} }
-{{ else }}
+{{ define "asElement" }}{{ if eq $.ExtDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}
 { {{ range $ci := $.c }}
     { {{ words64 $.c }} },
   {{ end }}
-}
-{{ end }}
-{{- end }}
+}{{ end }}{{- end }}
 
 {{ if $g1Isogeny }}
 
@@ -29,7 +24,7 @@ func isogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
-                {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree}},
+            {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree}},
             {{- end}}
         },
         x)
@@ -243,14 +238,17 @@ func notOne(x *{{$CoordType}}) uint64 {
 func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ if eq $ExtDegree 1 }}
-    {{ $ZBitsHi2Lo := reverse (bits (index .Z 0)) }}
+
+    {{ $Z := index .Z 0}}
+
+    {{ $ZBitsHi2Lo := reverse (bits $Z) }}
     {{ $op := "Add"}}
-    {{ if lt .Z 0 }}
+    {{ if lt $Z 0 }}
         {{ $op = "Sub" }}
         var res {{$CoordType}}
         res.Neg(x)
     {{ end }}
-    {{ if gt .Z 0 }}
+    {{ if gt $Z 0 }}
         res := *x
     {{ end }}
     res.Double(&res)
@@ -266,12 +264,9 @@ func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
         res.{{$op}}(&res, x)
     {{ end }}
 
-    *z = res
-
-{{ else }}
+    *z = res {{ else }}
     panic("not implemented")
-{{ end }}
-}
+{{ end }}}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 func sswuMapG1(u *{{$CoordType}}) G1Affine {
@@ -291,13 +286,16 @@ func sswuMapG1(u *{{$CoordType}}) G1Affine {
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &{{$CoordType}}{ {{ words64 .B }} })
+	tv3.Mul(&tv3, &{{$CoordType}}{{ template "asElement" dict "c" .B  "ExtDegree" $ExtDegree}})
 
-    tv2NZero := tv2[0] {{ range $i := $.Field.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
-    tv4.SetInt64({{.Z}})
+    tv2NZero := tv2[0] {{ range $i := $.Field.Base.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
+
+	// tv4 = Z
+	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .ZMont "ExtDegree" $ExtDegree}}
+
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)
-    tv2 = {{$CoordType}}{ {{ words64 .A }} }
+    tv2 = {{$CoordType}}{{ template "asElement" dict "c" .A  "ExtDegree" $ExtDegree}}
     tv4.Mul(&tv4, &tv2)
 
 	tv2.Square(&tv3)
@@ -307,14 +305,14 @@ func sswuMapG1(u *{{$CoordType}}) G1Affine {
 	tv6.Square(&tv4)
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$CoordType}}{ {{ words64 .A }} })
+	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .A  "ExtDegree" $ExtDegree}})
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &{{$CoordType}}{ {{ words64 .B }} })
+	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .B  "ExtDegree" $ExtDegree}})
 	tv2.Add(&tv2, &tv5)
 
 	var x {{$CoordType}}

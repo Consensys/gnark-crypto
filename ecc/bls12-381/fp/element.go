@@ -829,10 +829,6 @@ func _reduceGeneric(z *Element) {
 	}
 }
 
-func (z *Element) MulByConstant(c uint8) {
-	mulByConstant(z, c)
-}
-
 func mulByConstant(z *Element, c uint8) {
 	switch c {
 	case 0:

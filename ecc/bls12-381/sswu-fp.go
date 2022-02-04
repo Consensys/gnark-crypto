@@ -158,7 +158,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
-// mulByZ multiplies x by 11 and stores the result in z
+// mulByZ multiplies x by [11] and stores the result in z
 func mulByZ(z *fp.Element, x *fp.Element) {
 
 	res := *x
@@ -197,7 +197,10 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv3.Mul(&tv3, &fp.Element{18129637713272545760, 11144507692959411567, 10108153527111632324, 9745270364868568433, 14587922135379007624, 469008097655535723})
 
 	tv2NZero := tv2[0] | tv2[1] | tv2[2] | tv2[3] | tv2[4] | tv2[5]
-	tv4.SetInt64(11)
+
+	// tv4 = Z
+	tv4 = fp.Element{9830232086645309404, 1112389714365644829, 8603885298299447491, 11361495444721768256, 5788602283869803809, 543934104870762216}
+
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
 	tv2 = fp.Element{3415322872136444497, 9675504606121301699, 13284745414851768802, 2873609449387478652, 2897906769629812789, 1536947672689614213}
