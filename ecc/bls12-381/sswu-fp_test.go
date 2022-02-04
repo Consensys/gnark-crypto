@@ -47,7 +47,7 @@ func TestSqrtRatio(t *testing.T) {
 			}
 
 			var seen fp.Element
-			qr := sqrtRatio(&seen, u, v)
+			qr := sqrtRatio(&seen, u, v) == 0
 			seen.Square(&seen)
 
 			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so

@@ -125,11 +125,11 @@ func isogenyG1(p *G1Affine) {
 	p.Y.Mul(&p.Y, &den[1])
 }
 
-// sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
+// sqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
+func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	var tv1 fp.Element
 	tv1.Square(v)
 	var tv2 fp.Element
@@ -155,7 +155,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 
 	isQNr := tv3.Neq(u)
 	z.Select(int(isQNr), &y1, &y2)
-	return isQNr == 0
+	return isQNr
 }
 
 // mulByZ multiplies x by 11 and stores the result in z
@@ -196,16 +196,6 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	tv3.Add(&tv2, &tv4)
 	tv3.Mul(&tv3, &fp.Element{18129637713272545760, 11144507692959411567, 10108153527111632324, 9745270364868568433, 14587922135379007624, 469008097655535723})
 
-	tv4 = fp.Element{3415322872136444497, 9675504606121301699, 13284745414851768802, 2873609449387478652, 2897906769629812789, 1536947672689614213}
-	/*
-		if tv2.IsZero() {
-			mulByZ(&tv4, &tv4)
-			//WARNING: this branch takes less time
-		} else {
-			tv4.Mul(&tv4, &tv2)
-			tv4.Neg(&tv4)
-		}*/
-
 	tv2NZero := tv2[0] | tv2[1] | tv2[2] | tv2[3] | tv2[4] | tv2[5]
 	tv4.SetInt64(11)
 	tv2.Neg(&tv2)
@@ -234,7 +224,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	x.Mul(&tv1, &tv3)
 
 	var y1 fp.Element
-	gx1Square := sqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := sqrtRatio(&y1, &tv2, &tv6)
 
 	var y fp.Element
 	y.Mul(&tv1, u)
@@ -242,11 +232,8 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	//Standards doc line 20
 	y.Mul(&y, &y1)
 
-	//TODO: Not constant time. Is it okay?
-	if gx1Square {
-		x = tv3
-		y = y1
-	}
+	x.Select(int(gx1NSquare), &tv3, &x)
+	y.Select(int(gx1NSquare), &y1, &y)
 
 	//TODO: Not constant time
 	if sgn0(u) != sgn0(&y) {

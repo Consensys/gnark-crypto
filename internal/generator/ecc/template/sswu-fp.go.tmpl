@@ -274,15 +274,13 @@ func sswuMapG1(u *{{.CoordType}}) G1Affine {
 	tv3.Add(&tv2, &tv4)
 	tv3.Mul(&tv3, &{{.CoordType}}{ {{ words64 .B }} })
 
-	tv4 = {{.CoordType}}{ {{ words64 .A }} }
-	//TODO: Std doc uses conditional move. If-then-else good enough here?
-	if tv2.IsZero() {
-		mulByZ(&tv4, &tv4)
-		//WARNING: this branch takes less time
-	} else {
-		tv4.Mul(&tv4, &tv2)
-		tv4.Neg(&tv4)
-	}
+    tv2NZero := tv2[0] {{ range $i := $.Field.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
+    tv4.SetInt64({{.Z}})
+    tv2.Neg(&tv2)
+    tv4.Select(int(tv2NZero), &tv4, &tv2)
+    tv2 = {{.CoordType}}{ {{ words64 .A }} }
+    tv4.Mul(&tv4, &tv2)
+
 	tv2.Square(&tv3)
 
 	var tv6 {{.CoordType}}
