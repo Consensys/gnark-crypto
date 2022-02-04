@@ -211,3 +211,28 @@ func (f *Tower) Exp(z *[]big.Int, x []big.Int, exp *big.Int) *Tower {
 	*z = res
 	return f
 }
+
+func (f *Tower) HexSliceToMont(hex []string) []big.Int {
+	if len(hex) > int(f.Degree) {
+		panic("too many monomials")
+	}
+
+	res := make([]big.Int, f.Degree)
+
+	for i := 0; i < len(res); i++ {
+		res[i] = f.Base.HexToMont(hex[i])
+	}
+
+	return res
+}
+
+func (f *Tower) HexToIntSliceSlice(hex [][]string) [][]big.Int {
+
+	res := make([][]big.Int, len(hex))
+
+	for i, hex := range hex {
+		res[i] = f.HexSliceToMont(hex)
+	}
+
+	return res
+}
