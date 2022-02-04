@@ -127,8 +127,8 @@ func isogenyG1(p *G1Affine) {
 
 // sqrtRatio computes the square root of u/v and returns true if u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var tv1 fp.Element
 	tv1.Square(v)
@@ -152,19 +152,12 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) bool {
 	var tv3 fp.Element
 	tv3.Square(&y1)
 	tv3.Mul(&tv3, v)
-	isQr := tv3 == *u
 
-	if isQr {
-		*z = y1
-	} else {
-		*z = y2
-	}
-
-	return isQr
+	isQNr := tv3.Neq(u)
+	z.Select(int(isQNr), &y1, &y2)
+	return isQNr == 0
 }
 
-//TODO: Use addchain
-//TODO: Might duplicate functionality from mulByConst functions
 // mulByZ multiplies x by 11 and stores the result in z
 func mulByZ(z *fp.Element, x *fp.Element) {
 

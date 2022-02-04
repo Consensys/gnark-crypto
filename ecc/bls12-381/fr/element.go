@@ -214,7 +214,7 @@ func (z *Element) Div(x, y *Element) *Element {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *Element) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= 4 {
@@ -225,22 +225,17 @@ func (z *Element) Bit(i uint64) uint64 {
 
 // Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return z.EqualCt(x) == 0
+	return z.Neq(x) == 0
 }
 
-// EqualCt returns 0 if and only if z == x; constant-time
-func (z *Element) EqualCt(x *Element) uint64 {
+// Neq returns 0 if and only if z == x; constant-time
+func (z *Element) Neq(x *Element) uint64 {
 	return (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
 func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
-}
-
-// IsOne returns z == 1
-func (z *Element) IsOne() bool {
-	return (z[3] ^ 1739710354780652911 | z[2] ^ 11064306276430008309 | z[1] ^ 6378425256633387010 | z[0] ^ 8589934590) == 0
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
@@ -404,8 +399,8 @@ func (z *Element) Neg(x *Element) *Element {
 
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
-func (z *Element) Select(c int64, x0 *Element, x1 *Element) *Element {
-	cC := uint64((c | -c) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
+func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
+	cC := uint64((int64(c) | -int64(c)) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
 	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
 	z[1] = x0[1] ^ cC&(x0[1]^x1[1])
 	z[2] = x0[2] ^ cC&(x0[2]^x1[2])

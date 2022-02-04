@@ -1,15 +1,12 @@
 import (
-    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
-	{{else}}
+	{{- if eq .CoordExtDegree 1 }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- end}}
-	"testing"
+	{{else}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}"testing"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
-
 
 func TestSqrtRatio(t *testing.T) {
 

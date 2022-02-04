@@ -158,6 +158,7 @@ func NewHashSuiteInfo(f *field.Field, g *Point, name string, suite *HashSuite) H
 		B:                f.HexToMont(suite.B),
 		Z:                suite.Z,
 		CoordType:        g.CoordType,
+		CoordExtDegree:   g.CoordExtDegree,
 		CofactorCleaning: g.CofactorCleaning,
 		Name:             name,
 		Isogeny:          newIsogenousCurveInfoOptional(f, suite.Isogeny),
@@ -210,6 +211,7 @@ type HashSuiteInfo struct {
 	B big.Int
 
 	CoordType        string
+	CoordExtDegree   uint8
 	Name             string
 	FieldSizeMod256  uint8
 	SqrtRatioParams  []big.Int
