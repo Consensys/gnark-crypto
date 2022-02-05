@@ -1,6 +1,10 @@
-{{$g1Isogeny := notNil .Isogeny}}
+{{$isogenyNeeded := notNil .Isogeny}}
 {{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
 {{$ExtDegree := .Field.Degree}}
+{{$AffineType := print $CurveTitle "Affine"}}
+{{$JacType := print $CurveTitle "Jac"}}
 
 import (
     "math/big"
@@ -17,9 +21,9 @@ import (
   {{ end }}
 }{{ end }}{{- end }}
 
-{{ if $g1Isogeny }}
+{{ if $isogenyNeeded }}
 
-func isogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
+func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         false,
         []{{$CoordType}} {
@@ -30,7 +34,7 @@ func isogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         x)
 }
 
-func isogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
+func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         true,
         []{{$CoordType}} {
@@ -41,7 +45,7 @@ func isogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         x)
 }
 
-func isogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}) {
+func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}) {
     var _dst {{$CoordType}}
     _dst.EvalPolynomial(
         false,
@@ -55,7 +59,7 @@ func isogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}
    dst.Mul(&_dst, y)
 }
 
-func isogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
+func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
     dst.EvalPolynomial(
         true,
         []{{$CoordType}} {
@@ -66,15 +70,15 @@ func isogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         x)
 }
 
-func isogenyG1(p *G1Affine) {
+func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 
 	den := make([]{{$CoordType}}, 2)
 
-	isogenyYDenominator(&den[1], &p.X)
-	isogenyXDenominator(&den[0], &p.X)
+    {{$CurveName}}IsogenyYDenominator(&den[1], &p.X)
+    {{$CurveName}}IsogenyXDenominator(&den[0], &p.X)
 
-	isogenyYNumerator(&p.Y, &p.X, &p.Y)
-	isogenyXNumerator(&p.X, &p.X)
+    {{$CurveName}}IsogenyYNumerator(&p.Y, &p.X, &p.Y)
+    {{$CurveName}}IsogenyXNumerator(&p.X, &p.X)
 
 	den = fp.BatchInvert(den)
 
@@ -87,10 +91,10 @@ func isogenyG1(p *G1Affine) {
 {{ $c1Int := index .SqrtRatioParams 0 0 }}
 {{ $c1Bytes := printList (bytes $c1Int)}}
 
-// sqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// {{$CurveName}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
+func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 4) 3 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 	var tv1 {{$CoordType}}
 	tv1.Square(v)
@@ -234,8 +238,8 @@ func notOne(x *{{$CoordType}}) uint64 {
 }
 {{ end }}
 
-// mulByZ multiplies x by {{.Z}} and stores the result in z
-func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
+// {{$CurveName}}MulByZ multiplies x by {{.Z}} and stores the result in z
+func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ if eq $ExtDegree 1 }}
 
@@ -269,13 +273,13 @@ func mulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 {{ end }}}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func sswuMapG1(u *{{$CoordType}}) G1Affine {
+func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 
 	var tv1 {{$CoordType}}
 	tv1.Square(u)
 
 	//mul tv1 by Z
-	mulByZ(&tv1, &tv1)
+    {{$CurveName}}MulByZ(&tv1, &tv1)
 
 	var tv2 {{$CoordType}}
 	tv2.Square(&tv1)
@@ -319,7 +323,7 @@ func sswuMapG1(u *{{$CoordType}}) G1Affine {
 	x.Mul(&tv1, &tv3)
 
 	var y1 {{$CoordType}}
-	gx1NSquare := sqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := {{$CurveName}}SqrtRatio(&y1, &tv2, &tv6)
 
 	var y {{$CoordType}}
 	y.Mul(&tv1, u)
@@ -331,27 +335,27 @@ func sswuMapG1(u *{{$CoordType}}) G1Affine {
     y.Select(int(gx1NSquare), &y1, &y)
 
     y1.Neg(&y)
-    y.Select(int(sgn0(u)^sgn0(&y)), &y, &y1)
+    y.Select(int({{$CurveName}}Sgn0(u)^{{$CurveName}}Sgn0(&y)), &y, &y1)
 
 	//Standards doc line 25
 	x.Div(&x, &tv4)
 
-	return G1Affine{x, y}
+	return {{$AffineType}}{x, y}
 }
 
-// EncodeToCurveG1SSWU maps a {{$CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// EncodeToCurve{{$CurveTitle}}SSWU maps a {{$CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
-func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
-	var res G1Affine
+func EncodeToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
+	var res {{$AffineType}}
 	t, err := hashToFp(msg, dst, 1)
 	if err != nil {
 		return res, err
 	}
-	res = sswuMapG1(&t[0])
+	res = {{$CurveName}}SswuMap(&t[0])
 
-{{ if $g1Isogeny }}
+{{ if $isogenyNeeded }}
 	//this is in an isogenous curve
-	isogenyG1(&res)
+    {{$CurveName}}Isogeny(&res)
 {{ end }}
  	{{ if .Point.CofactorCleaning}}
  	    res.ClearCofactor(&res)
@@ -359,24 +363,24 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
  	return res, nil
 }
 
-// HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
+// HashToCurve{{$CurveTitle}}SSWU hashes a byte string to the {{$CurveTitle}} curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+func HashToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := hashToFp(msg, dst, 2)
 	if err != nil {
-		return G1Affine{}, err
+		return {{$AffineType}}{}, err
 	}
 
-	Q0 := sswuMapG1(&u[0])
-	Q1 := sswuMapG1(&u[1])
+	Q0 := {{$CurveName}}SswuMap(&u[0])
+	Q1 := {{$CurveName}}SswuMap(&u[1])
 
-{{ if $g1Isogeny }}
+{{ if $isogenyNeeded }}
 	//TODO: Add in E' first, then apply isogeny
-	isogenyG1(&Q0)
-	isogenyG1(&Q1)
+    {{$CurveName}}Isogeny(&Q0)
+    {{$CurveName}}Isogeny(&Q1)
 {{ end }}
 
-	var _Q0, _Q1 G1Jac
+	var _Q0, _Q1 {{$JacType}}
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
 	{{ if .Point.CofactorCleaning}}
@@ -387,11 +391,11 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
     return Q1, nil
 }
 
-// sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// {{$CurveName}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
 // The sign of an element is not obviously related to that of its Montgomery form
-func sgn0(z *{{$CoordType}}) uint64 {
+func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
     nonMont := *z
     nonMont.FromMont()
 

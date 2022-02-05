@@ -23,13 +23,13 @@ import (
 	"testing"
 )
 
-func TestSqrtRatio(t *testing.T) {
+func TestG1SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
 	gen := genFull(t)
 
-	properties.Property("SqrtRatio must square back to the right value", prop.ForAll(
+	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
 		func(uv []fp.Element) bool {
 			u := &uv[0]
 			v := &uv[1]
@@ -47,7 +47,7 @@ func TestSqrtRatio(t *testing.T) {
 			}
 
 			var seen fp.Element
-			qr := sqrtRatio(&seen, u, v) == 0
+			qr := g1SqrtRatio(&seen, u, v) == 0
 			seen.Square(&seen)
 
 			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so

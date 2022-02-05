@@ -116,27 +116,6 @@ func TestQuadExtensionSqrt(t *testing.T) {
 const minNbWords = 5
 const maxNbWords = 37
 
-type fieldWithElements struct {
-	f        *Field
-	elements []*big.Int
-}
-
-/*func withRandomElements(g gopter.Gen, elementsNum int) gopter.Gen {
-	return g.FlatMap(func(f *Field) (gopter.Gen, error) {
-		genFieldWithElements := func() (fieldWithElements, error) {
-			ints, err := randomElements(f, elementsNum)
-			if err != nil {
-				return fieldWithElements{}, err
-			}
-			return fieldWithElements{f, ints}, nil
-		}
-
-		genResult := gopter.NewGenResult(genFieldWithElements, gopter.NoShrinker)
-		return genResult, nil
-
-	})
-}*/
-
 func randomElement2(f func() *Field) []*big.Int {
 	length := 2
 	res := make([]*big.Int, length)

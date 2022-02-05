@@ -21,7 +21,7 @@ import (
 	"math/big"
 )
 
-func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
+func g1IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
 	dst.EvalPolynomial(
 		false,
 		[]fp.Element{
@@ -41,7 +41,7 @@ func isogenyXNumerator(dst *fp.Element, x *fp.Element) {
 		x)
 }
 
-func isogenyXDenominator(dst *fp.Element, x *fp.Element) {
+func g1IsogenyXDenominator(dst *fp.Element, x *fp.Element) {
 	dst.EvalPolynomial(
 		true,
 		[]fp.Element{
@@ -59,7 +59,7 @@ func isogenyXDenominator(dst *fp.Element, x *fp.Element) {
 		x)
 }
 
-func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
+func g1IsogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
 	var _dst fp.Element
 	_dst.EvalPolynomial(
 		false,
@@ -86,7 +86,7 @@ func isogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
 	dst.Mul(&_dst, y)
 }
 
-func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
+func g1IsogenyYDenominator(dst *fp.Element, x *fp.Element) {
 	dst.EvalPolynomial(
 		true,
 		[]fp.Element{
@@ -109,15 +109,15 @@ func isogenyYDenominator(dst *fp.Element, x *fp.Element) {
 		x)
 }
 
-func isogenyG1(p *G1Affine) {
+func g1Isogeny(p *G1Affine) {
 
 	den := make([]fp.Element, 2)
 
-	isogenyYDenominator(&den[1], &p.X)
-	isogenyXDenominator(&den[0], &p.X)
+	g1IsogenyYDenominator(&den[1], &p.X)
+	g1IsogenyXDenominator(&den[0], &p.X)
 
-	isogenyYNumerator(&p.Y, &p.X, &p.Y)
-	isogenyXNumerator(&p.X, &p.X)
+	g1IsogenyYNumerator(&p.Y, &p.X, &p.Y)
+	g1IsogenyXNumerator(&p.X, &p.X)
 
 	den = fp.BatchInvert(den)
 
@@ -125,10 +125,10 @@ func isogenyG1(p *G1Affine) {
 	p.Y.Mul(&p.Y, &den[1])
 }
 
-// sqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// g1SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
+func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
 	var tv1 fp.Element
 	tv1.Square(v)
@@ -158,8 +158,8 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
-// mulByZ multiplies x by [11] and stores the result in z
-func mulByZ(z *fp.Element, x *fp.Element) {
+// g1MulByZ multiplies x by [11] and stores the result in z
+func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	res := *x
 
@@ -177,13 +177,13 @@ func mulByZ(z *fp.Element, x *fp.Element) {
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func sswuMapG1(u *fp.Element) G1Affine {
+func g1SswuMap(u *fp.Element) G1Affine {
 
 	var tv1 fp.Element
 	tv1.Square(u)
 
 	//mul tv1 by Z
-	mulByZ(&tv1, &tv1)
+	g1MulByZ(&tv1, &tv1)
 
 	var tv2 fp.Element
 	tv2.Square(&tv1)
@@ -227,7 +227,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	x.Mul(&tv1, &tv3)
 
 	var y1 fp.Element
-	gx1NSquare := sqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := g1SqrtRatio(&y1, &tv2, &tv6)
 
 	var y fp.Element
 	y.Mul(&tv1, u)
@@ -239,7 +239,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	y.Select(int(gx1NSquare), &y1, &y)
 
 	y1.Neg(&y)
-	y.Select(int(sgn0(u)^sgn0(&y)), &y, &y1)
+	y.Select(int(g1Sgn0(u)^g1Sgn0(&y)), &y, &y1)
 
 	//Standards doc line 25
 	x.Div(&x, &tv4)
@@ -255,10 +255,10 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	if err != nil {
 		return res, err
 	}
-	res = sswuMapG1(&t[0])
+	res = g1SswuMap(&t[0])
 
 	//this is in an isogenous curve
-	isogenyG1(&res)
+	g1Isogeny(&res)
 
 	res.ClearCofactor(&res)
 
@@ -273,12 +273,12 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 		return G1Affine{}, err
 	}
 
-	Q0 := sswuMapG1(&u[0])
-	Q1 := sswuMapG1(&u[1])
+	Q0 := g1SswuMap(&u[0])
+	Q1 := g1SswuMap(&u[1])
 
 	//TODO: Add in E' first, then apply isogeny
-	isogenyG1(&Q0)
-	isogenyG1(&Q1)
+	g1Isogeny(&Q0)
+	g1Isogeny(&Q1)
 
 	var _Q0, _Q1 G1Jac
 	_Q0.FromAffine(&Q0)
@@ -290,11 +290,11 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	return Q1, nil
 }
 
-// sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
 // The sign of an element is not obviously related to that of its Montgomery form
-func sgn0(z *fp.Element) uint64 {
+func g1Sgn0(z *fp.Element) uint64 {
 	nonMont := *z
 	nonMont.FromMont()
 

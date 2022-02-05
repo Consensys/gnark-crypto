@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestIsogenyG1(t *testing.T) {
+func TestG1Isogeny(t *testing.T) {
 	p := G1Affine{
 		fp.Element{
 			3660217524291093078, 10096673235325531916, 228883846699980880, 13273309082988818590, 5645112663858216297, 1475745906155504807,
@@ -30,7 +30,7 @@ func TestIsogenyG1(t *testing.T) {
 	ref.X.ToMont()
 	ref.Y.ToMont()
 
-	isogenyG1(&p)
+	g1Isogeny(&p)
 
 	if ref != p {
 		t.Fail()
