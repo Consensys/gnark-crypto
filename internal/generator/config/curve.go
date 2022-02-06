@@ -23,6 +23,7 @@ type Curve struct {
 	G2             Point
 
 	HashE1 *HashSuite
+	HashE2 *HashSuite
 }
 
 type Field struct {

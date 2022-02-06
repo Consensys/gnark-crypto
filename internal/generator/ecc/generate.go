@@ -1,6 +1,7 @@
 package ecc
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
+//TODO: Defer: clean up
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 
@@ -36,17 +38,25 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	}
 
 	// hash To curve
-	if conf.HashE1 != nil {
+	genHashToCurve := func(point *config.Point, suite *config.HashSuite) error {
+		if suite == nil { //Nothing to generate. Bypass
+			return nil
+		}
+
 		entries = []bavard.Entry{
-			{File: filepath.Join(baseDir, "sswu-fp.go"), Templates: []string{"sswu-fp.go.tmpl"}},
-			{File: filepath.Join(baseDir, "sswu-fp_test.go"), Templates: []string{"tests/sswu-fp.go.tmpl"}},
-		}
+			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl"}},
+			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
 
-		hashConf := config.NewHashSuiteInfo(conf.Fp, &conf.G1, conf.Name, conf.HashE1)
+		hashConf := config.NewHashSuiteInfo(conf.Fp, point, conf.Name, suite)
 
-		if err := bgen.Generate(hashConf, packageName, "./ecc/template", entries...); err != nil {
-			return err
-		}
+		return bgen.Generate(hashConf, packageName, "./ecc/template", entries...)
+	}
+
+	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
+		return err
+	}
+	if err := genHashToCurve(&conf.G2, conf.HashE2); err != nil {
+		return err
 	}
 
 	// G1
