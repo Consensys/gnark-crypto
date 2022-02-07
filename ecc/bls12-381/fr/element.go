@@ -114,8 +114,8 @@ func (z *Element) SetUint64(v uint64) *Element {
 	return z.Mul(z, &rSquare) // z.ToMont()
 }
 
-// SetInt64 sets z to v and returns z
-func (z *Element) SetInt64(v int64) *Element {
+// FromInt64 sets z to v and returns z
+func (z *Element) FromInt64(v int64) *Element {
 
 	// absolute value of v
 	m := v >> 63
@@ -162,15 +162,15 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case uint64:
 		return z.SetUint64(c1), nil
 	case int8:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int16:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int32:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int64:
-		return z.SetInt64(c1), nil
+		return z.FromInt64(c1), nil
 	case int:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
@@ -1489,19 +1489,4 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
-}
-
-func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
-	dst := coefficients[len(coefficients)-1]
-
-	if monic {
-		dst.Add(&dst, x)
-	}
-
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
-	}
-
-	*z = dst
 }

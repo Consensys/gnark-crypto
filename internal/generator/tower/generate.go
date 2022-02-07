@@ -1,6 +1,7 @@
 package tower
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -73,6 +74,49 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 	}
 
+	towerConfs := []towerConf{
+		{
+			Curve:           &conf,
+			Degree:          2,
+			ExtensionDegree: 2,
+			BaseName:        "fp.Element",
+			CoordName:       "A",
+		},
+		{
+			Curve:           &conf,
+			Degree:          6,
+			ExtensionDegree: 3,
+			BaseName:        "E2",
+			CoordName:       "B",
+		},
+		{
+			Curve:           &conf,
+			Degree:          12,
+			ExtensionDegree: 2,
+			BaseName:        "E6",
+			CoordName:       "C",
+		},
+	}
+
+	for _, towerConf := range towerConfs {
+
+		if err := bgen.Generate(
+			towerConf,
+			"fptower",
+			"./tower/template/fq12over6over2",
+			bavard.Entry{File: filepath.Join(baseDir, fmt.Sprintf("e%d_base.go", towerConf.Degree)), Templates: []string{"base.go.tmpl"}}); err != nil {
+			return err
+		}
+	}
+
 	return nil
 
+}
+
+type towerConf struct {
+	Curve           *config.Curve
+	Degree          int
+	ExtensionDegree int
+	BaseName        string
+	CoordName       string
 }

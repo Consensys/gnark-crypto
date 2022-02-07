@@ -16,13 +16,15 @@
 
 package bls12381
 
+//Note: This only works for simple extensions
+
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"math/big"
 )
 
 func g1IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
-	dst.EvalPolynomial(
+	g1EvalPolynomial(dst,
 		false,
 		[]fp.Element{
 			{5555391298090832668, 1871845530032595596, 4551034694774233518, 2584197799339864836, 15085749040064757844, 654075415717002996},
@@ -42,7 +44,7 @@ func g1IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
 }
 
 func g1IsogenyXDenominator(dst *fp.Element, x *fp.Element) {
-	dst.EvalPolynomial(
+	g1EvalPolynomial(dst,
 		true,
 		[]fp.Element{
 			{13358415881952098629, 12009257493157516192, 13928884382876484932, 12988314785833227070, 11244145530317148182, 100673949996487007},
@@ -61,7 +63,7 @@ func g1IsogenyXDenominator(dst *fp.Element, x *fp.Element) {
 
 func g1IsogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
 	var _dst fp.Element
-	_dst.EvalPolynomial(
+	g1EvalPolynomial(&_dst,
 		false,
 		[]fp.Element{
 			{3122824077082063463, 2111517899915568999, 14844585557031220083, 14713720721132803039, 9041847780307969683, 950267513573868304},
@@ -87,7 +89,7 @@ func g1IsogenyYNumerator(dst *fp.Element, x *fp.Element, y *fp.Element) {
 }
 
 func g1IsogenyYDenominator(dst *fp.Element, x *fp.Element) {
-	dst.EvalPolynomial(
+	g1EvalPolynomial(dst,
 		true,
 		[]fp.Element{
 			{16963992846030154524, 1796759822929186144, 15995221960860457854, 8232142361908220707, 5977498266010213481, 759868220591477233},
@@ -158,6 +160,11 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
+// g1SetZ sets z to [11].
+func g1SetZ(z *fp.Element) {
+	z.Set(&fp.Element{9830232086645309404, 1112389714365644829, 8603885298299447491, 11361495444721768256, 5788602283869803809, 543934104870762216})
+}
+
 // g1MulByZ multiplies x by [11] and stores the result in z
 func g1MulByZ(z *fp.Element, x *fp.Element) {
 
@@ -196,7 +203,7 @@ func g1SswuMap(u *fp.Element) G1Affine {
 	tv3.Add(&tv2, &tv4)
 	tv3.Mul(&tv3, &fp.Element{18129637713272545760, 11144507692959411567, 10108153527111632324, 9745270364868568433, 14587922135379007624, 469008097655535723})
 
-	tv2NZero := tv2[0] | tv2[1] | tv2[2] | tv2[3] | tv2[4] | tv2[5]
+	tv2NZero := g1NotZero(&tv2)
 
 	// tv4 = Z
 	tv4 = fp.Element{9830232086645309404, 1112389714365644829, 8603885298299447491, 11361495444721768256, 5788602283869803809, 543934104870762216}
@@ -250,12 +257,14 @@ func g1SswuMap(u *fp.Element) G1Affine {
 // EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+
 	var res G1Affine
-	t, err := hashToFp(msg, dst, 1)
+	u, err := hashToFp(msg, dst, 1)
 	if err != nil {
 		return res, err
 	}
-	res = g1SswuMap(&t[0])
+
+	res = g1SswuMap(&u[0])
 
 	//this is in an isogenous curve
 	g1Isogeny(&res)
@@ -268,7 +277,7 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 // HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
-	u, err := hashToFp(msg, dst, 2)
+	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
 		return G1Affine{}, err
 	}
@@ -295,8 +304,38 @@ func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
 // The sign of an element is not obviously related to that of its Montgomery form
 func g1Sgn0(z *fp.Element) uint64 {
+
 	nonMont := *z
 	nonMont.FromMont()
 
 	return nonMont[0] % 2
+
+}
+
+func g1EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *fp.Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	z.Set(&dst)
+}
+
+func g1NotZero(x *fp.Element) uint64 {
+
+	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5]
+
+}
+
+func g1NotOne(x *fp.Element) uint64 {
+
+	one := fp.Element{8505329371266088957, 17002214543764226050, 6865905132761471162, 8632934651105793861, 6631298214892334189, 1582556514881692819}
+	return one.Neq(x)
+
 }

@@ -17,38 +17,37 @@
 package bls12381
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	"testing"
 )
 
-func TestG1SqrtRatio(t *testing.T) {
+func TestG2SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPairG1(t)
+	gen := genCoordPairG2(t)
 
-	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []fp.Element) bool {
+	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
+		func(uv []fptower.E2) bool {
 			u := &uv[0]
 			v := &uv[1]
 
-			var ref fp.Element
+			var ref fptower.E2
 			ref.Div(u, v)
 			var qrRef bool
 			if ref.Legendre() == -1 {
-				var Z fp.Element
-				g1SetZ(&Z)
+				var Z fptower.E2
+				g2SetZ(&Z)
 				ref.Mul(&ref, &Z)
 				qrRef = false
 			} else {
 				qrRef = true
 			}
 
-			var seen fp.Element
-			qr := g1SqrtRatio(&seen, u, v) == 0
+			var seen fptower.E2
+			qr := g2SqrtRatio(&seen, u, v) == 0
 			seen.Square(&seen)
 
 			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
@@ -59,11 +58,11 @@ func TestG1SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPairG1(t *testing.T) gopter.Gen {
+func genCoordPairG2(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() (fp.Element, fp.Element) {
-			var a, b fp.Element
+		genRandomPair := func() (fptower.E2, fptower.E2) {
+			var a, b fptower.E2
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
@@ -77,7 +76,7 @@ func genCoordPairG1(t *testing.T) gopter.Gen {
 		}
 		a, b := genRandomPair()
 
-		genResult := gopter.NewGenResult([]fp.Element{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult([]fptower.E2{a, b}, gopter.NoShrinker)
 		return genResult
 	}
 }

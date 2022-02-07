@@ -37,7 +37,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.Sqrt,
 		element.Inverse,
 		element.BigNum,
-		element.HashUtils,
 	}
 
 	// test file templates

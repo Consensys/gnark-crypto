@@ -6,25 +6,27 @@
 {{$AffineType := print $CurveTitle "Affine"}}
 {{$JacType := print $CurveTitle "Jac"}}
 
+//Note: This only works for simple extensions
+
 import (
     "math/big"
-	{{- if eq $ExtDegree 1 }}
-        "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{else}}
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+
+	{{ $package := "fp"}}
+	{{- if not (eq $ExtDegree 1) }}
+	    {{ $package = "fptower" }}
         "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{- end}}
 )
 
-{{ define "asElement" }}{{ if eq $.ExtDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}
-{ {{ range $ci := $.c }}
-    { {{ words64 $ci }} },
-  {{ end }}
+{{ define "asElement" }}{{ if eq $.ExtDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}{ {{ range $ci :=  $.c }}
+    fp.Element{ {{ words64 $ci }} },{{ end }}
 }{{ end }}{{- end }}
 
 {{ if $isogenyNeeded }}
 
 func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    dst.EvalPolynomial(
+    {{$CurveName}}EvalPolynomial(dst,
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
@@ -35,7 +37,7 @@ func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
 }
 
 func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    dst.EvalPolynomial(
+    {{$CurveName}}EvalPolynomial(dst,
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Den}}
@@ -47,7 +49,7 @@ func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
 
 func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}) {
     var _dst {{$CoordType}}
-    _dst.EvalPolynomial(
+    {{$CurveName}}EvalPolynomial(&_dst,
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Num}}
@@ -60,7 +62,7 @@ func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *
 }
 
 func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    dst.EvalPolynomial(
+    {{$CurveName}}EvalPolynomial(dst,
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Den}}
@@ -80,7 +82,7 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
     {{$CurveName}}IsogenyYNumerator(&p.Y, &p.X, &p.Y)
     {{$CurveName}}IsogenyXNumerator(&p.X, &p.X)
 
-	den = fp.BatchInvert(den)
+	den = {{$package}}.BatchInvert(den)
 
 	p.X.Mul(&p.X, &den[0])
 	p.Y.Mul(&p.Y, &den[1])
@@ -108,8 +110,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	{
 	var c1 big.Int
 	// c1 = {{ $c1Int }}
-	// c1 = {{ $c1Int }}
-	c1.SetBytes([]byte{ {{ $c1IntBytes }})
+	c1.SetBytes([]byte{ {{ $c1IntBytes }} })
 	y1.Exp(tv1, &c1)
 	}
 
@@ -167,7 +168,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     var tv3 {{$CoordType}}
     //Line 20
     // Z = {{.Z}}
-    mulByZ(&tv3, u)
+    {{$CurveName}}MulByZ(&tv3, u)
 
 	y2.Select(int(tv2.Neq(&tv3)), &y2, &tv1)
 
@@ -191,7 +192,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ $c5Int := index $cInts 4}}
 {{ $c5IntBytes := printList (bytes $c5Int ) }}
 
-   tv1 := {{$CoordType}} { {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree }} }    //tv1 = c6
+   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree }}    //tv1 = c6
 
    var exp big.Int
    // c4 = {{ $c4Int }}
@@ -217,9 +218,9 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    exp.SetBytes([]byte { {{ $c5IntBytes }} })
    tv5.Exp(tv4, &exp)
 
-   isQNr := notOne(&tv5)
+   isQNr := {{$CurveName}}NotOne(&tv5)
 
-   tv2.Mul(&tv3, &{{$CoordType}} { {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} })
+   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} )
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -228,17 +229,18 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    tv4.Select(int(isQNr), &tv4, &tv5)
 
    exp.Lsh( big.NewInt(1), {{ $c1Int }} - 2)
-   for i := {{ index .SqrtRatioParams 0 }}; i >= 2; i -- {
+
+   for i := {{ $c1Int }}; i >= 2; i -- {
       //line 20
       tv5.Exp(tv4, &exp)
-      nE1 := notOne(&tv5)
+      nE1 := {{$CurveName}}NotOne(&tv5)
 
       tv2.Mul(&tv3, &tv1)
       tv1.Mul(&tv1, &tv1)
       tv5.Mul(&tv4, &tv1)
 
-	  tv3.Select(nE1, &tv3, &tv2)
-	  tv4.Select(nE1, &tv4, &tv5)
+	  tv3.Select(int(nE1), &tv3, &tv2)
+	  tv4.Select(int(nE1), &tv4, &tv5)
 
       exp.Rsh(&exp,1)
    }
@@ -246,13 +248,13 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    *z = tv3
    return isQNr
 }
-
-func notOne(x *{{$CoordType}}) uint64 {
-	return {{$CoordType}} {
-		{{- range $w := .One }}{{$w}},
-		{{- end}} }.Neq(x)
-}
 {{ end }}
+
+
+// {{$CurveName}}SetZ sets z to {{.Z}}.
+func {{$CurveName}}SetZ(z *{{$CoordType}}) {
+    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .ZMont "ExtDegree" $ExtDegree}} )
+}
 
 // {{$CurveName}}MulByZ multiplies x by {{.Z}} and stores the result in z
 func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
@@ -308,7 +310,7 @@ func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 	tv3.Add(&tv2, &tv4)
 	tv3.Mul(&tv3, &{{$CoordType}}{{ template "asElement" dict "c" .B  "ExtDegree" $ExtDegree}})
 
-    tv2NZero := tv2[0] {{ range $i := $.Field.Base.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
+    tv2NZero := {{$CurveName}}NotZero(&tv2)
 
 	// tv4 = Z
 	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .ZMont "ExtDegree" $ExtDegree}}
@@ -362,12 +364,20 @@ func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 // EncodeToCurve{{$CurveTitle}}SSWU maps a {{$CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
+
 	var res {{$AffineType}}
-	t, err := hashToFp(msg, dst, 1)
+	u, err := hashToFp(msg, dst, {{$ExtDegree}})
 	if err != nil {
 		return res, err
 	}
-	res = {{$CurveName}}SswuMap(&t[0])
+
+    {{if eq $ExtDegree 1}}
+    res = {{$CurveName}}SswuMap(&u[0])
+    {{else}}
+    res = {{$CurveName}}SswuMap( &{{$CoordType}} {
+        {{range $i := interval 0 $ExtDegree }} u[{{$i}}],
+    {{end}} })
+    {{end}}
 
 {{ if $isogenyNeeded }}
 	//this is in an isogenous curve
@@ -382,13 +392,22 @@ func EncodeToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) 
 // HashToCurve{{$CurveTitle}}SSWU hashes a byte string to the {{$CurveTitle}} curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
-	u, err := hashToFp(msg, dst, 2)
+	u, err := hashToFp(msg, dst, 2 * {{$ExtDegree}})
 	if err != nil {
 		return {{$AffineType}}{}, err
 	}
 
+	{{if eq $ExtDegree 1}}
 	Q0 := {{$CurveName}}SswuMap(&u[0])
 	Q1 := {{$CurveName}}SswuMap(&u[1])
+	{{else}}
+	Q0 := {{$CurveName}}SswuMap( &{{$CoordType}} {
+		{{range $i := interval 0 $ExtDegree }} u[{{$i}}],
+		{{end}} })
+	Q1 := {{$CurveName}}SswuMap( &{{$CoordType}} {
+        {{range $i := interval 0 $ExtDegree }} u[{{$ExtDegree}} + {{$i}}],
+        {{end}} })
+	{{end}}
 
 {{ if $isogenyNeeded }}
 	//TODO: Add in E' first, then apply isogeny
@@ -412,8 +431,56 @@ func HashToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
 // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
 // The sign of an element is not obviously related to that of its Montgomery form
 func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
+
     nonMont := *z
     nonMont.FromMont()
+	{{if eq $ExtDegree 1}}
+        return nonMont[0]%2
+	{{else}}
+        sign := uint64(0)
+        zero := uint64(1)
+        var signI uint64
+        var zeroI uint64
+        {{range $i := interval 0 $ExtDegree}}
+		    zeroI = z.{{$.FieldCoordName}}{{$i}}[0]
+            signI = zeroI%2
+			zeroI = (zeroI | -zeroI) >> 63
+			sign = sign | (zero & signI)
+			zero = zero & zeroI
+        {{end}}
+		return sign
+    {{end}}
+}
 
-    return nonMont[0]%2
+func {{$CurveName}}EvalPolynomial(z *{{$CoordType}}, monic bool, coefficients []{{$CoordType}}, x *{{$CoordType}}) {
+    dst := coefficients[len(coefficients) - 1]
+
+    if monic {
+        dst.Add(&dst, x)
+    }
+
+    for i := len(coefficients) - 2; i >= 0; i-- {
+        dst.Mul(&dst, x)
+        dst.Add(&dst, &coefficients[i])
+    }
+
+    z.Set(&dst)
+}
+
+func {{$CurveName}}NotZero(x *{{$CoordType}}) uint64 {
+	{{if eq $ExtDegree 1}}
+    return x[0] {{ range $i := $.Field.Base.NbWordsIndexesNoZero}} | x[{{$i}}] {{ end}}
+	{{else}}    //Assuming G1 is over Fp and that if hashing is available for G2, it also is for G1
+	return g1NotZero(&x.A0) {{ range $i := interval 1 $ExtDegree }} | g1NotZero(&x.A{{$i}}) {{end}}
+	{{end}}
+}
+
+func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
+    {{if eq $ExtDegree 1 }}
+	    one := {{$CoordType}} { {{- range $w := .Field.Base.One }}{{$w}},{{- end}} }
+        return one.Neq(x)
+    {{else}}
+        //Assuming hash is implemented for G1 and that the curve is over Fp
+        return g1NotOne(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $ExtDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+    {{end}}
 }

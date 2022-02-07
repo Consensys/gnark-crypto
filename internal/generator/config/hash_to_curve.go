@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/field"
 	"math/big"
 )
@@ -110,7 +111,22 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		SqrtRatioParams:  c,
 		Field:            &f,
 		ZMont:            f.ToMont(Z),
+		FieldCoordName:   coordNameForExtensionDegree(g.CoordExtDegree),
 	}
+}
+
+func coordNameForExtensionDegree(degree uint8) string {
+	switch degree {
+	case 1:
+		return ""
+	case 2:
+		return "A"
+	case 6:
+		return "B"
+	case 12:
+		return "C"
+	}
+	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
 func newIsogenousCurveInfoOptional(f *field.Extension, isogenousCurve *Isogeny) *IsogenyInfo {
@@ -148,6 +164,7 @@ type HashSuiteInfo struct {
 
 	Point           *Point
 	Field           *field.Extension
+	FieldCoordName  string
 	Name            string
 	FieldSizeMod256 uint8
 	SqrtRatioParams [][]big.Int // SqrtRatioParams[0][n] correspond to integer cₙ₋₁ in std doc

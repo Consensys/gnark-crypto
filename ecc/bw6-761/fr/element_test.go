@@ -1892,7 +1892,7 @@ func TestElementSelect(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestElementSetInt64(t *testing.T) {
+func TestElementFromInt64(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -1905,12 +1905,12 @@ func TestElementSetInt64(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property("z.SetInt64 must match z.SetString", prop.ForAll(
+	properties.Property("z.FromInt64 must match z.SetString", prop.ForAll(
 		func(a testPairElement, v int64) bool {
 			c := a.element
 			d := a.element
 
-			c.SetInt64(v)
+			c.FromInt64(v)
 			d.SetString(fmt.Sprintf("%v", v))
 
 			return c.Equal(&d)
@@ -2289,7 +2289,7 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 
 	var modulus big.Int
 	var aIntMod big.Int
-	modulus.SetInt64(1)
+	modulus.FromInt64(1)
 	modulus.Lsh(&modulus, (Limbs+1)*64)
 	aIntMod.Mod(aInt, &modulus)
 

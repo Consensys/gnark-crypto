@@ -6,7 +6,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
-	{{- end}}"testing"
+	{{- end}}
+	"testing"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -15,7 +16,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genFull(t)
+	gen := genCoordPair{{$CurveTitle}}(t)
 
 	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
 		func(uv []{{$CoordType}}) bool {
@@ -27,7 +28,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 			var qrRef bool
 			if ref.Legendre() == -1 {
 				var Z {{$CoordType}}
-				Z.SetInt64(11)
+				{{$CurveName}}SetZ(&Z)
 				ref.Mul(&ref, &Z)
 				qrRef = false
 			} else {
@@ -46,7 +47,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genFull(t *testing.T) gopter.Gen {
+func genCoordPair{{$CurveTitle}}(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
 		genRandomPair := func() ({{$CoordType}}, {{$CoordType}}) {
