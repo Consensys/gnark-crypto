@@ -22,43 +22,20 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"golang.org/x/crypto/sha3"
 	"math/big"
+	"sync"
 )
 
-const mimcNbRounds = 91
+const (
+	mimcNbRounds = 91
+	seed         = "seed"   // seed to derive the constants
+	BlockSize    = fr.Bytes // BlockSize size that mimc consumes
+)
 
 // Params constants for the mimc hash function
-var mimcConstants [91]fr.Element
-
-// BlockSize size that mimc consumes
-const BlockSize = fr.Bytes
-
-// NewParams creates new mimc object
-func init() {
-
-	bseed := ([]byte)("seed")
-
-	hash := sha3.NewLegacyKeccak256()
-	_, err := hash.Write(bseed)
-	if err != nil { // does not happen but needed for gosec
-		panic(err)
-	}
-	rnd := hash.Sum(nil) // pre hash before use
-	hash.Reset()
-	_, err = hash.Write(rnd)
-	if err != nil { // does not happen but needed for gosec
-		panic(err)
-	}
-
-	for i := 0; i < mimcNbRounds; i++ {
-		rnd = hash.Sum(nil)
-		mimcConstants[i].SetBytes(rnd)
-		hash.Reset()
-		_, err := hash.Write(rnd)
-		if err != nil { // does not happen but needed for gosec
-			panic(err)
-		}
-	}
-}
+var (
+	mimcConstants [mimcNbRounds]fr.Element
+	once          sync.Once
+)
 
 // digest represents the partial evaluation of the checksum
 // along with the params of the mimc function
@@ -69,6 +46,7 @@ type digest struct {
 
 // GetConstants exposed to be used in gnark
 func GetConstants() []big.Int {
+	once.Do(initConstants) // init constants
 	res := make([]big.Int, mimcNbRounds)
 	for i := 0; i < mimcNbRounds; i++ {
 		mimcConstants[i].ToBigIntRegular(&res[i])
@@ -162,6 +140,7 @@ func (d *digest) checksum() fr.Element {
 // m: message
 // k: encryption key
 func (d *digest) encrypt(m fr.Element) fr.Element {
+	once.Do(initConstants) // init constants
 
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^5
@@ -184,4 +163,21 @@ func Sum(msg []byte) ([]byte, error) {
 	h := d.checksum()
 	bytes := h.Bytes()
 	return bytes[:], nil
+}
+
+func initConstants() {
+	bseed := ([]byte)(seed)
+
+	hash := sha3.NewLegacyKeccak256()
+	_, _ = hash.Write(bseed)
+	rnd := hash.Sum(nil) // pre hash before use
+	hash.Reset()
+	_, _ = hash.Write(rnd)
+
+	for i := 0; i < mimcNbRounds; i++ {
+		rnd = hash.Sum(nil)
+		mimcConstants[i].SetBytes(rnd)
+		hash.Reset()
+		_, _ = hash.Write(rnd)
+	}
 }
