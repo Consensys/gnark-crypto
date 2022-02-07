@@ -13,8 +13,8 @@ type Isogeny struct {
 }
 
 type RationalPolynomial struct {
-	Num [][]string //Num is stored as a hex string
-	Den [][]string //Den is stored as a hex string. It is also monic. The leading coefficient (1) is omitted.
+	Num [][]string //Num is stored
+	Den [][]string //Den is stored. It is also monic. The leading coefficient (1) is omitted.
 }
 
 type HashSuite struct {
@@ -47,8 +47,9 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		c[0] = make([]big.Int, 1)
 		c[0][0].Rsh(&f.Size, 2)
 
-		f.Neg(&c[1], Z).Sqrt(&c[1], c[1])
-		f.ToMont(&c[1], c[1])
+		c[1] = f.Neg(Z)
+		c[1] = f.Sqrt(c[1])
+		c[1] = f.ToMont(c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
 		c = make([][]big.Int, 3)
@@ -57,13 +58,15 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 
 		c[1] = make([]big.Int, f.Degree)
 		c[1][0].SetInt64(-1)
-		f.Sqrt(&c[1], c[1])
+		c[1] = f.Sqrt(c[1])
 
-		f.Inverse(&c[2], c[1])
-		f.Mul(&c[2], Z, c[2]).Sqrt(&c[2], c[2])
+		c[2] = f.Inverse(c[1])
+		c[2] = f.Mul(Z, c[2])
+		c[2] = f.Sqrt(c[2])
 
-		f.ToMont(&c[1], c[1])
-		f.ToMont(&c[2], c[2])
+		c[1] = f.ToMont(c[1])
+		c[2] = f.ToMont(c[2])
+
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
 		c = make([][]big.Int, 3)
@@ -77,30 +80,27 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		var twoPowC1 big.Int
 		twoPowC1.Lsh(ONE, c1)
 		c[0][1].Rsh(&f.Size, c1)
-		c[0][2].Rsh(&c[1][0], 1)
+		c[0][2].Rsh(&c[0][1], 1)
 		c[0][3].Sub(&twoPowC1, ONE)
 		c[0][4].Rsh(&twoPowC1, 1)
 
 		// c6, c7 stored as c[1], c[2] respectively
-		f.Exp(&c[1], Z, &c[0][1])
+		c[1] = f.Exp(Z, &c[0][1])
 		var c7Pow big.Int
 		c7Pow.Add(&c[0][1], ONE)
 		c7Pow.Rsh(&c7Pow, 1)
-		f.Exp(&c[2], Z, &c7Pow)
+		c[2] = f.Exp(Z, &c7Pow)
 
-		f.ToMont(&c[1], c[1])
-		f.ToMont(&c[2], c[2])
+		c[1] = f.ToMont(c[1])
+		c[2] = f.ToMont(c[2])
 
 	} else {
 		panic("this is logically impossible")
 	}
 
-	var ZMont []big.Int
-	f.ToMont(&ZMont, Z)
-
 	return HashSuiteInfo{
-		A:                f.HexSliceToMont(suite.A),
-		B:                f.HexSliceToMont(suite.B),
+		A:                f.StringSliceToMont(suite.A),
+		B:                f.StringSliceToMont(suite.B),
 		Z:                suite.Z,
 		Point:            g,
 		CofactorCleaning: g.CofactorCleaning,
@@ -109,22 +109,22 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		FieldSizeMod256:  fieldSizeMod256,
 		SqrtRatioParams:  c,
 		Field:            &f,
-		ZMont:            ZMont,
+		ZMont:            f.ToMont(Z),
 	}
 }
 
-func newIsogenousCurveInfoOptional(f *field.Tower, isogenousCurve *Isogeny) *IsogenyInfo {
+func newIsogenousCurveInfoOptional(f *field.Extension, isogenousCurve *Isogeny) *IsogenyInfo {
 	if isogenousCurve == nil {
 		return nil
 	}
 	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
-			f.HexToIntSliceSlice(isogenousCurve.XMap.Num),
-			f.HexToIntSliceSlice(isogenousCurve.XMap.Den),
+			f.StringToIntSliceSlice(isogenousCurve.XMap.Num),
+			f.StringToIntSliceSlice(isogenousCurve.XMap.Den),
 		},
 		YMap: RationalPolynomialInfo{
-			f.HexToIntSliceSlice(isogenousCurve.YMap.Num),
-			f.HexToIntSliceSlice(isogenousCurve.YMap.Den),
+			f.StringToIntSliceSlice(isogenousCurve.YMap.Num),
+			f.StringToIntSliceSlice(isogenousCurve.YMap.Den),
 		},
 	}
 }
@@ -146,11 +146,12 @@ type HashSuiteInfo struct {
 	A []big.Int
 	B []big.Int
 
-	Point            *Point
-	Field            *field.Tower
-	Name             string
-	FieldSizeMod256  uint8
-	SqrtRatioParams  [][]big.Int
+	Point           *Point
+	Field           *field.Extension
+	Name            string
+	FieldSizeMod256 uint8
+	SqrtRatioParams [][]big.Int // SqrtRatioParams[0][n] correspond to integer cₙ₋₁ in std doc
+	// SqrtRatioParams[n≥1] correspond to field element c_( len(SqrtRatioParams[0]) + n - 1 ) in std doc
 	Z                []int     // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 	ZMont            []big.Int // z, in montgomery form
 	CofactorCleaning bool

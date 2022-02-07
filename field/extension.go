@@ -2,15 +2,16 @@ package field
 
 import "math/big"
 
-type Tower struct {
+//Extension is a simple radical extension, obtained by adjoining ⁿ√α to Fp
+type Extension struct {
 	Base   *Field  //Fp
 	Size   big.Int //q
 	Degree uint8   //n such that q = pⁿ
-	RootOf int64   //Number
+	RootOf int64   //α
 }
 
-func NewTower(base *Field, degree uint8, rootOf int64) Tower {
-	ret := Tower{
+func NewTower(base *Field, degree uint8, rootOf int64) Extension {
+	ret := Extension{
 		Degree: degree,
 		RootOf: rootOf,
 		Base:   base,
@@ -19,134 +20,130 @@ func NewTower(base *Field, degree uint8, rootOf int64) Tower {
 	return ret
 }
 
-func (f *Tower) SetInt64(z *[]big.Int, i []int64) *Tower {
-	*z = make([]big.Int, f.Degree)
+func (f *Extension) FromInt64(i []int64) []big.Int {
+	z := make([]big.Int, f.Degree)
 	for n := 0; n < len(i) && n < int(f.Degree); n++ {
-		(*z)[n].SetInt64(i[n])
+		z[n].SetInt64(i[n])
 	}
-	return f
+	return z
 }
 
-func (f *Tower) Neg(z *[]big.Int, x []big.Int) *Tower {
-	r := make([]big.Int, len(x))
+func (f *Extension) Neg(x []big.Int) []big.Int {
+	z := make([]big.Int, len(x))
 	for n := 0; n < len(x); n++ {
-		r[n].Neg(&x[n])
+		z[n].Neg(&x[n])
 	}
-	*z = r
-	return f
+	return z
 }
 
-func (f *Tower) Mul(z *[]big.Int, x []big.Int, y []big.Int) *Tower {
-	r := make([]big.Int, f.Degree)
-	c := big.NewInt(1)
-	maxP := len(x) + len(y) - 2
+func max(x int, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
 
-	for p := 0; p <= maxP; p++ {
+func (f *Extension) Mul(x []big.Int, y []big.Int) []big.Int {
+	z := make([]big.Int, f.Degree)
+	maxP := len(x) + len(y) - 2
+	alpha := big.NewInt(f.RootOf)
+
+	for p := maxP; p >= 0; p-- {
 
 		var rp big.Int
 
-		for m := p - len(y) - 1; m < len(x); m++ {
+		for m := max(p-(len(y)-1), 0); m < len(x) && m <= p; m++ {
 			n := p - m
 			var prod big.Int
 			prod.Mul(&x[m], &y[n])
-			rp.Add(&rp, &prod).Mod(&rp, f.Base.ModulusBig)
+			rp.Add(&rp, &prod)
 		}
 
-		rp.Mul(&rp, c)
-		rPtr := &r[p%int(f.Degree)]
-		rPtr.Add(rPtr, &rp)
+		rI := p % int(f.Degree) //reduced index
 
-		if p >= maxP-int(f.Degree) {
-			rPtr.Mod(rPtr, f.Base.ModulusBig)
-		}
+		z[rI].Add(&z[rI], &rp).Mod(&z[rI], f.Base.ModulusBig)
 
-		if uint8(p+1)%f.Degree == 0 {
-			c.Mul(c, big.NewInt(f.RootOf))
+		if p >= int(f.Degree) {
+			z[rI].Mul(&z[rI], alpha)
 		}
 	}
 
-	*z = r
-
-	return f
+	return z
 }
 
-func (f *Tower) MulScalar(z *[]big.Int, c *big.Int, x []big.Int) *Tower {
-	res := make([]big.Int, len(x))
+func (f *Extension) MulScalar(c *big.Int, x []big.Int) []big.Int {
+	z := make([]big.Int, len(x))
 	for i := 0; i < len(x); i++ {
-		f.Base.Mul(&res[i], c, &x[i])
+		f.Base.Mul(&z[i], c, &x[i])
 	}
-	*z = res
-	return f
+	return z
 }
 
-func (f *Tower) Halve(z *[]big.Int) *Tower {
-	for i := 0; i < len(*z); i++ {
-		if (*z)[i].Bit(0) != 0 {
-			(*z)[i].Add(&(*z)[i], f.Base.ModulusBig)
+func (f *Extension) Halve(z []big.Int) {
+	for i := 0; i < len(z); i++ {
+		if z[i].Bit(0) != 0 {
+			z[i].Add(&z[i], f.Base.ModulusBig)
 		}
-		(*z)[i].Rsh(&(*z)[i], 1)
+		z[i].Rsh(&z[i], 1)
 	}
-	return f
 }
 
-func (f *Tower) reduce(z []big.Int) {
+func (f *Extension) reduce(z []big.Int) {
 	for _, x := range z {
 		x.Mod(&x, f.Base.ModulusBig)
 	}
 }
 
-// Sqrt z <- √ x, returning whether x is qr. If not, z is unchanged.
-func (f *Tower) Sqrt(z *[]big.Int, x []big.Int) bool {
+// Sqrt returning √ x, or nil if x is not qr.
+func (f *Extension) Sqrt(x []big.Int) []big.Int {
 
-	r := make([]big.Int, f.Degree)
+	z := make([]big.Int, f.Degree)
 	switch f.Degree {
 	case 1:
-		if r[0].ModSqrt(&x[0], f.Base.ModulusBig) == nil {
-			return false
+		if z[0].ModSqrt(&x[0], f.Base.ModulusBig) == nil {
+			return nil
 		}
 	case 2:
-		// r = r₀ + r₁ i
+		// z = z₀ + z₁ i
 
 		if x[0].BitLen() == 0 {
-			r[1].ModInverse(big.NewInt(f.RootOf), f.Base.ModulusBig).Mul(&r[1], &x[1])
+			z[1].ModInverse(big.NewInt(f.RootOf), f.Base.ModulusBig).Mul(&z[1], &x[1])
 		}
 
 		var discriminant big.Int
-		r[0].Mul(&x[0], &x[0])
-		r[1].Mul(&x[1], &x[1]).Mul(&r[1], big.NewInt(-f.RootOf))
-		r[0].Sub(&r[0], &r[1])
-		if discriminant.ModSqrt(&r[0], f.Base.ModulusBig) == nil {
-			return false
+		z[0].Mul(&x[0], &x[0])
+		z[1].Mul(&x[1], &x[1]).Mul(&z[1], big.NewInt(-f.RootOf))
+		z[0].Sub(&z[0], &z[1])
+		if discriminant.ModSqrt(&z[0], f.Base.ModulusBig) == nil {
+			return nil
 		}
-		r[0].Add(&x[0], &discriminant)
-		f.Base.halve(&r[0], &r[0])
-		if r[0].ModSqrt(&r[0], f.Base.ModulusBig) == nil {
-			r[0].Sub(&r[0], &discriminant)
-			if r[0].ModSqrt(&r[0], f.Base.ModulusBig) == nil {
-				return false
+		z[0].Add(&x[0], &discriminant)
+		f.Base.halve(&z[0], &z[0])
+		if z[0].ModSqrt(&z[0], f.Base.ModulusBig) == nil {
+			z[0].Sub(&z[0], &discriminant)
+			if z[0].ModSqrt(&z[0], f.Base.ModulusBig) == nil {
+				return nil
 			}
 		}
-		r[1].Lsh(&r[0], 1).ModInverse(&r[1], f.Base.ModulusBig).Mul(&r[1], &x[1])
+		z[1].Lsh(&z[0], 1).ModInverse(&z[1], f.Base.ModulusBig).Mul(&z[1], &x[1])
 
 	default:
 		panic("only degrees 1 and 2 are supported")
 	}
 
-	f.reduce(r)
-	*z = r
-	return true
+	f.reduce(z)
+	return z
 }
 
-func (f *Tower) ToMont(z *[]big.Int, x []big.Int) *Tower {
-	r := make([]big.Int, len(x))
+func (f *Extension) ToMont(x []big.Int) []big.Int {
+	z := make([]big.Int, len(x))
 	for i := 0; i < len(x); i++ {
-		f.Base.ToMont(&r[i], &x[i])
+		f.Base.ToMont(&z[i], &x[i])
 	}
-	*z = r
-	return f
+	return z
 }
 
-func (f *Tower) Equal(x []big.Int, y []big.Int) bool {
+func (f *Extension) Equal(x []big.Int, y []big.Int) bool {
 	if len(x) != len(y) {
 		return false
 	}
@@ -159,7 +156,7 @@ func (f *Tower) Equal(x []big.Int, y []big.Int) bool {
 	return true
 }
 
-func (f *Tower) norm(z *big.Int, x []big.Int) *Tower {
+func (f *Extension) norm(z *big.Int, x []big.Int) *Extension {
 	if f.Degree != 2 {
 		panic("only degree 2 supported")
 	}
@@ -175,44 +172,41 @@ func (f *Tower) norm(z *big.Int, x []big.Int) *Tower {
 	return f
 }
 
-func (f *Tower) Inverse(z *[]big.Int, x []big.Int) *Tower {
-	r := make([]big.Int, f.Degree)
+func (f *Extension) Inverse(x []big.Int) []big.Int {
+	z := make([]big.Int, f.Degree)
 	switch f.Degree {
 	case 1:
-		r[0].ModInverse(&x[0], f.Base.ModulusBig)
+		z[0].ModInverse(&x[0], f.Base.ModulusBig)
 	case 2:
 		var normInv big.Int
 		f.norm(&normInv, x)
 		normInv.ModInverse(&normInv, f.Base.ModulusBig)
-		r[0].Mul(&x[0], &normInv)
+		z[0].Mul(&x[0], &normInv)
 
-		r[1].Neg(&x[1]).Mul(&r[1], &normInv)
+		z[1].Neg(&x[1]).Mul(&z[1], &normInv)
 	}
-	*z = r
-	return f
+	return z
 }
 
-func (f *Tower) Exp(z *[]big.Int, x []big.Int, exp *big.Int) *Tower {
+func (f *Extension) Exp(x []big.Int, exp *big.Int) []big.Int {
 
 	if exp.BitLen() == 0 {
-		f.SetInt64(z, []int64{1})
-		return f
+		return f.FromInt64([]int64{1})
 	}
 
-	res := x
+	z := x
 
 	for i := exp.BitLen() - 2; i >= 0; i-- {
-		f.Mul(&res, res, res)
+		z = f.Mul(z, z)
 		if exp.Bit(i) == 1 {
-			f.Mul(&res, res, x)
+			z = f.Mul(z, x)
 		}
 	}
 
-	*z = res
-	return f
+	return z
 }
 
-func (f *Tower) HexSliceToMont(hex []string) []big.Int {
+func (f *Extension) StringSliceToMont(hex []string) []big.Int {
 	if len(hex) > int(f.Degree) {
 		panic("too many monomials")
 	}
@@ -220,18 +214,18 @@ func (f *Tower) HexSliceToMont(hex []string) []big.Int {
 	res := make([]big.Int, f.Degree)
 
 	for i := 0; i < len(res); i++ {
-		res[i] = f.Base.HexToMont(hex[i])
+		res[i] = f.Base.StringToMont(hex[i])
 	}
 
 	return res
 }
 
-func (f *Tower) HexToIntSliceSlice(hex [][]string) [][]big.Int {
+func (f *Extension) StringToIntSliceSlice(hex [][]string) [][]big.Int {
 
 	res := make([][]big.Int, len(hex))
 
 	for i, hex := range hex {
-		res[i] = f.HexSliceToMont(hex)
+		res[i] = f.StringSliceToMont(hex)
 	}
 
 	return res

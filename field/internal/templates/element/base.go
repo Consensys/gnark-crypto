@@ -97,8 +97,8 @@ func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
 	return z.Mul(z, &rSquare) // z.ToMont()
 }
 
-// SetInt64 sets z to v and returns z
-func (z *{{.ElementName}}) SetInt64(v int64) *{{.ElementName}} {
+// FromInt64 sets z to v and returns z
+func (z *{{.ElementName}}) FromInt64(v int64) *{{.ElementName}} {
 
 	// absolute value of v
 	m := v >> 63
@@ -144,15 +144,15 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 	case uint64:
 		return z.SetUint64(c1), nil
 	case int8:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int16:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int32:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case int64:
-		return z.SetInt64(c1), nil
+		return z.FromInt64(c1), nil
 	case int:
-		return z.SetInt64(int64(c1)), nil
+		return z.FromInt64(int64(c1)), nil
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:

@@ -17,7 +17,7 @@ import (
 
 {{ define "asElement" }}{{ if eq $.ExtDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}
 { {{ range $ci := $.c }}
-    { {{ words64 $.c }} },
+    { {{ words64 $ci }} },
   {{ end }}
 }{{ end }}{{- end }}
 
@@ -88,8 +88,10 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 
 {{ end }}
 
-{{ $c1Int := index .SqrtRatioParams 0 0 }}
-{{ $c1Bytes := printList (bytes $c1Int)}}
+{{ $cInts := index .SqrtRatioParams 0 }}
+
+{{ $c1Int := index $cInts 0}}
+{{ $c1IntBytes := printList (bytes $c1Int ) }}
 
 // {{$CurveName}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
@@ -106,7 +108,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	{
 	var c1 big.Int
 	// c1 = {{ $c1Int }}
-	c1.SetBytes([]byte{ {{ $c1Bytes }} })
+	// c1 = {{ $c1Int }}
+	c1.SetBytes([]byte{ {{ $c1IntBytes }})
 	y1.Exp(tv1, &c1)
 	}
 
@@ -137,8 +140,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     tv1.Mul(&tv1, &tv2)
 
     var c1 big.Int
-	// c1 = {{ index .SqrtRatioParams 0 }}
-    c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
+	// c1 = {{ $c1Int }}
+    c1.SetBytes([]byte { {{ $c1IntBytes }})
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
@@ -175,11 +178,24 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ end }}
 
 {{ if eq (mod .FieldSizeMod256 8) 1 }}// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
-   tv1 := {{$CoordType}} { {{words64 (index .SqrtRatioParams 5) }} }
+
+{{ $c2Int := index $cInts 1}}
+{{ $c2IntBytes := printList (bytes $c2Int ) }}
+
+{{ $c3Int := index $cInts 2}}
+{{ $c3IntBytes := printList (bytes $c3Int ) }}
+
+{{ $c4Int := index $cInts 3}}
+{{ $c4IntBytes := printList (bytes $c4Int ) }}
+
+{{ $c5Int := index $cInts 4}}
+{{ $c5IntBytes := printList (bytes $c5Int ) }}
+
+   tv1 := {{$CoordType}} { {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree }} }    //tv1 = c6
 
    var exp big.Int
-   // c4 = {{ index .SqrtRatioParams 3 }}
-   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 3) ) }} })
+   // c4 = {{ $c4Int }}
+   exp.SetBytes([]byte { {{ $c4IntBytes }} })
    var tv2, tv3, tv4, tv5 {{$CoordType}}
    tv2.Exp(*v, &exp)
    tv3.Mul(&tv2, &tv2)
@@ -188,8 +204,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    // line 5
    tv5.Mul(u, &tv3)
 
-// c3 = {{ index .SqrtRatioParams 2 }}
-   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 2) ) }} })
+// c3 = {{ $c3Int }}
+   exp.SetBytes([]byte { {{ $c3IntBytes }} })
    tv5.Exp(tv5, &exp)
    tv5.Mul(&tv5, &tv2)
    tv2.Mul(&tv5, v)
@@ -197,13 +213,13 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
    // line 10
    tv4.Mul(&tv3, &tv2)
-// c5 = {{ index .SqrtRatioParams 4 }}
-   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 4) ) }} })
+// c5 = {{ $c5Int }}
+   exp.SetBytes([]byte { {{ $c5IntBytes }} })
    tv5.Exp(tv4, &exp)
 
    isQNr := notOne(&tv5)
 
-   tv2.Mul(&tv3, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 6) }} })
+   tv2.Mul(&tv3, &{{$CoordType}} { {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} })
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -211,7 +227,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    tv3.Select(int(isQNr), &tv3, &tv2)
    tv4.Select(int(isQNr), &tv4, &tv5)
 
-   exp.Lsh( big.NewInt(1), {{ index .SqrtRatioParams 0 }} - 2)
+   exp.Lsh( big.NewInt(1), {{ $c1Int }} - 2)
    for i := {{ index .SqrtRatioParams 0 }}; i >= 2; i -- {
       //line 20
       tv5.Exp(tv4, &exp)

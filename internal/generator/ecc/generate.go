@@ -9,12 +9,8 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
-//TODO: Defer: clean up
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
-
-	g1 := pconf{conf, conf.G1}
-	g2 := pconf{conf, conf.G2}
 
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
@@ -64,6 +60,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "g1.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g1_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 	}
+	g1 := pconf{conf, conf.G1}
 	if err := bgen.Generate(g1, packageName, "./ecc/template", entries...); err != nil {
 		return err
 	}
@@ -73,6 +70,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 	}
+	g2 := pconf{conf, conf.G2}
 	return bgen.Generate(g2, packageName, "./ecc/template", entries...)
 }
 
