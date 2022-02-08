@@ -58,7 +58,6 @@ const invIterationsN = {{.P20InversionNbIterations}}
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
-
 	a := *x
 	b := {{.ElementName}} {
 		{{- range $i := .NbWordsIndexesFull}}

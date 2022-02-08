@@ -183,7 +183,7 @@ func (p *{{ $TJacobian }}) Neg(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *{{ $TJacobian }}) SubAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	var tmp {{ $TJacobian }}
 	tmp.Set(a)

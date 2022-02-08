@@ -220,7 +220,7 @@ func (z *Element) Div(x, y *Element) *Element {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *Element) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= 5 {
@@ -231,11 +231,11 @@ func (z *Element) Bit(i uint64) uint64 {
 
 // Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return z.EqualCt(x) == 0
+	return z.NotEqual(x) == 0
 }
 
-// EqualCt returns 0 if and only if z == x; constant-time
-func (z *Element) EqualCt(x *Element) uint64 {
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *Element) NotEqual(x *Element) uint64 {
 	return (z[4] ^ x[4]) | (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 
@@ -415,8 +415,8 @@ func (z *Element) Neg(x *Element) *Element {
 
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
-func (z *Element) Select(c int64, x0 *Element, x1 *Element) *Element {
-	cC := uint64((c | -c) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
+func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
+	cC := uint64((int64(c) | -int64(c)) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
 	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
 	z[1] = x0[1] ^ cC&(x0[1]^x1[1])
 	z[2] = x0[2] ^ cC&(x0[2]^x1[2])
@@ -753,6 +753,9 @@ func mulByConstant(z *Element, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y Element
 		y.SetUint64(uint64(c))
@@ -1198,7 +1201,6 @@ const invIterationsN = 22
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
-
 	a := *x
 	b := Element{
 		qElementWord0,
@@ -1604,4 +1606,19 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
+}
+
+func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	*z = dst
 }

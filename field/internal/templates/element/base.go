@@ -195,7 +195,7 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= {{.NbWords}} {
@@ -206,11 +206,11 @@ func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 
 // Equal returns z == x; constant-time
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
-	return z.EqualCt(x) == 0
+	return z.NotEqual(x) == 0
 }
 
-// EqualCt returns 0 if and only if z == x; constant-time
-func (z *{{.ElementName}}) EqualCt(x *{{.ElementName}}) uint64 {
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) uint64 {
 return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
 }
 
@@ -357,8 +357,8 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
-func (z *{{.ElementName}}) Select(c int64, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
-	cC := uint64(( c | -c ) >> 63)	// "canonicized" into: 0 if c=0, -1 otherwise
+func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
+	cC := uint64( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
 	{{- range $i := .NbWordsIndexesFull }}
 	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
 	{{- end}}
@@ -517,6 +517,9 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y {{.ElementName}}
 		y.SetUint64(uint64(c))

@@ -1,0 +1,67 @@
+import (
+	{{- if eq .CoordExtDegree 1 }}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{else}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}"testing"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+func TestSqrtRatio(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+	gen := genFull(t)
+
+	properties.Property("SqrtRatio must square back to the right value", prop.ForAll(
+		func(uv []{{.CoordType}}) bool {
+			u := &uv[0]
+			v := &uv[1]
+
+			var ref {{.CoordType}}
+			ref.Div(u, v)
+			var qrRef bool
+			if ref.Legendre() == -1 {
+				var Z {{.CoordType}}
+				Z.SetInt64(11)
+				ref.Mul(&ref, &Z)
+				qrRef = false
+			} else {
+				qrRef = true
+			}
+
+			var seen {{.CoordType}}
+			qr := sqrtRatio(&seen, u, v) == 0
+			seen.Square(&seen)
+
+			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
+			return seen == ref && (ref.IsZero() || qr == qrRef)
+
+		}, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func genFull(t *testing.T) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+
+		genRandomPair := func() ({{.CoordType}}, {{.CoordType}}) {
+			var a, b {{.CoordType}}
+
+			if _, err := a.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			if _, err := b.SetRandom(); err != nil {
+				t.Error(err)
+			}
+
+			return a, b
+		}
+		a, b := genRandomPair()
+
+		genResult := gopter.NewGenResult([]{{.CoordType}}{a, b}, gopter.NoShrinker)
+		return genResult
+	}
+}
