@@ -104,7 +104,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
 	tv3.Square(&y1)
 	tv3.Mul(&tv3, v)
 
-    isQNr := tv3.Neq(u)
+    isQNr := tv3.NotEqual(u)
     z.Select(int(isQNr), &y1, &y2)
     return isQNr
 }
@@ -133,13 +133,13 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
     //Line 10 in std doc
     tv2.Mul(&tv2, v)
 
-	y1.Select(int(tv2.Neq(u)), &y1, &tv1)
+	y1.Select(int(tv2.NotEqual(u)), &y1, &tv1)
 
     tv2.Square(&y1)
     tv2.Mul(&tv2, v)
 
     //Line 15
-    isQNr := tv2.Neq(u)
+    isQNr := tv2.NotEqual(u)
     var y2 {{.CoordType}}
     y2.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 2) }} } )
     tv1.Mul(&y2, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
@@ -151,7 +151,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
     // Z = {{.Z}}
     mulByZ(&tv3, u)
 
-	y2.Select(int(tv2.Neq(&tv3)), &y2, &tv1)
+	y2.Select(int(tv2.NotEqual(&tv3)), &y2, &tv1)
 
 	z.Select(int(isQNr), &y2, &y1)
     return isQNr
@@ -219,7 +219,7 @@ func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
 func notOne(x *{{.CoordType}}) uint64 {
 	return {{.CoordType}} {
 		{{- range $w := .One }}{{$w}},
-		{{- end}} }.Neq(x)
+		{{- end}} }.NotEqual(x)
 }
 {{ end }}
 

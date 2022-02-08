@@ -206,11 +206,11 @@ func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 
 // Equal returns z == x; constant-time
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
-	return z.Neq(x) == 0
+	return z.NotEqual(x) == 0
 }
 
-// Neq returns 0 if and only if z == x; constant-time
-func (z *{{.ElementName}}) Neq(x *{{.ElementName}}) uint64 {
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) uint64 {
 return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
 }
 

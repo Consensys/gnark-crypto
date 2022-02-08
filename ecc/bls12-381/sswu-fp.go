@@ -153,7 +153,7 @@ func sqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	tv3.Square(&y1)
 	tv3.Mul(&tv3, v)
 
-	isQNr := tv3.Neq(u)
+	isQNr := tv3.NotEqual(u)
 	z.Select(int(isQNr), &y1, &y2)
 	return isQNr
 }
