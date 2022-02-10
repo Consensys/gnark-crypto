@@ -162,6 +162,34 @@ func TestQuadExtensionMul(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestExponentiationBls12381G2(t *testing.T) {
+	base, err := NewField("dummyName", "dummyElement", "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", false)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewTower(base, 2, -1)
+	Z := make([]big.Int, 2)
+	Z[0].SetInt64(-2)
+	Z[1].SetInt64(-1)
+
+	type expTestCase struct {
+		pow *big.Int
+		res []big.Int
+	}
+
+	cases := []expTestCase{
+		{big.NewInt(2), f.FromInt64([]int64{3, 4})},
+	}
+	for _, c := range cases {
+		res := f.Exp(Z, c.pow)
+		if !f.Equal(c.res, res) {
+			t.Error("Failed on power", c.pow.Int64())
+		}
+	}
+}
+
 const minNbWords = 5
 const maxNbWords = 37
 

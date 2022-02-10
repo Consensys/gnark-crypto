@@ -87,6 +87,10 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 
 		// c6, c7 stored as c[1], c[2] respectively
 		c[1] = f.Exp(Z, &c[0][1])
+
+		//TODO: Remove this
+		//c[1][1].Set(&c[1][0])
+
 		var c7Pow big.Int
 		c7Pow.Add(&c[0][1], ONE)
 		c7Pow.Rsh(&c7Pow, 1)

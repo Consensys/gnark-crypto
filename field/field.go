@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+	"unicode"
 
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
@@ -77,7 +78,12 @@ type Field struct {
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
-	if _, ok := bModulus.SetString(modulus, 10); !ok {
+	base := 10
+	if modulus[0] == '0' && (unicode.ToUpper(rune(modulus[1])) == 'X') {
+		base = 16
+		modulus = modulus[2:]
+	}
+	if _, ok := bModulus.SetString(modulus, base); !ok {
 		return nil, errParseModulus
 	}
 
