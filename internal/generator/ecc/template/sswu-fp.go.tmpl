@@ -1,0 +1,380 @@
+import (
+    "math/big"
+	{{- if eq .CoordExtDegree 1 }}
+        "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{else}}
+        "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}
+)
+
+{{ $g1Isogeny := notNil .Isogeny }}
+
+{{ if $g1Isogeny }}
+
+func isogenyXNumerator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+    dst.EvalPolynomial(
+        false,
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.XMap.Num}}
+                { {{ words64 $c }} },
+            {{- end}}
+        },
+        x)
+}
+
+func isogenyXDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+    dst.EvalPolynomial(
+        true,
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.XMap.Den}}
+                { {{ words64 $c }} },
+            {{- end}}
+        },
+        x)
+}
+
+func isogenyYNumerator(dst *{{.CoordType}}, x *{{.CoordType}}, y *{{.CoordType}}) {
+    var _dst {{.CoordType}}
+    _dst.EvalPolynomial(
+        false,
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.YMap.Num}}
+                { {{ words64 $c }} },
+            {{- end}}
+        },
+        x)
+
+   dst.Mul(&_dst, y)
+}
+
+func isogenyYDenominator(dst *{{.CoordType}}, x *{{.CoordType}}) {
+    dst.EvalPolynomial(
+        true,
+        []{{.CoordType}} {
+            {{- range $c := .Isogeny.YMap.Den}}
+                { {{ words64 $c }} },
+            {{- end}}
+        },
+        x)
+}
+
+func isogenyG1(p *G1Affine) {
+
+	den := make([]{{.CoordType}}, 2)
+
+	isogenyYDenominator(&den[1], &p.X)
+	isogenyXDenominator(&den[0], &p.X)
+
+	isogenyYNumerator(&p.Y, &p.X, &p.Y)
+	isogenyXNumerator(&p.X, &p.X)
+
+	den = fp.BatchInvert(den)
+
+	p.X.Mul(&p.X, &den[0])
+	p.Y.Mul(&p.Y, &den[1])
+}
+
+{{ end }}
+
+// sqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
+func sqrtRatio(z *{{.CoordType}}, u *{{.CoordType}}, v *{{.CoordType}}) uint64 {
+{{ if eq (mod .FieldSizeMod256 4) 3 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
+	var tv1 {{.CoordType}}
+	tv1.Square(v)
+	var tv2 {{.CoordType}}
+	tv2.Mul(u, v)
+	tv1.Mul(&tv1, &tv2)
+
+	var y1 {{.CoordType}}
+	{
+	var c1 big.Int
+	// c1 = {{ index .SqrtRatioParams 0 }}
+	c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
+	y1.Exp(tv1, &c1)
+	}
+
+	y1.Mul(&y1, &tv2)
+
+	var y2 {{.CoordType}}
+	y2.Mul(&y1, &{{.CoordType}}{ {{ words64 (index .SqrtRatioParams 1) }} })
+
+	var tv3 {{.CoordType}}
+	tv3.Square(&y1)
+	tv3.Mul(&tv3, v)
+
+    isQNr := tv3.NotEqual(u)
+    z.Select(int(isQNr), &y1, &y2)
+    return isQNr
+}
+
+{{ end }}
+
+{{ if eq (mod .FieldSizeMod256 8) 5 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.3. q = 5 mod 8
+// TODO: Test correct use of Element.Select
+
+    var tv1, tv2 {{.CoordType}}
+    tv1.Square(v)
+    tv2.Mul(&tv1, v)
+    tv1.Square(&tv1)
+    tv2.Mul(&tv2, u)
+    tv1.Mul(&tv1, &tv2)
+
+    var c1 big.Int
+	// c1 = {{ index .SqrtRatioParams 0 }}
+    c1.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 0) ) }} })
+    var y1 {{.CoordType}}
+    y1.Exp(tv1, &c1)
+    y1.Mul(&y1, &tv2)
+    tv1.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
+    tv2.Square(&tv1)
+
+    //Line 10 in std doc
+    tv2.Mul(&tv2, v)
+
+	y1.Select(int(tv2.NotEqual(u)), &y1, &tv1)
+
+    tv2.Square(&y1)
+    tv2.Mul(&tv2, v)
+
+    //Line 15
+    isQNr := tv2.NotEqual(u)
+    var y2 {{.CoordType}}
+    y2.Mul(&y1, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 2) }} } )
+    tv1.Mul(&y2, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
+    tv2.Square(&tv1)
+    tv2.Mul(&tv2, v)
+
+    var tv3 {{.CoordType}}
+    //Line 20
+    // Z = {{.Z}}
+    mulByZ(&tv3, u)
+
+	y2.Select(int(tv2.NotEqual(&tv3)), &y2, &tv1)
+
+	z.Select(int(isQNr), &y2, &y1)
+    return isQNr
+}
+
+{{ end }}
+
+{{ if eq (mod .FieldSizeMod256 8) 1 }}// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
+   tv1 := {{.CoordType}} { {{words64 (index .SqrtRatioParams 5) }} }
+
+   var exp big.Int
+   // c4 = {{ index .SqrtRatioParams 3 }}
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 3) ) }} })
+   var tv2, tv3, tv4, tv5 {{.CoordType}}
+   tv2.Exp(*v, &exp)
+   tv3.Mul(&tv2, &tv2)
+   tv3.Mul(&tv3, v)
+
+   // line 5
+   tv5.Mul(u, &tv3)
+
+// c3 = {{ index .SqrtRatioParams 2 }}
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 2) ) }} })
+   tv5.Exp(tv5, &exp)
+   tv5.Mul(&tv5, &tv2)
+   tv2.Mul(&tv5, v)
+   tv3.Mul(&tv5, u)
+
+   // line 10
+   tv4.Mul(&tv3, &tv2)
+// c5 = {{ index .SqrtRatioParams 4 }}
+   exp.SetBytes([]byte { {{ printList (bytes (index .SqrtRatioParams 4) ) }} })
+   tv5.Exp(tv4, &exp)
+
+   isQNr := notOne(&tv5)
+
+   tv2.Mul(&tv3, &{{.CoordType}} { {{words64 (index .SqrtRatioParams 6) }} })
+   tv5.Mul(&tv4, &tv1)
+
+   // line 15
+
+   tv3.Select(int(isQNr), &tv3, &tv2)
+   tv4.Select(int(isQNr), &tv4, &tv5)
+
+   exp.Lsh( big.NewInt(1), {{ index .SqrtRatioParams 0 }} - 2)
+   for i := {{ index .SqrtRatioParams 0 }}; i >= 2; i -- {
+      //line 20
+      tv5.Exp(tv4, &exp)
+      nE1 := notOne(&tv5)
+
+      tv2.Mul(&tv3, &tv1)
+      tv1.Mul(&tv1, &tv1)
+      tv5.Mul(&tv4, &tv1)
+
+	  tv3.Select(nE1, &tv3, &tv2)
+	  tv4.Select(nE1, &tv4, &tv5)
+
+      exp.Rsh(&exp,1)
+   }
+
+   *z = tv3
+   return isQNr
+}
+
+func notOne(x *{{.CoordType}}) uint64 {
+	return {{.CoordType}} {
+		{{- range $w := .One }}{{$w}},
+		{{- end}} }.NotEqual(x)
+}
+{{ end }}
+
+// mulByZ multiplies x by {{.Z}} and stores the result in z
+func mulByZ(z *{{.CoordType}}, x *{{.CoordType}}) {
+
+    {{ $ZBitsHi2Lo := reverse (bits .Z) }}
+    {{ $op := "Add"}}
+    {{ if lt .Z 0 }}
+        {{ $op = "Sub" }}
+        var res {{.CoordType}}
+        res.Neg(x)
+    {{ end }}
+    {{ if gt .Z 0 }}
+        res := *x
+    {{ end }}
+    res.Double(&res)
+
+    {{- range $bit := noFirst (noLast $ZBitsHi2Lo) }}
+        {{ if $bit }}
+            res.{{$op}}(&res, x)
+        {{ end }}
+        res.Double(&res)
+    {{- end }}
+
+    {{ if last $ZBitsHi2Lo }}
+        res.{{$op}}(&res, x)
+    {{ end }}
+
+    *z = res
+}
+
+// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+func sswuMapG1(u *{{.CoordType}}) G1Affine {
+
+	var tv1 {{.CoordType}}
+	tv1.Square(u)
+
+	//mul tv1 by Z
+	mulByZ(&tv1, &tv1)
+
+	var tv2 {{.CoordType}}
+	tv2.Square(&tv1)
+	tv2.Add(&tv2, &tv1)
+
+	var tv3 {{.CoordType}}
+	//Standard doc line 5
+	var tv4 {{.CoordType}}
+	tv4.SetOne()
+	tv3.Add(&tv2, &tv4)
+	tv3.Mul(&tv3, &{{.CoordType}}{ {{ words64 .B }} })
+
+    tv2NZero := tv2[0] {{ range $i := $.Field.NbWordsIndexesNoZero}} | tv2[{{$i}}] {{ end}}
+    tv4.SetInt64({{.Z}})
+    tv2.Neg(&tv2)
+    tv4.Select(int(tv2NZero), &tv4, &tv2)
+    tv2 = {{.CoordType}}{ {{ words64 .A }} }
+    tv4.Mul(&tv4, &tv2)
+
+	tv2.Square(&tv3)
+
+	var tv6 {{.CoordType}}
+	//Standard doc line 10
+	tv6.Square(&tv4)
+
+	var tv5 {{.CoordType}}
+	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .A }} })
+
+	tv2.Add(&tv2, &tv5)
+	tv2.Mul(&tv2, &tv3)
+	tv6.Mul(&tv6, &tv4)
+
+	//Standards doc line 15
+	tv5.Mul(&tv6, &{{.CoordType}}{ {{ words64 .B }} })
+	tv2.Add(&tv2, &tv5)
+
+	var x {{.CoordType}}
+	x.Mul(&tv1, &tv3)
+
+	var y1 {{.CoordType}}
+	gx1NSquare := sqrtRatio(&y1, &tv2, &tv6)
+
+	var y {{.CoordType}}
+	y.Mul(&tv1, u)
+
+	//Standards doc line 20
+	y.Mul(&y, &y1)
+
+    x.Select(int(gx1NSquare), &tv3, &x)
+    y.Select(int(gx1NSquare), &y1, &y)
+
+    y1.Neg(&y)
+    y.Select(int(sgn0(u)^sgn0(&y)), &y, &y1)
+
+	//Standards doc line 25
+	x.Div(&x, &tv4)
+
+	return G1Affine{x, y}
+}
+
+// EncodeToCurveG1SSWU maps a {{.CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	var res G1Affine
+	t, err := hashToFp(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+	res = sswuMapG1(&t[0])
+
+{{ if $g1Isogeny }}
+	//this is in an isogenous curve
+	isogenyG1(&res)
+{{ end }}
+ 	{{ if .CofactorCleaning}}
+ 	    res.ClearCofactor(&res)
+ 	{{ end }}
+ 	return res, nil
+}
+
+// HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+	u, err := hashToFp(msg, dst, 2)
+	if err != nil {
+		return G1Affine{}, err
+	}
+
+	Q0 := sswuMapG1(&u[0])
+	Q1 := sswuMapG1(&u[1])
+
+{{ if $g1Isogeny }}
+	//TODO: Add in E' first, then apply isogeny
+	isogenyG1(&Q0)
+	isogenyG1(&Q1)
+{{ end }}
+
+	var _Q0, _Q1 G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+	{{ if .CofactorCleaning}}
+	    _Q1.ClearCofactor(&_Q1)
+	{{ end }}
+
+    Q1.FromJacobian(&_Q1)
+    return Q1, nil
+}
+
+// sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// The sign of an element is not obviously related to that of its Montgomery form
+func sgn0(z *{{.CoordType}}) uint64 {
+    nonMont := *z
+    nonMont.FromMont()
+
+    return nonMont[0]%2
+}
