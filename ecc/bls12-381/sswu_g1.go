@@ -336,6 +336,6 @@ func g1NotZero(x *fp.Element) uint64 {
 func g1NotOne(x *fp.Element) uint64 {
 
 	var one fp.Element
-	return one.SetOne().Neq(x)
+	return one.SetOne().NotEqual(x)
 
 }
