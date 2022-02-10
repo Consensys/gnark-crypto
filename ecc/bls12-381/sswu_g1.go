@@ -335,7 +335,7 @@ func g1NotZero(x *fp.Element) uint64 {
 
 func g1NotOne(x *fp.Element) uint64 {
 
-	one := fp.Element{8505329371266088957, 17002214543764226050, 6865905132761471162, 8632934651105793861, 6631298214892334189, 1582556514881692819}
-	return one.Neq(x)
+	var one fp.Element
+	return one.SetOne().Neq(x)
 
 }

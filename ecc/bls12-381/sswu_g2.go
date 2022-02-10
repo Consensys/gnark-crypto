@@ -140,10 +140,12 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 		fp.Element{4480897313486445265, 4797496051193971075, 4046559893315008306, 10569151167044009496, 2123814803385151673, 852749317591686856},
 	} //tv1 = c6
 
-	var exp big.Int
-	// c4 = 7
-	exp.SetBytes([]byte{7})
 	var tv2, tv3, tv4, tv5 fptower.E2
+	var exp big.Int
+	// c4 = 7 = 2^3 - 1
+	// q is odd so c1 is at least 1.
+	exp.SetBytes([]byte{7})
+
 	tv2.Exp(*v, &exp)
 	tv3.Mul(&tv2, &tv2)
 	tv3.Mul(&tv3, v)
@@ -160,9 +162,28 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 
 	// line 10
 	tv4.Mul(&tv3, &tv2)
+
 	// c5 = 4
 	exp.SetBytes([]byte{4})
 	tv5.Exp(tv4, &exp)
+	//TODO: Optimize? Probably nah. If we did it'd look like the following comments:
+	//TODO: This would however save a bunch of heap allocation
+	// The optimization is useless as it does EXACTLY as the exp function
+	//These branches are decided by static data. Probably optimized away by compiler.
+	/*const logC5 = 3 - 1
+
+	   // c1 is at least 3 bcz q is 1 mod 8. So logC5 is at least 2.
+	   switch logC5{
+	   case 0:
+		   tv5.SetOne()
+	   case 1:
+			tv5.Set(&tv4)
+	    default:
+	        tv5.Double(&tv4)
+	   }
+	   for i := 1; i < logC5; i++ {
+		   tv5.Double(&tv5)
+	    }*/
 
 	isQNr := g2NotOne(&tv5)
 
