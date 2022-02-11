@@ -26,7 +26,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/kzg"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -34,6 +33,7 @@ var (
 	ErrIncompatibleSize = errors.New("t1 and t2 should be of the same size")
 	ErrSize             = errors.New("t1 and t2 should be of size a power of 2")
 	ErrPermutationProof = errors.New("permutation proof verification failed")
+	ErrGenerator        = errors.New("wrong generator")
 )
 
 // Proof proof that the commitments of t1 and t2 come from
@@ -42,6 +42,9 @@ type Proof struct {
 
 	// size of the polynomials
 	size int
+
+	// generator of the fft domain, used for shifting the evaluation point
+	g fr.Element
 
 	// commitments of t1 & t2, the permuted vectors, and z, the accumulation
 	// polynomial
@@ -147,6 +150,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 	s := int(d.Cardinality)
 	proof.size = s
+	proof.g.Set(&d.Generator)
 
 	// hash function for Fiat Shamir
 	hFunc := sha256.New()
@@ -231,7 +235,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 
 	// compute the opening proofs
 	proof.batchedProof, err = kzg.BatchOpenSinglePoint(
-		[]polynomial.Polynomial{
+		[][]fr.Element{
 			ct1,
 			ct2,
 			cz,
@@ -243,9 +247,8 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 			proof.z,
 			proof.q,
 		},
-		&eta,
+		eta,
 		hFunc,
-		d,
 		srs,
 	)
 	if err != nil {
@@ -255,8 +258,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	eta.Mul(&eta, &d.Generator)
 	proof.shiftedProof, err = kzg.Open(
 		cz,
-		&eta,
-		d,
+		eta,
 		srs,
 	)
 	if err != nil {
@@ -345,6 +347,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 			proof.q,
 		},
 		&proof.batchedProof,
+		eta,
 		hFunc,
 		srs,
 	)
@@ -352,7 +355,18 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		return err
 	}
 
-	err = kzg.Verify(&proof.z, &proof.shiftedProof, srs)
+	// check the generator is correct
+	var checkOrder fr.Element
+	checkOrder.Exp(proof.g, big.NewInt(int64(proof.size/2)))
+	if checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+	checkOrder.Square(&checkOrder)
+	if !checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+	eta.Mul(&proof.g, &eta)
+	err = kzg.Verify(&proof.z, &proof.shiftedProof, eta, srs)
 	if err != nil {
 		return err
 	}
