@@ -28,7 +28,7 @@ func TestFuzz(t *testing.T) {
 				t.Fatal("couldn't read random bytes", err)
 			}
 
-			Fuzz(bytes[:i]) 
+			Fuzz(bytes[:i])
 		}
 	}
 
