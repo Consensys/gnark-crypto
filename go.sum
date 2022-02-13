@@ -4,6 +4,8 @@ github.com/consensys/bavard v0.1.8 h1:uqF/SaeoBf28UUuSkxHRfJBQbT0wggM0N6+qZiNKRu
 github.com/consensys/bavard v0.1.8/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
 github.com/consensys/bavard v0.1.9 h1:t9wg3/7Ko73yE+eKcavgMYcPMO1hinadJGlbSCdXTiM=
 github.com/consensys/bavard v0.1.9/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
+github.com/consensys/bavard v0.1.10 h1:1I/IvY7bkX/O7QLNCEuV2+YBKdTetzw3gnBbvFaWiEE=
+github.com/consensys/bavard v0.1.10/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/subcommands v1.2.0/go.mod h1:ZjhPrFU+Olkh9WazFPsl27BQ4UPiG37m3yTrtFlrHVk=
