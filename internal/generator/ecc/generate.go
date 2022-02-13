@@ -54,6 +54,21 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 		var nonRes big.Int
 		conf.Fp.FromMont(&nonRes, &conf.Fp.NonResidue)
+
+		if nonRes.BitLen() == 0 {
+			fmt.Println(conf.Name, ": nonres is zero. Finding non-residue")
+
+			var sqrt big.Int
+			found := false
+			for i := int64(2); i < 100 && !found; i++ {
+				nonRes.SetInt64(i / 2 * ((i%2)*2 - 1))
+				found = sqrt.ModSqrt(&nonRes, conf.Fp.ModulusBig) == nil
+			}
+
+			if !found {
+				panic(fmt.Sprint(conf.Name, ": failed to find non-residue"))
+			}
+		}
 		if !nonRes.IsInt64() {
 			panic(conf.Name)
 		}

@@ -142,7 +142,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
     var c1 big.Int
 	// c1 = {{ $c1Int }}
-    c1.SetBytes([]byte { {{ $c1IntBytes }})
+    c1.SetBytes([]byte { {{ $c1IntBytes }} })
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
