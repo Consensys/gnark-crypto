@@ -330,8 +330,8 @@ func EncodeToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
 	}
 
 	res = g2SswuMap(&fptower.E2{
-		u[0],
-		u[1],
+		A0: u[0],
+		A1: u[1],
 	})
 
 	//this is in an isogenous curve
@@ -351,12 +351,12 @@ func HashToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
 	}
 
 	Q0 := g2SswuMap(&fptower.E2{
-		u[0],
-		u[1],
+		A0: u[0],
+		A1: u[1],
 	})
 	Q1 := g2SswuMap(&fptower.E2{
-		u[2+0],
-		u[2+1],
+		A0: u[2+0],
+		A1: u[2+1],
 	})
 
 	//TODO: Add in E' first, then apply isogeny
