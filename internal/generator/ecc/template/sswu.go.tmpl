@@ -146,7 +146,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
+    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree}} )
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -160,8 +160,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     //Line 15
     isQNr := tv2.NotEqual(u)
     var y2 {{$CoordType}}
-    y2.Mul(&y1, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 2) }} } )
-    tv1.Mul(&y2, &{{$CoordType}} { {{words64 (index .SqrtRatioParams 1) }} })
+    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} )
+    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree}})
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 

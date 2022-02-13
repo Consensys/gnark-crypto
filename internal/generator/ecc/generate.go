@@ -2,6 +2,7 @@ package ecc
 
 import (
 	"fmt"
+	"math/big"
 	"path/filepath"
 	"strings"
 
@@ -48,9 +49,29 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return bgen.Generate(hashConf, packageName, "./ecc/template", entries...)
 	}
 
-	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
-		return err
+	// For testing. TODO: Remove
+	if conf.HashE1 == nil {
+
+		var nonRes big.Int
+		conf.Fp.FromMont(&nonRes, &conf.Fp.NonResidue)
+		if !nonRes.IsInt64() {
+			panic(conf.Name)
+		}
+		zero := make([]string, conf.G1.CoordExtDegree)
+		conf.HashE1 = &config.HashSuite{
+			Z:       []int{int(nonRes.Int64())},
+			A:       zero,
+			B:       zero,
+			Isogeny: nil,
+		}
 	}
+	// For some reason bn254 doesn't have a selected nonresidue?!
+	if len(conf.HashE1.Z) >= 1 {
+		if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
+			return err
+		}
+	}
+
 	if err := genHashToCurve(&conf.G2, conf.HashE2); err != nil {
 		return err
 	}
