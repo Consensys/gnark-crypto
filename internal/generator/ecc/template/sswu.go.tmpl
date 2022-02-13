@@ -2,7 +2,7 @@
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
-{{$ExtDegree := .Field.Degree}}
+{{$TowerDegree := .Field.Degree}}
 {{$AffineType := print $CurveTitle "Affine"}}
 {{$JacType := print $CurveTitle "Jac"}}
 
@@ -13,14 +13,14 @@ import (
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 
 	{{ $package := "fp"}}
-	{{- if not (eq $ExtDegree 1) }}
+	{{- if not (eq $TowerDegree 1) }}
 	    {{ $package = "fptower" }}
         "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{- end}}
 )
 
-{{ define "asElement" }}{{ if eq $.ExtDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}{ {{ range $ci :=  $.c }}
-    fp.Element{ {{ words64 $ci }} },{{ end }}
+{{ define "asElement" }} {{ if eq $.TowerDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}{ {{ range $i := (interval 0 (len $.c))}}
+    {{if eq $.TowerDegree 2}}A{{end}}{{$i}}: fp.Element{ {{ words64 (index $.c $i) }} },{{ end }}
 }{{ end }}{{- end }}
 
 {{ if $isogenyNeeded }}
@@ -30,7 +30,7 @@ func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
-            {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree}},
+            {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree}},
             {{- end}}
         },
         x)
@@ -41,7 +41,7 @@ func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Den}}
-                {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree }},
+                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
             {{- end}}
         },
         x)
@@ -53,7 +53,7 @@ func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Num}}
-                {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree }},
+                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
             {{- end}}
         },
         x)
@@ -66,7 +66,7 @@ func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Den}}
-                {{ template "asElement" dict "c" $c "ExtDegree" $ExtDegree }},
+                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
             {{- end}}
         },
         x)
@@ -117,7 +117,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	y1.Mul(&y1, &tv2)
 
 	var y2 {{$CoordType}}
-	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .SqrtRatioParams 1)  "ExtDegree" $ExtDegree}})
+	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .SqrtRatioParams 1)  "TowerDegree" $TowerDegree}})
 
 	var tv3 {{$CoordType}}
 	tv3.Square(&y1)
@@ -146,7 +146,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree}} )
+    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree}} )
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -160,8 +160,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     //Line 15
     isQNr := tv2.NotEqual(u)
     var y2 {{$CoordType}}
-    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} )
-    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree}})
+    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "TowerDegree" $TowerDegree}} )
+    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree}})
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
@@ -192,7 +192,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ $c5Int := index $cInts 4}}
 {{ $c5IntBytes := printList (bytes $c5Int ) }}
 
-   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "ExtDegree" $ExtDegree }}    //tv1 = c6
+   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree }}    //tv1 = c6
 
     var tv2, tv3, tv4, tv5 {{$CoordType}}
    var exp big.Int
@@ -241,7 +241,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
    isQNr := {{$CurveName}}NotOne(&tv5)
 
-   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "ExtDegree" $ExtDegree}} )
+   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "TowerDegree" $TowerDegree}} )
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -274,13 +274,13 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
 // {{$CurveName}}SetZ sets z to {{.Z}}.
 func {{$CurveName}}SetZ(z *{{$CoordType}}) {
-    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .ZMont "ExtDegree" $ExtDegree}} )
+    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}} )
 }
 
 // {{$CurveName}}MulByZ multiplies x by {{.Z}} and stores the result in z
 func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
-{{ if eq $ExtDegree 1 }}
+{{ if eq $TowerDegree 1 }}
 
     {{ $Z := index .Z 0}}
 
@@ -329,16 +329,16 @@ func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &{{$CoordType}}{{ template "asElement" dict "c" .B  "ExtDegree" $ExtDegree}})
+	tv3.Mul(&tv3, &{{$CoordType}}{{ template "asElement" dict "c" .B  "TowerDegree" $TowerDegree}})
 
     tv2NZero := {{$CurveName}}NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .ZMont "ExtDegree" $ExtDegree}}
+	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}}
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)
-    tv2 = {{$CoordType}}{{ template "asElement" dict "c" .A  "ExtDegree" $ExtDegree}}
+    tv2 = {{$CoordType}}{{ template "asElement" dict "c" .A  "TowerDegree" $TowerDegree}}
     tv4.Mul(&tv4, &tv2)
 
 	tv2.Square(&tv3)
@@ -348,14 +348,14 @@ func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 	tv6.Square(&tv4)
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .A  "ExtDegree" $ExtDegree}})
+	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .A  "TowerDegree" $TowerDegree}})
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .B  "ExtDegree" $ExtDegree}})
+	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .B  "TowerDegree" $TowerDegree}})
 	tv2.Add(&tv2, &tv5)
 
 	var x {{$CoordType}}
@@ -387,16 +387,16 @@ func {{$CurveName}}SswuMap(u *{{$CoordType}}) {{$AffineType}} {
 func EncodeToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
-	u, err := hashToFp(msg, dst, {{$ExtDegree}})
+	u, err := hashToFp(msg, dst, {{$TowerDegree}})
 	if err != nil {
 		return res, err
 	}
 
-    {{if eq $ExtDegree 1}}
+    {{if eq $TowerDegree 1}}
     res = {{$CurveName}}SswuMap(&u[0])
     {{else}}
     res = {{$CurveName}}SswuMap( &{{$CoordType}} {
-        {{range $i := interval 0 $ExtDegree }} u[{{$i}}],
+        {{range $i := interval 0 $TowerDegree }} u[{{$i}}],
     {{end}} })
     {{end}}
 
@@ -413,20 +413,20 @@ func EncodeToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) 
 // HashToCurve{{$CurveTitle}}SSWU hashes a byte string to the {{$CurveTitle}} curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToCurve{{$CurveTitle}}SSWU(msg, dst []byte) ({{$AffineType}}, error) {
-	u, err := hashToFp(msg, dst, 2 * {{$ExtDegree}})
+	u, err := hashToFp(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {
 		return {{$AffineType}}{}, err
 	}
 
-	{{if eq $ExtDegree 1}}
+	{{if eq $TowerDegree 1}}
 	Q0 := {{$CurveName}}SswuMap(&u[0])
 	Q1 := {{$CurveName}}SswuMap(&u[1])
 	{{else}}
 	Q0 := {{$CurveName}}SswuMap( &{{$CoordType}} {
-		{{range $i := interval 0 $ExtDegree }} u[{{$i}}],
+		{{range $i := interval 0 $TowerDegree }} u[{{$i}}],
 		{{end}} })
 	Q1 := {{$CurveName}}SswuMap( &{{$CoordType}} {
-        {{range $i := interval 0 $ExtDegree }} u[{{$ExtDegree}} + {{$i}}],
+        {{range $i := interval 0 $TowerDegree }} u[{{$TowerDegree}} + {{$i}}],
         {{end}} })
 	{{end}}
 
@@ -455,14 +455,14 @@ func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
 
     nonMont := *z
     nonMont.FromMont()
-	{{if eq $ExtDegree 1}}
+	{{if eq $TowerDegree 1}}
         return nonMont[0]%2
 	{{else}}
         sign := uint64(0)
         zero := uint64(1)
         var signI uint64
         var zeroI uint64
-        {{range $i := interval 0 $ExtDegree}}
+        {{range $i := interval 0 $TowerDegree}}
 		    zeroI = z.{{$.FieldCoordName}}{{$i}}[0]
             signI = zeroI%2
 			zeroI = (zeroI | -zeroI) >> 63
@@ -489,19 +489,19 @@ func {{$CurveName}}EvalPolynomial(z *{{$CoordType}}, monic bool, coefficients []
 }
 
 func {{$CurveName}}NotZero(x *{{$CoordType}}) uint64 {
-	{{if eq $ExtDegree 1}}
+	{{if eq $TowerDegree 1}}
     return x[0] {{ range $i := $.Field.Base.NbWordsIndexesNoZero}} | x[{{$i}}] {{ end}}
 	{{else}}    //Assuming G1 is over Fp and that if hashing is available for G2, it also is for G1
-	return g1NotZero(&x.A0) {{ range $i := interval 1 $ExtDegree }} | g1NotZero(&x.A{{$i}}) {{end}}
+	return g1NotZero(&x.A0) {{ range $i := interval 1 $TowerDegree }} | g1NotZero(&x.A{{$i}}) {{end}}
 	{{end}}
 }
 
 func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
-    {{if eq $ExtDegree 1 }}
+    {{if eq $TowerDegree 1 }}
 	    var one {{$CoordType}}
 		return one.SetOne().NotEqual(x)
     {{else}}
         //Assuming hash is implemented for G1 and that the curve is over Fp
-        return g1NotOne(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $ExtDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+        return g1NotOne(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
     {{end}}
 }
