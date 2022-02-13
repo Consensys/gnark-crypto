@@ -170,9 +170,9 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     // Z = {{.Z}}
     {{$CurveName}}MulByZ(&tv3, u)
 
-	y2.Select(int(tv2.NotEqual(&tv3)), &y2, &tv1)
+	y2.Select(int(tv2.NotEqual(&tv3)), &tv1, &y2)
 
-	z.Select(int(isQNr), &y2, &y1)
+	z.Select(int(isQNr), &y1, &y2)
     return isQNr
 }
 
