@@ -152,7 +152,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     //Line 10 in std doc
     tv2.Mul(&tv2, v)
 
-	y1.Select(int(tv2.NotEqual(u)), &y1, &tv1)
+	y1.Select(int(tv2.NotEqual(u)), &tv1, &y1)
 
     tv2.Square(&y1)
     tv2.Mul(&tv2, v)

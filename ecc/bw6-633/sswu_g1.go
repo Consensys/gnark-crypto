@@ -50,7 +50,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	//Line 10 in std doc
 	tv2.Mul(&tv2, v)
 
-	y1.Select(int(tv2.NotEqual(u)), &y1, &tv1)
+	y1.Select(int(tv2.NotEqual(u)), &tv1, &y1)
 
 	tv2.Square(&y1)
 	tv2.Mul(&tv2, v)
@@ -68,9 +68,9 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Z = [-2]
 	g1MulByZ(&tv3, u)
 
-	y2.Select(int(tv2.NotEqual(&tv3)), &y2, &tv1)
+	y2.Select(int(tv2.NotEqual(&tv3)), &tv1, &y2)
 
-	z.Select(int(isQNr), &y2, &y1)
+	z.Select(int(isQNr), &y1, &y2)
 	return isQNr
 }
 
