@@ -69,13 +69,13 @@ type ProofLookupVector struct {
 	BatchedProofShifted kzg.BatchOpeningProof
 }
 
-// computeZ computes Z, in Lagrange basis. Z is the accumulation of the partial
+// evaluateAccumulationPolynomial computes Z, in Lagrange basis. Z is the accumulation of the partial
 // ratios of 2 fully split polynomials (cf https://eprint.iacr.org/2020/315.pdf)
 // * lf is the list of values that should be in lt
 // * lt is the lookup table
 // * lh1, lh2 is lf sorted by lt split in 2 overlapping slices
 // * beta, gamma are challenges (Schwartz-zippel: they are the random evaluations point)
-func computeZ(lf, lt, lh1, lh2 []fr.Element, beta, gamma fr.Element) []fr.Element {
+func evaluateAccumulationPolynomial(lf, lt, lh1, lh2 []fr.Element, beta, gamma fr.Element) []fr.Element {
 
 	z := make([]fr.Element, len(lt))
 
@@ -120,63 +120,65 @@ func computeZ(lf, lt, lh1, lh2 []fr.Element, beta, gamma fr.Element) []fr.Elemen
 	return z
 }
 
-// computeH computes the evaluation (shifted, bit reversed) of h where
-// h = (x-1)*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX)) -
-//		(x-1)*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX) )
+// evaluateNumBitReversed computes the evaluation (shifted, bit reversed) of h where
+// h = (x-g**(n-1))*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX)) -
+//		(x-(g**(n-1))*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX) )
 //
 // * cz, ch1, ch2, ct, cf are the polynomials z, h1, h2, t, f in canonical basis
-// * _lz, _lh1, _lh2, _lt, _lf are the polynomials z, h1, h2, t, f in shifted Lagrange basis (domainH)
+// * _lz, _lh1, _lh2, _lt, _lf are the polynomials z, h1, h2, t, f in shifted Lagrange basis (domainBig)
 // * beta, gamma are the challenges
 // * it returns h in canonical basis
-func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, domainH *fft.Domain) []fr.Element {
+func evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, domainBig *fft.Domain) []fr.Element {
 
 	// result
-	s := int(domainH.Cardinality)
-	num := make([]fr.Element, domainH.Cardinality)
+	s := int(domainBig.Cardinality)
+	num := make([]fr.Element, domainBig.Cardinality)
 
-	var u, v, w, _g, m, n, one, t fr.Element
-	t.SetUint64(2).
-		Inverse(&t)
-	_g.Square(&domainH.Generator).
-		Exp(_g, big.NewInt(int64(s/2-1)))
+	var u, onePlusBeta, GammaTimesOnePlusBeta, m, n, one fr.Element
+
 	one.SetOne()
-	v.Add(&one, &beta)
-	w.Mul(&v, &gamma)
+	onePlusBeta.Add(&one, &beta)
+	GammaTimesOnePlusBeta.Mul(&onePlusBeta, &gamma)
 
 	g := make([]fr.Element, s)
-	g[0].Set(&domainH.FinerGenerator)
+	g[0].Set(&domainBig.FrMultiplicativeGen)
 	for i := 1; i < s; i++ {
-		g[i].Mul(&g[i-1], &domainH.Generator)
+		g[i].Mul(&g[i-1], &domainBig.Generator)
 	}
 
-	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+	var gg fr.Element
+	expo := big.NewInt(int64(domainBig.Cardinality>>1 - 1))
+	gg.Square(&domainBig.Generator).Exp(gg, expo)
+
+	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
 	for i := 0; i < s; i++ {
 
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
 
-		// m = (x-g**(n-1))*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX))
-		m.Mul(&v, &_lz[_i])
+		// m = z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX))
+		m.Mul(&onePlusBeta, &_lz[_i])
 		u.Add(&gamma, &_lf[_i])
 		m.Mul(&m, &u)
 		u.Mul(&beta, &_lt[_is]).
 			Add(&u, &_lt[_i]).
-			Add(&u, &w)
+			Add(&u, &GammaTimesOnePlusBeta)
 		m.Mul(&m, &u)
 
-		// n = (x-g**(n-1))*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX)
+		// n = z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX)
 		n.Mul(&beta, &_lh1[_is]).
 			Add(&n, &_lh1[_i]).
-			Add(&n, &w)
+			Add(&n, &GammaTimesOnePlusBeta)
 		u.Mul(&beta, &_lh2[_is]).
 			Add(&u, &_lh2[_i]).
-			Add(&u, &w)
+			Add(&u, &GammaTimesOnePlusBeta)
 		n.Mul(&n, &u).
 			Mul(&n, &_lz[_is])
 
+		// (x-gg**(n-1))*(m-n)
 		num[_i].Sub(&m, &n)
-		u.Sub(&g[i], &_g)
+		u.Sub(&g[i], &gg)
 		num[_i].Mul(&num[_i], &u)
 
 	}
@@ -184,99 +186,128 @@ func computeH(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma fr.Element, do
 	return num
 }
 
-// computeH0 returns l0 * (z-1), in Lagrange basis and bit reversed order
-func computeH0(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
+// evaluateXnMinusOneDomainBig returns the evaluation of (x**n-1) on FrMultiplicativeGen*< g  >
+func evaluateXnMinusOneDomainBig(domainBig *fft.Domain) [2]fr.Element {
+
+	sizeDomainSmall := domainBig.Cardinality / 2
 
 	var one fr.Element
 	one.SetOne()
 
-	var g [2]fr.Element
-	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
-	g[1].Neg(&g[0])
-	g[0].Sub(&g[0], &one)
-	g[1].Sub(&g[1], &one)
+	// x**n-1 on FrMultiplicativeGen*< g  >
+	var res [2]fr.Element
+	var shift fr.Element
+	shift.Exp(domainBig.FrMultiplicativeGen, big.NewInt(int64(sizeDomainSmall)))
+	res[0].Sub(&shift, &one)
+	res[1].Add(&shift, &one).Neg(&res[1])
 
-	var d fr.Element
-	d.Set(&domainH.FinerGenerator)
-	den := make([]fr.Element, len(lzCosetReversed))
-	for i := 0; i < len(den); i++ {
-		den[i].Sub(&d, &one)
-		d.Mul(&d, &domainH.Generator)
+	return res
+
+}
+
+// evaluateL0DomainBig returns the evaluation of (x**n-1)/(x-1) on
+// x**n-1 on FrMultiplicativeGen*< g  >
+func evaluateL0DomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
+
+	var one fr.Element
+	one.SetOne()
+
+	// x**n-1 on FrMultiplicativeGen*< g  >
+	xnMinusOne := evaluateXnMinusOneDomainBig(domainBig)
+
+	// 1/(x-1) on FrMultiplicativeGen*< g  >
+	var acc fr.Element
+	denL0 := make([]fr.Element, domainBig.Cardinality)
+	acc.Set(&domainBig.FrMultiplicativeGen)
+	for i := 0; i < int(domainBig.Cardinality); i++ {
+		denL0[i].Sub(&acc, &one)
+		acc.Mul(&acc, &domainBig.Generator)
 	}
-	den = fr.BatchInvert(den)
+	denL0 = fr.BatchInvert(denL0)
 
-	res := make([]fr.Element, len(lzCosetReversed))
-	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+	return xnMinusOne, denL0
+}
 
-	for i := 0; i < len(lzCosetReversed); i++ {
+// evaluationLnDomainBig returns the evaluation of (x**n-1)/(x-g**(n-1)) on
+// x**n-1 on FrMultiplicativeGen*< g  >
+func evaluationLnDomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
+
+	sizeDomainSmall := domainBig.Cardinality / 2
+
+	var one fr.Element
+	one.SetOne()
+
+	// x**n-1 on FrMultiplicativeGen*< g  >
+	numLn := evaluateXnMinusOneDomainBig(domainBig)
+
+	// 1/(x-g**(n-1)) on FrMultiplicativeGen*< g  >
+	var gg, acc fr.Element
+	gg.Square(&domainBig.Generator).Exp(gg, big.NewInt(int64(sizeDomainSmall-1)))
+	denLn := make([]fr.Element, domainBig.Cardinality)
+	acc.Set(&domainBig.FrMultiplicativeGen)
+	for i := 0; i < int(domainBig.Cardinality); i++ {
+		denLn[i].Sub(&acc, &gg)
+		acc.Mul(&acc, &domainBig.Generator)
+	}
+	denLn = fr.BatchInvert(denLn)
+
+	return numLn, denLn
+
+}
+
+// evaluateZStartsByOneBitReversed returns l0 * (z-1), in Lagrange basis and bit reversed order
+func evaluateZStartsByOneBitReversed(lsZBitReversed []fr.Element, domainBig *fft.Domain) []fr.Element {
+
+	var one fr.Element
+	one.SetOne()
+
+	res := make([]fr.Element, domainBig.Cardinality)
+
+	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
+
+	xnMinusOne, denL0 := evaluateL0DomainBig(domainBig)
+
+	for i := 0; i < len(lsZBitReversed); i++ {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
-		res[_i].Sub(&lzCosetReversed[_i], &one).
-			Mul(&res[_i], &g[i%2]).Mul(&res[_i], &den[i])
+		res[_i].Sub(&lsZBitReversed[_i], &one).
+			Mul(&res[_i], &xnMinusOne[i%2]).
+			Mul(&res[_i], &denL0[i])
 	}
 
 	return res
 }
 
-// computeHn returns ln * (z-1), in Lagrange basis and bit reversed order
-func computeHn(lzCosetReversed []fr.Element, domainH *fft.Domain) []fr.Element {
+// evaluateZEndsByOneBitReversed returns ln * (z-1), in Lagrange basis and bit reversed order
+func evaluateZEndsByOneBitReversed(lsZBitReversed []fr.Element, domainBig *fft.Domain) []fr.Element {
 
 	var one fr.Element
 	one.SetOne()
 
-	var g [2]fr.Element
-	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
-	g[1].Neg(&g[0])
-	g[0].Sub(&g[0], &one)
-	g[1].Sub(&g[1], &one)
+	numLn, denLn := evaluationLnDomainBig(domainBig)
 
-	var _g, d fr.Element
-	one.SetOne()
-	d.Set(&domainH.FinerGenerator)
-	_g.Square(&domainH.Generator).Exp(_g, big.NewInt(int64(domainH.Cardinality/2-1)))
-	den := make([]fr.Element, len(lzCosetReversed))
-	for i := 0; i < len(lzCosetReversed); i++ {
-		den[i].Sub(&d, &_g)
-		d.Mul(&d, &domainH.Generator)
-	}
-	den = fr.BatchInvert(den)
+	res := make([]fr.Element, len(lsZBitReversed))
+	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
-	res := make([]fr.Element, len(lzCosetReversed))
-	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
-
-	for i := 0; i < len(lzCosetReversed); i++ {
+	for i := 0; i < len(lsZBitReversed); i++ {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
-		res[_i].Sub(&lzCosetReversed[_i], &one).
-			Mul(&res[_i], &g[i%2]).
-			Mul(&res[_i], &den[i])
+		res[_i].Sub(&lsZBitReversed[_i], &one).
+			Mul(&res[_i], &numLn[i%2]).
+			Mul(&res[_i], &denLn[i])
 	}
 
 	return res
 }
 
-// computeHh1h2 returns ln * (h1 - h2(g.x)), in Lagrange basis and bit reversed order
-func computeHh1h2(_lh1, _lh2 []fr.Element, domainH *fft.Domain) []fr.Element {
+// evaluateOverlapH1h2BitReversed returns ln * (h1 - h2(g.x)), in Lagrange basis and bit reversed order
+func evaluateOverlapH1h2BitReversed(_lh1, _lh2 []fr.Element, domainBig *fft.Domain) []fr.Element {
 
 	var one fr.Element
 	one.SetOne()
 
-	var g [2]fr.Element
-	g[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality/2)))
-	g[1].Neg(&g[0])
-	g[0].Sub(&g[0], &one)
-	g[1].Sub(&g[1], &one)
-
-	var _g, d fr.Element
-	d.Set(&domainH.FinerGenerator)
-	_g.Square(&domainH.Generator).Exp(_g, big.NewInt(int64(domainH.Cardinality/2-1)))
-	den := make([]fr.Element, len(_lh1))
-	for i := 0; i < len(_lh1); i++ {
-		den[i].Sub(&d, &_g)
-		d.Mul(&d, &domainH.Generator)
-	}
-	den = fr.BatchInvert(den)
+	numLn, denLn := evaluationLnDomainBig(domainBig)
 
 	res := make([]fr.Element, len(_lh1))
-	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
+	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
 	s := len(_lh1)
 	for i := 0; i < s; i++ {
@@ -285,35 +316,32 @@ func computeHh1h2(_lh1, _lh2 []fr.Element, domainH *fft.Domain) []fr.Element {
 		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
 
 		res[_i].Sub(&_lh1[_i], &_lh2[_is]).
-			Mul(&res[_i], &g[i%2]).
-			Mul(&res[_i], &den[i])
+			Mul(&res[_i], &numLn[i%2]).
+			Mul(&res[_i], &denLn[i])
 	}
 
 	return res
 }
 
-// computeQuotient computes the full quotient of the plookup protocol.
+// computeQuotientCanonical computes the full quotient of the plookup protocol.
 // * alpha is the challenge to fold the numerator
 // * lh, lh0, lhn, lh1h2 are the various pieces of the numerator (Lagrange shifted form, bit reversed order)
-// * domainH fft domain
+// * domainBig fft domain
 // It returns the quotient, in canonical basis
-func computeQuotient(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainH *fft.Domain) []fr.Element {
+func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainBig *fft.Domain) []fr.Element {
 
-	s := len(lh)
-	res := make([]fr.Element, s)
+	sizeDomainBig := int(domainBig.Cardinality)
+	res := make([]fr.Element, sizeDomainBig)
 
 	var one fr.Element
 	one.SetOne()
 
-	var d [2]fr.Element
-	d[0].Exp(domainH.FinerGenerator, big.NewInt(int64(domainH.Cardinality>>1)))
-	d[1].Neg(&d[0])
-	d[0].Sub(&d[0], &one).Inverse(&d[0])
-	d[1].Sub(&d[1], &one).Inverse(&d[1])
+	numLn := evaluateXnMinusOneDomainBig(domainBig)
+	numLn[0].Inverse(&numLn[0])
+	numLn[1].Inverse(&numLn[1])
+	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
-	nn := uint64(64 - bits.TrailingZeros64(domainH.Cardinality))
-
-	for i := 0; i < s; i++ {
+	for i := 0; i < sizeDomainBig; i++ {
 
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 
@@ -323,10 +351,10 @@ func computeQuotient(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element, domainH
 			Add(&res[_i], &lh0[_i]).
 			Mul(&res[_i], &alpha).
 			Add(&res[_i], &lh[_i]).
-			Mul(&res[_i], &d[i%2])
+			Mul(&res[_i], &numLn[i%2])
 	}
 
-	domainH.FFTInverse(res, fft.DIT, 1)
+	domainBig.FFTInverse(res, fft.DIT, true)
 
 	return res
 }
@@ -353,36 +381,36 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
 
 	// create domains
-	var dNum *fft.Domain
+	var domainSmall *fft.Domain
 	if len(t) <= len(f) {
-		dNum = fft.NewDomain(uint64(len(f)+1), 0, false)
+		domainSmall = fft.NewDomain(uint64(len(f) + 1))
 	} else {
-		dNum = fft.NewDomain(uint64(len(t)), 0, false)
+		domainSmall = fft.NewDomain(uint64(len(t)))
 	}
-	cardDNum := int(dNum.Cardinality)
+	sizeDomainSmall := int(domainSmall.Cardinality)
 
 	// set the size
-	proof.size = dNum.Cardinality
+	proof.size = domainSmall.Cardinality
 
 	// resize f and t
 	// note: the last element of lf does not matter
-	lf := make([]fr.Element, cardDNum)
-	lt := make([]fr.Element, cardDNum)
-	cf := make([]fr.Element, cardDNum)
-	ct := make([]fr.Element, cardDNum)
+	lf := make([]fr.Element, sizeDomainSmall)
+	lt := make([]fr.Element, sizeDomainSmall)
+	cf := make([]fr.Element, sizeDomainSmall)
+	ct := make([]fr.Element, sizeDomainSmall)
 	copy(lt, t)
 	copy(lf, f)
-	for i := len(f); i < cardDNum; i++ {
+	for i := len(f); i < sizeDomainSmall; i++ {
 		lf[i] = f[len(f)-1]
 	}
-	for i := len(t); i < cardDNum; i++ {
+	for i := len(t); i < sizeDomainSmall; i++ {
 		lt[i] = t[len(t)-1]
 	}
 	sort.Sort(Table(lt))
 	copy(ct, lt)
 	copy(cf, lf)
-	dNum.FFTInverse(ct, fft.DIF, 0)
-	dNum.FFTInverse(cf, fft.DIF, 0)
+	domainSmall.FFTInverse(ct, fft.DIF)
+	domainSmall.FFTInverse(cf, fft.DIF)
 	fft.BitReverse(ct)
 	fft.BitReverse(cf)
 	proof.t, err = kzg.Commit(ct, srs)
@@ -395,23 +423,23 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	}
 
 	// write f sorted by t
-	lfSortedByt := make(Table, 2*dNum.Cardinality-1)
+	lfSortedByt := make(Table, 2*domainSmall.Cardinality-1)
 	copy(lfSortedByt, lt)
-	copy(lfSortedByt[dNum.Cardinality:], lf)
+	copy(lfSortedByt[domainSmall.Cardinality:], lf)
 	sort.Sort(lfSortedByt)
 
 	// compute h1, h2, commit to them
-	lh1 := make([]fr.Element, cardDNum)
-	lh2 := make([]fr.Element, cardDNum)
-	ch1 := make([]fr.Element, cardDNum)
-	ch2 := make([]fr.Element, cardDNum)
-	copy(lh1, lfSortedByt[:cardDNum])
-	copy(lh2, lfSortedByt[cardDNum-1:])
+	lh1 := make([]fr.Element, sizeDomainSmall)
+	lh2 := make([]fr.Element, sizeDomainSmall)
+	ch1 := make([]fr.Element, sizeDomainSmall)
+	ch2 := make([]fr.Element, sizeDomainSmall)
+	copy(lh1, lfSortedByt[:sizeDomainSmall])
+	copy(lh2, lfSortedByt[sizeDomainSmall-1:])
 
-	copy(ch1, lfSortedByt[:cardDNum])
-	copy(ch2, lfSortedByt[cardDNum-1:])
-	dNum.FFTInverse(ch1, fft.DIF, 0)
-	dNum.FFTInverse(ch2, fft.DIF, 0)
+	copy(ch1, lfSortedByt[:sizeDomainSmall])
+	copy(ch2, lfSortedByt[sizeDomainSmall-1:])
+	domainSmall.FFTInverse(ch1, fft.DIF)
+	domainSmall.FFTInverse(ch2, fft.DIF)
 	fft.BitReverse(ch1)
 	fft.BitReverse(ch2)
 
@@ -435,10 +463,10 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	}
 
 	// Compute to Z
-	lz := computeZ(lf, lt, lh1, lh2, beta, gamma)
+	lz := evaluateAccumulationPolynomial(lf, lt, lh1, lh2, beta, gamma)
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
-	dNum.FFTInverse(cz, fft.DIF, 0)
+	domainSmall.FFTInverse(cz, fft.DIF)
 	fft.BitReverse(cz)
 	proof.z, err = kzg.Commit(cz, srs)
 	if err != nil {
@@ -447,8 +475,9 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 
 	// prepare data for computing the quotient
 	// compute the numerator
-	s := dNum.Cardinality
-	domainH := fft.NewDomain(uint64(2*s), 1, false)
+	s := domainSmall.Cardinality
+	domainBig := fft.NewDomain(uint64(2 * s))
+
 	_lz := make([]fr.Element, 2*s)
 	_lh1 := make([]fr.Element, 2*s)
 	_lh2 := make([]fr.Element, 2*s)
@@ -459,30 +488,30 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	copy(_lh2, ch2)
 	copy(_lt, ct)
 	copy(_lf, cf)
-	domainH.FFT(_lz, fft.DIF, 1)
-	domainH.FFT(_lh1, fft.DIF, 1)
-	domainH.FFT(_lh2, fft.DIF, 1)
-	domainH.FFT(_lt, fft.DIF, 1)
-	domainH.FFT(_lf, fft.DIF, 1)
+	domainBig.FFT(_lz, fft.DIF, true)
+	domainBig.FFT(_lh1, fft.DIF, true)
+	domainBig.FFT(_lh2, fft.DIF, true)
+	domainBig.FFT(_lt, fft.DIF, true)
+	domainBig.FFT(_lf, fft.DIF, true)
 
 	// compute h
-	lh := computeH(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainH)
+	lh := evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainBig) // CORRECT
 
-	// compute h0
-	lh0 := computeH0(_lz, domainH)
+	// compute l0*(z-1)
+	lh0 := evaluateZStartsByOneBitReversed(_lz, domainBig) // CORRECT
 
-	// compute hn
-	lhn := computeHn(_lz, domainH)
+	// compute ln(z-1)
+	lhn := evaluateZEndsByOneBitReversed(_lz, domainBig) // CORRECT
 
-	// compute hh1h2
-	lh1h2 := computeHh1h2(_lh1, _lh2, domainH)
+	// compute ln*(h1-h2(g*X))
+	lh1h2 := evaluateOverlapH1h2BitReversed(_lh1, _lh2, domainBig)
 
 	// compute the quotient
 	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
 	if err != nil {
 		return proof, err
 	}
-	ch := computeQuotient(alpha, lh, lh0, lhn, lh1h2, domainH)
+	ch := computeQuotientCanonical(alpha, lh, lh0, lhn, lh1h2, domainBig)
 	proof.h, err = kzg.Commit(ch, srs)
 	if err != nil {
 		return proof, err
@@ -512,14 +541,14 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 		},
 		&nu,
 		hFunc,
-		dNum,
+		domainSmall,
 		srs,
 	)
 	if err != nil {
 		return proof, err
 	}
 
-	nu.Mul(&nu, &dNum.Generator)
+	nu.Mul(&nu, &domainSmall.Generator)
 	proof.BatchedProofShifted, err = kzg.BatchOpenSinglePoint(
 		[]polynomial.Polynomial{
 			ch1,
@@ -535,7 +564,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 		},
 		&nu,
 		hFunc,
-		dNum,
+		domainSmall,
 		srs,
 	)
 	if err != nil {
@@ -610,7 +639,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 
 	// check polynomial relation using Schwartz Zippel
 	var lhs, rhs, nun, g, _g, a, v, w, one fr.Element
-	d := fft.NewDomain(proof.size, 0, false) // only there to access to root of 1...
+	d := fft.NewDomain(proof.size) // only there to access to root of 1...
 	one.SetOne()
 	g.Exp(d.Generator, big.NewInt(int64(d.Cardinality-1)))
 

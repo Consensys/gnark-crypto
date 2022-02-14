@@ -143,7 +143,7 @@ func TestCommit(t *testing.T) {
 
 func TestVerifySinglePoint(t *testing.T) {
 
-	domain := fft.NewDomain(64, 0, false)
+	domain := fft.NewDomain(64)
 
 	// create a polynomial
 	f := randomPolynomial(60)
@@ -196,7 +196,7 @@ func TestVerifySinglePoint(t *testing.T) {
 
 func TestBatchVerifySinglePoint(t *testing.T) {
 
-	domain := fft.NewDomain(64, 0, false)
+	domain := fft.NewDomain(64)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -259,7 +259,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 func TestBatchVerifyMultiPoints(t *testing.T) {
 
-	domain := fft.NewDomain(64, 0, false)
+	domain := fft.NewDomain(64)
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, 10)
@@ -372,7 +372,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	domain := fft.NewDomain(uint64(benchSize), 0, false)
+	domain := fft.NewDomain(uint64(benchSize))
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -391,7 +391,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 		b.Fatal(err)
 	}
 	// kzg scheme
-	domain := fft.NewDomain(uint64(benchSize), 0, false)
+	domain := fft.NewDomain(uint64(benchSize))
 
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
@@ -421,7 +421,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	domain := fft.NewDomain(uint64(benchSize), 0, false)
+	domain := fft.NewDomain(uint64(benchSize))
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
@@ -452,7 +452,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	domain := fft.NewDomain(uint64(benchSize), 0, false)
+	domain := fft.NewDomain(uint64(benchSize))
 
 	// 10 random polynomials
 	var ps [10]polynomial.Polynomial
