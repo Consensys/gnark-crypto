@@ -31,16 +31,12 @@ func TestG2SqrtRatio(t *testing.T) {
 
 	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
 		func(uv []fptower.E2) bool {
-			//uv = []fptower.E2{{fp.Element{1}, fp.Element{1}}, {fp.Element{1}, fp.Element{1}}}
+
 			u := &uv[0]
 			v := &uv[1]
 
 			var seen fptower.E2
 			qr := g2SqrtRatio(&seen, u, v) == 0
-
-			if u.IsZero() {
-				return seen.IsZero()
-			}
 
 			seen.
 				Square(&seen).
@@ -54,7 +50,6 @@ func TestG2SqrtRatio(t *testing.T) {
 			}
 
 			return seen.Equal(&ref)
-
 		}, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))

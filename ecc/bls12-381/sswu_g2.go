@@ -212,7 +212,11 @@ func g2SetZ(z *fptower.E2) {
 // g2MulByZ multiplies x by [-2 -1] and stores the result in z
 func g2MulByZ(z *fptower.E2, x *fptower.E2) {
 
-	panic("not implemented")
+	z.Mul(x, &fptower.E2{
+		A0: fp.Element{9794203289623549276, 7309342082925068282, 1139538881605221074, 15659550692327388916, 16008355200866287827, 582484205531694093},
+		A1: fp.Element{4897101644811774638, 3654671041462534141, 569769440802610537, 17053147383018470266, 17227549637287919721, 291242102765847046},
+	})
+
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80

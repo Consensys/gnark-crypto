@@ -32,28 +32,25 @@ func TestG1SqrtRatio(t *testing.T) {
 
 	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
 		func(uv []fp.Element) bool {
+
 			u := &uv[0]
 			v := &uv[1]
 
+			var seen fp.Element
+			qr := g2SqrtRatio(&seen, u, v) == 0
+
+			seen.
+				Square(&seen).
+				Mul(&seen, v)
+
 			var ref fp.Element
-			ref.Div(u, v)
-			var qrRef bool
-			if ref.Legendre() == -1 {
-				var Z fp.Element
-				g1SetZ(&Z)
-				ref.Mul(&ref, &Z)
-				qrRef = false
+			if qr {
+				ref = *u
 			} else {
-				qrRef = true
+				g2MulByZ(&ref, u)
 			}
 
-			var seen fp.Element
-			qr := g1SqrtRatio(&seen, u, v) == 0
-			seen.Square(&seen)
-
-			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-			return seen == ref && (ref.IsZero() || qr == qrRef)
-
+			return seen.Equal(&ref)
 		}, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
