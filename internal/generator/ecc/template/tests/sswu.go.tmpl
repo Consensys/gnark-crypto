@@ -25,7 +25,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 			v := &uv[1]
 
 			var seen {{$CoordType}}
-			qr := g2SqrtRatio(&seen, u, v) == 0
+			qr := {{$CurveName}}SqrtRatio(&seen, u, v) == 0
 
 			seen.
 				Square(&seen).
@@ -35,7 +35,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 			if qr {
 				ref = *u
 			} else {
-				g2MulByZ(&ref, u)
+				{{$CurveName}}MulByZ(&ref, u)
 			}
 
 			return seen.Equal(&ref)

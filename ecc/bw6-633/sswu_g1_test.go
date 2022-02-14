@@ -37,7 +37,7 @@ func TestG1SqrtRatio(t *testing.T) {
 			v := &uv[1]
 
 			var seen fp.Element
-			qr := g2SqrtRatio(&seen, u, v) == 0
+			qr := g1SqrtRatio(&seen, u, v) == 0
 
 			seen.
 				Square(&seen).
@@ -47,7 +47,7 @@ func TestG1SqrtRatio(t *testing.T) {
 			if qr {
 				ref = *u
 			} else {
-				g2MulByZ(&ref, u)
+				g1MulByZ(&ref, u)
 			}
 
 			return seen.Equal(&ref)
