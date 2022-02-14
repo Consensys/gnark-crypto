@@ -16,53 +16,46 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPair{{$CurveTitle}}(t)
+	gen := genCoordElem{{$CurveTitle}}(t)
 
 	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []{{$CoordType}}) bool {
-
-			u := &uv[0]
-			v := &uv[1]
+		func(u {{$CoordType}}, v {{$CoordType}}) bool {
 
 			var seen {{$CoordType}}
-			qr := {{$CurveName}}SqrtRatio(&seen, u, v) == 0
+			qr := {{$CurveName}}SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
-				Mul(&seen, v)
+				Mul(&seen, &v)
 
 			var ref {{$CoordType}}
 			if qr {
-				ref = *u
+				ref = u
 			} else {
-				{{$CurveName}}MulByZ(&ref, u)
+				{{$CurveName}}MulByZ(&ref, &u)
 			}
 
 			return seen.Equal(&ref)
-		}, gen))
+		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPair{{$CurveTitle}}(t *testing.T) gopter.Gen {
+func genCoordElem{{$CurveTitle}}(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() ({{$CoordType}}, {{$CoordType}}) {
-			var a, b {{$CoordType}}
+		genRandomElem := func() {{$CoordType}} {
+			var a {{$CoordType}}
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
 			}
 
-			if _, err := b.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a, b
+			return a
 		}
-		a, b := genRandomPair()
+		a := genRandomElem()
 
-		genResult := gopter.NewGenResult([]{{$CoordType}}{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }

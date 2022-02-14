@@ -27,53 +27,46 @@ func TestG2SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPairG2(t)
+	gen := genCoordElemG2(t)
 
 	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []fptower.E2) bool {
-
-			u := &uv[0]
-			v := &uv[1]
+		func(u fptower.E2, v fptower.E2) bool {
 
 			var seen fptower.E2
-			qr := g2SqrtRatio(&seen, u, v) == 0
+			qr := g2SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
-				Mul(&seen, v)
+				Mul(&seen, &v)
 
 			var ref fptower.E2
 			if qr {
-				ref = *u
+				ref = u
 			} else {
-				g2MulByZ(&ref, u)
+				g2MulByZ(&ref, &u)
 			}
 
 			return seen.Equal(&ref)
-		}, gen))
+		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPairG2(t *testing.T) gopter.Gen {
+func genCoordElemG2(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() (fptower.E2, fptower.E2) {
-			var a, b fptower.E2
+		genRandomElem := func() fptower.E2 {
+			var a fptower.E2
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
 			}
 
-			if _, err := b.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a, b
+			return a
 		}
-		a, b := genRandomPair()
+		a := genRandomElem()
 
-		genResult := gopter.NewGenResult([]fptower.E2{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }

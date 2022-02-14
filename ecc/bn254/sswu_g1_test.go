@@ -28,53 +28,49 @@ func TestG1SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPairG1(t)
+	gen := genCoordElemG1(t)
 
 	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []fp.Element) bool {
+		func(u fp.Element, v fp.Element) bool {
 
-			u := &uv[0]
-			v := &uv[1]
+			u = fp.Element{2048791775121545163, 348139294645355055, 3332147250797016182, 2841248814802944250}
+			v = fp.Element{15573180314075568974, 5305310746227459876, 12713289921140413313, 1743274583623161150}
 
 			var seen fp.Element
-			qr := g1SqrtRatio(&seen, u, v) == 0
+			qr := g1SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
-				Mul(&seen, v)
+				Mul(&seen, &v)
 
 			var ref fp.Element
 			if qr {
-				ref = *u
+				ref = u
 			} else {
-				g1MulByZ(&ref, u)
+				g1MulByZ(&ref, &u)
 			}
 
 			return seen.Equal(&ref)
-		}, gen))
+		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPairG1(t *testing.T) gopter.Gen {
+func genCoordElemG1(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() (fp.Element, fp.Element) {
-			var a, b fp.Element
+		genRandomElem := func() fp.Element {
+			var a fp.Element
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
 			}
 
-			if _, err := b.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a, b
+			return a
 		}
-		a, b := genRandomPair()
+		a := genRandomElem()
 
-		genResult := gopter.NewGenResult([]fp.Element{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }
