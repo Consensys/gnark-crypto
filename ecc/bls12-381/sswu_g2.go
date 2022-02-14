@@ -166,24 +166,6 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 	// c5 = 4
 	exp.SetBytes([]byte{4})
 	tv5.Exp(tv4, &exp)
-	//TODO: Optimize? Probably nah. If we did it'd look like the following comments:
-	//TODO: This would however save a bunch of heap allocation
-	// The optimization is useless as it does EXACTLY as the exp function
-	//These branches are decided by static data. Probably optimized away by compiler.
-	/*const logC5 = 3 - 1
-
-	   // c1 is at least 3 bcz q is 1 mod 8. So logC5 is at least 2.
-	   switch logC5{
-	   case 0:
-		   tv5.SetOne()
-	   case 1:
-			tv5.Set(&tv4)
-	    default:
-	        tv5.Double(&tv4)
-	   }
-	   for i := 1; i < logC5; i++ {
-		   tv5.Double(&tv5)
-	    }*/
 
 	isQNr := g2NotOne(&tv5)
 

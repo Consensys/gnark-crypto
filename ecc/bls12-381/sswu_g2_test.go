@@ -31,27 +31,29 @@ func TestG2SqrtRatio(t *testing.T) {
 
 	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
 		func(uv []fptower.E2) bool {
+			//uv = []fptower.E2{{fp.Element{1}, fp.Element{1}}, {fp.Element{1}, fp.Element{1}}}
 			u := &uv[0]
 			v := &uv[1]
 
-			var ref fptower.E2
-			ref.Div(u, v)
-			var qrRef bool
-			if ref.Legendre() == -1 {
-				var Z fptower.E2
-				g2SetZ(&Z)
-				ref.Mul(&ref, &Z)
-				qrRef = false
-			} else {
-				qrRef = true
-			}
-
 			var seen fptower.E2
 			qr := g2SqrtRatio(&seen, u, v) == 0
-			seen.Square(&seen)
 
-			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-			return seen == ref && (ref.IsZero() || qr == qrRef)
+			if u.IsZero() {
+				return seen.IsZero()
+			}
+
+			seen.
+				Square(&seen).
+				Mul(&seen, v)
+
+			var ref fptower.E2
+			if qr {
+				ref = *u
+			} else {
+				g2MulByZ(&ref, u)
+			}
+
+			return seen.Equal(&ref)
 
 		}, gen))
 
