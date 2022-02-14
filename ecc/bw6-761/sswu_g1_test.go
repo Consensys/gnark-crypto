@@ -22,6 +22,8 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	"testing"
+
+	"math/rand"
 )
 
 func TestG1SqrtRatio(t *testing.T) {
@@ -71,3 +73,95 @@ func genCoordElemG1(t *testing.T) gopter.Gen {
 		return genResult
 	}
 }
+
+func TestEncodeToCurveG1SSWU(t *testing.T) {
+
+	for i, c := range g1EncodeToCurveSSWUVector.cases {
+		seen, err := EncodeToCurveG1SSWU([]byte(c.msg), g1EncodeToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var x fp.Element
+		var y fp.Element
+
+		x.SetString(c.x)
+		y.SetString(c.y)
+
+		expectedP := G1Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i, c)
+		}
+	}
+}
+
+func TestHashToCurveG1SSWU(t *testing.T) {
+
+	for i, c := range g1HashToCurveSSWUVector.cases {
+		seen, err := HashToCurveG1SSWU([]byte(c.msg), g1HashToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var x fp.Element
+		var y fp.Element
+
+		x.SetString(c.x)
+		y.SetString(c.y)
+
+		expectedP := G1Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i, c)
+		}
+	}
+
+	t.Log(len(g1HashToCurveSSWUVector.cases), "cases verified")
+}
+
+func BenchmarkG1EncodeToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := g1EncodeToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := EncodeToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+func BenchmarkG1HashToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := g1HashToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := HashToCurveG1SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+type hashTestVector struct {
+	dst   []byte
+	cases []hashTestCase
+}
+
+type hashTestCase struct {
+	msg string
+	x   string
+	y   string
+}
+
+var g1HashToCurveSSWUVector hashTestVector
+var g1EncodeToCurveSSWUVector hashTestVector
