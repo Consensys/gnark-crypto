@@ -33,9 +33,6 @@ func TestG1SqrtRatio(t *testing.T) {
 	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
 		func(u fp.Element, v fp.Element) bool {
 
-			u = fp.Element{2048791775121545163, 348139294645355055, 3332147250797016182, 2841248814802944250}
-			v = fp.Element{15573180314075568974, 5305310746227459876, 12713289921140413313, 1743274583623161150}
-
 			var seen fp.Element
 			qr := g1SqrtRatio(&seen, &u, &v) == 0
 

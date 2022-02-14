@@ -67,10 +67,6 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 	var res fp.Element
 	res.Neg(x)
 
-	res.Double(&res)
-
-	res.Sub(&res, x)
-
 	*z = res
 }
 

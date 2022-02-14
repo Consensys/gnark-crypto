@@ -276,18 +276,22 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
     {{ if gt $Z 0 }}
         res := *x
     {{ end }}
-    res.Double(&res)
 
-    {{- range $bit := noFirst (noLast $ZBitsHi2Lo) }}
-        {{ if $bit }}
+	{{if ge (len $ZBitsHi2Lo) 2 }}
+        res.Double(&res)
+
+        {{- range $bit := noFirst (noLast $ZBitsHi2Lo) }}
+            {{ if $bit }}
+                res.{{$op}}(&res, x)
+            {{ end }}
+			res.Double(&res)
+        {{- end }}
+
+        {{ if last $ZBitsHi2Lo }}
             res.{{$op}}(&res, x)
         {{ end }}
-        res.Double(&res)
-    {{- end }}
 
-    {{ if last $ZBitsHi2Lo }}
-        res.{{$op}}(&res, x)
-    {{ end }}
+	{{end}}
 
     *z = res {{ else }}
     z.Mul(x, &{{$CoordType}} {{template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}})
