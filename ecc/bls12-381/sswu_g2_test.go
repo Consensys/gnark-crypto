@@ -20,6 +20,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -70,3 +72,97 @@ func genCoordElemG2(t *testing.T) gopter.Gen {
 		return genResult
 	}
 }
+
+//Only works on simple extensions (two-story towers)
+func g2CoordSetString(z *fptower.E2, s string) {
+	ssplit := strings.Split(s, ",")
+	if len(ssplit) != 2 {
+		panic("not equal to tower size")
+	}
+	z.SetString(
+
+		ssplit[0],
+		ssplit[1],
+	)
+}
+
+func TestEncodeToCurveG2SSWU(t *testing.T) {
+
+	for i, c := range g2EncodeToCurveSSWUVector.cases {
+		seen, err := EncodeToCurveG2SSWU([]byte(c.msg), g2EncodeToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var x fptower.E2
+		var y fptower.E2
+
+		g2CoordSetString(&x, c.x)
+		g2CoordSetString(&y, c.y)
+
+		expectedP := G2Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i, c)
+		}
+	}
+}
+
+func TestHashToCurveG2SSWU(t *testing.T) {
+
+	for i, c := range g2HashToCurveSSWUVector.cases {
+		seen, err := HashToCurveG2SSWU([]byte(c.msg), g2HashToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var x fptower.E2
+		var y fptower.E2
+
+		g2CoordSetString(&x, c.x)
+		g2CoordSetString(&y, c.y)
+
+		expectedP := G2Affine{x, y}
+
+		if seen != expectedP {
+			t.Error(i, c)
+		}
+	}
+
+	t.Log(len(g2HashToCurveSSWUVector.cases), "cases verified")
+}
+
+func BenchmarkG2EncodeToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := g2EncodeToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := EncodeToCurveG2SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+func BenchmarkG2HashToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := g2HashToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := HashToCurveG2SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+var g2HashToCurveSSWUVector hashTestVector
+var g2EncodeToCurveSSWUVector hashTestVector

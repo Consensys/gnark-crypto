@@ -1,18 +1,19 @@
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
+{{$TowerDegree := .Field.Degree}}
+
 import (
-	{{- if eq .Field.Degree 1 }}
+	{{- if eq $TowerDegree 1 }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	"strings"
 	{{- end}}
 	"testing"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	{{if eq $CurveName "g1"}}
 	"math/rand"
-	{{end}}
 )
 
 func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
@@ -63,22 +64,37 @@ func genCoordElem{{$CurveTitle}}(t *testing.T) gopter.Gen {
 	}
 }
 
-
-{{ if eq $CurveName "g1"}}
+{{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
+func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {
+	ssplit := strings.Split(s, ",")
+	if len(ssplit) != {{$TowerDegree}} {
+		panic("not equal to tower size")
+	}
+	z.SetString(
+		{{range $i := interval 0 $TowerDegree}}
+		ssplit[{{$i}}],{{end}}
+	)
+}
+{{end}}
 
 func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 
 	for i, c := range {{$CurveName}}EncodeToCurveSSWUVector.cases {
-		seen, err := EncodeToCurveG1SSWU([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
+		seen, err := EncodeToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		var x fp.Element
-		var y fp.Element
+		var x {{$CoordType}}
+		var y {{$CoordType}}
 
-		x.SetString(c.x)
-		y.SetString(c.y)
+		{{if eq $TowerDegree 1}}
+			x.SetString(c.x)
+			y.SetString(c.y)
+		{{else}}
+			{{$CurveName}}CoordSetString(&x, c.x)
+			{{$CurveName}}CoordSetString(&y, c.y)
+		{{end}}
 
 		expectedP := {{$CurveTitle}}Affine{x, y}
 
@@ -91,16 +107,21 @@ func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 func TestHashToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 
 	for i, c := range {{$CurveName}}HashToCurveSSWUVector.cases {
-		seen, err := HashToCurveG1SSWU([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
+		seen, err := HashToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		var x fp.Element
-		var y fp.Element
+		var x {{$CoordType}}
+		var y {{$CoordType}}
 
-		x.SetString(c.x)
-		y.SetString(c.y)
+		{{if eq $TowerDegree 1}}
+			x.SetString(c.x)
+			y.SetString(c.y)
+		{{else}}
+			{{$CurveName}}CoordSetString(&x, c.x)
+			{{$CurveName}}CoordSetString(&y, c.y)
+		{{end}}
 
 		expectedP := {{$CurveTitle}}Affine{x, y}
 
@@ -144,6 +165,7 @@ func Benchmark{{$CurveTitle}}HashToCurveSSWU(b *testing.B) {
 	}
 }
 
+{{ if eq $CurveName "g1"}}
 type hashTestVector struct {
 	dst   []byte
 	cases []hashTestCase
@@ -154,7 +176,7 @@ type hashTestCase struct {
 	x   string
 	y   string
 }
+{{end}}
 
 var {{$CurveName}}HashToCurveSSWUVector hashTestVector
 var {{$CurveName}}EncodeToCurveSSWUVector hashTestVector
-{{end}}

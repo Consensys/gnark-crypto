@@ -69,4 +69,15 @@ func init() {
 			},
 		},
 	}
+
+	g2EncodeToCurveSSWUVector = hashTestVector{
+		dst: []byte("QUUX-V01-CS02-with-BLS12381G2_XMD:SHA-256_SSWU_NU_"),
+		cases: []hashTestCase{
+			{
+				msg: "",
+				x:   "0x00e7f4568a82b4b7dc1f14c6aaa055edf51502319c723c4dc2688c7fe5944c213f510328082396515734b6612c4e7bb7,0x126b855e9e69b1f691f816e48ac6977664d24d99f8724868a184186469ddfd4617367e94527d4b74fc86413483afb35b",
+				y:   "0x0caead0fd7b6176c01436833c79d305c78be307da5f6af6c133c47311def6ff1e0babf57a0fb5539fce7ee12407b0a42,0x1498aadcf7ae2b345243e281ae076df6de84455d766ab6fcdaad71fab60abb2e8b980a440043cd305db09d283c895e3d",
+			},
+		},
+	}
 }

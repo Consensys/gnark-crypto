@@ -21,9 +21,8 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"testing"
-
 	"math/rand"
+	"testing"
 )
 
 func TestG1SqrtRatio(t *testing.T) {
