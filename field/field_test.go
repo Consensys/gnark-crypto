@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/leanovate/gopter/gen"
-	"math"
 	"math/big"
 	mrand "math/rand"
 	"testing"
@@ -12,6 +11,8 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
+
+//TODO: Use genF.Map to generate ints in field instead of using byte slices
 
 func TestIntToMont(t *testing.T) {
 
@@ -21,16 +22,20 @@ func TestIntToMont(t *testing.T) {
 	genF := genField(t)
 
 	properties.Property("must recover initial non-montgomery value by repeated halving", prop.ForAll(
-		func(f *Field, i *big.Int) (bool, error) {
+		func(f *Field, ib [][]uint8) (bool, error) {
+
+			var i big.Int
+			i.SetBytes(ib[0])
+			i.Mod(&i, f.ModulusBig)
 
 			// turn into mont
 			var mont big.Int
-			f.ToMont(&mont, i)
+			f.ToMont(&mont, &i)
 			f.FromMont(&mont, &mont)
 
-			return mont.Cmp(i) == 0, nil
-		}, genF, genF.Map(randomElement)),
-	)
+			return mont.Cmp(&i) == 0, nil
+		}, genF, genUint8SliceSlice(1),
+	))
 
 	properties.Property("turning R into montgomery form must match the R value from field", prop.ForAll(
 		func(f *Field) (bool, error) {
@@ -54,7 +59,10 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 	genF := genField(t)
 
 	properties.Property("random big.int must match uint64 slice made out of .Bytes()", prop.ForAll(
-		func(f *Field, i *big.Int) (bool, error) {
+		func(f *Field, ib [][]uint8) (bool, error) {
+
+			var i big.Int
+			i.SetBytes(ib[0])
 			bytes := i.Bytes()
 			ints := make([]uint64, (len(bytes)-1)/8+1)
 
@@ -62,13 +70,14 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
 			}
 
-			err := BigIntMatchUint64Slice(i, ints)
+			err := BigIntMatchUint64Slice(&i, ints)
 			return err == nil, err
-		}, genF, genF.Map(randomElement2)))
+		}, genF, genUint8SliceSlice(1)))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+/*
 func TestQuadExtensionSqrt(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -79,7 +88,7 @@ func TestQuadExtensionSqrt(t *testing.T) {
 	qrDetected := 0
 
 	properties.Property("computed square roots must square back to original value", prop.ForAll(
-		func(base *Field, i0, i1 *big.Int) (bool, error) {
+		func(base *Field, ib [][]uint8) (bool, error) {
 			runs++
 
 			var nonRes big.Int
@@ -89,7 +98,8 @@ func TestQuadExtensionSqrt(t *testing.T) {
 			}
 
 			f := NewTower(base, 2, base.NonResidue.Int64()) //TODO: Derive extension generator from field generator
-			i := []big.Int{*i0, *i1}
+
+			i := uint8SliceSliceToBigIntSlice(&f, ib)
 
 			if z := f.Sqrt(i); z != nil {
 				qrDetected++
@@ -97,7 +107,7 @@ func TestQuadExtensionSqrt(t *testing.T) {
 				return f.Equal(i, z), nil
 			}
 			return true, nil
-		}, genF, genF.Map(randomElement), genF.Map(randomElement)))
+		}, genF, genUint8SliceSlice(2)))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
@@ -108,10 +118,10 @@ func TestQuadExtensionSqrt(t *testing.T) {
 	yStdDevInv := math.Sqrt(float64(2 * runs))
 	yDev := yObservedDev * yStdDevInv
 	t.Logf("%f of observations decided as QR, off by %f standard deviatios from the expected 50%%.", yObservedDev, yDev)
-	if yDev > 3.0 || yDev < -3.0 {
+	if yDev > 3.0 ∥ yDev < -3.0 {
 		t.Error("Hypothesis test failed. The probability of this happening to correct code is 0.27%, less than one in 370.")
 	}
-}
+}*/
 
 func TestQuadExtensionMul(t *testing.T) {
 
@@ -222,52 +232,6 @@ func uint8SliceSliceToBigIntSlice(f *Extension, in [][]uint8) []big.Int {
 	}
 
 	return res
-}
-
-func randomElement3(p *gopter.GenParameters, f *Extension) []big.Int {
-	bytes := make([]byte, f.Base.NbWords*8)
-	res := make([]big.Int, f.Degree)
-
-	for i := 0; i < len(res); i++ {
-
-		for j := 0; j < f.Base.NbWords; j++ {
-			w := p.NextUint64()
-
-			for k := 0; k < 8; k++ {
-				bytes[8*j+k] = byte(w)
-				w = w >> k
-			}
-		}
-
-		res[i].SetBytes(bytes).Mod(&res[i], f.Base.ModulusBig)
-	}
-
-	return res
-}
-
-func randomElement2(f func() *Field) []*big.Int {
-	length := 2
-	res := make([]*big.Int, length)
-	var err error
-	for n := 0; n < length; n++ {
-		res[n], err = rand.Int(rand.Reader, f().ModulusBig)
-		if err != nil {
-			return nil
-		}
-	}
-	return res
-}
-
-func randomElement(f *Field, length int) ([]*big.Int, error) {
-	res := make([]*big.Int, length)
-	var err error
-	for n := 0; n < length; n++ {
-		res[n], err = rand.Int(rand.Reader, f.ModulusBig)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
 }
 
 func genField(t *testing.T) gopter.Gen {

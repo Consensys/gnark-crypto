@@ -2275,7 +2275,7 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 
 	var modulus big.Int
 	var aIntMod big.Int
-	modulus.FromInt64(1)
+	modulus.SetInt64(1)
 	modulus.Lsh(&modulus, (Limbs+1)*64)
 	aIntMod.Mod(aInt, &modulus)
 

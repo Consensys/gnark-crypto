@@ -16,56 +16,46 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPair{{$CurveTitle}}(t)
+	gen := genCoordElem{{$CurveTitle}}(t)
 
 	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []{{$CoordType}}) bool {
-			u := &uv[0]
-			v := &uv[1]
-
-			var ref {{$CoordType}}
-			ref.Div(u, v)
-			var qrRef bool
-			if ref.Legendre() == -1 {
-				var Z {{$CoordType}}
-				{{$CurveName}}SetZ(&Z)
-				ref.Mul(&ref, &Z)
-				qrRef = false
-			} else {
-				qrRef = true
-			}
+		func(u {{$CoordType}}, v {{$CoordType}}) bool {
 
 			var seen {{$CoordType}}
-			qr := {{$CurveName}}SqrtRatio(&seen, u, v) == 0
-			seen.Square(&seen)
+			qr := {{$CurveName}}SqrtRatio(&seen, &u, &v) == 0
 
-			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-			return seen == ref && (ref.IsZero() || qr == qrRef)
+			seen.
+				Square(&seen).
+				Mul(&seen, &v)
 
-		}, gen))
+			var ref {{$CoordType}}
+			if qr {
+				ref = u
+			} else {
+				{{$CurveName}}MulByZ(&ref, &u)
+			}
+
+			return seen.Equal(&ref)
+		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPair{{$CurveTitle}}(t *testing.T) gopter.Gen {
+func genCoordElem{{$CurveTitle}}(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() ({{$CoordType}}, {{$CoordType}}) {
-			var a, b {{$CoordType}}
+		genRandomElem := func() {{$CoordType}} {
+			var a {{$CoordType}}
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
 			}
 
-			if _, err := b.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a, b
+			return a
 		}
-		a, b := genRandomPair()
+		a := genRandomElem()
 
-		genResult := gopter.NewGenResult([]{{$CoordType}}{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }

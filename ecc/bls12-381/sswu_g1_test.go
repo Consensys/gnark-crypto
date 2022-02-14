@@ -28,56 +28,46 @@ func TestG1SqrtRatio(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
-	gen := genCoordPairG1(t)
+	gen := genCoordElemG1(t)
 
 	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
-		func(uv []fp.Element) bool {
-			u := &uv[0]
-			v := &uv[1]
-
-			var ref fp.Element
-			ref.Div(u, v)
-			var qrRef bool
-			if ref.Legendre() == -1 {
-				var Z fp.Element
-				g1SetZ(&Z)
-				ref.Mul(&ref, &Z)
-				qrRef = false
-			} else {
-				qrRef = true
-			}
+		func(u fp.Element, v fp.Element) bool {
 
 			var seen fp.Element
-			qr := g1SqrtRatio(&seen, u, v) == 0
-			seen.Square(&seen)
+			qr := g1SqrtRatio(&seen, &u, &v) == 0
 
-			// Allowing qr(0)=false because the generic algorithm "for any field" seems to think so
-			return seen == ref && (ref.IsZero() || qr == qrRef)
+			seen.
+				Square(&seen).
+				Mul(&seen, &v)
 
-		}, gen))
+			var ref fp.Element
+			if qr {
+				ref = u
+			} else {
+				g1MulByZ(&ref, &u)
+			}
+
+			return seen.Equal(&ref)
+		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordPairG1(t *testing.T) gopter.Gen {
+func genCoordElemG1(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomPair := func() (fp.Element, fp.Element) {
-			var a, b fp.Element
+		genRandomElem := func() fp.Element {
+			var a fp.Element
 
 			if _, err := a.SetRandom(); err != nil {
 				t.Error(err)
 			}
 
-			if _, err := b.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a, b
+			return a
 		}
-		a, b := genRandomPair()
+		a := genRandomElem()
 
-		genResult := gopter.NewGenResult([]fp.Element{a, b}, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}
 }
