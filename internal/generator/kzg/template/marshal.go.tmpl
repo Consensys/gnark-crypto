@@ -37,14 +37,12 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
-			return  dec.BytesRead(), err
+			return dec.BytesRead(), err
 		}
 	}
 
 	return dec.BytesRead(), nil
 }
-
-
 
 // WriteTo writes binary encoding of a OpeningProof
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
@@ -52,7 +50,6 @@ func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 	toEncode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValue,
 	}
 
@@ -71,13 +68,12 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 	toDecode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValue,
 	}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
-			return  dec.BytesRead(), err
+			return dec.BytesRead(), err
 		}
 	}
 
@@ -90,7 +86,6 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 	toEncode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		proof.ClaimedValues,
 	}
 
@@ -109,13 +104,12 @@ func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 	toDecode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValues,
 	}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
-			return  dec.BytesRead(), err
+			return dec.BytesRead(), err
 		}
 	}
 
