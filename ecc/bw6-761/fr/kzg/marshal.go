@@ -24,7 +24,7 @@ import (
 // WriteTo writes binary encoding of the SRS
 func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 	// encode the SRS
-	enc := bn254.NewEncoder(w)
+	enc := bw6761.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&srs.G2[0],
@@ -44,7 +44,7 @@ func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 // ReadFrom decodes SRS data from reader.
 func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	// decode the SRS
-	dec := bn254.NewDecoder(r)
+	dec := bw6761.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&srs.G2[0],
@@ -63,7 +63,7 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 
 // WriteTo writes binary encoding of a OpeningProof
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
-	enc := bn254.NewEncoder(w)
+	enc := bw6761.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&proof.H,
@@ -81,7 +81,7 @@ func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 // ReadFrom decodes OpeningProof data from reader.
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
-	dec := bn254.NewDecoder(r)
+	dec := bw6761.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&proof.H,
@@ -99,7 +99,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 // WriteTo writes binary encoding of a BatchOpeningProof
 func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
-	enc := bn254.NewEncoder(w)
+	enc := bw6761.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&proof.H,
@@ -117,7 +117,7 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 // ReadFrom decodes BatchOpeningProof data from reader.
 func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
-	dec := bn254.NewDecoder(r)
+	dec := bw6761.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&proof.H,

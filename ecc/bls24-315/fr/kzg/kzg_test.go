@@ -119,7 +119,7 @@ func TestCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var kzgCommit bn254.G1Affine
+	var kzgCommit bls24315.G1Affine
 	kzgCommit.Unmarshal(_kzgCommit.Marshal())
 
 	// check commitment using manual commit
@@ -128,7 +128,7 @@ func TestCommit(t *testing.T) {
 	fx := eval(f, x)
 	var fxbi big.Int
 	fx.ToBigIntRegular(&fxbi)
-	var manualCommit bn254.G1Affine
+	var manualCommit bls24315.G1Affine
 	manualCommit.Set(&testSRS.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
