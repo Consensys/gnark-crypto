@@ -1,6 +1,6 @@
 # gnark-crypto
 
-[![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto)](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto) [![DOI](https://zenodo.org/badge/249487917.svg)](https://zenodo.org/badge/latestdoi/249487917)
+[![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto)](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6092968.svg)](https://doi.org/10.5281/zenodo.6092968)
 
 `gnark-crypto` provides:
 * [Elliptic curve cryptography](ecc/ecc.md) (+pairing) on BN254, BLS12-381, BLS12-377, BW6-761, BLS24-315 and BW6-633
@@ -10,17 +10,13 @@
 * MiMC
 * EdDSA (on the "companion" twisted edwards curves)
 
-  
-
 `gnark-crypto` is actively developed and maintained by the team (gnark@consensys.net | [HackMD](https://hackmd.io/@gnark)) behind:
 * [`gnark`: a framework to execute (and verify) algorithms in zero-knowledge](https://github.com/consensys/gnark) 
-
 
 ## Warning
 **`gnark-crypto` has not been audited and is provided as-is, use at your own risk. In particular, `gnark-crypto` makes no security guarantees such as constant time implementation or side-channel attack resistance.**
 
 `gnark-crypto` packages are optimized for 64bits architectures (x86 `amd64`) and tested on Unix (Linux / macOS).
-
 
 ## Getting started
 
@@ -68,25 +64,25 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gnark-crypto-v0.6,
+@software{gnark-crypto-v0.6.1,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
                   Arya Tabaie and
                   Ivo Kubjas},
-  title        = {ConsenSys/gnark-crypto: v0.6.0},
-  month        = jan,
+  title        = {ConsenSys/gnark-crypto: v0.6.1},
+  month        = feb,
   year         = 2022,
   publisher    = {Zenodo},
-  version      = {v0.6.0},
-  doi          = {10.5281/zenodo.5815454},
-  url          = {https://doi.org/10.5281/zenodo.5815454}
+  version      = {v0.6.1},
+  doi          = {10.5281/zenodo.6092968},
+  url          = {https://doi.org/10.5281/zenodo.6092968}
 }
 ```
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/consensys/gnark-crypto/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/consensys/gnark-crypto/tags).
 
 
 ## License
