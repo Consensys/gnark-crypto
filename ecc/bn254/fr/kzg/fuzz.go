@@ -22,6 +22,7 @@ package kzg
 import (
 	"bytes"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 )
 
 const (
@@ -45,9 +46,9 @@ func Fuzz(data []byte) int {
 	s := NewScheme(size, alpha)
 
 	// create polynomials
-	f := make([][]fr.Element, size/2)
+	f := make([]polynomial.Polynomial, size/2)
 	for i := 0; i < len(f); i++ {
-		f[i] = make([]fr.Element, size)
+		f[i] = make(polynomial.Polynomial, size)
 		for j := 0; j < len(f[i]); j++ {
 			f[i][j].SetRawBytes(r)
 		}
