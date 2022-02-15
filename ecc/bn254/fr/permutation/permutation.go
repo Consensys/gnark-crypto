@@ -353,11 +353,6 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 	if !checkOrder.Equal(&one) {
 		return ErrGenerator
 	}
-	eta.Mul(&proof.g, &eta)
-	err = kzg.Verify(&proof.z, &proof.shiftedProof, eta, srs)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
