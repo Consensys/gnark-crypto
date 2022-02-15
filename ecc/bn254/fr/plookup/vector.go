@@ -30,6 +30,7 @@ import (
 var (
 	ErrNotInTable          = errors.New("some value in the vector is not in the lookup table")
 	ErrPlookupVerification = errors.New("plookup verification failed")
+	ErrGenerator           = errors.New("wrong generator")
 )
 
 type Table []fr.Element
@@ -186,7 +187,7 @@ func evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma 
 	return num
 }
 
-// evaluateXnMinusOneDomainBig returns the evaluation of (x**n-1) on FrMultiplicativeGen*< g  >
+// evaluateXnMinusOneDomainBig returns the evaluation of (x^{n}-1) on FrMultiplicativeGen*< g  >
 func evaluateXnMinusOneDomainBig(domainBig *fft.Domain) [2]fr.Element {
 
 	sizeDomainSmall := domainBig.Cardinality / 2
@@ -194,7 +195,7 @@ func evaluateXnMinusOneDomainBig(domainBig *fft.Domain) [2]fr.Element {
 	var one fr.Element
 	one.SetOne()
 
-	// x**n-1 on FrMultiplicativeGen*< g  >
+	// x^{n}-1 on FrMultiplicativeGen*< g  >
 	var res [2]fr.Element
 	var shift fr.Element
 	shift.Exp(domainBig.FrMultiplicativeGen, big.NewInt(int64(sizeDomainSmall)))
@@ -205,14 +206,14 @@ func evaluateXnMinusOneDomainBig(domainBig *fft.Domain) [2]fr.Element {
 
 }
 
-// evaluateL0DomainBig returns the evaluation of (x**n-1)/(x-1) on
-// x**n-1 on FrMultiplicativeGen*< g  >
+// evaluateL0DomainBig returns the evaluation of (x^{n}-1)/(x-1) on
+// x^{n}-1 on FrMultiplicativeGen*< g  >
 func evaluateL0DomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
 
 	var one fr.Element
 	one.SetOne()
 
-	// x**n-1 on FrMultiplicativeGen*< g  >
+	// x^{n}-1 on FrMultiplicativeGen*< g  >
 	xnMinusOne := evaluateXnMinusOneDomainBig(domainBig)
 
 	// 1/(x-1) on FrMultiplicativeGen*< g  >
@@ -228,8 +229,8 @@ func evaluateL0DomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
 	return xnMinusOne, denL0
 }
 
-// evaluationLnDomainBig returns the evaluation of (x**n-1)/(x-g**(n-1)) on
-// x**n-1 on FrMultiplicativeGen*< g  >
+// evaluationLnDomainBig returns the evaluation of (x^{n}-1)/(x-g^{n-1}) on
+// x^{n}-1 on FrMultiplicativeGen*< g  >
 func evaluationLnDomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
 
 	sizeDomainSmall := domainBig.Cardinality / 2
@@ -237,10 +238,10 @@ func evaluationLnDomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) 
 	var one fr.Element
 	one.SetOne()
 
-	// x**n-1 on FrMultiplicativeGen*< g  >
+	// x^{n}-1 on FrMultiplicativeGen*< g  >
 	numLn := evaluateXnMinusOneDomainBig(domainBig)
 
-	// 1/(x-g**(n-1)) on FrMultiplicativeGen*< g  >
+	// 1/(x-g^{n-1}) on FrMultiplicativeGen*< g  >
 	var gg, acc fr.Element
 	gg.Square(&domainBig.Generator).Exp(gg, big.NewInt(int64(sizeDomainSmall-1)))
 	denLn := make([]fr.Element, domainBig.Cardinality)
@@ -498,13 +499,13 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	domainBig.FFT(_lf, fft.DIF, true)
 
 	// compute h
-	lh := evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainBig) // CORRECT
+	lh := evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainBig)
 
 	// compute l0*(z-1)
-	lh0 := evaluateZStartsByOneBitReversed(_lz, domainBig) // CORRECT
+	lh0 := evaluateZStartsByOneBitReversed(_lz, domainBig)
 
 	// compute ln(z-1)
-	lhn := evaluateZEndsByOneBitReversed(_lz, domainBig) // CORRECT
+	lhn := evaluateZEndsByOneBitReversed(_lz, domainBig)
 
 	// compute ln*(h1-h2(g*X))
 	lh1h2 := evaluateOverlapH1h2BitReversed(_lh1, _lh2, domainBig)
@@ -643,21 +644,31 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		return err
 	}
 
-	// check polynomial relation using Schwartz Zippel
-	var lhs, rhs, nun, g, _g, a, v, w, one fr.Element
-	d := fft.NewDomain(proof.size) // only there to access to root of 1...
+	// check the generator is correct
+	var checkOrder, one fr.Element
 	one.SetOne()
-	g.Exp(d.Generator, big.NewInt(int64(d.Cardinality-1)))
+	checkOrder.Exp(proof.g, big.NewInt(int64(proof.size/2)))
+	if checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+	checkOrder.Square(&checkOrder)
+	if !checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+
+	// check polynomial relation using Schwartz Zippel
+	var lhs, rhs, nun, g, _g, a, v, w fr.Element
+	g.Exp(proof.g, big.NewInt(int64(proof.size-1)))
 
 	v.Add(&one, &beta)
 	w.Mul(&v, &gamma)
 
-	// h(nu) where
-	// h = (x-1)*z*(1+beta)*(gamma+f)*(gamma(1+beta) + t+ beta*t(gX)) -
-	//		(x-1)*z(gX)*(gamma(1+beta) + h1 + beta*h1(gX))*(gamma(1+beta) + h2 + beta*h2(gX) )
-	lhs.Sub(&nu, &g).
-		Mul(&lhs, &proof.BatchedProof.ClaimedValues[3]).
-		Mul(&lhs, &v)
+	// h(ν) where
+	// h = (xⁿ⁻¹-1)*z*(1+β)*(γ+f)*(γ(1+β) + t+ β*t(gX)) -
+	//		(xⁿ⁻¹-1)*z(gX)*(γ(1+β) + h₁ + β*h₁(gX))*(γ(1+β) + h₂ + β*h₂(gX) )
+	lhs.Sub(&nu, &g). // (ν-gⁿ⁻¹)
+				Mul(&lhs, &proof.BatchedProof.ClaimedValues[3]).
+				Mul(&lhs, &v)
 	a.Add(&gamma, &proof.BatchedProof.ClaimedValues[4])
 	lhs.Mul(&lhs, &a)
 	a.Mul(&beta, &proof.BatchedProofShifted.ClaimedValues[2]).
@@ -680,24 +691,24 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 
 	// check consistancy of bounds
 	var l0, ln, d1, d2 fr.Element
-	l0.Exp(nu, big.NewInt(int64(d.Cardinality))).Sub(&l0, &one)
+	l0.Exp(nu, big.NewInt(int64(proof.size))).Sub(&l0, &one)
 	ln.Set(&l0)
 	d1.Sub(&nu, &one)
 	d2.Sub(&nu, &g)
-	l0.Div(&l0, &d1)
-	ln.Div(&ln, &d2)
+	l0.Div(&l0, &d1) // (νⁿ-1)/(ν-1)
+	ln.Div(&ln, &d2) // (νⁿ-1)/(ν-gⁿ⁻¹)
 
-	// l0*(z-1)
+	// l₀*(z-1) = (νⁿ-1)/(ν-1)*(z-1)
 	var l0z fr.Element
 	l0z.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
 		Mul(&l0z, &l0)
 
-	// ln*(z-1)
+	// lₙ*(z-1) = (νⁿ-1)/(ν-gⁿ⁻¹)*(z-1)
 	var lnz fr.Element
 	lnz.Sub(&proof.BatchedProof.ClaimedValues[3], &one).
 		Mul(&ln, &lnz)
 
-	// ln*(h1 - h2(g.x))
+	// lₙ*(h1 - h₂(g.x))
 	var lnh1h2 fr.Element
 	lnh1h2.Sub(&proof.BatchedProof.ClaimedValues[0], &proof.BatchedProofShifted.ClaimedValues[1]).
 		Mul(&lnh1h2, &ln)
@@ -710,8 +721,8 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		Mul(&lnh1h2, &alpha).
 		Add(&lnh1h2, &lhs)
 
-	// (x**n-1) * h(x) evaluated at nu
-	nun.Exp(nu, big.NewInt(int64(d.Cardinality)))
+	// (xⁿ-1) * h(x) evaluated at ν
+	nun.Exp(nu, big.NewInt(int64(proof.size)))
 	_g.Sub(&nun, &one)
 	_g.Mul(&proof.BatchedProof.ClaimedValues[5], &_g)
 	if !lnh1h2.Equal(&_g) {
