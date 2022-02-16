@@ -86,49 +86,40 @@ func g2CoordSetString(z *fptower.E2, s string) {
 	)
 }
 
+func g2TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fptower.E2) {
+	var expected fptower.E2
+
+	g2CoordSetString(&expected, expectedStr)
+
+	if !expected.Equal(seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+	}
+}
+
+func g2TestMatch(t *testing.T, c hashTestCase, seen *G2Affine) {
+	g2TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
+	g2TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
+}
+
 func TestEncodeToCurveG2SSWU(t *testing.T) {
 
-	for i, c := range g2EncodeToCurveSSWUVector.cases {
+	for _, c := range g2EncodeToCurveSSWUVector.cases {
 		seen, err := EncodeToCurveG2SSWU([]byte(c.msg), g2EncodeToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x fptower.E2
-		var y fptower.E2
-
-		g2CoordSetString(&x, c.x)
-		g2CoordSetString(&y, c.y)
-
-		expectedP := G2Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		g2TestMatch(t, c, &seen)
 	}
 }
 
 func TestHashToCurveG2SSWU(t *testing.T) {
-
-	for i, c := range g2HashToCurveSSWUVector.cases {
+	for _, c := range g2HashToCurveSSWUVector.cases {
 		seen, err := HashToCurveG2SSWU([]byte(c.msg), g2HashToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x fptower.E2
-		var y fptower.E2
-
-		g2CoordSetString(&x, c.x)
-		g2CoordSetString(&y, c.y)
-
-		expectedP := G2Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		g2TestMatch(t, c, &seen)
 	}
-
 	t.Log(len(g2HashToCurveSSWUVector.cases), "cases verified")
 }
 

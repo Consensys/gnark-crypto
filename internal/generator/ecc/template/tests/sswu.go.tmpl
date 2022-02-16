@@ -77,59 +77,42 @@ func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {
 }
 {{end}}
 
+func {{$CurveName}}TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *{{$CoordType}}) {
+	var expected {{$CoordType}}
+    {{if eq $TowerDegree 1}}
+        expected.SetString(expectedStr)
+    {{else}}
+        {{$CurveName}}CoordSetString(&expected, expectedStr)
+    {{end}}
+	if !expected.Equal(seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+	}
+}
+
+func {{$CurveName}}TestMatch(t *testing.T, c hashTestCase, seen *{{$CurveTitle}}Affine) {
+	{{$CurveName}}TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
+	{{$CurveName}}TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
+}
+
 func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 
-	for i, c := range {{$CurveName}}EncodeToCurveSSWUVector.cases {
+	for _, c := range {{$CurveName}}EncodeToCurveSSWUVector.cases {
 		seen, err := EncodeToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x {{$CoordType}}
-		var y {{$CoordType}}
-
-		{{if eq $TowerDegree 1}}
-			x.SetString(c.x)
-			y.SetString(c.y)
-		{{else}}
-			{{$CurveName}}CoordSetString(&x, c.x)
-			{{$CurveName}}CoordSetString(&y, c.y)
-		{{end}}
-
-		expectedP := {{$CurveTitle}}Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		{{$CurveName}}TestMatch(t, c, &seen)
 	}
 }
 
 func TestHashToCurve{{$CurveTitle}}SSWU(t *testing.T) {
-
-	for i, c := range {{$CurveName}}HashToCurveSSWUVector.cases {
+	for _, c := range {{$CurveName}}HashToCurveSSWUVector.cases {
 		seen, err := HashToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x {{$CoordType}}
-		var y {{$CoordType}}
-
-		{{if eq $TowerDegree 1}}
-			x.SetString(c.x)
-			y.SetString(c.y)
-		{{else}}
-			{{$CurveName}}CoordSetString(&x, c.x)
-			{{$CurveName}}CoordSetString(&y, c.y)
-		{{end}}
-
-		expectedP := {{$CurveTitle}}Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		{{$CurveName}}TestMatch(t, c, &seen)
 	}
-
 	t.Log(len({{$CurveName}}HashToCurveSSWUVector.cases), "cases verified")
 }
 

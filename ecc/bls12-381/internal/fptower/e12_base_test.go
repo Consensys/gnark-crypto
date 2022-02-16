@@ -16,17 +16,30 @@
 
 package fptower
 
-func (z *E12) Select(cond int, caseZ *E12, caseNz *E12) *E12 {
-	//Might be able to save a nanosecond or two by an aggregate implementation
+import (
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+	"testing"
+)
 
-	z.C0.Select(cond, &caseZ.C0, &caseNz.C0)
-	z.C1.Select(cond, &caseZ.C1, &caseNz.C1)
+func TestE12Div(t *testing.T) {
 
-	return z
-}
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
 
-func (z *E12) Div(x *E12, y *E12) *E12 {
-	var r E12
-	r.Inverse(y).Mul(x, &r)
-	return z.Set(&r)
+	genA := GenE12()
+	genB := GenE12()
+
+	properties.Property("[BLS12-381] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E12) bool {
+			var c E12
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

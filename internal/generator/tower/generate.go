@@ -77,34 +77,35 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	towerConfs := []towerConf{
 		{
 			Curve:           &conf,
-			Degree:          2,
-			ExtensionDegree: 2,
+			RecursionDegree: 2,
+			TotalDegree:     2,
 			BaseName:        "fp.Element",
-			CoordName:       "A",
+			BaseElementName: "A",
 		},
 		{
 			Curve:           &conf,
-			Degree:          6,
-			ExtensionDegree: 3,
+			RecursionDegree: 3,
+			TotalDegree:     6,
 			BaseName:        "E2",
-			CoordName:       "B",
+			BaseElementName: "B",
 		},
 		{
 			Curve:           &conf,
-			Degree:          12,
-			ExtensionDegree: 2,
+			RecursionDegree: 2,
+			TotalDegree:     12,
 			BaseName:        "E6",
-			CoordName:       "C",
+			BaseElementName: "C",
 		},
 	}
 
 	for _, towerConf := range towerConfs {
 
-		if err := bgen.Generate(
-			towerConf,
-			"fptower",
-			"./tower/template/fq12over6over2",
-			bavard.Entry{File: filepath.Join(baseDir, fmt.Sprintf("e%d_base.go", towerConf.Degree)), Templates: []string{"base.go.tmpl"}}); err != nil {
+		entries := []bavard.Entry{
+			{File: filepath.Join(baseDir, fmt.Sprintf("e%d_base.go", towerConf.TotalDegree)), Templates: []string{"base.go.tmpl"}},
+			{File: filepath.Join(baseDir, fmt.Sprintf("e%d_base_test.go", towerConf.TotalDegree)), Templates: []string{"tests/base.go.tmpl"}},
+		}
+
+		if err := bgen.Generate(towerConf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
 			return err
 		}
 	}
@@ -115,8 +116,8 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 type towerConf struct {
 	Curve           *config.Curve
-	Degree          int
-	ExtensionDegree int
+	RecursionDegree int
+	TotalDegree     int
 	BaseName        string
-	CoordName       string
+	BaseElementName string
 }

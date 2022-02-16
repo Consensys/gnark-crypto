@@ -27,6 +27,6 @@ func (z *E2) Select(cond int, caseZ *E2, caseNz *E2) *E2 {
 
 func (z *E2) Div(x *E2, y *E2) *E2 {
 	var r E2
-	r.Inverse(y).Mul(x, y)
+	r.Inverse(y).Mul(x, &r)
 	return z.Set(&r)
 }

@@ -73,49 +73,40 @@ func genCoordElemG1(t *testing.T) gopter.Gen {
 	}
 }
 
+func g1TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fp.Element) {
+	var expected fp.Element
+
+	expected.SetString(expectedStr)
+
+	if !expected.Equal(seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+	}
+}
+
+func g1TestMatch(t *testing.T, c hashTestCase, seen *G1Affine) {
+	g1TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
+	g1TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
+}
+
 func TestEncodeToCurveG1SSWU(t *testing.T) {
 
-	for i, c := range g1EncodeToCurveSSWUVector.cases {
+	for _, c := range g1EncodeToCurveSSWUVector.cases {
 		seen, err := EncodeToCurveG1SSWU([]byte(c.msg), g1EncodeToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x fp.Element
-		var y fp.Element
-
-		x.SetString(c.x)
-		y.SetString(c.y)
-
-		expectedP := G1Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		g1TestMatch(t, c, &seen)
 	}
 }
 
 func TestHashToCurveG1SSWU(t *testing.T) {
-
-	for i, c := range g1HashToCurveSSWUVector.cases {
+	for _, c := range g1HashToCurveSSWUVector.cases {
 		seen, err := HashToCurveG1SSWU([]byte(c.msg), g1HashToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var x fp.Element
-		var y fp.Element
-
-		x.SetString(c.x)
-		y.SetString(c.y)
-
-		expectedP := G1Affine{x, y}
-
-		if seen != expectedP {
-			t.Error(i, c)
-		}
+		g1TestMatch(t, c, &seen)
 	}
-
 	t.Log(len(g1HashToCurveSSWUVector.cases), "cases verified")
 }
 
