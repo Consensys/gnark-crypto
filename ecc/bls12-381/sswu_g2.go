@@ -111,7 +111,6 @@ func g2IsogenyYDenominator(dst *fptower.E2, x *fptower.E2) {
 		},
 		x)
 }
-
 func g2Isogeny(p *G2Affine) {
 
 	den := make([]fptower.E2, 2)
@@ -142,7 +141,7 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 
 	var tv2, tv3, tv4, tv5 fptower.E2
 	var exp big.Int
-	// c4 = 7 = 2^3 - 1
+	// c4 = 7 = 2³ - 1
 	// q is odd so c1 is at least 1.
 	exp.SetBytes([]byte{7})
 
@@ -296,6 +295,7 @@ func g2SswuMap(u *fptower.E2) G2Affine {
 	x.Select(int(gx1NSquare), &tv3, &x)
 	y.Select(int(gx1NSquare), &y1, &y)
 
+	//Standards doc line 23
 	y1.Neg(&y)
 	y.Select(int(g2Sgn0(u)^g2Sgn0(&y)), &y, &y1)
 
@@ -373,15 +373,15 @@ func g2Sgn0(z *fptower.E2) uint64 {
 	var signI uint64
 	var zeroI uint64
 
-	zeroI = z.A0[0]
-	signI = zeroI % 2
-	zeroI = (zeroI | -zeroI) >> 63
+	zeroI = g1NotZero(&nonMont.A0)
+	zeroI = 1 ^ (zeroI|-zeroI)>>63
+	signI = nonMont.A0[0] % 2
 	sign = sign | (zero & signI)
 	zero = zero & zeroI
 
-	zeroI = z.A1[0]
-	signI = zeroI % 2
-	zeroI = (zeroI | -zeroI) >> 63
+	zeroI = g1NotZero(&nonMont.A1)
+	zeroI = 1 ^ ((zeroI | -zeroI) >> 63)
+	signI = nonMont.A1[0] % 2
 	sign = sign | (zero & signI)
 	zero = zero & zeroI
 
