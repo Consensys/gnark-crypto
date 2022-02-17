@@ -253,11 +253,11 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 }
 {{ end }}
 
-
+/*
 // {{$CurveName}}SetZ sets z to {{.Z}}.
 func {{$CurveName}}SetZ(z *{{$CoordType}}) {
     z.Set( &{{$CoordType}} {{template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}} )
-}
+}*/
 
 // {{$CurveName}}MulByZ multiplies x by {{.Z}} and stores the result in z
 func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
@@ -450,11 +450,13 @@ func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
         var signI uint64
         var zeroI uint64
         {{range $i := interval 0 $TowerDegree}}
-            zeroI = g1NotZero(&nonMont.{{$.FieldCoordName}}{{$i}})
-            zeroI = 1 ^ (zeroI|-zeroI)>>63
             signI = nonMont.{{$.FieldCoordName}}{{$i}}[0] % 2
             sign = sign | (zero & signI)
-            zero = zero & zeroI
+			{{if not (eq $i (sub $TowerDegree 1))}}
+                zeroI = g1NotZero(&nonMont.{{$.FieldCoordName}}{{$i}})
+                zeroI = 1 ^ (zeroI|-zeroI)>>63
+                zero = zero & zeroI
+            {{end}}
         {{end}}
         return sign
     {{end}}

@@ -201,13 +201,14 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 	return isQNr
 }
 
+/*
 // g2SetZ sets z to [-2 -1].
 func g2SetZ(z *fptower.E2) {
-	z.Set(&fptower.E2{
-		A0: fp.Element{9794203289623549276, 7309342082925068282, 1139538881605221074, 15659550692327388916, 16008355200866287827, 582484205531694093},
-		A1: fp.Element{4897101644811774638, 3654671041462534141, 569769440802610537, 17053147383018470266, 17227549637287919721, 291242102765847046},
-	})
-}
+    z.Set( &fptower.E2  {
+    A0: fp.Element{ 9794203289623549276, 7309342082925068282, 1139538881605221074, 15659550692327388916, 16008355200866287827, 582484205531694093 },
+    A1: fp.Element{ 4897101644811774638, 3654671041462534141, 569769440802610537, 17053147383018470266, 17227549637287919721, 291242102765847046 },
+} )
+}*/
 
 // g2MulByZ multiplies x by [-2 -1] and stores the result in z
 func g2MulByZ(z *fptower.E2, x *fptower.E2) {
@@ -373,17 +374,15 @@ func g2Sgn0(z *fptower.E2) uint64 {
 	var signI uint64
 	var zeroI uint64
 
-	zeroI = g1NotZero(&nonMont.A0)
-	zeroI = 1 ^ (zeroI|-zeroI)>>63
 	signI = nonMont.A0[0] % 2
 	sign = sign | (zero & signI)
+
+	zeroI = g1NotZero(&nonMont.A0)
+	zeroI = 1 ^ (zeroI|-zeroI)>>63
 	zero = zero & zeroI
 
-	zeroI = g1NotZero(&nonMont.A1)
-	zeroI = 1 ^ (zeroI|-zeroI)>>63
 	signI = nonMont.A1[0] % 2
 	sign = sign | (zero & signI)
-	zero = zero & zeroI
 
 	return sign
 

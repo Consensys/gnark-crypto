@@ -160,10 +160,11 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
+/*
 // g1SetZ sets z to [11].
 func g1SetZ(z *fp.Element) {
-	z.Set(&fp.Element{9830232086645309404, 1112389714365644829, 8603885298299447491, 11361495444721768256, 5788602283869803809, 543934104870762216})
-}
+    z.Set( &fp.Element  { 9830232086645309404, 1112389714365644829, 8603885298299447491, 11361495444721768256, 5788602283869803809, 543934104870762216 } )
+}*/
 
 // g1MulByZ multiplies x by [11] and stores the result in z
 func g1MulByZ(z *fp.Element, x *fp.Element) {

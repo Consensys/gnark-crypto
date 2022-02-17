@@ -6,13 +6,13 @@ import "math/big"
 type Extension struct {
 	Base   *Field  //Fp
 	Size   big.Int //q
-	Degree uint8   //n such that q = pⁿ
+	Degree int     //n such that q = pⁿ TODO: Make uint8 so forced to be positive and small
 	RootOf int64   //α
 }
 
 func NewTower(base *Field, degree uint8, rootOf int64) Extension {
 	ret := Extension{
-		Degree: degree,
+		Degree: int(degree),
 		RootOf: rootOf,
 		Base:   base,
 	}

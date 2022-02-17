@@ -2,7 +2,6 @@ package ecc
 
 import (
 	"fmt"
-	"math/big"
 	"path/filepath"
 	"strings"
 
@@ -49,44 +48,9 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return bgen.Generate(hashConf, packageName, "./ecc/template", entries...)
 	}
 
-	// For testing. TODO: Remove
-	if conf.HashE1 == nil {
-
-		var nonRes big.Int
-		conf.Fp.FromMont(&nonRes, &conf.Fp.NonResidue)
-
-		if nonRes.BitLen() == 0 {
-			fmt.Println(conf.Name, ": nonres is zero. Finding non-residue")
-
-			var sqrt big.Int
-			found := false
-			for i := int64(2); i < 100 && !found; i++ {
-				nonRes.SetInt64(i / 2 * ((i%2)*2 - 1))
-				found = sqrt.ModSqrt(&nonRes, conf.Fp.ModulusBig) == nil
-			}
-
-			if !found {
-				panic(fmt.Sprint(conf.Name, ": failed to find non-residue"))
-			}
-		}
-		if !nonRes.IsInt64() {
-			panic(conf.Name)
-		}
-		zero := make([]string, conf.G1.CoordExtDegree)
-		conf.HashE1 = &config.HashSuite{
-			Z:       []int{int(nonRes.Int64())},
-			A:       zero,
-			B:       zero,
-			Isogeny: nil,
-		}
+	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
+		return err
 	}
-	// For some reason bn254 doesn't have a selected nonresidue?!
-	if len(conf.HashE1.Z) >= 1 {
-		if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
-			return err
-		}
-	}
-
 	if err := genHashToCurve(&conf.G2, conf.HashE2); err != nil {
 		return err
 	}
