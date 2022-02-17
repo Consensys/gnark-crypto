@@ -1159,7 +1159,7 @@ func Test{{toTitle .ElementName}}Select(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func Test{{toTitle .ElementName}}FromInt64(t *testing.T) {
+func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -1172,12 +1172,12 @@ func Test{{toTitle .ElementName}}FromInt64(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property("z.FromInt64 must match z.SetString", prop.ForAll(
+	properties.Property("z.SetInt64 must match z.SetString", prop.ForAll(
 		func(a testPair{{.ElementName}}, v int64) bool {
 			c := a.element
 			d := a.element
 
-			c.FromInt64(v)
+			c.SetInt64(v)
 			d.SetString(fmt.Sprintf("%v",v))
 
 			return c.Equal(&d)
