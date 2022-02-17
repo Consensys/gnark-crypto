@@ -450,13 +450,13 @@ func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
         var signI uint64
         var zeroI uint64
         {{range $i := interval 0 $TowerDegree}}
-		    zeroI = z.{{$.FieldCoordName}}{{$i}}[0]
-            signI = zeroI%2
-			zeroI = (zeroI | -zeroI) >> 63
-			sign = sign | (zero & signI)
-			zero = zero & zeroI
+            zeroI = g1NotZero(&nonMont.{{$.FieldCoordName}}{{$i}})
+            zeroI = 1 ^ (zeroI|-zeroI)>>63
+            signI = nonMont.{{$.FieldCoordName}}{{$i}}[0] % 2
+            sign = sign | (zero & signI)
+            zero = zero & zeroI
         {{end}}
-		return sign
+        return sign
     {{end}}
 }
 
