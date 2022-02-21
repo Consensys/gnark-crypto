@@ -42,11 +42,6 @@ type g2JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
-// g2Proj point in projective coordinates
-type g2Proj struct {
-	x, y, z fp.Element
-}
-
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -143,7 +138,7 @@ func (p *G2Affine) IsOnCurve() bool {
 func (p *G2Affine) IsInSubGroup() bool {
 	var _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -177,7 +172,7 @@ func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
 	return p
 }
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
 	var tmp G2Jac
 	tmp.Set(a)
@@ -435,7 +430,6 @@ func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	var table [15]G2Jac
-	var zero big.Int
 	var res G2Jac
 	var k1, k2 fr.Element
 
@@ -448,11 +442,11 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -844,41 +838,6 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
-	return p
-}
-
-// -------------------------------------------------------------------------------------------------
-// Homogenous projective
-
-// Set sets p to the provided point
-func (p *g2Proj) Set(a *g2Proj) *g2Proj {
-	p.x, p.y, p.z = a.x, a.y, a.z
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	var buf fp.Element
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
-	return p
-}
-
-// FromAffine sets p = Q, p in homogenous projective, Q in affine
-func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
-	if Q.X.IsZero() && Q.Y.IsZero() {
-		p.z.SetZero()
-		p.x.SetOne()
-		p.y.SetOne()
-		return p
-	}
-	p.z.SetOne()
-	p.x.Set(&Q.X)
-	p.y.Set(&Q.Y)
 	return p
 }
 

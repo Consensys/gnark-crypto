@@ -30,9 +30,6 @@ var twist fptower.E2
 // bTwistCurveCoeff b coeff of the twist (defined over Fp2) curve
 var bTwistCurveCoeff fptower.E2
 
-// twoInv 1/2 mod p (needed for DoubleStep in Miller loop)
-var twoInv fp.Element
-
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
 var g2Gen G2Jac
@@ -85,8 +82,6 @@ func init() {
 	bCurveCoeff.SetUint64(1)
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.Inverse(&twist)
-
-	twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
 
 	g1Gen.X.SetString("81937999373150964239938255573465948239988671502647976594219695644855304257327692006745978603320413799295628339695")
 	g1Gen.Y.SetString("241266749859715473739788878240585681733927191168601896383759122102112907357779751001206799952863815012735208165030")

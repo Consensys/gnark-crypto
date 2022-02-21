@@ -221,13 +221,13 @@ func pad(p *Polynomial, i int) {
 // have the same size.
 func mul(p1, p2, p3 *Polynomial) {
 	p1.SetZero()
-	d := fft.NewDomain(uint64(len(*p1)), 0, false)
-	d.FFT(*p2, fft.DIF, 0)
-	d.FFT(*p3, fft.DIF, 0)
+	d := fft.NewDomain(uint64(len(*p1)))
+	d.FFT(*p2, fft.DIF)
+	d.FFT(*p3, fft.DIF)
 	for i := 0; i < len(*p1); i++ {
 		(*p1)[i].Mul(&(*p2)[i], &(*p3)[i])
 	}
-	d.FFTInverse(*p1, fft.DIT, 0)
+	d.FFTInverse(*p1, fft.DIT)
 }
 
 // Mul sets p to p1*p2

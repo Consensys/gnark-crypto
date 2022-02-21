@@ -142,8 +142,8 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		qProj[k].DoubleStep(&l)
 		// line evaluation
 		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r2.MulByElement(&l.r2, &p[k].X)
-		result.MulBy012(&l.r0, &l.r1, &l.r2)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
 	}
 
 	for i := len(loopCounter) - 3; i >= 0; i-- {
@@ -153,22 +153,22 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			qProj[k].DoubleStep(&l)
 			// line evaluation
 			l.r0.MulByElement(&l.r0, &p[k].Y)
-			l.r2.MulByElement(&l.r2, &p[k].X)
-			result.MulBy012(&l.r0, &l.r1, &l.r2)
+			l.r1.MulByElement(&l.r1, &p[k].X)
+			result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			if loopCounter[i] == 1 {
 				qProj[k].AddMixedStep(&l, &q[k])
 				// line evaluation
 				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r2.MulByElement(&l.r2, &p[k].X)
-				result.MulBy012(&l.r0, &l.r1, &l.r2)
+				l.r1.MulByElement(&l.r1, &p[k].X)
+				result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			} else if loopCounter[i] == -1 {
 				qProj[k].AddMixedStep(&l, &qNeg[k])
 				// line evaluation
 				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r2.MulByElement(&l.r2, &p[k].X)
-				result.MulBy012(&l.r0, &l.r1, &l.r2)
+				l.r1.MulByElement(&l.r1, &p[k].X)
+				result.MulBy034(&l.r0, &l.r1, &l.r2)
 			}
 		}
 	}
@@ -183,18 +183,18 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 
 	// get some Element from our pool
-	var t0, t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E4
-	t0.Mul(&p.x, &p.y)
-	A.MulByElement(&t0, &twoInv)
+	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E4
+	A.Mul(&p.x, &p.y)
+	A.Halve()
 	B.Square(&p.y)
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bTwistCurveCoeff)
+	E.MulBybTwistCurveCoeff(&D)
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)
-	G.MulByElement(&G, &twoInv)
+	G.Halve()
 	H.Add(&p.y, &p.z).
 		Square(&H)
 	t1.Add(&B, &C)
@@ -214,9 +214,9 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 
 	// Line evaluation
 	evaluations.r0.Neg(&H)
-	evaluations.r1.Set(&I)
-	evaluations.r2.Double(&J).
-		Add(&evaluations.r2, &J)
+	evaluations.r1.Double(&J).
+		Add(&evaluations.r1, &J)
+	evaluations.r2.Set(&I)
 }
 
 // AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
@@ -252,6 +252,6 @@ func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 
 	// Line evaluation
 	evaluations.r0.Set(&L)
-	evaluations.r1.Set(&J)
-	evaluations.r2.Neg(&O)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&J)
 }

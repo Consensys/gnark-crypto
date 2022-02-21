@@ -42,6 +42,11 @@ type g1JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
+// g1Proj point in projective coordinates
+type g1Proj struct {
+	x, y, z fp.Element
+}
+
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -138,7 +143,7 @@ func (p *G1Affine) IsOnCurve() bool {
 func (p *G1Affine) IsInSubGroup() bool {
 	var _p G1Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -172,7 +177,7 @@ func (p *G1Jac) Neg(a *G1Jac) *G1Jac {
 	return p
 }
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *G1Jac) SubAssign(a *G1Jac) *G1Jac {
 	var tmp G1Jac
 	tmp.Set(a)
@@ -426,7 +431,6 @@ func (p *G1Jac) phi(a *G1Jac) *G1Jac {
 func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	var table [15]G1Jac
-	var zero big.Int
 	var res G1Jac
 	var k1, k2 fr.Element
 
@@ -439,11 +443,11 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -828,6 +832,92 @@ func (p *g1JacExtended) doubleMixed(q *G1Affine) *g1JacExtended {
 	p.ZZZ.Set(&W)
 
 	return p
+}
+
+// -------------------------------------------------------------------------------------------------
+// Homogenous projective
+
+// Set sets p to the provided point
+func (p *g1Proj) Set(a *g1Proj) *g1Proj {
+	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// Neg computes -G
+func (p *g1Proj) Neg(a *g1Proj) *g1Proj {
+	*p = *a
+	p.y.Neg(&a.y)
+	return p
+}
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g1Proj) FromJacobian(Q *G1Jac) *g1Proj {
+	var buf fp.Element
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
+	return p
+}
+
+// FromAffine sets p = Q, p in homogenous projective, Q in affine
+func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.z.SetZero()
+		p.x.SetOne()
+		p.y.SetOne()
+		return p
+	}
+	p.z.SetOne()
+	p.x.Set(&Q.X)
+	p.y.Set(&Q.Y)
+	return p
+}
+
+// BatchProjectiveToAffineG1 converts points in Projective coordinates to Affine coordinates
+// performing a single field inversion (Montgomery batch inversion trick)
+// result must be allocated with len(result) == len(points)
+func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
+	zeroes := make([]bool, len(points))
+	accumulator := fp.One()
+
+	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
+	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
+	for i := 0; i < len(points); i++ {
+		if points[i].z.IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		result[i].X = accumulator
+		accumulator.Mul(&accumulator, &points[i].z)
+	}
+
+	var accInverse fp.Element
+	accInverse.Inverse(&accumulator)
+
+	for i := len(points) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			// do nothing, X and Y are zeroes in affine.
+			continue
+		}
+		result[i].X.Mul(&result[i].X, &accInverse)
+		accInverse.Mul(&accInverse, &points[i].z)
+	}
+
+	// batch convert to affine.
+	parallel.Execute(len(points), func(start, end int) {
+		for i := start; i < end; i++ {
+			if zeroes[i] {
+				// do nothing, X and Y are zeroes in affine.
+				continue
+			}
+			a := result[i].X
+			result[i].X.Mul(&points[i].x, &a)
+			result[i].Y.Mul(&points[i].y, &a)
+		}
+	})
 }
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates

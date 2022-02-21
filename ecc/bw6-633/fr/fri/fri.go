@@ -124,7 +124,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	// building the domains
 	res.domains = make([]*fft.Domain, nbSteps)
 	for i := 0; i < nbSteps; i++ {
-		res.domains[i] = fft.NewDomain(n, 0, false)
+		res.domains[i] = fft.NewDomain(n)
 		n = n >> 1
 	}
 
@@ -227,7 +227,7 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 	for i := 0; i < s.nbSteps; i++ {
 
 		// evaluate _p and sort the result
-		s.domains[i].FFT(_p, fft.DIF, 0)
+		s.domains[i].FFT(_p, fft.DIF)
 		fft.BitReverse(_p)
 		evalsAtRound[i] = sort(_p)
 
@@ -251,7 +251,7 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		xi.SetBytes(bxi)
 
 		// put _p back in canonical basis
-		s.domains[i].FFTInverse(_p, fft.DIF, 0)
+		s.domains[i].FFTInverse(_p, fft.DIF)
 		fft.BitReverse(_p)
 
 		// fold _p

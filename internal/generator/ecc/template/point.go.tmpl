@@ -35,7 +35,7 @@ type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
 
-{{- if eq .PointName "g2"}}
+{{- if .Projective}}
 // {{ $TProjective }} point in projective coordinates
 type {{ $TProjective }} struct {
 	x, y, z {{.CoordType}}
@@ -147,7 +147,7 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 
@@ -183,7 +183,7 @@ func (p *{{ $TJacobian }}) Neg(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *{{ $TJacobian }}) SubAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	var tmp {{ $TJacobian }}
 	tmp.Set(a)
@@ -402,20 +402,12 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		}
 	{{else if eq .PointName "g2"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-		// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
-		// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
-		// polynomials in x, a short vector of this Zmodule is
-		// (4x+2), (-12x**2+4*x). So we check that (4x+2)p+(-12x**2+4*x)phi(p)
-		// is the infinity.
+        // [r]P == 0 <==> Frob(P) == [6x^2]P
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
-			var res, xphip, phip {{ $TJacobian }}
-			phip.phi(p)
-			xphip.ScalarMultiplication(&phip, &xGen)           // x*phi(p)
-			res.Double(&xphip).AddAssign(&xphip)               // 3x*phi(p)
-			res.AddAssign(&phip).SubAssign(p)                  // 3x*phi(p)+phi(p)-p
-			res.Double(&res).ScalarMultiplication(&res, &xGen) // 6x**2*phi(p)+2x*phi(p)-2x*p
-			res.SubAssign(p).Double(&res)                      // 12x**2*phi(p)+4x*phi(p)-4x*p-2p
+            var a, res G2Jac
+            a.psi(p)
+            res.ScalarMultiplication(p, &fixedCoeff).
+                SubAssign(&a)
 
 			return res.IsOnCurve() && res.Z.IsZero()
 
@@ -462,26 +454,40 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		return r.IsOnCurve() && r.Z.IsZero()
 	}
 {{else if eq .Name "bls24-315"}}
-    // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-    // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
-    // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
-    // polynomials in x, a short vector of this Zmodule is
-    // 1, x**4. So we check that p+x**4*phi(p)
-    // is the infinity.
-    func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+	{{- if eq .PointName "g1"}}
+        // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
+        // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
+        // polynomials in x, a short vector of this Zmodule is
+        // 1, x**4. So we check that p+x**4*phi(p)
+        // is the infinity.
+        func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
-        var res {{ $TJacobian }}
-        res.phi(p).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            ScalarMultiplication(&res, &xGen).
-            AddAssign(p)
+            var res {{ $TJacobian }}
+            res.phi(p).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                AddAssign(p)
 
-        return res.IsOnCurve() && res.Z.IsZero()
+            return res.IsOnCurve() && res.Z.IsZero()
 
-    }
+        }
+	{{else if eq .PointName "g2"}}
+        // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        // https://eprint.iacr.org/2021/1130.pdf, sec.4
+        // psi(p) = u*P
+        func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+            var res, tmp {{ $TJacobian }}
+            tmp.psi(p)
+            res.ScalarMultiplication(p, &xGen).
+                AddAssign(&tmp)
 
+            return res.IsOnCurve() && res.Z.IsZero()
+
+        }
+    {{- end}}
 {{else}}
 	{{- if eq .PointName "g1"}}
         // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
@@ -503,6 +509,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         }
 	{{else if eq .PointName "g2"}}
         {{if eq .Name "bls12-381"}}
+            // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
@@ -514,6 +521,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
                 return res.IsOnCurve() && res.Z.IsZero()
         }
         {{else if eq .Name "bls12-377"}}
+            // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
@@ -597,7 +605,6 @@ func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	var table [15]{{ $TJacobian }}
-	var zero big.Int
 	var res {{ $TJacobian }}
 	var k1, k2 fr.Element
 
@@ -610,11 +617,11 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -1204,13 +1211,20 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 {{ end }}
 
 
-{{- if eq .PointName "g2"}}
+{{- if .Projective }}
 // -------------------------------------------------------------------------------------------------
 // Homogenous projective
 
 // Set sets p to the provided point
 func (p *{{ $TProjective }}) Set(a *{{ $TProjective }}) *{{ $TProjective }} {
 	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// Neg computes -G
+func (p *{{ $TProjective }}) Neg(a *{{ $TProjective }}) *{{ $TProjective }} {
+	*p = *a
+	p.y.Neg(&a.y)
 	return p
 }
 
@@ -1240,6 +1254,51 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 	return p
 }
 
+{{- if eq .PointName "g1"}}
+// BatchProjectiveToAffine{{ toUpper .PointName }} converts points in Projective coordinates to Affine coordinates
+// performing a single field inversion (Montgomery batch inversion trick)
+// result must be allocated with len(result) == len(points)
+func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}, result []{{ $TAffine }}) {
+	zeroes := make([]bool, len(points))
+	accumulator := fp.One()
+
+	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
+	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
+	for i := 0; i < len(points); i++ {
+		if points[i].z.IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		result[i].X = accumulator
+		accumulator.Mul(&accumulator, &points[i].z)
+	}
+
+	var accInverse fp.Element
+	accInverse.Inverse(&accumulator)
+
+	for i := len(points) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			// do nothing, X and Y are zeroes in affine.
+			continue
+		}
+		result[i].X.Mul(&result[i].X, &accInverse)
+		accInverse.Mul(&accInverse, &points[i].z)
+	}
+
+	// batch convert to affine.
+	parallel.Execute(len(points), func(start, end int) {
+		for i := start; i < end; i++ {
+			if zeroes[i] {
+				// do nothing, X and Y are zeroes in affine.
+				continue
+			}
+			a := result[i].X
+			result[i].X.Mul(&points[i].x, &a)
+			result[i].Y.Mul(&points[i].y, &a)
+		}
+	})
+}
+{{end }}
 {{end }}
 
 

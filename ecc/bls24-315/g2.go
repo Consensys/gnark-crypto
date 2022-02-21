@@ -143,7 +143,7 @@ func (p *G2Affine) IsOnCurve() bool {
 func (p *G2Affine) IsInSubGroup() bool {
 	var _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsOnCurve() && _p.IsInSubGroup()
+	return _p.IsInSubGroup()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
 	return p
 }
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
 	var tmp G2Jac
 	tmp.Set(a)
@@ -372,20 +372,13 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// Z[r,0]+Z[-lambdaG2Affine, 1] is the kernel
-// of (u,v)->u+lambdaG2Affinev mod r. Expressing r, lambdaG2Affine as
-// polynomials in x, a short vector of this Zmodule is
-// 1, x**4. So we check that p+x**4*phi(p)
-// is the infinity.
+// https://eprint.iacr.org/2021/1130.pdf, sec.4
+// psi(p) = u*P
 func (p *G2Jac) IsInSubGroup() bool {
-
-	var res G2Jac
-	res.phi(p).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		AddAssign(p)
+	var res, tmp G2Jac
+	tmp.psi(p)
+	res.ScalarMultiplication(p, &xGen).
+		AddAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
 
@@ -442,7 +435,6 @@ func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	var table [15]G2Jac
-	var zero big.Int
 	var res G2Jac
 	var k1, k2 fr.Element
 
@@ -455,11 +447,11 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	// split the scalar, modifies +-a, phi(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -860,6 +852,13 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 // Set sets p to the provided point
 func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// Neg computes -G
+func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
+	*p = *a
+	p.y.Neg(&a.y)
 	return p
 }
 

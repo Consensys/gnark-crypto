@@ -140,12 +140,19 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 		minStackSize = 0
 	}
 	stackSize := f.StackSize(f.NbWords*2, 2, minStackSize)
-	registers := f.FnHeader("mul", stackSize, argSize, amd64.DX, amd64.AX)
+	reserved := []amd64.Register{amd64.DX, amd64.AX}
+	if f.NbWords <= 5 {
+		// when dynamic linking, R15 is clobbered by a global variable access
+		// this is a temporary workaround --> don't use R15 when we can avoid it.
+		// see https://github.com/ConsenSys/gnark-crypto/issues/113
+		reserved = append(reserved, amd64.R15)
+	}
+	registers := f.FnHeader("mul", stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
 	f.WriteLn(`
 	// the algorithm is described here
-	// https://hackmd.io/@zkteam/modular_multiplication
+	// https://hackmd.io/@gnark/modular_multiplication
 	// however, to benefit from the ADCX and ADOX carry chains
 	// we split the inner loops in 2:
 	// for i=0 to N-1

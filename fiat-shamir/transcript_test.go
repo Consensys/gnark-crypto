@@ -53,6 +53,10 @@ func TestTranscript(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if len(alpha) == 0 || len(beta) == 0 || len(gamma) == 0 {
+		t.Fatal("one of the challenge result is empty")
+	}
+
 	// re compute the challenges to verifiy they are the same
 	alphaBis, err := fs.ComputeChallenge("alpha")
 	if err != nil {

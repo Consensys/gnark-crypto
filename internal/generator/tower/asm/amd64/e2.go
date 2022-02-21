@@ -19,7 +19,6 @@ import (
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/field/asm/amd64"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
@@ -51,7 +50,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"funcdata.h\"")
 
 	fq2.GenerateDefines()
-	if fq2.config.ID() == ecc.BN254 {
+	if fq2.config.Equal(config.BN254) {
 		fq2.generateMulDefine()
 	}
 
@@ -60,12 +59,11 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.generateSubE2()
 	fq2.generateNegE2()
 
-	switch fq2.config.ID() {
-	case ecc.BN254:
+	if fq2.config.Equal(config.BN254) {
 		fq2.generateMulByNonResidueE2BN254()
 		fq2.generateMulE2BN254(forceADXCheck)
 		fq2.generateSquareE2BN254(forceADXCheck)
-	case ecc.BLS12_381:
+	} else if fq2.config.Equal(config.BLS12_381) {
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateSquareE2BLS381(forceADXCheck)
 		fq2.generateMulE2BLS381(forceADXCheck)

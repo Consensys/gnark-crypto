@@ -38,9 +38,6 @@ var bCurveCoeff fp.Element
 // bTwistCurveCoeff b coeff of the twist (defined over Fp) curve
 var bTwistCurveCoeff fp.Element
 
-// twoInv 1/2 mod p (needed for DoubleStep in Miller loop)
-var twoInv fp.Element
-
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
 var g2Gen G2Jac
@@ -53,8 +50,8 @@ var g1Infinity G1Jac
 var g2Infinity G2Jac
 
 // optimal Ate loop counters
-var loopCounter1 [33]int8
-var loopCounter2 [159]int8
+var loopCounter0 [159]int8
+var loopCounter1 [159]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
 //  endomorphisms phi1 and phi2 for <G1Affine> and <G2Affine>. lambda is such that <r, phi-lambda> lies above
@@ -77,8 +74,6 @@ func init() {
 	bCurveCoeff.SetUint64(4)
 	bTwistCurveCoeff.SetUint64(8) // M-twist
 
-	twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
-
 	// E1(2,y)*cofactor
 	g1Gen.X.SetString("14087405796052437206213362229855313116771222912153372774869400386285407949123477431442535997951698710614498307938219633856996133201713506830167161540335446217605918678317160130862890417553415")
 	g1Gen.Y.SetString("5208886161111258314476333487866604447704068601830026647530443033297117148121067806438008469463787158470000157308702133756065259580313172904438248825389121766442385979570644351664733475122746")
@@ -92,14 +87,12 @@ func init() {
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
 
-	//binary decomposition of 3218079742, little endian
-	// xGen+1 (negative)
-	T1, _ := new(big.Int).SetString("3218079742", 10)
-	ecc.NafDecomposition(T1, loopCounter1[:])
+	// binary decomposition of u+1 (negative)
+	loopCounter0 = [159]int8{0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	// xGen^5-xGen^4-xGen (negative)
-	T2, _ := new(big.Int).SetString("345131030376204096837580131803633448876874137601", 10)
-	ecc.NafDecomposition(T2, loopCounter2[:])
+	T, _ := new(big.Int).SetString("345131030376204096837580131803633448876874137601", 10)
+	ecc.NafDecomposition(T, loopCounter1[:])
 
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()

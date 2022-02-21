@@ -1,6 +1,6 @@
 package element
 
-// MulNoCarry see https://hackmd.io/@zkteam/modular_multiplication for more info on the algorithm
+// MulNoCarry see https://hackmd.io/@gnark/modular_multiplication for more info on the algorithm
 const MulNoCarry = `
 {{ define "mul_nocarry" }}
 var t [{{.all.NbWords}}]uint64
@@ -46,6 +46,53 @@ var c [3]uint64
 			{{- end}}
 		{{- end}}
 	{{-  end }}
+}
+{{- end}}
+{{ end }}
+
+
+
+
+{{ define "mul_nocarry_v2" }}
+var t [{{.all.NbWords}}]uint64
+
+{{- range $j := .all.NbWordsIndexesFull}}
+{
+	// round {{$j}}
+	
+	{{- if eq $j 0}}
+		c1, c0 := bits.Mul64(y, {{$.V2}}[0])
+		m := c0 * {{index $.all.QInverse 0}}
+		c2 := madd0(m, {{index $.all.Q 0}}, c0)
+		{{- range $i := $.all.NbWordsIndexesNoZero}}
+			c1, c0 = madd1(y, {{$.V2}}[{{$i}}], c1)
+			{{- if eq $i $.all.NbWordsLastIndex}}
+				t[{{sub $.all.NbWords 1}}], t[{{sub $i 1}}]  = madd3(m, {{index $.all.Q $i}}, c0, c2, c1)
+			{{- else}}
+				c2, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c2, c0)
+			{{- end}}
+		{{- end}}
+		{{- else if eq $j $.all.NbWordsLastIndex}}
+			m := t[0] * {{index $.all.QInverse 0}}
+			c2 := madd0(m, {{index $.all.Q 0}}, t[0])
+			{{- range $i := $.all.NbWordsIndexesNoZero}}
+				{{- if eq $i $.all.NbWordsLastIndex}}
+					z[{{sub $.all.NbWords 1}}], z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
+				{{- else}}
+					c2, z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}},  c2, t[{{$i}}])
+				{{- end}}
+			{{- end}}
+		{{- else}}
+			m := t[0] * {{index $.all.QInverse 0}}
+			c2 := madd0(m, {{index $.all.Q 0}}, t[0])
+			{{- range $i := $.all.NbWordsIndexesNoZero}}
+				{{- if eq $i $.all.NbWordsLastIndex}}
+					t[{{sub $.all.NbWords 1}}], t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
+				{{- else}}
+					c2, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c2, t[{{$i}}])
+				{{- end}}
+			{{- end}}
+		{{-  end }}
 }
 {{- end}}
 {{ end }}

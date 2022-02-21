@@ -3,8 +3,8 @@ package element
 const Base = `
 
 // /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular, 
-// there is no security guarantees such as constant time implementation 
+// this code has not been audited and is provided as-is. In particular,
+// there is no security guarantees such as constant time implementation
 // or side-channel attack resistance
 // /!\ WARNING /!\
 
@@ -18,12 +18,13 @@ import (
 	"strconv"
 	"errors"
 	"reflect"
+	"strings"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
 // {{.ElementName}} are assumed to be in Montgomery form in all methods
 // field modulus q =
-// 
+//
 // {{.Modulus}}
 type {{.ElementName}} [{{.NbWords}}]uint64
 
@@ -36,22 +37,29 @@ const Bits = {{.NbBits}}
 // Bytes number bytes needed to represent {{.ElementName}}
 const Bytes = Limbs * 8
 
-// field modulus stored as big.Int 
-var _modulus big.Int 
+// field modulus stored as big.Int
+var _modulus big.Int
 
 // Modulus returns q as a big.Int
-// q = 
-// 
+// q =
+//
 // {{.Modulus}}
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
 
 // q (modulus)
+{{- range $i := $.NbWordsIndexesFull}}
+const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+{{- end}}
+
 var q{{.ElementName}} = {{.ElementName}}{
-	{{- range $i := .NbWordsIndexesFull}}
-	{{index $.Q $i}},{{end}}
+	{{- range $i := $.NbWordsIndexesFull}}
+	q{{$.ElementName}}Word{{$i}},{{end}}
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 // rSquare
 var rSquare = {{.ElementName}}{
@@ -70,11 +78,38 @@ func init() {
 	_modulus.SetString("{{.Modulus}}", 10)
 }
 
+// New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
+//
+// it is equivalent to
+// 		var v New{{.ElementName}}
+// 		v.SetUint64(...)
+func New{{.ElementName}}(v uint64) {{.ElementName}} {
+	z := {{.ElementName}}{v}
+	z.Mul(&z, &rSquare)
+	return z
+}
 
-// SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
+
+// SetUint64 sets z to v and returns z
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
+	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = {{.ElementName}}{v}
 	return z.Mul(z, &rSquare) // z.ToMont()
+}
+
+// SetInt64 sets z to v and returns z
+func (z *{{.ElementName}}) SetInt64(v int64) *{{.ElementName}} {
+
+	// absolute value of v
+	m := v >> 63
+	z.SetUint64(uint64((v ^ m) - m))
+
+	if m != 0 {
+		// v is negative
+		z.Neg(z)
+	}
+
+	return z
 }
 
 // Set z = x
@@ -94,14 +129,36 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 	case {{.ElementName}}:
 		return z.Set(&c1), nil
 	case *{{.ElementName}}:
+		if c1 == nil {
+			return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} with <nil>")
+		}
 		return z.Set(c1), nil
+	case uint8:
+		return z.SetUint64(uint64(c1)), nil
+	case uint16:
+		return z.SetUint64(uint64(c1)), nil
+	case uint32:
+		return z.SetUint64(uint64(c1)), nil
+	case uint:
+		return z.SetUint64(uint64(c1)), nil
 	case uint64:
 		return z.SetUint64(c1), nil
+	case int8:
+		return z.SetInt64(int64(c1)), nil
+	case int16:
+		return z.SetInt64(int64(c1)), nil
+	case int32:
+		return z.SetInt64(int64(c1)), nil
+	case int64:
+		return z.SetInt64(c1), nil
 	case int:
-		return z.SetString(strconv.Itoa(c1)), nil
+		return z.SetInt64(int64(c1)), nil
 	case string:
 		return z.SetString(c1), nil
 	case *big.Int:
+		if c1 == nil {
+			return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} with <nil>")
+		}
 		return z.SetBigInt(c1), nil
 	case big.Int:
 		return z.SetBigInt(&c1), nil
@@ -129,7 +186,7 @@ func (z *{{.ElementName}}) SetOne() *{{.ElementName}} {
 }
 
 
-// Div z = x*y^-1 mod q 
+// Div z = x*y^-1 mod q
 func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var yInv {{.ElementName}}
 	yInv.Inverse( y)
@@ -138,7 +195,7 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= {{.NbWords}} {
@@ -147,9 +204,14 @@ func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
-	return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] == x[{{$i}}]) &&{{end}}(z[0] == x[0])
+	return z.NotEqual(x) == 0
+}
+
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) uint64 {
+return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
@@ -157,7 +219,7 @@ func (z *{{.ElementName}}) IsZero() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] | {{end}}z[0]) == 0
 }
 
-// IsUint64 returns true if z[0] >= 0 and all other words are 0
+// IsUint64 reports whether z can be represented as an uint64.
 func (z *{{.ElementName}}) IsUint64() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
 }
@@ -167,9 +229,9 @@ func (z *{{.ElementName}}) IsUint64() bool {
 //   -1 if z <  x
 //    0 if z == x
 //   +1 if z >  x
-// 
+//
 func (z *{{.ElementName}}) Cmp(x *{{.ElementName}}) int {
-	_z := *z 
+	_z := *z
 	_x := *x
 	_z.FromMont()
 	_x.FromMont()
@@ -187,9 +249,9 @@ func (z *{{.ElementName}}) Cmp(x *{{.ElementName}}) int {
 // larger than its negation, false otherwise
 func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 	// adapted from github.com/zkcrypto/bls12_381
-	// we check if the element is larger than (q-1) / 2 
+	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
-	
+
 	_z := *z
 	_z.FromMont()
 
@@ -213,13 +275,13 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	}
 	{{- range $i :=  .NbWordsIndexesFull}}
 		{{- $k := add $i 1}}
-		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}]) 
+		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
 	{{- end}}
 	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
 
 	{{ template "reduce" . }}
 
-	return z, nil 
+	return z, nil
 }
 
 // One returns 1 (in montgommery form)
@@ -229,18 +291,33 @@ func One() {{.ElementName}} {
 	return one
 }
 
+// Halve sets z to z / 2 (mod p)
+func (z *{{.ElementName}}) Halve()  {
+	{{- if .NoCarry}}
+		if z[0]&1 == 1 {
+			var carry uint64
+			{{ template "add_q" dict "all" . "V1" "z" }}
+		}
+		{{ rsh "z" .NbWords}}
+	{{ else}}
+		var twoInv {{.ElementName}}
+		twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
+		z.Mul(z, &twoInv)
+	{{end}}
+}
+
 
 // API with assembly impl
 
-// Mul z = x * y mod q 
-// see https://hackmd.io/@zkteam/modular_multiplication
+// Mul z = x * y mod q
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	mul(z, x, y)
 	return z
 }
 
 // Square z = x * x mod q
-// see https://hackmd.io/@zkteam/modular_multiplication
+// see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	mul(z,x, x)
 	return z
@@ -256,13 +333,13 @@ func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
 // Add z = x + y mod q
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	add(z, x, y)
-	return z 
+	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	double(z, x)
-	return z 
+	return z
 }
 
 
@@ -272,14 +349,21 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Neg z = q - x 
+// Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	neg(z, x)
 	return z
 }
 
-
-
+// Select is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
+	cC := uint64( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
+	{{- range $i := .NbWordsIndexesFull }}
+	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
+	{{- end}}
+	return z
+}
 
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
@@ -289,6 +373,11 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 	{{ else }}
 		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "NoReturn" true}}
 	{{ end }}
+	{{ template "reduce" . }}
+}
+
+func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
+	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
 	{{ template "reduce" . }}
 }
 
@@ -335,7 +424,7 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
-			return 
+			return
 		}
 	{{- end}}
 
@@ -364,7 +453,7 @@ func _doubleGeneric(z,  x *{{.ElementName}}) {
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
-			return 
+			return
 		}
 	{{- end}}
 
@@ -428,6 +517,9 @@ func mulByConstant(z *{{.ElementName}}, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y {{.ElementName}}
 		y.SetUint64(uint64(c))
@@ -485,5 +577,29 @@ func (z *{{.ElementName}}) BitLen() int {
 	{{- end}}
 	return bits.Len64(z[0])
 }
+
+{{ define "add_q" }}
+	// {{$.V1}} = {{$.V1}} + q 
+	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
+	{{- range $i := .all.NbWordsIndexesNoZero}}
+		{{- if eq $i $.all.NbWordsLastIndex}}
+			{{$.V1}}[{{$i}}], _ = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- else}}
+			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
+		{{- end}}
+	{{- end}}
+{{ end }}
+
+{{ define "rsh V nbWords" }}
+	// {{$.V}} = {{$.V}} >> 1
+	{{$lastIndex := sub .nbWords 1}}
+	{{- range $i :=  iterate .nbWords}}
+		{{- if ne $i $lastIndex}}
+			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
+		{{- end}}
+	{{- end}}
+	{{$.V}}[{{$lastIndex}}] >>= 1
+{{ end }}
+
 
 `
