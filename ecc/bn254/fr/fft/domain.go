@@ -94,7 +94,7 @@ func NewDomain(m uint64) *Domain {
 	// twiddle factors
 	domain.preComputeTwiddles()
 
-	// store the bit reversed coset tables if needed
+	// store the bit reversed coset tables
 	domain.reverseCosetTables()
 
 	return domain
