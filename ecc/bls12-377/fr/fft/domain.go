@@ -75,7 +75,6 @@ func NewDomain(m uint64) *Domain {
 
 	rootOfUnity.SetString("8065159656716812877374967518403273466521432693661810619979959746626482506078")
 	const maxOrderRoot uint64 = 47
-	domain.FrMultiplicativeGen.SetUint64(22)
 
 	domain.FrMultiplicativeGen.SetUint64(5)
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
@@ -84,9 +83,6 @@ func NewDomain(m uint64) *Domain {
 	logx := uint64(bits.TrailingZeros64(x))
 	if logx > maxOrderRoot {
 		panic(fmt.Sprintf("m (%d) is too big: the required root of unity does not exist", m))
-	}
-	if logx > maxOrderRoot {
-		panic("log(m) + cosets is too big: the required root of unity does not exist")
 	}
 
 	// Generator = FinerGenerator^2 has order x
