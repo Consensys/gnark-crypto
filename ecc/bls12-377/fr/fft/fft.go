@@ -40,19 +40,18 @@ const butterflyThreshold = 16
 // FFT computes (recursively) the discrete Fourier transform of a and stores the result in a
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
-// coset sets the shift of the fft (0 = no shift, standard fft)
-// len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
-//
-// example:
-// -------
-// domain := NewDomain(m, 2) -->  contains precomputed data for Z/mZ, and Z/4mZ
-// FFT(pol, DIT, 1) --> evaluates pol on the coset 1 in (Z/4mZ)/(Z/mZ)
-func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
+// if coset if set, the FFT(a) returns the evaluation of a on a coset.
+func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset ...bool) {
 
 	numCPU := uint64(runtime.NumCPU())
 
+	_coset := false
+	if len(coset) > 0 {
+		_coset = coset[0]
+	}
+
 	// if coset != 0, scale by coset table
-	if coset != 0 {
+	if _coset {
 		scale := func(cosetTable []fr.Element) {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
@@ -61,21 +60,10 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 			})
 		}
 		if decimation == DIT {
-			if domain.PrecomputeReversedTable == 0 {
-				// no precomputed coset, we adjust the index of the coset table
-				n := uint64(len(a))
-				nn := uint64(64 - bits.TrailingZeros64(n))
-				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						irev := bits.Reverse64(uint64(i)) >> nn
-						a[i].Mul(&a[i], &domain.CosetTable[coset-1][int(irev)])
-					}
-				})
-			} else {
-				scale(domain.CosetTableReversed[coset-1])
-			}
+			scale(domain.CosetTableReversed)
+
 		} else {
-			scale(domain.CosetTable[coset-1])
+			scale(domain.CosetTable)
 		}
 	}
 
@@ -101,9 +89,14 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset uint64) {
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
-func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset uint64) {
+func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ...bool) {
 
 	numCPU := uint64(runtime.NumCPU())
+
+	_coset := false
+	if len(coset) > 0 {
+		_coset = coset[0]
+	}
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -120,8 +113,8 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 		panic("not implemented")
 	}
 
-	// scale by CardinalityInv (+ cosetTableInv is coset!=0)
-	if coset == 0 {
+	// scale by CardinalityInv
+	if !_coset {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CardinalityInv)
@@ -139,26 +132,12 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ui
 		})
 	}
 	if decimation == DIT {
-		scale(domain.CosetTableInv[coset-1])
+		scale(domain.CosetTableInv)
 		return
 	}
 
 	// decimation == DIF
-	if domain.PrecomputeReversedTable != 0 {
-		scale(domain.CosetTableInvReversed[coset-1])
-		return
-	}
-
-	// no precomputed coset, we adjust the index of the coset table
-	n := uint64(len(a))
-	nn := uint64(64 - bits.TrailingZeros64(n))
-	parallel.Execute(len(a), func(start, end int) {
-		for i := start; i < end; i++ {
-			irev := bits.Reverse64(uint64(i)) >> nn
-			a[i].Mul(&a[i], &domain.CosetTableInv[coset-1][int(irev)]).
-				Mul(&a[i], &domain.CardinalityInv)
-		}
-	})
+	scale(domain.CosetTableInvReversed)
 
 }
 

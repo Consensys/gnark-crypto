@@ -97,7 +97,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	if _nbColumns < len(t[0]) {
 		_nbColumns = len(t[0])
 	}
-	d := fft.NewDomain(uint64(_nbColumns), 0, false)
+	d := fft.NewDomain(uint64(_nbColumns))
 	nbColumns := d.Cardinality
 	lfs := make([][]fr.Element, nbRows)
 	cfs := make([][]fr.Element, nbRows)
@@ -114,7 +114,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 			cfs[i][j] = f[i][len(f[i])-1]
 			lfs[i][j] = f[i][len(f[i])-1]
 		}
-		d.FFTInverse(cfs[i], fft.DIF, 0)
+		d.FFTInverse(cfs[i], fft.DIF)
 		fft.BitReverse(cfs[i])
 		proof.fs[i], err = kzg.Commit(cfs[i], srs)
 		if err != nil {
@@ -129,7 +129,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 			cts[i][j] = t[i][len(t[i])-1]
 			lts[i][j] = t[i][len(t[i])-1]
 		}
-		d.FFTInverse(cts[i], fft.DIF, 0)
+		d.FFTInverse(cts[i], fft.DIF)
 		fft.BitReverse(cts[i])
 		proof.ts[i], err = kzg.Commit(cts[i], srs)
 		if err != nil {

@@ -262,7 +262,7 @@ func (z *Element) Div(x, y *Element) *Element {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *Element) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= 12 {
@@ -271,9 +271,14 @@ func (z *Element) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return (z[11] == x[11]) && (z[10] == x[10]) && (z[9] == x[9]) && (z[8] == x[8]) && (z[7] == x[7]) && (z[6] == x[6]) && (z[5] == x[5]) && (z[4] == x[4]) && (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
+	return z.NotEqual(x) == 0
+}
+
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *Element) NotEqual(x *Element) uint64 {
+	return (z[11] ^ x[11]) | (z[10] ^ x[10]) | (z[9] ^ x[9]) | (z[8] ^ x[8]) | (z[7] ^ x[7]) | (z[6] ^ x[6]) | (z[5] ^ x[5]) | (z[4] ^ x[4]) | (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
@@ -517,6 +522,25 @@ func (z *Element) Sub(x, y *Element) *Element {
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
 	neg(z, x)
+	return z
+}
+
+// Select is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
+	cC := uint64((int64(c) | -int64(c)) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
+	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
+	z[1] = x0[1] ^ cC&(x0[1]^x1[1])
+	z[2] = x0[2] ^ cC&(x0[2]^x1[2])
+	z[3] = x0[3] ^ cC&(x0[3]^x1[3])
+	z[4] = x0[4] ^ cC&(x0[4]^x1[4])
+	z[5] = x0[5] ^ cC&(x0[5]^x1[5])
+	z[6] = x0[6] ^ cC&(x0[6]^x1[6])
+	z[7] = x0[7] ^ cC&(x0[7]^x1[7])
+	z[8] = x0[8] ^ cC&(x0[8]^x1[8])
+	z[9] = x0[9] ^ cC&(x0[9]^x1[9])
+	z[10] = x0[10] ^ cC&(x0[10]^x1[10])
+	z[11] = x0[11] ^ cC&(x0[11]^x1[11])
 	return z
 }
 
@@ -1506,6 +1530,9 @@ func mulByConstant(z *Element, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y Element
 		y.SetUint64(uint64(c))
@@ -1940,11 +1967,6 @@ const invIterationsN = 50
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
-	if x.IsZero() {
-		z.SetZero()
-		return z
-	}
-
 	a := *x
 	b := Element{
 		qElementWord0,
@@ -2665,4 +2687,19 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
+}
+
+func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	*z = dst
 }

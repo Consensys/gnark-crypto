@@ -8,6 +8,7 @@ var BN254 = Curve{
 	FpModulus:    "21888242871839275222246405745257275088696311157297823662689037894645226208583",
 	G1: Point{
 		CoordType:        "fp.Element",
+		CoordExtDegree:   1,
 		PointName:        "g1",
 		GLV:              true,
 		CofactorCleaning: false,
@@ -15,6 +16,7 @@ var BN254 = Curve{
 	},
 	G2: Point{
 		CoordType:        "fptower.E2",
+		CoordExtDegree:   2,
 		PointName:        "g2",
 		GLV:              true,
 		CofactorCleaning: true,

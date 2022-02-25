@@ -32,26 +32,21 @@ func Fuzz(data []byte) int {
     copy(p2, p1)
 
     // fft domain
-    nbCosets := uint64(uint8(data[0]) % 3)
-	domainWithPrecompute := NewDomain(paddedSize, nbCosets  , true)
-	domainWOPrecompute := NewDomain(paddedSize, nbCosets , false)
+	domainWithPrecompute := NewDomain(paddedSize)
+	domainWOPrecompute := NewDomain(paddedSize)
 
     // bitReverse(DIF FFT(DIT FFT (bitReverse))))==id
-    for i := uint64(0); i < nbCosets;i++ {
-        BitReverse(p1)
-        domainWithPrecompute.FFT(p1, DIT, i)
-        domainWOPrecompute.FFTInverse(p1, DIF,i)
-        BitReverse(p1)
+  	// bitReverse(DIF FFT(DIT FFT (bitReverse))))==id
+	BitReverse(p1)
+	domainWithPrecompute.FFT(p1, DIT, true)
+	domainWOPrecompute.FFTInverse(p1, DIF, true)
+	BitReverse(p1)
 
-        for i := 0; i < len(p1); i++ {
-            if !p1[i].Equal(&p2[i]) {
-                panic(fmt.Sprintf("bitReverse(DIF FFT(DIT FFT (bitReverse)))) != id, size %d", size) )
-            }
+    for i := 0; i < len(p1); i++ {
+        if !p1[i].Equal(&p2[i]) {
+            panic(fmt.Sprintf("bitReverse(DIF FFT(DIT FFT (bitReverse)))) != id, size %d", size) )
         }
     }
-    
-
- 
 
     return fuzzNormal
 }
