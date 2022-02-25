@@ -25,6 +25,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -38,6 +39,16 @@ import (
 // or be run multiple times to ensure it didn't measure the fastest path of the function
 
 var benchResElement Element
+
+func BenchmarkElementSelect(b *testing.B) {
+	var x, y Element
+	x.SetRandom()
+	y.SetRandom()
+
+	for i := 0; i < b.N; i++ {
+		benchResElement.Select(i%3, &x, &y)
+	}
+}
 
 func BenchmarkElementSetBytes(b *testing.B) {
 	var x Element
@@ -262,6 +273,18 @@ func TestElementIsRandom(t *testing.T) {
 	}
 }
 
+func TestElementNegZero(t *testing.T) {
+	var a, b Element
+	b.SetZero()
+	for a.IsZero() {
+		a.SetRandom()
+	}
+	a.Neg(&b)
+	if !a.IsZero() {
+		t.Fatal("neg(0) != 0")
+	}
+}
+
 // -------------------------------------------------------------------------------------------------
 // Gopter tests
 // most of them are generated with a template
@@ -310,18 +333,6 @@ func init() {
 
 }
 
-func TestElementNegZero(t *testing.T) {
-	var a, b Element
-	b.SetZero()
-	for a.IsZero() {
-		a.SetRandom()
-	}
-	a.Neg(&b)
-	if !a.IsZero() {
-		t.Fatal("neg(0) != 0")
-	}
-}
-
 func TestElementReduce(t *testing.T) {
 	testValues := make([]Element, len(staticTestValues))
 	copy(testValues, staticTestValues)
@@ -367,6 +378,38 @@ func TestElementReduce(t *testing.T) {
 
 }
 
+func TestElementEqual(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	genB := gen()
+
+	properties.Property("x.Equal(&y) iff x == y; likely false for random pairs", prop.ForAll(
+		func(a testPairElement, b testPairElement) bool {
+			return a.element.Equal(&b.element) == (a.element == b.element)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("x.Equal(&y) if x == y", prop.ForAll(
+		func(a testPairElement) bool {
+			b := a.element
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementBytes(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -379,7 +422,7 @@ func TestElementBytes(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property("SetBytes(Bytes()) should stayt constant", prop.ForAll(
+	properties.Property("SetBytes(Bytes()) should stay constant", prop.ForAll(
 		func(a testPairElement) bool {
 			var b Element
 			bytes := a.element.Bytes()
@@ -397,30 +440,31 @@ func TestElementInverseExp(t *testing.T) {
 	exp := Modulus()
 	exp.Sub(exp, new(big.Int).SetUint64(2))
 
+	invMatchExp := func(a testPairElement) bool {
+		var b Element
+		b.Set(&a.element)
+		a.element.Inverse(&a.element)
+		b.Exp(b, exp)
+
+		return a.element.Equal(&b)
+	}
+
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
 		parameters.MinSuccessfulTests = nbFuzz
 	}
-
 	properties := gopter.NewProperties(parameters)
-
 	genA := gen()
-
-	properties.Property("inv == exp^-2", prop.ForAll(
-		func(a testPairElement) bool {
-			var b Element
-			b.Set(&a.element)
-			a.element.Inverse(&a.element)
-			b.Exp(b, exp)
-
-			return a.element.Equal(&b)
-		},
-		genA,
-	))
-
+	properties.Property("inv == exp^-2", prop.ForAll(invMatchExp, genA))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	parameters.MinSuccessfulTests = 1
+	properties = gopter.NewProperties(parameters)
+	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
 		t.Log("disabling ADX")
@@ -1788,6 +1832,66 @@ func TestElementHalve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func combineSelectionArguments(c int64, z int8) int {
+	if z%3 == 0 {
+		return 0
+	}
+	return int(c)
+}
+
+func TestElementSelect(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := genFull()
+	genB := genFull()
+	genC := ggen.Int64() //the condition
+	genZ := ggen.Int8()  //to make zeros artificially more likely
+
+	properties.Property("Select: must select correctly", prop.ForAll(
+		func(a, b Element, cond int64, z int8) bool {
+			condC := combineSelectionArguments(cond, z)
+
+			var c Element
+			c.Select(condC, &a, &b)
+
+			if condC == 0 {
+				return c.Equal(&a)
+			}
+			return c.Equal(&b)
+		},
+		genA,
+		genB,
+		genC,
+		genZ,
+	))
+
+	properties.Property("Select: having the receiver as operand should output the same result", prop.ForAll(
+		func(a, b Element, cond int64, z int8) bool {
+			condC := combineSelectionArguments(cond, z)
+
+			var c, d Element
+			d.Set(&a)
+			c.Select(condC, &a, &b)
+			a.Select(condC, &a, &b)
+			b.Select(condC, &d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
+		},
+		genA,
+		genB,
+		genC,
+		genZ,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementSetInt64(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -2176,6 +2280,23 @@ func genFull() gopter.Gen {
 
 		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
+	}
+}
+
+// Some utils
+
+func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	var modulus big.Int
+	var aIntMod big.Int
+	modulus.SetInt64(1)
+	modulus.Lsh(&modulus, (Limbs+1)*64)
+	aIntMod.Mod(aInt, &modulus)
+
+	slice := append(z[:], aHi)
+
+	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -2617,44 +2738,6 @@ func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, result
 
 	result.assertMatchVeryBigInt(t, resultHi, &xInt)
 	return xInt
-}
-
-func assertMatch(t *testing.T, w []big.Word, a uint64, index int) {
-
-	var wI big.Word
-
-	if index < len(w) {
-		wI = w[index]
-	}
-
-	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
-
-	a = a >> ((index * bits.UintSize) % 64)
-	a &= filter
-
-	if uint64(wI) != a {
-		t.Error("Bignum mismatch: disagreement on word", index)
-	}
-}
-
-func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
-	var modulus big.Int
-	var aIntMod big.Int
-	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*64)
-	aIntMod.Mod(aInt, &modulus)
-
-	words := aIntMod.Bits()
-
-	const steps = 64 / bits.UintSize
-	for i := 0; i < Limbs*steps; i++ {
-		assertMatch(t, words, z[i/steps], i)
-	}
-
-	for i := 0; i < steps; i++ {
-		assertMatch(t, words, aHi, Limbs*steps+i)
-	}
 }
 
 func approximateRef(x *Element) uint64 {

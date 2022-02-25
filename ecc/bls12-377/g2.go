@@ -177,7 +177,7 @@ func (p *G2Jac) Neg(a *G2Jac) *G2Jac {
 	return p
 }
 
-// SubAssign substracts two points on the curve
+// SubAssign subtracts two points on the curve
 func (p *G2Jac) SubAssign(a *G2Jac) *G2Jac {
 	var tmp G2Jac
 	tmp.Set(a)

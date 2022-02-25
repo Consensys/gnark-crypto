@@ -56,24 +56,24 @@ var digestSize = []uint8{
 }
 
 // New creates the corresponding mimc hash function.
-func (m Hash) New(seed string) hash.Hash {
+func (m Hash) New() hash.Hash {
 	switch m {
 	case MIMC_BN254:
-		return bn254.NewMiMC(seed)
+		return bn254.NewMiMC()
 	case MIMC_BLS12_381:
-		return bls381.NewMiMC(seed)
+		return bls381.NewMiMC()
 	case MIMC_BLS12_377:
-		return bls377.NewMiMC(seed)
+		return bls377.NewMiMC()
 	case MIMC_BLS12_378:
-		return bls378.NewMiMC(seed)
+		return bls378.NewMiMC()
 	case MIMC_BW6_761:
-		return bw761.NewMiMC(seed)
+		return bw761.NewMiMC()
 	case MIMC_BLS24_315:
-		return bls315.NewMiMC(seed)
+		return bls315.NewMiMC()
 	case MIMC_BW6_633:
-		return bw633.NewMiMC(seed)
+		return bw633.NewMiMC()
 	case MIMC_BW6_756:
-		return bw756.NewMiMC(seed)
+		return bw756.NewMiMC()
 	default:
 		panic("Unknown mimc ID")
 	}

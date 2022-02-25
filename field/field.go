@@ -17,7 +17,9 @@ package field
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
@@ -302,4 +304,67 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 		b.Set(&riPlusOne)
 	}
 	qInv.Neg(qInv)
+}
+
+//HexToMont takes an element written in hex, and returns it in Montgomery form
+//Useful for hard-coding in implementation field elements from standards documents
+func (f *Field) HexToMont(hex string) big.Int {
+
+	var i big.Int
+	i.SetString(hex, 16)
+	f.IntToMont(&i)
+
+	return i
+}
+
+func (f *Field) IntToMont(i *big.Int) {
+	nbWords := f.ModulusBig.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
+	i.Lsh(i, uint(nbWords)*64)
+	i.Mod(i, f.ModulusBig)
+}
+
+func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *big.Int {
+	res.SetInt64(1)
+
+	for i := pow.BitLen() - 1; ; {
+
+		if pow.Bit(i) == 1 {
+			res.Mul(res, x)
+		}
+
+		if i == 0 {
+			break
+		}
+		i--
+
+		res.Mul(res, res).Mod(res, f.ModulusBig)
+	}
+
+	res.Mod(res, f.ModulusBig)
+	return res
+}
+
+func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
 }
