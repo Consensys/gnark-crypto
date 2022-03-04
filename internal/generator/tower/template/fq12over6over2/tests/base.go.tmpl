@@ -1,11 +1,11 @@
 {{ $TypeTitle := print "E" .TotalDegree}}
 {{ $CurveNameCaps := toUpper .Curve.Name}}
 
-import (
+/*import (
     "github.com/leanovate/gopter/prop"
     "github.com/leanovate/gopter"
     "testing"
-)
+)*/
 
 func Test{{$TypeTitle}}Div(t *testing.T) {
 
