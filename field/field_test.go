@@ -77,52 +77,6 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-/*
-func TestQuadExtensionSqrt(t *testing.T) {
-	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
-	properties := gopter.NewProperties(parameters)
-	genF := genField(t)
-
-	runs := 0
-	qrDetected := 0
-
-	properties.Property("computed square roots must square back to original value", prop.ForAll(
-		func(base *Field, ib [][]uint8) (bool, error) {
-			runs++
-
-			var nonRes big.Int
-			base.FromMont(&nonRes, &base.NonResidue)
-			if !nonRes.IsInt64() {
-				return false, fmt.Errorf("non-residue too large: %v", nonRes)
-			}
-
-			f := NewTower(base, 2, base.NonResidue.Int64()) //TODO: Derive extension generator from field generator
-
-			i := uint8SliceSliceToBigIntSlice(&f, ib)
-
-			if z := f.Sqrt(i); z != nil {
-				qrDetected++
-				z = f.Mul(z, z)
-				return f.Equal(i, z), nil
-			}
-			return true, nil
-		}, genF, genUint8SliceSlice(2)))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
-	// Hypothesis testing: too many or too few qr detected?
-	// Y: ratio of qr observed; mean of independent 50/50 bernoulli trials
-
-	yObservedDev := float64(qrDetected)/float64(runs) - 0.5
-	yStdDevInv := math.Sqrt(float64(2 * runs))
-	yDev := yObservedDev * yStdDevInv
-	t.Logf("%f of observations decided as QR, off by %f standard deviatios from the expected 50%%.", yObservedDev, yDev)
-	if yDev > 3.0 ∥ yDev < -3.0 {
-		t.Error("Hypothesis test failed. The probability of this happening to correct code is 0.27%, less than one in 370.")
-	}
-}*/
-
 func TestQuadExtensionMul(t *testing.T) {
 
 	verifyMul := func(base *Field, x8Slice [][]uint8, y8Slice [][]uint8) (bool, error) {
