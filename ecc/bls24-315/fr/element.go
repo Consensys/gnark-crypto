@@ -238,6 +238,11 @@ func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
+// IsOne returns z == 1
+func (z *Element) IsOne() bool {
+	return (z[3] ^ 122956637648958544 | z[2] ^ 9521467359714817544 | z[1] ^ 2905656009828539926 | z[0] ^ 18291444782079148022) == 0
+}
+
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
 	return (z[3] | z[2] | z[1]) == 0
@@ -1115,6 +1120,7 @@ const invIterationsN = 18
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
+
 	a := *x
 	b := Element{
 		qElementWord0,
@@ -1483,19 +1489,4 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
-}
-
-func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
-	dst := coefficients[len(coefficients)-1]
-
-	if monic {
-		dst.Add(&dst, x)
-	}
-
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
-	}
-
-	*z = dst
 }
