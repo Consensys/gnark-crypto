@@ -1,3 +1,5 @@
+{{ define "base" }}
+
 {{ $TypeTitle := print "E" .TotalDegree}}
 func (z *{{$TypeTitle}}) Select(cond int, caseZ *{{$TypeTitle}}, caseNz *{{$TypeTitle}}) *{{$TypeTitle}}{
 	//Might be able to save a nanosecond or two by an aggregate implementation
@@ -12,3 +14,5 @@ func (z *{{$TypeTitle}}) Div(x *{{$TypeTitle}}, y *{{$TypeTitle}}) *{{$TypeTitle
 	r.Inverse(y).Mul(x, &r)
 	return z.Set(&r)
 }
+
+{{ end }}

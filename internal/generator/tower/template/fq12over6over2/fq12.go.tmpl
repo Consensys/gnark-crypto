@@ -538,3 +538,5 @@ func (z *E12) IsInSubGroup() bool {
 {{define "readFp"}}
 	{{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
 {{end}}
+
+{{ template "base" .}}

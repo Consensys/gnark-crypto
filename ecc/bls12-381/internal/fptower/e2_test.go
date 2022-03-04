@@ -515,3 +515,25 @@ func BenchmarkE2Conjugate(b *testing.B) {
 		a.Conjugate(&a)
 	}
 }
+
+func TestE2Div(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE2()
+	genB := GenE2()
+
+	properties.Property("[BLS12-381] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E2) bool {
+			var c E2
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}

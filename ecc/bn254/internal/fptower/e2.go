@@ -261,3 +261,18 @@ func BatchInvert(a []E2) []E2 {
 
 	return res
 }
+
+func (z *E2) Select(cond int, caseZ *E2, caseNz *E2) *E2 {
+	//Might be able to save a nanosecond or two by an aggregate implementation
+
+	z.A0.Select(cond, &caseZ.A0, &caseNz.A0)
+	z.A1.Select(cond, &caseZ.A1, &caseNz.A1)
+
+	return z
+}
+
+func (z *E2) Div(x *E2, y *E2) *E2 {
+	var r E2
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
+}

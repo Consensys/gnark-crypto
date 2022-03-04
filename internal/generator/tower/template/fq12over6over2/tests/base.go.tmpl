@@ -1,3 +1,5 @@
+{{define "base"}}
+
 {{ $TypeTitle := print "E" .TotalDegree}}
 {{ $CurveNameCaps := toUpper .Curve.Name}}
 
@@ -22,3 +24,5 @@ func Test{{$TypeTitle}}Div(t *testing.T) {
 
     properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+{{end}}
