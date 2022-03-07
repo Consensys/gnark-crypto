@@ -80,7 +80,6 @@ func NewDomain(m uint64) *Domain {
         domain.FrMultiplicativeGen.SetUint64(7)
 	{{end}}
 
-	domain.FrMultiplicativeGen.SetUint64(5)
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 
 	// find generator for Z/2^(log(m))Z
@@ -241,6 +240,6 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	// store the bit reversed coset tables if needed
 	d.reverseCosetTables()
-	
+
 	return dec.BytesRead(), nil
 }
