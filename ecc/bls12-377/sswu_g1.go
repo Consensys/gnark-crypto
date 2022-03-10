@@ -92,7 +92,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
 	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
 
-	tv1 := fp.Element{1558150277696978216, 2889962898601943991, 2027733260451875201, 1491536148589418669, 4860991584141488473, 78837656424301472} //tv1 = c6
+	tv1 := fp.Element{7563926049028936178, 2688164645460651601, 12112688591437172399, 3177973240564633687, 14764383749841851163, 52487407124055189} //tv1 = c6
 
 	var tv2, tv3, tv4, tv5 fp.Element
 	var exp big.Int
@@ -123,7 +123,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
 	isQNr := g1NotOne(&tv5)
 
-	tv2.Mul(&tv3, &fp.Element{9851577832091164681, 11031556238464483940, 10838960500261981046, 11853033281081062456, 6403263430752281921, 18823706241905246})
+	tv2.Mul(&tv3, &fp.Element{13262060633605929793, 16269117706405780335, 1787999441809606207, 11078968899094441280, 17534011895423012165, 96686002316065324})
 	tv5.Mul(&tv4, &tv1)
 
 	// line 15
@@ -153,17 +153,21 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 }
 
 /*
-// g1SetZ sets z to [2].
+// g1SetZ sets z to [5].
 func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 404198066556501712, 11709709805437321058, 4538334656037814244, 17770411857874044427, 11090443381845330384, 79601084644714804 } )
+    z.Set( &fp.Element  { 9871116327010172167, 9167007004823125620, 18338974479346628539, 5649234265355377548, 13442091487463296847, 77904398905292312 } )
 }*/
 
-// g1MulByZ multiplies x by [2] and stores the result in z
+// g1MulByZ multiplies x by [5] and stores the result in z
 func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	res := *x
 
 	res.Double(&res)
+
+	res.Double(&res)
+
+	res.Add(&res, x)
 
 	*z = res
 }
@@ -191,7 +195,7 @@ func g1SswuMap(u *fp.Element) G1Affine {
 	tv2NZero := g1NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = fp.Element{404198066556501712, 11709709805437321058, 4538334656037814244, 17770411857874044427, 11090443381845330384, 79601084644714804}
+	tv4 = fp.Element{9871116327010172167, 9167007004823125620, 18338974479346628539, 5649234265355377548, 13442091487463296847, 77904398905292312}
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)

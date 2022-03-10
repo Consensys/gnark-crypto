@@ -26,7 +26,7 @@ var BLS12_377 = Curve{
 	HashE1: &HashSuite{
 		A: []string{"0x1ae3a4617c510ea34b3c4687866d1616212919cefb9b37e860f40fde03873fc0a0bf847bffffff8b9857ffffffffff2"},
 		B: []string{"0x16"},
-		Z: []int{2},
+		Z: []int{5},
 		Isogeny: &Isogeny{
 			XMap: RationalPolynomial{
 				Num: [][]string{
