@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -44,8 +43,8 @@ func convert(_p, _n int) (_u, _v big.Int) {
 	return
 }
 
-func randomPolynomial(size uint64, seed int32) polynomial.Polynomial {
-	p := polynomial.New(size)
+func randomPolynomial(size uint64, seed int32) []fr.Element {
+	p := make([]fr.Element, size)
 	p[0].SetUint64(uint64(seed))
 	for i := 1; i < len(p); i++ {
 		p[i].Square(&p[i-1])
@@ -162,7 +161,7 @@ func BenchmarkProximityVerification(b *testing.B) {
 	for i := 0; i < 10; i++ {
 
 		size := baseSize << i
-		p := polynomial.New(uint64(size))
+		p := make([]fr.Element, size)
 		for k := 0; k < size; k++ {
 			p[k].SetRandom()
 		}
@@ -178,5 +177,4 @@ func BenchmarkProximityVerification(b *testing.B) {
 		})
 
 	}
-
 }

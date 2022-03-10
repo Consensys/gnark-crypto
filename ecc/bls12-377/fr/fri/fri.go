@@ -27,7 +27,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -53,7 +52,7 @@ type Iopp interface {
 
 	// BuildProofOfProximity creates a proof of proximity that p is d-close to a polynomial
 	// of degree len(p). The proof is built non interactively using Fiat Shamir.
-	BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProximity, error)
+	BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error)
 
 	// VerifyProofOfProximity verifies the proof of proximity. It returns an error if the
 	// verification fails.
@@ -191,8 +190,8 @@ func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 
 // sort orders the evaluation of a polynomial on a domain
 // such that contiguous entries are in the same fiber.
-func sort(evaluations polynomial.Polynomial) polynomial.Polynomial {
-	q := polynomial.New(uint64(len(evaluations)))
+func sort(evaluations []fr.Element) []fr.Element {
+	q := make([]fr.Element, len(evaluations))
 	n := len(evaluations) / 2
 	for i := 0; i < len(evaluations)/2; i++ {
 		q[2*i].Set(&evaluations[i])
@@ -203,10 +202,10 @@ func sort(evaluations polynomial.Polynomial) polynomial.Polynomial {
 
 // BuildProofOfProximity generates a proof that a function, given as an oracle from
 // the verifier point of view, is in fact d-close to a polynomial.
-func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProximity, error) {
+func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error) {
 
 	extendedSize := int(s.domains[0].Cardinality)
-	_p := polynomial.New(uint64(extendedSize))
+	_p := make([]fr.Element, extendedSize)
 	copy(_p, p)
 
 	// the proof will contain nbSteps interactions
@@ -255,7 +254,7 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 		fft.BitReverse(_p)
 
 		// fold _p
-		fp := polynomial.New(uint64(len(_p) / 2))
+		fp := make([]fr.Element, len(_p)/2)
 		for k := 0; k < len(_p)/2; k++ {
 			fp[k].Mul(&_p[2*k+1], &xi)
 			fp[k].Add(&fp[k], &_p[2*k])
@@ -269,7 +268,7 @@ func (s radixTwoFri) BuildProofOfProximity(p polynomial.Polynomial) (ProofOfProx
 	var g fr.Element
 	g.SetOne()
 	for i := 0; i < rho; i++ {
-		e := _p.Eval(&g)
+		e := eval(_p, g)
 		proof.evaluation[i].Set(&e)
 		g.Mul(&g, &s.domains[s.nbSteps-1].Generator)
 	}
@@ -475,4 +474,12 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	}
 
 	return nil
+}
+
+func eval(p []fr.Element, x fr.Element) fr.Element {
+	var res fr.Element
+	for i := len(p) - 1; i >= 0; i-- {
+		res.Mul(&res, &x).Add(&res, &p[i])
+	}
+	return res
 }
