@@ -327,6 +327,7 @@ func init() {
 		staticTestValues = append(staticTestValues, a)
 	}
 
+	qMinusTwo = big.NewInt(0) //turn off fallback for Inverse
 }
 
 func TestElementReduce(t *testing.T) {
@@ -2651,14 +2652,14 @@ func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 	montReduce(&p1, &p1)
 
 	var z Element
-	z.linearCombSosSigned(x, xC, y, yC)
+	z.linearComb(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
 }
 
 func testBigNumWMul(t *testing.T, a *Element, c int64) {
 	var aHi uint64
 	var aTimes Element
-	aHi = aTimes.mulWRegular(a, c)
+	aHi = aTimes.mulWNonModular(a, c)
 
 	assertMulProduct(t, a, c, &aTimes, aHi)
 }

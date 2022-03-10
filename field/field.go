@@ -330,8 +330,7 @@ func (f *Field) StringToMont(str string) big.Int {
 }
 
 func (f *Field) ToMont(mont *big.Int, nonMont *big.Int) *Field {
-	nbWords := f.ModulusBig.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
-	mont.Lsh(nonMont, uint(nbWords)*64)
+	mont.Lsh(nonMont, uint(f.NbWords)*64)
 	mont.Mod(mont, f.ModulusBig)
 	return f
 }
