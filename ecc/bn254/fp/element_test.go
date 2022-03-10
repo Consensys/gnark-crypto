@@ -98,6 +98,45 @@ func BenchmarkElementInverse(b *testing.B) {
 
 }
 
+func BenchmarkMontReduce(b *testing.B) {
+	var x Element
+	xHiBase := mrand.Uint64()
+	x.SetRandom()
+	benchResElement.SetRandom()
+
+	b.Run("oldPositive", func(b *testing.B) {
+		xHi := xHiBase & ^signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSignedOld(&x, xHi)
+		}
+	})
+
+	b.Run("newPositive", func(b *testing.B) {
+		xHi := xHiBase & ^signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSigned(&x, xHi)
+		}
+	})
+
+	b.Run("oldNegative", func(b *testing.B) {
+		xHi := xHiBase | signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSignedOld(&x, xHi)
+		}
+	})
+
+	b.Run("newNegative", func(b *testing.B) {
+		xHi := xHiBase | signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSigned(&x, xHi)
+		}
+	})
+}
+
 func BenchmarkElementButterfly(b *testing.B) {
 	var x Element
 	x.SetRandom()

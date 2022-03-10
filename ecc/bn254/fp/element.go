@@ -1265,7 +1265,7 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 // TODO: This would have an API simplicity benefit since montReduce(x) is just FromMont
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
-func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+func (z *Element) montReduceSignedOld(x *Element, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
@@ -1345,6 +1345,54 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[3], b = bits.Sub64(z[3], 0, b)
 
 		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+		if b != 0 {
+			// z[3] = -1
+			// negative: add q
+			const neg1 = 0xFFFFFFFFFFFFFFFF
+
+			b = 0
+			z[0], b = bits.Add64(z[0], qElementWord0, b)
+			z[1], b = bits.Add64(z[1], qElementWord1, b)
+			z[2], b = bits.Add64(z[2], qElementWord2, b)
+			z[3], _ = bits.Add64(neg1, qElementWord3, b)
+		}
+	}
+}
+
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+
+	*z = *x
+	z.FromMont() // z = x r⁻¹
+
+	if pos := xHi&signBitSelector == 0; pos {
+
+		// (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
+		var c uint64
+		z[0], c = bits.Add64(z[0], xHi, 0)
+		z[1], c = bits.Add64(z[1], 0, c)
+		z[2], c = bits.Add64(z[2], 0, c)
+		z[3], _ = bits.Add64(z[3], 0, c)
+
+		// if z > q → z -= q
+		// note: this is NOT constant time
+		if !(z[3] < 3486998266802970665 || (z[3] == 3486998266802970665 && (z[2] < 13281191951274694749 || (z[2] == 13281191951274694749 && (z[1] < 10917124144477883021 || (z[1] == 10917124144477883021 && (z[0] < 4332616871279656263))))))) {
+			var b uint64
+			z[0], b = bits.Sub64(z[0], 4332616871279656263, 0)
+			z[1], b = bits.Sub64(z[1], 10917124144477883021, b)
+			z[2], b = bits.Sub64(z[2], 13281191951274694749, b)
+			z[3], _ = bits.Sub64(z[3], 3486998266802970665, b)
+		}
+
+	} else {
+		// The real input value is xHi r + x - 2⁶⁴r
+		// So the desired output is xr⁻¹ - (2⁶⁴ - xHi)
+		// Since xHi != 0, 2⁶⁴ - xHi is at most 64 bits
+		var b uint64
+		z[0], b = bits.Sub64(z[0], -xHi, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+
 		if b != 0 {
 			// z[3] = -1
 			// negative: add q
