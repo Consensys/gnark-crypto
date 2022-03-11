@@ -301,10 +301,3 @@ func g2NotZero(x *fp.Element) uint64 {
 	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5] | x[6] | x[7] | x[8] | x[9]
 
 }
-
-func g2NotOne(x *fp.Element) uint64 {
-
-	var one fp.Element
-	return one.SetOne().NotEqual(x)
-
-}

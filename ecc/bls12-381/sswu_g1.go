@@ -333,10 +333,3 @@ func g1NotZero(x *fp.Element) uint64 {
 	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5]
 
 }
-
-func g1NotOne(x *fp.Element) uint64 {
-
-	var one fp.Element
-	return one.SetOne().NotEqual(x)
-
-}
