@@ -250,6 +250,13 @@ func (z *Element) IsUint64() bool {
 	return zz.FitsOnOneWord()
 }
 
+// Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
+func (z *Element) Uint64() uint64 {
+	zz := *z
+	zz.FromMont()
+	return zz[0]
+}
+
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
 func (z *Element) FitsOnOneWord() bool {
 	return (z[3] | z[2] | z[1]) == 0
