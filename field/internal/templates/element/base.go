@@ -226,6 +226,13 @@ func (z *{{.ElementName}}) IsOne() bool {
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *{{.ElementName}}) IsUint64() bool {
+	zz := *z
+	zz.FromMont()
+	return zz.FitsOnOneWord()
+}
+
+// FitsOnOneWord reports whether z words (except the least significant word) are 0
+func (z *{{.ElementName}}) FitsOnOneWord() bool {
 	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
 }
 

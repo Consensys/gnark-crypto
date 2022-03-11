@@ -245,6 +245,13 @@ func (z *Element) IsOne() bool {
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
+	zz := *z
+	zz.FromMont()
+	return zz.FitsOnOneWord()
+}
+
+// FitsOnOneWord reports whether z words (except the least significant word) are 0
+func (z *Element) FitsOnOneWord() bool {
 	return (z[3] | z[2] | z[1]) == 0
 }
 
@@ -794,13 +801,13 @@ func (z *Element) Text(base int) string {
 	}
 	zz := *z
 	zz.FromMont()
-	if zz.IsUint64() {
+	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	} else if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
-		if zzNeg.IsUint64() {
+		if zzNeg.FitsOnOneWord() {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}

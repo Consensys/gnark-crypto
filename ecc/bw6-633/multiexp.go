@@ -95,7 +95,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 			if scalarsMont {
 				scalar.FromMont()
 			}
-			if scalar.IsUint64() {
+			if scalar.FitsOnOneWord() {
 				// everything is 0, no need to process this scalar
 				if scalar[0] == 0 {
 					continue

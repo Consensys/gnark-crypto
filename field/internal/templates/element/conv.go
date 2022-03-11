@@ -34,13 +34,13 @@ func (z *{{.ElementName}}) Text(base int) string {
 	}
 	zz := *z
 	zz.FromMont()
-	if zz.IsUint64() {
+	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	} else if base == 10 {
 		var zzNeg {{.ElementName}}
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
-		if zzNeg.IsUint64() {
+		if zzNeg.FitsOnOneWord() {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
