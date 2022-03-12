@@ -204,7 +204,8 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 func g2NotOne(x *fptower.E2) uint64 {
 
 	//Assuming hash is implemented for G1 and that the curve is over Fp
-	return g1NotOne(&x.A0) | g1NotZero(&x.A1)
+	var one fp.Element
+	return one.SetOne().NotEqual(&x.A0) | g1NotZero(&x.A1)
 
 }
 

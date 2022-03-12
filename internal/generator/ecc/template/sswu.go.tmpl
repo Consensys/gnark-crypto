@@ -258,7 +258,8 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
 		return one.SetOne().NotEqual(x)
     {{else}}
         //Assuming hash is implemented for G1 and that the curve is over Fp
-        return g1NotOne(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+	    var one fp.Element
+        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
     {{end}}
 }
 {{ end }}
