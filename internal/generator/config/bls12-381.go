@@ -101,7 +101,7 @@ var BLS12_381 = Curve{
 	// 3-isogeny
 	HashE2: &HashSuite{
 		A: []string{"0", "240"},     // A = 240 * I
-		B: []string{"1012", "1012"}, // B = 1012 * I
+		B: []string{"1012", "1012"}, // B = 1012 * (I+1)
 		Z: []int{-2, -1},            // Z = -(2+I)
 		Isogeny: &Isogeny{
 			XMap: RationalPolynomial{
