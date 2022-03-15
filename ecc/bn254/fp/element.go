@@ -1134,8 +1134,6 @@ func (z *Element) Inverse(x *Element) *Element {
 		var g0 int64
 		// from this point on c0 aliases for f0
 		c0, g0 = updateFactorsDecompose(c0)
-		// -2³¹ < f0, g0 ≤ 2³¹ TODO: USELESS
-		// 0 ≤ a, b < 2²⁵⁵ ⇒ -2³¹⁹ + 1 < -2²⁸⁶ < f₀a + g₀b < 2²⁸⁷ < 2³¹⁹ TODO: USELESS
 		aHi := a.linearCombNonModular(&s, c0, &b, g0)
 		if aHi&signBitSelector != 0 {
 			// if aHi < 0
@@ -1151,7 +1149,6 @@ func (z *Element) Inverse(x *Element) *Element {
 		var f1 int64
 		// from this point on c1 aliases for g0
 		f1, c1 = updateFactorsDecompose(c1)
-		// -2³¹⁹ + 1 < f₁a + g₁b < TODO: USELESS
 		bHi := b.linearCombNonModular(&s, f1, &b, c1)
 		if bHi&signBitSelector != 0 {
 			// if bHi < 0
@@ -1191,9 +1188,9 @@ func (z *Element) Inverse(x *Element) *Element {
 		}
 	}
 
-	// For every iteration that we miss, v is not being multiplied by 2ᵏ⁻¹
+	// For every iteration that we miss, v is not being multiplied by 2ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
-	// If the function is constant-time ish, this loop will not run (no real need to take it out explicitly)
+	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
 		v.mulWSigned(&v, pSq)
 	}
@@ -1253,25 +1250,24 @@ func approximate(x *Element, nBits int) uint64 {
 }
 
 // linearComb z = xC * x + yC * y;
-// 0 ≤ x, y < 2²⁵⁵
+// 0 ≤ x, y < 2²⁵⁴
 // |xC|, |yC| < 2⁶³
 func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
-	// | (hi, z) | < 2 * 2⁶³ * 2²⁵⁵ = 2³¹⁹
+	// | (hi, z) | < 2 * 2⁶³ * 2²⁵⁴ = 2³¹⁸
+	// therefore | hi | < 2⁶² ≤ 2⁶³
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.montReduceSigned(z, hi)
 }
 
-// TODO: Can this be replaced by montReduce(x) + xHi, the addition done in the field? Would that be less efficient?
-// TODO: This would have an API simplicity benefit since montReduce(x) is just FromMont
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
-func (z *Element) montReduceSignedOld(x *Element, xHi uint64) {
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
-	// If X is negative we would have initially stored it as 2⁶⁴ r + X
+	// If X is negative we would have initially stored it as 2⁶⁴ r + X (à la 2's complement)
 	xHi &= signBitRemover
 	// with this a negative X is now represented as 2⁶³ r + X
 
@@ -1345,6 +1341,7 @@ func (z *Element) montReduceSignedOld(x *Element, xHi uint64) {
 		z[3], b = bits.Sub64(z[3], 0, b)
 
 		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
+
 		if b != 0 {
 			// z[3] = -1
 			// negative: add q
@@ -1359,7 +1356,7 @@ func (z *Element) montReduceSignedOld(x *Element, xHi uint64) {
 	}
 }
 
-func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
 
 	*z = *x
 	z.FromMont() // z = x r⁻¹

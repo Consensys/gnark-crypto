@@ -4,6 +4,45 @@ const InverseTests = `
 
 {{if eq .NoCarry true}}
 
+func BenchmarkMontReduce(b *testing.B) {
+	       var x Element
+	       xHiBase := mrand.Uint64()
+	       x.SetRandom()
+	       benchResElement.SetRandom()
+	
+	       b.Run("oldPositive", func(b *testing.B) {
+	               xHi := xHiBase & ^signBitSelector
+	               b.ResetTimer()
+	               for i := 0; i < b.N; i++ {
+	                       benchResElement.montReduceSigned(&x, xHi)
+	               }
+	       })
+	
+	       b.Run("newPositive", func(b *testing.B) {
+	               xHi := xHiBase & ^signBitSelector
+	               b.ResetTimer()
+	               for i := 0; i < b.N; i++ {
+	                       benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+	               }
+	       })
+	
+	       b.Run("oldNegative", func(b *testing.B) {
+	               xHi := xHiBase | signBitSelector
+	               b.ResetTimer()
+	               for i := 0; i < b.N; i++ {
+	                       benchResElement.montReduceSigned(&x, xHi)
+	               }
+	       })
+	
+	       b.Run("newNegative", func(b *testing.B) {
+	               xHi := xHiBase | signBitSelector
+	               b.ResetTimer()
+	               for i := 0; i < b.N; i++ {
+	                       benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+	               }
+	       })
+	}
+
 func Test{{.ElementName}}InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}
 	for i := 0; i < 1000; i++ {
@@ -122,30 +161,126 @@ func Test{{.ElementName}}VeryBigIntConversion(t *testing.T) {
 	x.assertMatchVeryBigInt(t, xHi, &xInt)
 }
 
-func Test{{.ElementName}}MontReducePos(t *testing.T) {
-	var x {{.ElementName}}
+type veryBigInt struct {
+	asInt big.Int
+	low {{.ElementName}}
+	hi uint64
+}
 
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		testMontReduceSigned(t, &x, mrand.Uint64() & ^signBitSelector)
+// genVeryBigIntSigned if sign == 0, no sign is forced
+func genVeryBigIntSigned(sign int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var g veryBigInt
+
+		g.low = {{.ElementName}}{
+			{{- range $i := .NbWordsIndexesFull}}
+			genParams.NextUint64(),
+			{{- end}}
+		}
+
+		g.hi = genParams.NextUint64()
+
+		if sign < 0 {
+			g.hi |= signBitSelector
+		} else if sign > 0 {
+			g.hi &= ^signBitSelector
+		}
+
+		g.low.toVeryBigIntUnsigned(&g.asInt, g.hi)
+
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
 	}
 }
 
-func Test{{.ElementName}}MontReduceNeg(t *testing.T) {
-	var x {{.ElementName}}
+func Test{{.ElementName}}MontReduce(t *testing.T) {
 
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		testMontReduceSigned(t, &x, mrand.Uint64() | signBitSelector)
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := genVeryBigIntSigned(0)
+
+	properties.Property("Montgomery reduction is correct", prop.ForAll(
+		func(g veryBigInt) bool {
+			var res {{.ElementName}}
+			var resInt big.Int
+
+			montReduce(&resInt, &g.asInt)
+			res.montReduceSigned(&g.low, g.hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.Property("New montgomery reduction is correct", prop.ForAll(
+		func(g veryBigInt) bool {
+			var res {{.ElementName}}
+			var resInt big.Int
+
+			montReduce(&resInt, &g.asInt)
+			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func Test{{.ElementName}}MontNegMultipleOfR(t *testing.T) {
-	var zero {{.ElementName}}
+func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
 
-	for i := 0; i < 1000; i++ {
-		testMontReduceSigned(t, &zero, mrand.Uint64() | signBitSelector)
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := ggen.UInt64()
+
+	properties.Property("Montgomery reduction is correct", prop.ForAll(
+		func(hi uint64) bool {
+			var zero, res {{.ElementName}}
+			var asInt, resInt big.Int
+
+			asInt.SetUint64(hi)
+			asInt.Lsh(&asInt, Limbs * 64)
+
+			montReduce(&resInt, &asInt)
+			res.montReduceSigned(&zero, hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.Property("New montgomery reduction is correct", prop.ForAll(
+		func(hi uint64) bool {
+			var zero, res {{.ElementName}}
+			var asInt, resInt big.Int
+
+			asInt.SetUint64(hi)
+			asInt.Lsh(&asInt, Limbs * 64)
+
+			montReduce(&resInt, &asInt)
+			res.montReduceSignedSimpleButSlow(&zero, hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func Test{{.ElementName}}0Inverse(t *testing.T) {
@@ -381,27 +516,16 @@ func testLinearComb(t *testing.T, x *{{.ElementName}}, xC int64, y *{{.ElementNa
 	montReduce(&p1, &p1)
 
 	var z {{.ElementName}}
-	z.linearCombSosSigned(x, xC, y, yC)
+	z.linearComb(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
 }
-
 
 func testBigNumWMul(t *testing.T, a *{{.ElementName}}, c int64) {
 	var aHi uint64
 	var aTimes {{.ElementName}}
-	aHi = aTimes.mulWRegular(a, c)
+	aHi = aTimes.mulWNonModular(a, c)
 
 	assertMulProduct(t, a, c, &aTimes, aHi)
-}
-
-func testMontReduceSigned(t *testing.T, x *{{.ElementName}}, xHi uint64) {
-	var res {{.ElementName}}
-	var xInt big.Int
-	var resInt big.Int
-	x.toVeryBigIntSigned(&xInt, xHi)
-	res.montReduceSigned(x, xHi)
-	montReduce(&resInt, &xInt)
-	res.assertMatchVeryBigInt(t, 0, &resInt)
 }
 
 func updateFactorsCompose(f int64, g int64) int64 {

@@ -2,8 +2,24 @@ package element
 
 const Inverse = `
 
+{{ define "addQ" }}
+if b != 0 {
+	// z[{{.NbWordsLastIndex}}] = -1
+	// negative: add q
+	const neg1 = 0xFFFFFFFFFFFFFFFF
+
+	b = 0
+	{{- range $i := .NbWordsIndexesNoLast}}
+	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
+	{{- end}}
+	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
+}
+{{- end}}
+{{$elementCapacityNbBits := mul .NbWords 64}}
+{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+
 {{/* We use big.Int for Inverse for these type of moduli */}}
-{{if eq .NoCarry false}}
+{{if not $UsingP20Inverse}}
 
 // Inverse z = x⁻¹ mod q 
 // note: allocates a big.Int (math/big)
@@ -244,25 +260,25 @@ func approximate(x *{{.ElementName}}, nBits int) uint64 {
 	return lo | mid | hi
 }
 
-{{$Capacity := sub (mul .NbWords 64) 1}}
 // linearComb z = xC * x + yC * y;
-// 0 ≤ x, y < 2^{{$Capacity}}
+// 0 ≤ x, y < 2{{supScr .NbBits}}
 // |xC|, |yC| < 2⁶³
 func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
-    // | (hi, z) | < 2 * 2⁶³ * 2^{{.NbBits}} = 2³¹⁹
+    // | (hi, z) | < 2 * 2⁶³ * 2{{supScr .NbBits}} = 2{{supScr (add 64 .NbBits)}}
+	// therefore | hi | < 2{{supScr (sub (add 64 .NbBits) $elementCapacityNbBits)}} ≤ 2⁶³
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.montReduceSigned(z, hi)
 }
 
--// montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
--// Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
--func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+// montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
+// Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
+func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
-	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
+	// If X is negative we would have initially stored it as 2⁶⁴ r + X (à la 2's complement)
 	xHi &= signBitRemover
 	// with this a negative X is now represented as 2⁶³ r + X
 
@@ -276,13 +292,14 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}Word{{$i}}, x[{{$i}}], C)
 	{{- end}}
 
-	// the high word of m * q{{.ElementName}}[{{.NbWordsLastIndex}}] is at most 62 bits
-	// x[{{.NbWordsLastIndex}}] + C is at most 65 bits (high word at most 1 bit)
-	// Thus the resulting C will be at most 63 bits
+	// m * qElement[{{.NbWordsLastIndex}}] ≤ (2⁶⁴ - 1) * (2⁶³ - 1) = 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1
+    // x[{{.NbWordsLastIndex}}] + C ≤ 2*(2⁶⁴ - 1) = 2⁶⁵ - 2
+    // On LHS, (C, t[{{.NbWordsLastIndex}}]) ≤ 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1 + 2⁶⁵ - 2 = 2¹²⁷ + 2⁶³ - 1
+    // So on LHS, C ≤ 2⁶³
 	t[{{.NbWords}}] = xHi + C
-	// xHi and C are 63 bits, therefore no overflow
+	// xHi + C < 2⁶³ + 2⁶³ = 2⁶⁴
 
-	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}
+	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}// <standard SOS>
 	{{- range $i := .NbWordsIndexesNoZeroNoLast}}
 	{
 		const i = {{$i}}
@@ -307,8 +324,9 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 		{{- end}}
 		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
-
     {{ template "reduce" . }}
+	// </standard SOS>
+
 	if neg {
 		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
@@ -319,18 +337,38 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 		{{- end}}
 
 		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
-		if b != 0 {
-			// z[{{.NbWordsLastIndex}}] = -1
-			// negative: add q
-			const neg1 = 0xFFFFFFFFFFFFFFFF
-
-			b = 0
-			{{- range $i := .NbWordsIndexesNoLast}}
-			z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
-			{{- end}}
-			z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
-		}
+		{{ template "addQ" .}}
 	}
+}
+
+func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
+
+       *z = *x
+       z.FromMont() // z = x r⁻¹
+
+       if pos := xHi&signBitSelector == 0; pos {
+
+               // (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
+               var c uint64
+			   z[0], c = bits.Add64(z[0], xHi, 0)   
+			   {{- range $i := .NbWordsIndexesNoZeroNoLast }}
+               z[{{$i}}], c = bits.Add64(z[{{$i}}], 0, c)
+			   {{- end }}
+               z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)
+
+               {{ template "reduce" . }}
+
+       } else {
+            	// The real input value is xHi r + x - 2⁶⁴r
+                // So the desired output is xr⁻¹ - (2⁶⁴ - xHi)
+                // Since xHi != 0, 2⁶⁴ - xHi is at most 64 bits
+                var b uint64
+				z[0], b = bits.Sub64(z[0], -xHi, 0)   
+				{{- range $i := .NbWordsIndexesNoZero }}
+				z[{{$i}}], b = bits.Sub64(z[{{$i}}], 0, b)
+				{{- end }}
+				{{ template "addQ" .}}
+       }
 }
 
 // mulWSigned mul word signed (w/ montgomery reduction)

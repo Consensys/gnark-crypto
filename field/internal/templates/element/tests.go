@@ -1419,8 +1419,7 @@ func genFull() gopter.Gen {
 
 // Some utils
 
-func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
+func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
@@ -1429,7 +1428,13 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 
 	slice := append(z[:], aHi)
 
-	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+}
+
+//TODO: Phase out in favor of property based testing
+func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
 }
