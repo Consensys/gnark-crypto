@@ -1,11 +1,13 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -71,6 +73,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	}
 
 	funcs["shorten"] = shorten
+	funcs["supScr"] = toSuperscript
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
@@ -274,4 +277,31 @@ func shorten(input string) string {
 		return input[:6] + "..." + input[len(input)-6:]
 	}
 	return input
+}
+
+// Imitating supsub
+var superscripts = map[rune]rune{
+	'0': '⁰',
+	'1': '¹',
+	'2': '²',
+	'3': '³',
+	'4': '⁴',
+	'5': '⁵',
+	'6': '⁶',
+	'7': '⁷',
+	'8': '⁸',
+	'9': '⁹',
+}
+
+//TODO: Generify and move into bavard
+//Use https://github.com/lynn9388/supsub ?
+//Copying supsub
+func toSuperscript(i int) string {
+	s := strconv.Itoa(i)
+	var buf bytes.Buffer
+	for _, r := range s {
+		sup := superscripts[r]
+		buf.WriteRune(sup)
+	}
+	return buf.String()
 }
