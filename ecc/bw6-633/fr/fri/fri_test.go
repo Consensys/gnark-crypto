@@ -61,6 +61,83 @@ func TestFRI(t *testing.T) {
 
 	size := 4096
 
+	properties.Property("verifying wrong opening should fail", prop.ForAll(
+
+		func(m int32) bool {
+
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
+
+			p := randomPolynomial(uint64(size), m)
+
+			pos := int64(m % 4096)
+			pp, _ := s.BuildProofOfProximity(p)
+
+			openingProof := s.Open(p, uint64(pos))
+
+			// check the Merkle path
+			tamperedPosition := pos + 1
+			err := s.VerifyOpening(uint64(tamperedPosition), openingProof, pp)
+
+			return err != nil
+
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
+	properties.Property("verifying correct opening should succeed", prop.ForAll(
+
+		func(m int32) bool {
+
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
+
+			p := randomPolynomial(uint64(size), m)
+
+			pos := uint64(m % int32(size))
+			pp, _ := s.BuildProofOfProximity(p)
+
+			openingProof := s.Open(p, uint64(pos))
+
+			// check the Merkle path
+			err := s.VerifyOpening(uint64(pos), openingProof, pp)
+
+			return err == nil
+
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
+	properties.Property("The claimed value of a polynomial should match P(x)", prop.ForAll(
+		func(m int32) bool {
+
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
+
+			p := randomPolynomial(uint64(size), m)
+
+			// check the opening value
+			var g fr.Element
+			pos := int64(m % 4096)
+			g.Set(&s.domains[0].Generator)
+			g.Exp(g, big.NewInt(pos))
+
+			var val fr.Element
+			for i := len(p) - 1; i >= 0; i-- {
+				val.Mul(&val, &g)
+				val.Add(&p[i], &val)
+			}
+
+			openingProof := s.Open(p, uint64(pos))
+			var claimedValue fr.Element
+			claimedValue.SetBytes(openingProof.proofSet[0])
+
+			return claimedValue.Equal(&val)
+
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
+
 	properties.Property("Derive queries position: points should belong the same fiber", prop.ForAll(
 
 		func(m int32) bool {

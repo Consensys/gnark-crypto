@@ -33,6 +33,8 @@ import (
 var (
 	ErrProximityTest = errors.New("fri proximity test failed")
 	ErrOddSize       = errors.New("the size should be even")
+	ErrMerkleRoot    = errors.New("merkle roots of the opening and the proof of proximity don't coincide")
+	ErrMerklePath    = errors.New("merkle path proof is wrong")
 )
 
 const rho = 8
@@ -41,22 +43,25 @@ const rho = 8
 type Digest []byte
 
 // merkleProof helper structure to build the merkle proof
+// It is called partial Merkle tree because at each round, 2 contiguous values
+// are queried, so only the Merkle paths corresponding to the 2 values are
+// the same except for the leafs. So during an round of interaction, one Merkle path
+// proof will contain every hashes, while the Merkle path proof for the neighbor value
+// will only contain the leafs. The Merkle path proof is similar after the leafs
+// Technically in the second Merkle path proof, proofSet will contain only 2 elements,
+// the neighbor value and the hash of the value from the first Merkle path proof.
 type partialMerkleProof struct {
 	merkleRoot []byte
 	proofSet   [][]byte
 	numLeaves  uint64
 }
 
-// Iopp interface that an iopp should implement
-type Iopp interface {
-
-	// BuildProofOfProximity creates a proof of proximity that p is d-close to a polynomial
-	// of degree len(p). The proof is built non interactively using Fiat Shamir.
-	BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error)
-
-	// VerifyProofOfProximity verifies the proof of proximity. It returns an error if the
-	// verification fails.
-	VerifyProofOfProximity(proof ProofOfProximity) error
+// MerkleProof used to open a polynomial
+type OpeningProof struct {
+	merkleRoot []byte
+	proofSet   [][]byte
+	numLeaves  uint64
+	index      uint64
 }
 
 // IOPP Interactive Oracle Proof of Proximity
@@ -73,12 +78,30 @@ type ProofOfProximity struct {
 	// stores the interactions between the prover and the verifier.
 	// Each interaction results in a set or merkle proofs, corresponding
 	// to the queries of the verifier.
-	interactions [][]partialMerkleProof
+	interactions [][2]partialMerkleProof
 
 	// evaluation stores the evaluation of the fully folded polynomial.
 	// The verifier need to reconstruct the polynomial, and check that
 	// it is low degree.
 	evaluation []fr.Element
+}
+
+// Iopp interface that an iopp should implement
+type Iopp interface {
+
+	// BuildProofOfProximity creates a proof of proximity that p is d-close to a polynomial
+	// of degree len(p). The proof is built non interactively using Fiat Shamir.
+	BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error)
+
+	// VerifyProofOfProximity verifies the proof of proximity. It returns an error if the
+	// verification fails.
+	VerifyProofOfProximity(proof ProofOfProximity) error
+
+	// Opens a polynomial at gⁱ where i = position.
+	Open(p []fr.Element, position uint64) OpeningProof
+
+	// Verifies the opening of a polynomial at gⁱ where i = position.
+	VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error
 }
 
 // New creates a new IOPP capable to handle degree(size) polynomials.
@@ -103,8 +126,8 @@ type radixTwoFri struct {
 	nbSteps int
 
 	// domains list of domains used for fri
-	// TODO normally, a single domain of size n=2^c should handle all
-	// polynomials of size 2^d where d<c...
+	// TODO normally, a single domain of size n=2ᶜ should handle all
+	// polynomials of size 2ᵈ where d<c...
 	domains []*fft.Domain
 }
 
@@ -133,7 +156,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	return res
 }
 
-// finds i such that g^i = a
+// finds i such that gⁱ = a
 // TODO for the moment assume it exits and easily computable
 func (s radixTwoFri) log(a, g fr.Element) int {
 	var i int
@@ -160,10 +183,25 @@ func convertSortedCanonical(i, n int) int {
 	}
 }
 
+// convertCanonicalSorted convert the index i, an entry in a
+// sorted polynomial, to the corresponding entry in canonical
+// representation. n is the size of the polynomial.
+func convertCanonicalSorted(i, n int) int {
+
+	if i < n/2 {
+		return 2 * i
+	} else {
+		l := n - (i + 1)
+		l = 2 * l
+		return n - l - 1
+	}
+
+}
+
 // deriveQueriesPositions derives the indices of the oracle
 // function that the verifier has to pick. The result is a
 // slice of []int, where each entry is a tuple (i_k), such that
-// the verifier needs to evaluate sum_k oracle(i_k)x^k to build
+// the verifier needs to evaluate sum_k oracle(i_k)xᵏ to build
 // the folded function.
 func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 
@@ -175,7 +213,7 @@ func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 	// first we convert from canonical indexation to sorted indexation
 	for i := 0; i < s.nbSteps+1; i++ {
 
-		// canonical --> sorted
+		// canonical → sorted
 		if l < n/2 {
 			res[i] = 2 * l
 		} else {
@@ -189,7 +227,8 @@ func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
 }
 
 // sort orders the evaluation of a polynomial on a domain
-// such that contiguous entries are in the same fiber.
+// such that contiguous entries are in the same fiber:
+// {q(g⁰), q(g^{n/2}), q(g¹), q(g^{1+n/2}),...,q(g^{n/2-1}), q(gⁿ⁻¹)}
 func sort(evaluations []fr.Element) []fr.Element {
 	q := make([]fr.Element, len(evaluations))
 	n := len(evaluations) / 2
@@ -198,6 +237,82 @@ func sort(evaluations []fr.Element) []fr.Element {
 		q[2*i+1].Set(&evaluations[i+n])
 	}
 	return q
+}
+
+// Opens a polynomial at gⁱ where i = position.
+func (s radixTwoFri) Open(p []fr.Element, position uint64) OpeningProof {
+
+	// put q in evaluation form
+	q := make([]fr.Element, s.domains[0].Cardinality)
+	copy(q, p)
+	s.domains[0].FFT(q, fft.DIF)
+	fft.BitReverse(q)
+
+	// sort q to have fibers in contiguous entries
+	q = sort(q)
+
+	// build the Merkle proof, we the position is converted to fit the sorted polynomial
+	pos := convertCanonicalSorted(int(position), len(q))
+
+	tree := merkletree.New(s.h)
+	tree.SetIndex(uint64(pos))
+	for i := 0; i < len(q); i++ {
+		tree.Push(q[i].Marshal())
+	}
+	var res OpeningProof
+	res.merkleRoot, res.proofSet, res.index, res.numLeaves = tree.Prove()
+
+	return res
+}
+
+func checkRoots(a, b []byte) error {
+
+	if len(a) != len(b) {
+		return ErrMerkleRoot
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return ErrMerkleRoot
+		}
+	}
+
+	return nil
+}
+
+// Verifies the opening of a polynomial.
+// * position the point at which the proof is opened (the point is g^{i} where i = position)
+// * openingProof Merkle path proof
+// * pp proof of proximity, needed because before opening Merkle path proof one should be sure that the
+// committed values come from a polynomial. During the verification of the Merkle path proof, the root
+// hash of the Merkle path is compared to the root hash of the first interaction of the proof of proximity,
+// those should be equal, if not an error is raised.
+func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error {
+
+	// index containing the full Merkle proof
+	var fullMerkleProof int
+	if len(pp.interactions[0][0].proofSet) > len(pp.interactions[0][1].proofSet) {
+		fullMerkleProof = 0
+	} else {
+		fullMerkleProof = 1
+	}
+
+	// check that the merkle roots coincide
+	err := checkRoots(openingProof.merkleRoot, pp.interactions[0][fullMerkleProof].merkleRoot)
+	if err != nil {
+		return err
+	}
+
+	// convert position to the sorted version
+	sizePoly := s.domains[0].Cardinality
+	pos := convertCanonicalSorted(int(position), int(sizePoly))
+
+	// check the Merkle proof
+	res := merkletree.VerifyProof(s.h, openingProof.merkleRoot, openingProof.proofSet, uint64(pos), openingProof.numLeaves)
+	if !res {
+		return ErrMerklePath
+	}
+	return nil
+
 }
 
 // BuildProofOfProximity generates a proof that a function, given as an oracle from
@@ -210,7 +325,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 
 	// the proof will contain nbSteps interactions
 	var proof ProofOfProximity
-	proof.interactions = make([][]partialMerkleProof, s.nbSteps)
+	proof.interactions = make([][2]partialMerkleProof, s.nbSteps)
 
 	// Fiat Shamir transcript to derive the challenges
 	xis := make([]string, s.nbSteps+1)
@@ -304,7 +419,6 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		mr, proofSet, _, numLeaves := t.Prove()
-		proof.interactions[i] = make([]partialMerkleProof, 2)
 		c := si[i] % 2
 		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
 		proof.interactions[i][1-c] = partialMerkleProof{
