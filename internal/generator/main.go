@@ -98,9 +98,9 @@ func main() {
 		go func(conf config.TwistedEdwardsCurve) {
 			defer wg.Done()
 
-			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
+			curveDir := filepath.Join(baseDir, "ecc", conf.Name, conf.Package)
 			// generate twisted edwards companion curves
-			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
+			assertNoError(edwards.Generate(conf, curveDir, bgen))
 		}(conf)
 
 	}

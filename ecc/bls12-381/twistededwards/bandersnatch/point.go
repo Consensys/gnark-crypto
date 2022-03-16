@@ -138,19 +138,6 @@ func (p *PointAffine) Unmarshal(b []byte) error {
 	return err
 }
 
-// IsZero returns true if p=0 false otherwise
-func (p *PointProj) IsZero() bool {
-	return p.X.IsZero() && p.Y.Equal(&p.Z)
-}
-
-// Set sets p to p1 and return it
-func (p *PointProj) Set(p1 *PointProj) *PointProj {
-	p.X.Set(&p1.X)
-	p.Y.Set(&p1.Y)
-	p.Z.Set(&p1.Z)
-	return p
-}
-
 // Set sets p to p1 and return it
 func (p *PointAffine) Set(p1 *PointAffine) *PointAffine {
 	p.X.Set(&p1.X)
@@ -158,28 +145,16 @@ func (p *PointAffine) Set(p1 *PointAffine) *PointAffine {
 	return p
 }
 
-// IsZero returns true if p=0 false otherwise
-func (p *PointAffine) IsZero() bool {
-	var one fr.Element
-	one.SetOne()
-	return p.X.IsZero() && p.Y.Equal(&one)
-}
-
 // Equal returns true if p=p1 false otherwise
 func (p *PointAffine) Equal(p1 *PointAffine) bool {
 	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y)
 }
 
-// Equal returns true if p=p1 false otherwise
-// If one point is on the affine chart Z=0 it returns false
-func (p *PointProj) Equal(p1 *PointProj) bool {
-	if p.Z.IsZero() || p1.Z.IsZero() {
-		return false
-	}
-	var pAffine, p1Affine PointAffine
-	pAffine.FromProj(p)
-	p1Affine.FromProj(p1)
-	return pAffine.Equal(&p1Affine)
+// IsZero returns true if p=0 false otherwise
+func (p *PointAffine) IsZero() bool {
+	var one fr.Element
+	one.SetOne()
+	return p.X.IsZero() && p.Y.Equal(&one)
 }
 
 // NewPointAffine creates a new instance of PointAffine
@@ -206,6 +181,13 @@ func (p *PointAffine) IsOnCurve() bool {
 	rhs.SetOne().Add(&rhs, &tmp)
 
 	return lhs.Equal(&rhs)
+}
+
+// Neg sets p to -p1 and returns it
+func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
+	p.Set(p1)
+	p.X.Neg(&p.X)
+	return p
 }
 
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
@@ -259,11 +241,10 @@ func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 	return p
 }
 
-// Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
-// modifies p
-func (p *PointProj) Neg(p1 *PointProj) *PointProj {
-	p.Set(p1)
-	p.X.Neg(&p.X)
+// FromProj sets p in affine from p in projective
+func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
+	p.X.Div(&p1.X, &p1.Z)
+	p.Y.Div(&p1.Y, &p1.Z)
 	return p
 }
 
@@ -276,10 +257,48 @@ func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
 	return p
 }
 
-// FromProj sets p in affine from p in projective
-func (p *PointAffine) FromProj(p1 *PointProj) *PointAffine {
-	p.X.Div(&p1.X, &p1.Z)
-	p.Y.Div(&p1.Y, &p1.Z)
+// ScalarMul scalar multiplication of a point
+// p1 in affine coordinates with a scalar in big.Int
+func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
+
+	var p1Proj, resProj PointProj
+	p1Proj.FromAffine(p1)
+	resProj.ScalarMul(&p1Proj, scalar)
+	p.FromProj(&resProj)
+
+	return p
+}
+
+// IsZero returns true if p=0 false otherwise
+func (p *PointProj) IsZero() bool {
+	return p.X.IsZero() && p.Y.Equal(&p.Z)
+}
+
+// Set sets p to p1 and return it
+func (p *PointProj) Set(p1 *PointProj) *PointProj {
+	p.X.Set(&p1.X)
+	p.Y.Set(&p1.Y)
+	p.Z.Set(&p1.Z)
+	return p
+}
+
+// Equal returns true if p=p1 false otherwise
+// If one point is on the affine chart Z=0 it returns false
+func (p *PointProj) Equal(p1 *PointProj) bool {
+	if p.Z.IsZero() || p1.Z.IsZero() {
+		return false
+	}
+	var pAffine, p1Affine PointAffine
+	pAffine.FromProj(p)
+	p1Affine.FromProj(p1)
+	return pAffine.Equal(&p1Affine)
+}
+
+// Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
+// modifies p
+func (p *PointProj) Neg(p1 *PointProj) *PointProj {
+	p.Set(p1)
+	p.X.Neg(&p.X)
 	return p
 }
 
@@ -380,13 +399,6 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 	res.Z.Mul(&F, &J)
 
 	p.Set(&res)
-	return p
-}
-
-// Neg sets p to -p1 and returns it
-func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
-	p.Set(p1)
-	p.X.Neg(&p.X)
 	return p
 }
 
@@ -517,18 +529,6 @@ func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
 	}
 
 	p.Set(&res)
-	return p
-}
-
-// ScalarMul scalar multiplication of a point
-// p1 in affine coordinates with a scalar in big.Int
-func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
-
-	var p1Proj, resProj PointProj
-	p1Proj.FromAffine(p1)
-	resProj.ScalarMul(&p1Proj, scalar)
-	p.FromProj(&resProj)
-
 	return p
 }
 
