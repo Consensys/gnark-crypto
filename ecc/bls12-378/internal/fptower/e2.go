@@ -26,7 +26,7 @@ type E2 struct {
 	A0, A1 fp.Element
 }
 
-// Equal returns true if z equals x, fasle otherwise
+// Equal returns true if z equals x, false otherwise
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -93,7 +93,7 @@ func (z *E2) SetRandom() (*E2, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -124,7 +124,7 @@ func (z *E2) Neg(x *E2) *E2 {
 
 // String implements Stringer interface for fancy printing
 func (z *E2) String() string {
-	return (z.A0.String() + "+" + z.A1.String() + "*u")
+	return z.A0.String() + "+" + z.A1.String() + "*u"
 }
 
 // ToMont converts to mont form
@@ -259,4 +259,19 @@ func BatchInvertE2(a []E2) []E2 {
 	}
 
 	return res
+}
+
+func (z *E2) Select(cond int, caseZ *E2, caseNz *E2) *E2 {
+	//Might be able to save a nanosecond or two by an aggregate implementation
+
+	z.A0.Select(cond, &caseZ.A0, &caseNz.A0)
+	z.A1.Select(cond, &caseZ.A1, &caseNz.A1)
+
+	return z
+}
+
+func (z *E2) Div(x *E2, y *E2) *E2 {
+	var r E2
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
 }

@@ -214,7 +214,7 @@ func (z *Element) Div(x, y *Element) *Element {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsability of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *Element) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= 4 {
@@ -223,9 +223,14 @@ func (z *Element) Bit(i uint64) uint64 {
 	return uint64(z[j] >> (i % 64) & 1)
 }
 
-// Equal returns z == x
+// Equal returns z == x; constant-time
 func (z *Element) Equal(x *Element) bool {
-	return (z[3] == x[3]) && (z[2] == x[2]) && (z[1] == x[1]) && (z[0] == x[0])
+	return z.NotEqual(x) == 0
+}
+
+// NotEqual returns 0 if and only if z == x; constant-time
+func (z *Element) NotEqual(x *Element) uint64 {
+	return (z[3] ^ x[3]) | (z[2] ^ x[2]) | (z[1] ^ x[1]) | (z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
@@ -233,8 +238,27 @@ func (z *Element) IsZero() bool {
 	return (z[3] | z[2] | z[1] | z[0]) == 0
 }
 
+// IsOne returns z == 1
+func (z *Element) IsOne() bool {
+	return (z[3] ^ 122956637648958544 | z[2] ^ 9521467359714817544 | z[1] ^ 2905656009828539926 | z[0] ^ 18291444782079148022) == 0
+}
+
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
+	zz := *z
+	zz.FromMont()
+	return zz.FitsOnOneWord()
+}
+
+// Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
+func (z *Element) Uint64() uint64 {
+	zz := *z
+	zz.FromMont()
+	return zz[0]
+}
+
+// FitsOnOneWord reports whether z words (except the least significant word) are 0
+func (z *Element) FitsOnOneWord() bool {
 	return (z[3] | z[2] | z[1]) == 0
 }
 
@@ -389,6 +413,17 @@ func (z *Element) Sub(x, y *Element) *Element {
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
 	neg(z, x)
+	return z
+}
+
+// Select is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
+	cC := uint64((int64(c) | -int64(c)) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
+	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
+	z[1] = x0[1] ^ cC&(x0[1]^x1[1])
+	z[2] = x0[2] ^ cC&(x0[2]^x1[2])
+	z[3] = x0[3] ^ cC&(x0[3]^x1[3])
 	return z
 }
 
@@ -658,6 +693,9 @@ func mulByConstant(z *Element, c uint8) {
 	case 5:
 		_z := *z
 		z.Double(z).Double(z).Add(z, &_z)
+	case 11:
+		_z := *z
+		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
 	default:
 		var y Element
 		y.SetUint64(uint64(c))
@@ -770,13 +808,13 @@ func (z *Element) Text(base int) string {
 	}
 	zz := *z
 	zz.FromMont()
-	if zz.IsUint64() {
+	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	} else if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
-		if zzNeg.IsUint64() {
+		if zzNeg.FitsOnOneWord() {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
@@ -1096,10 +1134,6 @@ const invIterationsN = 18
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
-	if x.IsZero() {
-		z.SetZero()
-		return z
-	}
 
 	a := *x
 	b := Element{

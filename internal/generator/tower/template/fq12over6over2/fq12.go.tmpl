@@ -2,7 +2,7 @@ import (
 	"math/big"
 	"encoding/binary"
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	"github.com/consensys/gnark-crypto/ecc/{{.Curve.Name}}/fp"
 )
 
 // E12 is a degree two finite field extension of fp6
@@ -422,7 +422,7 @@ func (z *E12) Conjugate(x *E12) *E12 {
 }
 
 
-{{- $sizeOfFp := mul .Fp.NbWords 8}}
+{{- $sizeOfFp := mul .Curve.Fp.NbWords 8}}
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = {{ $sizeOfFp }} * 12
@@ -535,7 +535,7 @@ func (z *E12) SetBytes(e []byte) error {
 
 // IsInSubGroup ensures GT/E12 is in correct sugroup
 func (z *E12) IsInSubGroup() bool {
-{{- if eq .Name "bn254"}}
+{{- if eq .Curve.Name "bn254"}}
     var a, b, _b E12
 
     a.Frobenius(z)
@@ -564,10 +564,10 @@ func (z *E12) IsInSubGroup() bool {
 }
 
 {{define "putFp"}}
-	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
+	{{- range $i := reverse .all.Curve.Fp.NbWordsIndexesFull}}
 			{{- $j := mul $i 8}}
 			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Fp.NbWords 1}}
+			{{- $k := sub $.all.Curve.Fp.NbWords 1}}
 			{{- $k := sub $k $i}}
 			{{- $jj := add $j 8}}
 			binary.BigEndian.PutUint64(r[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
@@ -665,3 +665,4 @@ func BatchDecompressTorus(x []E6) ([]E12, error) {
 
 	return res, nil
 }
+{{ template "base" .}}

@@ -104,6 +104,7 @@ func (id ID) Info() Info {
 }
 
 func newInfo(c *config.Curve) Info {
+
 	return Info{
 		Fp: config.Field{
 			Bits:    c.FpInfo.Bits,
