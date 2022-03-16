@@ -605,16 +605,17 @@ func TestOps(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
+	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine
-	point.Set(&edwards.Base)
+	point.Set(&curveParams.Base)
 	for i := 0; i < 20; i++ {
 		b := point.Marshal()
 		unmarshalPoint.Unmarshal(b)
 		if !point.Equal(&unmarshalPoint) {
 			t.Fatal("error unmarshal(marshal(point))")
 		}
-		point.Add(&point, &edwards.Base)
+		point.Add(&point, &curveParams.Base)
 	}
 }
 

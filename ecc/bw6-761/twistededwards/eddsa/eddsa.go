@@ -17,6 +17,7 @@
 package eddsa
 
 import (
+	"crypto"
 	"crypto/subtle"
 	"errors"
 	"hash"
@@ -124,15 +125,19 @@ func GenerateKeyInterfaces(r io.Reader) (signature.Signer, error) {
 }
 
 // Equal compares 2 public keys
-func (pub *PublicKey) Equal(other signature.PublicKey) bool {
+func (pub *PublicKey) Equal(x crypto.PublicKey) bool {
+	xx, ok := x.(*PublicKey)
+	if !ok {
+		return false
+	}
 	bpk := pub.Bytes()
-	bother := other.Bytes()
-	return subtle.ConstantTimeCompare(bpk, bother) == 1
+	bxx := xx.Bytes()
+	return subtle.ConstantTimeCompare(bpk, bxx) == 1
 }
 
 // Public returns the public key associated to the private key.
 // From Signer interface defined in gnark/crypto/signature.
-func (privKey *PrivateKey) Public() signature.PublicKey {
+func (privKey *PrivateKey) Public() crypto.PublicKey {
 	var pub PublicKey
 	pub.A.Set(&privKey.PublicKey.A)
 	return &pub
@@ -247,7 +252,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigInt(&bCofactor)
+	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMul(&curveParams.Base, &bs).
 		ScalarMul(&lhs, &bCofactor)

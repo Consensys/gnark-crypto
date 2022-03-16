@@ -84,12 +84,14 @@ func (p *PointAffine) Marshal() []byte {
 }
 
 func computeX(y *fr.Element) (x fr.Element) {
+	initOnce.Do(initCurveParams)
+
 	var one, num, den fr.Element
 	one.SetOne()
 	num.Square(y)
-	den.Mul(&num, &edwards.D)
+	den.Mul(&num, &curveParams.D)
 	num.Sub(&one, &num)
-	den.Sub(&edwards.A, &den)
+	den.Sub(&curveParams.A, &den)
 	x.Div(&num, &den)
 	x.Sqrt(&x)
 	return
