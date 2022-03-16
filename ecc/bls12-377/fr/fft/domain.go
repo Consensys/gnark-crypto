@@ -76,7 +76,6 @@ func NewDomain(m uint64) *Domain {
 	const maxOrderRoot uint64 = 47
 	domain.FrMultiplicativeGen.SetUint64(22)
 
-	domain.FrMultiplicativeGen.SetUint64(5)
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 
 	// find generator for Z/2^(log(m))Z

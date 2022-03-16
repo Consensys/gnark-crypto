@@ -559,3 +559,18 @@ func (z *E12) IsInSubGroup() bool {
 
 	return a.Equal(&b)
 }
+
+func (z *E12) Select(cond int, caseZ *E12, caseNz *E12) *E12 {
+	//Might be able to save a nanosecond or two by an aggregate implementation
+
+	z.C0.Select(cond, &caseZ.C0, &caseNz.C0)
+	z.C1.Select(cond, &caseZ.C1, &caseNz.C1)
+
+	return z
+}
+
+func (z *E12) Div(x *E12, y *E12) *E12 {
+	var r E12
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
+}

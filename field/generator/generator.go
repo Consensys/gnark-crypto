@@ -37,7 +37,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		element.Sqrt,
 		element.Inverse,
 		element.BigNum,
-		element.HashUtils,
 	}
 
 	// test file templates
@@ -70,7 +69,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			funcs[f.Name] = f.Func
 		}
 	}
-	funcs["toTitle"] = strings.Title
+
 	funcs["shorten"] = shorten
 
 	bavardOpts := []func(*bavard.Bavard) error{
