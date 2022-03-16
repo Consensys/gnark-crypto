@@ -122,7 +122,7 @@ func g2Isogeny(p *G2Affine) {
 	g2IsogenyYNumerator(&p.Y, &p.X, &p.Y)
 	g2IsogenyXNumerator(&p.X, &p.X)
 
-	den = fptower.BatchInvert(den)
+	den = fptower.BatchInvertE2(den)
 
 	p.X.Mul(&p.X, &den[0])
 	p.Y.Mul(&p.Y, &den[1])

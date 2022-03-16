@@ -82,7 +82,13 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
     {{$CurveName}}IsogenyYNumerator(&p.Y, &p.X, &p.Y)
     {{$CurveName}}IsogenyXNumerator(&p.X, &p.X)
 
-	den = {{$package}}.BatchInvert(den)
+	{{if eq $CoordType "fptower.E2"}}
+        den = {{$package}}.BatchInvertE2(den)
+	{{- else if eq $CoordType "fptower.E4"}}
+        den = {{$package}}.BatchInvertE4(den)
+	{{- else}}
+        den = {{$package}}.BatchInvert(den)
+	{{- end}}
 
 	p.X.Mul(&p.X, &den[0])
 	p.Y.Mul(&p.Y, &den[1])
