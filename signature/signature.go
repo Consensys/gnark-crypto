@@ -18,42 +18,41 @@ limitations under the License.
 package signature
 
 import (
-	"crypto"
 	"hash"
 	"io"
 )
 
-// // PublicKey public key interface.
-// // The public key has a Verify function to check signatures.
-// type PublicKey interface {
+// PublicKey public key interface.
+// The public key has a Verify function to check signatures.
+type PublicKey interface {
 
-// 	// Verify verifies a signature of a message
-// 	// If hFunc is not provided, implementation may consider the message
-// 	// to be pre-hashed, else, will use hFunc to hash the message.
-// 	Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error)
+	// Verify verifies a signature of a message
+	// If hFunc is not provided, implementation may consider the message
+	// to be pre-hashed, else, will use hFunc to hash the message.
+	Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error)
 
-// 	// SetBytes sets p from binary representation in buf.
-// 	// buf represents a public key as x||y where x, y are
-// 	// interpreted as big endian binary numbers corresponding
-// 	// to the coordinates of a point on the twisted Edwards.
-// 	// It returns the number of bytes read from the buffer.
-// 	SetBytes(buf []byte) (int, error)
+	// SetBytes sets p from binary representation in buf.
+	// buf represents a public key as x||y where x, y are
+	// interpreted as big endian binary numbers corresponding
+	// to the coordinates of a point on the twisted Edwards.
+	// It returns the number of bytes read from the buffer.
+	SetBytes(buf []byte) (int, error)
 
-// 	// Bytes returns the binary representation of pk
-// 	// as x||y where x, y are the coordinates of the point
-// 	// on the twisted Edwards as big endian integers.
-// 	Bytes() []byte
+	// Bytes returns the binary representation of pk
+	// as x||y where x, y are the coordinates of the point
+	// on the twisted Edwards as big endian integers.
+	Bytes() []byte
 
-// 	// Equal compares the public key to other.
-// 	Equal(other PublicKey) bool
-// }
+	// Equal compares the public key to other.
+	Equal(other PublicKey) bool
+}
 
 // Signer signer interface.
 type Signer interface {
 
 	// Public returns the public key associated to
 	// the signer's private key.
-	Public() crypto.PublicKey
+	Public() PublicKey
 
 	// Sign signs a message. If hFunc is not provided, implementation may consider the message
 	// to be pre-hashed, else, will use hFunc to hash the message.

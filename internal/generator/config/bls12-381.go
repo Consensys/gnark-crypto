@@ -134,6 +134,7 @@ var BLS12_381 = Curve{
 var tBLS12_381 = TwistedEdwardsCurve{
 	Name:     BLS12_381.Name,
 	Package:  "twistededwards",
+	EnumID:   BLS12_381.EnumID,
 	A:        "-1",
 	D:        "19257038036680949359750312669786877991949435402254120286184196891950884077233",
 	Cofactor: "8",
@@ -145,6 +146,7 @@ var tBLS12_381 = TwistedEdwardsCurve{
 var bandersnatch = TwistedEdwardsCurve{
 	Name:            BLS12_381.Name,
 	Package:         "bandersnatch",
+	EnumID:          BLS12_381.EnumID,
 	A:               "-5",
 	D:               "45022363124591815672509500913686876175488063829319466900776701791074614335719",
 	Cofactor:        "4",

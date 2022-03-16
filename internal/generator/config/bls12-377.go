@@ -28,6 +28,7 @@ var BLS12_377 = Curve{
 var tBLS12_77 = TwistedEdwardsCurve{
 	Name:     BLS12_377.Name,
 	Package:  "twistededwards",
+	EnumID:   BLS12_377.EnumID,
 	A:        "-1",
 	D:        "3021",
 	Cofactor: "4",

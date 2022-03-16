@@ -17,7 +17,6 @@
 package eddsa
 
 import (
-	"crypto"
 	"crypto/subtle"
 	"errors"
 	"hash"
@@ -125,7 +124,7 @@ func GenerateKeyInterfaces(r io.Reader) (signature.Signer, error) {
 }
 
 // Equal compares 2 public keys
-func (pub *PublicKey) Equal(x crypto.PublicKey) bool {
+func (pub *PublicKey) Equal(x signature.PublicKey) bool {
 	xx, ok := x.(*PublicKey)
 	if !ok {
 		return false
@@ -137,7 +136,7 @@ func (pub *PublicKey) Equal(x crypto.PublicKey) bool {
 
 // Public returns the public key associated to the private key.
 // From Signer interface defined in gnark/crypto/signature.
-func (privKey *PrivateKey) Public() crypto.PublicKey {
+func (privKey *PrivateKey) Public() signature.PublicKey {
 	var pub PublicKey
 	pub.A.Set(&privKey.PublicKey.A)
 	return &pub

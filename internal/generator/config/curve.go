@@ -28,8 +28,10 @@ type Curve struct {
 }
 
 type TwistedEdwardsCurve struct {
-	Name                                string
-	Package                             string
+	Name    string
+	Package string
+	EnumID  string
+
 	A, D, Cofactor, Order, BaseX, BaseY string
 
 	// set if endomorphism

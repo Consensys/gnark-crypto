@@ -28,6 +28,7 @@ var BN254 = Curve{
 var tBN254 = TwistedEdwardsCurve{
 	Name:     BN254.Name,
 	Package:  "twistededwards",
+	EnumID:   BN254.EnumID,
 	A:        "-1",
 	D:        "12181644023421730124874158521699555681764249180949974110617291017600649128846",
 	Cofactor: "8",

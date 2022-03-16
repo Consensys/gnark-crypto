@@ -28,6 +28,7 @@ var BW6_761 = Curve{
 var tBW6_761 = TwistedEdwardsCurve{
 	Name:     BW6_761.Name,
 	Package:  "twistededwards",
+	EnumID:   BW6_761.EnumID,
 	A:        "-1",
 	D:        "79743",
 	Cofactor: "8",
