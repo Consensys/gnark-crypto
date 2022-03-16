@@ -73,11 +73,14 @@ func TestFRI(t *testing.T) {
 			pos := int64(m % 4096)
 			pp, _ := s.BuildProofOfProximity(p)
 
-			openingProof := s.Open(p, uint64(pos))
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// check the Merkle path
 			tamperedPosition := pos + 1
-			err := s.VerifyOpening(uint64(tamperedPosition), openingProof, pp)
+			err = s.VerifyOpening(uint64(tamperedPosition), openingProof, pp)
 
 			return err != nil
 
@@ -97,10 +100,13 @@ func TestFRI(t *testing.T) {
 			pos := uint64(m % int32(size))
 			pp, _ := s.BuildProofOfProximity(p)
 
-			openingProof := s.Open(p, uint64(pos))
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// check the Merkle path
-			err := s.VerifyOpening(uint64(pos), openingProof, pp)
+			err = s.VerifyOpening(uint64(pos), openingProof, pp)
 
 			return err == nil
 
@@ -128,7 +134,11 @@ func TestFRI(t *testing.T) {
 				val.Add(&p[i], &val)
 			}
 
-			openingProof := s.Open(p, uint64(pos))
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			var claimedValue fr.Element
 			claimedValue.SetBytes(openingProof.proofSet[0])
 

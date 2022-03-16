@@ -17,6 +17,7 @@ var (
 	ErrOddSize       = errors.New("the size should be even")
 	ErrMerkleRoot    = errors.New("merkle roots of the opening and the proof of proximity don't coincide")
 	ErrMerklePath    = errors.New("merkle path proof is wrong")
+	ErrRangePosition = errors.New("the asked opening position is out of range")
 )
 
 const rho = 8
@@ -80,10 +81,15 @@ type Iopp interface {
 	VerifyProofOfProximity(proof ProofOfProximity) error
 
 	// Opens a polynomial at gⁱ where i = position.
-	Open(p []fr.Element, position uint64) OpeningProof
+	Open(p []fr.Element, position uint64) (OpeningProof, error)
 
 	// Verifies the opening of a polynomial at gⁱ where i = position.
 	VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error
+}
+
+// GetRho returns the factor size_code_word/size_polynomial
+func GetRho() int {
+	return rho
 }
 
 // New creates a new IOPP capable to handle degree(size) polynomials.
@@ -222,7 +228,12 @@ func sort(evaluations []fr.Element) []fr.Element {
 }
 
 // Opens a polynomial at gⁱ where i = position.
-func (s radixTwoFri) Open(p []fr.Element, position uint64) OpeningProof {
+func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error) {
+
+	// check that position is in the correct range
+	if position >= s.domains[0].Cardinality {
+		return OpeningProof{}, ErrRangePosition
+	}
 
 	// put q in evaluation form
 	q := make([]fr.Element, s.domains[0].Cardinality)
@@ -237,14 +248,17 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) OpeningProof {
 	pos := convertCanonicalSorted(int(position), len(q))
 
 	tree := merkletree.New(s.h)
-	tree.SetIndex(uint64(pos))
+	err := tree.SetIndex(uint64(pos))
+	if err != nil {
+		return OpeningProof{}, err
+	}
 	for i := 0; i < len(q); i++ {
 		tree.Push(q[i].Marshal())
 	}
 	var res OpeningProof
 	res.merkleRoot, res.proofSet, res.index, res.numLeaves = tree.Prove()
 
-	return res
+	return res, nil
 }
 
 func checkRoots(a, b []byte) error {
