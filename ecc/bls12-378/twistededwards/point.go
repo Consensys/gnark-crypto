@@ -479,7 +479,7 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 
 // Add adds points in extended coordinates
 // dedicated addition
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd-2
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 
 	if p1.Equal(p2) {
@@ -488,19 +488,18 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 	}
 
 	var A, B, C, D, E, F, G, H, tmp fr.Element
-	tmp.Add(&p2.X, &p2.Y)
-	A.Sub(&p1.Y, &p1.X).
-		Mul(&A, &tmp)
-	tmp.Add(&p1.X, &p1.Y)
-	B.Sub(&p2.Y, &p2.X).
-		Mul(&B, &tmp)
-	C.Mul(&p1.Z, &p2.T).
-		Double(&C)
-	D.Mul(&p2.Z, &p1.T).
-		Double(&D)
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
+	C.Mul(&p1.Z, &p2.T)
+	D.Mul(&p1.T, &p2.Z)
 	E.Add(&D, &C)
-	F.Sub(&B, &A)
-	G.Add(&B, &A)
+	tmp.Sub(&p1.X, &p1.Y)
+	F.Add(&p2.X, &p2.Y).
+		Mul(&F, &tmp).
+		Add(&F, &B).
+		Sub(&F, &A)
+	mulByA(&A)
+	G.Add(&A, &B)
 	H.Sub(&D, &C)
 
 	p.X.Mul(&E, &F)
@@ -512,7 +511,7 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 }
 
 // MixedAdd adds a point in extended coordinates to a point in affine coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-4
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd-2
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
 
 	var A, B, C, D, E, F, G, H, tmp fr.Element
@@ -525,19 +524,19 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 		return p
 	}
 
-	tmp.Add(&p2.X, &p2.Y)
-	A.Sub(&p1.Y, &p1.X).
-		Mul(&A, &tmp)
-	tmp.Add(&p1.X, &p1.Y)
-	B.Sub(&p2.Y, &p2.X).
-		Mul(&B, &tmp)
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
 	C.Mul(&p1.Z, &p2.X).
-		Mul(&C, &p2.Y).
-		Double(&C)
-	D.Double(&p1.T)
+		Mul(&C, &p2.Y)
+	D.Set(&p1.T)
 	E.Add(&D, &C)
-	F.Sub(&B, &A)
-	G.Add(&B, &A)
+	tmp.Sub(&p1.X, &p1.Y)
+	F.Add(&p2.X, &p2.Y).
+		Mul(&F, &tmp).
+		Add(&F, &B).
+		Sub(&F, &A)
+	mulByA(&A)
+	G.Add(&A, &B)
 	H.Sub(&D, &C)
 
 	p.X.Mul(&F, &E)
@@ -550,7 +549,7 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 
 // Double adds points in extended coordinates
 // Dedicated doubling
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
 func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 	var A, B, C, D, E, F, G, H fr.Element
@@ -579,7 +578,7 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 // MixedDouble adds points in extended coordinates
 // Dedicated mixed doubling
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-mdbl-2008-hwcd
 func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
 
 	var A, B, D, E, G, H, two fr.Element
