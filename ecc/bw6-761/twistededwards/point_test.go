@@ -648,12 +648,10 @@ func BenchmarkScalarMulExtended(b *testing.B) {
 
 	var doubleAndAdd PointExtended
 
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMul(&a, &s)
-		}
-	})
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		doubleAndAdd.ScalarMul(&a, &s)
+	}
 }
 
 func BenchmarkScalarMulProjective(b *testing.B) {
@@ -666,10 +664,8 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 
 	var doubleAndAdd PointProj
 
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMul(&a, &s)
-		}
-	})
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		doubleAndAdd.ScalarMul(&a, &s)
+	}
 }

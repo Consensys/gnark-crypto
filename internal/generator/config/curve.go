@@ -31,6 +31,11 @@ type TwistedEdwardsCurve struct {
 	Name                                string
 	Package                             string
 	A, D, Cofactor, Order, BaseX, BaseY string
+
+	// set if endomorphism
+	HasEndomorphism bool
+	Endo0, Endo1    string
+	Lambda          string
 }
 
 type Field struct {

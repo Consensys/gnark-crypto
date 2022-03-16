@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
@@ -29,6 +30,10 @@ type CurveParams struct {
 	Cofactor fr.Element
 	Order    big.Int
 	Base     PointAffine
+	// endomorphism
+	endo     [2]fr.Element
+	lambda   big.Int
+	glvBasis ecc.Lattice
 }
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-381/Fr
@@ -42,6 +47,10 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
+	res.endo[0].Set(&curveParams.endo[0])
+	res.endo[1].Set(&curveParams.endo[1])
+	res.lambda.Set(&curveParams.lambda)
+	res.glvBasis = curveParams.glvBasis // TODO @gbotrel do proper copy of that
 
 	return res
 }
@@ -59,6 +68,10 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("18886178867200960497001835917649091219057080094937609519140440539760939937304")
 	curveParams.Base.Y.SetString("19188667384257783945677642223292697773471335439753913231509108946878080696678")
+	curveParams.endo[0].SetString("37446463827641770816307242315180085052603635617490163568005256780843403514036")
+	curveParams.endo[1].SetString("49199877423542878313146170939139662862850515542392585932876811575731455068989")
+	curveParams.lambda.SetString("8913659658109529928382530854484400854125314752504019737736543920008458395397", 10)
+	ecc.PrecomputeLattice(&curveParams.Order, &curveParams.lambda, &curveParams.glvBasis)
 }
 
 // mulByA multiplies fr.Element by curveParams.A

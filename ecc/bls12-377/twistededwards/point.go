@@ -405,7 +405,6 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 // ScalarMul scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
-
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -620,7 +619,6 @@ func (p *PointExtended) setInfinity() *PointExtended {
 // ScalarMul scalar multiplication of a point
 // p1 in extended coordinates with a scalar in big.Int
 func (p *PointExtended) ScalarMul(p1 *PointExtended, scalar *big.Int) *PointExtended {
-
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
