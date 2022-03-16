@@ -262,3 +262,19 @@ func (z *E6) Inverse(x *E6) *E6 {
 
 	return z
 }
+
+func (z *E6) Select(cond int, caseZ *E6, caseNz *E6) *E6 {
+	//Might be able to save a nanosecond or two by an aggregate implementation
+
+	z.B0.Select(cond, &caseZ.B0, &caseNz.B0)
+	z.B1.Select(cond, &caseZ.B1, &caseNz.B1)
+	z.B2.Select(cond, &caseZ.B2, &caseNz.B2)
+
+	return z
+}
+
+func (z *E6) Div(x *E6, y *E6) *E6 {
+	var r E6
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
+}

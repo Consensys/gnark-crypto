@@ -67,7 +67,6 @@ func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 	toEncode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValue,
 	}
 
@@ -86,7 +85,6 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 	toDecode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValue,
 	}
 
@@ -105,7 +103,6 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 	toEncode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		proof.ClaimedValues,
 	}
 
@@ -124,7 +121,6 @@ func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 	toDecode := []interface{}{
 		&proof.H,
-		&proof.Point,
 		&proof.ClaimedValues,
 	}
 

@@ -515,3 +515,25 @@ func BenchmarkE12Expt(b *testing.B) {
 		a.Expt(&a)
 	}
 }
+
+func TestE12Div(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE12()
+	genB := GenE12()
+
+	properties.Property("[BLS12-377] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E12) bool {
+			var c E12
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}

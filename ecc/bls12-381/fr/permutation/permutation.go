@@ -26,7 +26,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/kzg"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -34,6 +33,7 @@ var (
 	ErrIncompatibleSize = errors.New("t1 and t2 should be of the same size")
 	ErrSize             = errors.New("t1 and t2 should be of size a power of 2")
 	ErrPermutationProof = errors.New("permutation proof verification failed")
+	ErrGenerator        = errors.New("wrong generator")
 )
 
 // Proof proof that the commitments of t1 and t2 come from
@@ -42,6 +42,9 @@ type Proof struct {
 
 	// size of the polynomials
 	size int
+
+	// generator of the fft domain, used for shifting the evaluation point
+	g fr.Element
 
 	// commitments of t1 & t2, the permuted vectors, and z, the accumulation
 	// polynomial
@@ -57,8 +60,8 @@ type Proof struct {
 	shiftedProof kzg.OpeningProof
 }
 
-// computeZ returns the accumulation polynomial in Lagrange basis.
-func computeZ(lt1, lt2 []fr.Element, epsilon fr.Element) []fr.Element {
+// evaluateAccumulationPolynomialBitReversed returns the accumulation polynomial in Lagrange basis.
+func evaluateAccumulationPolynomialBitReversed(lt1, lt2 []fr.Element, epsilon fr.Element) []fr.Element {
 
 	s := len(lt1)
 	z := make([]fr.Element, s)
@@ -82,8 +85,8 @@ func computeZ(lt1, lt2 []fr.Element, epsilon fr.Element) []fr.Element {
 	return z
 }
 
-// computeH computes lt2*z(gx) - lt1*z
-func computeH(lt1, lt2, lz []fr.Element, epsilon fr.Element) []fr.Element {
+// evaluateFirstPartNumReverse computes lt2*z(gx) - lt1*z
+func evaluateFirstPartNumReverse(lt1, lt2, lz []fr.Element, epsilon fr.Element) []fr.Element {
 
 	s := len(lt1)
 	res := make([]fr.Element, s)
@@ -101,16 +104,16 @@ func computeH(lt1, lt2, lz []fr.Element, epsilon fr.Element) []fr.Element {
 	return res
 }
 
-// computeH0 computes L0 * (z-1)
-func computeH0(lz []fr.Element, d *fft.Domain) []fr.Element {
+// evaluateSecondPartNumReverse computes L0 * (z-1)
+func evaluateSecondPartNumReverse(lz []fr.Element, d *fft.Domain) []fr.Element {
 
 	var tn, o, g fr.Element
-	s := len(lz)
-	tn.SetUint64(2).
-		Neg(&tn)
-	u := make([]fr.Element, s)
 	o.SetOne()
-	g.Set(&d.FinerGenerator)
+	tn.Exp(d.FrMultiplicativeGen, big.NewInt(int64(d.Cardinality))).
+		Sub(&tn, &o)
+	s := len(lz)
+	u := make([]fr.Element, s)
+	g.Set(&d.FrMultiplicativeGen)
 	for i := 0; i < s; i++ {
 		u[i].Sub(&g, &o)
 		g.Mul(&g, &d.Generator)
@@ -141,12 +144,13 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// create the domains
-	d := fft.NewDomain(uint64(len(t1)), 1, false)
+	d := fft.NewDomain(uint64(len(t1)))
 	if d.Cardinality != uint64(len(t1)) {
 		return proof, ErrSize
 	}
 	s := int(d.Cardinality)
 	proof.size = s
+	proof.g.Set(&d.Generator)
 
 	// hash function for Fiat Shamir
 	hFunc := sha256.New()
@@ -159,8 +163,8 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	ct2 := make([]fr.Element, s)
 	copy(ct1, t1)
 	copy(ct2, t2)
-	d.FFTInverse(ct1, fft.DIF, 0)
-	d.FFTInverse(ct2, fft.DIF, 0)
+	d.FFTInverse(ct1, fft.DIF)
+	d.FFTInverse(ct2, fft.DIF)
 	fft.BitReverse(ct1)
 	fft.BitReverse(ct2)
 	proof.t1, err = kzg.Commit(ct1, srs)
@@ -179,27 +183,27 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// compute Z and commit it
-	cz := computeZ(t1, t2, epsilon)
-	d.FFTInverse(cz, fft.DIT, 0)
+	cz := evaluateAccumulationPolynomialBitReversed(t1, t2, epsilon)
+	d.FFTInverse(cz, fft.DIT)
 	proof.z, err = kzg.Commit(cz, srs)
 	if err != nil {
 		return proof, err
 	}
 	lz := make([]fr.Element, s)
 	copy(lz, cz)
-	d.FFT(lz, fft.DIF, 1)
+	d.FFT(lz, fft.DIF, true)
 
 	// compute the first part of the numerator
 	lt1 := make([]fr.Element, s)
 	lt2 := make([]fr.Element, s)
 	copy(lt1, ct1)
 	copy(lt2, ct2)
-	d.FFT(lt1, fft.DIF, 1)
-	d.FFT(lt2, fft.DIF, 1)
-	h := computeH(lt1, lt2, lz, epsilon)
+	d.FFT(lt1, fft.DIF, true)
+	d.FFT(lt2, fft.DIF, true)
+	lsNumFirstPart := evaluateFirstPartNumReverse(lt1, lt2, lz, epsilon)
 
 	// compute second part of the numerator
-	h0 := computeH0(lz, d)
+	lsNum := evaluateSecondPartNumReverse(lz, d)
 
 	// derive challenge used for the folding
 	omega, err := deriveRandomness(&fs, "omega", &proof.z)
@@ -208,17 +212,18 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// fold the numerator and divide it by x^n-1
-	var t fr.Element
-	t.SetUint64(2).Neg(&t).Inverse(&t)
+	var t, one fr.Element
+	one.SetOne()
+	t.Exp(d.FrMultiplicativeGen, big.NewInt(int64(d.Cardinality))).Sub(&t, &one).Inverse(&t)
 	for i := 0; i < s; i++ {
-		h0[i].Mul(&omega, &h0[i]).
-			Add(&h0[i], &h[i]).
-			Mul(&h0[i], &t)
+		lsNum[i].Mul(&omega, &lsNum[i]).
+			Add(&lsNum[i], &lsNumFirstPart[i]).
+			Mul(&lsNum[i], &t)
 	}
 
 	// get the quotient and commit it
-	d.FFTInverse(h0, fft.DIT, 1)
-	proof.q, err = kzg.Commit(h0, srs)
+	d.FFTInverse(lsNum, fft.DIT, true)
+	proof.q, err = kzg.Commit(lsNum, srs)
 	if err != nil {
 		return proof, err
 	}
@@ -231,11 +236,11 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 
 	// compute the opening proofs
 	proof.batchedProof, err = kzg.BatchOpenSinglePoint(
-		[]polynomial.Polynomial{
+		[][]fr.Element{
 			ct1,
 			ct2,
 			cz,
-			h0,
+			lsNum,
 		},
 		[]kzg.Digest{
 			proof.t1,
@@ -243,20 +248,19 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 			proof.z,
 			proof.q,
 		},
-		&eta,
+		eta,
 		hFunc,
-		d,
 		srs,
 	)
 	if err != nil {
 		return proof, err
 	}
 
-	eta.Mul(&eta, &d.Generator)
+	var shiftedEta fr.Element
+	shiftedEta.Mul(&eta, &d.Generator)
 	proof.shiftedProof, err = kzg.Open(
 		cz,
-		&eta,
-		d,
+		shiftedEta,
 		srs,
 	)
 	if err != nil {
@@ -266,27 +270,6 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	// done
 	return proof, nil
 
-}
-
-// TODO put that in fiat-shamir package
-func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bls12381.G1Affine) (fr.Element, error) {
-
-	var buf [bls12381.SizeOfG1AffineUncompressed]byte
-	var r fr.Element
-
-	for _, p := range points {
-		buf = p.RawBytes()
-		if err := fs.Bind(challenge, buf[:]); err != nil {
-			return r, err
-		}
-	}
-
-	b, err := fs.ComputeChallenge(challenge)
-	if err != nil {
-		return r, err
-	}
-	r.SetBytes(b)
-	return r, nil
 }
 
 // Verify verifies a permutation proof.
@@ -345,6 +328,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 			proof.q,
 		},
 		&proof.batchedProof,
+		eta,
 		hFunc,
 		srs,
 	)
@@ -352,10 +336,44 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		return err
 	}
 
-	err = kzg.Verify(&proof.z, &proof.shiftedProof, srs)
+	var shiftedEta fr.Element
+	shiftedEta.Mul(&eta, &proof.g)
+	err = kzg.Verify(&proof.z, &proof.shiftedProof, shiftedEta, srs)
 	if err != nil {
 		return err
 	}
 
+	// check the generator is correct
+	var checkOrder fr.Element
+	checkOrder.Exp(proof.g, big.NewInt(int64(proof.size/2)))
+	if checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+	checkOrder.Square(&checkOrder)
+	if !checkOrder.Equal(&one) {
+		return ErrGenerator
+	}
+
 	return nil
+}
+
+// TODO put that in fiat-shamir package
+func deriveRandomness(fs *fiatshamir.Transcript, challenge string, points ...*bls12381.G1Affine) (fr.Element, error) {
+
+	var buf [bls12381.SizeOfG1AffineUncompressed]byte
+	var r fr.Element
+
+	for _, p := range points {
+		buf = p.RawBytes()
+		if err := fs.Bind(challenge, buf[:]); err != nil {
+			return r, err
+		}
+	}
+
+	b, err := fs.ComputeChallenge(challenge)
+	if err != nil {
+		return r, err
+	}
+	r.SetBytes(b)
+	return r, nil
 }

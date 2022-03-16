@@ -315,3 +315,25 @@ func BenchmarkE6Inverse(b *testing.B) {
 		a.Inverse(&a)
 	}
 }
+
+func TestE6Div(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE6()
+	genB := GenE6()
+
+	properties.Property("[BLS12-381] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E6) bool {
+			var c E6
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
