@@ -59,10 +59,11 @@ type partialMerkleProof struct {
 
 // MerkleProof used to open a polynomial
 type OpeningProof struct {
-	merkleRoot []byte
-	proofSet   [][]byte
-	numLeaves  uint64
-	index      uint64
+	merkleRoot   []byte
+	proofSet     [][]byte
+	numLeaves    uint64
+	index        uint64
+	ClaimedValue fr.Element
 }
 
 // IOPP Interactive Oracle Proof of Proximity
@@ -275,6 +276,9 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 	}
 	var res OpeningProof
 	res.merkleRoot, res.proofSet, res.index, res.numLeaves = tree.Prove()
+
+	// set the claimed value, which is the first entry of the Merkle proof
+	res.ClaimedValue.SetBytes(res.proofSet[0])
 
 	return res, nil
 }

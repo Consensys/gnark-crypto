@@ -121,10 +121,7 @@ func TestFRI(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var claimedValue fr.Element
-			claimedValue.SetBytes(openingProof.proofSet[0])
-
-			return claimedValue.Equal(&val)
+			return openingProof.ClaimedValue.Equal(&val)
 
 		},
 		gen.Int32Range(0, int32(rho*size)),
