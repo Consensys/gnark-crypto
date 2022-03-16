@@ -1,9 +1,8 @@
 package config
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/field"
+	"math/big"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -22,6 +21,9 @@ type Curve struct {
 	FpInfo, FrInfo Field
 	G1             Point
 	G2             Point
+
+	HashE1 *HashSuite
+	HashE2 *HashSuite
 }
 
 type Field struct {
@@ -36,8 +38,10 @@ func (c Curve) Equal(other Curve) bool {
 
 type Point struct {
 	CoordType        string
+	CoordExtDegree   uint8 // value n, such that q = pⁿ
+	CoordExtRoot     int64 // value a, such that the field is Fp[X]/(Xⁿ - a)
 	PointName        string
-	GLV              bool  // scalar mulitplication using GLV
+	GLV              bool  // scalar multiplication using GLV
 	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
 	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
 	Projective       bool  // generate projective coordinates

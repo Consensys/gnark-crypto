@@ -32,7 +32,7 @@ import (
 
 func Example() {
 	// instantiate hash function
-	hFunc := hash.MIMC_BLS12_381.New("seed")
+	hFunc := hash.MIMC_BLS12_381.New()
 
 	// create a eddsa key pair
 	privateKey, _ := signature.EDDSA_BLS12_381.New(crand.Reader)
@@ -108,7 +108,7 @@ func TestEddsaMIMC(t *testing.T) {
 		t.Fatal(nil)
 	}
 	pubKey := privKey.Public()
-	hFunc := hash.MIMC_BLS12_381.New("seed")
+	hFunc := hash.MIMC_BLS12_381.New()
 
 	var frMsg fr.Element
 	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
@@ -188,7 +188,7 @@ func BenchmarkVerify(b *testing.B) {
 	src := rand.NewSource(0)
 	r := rand.New(src)
 
-	hFunc := hash.MIMC_BLS12_381.New("seed")
+	hFunc := hash.MIMC_BLS12_381.New()
 
 	// create eddsa obj and sign a message
 	privKey, err := signature.EDDSA_BLS12_381.New(r)

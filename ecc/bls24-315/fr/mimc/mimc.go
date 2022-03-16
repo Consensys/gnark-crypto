@@ -18,52 +18,45 @@ package mimc
 
 import (
 	"hash"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"golang.org/x/crypto/sha3"
+	"math/big"
+	"sync"
 )
 
-const mimcNbRounds = 91
-
-// BlockSize size that mimc consumes
-const BlockSize = fr.Bytes
+const (
+	mimcNbRounds = 91
+	seed         = "seed"   // seed to derive the constants
+	BlockSize    = fr.Bytes // BlockSize size that mimc consumes
+)
 
 // Params constants for the mimc hash function
-type Params []fr.Element
-
-// NewParams creates new mimc object
-func NewParams(seed string) Params {
-
-	// set the constants
-	res := make(Params, mimcNbRounds)
-
-	rnd := sha3.Sum256([]byte(seed))
-	value := new(big.Int).SetBytes(rnd[:])
-
-	for i := 0; i < mimcNbRounds; i++ {
-		rnd = sha3.Sum256(value.Bytes())
-		value.SetBytes(rnd[:])
-		res[i].SetBigInt(value)
-	}
-
-	return res
-}
+var (
+	mimcConstants [mimcNbRounds]fr.Element
+	once          sync.Once
+)
 
 // digest represents the partial evaluation of the checksum
 // along with the params of the mimc function
 type digest struct {
-	Params Params
-	h      fr.Element
-	data   []byte // data to hash
+	h    fr.Element
+	data []byte // data to hash
+}
+
+// GetConstants exposed to be used in gnark
+func GetConstants() []big.Int {
+	once.Do(initConstants) // init constants
+	res := make([]big.Int, mimcNbRounds)
+	for i := 0; i < mimcNbRounds; i++ {
+		mimcConstants[i].ToBigIntRegular(&res[i])
+	}
+	return res
 }
 
 // NewMiMC returns a MiMCImpl object, pure-go reference implementation
-func NewMiMC(seed string) hash.Hash {
+func NewMiMC() hash.Hash {
 	d := new(digest)
-	params := NewParams(seed)
-	//d.Reset()
-	d.Params = params
 	d.Reset()
 	return d
 }
@@ -136,8 +129,8 @@ func (d *digest) checksum() fr.Element {
 	for i := 0; i < nbChunks; i++ {
 		copy(buffer[:], d.data[i*BlockSize:(i+1)*BlockSize])
 		x.SetBytes(buffer[:])
-		d.encrypt(x)
-		d.h.Add(&x, &d.h)
+		r := d.encrypt(x)
+		d.h.Add(&r, &d.h).Add(&d.h, &x)
 	}
 
 	return d.h
@@ -146,29 +139,45 @@ func (d *digest) checksum() fr.Element {
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *digest) encrypt(m fr.Element) {
+func (d *digest) encrypt(m fr.Element) fr.Element {
+	once.Do(initConstants) // init constants
 
-	for i := 0; i < len(d.Params); i++ {
+	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^5
 		var tmp fr.Element
-		tmp.Add(&m, &d.h).Add(&tmp, &d.Params[i])
+		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
 			Square(&m).
 			Mul(&m, &tmp)
 	}
 	m.Add(&m, &d.h)
-	d.h = m
+	return m
 }
 
 // Sum computes the mimc hash of msg from seed
-func Sum(seed string, msg []byte) ([]byte, error) {
-	params := NewParams(seed)
+func Sum(msg []byte) ([]byte, error) {
 	var d digest
-	d.Params = params
 	if _, err := d.Write(msg); err != nil {
 		return nil, err
 	}
 	h := d.checksum()
 	bytes := h.Bytes()
 	return bytes[:], nil
+}
+
+func initConstants() {
+	bseed := ([]byte)(seed)
+
+	hash := sha3.NewLegacyKeccak256()
+	_, _ = hash.Write(bseed)
+	rnd := hash.Sum(nil) // pre hash before use
+	hash.Reset()
+	_, _ = hash.Write(rnd)
+
+	for i := 0; i < mimcNbRounds; i++ {
+		rnd = hash.Sum(nil)
+		mimcConstants[i].SetBytes(rnd)
+		hash.Reset()
+		_, _ = hash.Write(rnd)
+	}
 }

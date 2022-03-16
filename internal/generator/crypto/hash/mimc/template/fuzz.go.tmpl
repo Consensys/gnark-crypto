@@ -8,7 +8,7 @@ const (
 
 func Fuzz(data []byte) int {
     var s []byte
-    h := NewMiMC(string(data))
+    h := NewMiMC()
     h.Write(data)
     h.Sum(s)
 	return fuzzNormal
