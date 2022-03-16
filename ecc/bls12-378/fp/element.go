@@ -250,8 +250,27 @@ func (z *Element) IsZero() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1] | z[0]) == 0
 }
 
+// IsOne returns z == 1
+func (z *Element) IsOne() bool {
+	return (z[5] ^ 28498675542444634 | z[4] ^ 13356930855120736188 | z[3] ^ 8832319421896135475 | z[2] ^ 7242180086616818316 | z[1] ^ 10045892448872562649 | z[0] ^ 1481365419032838079) == 0
+}
+
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
+	zz := *z
+	zz.FromMont()
+	return zz.FitsOnOneWord()
+}
+
+// Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
+func (z *Element) Uint64() uint64 {
+	zz := *z
+	zz.FromMont()
+	return zz[0]
+}
+
+// FitsOnOneWord reports whether z words (except the least significant word) are 0
+func (z *Element) FitsOnOneWord() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
 
@@ -961,13 +980,13 @@ func (z *Element) Text(base int) string {
 	}
 	zz := *z
 	zz.FromMont()
-	if zz.IsUint64() {
+	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	} else if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
 		zzNeg.FromMont()
-		if zzNeg.IsUint64() {
+		if zzNeg.FitsOnOneWord() {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
@@ -1295,6 +1314,7 @@ const invIterationsN = 26
 // Implements "Optimized Binary GCD for Modular Inversion"
 // https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 func (z *Element) Inverse(x *Element) *Element {
+
 	a := *x
 	b := Element{
 		qElementWord0,
@@ -1739,19 +1759,4 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
-}
-
-func (z *Element) EvalPolynomial(monic bool, coefficients []Element, x *Element) {
-	dst := coefficients[len(coefficients)-1]
-
-	if monic {
-		dst.Add(&dst, x)
-	}
-
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
-	}
-
-	*z = dst
 }
