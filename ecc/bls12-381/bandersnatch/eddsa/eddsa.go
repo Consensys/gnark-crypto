@@ -24,7 +24,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/twistededwards/bandersnatch"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/twistededwards"
 	"github.com/consensys/gnark-crypto/signature"
 	"golang.org/x/crypto/blake2b"
 )
@@ -41,7 +41,7 @@ const (
 // PublicKey eddsa signature object
 // cf https://en.wikipedia.org/wiki/EdDSA for notation
 type PublicKey struct {
-	A bandersnatch.PointAffine
+	A twistededwards.PointAffine
 }
 
 // PrivateKey private key of an eddsa instance
@@ -54,18 +54,14 @@ type PrivateKey struct {
 // Signature represents an eddsa signature
 // cf https://en.wikipedia.org/wiki/EdDSA for notation
 type Signature struct {
-	R bandersnatch.PointAffine
+	R twistededwards.PointAffine
 	S [sizeFr]byte
 }
 
-func init() {
-	signature.Register(signature.EDDSA_BLS12_381, GenerateKeyInterfaces)
-}
-
 // GenerateKey generates a public and private key pair.
-func GenerateKey(r io.Reader) (PrivateKey, error) {
+func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
-	c := bandersnatch.GetEdwardsCurve()
+	c := twistededwards.GetEdwardsCurve()
 
 	var pub PublicKey
 	var priv PrivateKey
@@ -74,7 +70,7 @@ func GenerateKey(r io.Reader) (PrivateKey, error) {
 	seed := make([]byte, 32)
 	_, err := r.Read(seed)
 	if err != nil {
-		return priv, err
+		return nil, err
 	}
 	h := blake2b.Sum512(seed[:])
 	for i := 0; i < 32; i++ {
@@ -104,25 +100,21 @@ func GenerateKey(r io.Reader) (PrivateKey, error) {
 
 	priv.PublicKey = pub
 
-	return priv, nil
-}
-
-// GenerateKeyInterfaces generate interfaces for the public/private key.
-// This purpose of this function is to be registered in the list of signature schemes.
-func GenerateKeyInterfaces(r io.Reader) (signature.Signer, error) {
-	priv, err := GenerateKey(r)
-	return &priv, err
+	return &priv, nil
 }
 
 // Equal compares 2 public keys
-func (pub *PublicKey) Equal(other signature.PublicKey) bool {
+func (pub *PublicKey) Equal(x signature.PublicKey) bool {
+	xx, ok := x.(*PublicKey)
+	if !ok {
+		return false
+	}
 	bpk := pub.Bytes()
-	bother := other.Bytes()
-	return subtle.ConstantTimeCompare(bpk, bother) == 1
+	bxx := xx.Bytes()
+	return subtle.ConstantTimeCompare(bpk, bxx) == 1
 }
 
 // Public returns the public key associated to the private key.
-// From Signer interface defined in gnark/crypto/signature.
 func (privKey *PrivateKey) Public() signature.PublicKey {
 	var pub PublicKey
 	pub.A.Set(&privKey.PublicKey.A)
@@ -133,7 +125,7 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 
-	curveParams := bandersnatch.GetEdwardsCurve()
+	curveParams := twistededwards.GetEdwardsCurve()
 
 	var res Signature
 
@@ -201,7 +193,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 // Verify verifies an eddsa signature
 func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 
-	curveParams := bandersnatch.GetEdwardsCurve()
+	curveParams := twistededwards.GetEdwardsCurve()
 
 	// verify that pubKey and R are on the curve
 	if !pub.A.IsOnCurve() {
@@ -236,9 +228,9 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	hramInt.SetBytes(hramBin)
 
 	// lhs = cofactor*S*Base
-	var lhs bandersnatch.PointAffine
+	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigInt(&bCofactor)
+	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMul(&curveParams.Base, &bs).
 		ScalarMul(&lhs, &bCofactor)
@@ -248,7 +240,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	}
 
 	// rhs = cofactor*(R + H(R,A,M)*A)
-	var rhs bandersnatch.PointAffine
+	var rhs twistededwards.PointAffine
 	rhs.ScalarMul(&pub.A, &hramInt).
 		Add(&rhs, &sig.R).
 		ScalarMul(&rhs, &bCofactor)

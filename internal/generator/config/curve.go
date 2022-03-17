@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/consensys/gnark-crypto/field"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/field"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -24,6 +25,19 @@ type Curve struct {
 
 	HashE1 *HashSuite
 	HashE2 *HashSuite
+}
+
+type TwistedEdwardsCurve struct {
+	Name    string
+	Package string
+	EnumID  string
+
+	A, D, Cofactor, Order, BaseX, BaseY string
+
+	// set if endomorphism
+	HasEndomorphism bool
+	Endo0, Endo1    string
+	Lambda          string
 }
 
 type Field struct {
@@ -48,6 +62,7 @@ type Point struct {
 }
 
 var Curves []Curve
+var TwistedEdwardsCurves []TwistedEdwardsCurve
 
 func defaultCRange() []int {
 	// default range for C values in the multiExp
@@ -59,6 +74,10 @@ func addCurve(c *Curve) {
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
 	Curves = append(Curves, *c)
+}
+
+func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
+	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)
 }
 
 func newFieldInfo(modulus string) Field {
