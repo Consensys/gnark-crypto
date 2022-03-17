@@ -479,8 +479,7 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 }
 
 // Add adds points in extended coordinates
-// dedicated addition
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd-2
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 	if p1.Equal(p2) {
 		p.Double(p1)
@@ -512,7 +511,7 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 }
 
 // MixedAdd adds a point in extended coordinates to a point in affine coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-4
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd-2
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 
