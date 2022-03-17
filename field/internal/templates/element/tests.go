@@ -2,13 +2,16 @@ package element
 
 const Test = `
 
+{{$elementCapacityNbBits := mul .NbWords 64}}
+{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+
 import (
 	"crypto/rand"
 	"encoding/json"
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if .NoCarry}} mrand "math/rand" {{end}}
+	{{if $UsingP20Inverse}} mrand "math/rand" {{end}}
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field"

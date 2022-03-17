@@ -2,8 +2,6 @@ package element
 
 const InverseTests = `
 
-{{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
 {{if $UsingP20Inverse}}
 
 func BenchmarkMontReduce(b *testing.B) {
