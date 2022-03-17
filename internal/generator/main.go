@@ -12,9 +12,9 @@ import (
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
-	"github.com/consensys/gnark-crypto/internal/generator/crypto/signature/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
+	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
@@ -77,12 +77,6 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
-			// generate twisted edwards companion curves
-			assertNoError(edwards.Generate(conf, filepath.Join(curveDir, "twistededwards"), bgen))
-
-			// generate eddsa on companion curves
-			assertNoError(eddsa.Generate(conf, filepath.Join(curveDir, "twistededwards", "eddsa"), bgen))
-
 			// generate G1, G2, multiExp, ...
 			assertNoError(ecc.Generate(conf, curveDir, bgen))
 
@@ -92,6 +86,25 @@ func main() {
 		}(conf)
 
 	}
+
+	wg.Wait()
+
+	for _, conf := range config.TwistedEdwardsCurves {
+		wg.Add(1)
+
+		go func(conf config.TwistedEdwardsCurve) {
+			defer wg.Done()
+
+			curveDir := filepath.Join(baseDir, "ecc", conf.Name, conf.Package)
+			// generate twisted edwards companion curves
+			assertNoError(edwards.Generate(conf, curveDir, bgen))
+
+			// generate eddsa on companion curves
+			assertNoError(eddsa.Generate(conf, curveDir, bgen))
+		}(conf)
+
+	}
+
 	wg.Wait()
 
 	// format the whole directory

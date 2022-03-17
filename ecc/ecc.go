@@ -53,22 +53,21 @@ func Implemented() []ID {
 }
 
 func (id ID) String() string {
-	// TODO link with config.XXX.Name ?
 	switch id {
 	case BLS12_377:
 		return "bls12_377"
 	case BLS12_378:
 		return "bls12_378"
 	case BLS12_381:
-		return "bls12_381"
+		return config.BLS12_381.EnumID
 	case BN254:
-		return "bn254"
+		return config.BN254.EnumID
 	case BW6_761:
-		return "bw6_761"
+		return config.BW6_761.EnumID
 	case BW6_633:
-		return "bw6_633"
+		return config.BW6_633.EnumID
 	case BLS24_315:
-		return "bls24_315"
+		return config.BLS24_315.EnumID
 	default:
 		panic("unimplemented ecc ID")
 	}
