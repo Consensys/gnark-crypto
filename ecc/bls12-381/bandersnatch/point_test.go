@@ -579,28 +579,7 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("Basic scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
-		func(s big.Int) bool {
-
-			params := GetEdwardsCurve()
-
-			var baseProj PointProj
-			var baseExt PointExtended
-			var p1, p2 PointAffine
-			baseProj.FromAffine(&params.Base)
-			baseProj.ScalarMulBasic(&baseProj, &s)
-			baseExt.FromAffine(&params.Base)
-			baseExt.ScalarMulBasic(&baseExt, &s)
-
-			p1.FromProj(&baseProj)
-			p2.FromExtended(&baseExt)
-
-			return p1.Equal(&p2)
-		},
-		genS1,
-	))
-
-	properties.Property("GLV scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
+	properties.Property("scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
 		func(s big.Int) bool {
 
 			params := GetEdwardsCurve()
@@ -626,16 +605,17 @@ func TestOps(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
+	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine
-	point.Set(&edwards.Base)
+	point.Set(&curveParams.Base)
 	for i := 0; i < 20; i++ {
 		b := point.Marshal()
 		unmarshalPoint.Unmarshal(b)
 		if !point.Equal(&unmarshalPoint) {
 			t.Fatal("error unmarshal(marshal(point))")
 		}
-		point.Add(&point, &edwards.Base)
+		point.Add(&point, &curveParams.Base)
 	}
 }
 
@@ -668,12 +648,10 @@ func BenchmarkScalarMulExtended(b *testing.B) {
 
 	var doubleAndAdd PointExtended
 
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMul(&a, &s)
-		}
-	})
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		doubleAndAdd.ScalarMul(&a, &s)
+	}
 }
 
 func BenchmarkScalarMulProjective(b *testing.B) {
@@ -686,10 +664,8 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 
 	var doubleAndAdd PointProj
 
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.ScalarMul(&a, &s)
-		}
-	})
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		doubleAndAdd.ScalarMul(&a, &s)
+	}
 }
