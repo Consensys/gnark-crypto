@@ -23,7 +23,7 @@ var BW6_633 = Curve{
 		CofactorCleaning: true,
 		CRange:           []int{4, 5, 8, 16},
 	},
-	// 2-isogeny
+	// 7-isogeny
 	HashE1: &HashSuite{
 		A: []string{"0xb5b90ddda6922f2689cf6d2cd62fc7c093d1edbb9b9cb78ba3a6fbeb5740830110ea006288b01bc5c3ff21599bc76c3cc068855d91995e0a03f25ad67e9b0cb86f833df84de9affcac130e2de80208"},
 		B: []string{"0xbb475f2945d16aae79792dd2f17748101c2558a952d4221e5a52bee6083040e779fc8d5e9c51ac35df601e0273b10c72f2b0d48da6bbc3859a3b185a7ee3060030e001265b3803227cb9d879f408d9"},
