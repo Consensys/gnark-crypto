@@ -2,19 +2,21 @@ package element
 
 const InverseTests = `
 
-{{if eq .NoCarry true}}
+{{$elementCapacityNbBits := mul .NbWords 64}}
+{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+{{if $UsingP20Inverse}}
 
 func BenchmarkMontReduce(b *testing.B) {
-	       var x Element
+	       var x {{.ElementName}}
 	       xHiBase := mrand.Uint64()
 	       x.SetRandom()
-	       benchResElement.SetRandom()
+	       benchRes{{.ElementName}}.SetRandom()
 	
 	       b.Run("oldPositive", func(b *testing.B) {
 	               xHi := xHiBase & ^signBitSelector
 	               b.ResetTimer()
 	               for i := 0; i < b.N; i++ {
-	                       benchResElement.montReduceSigned(&x, xHi)
+	                       benchRes{{.ElementName}}.montReduceSigned(&x, xHi)
 	               }
 	       })
 	
@@ -22,7 +24,7 @@ func BenchmarkMontReduce(b *testing.B) {
 	               xHi := xHiBase & ^signBitSelector
 	               b.ResetTimer()
 	               for i := 0; i < b.N; i++ {
-	                       benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+	                       benchRes{{.ElementName}}.montReduceSignedSimpleButSlow(&x, xHi)
 	               }
 	       })
 	
@@ -30,7 +32,7 @@ func BenchmarkMontReduce(b *testing.B) {
 	               xHi := xHiBase | signBitSelector
 	               b.ResetTimer()
 	               for i := 0; i < b.N; i++ {
-	                       benchResElement.montReduceSigned(&x, xHi)
+	                       benchRes{{.ElementName}}.montReduceSigned(&x, xHi)
 	               }
 	       })
 	
@@ -38,7 +40,7 @@ func BenchmarkMontReduce(b *testing.B) {
 	               xHi := xHiBase | signBitSelector
 	               b.ResetTimer()
 	               for i := 0; i < b.N; i++ {
-	                       benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+	                       benchRes{{.ElementName}}.montReduceSignedSimpleButSlow(&x, xHi)
 	               }
 	       })
 	}
@@ -186,7 +188,7 @@ func genVeryBigIntSigned(sign int) gopter.Gen {
 			g.hi &= ^signBitSelector
 		}
 
-		g.low.toVeryBigIntUnsigned(&g.asInt, g.hi)
+		g.low.toVeryBigIntSigned(&g.asInt, g.hi)
 
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
 		return genResult
@@ -253,8 +255,7 @@ func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
 			var zero, res {{.ElementName}}
 			var asInt, resInt big.Int
 
-			asInt.SetUint64(hi)
-			asInt.Lsh(&asInt, Limbs * 64)
+			zero.toVeryBigIntSigned(&asInt, hi)
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSigned(&zero, hi)
@@ -269,8 +270,7 @@ func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
 			var zero, res {{.ElementName}}
 			var asInt, resInt big.Int
 
-			asInt.SetUint64(hi)
-			asInt.Lsh(&asInt, Limbs * 64)
+			zero.toVeryBigIntSigned(&asInt, hi)
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSignedSimpleButSlow(&zero, hi)

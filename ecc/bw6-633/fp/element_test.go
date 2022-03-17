@@ -2564,7 +2564,7 @@ func genVeryBigIntSigned(sign int) gopter.Gen {
 			g.hi &= ^signBitSelector
 		}
 
-		g.low.toVeryBigIntUnsigned(&g.asInt, g.hi)
+		g.low.toVeryBigIntSigned(&g.asInt, g.hi)
 
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
 		return genResult
@@ -2631,8 +2631,7 @@ func TestElementMontReduceMultipleOfR(t *testing.T) {
 			var zero, res Element
 			var asInt, resInt big.Int
 
-			asInt.SetUint64(hi)
-			asInt.Lsh(&asInt, Limbs*64)
+			zero.toVeryBigIntSigned(&asInt, hi)
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSigned(&zero, hi)
@@ -2647,8 +2646,7 @@ func TestElementMontReduceMultipleOfR(t *testing.T) {
 			var zero, res Element
 			var asInt, resInt big.Int
 
-			asInt.SetUint64(hi)
-			asInt.Lsh(&asInt, Limbs*64)
+			zero.toVeryBigIntSigned(&asInt, hi)
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSignedSimpleButSlow(&zero, hi)

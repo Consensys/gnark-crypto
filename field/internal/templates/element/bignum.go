@@ -18,7 +18,7 @@ func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 }
 
 // mulWNonModular multiplies by one word in non-montgomery, without reducing
-func (z *Element) mulWNonModular(x *Element, y int64) uint64 {
+func (z *{{.ElementName}}) mulWNonModular(x *{{.ElementName}}, y int64) uint64 {
 
 	// w := abs(y)
 	m := y >> 63

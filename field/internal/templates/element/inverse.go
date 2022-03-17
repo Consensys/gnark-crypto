@@ -227,7 +227,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
 
 // inverseExp is a fallback in case the inversion algorithm failed
-func (z *Element) inverseExp(x *Element) *Element {
+func (z *{{.ElementName}}) inverseExp(x *{{.ElementName}}) *{{.ElementName}} {
        if qMinusTwo == nil {
                qMinusTwo = Modulus()
                qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
@@ -263,7 +263,7 @@ func approximate(x *{{.ElementName}}, nBits int) uint64 {
 // linearComb z = xC * x + yC * y;
 // 0 ≤ x, y < 2{{supScr .NbBits}}
 // |xC|, |yC| < 2⁶³
-func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
+func (z *{{.ElementName}}) linearComb(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
     // | (hi, z) | < 2 * 2⁶³ * 2{{supScr .NbBits}} = 2{{supScr (add 64 .NbBits)}}
 	// therefore | hi | < 2{{supScr (sub (add 64 .NbBits) $elementCapacityNbBits)}} ≤ 2⁶³
 	hi := z.linearCombNonModular(x, xC, y, yC)
@@ -272,7 +272,7 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
-func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
@@ -341,7 +341,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 }
 
-func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
+func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xHi uint64) {
 
        *z = *x
        z.FromMont() // z = x r⁻¹
