@@ -26,37 +26,26 @@ import (
 	eddsa_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 	eddsa_bw6633 "github.com/consensys/gnark-crypto/ecc/bw6-633/twistededwards/eddsa"
 	eddsa_bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761/twistededwards/eddsa"
+	"github.com/consensys/gnark-crypto/ecc/twistededwards"
 	"github.com/consensys/gnark-crypto/signature"
 )
 
-type SignatureScheme uint
-
-const (
-	BN254 SignatureScheme = iota
-	BLS12_381
-	BLS12_381_BANDERSNATCH
-	BLS12_377
-	BW6_761
-	BLS24_315
-	BW6_633
-)
-
 // New takes a source of randomness and returns a new key pair
-func (ss SignatureScheme) New(r io.Reader) (signature.Signer, error) {
+func New(ss twistededwards.ID, r io.Reader) (signature.Signer, error) {
 	switch ss {
-	case BN254:
+	case twistededwards.BN254:
 		return eddsa_bn254.GenerateKey(r)
-	case BLS12_381:
+	case twistededwards.BLS12_381:
 		return eddsa_bls12381.GenerateKey(r)
-	case BLS12_381_BANDERSNATCH:
+	case twistededwards.BLS12_381_BANDERSNATCH:
 		return eddsa_bls12381_bandersnatch.GenerateKey(r)
-	case BLS12_377:
+	case twistededwards.BLS12_377:
 		return eddsa_bls12377.GenerateKey(r)
-	case BW6_761:
+	case twistededwards.BW6_761:
 		return eddsa_bw6761.GenerateKey(r)
-	case BLS24_315:
+	case twistededwards.BLS24_315:
 		return eddsa_bls24315.GenerateKey(r)
-	case BW6_633:
+	case twistededwards.BW6_633:
 		return eddsa_bw6633.GenerateKey(r)
 	default:
 		panic("not implemented")
