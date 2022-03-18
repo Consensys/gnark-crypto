@@ -257,6 +257,17 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    *z = tv3
    return isQNr
 }
+
+func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
+    {{if eq $TowerDegree 1 }}
+	    var one {{$CoordType}}
+		return one.SetOne().NotEqual(x)
+    {{else}}
+        //Assuming hash is implemented for G1 and that the curve is over Fp
+	    var one fp.Element
+        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+    {{end}}
+}
 {{ end }}
 
 /*
@@ -489,14 +500,4 @@ func {{$CurveName}}NotZero(x *{{$CoordType}}) uint64 {
 	{{else}}    //Assuming G1 is over Fp and that if hashing is available for G2, it also is for G1
 	return g1NotZero(&x.A0) {{ range $i := interval 1 $TowerDegree }} | g1NotZero(&x.A{{$i}}) {{end}}
 	{{end}}
-}
-
-func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
-    {{if eq $TowerDegree 1 }}
-	    var one {{$CoordType}}
-		return one.SetOne().NotEqual(x)
-    {{else}}
-        //Assuming hash is implemented for G1 and that the curve is over Fp
-        return g1NotOne(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
-    {{end}}
 }
