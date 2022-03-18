@@ -31,11 +31,12 @@ import (
 )
 
 var (
-	ErrProximityTest = errors.New("fri proximity test failed")
-	ErrOddSize       = errors.New("the size should be even")
-	ErrMerkleRoot    = errors.New("merkle roots of the opening and the proof of proximity don't coincide")
-	ErrMerklePath    = errors.New("merkle path proof is wrong")
-	ErrRangePosition = errors.New("the asked opening position is out of range")
+	ErrLowDegree            = errors.New("the fully folded polynomial in not of degree 1")
+	ErrProximityTestFolding = errors.New("one round of interaction failed")
+	ErrOddSize              = errors.New("the size should be even")
+	ErrMerkleRoot           = errors.New("merkle roots of the opening and the proof of proximity don't coincide")
+	ErrMerklePath           = errors.New("merkle path proof is wrong")
+	ErrRangePosition        = errors.New("the asked opening position is out of range")
 )
 
 const rho = 8
@@ -514,7 +515,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 			proof.interactions[i][c].numLeaves,
 		)
 		if !res {
-			return ErrProximityTest
+			return ErrMerklePath
 		}
 
 		proofSet := make([][]byte, len(proof.interactions[i][c].proofSet))
@@ -529,7 +530,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 			proof.interactions[i][1-c].numLeaves,
 		)
 		if !res {
-			return ErrProximityTest
+			return ErrMerklePath
 		}
 
 		// correctness of the folding
@@ -553,7 +554,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 			// folding
 			fo.Mul(&fo, &xi[i]).Add(&fo, &fe)
 			if !fo.Equal(&fn) {
-				return ErrProximityTest
+				return ErrProximityTestFolding
 			}
 		}
 	}
@@ -578,7 +579,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	// folding
 	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe)
 	if !fo.Equal(&fn) {
-		return ErrProximityTest
+		return ErrProximityTestFolding
 	}
 
 	// Last step: check that the evatuations lie on a line
@@ -601,7 +602,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	for i := 1; i < rho-1; i++ {
 		if !dydx[0].Equal(&dydx[i]) {
-			return ErrProximityTest
+			return ErrLowDegree
 		}
 	}
 
