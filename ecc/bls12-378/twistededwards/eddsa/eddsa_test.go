@@ -27,7 +27,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/hash"
-	"github.com/consensys/gnark-crypto/signature"
 )
 
 func Example() {
@@ -35,8 +34,8 @@ func Example() {
 	hFunc := hash.MIMC_BLS12_378.New()
 
 	// create a eddsa key pair
-	privateKey, _ := signature.EDDSA_BLS12_378.New(crand.Reader)
-	publicKey := privateKey.Public()
+	privateKey, _ := GenerateKey(crand.Reader)
+	publicKey := privateKey.PublicKey
 
 	// note that the message is on 4 bytes
 	msg := []byte{0xde, 0xad, 0xf0, 0x0d}
@@ -60,17 +59,17 @@ func TestSerialization(t *testing.T) {
 	src := rand.NewSource(0)
 	r := rand.New(src)
 
-	privKey1, err := signature.EDDSA_BLS12_378.New(r)
+	privKey1, err := GenerateKey(r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pubKey1 := privKey1.Public()
+	pubKey1 := privKey1.PublicKey
 
-	privKey2, err := signature.EDDSA_BLS12_378.New(r)
+	privKey2, err := GenerateKey(r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pubKey2 := privKey2.Public()
+	pubKey2 := privKey2.PublicKey
 
 	pubKeyBin1 := pubKey1.Bytes()
 	pubKey2.SetBytes(pubKeyBin1)
@@ -103,11 +102,11 @@ func TestEddsaMIMC(t *testing.T) {
 	r := rand.New(src)
 
 	// create eddsa obj and sign a message
-	privKey, err := signature.EDDSA_BLS12_378.New(r)
+	privKey, err := GenerateKey(r)
 	if err != nil {
 		t.Fatal(nil)
 	}
-	pubKey := privKey.Public()
+	pubKey := privKey.PublicKey
 	hFunc := hash.MIMC_BLS12_378.New()
 
 	var frMsg fr.Element
@@ -150,8 +149,8 @@ func TestEddsaSHA256(t *testing.T) {
 	// create eddsa obj and sign a message
 	// create eddsa obj and sign a message
 
-	privKey, err := signature.EDDSA_BLS12_378.New(r)
-	pubKey := privKey.Public()
+	privKey, err := GenerateKey(r)
+	pubKey := privKey.PublicKey
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,8 +190,8 @@ func BenchmarkVerify(b *testing.B) {
 	hFunc := hash.MIMC_BLS12_378.New()
 
 	// create eddsa obj and sign a message
-	privKey, err := signature.EDDSA_BLS12_378.New(r)
-	pubKey := privKey.Public()
+	privKey, err := GenerateKey(r)
+	pubKey := privKey.PublicKey
 	if err != nil {
 		b.Fatal(err)
 	}

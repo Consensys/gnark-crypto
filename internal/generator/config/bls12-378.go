@@ -23,6 +23,7 @@ var BLS12_378 = Curve{
 		CRange:           defaultCRange(),
 		Projective:       true,
 	},
+	// 2-isogeny
 	HashE1: &HashSuite{
 		A: []string{"0x3eeb0416684d18f2c41f0ac56b4172c97877b1f2170ca6f42387dd67a2cc5c175e179b1a06ffff79e0723fffffffff2"},
 		B: []string{"0x16"},
@@ -55,7 +56,19 @@ var BLS12_378 = Curve{
 	},
 }
 
+var tBLS12_78 = TwistedEdwardsCurve{
+	Name:     BLS12_378.Name,
+	Package:  "twistededwards",
+	EnumID:   BLS12_378.EnumID,
+	A:        "16249",
+	D:        "826857503717340716663906603396009292766308904506333520048618402505612607353",
+	Cofactor: "8",
+	Order:    "1860429383364016612493789857641020908721690454530426945748883177201355593303",
+	BaseX:    "6772953896463446981848394912418300623023000177913479948380771331313783560843",
+	BaseY:    "9922290044608088599966879240752111513195706854076002240583420830067351093249",
+}
+
 func init() {
 	addCurve(&BLS12_378)
-
+	addTwistedEdwardCurve(&tBLS12_78)
 }
