@@ -58,12 +58,8 @@ type Signature struct {
 	S [sizeFr]byte
 }
 
-func init() {
-	signature.Register(signature.EDDSA_BW6_761, GenerateKeyInterfaces)
-}
-
 // GenerateKey generates a public and private key pair.
-func GenerateKey(r io.Reader) (PrivateKey, error) {
+func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	c := twistededwards.GetEdwardsCurve()
 
@@ -80,7 +76,7 @@ func GenerateKey(r io.Reader) (PrivateKey, error) {
 	seed := make([]byte, 32)
 	_, err := r.Read(seed)
 	if err != nil {
-		return priv, err
+		return nil, err
 	}
 	h1 := blake2b.Sum512(seed[:])
 
@@ -113,25 +109,21 @@ func GenerateKey(r io.Reader) (PrivateKey, error) {
 
 	priv.PublicKey = pub
 
-	return priv, nil
-}
-
-// GenerateKeyInterfaces generate interfaces for the public/private key.
-// This purpose of this function is to be registered in the list of signature schemes.
-func GenerateKeyInterfaces(r io.Reader) (signature.Signer, error) {
-	priv, err := GenerateKey(r)
-	return &priv, err
+	return &priv, nil
 }
 
 // Equal compares 2 public keys
-func (pub *PublicKey) Equal(other signature.PublicKey) bool {
+func (pub *PublicKey) Equal(x signature.PublicKey) bool {
+	xx, ok := x.(*PublicKey)
+	if !ok {
+		return false
+	}
 	bpk := pub.Bytes()
-	bother := other.Bytes()
-	return subtle.ConstantTimeCompare(bpk, bother) == 1
+	bxx := xx.Bytes()
+	return subtle.ConstantTimeCompare(bpk, bxx) == 1
 }
 
 // Public returns the public key associated to the private key.
-// From Signer interface defined in gnark/crypto/signature.
 func (privKey *PrivateKey) Public() signature.PublicKey {
 	var pub PublicKey
 	pub.A.Set(&privKey.PublicKey.A)
@@ -247,7 +239,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigInt(&bCofactor)
+	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMul(&curveParams.Base, &bs).
 		ScalarMul(&lhs, &bCofactor)

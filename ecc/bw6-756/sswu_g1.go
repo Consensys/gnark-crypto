@@ -152,6 +152,13 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
+func g1NotOne(x *fp.Element) uint64 {
+
+	var one fp.Element
+	return one.SetOne().NotEqual(x)
+
+}
+
 /*
 // g1SetZ sets z to [11].
 func g1SetZ(z *fp.Element) {
@@ -323,12 +330,5 @@ func g1EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *f
 func g1NotZero(x *fp.Element) uint64 {
 
 	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5] | x[6] | x[7] | x[8] | x[9] | x[10] | x[11]
-
-}
-
-func g1NotOne(x *fp.Element) uint64 {
-
-	var one fp.Element
-	return one.SetOne().NotEqual(x)
 
 }
