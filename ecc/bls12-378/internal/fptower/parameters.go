@@ -18,16 +18,16 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 )
 
-// t-1
+// generator of the curve
 var xGen big.Int
 
 var glvBasis ecc.Lattice
 
 func init() {
-	xGen.SetString("37014442673353839783463348892746893664389658635873267609916377398480286678854893830143", 10)
+	xGen.SetString("11045256207009841153", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &xGen, &glvBasis)
 }
