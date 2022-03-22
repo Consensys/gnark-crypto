@@ -537,7 +537,11 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 
 // Double adds points in extended coordinates
 // Dedicated doubling
+{{- if or (eq .Name "bls12-378") (eq .Name "bw6-756")}}
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
+{{- else}}
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
+{{- end}}
 func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 	var A, B, C, D, E, F, G, H fr.Element
@@ -566,7 +570,11 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 // MixedDouble adds points in extended coordinates
 // Dedicated mixed doubling
+{{- if or (eq .Name "bls12-378") (eq .Name "bw6-756")}}
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-mdbl-2008-hwcd
+{{- else}}
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
+{{- end}}
 func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
 
 	var A, B, D, E, G, H, two fr.Element

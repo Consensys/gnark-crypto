@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315 and bw6-633 elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315 and bw6-633 elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -40,6 +40,7 @@ const (
 	UNKNOWN ID = iota
 	BN254
 	BLS12_377
+	BLS12_378
 	BLS12_381
 	BLS24_315
 	BW6_761
@@ -48,13 +49,15 @@ const (
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BW6_633, BLS24_315}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378}
 }
 
 func (id ID) String() string {
 	switch id {
 	case BLS12_377:
-		return config.BLS12_377.EnumID
+		return "bls12_377"
+	case BLS12_378:
+		return "bls12_378"
 	case BLS12_381:
 		return config.BLS12_381.EnumID
 	case BN254:
@@ -77,6 +80,8 @@ func (id ID) Info() Info {
 	switch id {
 	case BLS12_377:
 		return newInfo(&config.BLS12_377)
+	case BLS12_378:
+		return newInfo(&config.BLS12_378)
 	case BLS12_381:
 		return newInfo(&config.BLS12_381)
 	case BN254:

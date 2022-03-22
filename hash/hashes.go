@@ -21,6 +21,7 @@ import (
 	"hash"
 
 	bls377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/mimc"
+	bls378 "github.com/consensys/gnark-crypto/ecc/bls12-378/fr/mimc"
 	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
 	bls315 "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
 	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
@@ -34,6 +35,7 @@ const (
 	MIMC_BN254 Hash = iota
 	MIMC_BLS12_381
 	MIMC_BLS12_377
+	MIMC_BLS12_378
 	MIMC_BW6_761
 	MIMC_BLS24_315
 	MIMC_BW6_633
@@ -44,6 +46,7 @@ var digestSize = []uint8{
 	MIMC_BN254:     32,
 	MIMC_BLS12_381: 48,
 	MIMC_BLS12_377: 48,
+	MIMC_BLS12_378: 48,
 	MIMC_BW6_761:   96,
 	MIMC_BLS24_315: 48,
 	MIMC_BW6_633:   80,
@@ -58,6 +61,8 @@ func (m Hash) New() hash.Hash {
 		return bls381.NewMiMC()
 	case MIMC_BLS12_377:
 		return bls377.NewMiMC()
+	case MIMC_BLS12_378:
+		return bls378.NewMiMC()
 	case MIMC_BW6_761:
 		return bw761.NewMiMC()
 	case MIMC_BLS24_315:
@@ -78,6 +83,8 @@ func (m Hash) String() string {
 		return "MIMC_BLS381"
 	case MIMC_BLS12_377:
 		return "MIMC_BLS377"
+	case MIMC_BLS12_378:
+		return "MIMC_BLS378"
 	case MIMC_BW6_761:
 		return "MIMC_BW761"
 	case MIMC_BLS24_315:
