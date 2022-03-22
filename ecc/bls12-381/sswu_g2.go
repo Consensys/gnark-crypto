@@ -201,6 +201,14 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 	return isQNr
 }
 
+func g2NotOne(x *fptower.E2) uint64 {
+
+	//Assuming hash is implemented for G1 and that the curve is over Fp
+	var one fp.Element
+	return one.SetOne().NotEqual(&x.A0) | g1NotZero(&x.A1)
+
+}
+
 /*
 // g2SetZ sets z to [-2 -1].
 func g2SetZ(z *fptower.E2) {
@@ -406,12 +414,5 @@ func g2EvalPolynomial(z *fptower.E2, monic bool, coefficients []fptower.E2, x *f
 func g2NotZero(x *fptower.E2) uint64 {
 	//Assuming G1 is over Fp and that if hashing is available for G2, it also is for G1
 	return g1NotZero(&x.A0) | g1NotZero(&x.A1)
-
-}
-
-func g2NotOne(x *fptower.E2) uint64 {
-
-	//Assuming hash is implemented for G1 and that the curve is over Fp
-	return g1NotOne(&x.A0) | g1NotZero(&x.A1)
 
 }

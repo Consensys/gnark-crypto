@@ -19,7 +19,6 @@ package signature
 
 import (
 	"hash"
-	"io"
 )
 
 // PublicKey public key interface.
@@ -43,8 +42,7 @@ type PublicKey interface {
 	// on the twisted Edwards as big endian integers.
 	Bytes() []byte
 
-	// Equal compares the public key to other.
-	Equal(other PublicKey) bool
+	Equal(PublicKey) bool
 }
 
 // Signer signer interface.
@@ -71,31 +69,4 @@ type Signer interface {
 	// scalar is in big endian, of size sizeFr.
 	// It returns the number byte read.
 	SetBytes(buf []byte) (int, error)
-}
-
-type SignatureScheme uint
-
-const maxSignatures = 6
-
-const (
-	EDDSA_BN254 SignatureScheme = iota
-	EDDSA_BLS12_381
-	EDDSA_BLS12_377
-	EDDSA_BW6_761
-	EDDSA_BLS24_315
-	EDDSA_BW6_633
-)
-
-var signatures = make([]func(io.Reader) (Signer, error), maxSignatures)
-
-// Register registers a key pair generating function for a given signature scheme.
-func Register(ss SignatureScheme, f func(io.Reader) (Signer, error)) {
-	// we cannot import the corresponding constructors directly due to import cycles.
-	signatures[ss] = f
-}
-
-// New takes a source of randomness and returns a new key pair
-func (ss SignatureScheme) New(r io.Reader) (Signer, error) {
-	f := signatures[ss]
-	return f(r)
 }
