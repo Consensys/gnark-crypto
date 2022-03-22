@@ -136,9 +136,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 
 	// randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
 	randSrc := make([]byte, 32+len(message))
-	for i, v := range privKey.randSrc {
-		randSrc[i] = v
-	}
+	copy(randSrc, privKey.randSrc[:])
 	copy(randSrc[32:], message)
 
 	// randBytes = H(randSrc)
