@@ -19,7 +19,7 @@ type CurveParams struct {
 
 	{{- if .HasEndomorphism}}
 	// endomorphism
-	endo     [2]fr.Element 
+	endo     [2]fr.Element
 	lambda   big.Int
 	glvBasis ecc.Lattice
 	{{- end}}
@@ -79,7 +79,6 @@ func mulByA(x *fr.Element) {
 		x.Neg(x)
 		fr.MulBy5(x)
 	{{- else }}
-		NOT IMPLEMENTED
-		panic("not implementeed")
+        x.Mul(x, &curveParams.A)
 	{{- end}}
 }
