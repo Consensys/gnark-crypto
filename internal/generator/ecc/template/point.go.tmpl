@@ -413,7 +413,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		}
 	{{- end}}
-{{else if eq .Name "bw6-761"}}
+{{else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
@@ -761,6 +761,33 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.phi(&L1).AddAssign(&L0)
 
     return p
+{{else if eq .Name "bw6-756"}}
+	var L0, L1, uP, u2P, u3P, tmp G1Jac
+
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
+
+	L0.Set(a).AddAssign(&u3P).
+		SubAssign(&u2P)
+	tmp.Set(a).AddAssign(&u2P).
+		SubAssign(&uP).
+		SubAssign(&uP).
+		Double(&tmp)
+	L0.SubAssign(&tmp).
+		SubAssign(a)
+
+	L1.Set(a).AddAssign(&uP)
+	tmp.Set(&uP).SubAssign(a).
+		Double(&tmp).
+		SubAssign(&u2P)
+	L1.AddAssign(&tmp).
+		SubAssign(a)
+
+	p.phi(&L1).
+		AddAssign(&L0)
+
+	return p
 {{- end}}
 }
 {{ else }}
@@ -946,6 +973,31 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.phi(&L1).AddAssign(&L0)
 
 	return p
+{{else if eq .Name "bw6-756"}}
+
+	var L0, L1, uP, u2P, u3P, tmp G2Jac
+
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
+	// ht=-2, hy=0
+	// d1=1, d2=-1, d3=-1
+
+	L0.Set(a).
+		AddAssign(&u2P).
+		SubAssign(&uP)
+	tmp.Set(&u2P).
+		AddAssign(a).
+		SubAssign(&uP).
+		Double(&tmp)
+	L1.Set(&u3P).
+		SubAssign(&tmp)
+
+	p.phi(&L0).
+		AddAssign(&L1)
+
+	return p
+
 {{- end}}
 }
 {{- end}}

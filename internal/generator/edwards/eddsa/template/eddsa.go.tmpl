@@ -49,7 +49,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 	var pub PublicKey
 	var priv PrivateKey
 
-    {{ if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+    {{ if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
 	// The source of randomness and the secret scalar must come
 	// from 2 distincts sources. Since the scalar is the size of the
 	// field of definition (48 bytes), the scalar must come from a
@@ -84,7 +84,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	// prune the key
 	// https://tools.ietf.org/html/rfc8032#section-5.1.5, key generation
-	{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+	{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
 	h1[0] &= 0xF8
 	h1[sizeFr-1] &= 0x7F
 	h1[sizeFr-1] |= 0x40
@@ -97,14 +97,14 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 	// reverse first bytes because setBytes interpret stream as big endian
 	// but in eddsa specs s is the first 32 bytes in little endian
 	for i, j := 0, sizeFr; i < j; i, j = i+1, j-1 {
-		{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+		{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
 		h1[i], h1[j] = h1[j], h1[i]
 		{{ else }}
 		h[i], h[j] = h[j], h[i]
 		{{ end }}
 	}
 
-	{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
+	{{ if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
 	copy(priv.scalar[:], h1[:sizeFr])
 	{{ else }}
 	copy(priv.scalar[:], h[:sizeFr])

@@ -26,6 +26,7 @@ import (
 	eddsa_bls24315 "github.com/consensys/gnark-crypto/ecc/bls24-315/twistededwards/eddsa"
 	eddsa_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 	eddsa_bw6633 "github.com/consensys/gnark-crypto/ecc/bw6-633/twistededwards/eddsa"
+	eddsa_bw6756 "github.com/consensys/gnark-crypto/ecc/bw6-756/twistededwards/eddsa"
 	eddsa_bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761/twistededwards/eddsa"
 	"github.com/consensys/gnark-crypto/ecc/twistededwards"
 	"github.com/consensys/gnark-crypto/signature"
@@ -46,6 +47,8 @@ func New(ss twistededwards.ID, r io.Reader) (signature.Signer, error) {
 		return eddsa_bls12378.GenerateKey(r)
 	case twistededwards.BW6_761:
 		return eddsa_bw6761.GenerateKey(r)
+	case twistededwards.BW6_756:
+		return eddsa_bw6756.GenerateKey(r)
 	case twistededwards.BLS24_315:
 		return eddsa_bls24315.GenerateKey(r)
 	case twistededwards.BW6_633:
