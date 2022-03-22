@@ -89,8 +89,8 @@ func (f *Extension) Halve(z []big.Int) {
 }
 
 func (f *Extension) reduce(z []big.Int) {
-	for _, x := range z {
-		x.Mod(&x, f.Base.ModulusBig)
+	for i := 0; i < len(z); i++ {
+		z[i].Mod(&z[i], f.Base.ModulusBig)
 	}
 }
 
