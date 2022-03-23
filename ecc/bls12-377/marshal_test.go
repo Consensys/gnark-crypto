@@ -31,8 +31,13 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 )
 
-func TestEncoder(t *testing.T) {
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
+func TestEncoder(t *testing.T) {
+	t.Parallel()
 	// TODO need proper fuzz testing here
 
 	var inA uint64
@@ -138,6 +143,7 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestIsCompressed(t *testing.T) {
+	t.Parallel()
 	var g1Inf, g1 G1Affine
 	var g2Inf, g2 G2Affine
 
@@ -203,7 +209,7 @@ func TestIsCompressed(t *testing.T) {
 }
 
 func TestG1AffineSerialization(t *testing.T) {
-
+	t.Parallel()
 	// test round trip serialization of infinity
 	{
 		// compressed
@@ -245,9 +251,9 @@ func TestG1AffineSerialization(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
-		parameters.MinSuccessfulTests = 100
+		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
-		parameters.MinSuccessfulTests = 1000
+		parameters.MinSuccessfulTests = nbFuzz
 	}
 
 	properties := gopter.NewProperties(parameters)
@@ -296,7 +302,7 @@ func TestG1AffineSerialization(t *testing.T) {
 }
 
 func TestG2AffineSerialization(t *testing.T) {
-
+	t.Parallel()
 	// test round trip serialization of infinity
 	{
 		// compressed
@@ -338,9 +344,9 @@ func TestG2AffineSerialization(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
-		parameters.MinSuccessfulTests = 100
+		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
-		parameters.MinSuccessfulTests = 1000
+		parameters.MinSuccessfulTests = nbFuzz
 	}
 
 	properties := gopter.NewProperties(parameters)

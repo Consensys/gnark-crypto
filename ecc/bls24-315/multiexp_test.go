@@ -33,14 +33,18 @@ import (
 func TestMultiExpG1(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 2
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 143
+	const nbSamples = 73
 
 	// multi exp points
 	var samplePoints [nbSamples]G1Affine
@@ -692,14 +696,18 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 func TestMultiExpG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 2
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 143
+	const nbSamples = 73
 
 	// multi exp points
 	var samplePoints [nbSamples]G2Affine

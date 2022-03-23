@@ -12,8 +12,13 @@ import (
 
 func TestE12Serialization(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 

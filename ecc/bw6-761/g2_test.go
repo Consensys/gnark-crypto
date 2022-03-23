@@ -29,9 +29,13 @@ import (
 )
 
 func TestG2AffineEndomorphism(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -67,9 +71,13 @@ func TestG2AffineEndomorphism(t *testing.T) {
 }
 
 func TestMapToCurveG2(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -94,9 +102,13 @@ func TestMapToCurveG2(t *testing.T) {
 }
 
 func TestG2AffineIsOnCurve(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -139,9 +151,13 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 }
 
 func TestG2AffineConversions(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -240,7 +256,7 @@ func TestG2AffineConversions(t *testing.T) {
 }
 
 func TestG2AffineOps(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
@@ -399,9 +415,13 @@ func TestG2AffineOps(t *testing.T) {
 }
 
 func TestG2AffineCofactorCleaning(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -436,7 +456,11 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 

@@ -342,6 +342,7 @@ func TestElementReduce(t *testing.T) {
 		}
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -375,6 +376,7 @@ func TestElementReduce(t *testing.T) {
 }
 
 func TestElementEqual(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -407,6 +409,7 @@ func TestElementEqual(t *testing.T) {
 }
 
 func TestElementBytes(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -445,6 +448,7 @@ func TestElementInverseExp(t *testing.T) {
 		return a.element.Equal(&b)
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -472,6 +476,7 @@ func TestElementInverseExp(t *testing.T) {
 
 func TestElementMulByConstants(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -563,6 +568,7 @@ func TestElementMulByConstants(t *testing.T) {
 }
 
 func TestElementLegendre(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -594,6 +600,7 @@ func TestElementLegendre(t *testing.T) {
 
 func TestElementButterflies(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -630,6 +637,7 @@ func TestElementButterflies(t *testing.T) {
 }
 
 func TestElementLexicographicallyLargest(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -672,6 +680,7 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 }
 
 func TestElementAdd(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -813,6 +822,7 @@ func TestElementAdd(t *testing.T) {
 }
 
 func TestElementSub(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -954,6 +964,7 @@ func TestElementSub(t *testing.T) {
 }
 
 func TestElementMul(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1095,6 +1106,7 @@ func TestElementMul(t *testing.T) {
 }
 
 func TestElementDiv(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1213,6 +1225,7 @@ func TestElementDiv(t *testing.T) {
 }
 
 func TestElementExp(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1328,6 +1341,7 @@ func TestElementExp(t *testing.T) {
 }
 
 func TestElementSquare(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1406,6 +1420,7 @@ func TestElementSquare(t *testing.T) {
 }
 
 func TestElementInverse(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1484,6 +1499,7 @@ func TestElementInverse(t *testing.T) {
 }
 
 func TestElementSqrt(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1562,6 +1578,7 @@ func TestElementSqrt(t *testing.T) {
 }
 
 func TestElementDouble(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1657,6 +1674,7 @@ func TestElementDouble(t *testing.T) {
 }
 
 func TestElementNeg(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1753,6 +1771,7 @@ func TestElementNeg(t *testing.T) {
 
 func TestElementFixedExp(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1800,6 +1819,7 @@ func TestElementFixedExp(t *testing.T) {
 
 func TestElementHalve(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1836,6 +1856,7 @@ func combineSelectionArguments(c int64, z int8) int {
 }
 
 func TestElementSelect(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1890,6 +1911,7 @@ func TestElementSelect(t *testing.T) {
 
 func TestElementSetInt64(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1919,6 +1941,7 @@ func TestElementSetInt64(t *testing.T) {
 
 func TestElementSetInterface(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -2076,6 +2099,7 @@ func TestElementSetInterface(t *testing.T) {
 
 func TestElementFromMont(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
