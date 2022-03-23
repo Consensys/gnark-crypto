@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - 'develop'
-name: CI
+name: CI_develop
 jobs:
   staticcheck:
     runs-on: ubuntu-latest
