@@ -344,21 +344,21 @@ func BenchmarkExpGT(b *testing.B) {
 	var _e big.Int
 	e.ToBigIntRegular(&_e)
 
-	b.Run(fmt.Sprintf("Naive windowed Exp"), func(b *testing.B) {
+	b.Run("Naive windowed Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			a.Exp(&a, _e)
 		}
 	})
 
-	b.Run(fmt.Sprintf("2-NAF cyclotomic Exp"), func(b *testing.B) {
+	b.Run("2-NAF cyclotomic Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			a.CyclotomicExp(&a, _e)
 		}
 	})
 
-	b.Run(fmt.Sprintf("windowed 2-dim GLV Exp"), func(b *testing.B) {
+	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			a.ExpGLV(&a, &_e)
