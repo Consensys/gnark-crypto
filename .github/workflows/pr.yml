@@ -1,13 +1,6 @@
-on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-      - converted_to_draft
+on: pull_request
 
-name: CI_PR
+name: pull_request
 jobs:
   staticcheck:
     runs-on: ubuntu-latest
