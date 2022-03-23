@@ -18,7 +18,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
 // t-1
@@ -27,7 +27,7 @@ var xGen big.Int
 var glvBasis ecc.Lattice
 
 func init() {
-	xGen.SetString("37014442673353839783463348892746893664389658635873267609916377398480286678854893830143", 10)
+	xGen.SetString("164391353554439166353793911729193406645071739502673898176639736370075683438438023898983435337730", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &xGen, &glvBasis)
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
 
-// generator of the curve
+// t-1
 var xGen big.Int
 
 var glvBasis ecc.Lattice
