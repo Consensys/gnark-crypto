@@ -29,10 +29,19 @@ import (
 // ------------------------------------------------------------
 // tests
 
-func TestReceiverIsOperand(t *testing.T) {
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
+func TestReceiverIsOperand(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -264,8 +273,13 @@ func TestReceiverIsOperand(t *testing.T) {
 }
 
 func TestField(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 	genS := GenBigInt()
@@ -291,7 +305,11 @@ func TestField(t *testing.T) {
 func TestOps(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 	genS1 := GenBigInt()
@@ -605,6 +623,7 @@ func TestOps(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
+	t.Parallel()
 	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine

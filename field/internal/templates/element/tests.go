@@ -338,6 +338,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	}
 
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -371,6 +372,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Equal(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -403,6 +405,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Bytes(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -441,6 +444,7 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 		return a.element.Equal(&b)
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -469,6 +473,7 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 
 func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -561,6 +566,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -593,6 +599,7 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 
 func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -629,6 +636,7 @@ func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -686,6 +694,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{ define "testBinaryOp" }}
 
 func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -880,6 +889,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 {{ define "testUnaryOp" }}
 
 func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1010,6 +1020,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 {{ if .UseAddChain}}
 func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1070,6 +1081,7 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 func Test{{toTitle .ElementName}}Halve(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1107,6 +1119,7 @@ func combineSelectionArguments(c int64, z int8) int {
 }
 
 func Test{{toTitle .ElementName}}Select(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1161,6 +1174,7 @@ func Test{{toTitle .ElementName}}Select(t *testing.T) {
 
 func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1192,6 +1206,7 @@ func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
 func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1250,6 +1265,7 @@ properties.Property("z.SetInterface must match z.SetString with {{.tName}}", pro
 
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort

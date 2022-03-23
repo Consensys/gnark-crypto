@@ -26,9 +26,16 @@ import (
 )
 
 func TestG1SqrtRatio(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
 	properties := gopter.NewProperties(parameters)
+
 	gen := genCoordElemG1(t)
 
 	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
@@ -89,7 +96,7 @@ func g1TestMatch(t *testing.T, c hashTestCase, seen *G1Affine) {
 }
 
 func TestEncodeToCurveG1SSWU(t *testing.T) {
-
+	t.Parallel()
 	for _, c := range g1EncodeToCurveSSWUVector.cases {
 		seen, err := EncodeToCurveG1SSWU([]byte(c.msg), g1EncodeToCurveSSWUVector.dst)
 		if err != nil {
@@ -100,6 +107,7 @@ func TestEncodeToCurveG1SSWU(t *testing.T) {
 }
 
 func TestHashToCurveG1SSWU(t *testing.T) {
+	t.Parallel()
 	for _, c := range g1HashToCurveSSWUVector.cases {
 		seen, err := HashToCurveG1SSWU([]byte(c.msg), g1HashToCurveSSWUVector.dst)
 		if err != nil {

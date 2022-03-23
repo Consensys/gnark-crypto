@@ -31,8 +31,13 @@ import (
 
 func TestPairing(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -107,6 +112,40 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BLS12-381] PairingCheck", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var g1GenAffNeg G1Affine
+			g1GenAffNeg.Neg(&g1GenAff)
+			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
+			tabQ := []G2Affine{g2GenAff, g2GenAff}
+
+			res, _ := PairingCheck(tabP, tabQ)
+
+			return res
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestMillerLoop(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
+
 	properties.Property("[BLS12-381] MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
 		func(a, b fr.Element) bool {
 
@@ -143,22 +182,6 @@ func TestPairing(t *testing.T) {
 			factorizedProd, _ = Pair(tabP, tabQ)
 
 			return simpleProd.Equal(&factorizedProd)
-		},
-		genR1,
-		genR2,
-	))
-
-	properties.Property("[BLS12-381] PairingCheck", prop.ForAll(
-		func(a, b fr.Element) bool {
-
-			var g1GenAffNeg G1Affine
-			g1GenAffNeg.Neg(&g1GenAff)
-			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
-			tabQ := []G2Affine{g2GenAff, g2GenAff}
-
-			res, _ := PairingCheck(tabP, tabQ)
-
-			return res
 		},
 		genR1,
 		genR2,

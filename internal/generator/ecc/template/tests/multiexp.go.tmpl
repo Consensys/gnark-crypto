@@ -30,14 +30,19 @@ import (
 func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 2
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
+
 
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
 	
 	// size of the multiExps 
-	const nbSamples = 143
+	const nbSamples = 73
 
 	// multi exp points
 	var samplePoints [nbSamples]{{ $.TAffine }}
