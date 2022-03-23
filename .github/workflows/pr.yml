@@ -1,11 +1,13 @@
 on:
-  push:
-    branches:
-      - 'develop'
   pull_request:
-    branches:
-      - 'develop'
-name: CI_develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+
+name: CI_PR
 jobs:
   staticcheck:
     runs-on: ubuntu-latest
