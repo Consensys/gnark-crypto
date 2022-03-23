@@ -9,10 +9,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"
 )
 
-// TODO: endo needed for clearing cofactor (https://eprint.iacr.org/2017/419.pdf, Appendix A)
-
 // E: y**2=x**3+1
-// Etwist: y**2 = x**3+u**-1
+// Etwist: y**2 = x**3+v**-1
 // Tower: Fp->Fp2, u**2=13 -> Fp4, v**2=u -> Fp8, w**2=v -> Fp24, i**3=w
 // Generator (BLS24 family): x=-0xbfcfffff (32 bits)
 // optimal Ate loop: trace(frob)-1=x

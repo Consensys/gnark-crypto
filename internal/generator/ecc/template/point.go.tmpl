@@ -413,7 +413,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		}
 	{{- end}}
-{{else if eq .Name "bw6-761"}}
+{{else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
@@ -520,8 +520,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
                 return res.IsOnCurve() && res.Z.IsZero()
         }
-        {{else if eq .Name "bls12-377"}}
-            // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // psi(p) = u*P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
@@ -689,7 +688,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if eq .Name "bls12-377"}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
@@ -762,6 +761,33 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.phi(&L1).AddAssign(&L0)
 
     return p
+{{else if eq .Name "bw6-756"}}
+	var L0, L1, uP, u2P, u3P, tmp G1Jac
+
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
+
+	L0.Set(a).AddAssign(&u3P).
+		SubAssign(&u2P)
+	tmp.Set(a).AddAssign(&u2P).
+		SubAssign(&uP).
+		SubAssign(&uP).
+		Double(&tmp)
+	L0.SubAssign(&tmp).
+		SubAssign(a)
+
+	L1.Set(a).AddAssign(&uP)
+	tmp.Set(&uP).SubAssign(a).
+		Double(&tmp).
+		SubAssign(&u2P)
+	L1.AddAssign(&tmp).
+		SubAssign(a)
+
+	p.phi(&L1).
+		AddAssign(&L0)
+
+	return p
 {{- end}}
 }
 {{ else }}
@@ -815,7 +841,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{else if eq .Name "bls12-377"}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen)
@@ -947,6 +973,31 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.phi(&L1).AddAssign(&L0)
 
 	return p
+{{else if eq .Name "bw6-756"}}
+
+	var L0, L1, uP, u2P, u3P, tmp G2Jac
+
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
+	// ht=-2, hy=0
+	// d1=1, d2=-1, d3=-1
+
+	L0.Set(a).
+		AddAssign(&u2P).
+		SubAssign(&uP)
+	tmp.Set(&u2P).
+		AddAssign(a).
+		SubAssign(&uP).
+		Double(&tmp)
+	L1.Set(&u3P).
+		SubAssign(&tmp)
+
+	p.phi(&L0).
+		AddAssign(&L1)
+
+	return p
+
 {{- end}}
 }
 {{- end}}

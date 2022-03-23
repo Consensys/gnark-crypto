@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315 and bw6-633 elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bw6-633, bls12-378 and bw6-756 elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -40,32 +40,37 @@ const (
 	UNKNOWN ID = iota
 	BN254
 	BLS12_377
+	BLS12_378
 	BLS12_381
 	BLS24_315
 	BW6_761
 	BW6_633
+	BW6_756
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756}
 }
 
 func (id ID) String() string {
-	// TODO link with config.XXX.Name ?
 	switch id {
 	case BLS12_377:
 		return "bls12_377"
+	case BLS12_378:
+		return "bls12_378"
 	case BLS12_381:
-		return "bls12_381"
+		return config.BLS12_381.EnumID
 	case BN254:
-		return "bn254"
+		return config.BN254.EnumID
 	case BW6_761:
-		return "bw6_761"
+		return config.BW6_761.EnumID
 	case BW6_633:
-		return "bw6_633"
+		return config.BW6_633.EnumID
 	case BLS24_315:
 		return "bls24_315"
+	case BW6_756:
+		return "bw6_756"
 	default:
 		panic("unimplemented ecc ID")
 	}
@@ -78,6 +83,8 @@ func (id ID) Info() Info {
 	switch id {
 	case BLS12_377:
 		return newInfo(&config.BLS12_377)
+	case BLS12_378:
+		return newInfo(&config.BLS12_378)
 	case BLS12_381:
 		return newInfo(&config.BLS12_381)
 	case BN254:
@@ -88,6 +95,8 @@ func (id ID) Info() Info {
 		return newInfo(&config.BW6_633)
 	case BLS24_315:
 		return newInfo(&config.BLS24_315)
+	case BW6_756:
+		return newInfo(&config.BW6_756)
 	default:
 		panic("unimplemented ecc ID")
 	}
