@@ -298,6 +298,40 @@ func TestMultiExpGT(t *testing.T) {
 		genScalar,
 	))
 
+	// we test only c = 5 and c = 16
+	properties.Property("[GT] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
+
+			var expected, g GT
+			g.SetRandom()
+			// put into GT
+			g = FinalExponentiation(&_g)
+
+			// compute expected result with double and add
+			var finalScalar, mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ExpGLV(&_g, &finalScalar)
+
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+			scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
+
+			var r5, r16 GT
+			r5.MsmC5(samplePoints[:], scalars5, false)
+			r16.MsmC16(samplePoints[:], scalars16, true)
+			return (r5.Equal(&expected) && r16.Equal(&expected))
+		},
+		genScalar,
+	))
+
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("[GT] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
