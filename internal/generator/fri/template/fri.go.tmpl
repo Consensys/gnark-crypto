@@ -60,6 +60,11 @@ const (
 // a function is d-close to a low degree polynomial.
 type ProofOfProximity struct {
 
+	// ID unique ID attached to the proof of proximity. It's needed for
+	// protocols using Fiat Shamir for instance, where challenges are derived
+	// from the proof of proximity.
+	ID []byte
+
 	// stores the interactions between the prover and the verifier.
 	// Each interaction results in a set or merkle proofs, corresponding
 	// to the queries of the verifier.
@@ -420,6 +425,13 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		mr, proofSet, _, numLeaves := t.Prove()
+
+		// the firsts interaction stores the root hash of the full evaluation,
+		// it's the data used to identify the proof (it's a Merkle tree root
+		// hash of the evaluation).
+		if i == 0 {
+			proof.ID = mr
+		}
 		c := si[i] % 2
 		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
 		proof.interactions[i][1-c] = partialMerkleProof{
