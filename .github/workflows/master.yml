@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-      - 'develop'
+      - 'master'
   pull_request:
     branches:
-      - 'develop'
+      - 'master'
 name: CI
 jobs:
   staticcheck:
@@ -52,8 +52,8 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.18.x]
-        os: [ubuntu-latest]
+        go-version: [1.17.x, 1.18.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
@@ -78,11 +78,14 @@ jobs:
       run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: Test
       run: |
-        go test -v -short ./...
+        go test -v  ./...
+        go test -v -race  ./...
+        go test -v -tags=noadx  ./...
     - name: Test (32bits)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        GOARCH=386 go test -v -short ./ecc/bn254/...
+        GOARCH=386 go test -v  ./ecc/bn254/...
+        GOARCH=386 go test -v  ./ecc/bls12-381/...
   
   slack-workflow-status:
     if: always()
