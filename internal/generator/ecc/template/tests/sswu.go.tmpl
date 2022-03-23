@@ -16,6 +16,14 @@ import (
 	"math/rand"
 )
 
+{{$fuzzer := "GenFp()"}}
+{{if eq $CoordType "fptower.E2" }}
+	{{$fuzzer = "GenE2()"}}
+{{- else if eq $CoordType "fptower.E4" }}
+	{{$fuzzer = "GenE4()"}}
+{{- end}}
+
+
 func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -28,7 +36,8 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 	
-	gen := genCoordElem{{$CurveTitle}}(t)
+	gen := {{$fuzzer}}
+	
 
 	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
 		func(u {{$CoordType}}, v {{$CoordType}}) bool {
@@ -53,24 +62,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func genCoordElem{{$CurveTitle}}(t *testing.T) gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genRandomElem := func() {{$CoordType}} {
-			var a {{$CoordType}}
-
-			if _, err := a.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a
-		}
-		a := genRandomElem()
-
-		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
-		return genResult
-	}
-}
 
 {{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
 func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {

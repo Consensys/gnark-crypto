@@ -36,7 +36,7 @@ func TestG2SqrtRatio(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	gen := genCoordElemG2(t)
+	gen := GenE2()
 
 	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
 		func(u fptower.E2, v fptower.E2) bool {
@@ -59,25 +59,6 @@ func TestG2SqrtRatio(t *testing.T) {
 		}, gen, gen))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
-func genCoordElemG2(t *testing.T) gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-
-		genRandomElem := func() fptower.E2 {
-			var a fptower.E2
-
-			if _, err := a.SetRandom(); err != nil {
-				t.Error(err)
-			}
-
-			return a
-		}
-		a := genRandomElem()
-
-		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
-		return genResult
-	}
 }
 
 //Only works on simple extensions (two-story towers)
