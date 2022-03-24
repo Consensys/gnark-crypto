@@ -2,8 +2,24 @@ package element
 
 const Inverse = `
 
+{{ define "addQ" }}
+if b != 0 {
+	// z[{{.NbWordsLastIndex}}] = -1
+	// negative: add q
+	const neg1 = 0xFFFFFFFFFFFFFFFF
+
+	b = 0
+	{{- range $i := .NbWordsIndexesNoLast}}
+	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
+	{{- end}}
+	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
+}
+{{- end}}
+{{$elementCapacityNbBits := mul .NbWords 64}}
+{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+
 {{/* We use big.Int for Inverse for these type of moduli */}}
-{{if eq .NoCarry false}}
+{{if not $UsingP20Inverse}}
 
 // Inverse z = x⁻¹ mod q 
 // note: allocates a big.Int (math/big)
@@ -67,8 +83,8 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 	u := {{.ElementName}}{1}
 
-	// Update factors: we get [u; v]:= [f0 g0; f1 g1] [u; v]
- 	// c_i = f_i + 2³¹ - 1 + 2³² * (g_i + 2³¹ - 1)
+	// Update factors: we get [u; v] ← [f₀ g₀; f₁ g₁] [u; v]
+	// cᵢ = fᵢ + 2³¹ - 1 + 2³² * (gᵢ + 2³¹ - 1)
  	var c0, c1 int64
 
 	// Saved update factors to reduce the number of field multiplications
@@ -85,11 +101,13 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		n := max(a.BitLen(), b.BitLen())
 		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
 
-		// After 0 iterations, we have f₀ ≤ 2⁰ and f₁ < 2⁰
-		// f0, g0, f1, g1 = 1, 0, 0, 1
+		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
  		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
 		for j := 0; j < approxLowBitsN; j++ {
+
+			// -2ʲ < f₀, f₁ ≤ 2ʲ
+			// |f₀| + |f₁| < 2ʲ⁺¹
 
 			if aApprox&1 == 0 {
 				aApprox /= 2
@@ -99,17 +117,20 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 					s = bApprox - aApprox
 					bApprox = aApprox
 					c0, c1 = c1, c0
+					// invariants unchanged
 				}
 
 				aApprox = s / 2
 				c0 = c0 - c1
 
-				// Now |f₀| < 2ʲ + 2ʲ = 2ʲ⁺¹
-				// |f₁| ≤ 2ʲ still
+				// Now |f₀| < 2ʲ⁺¹ ≤ 2ʲ⁺¹ (only the weaker inequality is needed, strictly speaking)
+                // Started with f₀ > -2ʲ and f₁ ≤ 2ʲ, so f₀ - f₁ > -2ʲ⁺¹
+                // Invariants unchanged for f₁
 			}
 
 			c1 *= 2
-			// |f₁| ≤ 2ʲ⁺¹
+			// -2ʲ⁺¹ < f₁ ≤ 2ʲ⁺¹
+            // So now |f₀| + |f₁| < 2ʲ⁺²
 		}
 
 		s = a
@@ -154,20 +175,24 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 
 		if i&1 == 1 {
 			// Combine current update factors with previously stored ones
-			// [f₀, g₀; f₁, g₁] ← [f₀, g₀; f₁, g₀] [pf₀, pg₀; pf₀, pg₀]
-			// We have |f₀|, |g₀|, |pf₀|, |pf₁| ≤ 2ᵏ⁻¹, and that |pf_i| < 2ᵏ⁻¹ for i ∈ {0, 1}
-			// Then for the new value we get |f₀| < 2ᵏ⁻¹ × 2ᵏ⁻¹ + 2ᵏ⁻¹ × 2ᵏ⁻¹ = 2²ᵏ⁻¹
-			// Which leaves us with an extra bit for the sign
+			// [F₀, G₀; F₁, G₁] ← [f₀, g₀; f₁, g₁] [pf₀, pg₀; pf₁, pg₁], with capital letters denoting new combined values
+            // We get |F₀| = | f₀pf₀ + g₀pf₁ | ≤ |f₀pf₀| + |g₀pf₁| = |f₀| |pf₀| + |g₀| |pf₁| ≤ 2ᵏ⁻¹|pf₀| + 2ᵏ⁻¹|pf₁|
+            // = 2ᵏ⁻¹ (|pf₀| + |pf₁|) < 2ᵏ⁻¹ 2ᵏ = 2²ᵏ⁻¹
+            // So |F₀| < 2²ᵏ⁻¹ meaning it fits in a 2k-bit signed register
 
-			// c0 aliases f0, c1 aliases g1
+			// c₀ aliases f₀, c₁ aliases g₁
 			c0, g0, f1, c1 = c0*pf0+g0*pf1,
 				c0*pg0+g0*pg1,
 				f1*pf0+c1*pf1,
 				f1*pg0+c1*pg1
 
 			s = u
-			u.linearCombSosSigned(&u, c0, &v, g0)
-			v.linearCombSosSigned(&s, f1, &v, c1)
+
+			// 0 ≤ u, v < 2²⁵⁵
+            // |F₀|, |G₀| < 2⁶³
+            u.linearComb(&u, c0, &v, g0)
+            // |F₁|, |G₁| < 2⁶³
+            v.linearComb(&s, f1, &v, c1)
 
 		} else {
 			// Save update factors
@@ -175,19 +200,39 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		}
 	}
 
-	// For every iteration that we miss, v is not being multiplied by 2²ᵏ⁻²
+	// For every iteration that we miss, v is not being multiplied by 2ᵏ⁻²
 	const pSq int64 = 1 << (2 * (k - 1))
-	// If the function is constant-time ish, this loop will not run (probably no need to take it out explicitly)
+	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
 		v.mulWSigned(&v, pSq)
 	}
+
+	u.Set(x) // for correctness check
 
 	z.Mul(&v, &{{.ElementName}}{
 		{{- range $i := .NbWordsIndexesFull }}
 		inversionCorrectionFactorWord{{$i}},
 		{{- end}}
 	})
+
+	// correctness check
+    v.Mul(&u, z)
+    if !v.IsOne() && !u.IsZero() {
+            return z.inverseExp(&u)
+    }
+
 	return z
+}
+
+var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
+
+// inverseExp is a fallback in case the inversion algorithm failed
+func (z *{{.ElementName}}) inverseExp(x *{{.ElementName}}) *{{.ElementName}} {
+       if qMinusTwo == nil {
+               qMinusTwo = Modulus()
+               qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
+       }
+       return z.Exp(*x, qMinusTwo)
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits
@@ -215,19 +260,25 @@ func approximate(x *{{.ElementName}}, nBits int) uint64 {
 	return lo | mid | hi
 }
 
-func (z *{{.ElementName}}) linearCombSosSigned(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
+// linearComb z = xC * x + yC * y;
+// 0 ≤ x, y < 2{{supScr .NbBits}}
+// |xC|, |yC| < 2⁶³
+func (z *{{.ElementName}}) linearComb(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
+    // | (hi, z) | < 2 * 2⁶³ * 2{{supScr .NbBits}} = 2{{supScr (add 64 .NbBits)}}
+	// therefore | hi | < 2{{supScr (sub (add 64 .NbBits) $elementCapacityNbBits)}} ≤ 2⁶³
 	hi := z.linearCombNonModular(x, xC, y, yC)
 	z.montReduceSigned(z, hi)
 }
 
-// montReduceSigned SOS algorithm; xHi must be at most 63 bits long. Last bit of xHi may be used as a sign bit
+// montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
+// Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
-	// note that if X is negative we would have initially stored it as 2⁶⁴ r + X
+	// If X is negative we would have initially stored it as 2⁶⁴ r + X (à la 2's complement)
 	xHi &= signBitRemover
 	// with this a negative X is now represented as 2⁶³ r + X
 
@@ -241,13 +292,14 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}Word{{$i}}, x[{{$i}}], C)
 	{{- end}}
 
-	// the high word of m * q{{.ElementName}}[{{.NbWordsLastIndex}}] is at most 62 bits
-	// x[{{.NbWordsLastIndex}}] + C is at most 65 bits (high word at most 1 bit)
-	// Thus the resulting C will be at most 63 bits
+	// m * qElement[{{.NbWordsLastIndex}}] ≤ (2⁶⁴ - 1) * (2⁶³ - 1) = 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1
+    // x[{{.NbWordsLastIndex}}] + C ≤ 2*(2⁶⁴ - 1) = 2⁶⁵ - 2
+    // On LHS, (C, t[{{.NbWordsLastIndex}}]) ≤ 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1 + 2⁶⁵ - 2 = 2¹²⁷ + 2⁶³ - 1
+    // So on LHS, C ≤ 2⁶³
 	t[{{.NbWords}}] = xHi + C
-	// xHi and C are 63 bits, therefore no overflow
+	// xHi + C < 2⁶³ + 2⁶³ = 2⁶⁴
 
-	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}
+	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}// <standard SOS>
 	{{- range $i := .NbWordsIndexesNoZeroNoLast}}
 	{
 		const i = {{$i}}
@@ -272,8 +324,9 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		{{- end}}
 		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
-
     {{ template "reduce" . }}
+	// </standard SOS>
+
 	if neg {
 		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
@@ -284,18 +337,38 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		{{- end}}
 
 		// Occurs iff x == 0 && xHi < 0, i.e. X = rX' for -2⁶³ ≤ X' < 0
-		if b != 0 {
-			// z[{{.NbWordsLastIndex}}] = -1
-			// negative: add q
-			const neg1 = 0xFFFFFFFFFFFFFFFF
-
-			b = 0
-			{{- range $i := .NbWordsIndexesNoLast}}
-			z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
-			{{- end}}
-			z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
-		}
+		{{ template "addQ" .}}
 	}
+}
+
+func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xHi uint64) {
+
+       *z = *x
+       z.FromMont() // z = x r⁻¹
+
+       if pos := xHi&signBitSelector == 0; pos {
+
+               // (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
+               var c uint64
+			   z[0], c = bits.Add64(z[0], xHi, 0)   
+			   {{- range $i := .NbWordsIndexesNoZeroNoLast }}
+               z[{{$i}}], c = bits.Add64(z[{{$i}}], 0, c)
+			   {{- end }}
+               z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)
+
+               {{ template "reduce" . }}
+
+       } else {
+            	// The real input value is xHi r + x - 2⁶⁴r
+                // So the desired output is xr⁻¹ - (2⁶⁴ - xHi)
+                // Since xHi != 0, 2⁶⁴ - xHi is at most 64 bits
+                var b uint64
+				z[0], b = bits.Sub64(z[0], -xHi, 0)   
+				{{- range $i := .NbWordsIndexesNoZero }}
+				z[{{$i}}], b = bits.Sub64(z[{{$i}}], 0, b)
+				{{- end }}
+				{{ template "addQ" .}}
+       }
 }
 
 // mulWSigned mul word signed (w/ montgomery reduction)
