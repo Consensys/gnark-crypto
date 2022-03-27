@@ -478,7 +478,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
-		parameters.MinSuccessfulTests = nbFuzz
+		parameters.MinSuccessfulTests = nbFuzzShort
 	}
 
 	properties := gopter.NewProperties(parameters)
