@@ -152,11 +152,10 @@ func TestFRI(t *testing.T) {
 			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
 			s := _s.(radixTwoFri)
 
-			var r, g fr.Element
+			var g fr.Element
 
 			_m := big.NewInt(int64(m))
-			r.Exp(s.domains[0].Generator, _m)
-			pos := s.deriveQueriesPositions(r)
+			pos := s.deriveQueriesPositions(*_m)
 			g.Set(&s.domains[0].Generator)
 			n := int(s.domains[0].Cardinality)
 
@@ -185,9 +184,9 @@ func TestFRI(t *testing.T) {
 
 			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
 			s := _s.(radixTwoFri)
-			var r, g fr.Element
-			r.Mul(&s.domains[0].Generator, &s.domains[0].Generator).Mul(&r, &s.domains[0].Generator)
-			pos := s.deriveQueriesPositions(r)
+			var g fr.Element
+			bPos := big.NewInt(int64(m))
+			pos := s.deriveQueriesPositions(*bPos)
 			g.Set(&s.domains[0].Generator)
 			n := int(s.domains[0].Cardinality)
 

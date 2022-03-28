@@ -194,13 +194,17 @@ func convertCanonicalSorted(i, n int) int {
 }
 
 // deriveQueriesPositions derives the indices of the oracle
-// function that the verifier has to pick. The result is a
-// slice of []int, where each entry is a tuple (i_k), such that
+// function that the verifier has to pick.
+// * pos is the initial position, i.e. the logarithm of the first challenges
+// * The result is a slice of []int, where each entry is a tuple (i_k), such that
 // the verifier needs to evaluate sum_k oracle(i_k)xᵏ to build
 // the folded function.
-func (s radixTwoFri) deriveQueriesPositions(a fr.Element) []int {
+func (s radixTwoFri) deriveQueriesPositions(pos big.Int) []int {
 
 	res := make([]int, s.nbSteps+1)
+
+	var a fr.Element
+	a.Exp(s.domains[0].Generator, &pos)
 
 	l := s.log(a, s.domains[0].Generator)
 	n := int(s.domains[0].Cardinality)
@@ -407,11 +411,11 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	if err != nil {
 		return proof, err
 	}
-	var bigSeed big.Int
-	bigSeed.SetBytes(binSeed[:s.nbSteps/8+1]) // only the first nbSteps bits are relevant
-	var gen fr.Element
-	gen.Exp(s.domains[0].Generator, &bigSeed)
-	si := s.deriveQueriesPositions(gen)
+	var bPos, bCardinality big.Int
+	bPos.SetBytes(binSeed)
+	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bPos.Mod(&bPos, &bCardinality)
+	si := s.deriveQueriesPositions(bPos)
 
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -488,11 +492,11 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	if err != nil {
 		return err
 	}
-	var bigSeed big.Int
-	bigSeed.SetBytes(binSeed[:s.nbSteps/8+1]) // only the first nbSteps bits are relevant
-	var gen fr.Element
-	gen.Exp(s.domains[0].Generator, &bigSeed)
-	si := s.deriveQueriesPositions(gen)
+	var bPos, bCardinality big.Int
+	bPos.SetBytes(binSeed)
+	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bPos.Mod(&bPos, &bCardinality)
+	si := s.deriveQueriesPositions(bPos)
 
 	// for each round check the Merkle proof and the correctness of the folding
 	var twoInv fr.Element
