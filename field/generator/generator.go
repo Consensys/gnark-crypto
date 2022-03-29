@@ -109,83 +109,49 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		return err
 	}
 
+	genAsm := func(outfileSuffix string, generator func(io.Writer, *field.Field) error, directives ...string) error {
+		pathSrc := filepath.Join(outputDir, eName+outfileSuffix)
+		fmt.Println("generating", pathSrc)
+		f, err := os.Create(pathSrc)
+		if err != nil {
+			return err
+		}
+
+		for _, directive := range directives {
+			_, _ = io.WriteString(f, "// ")
+			_, _ = io.WriteString(f, directive)
+			_, _ = io.WriteString(f, "\n")
+		}
+
+		if err := generator(f, F); err != nil {
+			_ = f.Close()
+			return err
+		}
+		_ = f.Close()
+
+		// run asmfmt
+		cmd := exec.Command("asmfmt", "-w", pathSrc)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// if we generate assembly code
 	if F.ASM {
 		// generate ops.s
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			if err := amd64.Generate(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
+		if err := genAsm("_ops_amd64.s", amd64.Generate); err != nil {
+			return err
 		}
 
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_mul_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
-
-			if err := amd64.GenerateMul(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
+		if err := genAsm("_mul_amd64.s", amd64.GenerateMul, "+build !amd_adx"); err != nil {
+			return err
 		}
 
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_mul_adx_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build amd64_adx\n")
-
-			if err := amd64.GenerateMulADX(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
+		if err := genAsm("_mul_adx_amd64.s", amd64.GenerateMulADX, "+build amd64_adx"); err != nil {
+			return err
 		}
 
 	}
@@ -196,6 +162,17 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
+			return err
+		}
+	}
+
+	{
+		// generate ops_arm64.go
+		src := []string{
+			element.OpsARM64,
+		}
+		pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.go")
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}

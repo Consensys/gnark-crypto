@@ -43,3 +43,14 @@ func Butterfly(a, b *{{.ElementName}})
 
 
 `
+
+//OpsARM64 is included with ARM64 builds (regardless of architecture or if F.ASM is set)
+const OpsARM64 = `
+
+{{if .ASM}}
+
+//go:noescape
+func add(res, x, y *{{.ElementName}})
+
+{{end}}
+`
