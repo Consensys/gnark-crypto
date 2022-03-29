@@ -146,13 +146,17 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			return err
 		}
 
-		if err := genAsm("_mul_amd64.s", amd64.GenerateMul, "+build !amd_adx"); err != nil {
+		if err := genAsm("_mul_amd64.s", amd64.GenerateMul, "+build !amd64_adx"); err != nil {
 			return err
 		}
 
 		if err := genAsm("_mul_adx_amd64.s", amd64.GenerateMulADX, "+build amd64_adx"); err != nil {
 			return err
 		}
+
+		/*if err := genAsm("_ops_arm64.s", arm64.Generate); err != nil {
+			return err
+		}*/
 
 	}
 
@@ -167,7 +171,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		}
 	}
 
-	{
+	/*{
 		// generate ops_arm64.go
 		src := []string{
 			element.OpsARM64,
@@ -176,7 +180,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
-	}
+	}*/
 
 	{
 		// generate ops.go
