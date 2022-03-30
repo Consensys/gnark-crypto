@@ -65,9 +65,9 @@ func double(z, x *Element) {
 	_doubleGeneric(z, x)
 }
 
-func sub(z, x, y *Element) {
-	_subGeneric(z, x, y)
-}
+/*func sub(z,  x, y *Element) {
+	_subGeneric(z,x,y)
+}*/
 
 func neg(z, x *Element) {
 	_negGeneric(z, x)

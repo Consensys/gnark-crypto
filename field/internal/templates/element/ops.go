@@ -52,5 +52,8 @@ const OpsARM64 = `
 //go:noescape
 func add(res, x, y *{{.ElementName}})
 
+//go:noescape
+func sub(res, x, y *{{.ElementName}})
+
 {{end}}
 `

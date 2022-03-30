@@ -45,9 +45,9 @@ func double(z,  x *{{.ElementName}}) {
 }
 
 
-func sub(z,  x, y *{{.ElementName}}) {
+/*func sub(z,  x, y *{{.ElementName}}) {
 	_subGeneric(z,x,y)
-}
+}*/
 
 func neg(z,  x *{{.ElementName}}) {
 	_negGeneric(z,x)

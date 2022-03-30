@@ -18,3 +18,6 @@ package fr
 
 //go:noescape
 func add(res, x, y *Element)
+
+//go:noescape
+func sub(res, x, y *Element)

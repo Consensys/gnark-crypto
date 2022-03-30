@@ -22,3 +22,7 @@ package fp
 func add(z, x, y *Element) {
 	_addGeneric(z, x, y)
 }
+
+func sub(z, x, y *Element) {
+	_subGeneric(z, x, y)
+}

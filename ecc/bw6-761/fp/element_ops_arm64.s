@@ -97,7 +97,86 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	CSEL CS, R24, R11, R11
 
 	// store
-	MOVD z+0(FP), R12
+	MOVD res+0(FP), R12
+	STP  (R0, R1), 0(R12)
+	STP  (R2, R3), 16(R12)
+	STP  (R4, R5), 32(R12)
+	STP  (R6, R7), 48(R12)
+	STP  (R8, R9), 64(R12)
+	STP  (R10, R11), 80(R12)
+	RET
+
+// sub(res, xPtr, yPtr *Element)
+TEXT ·sub(SB), NOSPLIT, $0-24
+	LDP x+8(FP), (R12, R13)
+
+	// load operands and subtract mod 2^r
+	LDP  0(R12), (R0, R14)
+	LDP  0(R13), (R1, R15)
+	SUBS R0, R1, R0
+	SBCS R14, R15, R1
+	LDP  16(R12), (R2, R14)
+	LDP  16(R13), (R3, R15)
+	SBCS R2, R3, R2
+	SBCS R14, R15, R3
+	LDP  32(R12), (R4, R14)
+	LDP  32(R13), (R5, R15)
+	SBCS R4, R5, R4
+	SBCS R14, R15, R5
+	LDP  48(R12), (R6, R14)
+	LDP  48(R13), (R7, R15)
+	SBCS R6, R7, R6
+	SBCS R14, R15, R7
+	LDP  64(R12), (R8, R14)
+	LDP  64(R13), (R9, R15)
+	SBCS R8, R9, R8
+	SBCS R14, R15, R9
+	LDP  80(R12), (R10, R14)
+	LDP  80(R13), (R11, R15)
+	SBCS R10, R11, R10
+	SBCS R14, R15, R11
+
+	// Store borrow TODO: Can it be done with one instruction?
+	MOVD $0, R12
+	ADC  $0, R12, R12
+
+	// load modulus and add
+	LDP  q<>+0(SB), (R13, R14)
+	ADDS R13, R0, R13
+	ADCS R14, R1, R14
+	LDP  q<>+16(SB), (R15, R16)
+	ADCS R15, R2, R15
+	ADCS R16, R3, R16
+	LDP  q<>+32(SB), (R17, R19)
+	ADCS R17, R4, R17
+	ADCS R19, R5, R19
+	LDP  q<>+48(SB), (R20, R21)
+	ADCS R20, R6, R20
+	ADCS R21, R7, R21
+	LDP  q<>+64(SB), (R22, R23)
+	ADCS R22, R8, R22
+	ADCS R23, R9, R23
+	LDP  q<>+80(SB), (R24, R25)
+	ADCS R24, R10, R24
+	ADCS R25, R11, R25
+
+	// augment if necessary
+	CMP  $1, R12           // "recall" the borrow
+	CSEL EQ, R13, R0, R0
+	CSEL EQ, R14, R1, R1
+	CSEL EQ, R15, R2, R2
+	CSEL EQ, R16, R3, R3
+	CSEL EQ, R17, R4, R4
+	CSEL EQ, R19, R5, R5
+	CSEL EQ, R20, R6, R6
+	CSEL EQ, R21, R7, R7
+	CSEL EQ, R22, R8, R8
+	CSEL EQ, R23, R9, R9
+	CSEL EQ, R24, R10, R10
+	CSEL EQ, R25, R11, R11
+
+	// store
+	MOVD res+0(FP), R12
 	STP  (R0, R1), 0(R12)
 	STP  (R2, R3), 16(R12)
 	STP  (R4, R5), 32(R12)

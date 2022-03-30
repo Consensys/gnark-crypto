@@ -36,10 +36,9 @@ func Generate(w io.Writer, F *field.Field) error {
 	//TODO: It requires field size < 960
 	f.generateAdd()
 
+	// sub
+	f.generateSub()
 	/*
-		// sub
-		f.generateSub()
-
 		// double
 		f.generateDouble()
 
