@@ -20,7 +20,7 @@ DATA q<>+0(SB)/8, $1860204336533995521
 DATA q<>+8(SB)/8, $14466829657984787300
 DATA q<>+16(SB)/8, $2737202078770428568
 DATA q<>+24(SB)/8, $1832378743606059307
-GLOBL q<>(SB), (RODATA+NOPTR), 32
+GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $2184305180030271487
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
@@ -31,20 +31,20 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	// load operands and add mod 2^r
 	LDP  0(R4), (R0, R6)
 	LDP  0(R5), (R1, R7)
-	ADDS R0, R6, R0
-	ADCS R1, R7, R1
+	ADDS R0, R1, R0
+	ADCS R6, R7, R1
 	LDP  16(R4), (R2, R6)
 	LDP  16(R5), (R3, R7)
-	ADCS R2, R6, R2
-	ADCS R3, R7, R3
+	ADCS R2, R3, R2
+	ADCS R6, R7, R3
 
 	// load modulus and subtract
 	LDP  q<>+0(SB), (R4, R5)
-	ADCS R4, R0, R4
-	ADCS R5, R0, R5
+	SUBS R4, R0, R4
+	SBCS R5, R1, R5
 	LDP  q<>+16(SB), (R6, R7)
-	ADCS R6, R2, R6
-	ADCS R7, R2, R7
+	SBCS R6, R2, R6
+	SBCS R7, R3, R7
 
 	// reduce if necessary
 	CSEL CS, R4, R0, R0

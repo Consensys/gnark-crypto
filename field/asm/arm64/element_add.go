@@ -20,10 +20,10 @@ func (f *FFArm64) generateAdd() {
 		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], ops[0])
 		f.LDP(f.RegisterOffset(yPtr, 8*i), z[i+1], ops[1])
 
-		op0(z[i], ops[0], z[i])
+		op0(z[i], z[i+1], z[i])
 		op0 = f.ADCS
 
-		f.ADCS(z[i+1], ops[1], z[i+1])
+		f.ADCS(ops[0], ops[1], z[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
@@ -46,7 +46,7 @@ func (f *FFArm64) generateAdd() {
 		op0(t[i], z[i], t[i])
 		op0 = f.SBCS
 
-		f.SBCS(t[i+1], z[i], t[i+1])
+		f.SBCS(t[i+1], z[i+1], t[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
