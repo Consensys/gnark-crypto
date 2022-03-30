@@ -1,14 +1,10 @@
 package arm64
 
-import (
-	"github.com/consensys/bavard/arm64"
-)
-
 func (f *FFArm64) generateAdd() {
 	f.Comment("add(res, xPtr, yPtr *Element)")
-	stackSize := f.StackSize(f.NbWords*2, 0, 0)
-	registers := f.FnHeader("add", stackSize, 24)
-	defer f.AssertCleanStack(stackSize, 0)
+	//stackSize := f.StackSize(f.NbWords*2, 0, 0)
+	registers := f.FnHeader("add", 0, 24)
+	defer f.AssertCleanStack(0, 0)
 
 	// registers
 	z := registers.PopN(f.NbWords)
@@ -19,22 +15,22 @@ func (f *FFArm64) generateAdd() {
 	f.LDP("x+8(FP)", xPtr, yPtr)
 	f.Comment("load operands and add mod 2^r")
 
-	op0 := arm64.Arm64.ADDS
+	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], ops[0])
 		f.LDP(f.RegisterOffset(yPtr, 8*i), z[i+1], ops[1])
 
-		op0(f, z[i], ops[0], z[i])
-		op0 = arm64.Arm64.ADCS
+		op0(z[i], ops[0], z[i])
+		op0 = f.ADCS
 
-		f.ADCS(z[i+12], ops[1], z[i+1])
+		f.ADCS(z[i+1], ops[1], z[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
 		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
 		f.MOVD(f.RegisterOffset(yPtr, 8*i), ops[0])
-		op0(f, z[i], ops[0], z[i])
+		op0(z[i], ops[0], z[i])
 	}
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
@@ -43,12 +39,12 @@ func (f *FFArm64) generateAdd() {
 
 	t := registers.PopN(f.NbWords)
 
-	op0 = arm64.Arm64.SUBS
+	op0 = f.SUBS
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(f.GlobalOffset("q", 8*i), t[i], t[i+1])
 
-		op0(f, t[i], z[i], t[i])
-		op0 = arm64.Arm64.SBCS
+		op0(t[i], z[i], t[i])
+		op0 = f.SBCS
 
 		f.SBCS(t[i+1], z[i], t[i+1])
 	}
@@ -57,7 +53,7 @@ func (f *FFArm64) generateAdd() {
 		i := f.NbWords - 1
 		f.MOVD(f.GlobalOffset("q", 8*i), t[i])
 
-		op0(f, t[i], z[i], t[i])
+		op0(t[i], z[i], t[i])
 	}
 
 	f.Comment("reduce if necessary")

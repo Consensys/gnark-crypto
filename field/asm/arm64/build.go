@@ -68,7 +68,7 @@ func (f *FFArm64) generateGlobals() {
 	for i, w := range f.Q {
 		f.WriteLn(fmt.Sprintf("DATA q<>+%d(SB)/8, $%d", 8*i, w))
 	}
-	f.WriteLn(fmt.Sprintf("GLOBL q<>(SB), (RODATA+NOPTR), %d", 8*f.NbWords))
+	f.WriteLn(fmt.Sprintf("GLOBL q<>(SB), (RODATA+NOPTR), $%d", 8*f.NbWords))
 
 	f.Comment("qInv0 q'[0]")
 	f.WriteLn(fmt.Sprintf("DATA qInv0<>(SB)/8, $%d", f.QInverse[0]))

@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/field/asm/arm64"
 	"io"
 	"os"
 	"os/exec"
@@ -154,9 +155,9 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			return err
 		}
 
-		/*if err := genAsm("_ops_arm64.s", arm64.Generate); err != nil {
+		if err := genAsm("_ops_arm64.s", arm64.Generate); err != nil {
 			return err
-		}*/
+		}
 
 	}
 
@@ -171,7 +172,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		}
 	}
 
-	/*{
+	{
 		// generate ops_arm64.go
 		src := []string{
 			element.OpsARM64,
@@ -180,7 +181,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
 			return err
 		}
-	}*/
+	}
 
 	{
 		// generate ops.go
