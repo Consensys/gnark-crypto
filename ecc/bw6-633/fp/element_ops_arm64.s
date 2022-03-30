@@ -69,9 +69,9 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	LDP  q<>+48(SB), (R16, R17)
 	SBCS R16, R6, R16
 	SBCS R17, R7, R17
-	LDP  q<>+64(SB), (R18, R19)
-	SBCS R18, R8, R18
-	SBCS R19, R9, R19
+	LDP  q<>+64(SB), (R19, R20)
+	SBCS R19, R8, R19
+	SBCS R20, R9, R20
 
 	// reduce if necessary
 	CSEL CS, R10, R0, R0
@@ -82,8 +82,8 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	CSEL CS, R15, R5, R5
 	CSEL CS, R16, R6, R6
 	CSEL CS, R17, R7, R7
-	CSEL CS, R18, R8, R8
-	CSEL CS, R19, R9, R9
+	CSEL CS, R19, R8, R8
+	CSEL CS, R20, R9, R9
 
 	// store
 	MOVD z+0(FP), R10
