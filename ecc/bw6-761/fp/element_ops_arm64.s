@@ -257,64 +257,56 @@ TEXT ·neg(SB), NOSPLIT, $0-16
 	LDP res+0(FP), (R13, R12)
 
 	// load operands and subtract
+	MOVD $0, R16
 	LDP  0(R12), (R0, R1)
 	LDP  q<>+0(SB), (R14, R15)
+	ORR  R0, R16, R16             // has x been 0 so far?
+	ORR  R1, R16, R16
 	SUBS R0, R14, R0
 	SBCS R1, R15, R1
 	LDP  16(R12), (R2, R3)
 	LDP  q<>+16(SB), (R14, R15)
+	ORR  R2, R16, R16             // has x been 0 so far?
+	ORR  R3, R16, R16
 	SBCS R2, R14, R2
 	SBCS R3, R15, R3
 	LDP  32(R12), (R4, R5)
 	LDP  q<>+32(SB), (R14, R15)
+	ORR  R4, R16, R16             // has x been 0 so far?
+	ORR  R5, R16, R16
 	SBCS R4, R14, R4
 	SBCS R5, R15, R5
 	LDP  48(R12), (R6, R7)
 	LDP  q<>+48(SB), (R14, R15)
+	ORR  R6, R16, R16             // has x been 0 so far?
+	ORR  R7, R16, R16
 	SBCS R6, R14, R6
 	SBCS R7, R15, R7
 	LDP  64(R12), (R8, R9)
 	LDP  q<>+64(SB), (R14, R15)
+	ORR  R8, R16, R16             // has x been 0 so far?
+	ORR  R9, R16, R16
 	SBCS R8, R14, R8
 	SBCS R9, R15, R9
 	LDP  80(R12), (R10, R11)
 	LDP  q<>+80(SB), (R14, R15)
+	ORR  R10, R16, R16            // has x been 0 so far?
+	ORR  R11, R16, R16
 	SBCS R10, R14, R10
 	SBCS R11, R15, R11
-
-	// load modulus and subtract
-	LDP  q<>+0(SB), (R12, R14)
-	SUBS R12, R0, R12
-	SBCS R14, R1, R14
-	LDP  q<>+16(SB), (R15, R16)
-	SBCS R15, R2, R15
-	SBCS R16, R3, R16
-	LDP  q<>+32(SB), (R17, R19)
-	SBCS R17, R4, R17
-	SBCS R19, R5, R19
-	LDP  q<>+48(SB), (R20, R21)
-	SBCS R20, R6, R20
-	SBCS R21, R7, R21
-	LDP  q<>+64(SB), (R22, R23)
-	SBCS R22, R8, R22
-	SBCS R23, R9, R23
-	LDP  q<>+80(SB), (R24, R25)
-	SBCS R24, R10, R24
-	SBCS R25, R11, R25
-
-	// reduce if necessary
-	CSEL CS, R12, R0, R0
-	CSEL CS, R14, R1, R1
-	CSEL CS, R15, R2, R2
-	CSEL CS, R16, R3, R3
-	CSEL CS, R17, R4, R4
-	CSEL CS, R19, R5, R5
-	CSEL CS, R20, R6, R6
-	CSEL CS, R21, R7, R7
-	CSEL CS, R22, R8, R8
-	CSEL CS, R23, R9, R9
-	CSEL CS, R24, R10, R10
-	CSEL CS, R25, R11, R11
+	TST  $0xffffffffffffffff, R16
+	CSEL EQ, R16, R0, R0
+	CSEL EQ, R16, R1, R1
+	CSEL EQ, R16, R2, R2
+	CSEL EQ, R16, R3, R3
+	CSEL EQ, R16, R4, R4
+	CSEL EQ, R16, R5, R5
+	CSEL EQ, R16, R6, R6
+	CSEL EQ, R16, R7, R7
+	CSEL EQ, R16, R8, R8
+	CSEL EQ, R16, R9, R9
+	CSEL EQ, R16, R10, R10
+	CSEL EQ, R16, R11, R11
 
 	// store
 	STP (R0, R1), 0(R13)

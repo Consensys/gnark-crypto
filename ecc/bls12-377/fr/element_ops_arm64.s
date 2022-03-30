@@ -133,28 +133,24 @@ TEXT ·neg(SB), NOSPLIT, $0-16
 	LDP res+0(FP), (R5, R4)
 
 	// load operands and subtract
+	MOVD $0, R8
 	LDP  0(R4), (R0, R1)
 	LDP  q<>+0(SB), (R6, R7)
+	ORR  R0, R8, R8              // has x been 0 so far?
+	ORR  R1, R8, R8
 	SUBS R0, R6, R0
 	SBCS R1, R7, R1
 	LDP  16(R4), (R2, R3)
 	LDP  q<>+16(SB), (R6, R7)
+	ORR  R2, R8, R8              // has x been 0 so far?
+	ORR  R3, R8, R8
 	SBCS R2, R6, R2
 	SBCS R3, R7, R3
-
-	// load modulus and subtract
-	LDP  q<>+0(SB), (R4, R6)
-	SUBS R4, R0, R4
-	SBCS R6, R1, R6
-	LDP  q<>+16(SB), (R7, R8)
-	SBCS R7, R2, R7
-	SBCS R8, R3, R8
-
-	// reduce if necessary
-	CSEL CS, R4, R0, R0
-	CSEL CS, R6, R1, R1
-	CSEL CS, R7, R2, R2
-	CSEL CS, R8, R3, R3
+	TST  $0xffffffffffffffff, R8
+	CSEL EQ, R8, R0, R0
+	CSEL EQ, R8, R1, R1
+	CSEL EQ, R8, R2, R2
+	CSEL EQ, R8, R3, R3
 
 	// store
 	STP (R0, R1), 0(R5)

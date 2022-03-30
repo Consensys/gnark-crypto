@@ -164,37 +164,32 @@ TEXT ·neg(SB), NOSPLIT, $0-16
 	LDP res+0(FP), (R7, R6)
 
 	// load operands and subtract
+	MOVD $0, R10
 	LDP  0(R6), (R0, R1)
 	LDP  q<>+0(SB), (R8, R9)
+	ORR  R0, R10, R10             // has x been 0 so far?
+	ORR  R1, R10, R10
 	SUBS R0, R8, R0
 	SBCS R1, R9, R1
 	LDP  16(R6), (R2, R3)
 	LDP  q<>+16(SB), (R8, R9)
+	ORR  R2, R10, R10             // has x been 0 so far?
+	ORR  R3, R10, R10
 	SBCS R2, R8, R2
 	SBCS R3, R9, R3
 	LDP  32(R6), (R4, R5)
 	LDP  q<>+32(SB), (R8, R9)
+	ORR  R4, R10, R10             // has x been 0 so far?
+	ORR  R5, R10, R10
 	SBCS R4, R8, R4
 	SBCS R5, R9, R5
-
-	// load modulus and subtract
-	LDP  q<>+0(SB), (R6, R8)
-	SUBS R6, R0, R6
-	SBCS R8, R1, R8
-	LDP  q<>+16(SB), (R9, R10)
-	SBCS R9, R2, R9
-	SBCS R10, R3, R10
-	LDP  q<>+32(SB), (R11, R12)
-	SBCS R11, R4, R11
-	SBCS R12, R5, R12
-
-	// reduce if necessary
-	CSEL CS, R6, R0, R0
-	CSEL CS, R8, R1, R1
-	CSEL CS, R9, R2, R2
-	CSEL CS, R10, R3, R3
-	CSEL CS, R11, R4, R4
-	CSEL CS, R12, R5, R5
+	TST  $0xffffffffffffffff, R10
+	CSEL EQ, R10, R0, R0
+	CSEL EQ, R10, R1, R1
+	CSEL EQ, R10, R2, R2
+	CSEL EQ, R10, R3, R3
+	CSEL EQ, R10, R4, R4
+	CSEL EQ, R10, R5, R5
 
 	// store
 	STP (R0, R1), 0(R7)

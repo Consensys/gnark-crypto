@@ -226,55 +226,48 @@ TEXT ·neg(SB), NOSPLIT, $0-16
 	LDP res+0(FP), (R11, R10)
 
 	// load operands and subtract
+	MOVD $0, R14
 	LDP  0(R10), (R0, R1)
 	LDP  q<>+0(SB), (R12, R13)
+	ORR  R0, R14, R14             // has x been 0 so far?
+	ORR  R1, R14, R14
 	SUBS R0, R12, R0
 	SBCS R1, R13, R1
 	LDP  16(R10), (R2, R3)
 	LDP  q<>+16(SB), (R12, R13)
+	ORR  R2, R14, R14             // has x been 0 so far?
+	ORR  R3, R14, R14
 	SBCS R2, R12, R2
 	SBCS R3, R13, R3
 	LDP  32(R10), (R4, R5)
 	LDP  q<>+32(SB), (R12, R13)
+	ORR  R4, R14, R14             // has x been 0 so far?
+	ORR  R5, R14, R14
 	SBCS R4, R12, R4
 	SBCS R5, R13, R5
 	LDP  48(R10), (R6, R7)
 	LDP  q<>+48(SB), (R12, R13)
+	ORR  R6, R14, R14             // has x been 0 so far?
+	ORR  R7, R14, R14
 	SBCS R6, R12, R6
 	SBCS R7, R13, R7
 	LDP  64(R10), (R8, R9)
 	LDP  q<>+64(SB), (R12, R13)
+	ORR  R8, R14, R14             // has x been 0 so far?
+	ORR  R9, R14, R14
 	SBCS R8, R12, R8
 	SBCS R9, R13, R9
-
-	// load modulus and subtract
-	LDP  q<>+0(SB), (R10, R12)
-	SUBS R10, R0, R10
-	SBCS R12, R1, R12
-	LDP  q<>+16(SB), (R13, R14)
-	SBCS R13, R2, R13
-	SBCS R14, R3, R14
-	LDP  q<>+32(SB), (R15, R16)
-	SBCS R15, R4, R15
-	SBCS R16, R5, R16
-	LDP  q<>+48(SB), (R17, R19)
-	SBCS R17, R6, R17
-	SBCS R19, R7, R19
-	LDP  q<>+64(SB), (R20, R21)
-	SBCS R20, R8, R20
-	SBCS R21, R9, R21
-
-	// reduce if necessary
-	CSEL CS, R10, R0, R0
-	CSEL CS, R12, R1, R1
-	CSEL CS, R13, R2, R2
-	CSEL CS, R14, R3, R3
-	CSEL CS, R15, R4, R4
-	CSEL CS, R16, R5, R5
-	CSEL CS, R17, R6, R6
-	CSEL CS, R19, R7, R7
-	CSEL CS, R20, R8, R8
-	CSEL CS, R21, R9, R9
+	TST  $0xffffffffffffffff, R14
+	CSEL EQ, R14, R0, R0
+	CSEL EQ, R14, R1, R1
+	CSEL EQ, R14, R2, R2
+	CSEL EQ, R14, R3, R3
+	CSEL EQ, R14, R4, R4
+	CSEL EQ, R14, R5, R5
+	CSEL EQ, R14, R6, R6
+	CSEL EQ, R14, R7, R7
+	CSEL EQ, R14, R8, R8
+	CSEL EQ, R14, R9, R9
 
 	// store
 	STP (R0, R1), 0(R11)
