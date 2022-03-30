@@ -24,7 +24,7 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $9786893198990664585
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
-// add(res, xPtr, yPtr *Element)
+// add(res, x, y *Element)
 TEXT ·add(SB), NOSPLIT, $0-24
 	LDP x+8(FP), (R4, R5)
 
@@ -58,7 +58,7 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	STP  (R2, R3), 16(R4)
 	RET
 
-// sub(res, xPtr, yPtr *Element)
+// sub(res, x, y *Element)
 TEXT ·sub(SB), NOSPLIT, $0-24
 	LDP x+8(FP), (R4, R5)
 
@@ -95,4 +95,35 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	MOVD res+0(FP), R4
 	STP  (R0, R1), 0(R4)
 	STP  (R2, R3), 16(R4)
+	RET
+
+// double(res, x *Element)
+TEXT ·double(SB), NOSPLIT, $0-24
+	LDP res+0(FP), (R5, R4)
+
+	// load operands and add mod 2^r
+	LDP  0(R4), (R0, R1)
+	ADDS R0, R0, R0
+	ADCS R1, R1, R1
+	LDP  16(R4), (R2, R3)
+	ADCS R2, R2, R2
+	ADCS R3, R3, R3
+
+	// load modulus and subtract
+	LDP  q<>+0(SB), (R4, R6)
+	SUBS R4, R0, R4
+	SBCS R6, R1, R6
+	LDP  q<>+16(SB), (R7, R8)
+	SBCS R7, R2, R7
+	SBCS R8, R3, R8
+
+	// reduce if necessary
+	CSEL CS, R4, R0, R0
+	CSEL CS, R6, R1, R1
+	CSEL CS, R7, R2, R2
+	CSEL CS, R8, R3, R3
+
+	// store
+	STP (R0, R1), 0(R5)
+	STP (R2, R3), 16(R5)
 	RET

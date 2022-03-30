@@ -11,4 +11,7 @@ func sub(z,  x, y *{{.ElementName}}) {
 	_subGeneric(z,x,y)
 }
 
+func double(z,  x *{{.ElementName}}) {
+	_doubleGeneric(z,x)
+}
 `

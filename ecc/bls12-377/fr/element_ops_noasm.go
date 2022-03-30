@@ -59,13 +59,14 @@ func fromMont(z *Element) {
 
 /*func add(z,  x, y *Element) {
 	_addGeneric(z,x,y)
-}*/
-
-func double(z, x *Element) {
-	_doubleGeneric(z, x)
 }
 
-/*func sub(z,  x, y *Element) {
+func double(z,  x *Element) {
+	_doubleGeneric(z,x)
+}
+
+
+func sub(z,  x, y *Element) {
 	_subGeneric(z,x,y)
 }*/
 

@@ -21,3 +21,6 @@ func add(res, x, y *Element)
 
 //go:noescape
 func sub(res, x, y *Element)
+
+//go:noescape
+func double(res, x *Element)

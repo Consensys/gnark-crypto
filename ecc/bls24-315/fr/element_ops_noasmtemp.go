@@ -26,3 +26,7 @@ func add(z, x, y *Element) {
 func sub(z, x, y *Element) {
 	_subGeneric(z, x, y)
 }
+
+func double(z, x *Element) {
+	_doubleGeneric(z, x)
+}

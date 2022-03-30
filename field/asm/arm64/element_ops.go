@@ -14,8 +14,10 @@
 
 package arm64
 
+import "github.com/consensys/bavard/arm64"
+
 func (f *FFArm64) generateAdd() {
-	f.Comment("add(res, xPtr, yPtr *Element)")
+	f.Comment("add(res, x, y *Element)")
 	//stackSize := f.StackSize(f.NbWords*2, 0, 0)
 	registers := f.FnHeader("add", 0, 24)
 	defer f.AssertCleanStack(0, 0)
@@ -49,48 +51,56 @@ func (f *FFArm64) generateAdd() {
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
 
-	f.Comment("load modulus and subtract")
-
 	t := registers.PopN(f.NbWords)
-
-	op0 = f.SUBS
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.GlobalOffset("q", 8*i), t[i], t[i+1])
-
-		op0(t[i], z[i], t[i])
-		op0 = f.SBCS
-
-		f.SBCS(t[i+1], z[i+1], t[i+1])
-	}
-
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.GlobalOffset("q", 8*i), t[i])
-
-		op0(t[i], z[i], t[i])
-	}
-
-	f.Comment("reduce if necessary")
-
-	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("CS", t[i], z[i], z[i])
-	}
-
+	f.reduce(z, t)
 	registers.Push(t...)
 
 	f.Comment("store")
-
 	zPtr := registers.Pop()
 	f.MOVD("res+0(FP)", zPtr)
+	f.storeVector(z, zPtr)
 
+	f.RET()
+
+}
+
+func (f *FFArm64) generateDouble() {
+	f.Comment("double(res, x *Element)")
+	registers := f.FnHeader("double", 0, 24)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	z := registers.PopN(f.NbWords)
+	xPtr := registers.Pop()
+	zPtr := registers.Pop()
+	//ops := registers.PopN(2)
+
+	f.LDP("res+0(FP)", zPtr, xPtr)
+	f.Comment("load operands and add mod 2^r")
+
+	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.STP(z[i], z[i+1], f.RegisterOffset(zPtr, 8*i))
+		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], z[i+1])
+
+		op0(z[i], z[i], z[i])
+		op0 = f.ADCS
+
+		f.ADCS(z[i+1], z[i+1], z[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
-		f.MOVD(z[i], f.RegisterOffset(zPtr, 8*i))
+		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i])
+		op0(z[i], z[i], z[i])
 	}
+	registers.Push(xPtr)
+
+	t := registers.PopN(f.NbWords)
+	f.reduce(z, t)
+	registers.Push(t...)
+
+	f.Comment("store")
+	f.storeVector(z, zPtr)
 
 	f.RET()
 
@@ -98,7 +108,7 @@ func (f *FFArm64) generateAdd() {
 
 // generateSub uses one more register than generateAdd, but that's okay since we have 29 registers available.
 func (f *FFArm64) generateSub() {
-	f.Comment("sub(res, xPtr, yPtr *Element)")
+	f.Comment("sub(res, x, y *Element)")
 
 	registers := f.FnHeader("sub", 0, 24)
 	defer f.AssertCleanStack(0, 0)
@@ -172,19 +182,57 @@ func (f *FFArm64) generateSub() {
 	registers.Push(t...)
 
 	f.Comment("store")
-
 	zPtr := registers.Pop()
 	f.MOVD("res+0(FP)", zPtr)
-
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.STP(z[i], z[i+1], f.RegisterOffset(zPtr, 8*i))
-	}
-
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(z[i], f.RegisterOffset(zPtr, 8*i))
-	}
+	f.storeVector(z, zPtr)
 
 	f.RET()
 
 }
+
+// MACROS?
+//TODO: Put it in a macro
+func (f *FFArm64) reduce(z, t []arm64.Register) {
+
+	if len(z) != f.NbWords || len(t) != f.NbWords {
+		panic("need 2*nbWords registers")
+	}
+
+	f.Comment("load modulus and subtract")
+
+	op0 := f.SUBS
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(f.GlobalOffset("q", 8*i), t[i], t[i+1])
+
+		op0(t[i], z[i], t[i])
+		op0 = f.SBCS
+
+		f.SBCS(t[i+1], z[i+1], t[i+1])
+	}
+
+	if f.NbWords%2 == 1 {
+		i := f.NbWords - 1
+		f.MOVD(f.GlobalOffset("q", 8*i), t[i])
+
+		op0(t[i], z[i], t[i])
+	}
+
+	f.Comment("reduce if necessary")
+
+	for i := 0; i < f.NbWords; i++ {
+		f.CSEL("CS", t[i], z[i], z[i])
+	}
+}
+
+func (f *FFArm64) storeVector(v []arm64.Register, baseAddress arm64.Register) {
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.STP(v[i], v[i+1], f.RegisterOffset(baseAddress, 8*i))
+	}
+
+	if f.NbWords%2 == 1 {
+		i := f.NbWords - 1
+		f.MOVD(v[i], f.RegisterOffset(baseAddress, 8*i))
+	}
+}
+
+// </macros>
