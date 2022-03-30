@@ -202,6 +202,23 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		}
 	}
 
+	//TODO @tabaie: Remove
+	{
+		// generate ops.go
+		src := []string{
+			element.OpsNoAsmTemp,
+		}
+		pathSrc := filepath.Join(outputDir, eName+"_ops_noasmtemp.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		if F.ASM {
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64,!arm64"))
+		}
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
 	{
 		// generate doc.go
 		src := []string{

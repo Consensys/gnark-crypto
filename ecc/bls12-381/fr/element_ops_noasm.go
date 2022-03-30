@@ -57,9 +57,9 @@ func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }
 
-func add(z, x, y *Element) {
-	_addGeneric(z, x, y)
-}
+/*func add(z,  x, y *Element) {
+	_addGeneric(z,x,y)
+}*/
 
 func double(z, x *Element) {
 	_doubleGeneric(z, x)
