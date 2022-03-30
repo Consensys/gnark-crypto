@@ -14,4 +14,8 @@ func sub(z,  x, y *{{.ElementName}}) {
 func double(z,  x *{{.ElementName}}) {
 	_doubleGeneric(z,x)
 }
+
+func neg(z,  x *{{.ElementName}}) {
+	_negGeneric(z,x)
+}
 `

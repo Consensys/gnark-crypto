@@ -66,7 +66,7 @@ func (f *FFArm64) generateAdd() {
 
 func (f *FFArm64) generateDouble() {
 	f.Comment("double(res, x *Element)")
-	registers := f.FnHeader("double", 0, 24)
+	registers := f.FnHeader("double", 0, 16)
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
@@ -176,7 +176,6 @@ func (f *FFArm64) generateSub() {
 
 	for i := 0; i < f.NbWords; i++ {
 		f.CSEL("NE", t[i], z[i], z[i])
-		//f.CSEL("NZ", t[i], z[i], z[i])
 	}
 
 	registers.Push(t...)
@@ -184,6 +183,59 @@ func (f *FFArm64) generateSub() {
 	f.Comment("store")
 	zPtr := registers.Pop()
 	f.MOVD("res+0(FP)", zPtr)
+	f.storeVector(z, zPtr)
+
+	f.RET()
+
+}
+
+func (f *FFArm64) generateNeg() {
+	f.Comment("neg(res, x *Element)")
+	registers := f.FnHeader("neg", 0, 16)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	z := registers.PopN(f.NbWords)
+	xPtr := registers.Pop()
+	zPtr := registers.Pop()
+	ops := registers.PopN(2)
+
+	f.LDP("res+0(FP)", zPtr, xPtr)
+	f.Comment("load operands and subtract")
+
+	op0 := f.SUBS
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], z[i+1])
+		f.LDP(f.GlobalOffset("q", 8*i), ops[0], ops[1])
+
+		op0(z[i], ops[0], z[i])
+		op0 = f.SBCS
+
+		f.SBCS(z[i+1], ops[1], z[i+1])
+	}
+
+	if f.NbWords%2 == 1 {
+		i := f.NbWords - 1
+		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
+		f.MOVD(f.GlobalOffset("q", 8*i), ops[0])
+		op0(z[i], ops[0], z[i])
+	}
+
+	registers.Push(xPtr)
+	registers.Push(ops...)
+
+	// One might think reduction is not necessary here. One would be mistaken.
+	// q - 0 = q but -0 = 0
+	// Perhaps we could instead OR all of x together and select the output based on that.
+	// Considered sequentially, an OR takes just as long as an ADD
+	// But the OR strategy doesn't depend on the subtraction result.
+	// Also, OR might consume less power even if taking the same amount of time?
+	// Any difference would probably be minute anyway
+	t := registers.PopN(f.NbWords)
+	f.reduce(z, t)
+	registers.Push(t...)
+
+	f.Comment("store")
 	f.storeVector(z, zPtr)
 
 	f.RET()

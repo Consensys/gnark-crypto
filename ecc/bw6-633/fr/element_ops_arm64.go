@@ -24,3 +24,6 @@ func sub(res, x, y *Element)
 
 //go:noescape
 func double(res, x *Element)
+
+//go:noescape
+func neg(res, x *Element)

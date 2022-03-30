@@ -30,3 +30,7 @@ func sub(z, x, y *Element) {
 func double(z, x *Element) {
 	_doubleGeneric(z, x)
 }
+
+func neg(z, x *Element) {
+	_negGeneric(z, x)
+}

@@ -58,5 +58,8 @@ func sub(res, x, y *{{.ElementName}})
 //go:noescape
 func double(res,x *{{.ElementName}})
 
+//go:noescape
+func neg(res,x *{{.ElementName}})
+
 {{end}}
 `

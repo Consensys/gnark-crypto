@@ -41,10 +41,10 @@ func Generate(w io.Writer, F *field.Field) error {
 
 	// double
 	f.generateDouble()
-	/*
-		// neg
-		f.generateNeg()
 
+	// neg
+	f.generateNeg()
+	/*
 		// reduce
 		f.generateReduce()
 
