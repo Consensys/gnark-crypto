@@ -73,15 +73,15 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	// load operands and subtract mod 2^r
 	LDP  0(R5), (R0, R7)
 	LDP  0(R6), (R1, R8)
-	SUBS R0, R1, R0
-	SBCS R7, R8, R1
+	SUBS R1, R0, R0
+	SBCS R8, R7, R1
 	LDP  16(R5), (R2, R7)
 	LDP  16(R6), (R3, R8)
-	SBCS R2, R3, R2
-	SBCS R7, R8, R3
+	SBCS R3, R2, R2
+	SBCS R8, R7, R3
 	MOVD 32(R5), R4       // can't import these in pairs
 	MOVD 32(R6), R7
-	SBCS R4, R7, R4
+	SBCS R7, R4, R4
 
 	// Store borrow TODO: Can it be done with one instruction?
 	MOVD $0, R5
@@ -99,11 +99,11 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 
 	// augment if necessary
 	CMP  $1, R5          // "recall" the borrow
-	CSEL EQ, R6, R0, R0
-	CSEL EQ, R7, R1, R1
-	CSEL EQ, R8, R2, R2
-	CSEL EQ, R9, R3, R3
-	CSEL EQ, R10, R4, R4
+	CSEL NE, R6, R0, R0
+	CSEL NE, R7, R1, R1
+	CSEL NE, R8, R2, R2
+	CSEL NE, R9, R3, R3
+	CSEL NE, R10, R4, R4
 
 	// store
 	MOVD res+0(FP), R5

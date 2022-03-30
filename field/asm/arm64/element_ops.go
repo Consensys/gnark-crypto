@@ -117,17 +117,17 @@ func (f *FFArm64) generateSub() {
 		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], ops[0])
 		f.LDP(f.RegisterOffset(yPtr, 8*i), z[i+1], ops[1])
 
-		op0(z[i], z[i+1], z[i])
+		op0(z[i+1], z[i], z[i])
 		op0 = f.SBCS
 
-		f.SBCS(ops[0], ops[1], z[i+1])
+		f.SBCS(ops[1], ops[0], z[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
 		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
 		f.MOVD(f.RegisterOffset(yPtr, 8*i), ops[0])
-		op0(z[i], ops[0], z[i])
+		op0(ops[0], z[i], z[i])
 	}
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
@@ -165,7 +165,7 @@ func (f *FFArm64) generateSub() {
 	registers.Push(borrow)
 
 	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("EQ", t[i], z[i], z[i])
+		f.CSEL("NE", t[i], z[i], z[i])
 		//f.CSEL("NZ", t[i], z[i], z[i])
 	}
 

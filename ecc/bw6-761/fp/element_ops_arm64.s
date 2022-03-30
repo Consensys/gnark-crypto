@@ -113,28 +113,28 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	// load operands and subtract mod 2^r
 	LDP  0(R12), (R0, R14)
 	LDP  0(R13), (R1, R15)
-	SUBS R0, R1, R0
-	SBCS R14, R15, R1
+	SUBS R1, R0, R0
+	SBCS R15, R14, R1
 	LDP  16(R12), (R2, R14)
 	LDP  16(R13), (R3, R15)
-	SBCS R2, R3, R2
-	SBCS R14, R15, R3
+	SBCS R3, R2, R2
+	SBCS R15, R14, R3
 	LDP  32(R12), (R4, R14)
 	LDP  32(R13), (R5, R15)
-	SBCS R4, R5, R4
-	SBCS R14, R15, R5
+	SBCS R5, R4, R4
+	SBCS R15, R14, R5
 	LDP  48(R12), (R6, R14)
 	LDP  48(R13), (R7, R15)
-	SBCS R6, R7, R6
-	SBCS R14, R15, R7
+	SBCS R7, R6, R6
+	SBCS R15, R14, R7
 	LDP  64(R12), (R8, R14)
 	LDP  64(R13), (R9, R15)
-	SBCS R8, R9, R8
-	SBCS R14, R15, R9
+	SBCS R9, R8, R8
+	SBCS R15, R14, R9
 	LDP  80(R12), (R10, R14)
 	LDP  80(R13), (R11, R15)
-	SBCS R10, R11, R10
-	SBCS R14, R15, R11
+	SBCS R11, R10, R10
+	SBCS R15, R14, R11
 
 	// Store borrow TODO: Can it be done with one instruction?
 	MOVD $0, R12
@@ -162,18 +162,18 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 
 	// augment if necessary
 	CMP  $1, R12           // "recall" the borrow
-	CSEL EQ, R13, R0, R0
-	CSEL EQ, R14, R1, R1
-	CSEL EQ, R15, R2, R2
-	CSEL EQ, R16, R3, R3
-	CSEL EQ, R17, R4, R4
-	CSEL EQ, R19, R5, R5
-	CSEL EQ, R20, R6, R6
-	CSEL EQ, R21, R7, R7
-	CSEL EQ, R22, R8, R8
-	CSEL EQ, R23, R9, R9
-	CSEL EQ, R24, R10, R10
-	CSEL EQ, R25, R11, R11
+	CSEL NE, R13, R0, R0
+	CSEL NE, R14, R1, R1
+	CSEL NE, R15, R2, R2
+	CSEL NE, R16, R3, R3
+	CSEL NE, R17, R4, R4
+	CSEL NE, R19, R5, R5
+	CSEL NE, R20, R6, R6
+	CSEL NE, R21, R7, R7
+	CSEL NE, R22, R8, R8
+	CSEL NE, R23, R9, R9
+	CSEL NE, R24, R10, R10
+	CSEL NE, R25, R11, R11
 
 	// store
 	MOVD res+0(FP), R12

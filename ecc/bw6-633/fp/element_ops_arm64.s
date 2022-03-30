@@ -101,24 +101,24 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	// load operands and subtract mod 2^r
 	LDP  0(R10), (R0, R12)
 	LDP  0(R11), (R1, R13)
-	SUBS R0, R1, R0
-	SBCS R12, R13, R1
+	SUBS R1, R0, R0
+	SBCS R13, R12, R1
 	LDP  16(R10), (R2, R12)
 	LDP  16(R11), (R3, R13)
-	SBCS R2, R3, R2
-	SBCS R12, R13, R3
+	SBCS R3, R2, R2
+	SBCS R13, R12, R3
 	LDP  32(R10), (R4, R12)
 	LDP  32(R11), (R5, R13)
-	SBCS R4, R5, R4
-	SBCS R12, R13, R5
+	SBCS R5, R4, R4
+	SBCS R13, R12, R5
 	LDP  48(R10), (R6, R12)
 	LDP  48(R11), (R7, R13)
-	SBCS R6, R7, R6
-	SBCS R12, R13, R7
+	SBCS R7, R6, R6
+	SBCS R13, R12, R7
 	LDP  64(R10), (R8, R12)
 	LDP  64(R11), (R9, R13)
-	SBCS R8, R9, R8
-	SBCS R12, R13, R9
+	SBCS R9, R8, R8
+	SBCS R13, R12, R9
 
 	// Store borrow TODO: Can it be done with one instruction?
 	MOVD $0, R10
@@ -143,16 +143,16 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 
 	// augment if necessary
 	CMP  $1, R10         // "recall" the borrow
-	CSEL EQ, R11, R0, R0
-	CSEL EQ, R12, R1, R1
-	CSEL EQ, R13, R2, R2
-	CSEL EQ, R14, R3, R3
-	CSEL EQ, R15, R4, R4
-	CSEL EQ, R16, R5, R5
-	CSEL EQ, R17, R6, R6
-	CSEL EQ, R19, R7, R7
-	CSEL EQ, R20, R8, R8
-	CSEL EQ, R21, R9, R9
+	CSEL NE, R11, R0, R0
+	CSEL NE, R12, R1, R1
+	CSEL NE, R13, R2, R2
+	CSEL NE, R14, R3, R3
+	CSEL NE, R15, R4, R4
+	CSEL NE, R16, R5, R5
+	CSEL NE, R17, R6, R6
+	CSEL NE, R19, R7, R7
+	CSEL NE, R20, R8, R8
+	CSEL NE, R21, R9, R9
 
 	// store
 	MOVD res+0(FP), R10
