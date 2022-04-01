@@ -310,6 +310,10 @@ const (
 var staticTestValues []Element
 
 func init() {
+
+	//TODO: Remove
+	genAsmBenchCases()
+
 	staticTestValues = append(staticTestValues, Element{}) // zero
 	staticTestValues = append(staticTestValues, One())     // one
 	staticTestValues = append(staticTestValues, rSquare)   // r²
@@ -2411,6 +2415,114 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
+}
+
+// Assembly benchmarks
+// TODO: Remove
+
+//To average out non-constant time
+const asmBenchCasesNum = 20
+
+var asmBenchA [asmBenchCasesNum]Element
+var asmBenchB [asmBenchCasesNum]Element
+
+func genAsmBenchCases() {
+	for i := 0; i < asmBenchCasesNum; i++ {
+		asmBenchA[i].SetRandom()
+		asmBenchB[i].SetRandom()
+	}
+}
+
+func BenchmarkElementAsmAdd(b *testing.B) {
+	var z Element
+
+	b.ResetTimer()
+	b.Run("Generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				_addGeneric(&z, &asmBenchA[j], &asmBenchB[j])
+			}
+		}
+	})
+
+	b.ResetTimer()
+	b.Run("Asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				z.Add(&asmBenchA[j], &asmBenchB[j])
+			}
+
+		}
+	})
+}
+
+func BenchmarkElementAsmSub(b *testing.B) {
+	var z Element
+
+	b.ResetTimer()
+	b.Run("Generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				_subGeneric(&z, &asmBenchA[j], &asmBenchB[j])
+			}
+		}
+	})
+
+	b.ResetTimer()
+	b.Run("Asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				z.Sub(&asmBenchA[j], &asmBenchB[j])
+			}
+
+		}
+	})
+}
+
+func BenchmarkElementAsmNeg(b *testing.B) {
+	var z Element
+
+	b.ResetTimer()
+	b.Run("Generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				_negGeneric(&z, &asmBenchA[j])
+			}
+		}
+	})
+
+	b.ResetTimer()
+	b.Run("Asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				z.Neg(&asmBenchA[j])
+			}
+
+		}
+	})
+}
+
+func BenchmarkElementAsmDouble(b *testing.B) {
+	var z Element
+
+	b.ResetTimer()
+	b.Run("Generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				_doubleGeneric(&z, &asmBenchA[j])
+			}
+		}
+	})
+
+	b.ResetTimer()
+	b.Run("Asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				z.Double(&asmBenchA[j])
+			}
+
+		}
+	})
 }
 
 func BenchmarkMontReduce(b *testing.B) {

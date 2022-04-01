@@ -292,6 +292,10 @@ const (
 var staticTestValues []{{.ElementName}}
 
 func init() {
+
+	//TODO: Remove
+	genAsmBenchCases()
+
 	staticTestValues = append(staticTestValues, {{.ElementName}}{}) // zero
 	staticTestValues = append(staticTestValues, One()) 				// one
 	staticTestValues = append(staticTestValues, rSquare) 			// r²
@@ -1457,5 +1461,62 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 		t.Error(err)
 	}
 }
+
+// Assembly benchmarks
+// TODO: Remove
+
+//To average out non-constant time
+const asmBenchCasesNum = 20
+
+var asmBenchA [asmBenchCasesNum]Element
+var asmBenchB [asmBenchCasesNum]Element
+
+func genAsmBenchCases() {
+	for i := 0; i < asmBenchCasesNum; i++ {
+		asmBenchA[i].SetRandom()
+		asmBenchB[i].SetRandom()
+	}
+}
+
+{{ define "benchAsm" }}
+
+func Benchmark{{toTitle .ElementName}}Asm{{toTitle .Operation}}(b *testing.B) {
+	var z Element
+
+	b.ResetTimer()
+	b.Run("Generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				_{{.Operation}}Generic(&z, {{print .Operands}})
+			}
+		}
+	})
+
+	b.ResetTimer()
+	b.Run("Asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < asmBenchCasesNum; j++ {
+				z.{{toTitle .Operation}}({{print .Operands}})
+			}
+
+		}
+	})
+}
+
+{{ end }}
+
+{{define "benchBinaryAsm" }}
+{{template "benchAsm" dict "ElementName" .ElementName "Operation" .Operation "Operands" "&asmBenchA[j], &asmBenchB[j]" }} 
+{{end}}
+
+{{define "benchUnaryAsm" }}
+{{template "benchAsm" dict "ElementName" .ElementName "Operation" .Operation "Operands" "&asmBenchA[j]" }} 
+{{end}}
+
+{{template "benchBinaryAsm" dict "Operation" "add" "ElementName" .ElementName }}
+{{template "benchBinaryAsm" dict "Operation" "sub" "ElementName" .ElementName }}
+
+{{template "benchUnaryAsm" dict "Operation" "neg" "ElementName" .ElementName }}
+{{template "benchUnaryAsm" dict "Operation" "double" "ElementName" .ElementName }}
 
 `
