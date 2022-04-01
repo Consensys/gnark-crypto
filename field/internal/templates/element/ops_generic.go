@@ -36,7 +36,7 @@ func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
 }
 
-func add(z,  x, y *{{.ElementName}}) {
+/*func add(z,  x, y *{{.ElementName}}) {
 	_addGeneric(z,x,y)
 }
 
@@ -51,7 +51,7 @@ func sub(z,  x, y *{{.ElementName}}) {
 
 func neg(z,  x *{{.ElementName}}) {
 	_negGeneric(z,x)
-}
+}*/
 
 func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
