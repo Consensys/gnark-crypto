@@ -38,7 +38,9 @@ var (
 )
 
 const rho = 8
-const nbRounds = 1
+
+var NbRounds = 1
+var ErrorRate float32
 
 // Digest commitment of a polynomial.
 type Digest []byte
@@ -53,7 +55,7 @@ type partialMerkleProof struct {
 	// Merkle root
 	merkleRoot []byte
 
-	// proofSet stores [leaf || node_1 || .. || merkleRoot ], where the leaf is not
+	// proofSet stores [leaf ∥ node_1 ∥ .. ∥ merkleRoot ], where the leaf is not
 	// hashed.
 	proofSet [][]byte
 
@@ -93,7 +95,7 @@ const (
 // where each interaction contains a challenge provided by the verifier, as
 // well as MerkleProofs for the queries of the verifier. The Merkle proofs
 // correspond to the openings of the i-th folded polynomial at 2 points that
-// belong to the same fiber of x -> x^{2}.
+// belong to the same fiber of x -> x².
 type round struct {
 
 	// stores the interactions between the prover and the verifier.
@@ -120,7 +122,7 @@ type ProofOfProximity struct {
 	ID []byte
 
 	// round contains the data corresponding to a single round
-	// of fri. There are nbRounds rounds of interactions.
+	// of fri. There are NbRounds rounds of interactions.
 	rounds []round
 }
 
@@ -171,7 +173,7 @@ type radixTwoFri struct {
 	// domains list of domains used for fri
 	// TODO normally, a single domain of size n=2ᶜ should handle all
 	// polynomials of size 2ᵈ where d<c...
-	domains []*fft.Domain
+	domain *fft.Domain
 }
 
 func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
@@ -187,11 +189,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	n = n * rho
 
 	// building the domains
-	res.domains = make([]*fft.Domain, nbSteps)
-	for i := 0; i < nbSteps; i++ {
-		res.domains[i] = fft.NewDomain(n)
-		n = n >> 1
-	}
+	res.domain = fft.NewDomain(n)
 
 	// hash function
 	res.h = h
@@ -243,19 +241,17 @@ func convertCanonicalSorted(i, n int) int {
 
 // deriveQueriesPositions derives the indices of the oracle
 // function that the verifier has to pick.
-// * pos is the initial position, i.e. the logarithm of the first challenges
-// * The result is a slice of []int, where each entry is a tuple (i_k), such that
-// the verifier needs to evaluate sum_k oracle(i_k)xᵏ to build
+// * pos is the initial position, i.e. the logarithm of the first challenge
+// * The result is a slice of []int, where each entry is a tuple (iₖ), such that
+// the verifier needs to evaluate ∑ₖ oracle(iₖ)xᵏ to build
 // the folded function.
 func (s radixTwoFri) deriveQueriesPositions(pos big.Int) []int {
 
 	res := make([]int, s.nbSteps+1)
 
-	var a fr.Element
-	a.Exp(s.domains[0].Generator, &pos)
-
-	l := s.log(a, s.domains[0].Generator)
-	n := int(s.domains[0].Cardinality)
+	//l := s.log(a, s.domain.Generator)
+	l := int(pos.Uint64())
+	n := int(s.domain.Cardinality)
 
 	// first we convert from canonical indexation to sorted indexation
 	for i := 0; i < s.nbSteps+1; i++ {
@@ -290,14 +286,14 @@ func sort(evaluations []fr.Element) []fr.Element {
 func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error) {
 
 	// check that position is in the correct range
-	if position >= s.domains[0].Cardinality {
+	if position >= s.domain.Cardinality {
 		return OpeningProof{}, ErrRangePosition
 	}
 
 	// put q in evaluation form
-	q := make([]fr.Element, s.domains[0].Cardinality)
+	q := make([]fr.Element, s.domain.Cardinality)
 	copy(q, p)
-	s.domains[0].FFT(q, fft.DIF)
+	s.domain.FFT(q, fft.DIF)
 	fft.BitReverse(q)
 
 	// sort q to have fibers in contiguous entries. The goal is to have one
@@ -363,7 +359,7 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 	}
 
 	// convert position to the sorted version
-	sizePoly := s.domains[0].Cardinality
+	sizePoly := s.domain.Cardinality
 	pos := convertCanonicalSorted(int(position), int(sizePoly))
 
 	// check the Merkle proof
@@ -375,13 +371,58 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 
 }
 
+func printVector(name string, v []fr.Element) {
+
+	fmt.Printf("%s = ", name)
+	fmt.Printf("[")
+	for i := 0; i < len(v); i++ {
+		fmt.Printf("Fr(%s),", v[i].String())
+	}
+	fmt.Printf("]\n")
+
+}
+
+// foldPolynomialLagrangeBasis folds a polynomial p, expressed in Lagrange basis.
+//
+// Fᵣ[X]/(Xⁿ-1) is a free module of rank 2 on Fᵣ[Y]/(Y^{n/2}-1). If
+// p∈ Fᵣ[X]/(Xⁿ-1), expressed in Lagrange basis, the function finds the coordinates
+// p₁, p₂ of p in Fᵣ[Y]/(Y^{n/2}-1), expressed in Lagrange basis. Finally, it computes
+// p₁ + x*p₂ and returns it.
+//
+// * p is the polynomial to fold, in Lagrange basis, sorted like this: p = [p(1),p(-1),p(g),p(-g),p(g^{2}),p(-g^{2}),...]
+// * g is a generator of the subgroup of Fᵣ^{*} of size len(p)
+// * x is the folding challenge x, used to return p₁+x*p₂
+func foldPolynomialLagrangeBasis(pSorted []fr.Element, g, x fr.Element) []fr.Element {
+
+	// we have the following system
+	// p_1(g^{2i})+g^{i}p_2(g^{2i}) = p(g^{i})
+	// p_1(g^{2i})-g^{i}p_2(g^{2i}) = p(-g^{i})
+	// we solve the system for p_1(g^{2i}),p_2(g^{2i})
+	s := len(pSorted)
+	res := make([]fr.Element, s/2)
+
+	var p1, p2, twoInv, acc, gInv fr.Element
+	twoInv.SetUint64(2).Inverse(&twoInv)
+	gInv.Inverse(&g)
+	acc.SetOne()
+
+	for i := 0; i < s/2; i++ {
+
+		p1.Add(&pSorted[2*i], &pSorted[2*i+1])
+		p2.Sub(&pSorted[2*i], &pSorted[2*i+1]).Mul(&p2, &acc)
+		res[i].Mul(&p2, &x).Add(&res[i], &p1).Mul(&res[i], &twoInv)
+
+		acc.Mul(&acc, &gInv)
+
+	}
+
+	return res
+
+}
+
 // singleRound generates a proof that a function, given as an oracle from
 // the verifier point of view, is in fact δ-close to a polynomial.
 func (s radixTwoFri) singleRound(salt fr.Element, p []fr.Element) (round, error) {
-
-	extendedSize := int(s.domains[0].Cardinality)
-	_p := make([]fr.Element, extendedSize)
-	copy(_p, p)
 
 	// the proof will contain nbSteps interactions
 	var res round
@@ -405,34 +446,38 @@ func (s radixTwoFri) singleRound(salt fr.Element, p []fr.Element) (round, error)
 	fs.Bind(xis[0], salt.Marshal())
 
 	// step 1 : fold the polynomial using the xi
-	// evalsAtRound contains nbSteps entries, each entry is the evaluation
-	// of a polynomial on a domain. The first evaluation is on the first domain
-	// D₀ (of size ρ*size_polynomial), the second evaluation is on D₁ = f(D₀)
-	// where f:x->x², of size |D₀|/2, the third evaluation is on f(D₁), etc.
-	// The last evaluation is on a domain of size ρ.
+
+	// evalsAtRound stores the list of the nbSteps polynomial evaluations, each evaluation
+	// corresponds to the evaluation o the folded polynomial at round i.
 	evalsAtRound := make([][]fr.Element, s.nbSteps)
+
+	// evaluate p and sort the result
+	_p := make([]fr.Element, s.domain.Cardinality)
+	copy(_p, p)
+	s.domain.FFT(_p, fft.DIF)
+	fft.BitReverse(_p)
+
+	var g fr.Element
+	g.Set(&s.domain.Generator)
 
 	for i := 0; i < s.nbSteps; i++ {
 
-		// evaluate _p and sort the result
-		s.domains[i].FFT(_p, fft.DIF)
-		fft.BitReverse(_p)
-
+		printVector(fmt.Sprintf("eval_pol_%d", i), _p)
 		evalsAtRound[i] = sort(_p)
 
 		// in the first round, tamper the evaluation
 		// if i == 0 {
-		// 	delta := int(0.2 * float32(s.domains[0].Cardinality))
+		// 	delta := int(ErrorRate * float32(s.domain[0].Cardinality))
 		// 	// delta := 1
 		// 	for k := 0; k < delta; k++ {
-		// 		pos := rand.Intn(int(s.domains[0].Cardinality))
+		// 		pos := rand.Intn(int(s.domain[0].Cardinality))
 		// 		evalsAtRound[0][pos].SetRandom()
 		// 	}
 		// }
 
 		// compute the root hash, needed to derive xi
 		t := merkletree.New(s.h)
-		for k := 0; k < len(evalsAtRound[i]); k++ {
+		for k := 0; k < len(_p); k++ {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		rh := t.Root()
@@ -448,30 +493,32 @@ func (s radixTwoFri) singleRound(salt fr.Element, p []fr.Element) (round, error)
 		}
 		var xi fr.Element
 		xi.SetBytes(bxi)
+		fmt.Printf("x_%d = Fr(%s) [PROVER]\n", i, xi.String())
 
-		// put _p back in canonical basis
-		s.domains[i].FFTInverse(_p, fft.DIF)
-		fft.BitReverse(_p)
+		// fold _p, reusing its memory
+		_p = foldPolynomialLagrangeBasis(evalsAtRound[i], g, xi)
 
-		// fold _p
-		fp := make([]fr.Element, len(_p)/2)
-		for k := 0; k < len(_p)/2; k++ {
-			fp[k].Mul(&_p[2*k+1], &xi)
-			fp[k].Add(&fp[k], &_p[2*k])
-		}
+		// g <- g^{2}
+		g.Square(&g)
 
-		_p = fp
 	}
 
-	// last round, provide the evaluation
-	res.evaluation = make([]fr.Element, len(_p))
-	var g fr.Element
-	g.SetOne()
-	for i := 0; i < rho; i++ {
-		e := eval(_p, g)
-		res.evaluation[i].Set(&e)
-		g.Mul(&g, &s.domains[s.nbSteps-1].Generator)
-	}
+	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
+	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
+	// are supposed to be on a line.
+	res.evaluation = _p
+
+	printVector("finalEval", res.evaluation)
+
+	// printVector("final_eval", res.evaluation)
+
+	// var g fr.Element
+	// g.SetOne()
+	// for i := 0; i < rho; i++ {
+	// 	e := eval(_p, g)
+	// 	res.evaluation[i].Set(&e)
+	// 	g.Mul(&g, &s.domain[s.nbSteps-1].Generator)
+	// }
 
 	// step 2: provide the Merkle proofs of the queries
 
@@ -488,7 +535,7 @@ func (s radixTwoFri) singleRound(salt fr.Element, p []fr.Element) (round, error)
 	}
 	var bPos, bCardinality big.Int
 	bPos.SetBytes(binSeed)
-	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
 	si := s.deriveQueriesPositions(bPos)
 
@@ -532,12 +579,12 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 
 	// the proof will contain nbSteps interactions
 	var proof ProofOfProximity
-	proof.rounds = make([]round, nbRounds)
+	proof.rounds = make([]round, NbRounds)
 
 	var err error
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < nbRounds; i++ {
+	for i := 0; i < NbRounds; i++ {
 		proof.rounds[i], err = s.singleRound(salt, p)
 		if err != nil {
 			return proof, err
@@ -575,6 +622,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			return err
 		}
 		xi[i].SetBytes(bxi)
+		fmt.Printf("x_%d = Fr(%s) [VERIFIER]\n", i, xi[i].String())
 	}
 
 	// derive the verifier queries
@@ -590,13 +638,17 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	}
 	var bPos, bCardinality big.Int
 	bPos.SetBytes(binSeed)
-	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
 	si := s.deriveQueriesPositions(bPos)
 
 	// for each round check the Merkle proof and the correctness of the folding
 	var twoInv fr.Element
 	twoInv.SetUint64(2).Inverse(&twoInv)
+
+	// current size of the polynomial
+	currentSize := int(s.domain.Cardinality)
+
 	for i := 0; i < len(proof.interactions); i++ {
 
 		// correctness of Merkle proof
@@ -638,10 +690,10 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			fe.Add(&l, &r).Mul(&fe, &twoInv)
 
 			// odd part
-			m := convertSortedCanonical(si[i]-(si[i]%2), int(s.domains[i].Cardinality))
+			m := convertSortedCanonical(si[i]-(si[i]%2), currentSize)
 			bm := big.NewInt(int64(m))
 			var ginv fr.Element
-			ginv.Set(&s.domains[i].GeneratorInv).Exp(ginv, bm)
+			ginv.Set(&s.domain.GeneratorInv).Exp(ginv, bm)
 			fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
 			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
 
@@ -651,6 +703,9 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 				return ErrProximityTestFolding
 			}
 		}
+
+		// divide the size by 2
+		currentSize = currentSize >> 1
 	}
 
 	// last transition
@@ -662,10 +717,14 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	fe.Add(&l, &r).Mul(&fe, &twoInv)
 
 	// odd part
-	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), int(s.domains[s.nbSteps-1].Cardinality))
+	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), currentSize)
 	bm := big.NewInt(int64(m))
 	var ginv fr.Element
-	ginv.Set(&s.domains[s.nbSteps-1].GeneratorInv).Exp(ginv, bm)
+	ginv.Set(&s.domain.GeneratorInv)
+	for i := 0; i < s.nbSteps; i++ {
+		ginv.Mul(&ginv, &ginv)
+	}
+	ginv.Exp(ginv, bm)
 	fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
 	_si := convertSortedCanonical(si[s.nbSteps], rho)
 	fn.Set(&proof.evaluation[_si])
@@ -676,11 +735,15 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 		return ErrProximityTestFolding
 	}
 
-	// Last step: check that the evatuations lie on a line
+	// Last step: check that the evaluations lie on a line
 	dx := make([]fr.Element, rho-1)
 	dy := make([]fr.Element, rho-1)
 	var _g, g, one fr.Element
-	g.Set(&s.domains[s.nbSteps-1].Generator).Square(&g)
+	g.Set(&s.domain.Generator)
+	for i := 0; i < s.nbSteps; i++ {
+		g.Mul(&g, &g)
+	}
+	// g.Set(&s.domain[s.nbSteps-1].Generator).Square(&g)
 	_g.Set(&g)
 	one.SetOne()
 	for i := 1; i < rho; i++ {
@@ -709,7 +772,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < nbRounds; i++ {
+	for i := 0; i < NbRounds; i++ {
 		err := s.verifyProofOfProximitySingleRound(salt, proof.rounds[i])
 		if err != nil {
 			return err
