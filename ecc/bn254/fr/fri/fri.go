@@ -171,7 +171,7 @@ type radixTwoFri struct {
 	nbSteps int
 
 	// domain used to build the Reed Solomon code from the given polynomial.
-	// The size of the domain is \rho*size_polynomial.
+	// The size of the domain is ρ*size_polynomial.
 	domain *fft.Domain
 }
 
@@ -241,12 +241,13 @@ func convertCanonicalSorted(i, n int) int {
 }
 
 // deriveQueriesPositions derives the indices of the oracle
-// function that the verifier has to pick.
+// function that the verifier has to pick, in sorted form.
 // * pos is the initial position, i.e. the logarithm of the first challenge
+// * size is the size of the initial polynomial
 // * The result is a slice of []int, where each entry is a tuple (iₖ), such that
 // the verifier needs to evaluate ∑ₖ oracle(iₖ)xᵏ to build
 // the folded function.
-func (s radixTwoFri) deriveQueriesPositions(pos int) []int {
+func (s radixTwoFri) deriveQueriesPositions(pos int, size int) []int {
 
 	// res := make([]int, s.nbSteps+1)
 
@@ -267,10 +268,13 @@ func (s radixTwoFri) deriveQueriesPositions(pos int) []int {
 	// 	n = n >> 1
 	// }
 
+	_s := size / 2
 	res := make([]int, s.nbSteps)
 	res[0] = pos
 	for i := 1; i < s.nbSteps; i++ {
-		res[i] = (res[i-1] - (res[i-1] % 2)) / 2
+		t := (res[i-1] - (res[i-1] % 2)) / 2
+		res[i] = convertCanonicalSorted(t, _s)
+		_s = _s / 2
 	}
 
 	return res
@@ -282,7 +286,7 @@ func (s radixTwoFri) deriveQueriesPositions(pos int) []int {
 func sort(evaluations []fr.Element) []fr.Element {
 	q := make([]fr.Element, len(evaluations))
 	n := len(evaluations) / 2
-	for i := 0; i < len(evaluations)/2; i++ {
+	for i := 0; i < n; i++ {
 		q[2*i].Set(&evaluations[i])
 		q[2*i+1].Set(&evaluations[i+n])
 	}
@@ -452,14 +456,13 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	fft.BitReverse(_p)
 
 	// gInv inverse of the generator of the cyclic group of size the size of the polynomial.
-	// The size of the cyclic group is \rho*s.domainSize, and not s.domainSize.
+	// The size of the cyclic group is ρ*s.domainSize, and not s.domainSize.
 	var gInv fr.Element
 	gInv.Set(&s.domain.GeneratorInv)
 
 	for i := 0; i < s.nbSteps; i++ {
 
 		evalsAtRound[i] = sort(_p)
-		// printVector(fmt.Sprintf("pol_%d", i), evalsAtRound[i])
 		// printVector(fmt.Sprintf("[%d]", i), evalsAtRound[i])
 		// in the first round, tamper the evaluation
 		// if i == 0 {
@@ -523,7 +526,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	bPos.SetBytes(binSeed)
 	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(int(bPos.Uint64()))
+	si := s.deriveQueriesPositions(int(bPos.Uint64()), int(s.domain.Cardinality))
 	// fmt.Printf("[PROVER]   [")
 	// for i := 0; i < len(si); i++ {
 	// 	fmt.Printf("%d, ", si[i])
@@ -554,6 +557,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 			make([][]byte, 2),
 			numLeaves,
 		}
+		// fmt.Printf("openings: [%s, %s]\n", evalsAtRound[i][0].String(), evalsAtRound[i][1].String())
 		res.interactions[i][1-c].proofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
 		s.h.Reset()
 		_, err = s.h.Write(res.interactions[i][c].proofSet[0])
@@ -640,7 +644,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	bPos.SetBytes(binSeed)
 	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(int(bPos.Uint64()))
+	si := s.deriveQueriesPositions(int(bPos.Uint64()), int(s.domain.Cardinality))
 
 	// for each round check the Merkle proof and the correctness of the folding
 
@@ -693,17 +697,18 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			// l = P(gⁱ), r = P(g^{i+n/2})
 			l.SetBytes(proof.interactions[i][0].proofSet[0])
 			r.SetBytes(proof.interactions[i][1].proofSet[0])
-			// fmt.Printf("%d (l,r) = [%s, %s]\n", i, l.String(), r.String())
+			// fmt.Printf("%d (l,r) =[%s, %s]\n", i, l.String(), r.String())
 
-			// ginv should be exponentiated by i=si[i+1]=si[i]//2 (otherwise the exponent would
-			// be i+n/2, and we would obtain ginv^{i+n/2)=-ginv^{i} instead of ginv^{i} ).
-			// m := convertSortedCanonical(si[i]-(si[i]%2), currentSize)
-			bm := big.NewInt(int64(si[i+1]))
+			// (g^{si[i]}, g^{si[i]+1}) is the fiber of g^{2*si[i]}. The system to solve
+			// (for P₀(g^{2si[i]}), P₀(g^{2si[i]}) ) is:
+			// P(g^{si[i]}) = P₀(g^{2si[i]}) +  g^{si[i]/2}*P₀(g^{2si[i]})
+			// P(g^{si[i]+1}) = P₀(g^{2si[i]}) -  g^{si[i]/2}*P₀(g^{2si[i]})
+			bm := big.NewInt(int64(si[i] / 2))
 			var ginv fr.Element
 			ginv.Exp(accGInv, bm)
 			fe.Add(&l, &r)                                      // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
 			fo.Sub(&l, &r).Mul(&fo, &ginv)                      // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
-			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
+			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
 
 			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
 			// fmt.Printf("%d (fn,fo) = [%s %s]\n", i, fn.String(), fo.String())
@@ -732,13 +737,13 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	// m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), currentSize)
 	// fmt.Printf("m = %d\n", m)
 	// bm := big.NewInt(int64(m))
-	_si := (si[s.nbSteps-1] - si[s.nbSteps-1]%2) / 2
+	_si := si[s.nbSteps-1] / 2
 	// fmt.Printf("_si = %d\n", _si)
 	accGInv.Exp(accGInv, big.NewInt(int64(_si)))
 	// fmt.Printf("%d (l,r) = [%s, %s]\n", s.nbSteps-1, l.String(), r.String())
 	fe.Add(&l, &r)                                                // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
 	fo.Sub(&l, &r).Mul(&fo, &accGInv)                             // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
-	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
+	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
 
 	// the entry of the evaluation vector doesn't matter since they are supposed to be equal.
 	// The equality of the entries is tested later.
