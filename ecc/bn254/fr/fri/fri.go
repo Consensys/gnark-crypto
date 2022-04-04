@@ -190,7 +190,7 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	// building the domains
 	res.domain = fft.NewDomain(n)
 
-	fmt.Printf("g = %s\n", res.domain.Generator.String())
+	// fmt.Printf("g = %s\n", res.domain.Generator.String())
 
 	// hash function
 	res.h = h
@@ -459,7 +459,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	for i := 0; i < s.nbSteps; i++ {
 
 		evalsAtRound[i] = sort(_p)
-		printVector(fmt.Sprintf("pol_%d", i), evalsAtRound[i])
+		// printVector(fmt.Sprintf("pol_%d", i), evalsAtRound[i])
 		// printVector(fmt.Sprintf("[%d]", i), evalsAtRound[i])
 		// in the first round, tamper the evaluation
 		// if i == 0 {
@@ -489,7 +489,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 		}
 		var xi fr.Element
 		xi.SetBytes(bxi)
-		fmt.Printf("x%d = %s\n", i, xi.String())
+		// fmt.Printf("x%d = %s\n", i, xi.String())
 
 		// fold _p, reusing its memory
 		_p = foldPolynomialLagrangeBasis(evalsAtRound[i], gInv, xi)
@@ -504,7 +504,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// are supposed to be on a line.
 	res.evaluation = make([]fr.Element, rho)
 	copy(res.evaluation, _p)
-	printVector("eval", res.evaluation)
+	// printVector("eval", res.evaluation)
 
 	// step 2: provide the Merkle proofs of the queries
 
@@ -524,6 +524,11 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
 	si := s.deriveQueriesPositions(int(bPos.Uint64()))
+	// fmt.Printf("[PROVER]   [")
+	// for i := 0; i < len(si); i++ {
+	// 	fmt.Printf("%d, ", si[i])
+	// }
+	// fmt.Println("]")
 
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -614,6 +619,12 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 		xi[i].SetBytes(bxi)
 	}
 
+	// fmt.Printf("xi = [")
+	// for i := 0; i < len(xi); i++ {
+	// 	fmt.Printf("Fr(%s),", xi[i].String())
+	// }
+	// fmt.Println("]")
+
 	// derive the verifier queries
 	for i := 0; i < len(proof.evaluation); i++ {
 		err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
@@ -638,7 +649,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	twoInv.SetUint64(2).Inverse(&twoInv)
 	currentSize := int(s.domain.Cardinality)
 	accGInv.Set(&s.domain.GeneratorInv)
-	for i := 0; i < len(proof.interactions); i++ {
+	for i := 0; i < s.nbSteps; i++ {
 
 		// correctness of Merkle proof
 		// c is the entry containing the full Merkle proof.
@@ -682,14 +693,12 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			// l = P(gⁱ), r = P(g^{i+n/2})
 			l.SetBytes(proof.interactions[i][0].proofSet[0])
 			r.SetBytes(proof.interactions[i][1].proofSet[0])
-			fmt.Printf("%d (l,r) = [%s, %s]\n", i, l.String(), r.String())
+			// fmt.Printf("%d (l,r) = [%s, %s]\n", i, l.String(), r.String())
 
-			// odd part. To get the index of the correct exponent, we have to convert
-			// to the canonical position the even index, otherwise we would obtain the
-			// negation of the exponentiation of the inverse of the generator by the
-			// converted index (we would have ginv^{i+n/2) instead of gⁱ ).
-			m := convertSortedCanonical(si[i]-(si[i]%2), currentSize)
-			bm := big.NewInt(int64(m))
+			// ginv should be exponentiated by i=si[i+1]=si[i]//2 (otherwise the exponent would
+			// be i+n/2, and we would obtain ginv^{i+n/2)=-ginv^{i} instead of ginv^{i} ).
+			// m := convertSortedCanonical(si[i]-(si[i]%2), currentSize)
+			bm := big.NewInt(int64(si[i+1]))
 			var ginv fr.Element
 			ginv.Exp(accGInv, bm)
 			fe.Add(&l, &r)                                      // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
@@ -697,14 +706,15 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
 
 			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
-			// fmt.Printf("%d [%s %s]\n", i, fn.String(), fo.String())
+			// fmt.Printf("%d (fn,fo) = [%s %s]\n", i, fn.String(), fo.String())
 
 			if !fo.Equal(&fn) {
 				return ErrProximityTestFolding
 			}
 
+			// next inverse generator
+			accGInv.Square(&accGInv)
 		}
-		accGInv.Square(&accGInv)
 
 		// divide the size by 2
 		currentSize = currentSize >> 1
@@ -715,20 +725,25 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 
 	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
 	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
+	// fmt.Printf("%d (l,r) = [%s, %s]\n", 2, l.String(), r.String())
 
 	// fmt.Printf("ginv = %s\n", accGInv.String())
-	fmt.Printf("[VERIFIER] %d\n", si[s.nbSteps-1]-(si[s.nbSteps-1]%2))
-	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), currentSize)
+	// fmt.Printf("[VERIFIER] %d\n", si[s.nbSteps-1]-(si[s.nbSteps-1]%2))
+	// m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), currentSize)
 	// fmt.Printf("m = %d\n", m)
-	bm := big.NewInt(int64(m))
-	accGInv.Exp(accGInv, bm)
-	fmt.Printf("%d (l,r) = [%s, %s]\n", s.nbSteps-1, l.String(), r.String())
+	// bm := big.NewInt(int64(m))
+	_si := (si[s.nbSteps-1] - si[s.nbSteps-1]%2) / 2
+	// fmt.Printf("_si = %d\n", _si)
+	accGInv.Exp(accGInv, big.NewInt(int64(_si)))
+	// fmt.Printf("%d (l,r) = [%s, %s]\n", s.nbSteps-1, l.String(), r.String())
 	fe.Add(&l, &r)                                                // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
 	fo.Sub(&l, &r).Mul(&fo, &accGInv)                             // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
 	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
 
-	_si := convertSortedCanonical(si[s.nbSteps], rho) // the last evaluation is in canonical form, so we have to convert the index
-	fn.Set(&proof.evaluation[_si])
+	// the entry of the evaluation vector doesn't matter since they are supposed to be equal.
+	// The equality of the entries is tested later.
+	fn.Set(&proof.evaluation[0])
+	// fmt.Printf("fn?? = %s\n", proof.evaluation[0].String())
 
 	// fmt.Printf("%d %s %s\n", s.nbSteps-1, fn.String(), fo.String())
 	if !fo.Equal(&fn) {
