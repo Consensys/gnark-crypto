@@ -29,9 +29,8 @@ import (
 )
 
 // conversion of indices from ordered to canonical, _n is the size of the slice
-// _p is the index to convert. It returns g^u, g^v where {g^u, g^v} is the fiber
-// of g^(2*_p)
-func convert(_p, _n int) (_u, _v big.Int) {
+// _p is the index to logFiber. It returns u, v such that {g^u, g^v} = f⁻¹((g²)^{_p})
+func logFiber(_p, _n int) (_u, _v big.Int) {
 	if _p%2 == 0 {
 		_u.SetInt64(int64(_p / 2))
 		_v.SetInt64(int64(_p/2 + _n/2))
@@ -50,6 +49,44 @@ func randomPolynomial(size uint64, seed int32) []fr.Element {
 		p[i].Square(&p[i-1])
 	}
 	return p
+}
+
+func TestVerifyPP(t *testing.T) {
+
+	size := 4
+
+	for k := 10; k < 11; k++ {
+
+		s := int32(k)
+
+		// fmt.Printf("r = %s\n", fr.Modulus().String())
+
+		p := randomPolynomial(uint64(size), s)
+
+		iop := RADIX_2_FRI.New(uint64(size), sha256.New())
+		proof, err := iop.BuildProofOfProximity(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = iop.VerifyProofOfProximity(proof)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+	}
+}
+
+// convertOrderCanonical convert the index i, an entry in a
+// sorted polynomial, to the corresponding entry in canonical
+// representation. n is the size of the polynomial.
+func convertSortedCanonical(i, n int) int {
+	if i%2 == 0 {
+		return i / 2
+	} else {
+		l := (n - 1 - i) / 2
+		return n - 1 - l
+	}
 }
 
 func TestFRI(t *testing.T) {
@@ -125,7 +162,7 @@ func TestFRI(t *testing.T) {
 			// check the opening value
 			var g fr.Element
 			pos := int64(m % 4096)
-			g.Set(&s.domains[0].Generator)
+			g.Set(&s.domain.Generator)
 			g.Exp(g, big.NewInt(pos))
 
 			var val fr.Element
@@ -145,68 +182,35 @@ func TestFRI(t *testing.T) {
 		gen.Int32Range(0, int32(rho*size)),
 	))
 
-	properties.Property("Derive queries position: points should belong the same fiber", prop.ForAll(
-
-		func(m int32) bool {
-
-			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
-			s := _s.(radixTwoFri)
-
-			var g fr.Element
-
-			_m := big.NewInt(int64(m))
-			pos := s.deriveQueriesPositions(*_m)
-			g.Set(&s.domains[0].Generator)
-			n := int(s.domains[0].Cardinality)
-
-			for i := 0; i < len(pos); i++ {
-
-				u, v := convert(pos[i], n)
-
-				var g1, g2 fr.Element
-				g1.Exp(g, &u).Square(&g1)
-				g2.Exp(g, &v).Square(&g2)
-
-				if !g1.Equal(&g2) {
-					return false
-				}
-				g.Square(&g)
-				n = n >> 1
-			}
-			return true
-		},
-		gen.Int32Range(0, int32(rho*size)),
-	))
-
 	properties.Property("Derive queries position: points should belong the correct fiber", prop.ForAll(
 
 		func(m int32) bool {
 
 			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
 			s := _s.(radixTwoFri)
+
 			var g fr.Element
-			bPos := big.NewInt(int64(m))
-			pos := s.deriveQueriesPositions(*bPos)
-			g.Set(&s.domains[0].Generator)
-			n := int(s.domains[0].Cardinality)
 
-			for i := 0; i < len(pos); i++ {
+			_m := int(m) % size
+			pos := s.deriveQueriesPositions(_m, int(s.domain.Cardinality))
+			g.Set(&s.domain.Generator)
+			n := int(s.domain.Cardinality)
 
-				u, v := convert(pos[i], n)
+			for i := 0; i < len(pos)-1; i++ {
 
-				var g1, g2, r1, r2 fr.Element
+				u, v := logFiber(pos[i], n)
+
+				var g1, g2, g3 fr.Element
 				g1.Exp(g, &u).Square(&g1)
 				g2.Exp(g, &v).Square(&g2)
+				nextPos := convertSortedCanonical(pos[i+1], n/2)
+				g3.Square(&g).Exp(g3, big.NewInt(int64(nextPos)))
+
+				if !g1.Equal(&g2) || !g1.Equal(&g3) {
+					return false
+				}
 				g.Square(&g)
 				n = n >> 1
-				if i < len(pos)-1 {
-					u, v := convert(pos[i+1], n)
-					r1.Exp(g, &u)
-					r2.Exp(g, &v)
-					if !g1.Equal(&r1) && !g2.Equal(&r2) {
-						return false
-					}
-				}
 			}
 			return true
 		},

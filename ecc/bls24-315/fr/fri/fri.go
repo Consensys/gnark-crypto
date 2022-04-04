@@ -41,29 +41,45 @@ var (
 
 const rho = 8
 
+var NbRounds = 10
+
+// var ErrorRate float32
+
 // Digest commitment of a polynomial.
 type Digest []byte
 
 // merkleProof helper structure to build the merkle proof
-// It is called partial Merkle tree because at each round, 2 contiguous values
-// are queried, so only the Merkle paths corresponding to the 2 values are
-// the same except for the leafs. So during an round of interaction, one Merkle path
-// proof will contain every hashes, while the Merkle path proof for the neighbor value
-// will only contain the leafs. The Merkle path proof is similar after the leafs
-// Technically in the second Merkle path proof, proofSet will contain only 2 elements,
-// the neighbor value and the hash of the value from the first Merkle path proof.
+// At each round, two contiguous values from the evaluated polynomial
+// are queried. For one value, the full Merkle path will be provided.
+// For the neighbor value, only the leaf is provided (so proofSet will
+// be empty), since the Merkle path is the same as for the first value.
 type partialMerkleProof struct {
+
+	// Merkle root
 	merkleRoot []byte
-	proofSet   [][]byte
-	numLeaves  uint64
+
+	// proofSet stores [leaf ∥ node_1 ∥ .. ∥ merkleRoot ], where the leaf is not
+	// hashed.
+	proofSet [][]byte
+
+	// number of leaves of the tree.
+	numLeaves uint64
 }
 
 // MerkleProof used to open a polynomial
 type OpeningProof struct {
-	merkleRoot   []byte
-	proofSet     [][]byte
-	numLeaves    uint64
-	index        uint64
+
+	// those fields are private since they are only needed for
+	// the verification, which is abstracted in the VerifyOpening
+	// method.
+	merkleRoot []byte
+	proofSet   [][]byte
+	numLeaves  uint64
+	index      uint64
+
+	// ClaimedValue value of the leaf. This field is exported
+	// because it's needed for protocols using polynomial commitment
+	// schemes (to verify an algebraic relation).
 	ClaimedValue fr.Element
 }
 
@@ -71,17 +87,19 @@ type OpeningProof struct {
 type IOPP uint
 
 const (
+	// Multiplicative version of FRI, using the map x->x², on a
+	// power of 2 subgroup of Fr^{*}.
 	RADIX_2_FRI IOPP = iota
 )
 
-// ProofOfProximity proof of proximity, attesting that
-// a function is d-close to a low degree polynomial.
-type ProofOfProximity struct {
-
-	// ID unique ID attached to the proof of proximity. It's needed for
-	// protocols using Fiat Shamir for instance, where challenges are derived
-	// from the proof of proximity.
-	ID []byte
+// round contains the data corresponding to a single round
+// of fri.
+// It consists of a list of interactions between the prover and the verifier,
+// where each interaction contains a challenge provided by the verifier, as
+// well as MerkleProofs for the queries of the verifier. The Merkle proofs
+// correspond to the openings of the i-th folded polynomial at 2 points that
+// belong to the same fiber of x -> x².
+type round struct {
 
 	// stores the interactions between the prover and the verifier.
 	// Each interaction results in a set or merkle proofs, corresponding
@@ -92,6 +110,23 @@ type ProofOfProximity struct {
 	// The verifier need to reconstruct the polynomial, and check that
 	// it is low degree.
 	evaluation []fr.Element
+}
+
+// ProofOfProximity proof of proximity, attesting that
+// a function is d-close to a low degree polynomial.
+//
+// It is composed of a series of interactions, emulated with Fiat Shamir,
+//
+type ProofOfProximity struct {
+
+	// ID unique ID attached to the proof of proximity. It's needed for
+	// protocols using Fiat Shamir for instance, where challenges are derived
+	// from the proof of proximity.
+	ID []byte
+
+	// round contains the data corresponding to a single round
+	// of fri. There are NbRounds rounds of interactions.
+	rounds []round
 }
 
 // Iopp interface that an iopp should implement
@@ -112,7 +147,7 @@ type Iopp interface {
 	VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error
 }
 
-// GetRho returns the factor size_code_word/size_polynomial
+// GetRho returns the factor ρ = size_code_word/size_polynomial
 func GetRho() int {
 	return rho
 }
@@ -138,10 +173,9 @@ type radixTwoFri struct {
 	// nbSteps number of interactions between the prover and the verifier
 	nbSteps int
 
-	// domains list of domains used for fri
-	// TODO normally, a single domain of size n=2ᶜ should handle all
-	// polynomials of size 2ᵈ where d<c...
-	domains []*fft.Domain
+	// domain used to build the Reed Solomon code from the given polynomial.
+	// The size of the domain is ρ*size_polynomial.
+	domain *fft.Domain
 }
 
 func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
@@ -157,43 +191,12 @@ func newRadixTwoFri(size uint64, h hash.Hash) radixTwoFri {
 	n = n * rho
 
 	// building the domains
-	res.domains = make([]*fft.Domain, nbSteps)
-	for i := 0; i < nbSteps; i++ {
-		res.domains[i] = fft.NewDomain(n)
-		n = n >> 1
-	}
+	res.domain = fft.NewDomain(n)
 
 	// hash function
 	res.h = h
 
 	return res
-}
-
-// finds i such that gⁱ = a
-// TODO for the moment assume it exits and easily computable
-func (s radixTwoFri) log(a, g fr.Element) int {
-	var i int
-	var _g fr.Element
-	_g.SetOne()
-	for i = 0; ; i++ {
-		if _g.Equal(&a) {
-			break
-		}
-		_g.Mul(&_g, &g)
-	}
-	return i
-}
-
-// convertOrderCanonical convert the index i, an entry in a
-// sorted polynomial, to the corresponding entry in canonical
-// representation. n is the size of the polynomial.
-func convertSortedCanonical(i, n int) int {
-	if i%2 == 0 {
-		return i / 2
-	} else {
-		l := (n - 1 - i) / 2
-		return n - 1 - l
-	}
 }
 
 // convertCanonicalSorted convert the index i, an entry in a
@@ -212,32 +215,21 @@ func convertCanonicalSorted(i, n int) int {
 }
 
 // deriveQueriesPositions derives the indices of the oracle
-// function that the verifier has to pick.
-// * pos is the initial position, i.e. the logarithm of the first challenges
-// * The result is a slice of []int, where each entry is a tuple (i_k), such that
-// the verifier needs to evaluate sum_k oracle(i_k)xᵏ to build
+// function that the verifier has to pick, in sorted form.
+// * pos is the initial position, i.e. the logarithm of the first challenge
+// * size is the size of the initial polynomial
+// * The result is a slice of []int, where each entry is a tuple (iₖ), such that
+// the verifier needs to evaluate ∑ₖ oracle(iₖ)xᵏ to build
 // the folded function.
-func (s radixTwoFri) deriveQueriesPositions(pos big.Int) []int {
+func (s radixTwoFri) deriveQueriesPositions(pos int, size int) []int {
 
-	res := make([]int, s.nbSteps+1)
-
-	var a fr.Element
-	a.Exp(s.domains[0].Generator, &pos)
-
-	l := s.log(a, s.domains[0].Generator)
-	n := int(s.domains[0].Cardinality)
-
-	// first we convert from canonical indexation to sorted indexation
-	for i := 0; i < s.nbSteps+1; i++ {
-
-		// canonical → sorted
-		if l < n/2 {
-			res[i] = 2 * l
-		} else {
-			res[i] = (n - 1) - 2*(n-1-l)
-			l = l - n/2
-		}
-		n = n >> 1
+	_s := size / 2
+	res := make([]int, s.nbSteps)
+	res[0] = pos
+	for i := 1; i < s.nbSteps; i++ {
+		t := (res[i-1] - (res[i-1] % 2)) / 2
+		res[i] = convertCanonicalSorted(t, _s)
+		_s = _s / 2
 	}
 
 	return res
@@ -249,7 +241,7 @@ func (s radixTwoFri) deriveQueriesPositions(pos big.Int) []int {
 func sort(evaluations []fr.Element) []fr.Element {
 	q := make([]fr.Element, len(evaluations))
 	n := len(evaluations) / 2
-	for i := 0; i < len(evaluations)/2; i++ {
+	for i := 0; i < n; i++ {
 		q[2*i].Set(&evaluations[i])
 		q[2*i+1].Set(&evaluations[i+n])
 	}
@@ -260,17 +252,18 @@ func sort(evaluations []fr.Element) []fr.Element {
 func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error) {
 
 	// check that position is in the correct range
-	if position >= s.domains[0].Cardinality {
+	if position >= s.domain.Cardinality {
 		return OpeningProof{}, ErrRangePosition
 	}
 
 	// put q in evaluation form
-	q := make([]fr.Element, s.domains[0].Cardinality)
+	q := make([]fr.Element, s.domain.Cardinality)
 	copy(q, p)
-	s.domains[0].FFT(q, fft.DIF)
+	s.domain.FFT(q, fft.DIF)
 	fft.BitReverse(q)
 
-	// sort q to have fibers in contiguous entries
+	// sort q to have fibers in contiguous entries. The goal is to have one
+	// Merkle path for both openings of entries which are in the same fiber.
 	q = sort(q)
 
 	// build the Merkle proof, we the position is converted to fit the sorted polynomial
@@ -308,7 +301,7 @@ func checkRoots(a, b []byte) error {
 }
 
 // Verifies the opening of a polynomial.
-// * position the point at which the proof is opened (the point is g^{i} where i = position)
+// * position the point at which the proof is opened (the point is gⁱ where i = position)
 // * openingProof Merkle path proof
 // * pp proof of proximity, needed because before opening Merkle path proof one should be sure that the
 // committed values come from a polynomial. During the verification of the Merkle path proof, the root
@@ -316,22 +309,23 @@ func checkRoots(a, b []byte) error {
 // those should be equal, if not an error is raised.
 func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error {
 
-	// index containing the full Merkle proof
+	// To query the Merkle path, we look at the first series of interactions, and check whether it's the point
+	// at 'position' or its neighbor that contains the full Merkle path.
 	var fullMerkleProof int
-	if len(pp.interactions[0][0].proofSet) > len(pp.interactions[0][1].proofSet) {
+	if len(pp.rounds[0].interactions[0][0].proofSet) > len(pp.rounds[0].interactions[0][1].proofSet) {
 		fullMerkleProof = 0
 	} else {
 		fullMerkleProof = 1
 	}
 
 	// check that the merkle roots coincide
-	err := checkRoots(openingProof.merkleRoot, pp.interactions[0][fullMerkleProof].merkleRoot)
+	err := checkRoots(openingProof.merkleRoot, pp.rounds[0].interactions[0][fullMerkleProof].merkleRoot)
 	if err != nil {
 		return err
 	}
 
 	// convert position to the sorted version
-	sizePoly := s.domains[0].Cardinality
+	sizePoly := s.domain.Cardinality
 	pos := convertCanonicalSorted(int(position), int(sizePoly))
 
 	// check the Merkle proof
@@ -343,19 +337,56 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 
 }
 
-// BuildProofOfProximity generates a proof that a function, given as an oracle from
-// the verifier point of view, is in fact d-close to a polynomial.
-func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error) {
+// foldPolynomialLagrangeBasis folds a polynomial p, expressed in Lagrange basis.
+//
+// Fᵣ[X]/(Xⁿ-1) is a free module of rank 2 on Fᵣ[Y]/(Y^{n/2}-1). If
+// p∈ Fᵣ[X]/(Xⁿ-1), expressed in Lagrange basis, the function finds the coordinates
+// p₁, p₂ of p in Fᵣ[Y]/(Y^{n/2}-1), expressed in Lagrange basis. Finally, it computes
+// p₁ + x*p₂ and returns it.
+//
+// * p is the polynomial to fold, in Lagrange basis, sorted like this: p = [p(1),p(-1),p(g),p(-g),p(g²),p(-g²),...]
+// * g is a generator of the subgroup of Fᵣ^{*} of size len(p)
+// * x is the folding challenge x, used to return p₁+x*p₂
+func foldPolynomialLagrangeBasis(pSorted []fr.Element, gInv, x fr.Element) []fr.Element {
 
-	extendedSize := int(s.domains[0].Cardinality)
-	_p := make([]fr.Element, extendedSize)
-	copy(_p, p)
+	// we have the following system
+	// p₁(g²ⁱ)+gⁱp₂(g²ⁱ) = p(gⁱ)
+	// p₁(g²ⁱ)-gⁱp₂(g²ⁱ) = p(-gⁱ)
+	// we solve the system for p₁(g²ⁱ),p₂(g²ⁱ)
+	s := len(pSorted)
+	res := make([]fr.Element, s/2)
+
+	var p1, p2, twoInv, acc fr.Element
+	twoInv.SetUint64(2).Inverse(&twoInv)
+	acc.SetOne()
+
+	for i := 0; i < s/2; i++ {
+
+		p1.Add(&pSorted[2*i], &pSorted[2*i+1])
+		p2.Sub(&pSorted[2*i], &pSorted[2*i+1]).Mul(&p2, &acc)
+		res[i].Mul(&p2, &x).Add(&res[i], &p1).Mul(&res[i], &twoInv)
+
+		acc.Mul(&acc, &gInv)
+
+	}
+
+	return res
+}
+
+// buildProofOfProximitySingleRound generates a proof that a function, given as an oracle from
+// the verifier point of view, is in fact δ-close to a polynomial.
+func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.Element) (round, error) {
 
 	// the proof will contain nbSteps interactions
-	var proof ProofOfProximity
-	proof.interactions = make([][2]partialMerkleProof, s.nbSteps)
+	var res round
+	res.interactions = make([][2]partialMerkleProof, s.nbSteps)
 
-	// Fiat Shamir transcript to derive the challenges
+	// Fiat Shamir transcript to derive the challenges. The xᵢ are used to fold the
+	// polynomials.
+	// During the i-th round, the prover has a polynomial P of degree n. The verifier sends
+	// xᵢ∈ Fᵣ to the prover. The prover expresses F in Fᵣ[X,Y]/<Y-X²> as
+	// P₀(Y)+X P₁(Y) where P₀, P₁ are of degree n/2, and he then folds the polynomial
+	// by replacing x by xᵢ.
 	xis := make([]string, s.nbSteps+1)
 	for i := 0; i < s.nbSteps; i++ {
 		xis[i] = fmt.Sprintf("x%d", i)
@@ -363,77 +394,82 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	xis[s.nbSteps] = "s0"
 	fs := fiatshamir.NewTranscript(s.h, xis...)
 
+	// the salt is binded to the first challenge, to ensure the challenges
+	// are different at each round.
+	fs.Bind(xis[0], salt.Marshal())
+
 	// step 1 : fold the polynomial using the xi
+
+	// evalsAtRound stores the list of the nbSteps polynomial evaluations, each evaluation
+	// corresponds to the evaluation o the folded polynomial at round i.
 	evalsAtRound := make([][]fr.Element, s.nbSteps)
+
+	// evaluate p and sort the result
+	_p := make([]fr.Element, s.domain.Cardinality)
+	copy(_p, p)
+	s.domain.FFT(_p, fft.DIF)
+	fft.BitReverse(_p)
+
+	// gInv inverse of the generator of the cyclic group of size the size of the polynomial.
+	// The size of the cyclic group is ρ*s.domainSize, and not s.domainSize.
+	var gInv fr.Element
+	gInv.Set(&s.domain.GeneratorInv)
 
 	for i := 0; i < s.nbSteps; i++ {
 
-		// evaluate _p and sort the result
-		s.domains[i].FFT(_p, fft.DIF)
-		fft.BitReverse(_p)
 		evalsAtRound[i] = sort(_p)
 
 		// compute the root hash, needed to derive xi
 		t := merkletree.New(s.h)
-		for k := 0; k < len(evalsAtRound[i]); k++ {
+		for k := 0; k < len(_p); k++ {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		rh := t.Root()
 		err := fs.Bind(xis[i], rh)
 		if err != nil {
-			return proof, err
+			return res, err
 		}
 
 		// derive the challenge
 		bxi, err := fs.ComputeChallenge(xis[i])
 		if err != nil {
-			return proof, err
+			return res, err
 		}
 		var xi fr.Element
 		xi.SetBytes(bxi)
 
-		// put _p back in canonical basis
-		s.domains[i].FFTInverse(_p, fft.DIF)
-		fft.BitReverse(_p)
+		// fold _p, reusing its memory
+		_p = foldPolynomialLagrangeBasis(evalsAtRound[i], gInv, xi)
 
-		// fold _p
-		fp := make([]fr.Element, len(_p)/2)
-		for k := 0; k < len(_p)/2; k++ {
-			fp[k].Mul(&_p[2*k+1], &xi)
-			fp[k].Add(&fp[k], &_p[2*k])
-		}
+		// g <- g²
+		gInv.Square(&gInv)
 
-		_p = fp
 	}
 
-	// last round, provide the evaluation
-	proof.evaluation = make([]fr.Element, len(_p))
-	var g fr.Element
-	g.SetOne()
-	for i := 0; i < rho; i++ {
-		e := eval(_p, g)
-		proof.evaluation[i].Set(&e)
-		g.Mul(&g, &s.domains[s.nbSteps-1].Generator)
-	}
+	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
+	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
+	// are supposed to be on a line.
+	res.evaluation = make([]fr.Element, rho)
+	copy(res.evaluation, _p)
 
 	// step 2: provide the Merkle proofs of the queries
 
 	// derive the verifier queries
-	for i := 0; i < len(proof.evaluation); i++ {
-		err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
+	for i := 0; i < len(res.evaluation); i++ {
+		err := fs.Bind(xis[s.nbSteps], res.evaluation[i].Marshal())
 		if err != nil {
-			return proof, err
+			return res, err
 		}
 	}
 	binSeed, err := fs.ComputeChallenge(xis[s.nbSteps])
 	if err != nil {
-		return proof, err
+		return res, err
 	}
 	var bPos, bCardinality big.Int
 	bPos.SetBytes(binSeed)
-	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(bPos)
+	si := s.deriveQueriesPositions(int(bPos.Uint64()), int(s.domain.Cardinality))
 
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -441,42 +477,63 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 		t := merkletree.New(s.h)
 		err := t.SetIndex(uint64(si[i]))
 		if err != nil {
-			return proof, err
+			return res, err
 		}
 		for k := 0; k < len(evalsAtRound[i]); k++ {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		mr, proofSet, _, numLeaves := t.Prove()
 
-		// the firsts interaction stores the root hash of the full evaluation,
-		// it's the data used to identify the proof (it's a Merkle tree root
-		// hash of the evaluation).
-		if i == 0 {
-			proof.ID = mr
-		}
+		// c denotes the entry that contains the full Merkle proof. The entry 1-c will
+		// only contain 2 elements, which are the neighbor point, and the hash of the
+		// first point. The remaining of the Merkle path is common to both the original
+		// point and its neighbor.
 		c := si[i] % 2
-		proof.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
-		proof.interactions[i][1-c] = partialMerkleProof{
+		res.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
+		res.interactions[i][1-c] = partialMerkleProof{
 			mr,
 			make([][]byte, 2),
 			numLeaves,
 		}
-		proof.interactions[i][1-c].proofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
+		res.interactions[i][1-c].proofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
 		s.h.Reset()
-		_, err = s.h.Write(proof.interactions[i][c].proofSet[0])
+		_, err = s.h.Write(res.interactions[i][c].proofSet[0])
+		if err != nil {
+			return res, err
+		}
+		res.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
+
+	}
+
+	return res, nil
+
+}
+
+// BuildProofOfProximity generates a proof that a function, given as an oracle from
+// the verifier point of view, is in fact δ-close to a polynomial.
+func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error) {
+
+	// the proof will contain nbSteps interactions
+	var proof ProofOfProximity
+	proof.rounds = make([]round, NbRounds)
+
+	var err error
+	var salt, one fr.Element
+	one.SetOne()
+	for i := 0; i < NbRounds; i++ {
+		proof.rounds[i], err = s.buildProofOfProximitySingleRound(salt, p)
 		if err != nil {
 			return proof, err
 		}
-		proof.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
-
+		salt.Add(&salt, &one)
 	}
 
 	return proof, nil
 }
 
-// VerifyProofOfProximity verifies the proof of proximity. It returns an error if the
+// verifyProofOfProximitySingleRound verifies the proof of proximity. It returns an error if the
 // verification fails.
-func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
+func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof round) error {
 
 	// Fiat Shamir transcript to derive the challenges
 	xis := make([]string, s.nbSteps+1)
@@ -486,6 +543,10 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	xis[s.nbSteps] = "s0"
 	fs := fiatshamir.NewTranscript(s.h, xis...)
 	xi := make([]fr.Element, s.nbSteps)
+
+	// the salt is binded to the first challenge, to ensure the challenges
+	// are different at each round.
+	fs.Bind(xis[0], salt.Marshal())
 
 	for i := 0; i < s.nbSteps; i++ {
 		err := fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
@@ -512,16 +573,21 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	}
 	var bPos, bCardinality big.Int
 	bPos.SetBytes(binSeed)
-	bCardinality.SetUint64(s.domains[0].Cardinality)
+	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(bPos)
+	si := s.deriveQueriesPositions(int(bPos.Uint64()), int(s.domain.Cardinality))
 
 	// for each round check the Merkle proof and the correctness of the folding
-	var twoInv fr.Element
+
+	// current size of the polynomial
+	var twoInv, accGInv fr.Element
 	twoInv.SetUint64(2).Inverse(&twoInv)
-	for i := 0; i < len(proof.interactions); i++ {
+	currentSize := int(s.domain.Cardinality)
+	accGInv.Set(&s.domain.GeneratorInv)
+	for i := 0; i < s.nbSteps; i++ {
 
 		// correctness of Merkle proof
+		// c is the entry containing the full Merkle proof.
 		c := si[i] % 2
 		res := merkletree.VerifyProof(
 			s.h,
@@ -534,6 +600,11 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 			return ErrMerklePath
 		}
 
+		// we verify the Merkle proof for the neighbor query, to do that we have
+		// to pick the full Merkle proof of the first entry, stripped off of the leaf and
+		// the first node. We replace the leaf and the first node by the leaf and the first
+		// node of the partial Merkle proof, since the leaf and the first node of both proofs
+		// are the only entries that differ.
 		proofSet := make([][]byte, len(proof.interactions[i][c].proofSet))
 		copy(proofSet[2:], proof.interactions[i][c].proofSet[2:])
 		proofSet[0] = proof.interactions[i][1-c].proofSet[0]
@@ -550,74 +621,65 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 		}
 
 		// correctness of the folding
-		if i < len(proof.interactions)-1 {
+		if i < s.nbSteps-1 {
 
 			var fe, fo, l, r, fn fr.Element
 
-			// even part
+			// l = P(gⁱ), r = P(g^{i+n/2})
 			l.SetBytes(proof.interactions[i][0].proofSet[0])
 			r.SetBytes(proof.interactions[i][1].proofSet[0])
-			fe.Add(&l, &r).Mul(&fe, &twoInv)
 
-			// odd part
-			m := convertSortedCanonical(si[i]-(si[i]%2), int(s.domains[i].Cardinality))
-			bm := big.NewInt(int64(m))
+			// (g^{si[i]}, g^{si[i]+1}) is the fiber of g^{2*si[i]}. The system to solve
+			// (for P₀(g^{2si[i]}), P₀(g^{2si[i]}) ) is:
+			// P(g^{si[i]}) = P₀(g^{2si[i]}) +  g^{si[i]/2}*P₀(g^{2si[i]})
+			// P(g^{si[i]+1}) = P₀(g^{2si[i]}) -  g^{si[i]/2}*P₀(g^{2si[i]})
+			bm := big.NewInt(int64(si[i] / 2))
 			var ginv fr.Element
-			ginv.Set(&s.domains[i].GeneratorInv).Exp(ginv, bm)
-			fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
+			ginv.Exp(accGInv, bm)
+			fe.Add(&l, &r)                                      // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
+			fo.Sub(&l, &r).Mul(&fo, &ginv)                      // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
+			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
+
 			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
 
-			// folding
-			fo.Mul(&fo, &xi[i]).Add(&fo, &fe)
 			if !fo.Equal(&fn) {
 				return ErrProximityTestFolding
 			}
+
+			// next inverse generator
+			accGInv.Square(&accGInv)
 		}
+
+		// divide the size by 2
+		currentSize = currentSize >> 1
 	}
 
 	// last transition
 	var fe, fo, l, r, fn fr.Element
 
-	// even part
 	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
 	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
-	fe.Add(&l, &r).Mul(&fe, &twoInv)
 
-	// odd part
-	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), int(s.domains[s.nbSteps-1].Cardinality))
-	bm := big.NewInt(int64(m))
-	var ginv fr.Element
-	ginv.Set(&s.domains[s.nbSteps-1].GeneratorInv).Exp(ginv, bm)
-	fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
-	_si := convertSortedCanonical(si[s.nbSteps], rho)
-	fn.Set(&proof.evaluation[_si])
+	_si := si[s.nbSteps-1] / 2
 
-	// folding
-	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe)
+	accGInv.Exp(accGInv, big.NewInt(int64(_si)))
+
+	fe.Add(&l, &r)                                                // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
+	fo.Sub(&l, &r).Mul(&fo, &accGInv)                             // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
+	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
+
+	// the entry of the evaluation vector doesn't matter since they are supposed to be equal.
+	// The equality of the entries is tested later.
+	fn.Set(&proof.evaluation[0])
+
 	if !fo.Equal(&fn) {
 		return ErrProximityTestFolding
 	}
 
-	// Last step: check that the evatuations lie on a line
-	dx := make([]fr.Element, rho-1)
-	dy := make([]fr.Element, rho-1)
-	var _g, g, one fr.Element
-	g.Set(&s.domains[s.nbSteps-1].Generator).Square(&g)
-	_g.Set(&g)
-	one.SetOne()
+	// Last step: the final evaluation should be the evaluation of a degree 0 polynomial,
+	// so it must be constant.
 	for i := 1; i < rho; i++ {
-		dx[i-1].Sub(&g, &one)
-		dy[i-1].Sub(&proof.evaluation[i], &proof.evaluation[i-1])
-		g.Mul(&g, &_g)
-	}
-	dx = fr.BatchInvert(dx)
-	dydx := make([]fr.Element, rho-1)
-	for i := 1; i < rho; i++ {
-		dydx[i-1].Mul(&dy[i-1], &dx[i-1])
-	}
-
-	for i := 1; i < rho-1; i++ {
-		if !dydx[0].Equal(&dydx[i]) {
+		if !proof.evaluation[i].Equal(&proof.evaluation[0]) {
 			return ErrLowDegree
 		}
 	}
@@ -625,10 +687,19 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	return nil
 }
 
-func eval(p []fr.Element, x fr.Element) fr.Element {
-	var res fr.Element
-	for i := len(p) - 1; i >= 0; i-- {
-		res.Mul(&res, &x).Add(&res, &p[i])
+// VerifyProofOfProximity verifies the proof, by checking each interaction one
+// by one.
+func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
+
+	var salt, one fr.Element
+	one.SetOne()
+	for i := 0; i < NbRounds; i++ {
+		err := s.verifyProofOfProximitySingleRound(salt, proof.rounds[i])
+		if err != nil {
+			return err
+		}
+		salt.Add(&salt, &one)
 	}
-	return res
+	return nil
+
 }
