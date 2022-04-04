@@ -170,9 +170,8 @@ type radixTwoFri struct {
 	// nbSteps number of interactions between the prover and the verifier
 	nbSteps int
 
-	// domains list of domains used for fri
-	// TODO normally, a single domain of size n=2ᶜ should handle all
-	// polynomials of size 2ᵈ where d<c...
+	// domain used to build the Reed Solomon code from the given polynomial.
+	// The size of the domain is \rho*size_polynomial.
 	domain *fft.Domain
 }
 
@@ -247,25 +246,31 @@ func convertCanonicalSorted(i, n int) int {
 // * The result is a slice of []int, where each entry is a tuple (iₖ), such that
 // the verifier needs to evaluate ∑ₖ oracle(iₖ)xᵏ to build
 // the folded function.
-func (s radixTwoFri) deriveQueriesPositions(pos big.Int) []int {
+func (s radixTwoFri) deriveQueriesPositions(pos int) []int {
 
-	res := make([]int, s.nbSteps+1)
+	// res := make([]int, s.nbSteps+1)
 
-	//l := s.log(a, s.domain.Generator)
-	l := int(pos.Uint64())
-	n := int(s.domain.Cardinality)
+	// //l := s.log(a, s.domain.Generator)
+	// l := int(pos.Uint64())
+	// n := int(s.domain.Cardinality)
 
-	// first we convert from canonical indexation to sorted indexation
-	for i := 0; i < s.nbSteps+1; i++ {
+	// // first we convert from canonical indexation to sorted indexation
+	// for i := 0; i < s.nbSteps+1; i++ {
 
-		// canonical → sorted
-		if l < n/2 {
-			res[i] = 2 * l
-		} else {
-			res[i] = (n - 1) - 2*(n-1-l)
-			l = l - n/2
-		}
-		n = n >> 1
+	// 	// canonical → sorted
+	// 	if l < n/2 {
+	// 		res[i] = 2 * l
+	// 	} else {
+	// 		res[i] = (n - 1) - 2*(n-1-l)
+	// 		l = l - n/2
+	// 	}
+	// 	n = n >> 1
+	// }
+
+	res := make([]int, s.nbSteps)
+	res[0] = pos
+	for i := 1; i < s.nbSteps; i++ {
+		res[i] = (res[i-1] - (res[i-1] % 2)) / 2
 	}
 
 	return res
@@ -373,17 +378,6 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 
 }
 
-func printVector(name string, v []fr.Element) {
-
-	fmt.Printf("%s = ", name)
-	fmt.Printf("[")
-	for i := 0; i < len(v); i++ {
-		fmt.Printf("Fr(%s),", v[i].String())
-	}
-	fmt.Printf("]\n")
-
-}
-
 // foldPolynomialLagrangeBasis folds a polynomial p, expressed in Lagrange basis.
 //
 // Fᵣ[X]/(Xⁿ-1) is a free module of rank 2 on Fᵣ[Y]/(Y^{n/2}-1). If
@@ -391,21 +385,20 @@ func printVector(name string, v []fr.Element) {
 // p₁, p₂ of p in Fᵣ[Y]/(Y^{n/2}-1), expressed in Lagrange basis. Finally, it computes
 // p₁ + x*p₂ and returns it.
 //
-// * p is the polynomial to fold, in Lagrange basis, sorted like this: p = [p(1),p(-1),p(g),p(-g),p(g^{2}),p(-g^{2}),...]
+// * p is the polynomial to fold, in Lagrange basis, sorted like this: p = [p(1),p(-1),p(g),p(-g),p(g²),p(-g²),...]
 // * g is a generator of the subgroup of Fᵣ^{*} of size len(p)
 // * x is the folding challenge x, used to return p₁+x*p₂
-func foldPolynomialLagrangeBasis(pSorted []fr.Element, g, x fr.Element) []fr.Element {
+func foldPolynomialLagrangeBasis(pSorted []fr.Element, gInv, x fr.Element) []fr.Element {
 
 	// we have the following system
-	// p_1(g^{2i})+g^{i}p_2(g^{2i}) = p(g^{i})
-	// p_1(g^{2i})-g^{i}p_2(g^{2i}) = p(-g^{i})
-	// we solve the system for p_1(g^{2i}),p_2(g^{2i})
+	// p₁(g²ⁱ)+gⁱp₂(g²ⁱ) = p(gⁱ)
+	// p₁(g²ⁱ)-gⁱp₂(g²ⁱ) = p(-gⁱ)
+	// we solve the system for p₁(g²ⁱ),p₂(g²ⁱ)
 	s := len(pSorted)
 	res := make([]fr.Element, s/2)
 
-	var p1, p2, twoInv, acc, gInv fr.Element
+	var p1, p2, twoInv, acc fr.Element
 	twoInv.SetUint64(2).Inverse(&twoInv)
-	gInv.Inverse(&g)
 	acc.SetOne()
 
 	for i := 0; i < s/2; i++ {
@@ -458,14 +451,16 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	s.domain.FFT(_p, fft.DIF)
 	fft.BitReverse(_p)
 
-	var g fr.Element
-	g.Set(&s.domain.Generator)
+	// gInv inverse of the generator of the cyclic group of size the size of the polynomial.
+	// The size of the cyclic group is \rho*s.domainSize, and not s.domainSize.
+	var gInv fr.Element
+	gInv.Set(&s.domain.GeneratorInv)
 
 	for i := 0; i < s.nbSteps; i++ {
 
-		// printVector(fmt.Sprintf("eval_pol_%d", i), _p)
 		evalsAtRound[i] = sort(_p)
-
+		printVector(fmt.Sprintf("pol_%d", i), evalsAtRound[i])
+		// printVector(fmt.Sprintf("[%d]", i), evalsAtRound[i])
 		// in the first round, tamper the evaluation
 		// if i == 0 {
 		// 	delta := int(ErrorRate * float32(s.domain[0].Cardinality))
@@ -494,32 +489,22 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 		}
 		var xi fr.Element
 		xi.SetBytes(bxi)
-		fmt.Printf("x_%d = Fr(%s) [PROVER]\n", i, xi.String())
+		fmt.Printf("x%d = %s\n", i, xi.String())
 
 		// fold _p, reusing its memory
-		_p = foldPolynomialLagrangeBasis(evalsAtRound[i], g, xi)
+		_p = foldPolynomialLagrangeBasis(evalsAtRound[i], gInv, xi)
 
-		// g <- g^{2}
-		g.Square(&g)
+		// g <- g²
+		gInv.Square(&gInv)
 
 	}
 
 	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
 	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
 	// are supposed to be on a line.
-	res.evaluation = _p
-
-	printVector("finalEval", res.evaluation)
-
-	// printVector("final_eval", res.evaluation)
-
-	// var g fr.Element
-	// g.SetOne()
-	// for i := 0; i < rho; i++ {
-	// 	e := eval(_p, g)
-	// 	res.evaluation[i].Set(&e)
-	// 	g.Mul(&g, &s.domain[s.nbSteps-1].Generator)
-	// }
+	res.evaluation = make([]fr.Element, rho)
+	copy(res.evaluation, _p)
+	printVector("eval", res.evaluation)
 
 	// step 2: provide the Merkle proofs of the queries
 
@@ -538,7 +523,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	bPos.SetBytes(binSeed)
 	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(bPos)
+	si := s.deriveQueriesPositions(int(bPos.Uint64()))
 
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -627,7 +612,6 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			return err
 		}
 		xi[i].SetBytes(bxi)
-		fmt.Printf("x_%d = Fr(%s) [VERIFIER]\n", i, xi[i].String())
 	}
 
 	// derive the verifier queries
@@ -645,15 +629,15 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	bPos.SetBytes(binSeed)
 	bCardinality.SetUint64(s.domain.Cardinality)
 	bPos.Mod(&bPos, &bCardinality)
-	si := s.deriveQueriesPositions(bPos)
+	si := s.deriveQueriesPositions(int(bPos.Uint64()))
 
 	// for each round check the Merkle proof and the correctness of the folding
-	var twoInv fr.Element
-	twoInv.SetUint64(2).Inverse(&twoInv)
 
 	// current size of the polynomial
+	var twoInv, accGInv fr.Element
+	twoInv.SetUint64(2).Inverse(&twoInv)
 	currentSize := int(s.domain.Cardinality)
-
+	accGInv.Set(&s.domain.GeneratorInv)
 	for i := 0; i < len(proof.interactions); i++ {
 
 		// correctness of Merkle proof
@@ -691,37 +675,36 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 		}
 
 		// correctness of the folding
-		var accGInv fr.Element
-		accGInv.Set(&s.domain.GeneratorInv)
-		if i < len(proof.interactions)-1 {
+		if i < s.nbSteps-1 {
 
 			var fe, fo, l, r, fn fr.Element
 
-			// even part
+			// l = P(gⁱ), r = P(g^{i+n/2})
 			l.SetBytes(proof.interactions[i][0].proofSet[0])
 			r.SetBytes(proof.interactions[i][1].proofSet[0])
-			fe.Add(&l, &r) // -> to be multiplied by 2^{-1}
+			fmt.Printf("%d (l,r) = [%s, %s]\n", i, l.String(), r.String())
 
 			// odd part. To get the index of the correct exponent, we have to convert
 			// to the canonical position the even index, otherwise we would obtain the
 			// negation of the exponentiation of the inverse of the generator by the
-			// converted index (we would have ginv^{i+n/2) instead of g^{i} ).
+			// converted index (we would have ginv^{i+n/2) instead of gⁱ ).
 			m := convertSortedCanonical(si[i]-(si[i]%2), currentSize)
 			bm := big.NewInt(int64(m))
 			var ginv fr.Element
 			ginv.Exp(accGInv, bm)
-			fo.Sub(&l, &r).Mul(&fo, &ginv) // -> to be multiplied by 2^{-1}
-			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
+			fe.Add(&l, &r)                                      // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
+			fo.Sub(&l, &r).Mul(&fo, &ginv)                      // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
+			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
 
-			// folding
-			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv)
-			fmt.Printf("%d : [%s,%s]\n", i, fo.String(), fn.String())
+			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
+			// fmt.Printf("%d [%s %s]\n", i, fn.String(), fo.String())
+
 			if !fo.Equal(&fn) {
 				return ErrProximityTestFolding
 			}
 
-			accGInv.Square(&accGInv)
 		}
+		accGInv.Square(&accGInv)
 
 		// divide the size by 2
 		currentSize = currentSize >> 1
@@ -730,26 +713,24 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	// last transition
 	var fe, fo, l, r, fn fr.Element
 
-	// even part
 	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
 	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
-	fe.Add(&l, &r).Mul(&fe, &twoInv)
 
-	// odd part
+	// fmt.Printf("ginv = %s\n", accGInv.String())
+	fmt.Printf("[VERIFIER] %d\n", si[s.nbSteps-1]-(si[s.nbSteps-1]%2))
 	m := convertSortedCanonical(si[s.nbSteps-1]-(si[s.nbSteps-1]%2), currentSize)
+	// fmt.Printf("m = %d\n", m)
 	bm := big.NewInt(int64(m))
-	var ginv fr.Element
-	ginv.Set(&s.domain.GeneratorInv)
-	for i := 0; i < s.nbSteps; i++ {
-		ginv.Mul(&ginv, &ginv)
-	}
-	ginv.Exp(ginv, bm)
-	fo.Sub(&l, &r).Mul(&fo, &twoInv).Mul(&fo, &ginv)
-	_si := convertSortedCanonical(si[s.nbSteps], rho)
+	accGInv.Exp(accGInv, bm)
+	fmt.Printf("%d (l,r) = [%s, %s]\n", s.nbSteps-1, l.String(), r.String())
+	fe.Add(&l, &r)                                                // P₁(g²ⁱ) (to be multiplied by 2⁻¹)
+	fo.Sub(&l, &r).Mul(&fo, &accGInv)                             // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
+	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + x_{i} * P₁(g²ⁱ)
+
+	_si := convertSortedCanonical(si[s.nbSteps], rho) // the last evaluation is in canonical form, so we have to convert the index
 	fn.Set(&proof.evaluation[_si])
 
-	// folding
-	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe)
+	// fmt.Printf("%d %s %s\n", s.nbSteps-1, fn.String(), fo.String())
 	if !fo.Equal(&fn) {
 		return ErrProximityTestFolding
 	}
@@ -782,10 +763,13 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 }
 
-func eval(p []fr.Element, x fr.Element) fr.Element {
-	var res fr.Element
-	for i := len(p) - 1; i >= 0; i-- {
-		res.Mul(&res, &x).Add(&res, &p[i])
+func printVector(name string, v []fr.Element) {
+
+	fmt.Printf("%s = ", name)
+	fmt.Printf("[")
+	for i := 0; i < len(v); i++ {
+		fmt.Printf("Fr(%s),", v[i].String())
 	}
-	return res
+	fmt.Printf("]\n")
+
 }
