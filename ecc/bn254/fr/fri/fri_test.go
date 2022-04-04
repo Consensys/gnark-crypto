@@ -53,32 +53,38 @@ func TestVerifyPP(t *testing.T) {
 
 	size := 4
 
-	// for k := 0; k < 10; k++ {
+	for k := 10; k < 11; k++ {
 
-	s := int32(10)
+		s := int32(k)
 
-	fmt.Printf("r = %s\n", fr.Modulus().String())
+		// fmt.Printf("r = %s\n", fr.Modulus().String())
 
-	p := randomPolynomial(uint64(size), s)
+		p := randomPolynomial(uint64(size), s)
 
-	for i := 0; i < len(p); i++ {
-		fmt.Printf("%s*x**%d+", p[i].String(), i)
+		iop := RADIX_2_FRI.New(uint64(size), sha256.New())
+		proof, err := iop.BuildProofOfProximity(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = iop.VerifyProofOfProximity(proof)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 	}
-	fmt.Println("")
+}
 
-	iop := RADIX_2_FRI.New(uint64(size), sha256.New())
-	proof, err := iop.BuildProofOfProximity(p)
-	if err != nil {
-		t.Fatal(err)
+// convertOrderCanonical convert the index i, an entry in a
+// sorted polynomial, to the corresponding entry in canonical
+// representation. n is the size of the polynomial.
+func convertSortedCanonical(i, n int) int {
+	if i%2 == 0 {
+		return i / 2
+	} else {
+		l := (n - 1 - i) / 2
+		return n - 1 - l
 	}
-
-	err = iop.VerifyProofOfProximity(proof)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// }
-
 }
 
 func TestFRI(t *testing.T) {
@@ -90,89 +96,89 @@ func TestFRI(t *testing.T) {
 
 	size := 4096
 
-	// properties.Property("verifying wrong opening should fail", prop.ForAll(
+	properties.Property("verifying wrong opening should fail", prop.ForAll(
 
-	// 	func(m int32) bool {
+		func(m int32) bool {
 
-	// 		_s := RADIX_2_FRI.New(uint64(size), sha256.New())
-	// 		s := _s.(radixTwoFri)
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
 
-	// 		p := randomPolynomial(uint64(size), m)
+			p := randomPolynomial(uint64(size), m)
 
-	// 		pos := int64(m % 4096)
-	// 		pp, _ := s.BuildProofOfProximity(p)
+			pos := int64(m % 4096)
+			pp, _ := s.BuildProofOfProximity(p)
 
-	// 		openingProof, err := s.Open(p, uint64(pos))
-	// 		if err != nil {
-	// 			t.Fatal(err)
-	// 		}
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// 		// check the Merkle path
-	// 		tamperedPosition := pos + 1
-	// 		err = s.VerifyOpening(uint64(tamperedPosition), openingProof, pp)
+			// check the Merkle path
+			tamperedPosition := pos + 1
+			err = s.VerifyOpening(uint64(tamperedPosition), openingProof, pp)
 
-	// 		return err != nil
+			return err != nil
 
-	// 	},
-	// 	gen.Int32Range(0, int32(rho*size)),
-	// ))
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
 
-	// properties.Property("verifying correct opening should succeed", prop.ForAll(
+	properties.Property("verifying correct opening should succeed", prop.ForAll(
 
-	// 	func(m int32) bool {
+		func(m int32) bool {
 
-	// 		_s := RADIX_2_FRI.New(uint64(size), sha256.New())
-	// 		s := _s.(radixTwoFri)
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
 
-	// 		p := randomPolynomial(uint64(size), m)
+			p := randomPolynomial(uint64(size), m)
 
-	// 		pos := uint64(m % int32(size))
-	// 		pp, _ := s.BuildProofOfProximity(p)
+			pos := uint64(m % int32(size))
+			pp, _ := s.BuildProofOfProximity(p)
 
-	// 		openingProof, err := s.Open(p, uint64(pos))
-	// 		if err != nil {
-	// 			t.Fatal(err)
-	// 		}
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// 		// check the Merkle path
-	// 		err = s.VerifyOpening(uint64(pos), openingProof, pp)
+			// check the Merkle path
+			err = s.VerifyOpening(uint64(pos), openingProof, pp)
 
-	// 		return err == nil
+			return err == nil
 
-	// 	},
-	// 	gen.Int32Range(0, int32(rho*size)),
-	// ))
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
 
-	// properties.Property("The claimed value of a polynomial should match P(x)", prop.ForAll(
-	// 	func(m int32) bool {
+	properties.Property("The claimed value of a polynomial should match P(x)", prop.ForAll(
+		func(m int32) bool {
 
-	// 		_s := RADIX_2_FRI.New(uint64(size), sha256.New())
-	// 		s := _s.(radixTwoFri)
+			_s := RADIX_2_FRI.New(uint64(size), sha256.New())
+			s := _s.(radixTwoFri)
 
-	// 		p := randomPolynomial(uint64(size), m)
+			p := randomPolynomial(uint64(size), m)
 
-	// 		// check the opening value
-	// 		var g fr.Element
-	// 		pos := int64(m % 4096)
-	// 		g.Set(&s.domain.Generator)
-	// 		g.Exp(g, big.NewInt(pos))
+			// check the opening value
+			var g fr.Element
+			pos := int64(m % 4096)
+			g.Set(&s.domain.Generator)
+			g.Exp(g, big.NewInt(pos))
 
-	// 		var val fr.Element
-	// 		for i := len(p) - 1; i ⩾ 0; i-- {
-	// 			val.Mul(&val, &g)
-	// 			val.Add(&p[i], &val)
-	// 		}
+			var val fr.Element
+			for i := len(p) - 1; i >= 0; i-- {
+				val.Mul(&val, &g)
+				val.Add(&p[i], &val)
+			}
 
-	// 		openingProof, err := s.Open(p, uint64(pos))
-	// 		if err != nil {
-	// 			t.Fatal(err)
-	// 		}
+			openingProof, err := s.Open(p, uint64(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// 		return openingProof.ClaimedValue.Equal(&val)
+			return openingProof.ClaimedValue.Equal(&val)
 
-	// 	},
-	// 	gen.Int32Range(0, int32(rho*size)),
-	// ))
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
 
 	properties.Property("Derive queries position: points should belong the correct fiber", prop.ForAll(
 
@@ -184,7 +190,7 @@ func TestFRI(t *testing.T) {
 			var g fr.Element
 
 			_m := int(m) % size
-			pos := s.deriveQueriesPositions(_m)
+			pos := s.deriveQueriesPositions(_m, int(s.domain.Cardinality))
 			g.Set(&s.domain.Generator)
 			n := int(s.domain.Cardinality)
 
@@ -195,7 +201,8 @@ func TestFRI(t *testing.T) {
 				var g1, g2, g3 fr.Element
 				g1.Exp(g, &u).Square(&g1)
 				g2.Exp(g, &v).Square(&g2)
-				g3.Square(&g).Exp(g3, big.NewInt(int64(pos[i+1])))
+				nextPos := convertSortedCanonical(pos[i+1], n/2)
+				g3.Square(&g).Exp(g3, big.NewInt(int64(nextPos)))
 
 				if !g1.Equal(&g2) || !g1.Equal(&g3) {
 					return false
@@ -208,23 +215,23 @@ func TestFRI(t *testing.T) {
 		gen.Int32Range(0, int32(rho*size)),
 	))
 
-	// properties.Property("verifying a correctly formed proof should succeed", prop.ForAll(
+	properties.Property("verifying a correctly formed proof should succeed", prop.ForAll(
 
-	// 	func(s int32) bool {
+		func(s int32) bool {
 
-	// 		p := randomPolynomial(uint64(size), s)
+			p := randomPolynomial(uint64(size), s)
 
-	// 		iop := RADIX_2_FRI.New(uint64(size), sha256.New())
-	// 		proof, err := iop.BuildProofOfProximity(p)
-	// 		if err != nil {
-	// 			t.Fatal(err)
-	// 		}
+			iop := RADIX_2_FRI.New(uint64(size), sha256.New())
+			proof, err := iop.BuildProofOfProximity(p)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// 		err = iop.VerifyProofOfProximity(proof)
-	// 		return err == nil
-	// 	},
-	// 	gen.Int32Range(0, int32(rho*size)),
-	// ))
+			err = iop.VerifyProofOfProximity(proof)
+			return err == nil
+		},
+		gen.Int32Range(0, int32(rho*size)),
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
