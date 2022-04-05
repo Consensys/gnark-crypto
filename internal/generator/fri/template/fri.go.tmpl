@@ -23,7 +23,7 @@ var (
 
 const rho = 8
 
-var NbRounds = 10
+var NbRounds = 1
 
 // var ErrorRate float32
 
@@ -357,6 +357,8 @@ func foldPolynomialLagrangeBasis(pSorted []fr.Element, gInv, x fr.Element) []fr.
 
 // buildProofOfProximitySingleRound generates a proof that a function, given as an oracle from
 // the verifier point of view, is in fact δ-close to a polynomial.
+// * salt is a variable for multi rounds, it allows to generate different challenges using Fiat Shamir
+// * p is in evaluation form
 func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.Element) (round, error) {
 
 	// the proof will contain nbSteps interactions
@@ -389,8 +391,6 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// evaluate p and sort the result
 	_p := make([]fr.Element, s.domain.Cardinality)
 	copy(_p, p)
-	s.domain.FFT(_p, fft.DIF)
-	fft.BitReverse(_p)
 
 	// gInv inverse of the generator of the cyclic group of size the size of the polynomial.
 	// The size of the cyclic group is ρ*s.domainSize, and not s.domainSize.
@@ -499,11 +499,18 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	var proof ProofOfProximity
 	proof.rounds = make([]round, NbRounds)
 
+	// evaluate p
+	// evaluate p and sort the result
+	_p := make([]fr.Element, s.domain.Cardinality)
+	copy(_p, p)
+	s.domain.FFT(_p, fft.DIF)
+	fft.BitReverse(_p)
+
 	var err error
 	var salt, one fr.Element
 	one.SetOne()
 	for i := 0; i < NbRounds; i++ {
-		proof.rounds[i], err = s.buildProofOfProximitySingleRound(salt, p)
+		proof.rounds[i], err = s.buildProofOfProximitySingleRound(salt, _p)
 		if err != nil {
 			return proof, err
 		}
