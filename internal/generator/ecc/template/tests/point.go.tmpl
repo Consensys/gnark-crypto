@@ -27,11 +27,17 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
+
+
 {{if .GLV}}
     func Test{{ $TAffine }}Endomorphism(t *testing.T) {
-
+		t.Parallel()
         parameters := gopter.DefaultTestParameters()
-        parameters.MinSuccessfulTests = 10
+        if testing.Short() {
+			parameters.MinSuccessfulTests = nbFuzzShort
+		} else {
+			parameters.MinSuccessfulTests = nbFuzz
+		}
 
         properties := gopter.NewProperties(parameters)
 
@@ -64,7 +70,7 @@ import (
         ))
 
         {{if eq .PointName "g2" }}
-        {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633") }}
+        {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633") (ne .Name "bw6-756") }}
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                     var p, res1, res2 {{ $TJacobian }}
@@ -93,9 +99,13 @@ import (
 {{end}}
 
 func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -120,9 +130,13 @@ func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
 }
 
 func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -166,9 +180,13 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 
 
 func Test{{ $TAffine }}Conversions(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -269,7 +287,7 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 }
 
 func Test{{ $TAffine }}Ops(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
@@ -443,9 +461,13 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 {{if .CofactorCleaning }}
 func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -493,7 +515,11 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 

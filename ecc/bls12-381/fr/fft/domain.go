@@ -35,13 +35,12 @@ import (
 // compute a field element of order 2x and store it in FinerGenerator
 // all other values can be derived from x, GeneratorSqrt
 type Domain struct {
-	Cardinality             uint64
-	PrecomputeReversedTable uint64 // uint64 so it is recognized by the decoder from gnark-crypto
-	CardinalityInv          fr.Element
-	Generator               fr.Element
-	GeneratorInv            fr.Element
-	FrMultiplicativeGen     fr.Element
-	FrMultiplicativeGenInv  fr.Element
+	Cardinality            uint64
+	CardinalityInv         fr.Element
+	Generator              fr.Element
+	GeneratorInv           fr.Element
+	FrMultiplicativeGen    fr.Element // generator of Fr*
+	FrMultiplicativeGenInv fr.Element
 
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
@@ -77,16 +76,12 @@ func NewDomain(m uint64) *Domain {
 	const maxOrderRoot uint64 = 32
 	domain.FrMultiplicativeGen.SetUint64(7)
 
-	domain.FrMultiplicativeGen.SetUint64(5)
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 
-	// find generator for Z/2^(log(m))Z  and Z/2^(log(m)+cosets)Z
+	// find generator for Z/2^(log(m))Z
 	logx := uint64(bits.TrailingZeros64(x))
 	if logx > maxOrderRoot {
 		panic(fmt.Sprintf("m (%d) is too big: the required root of unity does not exist", m))
-	}
-	if logx > maxOrderRoot {
-		panic("log(m) + cosets is too big: the required root of unity does not exist")
 	}
 
 	// Generator = FinerGenerator^2 has order x
@@ -98,7 +93,7 @@ func NewDomain(m uint64) *Domain {
 	// twiddle factors
 	domain.preComputeTwiddles()
 
-	// store the bit reversed coset tables if needed
+	// store the bit reversed coset tables
 	domain.reverseCosetTables()
 
 	return domain
@@ -211,7 +206,7 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 
 	enc := curve.NewEncoder(w)
 
-	toEncode := []interface{}{d.Cardinality, d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
+	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
@@ -227,7 +222,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := curve.NewDecoder(r)
 
-	toDecode := []interface{}{&d.Cardinality, &d.PrecomputeReversedTable, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
+	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {

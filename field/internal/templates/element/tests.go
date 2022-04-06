@@ -2,13 +2,16 @@ package element
 
 const Test = `
 
+{{$elementCapacityNbBits := mul .NbWords 64}}
+{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+
 import (
 	"crypto/rand"
 	"encoding/json"
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if .NoCarry}} mrand "math/rand" {{end}}
+	{{if $UsingP20Inverse}} mrand "math/rand" {{end}}
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field"
@@ -338,6 +341,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	}
 
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -371,6 +375,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Equal(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -403,6 +408,7 @@ func Test{{toTitle .ElementName}}Equal(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Bytes(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -441,6 +447,7 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 		return a.element.Equal(&b)
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -469,6 +476,7 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 
 func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -561,6 +569,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -593,6 +602,7 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 
 func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -629,6 +639,7 @@ func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -686,6 +697,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{ define "testBinaryOp" }}
 
 func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -880,6 +892,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 {{ define "testUnaryOp" }}
 
 func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1010,6 +1023,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 {{ if .UseAddChain}}
 func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1070,6 +1084,7 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 func Test{{toTitle .ElementName}}Halve(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1107,6 +1122,7 @@ func combineSelectionArguments(c int64, z int8) int {
 }
 
 func Test{{toTitle .ElementName}}Select(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1161,6 +1177,7 @@ func Test{{toTitle .ElementName}}Select(t *testing.T) {
 
 func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1192,6 +1209,7 @@ func Test{{toTitle .ElementName}}SetInt64(t *testing.T) {
 
 func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1250,6 +1268,7 @@ properties.Property("z.SetInterface must match z.SetString with {{.tName}}", pro
 
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1419,8 +1438,7 @@ func genFull() gopter.Gen {
 
 // Some utils
 
-func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
+func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
@@ -1429,7 +1447,13 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 
 	slice := append(z[:], aHi)
 
-	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+}
+
+//TODO: Phase out in favor of property based testing
+func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
 }

@@ -1,0 +1,166 @@
+{{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
+{{$TowerDegree := .Field.Degree}}
+
+import (
+	{{- if eq $TowerDegree 1 }}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{else}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	"strings"
+	{{- end}}
+	"testing"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+	"math/rand"
+)
+
+{{$fuzzer := "GenFp()"}}
+{{if eq $CoordType "fptower.E2" }}
+	{{$fuzzer = "GenE2()"}}
+{{- else if eq $CoordType "fptower.E4" }}
+	{{$fuzzer = "GenE4()"}}
+{{- end}}
+
+
+func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+
+	properties := gopter.NewProperties(parameters)
+	
+	gen := {{$fuzzer}}
+	
+
+	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
+		func(u {{$CoordType}}, v {{$CoordType}}) bool {
+
+			var seen {{$CoordType}}
+			qr := {{$CurveName}}SqrtRatio(&seen, &u, &v) == 0
+
+			seen.
+				Square(&seen).
+				Mul(&seen, &v)
+
+			var ref {{$CoordType}}
+			if qr {
+				ref = u
+			} else {
+				{{$CurveName}}MulByZ(&ref, &u)
+			}
+
+			return seen.Equal(&ref)
+		}, gen, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+
+{{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
+func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {
+	ssplit := strings.Split(s, ",")
+	if len(ssplit) != {{$TowerDegree}} {
+		panic("not equal to tower size")
+	}
+	z.SetString(
+		{{range $i := interval 0 $TowerDegree}}
+		ssplit[{{$i}}],{{end}}
+	)
+}
+{{end}}
+
+func {{$CurveName}}TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *{{$CoordType}}) {
+	var expected {{$CoordType}}
+    {{if eq $TowerDegree 1}}
+        expected.SetString(expectedStr)
+    {{else}}
+        {{$CurveName}}CoordSetString(&expected, expectedStr)
+    {{end}}
+	if !expected.Equal(seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+	}
+}
+
+func {{$CurveName}}TestMatch(t *testing.T, c hashTestCase, seen *{{$CurveTitle}}Affine) {
+	{{$CurveName}}TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
+	{{$CurveName}}TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
+}
+
+func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
+	t.Parallel()
+	for _, c := range {{$CurveName}}EncodeToCurveSSWUVector.cases {
+		seen, err := EncodeToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+		{{$CurveName}}TestMatch(t, c, &seen)
+	}
+}
+
+func TestHashToCurve{{$CurveTitle}}SSWU(t *testing.T) {
+	t.Parallel()
+	for _, c := range {{$CurveName}}HashToCurveSSWUVector.cases {
+		seen, err := HashToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+		{{$CurveName}}TestMatch(t, c, &seen)
+	}
+	t.Log(len({{$CurveName}}HashToCurveSSWUVector.cases), "cases verified")
+}
+
+func Benchmark{{$CurveTitle}}EncodeToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := {{$CurveName}}EncodeToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := EncodeToCurve{{$CurveTitle}}SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+func Benchmark{{$CurveTitle}}HashToCurveSSWU(b *testing.B) {
+	const size = 54
+	bytes := make([]byte, size)
+	dst := {{$CurveName}}HashToCurveSSWUVector.dst
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		bytes[rand.Int()%size] = byte(rand.Int())
+
+		if _, err := HashToCurve{{$CurveTitle}}SSWU(bytes, dst); err != nil {
+			b.Fail()
+		}
+	}
+}
+
+{{ if eq $CurveName "g1"}}
+type hashTestVector struct {
+	dst   []byte
+	cases []hashTestCase
+}
+
+type hashTestCase struct {
+	msg string
+	x   string
+	y   string
+}
+{{end}}
+
+var {{$CurveName}}HashToCurveSSWUVector hashTestVector
+var {{$CurveName}}EncodeToCurveSSWUVector hashTestVector

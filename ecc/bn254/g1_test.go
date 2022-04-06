@@ -29,9 +29,13 @@ import (
 )
 
 func TestG1AffineEndomorphism(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -67,9 +71,13 @@ func TestG1AffineEndomorphism(t *testing.T) {
 }
 
 func TestMapToCurveG1(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -94,9 +102,13 @@ func TestMapToCurveG1(t *testing.T) {
 }
 
 func TestG1AffineIsOnCurve(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -139,9 +151,13 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 }
 
 func TestG1AffineConversions(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -240,7 +256,7 @@ func TestG1AffineConversions(t *testing.T) {
 }
 
 func TestG1AffineOps(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 
@@ -401,7 +417,11 @@ func TestG1AffineOps(t *testing.T) {
 func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 

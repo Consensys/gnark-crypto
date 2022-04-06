@@ -1,3 +1,36 @@
+<a name="v0.7.0"></a>
+## [v0.7.0] - 2022-03-24
+
+### Build
+- go.mod: go version upgrade 1.16 --> go1.17
+- mark test as Parallel. Check testing.Short() in most tests
+
+### Feat
+- add bw6-756 (2-chain w/ bls12-378 GT-strong)
+- adds SSWU (hash to curve)
+- adds element.Uint64() method
+
+### Fix
+- element.IsUint64 coherence with other methods, convert from montgomery beforehands
+- fft: corrected FrMultiplicativeGen value
+
+### Refactor
+- twistededwards: curve generation (including bandersnatch) generated from the same template
+- move signature/ constructors to signature/eddsa
+- eddsa generated for all twisted ed curve, including bandersnatch
+
+### Pull Requests
+- Merge pull request [#171](https://github.com/ConsenSys/gnark-crypto/issues/171) from ConsenSys/test/twistedEdwards
+- Merge pull request [#170](https://github.com/ConsenSys/gnark-crypto/issues/170) from ConsenSys/fix/generators_sswu
+- Merge pull request [#167](https://github.com/ConsenSys/gnark-crypto/issues/167) from ConsenSys/ci/shorter-tests
+- Merge pull request [#166](https://github.com/ConsenSys/gnark-crypto/issues/166) from ConsenSys/ci_new
+- Merge pull request [#164](https://github.com/ConsenSys/gnark-crypto/issues/164) from ConsenSys/ci/go1.18
+- Merge pull request [#128](https://github.com/ConsenSys/gnark-crypto/issues/128) from ConsenSys/feat/GT-strong-BLS12-BW6
+- Merge pull request [#127](https://github.com/ConsenSys/gnark-crypto/issues/127) from ConsenSys/feat/GT-strong-BLS12
+- Merge pull request [#160](https://github.com/ConsenSys/gnark-crypto/issues/160) from ConsenSys/refactor-eddsa
+- Merge pull request [#156](https://github.com/ConsenSys/gnark-crypto/issues/156) from ConsenSys/sswu-all
+- Merge pull request [#154](https://github.com/ConsenSys/gnark-crypto/issues/154) from ConsenSys/fix/fft-mulGen
+- Merge pull request [#153](https://github.com/ConsenSys/gnark-crypto/issues/153) from zhiqiangxu/opt_NewDomain
 
 <a name="v0.6.1"></a>
 

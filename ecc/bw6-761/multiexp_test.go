@@ -33,14 +33,18 @@ import (
 func TestMultiExpG1(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 2
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 143
+	const nbSamples = 73
 
 	// multi exp points
 	var samplePoints [nbSamples]G1Affine
@@ -88,149 +92,35 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
-	if testing.Short() {
-		// we test only c = 5 and c = 16
+	properties.Property("[G1] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
 
-		properties.Property("[G1] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
+			var expected G1Jac
 
-				var expected G1Jac
+			// compute expected result with double and add
+			var finalScalar, mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1Gen, &finalScalar)
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
 
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
 
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
+			scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
 
-				scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-
-				var r5, r16 G1Jac
-				r5.msmC5(samplePoints[:], scalars5, false)
-				r16.msmC16(samplePoints[:], scalars16, true)
-				return (r5.Equal(&expected) && r16.Equal(&expected))
-			},
-			genScalar,
-		))
-	} else {
-
-		properties.Property("[G1] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G1Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
-				result.msmC4(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G1] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G1Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				result.msmC5(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G1] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G1Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
-				result.msmC8(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G1] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G1Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-				result.msmC16(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g1Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-	}
+			var r5, r16 G1Jac
+			r5.msmC5(samplePoints[:], scalars5, false)
+			r16.msmC16(samplePoints[:], scalars16, true)
+			return (r5.Equal(&expected) && r16.Equal(&expected))
+		},
+		genScalar,
+	))
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
@@ -368,14 +258,18 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 func TestMultiExpG2(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 2
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	}
 
 	properties := gopter.NewProperties(parameters)
 
 	genScalar := GenFr()
 
 	// size of the multiExps
-	const nbSamples = 143
+	const nbSamples = 73
 
 	// multi exp points
 	var samplePoints [nbSamples]G2Affine
@@ -423,149 +317,35 @@ func TestMultiExpG2(t *testing.T) {
 		genScalar,
 	))
 
-	if testing.Short() {
-		// we test only c = 5 and c = 16
+	properties.Property("[G2] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+		func(mixer fr.Element) bool {
 
-		properties.Property("[G2] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
+			var expected G2Jac
 
-				var expected G2Jac
+			// compute expected result with double and add
+			var finalScalar, mixerBigInt big.Int
+			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g2Gen, &finalScalar)
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
 
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
 
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
+			scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
+			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
 
-				scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-
-				var r5, r16 G2Jac
-				r5.msmC5(samplePoints[:], scalars5, false)
-				r16.msmC16(samplePoints[:], scalars16, true)
-				return (r5.Equal(&expected) && r16.Equal(&expected))
-			},
-			genScalar,
-		))
-	} else {
-
-		properties.Property("[G2] Multi exponentation (c=4) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G2Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 4, false, runtime.NumCPU())
-				result.msmC4(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G2] Multi exponentation (c=5) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G2Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-				result.msmC5(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G2] Multi exponentation (c=8) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G2Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 8, false, runtime.NumCPU())
-				result.msmC8(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-		properties.Property("[G2] Multi exponentation (c=16) should be consistant with sum of square", prop.ForAll(
-			func(mixer fr.Element) bool {
-
-				var result, expected G2Jac
-
-				// mixer ensures that all the words of a fpElement are set
-				var sampleScalars [nbSamples]fr.Element
-
-				for i := 1; i <= nbSamples; i++ {
-					sampleScalars[i-1].SetUint64(uint64(i)).
-						Mul(&sampleScalars[i-1], &mixer).
-						FromMont()
-				}
-
-				scalars, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-				result.msmC16(samplePoints[:], scalars, false)
-
-				// compute expected result with double and add
-				var finalScalar, mixerBigInt big.Int
-				finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-				expected.ScalarMultiplication(&g2Gen, &finalScalar)
-
-				return result.Equal(&expected)
-			},
-			genScalar,
-		))
-
-	}
+			var r5, r16 G2Jac
+			r5.msmC5(samplePoints[:], scalars5, false)
+			r16.msmC16(samplePoints[:], scalars16, true)
+			return (r5.Equal(&expected) && r16.Equal(&expected))
+		},
+		genScalar,
+	))
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points

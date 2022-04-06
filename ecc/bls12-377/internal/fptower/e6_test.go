@@ -28,8 +28,13 @@ import (
 
 func TestE6ReceiverIsOperand(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -142,8 +147,13 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 
 func TestE6Ops(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -314,4 +324,26 @@ func BenchmarkE6Inverse(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
 	}
+}
+
+func TestE6Div(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE6()
+	genB := GenE6()
+
+	properties.Property("[BLS12-377] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E6) bool {
+			var c E6
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

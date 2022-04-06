@@ -1,6 +1,7 @@
 package tower
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,25 +13,61 @@ import (
 
 // Generate generates a tower 2->6->12 over fp
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-	if conf.Equal(config.BW6_761) || conf.Equal(config.BW6_633) || conf.Equal(config.BLS24_315) {
+	if conf.Equal(config.BW6_756) || conf.Equal(config.BW6_761) || conf.Equal(config.BW6_633) || conf.Equal(config.BLS24_315) {
 		return nil
 	}
 
 	entries := []bavard.Entry{
-		{File: filepath.Join(baseDir, "e2.go"), Templates: []string{"fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6.go"), Templates: []string{"fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12.go"), Templates: []string{"fq12.go.tmpl"}},
 		{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"amd64.fq2.go.tmpl"}},
 		{File: filepath.Join(baseDir, "e2_fallback.go"), Templates: []string{"fallback.fq2.go.tmpl"}, BuildTag: "!amd64"},
-		{File: filepath.Join(baseDir, "e2_test.go"), Templates: []string{"tests/fq2.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{"tests/fq6.go.tmpl"}},
-		{File: filepath.Join(baseDir, "e12_test.go"), Templates: []string{"tests/fq12.go.tmpl"}},
 		{File: filepath.Join(baseDir, "asm.go"), Templates: []string{"asm.go.tmpl"}, BuildTag: "!noadx"},
 		{File: filepath.Join(baseDir, "asm_noadx.go"), Templates: []string{"asm_noadx.go.tmpl"}, BuildTag: "noadx"},
 	}
 
 	if err := bgen.Generate(conf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
 		return err
+	}
+
+	towerConfs := []towerConf{
+		{
+			Curve:           &conf,
+			RecursionDegree: 2,
+			TotalDegree:     2,
+			BaseName:        "fp.Element",
+			BaseElementName: "A",
+		},
+		{
+			Curve:           &conf,
+			RecursionDegree: 3,
+			TotalDegree:     6,
+			BaseName:        "E2",
+			BaseElementName: "B",
+		},
+		{
+			Curve:           &conf,
+			RecursionDegree: 2,
+			TotalDegree:     12,
+			BaseName:        "E6",
+			BaseElementName: "C",
+		},
+	}
+
+	for _, towerConf := range towerConfs {
+
+		entries = []bavard.Entry{
+			{
+				File:      filepath.Join(baseDir, fmt.Sprintf("e%d.go", towerConf.TotalDegree)),
+				Templates: []string{fmt.Sprintf("fq%d.go.tmpl", towerConf.TotalDegree), "base.go.tmpl"},
+			},
+			{
+				File:      filepath.Join(baseDir, fmt.Sprintf("e%d_test.go", towerConf.TotalDegree)),
+				Templates: []string{fmt.Sprintf("tests/fq%d.go.tmpl", towerConf.TotalDegree), "tests/base.go.tmpl"},
+			},
+		}
+
+		if err := bgen.Generate(towerConf, "fptower", "./tower/template/fq12over6over2", entries...); err != nil {
+			return err
+		}
 	}
 
 	{
@@ -75,4 +112,12 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 	return nil
 
+}
+
+type towerConf struct {
+	Curve           *config.Curve
+	RecursionDegree int
+	TotalDegree     int
+	BaseName        string
+	BaseElementName string
 }

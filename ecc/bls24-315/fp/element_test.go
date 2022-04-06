@@ -344,6 +344,7 @@ func TestElementReduce(t *testing.T) {
 		}
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -377,6 +378,7 @@ func TestElementReduce(t *testing.T) {
 }
 
 func TestElementEqual(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -409,6 +411,7 @@ func TestElementEqual(t *testing.T) {
 }
 
 func TestElementBytes(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -447,6 +450,7 @@ func TestElementInverseExp(t *testing.T) {
 		return a.element.Equal(&b)
 	}
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -474,6 +478,7 @@ func TestElementInverseExp(t *testing.T) {
 
 func TestElementMulByConstants(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -565,6 +570,7 @@ func TestElementMulByConstants(t *testing.T) {
 }
 
 func TestElementLegendre(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -596,6 +602,7 @@ func TestElementLegendre(t *testing.T) {
 
 func TestElementButterflies(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -632,6 +639,7 @@ func TestElementButterflies(t *testing.T) {
 }
 
 func TestElementLexicographicallyLargest(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -674,6 +682,7 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 }
 
 func TestElementAdd(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -815,6 +824,7 @@ func TestElementAdd(t *testing.T) {
 }
 
 func TestElementSub(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -956,6 +966,7 @@ func TestElementSub(t *testing.T) {
 }
 
 func TestElementMul(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1097,6 +1108,7 @@ func TestElementMul(t *testing.T) {
 }
 
 func TestElementDiv(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1215,6 +1227,7 @@ func TestElementDiv(t *testing.T) {
 }
 
 func TestElementExp(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1330,6 +1343,7 @@ func TestElementExp(t *testing.T) {
 }
 
 func TestElementSquare(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1408,6 +1422,7 @@ func TestElementSquare(t *testing.T) {
 }
 
 func TestElementInverse(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1486,6 +1501,7 @@ func TestElementInverse(t *testing.T) {
 }
 
 func TestElementSqrt(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1564,6 +1580,7 @@ func TestElementSqrt(t *testing.T) {
 }
 
 func TestElementDouble(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1659,6 +1676,7 @@ func TestElementDouble(t *testing.T) {
 }
 
 func TestElementNeg(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1755,6 +1773,7 @@ func TestElementNeg(t *testing.T) {
 
 func TestElementFixedExp(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1802,6 +1821,7 @@ func TestElementFixedExp(t *testing.T) {
 
 func TestElementHalve(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1838,6 +1858,7 @@ func combineSelectionArguments(c int64, z int8) int {
 }
 
 func TestElementSelect(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1892,6 +1913,7 @@ func TestElementSelect(t *testing.T) {
 
 func TestElementSetInt64(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -1921,6 +1943,7 @@ func TestElementSetInt64(t *testing.T) {
 
 func TestElementSetInterface(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -2078,6 +2101,7 @@ func TestElementSetInterface(t *testing.T) {
 
 func TestElementFromMont(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -2271,8 +2295,7 @@ func genFull() gopter.Gen {
 
 // Some utils
 
-func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
+func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
 	modulus.SetInt64(1)
@@ -2281,9 +2304,54 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 
 	slice := append(z[:], aHi)
 
-	if err := field.BigIntMatchUint64Slice(&aIntMod, slice); err != nil {
+	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+}
+
+//TODO: Phase out in favor of property based testing
+func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
+
+	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
+}
+
+func BenchmarkMontReduce(b *testing.B) {
+	var x Element
+	xHiBase := mrand.Uint64()
+	x.SetRandom()
+	benchResElement.SetRandom()
+
+	b.Run("oldPositive", func(b *testing.B) {
+		xHi := xHiBase & ^signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSigned(&x, xHi)
+		}
+	})
+
+	b.Run("newPositive", func(b *testing.B) {
+		xHi := xHiBase & ^signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+		}
+	})
+
+	b.Run("oldNegative", func(b *testing.B) {
+		xHi := xHiBase | signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSigned(&x, xHi)
+		}
+	})
+
+	b.Run("newNegative", func(b *testing.B) {
+		xHi := xHiBase | signBitSelector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
+		}
+	})
 }
 
 func TestElementInversionApproximation(t *testing.T) {
@@ -2408,29 +2476,133 @@ func TestElementVeryBigIntConversion(t *testing.T) {
 	x.assertMatchVeryBigInt(t, xHi, &xInt)
 }
 
-func TestElementMontReducePos(t *testing.T) {
-	var x Element
+type veryBigInt struct {
+	asInt big.Int
+	low   Element
+	hi    uint64
+}
 
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		testMontReduceSigned(t, &x, mrand.Uint64() & ^signBitSelector)
+// genVeryBigIntSigned if sign == 0, no sign is forced
+func genVeryBigIntSigned(sign int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var g veryBigInt
+
+		g.low = Element{
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+		}
+
+		g.hi = genParams.NextUint64()
+
+		if sign < 0 {
+			g.hi |= signBitSelector
+		} else if sign > 0 {
+			g.hi &= ^signBitSelector
+		}
+
+		g.low.toVeryBigIntSigned(&g.asInt, g.hi)
+
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
 	}
 }
 
-func TestElementMontReduceNeg(t *testing.T) {
-	var x Element
+func TestElementMontReduce(t *testing.T) {
 
-	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		testMontReduceSigned(t, &x, mrand.Uint64()|signBitSelector)
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := genVeryBigIntSigned(0)
+
+	properties.Property("Montgomery reduction is correct", prop.ForAll(
+		func(g veryBigInt) bool {
+			var res Element
+			var resInt big.Int
+
+			montReduce(&resInt, &g.asInt)
+			res.montReduceSigned(&g.low, g.hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.Property("New montgomery reduction is correct", prop.ForAll(
+		func(g veryBigInt) bool {
+			var res Element
+			var resInt big.Int
+
+			montReduce(&resInt, &g.asInt)
+			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestElementMontNegMultipleOfR(t *testing.T) {
-	var zero Element
+func TestElementMontReduceMultipleOfR(t *testing.T) {
 
-	for i := 0; i < 1000; i++ {
-		testMontReduceSigned(t, &zero, mrand.Uint64()|signBitSelector)
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := ggen.UInt64()
+
+	properties.Property("Montgomery reduction is correct", prop.ForAll(
+		func(hi uint64) bool {
+			var zero, res Element
+			var asInt, resInt big.Int
+
+			zero.toVeryBigIntSigned(&asInt, hi)
+
+			montReduce(&resInt, &asInt)
+			res.montReduceSigned(&zero, hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.Property("New montgomery reduction is correct", prop.ForAll(
+		func(hi uint64) bool {
+			var zero, res Element
+			var asInt, resInt big.Int
+
+			zero.toVeryBigIntSigned(&asInt, hi)
+
+			montReduce(&resInt, &asInt)
+			res.montReduceSignedSimpleButSlow(&zero, hi)
+
+			return res.matchVeryBigInt(0, &resInt) == nil
+		},
+		gen,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElement0Inverse(t *testing.T) {
+	var x Element
+	x.Inverse(&x)
+	if !x.IsZero() {
+		t.Fail()
 	}
 }
 
@@ -2659,26 +2831,16 @@ func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 	montReduce(&p1, &p1)
 
 	var z Element
-	z.linearCombSosSigned(x, xC, y, yC)
+	z.linearComb(x, xC, y, yC)
 	z.assertMatchVeryBigInt(t, 0, &p1)
 }
 
 func testBigNumWMul(t *testing.T, a *Element, c int64) {
 	var aHi uint64
 	var aTimes Element
-	aHi = aTimes.mulWRegular(a, c)
+	aHi = aTimes.mulWNonModular(a, c)
 
 	assertMulProduct(t, a, c, &aTimes, aHi)
-}
-
-func testMontReduceSigned(t *testing.T, x *Element, xHi uint64) {
-	var res Element
-	var xInt big.Int
-	var resInt big.Int
-	x.toVeryBigIntSigned(&xInt, xHi)
-	res.montReduceSigned(x, xHi)
-	montReduce(&resInt, &xInt)
-	res.assertMatchVeryBigInt(t, 0, &resInt)
 }
 
 func updateFactorsCompose(f int64, g int64) int64 {

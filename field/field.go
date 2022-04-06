@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+	"unicode"
 
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
@@ -63,7 +64,7 @@ type Field struct {
 	SqrtSMinusOneOver2         string   // big.Int to base16 string
 	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
 	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
-	NonResidue                 []uint64 // (montgomery form)
+	NonResidue                 big.Int  // (montgomery form)
 	LegendreExponentData       *addchain.AddChainData
 	SqrtAtkinExponentData      *addchain.AddChainData
 	SqrtSMinusOneOver2Data     *addchain.AddChainData
@@ -77,7 +78,12 @@ type Field struct {
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
-	if _, ok := bModulus.SetString(modulus, 10); !ok {
+	base := 10
+	if modulus[0] == '0' && (unicode.ToUpper(rune(modulus[1])) == 'X') {
+		base = 16
+		modulus = modulus[2:]
+	}
+	if _, ok := bModulus.SetString(modulus, base); !ok {
 		return nil, errParseModulus
 	}
 
@@ -238,8 +244,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 			F.SqrtG = toUint64Slice(&g, F.NbWords)
 
 			// store non residue in montgomery form
-			nonResidue.Lsh(&nonResidue, uint(F.NbWords)*64).Mod(&nonResidue, &bModulus)
-			F.NonResidue = toUint64Slice(&nonResidue)
+			F.ToMont(&F.NonResidue, &nonResidue)
 
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
@@ -306,24 +311,45 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 	qInv.Neg(qInv)
 }
 
-//HexToMont takes an element written in hex, and returns it in Montgomery form
+//StringToMont takes an element written in string form, and returns it in Montgomery form
 //Useful for hard-coding in implementation field elements from standards documents
-func (f *Field) HexToMont(hex string) big.Int {
+func (f *Field) StringToMont(str string) big.Int {
+
+	base := 10
+
+	if len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X') {
+		base = 16
+		str = str[2:]
+	}
 
 	var i big.Int
-	i.SetString(hex, 16)
-	f.IntToMont(&i)
+	i.SetString(str, base)
+	f.ToMont(&i, &i)
 
 	return i
 }
 
-func (f *Field) IntToMont(i *big.Int) {
-	nbWords := f.ModulusBig.BitLen()/64 + 1 // ⌊ (bitLen + 1)/64 ⌋
-	i.Lsh(i, uint(nbWords)*64)
-	i.Mod(i, f.ModulusBig)
+func (f *Field) ToMont(mont *big.Int, nonMont *big.Int) *Field {
+	mont.Lsh(nonMont, uint(f.NbWords)*64)
+	mont.Mod(mont, f.ModulusBig)
+	return f
 }
 
-func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *big.Int {
+func (f *Field) FromMont(nonMont *big.Int, mont *big.Int) *Field {
+
+	if f.NbWords == 0 {
+		nonMont.SetInt64(0)
+		return f
+	}
+	f.halve(nonMont, mont)
+	for i := 1; i < f.NbWords*64; i++ {
+		f.halve(nonMont, nonMont)
+	}
+
+	return f
+}
+
+func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
 	res.SetInt64(1)
 
 	for i := pow.BitLen() - 1; ; {
@@ -341,7 +367,18 @@ func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *big.Int {
 	}
 
 	res.Mod(res, f.ModulusBig)
-	return res
+	return f
+}
+
+func (f *Field) halve(res *big.Int, x *big.Int) *Field {
+	var z big.Int
+	if x.Bit(0) == 0 {
+		z.Set(x)
+	} else {
+		z.Add(x, f.ModulusBig)
+	}
+	res.Rsh(&z, 1)
+	return f
 }
 
 func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
@@ -367,4 +404,14 @@ func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 	}
 
 	return nil
+}
+
+func (f *Field) Mul(z *big.Int, x *big.Int, y *big.Int) *Field {
+	z.Mul(x, y).Mod(z, f.ModulusBig)
+	return f
+}
+
+func (f *Field) Add(z *big.Int, x *big.Int, y *big.Int) *Field {
+	z.Add(x, y).Mod(z, f.ModulusBig)
+	return f
 }

@@ -28,10 +28,20 @@ import (
 // ------------------------------------------------------------
 // tests
 
+const (
+	nbFuzzShort = 20
+	nbFuzz      = 100
+)
+
 func TestE2ReceiverIsOperand(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -216,8 +226,13 @@ func TestE2MulMaxed(t *testing.T) {
 
 func TestE2Ops(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -503,4 +518,26 @@ func BenchmarkE2Conjugate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)
 	}
+}
+
+func TestE2Div(t *testing.T) {
+
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE2()
+	genB := GenE2()
+
+	properties.Property("[BLS12-377] dividing then multiplying by the same element does nothing", prop.ForAll(
+		func(a, b *E2) bool {
+			var c E2
+			c.Div(a, b)
+			c.Mul(&c, b)
+			return c.Equal(a)
+		},
+		genA,
+		genB,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

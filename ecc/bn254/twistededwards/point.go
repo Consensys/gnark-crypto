@@ -84,12 +84,14 @@ func (p *PointAffine) Marshal() []byte {
 }
 
 func computeX(y *fr.Element) (x fr.Element) {
+	initOnce.Do(initCurveParams)
+
 	var one, num, den fr.Element
 	one.SetOne()
 	num.Square(y)
-	den.Mul(&num, &edwards.D)
+	den.Mul(&num, &curveParams.D)
 	num.Sub(&one, &num)
-	den.Sub(&edwards.A, &den)
+	den.Sub(&curveParams.A, &den)
 	x.Div(&num, &den)
 	x.Sqrt(&x)
 	return
@@ -266,6 +268,13 @@ func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 	return p
 }
 
+// setInfinity sets p to O (0:1)
+func (p *PointAffine) setInfinity() *PointAffine {
+	p.X.SetZero()
+	p.Y.SetOne()
+	return p
+}
+
 //-------- Projective coordinates
 
 // Set sets p to p1 and return it
@@ -403,7 +412,6 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 // ScalarMul scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
-
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -478,29 +486,27 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 }
 
 // Add adds points in extended coordinates
-// dedicated addition
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd-2
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
-
 	if p1.Equal(p2) {
 		p.Double(p1)
 		return p
 	}
 
 	var A, B, C, D, E, F, G, H, tmp fr.Element
-	tmp.Add(&p2.X, &p2.Y)
-	A.Sub(&p1.Y, &p1.X).
-		Mul(&A, &tmp)
-	tmp.Add(&p1.X, &p1.Y)
-	B.Sub(&p2.Y, &p2.X).
-		Mul(&B, &tmp)
-	C.Mul(&p1.Z, &p2.T).
-		Double(&C)
-	D.Mul(&p2.Z, &p1.T).
-		Double(&D)
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
+	C.Mul(&p1.Z, &p2.T)
+	D.Mul(&p1.T, &p2.Z)
 	E.Add(&D, &C)
-	F.Sub(&B, &A)
-	G.Add(&B, &A)
+	tmp.Sub(&p1.X, &p1.Y)
+	F.Add(&p2.X, &p2.Y).
+		Mul(&F, &tmp).
+		Add(&F, &B).
+		Sub(&F, &A)
+	G.Set(&A)
+	mulByA(&G)
+	G.Add(&G, &B)
 	H.Sub(&D, &C)
 
 	p.X.Mul(&E, &F)
@@ -512,9 +518,8 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 }
 
 // MixedAdd adds a point in extended coordinates to a point in affine coordinates
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-4
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd-2
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
-
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 
 	A.Mul(&p2.X, &p1.Z)
@@ -525,25 +530,26 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 		return p
 	}
 
-	tmp.Add(&p2.X, &p2.Y)
-	A.Sub(&p1.Y, &p1.X).
-		Mul(&A, &tmp)
-	tmp.Add(&p1.X, &p1.Y)
-	B.Sub(&p2.Y, &p2.X).
-		Mul(&B, &tmp)
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
 	C.Mul(&p1.Z, &p2.X).
-		Mul(&C, &p2.Y).
-		Double(&C)
-	D.Double(&p1.T)
+		Mul(&C, &p2.Y)
+	D.Set(&p1.T)
 	E.Add(&D, &C)
-	F.Sub(&B, &A)
-	G.Add(&B, &A)
+	tmp.Sub(&p1.X, &p1.Y)
+	F.Add(&p2.X, &p2.Y).
+		Mul(&F, &tmp).
+		Add(&F, &B).
+		Sub(&F, &A)
+	G.Set(&A)
+	mulByA(&G)
+	G.Add(&G, &B)
 	H.Sub(&D, &C)
 
-	p.X.Mul(&F, &E)
+	p.X.Mul(&E, &F)
 	p.Y.Mul(&G, &H)
 	p.T.Mul(&E, &H)
-	p.Z.Mul(&G, &F)
+	p.Z.Mul(&F, &G)
 
 	return p
 }
@@ -619,7 +625,6 @@ func (p *PointExtended) setInfinity() *PointExtended {
 // ScalarMul scalar multiplication of a point
 // p1 in extended coordinates with a scalar in big.Int
 func (p *PointExtended) ScalarMul(p1 *PointExtended, scalar *big.Int) *PointExtended {
-
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
