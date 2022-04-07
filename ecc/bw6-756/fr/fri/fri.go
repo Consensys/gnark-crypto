@@ -25,8 +25,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/fft"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 

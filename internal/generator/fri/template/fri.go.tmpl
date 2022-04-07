@@ -380,7 +380,10 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 
 	// the salt is binded to the first challenge, to ensure the challenges
 	// are different at each round.
-	fs.Bind(xis[0], salt.Marshal())
+	err := fs.Bind(xis[0], salt.Marshal())
+	if err != nil {
+		return round{}, err
+	}
 
 	// step 1 : fold the polynomial using the xi
 
@@ -535,7 +538,10 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 
 	// the salt is binded to the first challenge, to ensure the challenges
 	// are different at each round.
-	fs.Bind(xis[0], salt.Marshal())
+	err := fs.Bind(xis[0], salt.Marshal())
+	if err != nil {
+		return err
+	}
 
 	for i := 0; i < s.nbSteps; i++ {
 		err := fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
