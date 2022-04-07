@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
+	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
 )
 
@@ -62,13 +63,16 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
+
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
 
 			// generate plookup on fr
 			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))
 
-			// generate plookup on fr
+			// generate permutation on fr
 			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
 
 			// generate mimc on fr
