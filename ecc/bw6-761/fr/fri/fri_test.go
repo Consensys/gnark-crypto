@@ -28,8 +28,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-// conversion of indices from ordered to canonical, _n is the size of the slice
-// _p is the index to logFiber. It returns u, v such that {g^u, g^v} = f⁻¹((g²)^{_p})
+// logFiber returns u, v such that {g^u, g^v} = f⁻¹((g²)^{_p})
 func logFiber(_p, _n int) (_u, _v big.Int) {
 	if _p%2 == 0 {
 		_u.SetInt64(int64(_p / 2))
