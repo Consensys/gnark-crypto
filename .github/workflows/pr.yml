@@ -3,7 +3,7 @@ on: pull_request
 name: pull_request
 jobs:
   staticcheck:
-    runs-on: [self-hosted,linux,x64,generic]
+    runs-on: ubuntu-latest
     steps:
     - name: install Go
       uses: actions/setup-go@v2
