@@ -111,7 +111,7 @@ type round struct {
 	// evaluation stores the evaluation of the fully folded polynomial.
 	// The verifier need to reconstruct the polynomial, and check that
 	// it is low degree.
-	evaluation []fr.Element
+	evaluation [rho]fr.Element
 }
 
 // ProofOfProximity proof of proximity, attesting that
@@ -442,8 +442,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
 	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
 	// are supposed to be on a line.
-	res.evaluation = make([]fr.Element, rho)
-	copy(res.evaluation, _p)
+	copy(res.evaluation[:], _p)
 
 	// step 2: provide the Merkle proofs of the queries
 
