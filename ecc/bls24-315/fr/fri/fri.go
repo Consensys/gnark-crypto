@@ -17,6 +17,7 @@
 package fri
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"hash"
@@ -291,20 +292,6 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 	return res, nil
 }
 
-func checkRoots(a, b []byte) error {
-
-	if len(a) != len(b) {
-		return ErrMerkleRoot
-	}
-	for i := 0; i < len(a); i++ {
-		if a[i] != b[i] {
-			return ErrMerkleRoot
-		}
-	}
-
-	return nil
-}
-
 // Verifies the opening of a polynomial.
 // * position the point at which the proof is opened (the point is gⁱ where i = position)
 // * openingProof Merkle path proof
@@ -324,9 +311,8 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 	}
 
 	// check that the merkle roots coincide
-	err := checkRoots(openingProof.merkleRoot, pp.rounds[0].interactions[0][fullMerkleProof].merkleRoot)
-	if err != nil {
-		return err
+	if !bytes.Equal(openingProof.merkleRoot, pp.rounds[0].interactions[0][fullMerkleProof].merkleRoot) {
+		return ErrMerkleRoot
 	}
 
 	// convert position to the sorted version
