@@ -41,9 +41,10 @@ var (
 
 const rho = 8
 
-var NbRounds = 1
+const nbRounds = 1
 
-// var ErrorRate float32
+// 2^{-1}, used several times
+var twoInv fr.Element
 
 // Digest commitment of a polynomial.
 type Digest []byte
@@ -125,7 +126,7 @@ type ProofOfProximity struct {
 	ID []byte
 
 	// round contains the data corresponding to a single round
-	// of fri. There are NbRounds rounds of interactions.
+	// of fri. There are nbRounds rounds of interactions.
 	rounds []round
 }
 
@@ -150,6 +151,10 @@ type Iopp interface {
 // GetRho returns the factor ρ = size_code_word/size_polynomial
 func GetRho() int {
 	return rho
+}
+
+func init() {
+	twoInv.SetUint64(2).Inverse(&twoInv)
 }
 
 // New creates a new IOPP capable to handle degree(size) polynomials.
@@ -356,8 +361,7 @@ func foldPolynomialLagrangeBasis(pSorted []fr.Element, gInv, x fr.Element) []fr.
 	s := len(pSorted)
 	res := make([]fr.Element, s/2)
 
-	var p1, p2, twoInv, acc fr.Element
-	twoInv.SetUint64(2).Inverse(&twoInv)
+	var p1, p2, acc fr.Element
 	acc.SetOne()
 
 	for i := 0; i < s/2; i++ {
@@ -518,7 +522,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 
 	// the proof will contain nbSteps interactions
 	var proof ProofOfProximity
-	proof.rounds = make([]round, NbRounds)
+	proof.rounds = make([]round, nbRounds)
 
 	// evaluate p
 	// evaluate p and sort the result
@@ -530,7 +534,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	var err error
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < NbRounds; i++ {
+	for i := 0; i < nbRounds; i++ {
 		proof.rounds[i], err = s.buildProofOfProximitySingleRound(salt, _p)
 		if err != nil {
 			return proof, err
@@ -593,8 +597,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	// for each round check the Merkle proof and the correctness of the folding
 
 	// current size of the polynomial
-	var twoInv, accGInv fr.Element
-	twoInv.SetUint64(2).Inverse(&twoInv)
+	var accGInv fr.Element
 	currentSize := int(s.domain.Cardinality)
 	accGInv.Set(&s.domain.GeneratorInv)
 	for i := 0; i < s.nbSteps; i++ {
@@ -706,7 +709,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < NbRounds; i++ {
+	for i := 0; i < nbRounds; i++ {
 		err := s.verifyProofOfProximitySingleRound(salt, proof.rounds[i])
 		if err != nil {
 			return err
