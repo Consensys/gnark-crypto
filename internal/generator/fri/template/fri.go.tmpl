@@ -91,9 +91,12 @@ type round struct {
 	interactions [][2]partialMerkleProof
 
 	// evaluation stores the evaluation of the fully folded polynomial.
-	// The verifier need to reconstruct the polynomial, and check that
-	// it is low degree.
-	evaluation [rho]fr.Element
+	// The fully folded polynomial is constant, and is evaluated on a
+	// a set of size \rho. Since the polynomial is supposed to be constant,
+	// only one evaluation, corresponding to the polynomial, is given. Since
+	// the prover cannot know in advance which entry the verifier will query,
+	// providing a single evaluation
+	evaluation fr.Element
 }
 
 // ProofOfProximity proof of proximity, attesting that
@@ -424,16 +427,14 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
 	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
 	// are supposed to be on a line.
-	copy(res.evaluation[:], _p)
+	res.evaluation.Set(&_p[0])
 
 	// step 2: provide the Merkle proofs of the queries
 
 	// derive the verifier queries
-	for i := 0; i < len(res.evaluation); i++ {
-		err := fs.Bind(xis[s.nbSteps], res.evaluation[i].Marshal())
-		if err != nil {
-			return res, err
-		}
+	err = fs.Bind(xis[s.nbSteps], res.evaluation.Marshal())
+	if err != nil {
+		return res, err
 	}
 	binSeed, err := fs.ComputeChallenge(xis[s.nbSteps])
 	if err != nil {
@@ -545,11 +546,15 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	}
 
 	// derive the verifier queries
-	for i := 0; i < len(proof.evaluation); i++ {
-		err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
-		if err != nil {
-			return err
-		}
+	// for i := 0; i < len(proof.evaluation); i++ {
+	// 	err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	err = fs.Bind(xis[s.nbSteps], proof.evaluation.Marshal())
+	if err != nil {
+		return err
 	}
 	binSeed, err := fs.ComputeChallenge(xis[s.nbSteps])
 	if err != nil {
@@ -638,7 +643,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	}
 
 	// last transition
-	var fe, fo, l, r, fn fr.Element
+	var fe, fo, l, r fr.Element
 
 	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
 	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
@@ -651,20 +656,10 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	fo.Sub(&l, &r).Mul(&fo, &accGInv)                             // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
 	fo.Mul(&fo, &xi[s.nbSteps-1]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
 
-	// the entry of the evaluation vector doesn't matter since they are supposed to be equal.
-	// The equality of the entries is tested later.
-	fn.Set(&proof.evaluation[0])
-
-	if !fo.Equal(&fn) {
-		return ErrProximityTestFolding
-	}
-
 	// Last step: the final evaluation should be the evaluation of a degree 0 polynomial,
 	// so it must be constant.
-	for i := 1; i < rho; i++ {
-		if !proof.evaluation[i].Equal(&proof.evaluation[0]) {
-			return ErrLowDegree
-		}
+	if !fo.Equal(&proof.evaluation) {
+		return ErrProximityTestFolding
 	}
 
 	return nil
