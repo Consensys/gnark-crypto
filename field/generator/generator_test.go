@@ -67,10 +67,12 @@ func TestIntegration(t *testing.T) {
 			}
 			moduli[fmt.Sprintf("e_nocarry_%04d", i)] = q.String()
 		}
-
 	}
 
+	moduli["forty_seven"] = "47"
 	moduli["small"] = "9459143039767"
+	moduli["small_without_no_carry"] = "18446744073709551557" // 64bits
+	moduli["sixty_three_bits"] = "9223372036854775783"
 
 	moduli["e_secp256k1"] = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
 

@@ -248,7 +248,7 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	}
 }
 
-
+{{- if gt .NbWords 1}}
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y {{.ElementName}}
@@ -259,6 +259,7 @@ func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 		}
 	}
 }
+{{- end}}
 
 func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 	var a, b {{.ElementName}}
@@ -1326,7 +1327,24 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	{{- if eq $.NbWords 1}}
+	// since our modulus is on 1 word, we may need to adjust "42" and "8000" values;
+	formatValue := func(v int64) string {
+		const maxUint16 = 65535
+		var a, aNeg big.Int 
+		a.SetInt64(v)
+		a.Mod(&a, Modulus())
+		aNeg.Neg(&a).Mod(&aNeg, Modulus())
+		fmt.Println("aNeg", aNeg.Text(10))
+		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
+			return "-"+aNeg.Text(10)
+		}
+		return a.Text(10)
+	} 
+	expected := fmt.Sprintf("{\"A\":-1,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(42), formatValue(8000))
+	{{- else}}
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	{{- end}}
 	assert.Equal(expected, string(encoded))
 
 	// decode valid

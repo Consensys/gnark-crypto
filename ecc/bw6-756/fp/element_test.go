@@ -273,7 +273,6 @@ func TestElementCmp(t *testing.T) {
 		t.Fatal("x < y")
 	}
 }
-
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
@@ -2168,7 +2167,7 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
 	assert.Equal(expected, string(encoded))
 
 	// decode valid

@@ -39,8 +39,10 @@ const MulCIOS = `
 
 	if t[{{$.all.NbWords}}] != 0 {
 		// we need to reduce, we have a result on {{add 1 $.all.NbWords}} words
+		{{- if gt $.all.NbWords 1}}
 		var b uint64
-		z[0], b = bits.Sub64(t[0], {{index $.all.Q 0}}, 0)
+		{{- end}}
+		z[0], {{- if gt $.all.NbWords 1}}b{{- else}}_{{- end}} = bits.Sub64(t[0], {{index $.all.Q 0}}, 0)
 		{{- range $i := .all.NbWordsIndexesNoZero}}
 			{{-  if eq $i $.all.NbWordsLastIndex}}
 				z[{{$i}}], _ = bits.Sub64(t[{{$i}}], {{index $.all.Q $i}}, b)
