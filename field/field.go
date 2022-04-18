@@ -26,8 +26,7 @@ import (
 )
 
 var (
-	errUnsupportedModulus = errors.New("unsupported modulus. goff only works for prime modulus w/ size > 64bits")
-	errParseModulus       = errors.New("can't parse modulus")
+	errParseModulus = errors.New("can't parse modulus")
 )
 
 // Field precomputed values used in template for code generation of field element APIs
