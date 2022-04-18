@@ -32,44 +32,42 @@ var (
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName                string
-	ElementName                string
-	ModulusBig                 *big.Int
-	Modulus                    string
-	ModulusHex                 string
-	NbWords                    int
-	NbBits                     int
-	NbWordsLastIndex           int
-	NbWordsIndexesNoZero       []int
-	NbWordsIndexesFull         []int
-	NbWordsIndexesNoLast       []int
-	NbWordsIndexesNoZeroNoLast []int
-	P20InversionCorrectiveFac  []uint64
-	P20InversionNbIterations   int
-	Q                          []uint64
-	QInverse                   []uint64
-	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
-	ASM                        bool
-	RSquare                    []uint64
-	One                        []uint64
-	LegendreExponent           string // big.Int to base16 string
-	NoCarry                    bool
-	NoCarrySquare              bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4                 bool
-	SqrtAtkin                  bool
-	SqrtTonelliShanks          bool
-	SqrtE                      uint64
-	SqrtS                      []uint64
-	SqrtAtkinExponent          string   // big.Int to base16 string
-	SqrtSMinusOneOver2         string   // big.Int to base16 string
-	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
-	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
-	NonResidue                 big.Int  // (montgomery form)
-	LegendreExponentData       *addchain.AddChainData
-	SqrtAtkinExponentData      *addchain.AddChainData
-	SqrtSMinusOneOver2Data     *addchain.AddChainData
-	SqrtQ3Mod4ExponentData     *addchain.AddChainData
-	UseAddChain                bool
+	PackageName               string
+	ElementName               string
+	ModulusBig                *big.Int
+	Modulus                   string
+	ModulusHex                string
+	NbWords                   int
+	NbBits                    int
+	NbWordsLastIndex          int
+	NbWordsIndexesNoZero      []int
+	NbWordsIndexesFull        []int
+	P20InversionCorrectiveFac []uint64
+	P20InversionNbIterations  int
+	Q                         []uint64
+	QInverse                  []uint64
+	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
+	ASM                       bool
+	RSquare                   []uint64
+	One                       []uint64
+	LegendreExponent          string // big.Int to base16 string
+	NoCarry                   bool
+	NoCarrySquare             bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4                bool
+	SqrtAtkin                 bool
+	SqrtTonelliShanks         bool
+	SqrtE                     uint64
+	SqrtS                     []uint64
+	SqrtAtkinExponent         string   // big.Int to base16 string
+	SqrtSMinusOneOver2        string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent        string   // big.Int to base16 string
+	SqrtG                     []uint64 // NonResidue ^  SqrtR (montgomery form)
+	NonResidue                big.Int  // (montgomery form)
+	LegendreExponentData      *addchain.AddChainData
+	SqrtAtkinExponentData     *addchain.AddChainData
+	SqrtSMinusOneOver2Data    *addchain.AddChainData
+	SqrtQ3Mod4ExponentData    *addchain.AddChainData
+	UseAddChain               bool
 }
 
 // NewField returns a data structure with needed information to generate apis for field element
@@ -99,9 +97,6 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
 	F.NbWords = len(bModulus.Bits())
-	if F.NbWords < 2 {
-		return nil, errUnsupportedModulus
-	}
 
 	F.NbWordsLastIndex = F.NbWords - 1
 
@@ -150,18 +145,10 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// indexes (template helpers)
 	F.NbWordsIndexesFull = make([]int, F.NbWords)
 	F.NbWordsIndexesNoZero = make([]int, F.NbWords-1)
-	F.NbWordsIndexesNoLast = make([]int, F.NbWords-1)
-	F.NbWordsIndexesNoZeroNoLast = make([]int, F.NbWords-2)
 	for i := 0; i < F.NbWords; i++ {
 		F.NbWordsIndexesFull[i] = i
 		if i > 0 {
 			F.NbWordsIndexesNoZero[i-1] = i
-		}
-		if i != F.NbWords-1 {
-			F.NbWordsIndexesNoLast[i] = i
-			if i > 0 {
-				F.NbWordsIndexesNoZeroNoLast[i-1] = i
-			}
 		}
 	}
 

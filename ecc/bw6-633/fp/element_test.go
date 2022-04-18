@@ -2165,7 +2165,7 @@ func TestElementJSON(t *testing.T) {
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
 	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S

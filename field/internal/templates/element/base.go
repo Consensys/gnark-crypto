@@ -240,7 +240,11 @@ func (z *{{.ElementName}}) Uint64() uint64 {
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
 func (z *{{.ElementName}}) FitsOnOneWord() bool {
-	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
+	{{- if eq .NbWords 1}}
+		return true
+	{{- else}}
+		return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
+	{{- end}}
 }
 
 // Cmp compares (lexicographic order) z and x and returns:
@@ -314,7 +318,6 @@ func One() {{.ElementName}} {
 func (z *{{.ElementName}}) Halve()  {
 	{{- if .NoCarry}}
 		if z[0]&1 == 1 {
-			var carry uint64
 			{{ template "add_q" dict "all" . "V1" "z" }}
 		}
 		{{ rsh "z" .NbWords}}
@@ -422,24 +425,20 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 
 
 func _addGeneric(z,  x, y *{{.ElementName}}) {
-	var carry uint64
-	{{$k := sub $.NbWords 1}}
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-		{{- else}}
-			z[{{$i}}], carry = bits.Add64(x[{{$i}}], y[{{$i}}], carry)
-		{{- end}}
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
 	{{- end}}
-	{{- if .NoCarry}}
-		z[{{$k}}], _ = bits.Add64(x[{{$k}}], y[{{$k}}], carry)
-	{{- else }}
-		z[{{$k}}], carry = bits.Add64(x[{{$k}}], y[{{$k}}], carry)
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+	{{- end}}
+	{{- if not .NoCarry}}
 		// if we overflowed the last addition, z >= q
 		// if z >= q, z = z - q
 		if carry != 0 {
 			// we overflowed, so z >= q
-			z[0], carry = bits.Sub64(z[0], {{index $.Q 0}}, 0)
+			z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
@@ -451,24 +450,20 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 }
 
 func _doubleGeneric(z,  x *{{.ElementName}}) {
-	var carry uint64
-	{{$k := sub $.NbWords 1}}
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-		{{- else}}
-			z[{{$i}}], carry = bits.Add64(x[{{$i}}], x[{{$i}}], carry)
-		{{- end}}
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
 	{{- end}}
-	{{- if .NoCarry}}
-		z[{{$k}}], _ = bits.Add64(x[{{$k}}], x[{{$k}}], carry)
-	{{- else }}
-		z[{{$k}}], carry = bits.Add64(x[{{$k}}], x[{{$k}}], carry)
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], x[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+	{{- end}}
+	{{- if not .NoCarry}}
 		// if we overflowed the last addition, z >= q
 		// if z >= q, z = z - q
 		if carry != 0 {
 			// we overflowed, so z >= q
-			z[0], carry = bits.Sub64(z[0], {{index $.Q 0}}, 0)
+			z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
 			{{- range $i := .NbWordsIndexesNoZero}}
 				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
 			{{- end}}
@@ -487,6 +482,9 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
 	{{- end}}
 	if b != 0 {
+		{{- if eq .NbWordsLastIndex 0}}
+		z[0], _ = bits.Add64(z[0], {{index $.Q 0}}, 0)
+		{{- else}}
 		var c uint64
 		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
 		{{- range $i := .NbWordsIndexesNoZero}}
@@ -496,6 +494,7 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
 			{{- end}}
 		{{- end}}
+		{{- end}}
 	}
 }
 
@@ -504,6 +503,9 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 		z.SetZero()
 		return
 	}
+	{{- if eq .NbWordsLastIndex 0}}
+	z[0], _ = bits.Sub64({{index $.Q 0}}, x[0], 0)
+	{{- else}}
 	var borrow uint64
 	z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
@@ -512,6 +514,7 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 		{{- else}}
 			z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
 		{{- end}}
+	{{- end}}
 	{{- end}}
 }
 
@@ -599,6 +602,10 @@ func (z *{{.ElementName}}) BitLen() int {
 
 {{ define "add_q" }}
 	// {{$.V1}} = {{$.V1}} + q 
+	{{- if eq .all.NbWordsLastIndex 0}}
+	{{$.V1}}[0], _ = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
+	{{- else}}
+	var carry uint64
 	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
 	{{- range $i := .all.NbWordsIndexesNoZero}}
 		{{- if eq $i $.all.NbWordsLastIndex}}
@@ -607,15 +614,14 @@ func (z *{{.ElementName}}) BitLen() int {
 			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
 		{{- end}}
 	{{- end}}
+	{{- end}}
 {{ end }}
 
 {{ define "rsh V nbWords" }}
 	// {{$.V}} = {{$.V}} >> 1
 	{{$lastIndex := sub .nbWords 1}}
-	{{- range $i :=  iterate .nbWords}}
-		{{- if ne $i $lastIndex}}
-			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
-		{{- end}}
+	{{- range $i :=  iterate 0 $lastIndex}}
+		{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
 	{{- end}}
 	{{$.V}}[{{$lastIndex}}] >>= 1
 {{ end }}

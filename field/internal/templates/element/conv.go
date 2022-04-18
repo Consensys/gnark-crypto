@@ -24,7 +24,7 @@ func (z *{{.ElementName}}) String() string {
 // lower-case letters 'a' to 'z' for digit values 10 to 35.
 // No prefix (such as "0x") is added to the string. If z is a nil
 // pointer it returns "<nil>".
-// If base == 10 and -z fits in a uint64 prefix "-" is added to the string.
+// If base == 10 and -z fits in a uint16 prefix "-" is added to the string.
 func (z *{{.ElementName}}) Text(base int) string {
 	if base < 2 || base > 36 {
 		panic("invalid base")
@@ -32,22 +32,39 @@ func (z *{{.ElementName}}) Text(base int) string {
 	if z == nil {
 		return "<nil>"
 	}
-	zz := *z
-	zz.FromMont()
-	if zz.FitsOnOneWord() {
-		return strconv.FormatUint(zz[0], base)
-	} else if base == 10 {
-		var zzNeg {{.ElementName}}
-		zzNeg.Neg(z)
-		zzNeg.FromMont()
-		if zzNeg.FitsOnOneWord() {
-			return "-" + strconv.FormatUint(zzNeg[0], base)
+
+	const maxUint16 = 65535
+	{{- if eq $.NbWords 1}}
+		if base == 10 {
+			var zzNeg {{.ElementName}}
+			zzNeg.Neg(z)
+			zzNeg.FromMont()
+			if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
+				return "-" + strconv.FormatUint(zzNeg[0], base)
+			}
 		}
-	}
-	vv := bigIntPool.Get().(*big.Int)
-	r := zz.ToBigInt(vv).Text(base)
-	bigIntPool.Put(vv)
-	return r
+		zz := *z
+		zz.FromMont()
+		return strconv.FormatUint(zz[0], base)
+	{{- else }}
+		if base == 10 {
+			var zzNeg {{.ElementName}}
+			zzNeg.Neg(z)
+			zzNeg.FromMont()
+			if zzNeg.FitsOnOneWord() && zzNeg[0] <= maxUint16 && zzNeg[0] != 0  {
+				return "-" + strconv.FormatUint(zzNeg[0], base)
+			}
+		}
+		zz := *z
+		zz.FromMont()
+		if zz.FitsOnOneWord() {
+			return strconv.FormatUint(zz[0], base)
+		} 
+		vv := bigIntPool.Get().(*big.Int)
+		r := zz.ToBigInt(vv).Text(base)
+		bigIntPool.Put(vv)
+		return r
+	{{- end}}
 }
 
 // ToBigInt returns z as a big.Int in Montgomery form

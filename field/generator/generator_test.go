@@ -70,6 +70,8 @@ func TestIntegration(t *testing.T) {
 
 	}
 
+	moduli["small"] = "9459143039767"
+
 	moduli["e_secp256k1"] = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
 
 	// JUST fails to be nocarry -- only the following two can occur for < 3000 bits

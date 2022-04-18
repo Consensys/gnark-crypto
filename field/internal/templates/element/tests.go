@@ -3,7 +3,7 @@ package element
 const Test = `
 
 {{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 import (
 	"crypto/rand"
@@ -315,7 +315,9 @@ func init() {
 
 	for i:=0; i <=3 ; i++ {
 		staticTestValues = append(staticTestValues, {{.ElementName}}{uint64(i)})
-		staticTestValues = append(staticTestValues, {{.ElementName}}{0, uint64(i)})
+		{{- if gt .NbWords 1}}
+			staticTestValues = append(staticTestValues, {{.ElementName}}{0, uint64(i)})
+		{{- end}}
 	}
 
 	{
@@ -1325,7 +1327,7 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
 	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S
