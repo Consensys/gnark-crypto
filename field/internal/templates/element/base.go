@@ -482,7 +482,7 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
 	{{- end}}
 	if b != 0 {
-		{{- if eq .NbWordsLastIndex 0}}
+		{{- if eq .NbWords 1}}
 		z[0], _ = bits.Add64(z[0], {{index $.Q 0}}, 0)
 		{{- else}}
 		var c uint64
@@ -503,18 +503,18 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 		z.SetZero()
 		return
 	}
-	{{- if eq .NbWordsLastIndex 0}}
-	z[0], _ = bits.Sub64({{index $.Q 0}}, x[0], 0)
+	{{- if eq .NbWords 1}}
+		z[0], _ = bits.Sub64({{index $.Q 0}}, x[0], 0)
 	{{- else}}
-	var borrow uint64
-	z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-			z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
-		{{- else}}
-			z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+		var borrow uint64
+		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
+		{{- range $i := .NbWordsIndexesNoZero}}
+			{{- if eq $i $.NbWordsLastIndex}}
+				z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- else}}
+				z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- end}}
 		{{- end}}
-	{{- end}}
 	{{- end}}
 }
 

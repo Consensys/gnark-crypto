@@ -317,24 +317,32 @@ func init() {
 
 	{
 		a := qElement
-		a[9]--
-		staticTestValues = append(staticTestValues, a)
-	}
-	{
-		a := qElement
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
+	staticTestValues = append(staticTestValues, Element{0})
+	staticTestValues = append(staticTestValues, Element{0, 0})
+	staticTestValues = append(staticTestValues, Element{1})
+	staticTestValues = append(staticTestValues, Element{0, 1})
+	staticTestValues = append(staticTestValues, Element{2})
+	staticTestValues = append(staticTestValues, Element{0, 2})
 
-	for i := 0; i <= 3; i++ {
-		staticTestValues = append(staticTestValues, Element{uint64(i)})
-		staticTestValues = append(staticTestValues, Element{0, uint64(i)})
+	{
+		a := qElement
+		a[9]--
+		staticTestValues = append(staticTestValues, a)
 	}
 
 	{
 		a := qElement
 		a[9]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := qElement
+		a[9] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 

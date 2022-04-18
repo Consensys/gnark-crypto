@@ -303,28 +303,39 @@ func init() {
 	e.Double(&one)
 	staticTestValues = append(staticTestValues, e) 	// 2 
 
-	{
-		a := q{{.ElementName}}
-		a[{{.NbWordsLastIndex}}]--
-		staticTestValues = append(staticTestValues, a)
-	}
+
 	{
 		a := q{{.ElementName}}
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
 
-	for i:=0; i <=3 ; i++ {
-		staticTestValues = append(staticTestValues, {{.ElementName}}{uint64(i)})
-		{{- if gt .NbWords 1}}
-			staticTestValues = append(staticTestValues, {{.ElementName}}{0, uint64(i)})
+	{{- $qi := index $.Q $.NbWordsLastIndex}}
+	{{- range $i := iterate 0 3}}
+		staticTestValues = append(staticTestValues, {{$.ElementName}}{ {{$i}} })
+		{{- if gt $.NbWords 1}}
+			{{- if le $i $qi}}
+			staticTestValues = append(staticTestValues, {{$.ElementName}}{0, {{$i}} })
+			{{- end}}
 		{{- end}}
+	{{- end}}
+
+	{
+		a := q{{.ElementName}}
+		a[{{.NbWordsLastIndex}}]--
+		staticTestValues = append(staticTestValues, a)
 	}
 
 	{
 		a := q{{.ElementName}}
 		a[{{.NbWordsLastIndex}}]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := q{{.ElementName}}
+		a[{{.NbWordsLastIndex}}] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
