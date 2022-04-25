@@ -75,6 +75,7 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
+	// base10: {{.Modulus}}
 	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 
