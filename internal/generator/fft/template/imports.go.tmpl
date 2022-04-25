@@ -6,6 +6,8 @@
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 {{ else if eq .Name "bls12-381"}}
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+{{ else if eq .Name "bls12-39"}}
+	"github.com/consensys/gnark-crypto/ecc/bls12-39/fr"
 {{ else if eq .Name "bn254"}}
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 {{ else if eq .Name "bw6-761"}}
@@ -27,6 +29,8 @@
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 {{else if eq .Name "bls12-381"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-381"
+{{else if eq .Name "bls12-39"}}
+	curve "github.com/consensys/gnark-crypto/ecc/bls12-39"
 {{else if eq .Name "bn254"}}
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 {{else if eq .Name "bw6-761"}}

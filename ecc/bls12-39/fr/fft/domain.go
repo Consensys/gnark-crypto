@@ -24,6 +24,10 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-39/fr"
+
+	curve "github.com/consensys/gnark-crypto/ecc/bls12-39"
+
 	"github.com/consensys/gnark-crypto/ecc"
 )
 
@@ -67,6 +71,10 @@ func NewDomain(m uint64) *Domain {
 
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
+
+	rootOfUnity.SetString("23751747")
+	const maxOrderRoot uint64 = 4
+	domain.FrMultiplicativeGen.SetUint64(13)
 
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 
