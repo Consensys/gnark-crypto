@@ -64,7 +64,7 @@ func NewMiMC() hash.Hash {
 // Reset resets the Hash to its initial state.
 func (d *digest) Reset() {
 	d.data = nil
-	d.h = fr.Element{0, 0, 0, 0}
+	d.h.SetZero()
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
@@ -143,10 +143,11 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	for i := 0; i < mimcNbRounds; i++ {
-		// m = (m+k+c)^5
+		// m = (m+k+c)^7
 		var tmp fr.Element
 		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
+			Square(&m).
 			Square(&m).
 			Mul(&m, &tmp)
 	}

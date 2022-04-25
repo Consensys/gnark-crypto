@@ -64,7 +64,7 @@ func NewMiMC() hash.Hash {
 // Reset resets the Hash to its initial state.
 func (d *digest) Reset() {
 	d.data = nil
-	d.h = fr.Element{0, 0, 0, 0}
+	d.h.SetZero()
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
