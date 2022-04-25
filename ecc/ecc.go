@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bw6-633, bls12-378 and bw6-756 elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bls24-315, bls12-39, bw6-761, bw6-633 and bw6-756 elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -39,6 +39,7 @@ type ID uint16
 const (
 	UNKNOWN ID = iota
 	BN254
+	BLS12_39
 	BLS12_377
 	BLS12_378
 	BLS12_381
@@ -55,6 +56,8 @@ func Implemented() []ID {
 
 func (id ID) String() string {
 	switch id {
+	case BLS12_39:
+		return "bls12_39"
 	case BLS12_377:
 		return "bls12_377"
 	case BLS12_378:
@@ -81,6 +84,8 @@ func (id ID) Info() Info {
 	// note to avoid circular dependency these are hard coded
 	// values are checked for non regression in code generation
 	switch id {
+	case BLS12_39:
+		return newInfo(&config.BLS12_39)
 	case BLS12_377:
 		return newInfo(&config.BLS12_377)
 	case BLS12_378:
