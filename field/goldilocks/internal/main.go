@@ -10,7 +10,7 @@ import (
 //go:generate go run main.go
 func main() {
 	const modulus = "0xFFFFFFFF00000001"
-	goldilocks, err := field.NewField("integration", "Element", modulus, false)
+	goldilocks, err := field.NewField("goldilocks", "Element", modulus, false)
 	if err != nil {
 		panic(err)
 	}
