@@ -75,7 +75,7 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	_modulus.SetString("{{.Modulus}}", 10)
+	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
