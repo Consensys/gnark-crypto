@@ -9,14 +9,15 @@ if b != 0 {
 	const neg1 = 0xFFFFFFFFFFFFFFFF
 
 	b = 0
-	{{- range $i := .NbWordsIndexesNoLast}}
+	{{$lastIndex := sub .NbWords 1}}
+	{{- range $i :=  iterate 0 $lastIndex}}
 	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
 	{{- end}}
 	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
 }
 {{- end}}
 {{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if not $UsingP20Inverse}}
@@ -300,7 +301,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	// xHi + C < 2⁶³ + 2⁶³ = 2⁶⁴
 
 	{{/* $NbWordsIndexesNoZeroInnerLoop := .NbWordsIndexesNoZero*/}}// <standard SOS>
-	{{- range $i := .NbWordsIndexesNoZeroNoLast}}
+	{{- range $i := iterate 1 $.NbWordsLastIndex}}
 	{
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
@@ -319,7 +320,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		m := t[i] * qInvNegLsw
 
 		C = madd0(m, q{{.ElementName}}Word0, t[i+0])
-		{{- range $j := $.NbWordsIndexesNoZeroNoLast}}
+		{{- range $j := iterate 1 $.NbWordsLastIndex}}
 		C, z[{{sub $j 1}}] = madd2(m, q{{$.ElementName}}Word{{$j}}, t[i+{{$j}}], C)
 		{{- end}}
 		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
@@ -351,7 +352,7 @@ func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xH
                // (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
                var c uint64
 			   z[0], c = bits.Add64(z[0], xHi, 0)   
-			   {{- range $i := .NbWordsIndexesNoZeroNoLast }}
+			   {{- range $i := iterate 1 $.NbWordsLastIndex}}
                z[{{$i}}], c = bits.Add64(z[{{$i}}], 0, c)
 			   {{- end }}
                z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)

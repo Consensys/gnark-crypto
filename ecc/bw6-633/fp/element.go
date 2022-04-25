@@ -434,9 +434,9 @@ func One() Element {
 // Halve sets z to z / 2 (mod p)
 func (z *Element) Halve() {
 	if z[0]&1 == 1 {
-		var carry uint64
 
 		// z = z + q
+		var carry uint64
 		z[0], carry = bits.Add64(z[0], 15512955586897510413, 0)
 		z[1], carry = bits.Add64(z[1], 4410884215886313276, carry)
 		z[2], carry = bits.Add64(z[2], 15543556715411259941, carry)
@@ -1146,8 +1146,8 @@ func _fromMontGeneric(z *Element) {
 }
 
 func _addGeneric(z, x, y *Element) {
-	var carry uint64
 
+	var carry uint64
 	z[0], carry = bits.Add64(x[0], y[0], 0)
 	z[1], carry = bits.Add64(x[1], y[1], carry)
 	z[2], carry = bits.Add64(x[2], y[2], carry)
@@ -1177,8 +1177,8 @@ func _addGeneric(z, x, y *Element) {
 }
 
 func _doubleGeneric(z, x *Element) {
-	var carry uint64
 
+	var carry uint64
 	z[0], carry = bits.Add64(x[0], x[0], 0)
 	z[1], carry = bits.Add64(x[1], x[1], carry)
 	z[2], carry = bits.Add64(x[2], x[2], carry)
@@ -1410,7 +1410,7 @@ func (z *Element) String() string {
 // lower-case letters 'a' to 'z' for digit values 10 to 35.
 // No prefix (such as "0x") is added to the string. If z is a nil
 // pointer it returns "<nil>".
-// If base == 10 and -z fits in a uint64 prefix "-" is added to the string.
+// If base == 10 and -z fits in a uint16 prefix "-" is added to the string.
 func (z *Element) Text(base int) string {
 	if base < 2 || base > 36 {
 		panic("invalid base")
@@ -1418,17 +1418,20 @@ func (z *Element) Text(base int) string {
 	if z == nil {
 		return "<nil>"
 	}
+
+	const maxUint16 = 65535
+	if base == 10 {
+		var zzNeg Element
+		zzNeg.Neg(z)
+		zzNeg.FromMont()
+		if zzNeg.FitsOnOneWord() && zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
+			return "-" + strconv.FormatUint(zzNeg[0], base)
+		}
+	}
 	zz := *z
 	zz.FromMont()
 	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
-	} else if base == 10 {
-		var zzNeg Element
-		zzNeg.Neg(z)
-		zzNeg.FromMont()
-		if zzNeg.FitsOnOneWord() {
-			return "-" + strconv.FormatUint(zzNeg[0], base)
-		}
 	}
 	vv := bigIntPool.Get().(*big.Int)
 	r := zz.ToBigInt(vv).Text(base)
@@ -2163,6 +2166,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
 			b = 0
+
 			z[0], b = bits.Add64(z[0], qElementWord0, b)
 			z[1], b = bits.Add64(z[1], qElementWord1, b)
 			z[2], b = bits.Add64(z[2], qElementWord2, b)
@@ -2235,6 +2239,7 @@ func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
 			b = 0
+
 			z[0], b = bits.Add64(z[0], qElementWord0, b)
 			z[1], b = bits.Add64(z[1], qElementWord1, b)
 			z[2], b = bits.Add64(z[2], qElementWord2, b)

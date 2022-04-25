@@ -40,11 +40,11 @@ func TestIntegration(t *testing.T) {
 
 	var bits []int
 	if testing.Short() {
-		for i := 128; i <= 448; i += 64 {
+		for i := 64; i <= 448; i += 64 {
 			bits = append(bits, i-3, i-2, i-1, i, i+1)
 		}
 	} else {
-		for i := 120; i < 704; i++ {
+		for i := 60; i < 704; i++ {
 			bits = append(bits, i)
 		}
 	}
@@ -67,8 +67,11 @@ func TestIntegration(t *testing.T) {
 			}
 			moduli[fmt.Sprintf("e_nocarry_%04d", i)] = q.String()
 		}
-
 	}
+
+	moduli["forty_seven"] = "47"
+	moduli["small"] = "9459143039767"
+	moduli["small_without_no_carry"] = "18446744073709551557" // 64bits
 
 	moduli["e_secp256k1"] = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
 

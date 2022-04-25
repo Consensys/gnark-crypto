@@ -269,7 +269,6 @@ func TestElementCmp(t *testing.T) {
 		t.Fatal("x < y")
 	}
 }
-
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
@@ -318,24 +317,32 @@ func init() {
 
 	{
 		a := qElement
-		a[9]--
-		staticTestValues = append(staticTestValues, a)
-	}
-	{
-		a := qElement
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
+	staticTestValues = append(staticTestValues, Element{0})
+	staticTestValues = append(staticTestValues, Element{0, 0})
+	staticTestValues = append(staticTestValues, Element{1})
+	staticTestValues = append(staticTestValues, Element{0, 1})
+	staticTestValues = append(staticTestValues, Element{2})
+	staticTestValues = append(staticTestValues, Element{0, 2})
 
-	for i := 0; i <= 3; i++ {
-		staticTestValues = append(staticTestValues, Element{uint64(i)})
-		staticTestValues = append(staticTestValues, Element{0, uint64(i)})
+	{
+		a := qElement
+		a[9]--
+		staticTestValues = append(staticTestValues, a)
 	}
 
 	{
 		a := qElement
 		a[9]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := qElement
+		a[9] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
@@ -2164,8 +2171,8 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S

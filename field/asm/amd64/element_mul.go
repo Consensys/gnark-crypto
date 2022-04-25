@@ -52,7 +52,9 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 			for j := 0; j < f.NbWords; j++ {
 				f.Comment(fmt.Sprintf("(A,t[%[1]d])  := x[%[1]d]*y[%[2]d] + A", j, i))
 
-				if j == 0 {
+				if j == 0 && f.NbWords == 1 {
+					f.MULXQ(x(j), t[j], A)
+				} else if j == 0 {
 					f.MULXQ(x(j), t[j], t[j+1])
 				} else {
 					highBits := A
