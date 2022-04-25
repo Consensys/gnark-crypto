@@ -497,11 +497,12 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
+	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res G1Jac
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
-
 	return p
+
 }
 
 // -------------------------------------------------------------------------------------------------

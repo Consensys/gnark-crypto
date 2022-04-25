@@ -146,17 +146,6 @@ func (p *G2Affine) IsInSubGroup() bool {
 	return _p.IsInSubGroup()
 }
 
-// https://eprint.iacr.org/2021/1130.pdf, sec.4
-// psi(p) = u*P
-func (p *G2Jac) IsInSubGroup() bool {
-	var res, tmp G2Jac
-	tmp.psi(p)
-	res.ScalarMultiplication(p, &xGen).
-		SubAssign(&tmp)
-
-	return res.IsOnCurve() && res.Z.IsZero()
-}
-
 // -------------------------------------------------------------------------------------------------
 // Jacobian
 
@@ -382,6 +371,17 @@ func (p *G2Jac) IsOnCurve() bool {
 	return left.Equal(&right)
 }
 
+// https://eprint.iacr.org/2021/1130.pdf, sec.4
+// psi(p) = u*P
+func (p *G2Jac) IsInSubGroup() bool {
+	var res, tmp G2Jac
+	tmp.psi(p)
+	res.ScalarMultiplication(p, &xGen).
+		SubAssign(&tmp)
+
+	return res.IsOnCurve() && res.Z.IsZero()
+}
+
 // mulWindowed 2-bits windowed exponentiation
 func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
@@ -527,6 +527,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	p.Set(&res)
 
 	return p
+
 }
 
 // -------------------------------------------------------------------------------------------------

@@ -1,5 +1,11 @@
 package fptower
 
+func (z *E12) nSquareCompressed(n int) {
+	for i := 0; i < n; i++ {
+		z.CyclotomicSquareCompressed(z)
+	}
+}
+
 func (z *E12) nSquare(n int) {
 	for i := 0; i < n; i++ {
 		z.CyclotomicSquare(z)
