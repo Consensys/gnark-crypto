@@ -24,17 +24,23 @@ package goldilocks
 
 // MulBy3 x *= 3
 func MulBy3(x *Element) {
-	mulByConstant(x, 3)
+	var y Element
+	y.SetUint64(3)
+	x.Mul(x, &y)
 }
 
 // MulBy5 x *= 5
 func MulBy5(x *Element) {
-	mulByConstant(x, 5)
+	var y Element
+	y.SetUint64(5)
+	x.Mul(x, &y)
 }
 
 // MulBy13 x *= 13
 func MulBy13(x *Element) {
-	mulByConstant(x, 13)
+	var y Element
+	y.SetUint64(13)
+	x.Mul(x, &y)
 }
 
 // Butterfly sets

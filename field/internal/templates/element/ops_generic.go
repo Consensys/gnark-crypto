@@ -12,7 +12,13 @@ const OpsNoAsm = `
 
 // MulBy{{$i}} x *= {{$i}}
 func MulBy{{$i}}(x *{{$.ElementName}}) {
+	{{- if eq 1 $.NbWords}}
+	var y {{$.ElementName}}
+	y.SetUint64({{$i}})
+	x.Mul(x, &y)
+	{{- else}}
 	mulByConstant(x, {{$i}})
+	{{- end}}
 }
 
 {{- end}}

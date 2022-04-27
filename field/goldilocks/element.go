@@ -690,6 +690,11 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value (in Montgomery form), and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
+	if len(e) == 8 {
+		// fast path
+		z[0] = binary.BigEndian.Uint64(e)
+		return z.ToMont()
+	}
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
 	vv.SetBytes(e)
