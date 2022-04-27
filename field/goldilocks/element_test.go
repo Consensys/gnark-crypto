@@ -304,13 +304,6 @@ func init() {
 
 	{
 		a := qElement
-		a[0]--
-		a[0]++
-		staticTestValues = append(staticTestValues, a)
-	}
-
-	{
-		a := qElement
 		a[0] = 0
 		staticTestValues = append(staticTestValues, a)
 	}

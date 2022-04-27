@@ -326,12 +326,14 @@ func init() {
 		staticTestValues = append(staticTestValues, a)
 	}
 
+	{{- if ne .NbWords 1}}
 	{
 		a := q{{.ElementName}}
 		a[{{.NbWordsLastIndex}}]--
 		a[0]++
 		staticTestValues = append(staticTestValues, a)
 	}
+	{{- end}}
 
 	{
 		a := q{{.ElementName}}

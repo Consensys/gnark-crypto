@@ -332,7 +332,6 @@ func init() {
 		a[9]--
 		staticTestValues = append(staticTestValues, a)
 	}
-
 	{
 		a := qElement
 		a[9]--

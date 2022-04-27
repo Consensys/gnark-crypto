@@ -639,4 +639,5 @@ func (z *{{.ElementName}}) BitLen() int {
 {{ end }}
 
 
+
 `
