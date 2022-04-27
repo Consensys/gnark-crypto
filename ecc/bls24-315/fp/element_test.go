@@ -473,7 +473,6 @@ func TestElementInverseExp(t *testing.T) {
 	properties = gopter.NewProperties(parameters)
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
 		t.Log("disabling ADX")
@@ -1420,8 +1419,8 @@ func TestElementSquare(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1499,8 +1498,8 @@ func TestElementInverse(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1578,8 +1577,8 @@ func TestElementSqrt(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1674,8 +1673,8 @@ func TestElementDouble(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1770,8 +1769,8 @@ func TestElementNeg(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true

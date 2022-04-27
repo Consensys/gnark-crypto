@@ -318,14 +318,48 @@ func (z *Element) Halve() {
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
-	mul(z, x, y)
+
+	// CIOS multiplication
+	const q uint64 = qElementWord0
+
+	var r uint64
+	hi, lo := bits.Mul64(x[0], y[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
+
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
+
+	}
+	z[0] = r
+
 	return z
 }
 
 // Square z = x * x mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
-	mul(z, x, x)
+
+	// CIOS multiplication
+	const q uint64 = qElementWord0
+
+	var r uint64
+	hi, lo := bits.Mul64(x[0], x[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
+
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
+
+	}
+	z[0] = r
+
 	return z
 }
 
@@ -372,42 +406,23 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 
 func _mulGeneric(z, x, y *Element) {
 
-	var t [2]uint64
-	var D uint64
-	var m, C uint64
-	// -----------------------------------
-	// First loop
+	// CIOS multiplication
+	const q uint64 = qElementWord0
 
-	C, t[0] = bits.Mul64(y[0], x[0])
+	var r uint64
+	hi, lo := bits.Mul64(x[0], y[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
 
-	t[1], D = bits.Add64(t[1], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * 18446744069414584319
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, 18446744069414584321, t[0])
-
-	t[0], C = bits.Add64(t[1], C, 0)
-	t[1], _ = bits.Add64(0, D, C)
-
-	if t[1] != 0 {
-		// we need to reduce, we have a result on 2 words
-		z[0], _ = bits.Sub64(t[0], 18446744069414584321, 0)
-
-		return
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
 
 	}
+	z[0] = r
 
-	// copy t into z
-	z[0] = t[0]
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
-	}
 }
 
 func _mulWGeneric(z, x *Element, y uint64) {

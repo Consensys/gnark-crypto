@@ -936,6 +936,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
 		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
 	}
+
 }
 
 func _mulWGeneric(z, x *Element, y uint64) {

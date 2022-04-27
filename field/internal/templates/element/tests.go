@@ -378,13 +378,15 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 	
 }
 
@@ -478,13 +480,15 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPair{{.ElementName}}{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 }
 
 
@@ -572,13 +576,15 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 	
 }
 
@@ -603,13 +609,15 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 	
 }
 
@@ -642,13 +650,15 @@ func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 
 }
 
@@ -685,13 +695,15 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+	{{- if .ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			supportAdx = true 
+		}
+	{{- end}}
 	
 }
 
@@ -890,14 +902,16 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true 
-	}
+	{{- if $.all.ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			specialValueTest()
+			supportAdx = true 
+		}
+	{{- end}}
 }
 
 {{ end }}
@@ -1022,14 +1036,16 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true 
-	}
+	{{- if $.all.ASM}} 
+		// if we have ADX instruction enabled, test both path in assembly
+		if supportAdx {
+			t.Log("disabling ADX")
+			supportAdx = false
+			properties.TestingRun(t, gopter.ConsoleReporter(false))
+			specialValueTest()
+			supportAdx = true 
+		}
+	{{- end}}
 }
 
 {{ end }}

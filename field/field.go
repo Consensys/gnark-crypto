@@ -239,7 +239,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.ASM = F.NoCarry && F.NbWords <= 12
+	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
 
 	return F, nil
 }

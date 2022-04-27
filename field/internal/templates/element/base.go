@@ -335,14 +335,22 @@ func (z *{{.ElementName}}) Halve()  {
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
-	mul(z, x, y)
+	{{- if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+	{{- else }}
+		mul(z, x, y)
+	{{- end }}
 	return z
 }
 
 // Square z = x * x mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
-	mul(z,x, x)
+	{{- if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+	{{- else }}
+		mul(z, x, x)
+	{{- end }}
 	return z
 }
 
@@ -391,12 +399,15 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z,x,y *{{.ElementName}}) {
-	{{ if .NoCarry}}
+	{{ if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+	{{ else if .NoCarry}}
 		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
+		{{ template "reduce" . }}
 	{{ else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "NoReturn" true}}
+		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
+		{{ template "reduce" . }}
 	{{ end }}
-	{{ template "reduce" . }}
 }
 
 func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
