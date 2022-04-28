@@ -463,37 +463,21 @@ func _addGeneric(z, x, y *Element) {
 
 	var carry uint64
 	z[0], carry = bits.Add64(x[0], y[0], 0)
-	// if we overflowed the last addition, z >= q
-	// if z >= q, z = z - q
-	if carry != 0 {
-		// we overflowed, so z >= q
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
-		return
-	}
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
+	if carry != 0 || z[0] >= q {
+		z[0] -= q
 	}
 }
 
 func _doubleGeneric(z, x *Element) {
-
-	var carry uint64
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	// if we overflowed the last addition, z >= q
-	// if z >= q, z = z - q
-	if carry != 0 {
-		// we overflowed, so z >= q
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
-		return
-	}
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
+	if x[0]&(1<<63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
 	}
 }
 

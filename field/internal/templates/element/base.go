@@ -471,23 +471,42 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
 		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
 	{{- end}}
-	{{- if not .NoCarry}}
-		// if we overflowed the last addition, z >= q
-		// if z >= q, z = z - q
-		if carry != 0 {
-			// we overflowed, so z >= q
-			z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
-			{{- range $i := .NbWordsIndexesNoZero}}
-				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
-			{{- end}}
-			return
-		}
-	{{- end}}
 
-	{{ template "reduce" .}}
+	{{- if eq $.NbWords 1}}
+		if {{- if not .NoCarry}} carry != 0 ||{{- end }} z[0] >= q {
+			z[0] -= q
+		}
+	{{- else}}
+		{{- if not .NoCarry}}
+			// if we overflowed the last addition, z >= q
+			// if z >= q, z = z - q
+			if carry != 0 {
+				// we overflowed, so z >= q
+				z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
+				{{- range $i := .NbWordsIndexesNoZero}}
+					z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
+				{{- end}}
+				return
+			}
+		{{- end}}
+
+		{{ template "reduce" .}}
+	{{- end}}
 }
 
 func _doubleGeneric(z,  x *{{.ElementName}}) {
+	{{- if eq .NbWords 1}}
+	if x[0] & (1 << 63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q 
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
+	}
+	{{- else}}
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
 		var carry uint64
@@ -510,6 +529,7 @@ func _doubleGeneric(z,  x *{{.ElementName}}) {
 	{{- end}}
 
 	{{ template "reduce" .}}
+	{{- end}}
 }
 
 
