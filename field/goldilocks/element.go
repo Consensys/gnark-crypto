@@ -485,7 +485,7 @@ func _subGeneric(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	if b != 0 {
-		z[0], _ = bits.Add64(z[0], 18446744069414584321, 0)
+		z[0] -= q
 	}
 }
 
@@ -494,7 +494,7 @@ func _negGeneric(z, x *Element) {
 		z.SetZero()
 		return
 	}
-	z[0], _ = bits.Sub64(18446744069414584321, x[0], 0)
+	z[0] = q - x[0]
 }
 
 func _reduceGeneric(z *Element) {
