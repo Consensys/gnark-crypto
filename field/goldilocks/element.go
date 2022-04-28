@@ -228,9 +228,7 @@ func (z *Element) IsOne() bool {
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
-	zz := *z
-	zz.FromMont()
-	return zz.FitsOnOneWord()
+	return true
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
@@ -289,12 +287,6 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
 	z[0] %= 18446744069414584321
 
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
-	}
-
 	return z, nil
 }
 
@@ -307,9 +299,21 @@ func One() Element {
 
 // Halve sets z to z / 2 (mod p)
 func (z *Element) Halve() {
-	var twoInv Element
-	twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
-	z.Mul(z, &twoInv)
+	var carry uint64
+
+	if z[0]&1 == 1 {
+		// z = z + q
+		z[0], carry = bits.Add64(z[0], 18446744069414584321, 0)
+
+	}
+	// z = z >> 1
+	z[0] >>= 1
+
+	if carry != 0 {
+		// when we added q, the result was larger than our avaible limbs
+		// when we shift right, we need to set the highest bit
+		z[0] |= (1 << 63)
+	}
 
 }
 

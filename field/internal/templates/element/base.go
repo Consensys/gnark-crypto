@@ -227,9 +227,13 @@ func (z *{{.ElementName}}) IsOne() bool {
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *{{.ElementName}}) IsUint64() bool {
-	zz := *z
-	zz.FromMont()
-	return zz.FitsOnOneWord()
+	{{- if eq .NbWords 1}}
+		return true
+	{{- else}}
+		zz := *z
+		zz.FromMont()
+		return zz.FitsOnOneWord()
+	{{- end}}
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
@@ -303,7 +307,9 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	{{- end}}
 	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
 
+	{{- if ne .NbWords 1}}
 	{{ template "reduce" . }}
+	{{- end}}
 
 	return z, nil
 }
@@ -317,17 +323,32 @@ func One() {{.ElementName}} {
 
 // Halve sets z to z / 2 (mod p)
 func (z *{{.ElementName}}) Halve()  {
-	{{- if .NoCarry}}
-		if z[0]&1 == 1 {
-			{{ template "add_q" dict "all" . "V1" "z" }}
+	{{- if not (and (eq .NbWords 1) (.NoCarry))}}
+		var carry uint64
+	{{- end}}
+
+	if z[0]&1 == 1 {
+		{{- template "add_q" dict "all" . "V1" "z" }}
+	}
+	{{- rsh "z" .NbWords}}
+
+	{{- if not .NoCarry}}
+		if carry != 0 {
+			// when we added q, the result was larger than our avaible limbs
+			// when we shift right, we need to set the highest bit
+			z[{{.NbWordsLastIndex}}] |= (1 << 63)
 		}
-		{{ rsh "z" .NbWords}}
-	{{ else}}
-		var twoInv {{.ElementName}}
-		twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
-		z.Mul(z, &twoInv)
 	{{end}}
 }
+
+{{ define "add_q" }}
+	// {{$.V1}} = {{$.V1}} + q 
+	{{- range $i := $.all.NbWordsIndexesFull }}
+		{{- $carryIn := ne $i 0}}
+		{{- $carryOut := or (ne $i $.all.NbWordsLastIndex) (and (eq $i $.all.NbWordsLastIndex) (not $.all.NoCarry))}}
+		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
+	{{- end}}
+{{ end }}
 
 
 // API with assembly impl
@@ -612,26 +633,11 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
-{{ define "add_q" }}
-	// {{$.V1}} = {{$.V1}} + q 
-	{{- if eq .all.NbWordsLastIndex 0}}
-	{{$.V1}}[0], _ = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
-	{{- else}}
-	var carry uint64
-	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
-	{{- range $i := .all.NbWordsIndexesNoZero}}
-		{{- if eq $i $.all.NbWordsLastIndex}}
-			{{$.V1}}[{{$i}}], _ = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
-		{{- else}}
-			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
-		{{- end}}
-	{{- end}}
-	{{- end}}
-{{ end }}
+
 
 {{ define "rsh V nbWords" }}
 	// {{$.V}} = {{$.V}} >> 1
-	{{$lastIndex := sub .nbWords 1}}
+	{{- $lastIndex := sub .nbWords 1}}
 	{{- range $i :=  iterate 0 $lastIndex}}
 		{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
 	{{- end}}

@@ -462,10 +462,10 @@ func One() Element {
 
 // Halve sets z to z / 2 (mod p)
 func (z *Element) Halve() {
-	if z[0]&1 == 1 {
+	var carry uint64
 
+	if z[0]&1 == 1 {
 		// z = z + q
-		var carry uint64
 		z[0], carry = bits.Add64(z[0], 1, 0)
 		z[1], carry = bits.Add64(z[1], 3731203976813871104, carry)
 		z[2], carry = bits.Add64(z[2], 15039355238879481536, carry)
@@ -480,9 +480,7 @@ func (z *Element) Halve() {
 		z[11], _ = bits.Add64(z[11], 4352613195430282, carry)
 
 	}
-
 	// z = z >> 1
-
 	z[0] = z[0]>>1 | z[1]<<63
 	z[1] = z[1]>>1 | z[2]<<63
 	z[2] = z[2]>>1 | z[3]<<63
