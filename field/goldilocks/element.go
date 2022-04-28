@@ -485,7 +485,7 @@ func _subGeneric(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	if b != 0 {
-		z[0] -= q
+		z[0] += q
 	}
 }
 

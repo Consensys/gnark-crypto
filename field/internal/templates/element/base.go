@@ -541,7 +541,7 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 	{{- end}}
 	if b != 0 {
 		{{- if eq .NbWords 1}}
-		z[0] -= q
+			z[0] += q
 		{{- else}}
 		var c uint64
 		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
