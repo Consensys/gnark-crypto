@@ -435,10 +435,10 @@ func _mulWGeneric(z, x *Element, y uint64) {
 		_, z[0] = madd2(m, 18446744069414584321, t[0], c2)
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 
@@ -452,10 +452,10 @@ func _fromMontGeneric(z *Element) {
 		z[0] = C
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 
@@ -499,10 +499,10 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
-	if !(z[0] < 18446744069414584321) {
-		z[0], _ = bits.Sub64(z[0], 18446744069414584321, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 

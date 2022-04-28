@@ -541,7 +541,7 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 	{{- end}}
 	if b != 0 {
 		{{- if eq .NbWords 1}}
-		z[0], _ = bits.Add64(z[0], {{index $.Q 0}}, 0)
+		z[0] -= q
 		{{- else}}
 		var c uint64
 		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
@@ -562,7 +562,7 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 		return
 	}
 	{{- if eq .NbWords 1}}
-		z[0], _ = bits.Sub64({{index $.Q 0}}, x[0], 0)
+		z[0] = q - x[0]
 	{{- else}}
 		var borrow uint64
 		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
