@@ -384,7 +384,7 @@ func GenFp() gopter.Gen {
 		})
 	}
 
-	{{if eq .Name "bls24-315"}}
+    {{if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 		// GenE4 generates an fptower.E4 elmt
 		func GenE4() gopter.Gen {
 			return gopter.CombineGens(

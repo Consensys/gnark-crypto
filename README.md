@@ -3,7 +3,7 @@
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/gnark_team.svg?style=social&label=Follow%20%40gnark_team)](https://twitter.com/gnark_team) [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)  [![Go Report Card](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto)](https://goreportcard.com/badge/github.com/ConsenSys/gnark-crypto) [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/consensys/gnark-crypto)](https://pkg.go.dev/mod/github.com/consensys/gnark-crypto) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5815453.svg)](https://doi.org/10.5281/zenodo.5815453)
 
 `gnark-crypto` provides:
-* [Elliptic curve cryptography](ecc/ecc.md) (+pairing) on BN254, BLS12-381, BLS12-377, BW6-761, BLS24-315, BW6-633, BLS12-378 and BW6-756
+* [Elliptic curve cryptography](ecc/ecc.md) (+pairing) on BN254, BLS12-381, BLS12-377, BW6-761, BLS24-315, BLS24-317, BW6-633, BLS12-378 and BW6-756
 * [Finite field arithmetic](field/field.md) (fast big.Int)
 * FFT
 * Polynomial commitment schemes

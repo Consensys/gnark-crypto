@@ -453,7 +453,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		return r.IsOnCurve() && r.Z.IsZero()
 	}
-{{else if eq .Name "bls24-315"}}
+{{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	{{- if eq .PointName "g1"}}
         // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
         // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
@@ -866,7 +866,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{else if eq .Name "bls24-315"}}
+{{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	// https://eprint.iacr.org/2017/419.pdf, section 4.2
 	// multiply by (3x^4-3)*cofacor
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
