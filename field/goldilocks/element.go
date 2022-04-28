@@ -64,6 +64,7 @@ func Modulus() *big.Int {
 
 // q (modulus)
 const qElementWord0 uint64 = 18446744069414584321
+const q uint64 = qElementWord0
 
 var qElement = Element{
 	qElementWord0,
@@ -223,7 +224,7 @@ func (z *Element) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *Element) IsOne() bool {
-	return (z[0] ^ 4294967295) == 0
+	return z[0] == 4294967295
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
@@ -317,14 +318,11 @@ func (z *Element) Halve() {
 
 }
 
-// API with assembly impl
-
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
 
 	// CIOS multiplication
-	const q uint64 = qElementWord0
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
@@ -348,7 +346,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 func (z *Element) Square(x *Element) *Element {
 
 	// CIOS multiplication
-	const q uint64 = qElementWord0
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], x[0])
@@ -411,7 +408,6 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 func _mulGeneric(z, x, y *Element) {
 
 	// CIOS multiplication
-	const q uint64 = qElementWord0
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])

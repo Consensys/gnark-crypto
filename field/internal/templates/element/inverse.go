@@ -394,7 +394,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		{{- end}}
 		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
-    {{ template "reduce" . }}
+    {{ template "reduce"  . }}
 	// </standard SOS>
 
 	if neg {
@@ -426,7 +426,7 @@ func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xH
 			   {{- end }}
                z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)
 
-               {{ template "reduce" . }}
+               {{ template "reduce"  . }}
 
        } else {
             	// The real input value is xHi r + x - 2⁶⁴r

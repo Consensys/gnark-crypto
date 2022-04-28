@@ -62,7 +62,6 @@ const MulCIOS = `
 
 {{ define "mul_cios_one_limb" }}
 	// CIOS multiplication
-	const q uint64 = q{{$.all.ElementName}}Word0
 	
 	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])

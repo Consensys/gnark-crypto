@@ -52,6 +52,9 @@ func Modulus() *big.Int {
 {{- range $i := $.NbWordsIndexesFull}}
 const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
 {{- end}}
+{{- if eq .NbWords 1}}
+const q uint64 = q{{$.ElementName}}Word0
+{{- end}}
 
 var q{{.ElementName}} = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
@@ -222,7 +225,11 @@ func (z *{{.ElementName}}) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *{{.ElementName}}) IsOne() bool {
+	{{- if eq .NbWords 1}}
+	return z[0] == {{index $.One 0}}
+	{{- else}}
 	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
+	{{- end}}
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
@@ -308,7 +315,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
 
 	{{- if ne .NbWords 1}}
-	{{ template "reduce" . }}
+	{{ template "reduce"  . }}
 	{{- end}}
 
 	return z, nil
@@ -350,8 +357,6 @@ func (z *{{.ElementName}}) Halve()  {
 	{{- end}}
 {{ end }}
 
-
-// API with assembly impl
 
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
@@ -424,16 +429,16 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{ else if .NoCarry}}
 		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
-		{{ template "reduce" . }}
+		{{ template "reduce"  . }}
 	{{ else }}
 		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
-		{{ template "reduce" . }}
+		{{ template "reduce"  . }}
 	{{ end }}
 }
 
 func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
 	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
-	{{ template "reduce" . }}
+	{{ template "reduce"  . }}
 }
 
 
@@ -553,7 +558,7 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 
 
 func _reduceGeneric(z *{{.ElementName}})  {
-	{{ template "reduce" . }}
+	{{ template "reduce"  . }}
 }
 
 func mulByConstant(z *{{.ElementName}}, c uint8) {
