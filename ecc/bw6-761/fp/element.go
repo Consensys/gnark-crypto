@@ -2166,14 +2166,10 @@ func (z *Element) Inverse(x *Element) *Element {
 	return z
 }
 
-var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
-
-// inverseExp is a fallback in case the inversion algorithm failed
+// inverseExp computes z = x⁻¹ mod q = x**(q-2) mod q
 func (z *Element) inverseExp(x *Element) *Element {
-	if qMinusTwo == nil {
-		qMinusTwo = Modulus()
-		qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-	}
+	qMinusTwo := Modulus()
+	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
 	return z.Exp(*x, qMinusTwo)
 }
 
