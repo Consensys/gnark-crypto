@@ -70,9 +70,6 @@ var qElement = Element{
 	qElementWord0,
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 18446744069414584319
-
 // rSquare
 var rSquare = Element{
 	18446744065119617025,
@@ -323,6 +320,8 @@ func (z *Element) Halve() {
 func (z *Element) Mul(x, y *Element) *Element {
 
 	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
@@ -346,6 +345,8 @@ func (z *Element) Mul(x, y *Element) *Element {
 func (z *Element) Square(x *Element) *Element {
 
 	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], x[0])
@@ -408,6 +409,8 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 func _mulGeneric(z, x, y *Element) {
 
 	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])

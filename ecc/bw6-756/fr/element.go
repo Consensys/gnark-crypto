@@ -79,9 +79,6 @@ var qElement = Element{
 	qElementWord5,
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 11045256207009841151
-
 // rSquare
 var rSquare = Element{
 	13541478318970833666,
@@ -1434,6 +1431,8 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 11045256207009841151
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0

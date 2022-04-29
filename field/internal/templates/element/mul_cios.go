@@ -62,7 +62,9 @@ const MulCIOS = `
 
 {{ define "mul_cios_one_limb" }}
 	// CIOS multiplication
-	
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = {{index $.all.QInverse 0}}
+
 	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
 	m := lo * qInvNegLsw

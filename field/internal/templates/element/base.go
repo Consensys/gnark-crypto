@@ -61,9 +61,6 @@ var q{{.ElementName}} = {{.ElementName}}{
 	q{{$.ElementName}}Word{{$i}},{{end}}
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = {{index .QInverse 0}}
-
 // rSquare
 var rSquare = {{.ElementName}}{
 	{{- range $i := .RSquare}}
@@ -476,10 +473,11 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 			// if we overflowed the last addition, z >= q
 			// if z >= q, z = z - q
 			if carry != 0 {
+				var b uint64
 				// we overflowed, so z >= q
-				z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
-				{{- range $i := .NbWordsIndexesNoZero}}
-					z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
+				{{- range $i := iterate 0 $.NbWords}}
+					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 				{{- end}}
 				return
 			}
@@ -514,10 +512,11 @@ func _doubleGeneric(z,  x *{{.ElementName}}) {
 		// if we overflowed the last addition, z >= q
 		// if z >= q, z = z - q
 		if carry != 0 {
+			var b uint64
 			// we overflowed, so z >= q
-			z[0], {{- if gt $.NbWords 1}}carry{{- else}}_{{- end}} = bits.Sub64(z[0], {{index $.Q 0}}, 0)
-			{{- range $i := .NbWordsIndexesNoZero}}
-				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
+			{{- range $i := iterate 0 $.NbWords}}
+				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 			{{- end}}
 			return
 		}
