@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	mrand "math/rand"
-	"testing"
 
 	"github.com/consensys/gnark-crypto/field"
+	mrand "math/rand"
+
+	"testing"
+
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -2283,8 +2285,6 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-
-// Some utils
 
 func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int

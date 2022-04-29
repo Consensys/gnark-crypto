@@ -25,7 +25,6 @@ import (
 
 	"testing"
 
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -2112,27 +2111,5 @@ func genFull() gopter.Gen {
 
 		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
-	}
-}
-
-// Some utils
-
-func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
-	var modulus big.Int
-	var aIntMod big.Int
-	modulus.SetInt64(1)
-	modulus.Lsh(&modulus, (Limbs+1)*64)
-	aIntMod.Mod(aInt, &modulus)
-
-	slice := append(z[:], aHi)
-
-	return field.BigIntMatchUint64Slice(&aIntMod, slice)
-}
-
-//TODO: Phase out in favor of property based testing
-func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
-
-	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
-		t.Error(err)
 	}
 }

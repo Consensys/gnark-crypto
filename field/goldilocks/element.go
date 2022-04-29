@@ -425,23 +425,6 @@ func _mulGeneric(z, x, y *Element) {
 
 }
 
-func _mulWGeneric(z, x *Element, y uint64) {
-
-	var t [1]uint64
-	{
-		// round 0
-		m := t[0] * 18446744069414584319
-		c2 := madd0(m, 18446744069414584321, t[0])
-		_, z[0] = madd2(m, 18446744069414584321, t[0], c2)
-	}
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if z[0] >= q {
-		z[0] -= q
-	}
-}
-
 func _fromMontGeneric(z *Element) {
 	// the following lines implement z = z * 1
 	// with a modified CIOS montgomery multiplication

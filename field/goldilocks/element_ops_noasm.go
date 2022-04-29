@@ -50,10 +50,6 @@ func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
 }
 
-func mul(z, x, y *Element) {
-	_mulGeneric(z, x, y)
-}
-
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func fromMont(z *Element) {

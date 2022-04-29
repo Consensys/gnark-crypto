@@ -450,6 +450,13 @@ func (z *{{.ElementName}}) mulWSigned(x *{{.ElementName}}, y int64) {
 		z.Neg(z)
 	}
 }
+
+func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
+	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
+	{{ template "reduce"  . }}
+}
+
+
 {{ end }}
 
 `

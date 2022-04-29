@@ -11,10 +11,12 @@ import (
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if $UsingP20Inverse}} mrand "math/rand" {{end}}
-	"testing"
-
+	{{if $UsingP20Inverse}} 
 	"github.com/consensys/gnark-crypto/field"
+	mrand "math/rand" 
+	{{end}}
+	"testing"
+	
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	ggen "github.com/leanovate/gopter/gen"
@@ -1484,9 +1486,7 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-
-// Some utils
-
+{{if $UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
@@ -1506,5 +1506,6 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 		t.Error(err)
 	}
 }
+{{- end}}
 
 `
