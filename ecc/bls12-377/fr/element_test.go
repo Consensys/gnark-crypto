@@ -2104,6 +2104,39 @@ func TestElementSetInterface(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestElementNegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a, b testPairElement) bool {
+
+			var nb, d, e big.Int
+			nb.Neg(&b.bigint)
+
+			var c Element
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementBatchInvert(t *testing.T) {
 	assert := require.New(t)
 

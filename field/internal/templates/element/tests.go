@@ -1280,6 +1280,41 @@ properties.Property("z.SetInterface must match z.SetString with {{.tName}}", pro
 
 {{end}}
 
+func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a,b testPair{{.ElementName}}) bool {
+
+			var nb, d, e big.Int 
+			nb.Neg(&b.bigint)
+
+			var c {{.ElementName}}
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
 
 func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
 	assert := require.New(t)
