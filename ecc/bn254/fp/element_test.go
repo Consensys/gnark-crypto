@@ -2344,6 +2344,24 @@ func BenchmarkElementAsmAdd(b *testing.B) {
 	})
 }
 
+func TestSub(t *testing.T) {
+	a := Element{1938124380189403056, 827087846755231315, 14705068638983055385, 3470073991308338541}
+	b := Element{348304940151462249, 6580436689801242382, 15399267976209673052, 1644533253843086783}
+
+	/*a := Element{1}
+	b := Element{2}*/
+	var c Element
+
+	c.Sub(&a, &b)
+
+	var cGeneric Element
+	_subGeneric(&cGeneric, &a, &b)
+
+	if !cGeneric.Equal(&c) {
+		t.Fail()
+	}
+}
+
 func BenchmarkElementAsmSub(b *testing.B) {
 	var z Element
 
