@@ -72,9 +72,6 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	SBCS R3, R2, R2
 	SBCS R7, R6, R3
 
-	//JMP STORE
-
-
 	// load modulus and select
 	MOVD $0, R8
 	LDP  q<>+0(SB), (R4, R5)
@@ -84,20 +81,12 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	CSEL CS, R8, R6, R6
 	CSEL CS, R8, R7, R7
 
-//fake store
-		//MOVD res+0(FP), R0
-    	//STP  (R4, R5), 0(R0)
-    	//STP  (R6, R7), 16(R0)
-    	//RET
-	// end fake store
-
 	// augment (or not)
 	ADDS R0, R4, R0
 	ADCS R1, R5, R1
 	ADCS R2, R6, R2
 	ADCS R3, R7, R3
 
-    STORE:
 	// store
 	MOVD res+0(FP), R4
 	STP  (R0, R1), 0(R4)

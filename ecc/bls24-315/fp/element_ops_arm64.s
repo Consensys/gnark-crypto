@@ -83,27 +83,23 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	MOVD 32(R6), R7
 	SBCS R7, R4, R4
 
-	// Store borrow TODO: Can it be done with one instruction?
-	MOVD $0, R5
-	ADC  $0, R5, R5
+	// load modulus and select
+	MOVD $0, R10
+	LDP  q<>+0(SB), (R5, R6)
+	CSEL CS, R10, R5, R5
+	CSEL CS, R10, R6, R6
+	LDP  q<>+16(SB), (R7, R8)
+	CSEL CS, R10, R7, R7
+	CSEL CS, R10, R8, R8
+	MOVD q<>+32(SB), R9
+	CSEL CS, R10, R9, R9
 
-	// load modulus and add
-	LDP  q<>+0(SB), (R6, R7)
-	ADDS R6, R0, R6
-	ADCS R7, R1, R7
-	LDP  q<>+16(SB), (R8, R9)
-	ADCS R8, R2, R8
-	ADCS R9, R3, R9
-	MOVD q<>+32(SB), R10
-	ADCS R10, R4, R10
-
-	// augment if necessary
-	CMP  $1, R5          // "recall" the borrow
-	CSEL NE, R6, R0, R0
-	CSEL NE, R7, R1, R1
-	CSEL NE, R8, R2, R2
-	CSEL NE, R9, R3, R3
-	CSEL NE, R10, R4, R4
+	// augment (or not)
+	ADDS R0, R5, R0
+	ADCS R1, R6, R1
+	ADCS R2, R7, R2
+	ADCS R3, R8, R3
+	ADCS R4, R9, R4
 
 	// store
 	MOVD res+0(FP), R5

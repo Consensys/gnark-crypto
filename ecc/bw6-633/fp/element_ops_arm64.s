@@ -120,39 +120,35 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	SBCS R9, R8, R8
 	SBCS R13, R12, R9
 
-	// Store borrow TODO: Can it be done with one instruction?
-	MOVD $0, R10
-	ADC  $0, R10, R10
+	// load modulus and select
+	MOVD $0, R21
+	LDP  q<>+0(SB), (R10, R11)
+	CSEL CS, R21, R10, R10
+	CSEL CS, R21, R11, R11
+	LDP  q<>+16(SB), (R12, R13)
+	CSEL CS, R21, R12, R12
+	CSEL CS, R21, R13, R13
+	LDP  q<>+32(SB), (R14, R15)
+	CSEL CS, R21, R14, R14
+	CSEL CS, R21, R15, R15
+	LDP  q<>+48(SB), (R16, R17)
+	CSEL CS, R21, R16, R16
+	CSEL CS, R21, R17, R17
+	LDP  q<>+64(SB), (R19, R20)
+	CSEL CS, R21, R19, R19
+	CSEL CS, R21, R20, R20
 
-	// load modulus and add
-	LDP  q<>+0(SB), (R11, R12)
-	ADDS R11, R0, R11
-	ADCS R12, R1, R12
-	LDP  q<>+16(SB), (R13, R14)
-	ADCS R13, R2, R13
-	ADCS R14, R3, R14
-	LDP  q<>+32(SB), (R15, R16)
-	ADCS R15, R4, R15
-	ADCS R16, R5, R16
-	LDP  q<>+48(SB), (R17, R19)
-	ADCS R17, R6, R17
-	ADCS R19, R7, R19
-	LDP  q<>+64(SB), (R20, R21)
-	ADCS R20, R8, R20
-	ADCS R21, R9, R21
-
-	// augment if necessary
-	CMP  $1, R10         // "recall" the borrow
-	CSEL NE, R11, R0, R0
-	CSEL NE, R12, R1, R1
-	CSEL NE, R13, R2, R2
-	CSEL NE, R14, R3, R3
-	CSEL NE, R15, R4, R4
-	CSEL NE, R16, R5, R5
-	CSEL NE, R17, R6, R6
-	CSEL NE, R19, R7, R7
-	CSEL NE, R20, R8, R8
-	CSEL NE, R21, R9, R9
+	// augment (or not)
+	ADDS R0, R10, R0
+	ADCS R1, R11, R1
+	ADCS R2, R12, R2
+	ADCS R3, R13, R3
+	ADCS R4, R14, R4
+	ADCS R5, R15, R5
+	ADCS R6, R16, R6
+	ADCS R7, R17, R7
+	ADCS R8, R19, R8
+	ADCS R9, R20, R9
 
 	// store
 	MOVD res+0(FP), R10

@@ -145,20 +145,24 @@ func (f *FFArm64) generateSub() {
 	f.Comment("load modulus and select")
 
 	t := registers.PopN(f.NbWords)
+	zero := registers.Pop()
+	f.MOVD(0, zero)
 
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(f.GlobalOffset("q", 8*i), t[i], t[i+1])
 
-		f.CSEL("NE", t[i], 0, t[i])
-		f.CSEL("NE", t[i+1], 0, t[i+1])
+		f.CSEL("CS", zero, t[i], t[i])
+		f.CSEL("CS", zero, t[i+1], t[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
 		f.MOVD(f.GlobalOffset("q", 8*i), t[i])
 
-		f.CSEL("NE", t[i], 0, t[i])
+		f.CSEL("CS", zero, t[i], t[i])
 	}
+
+	registers.Push(zero)
 
 	f.Comment("augment (or not)")
 
