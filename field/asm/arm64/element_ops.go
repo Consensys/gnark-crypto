@@ -106,7 +106,7 @@ func (f *FFArm64) generateDouble() {
 
 }
 
-// generateSub uses one more register than generateAdd, but that's okay since we have 29 registers available.
+// generateSub NO LONGER uses one more register than generateAdd, but that's okay since we have 29 registers available.
 func (f *FFArm64) generateSub() {
 	f.Comment("sub(res, x, y *Element)")
 
@@ -142,40 +142,30 @@ func (f *FFArm64) generateSub() {
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
 
-	f.Comment("Store borrow TODO: Can it be done with one instruction?")
-	borrow := registers.Pop()
-	f.MOVD(0, borrow)
-	f.ADC(0, borrow, borrow)
-	//f.ADC(0, 0, borrow, "store borrow")
-
-	f.Comment("load modulus and add")
+	f.Comment("load modulus and select")
 
 	t := registers.PopN(f.NbWords)
 
-	op0 = f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(f.GlobalOffset("q", 8*i), t[i], t[i+1])
 
-		op0(t[i], z[i], t[i])
-		op0 = f.ADCS
-
-		f.ADCS(t[i+1], z[i+1], t[i+1])
+		f.CSEL("NE", t[i], 0, t[i])
+		f.CSEL("NE", t[i+1], 0, t[i+1])
 	}
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
 		f.MOVD(f.GlobalOffset("q", 8*i), t[i])
 
-		op0(t[i], z[i], t[i])
+		f.CSEL("NE", t[i], 0, t[i])
 	}
 
-	f.Comment("augment if necessary")
+	f.Comment("augment (or not)")
 
-	f.CMP(1, borrow, "\"recall\" the borrow")
-	registers.Push(borrow)
-
+	op0 = f.ADDS
 	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("NE", t[i], z[i], z[i])
+		op0(z[i], t[i], z[i])
+		op0 = f.ADCS
 	}
 
 	registers.Push(t...)
