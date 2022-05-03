@@ -504,6 +504,7 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p
+
 }
 
 // -------------------------------------------------------------------------------------------------

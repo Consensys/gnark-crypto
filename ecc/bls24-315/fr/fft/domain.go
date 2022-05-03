@@ -72,8 +72,8 @@ func NewDomain(m uint64) *Domain {
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
 
-	rootOfUnity.SetString("16532287748948254263922689505213135976137839535221842169193829039521719560631")
-	const maxOrderRoot uint64 = 60
+	rootOfUnity.SetString("1792993287828780812362846131493071959406149719416102105453370749552622525216")
+	const maxOrderRoot uint64 = 22
 	domain.FrMultiplicativeGen.SetUint64(7)
 
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)

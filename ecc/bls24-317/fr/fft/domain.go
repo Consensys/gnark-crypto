@@ -72,6 +72,10 @@ func NewDomain(m uint64) *Domain {
 	// generator of the largest 2-adic subgroup
 	var rootOfUnity fr.Element
 
+	rootOfUnity.SetString("16532287748948254263922689505213135976137839535221842169193829039521719560631")
+	const maxOrderRoot uint64 = 60
+	domain.FrMultiplicativeGen.SetUint64(7)
+
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 
 	// find generator for Z/2^(log(m))Z

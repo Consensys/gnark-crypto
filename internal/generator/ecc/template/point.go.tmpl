@@ -482,7 +482,11 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             var res, tmp {{ $TJacobian }}
             tmp.psi(p)
             res.ScalarMultiplication(p, &xGen).
+            {{ if eq .Name "bls24-315"}}
                 AddAssign(&tmp)
+            {{ else }}
+                SubAssign(&tmp)
+            {{ end }}
 
             return res.IsOnCurve() && res.Z.IsZero()
 
@@ -688,7 +692,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
 	p.Set(&res)
 	return p
-{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-317")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
@@ -869,11 +873,19 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	// https://eprint.iacr.org/2017/419.pdf, section 4.2
 	// multiply by (3x^4-3)*cofacor
+    {{ if eq .Name "bls24-315"}}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
 	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
 	xxxxg.ScalarMultiplication(&xxxg, &xGen).Neg(&xxxxg)
+    {{ else }}
+	var xg, xxg, xxxg, xxxxg, res, t G2Jac
+	xg.ScalarMultiplication(a, &xGen).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen)
+	xxxg.ScalarMultiplication(&xxg, &xGen)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen)
+    {{ end }}
 
 	res.Set(&xxxxg).
 		SubAssign(a)
