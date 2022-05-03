@@ -405,6 +405,20 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-317] MulBy014 and Mul by (c0, c1, 0, 0, c4, 0) should output the same result", prop.ForAll(
+		func(a, b *E24) bool {
+			var c E24
+			b.D0.C2.SetZero()
+			b.D1.C0.SetZero()
+			b.D1.C2.SetZero()
+			c.Mul(a, b)
+			a.MulBy014(&b.D0.C0, &b.D0.C1, &b.D1.C1)
+			return c.Equal(a)
+		},
+		genA,
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }

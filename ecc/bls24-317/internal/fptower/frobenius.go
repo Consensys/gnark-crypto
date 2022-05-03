@@ -18,6 +18,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 )
 
+// TODO: optimize Frobenius maps with stored coefficients
+
 var _p = fp.Modulus()
 
 // Frobenius sets z in E4 to x^q, returns z
