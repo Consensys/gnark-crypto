@@ -50,11 +50,7 @@ const MulCIOS = `
 				z[{{$i}}], b = bits.Sub64(t[{{$i}}], {{index $.all.Q $i}}, b)
 			{{- end}}
 		{{- end}}
-		{{if $.NoReturn }}
 		return
-		{{else}}
-		return z
-		{{end}}
 	}
 
 	// copy t into z 
@@ -62,5 +58,25 @@ const MulCIOS = `
 		z[{{$i}}] = t[{{$i}}]
 	{{- end}}
 
+{{ end }}
+
+{{ define "mul_cios_one_limb" }}
+	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = {{index $.all.QInverse 0}}
+
+	var r uint64
+	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
+
+	if carry != 0 || r >= q  {
+		// we need to reduce
+		r -= q 
+		
+	}
+	z[0] = r 
 {{ end }}
 `

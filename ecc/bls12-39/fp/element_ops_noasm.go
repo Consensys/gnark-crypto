@@ -1,6 +1,3 @@
-//go:build !amd64
-// +build !amd64
-
 // Copyright 2020 ConsenSys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,17 +24,23 @@ package fp
 
 // MulBy3 x *= 3
 func MulBy3(x *Element) {
-	mulByConstant(x, 3)
+	var y Element
+	y.SetUint64(3)
+	x.Mul(x, &y)
 }
 
 // MulBy5 x *= 5
 func MulBy5(x *Element) {
-	mulByConstant(x, 5)
+	var y Element
+	y.SetUint64(5)
+	x.Mul(x, &y)
 }
 
 // MulBy13 x *= 13
 func MulBy13(x *Element) {
-	mulByConstant(x, 13)
+	var y Element
+	y.SetUint64(13)
+	x.Mul(x, &y)
 }
 
 // Butterfly sets
@@ -45,10 +48,6 @@ func MulBy13(x *Element) {
 // b = a - b
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
-}
-
-func mul(z, x, y *Element) {
-	_mulGeneric(z, x, y)
 }
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation

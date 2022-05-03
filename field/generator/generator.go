@@ -60,10 +60,13 @@ func GenerateFF(F *field.Field, outputDir string) error {
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
-		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s", "_ops_amd64.go"}
+		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s", "_ops_amd64.go",
+		"_ops_amd64.go"}
 	for _, of := range oldFiles {
 		_ = os.Remove(filepath.Join(outputDir, eName+of))
 	}
+	_ = os.Remove(filepath.Join(outputDir, "asm.go"))
+	_ = os.Remove(filepath.Join(outputDir, "asm_noadx.go"))
 
 	funcs := template.FuncMap{}
 	if F.UseAddChain {
@@ -192,7 +195,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 
 	}
 
-	{
+	if F.ASM {
 		// generate ops_amd64.go
 		src := []string{
 			element.OpsAMD64,
@@ -233,7 +236,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		}
 	}
 
-	{
+	if F.ASM {
 		// generate asm.go and asm_noadx.go
 		src := []string{
 			element.Asm,
@@ -246,7 +249,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 			return err
 		}
 	}
-	{
+	if F.ASM {
 		// generate asm.go and asm_noadx.go
 		src := []string{
 			element.AsmNoAdx,

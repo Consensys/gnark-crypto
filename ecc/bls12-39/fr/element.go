@@ -64,13 +64,11 @@ func Modulus() *big.Int {
 
 // q (modulus)
 const qElementWord0 uint64 = 99990001
+const q uint64 = qElementWord0
 
 var qElement = Element{
 	qElementWord0,
 }
-
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 14492505108528883951
 
 // rSquare
 var rSquare = Element{
@@ -84,7 +82,8 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	_modulus.SetString("99990001", 10)
+	// base10: 99990001
+	_modulus.SetString("5f5b9f1", 16)
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -222,14 +221,12 @@ func (z *Element) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *Element) IsOne() bool {
-	return (z[0] ^ 98464136) == 0
+	return z[0] == 98464136
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
-	zz := *z
-	zz.FromMont()
-	return zz.FitsOnOneWord()
+	return true
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
@@ -288,12 +285,6 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
 	z[0] %= 99990001
 
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
-	}
-
 	return z, nil
 }
 
@@ -306,32 +297,64 @@ func One() Element {
 
 // Halve sets z to z / 2 (mod p)
 func (z *Element) Halve() {
-	if z[0]&1 == 1 {
 
+	if z[0]&1 == 1 {
 		// z = z + q
 		z[0], _ = bits.Add64(z[0], 99990001, 0)
 
 	}
-
 	// z = z >> 1
-
 	z[0] >>= 1
 
 }
 
-// API with assembly impl
-
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
-	mul(z, x, y)
+
+	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 14492505108528883951
+
+	var r uint64
+	hi, lo := bits.Mul64(x[0], y[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
+
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
+
+	}
+	z[0] = r
+
 	return z
 }
 
 // Square z = x * x mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
-	mul(z, x, x)
+
+	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 14492505108528883951
+
+	var r uint64
+	hi, lo := bits.Mul64(x[0], x[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
+
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
+
+	}
+	z[0] = r
+
 	return z
 }
 
@@ -378,39 +401,24 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 
 func _mulGeneric(z, x, y *Element) {
 
-	var t [1]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 14492505108528883951
-		c[2] = madd0(m, 99990001, c[0])
-		z[0], _ = madd3(m, 99990001, c[0], c[2], c[1])
-	}
+	// CIOS multiplication
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 14492505108528883951
 
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
-	}
-}
+	var r uint64
+	hi, lo := bits.Mul64(x[0], y[0])
+	m := lo * qInvNegLsw
+	hi2, lo2 := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo2, lo, 0)
+	r, carry = bits.Add64(hi2, hi, carry)
 
-func _mulWGeneric(z, x *Element, y uint64) {
+	if carry != 0 || r >= q {
+		// we need to reduce
+		r -= q
 
-	var t [1]uint64
-	{
-		// round 0
-		m := t[0] * 14492505108528883951
-		c2 := madd0(m, 99990001, t[0])
-		_, z[0] = madd2(m, 99990001, t[0], c2)
 	}
+	z[0] = r
 
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
-	}
 }
 
 func _fromMontGeneric(z *Element) {
@@ -423,32 +431,31 @@ func _fromMontGeneric(z *Element) {
 		z[0] = C
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 
 func _addGeneric(z, x, y *Element) {
 
 	z[0], _ = bits.Add64(x[0], y[0], 0)
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 
 func _doubleGeneric(z, x *Element) {
-
-	z[0], _ = bits.Add64(x[0], x[0], 0)
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
+	if x[0]&(1<<63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
 	}
 }
 
@@ -456,7 +463,7 @@ func _subGeneric(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	if b != 0 {
-		z[0], _ = bits.Add64(z[0], 99990001, 0)
+		z[0] += q
 	}
 }
 
@@ -465,15 +472,15 @@ func _negGeneric(z, x *Element) {
 		z.SetZero()
 		return
 	}
-	z[0], _ = bits.Sub64(99990001, x[0], 0)
+	z[0] = q - x[0]
 }
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
-	if !(z[0] < 99990001) {
-		z[0], _ = bits.Sub64(z[0], 99990001, 0)
+	if z[0] >= q {
+		z[0] -= q
 	}
 }
 
@@ -645,6 +652,11 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value (in Montgomery form), and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
+	if len(e) == 8 {
+		// fast path
+		z[0] = binary.BigEndian.Uint64(e)
+		return z.ToMont()
+	}
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
 	vv.SetBytes(e)
@@ -873,11 +885,68 @@ func (z *Element) Sqrt(x *Element) *Element {
 }
 
 // Inverse z = x⁻¹ mod q
-// note: allocates a big.Int (math/big)
+// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// if x == 0, sets and returns z = x
 func (z *Element) Inverse(x *Element) *Element {
-	var _xNonMont big.Int
-	x.ToBigIntRegular(&_xNonMont)
-	_xNonMont.ModInverse(&_xNonMont, Modulus())
-	z.SetBigInt(&_xNonMont)
+	const q uint64 = qElementWord0
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	var r, s, u, v uint64
+	u = q        // u = q
+	s = 96814941 // s = r^2
+	r = 0
+	v = x[0]
+
+	var carry, borrow uint64
+
+	for (u != 1) && (v != 1) {
+		for v&1 == 0 {
+			v >>= 1
+			if s&1 == 0 {
+				s >>= 1
+			} else {
+				s, carry = bits.Add64(s, q, 0)
+				s >>= 1
+				if carry != 0 {
+					s |= (1 << 63)
+				}
+			}
+		}
+		for u&1 == 0 {
+			u >>= 1
+			if r&1 == 0 {
+				r >>= 1
+			} else {
+				r, carry = bits.Add64(r, q, 0)
+				r >>= 1
+				if carry != 0 {
+					r |= (1 << 63)
+				}
+			}
+		}
+		if v >= u {
+			v -= u
+			s, borrow = bits.Sub64(s, r, 0)
+			if borrow == 1 {
+				s += q
+			}
+		} else {
+			u -= v
+			r, borrow = bits.Sub64(r, s, 0)
+			if borrow == 1 {
+				r += q
+			}
+		}
+	}
+
+	if u == 1 {
+		z[0] = r
+	} else {
+		z[0] = s
+	}
+
 	return z
 }

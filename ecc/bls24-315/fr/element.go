@@ -75,9 +75,6 @@ var qElement = Element{
 	qElementWord3,
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 2184305180030271487
-
 // rSquare
 var rSquare = Element{
 	6242551132904523857,
@@ -93,7 +90,8 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	_modulus.SetString("11502027791375260645628074404575422495959608200132055716665986169834464870401", 10)
+	// base10: 11502027791375260645628074404575422495959608200132055716665986169834464870401
+	_modulus.SetString("196deac24a9da12b25fc7ec9cf927a98c8c480ece644e36419d0c5fd00c00001", 16)
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -327,7 +325,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[3] = binary.BigEndian.Uint64(bytes[24:32])
 	z[3] %= 1832378743606059307
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -349,27 +347,23 @@ func One() Element {
 
 // Halve sets z to z / 2 (mod p)
 func (z *Element) Halve() {
-	if z[0]&1 == 1 {
+	var carry uint64
 
+	if z[0]&1 == 1 {
 		// z = z + q
-		var carry uint64
 		z[0], carry = bits.Add64(z[0], 1860204336533995521, 0)
 		z[1], carry = bits.Add64(z[1], 14466829657984787300, carry)
 		z[2], carry = bits.Add64(z[2], 2737202078770428568, carry)
 		z[3], _ = bits.Add64(z[3], 1832378743606059307, carry)
 
 	}
-
 	// z = z >> 1
-
 	z[0] = z[0]>>1 | z[1]<<63
 	z[1] = z[1]>>1 | z[2]<<63
 	z[2] = z[2]>>1 | z[3]<<63
 	z[3] >>= 1
 
 }
-
-// API with assembly impl
 
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
@@ -486,7 +480,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[3], z[2] = madd3(m, 1832378743606059307, c[0], c[2], c[1])
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -495,57 +489,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[2], b = bits.Sub64(z[2], 2737202078770428568, b)
 		z[3], _ = bits.Sub64(z[3], 1832378743606059307, b)
 	}
-}
 
-func _mulWGeneric(z, x *Element, y uint64) {
-
-	var t [4]uint64
-	{
-		// round 0
-		c1, c0 := bits.Mul64(y, x[0])
-		m := c0 * 2184305180030271487
-		c2 := madd0(m, 1860204336533995521, c0)
-		c1, c0 = madd1(y, x[1], c1)
-		c2, t[0] = madd2(m, 14466829657984787300, c2, c0)
-		c1, c0 = madd1(y, x[2], c1)
-		c2, t[1] = madd2(m, 2737202078770428568, c2, c0)
-		c1, c0 = madd1(y, x[3], c1)
-		t[3], t[2] = madd3(m, 1832378743606059307, c0, c2, c1)
-	}
-	{
-		// round 1
-		m := t[0] * 2184305180030271487
-		c2 := madd0(m, 1860204336533995521, t[0])
-		c2, t[0] = madd2(m, 14466829657984787300, c2, t[1])
-		c2, t[1] = madd2(m, 2737202078770428568, c2, t[2])
-		t[3], t[2] = madd2(m, 1832378743606059307, t[3], c2)
-	}
-	{
-		// round 2
-		m := t[0] * 2184305180030271487
-		c2 := madd0(m, 1860204336533995521, t[0])
-		c2, t[0] = madd2(m, 14466829657984787300, c2, t[1])
-		c2, t[1] = madd2(m, 2737202078770428568, c2, t[2])
-		t[3], t[2] = madd2(m, 1832378743606059307, t[3], c2)
-	}
-	{
-		// round 3
-		m := t[0] * 2184305180030271487
-		c2 := madd0(m, 1860204336533995521, t[0])
-		c2, z[0] = madd2(m, 14466829657984787300, c2, t[1])
-		c2, z[1] = madd2(m, 2737202078770428568, c2, t[2])
-		z[3], z[2] = madd2(m, 1832378743606059307, t[3], c2)
-	}
-
-	// if z > q → z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 1860204336533995521, 0)
-		z[1], b = bits.Sub64(z[1], 14466829657984787300, b)
-		z[2], b = bits.Sub64(z[2], 2737202078770428568, b)
-		z[3], _ = bits.Sub64(z[3], 1832378743606059307, b)
-	}
 }
 
 func _fromMontGeneric(z *Element) {
@@ -588,7 +532,7 @@ func _fromMontGeneric(z *Element) {
 		z[3] = C
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -607,7 +551,7 @@ func _addGeneric(z, x, y *Element) {
 	z[2], carry = bits.Add64(x[2], y[2], carry)
 	z[3], _ = bits.Add64(x[3], y[3], carry)
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -626,7 +570,7 @@ func _doubleGeneric(z, x *Element) {
 	z[2], carry = bits.Add64(x[2], x[2], carry)
 	z[3], _ = bits.Add64(x[3], x[3], carry)
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -666,7 +610,7 @@ func _negGeneric(z, x *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -1331,6 +1275,8 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = 2184305180030271487
 
 	const signBitRemover = ^signBitSelector
 	neg := xHi&signBitSelector != 0
@@ -1390,7 +1336,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[3], z[2] = madd2(m, qElementWord3, t[i+3], C)
 	}
 
-	// if z > q → z -= q
+	// if z >= q → z -= q
 	// note: this is NOT constant time
 	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 		var b uint64
@@ -1440,7 +1386,7 @@ func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
 		z[2], c = bits.Add64(z[2], 0, c)
 		z[3], _ = bits.Add64(z[3], 0, c)
 
-		// if z > q → z -= q
+		// if z >= q → z -= q
 		// note: this is NOT constant time
 		if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
 			var b uint64
@@ -1482,6 +1428,57 @@ func (z *Element) mulWSigned(x *Element, y int64) {
 	// multiply by abs(y)
 	if y < 0 {
 		z.Neg(z)
+	}
+}
+
+func _mulWGeneric(z, x *Element, y uint64) {
+
+	var t [4]uint64
+	{
+		// round 0
+		c1, c0 := bits.Mul64(y, x[0])
+		m := c0 * 2184305180030271487
+		c2 := madd0(m, 1860204336533995521, c0)
+		c1, c0 = madd1(y, x[1], c1)
+		c2, t[0] = madd2(m, 14466829657984787300, c2, c0)
+		c1, c0 = madd1(y, x[2], c1)
+		c2, t[1] = madd2(m, 2737202078770428568, c2, c0)
+		c1, c0 = madd1(y, x[3], c1)
+		t[3], t[2] = madd3(m, 1832378743606059307, c0, c2, c1)
+	}
+	{
+		// round 1
+		m := t[0] * 2184305180030271487
+		c2 := madd0(m, 1860204336533995521, t[0])
+		c2, t[0] = madd2(m, 14466829657984787300, c2, t[1])
+		c2, t[1] = madd2(m, 2737202078770428568, c2, t[2])
+		t[3], t[2] = madd2(m, 1832378743606059307, t[3], c2)
+	}
+	{
+		// round 2
+		m := t[0] * 2184305180030271487
+		c2 := madd0(m, 1860204336533995521, t[0])
+		c2, t[0] = madd2(m, 14466829657984787300, c2, t[1])
+		c2, t[1] = madd2(m, 2737202078770428568, c2, t[2])
+		t[3], t[2] = madd2(m, 1832378743606059307, t[3], c2)
+	}
+	{
+		// round 3
+		m := t[0] * 2184305180030271487
+		c2 := madd0(m, 1860204336533995521, t[0])
+		c2, z[0] = madd2(m, 14466829657984787300, c2, t[1])
+		c2, z[1] = madd2(m, 2737202078770428568, c2, t[2])
+		z[3], z[2] = madd2(m, 1832378743606059307, t[3], c2)
+	}
+
+	// if z >= q → z -= q
+	// note: this is NOT constant time
+	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 1860204336533995521, 0)
+		z[1], b = bits.Sub64(z[1], 14466829657984787300, b)
+		z[2], b = bits.Sub64(z[2], 2737202078770428568, b)
+		z[3], _ = bits.Sub64(z[3], 1832378743606059307, b)
 	}
 }
 

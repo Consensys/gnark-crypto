@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	mrand "math/rand"
-	"testing"
 
 	"github.com/consensys/gnark-crypto/field"
+	mrand "math/rand"
+
+	"testing"
+
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -324,11 +326,16 @@ func init() {
 		a[5]--
 		staticTestValues = append(staticTestValues, a)
 	}
-
 	{
 		a := qElement
 		a[5]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := qElement
+		a[5] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
@@ -475,7 +482,6 @@ func TestElementInverseExp(t *testing.T) {
 	properties = gopter.NewProperties(parameters)
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
 		t.Log("disabling ADX")
@@ -1422,8 +1428,8 @@ func TestElementSquare(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1501,8 +1507,8 @@ func TestElementInverse(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1580,8 +1586,8 @@ func TestElementSqrt(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1676,8 +1682,8 @@ func TestElementDouble(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -1772,8 +1778,8 @@ func TestElementNeg(t *testing.T) {
 	specialValueTest()
 	// if we have ADX instruction enabled, test both path in assembly
 	if supportAdx {
-		supportAdx = false
 		t.Log("disabling ADX")
+		supportAdx = false
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 		specialValueTest()
 		supportAdx = true
@@ -2313,8 +2319,6 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-
-// Some utils
 
 func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
