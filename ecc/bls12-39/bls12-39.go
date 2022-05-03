@@ -102,16 +102,16 @@ func init() {
 	g2Infinity.X.SetOne()
 	g2Infinity.Y.SetOne()
 
-	thirdRootOneG1.SetString("9702999901")
+	thirdRootOneG1.SetUint64(9702999901)
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("9999", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 
-	endo.u.A0.SetString("159768345029")
-	endo.u.A1.SetString("182009477101")
-	endo.v.A0.SetString("293515655025")
-	endo.v.A1.SetString("228828781692")
+	endo.u.A0.SetUint64(159768345029)
+	endo.u.A1.SetUint64(182009477101)
+	endo.v.A0.SetUint64(293515655025)
+	endo.v.A1.SetUint64(228828781692)
 
 	// binary decomposition of 100 little endian
 	loopCounter = [7]int8{0, 0, 1, 0, 0, 1, 1}

@@ -60,8 +60,12 @@ func GenerateFF(F *field.Field, outputDir string) error {
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
-		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s", "_ops_amd64.go",
+		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s",
+		"_mul_amd64.s",
+		"_ops_amd64.s",
+		"_mul_adx_amd64.s",
 		"_ops_amd64.go"}
+
 	for _, of := range oldFiles {
 		_ = os.Remove(filepath.Join(outputDir, eName+of))
 	}

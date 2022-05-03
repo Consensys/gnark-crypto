@@ -11,6 +11,7 @@ type Curve struct {
 	Name         string
 	CurvePackage string
 	Package      string // current package being generated
+	PackageDoc   string
 	EnumID       string
 	FpModulus    string
 	FrModulus    string

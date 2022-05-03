@@ -3,6 +3,7 @@ package config
 var BLS12_39 = Curve{
 	Name:         "bls12-39",
 	CurvePackage: "bls1239",
+	PackageDoc:   "implements a toy BLS curve for test purposes. Warning: not suitable for cryptographic use.",
 	EnumID:       "BLS12_39",
 	FrModulus:    "99990001",
 	FpModulus:    "326667333367",

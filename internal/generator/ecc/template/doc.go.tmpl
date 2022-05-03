@@ -1,2 +1,5 @@
-// Package {{.Package}} efficient elliptic curve and pairing implementation for {{.Name}}.
+// Package {{.Package}} 
+{{- if .PackageDoc}} {{.PackageDoc}}
+{{- else}} efficient elliptic curve and pairing implementation for {{.Name}}.
+{{- end}}
 package {{.Package}}
