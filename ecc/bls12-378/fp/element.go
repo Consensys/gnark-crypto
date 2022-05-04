@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"math/big"
 	"math/bits"
 	"reflect"
@@ -349,7 +350,9 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[3] = binary.BigEndian.Uint64(bytes[24:32])
 	z[4] = binary.BigEndian.Uint64(bytes[32:40])
 	z[5] = binary.BigEndian.Uint64(bytes[40:48])
-	z[5] %= 283357621510263184
+	if math.MaxUint64 != 283357621510263184 {
+		z[5] %= (283357621510263184 + 1)
+	}
 
 	// if z >= q → z -= q
 	// note: this is NOT constant time

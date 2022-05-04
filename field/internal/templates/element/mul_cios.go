@@ -2,6 +2,9 @@ package element
 
 const MulCIOS = `
 {{ define "mul_cios" }}
+	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	
 	var t [{{add .all.NbWords 1}}]uint64
 	var D uint64
 	var m, C uint64
@@ -61,13 +64,15 @@ const MulCIOS = `
 {{ end }}
 
 {{ define "mul_cios_one_limb" }}
-	// CIOS multiplication
+	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+
 	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = {{index $.all.QInverse 0}}
+	const qInvNeg uint64 = {{index $.all.QInverse 0}}
 
 	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
-	m := lo * qInvNegLsw
+	m := lo * qInvNeg
 	hi2, lo2 := bits.Mul64(m, q)
 	_, carry := bits.Add64(lo2, lo, 0)
 	r, carry = bits.Add64(hi2, hi, carry)
@@ -75,7 +80,6 @@ const MulCIOS = `
 	if carry != 0 || r >= q  {
 		// we need to reduce
 		r -= q 
-		
 	}
 	z[0] = r 
 {{ end }}

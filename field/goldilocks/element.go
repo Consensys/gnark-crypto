@@ -27,6 +27,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"math/big"
 	"math/bits"
 	"reflect"
@@ -283,7 +284,9 @@ func (z *Element) SetRandom() (*Element, error) {
 		return nil, err
 	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
-	z[0] %= 18446744069414584321
+	if math.MaxUint64 != 18446744069414584321 {
+		z[0] %= (18446744069414584321 + 1)
+	}
 
 	return z, nil
 }
@@ -319,13 +322,15 @@ func (z *Element) Halve() {
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Mul(x, y *Element) *Element {
 
-	// CIOS multiplication
+	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+
 	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = 18446744069414584319
+	const qInvNeg uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
-	m := lo * qInvNegLsw
+	m := lo * qInvNeg
 	hi2, lo2 := bits.Mul64(m, q)
 	_, carry := bits.Add64(lo2, lo, 0)
 	r, carry = bits.Add64(hi2, hi, carry)
@@ -333,7 +338,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 	if carry != 0 || r >= q {
 		// we need to reduce
 		r -= q
-
 	}
 	z[0] = r
 
@@ -344,13 +348,15 @@ func (z *Element) Mul(x, y *Element) *Element {
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *Element) Square(x *Element) *Element {
 
-	// CIOS multiplication
+	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+
 	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = 18446744069414584319
+	const qInvNeg uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], x[0])
-	m := lo * qInvNegLsw
+	m := lo * qInvNeg
 	hi2, lo2 := bits.Mul64(m, q)
 	_, carry := bits.Add64(lo2, lo, 0)
 	r, carry = bits.Add64(hi2, hi, carry)
@@ -358,7 +364,6 @@ func (z *Element) Square(x *Element) *Element {
 	if carry != 0 || r >= q {
 		// we need to reduce
 		r -= q
-
 	}
 	z[0] = r
 
@@ -408,13 +413,15 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 
 func _mulGeneric(z, x, y *Element) {
 
-	// CIOS multiplication
+	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+
 	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = 18446744069414584319
+	const qInvNeg uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
-	m := lo * qInvNegLsw
+	m := lo * qInvNeg
 	hi2, lo2 := bits.Mul64(m, q)
 	_, carry := bits.Add64(lo2, lo, 0)
 	r, carry = bits.Add64(hi2, hi, carry)
@@ -422,7 +429,6 @@ func _mulGeneric(z, x, y *Element) {
 	if carry != 0 || r >= q {
 		// we need to reduce
 		r -= q
-
 	}
 	z[0] = r
 
@@ -903,7 +909,7 @@ func (z *Element) Inverse(x *Element) *Element {
 	}
 
 	var r, s, u, v uint64
-	u = q                    // u = q
+	u = q
 	s = 18446744065119617025 // s = r^2
 	r = 0
 	v = x[0]

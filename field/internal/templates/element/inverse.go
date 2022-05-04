@@ -34,7 +34,7 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	}
 
 	var r,s,u,v uint64
-	u = q  // u = q 
+	u = q
 	s = {{index .RSquare 0}} // s = r^2
 	r = 0
 	v = x[0]
@@ -396,7 +396,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		{{- end}}
 		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
-    {{ template "reduce"  . }}
+    {{ template "reduce" . }}
 	// </standard SOS>
 
 	if neg {

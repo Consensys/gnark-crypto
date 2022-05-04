@@ -11,6 +11,7 @@ const Base = `
 import (
 	"math/big"
 	"math/bits"
+	"math"
 	"crypto/rand"
 	"encoding/binary"
 	"io"
@@ -309,10 +310,14 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 		{{- $k := add $i 1}}
 		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
 	{{- end}}
-	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
+
+	{{- $qMsb := index $.Q $.NbWordsLastIndex}}
+	if math.MaxUint64 != {{ $qMsb }} {
+		z[{{$.NbWordsLastIndex}}] %= ({{$qMsb}} + 1)
+	}
 
 	{{- if ne .NbWords 1}}
-	{{ template "reduce"  . }}
+	{{ template "reduce" . }}
 	{{- end}}
 
 	return z, nil
