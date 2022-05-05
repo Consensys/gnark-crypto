@@ -1954,6 +1954,134 @@ func TestElementSetInterface(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestElementNegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a, b testPairElement) bool {
+
+			var nb, d, e big.Int
+			nb.Neg(&b.bigint)
+
+			var c Element
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementBatchInvert(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	// ensure batchInvert([x]) == invert(x)
+	for i := int64(-1); i <= 2; i++ {
+		var e, eInv Element
+		e.SetInt64(i)
+		eInv.Inverse(&e)
+
+		a := []Element{e}
+		aInv := BatchInvert(a)
+
+		assert.True(aInv[0].Equal(&eInv), "batchInvert != invert")
+
+	}
+
+	// test x * x⁻¹ == 1
+	tData := [][]int64{
+		{-1, 1, 2, 3},
+		{0, -1, 1, 2, 3, 0},
+		{0, -1, 1, 0, 2, 3, 0},
+		{-1, 1, 0, 2, 3},
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 0, 0},
+	}
+
+	for _, t := range tData {
+		a := make([]Element, len(t))
+		for i := 0; i < len(a); i++ {
+			a[i].SetInt64(t[i])
+		}
+
+		aInv := BatchInvert(a)
+
+		assert.True(len(aInv) == len(a))
+
+		for i := 0; i < len(a); i++ {
+			if a[i].IsZero() {
+				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
+			} else {
+				assert.True(a[i].Mul(&a[i], &aInv[i]).IsOne(), "x * x⁻¹ != 1")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("batchInvert --> x * x⁻¹ == 1", prop.ForAll(
+		func(tp testPairElement, r uint8) bool {
+
+			a := make([]Element, r)
+			if r != 0 {
+				a[0] = tp.element
+
+			}
+			one := One()
+			for i := 1; i < len(a); i++ {
+				a[i].Add(&a[i-1], &one)
+			}
+
+			aInv := BatchInvert(a)
+
+			assert.True(len(aInv) == len(a))
+
+			for i := 0; i < len(a); i++ {
+				if a[i].IsZero() {
+					if !aInv[i].IsZero() {
+						return false
+					}
+				} else {
+					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		genA, ggen.UInt8(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementFromMont(t *testing.T) {
 
 	t.Parallel()
