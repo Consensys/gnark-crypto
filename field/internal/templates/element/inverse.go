@@ -294,15 +294,11 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
-
-// inverseExp is a fallback in case the inversion algorithm failed
+// inverseExp computes z = x⁻¹ mod q = x**(q-2) mod q 
 func (z *{{.ElementName}}) inverseExp(x *{{.ElementName}}) *{{.ElementName}} {
-       if qMinusTwo == nil {
-               qMinusTwo = Modulus()
-               qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-       }
-       return z.Exp(*x, qMinusTwo)
+	qMinusTwo := Modulus()
+	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
+    return z.Exp(*x, qMinusTwo)
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits

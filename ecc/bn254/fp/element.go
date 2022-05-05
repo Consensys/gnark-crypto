@@ -701,18 +701,30 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
-// Exp z = x^exponent mod q
-func (z *Element) Exp(x Element, exponent *big.Int) *Element {
-	var bZero big.Int
-	if exponent.Cmp(&bZero) == 0 {
+// Exp z = xᵏ mod q
+func (z *Element) Exp(x Element, k *big.Int) *Element {
+	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ mod q == (x⁻¹)ᵏ mod q
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
 	}
 
 	z.Set(&x)
 
-	for i := exponent.BitLen() - 2; i >= 0; i-- {
+	for i := e.BitLen() - 2; i >= 0; i-- {
 		z.Square(z)
-		if exponent.Bit(i) == 1 {
+		if e.Bit(i) == 1 {
 			z.Mul(z, &x)
 		}
 	}
@@ -1174,14 +1186,10 @@ func (z *Element) Inverse(x *Element) *Element {
 	return z
 }
 
-var qMinusTwo *big.Int //test routines can set this to an incorrect value to fail whenever inverseExp was triggered
-
-// inverseExp is a fallback in case the inversion algorithm failed
+// inverseExp computes z = x⁻¹ mod q = x**(q-2) mod q
 func (z *Element) inverseExp(x *Element) *Element {
-	if qMinusTwo == nil {
-		qMinusTwo = Modulus()
-		qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-	}
+	qMinusTwo := Modulus()
+	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
 	return z.Exp(*x, qMinusTwo)
 }
 
