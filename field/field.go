@@ -18,6 +18,7 @@ package field
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/bits"
 
@@ -42,6 +43,7 @@ type Field struct {
 	NbWordsIndexesFull        []int
 	P20InversionCorrectiveFac []uint64
 	P20InversionNbIterations  int
+	IsMSWSaturated            bool // indicates if the most significant word is 0xFFFFF...FFFF
 	Q                         []uint64
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
@@ -95,6 +97,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 
 	// set q from big int repr
 	F.Q = toUint64Slice(&bModulus)
+	F.IsMSWSaturated = F.Q[len(F.Q)-1] == math.MaxUint64
 	_qHalved := big.NewInt(0)
 	bOne := new(big.Int).SetUint64(1)
 	_qHalved.Sub(&bModulus, bOne).Rsh(_qHalved, 1).Add(_qHalved, bOne)

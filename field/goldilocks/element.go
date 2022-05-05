@@ -27,7 +27,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
 	"math/big"
 	"math/bits"
 	"reflect"
@@ -284,9 +283,7 @@ func (z *Element) SetRandom() (*Element, error) {
 		return nil, err
 	}
 	z[0] = binary.BigEndian.Uint64(bytes[0:8])
-	if math.MaxUint64 != 18446744069414584321 {
-		z[0] %= (18446744069414584321 + 1)
-	}
+	z[0] %= qElementWord0
 
 	return z, nil
 }
