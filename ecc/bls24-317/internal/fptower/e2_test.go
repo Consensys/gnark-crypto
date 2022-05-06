@@ -189,6 +189,38 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
+}
+
+func TestE2MulMaxed(t *testing.T) {
+	// let's pick a and b, with maxed A0 and A1
+	var a, b E2
+	fpMaxValue := fp.Element{
+		10182971180934965931,
+		15488787195747417982,
+		1628721857945875526,
+		17478405972920225849,
+		1177913551803681068,
+	}
+	fpMaxValue[0]--
+
+	a.A0 = fpMaxValue
+	a.A1 = fpMaxValue
+	b.A0 = fpMaxValue
+	b.A1 = fpMaxValue
+
+	var c, d E2
+	d.Inverse(&b)
+	c.Set(&a)
+	c.Mul(&c, &b).Mul(&c, &d)
+	if !c.Equal(&a) {
+		t.Fatal("mul with max fp failed")
+	}
 }
 
 func TestE2Ops(t *testing.T) {
@@ -282,7 +314,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-377] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
+	properties.Property("[BLS24-317] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.MulByNonResidue(a).MulByNonResidueInv(&b)
@@ -357,6 +389,12 @@ func TestE2Ops(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+	if supportAdx {
+		t.Log("disabling ADX")
+		supportAdx = false
+		properties.TestingRun(t, gopter.ConsoleReporter(false))
+		supportAdx = true
+	}
 }
 
 // ------------------------------------------------------------
@@ -412,6 +450,15 @@ func BenchmarkE2Square(b *testing.B) {
 	}
 }
 
+func BenchmarkE2Sqrt(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Sqrt(&a)
+	}
+}
+
 func BenchmarkE2Exp(b *testing.B) {
 	var x E2
 	x.SetRandom()
@@ -437,6 +484,15 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
+	}
+}
+
+func BenchmarkE2MulNonResInv(b *testing.B) {
+	var a E2
+	a.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidueInv(&a)
 	}
 }
 

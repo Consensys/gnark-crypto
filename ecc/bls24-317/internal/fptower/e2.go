@@ -100,29 +100,25 @@ func (z *E2) IsZero() bool {
 
 // Add adds two elements of E2
 func (z *E2) Add(x, y *E2) *E2 {
-	z.A0.Add(&x.A0, &y.A0)
-	z.A1.Add(&x.A1, &y.A1)
+	addE2(z, x, y)
 	return z
 }
 
 // Sub two elements of E2
 func (z *E2) Sub(x, y *E2) *E2 {
-	z.A0.Sub(&x.A0, &y.A0)
-	z.A1.Sub(&x.A1, &y.A1)
+	subE2(z, x, y)
 	return z
 }
 
 // Double doubles an E2 element
 func (z *E2) Double(x *E2) *E2 {
-	z.A0.Double(&x.A0)
-	z.A1.Double(&x.A1)
+	doubleE2(z, x)
 	return z
 }
 
 // Neg negates an E2 element
 func (z *E2) Neg(x *E2) *E2 {
-	z.A0.Neg(&x.A0)
-	z.A1.Neg(&x.A1)
+	negE2(z, x)
 	return z
 }
 
