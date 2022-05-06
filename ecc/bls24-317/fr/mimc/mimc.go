@@ -148,7 +148,8 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
 			Square(&m).
-			Square(&m).
+			Mul(&m, &tmp).
+			Mul(&m, &tmp).
 			Mul(&m, &tmp)
 	}
 	m.Add(&m, &d.h)
