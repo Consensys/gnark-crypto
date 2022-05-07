@@ -35,16 +35,16 @@ type Digest []byte
 // merkleProof helper structure to build the merkle proof
 // At each round, two contiguous values from the evaluated polynomial
 // are queried. For one value, the full Merkle path will be provided.
-// For the neighbor value, only the leaf is provided (so proofSet will
+// For the neighbor value, only the leaf is provided (so ProofSet will
 // be empty), since the Merkle path is the same as for the first value.
-type partialMerkleProof struct {
+type MerkleProof struct {
 
 	// Merkle root
-	merkleRoot []byte
+	MerkleRoot []byte
 
-	// proofSet stores [leaf ∥ node_1 ∥ .. ∥ merkleRoot ], where the leaf is not
+	// ProofSet stores [leaf ∥ node_1 ∥ .. ∥ merkleRoot ], where the leaf is not
 	// hashed.
-	proofSet [][]byte
+	ProofSet [][]byte
 
 	// number of leaves of the tree.
 	numLeaves uint64
@@ -57,7 +57,7 @@ type OpeningProof struct {
 	// the verification, which is abstracted in the VerifyOpening
 	// method.
 	merkleRoot []byte
-	proofSet   [][]byte
+	ProofSet   [][]byte
 	numLeaves  uint64
 	index      uint64
 
@@ -78,17 +78,17 @@ const (
 
 // round contains the data corresponding to a single round
 // of fri.
-// It consists of a list of interactions between the prover and the verifier,
+// It consists of a list of Interactions between the prover and the verifier,
 // where each interaction contains a challenge provided by the verifier, as
 // well as MerkleProofs for the queries of the verifier. The Merkle proofs
 // correspond to the openings of the i-th folded polynomial at 2 points that
 // belong to the same fiber of x -> x².
-type round struct {
+type Round struct {
 
-	// stores the interactions between the prover and the verifier.
+	// stores the Interactions between the prover and the verifier.
 	// Each interaction results in a set or merkle proofs, corresponding
 	// to the queries of the verifier.
-	interactions [][2]partialMerkleProof
+	Interactions [][2]MerkleProof
 
 	// evaluation stores the evaluation of the fully folded polynomial.
 	// The fully folded polynomial is constant, and is evaluated on a
@@ -102,7 +102,7 @@ type round struct {
 // ProofOfProximity proof of proximity, attesting that
 // a function is d-close to a low degree polynomial.
 //
-// It is composed of a series of interactions, emulated with Fiat Shamir,
+// It is composed of a series of Interactions, emulated with Fiat Shamir,
 //
 type ProofOfProximity struct {
 
@@ -112,8 +112,8 @@ type ProofOfProximity struct {
 	ID []byte
 
 	// round contains the data corresponding to a single round
-	// of fri. There are nbRounds rounds of interactions.
-	rounds []round
+	// of fri. There are nbRounds rounds of Interactions.
+	Rounds []Round
 }
 
 // Iopp interface that an iopp should implement
@@ -161,7 +161,7 @@ type radixTwoFri struct {
 	// the oracles.
 	h hash.Hash
 
-	// nbSteps number of interactions between the prover and the verifier
+	// nbSteps number of Interactions between the prover and the verifier
 	nbSteps int
 
 	// domain used to build the Reed Solomon code from the given polynomial.
@@ -269,10 +269,10 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 		tree.Push(q[i].Marshal())
 	}
 	var res OpeningProof
-	res.merkleRoot, res.proofSet, res.index, res.numLeaves = tree.Prove()
+	res.merkleRoot, res.ProofSet, res.index, res.numLeaves = tree.Prove()
 
 	// set the claimed value, which is the first entry of the Merkle proof
-	res.ClaimedValue.SetBytes(res.proofSet[0])
+	res.ClaimedValue.SetBytes(res.ProofSet[0])
 
 	return res, nil
 }
@@ -286,17 +286,17 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 // those should be equal, if not an error is raised.
 func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, pp ProofOfProximity) error {
 
-	// To query the Merkle path, we look at the first series of interactions, and check whether it's the point
+	// To query the Merkle path, we look at the first series of Interactions, and check whether it's the point
 	// at 'position' or its neighbor that contains the full Merkle path.
 	var fullMerkleProof int
-	if len(pp.rounds[0].interactions[0][0].proofSet) > len(pp.rounds[0].interactions[0][1].proofSet) {
+	if len(pp.Rounds[0].Interactions[0][0].ProofSet) > len(pp.Rounds[0].Interactions[0][1].ProofSet) {
 		fullMerkleProof = 0
 	} else {
 		fullMerkleProof = 1
 	}
 
 	// check that the merkle roots coincide
-	if !bytes.Equal(openingProof.merkleRoot, pp.rounds[0].interactions[0][fullMerkleProof].merkleRoot) {
+	if !bytes.Equal(openingProof.merkleRoot, pp.Rounds[0].Interactions[0][fullMerkleProof].MerkleRoot) {
 		return ErrMerkleRoot
 	}
 
@@ -305,7 +305,7 @@ func (s radixTwoFri) VerifyOpening(position uint64, openingProof OpeningProof, p
 	pos := convertCanonicalSorted(int(position), int(sizePoly))
 
 	// check the Merkle proof
-	res := merkletree.VerifyProof(s.h, openingProof.merkleRoot, openingProof.proofSet, uint64(pos), openingProof.numLeaves)
+	res := merkletree.VerifyProof(s.h, openingProof.merkleRoot, openingProof.ProofSet, uint64(pos), openingProof.numLeaves)
 	if !res {
 		return ErrMerklePath
 	}
@@ -364,11 +364,11 @@ func paddNaming(s string, size int) string {
 // the verifier point of view, is in fact δ-close to a polynomial.
 // * salt is a variable for multi rounds, it allows to generate different challenges using Fiat Shamir
 // * p is in evaluation form
-func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.Element) (round, error) {
+func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.Element) (Round, error) {
 
-	// the proof will contain nbSteps interactions
-	var res round
-	res.interactions = make([][2]partialMerkleProof, s.nbSteps)
+	// the proof will contain nbSteps Interactions
+	var res Round
+	res.Interactions = make([][2]MerkleProof, s.nbSteps)
 
 	// Fiat Shamir transcript to derive the challenges. The xᵢ are used to fold the
 	// polynomials.
@@ -387,7 +387,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// are different at each round.
 	err := fs.Bind(xis[0], salt.Marshal())
 	if err != nil {
-		return round{}, err
+		return Round{}, err
 	}
 
 	// step 1 : fold the polynomial using the xi
@@ -469,26 +469,26 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 		for k := 0; k < len(evalsAtRound[i]); k++ {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
-		mr, proofSet, _, numLeaves := t.Prove()
+		mr, ProofSet, _, numLeaves := t.Prove()
 
 		// c denotes the entry that contains the full Merkle proof. The entry 1-c will
 		// only contain 2 elements, which are the neighbor point, and the hash of the
 		// first point. The remaining of the Merkle path is common to both the original
 		// point and its neighbor.
 		c := si[i] % 2
-		res.interactions[i][c] = partialMerkleProof{mr, proofSet, numLeaves}
-		res.interactions[i][1-c] = partialMerkleProof{
+		res.Interactions[i][c] = MerkleProof{mr, ProofSet, numLeaves}
+		res.Interactions[i][1-c] = MerkleProof{
 			mr,
 			make([][]byte, 2),
 			numLeaves,
 		}
-		res.interactions[i][1-c].proofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
+		res.Interactions[i][1-c].ProofSet[0] = evalsAtRound[i][si[i]+1-2*c].Marshal()
 		s.h.Reset()
-		_, err = s.h.Write(res.interactions[i][c].proofSet[0])
+		_, err = s.h.Write(res.Interactions[i][c].ProofSet[0])
 		if err != nil {
 			return res, err
 		}
-		res.interactions[i][1-c].proofSet[1] = s.h.Sum(nil)
+		res.Interactions[i][1-c].ProofSet[1] = s.h.Sum(nil)
 
 	}
 
@@ -500,9 +500,9 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 // the verifier point of view, is in fact δ-close to a polynomial.
 func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, error) {
 
-	// the proof will contain nbSteps interactions
+	// the proof will contain nbSteps Interactions
 	var proof ProofOfProximity
-	proof.rounds = make([]round, nbRounds)
+	proof.Rounds = make([]Round, nbRounds)
 
 	// evaluate p
 	// evaluate p and sort the result
@@ -515,7 +515,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	var salt, one fr.Element
 	one.SetOne()
 	for i := 0; i < nbRounds; i++ {
-		proof.rounds[i], err = s.buildProofOfProximitySingleRound(salt, _p)
+		proof.Rounds[i], err = s.buildProofOfProximitySingleRound(salt, _p)
 		if err != nil {
 			return proof, err
 		}
@@ -527,7 +527,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 
 // verifyProofOfProximitySingleRound verifies the proof of proximity. It returns an error if the
 // verification fails.
-func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof round) error {
+func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Round) error {
 
 	// Fiat Shamir transcript to derive the challenges
 	xis := make([]string, s.nbSteps+1)
@@ -547,7 +547,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	}
 
 	for i := 0; i < s.nbSteps; i++ {
-		err := fs.Bind(xis[i], proof.interactions[i][0].merkleRoot)
+		err := fs.Bind(xis[i], proof.Interactions[i][0].MerkleRoot)
 		if err != nil {
 			return err
 		}
@@ -592,10 +592,10 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 		c := si[i] % 2
 		res := merkletree.VerifyProof(
 			s.h,
-			proof.interactions[i][c].merkleRoot,
-			proof.interactions[i][c].proofSet,
+			proof.Interactions[i][c].MerkleRoot,
+			proof.Interactions[i][c].ProofSet,
 			uint64(si[i]),
-			proof.interactions[i][c].numLeaves,
+			proof.Interactions[i][c].numLeaves,
 		)
 		if !res {
 			return ErrMerklePath
@@ -606,16 +606,16 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 		// the first node. We replace the leaf and the first node by the leaf and the first
 		// node of the partial Merkle proof, since the leaf and the first node of both proofs
 		// are the only entries that differ.
-		proofSet := make([][]byte, len(proof.interactions[i][c].proofSet))
-		copy(proofSet[2:], proof.interactions[i][c].proofSet[2:])
-		proofSet[0] = proof.interactions[i][1-c].proofSet[0]
-		proofSet[1] = proof.interactions[i][1-c].proofSet[1]
+		ProofSet := make([][]byte, len(proof.Interactions[i][c].ProofSet))
+		copy(ProofSet[2:], proof.Interactions[i][c].ProofSet[2:])
+		ProofSet[0] = proof.Interactions[i][1-c].ProofSet[0]
+		ProofSet[1] = proof.Interactions[i][1-c].ProofSet[1]
 		res = merkletree.VerifyProof(
 			s.h,
-			proof.interactions[i][1-c].merkleRoot,
-			proofSet,
+			proof.Interactions[i][1-c].MerkleRoot,
+			ProofSet,
 			uint64(si[i]+1-2*c),
-			proof.interactions[i][1-c].numLeaves,
+			proof.Interactions[i][1-c].numLeaves,
 		)
 		if !res {
 			return ErrMerklePath
@@ -627,8 +627,8 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			var fe, fo, l, r, fn fr.Element
 
 			// l = P(gⁱ), r = P(g^{i+n/2})
-			l.SetBytes(proof.interactions[i][0].proofSet[0])
-			r.SetBytes(proof.interactions[i][1].proofSet[0])
+			l.SetBytes(proof.Interactions[i][0].ProofSet[0])
+			r.SetBytes(proof.Interactions[i][1].ProofSet[0])
 
 			// (g^{si[i]}, g^{si[i]+1}) is the fiber of g^{2*si[i]}. The system to solve
 			// (for P₀(g^{2si[i]}), P₀(g^{2si[i]}) ) is:
@@ -641,7 +641,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 			fo.Sub(&l, &r).Mul(&fo, &ginv)                      // P₀(g²ⁱ) (to be multiplied by 2⁻¹)
 			fo.Mul(&fo, &xi[i]).Add(&fo, &fe).Mul(&fo, &twoInv) // P₀(g²ⁱ) + xᵢ * P₁(g²ⁱ)
 
-			fn.SetBytes(proof.interactions[i+1][si[i+1]%2].proofSet[0])
+			fn.SetBytes(proof.Interactions[i+1][si[i+1]%2].ProofSet[0])
 
 			if !fo.Equal(&fn) {
 				return ErrProximityTestFolding
@@ -658,8 +658,8 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof ro
 	// last transition
 	var fe, fo, l, r fr.Element
 
-	l.SetBytes(proof.interactions[s.nbSteps-1][0].proofSet[0])
-	r.SetBytes(proof.interactions[s.nbSteps-1][1].proofSet[0])
+	l.SetBytes(proof.Interactions[s.nbSteps-1][0].ProofSet[0])
+	r.SetBytes(proof.Interactions[s.nbSteps-1][1].ProofSet[0])
 
 	_si := si[s.nbSteps-1] / 2
 
@@ -685,7 +685,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 	var salt, one fr.Element
 	one.SetOne()
 	for i := 0; i < nbRounds; i++ {
-		err := s.verifyProofOfProximitySingleRound(salt, proof.rounds[i])
+		err := s.verifyProofOfProximitySingleRound(salt, proof.Rounds[i])
 		if err != nil {
 			return err
 		}
