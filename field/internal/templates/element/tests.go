@@ -1280,6 +1280,139 @@ properties.Property("z.SetInterface must match z.SetString with {{.tName}}", pro
 
 {{end}}
 
+func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a,b testPair{{.ElementName}}) bool {
+
+			var nb, d, e big.Int 
+			nb.Neg(&b.bigint)
+
+			var c {{.ElementName}}
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+
+func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	// ensure batchInvert([x]) == invert(x)
+	for i:=int64(-1); i <=2; i++ {
+		var e, eInv {{.ElementName}}
+		e.SetInt64(i)
+		eInv.Inverse(&e)
+
+		a := []{{.ElementName}}{e}
+		aInv := BatchInvert(a)
+
+		assert.True(aInv[0].Equal(&eInv), "batchInvert != invert")
+
+	}
+
+	// test x * x⁻¹ == 1
+	tData := [][]int64 {
+		[]int64{-1,1,2,3},
+		[]int64{0, -1,1,2,3, 0},
+		[]int64{0, -1,1,0, 2,3, 0},
+		[]int64{-1,1,0, 2,3},
+		[]int64{0,0,1},
+		[]int64{1,0,0},
+		[]int64{0,0,0},
+	}
+
+	for _, t := range tData {
+		a := make([]{{.ElementName}}, len(t))
+		for i:=0; i <len(a);i++ {
+			a[i].SetInt64(t[i])
+		}
+
+		aInv := BatchInvert(a)
+
+		assert.True(len(aInv) == len(a))
+
+		for i:=0; i <len(a);i++ {
+			if a[i].IsZero() {
+				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
+			} else {
+				assert.True(a[i].Mul(&a[i], &aInv[i]).IsOne(), "x * x⁻¹ != 1")
+			}
+		}
+	}
+
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("batchInvert --> x * x⁻¹ == 1", prop.ForAll(
+		func(tp testPair{{.ElementName}}, r uint8) bool {
+
+			a := make([]{{.ElementName}}, r)
+			if r != 0 {
+				a[0] = tp.element
+
+			}
+			one := One()
+			for i:=1; i <len(a);i++ {
+				a[i].Add(&a[i-1], &one)
+			}
+	
+			aInv := BatchInvert(a)
+	
+			assert.True(len(aInv) == len(a))
+	
+			for i:=0; i <len(a);i++ {
+				if a[i].IsZero() {
+					if !aInv[i].IsZero() {
+						return false 
+					}
+				} else {
+					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		genA,ggen.UInt8(),
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
 	t.Parallel()
