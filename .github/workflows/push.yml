@@ -28,6 +28,8 @@ jobs:
             ${{ runner.os }}-go-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
+        with:
+          args: --timeout=5m
       - name: install deps
         run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
       - name: gofmt

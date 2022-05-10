@@ -25,6 +25,8 @@ jobs:
           ${{ runner.os }}-go-
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
+      with:
+          args: --timeout=5m
     - name: install deps
       env: 
           GOPROXY: "https://proxy.golang.org"
