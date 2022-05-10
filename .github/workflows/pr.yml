@@ -23,15 +23,21 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
     - name: install deps
+      env: 
+          GOPROXY: "https://proxy.golang.org"
       run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: gofmt
       run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
     - name: go vet
+      env: 
+          GOPROXY: "https://proxy.golang.org"
       run: go vet ./...
     - name: staticcheck
       run: |
-        go install honnef.co/go/tools/cmd/staticcheck@23e1086441d24fed9f668ad1cd4374245118b590
+        go install honnef.co/go/tools/cmd/staticcheck@latest
         staticcheck ./...
     - name: gosec
       run: |
@@ -70,21 +76,24 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     - name: install deps
+      env: 
+          GOPROXY: "https://proxy.golang.org"
       run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: Test
-      run: |
-        go test -v -timeout=30m ./...
+      env: 
+          GOPROXY: "https://proxy.golang.org"
+      run: go test -v -timeout=30m ./...
         
   
-  slack-workflow-status:
-    if: always()
+  slack-workflow-status-failed:
+    if: failure()
     name: post workflow status to slack
     needs:
       - staticcheck
       - test
     runs-on: ubuntu-latest
     steps:
-      - name: Send custom JSON data to Slack workflow
+      - name: Notify slack -- workflow failed
         id: slack
         uses: slackapi/slack-github-action@v1.19.0
         with:
@@ -92,9 +101,30 @@ jobs:
             {
               "ref": "${{ github.ref }}",
               "repo": "${{ github.repository }}",
-              "status": "${{ job.status }}",
+              "status": "FAILED",
               "url": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-  
+
+  slack-workflow-status-success:
+    if: success()
+    name: post workflow status to slack
+    needs:
+      - staticcheck
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify slack -- workflow succeeded
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          payload: |
+            {
+              "ref": "${{ github.ref_name }}",
+              "repo": "${{ github.repository }}",
+              "status": "SUCCESS",
+              "url": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
