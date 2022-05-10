@@ -25,7 +25,7 @@ import (
 // {{.ElementName}} are assumed to be in Montgomery form in all methods
 // field modulus q =
 //
-// {{.Modulus}}
+// {{.ModulusDec}}
 type {{.ElementName}} [{{.NbWords}}]uint64
 
 // Limbs number of 64 bits words needed to represent {{.ElementName}}
@@ -43,7 +43,7 @@ var _modulus big.Int
 // Modulus returns q as a big.Int
 // q =
 //
-// {{.Modulus}}
+// {{.ModulusDec}}
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
@@ -75,7 +75,7 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	// base10: {{.Modulus}}
+	// base10: {{.ModulusDec}}
 	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 

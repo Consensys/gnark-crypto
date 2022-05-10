@@ -18,11 +18,10 @@ package field
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark-crypto/field/internal/addchain"
 	"math"
 	"math/big"
 	"math/bits"
-
-	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
 
 var (
@@ -34,7 +33,7 @@ type Field struct {
 	PackageName               string
 	ElementName               string
 	ModulusBig                *big.Int
-	Modulus                   string
+	ModulusDec                string
 	ModulusHex                string
 	NbWords                   int
 	NbBits                    int
@@ -76,7 +75,14 @@ type Field struct {
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
-	if _, ok := bModulus.SetString(modulus, 0); !ok {
+	var base int
+
+	if modulus[0] == '0' && (modulus[1] == 'x' || modulus[1] == 'X') {
+		base = 16
+		modulus = modulus[2:]
+	}
+
+	if _, ok := bModulus.SetString(modulus, base); !ok {
 		return nil, errParseModulus
 	}
 
@@ -84,7 +90,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	F := &Field{
 		PackageName: packageName,
 		ElementName: elementName,
-		Modulus:     bModulus.Text(10),
+		ModulusDec:  bModulus.Text(10),
 		ModulusHex:  bModulus.Text(16),
 		ModulusBig:  new(big.Int).Set(&bModulus),
 		UseAddChain: useAddChain,

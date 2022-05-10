@@ -26,6 +26,6 @@ const Doc = `
 //
 // Modulus
 // 	0x{{.ModulusHex}} // base 16
-// 	{{.Modulus}} // base 10
+// 	{{.ModulusDec}} // base 10
 package {{.PackageName}}
 `
