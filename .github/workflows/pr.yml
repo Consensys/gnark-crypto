@@ -99,9 +99,9 @@ jobs:
         with:
           payload: |
             {
-              "ref": "${{ github.ref }}",
+              "actor": "${{ github.actor }}",
               "repo": "${{ github.repository }}",
-              "status": "FAILED",
+              "status": "FAIL",
               "url": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
