@@ -96,7 +96,7 @@ type Round struct {
 	// only one evaluation, corresponding to the polynomial, is given. Since
 	// the prover cannot know in advance which entry the verifier will query,
 	// providing a single evaluation
-	evaluation fr.Element
+	Evaluation fr.Element
 }
 
 // ProofOfProximity proof of proximity, attesting that
@@ -439,12 +439,12 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// last round, provide the evaluation. The fully folded polynomial is of size rho. It should
 	// correspond to the evaluation of a polynomial of degree 1 on ρ points, so those points
 	// are supposed to be on a line.
-	res.evaluation.Set(&_p[0])
+	res.Evaluation.Set(&_p[0])
 
 	// step 2: provide the Merkle proofs of the queries
 
 	// derive the verifier queries
-	err = fs.Bind(xis[s.nbSteps], res.evaluation.Marshal())
+	err = fs.Bind(xis[s.nbSteps], res.Evaluation.Marshal())
 	if err != nil {
 		return res, err
 	}
@@ -565,7 +565,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 	// 		return err
 	// 	}
 	// }
-	err = fs.Bind(xis[s.nbSteps], proof.evaluation.Marshal())
+	err = fs.Bind(xis[s.nbSteps], proof.Evaluation.Marshal())
 	if err != nil {
 		return err
 	}
@@ -671,7 +671,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 
 	// Last step: the final evaluation should be the evaluation of a degree 0 polynomial,
 	// so it must be constant.
-	if !fo.Equal(&proof.evaluation) {
+	if !fo.Equal(&proof.Evaluation) {
 		return ErrProximityTestFolding
 	}
 
