@@ -84,9 +84,16 @@ jobs:
       - test
     runs-on: ubuntu-latest
     steps:
-      - name: Build notification
-        uses: Gamesight/slack-workflow-status@master
+      - name: Send custom JSON data to Slack workflow
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
         with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-gnark-build'
+          payload: |
+            {
+              "key": "value",
+              "foo": "bar",
+              "message": "newCI",
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  

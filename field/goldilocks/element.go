@@ -276,6 +276,8 @@ func (z *Element) LexicographicallyLargest() bool {
 	return b == 0
 }
 
+// WIP triggers CI fail.
+
 // SetRandom sets z to a random element < q
 func (z *Element) SetRandom() (*Element, error) {
 	var bytes [8]byte
