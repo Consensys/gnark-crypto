@@ -46,7 +46,6 @@ func MulBy13(x *Element) {
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
 }
-
 func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }

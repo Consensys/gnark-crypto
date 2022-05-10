@@ -18,9 +18,9 @@ package field
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/bits"
-	"unicode"
 
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
@@ -43,6 +43,7 @@ type Field struct {
 	NbWordsIndexesFull        []int
 	P20InversionCorrectiveFac []uint64
 	P20InversionNbIterations  int
+	IsMSWSaturated            bool // indicates if the most significant word is 0xFFFFF...FFFF
 	Q                         []uint64
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
@@ -75,12 +76,7 @@ type Field struct {
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
-	base := 10
-	if modulus[0] == '0' && (unicode.ToUpper(rune(modulus[1])) == 'X') {
-		base = 16
-		modulus = modulus[2:]
-	}
-	if _, ok := bModulus.SetString(modulus, base); !ok {
+	if _, ok := bModulus.SetString(modulus, 0); !ok {
 		return nil, errParseModulus
 	}
 
@@ -88,7 +84,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	F := &Field{
 		PackageName: packageName,
 		ElementName: elementName,
-		Modulus:     modulus,
+		Modulus:     bModulus.Text(10),
 		ModulusHex:  bModulus.Text(16),
 		ModulusBig:  new(big.Int).Set(&bModulus),
 		UseAddChain: useAddChain,
@@ -101,6 +97,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 
 	// set q from big int repr
 	F.Q = toUint64Slice(&bModulus)
+	F.IsMSWSaturated = F.Q[len(F.Q)-1] == math.MaxUint64
 	_qHalved := big.NewInt(0)
 	bOne := new(big.Int).SetUint64(1)
 	_qHalved.Sub(&bModulus, bOne).Rsh(_qHalved, 1).Add(_qHalved, bOne)
@@ -245,7 +242,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.ASM = F.NoCarry && F.NbWords <= 12
+	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
 
 	return F, nil
 }

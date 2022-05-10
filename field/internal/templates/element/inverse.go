@@ -22,15 +22,84 @@ if b != 0 {
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if not $UsingP20Inverse}}
 
+{{- if eq .NbWords 1}}
+// Inverse z = x⁻¹ mod q 
+// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// if x == 0, sets and returns z = x 
+func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
+	const q uint64 = q{{.ElementName}}Word0
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	var r,s,u,v uint64
+	u = q
+	s = {{index .RSquare 0}} // s = r^2
+	r = 0
+	v = x[0]
+
+	var carry, borrow uint64
+
+	for  (u != 1) && (v != 1){
+		for v&1 == 0 {
+			v >>= 1
+			if s&1 == 0 {
+				s >>= 1
+			} else {
+				s, carry = bits.Add64(s, q, 0)
+				s >>= 1
+				if carry != 0 {
+					s |= (1 << 63)
+				}
+			}
+		} 
+		for u&1 == 0 {
+			u >>= 1
+			if r&1 == 0 {
+				r >>= 1
+			} else {
+				r, carry = bits.Add64(r, q, 0)
+				r >>= 1
+				if carry != 0 {
+					r |= (1 << 63)
+				}
+			}
+		} 
+		if v >= u  {
+			v -= u
+			s, borrow = bits.Sub64(s, r, 0)
+			if borrow == 1 {
+				s += q
+			}
+		} else {
+			u -= v
+			r, borrow = bits.Sub64(r, s, 0)
+			if borrow == 1 {
+				r += q
+			}
+		}
+	}
+
+	if u == 1 {
+		z[0] = r
+	} else {
+		z[0] = s
+	}
+	
+	return z
+}
+{{- else}}
 // Inverse z = x⁻¹ mod q 
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	var _xNonMont big.Int
-	x.ToBigIntRegular( &_xNonMont)
+	x.ToBigIntRegular(&_xNonMont)
 	_xNonMont.ModInverse(&_xNonMont, Modulus())
 	z.SetBigInt(&_xNonMont)
 	return z
 }
+{{- end}}
 
 {{ else }}
 
@@ -270,7 +339,9 @@ func (z *{{.ElementName}}) linearComb(x *{{.ElementName}}, xC int64, y *{{.Eleme
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
-
+	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+	const qInvNegLsw uint64 = {{index .QInverse 0}}
+	
 	const signBitRemover = ^signBitSelector
 	neg := xHi & signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
@@ -353,7 +424,7 @@ func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xH
 			   {{- end }}
                z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)
 
-               {{ template "reduce" . }}
+               {{ template "reduce"  . }}
 
        } else {
             	// The real input value is xHi r + x - 2⁶⁴r
@@ -377,5 +448,13 @@ func (z *{{.ElementName}}) mulWSigned(x *{{.ElementName}}, y int64) {
 		z.Neg(z)
 	}
 }
+
+func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
+	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
+	{{ template "reduce"  . }}
+}
+
+
 {{ end }}
+
 `
