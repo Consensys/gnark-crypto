@@ -29,8 +29,8 @@ import (
 // tests
 
 const (
-	nbFuzzShort = 20
-	nbFuzz      = 100
+	nbFuzzShort = 10
+	nbFuzz      = 50
 )
 
 func TestE2ReceiverIsOperand(t *testing.T) {

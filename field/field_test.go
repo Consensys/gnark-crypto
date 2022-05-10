@@ -3,10 +3,11 @@ package field
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/leanovate/gopter/gen"
 	"math/big"
 	mrand "math/rand"
 	"testing"
+
+	"github.com/leanovate/gopter/gen"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -154,8 +155,8 @@ func TestExponentiationBls12381G2(t *testing.T) {
 	}
 }
 
-const minNbWords = 5
-const maxNbWords = 37
+const minNbWords = 1
+const maxNbWords = 15
 
 func genSmallUint8SliceSlice(outerSize int, max uint8) gopter.Gen {
 	return gen.SliceOfN(
@@ -202,7 +203,7 @@ func genField(t *testing.T) gopter.Gen {
 			}
 
 			var field *Field
-			field, err = NewField("dummy", "DummyElement", modulus.Text(10), false)
+			field, err = NewField("dummy", "DummyElement", "0x"+modulus.Text(16), false)
 
 			if err == nil {
 				if field.NbBits != bitLen || field.NbWords != nbWords {

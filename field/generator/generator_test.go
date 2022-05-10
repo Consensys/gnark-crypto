@@ -39,14 +39,8 @@ func TestIntegration(t *testing.T) {
 	}
 
 	var bits []int
-	if testing.Short() {
-		for i := 64; i <= 448; i += 64 {
-			bits = append(bits, i-3, i-2, i-1, i, i+1)
-		}
-	} else {
-		for i := 60; i < 704; i++ {
-			bits = append(bits, i)
-		}
+	for i := 64; i <= 448; i += 64 {
+		bits = append(bits, i-3, i-2, i-1, i, i+1)
 	}
 
 	moduli := make(map[string]string)
