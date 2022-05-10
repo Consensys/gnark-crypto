@@ -62,10 +62,11 @@ func BenchmarkSplitting256(b *testing.B) {
 
 //TODO: The "prime" fields (not "prime fields") are for debugging and arguably do not belong in an automated test
 type expandMsgXmdTestCase struct {
-	msg             string
-	lenInBytes      int
-	dstPrimeHex     string
-	msgPrimeHex     string
+	msg        string
+	lenInBytes int
+	// TODO @Tabaie these are not used.
+	_               string //dstPrimeHex     string
+	_               string //msgPrimeHex     string
 	uniformBytesHex string
 }
 
