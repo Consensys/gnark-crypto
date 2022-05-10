@@ -127,4 +127,4 @@ jobs:
               "url": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_SUCCESS }}
