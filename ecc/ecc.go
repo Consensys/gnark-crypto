@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bw6-633, bls12-378 and bw6-756 elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bls24-317, bw6-633, bls12-378 and bw6-756 elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -43,6 +43,7 @@ const (
 	BLS12_378
 	BLS12_381
 	BLS24_315
+	BLS24_317
 	BW6_761
 	BW6_633
 	BW6_756
@@ -50,7 +51,7 @@ const (
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317}
 }
 
 func (id ID) String() string {
@@ -69,6 +70,8 @@ func (id ID) String() string {
 		return config.BW6_633.EnumID
 	case BLS24_315:
 		return "bls24_315"
+	case BLS24_317:
+		return "bls24_317"
 	case BW6_756:
 		return "bw6_756"
 	default:
@@ -95,6 +98,8 @@ func (id ID) Info() Info {
 		return newInfo(&config.BW6_633)
 	case BLS24_315:
 		return newInfo(&config.BLS24_315)
+	case BLS24_317:
+		return newInfo(&config.BLS24_317)
 	case BW6_756:
 		return newInfo(&config.BW6_756)
 	default:

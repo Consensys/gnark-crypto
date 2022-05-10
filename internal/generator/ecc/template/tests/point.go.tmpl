@@ -76,7 +76,7 @@ import (
                     var p, res1, res2 {{ $TJacobian }}
                     g := MapToCurve{{ toUpper .PointName}}Svdw(a)
                     p.FromAffine(&g)
-                    {{- if eq .Name "bls24-315"}}
+                    {{- if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
                         res1.psi(&p).psi(&res1).psi(&res1).psi(&res1).Neg(&res1)
                     {{- else}}
                         res1.psi(&p).psi(&res1).Neg(&res1)
