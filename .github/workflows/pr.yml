@@ -90,7 +90,10 @@ jobs:
         with:
           payload: |
             {
-              "message": "GitHub Action build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+              "ref": "${{ github.ref }}",
+              "repo": "${{ github.repository }}",
+              "status": "${{ job.status }}",
+              "url": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
