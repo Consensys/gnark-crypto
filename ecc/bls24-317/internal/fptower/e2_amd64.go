@@ -16,7 +16,6 @@
 
 package fptower
 
-
 //go:noescape
 func addE2(res, x, y *E2)
 
