@@ -129,7 +129,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 			op1.Set(&g1Gen)
 			op3.Set(&g1Gen)
 
-			op2 = fuzzJacobianG1Affine(&g1Gen, a)
+			op2 = fuzzG1Jac(&g1Gen, a)
 			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
@@ -139,7 +139,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 	properties.Property("[BW6-761] IsInSubGroup and MulBy subgroup order should be the same", prop.ForAll(
 		func(a fp.Element) bool {
 			var op1, op2 G1Jac
-			op1 = fuzzJacobianG1Affine(&g1Gen, a)
+			op1 = fuzzG1Jac(&g1Gen, a)
 			_r := fr.Modulus()
 			op2.ScalarMultiplication(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
@@ -163,7 +163,7 @@ func TestG1AffineConversions(t *testing.T) {
 
 	properties.Property("[BW6-761] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fp.Element) bool {
-			g := fuzzJacobianG1Affine(&g1Gen, a)
+			g := fuzzG1Jac(&g1Gen, a)
 			var op1 G1Affine
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g1Gen.X) && op1.Y.Equal(&g1Gen.Y)
@@ -178,7 +178,7 @@ func TestG1AffineConversions(t *testing.T) {
 			g.Y.Set(&g1Gen.Y)
 			g.ZZ.Set(&g1Gen.Z)
 			g.ZZZ.Set(&g1Gen.Z)
-			gfuzz := fuzzExtendedJacobianG1Affine(&g, a)
+			gfuzz := fuzzg1JacExtended(&g, a)
 
 			var op1 G1Affine
 			op1.fromJacExtended(&gfuzz)
@@ -244,8 +244,8 @@ func TestG1AffineConversions(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		func(a, b fp.Element) bool {
-			op1 := fuzzJacobianG1Affine(&g1Gen, a)
-			op2 := fuzzJacobianG1Affine(&g1Gen, b)
+			op1 := fuzzG1Jac(&g1Gen, a)
+			op2 := fuzzG1Jac(&g1Gen, b)
 			return op1.Equal(&op2)
 		},
 		GenFp(),
@@ -266,8 +266,8 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
-			fop2 := fuzzJacobianG1Affine(&g1Gen, b)
+			fop1 := fuzzG1Jac(&g1Gen, a)
+			fop2 := fuzzG1Jac(&g1Gen, b)
 			var op1, op2 G1Jac
 			op1.Set(&fop1).AddAssign(&fop2)
 			op2.Double(&fop2)
@@ -279,8 +279,8 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		func(a, b fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
-			fop2 := fuzzJacobianG1Affine(&g1Gen, b)
+			fop1 := fuzzG1Jac(&g1Gen, a)
+			fop2 := fuzzG1Jac(&g1Gen, b)
 			fop2.Neg(&fop2)
 			fop1.AddAssign(&fop2)
 			return fop1.Equal(&g1Infinity)
@@ -291,7 +291,7 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop1.AddAssign(&g1Infinity)
 			var op2 G1Jac
 			op2.Set(&g1Infinity)
@@ -303,7 +303,7 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop1 := fuzzG1Jac(&g1Gen, a)
 			var p1, p1Neg G1Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
@@ -322,7 +322,7 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop1 := fuzzG1Jac(&g1Gen, a)
 			var p1, p1Neg G1Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
@@ -341,7 +341,7 @@ func TestG1AffineOps(t *testing.T) {
 
 	properties.Property("[BW6-761] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fp.Element) bool {
-			fop1 := fuzzJacobianG1Affine(&g1Gen, a)
+			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop1.Neg(&fop1)
 			var op2 G1Affine
 			op2.FromJacobian(&g1Gen)
@@ -680,7 +680,7 @@ func BenchmarkG1JacExtDouble(b *testing.B) {
 	}
 }
 
-func fuzzJacobianG1Affine(p *G1Jac, f fp.Element) G1Jac {
+func fuzzG1Jac(p *G1Jac, f fp.Element) G1Jac {
 	var res G1Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
 	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
@@ -688,7 +688,7 @@ func fuzzJacobianG1Affine(p *G1Jac, f fp.Element) G1Jac {
 	return res
 }
 
-func fuzzExtendedJacobianG1Affine(p *g1JacExtended, f fp.Element) g1JacExtended {
+func fuzzg1JacExtended(p *g1JacExtended, f fp.Element) g1JacExtended {
 	var res g1JacExtended
 	var ff, fff fp.Element
 	ff.Square(&f)
