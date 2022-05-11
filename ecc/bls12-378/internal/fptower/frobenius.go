@@ -66,34 +66,6 @@ func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x), return z
-func (z *E12) FrobeniusCube(x *E12) *E12 {
-	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf (beware typos!)
-	var t [6]E2
-
-	// Frobenius^3 acts on fp2 by conjugation
-	t[0].Conjugate(&x.C0.B0)
-	t[1].Conjugate(&x.C0.B1)
-	t[2].Conjugate(&x.C0.B2)
-	t[3].Conjugate(&x.C1.B0)
-	t[4].Conjugate(&x.C1.B1)
-	t[5].Conjugate(&x.C1.B2)
-
-	t[1].MulByNonResidue3Power2(&t[1])
-	t[3].MulByNonResidue3Power1(&t[3])
-	t[4].MulByNonResidue3Power3(&t[4])
-	t[5].MulByNonResidue3Power5(&t[5])
-
-	z.C0.B0 = t[0]
-	z.C0.B1 = t[1]
-	z.C0.B2 = t[2]
-	z.C1.B0 = t[3]
-	z.C1.B1 = t[4]
-	z.C1.B2 = t[5]
-
-	return z
-}
-
 // MulByNonResidue1Power1 set z=x*(0,1)^(1*(p^1-1)/6) and return z
 func (z *E2) MulByNonResidue1Power1(x *E2) *E2 {
 	b := fp.Element{
@@ -238,66 +210,6 @@ func (z *E2) MulByNonResidue2Power5(x *E2) *E2 {
 		7585049584469200436,
 		3513521910780685392,
 		255622228627568539,
-	}
-	z.A0.Mul(&x.A0, &b)
-	z.A1.Mul(&x.A1, &b)
-	return z
-}
-
-// MulByNonResidue3Power1 set z=x*(0,1)^(1*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
-	b := fp.Element{
-		6315024805150803022,
-		16048962212196301574,
-		10554832649293981783,
-		14109148363171599309,
-		4153042273623539198,
-		250647462785784749,
-	}
-	z.A0.Mul(&x.A0, &b)
-	z.A1.Mul(&x.A1, &b)
-	return z
-}
-
-// MulByNonResidue3Power2 set z=x*(0,1)^(2*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power2(x *E2) *E2 {
-	b := fp.Element{
-		9563890787977003074,
-		4840746681246416935,
-		3714448202430192371,
-		680864871707381747,
-		11127835353457883110,
-		254858945967818549,
-	}
-	z.A0.Mul(&x.A0, &b)
-	z.A1.Mul(&x.A1, &b)
-	return z
-}
-
-// MulByNonResidue3Power3 set z=x*(0,1)^(3*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power3(x *E2) *E2 {
-	b := fp.Element{
-		4730231401859038131,
-		17284420991632229626,
-		401795639753028903,
-		13850780004141469529,
-		1884979861245528483,
-		32710158724478435,
-	}
-	z.A0.Mul(&x.A0, &b)
-	z.A1.Mul(&x.A1, &b)
-	return z
-}
-
-// MulByNonResidue3Power5 set z=x*(0,1)^(5*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power5(x *E2) *E2 {
-	b := fp.Element{
-		6315024805150803022,
-		16048962212196301574,
-		10554832649293981783,
-		14109148363171599309,
-		4153042273623539198,
-		250647462785784749,
 	}
 	z.A0.Mul(&x.A0, &b)
 	z.A1.Mul(&x.A1, &b)

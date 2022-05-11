@@ -370,7 +370,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-317] Cmp and LexicographicallyLargest should be consistant", prop.ForAll(
+	properties.Property("[BLS24-317] Cmp and LexicographicallyLargest should be consistent", prop.ForAll(
 		func(a *E2) bool {
 			var negA E2
 			negA.Neg(a)

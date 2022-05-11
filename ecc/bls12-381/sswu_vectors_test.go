@@ -1,11 +1,14 @@
 package bls12381
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 )
 
 func TestG1Isogeny(t *testing.T) {
+	t.Parallel()
+
 	p := G1Affine{
 		fp.Element{
 			3660217524291093078, 10096673235325531916, 228883846699980880, 13273309082988818590, 5645112663858216297, 1475745906155504807,

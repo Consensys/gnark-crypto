@@ -48,6 +48,7 @@ func initTranscript() Transcript {
 }
 
 func TestTranscript(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -96,6 +97,7 @@ func TestTranscript(t *testing.T) {
 }
 
 func TestNonExistingChallenge(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -108,6 +110,7 @@ func TestNonExistingChallenge(t *testing.T) {
 }
 
 func TestWrongOrder(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -120,6 +123,7 @@ func TestWrongOrder(t *testing.T) {
 }
 
 func TestBindToComputedChallenge(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 

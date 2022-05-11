@@ -179,16 +179,6 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-378] Having the receiver as operand (FrobeniusCube) should output the same result", prop.ForAll(
-		func(a *E12) bool {
-			var b E12
-			b.FrobeniusCube(a)
-			a.FrobeniusCube(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -296,18 +286,6 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-378] (pi**3)**4=id", prop.ForAll(
-		func(a *E12) bool {
-			var b E12
-			b.FrobeniusCube(a).
-				FrobeniusCube(&b).
-				FrobeniusCube(&b).
-				FrobeniusCube(&b)
-			return b.Equal(a)
-		},
-		genA,
-	))
-
 	properties.Property("[BLS12-378] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
@@ -379,17 +357,6 @@ func TestE12Ops(t *testing.T) {
 			q := fp.Modulus()
 			b.FrobeniusSquare(a)
 			c.Exp(a, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS12-378] FrobeniusCube of x in E12 should be equal to x^(q^3)", prop.ForAll(
-		func(a *E12) bool {
-			var b, c E12
-			q := fp.Modulus()
-			b.FrobeniusCube(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -483,15 +450,6 @@ func BenchmarkE12FrobeniusSquare(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.FrobeniusSquare(&a)
-	}
-}
-
-func BenchmarkE12FrobeniusCube(b *testing.B) {
-	var a E12
-	_, _ = a.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.FrobeniusCube(&a)
 	}
 }
 

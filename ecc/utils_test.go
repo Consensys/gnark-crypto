@@ -8,6 +8,7 @@ import (
 )
 
 func TestNafDecomposition(t *testing.T) {
+	t.Parallel()
 	// TODO write a real test...
 	exp := big.NewInt(13)
 	var result [400]int8
@@ -23,6 +24,7 @@ func TestNafDecomposition(t *testing.T) {
 }
 
 func TestSplitting(t *testing.T) {
+	t.Parallel()
 
 	var lambda, r, s, _s, zero big.Int
 	var l Lattice

@@ -56,7 +56,7 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 
@@ -130,7 +130,7 @@ func init() {
 	endo.v.B1.A0.SetString("65063930028143676778466901566890018271632055221368035552739808236464024322431728149960968101")
 	endo.v.B1.A1.SetString("65063930028143676778466901566890018271632055221368035552739808236464024322431728149960968101")
 
-	// binary decomposition of 3640754176 little endian
+	// binary decomposition of xGen little endian
 	optimaAteLoop, _ := new(big.Int).SetString("3640754176", 10)
 	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 

@@ -12,7 +12,7 @@ import (
 // tests
 
 func TestE3ReceiverIsOperand(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -136,7 +136,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE3Ops(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 

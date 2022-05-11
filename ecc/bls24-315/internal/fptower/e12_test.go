@@ -118,6 +118,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE12Ops(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100

@@ -353,7 +353,7 @@ func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
 	return f
 }
 
-func (f *Field) halve(res *big.Int, x *big.Int) *Field {
+func (f *Field) halve(res *big.Int, x *big.Int) {
 	var z big.Int
 	if x.Bit(0) == 0 {
 		z.Set(x)
@@ -361,7 +361,6 @@ func (f *Field) halve(res *big.Int, x *big.Int) *Field {
 		z.Add(x, f.ModulusBig)
 	}
 	res.Rsh(&z, 1)
-	return f
 }
 
 func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
