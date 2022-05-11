@@ -44,7 +44,7 @@ jobs:
     strategy:
       matrix:
         go-version: [1.17.x, 1.18.x]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
@@ -74,7 +74,7 @@ jobs:
       run: |
           go test -p=1 -v -timeout=30m -short -race  ./ecc/bn254/...
           go test -p=1 -v -timeout=30m -short -tags=noadx  ./ecc/bn254/...
-          GOARCH=386 go test -p=1 -timeout=30m -v  ./ecc/bn254/...
+          GOARCH=386 go test -p=1 -timeout=30m -short -v  ./ecc/bn254/...
   
   slack-workflow-status-failed:
     if: failure()
