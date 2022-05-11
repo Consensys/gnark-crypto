@@ -550,6 +550,30 @@ func TestElementLegendre(t *testing.T) {
 
 }
 
+func TestElementBitLen(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
+		func(a testPairElement) bool {
+			return a.element.FromMont().BitLen() == a.bigint.BitLen()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+
 func TestElementButterflies(t *testing.T) {
 
 	t.Parallel()

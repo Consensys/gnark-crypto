@@ -593,6 +593,32 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 	
 }
 
+func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			return a.element.FromMont().BitLen() ==  a.bigint.BitLen()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	
+}
+
+
 
 func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 
