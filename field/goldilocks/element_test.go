@@ -437,6 +437,7 @@ func TestElementInverseExp(t *testing.T) {
 	properties = gopter.NewProperties(parameters)
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
 }
 
 func TestElementMulByConstants(t *testing.T) {
@@ -748,6 +749,7 @@ func TestElementAdd(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementSub(t *testing.T) {
@@ -882,6 +884,7 @@ func TestElementSub(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementMul(t *testing.T) {
@@ -1016,6 +1019,7 @@ func TestElementMul(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementDiv(t *testing.T) {
@@ -1127,6 +1131,7 @@ func TestElementDiv(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementExp(t *testing.T) {
@@ -1235,6 +1240,7 @@ func TestElementExp(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementSquare(t *testing.T) {
@@ -1306,6 +1312,7 @@ func TestElementSquare(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementInverse(t *testing.T) {
@@ -1377,6 +1384,7 @@ func TestElementInverse(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementSqrt(t *testing.T) {
@@ -1448,6 +1456,7 @@ func TestElementSqrt(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementDouble(t *testing.T) {
@@ -1536,6 +1545,7 @@ func TestElementDouble(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementNeg(t *testing.T) {
@@ -1624,6 +1634,7 @@ func TestElementNeg(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
+
 }
 
 func TestElementFixedExp(t *testing.T) {
