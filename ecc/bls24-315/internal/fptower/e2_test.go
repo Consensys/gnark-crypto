@@ -27,7 +27,7 @@ import (
 // tests
 
 func TestE2ReceiverIsOperand(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -186,6 +186,8 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE2MulMaxed(t *testing.T) {
+	t.Parallel()
+
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
 	fpMaxValue := fp.Element{
@@ -212,6 +214,7 @@ func TestE2MulMaxed(t *testing.T) {
 }
 
 func TestE2Ops(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -364,7 +367,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-315] Cmp and LexicographicallyLargest should be consistant", prop.ForAll(
+	properties.Property("[BLS24-315] Cmp and LexicographicallyLargest should be consistent", prop.ForAll(
 		func(a *E2) bool {
 			var negA E2
 			negA.Neg(a)

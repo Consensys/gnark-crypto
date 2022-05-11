@@ -16,6 +16,7 @@ import (
 //TODO: Use genF.Map to generate ints in field instead of using byte slices
 
 func TestIntToMont(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -54,6 +55,8 @@ func TestIntToMont(t *testing.T) {
 }
 
 func TestBigIntMatchUint64Slice(t *testing.T) {
+	t.Parallel()
+
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 	properties := gopter.NewProperties(parameters)
@@ -79,6 +82,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 }
 
 func TestQuadExtensionMul(t *testing.T) {
+	t.Parallel()
 
 	verifyMul := func(base *Field, x8Slice [][]uint8, y8Slice [][]uint8) (bool, error) {
 		var nonRes big.Int
@@ -128,6 +132,8 @@ func TestQuadExtensionMul(t *testing.T) {
 }
 
 func TestExponentiationBls12381G2(t *testing.T) {
+	t.Parallel()
+
 	base, err := NewField("dummyName", "dummyElement", "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", false)
 
 	if err != nil {

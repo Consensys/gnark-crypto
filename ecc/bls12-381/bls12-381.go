@@ -53,7 +53,7 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 

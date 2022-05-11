@@ -23,7 +23,7 @@ var (
 	_ = mulGenericE2
 )
 
-func mulGenericE2(z, x, y *E2) *E2 {
+func mulGenericE2(z, x, y *E2) {
 	var a, b, c fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
@@ -33,7 +33,6 @@ func mulGenericE2(z, x, y *E2) *E2 {
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	fp.MulBy13(&c)
 	z.A0.Add(&c, &b)
-	return z
 }
 
 // Square sets z to the E2-product of x,x returns z

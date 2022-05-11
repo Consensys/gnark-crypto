@@ -469,7 +469,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[BLS12-378] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+	properties.Property("[BLS12-378] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element

@@ -26,6 +26,7 @@ import (
 // tests
 
 func TestE4ReceiverIsOperand(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -156,6 +157,7 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE4Ops(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
