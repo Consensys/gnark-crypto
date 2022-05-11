@@ -72,6 +72,7 @@ var fixedCoeff big.Int
 func init() {
 
 	bCurveCoeff.SetUint64(3)
+	// D-twist
 	twist.A0.SetUint64(9)
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.Inverse(&twist).MulByElement(&bTwistCurveCoeff, &bCurveCoeff)
@@ -106,7 +107,7 @@ func init() {
 	endo.v.A0.SetString("2821565182194536844548159561693502659359617185244120367078079554186484126554")
 	endo.v.A1.SetString("3505843767911556378687030309984248845540243509899259641013678093033130930403")
 
-	// binary decomposition of 15132376222941642752 little endian
+	// 2-NAF decomposition of 6*xGen+2 little endian
 	optimaAteLoop, _ := new(big.Int).SetString("29793968203157093288", 10)
 	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 

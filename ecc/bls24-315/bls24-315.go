@@ -127,7 +127,7 @@ func init() {
 	endo.u.B0.A0.SetString("17432737665785421589107433512831558061649422754130449334965277047994983947893909429238815314776")
 	endo.v.B0.A0.SetString("13266452002786802757645810648664867986567631927642464177452792960815113608167203350720036682455")
 
-	// binary decomposition of 3218079743 little endian
+	// binary decomposition of -xGen little endian
 	optimaAteLoop, _ := new(big.Int).SetString("3218079743", 10)
 	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 
