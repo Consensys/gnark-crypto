@@ -583,7 +583,6 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 
 	// current size of the polynomial
 	var accGInv fr.Element
-	currentSize := int(s.domain.Cardinality)
 	accGInv.Set(&s.domain.GeneratorInv)
 	for i := 0; i < s.nbSteps; i++ {
 
@@ -651,8 +650,6 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 			accGInv.Square(&accGInv)
 		}
 
-		// divide the size by 2
-		currentSize = currentSize >> 1
 	}
 
 	// last transition
