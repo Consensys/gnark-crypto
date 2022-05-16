@@ -40,8 +40,8 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 
 		entries = []bavard.Entry{
-			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl"}},
-			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
+			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl", "hash_to_curve_utils.go.tmpl"}},
+			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
 
 		hashConf := config.NewHashSuiteInfo(conf.Fp, point, conf.Name, suite)
 

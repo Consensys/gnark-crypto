@@ -42,7 +42,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BN254] check that phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res1, res2 G2Jac
-			g := MapToCurveG2Svdw(a)
+			g := mapToG2(a)
 			p.FromAffine(&g)
 			res1.phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
@@ -55,7 +55,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BN254] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res, tmp G2Jac
-			g := MapToCurveG2Svdw(a)
+			g := mapToG2(a)
 			p.FromAffine(&g)
 			tmp.phi(&p)
 			res.phi(&tmp).
@@ -70,7 +70,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BN254] check that psi^2(P) = -phi(P)", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res1, res2 G2Jac
-			g := MapToCurveG2Svdw(a)
+			g := mapToG2(a)
 			p.FromAffine(&g)
 			res1.psi(&p).psi(&res1).Neg(&res1)
 			res2.phi(&p)
@@ -83,7 +83,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestMapToCurveG2(t *testing.T) {
+func TestMapToG2(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -94,18 +94,18 @@ func TestMapToCurveG2(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[G2] Svsw mapping should output point on the curve", prop.ForAll(
+	properties.Property("[G2] mapping to curve should output point on the curve", prop.ForAll(
 		func(a fptower.E2) bool {
-			g := MapToCurveG2Svdw(a)
+			g := mapToG2(a)
 			return g.IsInSubGroup()
 		},
 		GenE2(),
 	))
 
-	properties.Property("[G2] Svsw mapping should be deterministic", prop.ForAll(
+	properties.Property("[G2] mapping to curve should be deterministic", prop.ForAll(
 		func(a fptower.E2) bool {
-			g1 := MapToCurveG2Svdw(a)
-			g2 := MapToCurveG2Svdw(a)
+			g1 := mapToG2(a)
+			g2 := mapToG2(a)
 			return g1.Equal(&g2)
 		},
 		GenE2(),

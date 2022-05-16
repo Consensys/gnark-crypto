@@ -21,6 +21,8 @@ package bls12377
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc"
 )
 
 func g1IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
@@ -171,16 +173,16 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 	res := *x
 
 	res.Double(&res)
-
 	res.Double(&res)
-
 	res.Add(&res, x)
 
 	*z = res
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func g1SswuMap(u *fp.Element) G1Affine {
+// sswuMapG1 implements the SSWU map
+// No cofactor clearing
+func sswuMapG1(u *fp.Element) G1Affine {
 
 	var tv1 fp.Element
 	tv1.Square(u)
@@ -250,9 +252,16 @@ func g1SswuMap(u *fp.Element) G1Affine {
 	return G1Affine{x, y}
 }
 
-// EncodeToCurveG1SSWU maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// mapToG1 invokes the SSWU map, and guarantees that the result is in g1
+func mapToG1(u fp.Element) G1Affine {
+	res := sswuMapG1(&u)
+	res.ClearCofactor(&res)
+	return res
+}
+
+// EncodeToG1 maps a fp.Element to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
-func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
 	u, err := hashToFp(msg, dst, 1)
@@ -260,7 +269,7 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 		return res, err
 	}
 
-	res = g1SswuMap(&u[0])
+	res = sswuMapG1(&u[0])
 
 	//this is in an isogenous curve
 	g1Isogeny(&res)
@@ -270,16 +279,16 @@ func EncodeToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
 	return res, nil
 }
 
-// HashToCurveG1SSWU hashes a byte string to the G1 curve. Usable as a random oracle.
+// HashToG1 hashes a byte string to the G1 curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG1SSWU(msg, dst []byte) (G1Affine, error) {
+func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
 		return G1Affine{}, err
 	}
 
-	Q0 := g1SswuMap(&u[0])
-	Q1 := g1SswuMap(&u[1])
+	Q0 := sswuMapG1(&u[0])
+	Q1 := sswuMapG1(&u[1])
 
 	//TODO: Add in E' first, then apply isogeny
 	g1Isogeny(&Q0)
@@ -327,4 +336,25 @@ func g1NotZero(x *fp.Element) uint64 {
 
 	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5]
 
+}
+
+// hashToFp hashes msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
+
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	L := 64
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]fp.Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
 }

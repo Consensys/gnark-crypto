@@ -44,7 +44,7 @@ import (
         properties.Property("[{{ toUpper .Name }}] check that phi(P) = lambdaGLV * P", prop.ForAll(
             func(a {{ .CoordType}}) bool {
                 var p, res1, res2 {{ $TJacobian }}
-                g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+                g := mapTo{{ toUpper .PointName}}(a)
                 p.FromAffine(&g)
                 res1.phi(&p)
                 res2.mulWindowed(&p, &lambdaGLV)
@@ -57,7 +57,7 @@ import (
         properties.Property("[{{ toUpper .Name }}] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                 var p, res, tmp {{ $TJacobian }}
-                g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+                g := mapTo{{ toUpper .PointName}}(a)
                 p.FromAffine(&g)
                 tmp.phi(&p)
                 res.phi(&tmp).
@@ -74,7 +74,7 @@ import (
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                     var p, res1, res2 {{ $TJacobian }}
-                    g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+                    g := mapTo{{ toUpper .PointName}}(a)
                     p.FromAffine(&g)
                     {{- if eq .Name "bls24-315"}}
                         res1.psi(&p).psi(&res1).psi(&res1).psi(&res1).Neg(&res1)
@@ -98,7 +98,7 @@ import (
     }
 {{end}}
 
-func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
+func TestMapTo{{ toUpper .PointName }}(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -109,18 +109,18 @@ func TestMapToCurve{{ toUpper .PointName }}(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should output point on the curve", prop.ForAll(
+	properties.Property("[{{ toUpper .PointName}}] mapping to curve should output point on the curve", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
-			g := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			g := mapTo{{ toUpper .PointName}}(a)
 			return g.IsInSubGroup()
 		},
 		{{$fuzzer}},
 	))
 
-	properties.Property("[{{ toUpper .PointName}}] Svsw mapping should be deterministic", prop.ForAll(
+	properties.Property("[{{ toUpper .PointName}}] mapping to curve should be deterministic", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
-			g1 := MapToCurve{{ toUpper .PointName}}Svdw(a)
-			g2 := MapToCurve{{ toUpper .PointName}}Svdw(a)
+			g1 := mapTo{{ toUpper .PointName}}(a)
+			g2 := mapTo{{ toUpper .PointName}}(a)
 			return g1.Equal(&g2)
 		},
 		{{$fuzzer}},

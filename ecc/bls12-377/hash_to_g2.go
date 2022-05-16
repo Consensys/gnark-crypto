@@ -629,7 +629,9 @@ func g2MulByZ(z *fptower.E2, x *fptower.E2) {
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-func g2SswuMap(u *fptower.E2) G2Affine {
+// sswuMapG2 implements the SSWU map
+// No cofactor clearing
+func sswuMapG2(u *fptower.E2) G2Affine {
 
 	var tv1 fptower.E2
 	tv1.Square(u)
@@ -714,9 +716,16 @@ func g2SswuMap(u *fptower.E2) G2Affine {
 	return G2Affine{x, y}
 }
 
-// EncodeToCurveG2SSWU maps a fptower.E2 to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// mapToG2 invokes the SSWU map, and guarantees that the result is in g2
+func mapToG2(u fptower.E2) G2Affine {
+	res := sswuMapG2(&u)
+	res.ClearCofactor(&res)
+	return res
+}
+
+// EncodeToG2 maps a fptower.E2 to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
-func EncodeToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
+func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
 	u, err := hashToFp(msg, dst, 2)
@@ -724,7 +733,7 @@ func EncodeToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
 		return res, err
 	}
 
-	res = g2SswuMap(&fptower.E2{
+	res = sswuMapG2(&fptower.E2{
 		A0: u[0],
 		A1: u[1],
 	})
@@ -737,19 +746,19 @@ func EncodeToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
 	return res, nil
 }
 
-// HashToCurveG2SSWU hashes a byte string to the G2 curve. Usable as a random oracle.
+// HashToG2 hashes a byte string to the G2 curve. Usable as a random oracle.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG2SSWU(msg, dst []byte) (G2Affine, error) {
+func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := hashToFp(msg, dst, 2*2)
 	if err != nil {
 		return G2Affine{}, err
 	}
 
-	Q0 := g2SswuMap(&fptower.E2{
+	Q0 := sswuMapG2(&fptower.E2{
 		A0: u[0],
 		A1: u[1],
 	})
-	Q1 := g2SswuMap(&fptower.E2{
+	Q1 := sswuMapG2(&fptower.E2{
 		A0: u[2+0],
 		A1: u[2+1],
 	})
