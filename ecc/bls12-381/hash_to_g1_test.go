@@ -82,7 +82,7 @@ func isOnE1Prime(p G1Affine) bool {
 	return LHS.Equal(&RHS)
 }
 
-func TestG1Isogeny(t *testing.T) {
+func TestG1SSWU(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -99,6 +99,20 @@ func TestG1Isogeny(t *testing.T) {
 		},
 		GenFp(),
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG1Isogeny(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
 
 	properties.Property("[G1] isogeny should output point on the curve", prop.ForAll(
 		func(a fp.Element) bool {
