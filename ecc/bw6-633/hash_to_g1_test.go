@@ -76,6 +76,29 @@ func g1TestMatch(t *testing.T, c hashTestCase, seen *G1Affine) {
 	g1TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
 }
 
+func TestG1Isogeny(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[G1] isogeny should output point on the curve", prop.ForAll(
+		func(a fp.Element) bool {
+			g := sswuMapG1(&a) // TODO: Check the SSWU output is on E' too
+			g1Isogeny(&g)
+			return g.IsOnCurve()
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestEncodeToG1(t *testing.T) {
 	t.Parallel()
 	for _, c := range g1EncodeToCurveSSWUVector.cases {
