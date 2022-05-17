@@ -387,8 +387,8 @@ func sswuMap{{$CurveTitle}}(u *{{$CoordType}}) {{$AffineType}} {
 	return {{$AffineType}}{x, y}
 }
 
-// mapTo{{$CurveTitle}} invokes the SSWU map, and guarantees that the result is in {{$CurveName}}
-func mapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
+// MapTo{{$CurveTitle}} invokes the SSWU map, and guarantees that the result is in {{$CurveName}}
+func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
     res := sswuMap{{$CurveTitle}}(&u)
     {{- if $isogenyNeeded }}
     //this is in an isogenous curve

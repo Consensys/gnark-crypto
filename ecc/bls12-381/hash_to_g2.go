@@ -316,8 +316,8 @@ func sswuMapG2(u *fptower.E2) G2Affine {
 	return G2Affine{x, y}
 }
 
-// mapToG2 invokes the SSWU map, and guarantees that the result is in g2
-func mapToG2(u fptower.E2) G2Affine {
+// MapToG2 invokes the SSWU map, and guarantees that the result is in g2
+func MapToG2(u fptower.E2) G2Affine {
 	res := sswuMapG2(&u)
 	//this is in an isogenous curve
 	g2Isogeny(&res)

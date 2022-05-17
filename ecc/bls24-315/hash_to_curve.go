@@ -109,17 +109,17 @@ func svdwMapG2(u fptower.E4) G2Affine {
 	return res
 }
 
-// MapToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// MapToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToCurveG2Svdw(t fptower.E4) G2Affine {
+func MapToG2(t fptower.E4) G2Affine {
 	res := svdwMapG2(t)
 	res.ClearCofactor(&res)
 	return res
 }
 
-// EncodeToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// EncodeToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
-func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
+func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
 	_t, err := hashToFp(msg, dst, 2)
 	if err != nil {
@@ -128,13 +128,13 @@ func EncodeToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	var t fptower.E4
 	t.B0.A0.Set(&_t[0])
 	t.B1.A0.Set(&_t[1])
-	res = MapToCurveG2Svdw(t)
+	res = MapToG2(t)
 	return res, nil
 }
 
-// HashToCurveG2Svdw maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// HashToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
+func HashToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
 	u, err := hashToFp(msg, dst, 4)
 	if err != nil {
@@ -145,8 +145,8 @@ func HashToCurveG2Svdw(msg, dst []byte) (G2Affine, error) {
 	u0.B1.A0.Set(&u[1])
 	u1.B0.A0.Set(&u[2])
 	u1.B1.A0.Set(&u[3])
-	Q0 := MapToCurveG2Svdw(u0)
-	Q1 := MapToCurveG2Svdw(u1)
+	Q0 := MapToG2(u0)
+	Q1 := MapToG2(u1)
 	var _Q0, _Q1, _res G2Jac
 	_Q0.FromAffine(&Q0)
 	_Q1.FromAffine(&Q1)

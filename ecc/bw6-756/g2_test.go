@@ -42,7 +42,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BW6-756] check that phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res1, res2 G2Jac
-			g := mapToG2(a)
+			g := MapToG2(a)
 			p.FromAffine(&g)
 			res1.phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
@@ -55,7 +55,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.Property("[BW6-756] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res, tmp G2Jac
-			g := mapToG2(a)
+			g := MapToG2(a)
 			p.FromAffine(&g)
 			tmp.phi(&p)
 			res.phi(&tmp).
@@ -83,7 +83,7 @@ func TestMapToG2(t *testing.T) {
 
 	properties.Property("[G2] mapping to curve should output point on the curve", prop.ForAll(
 		func(a fp.Element) bool {
-			g := mapToG2(a)
+			g := MapToG2(a)
 			return g.IsInSubGroup()
 		},
 		GenFp(),
@@ -91,8 +91,8 @@ func TestMapToG2(t *testing.T) {
 
 	properties.Property("[G2] mapping to curve should be deterministic", prop.ForAll(
 		func(a fp.Element) bool {
-			g1 := mapToG2(a)
-			g2 := mapToG2(a)
+			g1 := MapToG2(a)
+			g2 := MapToG2(a)
 			return g1.Equal(&g2)
 		},
 		GenFp(),

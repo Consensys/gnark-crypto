@@ -209,8 +209,8 @@ func sswuMapG1(u *fp.Element) G1Affine {
 	return G1Affine{x, y}
 }
 
-// mapToG1 invokes the SSWU map, and guarantees that the result is in g1
-func mapToG1(u fp.Element) G1Affine {
+// MapToG1 invokes the SSWU map, and guarantees that the result is in g1
+func MapToG1(u fp.Element) G1Affine {
 	res := sswuMapG1(&u)
 	//this is in an isogenous curve
 	g1Isogeny(&res)
