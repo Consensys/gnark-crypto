@@ -2,6 +2,7 @@
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
 {{$TowerDegree := .Field.Degree}}
+{{$isogenyNeeded := notNil .Isogeny}}
 
 import (
 	{{- if eq $TowerDegree 1 }}
@@ -62,7 +63,30 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+{{if $isogenyNeeded}}
+func Test{{$CurveTitle}}Isogeny(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{$CurveTitle}}] isogeny should output point on the curve", prop.ForAll(
+		func(a {{$CoordType}}) bool {
+			g := sswuMap{{$CurveTitle}}(&a) // TODO: Check the SSWU output is on E' too
+			{{$CurveName}}Isogeny(&g)
+			return g.IsOnCurve()
+		},
+		{{$fuzzer}},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+{{end}}
 
 {{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
 func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {

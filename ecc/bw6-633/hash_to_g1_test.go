@@ -61,21 +61,6 @@ func TestG1SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func g1TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fp.Element) {
-	var expected fp.Element
-
-	expected.SetString(expectedStr)
-
-	if !expected.Equal(seen) {
-		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
-	}
-}
-
-func g1TestMatch(t *testing.T, c hashTestCase, seen *G1Affine) {
-	g1TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
-	g1TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
-}
-
 func TestG1Isogeny(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -97,6 +82,21 @@ func TestG1Isogeny(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func g1TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fp.Element) {
+	var expected fp.Element
+
+	expected.SetString(expectedStr)
+
+	if !expected.Equal(seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+	}
+}
+
+func g1TestMatch(t *testing.T, c hashTestCase, seen *G1Affine) {
+	g1TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
+	g1TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
 }
 
 func TestEncodeToG1(t *testing.T) {

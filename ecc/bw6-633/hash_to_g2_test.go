@@ -61,6 +61,29 @@ func TestG2SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestG2Isogeny(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[G2] isogeny should output point on the curve", prop.ForAll(
+		func(a fp.Element) bool {
+			g := sswuMapG2(&a) // TODO: Check the SSWU output is on E' too
+			g2Isogeny(&g)
+			return g.IsOnCurve()
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func g2TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fp.Element) {
 	var expected fp.Element
 
