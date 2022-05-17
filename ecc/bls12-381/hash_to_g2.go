@@ -319,6 +319,8 @@ func sswuMapG2(u *fptower.E2) G2Affine {
 // mapToG2 invokes the SSWU map, and guarantees that the result is in g2
 func mapToG2(u fptower.E2) G2Affine {
 	res := sswuMapG2(&u)
+	//this is in an isogenous curve
+	g2Isogeny(&res)
 	res.ClearCofactor(&res)
 	return res
 }
@@ -340,9 +342,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	//this is in an isogenous curve
 	g2Isogeny(&res)
-
 	res.ClearCofactor(&res)
-
 	return res, nil
 }
 

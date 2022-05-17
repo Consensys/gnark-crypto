@@ -390,7 +390,13 @@ func sswuMap{{$CurveTitle}}(u *{{$CoordType}}) {{$AffineType}} {
 // mapTo{{$CurveTitle}} invokes the SSWU map, and guarantees that the result is in {{$CurveName}}
 func mapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
     res := sswuMap{{$CurveTitle}}(&u)
-	res.ClearCofactor(&res)
+    {{- if $isogenyNeeded }}
+    //this is in an isogenous curve
+        {{$CurveName}}Isogeny(&res)
+    {{- end }}
+    {{- if .Point.CofactorCleaning}}
+        res.ClearCofactor(&res)
+    {{- end }}
 	return res
 }
 
@@ -412,13 +418,13 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
     {{end}} })
     {{end}}
 
-{{ if $isogenyNeeded }}
-	//this is in an isogenous curve
-    {{$CurveName}}Isogeny(&res)
-{{ end }}
- 	{{ if .Point.CofactorCleaning}}
+    {{- if $isogenyNeeded }}
+        //this is in an isogenous curve
+        {{$CurveName}}Isogeny(&res)
+    {{- end }}
+    {{- if .Point.CofactorCleaning}}
  	    res.ClearCofactor(&res)
- 	{{ end }}
+ 	{{- end }}
  	return res, nil
 }
 

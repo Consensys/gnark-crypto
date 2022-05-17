@@ -257,6 +257,8 @@ func sswuMapG1(u *fp.Element) G1Affine {
 // mapToG1 invokes the SSWU map, and guarantees that the result is in g1
 func mapToG1(u fp.Element) G1Affine {
 	res := sswuMapG1(&u)
+	//this is in an isogenous curve
+	g1Isogeny(&res)
 	res.ClearCofactor(&res)
 	return res
 }
@@ -275,9 +277,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	//this is in an isogenous curve
 	g1Isogeny(&res)
-
 	res.ClearCofactor(&res)
-
 	return res, nil
 }
 
