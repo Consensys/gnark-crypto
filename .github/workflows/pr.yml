@@ -1,4 +1,6 @@
 on: pull_request
+env: 
+  GOPROXY: "https://proxy.golang.org"
 
 name: pull_request
 jobs:
@@ -23,20 +25,14 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - name: install deps
-      run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: gofmt
       run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
-    - name: go vet
-      run: go vet ./...
-    - name: staticcheck
-      run: |
-        go install honnef.co/go/tools/cmd/staticcheck@23e1086441d24fed9f668ad1cd4374245118b590
-        staticcheck ./...
-    - name: gosec
-      run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -exclude="G204,G304" ./...
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+          args: --timeout=5m
+    - name: install deps
+      run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: generated files should not be modified
       run: |
         go generate ./...
@@ -45,14 +41,18 @@ jobs:
         if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
   
   test:
-    runs-on: [self-hosted,linux,x64,large]
+    strategy:
+      matrix:
+        go-version: [1.17.x, 1.18.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
     steps:
     - name: install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.18.x
+        go-version: ${{ matrix.go-version }}
     - name: checkout code
       uses: actions/checkout@v2
     - uses: actions/cache@v2
@@ -68,22 +68,56 @@ jobs:
     - name: install deps
       run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
     - name: Test
+      run: go test -p=1 -v -timeout=30m ./...
+    - name: Test (32 bits & race)
+      if: (matrix.os == 'ubuntu-latest') && (matrix.go-version == '1.18.x')
       run: |
-        go test -v -short ./...
-        GOARCH=386 go test -v -short ./ecc/bn254/...
-        
+          go test -p=1 -v -timeout=30m -short -race  ./ecc/bn254/...
+          go test -p=1 -v -timeout=30m -short -tags=noadx  ./ecc/bn254/...
+          GOARCH=386 go test -p=1 -timeout=30m -short -v  ./ecc/bn254/...
   
-  slack-workflow-status:
-    if: always()
+  slack-workflow-status-failed:
+    if: failure()
     name: post workflow status to slack
     needs:
       - staticcheck
       - test
     runs-on: ubuntu-latest
     steps:
-      - name: Build notification
-        uses: Gamesight/slack-workflow-status@master
+      - name: Notify slack -- workflow failed
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
         with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-gnark-build'
+          payload: |
+            {
+              "actor": "${{ github.actor }}",
+              "repo": "${{ github.repository }}",
+              "status": "FAIL",
+              "title": "${{ github.event.pull_request.title }}",
+              "pr": "${{ github.event.pull_request.head.ref }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  slack-workflow-status-success:
+    if: success()
+    name: post workflow status to slack
+    needs:
+      - staticcheck
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify slack -- workflow succeeded
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          payload: |
+            {
+              "actor": "${{ github.actor }}",
+              "repo": "${{ github.repository }}",
+              "status": "SUCCESS",
+              "title": "${{ github.event.pull_request.title }}",
+              "pr": "${{ github.event.pull_request.head.ref }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_SUCCESS }}

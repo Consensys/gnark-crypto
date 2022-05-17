@@ -3,10 +3,11 @@ package field
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/leanovate/gopter/gen"
 	"math/big"
 	mrand "math/rand"
 	"testing"
+
+	"github.com/leanovate/gopter/gen"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -15,6 +16,7 @@ import (
 //TODO: Use genF.Map to generate ints in field instead of using byte slices
 
 func TestIntToMont(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
@@ -53,6 +55,8 @@ func TestIntToMont(t *testing.T) {
 }
 
 func TestBigIntMatchUint64Slice(t *testing.T) {
+	t.Parallel()
+
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 10
 	properties := gopter.NewProperties(parameters)
@@ -78,6 +82,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 }
 
 func TestQuadExtensionMul(t *testing.T) {
+	t.Parallel()
 
 	verifyMul := func(base *Field, x8Slice [][]uint8, y8Slice [][]uint8) (bool, error) {
 		var nonRes big.Int
@@ -127,6 +132,8 @@ func TestQuadExtensionMul(t *testing.T) {
 }
 
 func TestExponentiationBls12381G2(t *testing.T) {
+	t.Parallel()
+
 	base, err := NewField("dummyName", "dummyElement", "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", false)
 
 	if err != nil {
@@ -154,8 +161,8 @@ func TestExponentiationBls12381G2(t *testing.T) {
 	}
 }
 
-const minNbWords = 5
-const maxNbWords = 37
+const minNbWords = 1
+const maxNbWords = 15
 
 func genSmallUint8SliceSlice(outerSize int, max uint8) gopter.Gen {
 	return gen.SliceOfN(
@@ -193,8 +200,8 @@ func genField(t *testing.T) gopter.Gen {
 
 		genField := func() *Field {
 
-			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords)
-			bitLen := nbWords*64 - 1 - mrand.Intn(64)
+			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
+			bitLen := nbWords*64 - 1 - mrand.Intn(64)                 //#nosec G404 -- This is a false positive
 
 			modulus, err := rand.Prime(rand.Reader, bitLen)
 			if err != nil {
@@ -202,7 +209,7 @@ func genField(t *testing.T) gopter.Gen {
 			}
 
 			var field *Field
-			field, err = NewField("dummy", "DummyElement", modulus.Text(10), false)
+			field, err = NewField("dummy", "DummyElement", "0x"+modulus.Text(16), false)
 
 			if err == nil {
 				if field.NbBits != bitLen || field.NbWords != nbWords {

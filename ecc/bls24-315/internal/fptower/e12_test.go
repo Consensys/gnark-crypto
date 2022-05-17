@@ -118,6 +118,7 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE12Ops(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -195,8 +196,8 @@ func TestE12Ops(t *testing.T) {
 
 func BenchmarkE12Add(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -205,8 +206,8 @@ func BenchmarkE12Add(b *testing.B) {
 
 func BenchmarkE12Sub(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -215,8 +216,8 @@ func BenchmarkE12Sub(b *testing.B) {
 
 func BenchmarkE12Mul(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -225,7 +226,7 @@ func BenchmarkE12Mul(b *testing.B) {
 
 func BenchmarkE12Square(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -234,7 +235,7 @@ func BenchmarkE12Square(b *testing.B) {
 
 func BenchmarkE12Inverse(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -245,7 +246,7 @@ func BenchmarkE12ExpBySeed(b *testing.B) {
 	var a E12
 	var seed big.Int
 	seed.SetString("3218079743", 10)
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Exp(&a, seed).Conjugate(&a)

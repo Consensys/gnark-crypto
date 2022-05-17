@@ -65,7 +65,7 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 
@@ -75,6 +75,7 @@ var xGen big.Int
 func init() {
 
 	bCurveCoeff.SetOne().Neg(&bCurveCoeff)
+	// M-twist
 	bTwistCurveCoeff.SetUint64(4)
 
 	g1Gen.X.SetString("6238772257594679368032145693622812838779005809760824733138787810501188623461307351759238099287535516224314149266511977132140828635950940021790489507611754366317801811090811367945064510304504157188661901055903167026722666149426237")

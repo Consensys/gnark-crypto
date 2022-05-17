@@ -137,6 +137,26 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 	m.Add(&m, &d.h)
 	return m
 }
+{{ else if eq .Name "bls24-317" }}
+// plain execution of a mimc run
+// m: message
+// k: encryption key
+func (d *digest) encrypt(m fr.Element) fr.Element {
+	once.Do(initConstants) // init constants
+
+	for i := 0; i < mimcNbRounds; i++ {
+		// m = (m+k+c)^7
+		var tmp fr.Element
+		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
+		m.Square(&tmp).
+			Square(&m).
+			Mul(&m, &tmp).
+			Mul(&m, &tmp).
+			Mul(&m, &tmp)
+	}
+	m.Add(&m, &d.h)
+	return m
+}
 {{ else }}
 // plain execution of a mimc run
 // m: message

@@ -39,14 +39,8 @@ func TestIntegration(t *testing.T) {
 	}
 
 	var bits []int
-	if testing.Short() {
-		for i := 128; i <= 448; i += 64 {
-			bits = append(bits, i-3, i-2, i-1, i, i+1)
-		}
-	} else {
-		for i := 120; i < 704; i++ {
-			bits = append(bits, i)
-		}
+	for i := 64; i <= 448; i += 64 {
+		bits = append(bits, i-3, i-2, i-1, i, i+1)
 	}
 
 	moduli := make(map[string]string)
@@ -67,8 +61,11 @@ func TestIntegration(t *testing.T) {
 			}
 			moduli[fmt.Sprintf("e_nocarry_%04d", i)] = q.String()
 		}
-
 	}
+
+	moduli["forty_seven"] = "47"
+	moduli["small"] = "9459143039767"
+	moduli["small_without_no_carry"] = "18446744073709551557" // 64bits
 
 	moduli["e_secp256k1"] = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
 
@@ -77,13 +74,14 @@ func TestIntegration(t *testing.T) {
 	moduli["e_nocarry_edge_1279"] = "10407932194664399081925240327364085538615262247266704805319112350403608059673360298012239441732324184842421613954281007791383566248323464908139906605677320762924129509389220345773183349661583550472959420547689811211693677147548478866962501384438260291732348885311160828538416585028255604666224831890918801847068222203140521026698435488732958028878050869736186900714720710555703168729087"
 
 	for elementName, modulus := range moduli {
+		var fIntegration *field.Field
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
-		fIntegration, err := field.NewField("integration", elementName, modulus, false)
+		fIntegration, err = field.NewField("integration", elementName, modulus, false)
 		if err != nil {
 			t.Fatal(elementName, err)
 		}
-		if err := GenerateFF(fIntegration, childDir); err != nil {
+		if err = GenerateFF(fIntegration, childDir); err != nil {
 			t.Fatal(elementName, err)
 		}
 	}

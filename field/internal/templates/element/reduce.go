@@ -2,8 +2,13 @@ package element
 
 const Reduce = `
 {{ define "reduce" }}
-// if z > q → z -= q
+// if z >= q → z -= q
 // note: this is NOT constant time
+{{- if eq $.NbWords 1}}
+if z[0] >= q {
+	z[0] -= q
+}
+{{- else}}
 if !({{- range $i := reverse .NbWordsIndexesNoZero}} z[{{$i}}] < {{index $.Q $i}} || ( z[{{$i}}] == {{index $.Q $i}} && (
 {{- end}}z[0] < {{index $.Q 0}} {{- range $i :=  .NbWordsIndexesNoZero}} )) {{- end}} ){
 	var b uint64
@@ -16,6 +21,7 @@ if !({{- range $i := reverse .NbWordsIndexesNoZero}} z[{{$i}}] < {{index $.Q $i}
 		{{- end}}
 	{{- end}}
 }
+{{-  end }}
 {{-  end }}
 
 `

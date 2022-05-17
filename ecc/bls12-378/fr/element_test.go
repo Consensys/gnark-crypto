@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	mrand "math/rand"
-	"testing"
 
 	"github.com/consensys/gnark-crypto/field"
+	mrand "math/rand"
+
+	"testing"
+
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -257,7 +259,6 @@ func TestElementCmp(t *testing.T) {
 		t.Fatal("x < y")
 	}
 }
-
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
@@ -306,24 +307,31 @@ func init() {
 
 	{
 		a := qElement
-		a[3]--
-		staticTestValues = append(staticTestValues, a)
-	}
-	{
-		a := qElement
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
+	staticTestValues = append(staticTestValues, Element{0})
+	staticTestValues = append(staticTestValues, Element{0, 0})
+	staticTestValues = append(staticTestValues, Element{1})
+	staticTestValues = append(staticTestValues, Element{0, 1})
+	staticTestValues = append(staticTestValues, Element{2})
+	staticTestValues = append(staticTestValues, Element{0, 2})
 
-	for i := 0; i <= 3; i++ {
-		staticTestValues = append(staticTestValues, Element{uint64(i)})
-		staticTestValues = append(staticTestValues, Element{0, uint64(i)})
+	{
+		a := qElement
+		a[3]--
+		staticTestValues = append(staticTestValues, a)
 	}
-
 	{
 		a := qElement
 		a[3]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := qElement
+		a[3] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
@@ -365,13 +373,6 @@ func TestElementReduce(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -465,13 +466,6 @@ func TestElementInverseExp(t *testing.T) {
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 }
 
 func TestElementMulByConstants(t *testing.T) {
@@ -557,13 +551,6 @@ func TestElementMulByConstants(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -588,13 +575,30 @@ func TestElementLegendre(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
+
+}
+
+func TestElementBitLen(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
+		func(a testPairElement) bool {
+			return a.element.FromMont().BitLen() == a.bigint.BitLen()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
 
@@ -626,13 +630,6 @@ func TestElementButterflies(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -669,13 +666,6 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -811,14 +801,7 @@ func TestElementAdd(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSub(t *testing.T) {
@@ -953,14 +936,7 @@ func TestElementSub(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementMul(t *testing.T) {
@@ -1095,14 +1071,7 @@ func TestElementMul(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementDiv(t *testing.T) {
@@ -1214,14 +1183,7 @@ func TestElementDiv(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementExp(t *testing.T) {
@@ -1330,14 +1292,7 @@ func TestElementExp(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSquare(t *testing.T) {
@@ -1409,14 +1364,7 @@ func TestElementSquare(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementInverse(t *testing.T) {
@@ -1488,14 +1436,7 @@ func TestElementInverse(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSqrt(t *testing.T) {
@@ -1567,14 +1508,7 @@ func TestElementSqrt(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementDouble(t *testing.T) {
@@ -1663,14 +1597,7 @@ func TestElementDouble(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementNeg(t *testing.T) {
@@ -1759,14 +1686,7 @@ func TestElementNeg(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementFixedExp(t *testing.T) {
@@ -2097,6 +2017,134 @@ func TestElementSetInterface(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestElementNegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a, b testPairElement) bool {
+
+			var nb, d, e big.Int
+			nb.Neg(&b.bigint)
+
+			var c Element
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementBatchInvert(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	// ensure batchInvert([x]) == invert(x)
+	for i := int64(-1); i <= 2; i++ {
+		var e, eInv Element
+		e.SetInt64(i)
+		eInv.Inverse(&e)
+
+		a := []Element{e}
+		aInv := BatchInvert(a)
+
+		assert.True(aInv[0].Equal(&eInv), "batchInvert != invert")
+
+	}
+
+	// test x * x⁻¹ == 1
+	tData := [][]int64{
+		{-1, 1, 2, 3},
+		{0, -1, 1, 2, 3, 0},
+		{0, -1, 1, 0, 2, 3, 0},
+		{-1, 1, 0, 2, 3},
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 0, 0},
+	}
+
+	for _, t := range tData {
+		a := make([]Element, len(t))
+		for i := 0; i < len(a); i++ {
+			a[i].SetInt64(t[i])
+		}
+
+		aInv := BatchInvert(a)
+
+		assert.True(len(aInv) == len(a))
+
+		for i := 0; i < len(a); i++ {
+			if a[i].IsZero() {
+				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
+			} else {
+				assert.True(a[i].Mul(&a[i], &aInv[i]).IsOne(), "x * x⁻¹ != 1")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("batchInvert --> x * x⁻¹ == 1", prop.ForAll(
+		func(tp testPairElement, r uint8) bool {
+
+			a := make([]Element, r)
+			if r != 0 {
+				a[0] = tp.element
+
+			}
+			one := One()
+			for i := 1; i < len(a); i++ {
+				a[i].Add(&a[i-1], &one)
+			}
+
+			aInv := BatchInvert(a)
+
+			assert.True(len(aInv) == len(a))
+
+			for i := 0; i < len(a); i++ {
+				if a[i].IsZero() {
+					if !aInv[i].IsZero() {
+						return false
+					}
+				} else {
+					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		genA, ggen.UInt8(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementFromMont(t *testing.T) {
 
 	t.Parallel()
@@ -2152,8 +2200,8 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S
@@ -2278,8 +2326,6 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-
-// Some utils
 
 func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int

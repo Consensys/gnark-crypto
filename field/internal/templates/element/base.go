@@ -52,14 +52,14 @@ func Modulus() *big.Int {
 {{- range $i := $.NbWordsIndexesFull}}
 const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
 {{- end}}
+{{- if eq .NbWords 1}}
+const q uint64 = q{{$.ElementName}}Word0
+{{- end}}
 
 var q{{.ElementName}} = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
 	q{{$.ElementName}}Word{{$i}},{{end}}
 }
-
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 // rSquare
 var rSquare = {{.ElementName}}{
@@ -75,7 +75,8 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	_modulus.SetString("{{.Modulus}}", 10)
+	// base10: {{.Modulus}}
+	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
@@ -221,14 +222,22 @@ func (z *{{.ElementName}}) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *{{.ElementName}}) IsOne() bool {
+	{{- if eq .NbWords 1}}
+	return z[0] == {{index $.One 0}}
+	{{- else}}
 	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
+	{{- end}}
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *{{.ElementName}}) IsUint64() bool {
-	zz := *z
-	zz.FromMont()
-	return zz.FitsOnOneWord()
+	{{- if eq .NbWords 1}}
+		return true
+	{{- else}}
+		zz := *z
+		zz.FromMont()
+		return zz.FitsOnOneWord()
+	{{- end}}
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
@@ -240,7 +249,11 @@ func (z *{{.ElementName}}) Uint64() uint64 {
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
 func (z *{{.ElementName}}) FitsOnOneWord() bool {
-	return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
+	{{- if eq .NbWords 1}}
+		return true
+	{{- else}}
+		return ( {{- range $i :=  reverse .NbWordsIndexesNoZero}} z[{{$i}}] {{- if ne $i 1}}|{{- end}} {{end}}) == 0
+	{{- end}}
 }
 
 // Cmp compares (lexicographic order) z and x and returns:
@@ -296,9 +309,14 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 		{{- $k := add $i 1}}
 		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
 	{{- end}}
-	z[{{$.NbWordsLastIndex}}] %= {{index $.Q $.NbWordsLastIndex}}
 
-	{{ template "reduce" . }}
+	{{- if not $.IsMSWSaturated }}
+		z[{{$.NbWordsLastIndex}}] %= q{{$.ElementName}}Word{{$.NbWordsLastIndex}} {{- if ne .NbWords 1}} + 1 {{- end}}
+	{{- end}}
+
+	{{- if ne .NbWords 1}}
+		{{ template "reduce" . }}
+	{{- end}}
 
 	return z, nil
 }
@@ -312,33 +330,53 @@ func One() {{.ElementName}} {
 
 // Halve sets z to z / 2 (mod p)
 func (z *{{.ElementName}}) Halve()  {
-	{{- if .NoCarry}}
-		if z[0]&1 == 1 {
-			var carry uint64
-			{{ template "add_q" dict "all" . "V1" "z" }}
+	{{- if not (and (eq .NbWords 1) (.NoCarry))}}
+		var carry uint64
+	{{- end}}
+
+	if z[0]&1 == 1 {
+		{{- template "add_q" dict "all" . "V1" "z" }}
+	}
+	{{- rsh "z" .NbWords}}
+
+	{{- if not .NoCarry}}
+		if carry != 0 {
+			// when we added q, the result was larger than our avaible limbs
+			// when we shift right, we need to set the highest bit
+			z[{{.NbWordsLastIndex}}] |= (1 << 63)
 		}
-		{{ rsh "z" .NbWords}}
-	{{ else}}
-		var twoInv {{.ElementName}}
-		twoInv.SetOne().Double(&twoInv).Inverse(&twoInv)
-		z.Mul(z, &twoInv)
 	{{end}}
 }
 
+{{ define "add_q" }}
+	// {{$.V1}} = {{$.V1}} + q 
+	{{- range $i := $.all.NbWordsIndexesFull }}
+		{{- $carryIn := ne $i 0}}
+		{{- $carryOut := or (ne $i $.all.NbWordsLastIndex) (and (eq $i $.all.NbWordsLastIndex) (not $.all.NoCarry))}}
+		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
+	{{- end}}
+{{ end }}
 
-// API with assembly impl
 
 // Mul z = x * y mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
-	mul(z, x, y)
+	{{- if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+	{{- else }}
+		mul(z, x, y)
+	{{- end }}
 	return z
 }
 
 // Square z = x * x mod q
 // see https://hackmd.io/@gnark/modular_multiplication
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
-	mul(z,x, x)
+	{{- if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+	{{- else }}
+		mul(z, x, x)
+	{{- end }}
 	return z
 }
 
@@ -387,17 +425,15 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 // Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z,x,y *{{.ElementName}}) {
-	{{ if .NoCarry}}
+	{{ if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+	{{ else if .NoCarry}}
 		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
+		{{ template "reduce"  . }}
 	{{ else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "NoReturn" true}}
+		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
+		{{ template "reduce"  . }}
 	{{ end }}
-	{{ template "reduce" . }}
-}
-
-func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
-	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
-	{{ template "reduce" . }}
 }
 
 
@@ -422,61 +458,75 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 
 
 func _addGeneric(z,  x, y *{{.ElementName}}) {
-	var carry uint64
-	{{$k := sub $.NbWords 1}}
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-		{{- else}}
-			z[{{$i}}], carry = bits.Add64(x[{{$i}}], y[{{$i}}], carry)
-		{{- end}}
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
 	{{- end}}
-	{{- if .NoCarry}}
-		z[{{$k}}], _ = bits.Add64(x[{{$k}}], y[{{$k}}], carry)
-	{{- else }}
-		z[{{$k}}], carry = bits.Add64(x[{{$k}}], y[{{$k}}], carry)
-		// if we overflowed the last addition, z >= q
-		// if z >= q, z = z - q
-		if carry != 0 {
-			// we overflowed, so z >= q
-			z[0], carry = bits.Sub64(z[0], {{index $.Q 0}}, 0)
-			{{- range $i := .NbWordsIndexesNoZero}}
-				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
-			{{- end}}
-			return
-		}
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
 	{{- end}}
 
-	{{ template "reduce" .}}
+	{{- if eq $.NbWords 1}}
+		if {{- if not .NoCarry}} carry != 0 ||{{- end }} z[0] >= q {
+			z[0] -= q
+		}
+	{{- else}}
+		{{- if not .NoCarry}}
+			// if we overflowed the last addition, z >= q
+			// if z >= q, z = z - q
+			if carry != 0 {
+				var b uint64
+				// we overflowed, so z >= q
+				{{- range $i := iterate 0 $.NbWords}}
+					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
+				{{- end}}
+				return
+			}
+		{{- end}}
+
+		{{ template "reduce" .}}
+	{{- end}}
 }
 
 func _doubleGeneric(z,  x *{{.ElementName}}) {
-	var carry uint64
-	{{$k := sub $.NbWords 1}}
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-		{{- else}}
-			z[{{$i}}], carry = bits.Add64(x[{{$i}}], x[{{$i}}], carry)
-		{{- end}}
+	{{- if eq .NbWords 1}}
+	if x[0] & (1 << 63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q 
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
+	}
+	{{- else}}
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
 	{{- end}}
-	{{- if .NoCarry}}
-		z[{{$k}}], _ = bits.Add64(x[{{$k}}], x[{{$k}}], carry)
-	{{- else }}
-		z[{{$k}}], carry = bits.Add64(x[{{$k}}], x[{{$k}}], carry)
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], x[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+	{{- end}}
+	{{- if not .NoCarry}}
 		// if we overflowed the last addition, z >= q
 		// if z >= q, z = z - q
 		if carry != 0 {
+			var b uint64
 			// we overflowed, so z >= q
-			z[0], carry = bits.Sub64(z[0], {{index $.Q 0}}, 0)
-			{{- range $i := .NbWordsIndexesNoZero}}
-				z[{{$i}}], carry = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, carry)
+			{{- range $i := iterate 0 $.NbWords}}
+				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 			{{- end}}
 			return
 		}
 	{{- end}}
 
 	{{ template "reduce" .}}
+	{{- end}}
 }
 
 
@@ -487,6 +537,9 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
 	{{- end}}
 	if b != 0 {
+		{{- if eq .NbWords 1}}
+			z[0] += q
+		{{- else}}
 		var c uint64
 		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
 		{{- range $i := .NbWordsIndexesNoZero}}
@@ -496,6 +549,7 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
 			{{- end}}
 		{{- end}}
+		{{- end}}
 	}
 }
 
@@ -504,20 +558,24 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 		z.SetZero()
 		return
 	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		{{- if eq $i $.NbWordsLastIndex}}
-			z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
-		{{- else}}
-			z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+	{{- if eq .NbWords 1}}
+		z[0] = q - x[0]
+	{{- else}}
+		var borrow uint64
+		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
+		{{- range $i := .NbWordsIndexesNoZero}}
+			{{- if eq $i $.NbWordsLastIndex}}
+				z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- else}}
+				z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- end}}
 		{{- end}}
 	{{- end}}
 }
 
 
 func _reduceGeneric(z *{{.ElementName}})  {
-	{{ template "reduce" . }}
+	{{ template "reduce"  . }}
 }
 
 func mulByConstant(z *{{.ElementName}}, c uint8) {
@@ -597,28 +655,17 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
-{{ define "add_q" }}
-	// {{$.V1}} = {{$.V1}} + q 
-	{{$.V1}}[0], carry = bits.Add64({{$.V1}}[0], {{index $.all.Q 0}}, 0)
-	{{- range $i := .all.NbWordsIndexesNoZero}}
-		{{- if eq $i $.all.NbWordsLastIndex}}
-			{{$.V1}}[{{$i}}], _ = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
-		{{- else}}
-			{{$.V1}}[{{$i}}], carry = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, carry)
-		{{- end}}
-	{{- end}}
-{{ end }}
+
 
 {{ define "rsh V nbWords" }}
 	// {{$.V}} = {{$.V}} >> 1
-	{{$lastIndex := sub .nbWords 1}}
-	{{- range $i :=  iterate .nbWords}}
-		{{- if ne $i $lastIndex}}
-			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
-		{{- end}}
+	{{- $lastIndex := sub .nbWords 1}}
+	{{- range $i :=  iterate 0 $lastIndex}}
+		{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
 	{{- end}}
 	{{$.V}}[{{$lastIndex}}] >>= 1
 {{ end }}
+
 
 
 `
