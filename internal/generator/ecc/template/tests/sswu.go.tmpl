@@ -63,6 +63,60 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+{{/* tmplfunc */}}
+{{ define "setString x array"}}
+	{{.x}}.SetString(
+		{{- range $s := .array}}
+			"{{$s}}",
+		{{- end}}
+		)
+{{ end}}
+
+//TODO: Crude. Do something clever in Jacobian
+func isOnEPrime{{$CurveTitle}}(p {{$CurveTitle}}Affine) bool {
+
+	var A, B {{$CoordType}}
+
+	{{setString "A" .A}}
+	{{setString "B" .B}}
+	A.FromMont()
+	B.FromMont()
+
+	var LHS {{$CoordType}}
+	LHS.
+		Square(&p.Y).
+		Sub(&LHS, &B)
+
+	var RHS {{$CoordType}}
+	RHS.
+		Square(&p.X).
+		Add(&RHS, &A).
+		Mul(&RHS, &p.X)
+
+	return LHS.Equal(&RHS)
+}
+
+func Test{{$CurveTitle}}SSWU(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{$CurveTitle}}] SSWU should output point on the E' curve", prop.ForAll(
+		func(a {{$CoordType}}) bool {
+			return isOnEPrime{{$CurveTitle}}(sswuMap{{$CurveTitle}}(&a))
+		},
+		{{$fuzzer}},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 {{if $isogenyNeeded}}
 func Test{{$CurveTitle}}Isogeny(t *testing.T) {
 	t.Parallel()

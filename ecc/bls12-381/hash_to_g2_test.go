@@ -61,6 +61,59 @@ func TestG2SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+//TODO: Crude. Do something clever in Jacobian
+func isOnEPrimeG2(p G2Affine) bool {
+
+	var A, B fptower.E2
+
+	A.SetString(
+		"0",
+		"2790117701096627694150055646261695431780204215770575153269099494010466699971510925795721169644755336084445887418946",
+	)
+
+	B.SetString(
+		"2826281632962389598366337364259963121029489478635474285709773029067130565450333173183288560280583350804782949899698",
+		"2826281632962389598366337364259963121029489478635474285709773029067130565450333173183288560280583350804782949899698",
+	)
+
+	A.FromMont()
+	B.FromMont()
+
+	var LHS fptower.E2
+	LHS.
+		Square(&p.Y).
+		Sub(&LHS, &B)
+
+	var RHS fptower.E2
+	RHS.
+		Square(&p.X).
+		Add(&RHS, &A).
+		Mul(&RHS, &p.X)
+
+	return LHS.Equal(&RHS)
+}
+
+func TestG2SSWU(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[G2] SSWU should output point on the E' curve", prop.ForAll(
+		func(a fptower.E2) bool {
+			return isOnEPrimeG2(sswuMapG2(&a))
+		},
+		GenE2(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestG2Isogeny(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
