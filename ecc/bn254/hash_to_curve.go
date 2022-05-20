@@ -55,64 +55,71 @@ func sign0(u fp.Element) bool {
 // ----------------------------------------------------------------------------------------
 // G1Affine
 
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
-// Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
+// Fouque-Tibouchi method based on Shallue and van de Woestijne method,
+// works for any elliptic curve in Weierstrass curve Y^2=X^3+B
+// https://www.di.ens.fr/~fouque/pub/latincrypt12.pdf (section 3, defintion 2)
 func svdwMapG1(u fp.Element) G1Affine {
 
 	var res G1Affine
 
 	// constants
-	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
-	var z, c1, c2, c3, c4 fp.Element
-	z.SetOne()
-	c1.SetString("4")
-	c2.SetString("10944121435919637611123202872628637544348155578648911831344518947322613104291")
-	c3.SetString("8815841940592487685674414971303048083897117035520822607866")
-	c4.SetString("7296080957279758407415468581752425029565437052432607887563012631548408736189")
-
-	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fp.Element
+	var x, y, c1, c2, one fp.Element
+	c1.SetString("4407920970296243842837207485651524041948558517760411303933")
+	c2.SetString("2203960485148121921418603742825762020974279258880205651966")
 	one.SetOne()
-	tv1.Square(&u).Mul(&tv1, &c1)
-	tv2.Add(&one, &tv1)
-	tv1.Sub(&one, &tv1)
-	tv3.Mul(&tv2, &tv1).Inverse(&tv3)
-	tv4.Mul(&u, &tv1)
-	tv4.Mul(&tv4, &tv3)
-	tv4.Mul(&tv4, &c3)
-	x1.Sub(&c2, &tv4)
-	gx1.Square(&x1)
-	// 12. gx1 = gx1 + A
-	gx1.Mul(&gx1, &x1)
-	gx1.Add(&gx1, &bCurveCoeff)
-	e1 := gx1.Legendre()
-	x2.Add(&c2, &tv4)
-	gx2.Square(&x2)
-	// 18. gx2 = gx2 + A
-	gx2.Mul(&gx2, &x2)
-	gx2.Add(&gx2, &bCurveCoeff)
-	e2 := gx2.Legendre() - e1 // 2 if is_square(gx2) AND NOT e1
-	x3.Square(&tv2)
-	x3.Mul(&x3, &tv3)
-	x3.Square(&x3)
-	x3.Mul(&x3, &c4)
-	x3.Add(&x3, &z)
-	if e1 == 1 {
-		x.Set(&x1)
-	} else {
-		x.Set(&x3)
+
+	if u.IsZero() {
+		x.Set(&c2)
+		y.Add(&one, &bCurveCoeff).
+			Sqrt(&y)
+
+		res.X.Set(&x)
+		res.Y.Set(&y)
+
+		return res
 	}
-	if e2 == 2 {
+
+	var k, x1, x2, r, x3, fx1, fx2 fp.Element
+	k.Square(&u).
+		Add(&k, &bCurveCoeff).
+		Add(&k, &one).
+		Inverse(&k).
+		Mul(&k, &u).
+		Mul(&k, &c1)
+	x1.Mul(&k, &u).
+		Sub(&x1, &c2).
+		Neg(&x1)
+	x2.Add(&x1, &one).
+		Neg(&x2)
+	r.Square(&k).
+		Inverse(&r)
+	x3.Add(&r, &one)
+	fx1.Square(&x1).
+		Mul(&fx1, &x1).
+		Add(&fx1, &bCurveCoeff)
+	fx2.Square(&x2).
+		Mul(&fx2, &x2).
+		Add(&fx2, &bCurveCoeff)
+	s1 := fx1.Legendre()
+	s2 := fx2.Legendre()
+	x.Set(&x3)
+	if s2 == 1 {
 		x.Set(&x2)
 	}
-	gx.Square(&x)
-	// gx = gx + A
-	gx.Mul(&gx, &x)
-	gx.Add(&gx, &bCurveCoeff)
-	y.Sqrt(&gx)
-	e3 := sign0(u) && sign0(y)
-	if !e3 {
+	if s1 == 1 {
+		x.Set(&x1)
+	}
+	y.Square(&x).
+		Mul(&y, &x).
+		Add(&y, &bCurveCoeff)
+	u2 := u.Legendre()
+	y.Sqrt(&y)
+	if u2 == 0 {
+		y.SetZero()
+	} else if u2 == -1 {
 		y.Neg(&y)
 	}
+
 	res.X.Set(&x)
 	res.Y.Set(&y)
 
@@ -220,8 +227,8 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	if !e3 {
 		y.Neg(&y)
 	}
-	res.X.Set(&x)
-	res.Y.Set(&y)
+	x.Set(&x)
+	y.Set(&y)
 
 	return res
 }
