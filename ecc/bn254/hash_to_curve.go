@@ -101,25 +101,22 @@ func svdwMapG1(u fp.Element) G1Affine {
 		Mul(&fx2, &x2).
 		Add(&fx2, &bCurveCoeff)
 	s1 := fx1.Legendre()
-	s2 := fx2.Legendre()
+	s2 := fx2.Legendre() - s2
 	x.Set(&x3)
 	if s2 == 1 {
 		x.Set(&x2)
 	}
-	if s1 == 1 {
+	if s1 == 2 {
 		x.Set(&x1)
 	}
 	y.Square(&x).
 		Mul(&y, &x).
 		Add(&y, &bCurveCoeff)
-	u2 := u.Legendre()
 	y.Sqrt(&y)
-	if u2 == 0 {
-		y.SetZero()
-	} else if u2 == -1 {
+	u2 := sign0(u) && sign0(y)
+	if !u2 {
 		y.Neg(&y)
 	}
-
 	res.X.Set(&x)
 	res.Y.Set(&y)
 
