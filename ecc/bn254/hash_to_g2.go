@@ -12,26 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bls12378
+package bn254
 
 import (
-	"math/big"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
-
-// returns false if u>-u when seen as a bigInt
-func sign0(u fp.Element) bool {
-	var a, b big.Int
-	u.ToBigIntRegular(&a)
-	u.Neg(&u)
-	u.ToBigIntRegular(&b)
-	return a.Cmp(&b) <= 0
-}
-
-// ----------------------------------------------------------------------------------------
-// G2Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
@@ -42,16 +27,14 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fptower.E2
-	z.A0.SetOne()
-	z.A1.SetOne()
-	c1.A0.SetString("605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940403")
-	c1.A1.SetString("605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940416")
-	c2.A0.SetString("302624103037653085866624240790900480369923845885462456876760372017370467951700652388141901174418655585487141470208")
-	c2.A1.SetString("302624103037653085866624240790900480369923845885462456876760372017370467951700652388141901174418655585487141470208")
-	c3.A0.SetString("296552843788751288906244499216725356684281694271241895700730864223961612014909088554048735457137528455181151573749")
-	c3.A1.SetString("181388265705333345538985517067130917207305732282979825233670477511990909086507141331244586890249042878909613862256")
-	c4.A0.SetString("224166002250113396938240178363629985459202848804046264353155831123978124408667149917142149018087893026286771459412")
-	c4.A1.SetString("313832403150158755713536249709081979642883988325664770094418163573569374172134009883999008625323050236801480043178")
+	z.A1.SetString("1")
+	c1.A0.SetString("19485874751759354771024239261021720505790618469301721065564631296452457478373")
+	c1.A1.SetString("266929791119991161246907387137283842545076965332900288569378510910307636689")
+	c2.A1.SetString("10944121435919637611123202872628637544348155578648911831344518947322613104291")
+	c3.A0.SetString("13617985070220897759416741581922326973608167195618746963957740978229330444385")
+	c3.A1.SetString("6485072654231349560354894037339044590945718224403932749563131108378844487223")
+	c4.A0.SetString("18685085378399381287283517099609868978155387573303020199856495763721534568303")
+	c4.A1.SetString("355906388159988214995876516183045123393435953777200384759171347880410182252")
 
 	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fptower.E2
 	one.SetOne()
@@ -102,7 +85,7 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	return res
 }
 
-// MapToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// MapToG2 maps an Fp2 to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
 func MapToG2(t fptower.E2) G2Affine {
 	res := svdwMapG2(t)
@@ -110,7 +93,7 @@ func MapToG2(t fptower.E2) G2Affine {
 	return res
 }
 
-// EncodeToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// EncodeToG2 maps an Fp2 to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
@@ -125,7 +108,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	return res, nil
 }
 
-// HashToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
+// HashToG2 maps an Fp2 to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine

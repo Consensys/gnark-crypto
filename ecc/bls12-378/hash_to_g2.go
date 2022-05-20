@@ -12,55 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bls24315
+package bls12378
 
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/internal/fptower"
 )
-
-// returns false if u>-u when seen as a bigInt
-func sign0(u fp.Element) bool {
-	var a, b big.Int
-	u.ToBigIntRegular(&a)
-	u.Neg(&u)
-	u.ToBigIntRegular(&b)
-	return a.Cmp(&b) <= 0
-}
-
-// ----------------------------------------------------------------------------------------
-// G2Affine
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
 // Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func svdwMapG2(u fptower.E4) G2Affine {
+func svdwMapG2(u fptower.E2) G2Affine {
 
 	var res G2Affine
 
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
-	var z, c1, c2, c3, c4 fptower.E4
-	z.B0.A0.SetString("1")
-	z.B0.A1.SetString("0")
-	z.B1.A0.SetString("1")
-	z.B1.A1.SetString("0")
-	c1.B0.A0.SetString("1")
-	c1.B0.A1.SetString("1")
-	c1.B1.A0.SetString("2")
-	c1.B1.A1.SetString("6108483493771298205388567675447533806912846525679192205394505462405828322019437284165171866703")
-	c2.B0.A0.SetString("19852571354756719167512844945204484872466751208457374667532142752818942046563171173536808566784")
-	c2.B0.A1.SetString("0")
-	c2.B1.A0.SetString("19852571354756719167512844945204484872466751208457374667532142752818942046563171173536808566784")
-	c2.B1.A1.SetString("0")
+	var z, c1, c2, c3, c4 fptower.E2
+	z.A0.SetOne()
+	z.A1.SetOne()
+	c1.A0.SetString("605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940403")
+	c1.A1.SetString("605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940416")
+	c2.A0.SetString("302624103037653085866624240790900480369923845885462456876760372017370467951700652388141901174418655585487141470208")
+	c2.A1.SetString("302624103037653085866624240790900480369923845885462456876760372017370467951700652388141901174418655585487141470208")
+	c3.A0.SetString("296552843788751288906244499216725356684281694271241895700730864223961612014909088554048735457137528455181151573749")
+	c3.A1.SetString("181388265705333345538985517067130917207305732282979825233670477511990909086507141331244586890249042878909613862256")
+	c4.A0.SetString("224166002250113396938240178363629985459202848804046264353155831123978124408667149917142149018087893026286771459412")
+	c4.A1.SetString("313832403150158755713536249709081979642883988325664770094418163573569374172134009883999008625323050236801480043178")
 
-	c3.B0.A0.SetString("14181901575451930365156064137229663961789100070994427419777314377609453770227083005360995137239")
-	c3.B0.A1.SetString("38867788984497805540592493226397363174027239449768861944710564870925669104016488974244557160817")
-	c3.B1.A0.SetString("7207770078990411004130237352587865513334954456592365258287987262730492706089979112564450405406")
-	c3.B1.A1.SetString("11314632945591044023254019576500732396578160594635551958097682961894415495755352199773541527735")
-
-	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fptower.E4
+	var tv1, tv2, tv3, tv4, one, x1, gx1, x2, gx2, x3, x, gx, y fptower.E2
 	one.SetOne()
 	tv1.Square(&u).Mul(&tv1, &c1)
 	tv2.Add(&one, &tv1)
@@ -99,7 +80,7 @@ func svdwMapG2(u fptower.E4) G2Affine {
 	gx.Mul(&gx, &x)
 	gx.Add(&gx, &bTwistCurveCoeff)
 	y.Sqrt(&gx)
-	e3 := sign0(u.B0.A0) && sign0(y.B0.A0)
+	e3 := sign0(u.A0) && sign0(y.A0)
 	if !e3 {
 		y.Neg(&y)
 	}
@@ -111,7 +92,7 @@ func svdwMapG2(u fptower.E4) G2Affine {
 
 // MapToG2 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToG2(t fptower.E4) G2Affine {
+func MapToG2(t fptower.E2) G2Affine {
 	res := svdwMapG2(t)
 	res.ClearCofactor(&res)
 	return res
@@ -125,9 +106,9 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	if err != nil {
 		return res, err
 	}
-	var t fptower.E4
-	t.B0.A0.Set(&_t[0])
-	t.B1.A0.Set(&_t[1])
+	var t fptower.E2
+	t.A0.Set(&_t[0])
+	t.A1.Set(&_t[1])
 	res = MapToG2(t)
 	return res, nil
 }
@@ -140,11 +121,11 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	if err != nil {
 		return res, err
 	}
-	var u0, u1 fptower.E4
-	u0.B0.A0.Set(&u[0])
-	u0.B1.A0.Set(&u[1])
-	u1.B0.A0.Set(&u[2])
-	u1.B1.A0.Set(&u[3])
+	var u0, u1 fptower.E2
+	u0.A0.Set(&u[0])
+	u0.A1.Set(&u[1])
+	u1.A0.Set(&u[2])
+	u1.A1.Set(&u[3])
 	Q0 := MapToG2(u0)
 	Q1 := MapToG2(u1)
 	var _Q0, _Q1, _res G2Jac
@@ -153,4 +134,13 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	_res.Set(&_Q1).AddAssign(&_Q0)
 	res.FromJacobian(&_res)
 	return res, nil
+}
+
+// returns false if u>-u when seen as a bigInt
+func sign0(u fp.Element) bool {
+	var a, b big.Int
+	u.ToBigIntRegular(&a)
+	u.Neg(&u)
+	u.ToBigIntRegular(&b)
+	return a.Cmp(&b) <= 0
 }
