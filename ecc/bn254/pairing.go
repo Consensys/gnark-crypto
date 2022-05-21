@@ -133,12 +133,20 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		qNeg[k].Neg(&q[k])
 	}
 
-	var result GT
+	var l, l0 lineEvaluation
+	var tmp, result GT
 	result.SetOne()
 
-	var l lineEvaluation
+	// i == len(loopCounter) - 2
+	for k := 0; k < n; k++ {
+		qProj[k].DoubleStep(&l)
+		// line evaluation
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
+	}
 
-	for i := len(loopCounter) - 2; i >= 0; i-- {
+	for i := len(loopCounter) - 3; i >= 0; i-- {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
@@ -146,28 +154,29 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			// line evaluation
 			l.r0.MulByElement(&l.r0, &p[k].Y)
 			l.r1.MulByElement(&l.r1, &p[k].X)
-			result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			if loopCounter[i] == 1 {
-				qProj[k].AddMixedStep(&l, &q[k])
+				qProj[k].AddMixedStep(&l0, &q[k])
 				// line evaluation
-				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r1.MulByElement(&l.r1, &p[k].X)
-				result.MulBy034(&l.r0, &l.r1, &l.r2)
+				l0.r0.MulByElement(&l0.r0, &p[k].Y)
+				l0.r1.MulByElement(&l0.r1, &p[k].X)
+				tmp.Mul034by034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				result.Mul(&result, &tmp)
 
 			} else if loopCounter[i] == -1 {
-				qProj[k].AddMixedStep(&l, &qNeg[k])
+				qProj[k].AddMixedStep(&l0, &qNeg[k])
 				// line evaluation
-				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r1.MulByElement(&l.r1, &p[k].X)
+				l0.r0.MulByElement(&l0.r0, &p[k].Y)
+				l0.r1.MulByElement(&l0.r1, &p[k].X)
+				tmp.Mul034by034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				result.Mul(&result, &tmp)
+			} else {
 				result.MulBy034(&l.r0, &l.r1, &l.r2)
 			}
 		}
 	}
 
 	var Q1, Q2 G2Affine
-	var l0 lineEvaluation
-	var tmp GT
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	for k := 0; k < n; k++ {
 		//Q1 = Frob(Q)
