@@ -59,64 +59,40 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	// https://eprint.iacr.org/2008/490.pdf
-	var mt [4]GT // mt[i] is m^(t^i)
+	var t [5]GT
 
 	// easy part
-	mt[0].Set(&result)
-	var temp GT
-	temp.Conjugate(&mt[0])
-	mt[0].Inverse(&mt[0])
-	temp.Mul(&temp, &mt[0])
-	mt[0].FrobeniusSquare(&temp).
-		Mul(&mt[0], &temp)
+	t[0].Conjugate(&result)
+	result.Inverse(&result)
+	t[0].Mul(&t[0], &result)
+	result.FrobeniusSquare(&t[0]).
+		Mul(&result, &t[0])
 
-	// hard part
-	mt[1].Expt(&mt[0])
-	mt[2].Expt(&mt[1])
-	mt[3].Expt(&mt[2])
-
-	var y [7]GT
-
-	y[1].InverseUnitary(&mt[0])
-	y[4].Set(&mt[1])
-	y[5].InverseUnitary(&mt[2])
-	y[6].Set(&mt[3])
-
-	mt[0].Frobenius(&mt[0])
-	mt[1].Frobenius(&mt[1])
-	mt[2].Frobenius(&mt[2])
-	mt[3].Frobenius(&mt[3])
-
-	y[0].Set(&mt[0])
-	y[3].InverseUnitary(&mt[1])
-	y[4].Mul(&y[4], &mt[2]).InverseUnitary(&y[4])
-	y[6].Mul(&y[6], &mt[3]).InverseUnitary(&y[6])
-
-	mt[0].Frobenius(&mt[0])
-	mt[2].Frobenius(&mt[2])
-
-	y[0].Mul(&y[0], &mt[0])
-	y[2].Set(&mt[2])
-
-	mt[0].Frobenius(&mt[0])
-
-	y[0].Mul(&y[0], &mt[0])
-
-	// compute addition chain
-	mt[0].CyclotomicSquare(&y[6])
-	mt[0].Mul(&mt[0], &y[4])
-	mt[0].Mul(&mt[0], &y[5])
-	mt[1].Mul(&y[3], &y[5])
-	mt[1].Mul(&mt[1], &mt[0])
-	mt[0].Mul(&mt[0], &y[2])
-	mt[1].CyclotomicSquare(&mt[1])
-	mt[1].Mul(&mt[1], &mt[0])
-	mt[1].CyclotomicSquare(&mt[1])
-	mt[0].Mul(&mt[1], &y[1])
-	mt[1].Mul(&mt[1], &y[0])
-	mt[0].CyclotomicSquare(&mt[0])
-	result.Mul(&mt[0], &mt[1])
+		// hard part (up to permutation)
+	// Duquesne and Ghammam
+	// https://eprint.iacr.org/2015/192.pdf
+	t[0].Expt(&result)
+	t[0].CyclotomicSquare(&t[0])
+	t[1].CyclotomicSquare(&t[0])
+	t[1].Mul(&t[0], &t[1])
+	t[2].Expt(&t[1])
+	t[3].Set(&t[1])
+	t[1].Mul(&t[2], &t[3])
+	t[3].CyclotomicSquare(&t[2])
+	t[4].Expt(&t[3])
+	t[4].Mul(&t[4], &t[1])
+	t[0].Conjugate(&t[0])
+	t[3].Mul(&t[4], &t[0])
+	t[0].Mul(&t[2], &t[4])
+	t[0].Mul(&t[0], &result)
+	t[2].Frobenius(&t[3])
+	t[0].Mul(&t[0], &t[2])
+	t[2].FrobeniusSquare(&t[4])
+	t[0].Mul(&t[0], &t[2])
+	t[2].Conjugate(&result)
+	t[2].Mul(&t[2], &t[3])
+	result.FrobeniusCube(&t[2])
+	result.Mul(&result, &t[0])
 
 	return result
 }
