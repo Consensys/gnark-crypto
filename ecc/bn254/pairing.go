@@ -59,7 +59,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	var t [5]GT
+	var t [4]GT
 
 	// easy part
 	t[0].Conjugate(&result)
@@ -71,28 +71,36 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		// hard part (up to permutation)
 	// Duquesne and Ghammam
 	// https://eprint.iacr.org/2015/192.pdf
-	t[0].Expt(&result)
+	// Fuentes et al. variant (alg. 10)
+	t[0].Expt(&result).
+		Conjugate(&t[0])
 	t[0].CyclotomicSquare(&t[0])
+	t[2].Expt(&t[0]).
+		Conjugate(&t[2])
+	t[1].CyclotomicSquare(&t[2])
+	t[2].Mul(&t[2], &t[1])
+	t[2].Mul(&t[2], &result)
+	t[1].Expt(&t[2]).
+		CyclotomicSquare(&t[1]).
+		Mul(&t[1], &t[2]).
+		Conjugate(&t[1])
+	t[3].Conjugate(&t[1])
 	t[1].CyclotomicSquare(&t[0])
-	t[1].Mul(&t[0], &t[1])
-	t[2].Expt(&t[1])
-	t[3].Set(&t[1])
-	t[1].Mul(&t[2], &t[3])
-	t[3].CyclotomicSquare(&t[2])
-	t[4].Expt(&t[3])
-	t[4].Mul(&t[4], &t[1])
-	t[0].Conjugate(&t[0])
-	t[3].Mul(&t[4], &t[0])
-	t[0].Mul(&t[2], &t[4])
-	t[0].Mul(&t[0], &result)
-	t[2].Frobenius(&t[3])
-	t[0].Mul(&t[0], &t[2])
-	t[2].FrobeniusSquare(&t[4])
-	t[0].Mul(&t[0], &t[2])
-	t[2].Conjugate(&result)
+	t[1].Mul(&t[1], &result)
+	t[1].Conjugate(&t[1])
+	t[1].Mul(&t[1], &t[3])
+	t[0].Mul(&t[0], &t[1])
+	t[2].Mul(&t[2], &t[1])
+	t[3].FrobeniusSquare(&t[1])
 	t[2].Mul(&t[2], &t[3])
-	result.FrobeniusCube(&t[2])
-	result.Mul(&result, &t[0])
+	t[3].Conjugate(&result)
+	t[3].Mul(&t[3], &t[0])
+	t[1].FrobeniusCube(&t[3])
+	t[2].Mul(&t[2], &t[1])
+	t[1].Frobenius(&t[0])
+	t[1].Mul(&t[1], &t[2])
+
+	result.Set(&t[1])
 
 	return result
 }
