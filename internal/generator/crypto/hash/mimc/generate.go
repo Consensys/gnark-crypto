@@ -12,7 +12,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "mimc.go"), Templates: []string{"mimc.go.tmpl"}},
-		{File: filepath.Join(baseDir, "fuzz.go"), Templates: []string{"fuzz.go.tmpl"}, BuildTag: "gofuzz"},
 	}
 	return bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...)
 
