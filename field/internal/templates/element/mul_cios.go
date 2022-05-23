@@ -2,9 +2,6 @@ package element
 
 const MulCIOS = `
 {{ define "mul_cios" }}
-	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	
 	var t [{{add .all.NbWords 1}}]uint64
 	var D uint64
 	var m, C uint64
@@ -64,9 +61,6 @@ const MulCIOS = `
 {{ end }}
 
 {{ define "mul_cios_one_limb" }}
-	// implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-
 	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 	const qInvNeg uint64 = {{index $.all.QInverse 0}}
 

@@ -11,9 +11,9 @@ if b != 0 {
 	b = 0
 	{{$lastIndex := sub .NbWords 1}}
 	{{- range $i :=  iterate 0 $lastIndex}}
-	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$.ElementName}}Word{{$i}}, b)
+	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$i}}, b)
 	{{- end}}
-	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.ElementName}}Word{{$.NbWordsLastIndex}}, b)
+	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.NbWordsLastIndex}}, b)
 }
 {{- end}}
 {{$elementCapacityNbBits := mul .NbWords 64}}
@@ -27,7 +27,7 @@ if b != 0 {
 // Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
-	const q uint64 = q{{.ElementName}}Word0
+	const q uint64 = q0
 	if x.IsZero() {
 		z.SetZero()
 		return z
@@ -148,7 +148,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	a := *x
 	b := {{.ElementName}} {
 		{{- range $i := .NbWordsIndexesFull}}
-		q{{$.ElementName}}Word{{$i}},{{end}}
+		q{{$i}},{{end}}
 	}	// b := q
 
 	u := {{.ElementName}}{1}
@@ -355,9 +355,9 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-	C = madd0(m, q{{.ElementName}}Word0, x[0])
+	C = madd0(m, q0, x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
-	C, t[{{$i}}] = madd2(m, q{{$.ElementName}}Word{{$i}}, x[{{$i}}], C)
+	C, t[{{$i}}] = madd2(m, q{{$i}}, x[{{$i}}], C)
 	{{- end}}
 
 	// m * qElement[{{.NbWordsLastIndex}}] ≤ (2⁶⁴ - 1) * (2⁶³ - 1) = 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1
@@ -373,10 +373,10 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{$i}}
 		m = t[i] * qInvNegLsw
 
-		C = madd0(m, q{{$.ElementName}}Word0, t[i+0])
+		C = madd0(m, q0, t[i+0])
 
 		{{- range $j := $.NbWordsIndexesNoZero}}
-		C, t[i + {{$j}}] = madd2(m, q{{$.ElementName}}Word{{$j}}, t[i +  {{$j}}], C)
+		C, t[i + {{$j}}] = madd2(m, q{{$j}}, t[i +  {{$j}}], C)
 		{{- end}}
 
 		t[i + Limbs] += C
@@ -386,11 +386,11 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 		const i = {{.NbWordsLastIndex}}
 		m := t[i] * qInvNegLsw
 
-		C = madd0(m, q{{.ElementName}}Word0, t[i+0])
+		C = madd0(m, q0, t[i+0])
 		{{- range $j := iterate 1 $.NbWordsLastIndex}}
-		C, z[{{sub $j 1}}] = madd2(m, q{{$.ElementName}}Word{{$j}}, t[i+{{$j}}], C)
+		C, z[{{sub $j 1}}] = madd2(m, q{{$j}}, t[i+{{$j}}], C)
 		{{- end}}
-		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.ElementName}}Word{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
+		z[{{.NbWordsLastIndex}}], z[{{sub .NbWordsLastIndex 1}}] = madd2(m, q{{.NbWordsLastIndex}}, t[i+{{.NbWordsLastIndex}}], C)
 	}
     {{ template "reduce" . }}
 	// </standard SOS>

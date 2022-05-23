@@ -10,7 +10,9 @@ const Doc = `
 // Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
 // 	type {{.ElementName}} [{{.NbWords}}]uint64
 //
-// Example API signature
+// Usage
+//
+// Example API signature:
 // 	// Mul z = x * y mod q
 // 	func (z *Element) Mul(x, y *Element) *Element
 //
@@ -24,8 +26,13 @@ const Doc = `
 // 	 .Inv(a)
 // 	b.Exp(b, new(big.Int).SetUint64(42))
 //
-// Modulus
-// 	0x{{.ModulusHex}} // base 16
-// 	{{.Modulus}} // base 10
+// Modulus q =
+//
+// 	q[base10] = {{.Modulus}}
+// 	q[base16] = 0x{{.ModulusHex}}
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package {{.PackageName}}
 `

@@ -2,12 +2,6 @@ package element
 
 const Base = `
 
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular,
-// there is no security guarantees such as constant time implementation
-// or side-channel attack resistance
-// /!\ WARNING /!\
-
 import (
 	"math/big"
 	"math/bits"
@@ -22,43 +16,35 @@ import (
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
-// {{.ElementName}} are assumed to be in Montgomery form in all methods
-// field modulus q =
+// 
+// {{.ElementName}} are assumed to be in Montgomery form in all methods.
+// 
+// Modulus q =
 //
-// {{.Modulus}}
+// 	q[base10] = {{.Modulus}}
+// 	q[base16] = 0x{{.ModulusHex}}
 type {{.ElementName}} [{{.NbWords}}]uint64
 
-// Limbs number of 64 bits words needed to represent {{.ElementName}}
-const Limbs = {{.NbWords}}
+const (
+	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
+	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
+	Bytes = Limbs * 8 		// number of bytes needed to represent a {{.ElementName}}
+)
 
-// Bits number bits needed to represent {{.ElementName}}
-const Bits = {{.NbBits}}
-
-// Bytes number bytes needed to represent {{.ElementName}}
-const Bytes = Limbs * 8
-
-// field modulus stored as big.Int
-var _modulus big.Int
-
-// Modulus returns q as a big.Int
-// q =
-//
-// {{.Modulus}}
-func Modulus() *big.Int {
-	return new(big.Int).Set(&_modulus)
-}
 
 // q (modulus)
+const (
 {{- range $i := $.NbWordsIndexesFull}}
-const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+	q{{$i}} uint64 = {{index $.Q $i}} 
+	{{- if eq $.NbWords 1}}
+		q uint64 = q0
+	{{- end}}
 {{- end}}
-{{- if eq .NbWords 1}}
-const q uint64 = q{{$.ElementName}}Word0
-{{- end}}
+)
 
 var q{{.ElementName}} = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
-	q{{$.ElementName}}Word{{$i}},{{end}}
+	q{{$i}},{{end}}
 }
 
 // rSquare
@@ -67,6 +53,21 @@ var rSquare = {{.ElementName}}{
 	{{$i}},{{end}}
 }
 
+var (
+	_modulus big.Int 		// q stored as big.Int
+	_modulusOnce sync.Once
+)
+
+// Modulus returns q as a big.Int
+//
+// 	q[base10] = {{.Modulus}}
+// 	q[base16] = 0x{{.ModulusHex}}
+func Modulus() *big.Int {
+	_modulusOnce.Do(func() {
+		_modulus.SetString("{{.ModulusHex}}", 16)
+	})
+	return new(big.Int).Set(&_modulus)
+}
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -74,22 +75,16 @@ var bigIntPool = sync.Pool{
 	},
 }
 
-func init() {
-	// base10: {{.Modulus}}
-	_modulus.SetString("{{.ModulusHex}}", 16)
-}
-
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
 //
 // it is equivalent to
-// 		var v New{{.ElementName}}
+// 		var v {{.ElementName}}
 // 		v.SetUint64(...)
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
 	z := {{.ElementName}}{v}
 	z.Mul(&z, &rSquare)
 	return z
 }
-
 
 // SetUint64 sets z to v and returns z
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
@@ -113,7 +108,7 @@ func (z *{{.ElementName}}) SetInt64(v int64) *{{.ElementName}} {
 	return z
 }
 
-// Set z = x
+// Set z = x and returns z
 func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 	{{- range $i := .NbWordsIndexesFull}}
 		z[{{$i}}] = x[{{$i}}]
@@ -123,8 +118,15 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 
 // SetInterface converts provided interface into {{.ElementName}}
 // returns an error if provided type is not supported
-// supported types: {{.ElementName}}, *{{.ElementName}}, uint64, int, string (interpreted as base10 integer),
-// *big.Int, big.Int, []byte
+// supported types:
+//  {{.ElementName}}
+//  *{{.ElementName}}
+//  uint64
+//  int
+//  string (interpreted as a base10 integer)
+//  *big.Int
+//  big.Int
+//  []byte
 func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, error) {
 	switch c1 := i1.(type) {
 	case {{.ElementName}}:
@@ -187,7 +189,7 @@ func (z *{{.ElementName}}) SetOne() *{{.ElementName}} {
 }
 
 
-// Div z = x*y^-1 mod q
+// Div z = x*y⁻¹ mod q
 func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var yInv {{.ElementName}}
 	yInv.Inverse( y)
@@ -248,6 +250,8 @@ func (z *{{.ElementName}}) Uint64() uint64 {
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *{{.ElementName}}) FitsOnOneWord() bool {
 	{{- if eq .NbWords 1}}
 		return true
@@ -297,8 +301,6 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 }
 
 
-
-
 // SetRandom sets z to a random element < q
 func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	var bytes [{{mul 8 .NbWords}}]byte
@@ -311,7 +313,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	{{- end}}
 
 	{{- if not $.IsMSWSaturated }}
-		z[{{$.NbWordsLastIndex}}] %= q{{$.ElementName}}Word{{$.NbWordsLastIndex}} {{- if ne .NbWords 1}} + 1 {{- end}}
+		z[{{$.NbWordsLastIndex}}] %= q{{$.NbWordsLastIndex}} {{- if ne .NbWords 1}} + 1 {{- end}}
 	{{- end}}
 
 	{{- if ne .NbWords 1}}
@@ -328,7 +330,7 @@ func One() {{.ElementName}} {
 	return one
 }
 
-// Halve sets z to z / 2 (mod p)
+// Halve sets z to z / 2 (mod q)
 func (z *{{.ElementName}}) Halve()  {
 	{{- if not (and (eq .NbWords 1) (.NoCarry))}}
 		var carry uint64
@@ -359,8 +361,55 @@ func (z *{{.ElementName}}) Halve()  {
 
 
 // Mul z = x * y mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+{{- if $.NoCarry}}
+//
+// x and y must be strictly inferior to q
+{{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	// 
+	// The algorithm:
+	// 
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//		
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//		
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2 
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+	{{- if $.NoCarry}}
+	// 
+	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
+	//
+	// for i=0 to N-1
+    // 		(A,t[0]) := t[0] + x[0]*y[i] 
+    // 		m := t[0]*q'[0] mod W
+    // 		C,_ := t[0] + m*q[0]
+    // 		for j=1 to N-1
+    // 			(A,t[j])  := t[j] + x[j]*y[i] + A
+    // 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//		
+    // 		t[N-1] = C + A
+	//
+	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit 
+	// of the modulus is zero (and not all of the remaining bits are set).
+	{{- end}}
+
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{- else }}
@@ -370,8 +419,12 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // Square z = x * x mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+{{- if $.NoCarry}}
+//
+// x must be strictly inferior to q
+{{- end }}
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
+	// see Mul for algorithm documentation
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
 	{{- else }}

@@ -16,12 +16,6 @@
 
 package fp
 
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular,
-// there is no security guarantees such as constant time implementation
-// or side-channel attack resistance
-// /!\ WARNING /!\
-
 import (
 	"crypto/rand"
 	"encoding/binary"
@@ -36,47 +30,38 @@ import (
 )
 
 // Element represents a field element stored on 6 words (uint64)
-// Element are assumed to be in Montgomery form in all methods
-// field modulus q =
 //
-// 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
+// Element are assumed to be in Montgomery form in all methods.
+//
+// Modulus q =
+//
+// 	q[base10] = 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
+// 	q[base16] = 0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001
 type Element [6]uint64
 
-// Limbs number of 64 bits words needed to represent Element
-const Limbs = 6
-
-// Bits number bits needed to represent Element
-const Bits = 377
-
-// Bytes number bytes needed to represent Element
-const Bytes = Limbs * 8
-
-// field modulus stored as big.Int
-var _modulus big.Int
-
-// Modulus returns q as a big.Int
-// q =
-//
-// 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
-func Modulus() *big.Int {
-	return new(big.Int).Set(&_modulus)
-}
+const (
+	Limbs = 6         // number of 64 bits words needed to represent a Element
+	Bits  = 377       // number of bits needed to represent a Element
+	Bytes = Limbs * 8 // number of bytes needed to represent a Element
+)
 
 // q (modulus)
-const qElementWord0 uint64 = 9586122913090633729
-const qElementWord1 uint64 = 1660523435060625408
-const qElementWord2 uint64 = 2230234197602682880
-const qElementWord3 uint64 = 1883307231910630287
-const qElementWord4 uint64 = 14284016967150029115
-const qElementWord5 uint64 = 121098312706494698
+const (
+	q0 uint64 = 9586122913090633729
+	q1 uint64 = 1660523435060625408
+	q2 uint64 = 2230234197602682880
+	q3 uint64 = 1883307231910630287
+	q4 uint64 = 14284016967150029115
+	q5 uint64 = 121098312706494698
+)
 
 var qElement = Element{
-	qElementWord0,
-	qElementWord1,
-	qElementWord2,
-	qElementWord3,
-	qElementWord4,
-	qElementWord5,
+	q0,
+	q1,
+	q2,
+	q3,
+	q4,
+	q5,
 }
 
 // rSquare
@@ -89,21 +74,32 @@ var rSquare = Element{
 	30958721782860680,
 }
 
+var (
+	_modulus     big.Int // q stored as big.Int
+	_modulusOnce sync.Once
+)
+
+// Modulus returns q as a big.Int
+//
+// 	q[base10] = 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
+// 	q[base16] = 0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001
+func Modulus() *big.Int {
+	_modulusOnce.Do(func() {
+		_modulus.SetString("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001", 16)
+	})
+	return new(big.Int).Set(&_modulus)
+}
+
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
 		return new(big.Int)
 	},
 }
 
-func init() {
-	// base10: 258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177
-	_modulus.SetString("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001", 16)
-}
-
 // NewElement returns a new Element from a uint64 value
 //
 // it is equivalent to
-// 		var v NewElement
+// 		var v Element
 // 		v.SetUint64(...)
 func NewElement(v uint64) Element {
 	z := Element{v}
@@ -133,7 +129,7 @@ func (z *Element) SetInt64(v int64) *Element {
 	return z
 }
 
-// Set z = x
+// Set z = x and returns z
 func (z *Element) Set(x *Element) *Element {
 	z[0] = x[0]
 	z[1] = x[1]
@@ -146,8 +142,15 @@ func (z *Element) Set(x *Element) *Element {
 
 // SetInterface converts provided interface into Element
 // returns an error if provided type is not supported
-// supported types: Element, *Element, uint64, int, string (interpreted as base10 integer),
-// *big.Int, big.Int, []byte
+// supported types:
+//  Element
+//  *Element
+//  uint64
+//  int
+//  string (interpreted as a base10 integer)
+//  *big.Int
+//  big.Int
+//  []byte
 func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	switch c1 := i1.(type) {
 	case Element:
@@ -215,7 +218,7 @@ func (z *Element) SetOne() *Element {
 	return z
 }
 
-// Div z = x*y^-1 mod q
+// Div z = x*y⁻¹ mod q
 func (z *Element) Div(x, y *Element) *Element {
 	var yInv Element
 	yInv.Inverse(y)
@@ -268,6 +271,8 @@ func (z *Element) Uint64() uint64 {
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
 func (z *Element) FitsOnOneWord() bool {
 	return (z[5] | z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -349,7 +354,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	z[3] = binary.BigEndian.Uint64(bytes[24:32])
 	z[4] = binary.BigEndian.Uint64(bytes[32:40])
 	z[5] = binary.BigEndian.Uint64(bytes[40:48])
-	z[5] %= qElementWord5 + 1
+	z[5] %= q5 + 1
 
 	// if z >= q → z -= q
 	// note: this is NOT constant time
@@ -373,7 +378,7 @@ func One() Element {
 	return one
 }
 
-// Halve sets z to z / 2 (mod p)
+// Halve sets z to z / 2 (mod q)
 func (z *Element) Halve() {
 	var carry uint64
 
@@ -398,15 +403,59 @@ func (z *Element) Halve() {
 }
 
 // Mul z = x * y mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+//
+// x and y must be strictly inferior to q
 func (z *Element) Mul(x, y *Element) *Element {
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+	//
+	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
+	//
+	// for i=0 to N-1
+	// 		(A,t[0]) := t[0] + x[0]*y[i]
+	// 		m := t[0]*q'[0] mod W
+	// 		C,_ := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(A,t[j])  := t[j] + x[j]*y[i] + A
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		t[N-1] = C + A
+	//
+	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit
+	// of the modulus is zero (and not all of the remaining bits are set).
 	mul(z, x, y)
 	return z
 }
 
 // Square z = x * x mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+//
+// x must be strictly inferior to q
 func (z *Element) Square(x *Element) *Element {
+	// see Mul for algorithm documentation
 	mul(z, x, x)
 	return z
 }
@@ -1228,12 +1277,12 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	a := *x
 	b := Element{
-		qElementWord0,
-		qElementWord1,
-		qElementWord2,
-		qElementWord3,
-		qElementWord4,
-		qElementWord5,
+		q0,
+		q1,
+		q2,
+		q3,
+		q4,
+		q5,
 	} // b := q
 
 	u := Element{1}
@@ -1439,12 +1488,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 	m := x[0] * qInvNegLsw
 
-	C = madd0(m, qElementWord0, x[0])
-	C, t[1] = madd2(m, qElementWord1, x[1], C)
-	C, t[2] = madd2(m, qElementWord2, x[2], C)
-	C, t[3] = madd2(m, qElementWord3, x[3], C)
-	C, t[4] = madd2(m, qElementWord4, x[4], C)
-	C, t[5] = madd2(m, qElementWord5, x[5], C)
+	C = madd0(m, q0, x[0])
+	C, t[1] = madd2(m, q1, x[1], C)
+	C, t[2] = madd2(m, q2, x[2], C)
+	C, t[3] = madd2(m, q3, x[3], C)
+	C, t[4] = madd2(m, q4, x[4], C)
+	C, t[5] = madd2(m, q5, x[5], C)
 
 	// m * qElement[5] ≤ (2⁶⁴ - 1) * (2⁶³ - 1) = 2¹²⁷ - 2⁶⁴ - 2⁶³ + 1
 	// x[5] + C ≤ 2*(2⁶⁴ - 1) = 2⁶⁵ - 2
@@ -1458,12 +1507,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 1
 		m = t[i] * qInvNegLsw
 
-		C = madd0(m, qElementWord0, t[i+0])
-		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
-		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
-		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
-		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
-		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C = madd0(m, q0, t[i+0])
+		C, t[i+1] = madd2(m, q1, t[i+1], C)
+		C, t[i+2] = madd2(m, q2, t[i+2], C)
+		C, t[i+3] = madd2(m, q3, t[i+3], C)
+		C, t[i+4] = madd2(m, q4, t[i+4], C)
+		C, t[i+5] = madd2(m, q5, t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1471,12 +1520,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 2
 		m = t[i] * qInvNegLsw
 
-		C = madd0(m, qElementWord0, t[i+0])
-		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
-		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
-		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
-		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
-		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C = madd0(m, q0, t[i+0])
+		C, t[i+1] = madd2(m, q1, t[i+1], C)
+		C, t[i+2] = madd2(m, q2, t[i+2], C)
+		C, t[i+3] = madd2(m, q3, t[i+3], C)
+		C, t[i+4] = madd2(m, q4, t[i+4], C)
+		C, t[i+5] = madd2(m, q5, t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1484,12 +1533,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 3
 		m = t[i] * qInvNegLsw
 
-		C = madd0(m, qElementWord0, t[i+0])
-		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
-		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
-		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
-		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
-		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C = madd0(m, q0, t[i+0])
+		C, t[i+1] = madd2(m, q1, t[i+1], C)
+		C, t[i+2] = madd2(m, q2, t[i+2], C)
+		C, t[i+3] = madd2(m, q3, t[i+3], C)
+		C, t[i+4] = madd2(m, q4, t[i+4], C)
+		C, t[i+5] = madd2(m, q5, t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1497,12 +1546,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 4
 		m = t[i] * qInvNegLsw
 
-		C = madd0(m, qElementWord0, t[i+0])
-		C, t[i+1] = madd2(m, qElementWord1, t[i+1], C)
-		C, t[i+2] = madd2(m, qElementWord2, t[i+2], C)
-		C, t[i+3] = madd2(m, qElementWord3, t[i+3], C)
-		C, t[i+4] = madd2(m, qElementWord4, t[i+4], C)
-		C, t[i+5] = madd2(m, qElementWord5, t[i+5], C)
+		C = madd0(m, q0, t[i+0])
+		C, t[i+1] = madd2(m, q1, t[i+1], C)
+		C, t[i+2] = madd2(m, q2, t[i+2], C)
+		C, t[i+3] = madd2(m, q3, t[i+3], C)
+		C, t[i+4] = madd2(m, q4, t[i+4], C)
+		C, t[i+5] = madd2(m, q5, t[i+5], C)
 
 		t[i+Limbs] += C
 	}
@@ -1510,12 +1559,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		const i = 5
 		m := t[i] * qInvNegLsw
 
-		C = madd0(m, qElementWord0, t[i+0])
-		C, z[0] = madd2(m, qElementWord1, t[i+1], C)
-		C, z[1] = madd2(m, qElementWord2, t[i+2], C)
-		C, z[2] = madd2(m, qElementWord3, t[i+3], C)
-		C, z[3] = madd2(m, qElementWord4, t[i+4], C)
-		z[5], z[4] = madd2(m, qElementWord5, t[i+5], C)
+		C = madd0(m, q0, t[i+0])
+		C, z[0] = madd2(m, q1, t[i+1], C)
+		C, z[1] = madd2(m, q2, t[i+2], C)
+		C, z[2] = madd2(m, q3, t[i+3], C)
+		C, z[3] = madd2(m, q4, t[i+4], C)
+		z[5], z[4] = madd2(m, q5, t[i+5], C)
 	}
 
 	// if z >= q → z -= q
@@ -1550,12 +1599,12 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 
 			b = 0
 
-			z[0], b = bits.Add64(z[0], qElementWord0, b)
-			z[1], b = bits.Add64(z[1], qElementWord1, b)
-			z[2], b = bits.Add64(z[2], qElementWord2, b)
-			z[3], b = bits.Add64(z[3], qElementWord3, b)
-			z[4], b = bits.Add64(z[4], qElementWord4, b)
-			z[5], _ = bits.Add64(neg1, qElementWord5, b)
+			z[0], b = bits.Add64(z[0], q0, b)
+			z[1], b = bits.Add64(z[1], q1, b)
+			z[2], b = bits.Add64(z[2], q2, b)
+			z[3], b = bits.Add64(z[3], q3, b)
+			z[4], b = bits.Add64(z[4], q4, b)
+			z[5], _ = bits.Add64(neg1, q5, b)
 		}
 	}
 }
@@ -1607,12 +1656,12 @@ func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
 
 			b = 0
 
-			z[0], b = bits.Add64(z[0], qElementWord0, b)
-			z[1], b = bits.Add64(z[1], qElementWord1, b)
-			z[2], b = bits.Add64(z[2], qElementWord2, b)
-			z[3], b = bits.Add64(z[3], qElementWord3, b)
-			z[4], b = bits.Add64(z[4], qElementWord4, b)
-			z[5], _ = bits.Add64(neg1, qElementWord5, b)
+			z[0], b = bits.Add64(z[0], q0, b)
+			z[1], b = bits.Add64(z[1], q1, b)
+			z[2], b = bits.Add64(z[2], q2, b)
+			z[3], b = bits.Add64(z[3], q3, b)
+			z[4], b = bits.Add64(z[4], q4, b)
+			z[5], _ = bits.Add64(neg1, q5, b)
 		}
 	}
 }
