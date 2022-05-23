@@ -389,20 +389,103 @@ func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
 
 // Add z = x + y mod q
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
-	add(z, x, y)
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
+	{{- end}}
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+	{{- end}}
+
+	{{- if eq $.NbWords 1}}
+		if {{- if not .NoCarry}} carry != 0 ||{{- end }} z[0] >= q {
+			z[0] -= q
+		}
+	{{- else}}
+		{{- if not .NoCarry}}
+			// if we overflowed the last addition, z >= q
+			// if z >= q, z = z - q
+			if carry != 0 {
+				var b uint64
+				// we overflowed, so z >= q
+				{{- range $i := iterate 0 $.NbWords}}
+					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
+				{{- end}}
+				return
+			}
+		{{- end}}
+
+		{{ template "reduce" .}}
+	{{- end}}
 	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
-	double(z, x)
+	{{- if eq .NbWords 1}}
+	if x[0] & (1 << 63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q 
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
+	}
+	{{- else}}
+	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
+	{{- if $hasCarry}}
+		var carry uint64
+	{{- end}}
+	{{- range $i := iterate 0 $.NbWords}}
+		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], x[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+	{{- end}}
+	{{- if not .NoCarry}}
+		// if we overflowed the last addition, z >= q
+		// if z >= q, z = z - q
+		if carry != 0 {
+			var b uint64
+			// we overflowed, so z >= q
+			{{- range $i := iterate 0 $.NbWords}}
+				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
+				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
+			{{- end}}
+			return
+		}
+	{{- end}}
+
+	{{ template "reduce" .}}
+	{{- end}}
 	return z
 }
 
 
 // Sub  z = x - y mod q
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
-	sub(z, x, y)
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	{{- range $i := .NbWordsIndexesNoZero}}
+		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
+	{{- end}}
+	if b != 0 {
+		{{- if eq .NbWords 1}}
+			z[0] += q
+		{{- else}}
+		var c uint64
+		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
+		{{- range $i := .NbWordsIndexesNoZero}}
+			{{- if eq $i $.NbWordsLastIndex}}
+				z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+			{{- else}}
+				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+			{{- end}}
+		{{- end}}
+		{{- end}}
+	}
 	return z
 }
 
@@ -456,102 +539,6 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 }
 
 
-
-func _addGeneric(z,  x, y *{{.ElementName}}) {
-	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
-	{{- if $hasCarry}}
-		var carry uint64
-	{{- end}}
-	{{- range $i := iterate 0 $.NbWords}}
-		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
-		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
-	{{- end}}
-
-	{{- if eq $.NbWords 1}}
-		if {{- if not .NoCarry}} carry != 0 ||{{- end }} z[0] >= q {
-			z[0] -= q
-		}
-	{{- else}}
-		{{- if not .NoCarry}}
-			// if we overflowed the last addition, z >= q
-			// if z >= q, z = z - q
-			if carry != 0 {
-				var b uint64
-				// we overflowed, so z >= q
-				{{- range $i := iterate 0 $.NbWords}}
-					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
-					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
-				{{- end}}
-				return
-			}
-		{{- end}}
-
-		{{ template "reduce" .}}
-	{{- end}}
-}
-
-func _doubleGeneric(z,  x *{{.ElementName}}) {
-	{{- if eq .NbWords 1}}
-	if x[0] & (1 << 63) == (1 << 63) {
-		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
-		z[0] = (x[0] << 1) - q 
-	} else {
-		// highest bit is not set, but x + x can still be >= q
-		z[0] = (x[0] << 1)
-		if z[0] >= q {
-			z[0] -= q
-		}
-	}
-	{{- else}}
-	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
-	{{- if $hasCarry}}
-		var carry uint64
-	{{- end}}
-	{{- range $i := iterate 0 $.NbWords}}
-		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
-		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], x[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
-	{{- end}}
-	{{- if not .NoCarry}}
-		// if we overflowed the last addition, z >= q
-		// if z >= q, z = z - q
-		if carry != 0 {
-			var b uint64
-			// we overflowed, so z >= q
-			{{- range $i := iterate 0 $.NbWords}}
-				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
-				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
-			{{- end}}
-			return
-		}
-	{{- end}}
-
-	{{ template "reduce" .}}
-	{{- end}}
-}
-
-
-func _subGeneric(z,  x, y *{{.ElementName}}) {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
-	{{- end}}
-	if b != 0 {
-		{{- if eq .NbWords 1}}
-			z[0] += q
-		{{- else}}
-		var c uint64
-		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
-		{{- range $i := .NbWordsIndexesNoZero}}
-			{{- if eq $i $.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
-			{{- else}}
-				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
-			{{- end}}
-		{{- end}}
-		{{- end}}
-	}
-}
 
 func _negGeneric(z,  x *{{.ElementName}}) {
 	if x.IsZero() {

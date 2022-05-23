@@ -147,15 +147,6 @@ func Generate(w io.Writer, F *field.Field) error {
 
 	f.GenerateDefines()
 
-	// add
-	f.generateAdd()
-
-	// sub
-	f.generateSub()
-
-	// double
-	f.generateDouble()
-
 	// neg
 	f.generateNeg()
 

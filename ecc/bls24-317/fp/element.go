@@ -404,19 +404,66 @@ func (z *Element) FromMont() *Element {
 
 // Add z = x + y mod q
 func (z *Element) Add(x, y *Element) *Element {
-	add(z, x, y)
+
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], carry = bits.Add64(x[3], y[3], carry)
+	z[4], _ = bits.Add64(x[4], y[4], carry)
+
+	// if z >= q → z -= q
+	// note: this is NOT constant time
+	if !(z[4] < 1177913551803681068 || (z[4] == 1177913551803681068 && (z[3] < 17478405972920225849 || (z[3] == 17478405972920225849 && (z[2] < 1628721857945875526 || (z[2] == 1628721857945875526 && (z[1] < 15488787195747417982 || (z[1] == 15488787195747417982 && (z[0] < 10182971180934965931))))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 10182971180934965931, 0)
+		z[1], b = bits.Sub64(z[1], 15488787195747417982, b)
+		z[2], b = bits.Sub64(z[2], 1628721857945875526, b)
+		z[3], b = bits.Sub64(z[3], 17478405972920225849, b)
+		z[4], _ = bits.Sub64(z[4], 1177913551803681068, b)
+	}
 	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	double(z, x)
+
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], x[0], 0)
+	z[1], carry = bits.Add64(x[1], x[1], carry)
+	z[2], carry = bits.Add64(x[2], x[2], carry)
+	z[3], carry = bits.Add64(x[3], x[3], carry)
+	z[4], _ = bits.Add64(x[4], x[4], carry)
+
+	// if z >= q → z -= q
+	// note: this is NOT constant time
+	if !(z[4] < 1177913551803681068 || (z[4] == 1177913551803681068 && (z[3] < 17478405972920225849 || (z[3] == 17478405972920225849 && (z[2] < 1628721857945875526 || (z[2] == 1628721857945875526 && (z[1] < 15488787195747417982 || (z[1] == 15488787195747417982 && (z[0] < 10182971180934965931))))))))) {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], 10182971180934965931, 0)
+		z[1], b = bits.Sub64(z[1], 15488787195747417982, b)
+		z[2], b = bits.Sub64(z[2], 1628721857945875526, b)
+		z[3], b = bits.Sub64(z[3], 17478405972920225849, b)
+		z[4], _ = bits.Sub64(z[4], 1177913551803681068, b)
+	}
 	return z
 }
 
 // Sub  z = x - y mod q
 func (z *Element) Sub(x, y *Element) *Element {
-	sub(z, x, y)
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	z[1], b = bits.Sub64(x[1], y[1], b)
+	z[2], b = bits.Sub64(x[2], y[2], b)
+	z[3], b = bits.Sub64(x[3], y[3], b)
+	z[4], b = bits.Sub64(x[4], y[4], b)
+	if b != 0 {
+		var c uint64
+		z[0], c = bits.Add64(z[0], 10182971180934965931, 0)
+		z[1], c = bits.Add64(z[1], 15488787195747417982, c)
+		z[2], c = bits.Add64(z[2], 1628721857945875526, c)
+		z[3], c = bits.Add64(z[3], 17478405972920225849, c)
+		z[4], _ = bits.Add64(z[4], 1177913551803681068, c)
+	}
 	return z
 }
 
@@ -596,65 +643,6 @@ func _fromMontGeneric(z *Element) {
 		z[2], b = bits.Sub64(z[2], 1628721857945875526, b)
 		z[3], b = bits.Sub64(z[3], 17478405972920225849, b)
 		z[4], _ = bits.Sub64(z[4], 1177913551803681068, b)
-	}
-}
-
-func _addGeneric(z, x, y *Element) {
-
-	var carry uint64
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	z[1], carry = bits.Add64(x[1], y[1], carry)
-	z[2], carry = bits.Add64(x[2], y[2], carry)
-	z[3], carry = bits.Add64(x[3], y[3], carry)
-	z[4], _ = bits.Add64(x[4], y[4], carry)
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[4] < 1177913551803681068 || (z[4] == 1177913551803681068 && (z[3] < 17478405972920225849 || (z[3] == 17478405972920225849 && (z[2] < 1628721857945875526 || (z[2] == 1628721857945875526 && (z[1] < 15488787195747417982 || (z[1] == 15488787195747417982 && (z[0] < 10182971180934965931))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 10182971180934965931, 0)
-		z[1], b = bits.Sub64(z[1], 15488787195747417982, b)
-		z[2], b = bits.Sub64(z[2], 1628721857945875526, b)
-		z[3], b = bits.Sub64(z[3], 17478405972920225849, b)
-		z[4], _ = bits.Sub64(z[4], 1177913551803681068, b)
-	}
-}
-
-func _doubleGeneric(z, x *Element) {
-
-	var carry uint64
-	z[0], carry = bits.Add64(x[0], x[0], 0)
-	z[1], carry = bits.Add64(x[1], x[1], carry)
-	z[2], carry = bits.Add64(x[2], x[2], carry)
-	z[3], carry = bits.Add64(x[3], x[3], carry)
-	z[4], _ = bits.Add64(x[4], x[4], carry)
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[4] < 1177913551803681068 || (z[4] == 1177913551803681068 && (z[3] < 17478405972920225849 || (z[3] == 17478405972920225849 && (z[2] < 1628721857945875526 || (z[2] == 1628721857945875526 && (z[1] < 15488787195747417982 || (z[1] == 15488787195747417982 && (z[0] < 10182971180934965931))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 10182971180934965931, 0)
-		z[1], b = bits.Sub64(z[1], 15488787195747417982, b)
-		z[2], b = bits.Sub64(z[2], 1628721857945875526, b)
-		z[3], b = bits.Sub64(z[3], 17478405972920225849, b)
-		z[4], _ = bits.Sub64(z[4], 1177913551803681068, b)
-	}
-}
-
-func _subGeneric(z, x, y *Element) {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	z[1], b = bits.Sub64(x[1], y[1], b)
-	z[2], b = bits.Sub64(x[2], y[2], b)
-	z[3], b = bits.Sub64(x[3], y[3], b)
-	z[4], b = bits.Sub64(x[4], y[4], b)
-	if b != 0 {
-		var c uint64
-		z[0], c = bits.Add64(z[0], 10182971180934965931, 0)
-		z[1], c = bits.Add64(z[1], 15488787195747417982, c)
-		z[2], c = bits.Add64(z[2], 1628721857945875526, c)
-		z[3], c = bits.Add64(z[3], 17478405972920225849, c)
-		z[4], _ = bits.Add64(z[4], 1177913551803681068, c)
 	}
 }
 

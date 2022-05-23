@@ -690,8 +690,8 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 }
 
 
-{{template "testBinaryOp" dict "all" . "Op" "Add" "GenericOp" "_addGeneric"}}
-{{template "testBinaryOp" dict "all" . "Op" "Sub" "GenericOp" "_subGeneric"}}
+{{template "testBinaryOp" dict "all" . "Op" "Add"}}
+{{template "testBinaryOp" dict "all" . "Op" "Sub"}}
 {{template "testBinaryOp" dict "all" . "Op" "Mul" "GenericOp" "_mulGeneric"}}
 {{template "testBinaryOp" dict "all" . "Op" "Div"}}
 {{template "testBinaryOp" dict "all" . "Op" "Exp"}}
@@ -699,7 +699,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{template "testUnaryOp" dict "all" . "Op" "Square" }}
 {{template "testUnaryOp" dict "all" . "Op" "Inverse"}}
 {{template "testUnaryOp" dict "all" . "Op" "Sqrt"}}
-{{template "testUnaryOp" dict "all" . "Op" "Double"  "GenericOp" "_doubleGeneric"}}
+{{template "testUnaryOp" dict "all" . "Op" "Double"}}
 {{template "testUnaryOp" dict "all" . "Op" "Neg"  "GenericOp" "_negGeneric"}}
 
 {{ define "testBinaryOp" }}

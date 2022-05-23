@@ -376,19 +376,37 @@ func (z *Element) FromMont() *Element {
 
 // Add z = x + y mod q
 func (z *Element) Add(x, y *Element) *Element {
-	add(z, x, y)
+
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	if carry != 0 || z[0] >= q {
+		z[0] -= q
+	}
 	return z
 }
 
 // Double z = x + x mod q, aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	double(z, x)
+	if x[0]&(1<<63) == (1 << 63) {
+		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+		z[0] = (x[0] << 1) - q
+	} else {
+		// highest bit is not set, but x + x can still be >= q
+		z[0] = (x[0] << 1)
+		if z[0] >= q {
+			z[0] -= q
+		}
+	}
 	return z
 }
 
 // Sub  z = x - y mod q
 func (z *Element) Sub(x, y *Element) *Element {
-	sub(z, x, y)
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	if b != 0 {
+		z[0] += q
+	}
 	return z
 }
 
@@ -445,36 +463,6 @@ func _fromMontGeneric(z *Element) {
 	// note: this is NOT constant time
 	if z[0] >= q {
 		z[0] -= q
-	}
-}
-
-func _addGeneric(z, x, y *Element) {
-
-	var carry uint64
-	z[0], carry = bits.Add64(x[0], y[0], 0)
-	if carry != 0 || z[0] >= q {
-		z[0] -= q
-	}
-}
-
-func _doubleGeneric(z, x *Element) {
-	if x[0]&(1<<63) == (1 << 63) {
-		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
-		z[0] = (x[0] << 1) - q
-	} else {
-		// highest bit is not set, but x + x can still be >= q
-		z[0] = (x[0] << 1)
-		if z[0] >= q {
-			z[0] -= q
-		}
-	}
-}
-
-func _subGeneric(z, x, y *Element) {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	if b != 0 {
-		z[0] += q
 	}
 }
 

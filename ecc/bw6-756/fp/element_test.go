@@ -743,14 +743,6 @@ func TestElementAdd(t *testing.T) {
 				c.Add(&a.element, &r)
 				d.Add(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -773,17 +765,6 @@ func TestElementAdd(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Add: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Add(&a.element, &b.element)
-			_addGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
-		},
-		genA,
-		genB,
-	))
-
 	specialValueTest := func() {
 		// test special values against special values
 		testValues := make([]Element, len(staticTestValues))
@@ -800,13 +781,6 @@ func TestElementAdd(t *testing.T) {
 				var c Element
 				c.Add(&a, &b)
 				d.Add(&aBig, &bBig).Mod(&d, Modulus())
-
-				// checking asm against generic impl
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Add failed special test values: asm and generic impl don't match")
-				}
 
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Add failed special test values")
@@ -878,14 +852,6 @@ func TestElementSub(t *testing.T) {
 				c.Sub(&a.element, &r)
 				d.Sub(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -908,17 +874,6 @@ func TestElementSub(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Sub: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Sub(&a.element, &b.element)
-			_subGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
-		},
-		genA,
-		genB,
-	))
-
 	specialValueTest := func() {
 		// test special values against special values
 		testValues := make([]Element, len(staticTestValues))
@@ -935,13 +890,6 @@ func TestElementSub(t *testing.T) {
 				var c Element
 				c.Sub(&a, &b)
 				d.Sub(&aBig, &bBig).Mod(&d, Modulus())
-
-				// checking asm against generic impl
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Sub failed special test values: asm and generic impl don't match")
-				}
 
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Sub failed special test values")
@@ -1574,16 +1522,6 @@ func TestElementDouble(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Double: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Double(&a.element)
-			_doubleGeneric(&d, &a.element)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
 	specialValueTest := func() {
 		// test special values
 		testValues := make([]Element, len(staticTestValues))
@@ -1597,13 +1535,6 @@ func TestElementDouble(t *testing.T) {
 
 			var d, e big.Int
 			d.Lsh(&aBig, 1).Mod(&d, Modulus())
-
-			// checking asm against generic impl
-			var cGeneric Element
-			_doubleGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Double failed special test values: asm and generic impl don't match")
-			}
 
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Double failed special test values")
