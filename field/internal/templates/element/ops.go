@@ -15,9 +15,6 @@ func MulBy5(x *{{.ElementName}})
 func MulBy13(x *{{.ElementName}})
 
 //go:noescape
-func neg(res,x *{{.ElementName}})
-
-//go:noescape
 func mul(res,x,y *{{.ElementName}})
 
 //go:noescape

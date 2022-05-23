@@ -56,10 +56,6 @@ func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }
 
-func neg(z, x *Element) {
-	_negGeneric(z, x)
-}
-
 func reduce(z *Element) {
 	_reduceGeneric(z)
 }

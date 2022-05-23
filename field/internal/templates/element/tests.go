@@ -700,7 +700,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{template "testUnaryOp" dict "all" . "Op" "Inverse"}}
 {{template "testUnaryOp" dict "all" . "Op" "Sqrt"}}
 {{template "testUnaryOp" dict "all" . "Op" "Double"}}
-{{template "testUnaryOp" dict "all" . "Op" "Neg"  "GenericOp" "_negGeneric"}}
+{{template "testUnaryOp" dict "all" . "Op" "Neg" }}
 
 {{ define "testBinaryOp" }}
 

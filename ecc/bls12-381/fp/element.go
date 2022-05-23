@@ -491,7 +491,17 @@ func (z *Element) Sub(x, y *Element) *Element {
 
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
-	neg(z, x)
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+	var borrow uint64
+	z[0], borrow = bits.Sub64(13402431016077863595, x[0], 0)
+	z[1], borrow = bits.Sub64(2210141511517208575, x[1], borrow)
+	z[2], borrow = bits.Sub64(7435674573564081700, x[2], borrow)
+	z[3], borrow = bits.Sub64(7239337960414712511, x[3], borrow)
+	z[4], borrow = bits.Sub64(5412103778470702295, x[4], borrow)
+	z[5], _ = bits.Sub64(1873798617647539866, x[5], borrow)
 	return z
 }
 
@@ -712,20 +722,6 @@ func _fromMontGeneric(z *Element) {
 		z[4], b = bits.Sub64(z[4], 5412103778470702295, b)
 		z[5], _ = bits.Sub64(z[5], 1873798617647539866, b)
 	}
-}
-
-func _negGeneric(z, x *Element) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64(13402431016077863595, x[0], 0)
-	z[1], borrow = bits.Sub64(2210141511517208575, x[1], borrow)
-	z[2], borrow = bits.Sub64(7435674573564081700, x[2], borrow)
-	z[3], borrow = bits.Sub64(7239337960414712511, x[3], borrow)
-	z[4], borrow = bits.Sub64(5412103778470702295, x[4], borrow)
-	z[5], _ = bits.Sub64(1873798617647539866, x[5], borrow)
 }
 
 func _reduceGeneric(z *Element) {

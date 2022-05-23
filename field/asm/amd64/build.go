@@ -147,9 +147,6 @@ func Generate(w io.Writer, F *field.Field) error {
 
 	f.GenerateDefines()
 
-	// neg
-	f.generateNeg()
-
 	// reduce
 	f.generateReduce()
 

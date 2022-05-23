@@ -623,7 +623,23 @@ func (z *Element) Sub(x, y *Element) *Element {
 
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
-	neg(z, x)
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+	var borrow uint64
+	z[0], borrow = bits.Sub64(17626244516597989515, x[0], 0)
+	z[1], borrow = bits.Sub64(16614129118623039618, x[1], borrow)
+	z[2], borrow = bits.Sub64(1588918198704579639, x[2], borrow)
+	z[3], borrow = bits.Sub64(10998096788944562424, x[3], borrow)
+	z[4], borrow = bits.Sub64(8204665564953313070, x[4], borrow)
+	z[5], borrow = bits.Sub64(9694500593442880912, x[5], borrow)
+	z[6], borrow = bits.Sub64(274362232328168196, x[6], borrow)
+	z[7], borrow = bits.Sub64(8105254717682411801, x[7], borrow)
+	z[8], borrow = bits.Sub64(5945444129596489281, x[8], borrow)
+	z[9], borrow = bits.Sub64(13341377791855249032, x[9], borrow)
+	z[10], borrow = bits.Sub64(15098257552581525310, x[10], borrow)
+	z[11], _ = bits.Sub64(81882988782276106, x[11], borrow)
 	return z
 }
 
@@ -1246,26 +1262,6 @@ func _fromMontGeneric(z *Element) {
 		z[10], b = bits.Sub64(z[10], 15098257552581525310, b)
 		z[11], _ = bits.Sub64(z[11], 81882988782276106, b)
 	}
-}
-
-func _negGeneric(z, x *Element) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	var borrow uint64
-	z[0], borrow = bits.Sub64(17626244516597989515, x[0], 0)
-	z[1], borrow = bits.Sub64(16614129118623039618, x[1], borrow)
-	z[2], borrow = bits.Sub64(1588918198704579639, x[2], borrow)
-	z[3], borrow = bits.Sub64(10998096788944562424, x[3], borrow)
-	z[4], borrow = bits.Sub64(8204665564953313070, x[4], borrow)
-	z[5], borrow = bits.Sub64(9694500593442880912, x[5], borrow)
-	z[6], borrow = bits.Sub64(274362232328168196, x[6], borrow)
-	z[7], borrow = bits.Sub64(8105254717682411801, x[7], borrow)
-	z[8], borrow = bits.Sub64(5945444129596489281, x[8], borrow)
-	z[9], borrow = bits.Sub64(13341377791855249032, x[9], borrow)
-	z[10], borrow = bits.Sub64(15098257552581525310, x[10], borrow)
-	z[11], _ = bits.Sub64(81882988782276106, x[11], borrow)
 }
 
 func _reduceGeneric(z *Element) {

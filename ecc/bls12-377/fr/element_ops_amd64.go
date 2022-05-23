@@ -26,9 +26,6 @@ func MulBy5(x *Element)
 func MulBy13(x *Element)
 
 //go:noescape
-func neg(res, x *Element)
-
-//go:noescape
 func mul(res, x, y *Element)
 
 //go:noescape

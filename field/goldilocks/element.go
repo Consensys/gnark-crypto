@@ -412,7 +412,11 @@ func (z *Element) Sub(x, y *Element) *Element {
 
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
-	neg(z, x)
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+	z[0] = q - x[0]
 	return z
 }
 
@@ -464,14 +468,6 @@ func _fromMontGeneric(z *Element) {
 	if z[0] >= q {
 		z[0] -= q
 	}
-}
-
-func _negGeneric(z, x *Element) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	z[0] = q - x[0]
 }
 
 func _reduceGeneric(z *Element) {

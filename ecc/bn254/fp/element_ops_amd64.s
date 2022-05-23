@@ -40,41 +40,6 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	CMOVQCS rb2, ra2;        \
 	CMOVQCS rb3, ra3;        \
 
-// neg(res, x *Element)
-TEXT ·neg(SB), NOSPLIT, $0-16
-	MOVQ  res+0(FP), DI
-	MOVQ  x+8(FP), AX
-	MOVQ  0(AX), DX
-	MOVQ  8(AX), CX
-	MOVQ  16(AX), BX
-	MOVQ  24(AX), SI
-	MOVQ  DX, AX
-	ORQ   CX, AX
-	ORQ   BX, AX
-	ORQ   SI, AX
-	TESTQ AX, AX
-	JEQ   l1
-	MOVQ  $0x3c208c16d87cfd47, R8
-	SUBQ  DX, R8
-	MOVQ  R8, 0(DI)
-	MOVQ  $0x97816a916871ca8d, R8
-	SBBQ  CX, R8
-	MOVQ  R8, 8(DI)
-	MOVQ  $0xb85045b68181585d, R8
-	SBBQ  BX, R8
-	MOVQ  R8, 16(DI)
-	MOVQ  $0x30644e72e131a029, R8
-	SBBQ  SI, R8
-	MOVQ  R8, 24(DI)
-	RET
-
-l1:
-	MOVQ AX, 0(DI)
-	MOVQ AX, 8(DI)
-	MOVQ AX, 16(DI)
-	MOVQ AX, 24(DI)
-	RET
-
 TEXT ·reduce(SB), NOSPLIT, $0-8
 	MOVQ res+0(FP), AX
 	MOVQ 0(AX), DX

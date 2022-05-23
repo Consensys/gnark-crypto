@@ -491,7 +491,23 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 
 // Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
-	neg(z, x)
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+	{{- if eq .NbWords 1}}
+		z[0] = q - x[0]
+	{{- else}}
+		var borrow uint64
+		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
+		{{- range $i := .NbWordsIndexesNoZero}}
+			{{- if eq $i $.NbWordsLastIndex}}
+				z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- else}}
+				z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+			{{- end}}
+		{{- end}}
+	{{- end}}
 	return z
 }
 
@@ -540,25 +556,6 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 
 
 
-func _negGeneric(z,  x *{{.ElementName}}) {
-	if x.IsZero() {
-		z.SetZero()
-		return
-	}
-	{{- if eq .NbWords 1}}
-		z[0] = q - x[0]
-	{{- else}}
-		var borrow uint64
-		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
-		{{- range $i := .NbWordsIndexesNoZero}}
-			{{- if eq $i $.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
-			{{- else}}
-				z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
-			{{- end}}
-		{{- end}}
-	{{- end}}
-}
 
 
 func _reduceGeneric(z *{{.ElementName}})  {

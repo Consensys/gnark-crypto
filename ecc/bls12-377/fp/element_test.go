@@ -1582,16 +1582,6 @@ func TestElementNeg(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Neg: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Neg(&a.element)
-			_negGeneric(&d, &a.element)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
 	specialValueTest := func() {
 		// test special values
 		testValues := make([]Element, len(staticTestValues))
@@ -1605,13 +1595,6 @@ func TestElementNeg(t *testing.T) {
 
 			var d, e big.Int
 			d.Neg(&aBig).Mod(&d, Modulus())
-
-			// checking asm against generic impl
-			var cGeneric Element
-			_negGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Neg failed special test values: asm and generic impl don't match")
-			}
 
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Neg failed special test values")
