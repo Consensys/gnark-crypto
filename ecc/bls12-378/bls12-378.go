@@ -50,7 +50,7 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 
@@ -109,7 +109,7 @@ func init() {
 	endo.u.A0.SetString("164391353554439166353793911729193406645071739502673898176639736370075683438438023898983435337730")
 	endo.v.A0.SetString("595603361117066405543541008735167904222384847192046901135681663787023479658010166685728902742824780272831835669219")
 
-	// binary decomposition of 11045256207009841153 little endian
+	// binary decomposition of xGen little endian
 	loopCounter = [64]int8{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1}
 
 	xGen.SetString("11045256207009841153", 10)

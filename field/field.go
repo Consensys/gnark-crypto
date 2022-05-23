@@ -18,58 +18,56 @@ package field
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/bits"
-	"unicode"
 
 	"github.com/consensys/gnark-crypto/field/internal/addchain"
 )
 
 var (
-	errUnsupportedModulus = errors.New("unsupported modulus. goff only works for prime modulus w/ size > 64bits")
-	errParseModulus       = errors.New("can't parse modulus")
+	errParseModulus = errors.New("can't parse modulus")
 )
 
 // Field precomputed values used in template for code generation of field element APIs
 type Field struct {
-	PackageName                string
-	ElementName                string
-	ModulusBig                 *big.Int
-	Modulus                    string
-	ModulusHex                 string
-	NbWords                    int
-	NbBits                     int
-	NbWordsLastIndex           int
-	NbWordsIndexesNoZero       []int
-	NbWordsIndexesFull         []int
-	NbWordsIndexesNoLast       []int
-	NbWordsIndexesNoZeroNoLast []int
-	P20InversionCorrectiveFac  []uint64
-	P20InversionNbIterations   int
-	Q                          []uint64
-	QInverse                   []uint64
-	QMinusOneHalvedP           []uint64 // ((q-1) / 2 ) + 1
-	ASM                        bool
-	RSquare                    []uint64
-	One                        []uint64
-	LegendreExponent           string // big.Int to base16 string
-	NoCarry                    bool
-	NoCarrySquare              bool // used if NoCarry is set, but some op may overflow in square optimization
-	SqrtQ3Mod4                 bool
-	SqrtAtkin                  bool
-	SqrtTonelliShanks          bool
-	SqrtE                      uint64
-	SqrtS                      []uint64
-	SqrtAtkinExponent          string   // big.Int to base16 string
-	SqrtSMinusOneOver2         string   // big.Int to base16 string
-	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
-	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
-	NonResidue                 big.Int  // (montgomery form)
-	LegendreExponentData       *addchain.AddChainData
-	SqrtAtkinExponentData      *addchain.AddChainData
-	SqrtSMinusOneOver2Data     *addchain.AddChainData
-	SqrtQ3Mod4ExponentData     *addchain.AddChainData
-	UseAddChain                bool
+	PackageName               string
+	ElementName               string
+	ModulusBig                *big.Int
+	Modulus                   string
+	ModulusHex                string
+	NbWords                   int
+	NbBits                    int
+	NbWordsLastIndex          int
+	NbWordsIndexesNoZero      []int
+	NbWordsIndexesFull        []int
+	P20InversionCorrectiveFac []uint64
+	P20InversionNbIterations  int
+	IsMSWSaturated            bool // indicates if the most significant word is 0xFFFFF...FFFF
+	Q                         []uint64
+	QInverse                  []uint64
+	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
+	ASM                       bool
+	RSquare                   []uint64
+	One                       []uint64
+	LegendreExponent          string // big.Int to base16 string
+	NoCarry                   bool
+	NoCarrySquare             bool // used if NoCarry is set, but some op may overflow in square optimization
+	SqrtQ3Mod4                bool
+	SqrtAtkin                 bool
+	SqrtTonelliShanks         bool
+	SqrtE                     uint64
+	SqrtS                     []uint64
+	SqrtAtkinExponent         string   // big.Int to base16 string
+	SqrtSMinusOneOver2        string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent        string   // big.Int to base16 string
+	SqrtG                     []uint64 // NonResidue ^  SqrtR (montgomery form)
+	NonResidue                big.Int  // (montgomery form)
+	LegendreExponentData      *addchain.AddChainData
+	SqrtAtkinExponentData     *addchain.AddChainData
+	SqrtSMinusOneOver2Data    *addchain.AddChainData
+	SqrtQ3Mod4ExponentData    *addchain.AddChainData
+	UseAddChain               bool
 }
 
 // NewField returns a data structure with needed information to generate apis for field element
@@ -78,12 +76,7 @@ type Field struct {
 func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
-	base := 10
-	if modulus[0] == '0' && (unicode.ToUpper(rune(modulus[1])) == 'X') {
-		base = 16
-		modulus = modulus[2:]
-	}
-	if _, ok := bModulus.SetString(modulus, base); !ok {
+	if _, ok := bModulus.SetString(modulus, 0); !ok {
 		return nil, errParseModulus
 	}
 
@@ -91,7 +84,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	F := &Field{
 		PackageName: packageName,
 		ElementName: elementName,
-		Modulus:     modulus,
+		Modulus:     bModulus.Text(10),
 		ModulusHex:  bModulus.Text(16),
 		ModulusBig:  new(big.Int).Set(&bModulus),
 		UseAddChain: useAddChain,
@@ -99,14 +92,12 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
 	F.NbWords = len(bModulus.Bits())
-	if F.NbWords < 2 {
-		return nil, errUnsupportedModulus
-	}
 
 	F.NbWordsLastIndex = F.NbWords - 1
 
 	// set q from big int repr
 	F.Q = toUint64Slice(&bModulus)
+	F.IsMSWSaturated = F.Q[len(F.Q)-1] == math.MaxUint64
 	_qHalved := big.NewInt(0)
 	bOne := new(big.Int).SetUint64(1)
 	_qHalved.Sub(&bModulus, bOne).Rsh(_qHalved, 1).Add(_qHalved, bOne)
@@ -150,18 +141,10 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// indexes (template helpers)
 	F.NbWordsIndexesFull = make([]int, F.NbWords)
 	F.NbWordsIndexesNoZero = make([]int, F.NbWords-1)
-	F.NbWordsIndexesNoLast = make([]int, F.NbWords-1)
-	F.NbWordsIndexesNoZeroNoLast = make([]int, F.NbWords-2)
 	for i := 0; i < F.NbWords; i++ {
 		F.NbWordsIndexesFull[i] = i
 		if i > 0 {
 			F.NbWordsIndexesNoZero[i-1] = i
-		}
-		if i != F.NbWords-1 {
-			F.NbWordsIndexesNoLast[i] = i
-			if i > 0 {
-				F.NbWordsIndexesNoZeroNoLast[i-1] = i
-			}
 		}
 	}
 
@@ -259,7 +242,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.ASM = F.NoCarry && F.NbWords <= 12
+	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
 
 	return F, nil
 }
@@ -370,7 +353,7 @@ func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
 	return f
 }
 
-func (f *Field) halve(res *big.Int, x *big.Int) *Field {
+func (f *Field) halve(res *big.Int, x *big.Int) {
 	var z big.Int
 	if x.Bit(0) == 0 {
 		z.Set(x)
@@ -378,7 +361,6 @@ func (f *Field) halve(res *big.Int, x *big.Int) *Field {
 		z.Add(x, f.ModulusBig)
 	}
 	res.Rsh(&z, 1)
-	return f
 }
 
 func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {

@@ -25,17 +25,30 @@ func initTranscript() Transcript {
 	fs := NewTranscript(sha256.New(), "alpha", "beta", "gamma")
 
 	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
-	fs.Bind("alpha", values[0])
-	fs.Bind("alpha", values[1])
-	fs.Bind("beta", values[2])
-	fs.Bind("beta", values[3])
-	fs.Bind("gamma", values[4])
-	fs.Bind("gamma", values[5])
+	if err := fs.Bind("alpha", values[0]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("alpha", values[1]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("beta", values[2]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("beta", values[3]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("gamma", values[4]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("gamma", values[5]); err != nil {
+		panic(err)
+	}
 
 	return fs
 }
 
 func TestTranscript(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -84,6 +97,7 @@ func TestTranscript(t *testing.T) {
 }
 
 func TestNonExistingChallenge(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -96,6 +110,7 @@ func TestNonExistingChallenge(t *testing.T) {
 }
 
 func TestWrongOrder(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 
@@ -108,6 +123,7 @@ func TestWrongOrder(t *testing.T) {
 }
 
 func TestBindToComputedChallenge(t *testing.T) {
+	t.Parallel()
 
 	fs := initTranscript()
 

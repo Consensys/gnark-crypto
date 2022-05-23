@@ -1,17 +1,4 @@
 
-// q (modulus)
-var qE2 = [{{.Fp.NbWords}}]uint64{
-	{{- range $i := .Fp.NbWordsIndexesFull}}
-	{{index $.Fp.Q $i}},{{end}}
-}
-
-// q'[0], see montgommery multiplication algorithm
-var (
-	qE2Inv0 uint64 = {{index $.Fp.QInverse 0}}
-	_ = qE2Inv0 // used in asm
-)
-
-
 //go:noescape
 func addE2(res,x,y *E2)
 

@@ -508,6 +508,7 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// https://eprint.iacr.org/2017/419.pdf, section 4.2
 	// multiply by (3x^4-3)*cofacor
+
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
@@ -859,18 +860,6 @@ func (p *g2Proj) Set(a *g2Proj) *g2Proj {
 func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
 	*p = *a
 	p.y.Neg(&a.y)
-	return p
-}
-
-// FromJacobian converts a point from Jacobian to projective coordinates
-func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
-	var buf fptower.E4
-	buf.Square(&Q.Z)
-
-	p.x.Mul(&Q.X, &Q.Z)
-	p.y.Set(&Q.Y)
-	p.z.Mul(&Q.Z, &buf)
-
 	return p
 }
 

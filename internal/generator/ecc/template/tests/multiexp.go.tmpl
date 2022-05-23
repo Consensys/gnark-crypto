@@ -63,7 +63,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (c=16) should be consistant with splitted multiexp", prop.ForAll(
+	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (c=16) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples*13]{{ $.TAffine }}
 			for i:=0; i<13; i++ {
@@ -92,7 +92,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 	))
 
 
-	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (c=5, c=16) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (c=5, c=16) should be consistent with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 	
 			var expected {{ $.TJacobian }}
@@ -126,7 +126,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (<50points) should be consistant with sum of square", prop.ForAll(
+	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g {{ $.TJacobian }}

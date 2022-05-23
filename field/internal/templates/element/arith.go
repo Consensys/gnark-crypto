@@ -14,6 +14,7 @@ func madd0(a, b, c uint64) (hi uint64) {
 	return
 }
 
+{{- if ne .NbWords 1}}
 // madd1 hi, lo = a*b + c
 func madd1(a, b, c uint64) (hi uint64, lo uint64) {
 	var carry uint64
@@ -45,5 +46,6 @@ func madd3(a, b, c, d, e uint64) (hi uint64, lo uint64) {
 	return
 }
 
+{{- end}}
 
 `

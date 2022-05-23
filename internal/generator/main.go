@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	fpTower         = "fptower"
 	copyrightHolder = "ConsenSys Software Inc."
 	copyrightYear   = 2020
 	baseDir         = "../../"

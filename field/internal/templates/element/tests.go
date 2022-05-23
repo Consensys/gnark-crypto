@@ -3,7 +3,7 @@ package element
 const Test = `
 
 {{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := lt .NbBits $elementCapacityNbBits}}
+{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 import (
 	"crypto/rand"
@@ -11,10 +11,12 @@ import (
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if $UsingP20Inverse}} mrand "math/rand" {{end}}
-	"testing"
-
+	{{if $UsingP20Inverse}} 
 	"github.com/consensys/gnark-crypto/field"
+	mrand "math/rand" 
+	{{end}}
+	"testing"
+	
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	ggen "github.com/leanovate/gopter/gen"
@@ -248,7 +250,7 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	}
 }
 
-
+{{- if gt .NbWords 1}}
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y {{.ElementName}}
@@ -259,6 +261,7 @@ func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 		}
 	}
 }
+{{- end}}
 
 func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 	var a, b {{.ElementName}}
@@ -302,26 +305,41 @@ func init() {
 	e.Double(&one)
 	staticTestValues = append(staticTestValues, e) 	// 2 
 
-	{
-		a := q{{.ElementName}}
-		a[{{.NbWordsLastIndex}}]--
-		staticTestValues = append(staticTestValues, a)
-	}
+
 	{
 		a := q{{.ElementName}}
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
 
-	for i:=0; i <=3 ; i++ {
-		staticTestValues = append(staticTestValues, {{.ElementName}}{uint64(i)})
-		staticTestValues = append(staticTestValues, {{.ElementName}}{0, uint64(i)})
-	}
+	{{- $qi := index $.Q $.NbWordsLastIndex}}
+	{{- range $i := iterate 0 3}}
+		staticTestValues = append(staticTestValues, {{$.ElementName}}{ {{$i}} })
+		{{- if gt $.NbWords 1}}
+			{{- if le $i $qi}}
+			staticTestValues = append(staticTestValues, {{$.ElementName}}{0, {{$i}} })
+			{{- end}}
+		{{- end}}
+	{{- end}}
 
 	{
 		a := q{{.ElementName}}
 		a[{{.NbWordsLastIndex}}]--
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{{- if ne .NbWords 1}}
+	{
+		a := q{{.ElementName}}
+		a[{{.NbWordsLastIndex}}]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+	{{- end}}
+
+	{
+		a := q{{.ElementName}}
+		a[{{.NbWordsLastIndex}}] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
@@ -364,13 +382,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+
 	
 }
 
@@ -464,13 +476,7 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPair{{.ElementName}}{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
+
 }
 
 
@@ -558,13 +564,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+
 	
 }
 
@@ -589,15 +589,35 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+
 	
 }
+
+func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			return a.element.FromMont().BitLen() ==  a.bigint.BitLen()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	
+}
+
 
 
 func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
@@ -628,13 +648,7 @@ func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+
 
 }
 
@@ -671,13 +685,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true 
-	}
+
 	
 }
 
@@ -876,14 +884,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true 
-	}
+
 }
 
 {{ end }}
@@ -1008,14 +1009,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true 
-	}
+
 }
 
 {{ end }}
@@ -1266,6 +1260,139 @@ properties.Property("z.SetInterface must match z.SetString with {{.tName}}", pro
 
 {{end}}
 
+func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+	
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a,b testPair{{.ElementName}}) bool {
+
+			var nb, d, e big.Int 
+			nb.Neg(&b.bigint)
+
+			var c {{.ElementName}}
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+
+
+func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	// ensure batchInvert([x]) == invert(x)
+	for i:=int64(-1); i <=2; i++ {
+		var e, eInv {{.ElementName}}
+		e.SetInt64(i)
+		eInv.Inverse(&e)
+
+		a := []{{.ElementName}}{e}
+		aInv := BatchInvert(a)
+
+		assert.True(aInv[0].Equal(&eInv), "batchInvert != invert")
+
+	}
+
+	// test x * x⁻¹ == 1
+	tData := [][]int64 {
+		[]int64{-1,1,2,3},
+		[]int64{0, -1,1,2,3, 0},
+		[]int64{0, -1,1,0, 2,3, 0},
+		[]int64{-1,1,0, 2,3},
+		[]int64{0,0,1},
+		[]int64{1,0,0},
+		[]int64{0,0,0},
+	}
+
+	for _, t := range tData {
+		a := make([]{{.ElementName}}, len(t))
+		for i:=0; i <len(a);i++ {
+			a[i].SetInt64(t[i])
+		}
+
+		aInv := BatchInvert(a)
+
+		assert.True(len(aInv) == len(a))
+
+		for i:=0; i <len(a);i++ {
+			if a[i].IsZero() {
+				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
+			} else {
+				assert.True(a[i].Mul(&a[i], &aInv[i]).IsOne(), "x * x⁻¹ != 1")
+			}
+		}
+	}
+
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("batchInvert --> x * x⁻¹ == 1", prop.ForAll(
+		func(tp testPair{{.ElementName}}, r uint8) bool {
+
+			a := make([]{{.ElementName}}, r)
+			if r != 0 {
+				a[0] = tp.element
+
+			}
+			one := One()
+			for i:=1; i <len(a);i++ {
+				a[i].Add(&a[i-1], &one)
+			}
+	
+			aInv := BatchInvert(a)
+	
+			assert.True(len(aInv) == len(a))
+	
+			for i:=0; i <len(a);i++ {
+				if a[i].IsZero() {
+					if !aInv[i].IsZero() {
+						return false 
+					}
+				} else {
+					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		genA,ggen.UInt8(),
+	))
+
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 
 	t.Parallel()
@@ -1324,8 +1451,25 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	{{- if eq $.NbWords 1}}
+	// since our modulus is on 1 word, we may need to adjust "42" and "8000" values;
+	formatValue := func(v int64) string {
+		const maxUint16 = 65535
+		var a, aNeg big.Int 
+		a.SetInt64(v)
+		a.Mod(&a, Modulus())
+		aNeg.Neg(&a).Mod(&aNeg, Modulus())
+		fmt.Println("aNeg", aNeg.Text(10))
+		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
+			return "-"+aNeg.Text(10)
+		}
+		return a.Text(10)
+	} 
+	expected := fmt.Sprintf("{\"A\":-1,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(42), formatValue(8000))
+	{{- else}}
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	{{- end}}
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S
@@ -1435,9 +1579,7 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-
-// Some utils
-
+{{if $UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
@@ -1457,5 +1599,6 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 		t.Error(err)
 	}
 }
+{{- end}}
 
 `

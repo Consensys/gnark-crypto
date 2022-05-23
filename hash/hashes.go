@@ -24,6 +24,7 @@ import (
 	bls378 "github.com/consensys/gnark-crypto/ecc/bls12-378/fr/mimc"
 	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
 	bls315 "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
+	bls317 "github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
 	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	bw633 "github.com/consensys/gnark-crypto/ecc/bw6-633/fr/mimc"
 	bw756 "github.com/consensys/gnark-crypto/ecc/bw6-756/fr/mimc"
@@ -39,6 +40,7 @@ const (
 	MIMC_BLS12_378
 	MIMC_BW6_761
 	MIMC_BLS24_315
+	MIMC_BLS24_317
 	MIMC_BW6_633
 	MIMC_BW6_756
 )
@@ -51,6 +53,7 @@ var digestSize = []uint8{
 	MIMC_BLS12_378: 48,
 	MIMC_BW6_761:   96,
 	MIMC_BLS24_315: 48,
+	MIMC_BLS24_317: 48,
 	MIMC_BW6_633:   80,
 	MIMC_BW6_756:   96,
 }
@@ -70,6 +73,8 @@ func (m Hash) New() hash.Hash {
 		return bw761.NewMiMC()
 	case MIMC_BLS24_315:
 		return bls315.NewMiMC()
+	case MIMC_BLS24_317:
+		return bls317.NewMiMC()
 	case MIMC_BW6_633:
 		return bw633.NewMiMC()
 	case MIMC_BW6_756:
@@ -94,6 +99,8 @@ func (m Hash) String() string {
 		return "MIMC_BW761"
 	case MIMC_BLS24_315:
 		return "MIMC_BLS315"
+	case MIMC_BLS24_317:
+		return "MIMC_BLS317"
 	case MIMC_BW6_633:
 		return "MIMC_BW633"
 	case MIMC_BW6_756:

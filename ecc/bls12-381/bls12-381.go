@@ -53,7 +53,7 @@ var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
-// glvBasis stores R-linearly independant vectors (a,b), (c,d)
+// glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v)->u+vlambda[r]), and their determinant
 var glvBasis ecc.Lattice
 
@@ -69,6 +69,7 @@ var xGen big.Int
 func init() {
 
 	bCurveCoeff.SetUint64(4)
+	// M-twist
 	twist.A0.SetUint64(1)
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.MulByElement(&twist, &bCurveCoeff)
@@ -103,7 +104,7 @@ func init() {
 	endo.v.A0.SetString("2973677408986561043442465346520108879172042883009249989176415018091420807192182638567116318576472649347015917690530")
 	endo.v.A1.SetString("1028732146235106349975324479215795277384839936929757896155643118032610843298655225875571310552543014690878354869257")
 
-	// binary decomposition of 15132376222941642752 little endian
+	// binary decomposition of -xGen little endian
 	loopCounter = [64]int8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1}
 
 	xGen.SetString("15132376222941642752", 10)

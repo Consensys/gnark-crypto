@@ -12,7 +12,10 @@ func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
 		var b [fp.Bytes]byte
-		rand.Read(b[:])
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
 		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult

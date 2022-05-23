@@ -142,7 +142,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			op1.Set(&g2Gen)
 			op3.Set(&g2Gen)
 
-			op2 = fuzzJacobianG2Affine(&g2Gen, a)
+			op2 = fuzzG2Jac(&g2Gen, a)
 			op3.Y.Mul(&op3.Y, &a)
 			return op1.IsOnCurve() && op2.IsOnCurve() && !op3.IsOnCurve()
 		},
@@ -152,7 +152,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	properties.Property("[BN254] IsInSubGroup and MulBy subgroup order should be the same", prop.ForAll(
 		func(a fptower.E2) bool {
 			var op1, op2 G2Jac
-			op1 = fuzzJacobianG2Affine(&g2Gen, a)
+			op1 = fuzzG2Jac(&g2Gen, a)
 			_r := fr.Modulus()
 			op2.ScalarMultiplication(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
@@ -176,7 +176,7 @@ func TestG2AffineConversions(t *testing.T) {
 
 	properties.Property("[BN254] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fptower.E2) bool {
-			g := fuzzJacobianG2Affine(&g2Gen, a)
+			g := fuzzG2Jac(&g2Gen, a)
 			var op1 G2Affine
 			op1.FromJacobian(&g)
 			return op1.X.Equal(&g2Gen.X) && op1.Y.Equal(&g2Gen.Y)
@@ -191,7 +191,7 @@ func TestG2AffineConversions(t *testing.T) {
 			g.Y.Set(&g2Gen.Y)
 			g.ZZ.Set(&g2Gen.Z)
 			g.ZZZ.Set(&g2Gen.Z)
-			gfuzz := fuzzExtendedJacobianG2Affine(&g, a)
+			gfuzz := fuzzg2JacExtended(&g, a)
 
 			var op1 G2Affine
 			op1.fromJacExtended(&gfuzz)
@@ -257,8 +257,8 @@ func TestG2AffineConversions(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		func(a, b fptower.E2) bool {
-			op1 := fuzzJacobianG2Affine(&g2Gen, a)
-			op2 := fuzzJacobianG2Affine(&g2Gen, b)
+			op1 := fuzzG2Jac(&g2Gen, a)
+			op2 := fuzzG2Jac(&g2Gen, b)
 			return op1.Equal(&op2)
 		},
 		GenE2(),
@@ -279,8 +279,8 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
-			fop2 := fuzzJacobianG2Affine(&g2Gen, b)
+			fop1 := fuzzG2Jac(&g2Gen, a)
+			fop2 := fuzzG2Jac(&g2Gen, b)
 			var op1, op2 G2Jac
 			op1.Set(&fop1).AddAssign(&fop2)
 			op2.Double(&fop2)
@@ -292,8 +292,8 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		func(a, b fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
-			fop2 := fuzzJacobianG2Affine(&g2Gen, b)
+			fop1 := fuzzG2Jac(&g2Gen, a)
+			fop2 := fuzzG2Jac(&g2Gen, b)
 			fop2.Neg(&fop2)
 			fop1.AddAssign(&fop2)
 			return fop1.Equal(&g2Infinity)
@@ -304,7 +304,7 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		func(a fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
+			fop1 := fuzzG2Jac(&g2Gen, a)
 			fop1.AddAssign(&g2Infinity)
 			var op2 G2Jac
 			op2.Set(&g2Infinity)
@@ -316,7 +316,7 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		func(a fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
+			fop1 := fuzzG2Jac(&g2Gen, a)
 			var p1, p1Neg G2Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
@@ -335,7 +335,7 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
 		func(a fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
+			fop1 := fuzzG2Jac(&g2Gen, a)
 			var p1, p1Neg G2Affine
 			p1.FromJacobian(&fop1)
 			p1Neg = p1
@@ -354,7 +354,7 @@ func TestG2AffineOps(t *testing.T) {
 
 	properties.Property("[BN254] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fptower.E2) bool {
-			fop1 := fuzzJacobianG2Affine(&g2Gen, a)
+			fop1 := fuzzG2Jac(&g2Gen, a)
 			fop1.Neg(&fop1)
 			var op2 G2Affine
 			op2.FromJacobian(&g2Gen)
@@ -487,7 +487,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[BN254] BatchScalarMultiplication should be consistant with individual scalar multiplications", prop.ForAll(
+	properties.Property("[BN254] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -698,7 +698,7 @@ func BenchmarkG2JacExtDouble(b *testing.B) {
 	}
 }
 
-func fuzzJacobianG2Affine(p *G2Jac, f fptower.E2) G2Jac {
+func fuzzG2Jac(p *G2Jac, f fptower.E2) G2Jac {
 	var res G2Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
 	res.Y.Mul(&p.Y, &f).Mul(&res.Y, &f).Mul(&res.Y, &f)
@@ -706,7 +706,7 @@ func fuzzJacobianG2Affine(p *G2Jac, f fptower.E2) G2Jac {
 	return res
 }
 
-func fuzzExtendedJacobianG2Affine(p *g2JacExtended, f fptower.E2) g2JacExtended {
+func fuzzg2JacExtended(p *g2JacExtended, f fptower.E2) g2JacExtended {
 	var res g2JacExtended
 	var ff, fff fptower.E2
 	ff.Square(&f)

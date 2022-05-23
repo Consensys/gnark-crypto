@@ -26,6 +26,7 @@ import (
 // tests
 
 func TestE4ReceiverIsOperand(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -156,6 +157,7 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE4Ops(t *testing.T) {
+	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
@@ -271,8 +273,8 @@ func TestE4Ops(t *testing.T) {
 
 func BenchmarkE4Add(b *testing.B) {
 	var a, c E4
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -281,8 +283,8 @@ func BenchmarkE4Add(b *testing.B) {
 
 func BenchmarkE4Sub(b *testing.B) {
 	var a, c E4
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -291,8 +293,8 @@ func BenchmarkE4Sub(b *testing.B) {
 
 func BenchmarkE4Mul(b *testing.B) {
 	var a, c E4
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -301,7 +303,7 @@ func BenchmarkE4Mul(b *testing.B) {
 
 func BenchmarkE4Square(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -310,7 +312,7 @@ func BenchmarkE4Square(b *testing.B) {
 
 func BenchmarkE4Sqrt(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sqrt(&a)
@@ -319,7 +321,7 @@ func BenchmarkE4Sqrt(b *testing.B) {
 
 func BenchmarkE4Inverse(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -328,7 +330,7 @@ func BenchmarkE4Inverse(b *testing.B) {
 
 func BenchmarkE4MulNonRes(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
@@ -337,7 +339,7 @@ func BenchmarkE4MulNonRes(b *testing.B) {
 
 func BenchmarkE4MulNonResInv(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidueInv(&a)
@@ -345,7 +347,7 @@ func BenchmarkE4MulNonResInv(b *testing.B) {
 }
 func BenchmarkE4Conjugate(b *testing.B) {
 	var a E4
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)

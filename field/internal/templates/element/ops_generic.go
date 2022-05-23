@@ -12,7 +12,13 @@ const OpsNoAsm = `
 
 // MulBy{{$i}} x *= {{$i}}
 func MulBy{{$i}}(x *{{$.ElementName}}) {
+	{{- if eq 1 $.NbWords}}
+	var y {{$.ElementName}}
+	y.SetUint64({{$i}})
+	x.Mul(x, &y)
+	{{- else}}
 	mulByConstant(x, {{$i}})
+	{{- end}}
 }
 
 {{- end}}
@@ -25,9 +31,11 @@ func Butterfly(a, b *{{.ElementName}}) {
 	_butterflyGeneric(a, b)
 }
 
+{{- if ne .NbWords 1}}
 func mul(z, x, y *{{.ElementName}}) {
 	_mulGeneric(z, x, y)
 }
+{{- end}}
 
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation

@@ -9,7 +9,23 @@ var c [3]uint64
 {
 	// round {{$j}}
 	v := {{$.V1}}[{{$j}}]
-	{{- if eq $j 0}}
+	{{- if eq $j $.all.NbWordsLastIndex}}
+		c[1], c[0] = madd1(v, {{$.V2}}[0], t[0])
+		m := c[0] * {{index $.all.QInverse 0}}
+		c[2] = madd0(m, {{index $.all.Q 0}}, c[0])
+		{{- if eq $.all.NbWords 1}}
+			z[0], _ = madd3(m, {{index $.all.Q 0}}, c[0], c[2], c[1])
+		{{- else}}
+			{{- range $i := $.all.NbWordsIndexesNoZero}}
+				c[1], c[0] = madd2(v, {{$.V2}}[{{$i}}],  c[1], t[{{$i}}])
+				{{- if eq $i $.all.NbWordsLastIndex}}
+					z[{{sub $.all.NbWords 1}}], z[{{sub $i 1}}] = madd3(m, {{index $.all.Q $i}}, c[0], c[2], c[1])
+				{{- else}}
+					c[2], z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}},  c[2], c[0])
+				{{- end}}
+			{{- end}}
+		{{- end}}
+	{{- else if eq $j 0}}
 		c[1], c[0] = bits.Mul64(v, {{$.V2}}[0])
 		m := c[0] * {{index $.all.QInverse 0}}
 		c[2] = madd0(m, {{index $.all.Q 0}}, c[0])
@@ -19,18 +35,6 @@ var c [3]uint64
 				t[{{sub $.all.NbWords 1}}], t[{{sub $i 1}}]  = madd3(m, {{index $.all.Q $i}}, c[0], c[2], c[1])
 			{{- else}}
 				c[2], t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c[2], c[0])
-			{{- end}}
-		{{- end}}
-	{{- else if eq $j $.all.NbWordsLastIndex}}
-		c[1], c[0] = madd1(v, {{$.V2}}[0], t[0])
-		m := c[0] * {{index $.all.QInverse 0}}
-		c[2] = madd0(m, {{index $.all.Q 0}}, c[0])
-		{{- range $i := $.all.NbWordsIndexesNoZero}}
-			c[1], c[0] = madd2(v, {{$.V2}}[{{$i}}],  c[1], t[{{$i}}])
-			{{- if eq $i $.all.NbWordsLastIndex}}
-				z[{{sub $.all.NbWords 1}}], z[{{sub $i 1}}] = madd3(m, {{index $.all.Q $i}}, c[0], c[2], c[1])
-			{{- else}}
-				c[2], z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}},  c[2], c[0])
 			{{- end}}
 		{{- end}}
 	{{- else}}
@@ -60,7 +64,22 @@ var t [{{.all.NbWords}}]uint64
 {
 	// round {{$j}}
 	
-	{{- if eq $j 0}}
+	{{- if eq $j $.all.NbWordsLastIndex}}
+		m := t[0] * {{index $.all.QInverse 0}}
+		c2 := madd0(m, {{index $.all.Q 0}}, t[0])
+
+		{{- if eq $.all.NbWords 1}}
+			_, z[0] = madd2(m, {{index $.all.Q 0}}, t[0], c2)
+		{{- else}}
+			{{- range $i := $.all.NbWordsIndexesNoZero}}
+				{{- if eq $i $.all.NbWordsLastIndex}}
+					z[{{sub $.all.NbWords 1}}], z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
+				{{- else}}
+					c2, z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}},  c2, t[{{$i}}])
+				{{- end}}
+			{{- end}}
+		{{- end}}
+	{{- else if eq $j 0}}
 		c1, c0 := bits.Mul64(y, {{$.V2}}[0])
 		m := c0 * {{index $.all.QInverse 0}}
 		c2 := madd0(m, {{index $.all.Q 0}}, c0)
@@ -72,27 +91,17 @@ var t [{{.all.NbWords}}]uint64
 				c2, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c2, c0)
 			{{- end}}
 		{{- end}}
-		{{- else if eq $j $.all.NbWordsLastIndex}}
-			m := t[0] * {{index $.all.QInverse 0}}
-			c2 := madd0(m, {{index $.all.Q 0}}, t[0])
-			{{- range $i := $.all.NbWordsIndexesNoZero}}
-				{{- if eq $i $.all.NbWordsLastIndex}}
-					z[{{sub $.all.NbWords 1}}], z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
-				{{- else}}
-					c2, z[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}},  c2, t[{{$i}}])
-				{{- end}}
+	{{- else}}
+		m := t[0] * {{index $.all.QInverse 0}}
+		c2 := madd0(m, {{index $.all.Q 0}}, t[0])
+		{{- range $i := $.all.NbWordsIndexesNoZero}}
+			{{- if eq $i $.all.NbWordsLastIndex}}
+				t[{{sub $.all.NbWords 1}}], t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
+			{{- else}}
+				c2, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c2, t[{{$i}}])
 			{{- end}}
-		{{- else}}
-			m := t[0] * {{index $.all.QInverse 0}}
-			c2 := madd0(m, {{index $.all.Q 0}}, t[0])
-			{{- range $i := $.all.NbWordsIndexesNoZero}}
-				{{- if eq $i $.all.NbWordsLastIndex}}
-					t[{{sub $.all.NbWords 1}}], t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], c2)
-				{{- else}}
-					c2, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, c2, t[{{$i}}])
-				{{- end}}
-			{{- end}}
-		{{-  end }}
+		{{- end}}
+	{{-  end }}
 }
 {{- end}}
 {{ end }}

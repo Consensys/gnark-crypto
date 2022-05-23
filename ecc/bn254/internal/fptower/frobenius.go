@@ -58,35 +58,6 @@ func (z *E12) FrobeniusSquare(x *E12) *E12 {
 	return z
 }
 
-// FrobeniusCube set z to Frobenius^3(x), return z
-func (z *E12) FrobeniusCube(x *E12) *E12 {
-	// Algorithm 30 from https://eprint.iacr.org/2010/354.pdf
-	var t [6]E2
-
-	// Frobenius^3 acts on fp2 by conjugation
-	t[0].Conjugate(&x.C0.B0)
-	t[1].Conjugate(&x.C0.B1)
-	t[2].Conjugate(&x.C0.B2)
-	t[3].Conjugate(&x.C1.B0)
-	t[4].Conjugate(&x.C1.B1)
-	t[5].Conjugate(&x.C1.B2)
-
-	t[1].MulByNonResidue3Power2(&t[1])
-	t[2].MulByNonResidue3Power4(&t[2])
-	t[3].MulByNonResidue3Power1(&t[3])
-	t[4].MulByNonResidue3Power3(&t[4])
-	t[5].MulByNonResidue3Power5(&t[5])
-
-	z.C0.B0 = t[0]
-	z.C0.B1 = t[1]
-	z.C0.B2 = t[2]
-	z.C1.B0 = t[3]
-	z.C1.B1 = t[4]
-	z.C1.B2 = t[5]
-
-	return z
-}
-
 // declaring these here instead of in the functions allow to inline the calls
 var nonRes1Pow1to5 [5]E2
 var nonRes3Pow1To5 [5]E2
@@ -355,38 +326,5 @@ func (z *E2) MulByNonResidue2Power5(x *E2) *E2 {
 	}
 	z.A0.Mul(&x.A0, &b)
 	z.A1.Mul(&x.A1, &b)
-	return z
-}
-
-// MulByNonResidue3Power1 set z=x*(9,1)^(1*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power1(x *E2) *E2 {
-	// (11697423496358154304825782922584725312912383441159505038794027105778954184319,303847389135065887422783454877609941456349188919719272345083954437860409601)
-	z.Mul(x, &nonRes3Pow1To5[0])
-	return z
-}
-
-// MulByNonResidue3Power2 set z=x*(9,1)^(2*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power2(x *E2) *E2 {
-	// (3772000881919853776433695186713858239009073593817195771773381919316419345261,2236595495967245188281701248203181795121068902605861227855261137820944008926)
-	z.Mul(x, &nonRes3Pow1To5[1])
-	return z
-}
-
-// MulByNonResidue3Power3 set z=x*(9,1)^(3*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power3(x *E2) *E2 {
-	// (19066677689644738377698246183563772429336693972053703295610958340458742082029,18382399103927718843559375435273026243156067647398564021675359801612095278180)
-	z.Mul(x, &nonRes3Pow1To5[2])
-	return z
-}
-
-// MulByNonResidue3Power4 set z=x*(9,1)^(4*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power4(x *E2) *E2 {
-	z.Mul(x, &nonRes3Pow1To5[3])
-	return z
-}
-
-// MulByNonResidue3Power5 set z=x*(9,1)^(5*(p^3-1)/6) and return z
-func (z *E2) MulByNonResidue3Power5(x *E2) *E2 {
-	z.Mul(x, &nonRes3Pow1To5[4])
 	return z
 }
