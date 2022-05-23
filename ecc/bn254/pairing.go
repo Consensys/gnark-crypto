@@ -59,64 +59,48 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	// https://eprint.iacr.org/2008/490.pdf
-	var mt [4]GT // mt[i] is m^(t^i)
+	var t [4]GT
 
 	// easy part
-	mt[0].Set(&result)
-	var temp GT
-	temp.Conjugate(&mt[0])
-	mt[0].Inverse(&mt[0])
-	temp.Mul(&temp, &mt[0])
-	mt[0].FrobeniusSquare(&temp).
-		Mul(&mt[0], &temp)
+	t[0].Conjugate(&result)
+	result.Inverse(&result)
+	t[0].Mul(&t[0], &result)
+	result.FrobeniusSquare(&t[0]).
+		Mul(&result, &t[0])
 
-	// hard part
-	mt[1].Expt(&mt[0])
-	mt[2].Expt(&mt[1])
-	mt[3].Expt(&mt[2])
+		// hard part (up to permutation)
+	// Duquesne and Ghammam
+	// https://eprint.iacr.org/2015/192.pdf
+	// Fuentes et al. variant (alg. 10)
+	t[0].Expt(&result).
+		Conjugate(&t[0])
+	t[0].CyclotomicSquare(&t[0])
+	t[2].Expt(&t[0]).
+		Conjugate(&t[2])
+	t[1].CyclotomicSquare(&t[2])
+	t[2].Mul(&t[2], &t[1])
+	t[2].Mul(&t[2], &result)
+	t[1].Expt(&t[2]).
+		CyclotomicSquare(&t[1]).
+		Mul(&t[1], &t[2]).
+		Conjugate(&t[1])
+	t[3].Conjugate(&t[1])
+	t[1].CyclotomicSquare(&t[0])
+	t[1].Mul(&t[1], &result)
+	t[1].Conjugate(&t[1])
+	t[1].Mul(&t[1], &t[3])
+	t[0].Mul(&t[0], &t[1])
+	t[2].Mul(&t[2], &t[1])
+	t[3].FrobeniusSquare(&t[1])
+	t[2].Mul(&t[2], &t[3])
+	t[3].Conjugate(&result)
+	t[3].Mul(&t[3], &t[0])
+	t[1].FrobeniusCube(&t[3])
+	t[2].Mul(&t[2], &t[1])
+	t[1].Frobenius(&t[0])
+	t[1].Mul(&t[1], &t[2])
 
-	var y [7]GT
-
-	y[1].InverseUnitary(&mt[0])
-	y[4].Set(&mt[1])
-	y[5].InverseUnitary(&mt[2])
-	y[6].Set(&mt[3])
-
-	mt[0].Frobenius(&mt[0])
-	mt[1].Frobenius(&mt[1])
-	mt[2].Frobenius(&mt[2])
-	mt[3].Frobenius(&mt[3])
-
-	y[0].Set(&mt[0])
-	y[3].InverseUnitary(&mt[1])
-	y[4].Mul(&y[4], &mt[2]).InverseUnitary(&y[4])
-	y[6].Mul(&y[6], &mt[3]).InverseUnitary(&y[6])
-
-	mt[0].Frobenius(&mt[0])
-	mt[2].Frobenius(&mt[2])
-
-	y[0].Mul(&y[0], &mt[0])
-	y[2].Set(&mt[2])
-
-	mt[0].Frobenius(&mt[0])
-
-	y[0].Mul(&y[0], &mt[0])
-
-	// compute addition chain
-	mt[0].CyclotomicSquare(&y[6])
-	mt[0].Mul(&mt[0], &y[4])
-	mt[0].Mul(&mt[0], &y[5])
-	mt[1].Mul(&y[3], &y[5])
-	mt[1].Mul(&mt[1], &mt[0])
-	mt[0].Mul(&mt[0], &y[2])
-	mt[1].CyclotomicSquare(&mt[1])
-	mt[1].Mul(&mt[1], &mt[0])
-	mt[1].CyclotomicSquare(&mt[1])
-	mt[0].Mul(&mt[1], &y[1])
-	mt[1].Mul(&mt[1], &y[0])
-	mt[0].CyclotomicSquare(&mt[0])
-	result.Mul(&mt[0], &mt[1])
+	result.Set(&t[1])
 
 	return result
 }
@@ -149,12 +133,20 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		qNeg[k].Neg(&q[k])
 	}
 
-	var result GT
+	var l, l0 lineEvaluation
+	var tmp, result GT
 	result.SetOne()
 
-	var l lineEvaluation
+	// i == len(loopCounter) - 2
+	for k := 0; k < n; k++ {
+		qProj[k].DoubleStep(&l)
+		// line evaluation
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
+	}
 
-	for i := len(loopCounter) - 2; i >= 0; i-- {
+	for i := len(loopCounter) - 3; i >= 0; i-- {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
@@ -162,28 +154,29 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			// line evaluation
 			l.r0.MulByElement(&l.r0, &p[k].Y)
 			l.r1.MulByElement(&l.r1, &p[k].X)
-			result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			if loopCounter[i] == 1 {
-				qProj[k].AddMixedStep(&l, &q[k])
+				qProj[k].AddMixedStep(&l0, &q[k])
 				// line evaluation
-				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r1.MulByElement(&l.r1, &p[k].X)
-				result.MulBy034(&l.r0, &l.r1, &l.r2)
+				l0.r0.MulByElement(&l0.r0, &p[k].Y)
+				l0.r1.MulByElement(&l0.r1, &p[k].X)
+				tmp.Mul034by034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				result.Mul(&result, &tmp)
 
 			} else if loopCounter[i] == -1 {
-				qProj[k].AddMixedStep(&l, &qNeg[k])
+				qProj[k].AddMixedStep(&l0, &qNeg[k])
 				// line evaluation
-				l.r0.MulByElement(&l.r0, &p[k].Y)
-				l.r1.MulByElement(&l.r1, &p[k].X)
+				l0.r0.MulByElement(&l0.r0, &p[k].Y)
+				l0.r1.MulByElement(&l0.r1, &p[k].X)
+				tmp.Mul034by034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				result.Mul(&result, &tmp)
+			} else {
 				result.MulBy034(&l.r0, &l.r1, &l.r2)
 			}
 		}
 	}
 
 	var Q1, Q2 G2Affine
-	var l0 lineEvaluation
-	var tmp GT
 	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	for k := 0; k < n; k++ {
 		//Q1 = Frob(Q)
@@ -220,7 +213,7 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	C.Square(&p.z)
 	D.Double(&C).
 		Add(&D, &C)
-	E.Mul(&D, &bTwistCurveCoeff)
+	E.MulBybTwistCurveCoeff(&D)
 	F.Double(&E).
 		Add(&F, &E)
 	G.Add(&B, &F)
