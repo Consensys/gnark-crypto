@@ -413,7 +413,7 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
 					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 				{{- end}}
-				return
+				return z
 			}
 		{{- end}}
 
@@ -454,7 +454,7 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
 				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 			{{- end}}
-			return
+			return z
 		}
 	{{- end}}
 
@@ -475,15 +475,15 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 		{{- if eq .NbWords 1}}
 			z[0] += q
 		{{- else}}
-		var c uint64
-		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
-		{{- range $i := .NbWordsIndexesNoZero}}
-			{{- if eq $i $.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
-			{{- else}}
-				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+			var c uint64
+			z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
+			{{- range $i := .NbWordsIndexesNoZero}}
+				{{- if eq $i $.NbWordsLastIndex}}
+					z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+				{{- else}}
+					z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+				{{- end}}
 			{{- end}}
-		{{- end}}
 		{{- end}}
 	}
 	return z
