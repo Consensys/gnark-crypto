@@ -119,7 +119,7 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 //  *{{.ElementName}}
 //  uint64
 //  int
-//  string (interpreted as a base10 integer)
+//  string (see SetString for valid formats)
 //  *big.Int
 //  big.Int
 //  []byte

@@ -1907,6 +1907,30 @@ func TestElementSetInterface(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e Element
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *Element
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new(Element).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
 }
 
 func TestElementNegativeExp(t *testing.T) {

@@ -274,6 +274,34 @@ func TestElementIsRandom(t *testing.T) {
 	}
 }
 
+func TestElementIsUint64(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(v uint64) bool {
+			var e Element
+			e.SetUint64(v)
+
+			if !e.IsUint64() {
+				return false
+			}
+
+			return e.Uint64() == v
+		},
+		ggen.UInt64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementNegZero(t *testing.T) {
 	var a, b Element
 	b.SetZero()
@@ -1939,6 +1967,30 @@ func TestElementSetInterface(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e Element
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *Element
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new(Element).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
 }
 
 func TestElementNegativeExp(t *testing.T) {

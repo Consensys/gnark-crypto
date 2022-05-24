@@ -259,6 +259,36 @@ func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 		}
 	}
 }
+
+func Test{{toTitle .ElementName}}IsUint64(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(v uint64) bool {
+			var e {{.ElementName}}
+			e.SetUint64(v)
+
+			if !e.IsUint64() {
+				return false
+			}
+
+			return e.Uint64() == v
+		},
+		ggen.UInt64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 {{- end}}
 
 func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
@@ -1245,6 +1275,30 @@ func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
 
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e {{.ElementName}}
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *{{.ElementName}}
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new({{.ElementName}}).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
 }
 
 
