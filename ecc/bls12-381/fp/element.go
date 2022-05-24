@@ -74,19 +74,13 @@ var rSquare = Element{
 	1267921511277847466,
 }
 
-var (
-	_modulus     big.Int // q stored as big.Int
-	_modulusOnce sync.Once
-)
+var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
 // 	q[base10] = 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
 // 	q[base16] = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
 func Modulus() *big.Int {
-	_modulusOnce.Do(func() {
-		_modulus.SetString("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", 16)
-	})
 	return new(big.Int).Set(&_modulus)
 }
 
@@ -94,6 +88,10 @@ var bigIntPool = sync.Pool{
 	New: func() interface{} {
 		return new(big.Int)
 	},
+}
+
+func init() {
+	_modulus.SetString("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", 16)
 }
 
 // NewElement returns a new Element from a uint64 value

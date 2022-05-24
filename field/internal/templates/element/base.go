@@ -53,19 +53,13 @@ var rSquare = {{.ElementName}}{
 	{{$i}},{{end}}
 }
 
-var (
-	_modulus big.Int 		// q stored as big.Int
-	_modulusOnce sync.Once
-)
+var _modulus big.Int 		// q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
 // 	q[base10] = {{.Modulus}}
 // 	q[base16] = 0x{{.ModulusHex}}
 func Modulus() *big.Int {
-	_modulusOnce.Do(func() {
-		_modulus.SetString("{{.ModulusHex}}", 16)
-	})
 	return new(big.Int).Set(&_modulus)
 }
 
@@ -73,6 +67,10 @@ var bigIntPool = sync.Pool{
 	New: func() interface{} {
 		return new(big.Int)
 	},
+}
+
+func init() {
+	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
