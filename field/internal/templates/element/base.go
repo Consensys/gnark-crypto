@@ -612,7 +612,7 @@ func (z *{{.ElementName}}) BitLen() int {
 {{ define "rsh V nbWords" }}
 	// {{$.V}} = {{$.V}} >> 1
 	{{$lastIndex := sub .nbWords 1}}
-	{{- range $i :=  iterate .nbWords}}
+	{{- range $i :=  iterate 0 .nbWords}}
 		{{- if ne $i $lastIndex}}
 			{{$.V}}[{{$i}}] = {{$.V}}[{{$i}}] >> 1 | {{$.V}}[{{(add $i 1)}}] << 63
 		{{- end}}

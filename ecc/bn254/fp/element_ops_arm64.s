@@ -24,6 +24,10 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $9786893198990664585
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
+#define storeVector(ePtr, e0, e1, e2, e3) \
+	STP (e0, e1), 0(ePtr)  \
+	STP (e2, e3), 16(ePtr) \
+
 // add(res, x, y *Element)
 TEXT ·add(SB), NOSPLIT, $0-24
 	LDP x+8(FP), (R4, R5)
@@ -54,8 +58,7 @@ TEXT ·add(SB), NOSPLIT, $0-24
 
 	// store
 	MOVD res+0(FP), R4
-	STP  (R0, R1), 0(R4)
-	STP  (R2, R3), 16(R4)
+	storeVector(R4, R0, R1, R2, R3)
 	RET
 
 // sub(res, x, y *Element)
@@ -89,8 +92,7 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 
 	// store
 	MOVD res+0(FP), R4
-	STP  (R0, R1), 0(R4)
-	STP  (R2, R3), 16(R4)
+	storeVector(R4, R0, R1, R2, R3)
 	RET
 
 // double(res, x *Element)
@@ -120,8 +122,7 @@ TEXT ·double(SB), NOSPLIT, $0-16
 	CSEL CS, R8, R3, R3
 
 	// store
-	STP (R0, R1), 0(R5)
-	STP (R2, R3), 16(R5)
+	storeVector(R5, R0, R1, R2, R3)
 	RET
 
 // neg(res, x *Element)
@@ -149,6 +150,5 @@ TEXT ·neg(SB), NOSPLIT, $0-16
 	CSEL EQ, R8, R3, R3
 
 	// store
-	STP (R0, R1), 0(R5)
-	STP (R2, R3), 16(R5)
+	storeVector(R5, R0, R1, R2, R3)
 	RET

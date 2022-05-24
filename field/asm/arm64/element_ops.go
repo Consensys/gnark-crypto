@@ -14,7 +14,13 @@
 
 package arm64
 
-import "github.com/consensys/bavard/arm64"
+import (
+	"fmt"
+	"github.com/consensys/bavard"
+	"github.com/consensys/bavard/arm64"
+	"strconv"
+	"strings"
+)
 
 func (f *FFArm64) generateAdd() {
 	f.Comment("add(res, x, y *Element)")
@@ -238,6 +244,58 @@ func (f *FFArm64) generateNeg() {
 
 }
 
+func (f *FFArm64) _generateLoadOrStoreVector(name string, instruction string, addrAndRegToSourceAndDst func(addr string, reg string) (string, string)) {
+	f.Write("#define ")
+	f.Write(name)
+	f.Write("(ePtr, ")
+
+	var i int
+	names := make([]string, f.NbWords)
+	for i = 0; i < f.NbWords; i++ {
+		names[i] = "e" + strconv.Itoa(i)
+	}
+	f.Write(strings.Join(names, ", "))
+	f.WriteLn(")\\")
+
+	for i = 0; i < f.NbWords-1; i += 2 {
+		f.Write("\t")
+		f.Write(instruction)
+		f.Write(" ")
+
+		addr := fmt.Sprintf("%d(ePtr)", 8*i)
+		regs := fmt.Sprintf("(%s, %s)", names[i], names[i+1])
+
+		src, dst := addrAndRegToSourceAndDst(addr, regs)
+
+		f.Write(src)
+		f.Write(", ")
+		f.Write(dst)
+		f.WriteLn("\\")
+	}
+
+	if f.NbWords%2 == 1 {
+		i = f.NbWords - 1
+		src, dst := addrAndRegToSourceAndDst(fmt.Sprintf("%d(ePtr)", 8*i), names[i])
+		f.Write("\tMOVD ")
+		f.Write(src)
+		f.Write(", ")
+		f.Write(dst)
+		f.WriteLn("\\")
+	}
+}
+func (f *FFArm64) generateLoadVector() {
+
+	f._generateLoadOrStoreVector("loadVector", "LDP", func(addr string, reg string) (string, string) {
+		return addr, reg
+	})
+}
+
+func (f *FFArm64) generateStoreVector() {
+	f._generateLoadOrStoreVector("storeVector", "STP", func(addr string, reg string) (string, string) {
+		return reg, addr
+	})
+}
+
 // MACROS?
 //TODO: Put it in a macro
 func (f *FFArm64) reduce(z, t []arm64.Register) {
@@ -272,15 +330,39 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 	}
 }
 
-func (f *FFArm64) storeVector(v []arm64.Register, baseAddress arm64.Register) {
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.STP(v[i], v[i+1], f.RegisterOffset(baseAddress, 8*i))
+func (f *FFArm64) callTemplate(templateName string, ops ...interface{}) {
+	f.Write(templateName)
+	f.Write("(")
+	for i := 0; i < len(ops); i++ {
+		f.Write(arm64.Operand(ops[i]))
+		if i+1 < len(ops) {
+			f.Write(", ")
+		}
+	}
+	f.WriteLn(")")
+}
+
+func toInterfaceSlice(first interface{}, rest interface{}) []interface{} {
+	restSlice, err := bavard.AssertSlice(rest)
+
+	if err != nil {
+		panic("not a slice")
 	}
 
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(v[i], f.RegisterOffset(baseAddress, 8*i))
+	res := make([]interface{}, restSlice.Len()+1)
+	res[0] = first
+	for i := 0; i < restSlice.Len(); i++ {
+		res[i+1] = restSlice.Index(i).Interface()
 	}
+	return res
+}
+
+func (f *FFArm64) loadVector(vectorHeadPtr interface{}, vector interface{}) {
+	f.callTemplate("loadVector", toInterfaceSlice(vectorHeadPtr, vector)...)
+}
+
+func (f *FFArm64) storeVector(vector interface{}, baseAddress arm64.Register) {
+	f.callTemplate("storeVector", toInterfaceSlice(baseAddress, vector)...)
 }
 
 // </macros>
