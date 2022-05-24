@@ -111,18 +111,18 @@ func Test{{$CurveTitle}}SSWU(t *testing.T) {
 	properties.Property("[{{$CurveTitle}}] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a {{$CoordType}}) bool {
 
-			a = sswuMap{{$CurveTitle}}(&a)
+			g := sswuMap{{$CurveTitle}}(&a)
 
-			if !isOnEPrime{{$CurveTitle}}(a) {
+			if !isOnEPrime{{$CurveTitle}}(g) {
 				t.Log("SSWU output not on E' curve")
 				return false
 			}
 
 			{{if $isogenyNeeded}}
-				a = {{$CurveName}}Isogeny(&g)
+				{{$CurveName}}Isogeny(&g)
 			{{end}}
 
-			if !a.IsOnCurve() {
+			if !g.IsOnCurve() {
 				t.Log("Isogeny/SSWU output not on curve")
 				return false
 			}

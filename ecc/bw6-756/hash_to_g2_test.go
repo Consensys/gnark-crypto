@@ -107,16 +107,16 @@ func TestG2SSWU(t *testing.T) {
 	properties.Property("[G2] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a fp.Element) bool {
 
-			a = sswuMapG2(&a)
+			g := sswuMapG2(&a)
 
-			if !isOnEPrimeG2(a) {
+			if !isOnEPrimeG2(g) {
 				t.Log("SSWU output not on E' curve")
 				return false
 			}
 
-			a = g2Isogeny(&g)
+			g2Isogeny(&g)
 
-			if !a.IsOnCurve() {
+			if !g.IsOnCurve() {
 				t.Log("Isogeny/SSWU output not on curve")
 				return false
 			}
