@@ -3,7 +3,7 @@ module github.com/consensys/gnark-crypto
 go 1.17
 
 require (
-	github.com/consensys/bavard v0.1.10
+	github.com/consensys/bavard v0.1.11
 	github.com/leanovate/gopter v0.2.9
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/stretchr/testify v1.7.1
@@ -17,5 +17,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/consensys/bavard => /Users/arya/bavard
