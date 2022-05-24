@@ -77,6 +77,7 @@ func isOnEPrime{{$CurveTitle}}(p {{$CurveTitle}}Affine) bool {
 
 	var A, B {{$CoordType}}
 
+	// TODO: Value already in Mont form, set string without mont conversion
 	{{setString "A" .A}}
 	{{setString "B" .B}}
 	A.FromMont()
@@ -107,40 +108,32 @@ func Test{{$CurveTitle}}SSWU(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[{{$CurveTitle}}] SSWU should output point on the E' curve", prop.ForAll(
+	properties.Property("[{{$CurveTitle}}] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a {{$CoordType}}) bool {
-			return isOnEPrime{{$CurveTitle}}(sswuMap{{$CurveTitle}}(&a))
+
+			a = sswuMap{{$CurveTitle}}(&a)
+
+			if !isOnEPrime{{$CurveTitle}}(a) {
+				t.Log("SSWU output not on E' curve")
+				return false
+			}
+
+			{{if $isogenyNeeded}}
+				a = {{$CurveName}}Isogeny(&g)
+			{{end}}
+
+			if !a.IsOnCurve() {
+				t.Log("Isogeny/SSWU output not on curve")
+				return false
+			}
+
+			return true
 		},
 		{{$fuzzer}},
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
-
-{{if $isogenyNeeded}}
-func Test{{$CurveTitle}}Isogeny(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	properties.Property("[{{$CurveTitle}}] isogeny should output point on the curve", prop.ForAll(
-		func(a {{$CoordType}}) bool {
-			g := sswuMap{{$CurveTitle}}(&a) // TODO: Check the SSWU output is on E' too
-			{{$CurveName}}Isogeny(&g)
-			return g.IsOnCurve()
-		},
-		{{$fuzzer}},
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-{{end}}
 
 {{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
 func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {

@@ -66,6 +66,8 @@ func isOnEPrimeG2(p G2Affine) bool {
 
 	var A, B fptower.E2
 
+	// TODO: Value already in Mont form, set string without mont conversion
+
 	A.SetString(
 		"192303301554269313181660764167541068935015005067716784718238368109912383535701623721396365381487905911696649066633",
 		"238897945013062074976279153251328447620218191425589119205116795771589078924735215947253587296362858980098699360207",
@@ -104,32 +106,24 @@ func TestG2SSWU(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[G2] SSWU should output point on the E' curve", prop.ForAll(
+	properties.Property("[G2] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a fptower.E2) bool {
-			return isOnEPrimeG2(sswuMapG2(&a))
-		},
-		GenE2(),
-	))
 
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
+			a = sswuMapG2(&a)
 
-func TestG2Isogeny(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
+			if !isOnEPrimeG2(a) {
+				t.Log("SSWU output not on E' curve")
+				return false
+			}
 
-	properties := gopter.NewProperties(parameters)
+			a = g2Isogeny(&g)
 
-	properties.Property("[G2] isogeny should output point on the curve", prop.ForAll(
-		func(a fptower.E2) bool {
-			g := sswuMapG2(&a) // TODO: Check the SSWU output is on E' too
-			g2Isogeny(&g)
-			return g.IsOnCurve()
+			if !a.IsOnCurve() {
+				t.Log("Isogeny/SSWU output not on curve")
+				return false
+			}
+
+			return true
 		},
 		GenE2(),
 	))
