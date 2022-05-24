@@ -283,12 +283,12 @@ func (f *FFArm64) _generateLoadOrStoreVector(name string, instruction string, ad
 		f.WriteLn("\\")
 	}
 }
-func (f *FFArm64) generateLoadVector() {
 
+/*func (f *FFArm64) generateLoadVector() {
 	f._generateLoadOrStoreVector("loadVector", "LDP", func(addr string, reg string) (string, string) {
 		return addr, reg
 	})
-}
+}*/
 
 func (f *FFArm64) generateStoreVector() {
 	f._generateLoadOrStoreVector("storeVector", "STP", func(addr string, reg string) (string, string) {
@@ -357,9 +357,9 @@ func toInterfaceSlice(first interface{}, rest interface{}) []interface{} {
 	return res
 }
 
-func (f *FFArm64) loadVector(vectorHeadPtr interface{}, vector interface{}) {
+/*func (f *FFArm64) loadVector(vectorHeadPtr interface{}, vector interface{}) {
 	f.callTemplate("loadVector", toInterfaceSlice(vectorHeadPtr, vector)...)
-}
+}*/
 
 func (f *FFArm64) storeVector(vector interface{}, baseAddress arm64.Register) {
 	f.callTemplate("storeVector", toInterfaceSlice(baseAddress, vector)...)
