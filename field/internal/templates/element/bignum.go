@@ -5,12 +5,13 @@ const BigNum = `
 {{/* Only used for the Pornin Extended GCD Inverse Algorithm*/}}
 {{if $.UsingP20Inverse}}
 
-func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
+// negL negates in place [x | xHi] and return the new most significant word xHi
+func negL(x *{{.ElementName}}, xHi uint64) uint64 {
 	var b uint64
 
-	z[0], b = bits.Sub64(0, x[0], 0)
+	x[0], b = bits.Sub64(0, x[0], 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
-	z[{{$i}}], b = bits.Sub64(0, x[{{$i}}], b)
+	x[{{$i}}], b = bits.Sub64(0, x[{{$i}}], b)
 	{{- end}}
 	xHi, _ = bits.Sub64(0, xHi, b)
 
@@ -31,7 +32,7 @@ func (z *{{.ElementName}}) mulWNonModular(x *{{.ElementName}}, y int64) uint64 {
 	{{- end}}
 
 	if y < 0 {
-		c = z.neg(z, c)
+		c = negL(z, c)
 	}
 
 	return c
@@ -44,10 +45,10 @@ func (z *{{.ElementName}}) linearCombNonModular(x *{{.ElementName}}, xC int64, y
 	yHi := yTimes.mulWNonModular(y, yC)
 	xHi := z.mulWNonModular(x, xC)
 
-	carry := uint64(0)
+	var carry uint64
 
 	{{- range $i := .NbWordsIndexesFull}}
-		z[{{$i}}], carry = bits.Add64(z[{{$i}}], yTimes[{{$i}}], carry)
+		z[{{$i}}], carry = bits.Add64(z[{{$i}}], yTimes[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
 	{{- end}}
 
 	yHi, _ = bits.Add64(xHi, yHi, carry)

@@ -104,20 +104,6 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 {{ else }}
 
 const (
-	updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-	updateFactorIdentityMatrixRow0 = 1
-	updateFactorIdentityMatrixRow1 = 1 << 32
-)
-
-func updateFactorsDecompose(c int64) (int64, int64) {
-	c += updateFactorsConversionBias
- 	const low32BitsFilter int64 = 0xFFFFFFFF
- 	f := c&low32BitsFilter - 0x7FFFFFFF
- 	g := c>>32&low32BitsFilter - 0x7FFFFFFF
- 	return f, g
-}
-
-const (
 	k = 32 // word size / 2
 	signBitSelector = uint64(1) << 63
 	approxLowBitsN = k - 1
@@ -205,7 +191,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		if aHi & signBitSelector != 0 {
 			// if aHi < 0
 			c0, g0 = -c0, -g0
-			aHi = a.neg(&a, aHi)
+			aHi = negL(&a, aHi)
 		}
 		// right-shift a by k-1 bits
 
@@ -224,7 +210,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		if bHi & signBitSelector != 0 {
 			// if bHi < 0
 			f1, c1 = -f1, -c1
-			bHi = b.neg(&b, bHi)
+			bHi = negL(&b, bHi)
 		}
 		// right-shift b by k-1 bits
 
@@ -341,7 +327,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	const qInvNegLsw uint64 = {{index .QInverse 0}}
 	
 	const signBitRemover = ^signBitSelector
-	neg := xHi & signBitSelector != 0
+	mustNeg := xHi & signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
 	// If X is negative we would have initially stored it as 2⁶⁴ r + X (à la 2's complement)
@@ -393,7 +379,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
     {{ template "reduce" . }}
 	// </standard SOS>
 
-	if neg {
+	if mustNeg {
 		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
 		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
@@ -407,7 +393,19 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	}
 }
 
+const (
+	updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+	updateFactorIdentityMatrixRow0 = 1
+	updateFactorIdentityMatrixRow1 = 1 << 32
+)
 
+func updateFactorsDecompose(c int64) (int64, int64) {
+	c += updateFactorsConversionBias
+ 	const low32BitsFilter int64 = 0xFFFFFFFF
+ 	f := c&low32BitsFilter - 0x7FFFFFFF
+ 	g := c>>32&low32BitsFilter - 0x7FFFFFFF
+ 	return f, g
+}
 
 {{ end }}
 

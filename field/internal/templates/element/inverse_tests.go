@@ -97,7 +97,7 @@ func Test{{.ElementName}}InversionCorrectionFactor(t *testing.T) {
 
 func Test{{.ElementName}}BigNumNeg(t *testing.T) {
 	var a {{.ElementName}}
-	aHi := a.neg(&a, 0)
+	aHi := negL(&a, 0)
 	if !a.IsZero() || aHi != 0 {
 		t.Error("-0 != 0")
 	}

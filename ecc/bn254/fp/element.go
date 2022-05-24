@@ -1011,20 +1011,6 @@ func (z *Element) Sqrt(x *Element) *Element {
 }
 
 const (
-	updateFactorsConversionBias    int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-	updateFactorIdentityMatrixRow0       = 1
-	updateFactorIdentityMatrixRow1       = 1 << 32
-)
-
-func updateFactorsDecompose(c int64) (int64, int64) {
-	c += updateFactorsConversionBias
-	const low32BitsFilter int64 = 0xFFFFFFFF
-	f := c&low32BitsFilter - 0x7FFFFFFF
-	g := c>>32&low32BitsFilter - 0x7FFFFFFF
-	return f, g
-}
-
-const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63
 	approxLowBitsN  = k - 1
@@ -1115,7 +1101,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		if aHi&signBitSelector != 0 {
 			// if aHi < 0
 			c0, g0 = -c0, -g0
-			aHi = a.neg(&a, aHi)
+			aHi = negL(&a, aHi)
 		}
 		// right-shift a by k-1 bits
 		a[0] = (a[0] >> approxLowBitsN) | ((a[1]) << approxHighBitsN)
@@ -1130,7 +1116,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		if bHi&signBitSelector != 0 {
 			// if bHi < 0
 			f1, c1 = -f1, -c1
-			bHi = b.neg(&b, bHi)
+			bHi = negL(&b, bHi)
 		}
 		// right-shift b by k-1 bits
 		b[0] = (b[0] >> approxLowBitsN) | ((b[1]) << approxHighBitsN)
@@ -1243,7 +1229,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	const qInvNegLsw uint64 = 9786893198990664585
 
 	const signBitRemover = ^signBitSelector
-	neg := xHi&signBitSelector != 0
+	mustNeg := xHi&signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
 	// Let X be xHi*r + x
 	// If X is negative we would have initially stored it as 2⁶⁴ r + X (à la 2's complement)
@@ -1311,7 +1297,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 	// </standard SOS>
 
-	if neg {
+	if mustNeg {
 		// We have computed ( 2⁶³ r + X ) r⁻¹ = 2⁶³ + X r⁻¹ instead
 		var b uint64
 		z[0], b = bits.Sub64(z[0], signBitSelector, 0)
@@ -1336,13 +1322,28 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 }
 
-func (z *Element) neg(x *Element, xHi uint64) uint64 {
+const (
+	updateFactorsConversionBias    int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+	updateFactorIdentityMatrixRow0       = 1
+	updateFactorIdentityMatrixRow1       = 1 << 32
+)
+
+func updateFactorsDecompose(c int64) (int64, int64) {
+	c += updateFactorsConversionBias
+	const low32BitsFilter int64 = 0xFFFFFFFF
+	f := c&low32BitsFilter - 0x7FFFFFFF
+	g := c>>32&low32BitsFilter - 0x7FFFFFFF
+	return f, g
+}
+
+// negL negates in place [x | xHi] and return the new most significant word xHi
+func negL(x *Element, xHi uint64) uint64 {
 	var b uint64
 
-	z[0], b = bits.Sub64(0, x[0], 0)
-	z[1], b = bits.Sub64(0, x[1], b)
-	z[2], b = bits.Sub64(0, x[2], b)
-	z[3], b = bits.Sub64(0, x[3], b)
+	x[0], b = bits.Sub64(0, x[0], 0)
+	x[1], b = bits.Sub64(0, x[1], b)
+	x[2], b = bits.Sub64(0, x[2], b)
+	x[3], b = bits.Sub64(0, x[3], b)
 	xHi, _ = bits.Sub64(0, xHi, b)
 
 	return xHi
@@ -1362,7 +1363,7 @@ func (z *Element) mulWNonModular(x *Element, y int64) uint64 {
 	c, z[3] = madd1(x[3], w, c)
 
 	if y < 0 {
-		c = z.neg(z, c)
+		c = negL(z, c)
 	}
 
 	return c
@@ -1375,8 +1376,8 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi := yTimes.mulWNonModular(y, yC)
 	xHi := z.mulWNonModular(x, xC)
 
-	carry := uint64(0)
-	z[0], carry = bits.Add64(z[0], yTimes[0], carry)
+	var carry uint64
+	z[0], carry = bits.Add64(z[0], yTimes[0], 0)
 	z[1], carry = bits.Add64(z[1], yTimes[1], carry)
 	z[2], carry = bits.Add64(z[2], yTimes[2], carry)
 	z[3], carry = bits.Add64(z[3], yTimes[3], carry)
