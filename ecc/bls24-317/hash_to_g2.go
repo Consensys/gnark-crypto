@@ -15,8 +15,6 @@
 package bls24317
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/internal/fptower"
 )
@@ -144,9 +142,5 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 
 // returns false if u>-u when seen as a bigInt
 func sign0(u fp.Element) bool {
-	var a, b big.Int
-	u.ToBigIntRegular(&a)
-	u.Neg(&u)
-	u.ToBigIntRegular(&b)
-	return a.Cmp(&b) <= 0
+	return u.LexicographicallyLargest()
 }
