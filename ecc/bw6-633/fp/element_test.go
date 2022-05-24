@@ -2351,45 +2351,6 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	}
 }
 
-func BenchmarkMontReduce(b *testing.B) {
-	var x Element
-	xHiBase := mrand.Uint64()
-	x.SetRandom()
-	benchResElement.SetRandom()
-
-	b.Run("oldPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
-
-	b.Run("oldNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
-}
-
 func TestElementInversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {
@@ -2587,19 +2548,6 @@ func TestElementMontReduce(t *testing.T) {
 		gen,
 	))
 
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(g veryBigInt) bool {
-			var res Element
-			var resInt big.Int
-
-			montReduce(&resInt, &g.asInt)
-			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -2625,21 +2573,6 @@ func TestElementMontReduceMultipleOfR(t *testing.T) {
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSigned(&zero, hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(hi uint64) bool {
-			var zero, res Element
-			var asInt, resInt big.Int
-
-			zero.toVeryBigIntSigned(&asInt, hi)
-
-			montReduce(&resInt, &asInt)
-			res.montReduceSignedSimpleButSlow(&zero, hi)
 
 			return res.matchVeryBigInt(0, &resInt) == nil
 		},

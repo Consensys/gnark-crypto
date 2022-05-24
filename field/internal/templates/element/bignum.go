@@ -3,7 +3,7 @@ package element
 const BigNum = `
 
 {{/* Only used for the Pornin Extended GCD Inverse Algorithm*/}}
-{{if $UsingP20Inverse}}
+{{if $.UsingP20Inverse}}
 
 func (z *{{.ElementName}}) neg(x *{{.ElementName}}, xHi uint64) uint64 {
 	var b uint64

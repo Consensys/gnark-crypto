@@ -43,6 +43,7 @@ type Field struct {
 	NbWordsIndexesFull        []int
 	P20InversionCorrectiveFac []uint64
 	P20InversionNbIterations  int
+	UsingP20Inverse           bool
 	IsMSWSaturated            bool // indicates if the most significant word is 0xFFFFF...FFFF
 	Q                         []uint64
 	QInverse                  []uint64
@@ -126,6 +127,11 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	p20InversionCorrectiveFac.Lsh(p20InversionCorrectiveFac, uint(p20InversionCorrectiveFacPower))
 	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
 	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
+
+	{
+		c := F.NbWords * 64
+		F.UsingP20Inverse = F.NbWords > 1 && F.NbBits < c
+	}
 
 	// rsquare
 	_rSquare := big.NewInt(2)

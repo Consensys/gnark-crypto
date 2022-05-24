@@ -8,19 +8,17 @@ if b != 0 {
 	// negative: add q
 	const neg1 = 0xFFFFFFFFFFFFFFFF
 
-	b = 0
+	var carry uint64
 	{{$lastIndex := sub .NbWords 1}}
 	{{- range $i :=  iterate 0 $lastIndex}}
-	z[{{$i}}], b = bits.Add64(z[{{$i}}], q{{$i}}, b)
+	z[{{$i}}], carry = bits.Add64(z[{{$i}}], q{{$i}}, {{- if eq $i 0}}0{{- else}}carry{{- end}})
 	{{- end}}
-	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.NbWordsLastIndex}}, b)
+	z[{{.NbWordsLastIndex}}], _ = bits.Add64(neg1, q{{$.NbWordsLastIndex}}, carry)
 }
 {{- end}}
-{{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 {{/* We use big.Int for Inverse for these type of moduli */}}
-{{if not $UsingP20Inverse}}
+{{if not $.UsingP20Inverse}}
 
 {{- if eq .NbWords 1}}
 // Inverse z = x⁻¹ (mod q) 
@@ -105,23 +103,11 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 
 {{ else }}
 
-func max(a int, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a int, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-const updateFactorIdentityMatrixRow0 = 1
-const updateFactorIdentityMatrixRow1 = 1 << 32
+const (
+	updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+	updateFactorIdentityMatrixRow0 = 1
+	updateFactorIdentityMatrixRow1 = 1 << 32
+)
 
 func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
@@ -131,16 +117,19 @@ func updateFactorsDecompose(c int64) (int64, int64) {
  	return f, g
 }
 
-const k = 32 // word size / 2
-const signBitSelector = uint64(1) << 63
-const approxLowBitsN = k - 1
-const approxHighBitsN = k + 1
+const (
+	k = 32 // word size / 2
+	signBitSelector = uint64(1) << 63
+	approxLowBitsN = k - 1
+	approxHighBitsN = k + 1
+)
 
+const (
 {{- range $i := .NbWordsIndexesFull}}
-const inversionCorrectionFactorWord{{$i}} = {{index $.P20InversionCorrectiveFac $i}}
+inversionCorrectionFactorWord{{$i}} = {{index $.P20InversionCorrectiveFac $i}}
 {{- end}}
-
-const invIterationsN = {{.P20InversionNbIterations}}
+invIterationsN = {{.P20InversionNbIterations}}
+)
 
 // Inverse z = x⁻¹ (mod q)
 //
@@ -275,10 +264,14 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	}
 
 	// For every iteration that we miss, v is not being multiplied by 2ᵏ⁻²
-	const pSq int64 = 1 << (2 * (k - 1))
+	const pSq uint64 = 1 << (2 * (k - 1))
+	a = {{.ElementName}}{pSq}
 	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
-		v.mulWSigned(&v, pSq)
+		// could optimize further with mul by word routine;
+		// on x86, the assembly routine outperforms generic code for mul by word
+		// on arm64, we may loose up to ~5% for 6 limbs
+		mul(&v, &v, &a)
 	}
 
 	u.Set(x) // for correctness check
@@ -334,6 +327,7 @@ func approximate(x *{{.ElementName}}, nBits int) uint64 {
 // 0 ≤ x, y < 2{{supScr .NbBits}}
 // |xC|, |yC| < 2⁶³
 func (z *{{.ElementName}}) linearComb(x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
+	{{- $elementCapacityNbBits := mul .NbWords 64}}
     // | (hi, z) | < 2 * 2⁶³ * 2{{supScr .NbBits}} = 2{{supScr (add 64 .NbBits)}}
 	// therefore | hi | < 2{{supScr (sub (add 64 .NbBits) $elementCapacityNbBits)}} ≤ 2⁶³
 	hi := z.linearCombNonModular(x, xC, y, yC)
@@ -413,50 +407,6 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	}
 }
 
-func (z *{{.ElementName}}) montReduceSignedSimpleButSlow(x *{{.ElementName}}, xHi uint64) {
-
-       *z = *x
-       z.FromMont() // z = x r⁻¹
-
-       if pos := xHi&signBitSelector == 0; pos {
-
-               // (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
-               var c uint64
-			   z[0], c = bits.Add64(z[0], xHi, 0)   
-			   {{- range $i := iterate 1 $.NbWordsLastIndex}}
-               z[{{$i}}], c = bits.Add64(z[{{$i}}], 0, c)
-			   {{- end }}
-               z[{{.NbWordsLastIndex}}], _ = bits.Add64(z[{{.NbWordsLastIndex}}], 0, c)
-
-               {{ template "reduce"  . }}
-
-       } else {
-            	// The real input value is xHi r + x - 2⁶⁴r
-                // So the desired output is xr⁻¹ - (2⁶⁴ - xHi)
-                // Since xHi != 0, 2⁶⁴ - xHi is at most 64 bits
-                var b uint64
-				z[0], b = bits.Sub64(z[0], -xHi, 0)   
-				{{- range $i := .NbWordsIndexesNoZero }}
-				z[{{$i}}], b = bits.Sub64(z[{{$i}}], 0, b)
-				{{- end }}
-				{{ template "addQ" .}}
-       }
-}
-
-// mulWSigned mul word signed (w/ montgomery reduction)
-func (z *{{.ElementName}}) mulWSigned(x *{{.ElementName}}, y int64) {
-	m := y >> 63
-	_mulWGeneric(z, x, uint64((y ^ m) - m))
-	// multiply by abs(y)
-	if y < 0 {
-		z.Neg(z)
-	}
-}
-
-func _mulWGeneric(z,x *{{.ElementName}}, y uint64) {
-	{{ template "mul_nocarry_v2" dict "all" . "V2" "x"}}
-	{{ template "reduce"  . }}
-}
 
 
 {{ end }}

@@ -2,8 +2,6 @@ package element
 
 const Test = `
 
-{{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 import (
 	"crypto/rand"
@@ -11,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if $UsingP20Inverse}} 
+	{{if .UsingP20Inverse}} 
 	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand" 
 	{{end}}
@@ -1586,7 +1584,7 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-{{if $UsingP20Inverse}}
+{{if $.UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int

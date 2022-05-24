@@ -121,7 +121,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		if t.IsZero() {
 			return z.SetZero()
 		}
-		if !({{- range $i :=  reverse .NbWordsIndexesNoZero}}(t[{{$i}}] == {{index $.One $i}}) &&{{end}}(t[0] == {{index $.One 0}})) {
+		if !t.IsOne() {
 			// t != 1, we don't have a square root
 			return nil
 		}
@@ -130,7 +130,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 			t = b 
 
 			// for t != 1
-			for !({{- range $i :=  reverse .NbWordsIndexesNoZero}}(t[{{$i}}] == {{index $.One $i}}) &&{{end}}(t[0] == {{index $.One 0}})) {
+			for !t.IsOne() {
 				t.Square(&t)
 				m++
 			}

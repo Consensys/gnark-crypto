@@ -2,46 +2,7 @@ package element
 
 const InverseTests = `
 
-{{if $UsingP20Inverse}}
-
-func BenchmarkMontReduce(b *testing.B) {
-	       var x {{.ElementName}}
-	       xHiBase := mrand.Uint64()
-	       x.SetRandom()
-	       benchRes{{.ElementName}}.SetRandom()
-	
-	       b.Run("oldPositive", func(b *testing.B) {
-	               xHi := xHiBase & ^signBitSelector
-	               b.ResetTimer()
-	               for i := 0; i < b.N; i++ {
-	                       benchRes{{.ElementName}}.montReduceSigned(&x, xHi)
-	               }
-	       })
-	
-	       b.Run("newPositive", func(b *testing.B) {
-	               xHi := xHiBase & ^signBitSelector
-	               b.ResetTimer()
-	               for i := 0; i < b.N; i++ {
-	                       benchRes{{.ElementName}}.montReduceSignedSimpleButSlow(&x, xHi)
-	               }
-	       })
-	
-	       b.Run("oldNegative", func(b *testing.B) {
-	               xHi := xHiBase | signBitSelector
-	               b.ResetTimer()
-	               for i := 0; i < b.N; i++ {
-	                       benchRes{{.ElementName}}.montReduceSigned(&x, xHi)
-	               }
-	       })
-	
-	       b.Run("newNegative", func(b *testing.B) {
-	               xHi := xHiBase | signBitSelector
-	               b.ResetTimer()
-	               for i := 0; i < b.N; i++ {
-	                       benchRes{{.ElementName}}.montReduceSignedSimpleButSlow(&x, xHi)
-	               }
-	       })
-	}
+{{if $.UsingP20Inverse}}
 
 func Test{{.ElementName}}InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}
@@ -219,18 +180,7 @@ func Test{{.ElementName}}MontReduce(t *testing.T) {
 		gen,
 	))
 
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(g veryBigInt) bool {
-			var res {{.ElementName}}
-			var resInt big.Int
 
-			montReduce(&resInt, &g.asInt)
-			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
@@ -263,20 +213,7 @@ func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
 		gen,
 	))
 
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(hi uint64) bool {
-			var zero, res {{.ElementName}}
-			var asInt, resInt big.Int
-
-			zero.toVeryBigIntSigned(&asInt, hi)
-
-			montReduce(&resInt, &asInt)
-			res.montReduceSignedSimpleButSlow(&zero, hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
+	
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

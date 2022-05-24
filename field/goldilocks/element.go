@@ -857,7 +857,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	if t.IsZero() {
 		return z.SetZero()
 	}
-	if !(t[0] == 4294967295) {
+	if !t.IsOne() {
 		// t != 1, we don't have a square root
 		return nil
 	}
@@ -866,7 +866,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 		t = b
 
 		// for t != 1
-		for !(t[0] == 4294967295) {
+		for !t.IsOne() {
 			t.Square(&t)
 			m++
 		}

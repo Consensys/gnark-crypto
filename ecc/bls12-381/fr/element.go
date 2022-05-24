@@ -1030,7 +1030,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	if t.IsZero() {
 		return z.SetZero()
 	}
-	if !((t[3] == 1739710354780652911) && (t[2] == 11064306276430008309) && (t[1] == 6378425256633387010) && (t[0] == 8589934590)) {
+	if !t.IsOne() {
 		// t != 1, we don't have a square root
 		return nil
 	}
@@ -1039,7 +1039,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 		t = b
 
 		// for t != 1
-		for !((t[3] == 1739710354780652911) && (t[2] == 11064306276430008309) && (t[1] == 6378425256633387010) && (t[0] == 8589934590)) {
+		for !t.IsOne() {
 			t.Square(&t)
 			m++
 		}
@@ -1062,23 +1062,11 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
-func max(a int, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a int, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-const updateFactorsConversionBias int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
-const updateFactorIdentityMatrixRow0 = 1
-const updateFactorIdentityMatrixRow1 = 1 << 32
+const (
+	updateFactorsConversionBias    int64 = 0x7fffffff7fffffff // (2³¹ - 1)(2³² + 1)
+	updateFactorIdentityMatrixRow0       = 1
+	updateFactorIdentityMatrixRow1       = 1 << 32
+)
 
 func updateFactorsDecompose(c int64) (int64, int64) {
 	c += updateFactorsConversionBias
@@ -1088,16 +1076,20 @@ func updateFactorsDecompose(c int64) (int64, int64) {
 	return f, g
 }
 
-const k = 32 // word size / 2
-const signBitSelector = uint64(1) << 63
-const approxLowBitsN = k - 1
-const approxHighBitsN = k + 1
-const inversionCorrectionFactorWord0 = 10120633560485349752
-const inversionCorrectionFactorWord1 = 6708885176490223342
-const inversionCorrectionFactorWord2 = 15589610060228208133
-const inversionCorrectionFactorWord3 = 1857276366933877101
+const (
+	k               = 32 // word size / 2
+	signBitSelector = uint64(1) << 63
+	approxLowBitsN  = k - 1
+	approxHighBitsN = k + 1
+)
 
-const invIterationsN = 18
+const (
+	inversionCorrectionFactorWord0 = 10120633560485349752
+	inversionCorrectionFactorWord1 = 6708885176490223342
+	inversionCorrectionFactorWord2 = 15589610060228208133
+	inversionCorrectionFactorWord3 = 1857276366933877101
+	invIterationsN                 = 18
+)
 
 // Inverse z = x⁻¹ (mod q)
 //
@@ -1226,10 +1218,14 @@ func (z *Element) Inverse(x *Element) *Element {
 	}
 
 	// For every iteration that we miss, v is not being multiplied by 2ᵏ⁻²
-	const pSq int64 = 1 << (2 * (k - 1))
+	const pSq uint64 = 1 << (2 * (k - 1))
+	a = Element{pSq}
 	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
-		v.mulWSigned(&v, pSq)
+		// could optimize further with mul by word routine;
+		// on x86, the assembly routine outperforms generic code for mul by word
+		// on arm64, we may loose up to ~5% for 6 limbs
+		mul(&v, &v, &a)
 	}
 
 	u.Set(x) // for correctness check
@@ -1382,123 +1378,13 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 			// negative: add q
 			const neg1 = 0xFFFFFFFFFFFFFFFF
 
-			b = 0
+			var carry uint64
 
-			z[0], b = bits.Add64(z[0], q0, b)
-			z[1], b = bits.Add64(z[1], q1, b)
-			z[2], b = bits.Add64(z[2], q2, b)
-			z[3], _ = bits.Add64(neg1, q3, b)
+			z[0], carry = bits.Add64(z[0], q0, 0)
+			z[1], carry = bits.Add64(z[1], q1, carry)
+			z[2], carry = bits.Add64(z[2], q2, carry)
+			z[3], _ = bits.Add64(neg1, q3, carry)
 		}
-	}
-}
-
-func (z *Element) montReduceSignedSimpleButSlow(x *Element, xHi uint64) {
-
-	*z = *x
-	z.FromMont() // z = x r⁻¹
-
-	if pos := xHi&signBitSelector == 0; pos {
-
-		// (xHi r + x) r⁻¹ = xHi + xr⁻¹ = xHi + z
-		var c uint64
-		z[0], c = bits.Add64(z[0], xHi, 0)
-		z[1], c = bits.Add64(z[1], 0, c)
-		z[2], c = bits.Add64(z[2], 0, c)
-		z[3], _ = bits.Add64(z[3], 0, c)
-
-		// if z >= q → z -= q
-		// note: this is NOT constant time
-		if !(z[3] < 8353516859464449352 || (z[3] == 8353516859464449352 && (z[2] < 3691218898639771653 || (z[2] == 3691218898639771653 && (z[1] < 6034159408538082302 || (z[1] == 6034159408538082302 && (z[0] < 18446744069414584321))))))) {
-			var b uint64
-			z[0], b = bits.Sub64(z[0], 18446744069414584321, 0)
-			z[1], b = bits.Sub64(z[1], 6034159408538082302, b)
-			z[2], b = bits.Sub64(z[2], 3691218898639771653, b)
-			z[3], _ = bits.Sub64(z[3], 8353516859464449352, b)
-		}
-
-	} else {
-		// The real input value is xHi r + x - 2⁶⁴r
-		// So the desired output is xr⁻¹ - (2⁶⁴ - xHi)
-		// Since xHi != 0, 2⁶⁴ - xHi is at most 64 bits
-		var b uint64
-		z[0], b = bits.Sub64(z[0], -xHi, 0)
-		z[1], b = bits.Sub64(z[1], 0, b)
-		z[2], b = bits.Sub64(z[2], 0, b)
-		z[3], b = bits.Sub64(z[3], 0, b)
-
-		if b != 0 {
-			// z[3] = -1
-			// negative: add q
-			const neg1 = 0xFFFFFFFFFFFFFFFF
-
-			b = 0
-
-			z[0], b = bits.Add64(z[0], q0, b)
-			z[1], b = bits.Add64(z[1], q1, b)
-			z[2], b = bits.Add64(z[2], q2, b)
-			z[3], _ = bits.Add64(neg1, q3, b)
-		}
-	}
-}
-
-// mulWSigned mul word signed (w/ montgomery reduction)
-func (z *Element) mulWSigned(x *Element, y int64) {
-	m := y >> 63
-	_mulWGeneric(z, x, uint64((y^m)-m))
-	// multiply by abs(y)
-	if y < 0 {
-		z.Neg(z)
-	}
-}
-
-func _mulWGeneric(z, x *Element, y uint64) {
-
-	var t [4]uint64
-	{
-		// round 0
-		c1, c0 := bits.Mul64(y, x[0])
-		m := c0 * 18446744069414584319
-		c2 := madd0(m, 18446744069414584321, c0)
-		c1, c0 = madd1(y, x[1], c1)
-		c2, t[0] = madd2(m, 6034159408538082302, c2, c0)
-		c1, c0 = madd1(y, x[2], c1)
-		c2, t[1] = madd2(m, 3691218898639771653, c2, c0)
-		c1, c0 = madd1(y, x[3], c1)
-		t[3], t[2] = madd3(m, 8353516859464449352, c0, c2, c1)
-	}
-	{
-		// round 1
-		m := t[0] * 18446744069414584319
-		c2 := madd0(m, 18446744069414584321, t[0])
-		c2, t[0] = madd2(m, 6034159408538082302, c2, t[1])
-		c2, t[1] = madd2(m, 3691218898639771653, c2, t[2])
-		t[3], t[2] = madd2(m, 8353516859464449352, t[3], c2)
-	}
-	{
-		// round 2
-		m := t[0] * 18446744069414584319
-		c2 := madd0(m, 18446744069414584321, t[0])
-		c2, t[0] = madd2(m, 6034159408538082302, c2, t[1])
-		c2, t[1] = madd2(m, 3691218898639771653, c2, t[2])
-		t[3], t[2] = madd2(m, 8353516859464449352, t[3], c2)
-	}
-	{
-		// round 3
-		m := t[0] * 18446744069414584319
-		c2 := madd0(m, 18446744069414584321, t[0])
-		c2, z[0] = madd2(m, 6034159408538082302, c2, t[1])
-		c2, z[1] = madd2(m, 3691218898639771653, c2, t[2])
-		z[3], z[2] = madd2(m, 8353516859464449352, t[3], c2)
-	}
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 8353516859464449352 || (z[3] == 8353516859464449352 && (z[2] < 3691218898639771653 || (z[2] == 3691218898639771653 && (z[1] < 6034159408538082302 || (z[1] == 6034159408538082302 && (z[0] < 18446744069414584321))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744069414584321, 0)
-		z[1], b = bits.Sub64(z[1], 6034159408538082302, b)
-		z[2], b = bits.Sub64(z[2], 3691218898639771653, b)
-		z[3], _ = bits.Sub64(z[3], 8353516859464449352, b)
 	}
 }
 
