@@ -400,7 +400,9 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 	return res
 }
 
-// EncodeTo{{$CurveTitle}} maps a {{$CoordType}} to a point on the curve using the Simplified Shallue and van de Woestijne Ulas map
+// EncodeTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the Simplified Shallue and van de Woestijne Ulas map.
+// It is faster than HashTo{{$CurveTitle}}, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
@@ -428,7 +430,9 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
  	return res, nil
 }
 
-// HashTo{{$CurveTitle}} hashes a byte string to the {{$CurveTitle}} curve. Usable as a random oracle.
+// HashTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the Simplified Shallue and van de Woestijne Ulas map.
+// Slower than EncodeTo{{$CurveTitle}}, but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := hashToFp(msg, dst, 2 * {{$TowerDegree}})
