@@ -124,6 +124,10 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 //  big.Int
 //  []byte
 func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, error) {
+	if i1 == nil {
+		return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} with <nil>")
+	}
+
 	switch c1 := i1.(type) {
 	case {{.ElementName}}:
 		return z.Set(&c1), nil

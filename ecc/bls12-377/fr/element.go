@@ -138,6 +138,10 @@ func (z *Element) Set(x *Element) *Element {
 //  big.Int
 //  []byte
 func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
+	if i1 == nil {
+		return nil, errors.New("can't set fr.Element with <nil>")
+	}
+
 	switch c1 := i1.(type) {
 	case Element:
 		return z.Set(&c1), nil

@@ -1299,6 +1299,17 @@ func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func Test{{toTitle .ElementName}}New{{.ElementName}}(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	e := New{{.ElementName}}(1)
+	assert.True(e.IsOne())
+
+	e = New{{.ElementName}}(0)
+	assert.True(e.IsZero())
+}
 
 
 func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {

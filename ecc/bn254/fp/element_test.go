@@ -1970,6 +1970,18 @@ func TestElementNegativeExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestElementNewElement(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	e := NewElement(1)
+	assert.True(e.IsOne())
+
+	e = NewElement(0)
+	assert.True(e.IsZero())
+}
+
 func TestElementBatchInvert(t *testing.T) {
 	assert := require.New(t)
 
