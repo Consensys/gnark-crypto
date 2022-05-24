@@ -37,6 +37,10 @@ import (
 //
 // 	q[base10] = 39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
 // 	q[base16] = 0x4c23a02b586d650d3f7498be97c5eafdec1d01aa27a1ae0421ee5da52bde5026fe802ff40300001
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type Element [5]uint64
 
 const (
@@ -45,7 +49,7 @@ const (
 	Bytes = Limbs * 8 // number of bytes needed to represent a Element
 )
 
-// q (modulus)
+// Field modulus q
 const (
 	q0 uint64 = 8063698428123676673
 	q1 uint64 = 4764498181658371330
@@ -60,15 +64,6 @@ var qElement = Element{
 	q2,
 	q3,
 	q4,
-}
-
-// rSquare
-var rSquare = Element{
-	7746605402484284438,
-	6457291528853138485,
-	14067144135019420374,
-	14705958577488011058,
-	150264569250089173,
 }
 
 var _modulus big.Int // q stored as big.Int
@@ -210,7 +205,7 @@ func (z *Element) SetOne() *Element {
 	return z
 }
 
-// Div z = x*y⁻¹ mod q
+// Div z = x*y⁻¹ (mod q)
 func (z *Element) Div(x, y *Element) *Element {
 	var yInv Element
 	yInv.Inverse(y)
@@ -219,7 +214,8 @@ func (z *Element) Div(x, y *Element) *Element {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *Element) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= 5 {
@@ -264,7 +260,7 @@ func (z *Element) Uint64() uint64 {
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
 //
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *Element) FitsOnOneWord() bool {
 	return (z[4] | z[3] | z[2] | z[1]) == 0
 }
@@ -355,7 +351,7 @@ func (z *Element) SetRandom() (*Element, error) {
 	return z, nil
 }
 
-// One returns 1 (in montgommery form)
+// One returns 1
 func One() Element {
 	var one Element
 	one.SetOne()
@@ -384,7 +380,7 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y mod q
+// Mul z = x * y (mod q)
 //
 // x and y must be strictly inferior to q
 func (z *Element) Mul(x, y *Element) *Element {
@@ -433,7 +429,7 @@ func (z *Element) Mul(x, y *Element) *Element {
 	return z
 }
 
-// Square z = x * x mod q
+// Square z = x * x (mod q)
 //
 // x must be strictly inferior to q
 func (z *Element) Square(x *Element) *Element {
@@ -449,7 +445,7 @@ func (z *Element) FromMont() *Element {
 	return z
 }
 
-// Add z = x + y mod q
+// Add z = x + y (mod q)
 func (z *Element) Add(x, y *Element) *Element {
 
 	var carry uint64
@@ -472,7 +468,7 @@ func (z *Element) Add(x, y *Element) *Element {
 	return z
 }
 
-// Double z = x + x mod q, aka Lsh 1
+// Double z = x + x (mod q), aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
 
 	var carry uint64
@@ -495,7 +491,7 @@ func (z *Element) Double(x *Element) *Element {
 	return z
 }
 
-// Sub  z = x - y mod q
+// Sub z = x - y (mod q)
 func (z *Element) Sub(x, y *Element) *Element {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
@@ -541,9 +537,8 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
-// Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
-
 func _mulGeneric(z, x, y *Element) {
+	// see Mul for algorithm documentation
 
 	var t [5]uint64
 	var c [3]uint64
@@ -639,6 +634,7 @@ func _mulGeneric(z, x, y *Element) {
 func _fromMontGeneric(z *Element) {
 	// the following lines implement z = z * 1
 	// with a modified CIOS montgomery multiplication
+	// see Mul for algorithm documentation
 	{
 		// m = z[0]n'[0] mod W
 		m := z[0] * 8083954730842193919
@@ -716,32 +712,6 @@ func _reduceGeneric(z *Element) {
 	}
 }
 
-func mulByConstant(z *Element, c uint8) {
-	switch c {
-	case 0:
-		z.SetZero()
-		return
-	case 1:
-		return
-	case 2:
-		z.Double(z)
-		return
-	case 3:
-		_z := *z
-		z.Double(z).Add(z, &_z)
-	case 5:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z)
-	case 11:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
-	default:
-		var y Element
-		y.SetUint64(uint64(c))
-		z.Mul(z, &y)
-	}
-}
-
 // BatchInvert returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
 func BatchInvert(a []Element) []Element {
@@ -799,7 +769,7 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
-// Exp z = xᵏ mod q
+// Exp z = xᵏ (mod q)
 func (z *Element) Exp(x Element, k *big.Int) *Element {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
@@ -808,7 +778,7 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ mod q == (x⁻¹)ᵏ mod q
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
 		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
@@ -828,6 +798,17 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 	}
 
 	return z
+}
+
+// rSquare where r is the Montgommery constant
+// see section 2.3.2 of Tolga Acar's thesis
+// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+var rSquare = Element{
+	7746605402484284438,
+	6457291528853138485,
+	14067144135019420374,
+	14705958577488011058,
+	150264569250089173,
 }
 
 // ToMont converts z to Montgomery form
@@ -899,8 +880,7 @@ func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
 	return z.ToBigInt(res)
 }
 
-// Bytes returns the regular (non montgomery) value
-// of z as a big-endian byte array.
+// Bytes returns the value of z as a big-endian byte array
 func (z *Element) Bytes() (res [Limbs * 8]byte) {
 	_z := z.ToRegular()
 	binary.BigEndian.PutUint64(res[32:40], _z[0])
@@ -912,15 +892,14 @@ func (z *Element) Bytes() (res [Limbs * 8]byte) {
 	return
 }
 
-// Marshal returns the regular (non montgomery) value
-// of z as a big-endian byte slice.
+// Marshal returns the value of z as a big-endian byte slice
 func (z *Element) Marshal() []byte {
 	b := z.Bytes()
 	return b[:]
 }
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
-// sets z to that value (in Montgomery form), and returns z.
+// sets z to that value, and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
@@ -935,7 +914,7 @@ func (z *Element) SetBytes(e []byte) *Element {
 	return z
 }
 
-// SetBigInt sets z to v (regular form) and returns z in Montgomery form
+// SetBigInt sets z to v and returns z
 func (z *Element) SetBigInt(v *big.Int) *Element {
 	z.SetZero()
 
@@ -1084,7 +1063,7 @@ func (z *Element) Legendre() int {
 	return -1
 }
 
-// Sqrt z = √x mod q
+// Sqrt z = √x (mod q)
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
 func (z *Element) Sqrt(x *Element) *Element {
@@ -1138,7 +1117,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 		if m == 0 {
 			return z.Set(&y)
 		}
-		// t = g^(2^(r-m-1)) mod q
+		// t = g^(2^(r-m-1)) (mod q)
 		ge := int(r - m - 1)
 		t = g
 		for ge > 0 {
@@ -1191,10 +1170,12 @@ const inversionCorrectionFactorWord4 = 75428258669939399
 
 const invIterationsN = 22
 
-// Inverse z = x⁻¹ mod q
-// Implements "Optimized Binary GCD for Modular Inversion"
-// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
+// Inverse z = x⁻¹ (mod q)
+//
+// if x == 0, sets and returns z = x
 func (z *Element) Inverse(x *Element) *Element {
+	// Implements "Optimized Binary GCD for Modular Inversion"
+	// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
 
 	a := *x
 	b := Element{
@@ -1344,7 +1325,7 @@ func (z *Element) Inverse(x *Element) *Element {
 	return z
 }
 
-// inverseExp computes z = x⁻¹ mod q = x**(q-2) mod q
+// inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q)
 func (z *Element) inverseExp(x *Element) *Element {
 	qMinusTwo := Modulus()
 	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))

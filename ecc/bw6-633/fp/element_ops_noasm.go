@@ -19,30 +19,38 @@
 
 package fp
 
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular,
-// there is no security guarantees such as constant time implementation
-// or side-channel attack resistance
-// /!\ WARNING /!\
-
-// MulBy3 x *= 3
+// MulBy3 x *= 3 (mod q)
 func MulBy3(x *Element) {
-	mulByConstant(x, 3)
+	_x := *x
+	x.Double(x).Add(x, &_x)
 }
 
-// MulBy5 x *= 5
+// MulBy5 x *= 5 (mod q)
 func MulBy5(x *Element) {
-	mulByConstant(x, 5)
+	_x := *x
+	x.Double(x).Double(x).Add(x, &_x)
 }
 
-// MulBy13 x *= 13
+// MulBy13 x *= 13 (mod q)
 func MulBy13(x *Element) {
-	mulByConstant(x, 13)
+	var y = Element{
+		4881606927653498122,
+		47978232019095094,
+		8555661377410121478,
+		17849732488791568215,
+		5227097555314997552,
+		839611732066804726,
+		5234648925333584632,
+		11936054402769696488,
+		1228498468693814883,
+		2857848702739380,
+	}
+	x.Mul(x, &y)
 }
 
 // Butterfly sets
-// a = a + b
-// b = a - b
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
 }
@@ -50,8 +58,6 @@ func mul(z, x, y *Element) {
 	_mulGeneric(z, x, y)
 }
 
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
-// sets and returns z = z * 1
 func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }

@@ -23,6 +23,9 @@ func fromMont(res *{{.ElementName}})
 //go:noescape
 func reduce(res *{{.ElementName}})
 
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 

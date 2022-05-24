@@ -26,7 +26,7 @@
 // Usage
 //
 // Example API signature:
-// 	// Mul z = x * y mod q
+// 	// Mul z = x * y (mod q)
 // 	func (z *Element) Mul(x, y *Element) *Element
 //
 // and can be used like so:

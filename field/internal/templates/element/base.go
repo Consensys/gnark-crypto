@@ -23,6 +23,10 @@ import (
 //
 // 	q[base10] = {{.Modulus}}
 // 	q[base16] = 0x{{.ModulusHex}}
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type {{.ElementName}} [{{.NbWords}}]uint64
 
 const (
@@ -32,7 +36,7 @@ const (
 )
 
 
-// q (modulus)
+// Field modulus q
 const (
 {{- range $i := $.NbWordsIndexesFull}}
 	q{{$i}} uint64 = {{index $.Q $i}} 
@@ -45,12 +49,6 @@ const (
 var q{{.ElementName}} = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
 	q{{$i}},{{end}}
-}
-
-// rSquare
-var rSquare = {{.ElementName}}{
-	{{- range $i := .RSquare}}
-	{{$i}},{{end}}
 }
 
 var _modulus big.Int 		// q stored as big.Int
@@ -187,7 +185,7 @@ func (z *{{.ElementName}}) SetOne() *{{.ElementName}} {
 }
 
 
-// Div z = x*y⁻¹ mod q
+// Div z = x*y⁻¹ (mod q)
 func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var yInv {{.ElementName}}
 	yInv.Inverse( y)
@@ -196,7 +194,8 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= {{.NbWords}} {
@@ -249,7 +248,7 @@ func (z *{{.ElementName}}) Uint64() uint64 {
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
 //
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *{{.ElementName}}) FitsOnOneWord() bool {
 	{{- if eq .NbWords 1}}
 		return true
@@ -321,7 +320,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	return z, nil
 }
 
-// One returns 1 (in montgommery form)
+// One returns 1
 func One() {{.ElementName}} {
 	var one {{.ElementName}}
 	one.SetOne()
@@ -358,7 +357,7 @@ func (z *{{.ElementName}}) Halve()  {
 {{ end }}
 
 
-// Mul z = x * y mod q
+// Mul z = x * y (mod q)
 {{- if $.NoCarry}}
 //
 // x and y must be strictly inferior to q
@@ -416,7 +415,7 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Square z = x * x mod q
+// Square z = x * x (mod q)
 {{- if $.NoCarry}}
 //
 // x must be strictly inferior to q
@@ -438,7 +437,7 @@ func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
 	return z
 }
 
-// Add z = x + y mod q
+// Add z = x + y (mod q)
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
@@ -473,7 +472,7 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Double z = x + x mod q, aka Lsh 1
+// Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
 	if x[0] & (1 << 63) == (1 << 63) {
@@ -515,7 +514,7 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 }
 
 
-// Sub  z = x - y mod q
+// Sub z = x - y (mod q)
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
@@ -572,9 +571,9 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 	return z
 }
 
-// Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
 
 func _mulGeneric(z,x,y *{{.ElementName}}) {
+	// see Mul for algorithm documentation
 	{{ if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{ else if .NoCarry}}
@@ -590,6 +589,7 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 func _fromMontGeneric(z *{{.ElementName}}) {
 	// the following lines implement z = z * 1
 	// with a modified CIOS montgomery multiplication
+	// see Mul for algorithm documentation
 	{{- range $j := .NbWordsIndexesFull}}
 	{
 		// m = z[0]n'[0] mod W
@@ -605,40 +605,9 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 	{{ template "reduce" .}}
 }
 
-
-
-
-
 func _reduceGeneric(z *{{.ElementName}})  {
 	{{ template "reduce"  . }}
 }
-
-func mulByConstant(z *{{.ElementName}}, c uint8) {
-	switch c {
-	case 0:
-		z.SetZero()
-		return
-	case 1:
-		return
-	case 2:
-		z.Double(z)
-		return
-	case 3:
-		_z := *z
-		z.Double(z).Add(z, &_z)
-	case 5:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z)
-	case 11:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
-	default:
-		var y {{.ElementName}}
-		y.SetUint64(uint64(c))
-		z.Mul(z, &y)
-	}
-}
-
 
 // BatchInvert returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick

@@ -468,6 +468,12 @@ func TestElementInverseExp(t *testing.T) {
 
 }
 
+func mulByConstant(z *Element, c uint8) {
+	var y Element
+	y.SetUint64(uint64(c))
+	z.Mul(z, &y)
+}
+
 func TestElementMulByConstants(t *testing.T) {
 
 	t.Parallel()

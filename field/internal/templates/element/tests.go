@@ -480,6 +480,13 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 }
 
 
+func mulByConstant(z *{{.ElementName}}, c uint8) {
+	var y {{.ElementName}}
+	y.SetUint64(uint64(c))
+	z.Mul(z, &y)
+}
+
+
 func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
 	t.Parallel()

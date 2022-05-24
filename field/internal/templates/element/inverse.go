@@ -23,10 +23,11 @@ if b != 0 {
 {{if not $UsingP20Inverse}}
 
 {{- if eq .NbWords 1}}
-// Inverse z = x⁻¹ mod q 
-// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+// Inverse z = x⁻¹ (mod q) 
+//
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
+	// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
 	const q uint64 = q0
 	if x.IsZero() {
 		z.SetZero()
@@ -90,7 +91,8 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 {{- else}}
-// Inverse z = x⁻¹ mod q 
+// Inverse z = x⁻¹ (mod q) 
+//
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	var _xNonMont big.Int
@@ -140,11 +142,13 @@ const inversionCorrectionFactorWord{{$i}} = {{index $.P20InversionCorrectiveFac 
 
 const invIterationsN = {{.P20InversionNbIterations}}
 
-// Inverse z = x⁻¹ mod q
-// Implements "Optimized Binary GCD for Modular Inversion"
-// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
+// Inverse z = x⁻¹ (mod q)
+//
+// if x == 0, sets and returns z = x
 func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
-	
+	// Implements "Optimized Binary GCD for Modular Inversion"
+	// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
+
 	a := *x
 	b := {{.ElementName}} {
 		{{- range $i := .NbWordsIndexesFull}}
@@ -294,7 +298,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// inverseExp computes z = x⁻¹ mod q = x**(q-2) mod q 
+// inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q) 
 func (z *{{.ElementName}}) inverseExp(x *{{.ElementName}}) *{{.ElementName}} {
 	qMinusTwo := Modulus()
 	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))

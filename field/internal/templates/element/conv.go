@@ -2,6 +2,14 @@ package element
 
 const Conv = `
 
+// rSquare where r is the Montgommery constant
+// see section 2.3.2 of Tolga Acar's thesis
+// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+var rSquare = {{.ElementName}}{
+	{{- range $i := .RSquare}}
+	{{$i}},{{end}}
+}
+
 // ToMont converts z to Montgomery form
 // sets and returns z = z * r²
 func (z *{{.ElementName}}) ToMont() *{{.ElementName}} {
@@ -87,8 +95,7 @@ func (z {{.ElementName}}) ToBigIntRegular(res *big.Int) *big.Int {
 	return z.ToBigInt(res)
 }
 
-// Bytes returns the regular (non montgomery) value
-// of z as a big-endian byte array.
+// Bytes returns the value of z as a big-endian byte array
 func (z *{{.ElementName}}) Bytes() (res [Limbs*8]byte) {
 	_z := z.ToRegular()
 	{{- range $i := reverse .NbWordsIndexesFull}}
@@ -102,15 +109,14 @@ func (z *{{.ElementName}}) Bytes() (res [Limbs*8]byte) {
 	return
 }
 
-// Marshal returns the regular (non montgomery) value
-// of z as a big-endian byte slice.
+// Marshal returns the value of z as a big-endian byte slice
 func (z *{{.ElementName}}) Marshal() []byte {
 	b := z.Bytes()
 	return b[:]
 }
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
-// sets z to that value (in Montgomery form), and returns z.
+// sets z to that value, and returns z.
 func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
 	if len(e) == 8 {
@@ -133,7 +139,7 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 }
 
 
-// SetBigInt sets z to v (regular form) and returns z in Montgomery form
+// SetBigInt sets z to v and returns z
 func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	z.SetZero()
 

@@ -44,7 +44,7 @@ func (z *{{.ElementName}}) Legendre() int {
 }
 
 
-// Sqrt z = √x mod q
+// Sqrt z = √x (mod q)
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
 func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
@@ -138,7 +138,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 			if m == 0 {
 				return z.Set(&y)
 			}
-			// t = g^(2^(r-m-1)) mod q
+			// t = g^(2^(r-m-1)) (mod q)
 			ge := int(r - m - 1)
 			t = g
 			for ge > 0 {
