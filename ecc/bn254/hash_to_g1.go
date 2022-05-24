@@ -19,6 +19,7 @@ package bn254
 import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"math/big"
 )
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
@@ -124,7 +125,11 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 
 // returns false if u>-u when seen as a bigInt
 func sign0(u fp.Element) bool {
-	return u.LexicographicallyLargest()
+	var a, b big.Int
+	u.ToBigIntRegular(&a)
+	u.Neg(&u)
+	u.ToBigIntRegular(&b)
+	return a.Cmp(&b) <= 0
 }
 
 // hashToFp hashes msg to count prime field elements.

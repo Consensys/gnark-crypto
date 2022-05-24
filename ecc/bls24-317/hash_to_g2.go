@@ -17,6 +17,7 @@ package bls24317
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/internal/fptower"
+	"math/big"
 )
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
@@ -142,5 +143,9 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 
 // returns false if u>-u when seen as a bigInt
 func sign0(u fp.Element) bool {
-	return u.LexicographicallyLargest()
+	var a, b big.Int
+	u.ToBigIntRegular(&a)
+	u.Neg(&u)
+	u.ToBigIntRegular(&b)
+	return a.Cmp(&b) <= 0
 }
