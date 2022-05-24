@@ -30,7 +30,7 @@ type {{ $TJacobian }} struct {
 	X, Y, Z {{.CoordType}}
 }
 
-//  {{ $TJacobianExtended }} parameterized jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ**3=ZZZ**2)
+//  {{ $TJacobianExtended }} parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
 type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
@@ -53,7 +53,7 @@ func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
        return p
 }
 
-// ScalarMultiplication computes and returns p = a*s
+// ScalarMultiplication computes and returns p = a ⋅ s
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
@@ -64,7 +64,6 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 
 // Add adds two point in affine coordinates.
 // This should rarely be used as it is very inneficient compared to Jacobian
-// TODO implement affine addition formula
 func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 	var p1, p2 {{ $TJacobian }}
 	p1.FromAffine(a)
@@ -76,7 +75,6 @@ func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 
 // Sub subs two point in affine coordinates.
 // This should rarely be used as it is very inneficient compared to Jacobian
-// TODO implement affine addition formula
 func (p *{{ $TAffine }}) Sub(a, b *{{ $TAffine }}) *{{ $TAffine }} {
 	var p1, p2 {{ $TJacobian }}
 	p1.FromAffine(a)
@@ -103,7 +101,7 @@ func (p *{{ $TAffine }}) Neg(a *{{ $TAffine }}) *{{ $TAffine }} {
 
 
 
-// FromJacobian rescale a point in Jacobian coord in z=1 plane
+// FromJacobian rescales a point in Jacobian coord in z=1 plane
 func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 
 	var a, b {{.CoordType}}
@@ -125,13 +123,18 @@ func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 
 
 func (p *{{ $TAffine }}) String() string {
+	if p.X.IsZero() && p.Y.IsZero() {
+		return "O"
+	}
 	var x, y {{.CoordType}}
 	x.Set(&p.X)
 	y.Set(&p.Y)
 	return "E([" + x.String() + "," + y.String() + "]),"
 }
 
-// IsInfinity checks if the point is infinity (in affine, it's encoded as (0,0))
+// IsInfinity checks if the point is infinity
+// in affine, it's encoded as (0,0)
+// (0,0) is never on the curve for j=0 curves
 func (p *{{ $TAffine }}) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
@@ -336,7 +339,7 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 }
 
 
-// ScalarMultiplication computes and returns p = a*s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
 func (p *{{ $TJacobian }}) ScalarMultiplication(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 	{{- if .GLV}}
@@ -393,8 +396,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 {{- if eq .Name "bn254" }}
 	{{- if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-		// For bn curves, the r-torsion in E(Fp) is the full group, so we just check that
-		// the point is on the curve.
+        // BN curves are of prime order i.e. E(𝔽p) is the full group
+        // so we just check that the point is on the curve.
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
 			return p.IsOnCurve()
@@ -402,7 +405,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		}
 	{{else if eq .PointName "g2"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-        // [r]P == 0 <==> Frob(P) == [6x^2]P
+        // [r]P == 0 <==> Frob(P) == [6x²]P
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
             var a, res G2Jac
             a.psi(p)
@@ -418,7 +421,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 	// polynomials in x, a short vector of this Zmodule is
-	// (x+1), (x**3-x**2+1). So we check that (x+1)p+(x**3-x**2+1)*phi(p)
+	// (x+1), (x³-x²+1). So we check that (x+1)p+(x³-x²+1)ϕ(p)
 	// is the infinity.
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
@@ -437,7 +440,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	}
 {{else if eq .Name "bw6-633"}}
     // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-    // 3*r*P = (x+1)*phi(P) + (-x^5 + x^4 + x)*P
+    // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
         var uP, u4P, u5P, q, r {{ $TJacobian }}
@@ -459,7 +462,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
         // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
         // polynomials in x, a short vector of this Zmodule is
-        // 1, x**4. So we check that p+x**4*phi(p)
+        // 1, x⁴. So we check that p+x⁴ϕ(p)
         // is the infinity.
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
@@ -477,7 +480,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	{{else if eq .PointName "g2"}}
         // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
         // https://eprint.iacr.org/2021/1130.pdf, sec.4
-        // psi(p) = u*P
+        // ψ(p) = x₀ P
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
             var res, tmp {{ $TJacobian }}
             tmp.psi(p)
@@ -498,7 +501,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
         // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
         // polynomials in x, a short vector of this Zmodule is
-        // 1, x**2. So we check that p+x**2*phi(p)
+        // 1, x². So we check that p+x²ϕ(p)
         // is the infinity.
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
@@ -515,7 +518,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         {{if eq .Name "bls12-381"}}
             // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
-            // psi(p) = u*P
+            // ψ(p) = x₀ P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
                 var res, tmp {{ $TJacobian }}
                 tmp.psi(p)
@@ -526,7 +529,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         }
         {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
-            // psi(p) = u*P
+            // ψ(p) = x₀ P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
                 var res, tmp {{ $TJacobian }}
                 tmp.psi(p)
@@ -540,7 +543,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 {{- end}}
 
 
-// mulWindowed 2-bits windowed exponentiation
+// mulWindowed computes a 2-bits windowed scalar multiplication
 func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	var res {{ $TJacobian }}
@@ -571,7 +574,7 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 }
 
 {{ if eq .CoordType "fptower.E2"  }}
-	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+	// ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
 	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 		p.Set(a)
 		p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
@@ -580,7 +583,7 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 		return p
 	}
 {{ else if eq .CoordType "fptower.E4"}}
-	// psi(p) = u o frob o u**-1 where u:E'->E iso from the twist to E
+	// ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
 	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 		p.Set(a)
 		p.X.Frobenius(&p.X).Mul(&p.X, &endo.u)
@@ -592,7 +595,8 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 
 {{ if .GLV}}
 
-// phi assigns p to phi(a) where phi: (x,y)->(ux,y), and returns p
+// ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
+// where w is a third root of unity in 𝔽p
 func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(a)
 	{{- if or (eq .CoordType "fptower.E2" ) (eq .CoordType "fptower.E4" )}}
@@ -603,7 +607,7 @@ func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	return p
 }
 
-// mulGLV performs scalar multiplication using GLV
+// mulGLV computes the scalar multiplication using a windowed-GLV method
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
@@ -613,11 +617,11 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 
 	res.Set(&{{ toLower .PointName}}Infinity)
 
-	// table[b3b2b1b0-1] = b3b2*phi(a) + b1b0*a
+	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
 	table[3].phi(a)
 
-	// split the scalar, modifies +-a, phi(a) accordingly
+	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
@@ -630,7 +634,7 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	}
 
 	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2*phi(a) + b1b0*a if b3b2b1b0 != 0
+	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0 ⋅ a if b3b2b1b0 != 0
 	table[1].Double(&table[0])
 	table[2].Set(&table[1]).AddAssign(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
@@ -872,7 +876,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	// https://eprint.iacr.org/2017/419.pdf, section 4.2
-	// multiply by (3x^4-3)*cofacor
+	// multiply by (3x⁴-3)*cofacor
     {{ if eq .Name "bls24-315"}}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
 	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
@@ -1038,7 +1042,7 @@ func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	return p
 }
 
-// fromJacExtended sets Q in affine coords
+// fromJacExtended sets Q in affine coordinates
 func (p *{{ $TAffine }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ $TAffine }} {
 	if Q.ZZ.IsZero() {
 		p.X = {{.CoordType}}{}
@@ -1050,7 +1054,7 @@ func (p *{{ $TAffine }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ $TAf
 	return p
 }
 
-// fromJacExtended sets Q in Jacobian coords
+// fromJacExtended sets Q in Jacobian coordinates
 func (p *{{ $TJacobian }}) fromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	if Q.ZZ.IsZero() {
 		p.Set(&{{ toLower .PointName }}Infinity)
@@ -1062,7 +1066,7 @@ func (p *{{ $TJacobian }}) fromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJa
 	return p
 }
 
-// unsafeFromJacExtended sets p in jacobian coords, but don't check for infinity
+// unsafeFromJacExtended sets p in Jacobian coordinates, but don't check for infinity
 func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
 	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
 	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
@@ -1070,7 +1074,7 @@ func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{
 	return p
 }
 
-// add point in ZZ coords
+// add point in Jacobian extended coordinates
 // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
 func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
 	//if q is infinity return p
@@ -1130,7 +1134,7 @@ func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobi
     return p
 }
 
-// double point in ZZ coords
+// double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
 	var U, V, W, S, XX, M {{.CoordType}}
@@ -1173,7 +1177,7 @@ func (p *{{ $TJacobianExtended }}) doubleNegMixed(q *{{ $TAffine }}) *{{ $TJacob
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
-// doubleMixed point in ZZ coords
+// doubleMixed point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
 func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" false}}
@@ -1406,7 +1410,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 {{- end}}
 
 
-// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base (generator) by all scalars
+// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
@@ -1476,7 +1480,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 		toReturn := make([]{{ $TAffine }}, len(scalars))
 	{{- end}}
 
-	// for each digit, take value in the base table, double it c time, voila.
+	// for each digit, take value in the base table, double it c time, voilà.
 	parallel.Execute( len(pScalars), func(start, end int) {
 		var p {{ $TJacobian }}
 		for i:=start; i < end; i++ {

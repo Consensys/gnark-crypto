@@ -30,6 +30,7 @@ type lineEvaluation struct {
 }
 
 // Pair calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ)
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
 	if err != nil {
@@ -39,6 +40,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 }
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
 	if err != nil {
@@ -49,7 +51,10 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	return f.Equal(&one), nil
 }
 
-// FinalExponentiation computes the final expo x**(p**6-1)(p**2+1)(p**4 - p**2 +1)/r
+// FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
+// where d = (p¹²-1)/r = (p¹²-1)/Φ₁₂(p) ⋅ Φ₁₂(p)/r = (p⁶-1)(p²+1)(p⁴ - p² +1)/r
+// we use instead d=s ⋅ (p⁶-1)(p²+1)(p⁴ - p² +1)/r
+// where s is the cofactor 2x₀(6x₀²+3x₀+1) (Fuentes et al.)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -61,14 +66,16 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var t [4]GT
 
-	// easy part
+	// Easy part
+	// (p⁶-1)(p²+1)
 	t[0].Conjugate(&result)
 	result.Inverse(&result)
 	t[0].Mul(&t[0], &result)
 	result.FrobeniusSquare(&t[0]).
 		Mul(&result, &t[0])
 
-		// hard part (up to permutation)
+		// Hard part (up to permutation)
+		// 2x₀(6x₀²+3x₀+1)(p⁴-p²+1)/r
 	// Duquesne and Ghammam
 	// https://eprint.iacr.org/2015/192.pdf
 	// Fuentes et al. variant (alg. 10)
@@ -105,7 +112,8 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-// MillerLoop Miller loop
+// MillerLoop computes the multi-Miller loop
+// ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	n := len(P)
 	if n == 0 || n != len(Q) {
@@ -147,6 +155,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	for i := len(loopCounter) - 3; i >= 0; i-- {
+		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
@@ -177,13 +186,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var Q1, Q2 G2Affine
-	// cf https://eprint.iacr.org/2010/354.pdf for instance for optimal Ate Pairing
 	for k := 0; k < n; k++ {
-		//Q1 = Frob(Q)
+		//Q1 = π(Q)
 		Q1.X.Conjugate(&q[k].X).MulByNonResidue1Power2(&Q1.X)
 		Q1.Y.Conjugate(&q[k].Y).MulByNonResidue1Power3(&Q1.Y)
 
-		// Q2 = -Frob2(Q)
+		// Q2 = -π²(Q)
 		Q2.X.MulByNonResidue2Power2(&q[k].X)
 		Q2.Y.MulByNonResidue2Power3(&q[k].Y).Neg(&Q2.Y)
 
