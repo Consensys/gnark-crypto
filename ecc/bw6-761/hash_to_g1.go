@@ -305,7 +305,8 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 
 	// 128 bits of security
 	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
-	const L = 16 + fp.Bytes
+	const Bytes = 1 + (fp.Bits-1)/8
+	const L = 16 + Bytes
 
 	lenInBytes := count * L
 	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
