@@ -42,7 +42,7 @@ func TestG1AffineEndomorphism(t *testing.T) {
 	properties.Property("[BN254] check that phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res1, res2 G1Jac
-			g := MapToCurveG1Svdw(a)
+			g := MapToG1(a)
 			p.FromAffine(&g)
 			res1.phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
@@ -55,7 +55,7 @@ func TestG1AffineEndomorphism(t *testing.T) {
 	properties.Property("[BN254] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res, tmp G1Jac
-			g := MapToCurveG1Svdw(a)
+			g := MapToG1(a)
 			p.FromAffine(&g)
 			tmp.phi(&p)
 			res.phi(&tmp).
@@ -70,7 +70,7 @@ func TestG1AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestMapToCurveG1(t *testing.T) {
+func TestMapToG1(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -81,18 +81,18 @@ func TestMapToCurveG1(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[G1] Svsw mapping should output point on the curve", prop.ForAll(
+	properties.Property("[G1] mapping to curve should output point on the curve", prop.ForAll(
 		func(a fp.Element) bool {
-			g := MapToCurveG1Svdw(a)
+			g := MapToG1(a)
 			return g.IsInSubGroup()
 		},
 		GenFp(),
 	))
 
-	properties.Property("[G1] Svsw mapping should be deterministic", prop.ForAll(
+	properties.Property("[G1] mapping to curve should be deterministic", prop.ForAll(
 		func(a fp.Element) bool {
-			g1 := MapToCurveG1Svdw(a)
-			g2 := MapToCurveG1Svdw(a)
+			g1 := MapToG1(a)
+			g2 := MapToG1(a)
 			return g1.Equal(&g2)
 		},
 		GenFp(),
