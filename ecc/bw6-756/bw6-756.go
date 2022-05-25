@@ -22,21 +22,24 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
-// E: y**2=x**3+1
-// Etwist: y**2 = x**3+33
-// Tower: Fp->Fp6, u**6=33
-// Generator (same as BLS378): x=11045256207009841153
-// optimal Ate loops: x+1, x**2-x-1
-// Fp: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
-// Fr: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
+// BW6-756: A Brezing--Weng curve of embedding degree k=6 with seed x₀=11045256207009841153. It forms a 2-chain with BLS12-378.
+// 𝔽p: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
+// 𝔽r: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
+// (E/𝔽p): Y²=X³+1
+// (Eₜ/𝔽p): Y² = X³+33 (M-type twist)
+// r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
+// Extension fields tower:
+//     𝔽p³[u] = 𝔽p/u³-33
+//     𝔽p⁶[v] = 𝔽p²/v²-u
+// optimal Ate loops: x₀+1, x₀²-x₀-1
 
 // ID BW6_756 ID
 const ID = ecc.BW6_756
 
-// bCurveCoeff b coeff of the curve
+// bCurveCoeff b coeff of the curve Y²=X³+b
 var bCurveCoeff fp.Element
 
-// bTwistCurveCoeff b coeff of the twist (defined over Fp) curve
+// bTwistCurveCoeff b coeff of the twist (defined over 𝔽p) curve
 var bTwistCurveCoeff fp.Element
 
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
@@ -55,16 +58,16 @@ var loopCounter0 [191]int8
 var loopCounter1 [191]int8
 
 // Parameters useful for the GLV scalar multiplication. The third roots define the
-//  endomorphisms phi1 and phi2 for <G1Affine> and <G2Affine>. lambda is such that <r, phi-lambda> lies above
-// <r> in the ring Z[phi]. More concretely it's the associated eigenvalue
-// of phi1 (resp phi2) restricted to <G1Affine> (resp <G2Affine>)
-// cf https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+// endomorphisms ϕ₁ and ϕ₂ for <G1Affine> and <G2Affine>. lambda is such that <r, ϕ-λ> lies above
+// <r> in the ring Z[ϕ]. More concretely it's the associated eigenvalue
+// of ϕ₁ (resp ϕ₂) restricted to <G1Affine> (resp <G2Affine>)
+// see https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
 
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
-// in ker((u,v)->u+vlambda[r]), and their determinant
+// in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
 
 // generator of the curve
@@ -88,13 +91,14 @@ func init() {
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
 
-	// xGen+1
+	// x₀+1
 	loopCounter0 = [191]int8{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	// xGen^3-xGen^2-xGen
+	// x₀³-x₀²-x₀
 	T, _ := new(big.Int).SetString("1347495683935914696108087318582641220368021451587784278015", 10)
 	ecc.NafDecomposition(T, loopCounter1[:])
 
+	// (X,Y,Z) = (1,1,0)
 	g1Infinity.X.SetOne()
 	g1Infinity.Y.SetOne()
 	g2Infinity.X.SetOne()
@@ -102,7 +106,7 @@ func init() {
 
 	thirdRootOneG2.SetString("99497571833115712246976573293861816254377473715694998268521440373748988342600853091641405554217584221455319677515385376103078837731420131015700054219263015095146628991433981753068027965212839748934246550470657")
 	thirdRootOneG1.Square(&thirdRootOneG2)
-	lambdaGLV.SetString("164391353554439166353793911729193406645071739502673898176639736370075683438438023898983435337729", 10) // (x**5-3*x**4+3*x**3-x+1)
+	lambdaGLV.SetString("164391353554439166353793911729193406645071739502673898176639736370075683438438023898983435337729", 10) // (x⁵-3x⁴+3x³-x+1)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 

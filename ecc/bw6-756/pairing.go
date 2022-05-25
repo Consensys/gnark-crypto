@@ -31,6 +31,7 @@ type lineEvaluation struct {
 }
 
 // Pair calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ)
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
 	if err != nil {
@@ -40,6 +41,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 }
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
 	if err != nil {
@@ -50,7 +52,10 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	return f.Equal(&one), nil
 }
 
-// FinalExponentiation computes the final expo x**(c*(p**3-1)(p+1)(p**2-p+1)/r)
+// FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
+// where d = (p^6-1)/r = (p^6-1)/Φ_6(p) ⋅ Φ_6(p)/r = (p^3-1)(p+1)(p^2 - p +1)/r
+// we use instead d=s ⋅ (p^3-1)(p+1)(p^2 - p +1)/r
+// where s is the cofactor 12(x_0+1) (El Housni and Guillevic)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -62,14 +67,17 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var buf GT
 
-	// easy part exponent: (p**3 - 1)*(p+1)
+	// Easy part
+	// (p^3-1)(p+1)
 	buf.Conjugate(&result)
 	result.Inverse(&result)
 	buf.Mul(&buf, &result)
 	result.Frobenius(&buf).
 		Mul(&result, &buf)
 
-		// hard part exponent: 12(u+1)(p**2 - p + 1)/r
+		// Hard part (up to permutation)
+		// El Housni and Guillevic
+		// https://eprint.iacr.org/2020/351.pdf
 	var m1, _m1, m2, _m2, m3, f0, f0_36, g0, g1, _g1, g2, g3, _g3, g4, _g4, g5, _g5, g6, gA, gB, g034, _g1g2, gC, h1, h2, h2g2C, h4 GT
 	m1.Expt(&result)
 	_m1.Conjugate(&m1)
@@ -141,7 +149,9 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Optimal Tate alternative (or twisted ate or Eta revisited)
+// computes the multi-Miller loop ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
 // Alg.2 in https://eprint.iacr.org/2021/1359.pdf
+// Eq. (6) in https://hackmd.io/@gnark/BW6-761-changes
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// check input size match
 	n := len(P)
@@ -199,7 +209,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	var j int8
 
-	// i = 189
+	// i = len(loopCounter) - 2
 	for k := 0; k < n; k++ {
 		pProj1[k].DoubleStep(&l0)
 		l0.r1.Mul(&l0.r1, &q[k].X)
@@ -208,7 +218,8 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var tmp G1Affine
-	for i := 188; i >= 0; i-- {
+	for i := len(loopCounter0) - 3; i >= 0; i-- {
+		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
 		j = loopCounter1[i]*3 + loopCounter0[i]
