@@ -3,14 +3,14 @@ linters-settings:
     check-shadowing: true
 
 linters:
-  enable-all: true
-  # enable:
-  #   - gofmt
-  #   - staticcheck
-  #   - gosec
-  #   - gosimple
-  #   - govet
-  #   - ineffassign
+  disable-all: true
+  enable:
+    - gofmt
+    - staticcheck
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
 
 run:
   issues-exit-code: 1
