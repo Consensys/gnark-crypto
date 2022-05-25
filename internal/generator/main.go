@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
+	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
@@ -70,11 +71,14 @@ func main() {
 			// generate plookup on fr
 			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))
 
-			// generate plookup on fr
+			// generate permutation on fr
 			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate eddsa on companion curves
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate G1, G2, multiExp, ...
 			assertNoError(ecc.Generate(conf, curveDir, bgen))
