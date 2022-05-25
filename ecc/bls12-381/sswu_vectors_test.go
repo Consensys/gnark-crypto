@@ -6,7 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 )
 
-func TestG1Isogeny(t *testing.T) {
+func TestG1IsogenyVectors(t *testing.T) {
 	t.Parallel()
 
 	p := G1Affine{

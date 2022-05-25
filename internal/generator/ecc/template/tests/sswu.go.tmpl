@@ -2,6 +2,7 @@
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
 {{$TowerDegree := .Field.Degree}}
+{{$isogenyNeeded := notNil .Isogeny}}
 
 import (
 	{{- if eq $TowerDegree 1 }}
@@ -62,7 +63,77 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+{{/* tmplfunc */}}
+{{ define "setString x array"}}
+	{{.x}}.SetString(
+		{{- range $s := .array}}
+			"{{$s}}",
+		{{- end}}
+		)
+{{ end}}
 
+//TODO: Crude. Do something clever in Jacobian
+func isOnEPrime{{$CurveTitle}}(p {{$CurveTitle}}Affine) bool {
+
+	var A, B {{$CoordType}}
+
+	// TODO: Value already in Mont form, set string without mont conversion
+	{{setString "A" .A}}
+	{{setString "B" .B}}
+	A.FromMont()
+	B.FromMont()
+
+	var LHS {{$CoordType}}
+	LHS.
+		Square(&p.Y).
+		Sub(&LHS, &B)
+
+	var RHS {{$CoordType}}
+	RHS.
+		Square(&p.X).
+		Add(&RHS, &A).
+		Mul(&RHS, &p.X)
+
+	return LHS.Equal(&RHS)
+}
+
+func Test{{$CurveTitle}}SSWU(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{$CurveTitle}}] hash outputs must be in appropriate groups", prop.ForAll(
+		func(a {{$CoordType}}) bool {
+
+			g := sswuMap{{$CurveTitle}}(&a)
+
+			if !isOnEPrime{{$CurveTitle}}(g) {
+				t.Log("SSWU output not on E' curve")
+				return false
+			}
+
+			{{if $isogenyNeeded}}
+				{{$CurveName}}Isogeny(&g)
+			{{end}}
+
+			if !g.IsOnCurve() {
+				t.Log("Isogeny/SSWU output not on curve")
+				return false
+			}
+
+			return true
+		},
+		{{$fuzzer}},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 {{if not (eq $TowerDegree 1) }}//Only works on simple extensions (two-story towers)
 func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {
@@ -94,10 +165,10 @@ func {{$CurveName}}TestMatch(t *testing.T, c hashTestCase, seen *{{$CurveTitle}}
 	{{$CurveName}}TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
 }
 
-func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
+func TestEncodeTo{{$CurveTitle}}(t *testing.T) {
 	t.Parallel()
 	for _, c := range {{$CurveName}}EncodeToCurveSSWUVector.cases {
-		seen, err := EncodeToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
+		seen, err := EncodeTo{{$CurveTitle}}([]byte(c.msg), {{$CurveName}}EncodeToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,10 +176,10 @@ func TestEncodeToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 	}
 }
 
-func TestHashToCurve{{$CurveTitle}}SSWU(t *testing.T) {
+func TestHashTo{{$CurveTitle}}(t *testing.T) {
 	t.Parallel()
 	for _, c := range {{$CurveName}}HashToCurveSSWUVector.cases {
-		seen, err := HashToCurve{{$CurveTitle}}SSWU([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
+		seen, err := HashTo{{$CurveTitle}}([]byte(c.msg), {{$CurveName}}HashToCurveSSWUVector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +188,7 @@ func TestHashToCurve{{$CurveTitle}}SSWU(t *testing.T) {
 	t.Log(len({{$CurveName}}HashToCurveSSWUVector.cases), "cases verified")
 }
 
-func Benchmark{{$CurveTitle}}EncodeToCurveSSWU(b *testing.B) {
+func BenchmarkEncodeTo{{$CurveTitle}}(b *testing.B) {
 	const size = 54
 	bytes := make([]byte, size)
 	dst := {{$CurveName}}EncodeToCurveSSWUVector.dst
@@ -127,13 +198,13 @@ func Benchmark{{$CurveTitle}}EncodeToCurveSSWU(b *testing.B) {
 
 		bytes[rand.Int()%size] = byte(rand.Int())
 
-		if _, err := EncodeToCurve{{$CurveTitle}}SSWU(bytes, dst); err != nil {
+		if _, err := EncodeTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()
 		}
 	}
 }
 
-func Benchmark{{$CurveTitle}}HashToCurveSSWU(b *testing.B) {
+func BenchmarkHashTo{{$CurveTitle}}(b *testing.B) {
 	const size = 54
 	bytes := make([]byte, size)
 	dst := {{$CurveName}}HashToCurveSSWUVector.dst
@@ -143,7 +214,7 @@ func Benchmark{{$CurveTitle}}HashToCurveSSWU(b *testing.B) {
 
 		bytes[rand.Int()%size] = byte(rand.Int())
 
-		if _, err := HashToCurve{{$CurveTitle}}SSWU(bytes, dst); err != nil {
+		if _, err := HashTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()
 		}
 	}
