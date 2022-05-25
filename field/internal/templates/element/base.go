@@ -61,8 +61,9 @@ func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = {{index .QInverse 0}}
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = {{index .QInverse 0}}
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -341,7 +342,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 
 		{{- range $i :=  .NbWordsIndexesFull}}
 			{{- $k := add $i 1}}
-			z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
+			z[{{$i}}] = binary.LittleEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
 		{{- end}}
 
 		if !z.smallerThanModulus() {
@@ -636,7 +637,7 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 	{{- range $j := .NbWordsIndexesFull}}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		{{- range $i := $.NbWordsIndexesNoZero}}
 			C, z[{{sub $i 1}}] = madd2(m, q{{$i}}, z[{{$i}}], C)

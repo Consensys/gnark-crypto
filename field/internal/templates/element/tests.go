@@ -30,13 +30,24 @@ import (
 
 var benchRes{{.ElementName}} {{.ElementName}}
 
-func Benchmark{{.ElementName}}Select(b *testing.B) {
+func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 	var x, y {{.ElementName}}
 	x.SetRandom()
 	y.SetRandom()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Select(i%3, &x, &y)
+	}
+}
+
+func Benchmark{{toTitle .ElementName}}SetRandom(b *testing.B) {
+	var x {{.ElementName}}
+	x.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = x.SetRandom()
 	}
 }
 

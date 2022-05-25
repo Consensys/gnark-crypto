@@ -74,8 +74,9 @@ func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 2184305180030271487
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = 2184305180030271487
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -354,10 +355,10 @@ func (z *Element) SetRandom() (*Element, error) {
 		// Clear unused bits in in the most signicant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
-		z[0] = binary.BigEndian.Uint64(bytes[0:8])
-		z[1] = binary.BigEndian.Uint64(bytes[8:16])
-		z[2] = binary.BigEndian.Uint64(bytes[16:24])
-		z[3] = binary.BigEndian.Uint64(bytes[24:32])
+		z[0] = binary.LittleEndian.Uint64(bytes[0:8])
+		z[1] = binary.LittleEndian.Uint64(bytes[8:16])
+		z[2] = binary.LittleEndian.Uint64(bytes[16:24])
+		z[3] = binary.LittleEndian.Uint64(bytes[24:32])
 
 		if !z.smallerThanModulus() {
 			continue // ignore the candidate and re-sample
@@ -556,7 +557,7 @@ func _mulGeneric(z, x, y *Element) {
 		// round 0
 		v := x[0]
 		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd1(v, y[1], c[1])
 		c[2], t[0] = madd2(m, q1, c[2], c[0])
@@ -569,7 +570,7 @@ func _mulGeneric(z, x, y *Element) {
 		// round 1
 		v := x[1]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[2], t[0] = madd2(m, q1, c[2], c[0])
@@ -582,7 +583,7 @@ func _mulGeneric(z, x, y *Element) {
 		// round 2
 		v := x[2]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[2], t[0] = madd2(m, q1, c[2], c[0])
@@ -595,7 +596,7 @@ func _mulGeneric(z, x, y *Element) {
 		// round 3
 		v := x[3]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
 		c[2], z[0] = madd2(m, q1, c[2], c[0])
@@ -622,7 +623,7 @@ func _fromMontGeneric(z *Element) {
 	// see Mul for algorithm documentation
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		C, z[0] = madd2(m, q1, z[1], C)
 		C, z[1] = madd2(m, q2, z[2], C)
@@ -631,7 +632,7 @@ func _fromMontGeneric(z *Element) {
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		C, z[0] = madd2(m, q1, z[1], C)
 		C, z[1] = madd2(m, q2, z[2], C)
@@ -640,7 +641,7 @@ func _fromMontGeneric(z *Element) {
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		C, z[0] = madd2(m, q1, z[1], C)
 		C, z[1] = madd2(m, q2, z[2], C)
@@ -649,7 +650,7 @@ func _fromMontGeneric(z *Element) {
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		C, z[0] = madd2(m, q1, z[1], C)
 		C, z[1] = madd2(m, q2, z[2], C)
@@ -1018,7 +1019,7 @@ func (z *Element) Legendre() int {
 	}
 
 	// if l == 1
-	if (l[3] == 122956637648958544) && (l[2] == 9521467359714817544) && (l[1] == 2905656009828539926) && (l[0] == 18291444782079148022) {
+	if l.IsOne() {
 		return 1
 	}
 	return -1
@@ -1319,7 +1320,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	var t [2*Limbs - 1]uint64
 	var C uint64
 
-	m := x[0] * qInvNegLsw
+	m := x[0] * qInvNeg
 
 	C = madd0(m, q0, x[0])
 	C, t[1] = madd2(m, q1, x[1], C)
@@ -1336,7 +1337,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	// <standard SOS>
 	{
 		const i = 1
-		m = t[i] * qInvNegLsw
+		m = t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 		C, t[i+1] = madd2(m, q1, t[i+1], C)
@@ -1347,7 +1348,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 	{
 		const i = 2
-		m = t[i] * qInvNegLsw
+		m = t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 		C, t[i+1] = madd2(m, q1, t[i+1], C)
@@ -1358,7 +1359,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 	{
 		const i = 3
-		m := t[i] * qInvNegLsw
+		m := t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 		C, z[0] = madd2(m, q1, t[i+1], C)

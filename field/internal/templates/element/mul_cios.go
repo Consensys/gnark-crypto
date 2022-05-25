@@ -23,7 +23,7 @@ const MulCIOS = `
 		t[{{$.all.NbWords}}], D = bits.Add64(t[{{$.all.NbWords}}], C, 0)
 
 		// m = t[0]n'[0] mod W
-		m = t[0] * qInvNegLsw
+		m = t[0] * qInvNeg
 
 		// -----------------------------------
 		// Second loop

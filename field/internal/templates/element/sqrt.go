@@ -37,7 +37,7 @@ func (z *{{.ElementName}}) Legendre() int {
 	} 
 
 	// if l == 1
-	if {{- range $i :=  reverse .NbWordsIndexesNoZero}}(l[{{$i}}] == {{index $.One $i}}) &&{{end}}(l[0] == {{index $.One 0}})  {
+	if l.IsOne()  {
 		return 1
 	}
 	return -1

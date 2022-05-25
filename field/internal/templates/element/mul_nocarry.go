@@ -11,7 +11,7 @@ var c [3]uint64
 	v := {{$.V1}}[{{$j}}]
 	{{- if eq $j $.all.NbWordsLastIndex}}
 		c[1], c[0] = madd1(v, {{$.V2}}[0], t[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		{{- if eq $.all.NbWords 1}}
 			z[0], _ = madd3(m, q0, c[0], c[2], c[1])
@@ -27,7 +27,7 @@ var c [3]uint64
 		{{- end}}
 	{{- else if eq $j 0}}
 		c[1], c[0] = bits.Mul64(v, {{$.V2}}[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		{{- range $i := $.all.NbWordsIndexesNoZero}}
 			c[1], c[0] = madd1(v, {{$.V2}}[{{$i}}], c[1])
@@ -39,7 +39,7 @@ var c [3]uint64
 		{{- end}}
 	{{- else}}
 		c[1], c[0] = madd1(v, {{$.V2}}[0], t[0])
-		m := c[0] * qInvNegLsw
+		m := c[0] * qInvNeg
 		c[2] = madd0(m, q0, c[0])
 		{{- range $i := $.all.NbWordsIndexesNoZero}}
 			c[1], c[0] = madd2(v, {{$.V2}}[{{$i}}], c[1], t[{{$i}}])

@@ -335,7 +335,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	var t [2*Limbs - 1]uint64
 	var C uint64
 
-	m := x[0] * qInvNegLsw
+	m := x[0] * qInvNeg
 
 	C = madd0(m, q0, x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
@@ -353,7 +353,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	{{- range $i := iterate 1 $.NbWordsLastIndex}}
 	{
 		const i = {{$i}}
-		m = t[i] * qInvNegLsw
+		m = t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 
@@ -366,7 +366,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	{{- end}}
 	{
 		const i = {{.NbWordsLastIndex}}
-		m := t[i] * qInvNegLsw
+		m := t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 		{{- range $j := iterate 1 $.NbWordsLastIndex}}

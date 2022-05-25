@@ -44,8 +44,19 @@ func BenchmarkElementSelect(b *testing.B) {
 	x.SetRandom()
 	y.SetRandom()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Select(i%3, &x, &y)
+	}
+}
+
+func BenchmarkElementSetRandom(b *testing.B) {
+	var x Element
+	x.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = x.SetRandom()
 	}
 }
 

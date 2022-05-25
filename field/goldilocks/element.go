@@ -69,8 +69,9 @@ func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
 
-// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-const qInvNegLsw uint64 = 18446744069414584319
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = 18446744069414584319
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -320,7 +321,7 @@ func (z *Element) SetRandom() (*Element, error) {
 		// Clear unused bits in in the most signicant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
-		z[0] = binary.BigEndian.Uint64(bytes[0:8])
+		z[0] = binary.LittleEndian.Uint64(bytes[0:8])
 
 		if !z.smallerThanModulus() {
 			continue // ignore the candidate and re-sample
@@ -513,7 +514,7 @@ func _fromMontGeneric(z *Element) {
 	// see Mul for algorithm documentation
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNegLsw
+		m := z[0] * qInvNeg
 		C := madd0(m, q0, z[0])
 		z[0] = C
 	}
@@ -852,7 +853,7 @@ func (z *Element) Legendre() int {
 	}
 
 	// if l == 1
-	if l[0] == 4294967295 {
+	if l.IsOne() {
 		return 1
 	}
 	return -1
