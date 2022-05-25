@@ -5,6 +5,7 @@ const Base = `
 import (
 	"math/big"
 	"math/bits"
+	"io"
 	"crypto/rand"
 	"encoding/binary"
 	"sync"
@@ -38,7 +39,7 @@ const (
 // Field modulus q
 const (
 {{- range $i := $.NbWordsIndexesFull}}
-	q{{$i}} uint64 = {{index $.Q $i}} 
+	q{{$i}} uint64 = {{index $.Q $i}}
 	{{- if eq $.NbWords 1}}
 		q uint64 = q0
 	{{- end}}
@@ -59,6 +60,9 @@ var _modulus big.Int 		// q stored as big.Int
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = {{index .QInverse 0}}
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -301,13 +305,62 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 }
 
 // SetRandom sets z to a uniform random value in [0, q).
+//
+// This might error only if reading from crypto/rand.Reader errors, 
+// in which case, value of z is undefined.
 func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
-	n, err := rand.Int(rand.Reader, &_modulus)
-	if err != nil {
-		return nil, err
+	// this code is generated for all modulus
+	// and derived from go/src/crypto/rand/util.go
+
+	// l is number of limbs * 8; the number of bytes needed to reconstruct {{.NbWords}} uint64
+	const l = {{mul 8 .NbWords}}
+
+	// bitLen is the maximum bit length needed to encode a value < q.
+	const bitLen = {{.NbBits}}
+
+	// k is the maximum byte length needed to encode a value < q.
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
 	}
-	z.setBigInt(n)
-	return z, nil
+
+	var bytes [l]byte
+
+	for {
+		// note that bytes[k:l] is always 0
+		if _, err := io.ReadFull(rand.Reader, bytes[:k]); err != nil {
+			return nil, err
+		}
+
+		// Clear unused bits in in the most signicant byte to increase probability
+		// that the candidate is < q.
+		bytes[k-1] &= uint8(int(1<<b) - 1)
+
+		{{- range $i :=  .NbWordsIndexesFull}}
+			{{- $k := add $i 1}}
+			z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
+		{{- end}}
+
+		if !z.smallerThanModulus() {
+			continue // ignore the candidate and re-sample
+		}
+
+		return z, nil
+	}
+}
+
+// smallerThanModulus returns true if z < q
+// This is not constant time
+func (z *{{.ElementName}}) smallerThanModulus() bool {
+	{{- if eq $.NbWords 1}}
+		return z[0] < q
+	{{- else}}
+	return ({{- range $i := reverse .NbWordsIndexesNoZero}} z[{{$i}}] < q{{$i}} || ( z[{{$i}}] == q{{$i}} && (
+	{{- end}}z[0] < q0 {{- range $i :=  .NbWordsIndexesNoZero}} )) {{- end}} )
+	{{-  end }}
 }
 
 // One returns 1
@@ -342,7 +395,7 @@ func (z *{{.ElementName}}) Halve()  {
 	{{- range $i := $.all.NbWordsIndexesFull }}
 		{{- $carryIn := ne $i 0}}
 		{{- $carryOut := or (ne $i $.all.NbWordsLastIndex) (and (eq $i $.all.NbWordsLastIndex) (not $.all.NoCarry))}}
-		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.Add64({{$.V1}}[{{$i}}], {{index $.all.Q $i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
+		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.Add64({{$.V1}}[{{$i}}], q{{$i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
 	{{- end}}
 {{ end }}
 
@@ -451,7 +504,7 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 				// we overflowed, so z >= q
 				{{- range $i := iterate 0 $.NbWords}}
 					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
-					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
+					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], q{{$i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 				{{- end}}
 				return z
 			}
@@ -492,7 +545,7 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 			// we overflowed, so z >= q
 			{{- range $i := iterate 0 $.NbWords}}
 				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
-				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
+				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], q{{$i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 			{{- end}}
 			return z
 		}
@@ -516,12 +569,12 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 			z[0] += q
 		{{- else}}
 			var c uint64
-			z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
+			z[0], c = bits.Add64(z[0], q0, 0)
 			{{- range $i := .NbWordsIndexesNoZero}}
 				{{- if eq $i $.NbWordsLastIndex}}
-					z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+					z[{{$i}}], _ = bits.Add64(z[{{$i}}], q{{$i}}, c)
 				{{- else}}
-					z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+					z[{{$i}}], c = bits.Add64(z[{{$i}}], q{{$i}}, c)
 				{{- end}}
 			{{- end}}
 		{{- end}}
@@ -539,12 +592,12 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 		z[0] = q - x[0]
 	{{- else}}
 		var borrow uint64
-		z[0], borrow = bits.Sub64({{index $.Q 0}}, x[0], 0)
+		z[0], borrow = bits.Sub64(q0, x[0], 0)
 		{{- range $i := .NbWordsIndexesNoZero}}
 			{{- if eq $i $.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+				z[{{$i}}], _ = bits.Sub64(q{{$i}}, x[{{$i}}], borrow)
 			{{- else}}
-				z[{{$i}}], borrow = bits.Sub64({{index $.Q $i}}, x[{{$i}}], borrow)
+				z[{{$i}}], borrow = bits.Sub64(q{{$i}}, x[{{$i}}], borrow)
 			{{- end}}
 		{{- end}}
 	{{- end}}
@@ -583,10 +636,10 @@ func _fromMontGeneric(z *{{.ElementName}}) {
 	{{- range $j := .NbWordsIndexesFull}}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * {{index $.QInverse 0}}
-		C := madd0(m, {{index $.Q 0}}, z[0])
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
 		{{- range $i := $.NbWordsIndexesNoZero}}
-			C, z[{{sub $i 1}}] = madd2(m, {{index $.Q $i}}, z[{{$i}}], C)
+			C, z[{{sub $i 1}}] = madd2(m, q{{$i}}, z[{{$i}}], C)
 		{{- end}}
 		z[{{sub $.NbWords 1}}] = C
 	}

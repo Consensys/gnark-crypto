@@ -404,7 +404,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 			b := a
 			reduce(&a)
 			_reduceGeneric(&b)
-			return !a.biggerOrEqualModulus()  && a.Equal(&b)
+			return a.smallerThanModulus()  && a.Equal(&b)
 		},
 		genA,
 	))
@@ -849,7 +849,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{else}}
 				c.{{.Op}}(&a.element, &b.element)
 			{{end}}
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -982,7 +982,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		func(a testPair{{.all.ElementName}}) bool {
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1564,18 +1564,6 @@ type testPair{{.ElementName}} struct {
 	bigint       big.Int
 }
 
-func (z *{{.ElementName}}) biggerOrEqualModulus() bool {
-	{{- range $i :=  reverse .NbWordsIndexesNoZero}}
-	if z[{{$i}}] > q{{$.ElementName}}[{{$i}}] {
-		return true
-	}
-	if z[{{$i}}] < q{{$.ElementName}}[{{$i}}] {
-		return false
-	}
-	{{end}}
-	
-	return z[0] >= q{{.ElementName}}[0]
-}
 
 func gen() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
@@ -1590,7 +1578,7 @@ func gen() gopter.Gen {
 		}
 		
 
-		for g.element.biggerOrEqualModulus() {
+		for !g.element.smallerThanModulus() {
 			g.element = {{.ElementName}}{
 				{{- range $i := .NbWordsIndexesFull}}
 				genParams.NextUint64(),{{end}}
@@ -1622,7 +1610,7 @@ func genFull() gopter.Gen {
 				g[{{.NbWordsLastIndex}}] %= (q{{.ElementName}}[{{.NbWordsLastIndex}}] +1 )
 			}
 
-			for g.biggerOrEqualModulus() {
+			for !g.smallerThanModulus() {
 				g = {{.ElementName}}{
 					{{- range $i := .NbWordsIndexesFull}}
 					genParams.NextUint64(),{{end}}

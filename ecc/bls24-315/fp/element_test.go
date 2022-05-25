@@ -397,7 +397,7 @@ func TestElementReduce(t *testing.T) {
 			b := a
 			reduce(&a)
 			_reduceGeneric(&b)
-			return !a.biggerOrEqualModulus() && a.Equal(&b)
+			return a.smallerThanModulus() && a.Equal(&b)
 		},
 		genA,
 	))
@@ -779,7 +779,7 @@ func TestElementAdd(t *testing.T) {
 
 			c.Add(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -888,7 +888,7 @@ func TestElementSub(t *testing.T) {
 
 			c.Sub(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1005,7 +1005,7 @@ func TestElementMul(t *testing.T) {
 
 			c.Mul(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1134,7 +1134,7 @@ func TestElementDiv(t *testing.T) {
 
 			c.Div(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1244,7 +1244,7 @@ func TestElementExp(t *testing.T) {
 
 			c.Exp(a.element, &b.bigint)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1321,7 +1321,7 @@ func TestElementSquare(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Square(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1393,7 +1393,7 @@ func TestElementInverse(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Inverse(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1465,7 +1465,7 @@ func TestElementSqrt(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Sqrt(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1537,7 +1537,7 @@ func TestElementDouble(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Double(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1609,7 +1609,7 @@ func TestElementNeg(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Neg(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -2212,38 +2212,6 @@ type testPairElement struct {
 	bigint  big.Int
 }
 
-func (z *Element) biggerOrEqualModulus() bool {
-	if z[4] > qElement[4] {
-		return true
-	}
-	if z[4] < qElement[4] {
-		return false
-	}
-
-	if z[3] > qElement[3] {
-		return true
-	}
-	if z[3] < qElement[3] {
-		return false
-	}
-
-	if z[2] > qElement[2] {
-		return true
-	}
-	if z[2] < qElement[2] {
-		return false
-	}
-
-	if z[1] > qElement[1] {
-		return true
-	}
-	if z[1] < qElement[1] {
-		return false
-	}
-
-	return z[0] >= qElement[0]
-}
-
 func gen() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var g testPairElement
@@ -2259,7 +2227,7 @@ func gen() gopter.Gen {
 			g.element[4] %= (qElement[4] + 1)
 		}
 
-		for g.element.biggerOrEqualModulus() {
+		for !g.element.smallerThanModulus() {
 			g.element = Element{
 				genParams.NextUint64(),
 				genParams.NextUint64(),
@@ -2296,7 +2264,7 @@ func genFull() gopter.Gen {
 				g[4] %= (qElement[4] + 1)
 			}
 
-			for g.biggerOrEqualModulus() {
+			for !g.smallerThanModulus() {
 				g = Element{
 					genParams.NextUint64(),
 					genParams.NextUint64(),

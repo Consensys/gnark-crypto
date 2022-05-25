@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math/big"
 	"math/bits"
 	"reflect"
@@ -88,6 +89,9 @@ var _modulus big.Int // q stored as big.Int
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
+
+// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+const qInvNegLsw uint64 = 18446744073709551615
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -405,13 +409,64 @@ func (z *Element) LexicographicallyLargest() bool {
 }
 
 // SetRandom sets z to a uniform random value in [0, q).
+//
+// This might error only if reading from crypto/rand.Reader errors,
+// in which case, value of z is undefined.
 func (z *Element) SetRandom() (*Element, error) {
-	n, err := rand.Int(rand.Reader, &_modulus)
-	if err != nil {
-		return nil, err
+	// this code is generated for all modulus
+	// and derived from go/src/crypto/rand/util.go
+
+	// l is number of limbs * 8; the number of bytes needed to reconstruct 12 uint64
+	const l = 96
+
+	// bitLen is the maximum bit length needed to encode a value < q.
+	const bitLen = 756
+
+	// k is the maximum byte length needed to encode a value < q.
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
 	}
-	z.setBigInt(n)
-	return z, nil
+
+	var bytes [l]byte
+
+	for {
+		// note that bytes[k:l] is always 0
+		if _, err := io.ReadFull(rand.Reader, bytes[:k]); err != nil {
+			return nil, err
+		}
+
+		// Clear unused bits in in the most signicant byte to increase probability
+		// that the candidate is < q.
+		bytes[k-1] &= uint8(int(1<<b) - 1)
+		z[0] = binary.BigEndian.Uint64(bytes[0:8])
+		z[1] = binary.BigEndian.Uint64(bytes[8:16])
+		z[2] = binary.BigEndian.Uint64(bytes[16:24])
+		z[3] = binary.BigEndian.Uint64(bytes[24:32])
+		z[4] = binary.BigEndian.Uint64(bytes[32:40])
+		z[5] = binary.BigEndian.Uint64(bytes[40:48])
+		z[6] = binary.BigEndian.Uint64(bytes[48:56])
+		z[7] = binary.BigEndian.Uint64(bytes[56:64])
+		z[8] = binary.BigEndian.Uint64(bytes[64:72])
+		z[9] = binary.BigEndian.Uint64(bytes[72:80])
+		z[10] = binary.BigEndian.Uint64(bytes[80:88])
+		z[11] = binary.BigEndian.Uint64(bytes[88:96])
+
+		if !z.smallerThanModulus() {
+			continue // ignore the candidate and re-sample
+		}
+
+		return z, nil
+	}
+}
+
+// smallerThanModulus returns true if z < q
+// This is not constant time
+func (z *Element) smallerThanModulus() bool {
+	return (z[11] < q11 || (z[11] == q11 && (z[10] < q10 || (z[10] == q10 && (z[9] < q9 || (z[9] == q9 && (z[8] < q8 || (z[8] == q8 && (z[7] < q7 || (z[7] == q7 && (z[6] < q6 || (z[6] == q6 && (z[5] < q5 || (z[5] == q5 && (z[4] < q4 || (z[4] == q4 && (z[3] < q3 || (z[3] == q3 && (z[2] < q2 || (z[2] == q2 && (z[1] < q1 || (z[1] == q1 && (z[0] < q0)))))))))))))))))))))))
 }
 
 // One returns 1
@@ -427,18 +482,18 @@ func (z *Element) Halve() {
 
 	if z[0]&1 == 1 {
 		// z = z + q
-		z[0], carry = bits.Add64(z[0], 1, 0)
-		z[1], carry = bits.Add64(z[1], 3731203976813871104, carry)
-		z[2], carry = bits.Add64(z[2], 15039355238879481536, carry)
-		z[3], carry = bits.Add64(z[3], 4828608925799409630, carry)
-		z[4], carry = bits.Add64(z[4], 16326337093237622437, carry)
-		z[5], carry = bits.Add64(z[5], 756237273905161798, carry)
-		z[6], carry = bits.Add64(z[6], 16934317532427647658, carry)
-		z[7], carry = bits.Add64(z[7], 14755673041361585881, carry)
-		z[8], carry = bits.Add64(z[8], 18154628166362162086, carry)
-		z[9], carry = bits.Add64(z[9], 6671956210750770825, carry)
-		z[10], carry = bits.Add64(z[10], 16333450281447942351, carry)
-		z[11], _ = bits.Add64(z[11], 4352613195430282, carry)
+		z[0], carry = bits.Add64(z[0], q0, 0)
+		z[1], carry = bits.Add64(z[1], q1, carry)
+		z[2], carry = bits.Add64(z[2], q2, carry)
+		z[3], carry = bits.Add64(z[3], q3, carry)
+		z[4], carry = bits.Add64(z[4], q4, carry)
+		z[5], carry = bits.Add64(z[5], q5, carry)
+		z[6], carry = bits.Add64(z[6], q6, carry)
+		z[7], carry = bits.Add64(z[7], q7, carry)
+		z[8], carry = bits.Add64(z[8], q8, carry)
+		z[9], carry = bits.Add64(z[9], q9, carry)
+		z[10], carry = bits.Add64(z[10], q10, carry)
+		z[11], _ = bits.Add64(z[11], q11, carry)
 
 	}
 	// z = z >> 1
@@ -540,21 +595,20 @@ func (z *Element) Add(x, y *Element) *Element {
 	z[11], _ = bits.Add64(x[11], y[11], carry)
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 	return z
 }
@@ -577,21 +631,20 @@ func (z *Element) Double(x *Element) *Element {
 	z[11], _ = bits.Add64(x[11], x[11], carry)
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 	return z
 }
@@ -613,18 +666,18 @@ func (z *Element) Sub(x, y *Element) *Element {
 	z[11], b = bits.Sub64(x[11], y[11], b)
 	if b != 0 {
 		var c uint64
-		z[0], c = bits.Add64(z[0], 1, 0)
-		z[1], c = bits.Add64(z[1], 3731203976813871104, c)
-		z[2], c = bits.Add64(z[2], 15039355238879481536, c)
-		z[3], c = bits.Add64(z[3], 4828608925799409630, c)
-		z[4], c = bits.Add64(z[4], 16326337093237622437, c)
-		z[5], c = bits.Add64(z[5], 756237273905161798, c)
-		z[6], c = bits.Add64(z[6], 16934317532427647658, c)
-		z[7], c = bits.Add64(z[7], 14755673041361585881, c)
-		z[8], c = bits.Add64(z[8], 18154628166362162086, c)
-		z[9], c = bits.Add64(z[9], 6671956210750770825, c)
-		z[10], c = bits.Add64(z[10], 16333450281447942351, c)
-		z[11], _ = bits.Add64(z[11], 4352613195430282, c)
+		z[0], c = bits.Add64(z[0], q0, 0)
+		z[1], c = bits.Add64(z[1], q1, c)
+		z[2], c = bits.Add64(z[2], q2, c)
+		z[3], c = bits.Add64(z[3], q3, c)
+		z[4], c = bits.Add64(z[4], q4, c)
+		z[5], c = bits.Add64(z[5], q5, c)
+		z[6], c = bits.Add64(z[6], q6, c)
+		z[7], c = bits.Add64(z[7], q7, c)
+		z[8], c = bits.Add64(z[8], q8, c)
+		z[9], c = bits.Add64(z[9], q9, c)
+		z[10], c = bits.Add64(z[10], q10, c)
+		z[11], _ = bits.Add64(z[11], q11, c)
 	}
 	return z
 }
@@ -636,18 +689,18 @@ func (z *Element) Neg(x *Element) *Element {
 		return z
 	}
 	var borrow uint64
-	z[0], borrow = bits.Sub64(1, x[0], 0)
-	z[1], borrow = bits.Sub64(3731203976813871104, x[1], borrow)
-	z[2], borrow = bits.Sub64(15039355238879481536, x[2], borrow)
-	z[3], borrow = bits.Sub64(4828608925799409630, x[3], borrow)
-	z[4], borrow = bits.Sub64(16326337093237622437, x[4], borrow)
-	z[5], borrow = bits.Sub64(756237273905161798, x[5], borrow)
-	z[6], borrow = bits.Sub64(16934317532427647658, x[6], borrow)
-	z[7], borrow = bits.Sub64(14755673041361585881, x[7], borrow)
-	z[8], borrow = bits.Sub64(18154628166362162086, x[8], borrow)
-	z[9], borrow = bits.Sub64(6671956210750770825, x[9], borrow)
-	z[10], borrow = bits.Sub64(16333450281447942351, x[10], borrow)
-	z[11], _ = bits.Sub64(4352613195430282, x[11], borrow)
+	z[0], borrow = bits.Sub64(q0, x[0], 0)
+	z[1], borrow = bits.Sub64(q1, x[1], borrow)
+	z[2], borrow = bits.Sub64(q2, x[2], borrow)
+	z[3], borrow = bits.Sub64(q3, x[3], borrow)
+	z[4], borrow = bits.Sub64(q4, x[4], borrow)
+	z[5], borrow = bits.Sub64(q5, x[5], borrow)
+	z[6], borrow = bits.Sub64(q6, x[6], borrow)
+	z[7], borrow = bits.Sub64(q7, x[7], borrow)
+	z[8], borrow = bits.Sub64(q8, x[8], borrow)
+	z[9], borrow = bits.Sub64(q9, x[9], borrow)
+	z[10], borrow = bits.Sub64(q10, x[10], borrow)
+	z[11], _ = bits.Sub64(q11, x[11], borrow)
 	return z
 }
 
@@ -679,367 +732,366 @@ func _mulGeneric(z, x, y *Element) {
 		// round 0
 		v := x[0]
 		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd1(v, y[3], c[1])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd1(v, y[4], c[1])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd1(v, y[5], c[1])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd1(v, y[6], c[1])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd1(v, y[7], c[1])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd1(v, y[8], c[1])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd1(v, y[9], c[1])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd1(v, y[10], c[1])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd1(v, y[11], c[1])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 1
 		v := x[1]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 2
 		v := x[2]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 3
 		v := x[3]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 4
 		v := x[4]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 5
 		v := x[5]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 6
 		v := x[6]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 7
 		v := x[7]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 8
 		v := x[8]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 9
 		v := x[9]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 10
 		v := x[10]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], t[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], t[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], t[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], t[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], t[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], t[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], t[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], t[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], t[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], t[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 	{
 		// round 11
 		v := x[11]
 		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * 18446744073709551615
-		c[2] = madd0(m, 1, c[0])
+		m := c[0] * qInvNegLsw
+		c[2] = madd0(m, q0, c[0])
 		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, 3731203976813871104, c[2], c[0])
+		c[2], z[0] = madd2(m, q1, c[2], c[0])
 		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, 15039355238879481536, c[2], c[0])
+		c[2], z[1] = madd2(m, q2, c[2], c[0])
 		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], z[2] = madd2(m, 4828608925799409630, c[2], c[0])
+		c[2], z[2] = madd2(m, q3, c[2], c[0])
 		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], z[3] = madd2(m, 16326337093237622437, c[2], c[0])
+		c[2], z[3] = madd2(m, q4, c[2], c[0])
 		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], z[4] = madd2(m, 756237273905161798, c[2], c[0])
+		c[2], z[4] = madd2(m, q5, c[2], c[0])
 		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], z[5] = madd2(m, 16934317532427647658, c[2], c[0])
+		c[2], z[5] = madd2(m, q6, c[2], c[0])
 		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], z[6] = madd2(m, 14755673041361585881, c[2], c[0])
+		c[2], z[6] = madd2(m, q7, c[2], c[0])
 		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], z[7] = madd2(m, 18154628166362162086, c[2], c[0])
+		c[2], z[7] = madd2(m, q8, c[2], c[0])
 		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], z[8] = madd2(m, 6671956210750770825, c[2], c[0])
+		c[2], z[8] = madd2(m, q9, c[2], c[0])
 		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], z[9] = madd2(m, 16333450281447942351, c[2], c[0])
+		c[2], z[9] = madd2(m, q10, c[2], c[0])
 		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		z[11], z[10] = madd3(m, 4352613195430282, c[0], c[2], c[1])
+		z[11], z[10] = madd3(m, q11, c[0], c[2], c[1])
 	}
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 
 }
@@ -1050,246 +1102,244 @@ func _fromMontGeneric(z *Element) {
 	// see Mul for algorithm documentation
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744073709551615
-		C := madd0(m, 1, z[0])
-		C, z[0] = madd2(m, 3731203976813871104, z[1], C)
-		C, z[1] = madd2(m, 15039355238879481536, z[2], C)
-		C, z[2] = madd2(m, 4828608925799409630, z[3], C)
-		C, z[3] = madd2(m, 16326337093237622437, z[4], C)
-		C, z[4] = madd2(m, 756237273905161798, z[5], C)
-		C, z[5] = madd2(m, 16934317532427647658, z[6], C)
-		C, z[6] = madd2(m, 14755673041361585881, z[7], C)
-		C, z[7] = madd2(m, 18154628166362162086, z[8], C)
-		C, z[8] = madd2(m, 6671956210750770825, z[9], C)
-		C, z[9] = madd2(m, 16333450281447942351, z[10], C)
-		C, z[10] = madd2(m, 4352613195430282, z[11], C)
+		m := z[0] * qInvNegLsw
+		C := madd0(m, q0, z[0])
+		C, z[0] = madd2(m, q1, z[1], C)
+		C, z[1] = madd2(m, q2, z[2], C)
+		C, z[2] = madd2(m, q3, z[3], C)
+		C, z[3] = madd2(m, q4, z[4], C)
+		C, z[4] = madd2(m, q5, z[5], C)
+		C, z[5] = madd2(m, q6, z[6], C)
+		C, z[6] = madd2(m, q7, z[7], C)
+		C, z[7] = madd2(m, q8, z[8], C)
+		C, z[8] = madd2(m, q9, z[9], C)
+		C, z[9] = madd2(m, q10, z[10], C)
+		C, z[10] = madd2(m, q11, z[11], C)
 		z[11] = C
 	}
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 }
 
 func _reduceGeneric(z *Element) {
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 }
 
@@ -2018,9 +2068,6 @@ func (z *Element) linearComb(x *Element, xC int64, y *Element, yC int64) {
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *Element) montReduceSigned(x *Element, xHi uint64) {
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = 18446744073709551615
-
 	const signBitRemover = ^signBitSelector
 	mustNeg := xHi&signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
@@ -2264,21 +2311,20 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 	}
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 4352613195430282 || (z[11] == 4352613195430282 && (z[10] < 16333450281447942351 || (z[10] == 16333450281447942351 && (z[9] < 6671956210750770825 || (z[9] == 6671956210750770825 && (z[8] < 18154628166362162086 || (z[8] == 18154628166362162086 && (z[7] < 14755673041361585881 || (z[7] == 14755673041361585881 && (z[6] < 16934317532427647658 || (z[6] == 16934317532427647658 && (z[5] < 756237273905161798 || (z[5] == 756237273905161798 && (z[4] < 16326337093237622437 || (z[4] == 16326337093237622437 && (z[3] < 4828608925799409630 || (z[3] == 4828608925799409630 && (z[2] < 15039355238879481536 || (z[2] == 15039355238879481536 && (z[1] < 3731203976813871104 || (z[1] == 3731203976813871104 && (z[0] < 1))))))))))))))))))))))) {
+	if !z.smallerThanModulus() {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 1, 0)
-		z[1], b = bits.Sub64(z[1], 3731203976813871104, b)
-		z[2], b = bits.Sub64(z[2], 15039355238879481536, b)
-		z[3], b = bits.Sub64(z[3], 4828608925799409630, b)
-		z[4], b = bits.Sub64(z[4], 16326337093237622437, b)
-		z[5], b = bits.Sub64(z[5], 756237273905161798, b)
-		z[6], b = bits.Sub64(z[6], 16934317532427647658, b)
-		z[7], b = bits.Sub64(z[7], 14755673041361585881, b)
-		z[8], b = bits.Sub64(z[8], 18154628166362162086, b)
-		z[9], b = bits.Sub64(z[9], 6671956210750770825, b)
-		z[10], b = bits.Sub64(z[10], 16333450281447942351, b)
-		z[11], _ = bits.Sub64(z[11], 4352613195430282, b)
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], b = bits.Sub64(z[5], q5, b)
+		z[6], b = bits.Sub64(z[6], q6, b)
+		z[7], b = bits.Sub64(z[7], q7, b)
+		z[8], b = bits.Sub64(z[8], q8, b)
+		z[9], b = bits.Sub64(z[9], q9, b)
+		z[10], b = bits.Sub64(z[10], q10, b)
+		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
 	// </standard SOS>
 
