@@ -324,9 +324,6 @@ func (z *{{.ElementName}}) linearComb(x *{{.ElementName}}, xC int64, y *{{.Eleme
 // montReduceSigned z = (xHi * r + x) * r⁻¹ using the SOS algorithm
 // Requires |xHi| < 2⁶³. Most significant bit of xHi is the sign bit.
 func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNegLsw uint64 = {{index .QInverse 0}}
-	
 	const signBitRemover = ^signBitSelector
 	mustNeg := xHi & signBitSelector != 0
 	// the SOS implementation requires that most significant bit is 0
@@ -338,7 +335,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	var t [2*Limbs - 1]uint64
 	var C uint64
 
-	m := x[0] * qInvNegLsw
+	m := x[0] * qInvNeg
 
 	C = madd0(m, q0, x[0])
 	{{- range $i := .NbWordsIndexesNoZero}}
@@ -356,7 +353,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	{{- range $i := iterate 1 $.NbWordsLastIndex}}
 	{
 		const i = {{$i}}
-		m = t[i] * qInvNegLsw
+		m = t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 
@@ -369,7 +366,7 @@ func (z *{{.ElementName}}) montReduceSigned(x *{{.ElementName}}, xHi uint64) {
 	{{- end}}
 	{
 		const i = {{.NbWordsLastIndex}}
-		m := t[i] * qInvNegLsw
+		m := t[i] * qInvNeg
 
 		C = madd0(m, q0, t[i+0])
 		{{- range $j := iterate 1 $.NbWordsLastIndex}}

@@ -23,13 +23,13 @@ const MulCIOS = `
 		t[{{$.all.NbWords}}], D = bits.Add64(t[{{$.all.NbWords}}], C, 0)
 
 		// m = t[0]n'[0] mod W
-		m = t[0] * {{index $.all.QInverse 0}}
+		m = t[0] * qInvNeg
 
 		// -----------------------------------
 		// Second loop
-		C = madd0(m, {{index $.all.Q 0}}, t[0])
+		C = madd0(m, q0, t[0])
 		{{- range $i := $.all.NbWordsIndexesNoZero}}
-				C, t[{{sub $i 1}}] = madd2(m, {{index $.all.Q $i}}, t[{{$i}}], C)
+				C, t[{{sub $i 1}}] = madd2(m, q{{$i}}, t[{{$i}}], C)
 		{{- end}}
 
 		 t[{{sub $.all.NbWords 1}}], C = bits.Add64(t[{{$.all.NbWords}}], C, 0)
@@ -42,12 +42,12 @@ const MulCIOS = `
 		{{- if gt $.all.NbWords 1}}
 		var b uint64
 		{{- end}}
-		z[0], {{- if gt $.all.NbWords 1}}b{{- else}}_{{- end}} = bits.Sub64(t[0], {{index $.all.Q 0}}, 0)
+		z[0], {{- if gt $.all.NbWords 1}}b{{- else}}_{{- end}} = bits.Sub64(t[0], q0, 0)
 		{{- range $i := .all.NbWordsIndexesNoZero}}
 			{{-  if eq $i $.all.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Sub64(t[{{$i}}], {{index $.all.Q $i}}, b)
+				z[{{$i}}], _ = bits.Sub64(t[{{$i}}], q{{$i}}, b)
 			{{-  else  }}
-				z[{{$i}}], b = bits.Sub64(t[{{$i}}], {{index $.all.Q $i}}, b)
+				z[{{$i}}], b = bits.Sub64(t[{{$i}}], q{{$i}}, b)
 			{{- end}}
 		{{- end}}
 		return
@@ -61,9 +61,6 @@ const MulCIOS = `
 {{ end }}
 
 {{ define "mul_cios_one_limb" }}
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNeg uint64 = {{index $.all.QInverse 0}}
-
 	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
 	m := lo * qInvNeg

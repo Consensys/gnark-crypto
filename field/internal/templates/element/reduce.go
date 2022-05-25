@@ -3,25 +3,22 @@ package element
 const Reduce = `
 {{ define "reduce" }}
 // if z >= q → z -= q
-// note: this is NOT constant time
+if !z.smallerThanModulus() {
 {{- if eq $.NbWords 1}}
-if z[0] >= q {
-	z[0] -= q
-}
+		z[0] -= q
 {{- else}}
-if !({{- range $i := reverse .NbWordsIndexesNoZero}} z[{{$i}}] < {{index $.Q $i}} || ( z[{{$i}}] == {{index $.Q $i}} && (
-{{- end}}z[0] < {{index $.Q 0}} {{- range $i :=  .NbWordsIndexesNoZero}} )) {{- end}} ){
 	var b uint64
-	z[0], b = bits.Sub64(z[0], {{index $.Q 0}}, 0)
+	z[0], b = bits.Sub64(z[0], q0, 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
 		{{-  if eq $i $.NbWordsLastIndex}}
-			z[{{$i}}], _ = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, b)
+			z[{{$i}}], _ = bits.Sub64(z[{{$i}}], q{{$i}}, b)
 		{{-  else  }}
-			z[{{$i}}], b = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, b)
+			z[{{$i}}], b = bits.Sub64(z[{{$i}}], q{{$i}}, b)
 		{{- end}}
 	{{- end}}
-}
 {{-  end }}
+}
+
 {{-  end }}
 
 `

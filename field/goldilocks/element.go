@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math/big"
 	"math/bits"
 	"reflect"
@@ -67,6 +68,10 @@ var _modulus big.Int // q stored as big.Int
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = 18446744069414584319
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -283,13 +288,53 @@ func (z *Element) LexicographicallyLargest() bool {
 }
 
 // SetRandom sets z to a uniform random value in [0, q).
+//
+// This might error only if reading from crypto/rand.Reader errors,
+// in which case, value of z is undefined.
 func (z *Element) SetRandom() (*Element, error) {
-	n, err := rand.Int(rand.Reader, &_modulus)
-	if err != nil {
-		return nil, err
+	// this code is generated for all modulus
+	// and derived from go/src/crypto/rand/util.go
+
+	// l is number of limbs * 8; the number of bytes needed to reconstruct 1 uint64
+	const l = 8
+
+	// bitLen is the maximum bit length needed to encode a value < q.
+	const bitLen = 64
+
+	// k is the maximum byte length needed to encode a value < q.
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
 	}
-	z.setBigInt(n)
-	return z, nil
+
+	var bytes [l]byte
+
+	for {
+		// note that bytes[k:l] is always 0
+		if _, err := io.ReadFull(rand.Reader, bytes[:k]); err != nil {
+			return nil, err
+		}
+
+		// Clear unused bits in in the most signicant byte to increase probability
+		// that the candidate is < q.
+		bytes[k-1] &= uint8(int(1<<b) - 1)
+		z[0] = binary.LittleEndian.Uint64(bytes[0:8])
+
+		if !z.smallerThanModulus() {
+			continue // ignore the candidate and re-sample
+		}
+
+		return z, nil
+	}
+}
+
+// smallerThanModulus returns true if z < q
+// This is not constant time
+func (z *Element) smallerThanModulus() bool {
+	return z[0] < q
 }
 
 // One returns 1
@@ -305,7 +350,7 @@ func (z *Element) Halve() {
 
 	if z[0]&1 == 1 {
 		// z = z + q
-		z[0], carry = bits.Add64(z[0], 18446744069414584321, 0)
+		z[0], carry = bits.Add64(z[0], q0, 0)
 
 	}
 	// z = z >> 1
@@ -348,9 +393,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 	// → t is a temporary array of size N+2
 	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
 
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNeg uint64 = 18446744069414584319
-
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
 	m := lo * qInvNeg
@@ -370,9 +412,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 // Square z = x * x (mod q)
 func (z *Element) Square(x *Element) *Element {
 	// see Mul for algorithm documentation
-
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNeg uint64 = 18446744069414584319
 
 	var r uint64
 	hi, lo := bits.Mul64(x[0], x[0])
@@ -454,9 +493,6 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 func _mulGeneric(z, x, y *Element) {
 	// see Mul for algorithm documentation
 
-	// Used for Montgomery reduction. (qInvNeg) q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-	const qInvNeg uint64 = 18446744069414584319
-
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
 	m := lo * qInvNeg
@@ -478,14 +514,13 @@ func _fromMontGeneric(z *Element) {
 	// see Mul for algorithm documentation
 	{
 		// m = z[0]n'[0] mod W
-		m := z[0] * 18446744069414584319
-		C := madd0(m, 18446744069414584321, z[0])
+		m := z[0] * qInvNeg
+		C := madd0(m, q0, z[0])
 		z[0] = C
 	}
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if z[0] >= q {
+	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
 }
@@ -493,8 +528,7 @@ func _fromMontGeneric(z *Element) {
 func _reduceGeneric(z *Element) {
 
 	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if z[0] >= q {
+	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
 }
@@ -819,7 +853,7 @@ func (z *Element) Legendre() int {
 	}
 
 	// if l == 1
-	if l[0] == 4294967295 {
+	if l.IsOne() {
 		return 1
 	}
 	return -1
