@@ -19,7 +19,6 @@ package bn254
 import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
-	"math/big"
 )
 
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-4.1
@@ -88,9 +87,9 @@ func svdwMapG1(u fp.Element) G1Affine {
 
 // MapToG1 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
+// TODO: Get rid of this?
 func MapToG1(t fp.Element) G1Affine {
-	res := svdwMapG1(t)
-	return res
+	return svdwMapG1(t)
 }
 
 // EncodeToG1 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
@@ -125,11 +124,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 
 // returns false if u>-u when seen as a bigInt
 func sign0(u fp.Element) bool {
-	var a, b big.Int
-	u.ToBigIntRegular(&a)
-	u.Neg(&u)
-	u.ToBigIntRegular(&b)
-	return a.Cmp(&b) <= 0
+	return !u.LexicographicallyLargest()
 }
 
 // hashToFp hashes msg to count prime field elements.
