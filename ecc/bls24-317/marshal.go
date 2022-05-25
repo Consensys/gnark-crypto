@@ -32,8 +32,11 @@ import (
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
+//
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+//
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+//
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 const (
 	mMask                 byte = 0b111 << 5
@@ -77,7 +80,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("bls24-317 decoder: unsupported type, need pointer")
 	}
 
@@ -86,7 +89,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memallocs
 	// in very large (de)serialization upstream in gnark.
 	// (but detrimental to code lisibility here)
-	// TODO double check memory usage and factorize this
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
@@ -379,9 +381,12 @@ func NoSubgroupChecks() func(*Decoder) {
 }
 
 func (enc *Encoder) encode(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+		return errors.New("<no value> encoder: can't encode <nil>")
+	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
-	// TODO double check memory usage and factorize this
 
 	var written int
 	switch t := v.(type) {
@@ -490,9 +495,12 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 }
 
 func (enc *Encoder) encodeRaw(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+		return errors.New("<no value> encoder: can't encode <nil>")
+	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
-	// TODO double check memory usage and factorize this
 
 	var written int
 	switch t := v.(type) {
@@ -621,8 +629,11 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
+//
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+//
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+//
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
 
@@ -696,10 +707,14 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 }
 
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
+//
 // bytes in buf must match either RawBytes() or Bytes() output
+//
 // if buf is too short io.ErrShortBuffer is returned
+//
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
-// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// the Y coordinate (i.e the square root doesn't exist) this function returns an error
+//
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
@@ -877,8 +892,11 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
+//
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+//
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+//
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 
@@ -1027,10 +1045,14 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 }
 
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
+//
 // bytes in buf must match either RawBytes() or Bytes() output
+//
 // if buf is too short io.ErrShortBuffer is returned
+//
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
-// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// the Y coordinate (i.e the square root doesn't exist) this function returns an error
+//
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
