@@ -46,7 +46,7 @@ func mulGenericE2(z, x, y *E2) {
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
+	z.A0.Sub(&b, &c) // z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
 }
 
 // squareGenericE2 sets z to the E2-product of x,x returns z
