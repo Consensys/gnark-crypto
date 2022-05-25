@@ -286,6 +286,34 @@ func TestElementIsRandom(t *testing.T) {
 	}
 }
 
+func TestElementIsUint64(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(v uint64) bool {
+			var e Element
+			e.SetUint64(v)
+
+			if !e.IsUint64() {
+				return false
+			}
+
+			return e.Uint64() == v
+		},
+		ggen.UInt64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestElementNegZero(t *testing.T) {
 	var a, b Element
 	b.SetZero()
@@ -482,6 +510,12 @@ func TestElementInverseExp(t *testing.T) {
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+}
+
+func mulByConstant(z *Element, c uint8) {
+	var y Element
+	y.SetUint64(uint64(c))
+	z.Mul(z, &y)
 }
 
 func TestElementMulByConstants(t *testing.T) {
@@ -743,14 +777,6 @@ func TestElementAdd(t *testing.T) {
 				c.Add(&a.element, &r)
 				d.Add(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -773,17 +799,6 @@ func TestElementAdd(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Add: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Add(&a.element, &b.element)
-			_addGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
-		},
-		genA,
-		genB,
-	))
-
 	specialValueTest := func() {
 		// test special values against special values
 		testValues := make([]Element, len(staticTestValues))
@@ -800,13 +815,6 @@ func TestElementAdd(t *testing.T) {
 				var c Element
 				c.Add(&a, &b)
 				d.Add(&aBig, &bBig).Mod(&d, Modulus())
-
-				// checking asm against generic impl
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Add failed special test values: asm and generic impl don't match")
-				}
 
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Add failed special test values")
@@ -878,14 +886,6 @@ func TestElementSub(t *testing.T) {
 				c.Sub(&a.element, &r)
 				d.Sub(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -908,17 +908,6 @@ func TestElementSub(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("Sub: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Sub(&a.element, &b.element)
-			_subGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
-		},
-		genA,
-		genB,
-	))
-
 	specialValueTest := func() {
 		// test special values against special values
 		testValues := make([]Element, len(staticTestValues))
@@ -935,13 +924,6 @@ func TestElementSub(t *testing.T) {
 				var c Element
 				c.Sub(&a, &b)
 				d.Sub(&aBig, &bBig).Mod(&d, Modulus())
-
-				// checking asm against generic impl
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Sub failed special test values: asm and generic impl don't match")
-				}
 
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Sub failed special test values")
@@ -1574,16 +1556,6 @@ func TestElementDouble(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Double: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Double(&a.element)
-			_doubleGeneric(&d, &a.element)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
 	specialValueTest := func() {
 		// test special values
 		testValues := make([]Element, len(staticTestValues))
@@ -1597,13 +1569,6 @@ func TestElementDouble(t *testing.T) {
 
 			var d, e big.Int
 			d.Lsh(&aBig, 1).Mod(&d, Modulus())
-
-			// checking asm against generic impl
-			var cGeneric Element
-			_doubleGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Double failed special test values: asm and generic impl don't match")
-			}
 
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Double failed special test values")
@@ -1663,16 +1628,6 @@ func TestElementNeg(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("Neg: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Neg(&a.element)
-			_negGeneric(&d, &a.element)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
 	specialValueTest := func() {
 		// test special values
 		testValues := make([]Element, len(staticTestValues))
@@ -1686,13 +1641,6 @@ func TestElementNeg(t *testing.T) {
 
 			var d, e big.Int
 			d.Neg(&aBig).Mod(&d, Modulus())
-
-			// checking asm against generic impl
-			var cGeneric Element
-			_negGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Neg failed special test values: asm and generic impl don't match")
-			}
 
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Neg failed special test values")
@@ -2031,6 +1979,30 @@ func TestElementSetInterface(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e Element
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *Element
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new(Element).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
 }
 
 func TestElementNegativeExp(t *testing.T) {
@@ -2064,6 +2036,18 @@ func TestElementNegativeExp(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementNewElement(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	e := NewElement(1)
+	assert.True(e.IsOne())
+
+	e = NewElement(0)
+	assert.True(e.IsZero())
 }
 
 func TestElementBatchInvert(t *testing.T) {
@@ -2459,45 +2443,6 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	}
 }
 
-func BenchmarkMontReduce(b *testing.B) {
-	var x Element
-	xHiBase := mrand.Uint64()
-	x.SetRandom()
-	benchResElement.SetRandom()
-
-	b.Run("oldPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
-
-	b.Run("oldNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
-}
-
 func TestElementInversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {
@@ -2609,7 +2554,7 @@ func TestElementInversionCorrectionFactor(t *testing.T) {
 
 func TestElementBigNumNeg(t *testing.T) {
 	var a Element
-	aHi := a.neg(&a, 0)
+	aHi := negL(&a, 0)
 	if !a.IsZero() || aHi != 0 {
 		t.Error("-0 != 0")
 	}
@@ -2701,19 +2646,6 @@ func TestElementMontReduce(t *testing.T) {
 		gen,
 	))
 
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(g veryBigInt) bool {
-			var res Element
-			var resInt big.Int
-
-			montReduce(&resInt, &g.asInt)
-			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -2739,21 +2671,6 @@ func TestElementMontReduceMultipleOfR(t *testing.T) {
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSigned(&zero, hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(hi uint64) bool {
-			var zero, res Element
-			var asInt, resInt big.Int
-
-			zero.toVeryBigIntSigned(&asInt, hi)
-
-			montReduce(&resInt, &asInt)
-			res.montReduceSignedSimpleButSlow(&zero, hi)
 
 			return res.matchVeryBigInt(0, &resInt) == nil
 		},

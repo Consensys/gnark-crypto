@@ -15,18 +15,6 @@ func MulBy5(x *{{.ElementName}})
 func MulBy13(x *{{.ElementName}})
 
 //go:noescape
-func add(res,x,y *{{.ElementName}})
-
-//go:noescape
-func sub(res,x,y *{{.ElementName}})
-
-//go:noescape
-func neg(res,x *{{.ElementName}})
-
-//go:noescape
-func double(res,x *{{.ElementName}})
-
-//go:noescape
 func mul(res,x,y *{{.ElementName}})
 
 //go:noescape
@@ -35,6 +23,9 @@ func fromMont(res *{{.ElementName}})
 //go:noescape
 func reduce(res *{{.ElementName}})
 
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 

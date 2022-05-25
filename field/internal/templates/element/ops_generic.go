@@ -1,32 +1,40 @@
 package element
 
 const OpsNoAsm = `
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular, 
-// there is no security guarantees such as constant time implementation 
-// or side-channel attack resistance
-// /!\ WARNING /!\
 
 {{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
 
-// MulBy{{$i}} x *= {{$i}}
+// MulBy{{$i}} x *= {{$i}} (mod q)
 func MulBy{{$i}}(x *{{$.ElementName}}) {
 	{{- if eq 1 $.NbWords}}
 	var y {{$.ElementName}}
 	y.SetUint64({{$i}})
 	x.Mul(x, &y)
 	{{- else}}
-	mulByConstant(x, {{$i}})
+		{{- if eq $i 3}}
+			_x := *x
+			x.Double(x).Add(x, &_x)
+		{{- else if eq $i 5}}
+			_x := *x
+			x.Double(x).Double(x).Add(x, &_x)
+		{{- else if eq $i 13}}
+			var y = {{$.ElementName}}{
+				{{- range $i := $.Thirteen}}
+				{{$i}},{{end}}
+			}
+			x.Mul(x, &y)
+		{{- else }}
+			NOT IMPLEMENTED
+		{{- end}}
 	{{- end}}
 }
 
 {{- end}}
 
-
-// Butterfly sets 
-// a = a + b
-// b = a - b 
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 func Butterfly(a, b *{{.ElementName}}) {
 	_butterflyGeneric(a, b)
 }
@@ -37,28 +45,8 @@ func mul(z, x, y *{{.ElementName}}) {
 }
 {{- end}}
 
-
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
-// sets and returns z = z * 1
 func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
-}
-
-func add(z,  x, y *{{.ElementName}}) {
-	_addGeneric(z,x,y)
-}
-
-func double(z,  x *{{.ElementName}}) {
-	_doubleGeneric(z,x)
-}
-
-
-func sub(z,  x, y *{{.ElementName}}) {
-	_subGeneric(z,x,y)
-}
-
-func neg(z,  x *{{.ElementName}}) {
-	_negGeneric(z,x)
 }
 
 func reduce(z *{{.ElementName}})  {

@@ -43,13 +43,14 @@ type Field struct {
 	NbWordsIndexesFull        []int
 	P20InversionCorrectiveFac []uint64
 	P20InversionNbIterations  int
+	UsingP20Inverse           bool
 	IsMSWSaturated            bool // indicates if the most significant word is 0xFFFFF...FFFF
 	Q                         []uint64
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
 	ASM                       bool
 	RSquare                   []uint64
-	One                       []uint64
+	One, Thirteen             []uint64
 	LegendreExponent          string // big.Int to base16 string
 	NoCarry                   bool
 	NoCarrySquare             bool // used if NoCarry is set, but some op may overflow in square optimization
@@ -127,6 +128,11 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	p20InversionCorrectiveFac.Mod(p20InversionCorrectiveFac, &bModulus)
 	F.P20InversionCorrectiveFac = toUint64Slice(p20InversionCorrectiveFac, F.NbWords)
 
+	{
+		c := F.NbWords * 64
+		F.UsingP20Inverse = F.NbWords > 1 && F.NbBits < c
+	}
+
 	// rsquare
 	_rSquare := big.NewInt(2)
 	exponent := big.NewInt(int64(F.NbWords) * 64 * 2)
@@ -137,6 +143,13 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	one.SetUint64(1)
 	one.Lsh(&one, uint(F.NbWords)*64).Mod(&one, &bModulus)
 	F.One = toUint64Slice(&one, F.NbWords)
+
+	{
+		var n big.Int
+		n.SetUint64(13)
+		n.Lsh(&n, uint(F.NbWords)*64).Mod(&n, &bModulus)
+		F.Thirteen = toUint64Slice(&n, F.NbWords)
+	}
 
 	// indexes (template helpers)
 	F.NbWordsIndexesFull = make([]int, F.NbWords)

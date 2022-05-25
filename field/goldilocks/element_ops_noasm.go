@@ -16,27 +16,21 @@
 
 package goldilocks
 
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular,
-// there is no security guarantees such as constant time implementation
-// or side-channel attack resistance
-// /!\ WARNING /!\
-
-// MulBy3 x *= 3
+// MulBy3 x *= 3 (mod q)
 func MulBy3(x *Element) {
 	var y Element
 	y.SetUint64(3)
 	x.Mul(x, &y)
 }
 
-// MulBy5 x *= 5
+// MulBy5 x *= 5 (mod q)
 func MulBy5(x *Element) {
 	var y Element
 	y.SetUint64(5)
 	x.Mul(x, &y)
 }
 
-// MulBy13 x *= 13
+// MulBy13 x *= 13 (mod q)
 func MulBy13(x *Element) {
 	var y Element
 	y.SetUint64(13)
@@ -44,32 +38,14 @@ func MulBy13(x *Element) {
 }
 
 // Butterfly sets
-// a = a + b
-// b = a - b
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
 }
 
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
-// sets and returns z = z * 1
 func fromMont(z *Element) {
 	_fromMontGeneric(z)
-}
-
-func add(z, x, y *Element) {
-	_addGeneric(z, x, y)
-}
-
-func double(z, x *Element) {
-	_doubleGeneric(z, x)
-}
-
-func sub(z, x, y *Element) {
-	_subGeneric(z, x, y)
-}
-
-func neg(z, x *Element) {
-	_negGeneric(z, x)
 }
 
 func reduce(z *Element) {

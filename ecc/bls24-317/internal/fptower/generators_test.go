@@ -1,8 +1,6 @@
 package fptower
 
 import (
-	"crypto/rand"
-
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"github.com/leanovate/gopter"
 )
@@ -11,12 +9,10 @@ import (
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
+
+		if _, err := elmt.SetRandom(); err != nil {
 			panic(err)
 		}
-		elmt.SetBytes(b[:])
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}

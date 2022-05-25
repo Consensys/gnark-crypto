@@ -2,8 +2,6 @@ package element
 
 const Test = `
 
-{{$elementCapacityNbBits := mul .NbWords 64}}
-{{$UsingP20Inverse := and (lt .NbBits $elementCapacityNbBits) (gt .NbWords 1) }}
 
 import (
 	"crypto/rand"
@@ -11,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if $UsingP20Inverse}} 
+	{{if .UsingP20Inverse}} 
 	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand" 
 	{{end}}
@@ -261,6 +259,36 @@ func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 		}
 	}
 }
+
+func Test{{toTitle .ElementName}}IsUint64(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(v uint64) bool {
+			var e {{.ElementName}}
+			e.SetUint64(v)
+
+			if !e.IsUint64() {
+				return false
+			}
+
+			return e.Uint64() == v
+		},
+		ggen.UInt64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 {{- end}}
 
 func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
@@ -480,6 +508,13 @@ func Test{{toTitle .ElementName}}InverseExp(t *testing.T) {
 }
 
 
+func mulByConstant(z *{{.ElementName}}, c uint8) {
+	var y {{.ElementName}}
+	y.SetUint64(uint64(c))
+	z.Mul(z, &y)
+}
+
+
 func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
 	t.Parallel()
@@ -690,8 +725,8 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 }
 
 
-{{template "testBinaryOp" dict "all" . "Op" "Add" "GenericOp" "_addGeneric"}}
-{{template "testBinaryOp" dict "all" . "Op" "Sub" "GenericOp" "_subGeneric"}}
+{{template "testBinaryOp" dict "all" . "Op" "Add"}}
+{{template "testBinaryOp" dict "all" . "Op" "Sub"}}
 {{template "testBinaryOp" dict "all" . "Op" "Mul" "GenericOp" "_mulGeneric"}}
 {{template "testBinaryOp" dict "all" . "Op" "Div"}}
 {{template "testBinaryOp" dict "all" . "Op" "Exp"}}
@@ -699,8 +734,8 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{template "testUnaryOp" dict "all" . "Op" "Square" }}
 {{template "testUnaryOp" dict "all" . "Op" "Inverse"}}
 {{template "testUnaryOp" dict "all" . "Op" "Sqrt"}}
-{{template "testUnaryOp" dict "all" . "Op" "Double"  "GenericOp" "_doubleGeneric"}}
-{{template "testUnaryOp" dict "all" . "Op" "Neg"  "GenericOp" "_negGeneric"}}
+{{template "testUnaryOp" dict "all" . "Op" "Double"}}
+{{template "testUnaryOp" dict "all" . "Op" "Neg" }}
 
 {{ define "testBinaryOp" }}
 
@@ -1240,6 +1275,30 @@ func Test{{toTitle .ElementName}}SetInterface(t *testing.T) {
 
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e {{.ElementName}}
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *{{.ElementName}}
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new({{.ElementName}}).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
 }
 
 
@@ -1294,6 +1353,17 @@ func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func Test{{toTitle .ElementName}}New{{.ElementName}}(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	e := New{{.ElementName}}(1)
+	assert.True(e.IsOne())
+
+	e = New{{.ElementName}}(0)
+	assert.True(e.IsZero())
+}
 
 
 func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
@@ -1579,7 +1649,7 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
-{{if $UsingP20Inverse}}
+{{if $.UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int

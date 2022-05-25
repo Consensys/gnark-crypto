@@ -56,7 +56,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
-	pathFuzz := filepath.Join(outputDir, eName+"_fuzz.go")
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
@@ -65,6 +64,7 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		"_ops_amd64.s",
 		"_mul_adx_amd64.s",
 		"_ops_amd64.go",
+		"_fuzz.go",
 	}
 
 	for _, of := range oldFiles {
@@ -104,14 +104,6 @@ func GenerateFF(F *field.Field, outputDir string) error {
 		if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
 			return err
 		}
-	}
-
-	// generate fuzz file
-	bopts := make([]func(*bavard.Bavard) error, len(bavardOpts))
-	copy(bopts, bavardOpts)
-	bopts = append(bopts, bavard.BuildTag("gofuzz"))
-	if err := bavard.GenerateFromString(pathFuzz, []string{element.Fuzz}, F, bopts...); err != nil {
-		return err
 	}
 
 	// generate test file

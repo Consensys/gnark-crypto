@@ -2,18 +2,11 @@ package element
 
 const Base = `
 
-// /!\ WARNING /!\
-// this code has not been audited and is provided as-is. In particular,
-// there is no security guarantees such as constant time implementation
-// or side-channel attack resistance
-// /!\ WARNING /!\
-
 import (
 	"math/big"
 	"math/bits"
 	"crypto/rand"
 	"encoding/binary"
-	"io"
 	"sync"
 	"strconv"
 	"errors"
@@ -22,51 +15,50 @@ import (
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
-// {{.ElementName}} are assumed to be in Montgomery form in all methods
-// field modulus q =
+// 
+// {{.ElementName}} are assumed to be in Montgomery form in all methods.
+// 
+// Modulus q =
 //
-// {{.Modulus}}
+// 	q[base10] = {{.Modulus}}
+// 	q[base16] = 0x{{.ModulusHex}}
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type {{.ElementName}} [{{.NbWords}}]uint64
 
-// Limbs number of 64 bits words needed to represent {{.ElementName}}
-const Limbs = {{.NbWords}}
+const (
+	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
+	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
+	Bytes = Limbs * 8 		// number of bytes needed to represent a {{.ElementName}}
+)
 
-// Bits number bits needed to represent {{.ElementName}}
-const Bits = {{.NbBits}}
 
-// Bytes number bytes needed to represent {{.ElementName}}
-const Bytes = Limbs * 8
-
-// field modulus stored as big.Int
-var _modulus big.Int
-
-// Modulus returns q as a big.Int
-// q =
-//
-// {{.Modulus}}
-func Modulus() *big.Int {
-	return new(big.Int).Set(&_modulus)
-}
-
-// q (modulus)
+// Field modulus q
+const (
 {{- range $i := $.NbWordsIndexesFull}}
-const q{{$.ElementName}}Word{{$i}} uint64 = {{index $.Q $i}} 
+	q{{$i}} uint64 = {{index $.Q $i}} 
+	{{- if eq $.NbWords 1}}
+		q uint64 = q0
+	{{- end}}
 {{- end}}
-{{- if eq .NbWords 1}}
-const q uint64 = q{{$.ElementName}}Word0
-{{- end}}
+)
 
 var q{{.ElementName}} = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
-	q{{$.ElementName}}Word{{$i}},{{end}}
+	q{{$i}},{{end}}
 }
 
-// rSquare
-var rSquare = {{.ElementName}}{
-	{{- range $i := .RSquare}}
-	{{$i}},{{end}}
-}
+var _modulus big.Int 		// q stored as big.Int
 
+// Modulus returns q as a big.Int
+//
+// 	q[base10] = {{.Modulus}}
+// 	q[base16] = 0x{{.ModulusHex}}
+func Modulus() *big.Int {
+	return new(big.Int).Set(&_modulus)
+}
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
@@ -75,21 +67,19 @@ var bigIntPool = sync.Pool{
 }
 
 func init() {
-	// base10: {{.Modulus}}
 	_modulus.SetString("{{.ModulusHex}}", 16)
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value
 //
 // it is equivalent to
-// 		var v New{{.ElementName}}
+// 		var v {{.ElementName}}
 // 		v.SetUint64(...)
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
 	z := {{.ElementName}}{v}
 	z.Mul(&z, &rSquare)
 	return z
 }
-
 
 // SetUint64 sets z to v and returns z
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
@@ -113,7 +103,7 @@ func (z *{{.ElementName}}) SetInt64(v int64) *{{.ElementName}} {
 	return z
 }
 
-// Set z = x
+// Set z = x and returns z
 func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 	{{- range $i := .NbWordsIndexesFull}}
 		z[{{$i}}] = x[{{$i}}]
@@ -123,9 +113,20 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 
 // SetInterface converts provided interface into {{.ElementName}}
 // returns an error if provided type is not supported
-// supported types: {{.ElementName}}, *{{.ElementName}}, uint64, int, string (interpreted as base10 integer),
-// *big.Int, big.Int, []byte
+// supported types:
+//  {{.ElementName}}
+//  *{{.ElementName}}
+//  uint64
+//  int
+//  string (see SetString for valid formats)
+//  *big.Int
+//  big.Int
+//  []byte
 func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, error) {
+	if i1 == nil {
+		return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} with <nil>")
+	}
+
 	switch c1 := i1.(type) {
 	case {{.ElementName}}:
 		return z.Set(&c1), nil
@@ -187,7 +188,7 @@ func (z *{{.ElementName}}) SetOne() *{{.ElementName}} {
 }
 
 
-// Div z = x*y^-1 mod q
+// Div z = x*y⁻¹ (mod q)
 func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var yInv {{.ElementName}}
 	yInv.Inverse( y)
@@ -196,7 +197,8 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // Bit returns the i'th bit, with lsb == bit 0.
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *{{.ElementName}}) Bit(i uint64) uint64 {
 	j := i / 64
 	if j >= {{.NbWords}} {
@@ -248,6 +250,8 @@ func (z *{{.ElementName}}) Uint64() uint64 {
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
+//
+// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
 func (z *{{.ElementName}}) FitsOnOneWord() bool {
 	{{- if eq .NbWords 1}}
 		return true
@@ -296,39 +300,24 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 	return b == 0
 }
 
-
-
-
-// SetRandom sets z to a random element < q
+// SetRandom sets z to a uniform random value in [0, q).
 func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
-	var bytes [{{mul 8 .NbWords}}]byte
-	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
-		return nil, err 
+	n, err := rand.Int(rand.Reader, &_modulus)
+	if err != nil {
+		return nil, err
 	}
-	{{- range $i :=  .NbWordsIndexesFull}}
-		{{- $k := add $i 1}}
-		z[{{$i}}] = binary.BigEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
-	{{- end}}
-
-	{{- if not $.IsMSWSaturated }}
-		z[{{$.NbWordsLastIndex}}] %= q{{$.ElementName}}Word{{$.NbWordsLastIndex}} {{- if ne .NbWords 1}} + 1 {{- end}}
-	{{- end}}
-
-	{{- if ne .NbWords 1}}
-		{{ template "reduce" . }}
-	{{- end}}
-
+	z.setBigInt(n)
 	return z, nil
 }
 
-// One returns 1 (in montgommery form)
+// One returns 1
 func One() {{.ElementName}} {
 	var one {{.ElementName}}
 	one.SetOne()
 	return one
 }
 
-// Halve sets z to z / 2 (mod p)
+// Halve sets z to z / 2 (mod q)
 func (z *{{.ElementName}}) Halve()  {
 	{{- if not (and (eq .NbWords 1) (.NoCarry))}}
 		var carry uint64
@@ -358,9 +347,56 @@ func (z *{{.ElementName}}) Halve()  {
 {{ end }}
 
 
-// Mul z = x * y mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+// Mul z = x * y (mod q)
+{{- if $.NoCarry}}
+//
+// x and y must be strictly inferior to q
+{{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	// 
+	// The algorithm:
+	// 
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//		
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//		
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2 
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+	{{- if $.NoCarry}}
+	// 
+	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
+	//
+	// for i=0 to N-1
+    // 		(A,t[0]) := t[0] + x[0]*y[i] 
+    // 		m := t[0]*q'[0] mod W
+    // 		C,_ := t[0] + m*q[0]
+    // 		for j=1 to N-1
+    // 			(A,t[j])  := t[j] + x[j]*y[i] + A
+    // 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//		
+    // 		t[N-1] = C + A
+	//
+	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit 
+	// of the modulus is zero (and not all of the remaining bits are set).
+	{{- end}}
+
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{- else }}
@@ -369,9 +405,13 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Square z = x * x mod q
-// see https://hackmd.io/@gnark/modular_multiplication
+// Square z = x * x (mod q)
+{{- if $.NoCarry}}
+//
+// x must be strictly inferior to q
+{{- end }}
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
+	// see Mul for algorithm documentation
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
 	{{- else }}
@@ -387,77 +427,8 @@ func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
 	return z
 }
 
-// Add z = x + y mod q
+// Add z = x + y (mod q)
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
-	add(z, x, y)
-	return z
-}
-
-// Double z = x + x mod q, aka Lsh 1
-func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
-	double(z, x)
-	return z
-}
-
-
-// Sub  z = x - y mod q
-func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
-	sub(z, x, y)
-	return z
-}
-
-// Neg z = q - x
-func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
-	neg(z, x)
-	return z
-}
-
-// Select is a constant-time conditional move.
-// If c=0, z = x0. Else z = x1
-func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
-	cC := uint64( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
-	{{- range $i := .NbWordsIndexesFull }}
-	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
-	{{- end}}
-	return z
-}
-
-// Generic (no ADX instructions, no AMD64) versions of multiplication and squaring algorithms
-
-func _mulGeneric(z,x,y *{{.ElementName}}) {
-	{{ if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
-	{{ else if .NoCarry}}
-		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
-		{{ template "reduce"  . }}
-	{{ else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
-		{{ template "reduce"  . }}
-	{{ end }}
-}
-
-
-func _fromMontGeneric(z *{{.ElementName}}) {
-	// the following lines implement z = z * 1
-	// with a modified CIOS montgomery multiplication
-	{{- range $j := .NbWordsIndexesFull}}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * {{index $.QInverse 0}}
-		C := madd0(m, {{index $.Q 0}}, z[0])
-		{{- range $i := $.NbWordsIndexesNoZero}}
-			C, z[{{sub $i 1}}] = madd2(m, {{index $.Q $i}}, z[{{$i}}], C)
-		{{- end}}
-		z[{{sub $.NbWords 1}}] = C
-	}
-	{{- end}}
-
-	{{ template "reduce" .}}
-}
-
-
-
-func _addGeneric(z,  x, y *{{.ElementName}}) {
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
 		var carry uint64
@@ -482,15 +453,17 @@ func _addGeneric(z,  x, y *{{.ElementName}}) {
 					{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
 					z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 				{{- end}}
-				return
+				return z
 			}
 		{{- end}}
 
 		{{ template "reduce" .}}
 	{{- end}}
+	return z
 }
 
-func _doubleGeneric(z,  x *{{.ElementName}}) {
+// Double z = x + x (mod q), aka Lsh 1
+func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
 	if x[0] & (1 << 63) == (1 << 63) {
 		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
@@ -521,16 +494,18 @@ func _doubleGeneric(z,  x *{{.ElementName}}) {
 				{{- $hasBorrow := lt $i $.NbWordsLastIndex}}
 				z[{{$i}}], {{- if $hasBorrow}}b{{- else}}_{{- end}} = bits.Sub64(z[{{$i}}], {{index $.Q $i}}, {{- if eq $i 0}}0{{- else}}b{{- end}})
 			{{- end}}
-			return
+			return z
 		}
 	{{- end}}
 
 	{{ template "reduce" .}}
 	{{- end}}
+	return z
 }
 
 
-func _subGeneric(z,  x, y *{{.ElementName}}) {
+// Sub z = x - y (mod q)
+func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
@@ -540,23 +515,25 @@ func _subGeneric(z,  x, y *{{.ElementName}}) {
 		{{- if eq .NbWords 1}}
 			z[0] += q
 		{{- else}}
-		var c uint64
-		z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
-		{{- range $i := .NbWordsIndexesNoZero}}
-			{{- if eq $i $.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
-			{{- else}}
-				z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+			var c uint64
+			z[0], c = bits.Add64(z[0], {{index $.Q 0}}, 0)
+			{{- range $i := .NbWordsIndexesNoZero}}
+				{{- if eq $i $.NbWordsLastIndex}}
+					z[{{$i}}], _ = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+				{{- else}}
+					z[{{$i}}], c = bits.Add64(z[{{$i}}], {{index $.Q $i}}, c)
+				{{- end}}
 			{{- end}}
 		{{- end}}
-		{{- end}}
 	}
+	return z
 }
 
-func _negGeneric(z,  x *{{.ElementName}}) {
+// Neg z = q - x
+func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
 		z.SetZero()
-		return
+		return z
 	}
 	{{- if eq .NbWords 1}}
 		z[0] = q - x[0]
@@ -571,39 +548,56 @@ func _negGeneric(z,  x *{{.ElementName}}) {
 			{{- end}}
 		{{- end}}
 	{{- end}}
+	return z
 }
 
+// Select is a constant-time conditional move.
+// If c=0, z = x0. Else z = x1
+func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
+	cC := uint64( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
+	{{- range $i := .NbWordsIndexesFull }}
+	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
+	{{- end}}
+	return z
+}
+
+
+func _mulGeneric(z,x,y *{{.ElementName}}) {
+	// see Mul for algorithm documentation
+	{{ if eq $.NbWords 1}}
+		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+	{{ else if .NoCarry}}
+		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
+		{{ template "reduce"  . }}
+	{{ else }}
+		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
+		{{ template "reduce"  . }}
+	{{ end }}
+}
+
+
+func _fromMontGeneric(z *{{.ElementName}}) {
+	// the following lines implement z = z * 1
+	// with a modified CIOS montgomery multiplication
+	// see Mul for algorithm documentation
+	{{- range $j := .NbWordsIndexesFull}}
+	{
+		// m = z[0]n'[0] mod W
+		m := z[0] * {{index $.QInverse 0}}
+		C := madd0(m, {{index $.Q 0}}, z[0])
+		{{- range $i := $.NbWordsIndexesNoZero}}
+			C, z[{{sub $i 1}}] = madd2(m, {{index $.Q $i}}, z[{{$i}}], C)
+		{{- end}}
+		z[{{sub $.NbWords 1}}] = C
+	}
+	{{- end}}
+
+	{{ template "reduce" .}}
+}
 
 func _reduceGeneric(z *{{.ElementName}})  {
 	{{ template "reduce"  . }}
 }
-
-func mulByConstant(z *{{.ElementName}}, c uint8) {
-	switch c {
-	case 0:
-		z.SetZero()
-		return
-	case 1:
-		return
-	case 2:
-		z.Double(z)
-		return
-	case 3:
-		_z := *z
-		z.Double(z).Add(z, &_z)
-	case 5:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z)
-	case 11:
-		_z := *z
-		z.Double(z).Double(z).Add(z, &_z).Double(z).Add(z, &_z)
-	default:
-		var y {{.ElementName}}
-		y.SetUint64(uint64(c))
-		z.Mul(z, &y)
-	}
-}
-
 
 // BatchInvert returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick

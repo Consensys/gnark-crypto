@@ -19,21 +19,19 @@ import (
 )
 
 // declaring nonResInverse as global makes MulByNonResInv inlinable
-var nonResInverse E2
-
-func init() {
-	nonResInverse.A0 = fp.Element{
+var nonResInverse E2 = E2{
+	A0: fp.Element{
 		10477841894441615122,
 		7327163185667482322,
 		3635199979766503006,
 		3215324977242306624,
-	}
-	nonResInverse.A1 = fp.Element{
+	},
+	A1: fp.Element{
 		7515750141297360845,
 		14746352163864140223,
 		11319968037783994424,
 		30185921062296004,
-	}
+	},
 }
 
 // mulGenericE2 sets z to the E2-product of x,y, returns z
@@ -46,7 +44,7 @@ func mulGenericE2(z, x, y *E2) {
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	z.A0.Sub(&b, &c) //z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
+	z.A0.Sub(&b, &c) // z.A0.MulByNonResidue(&c).Add(&z.A0, &b)
 }
 
 // squareGenericE2 sets z to the E2-product of x,x returns z

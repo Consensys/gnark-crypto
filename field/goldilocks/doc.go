@@ -23,8 +23,10 @@
 // Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
 // 	type Element [1]uint64
 //
-// Example API signature
-// 	// Mul z = x * y mod q
+// Usage
+//
+// Example API signature:
+// 	// Mul z = x * y (mod q)
 // 	func (z *Element) Mul(x, y *Element) *Element
 //
 // and can be used like so:
@@ -37,7 +39,12 @@
 // 	 .Inv(a)
 // 	b.Exp(b, new(big.Int).SetUint64(42))
 //
-// Modulus
-// 	0xffffffff00000001 // base 16
-// 	18446744069414584321 // base 10
+// Modulus q =
+//
+// 	q[base10] = 18446744069414584321
+// 	q[base16] = 0xffffffff00000001
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package goldilocks

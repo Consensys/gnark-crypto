@@ -24,15 +24,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
-	// fuzz testing
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "fuzz.go"), Templates: []string{"fuzz.go.tmpl"}, BuildTag: "gofuzz"},
-		{File: filepath.Join(baseDir, "fuzz_test.go"), Templates: []string{"tests/fuzz.go.tmpl"}, BuildTag: "gofuzz"},
-	}
-	if err := bgen.Generate(conf, packageName, "./ecc/template", entries...); err != nil {
-		return err
-	}
-
 	// hash To curve
 	genHashToCurve := func(point *config.Point, suite *config.HashSuite) error {
 		if suite == nil { //Nothing to generate. Bypass

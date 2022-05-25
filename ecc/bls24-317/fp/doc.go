@@ -23,8 +23,10 @@
 // Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
 // 	type Element [5]uint64
 //
-// Example API signature
-// 	// Mul z = x * y mod q
+// Usage
+//
+// Example API signature:
+// 	// Mul z = x * y (mod q)
 // 	func (z *Element) Mul(x, y *Element) *Element
 //
 // and can be used like so:
@@ -37,7 +39,12 @@
 // 	 .Inv(a)
 // 	b.Exp(b, new(big.Int).SetUint64(42))
 //
-// Modulus
-// 	0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab // base 16
-// 	136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051 // base 10
+// Modulus q =
+//
+// 	q[base10] = 136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051
+// 	q[base16] = 0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package fp
