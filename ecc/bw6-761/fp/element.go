@@ -405,44 +405,52 @@ func (z *Element) LexicographicallyLargest() bool {
 	return b == 0
 }
 
-// SetRandom sets z to a random element < q
+func Int(rand io.Reader, max *big.Int) (n *big.Int, err error) {
+	if max.Sign() <= 0 {
+		panic("crypto/rand: argument to Int is <= 0")
+	}
+	n = new(big.Int)
+	n.Sub(max, n.SetUint64(1))
+	// bitLen is the maximum bit length needed to encode a value < max.
+	bitLen := n.BitLen()
+	if bitLen == 0 {
+		// the only valid result is 0
+		return
+	}
+	// k is the maximum byte length needed to encode a value < max.
+	k := (bitLen + 7) / 8
+	// b is the number of bits in the most significant byte of max-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
+	}
+
+	bytes := make([]byte, k)
+
+	for {
+		_, err = io.ReadFull(rand, bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		// Clear bits in the first byte to increase the probability
+		// that the candidate is < max.
+		bytes[0] &= uint8(int(1<<b) - 1)
+
+		n.SetBytes(bytes)
+		if n.Cmp(max) < 0 {
+			return
+		}
+	}
+}
+
+// SetRandom sets z to a uniform random value in [0, q).
 func (z *Element) SetRandom() (*Element, error) {
-	var bytes [96]byte
-	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
+	n, err := rand.Int(rand.Reader, &_modulus)
+	if err != nil {
 		return nil, err
 	}
-	z[0] = binary.BigEndian.Uint64(bytes[0:8])
-	z[1] = binary.BigEndian.Uint64(bytes[8:16])
-	z[2] = binary.BigEndian.Uint64(bytes[16:24])
-	z[3] = binary.BigEndian.Uint64(bytes[24:32])
-	z[4] = binary.BigEndian.Uint64(bytes[32:40])
-	z[5] = binary.BigEndian.Uint64(bytes[40:48])
-	z[6] = binary.BigEndian.Uint64(bytes[48:56])
-	z[7] = binary.BigEndian.Uint64(bytes[56:64])
-	z[8] = binary.BigEndian.Uint64(bytes[64:72])
-	z[9] = binary.BigEndian.Uint64(bytes[72:80])
-	z[10] = binary.BigEndian.Uint64(bytes[80:88])
-	z[11] = binary.BigEndian.Uint64(bytes[88:96])
-	z[11] %= q11 + 1
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[11] < 81882988782276106 || (z[11] == 81882988782276106 && (z[10] < 15098257552581525310 || (z[10] == 15098257552581525310 && (z[9] < 13341377791855249032 || (z[9] == 13341377791855249032 && (z[8] < 5945444129596489281 || (z[8] == 5945444129596489281 && (z[7] < 8105254717682411801 || (z[7] == 8105254717682411801 && (z[6] < 274362232328168196 || (z[6] == 274362232328168196 && (z[5] < 9694500593442880912 || (z[5] == 9694500593442880912 && (z[4] < 8204665564953313070 || (z[4] == 8204665564953313070 && (z[3] < 10998096788944562424 || (z[3] == 10998096788944562424 && (z[2] < 1588918198704579639 || (z[2] == 1588918198704579639 && (z[1] < 16614129118623039618 || (z[1] == 16614129118623039618 && (z[0] < 17626244516597989515))))))))))))))))))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 17626244516597989515, 0)
-		z[1], b = bits.Sub64(z[1], 16614129118623039618, b)
-		z[2], b = bits.Sub64(z[2], 1588918198704579639, b)
-		z[3], b = bits.Sub64(z[3], 10998096788944562424, b)
-		z[4], b = bits.Sub64(z[4], 8204665564953313070, b)
-		z[5], b = bits.Sub64(z[5], 9694500593442880912, b)
-		z[6], b = bits.Sub64(z[6], 274362232328168196, b)
-		z[7], b = bits.Sub64(z[7], 8105254717682411801, b)
-		z[8], b = bits.Sub64(z[8], 5945444129596489281, b)
-		z[9], b = bits.Sub64(z[9], 13341377791855249032, b)
-		z[10], b = bits.Sub64(z[10], 15098257552581525310, b)
-		z[11], _ = bits.Sub64(z[11], 81882988782276106, b)
-	}
-
+	z.setBigInt(n)
 	return z, nil
 }
 
@@ -1912,7 +1920,8 @@ func (z *Element) Inverse(x *Element) *Element {
 	a = Element{pSq}
 	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
-		// could optimize further with mul by word routine;
+		// could optimize further with mul by word routine or by pre-computing a table since with k=26,
+		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
 		mul(&v, &v, &a)

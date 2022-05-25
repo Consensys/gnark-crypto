@@ -254,7 +254,8 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	a = {{.ElementName}}{pSq}
 	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
-		// could optimize further with mul by word routine;
+		// could optimize further with mul by word routine or by pre-computing a table since with k=26,
+		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
 		mul(&v, &v, &a)

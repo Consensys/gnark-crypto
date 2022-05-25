@@ -317,28 +317,52 @@ func (z *Element) LexicographicallyLargest() bool {
 	return b == 0
 }
 
-// SetRandom sets z to a random element < q
+func Int(rand io.Reader, max *big.Int) (n *big.Int, err error) {
+	if max.Sign() <= 0 {
+		panic("crypto/rand: argument to Int is <= 0")
+	}
+	n = new(big.Int)
+	n.Sub(max, n.SetUint64(1))
+	// bitLen is the maximum bit length needed to encode a value < max.
+	bitLen := n.BitLen()
+	if bitLen == 0 {
+		// the only valid result is 0
+		return
+	}
+	// k is the maximum byte length needed to encode a value < max.
+	k := (bitLen + 7) / 8
+	// b is the number of bits in the most significant byte of max-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
+	}
+
+	bytes := make([]byte, k)
+
+	for {
+		_, err = io.ReadFull(rand, bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		// Clear bits in the first byte to increase the probability
+		// that the candidate is < max.
+		bytes[0] &= uint8(int(1<<b) - 1)
+
+		n.SetBytes(bytes)
+		if n.Cmp(max) < 0 {
+			return
+		}
+	}
+}
+
+// SetRandom sets z to a uniform random value in [0, q).
 func (z *Element) SetRandom() (*Element, error) {
-	var bytes [32]byte
-	if _, err := io.ReadFull(rand.Reader, bytes[:]); err != nil {
+	n, err := rand.Int(rand.Reader, &_modulus)
+	if err != nil {
 		return nil, err
 	}
-	z[0] = binary.BigEndian.Uint64(bytes[0:8])
-	z[1] = binary.BigEndian.Uint64(bytes[8:16])
-	z[2] = binary.BigEndian.Uint64(bytes[16:24])
-	z[3] = binary.BigEndian.Uint64(bytes[24:32])
-	z[3] %= q3 + 1
-
-	// if z >= q → z -= q
-	// note: this is NOT constant time
-	if !(z[3] < 1832378743606059307 || (z[3] == 1832378743606059307 && (z[2] < 2737202078770428568 || (z[2] == 2737202078770428568 && (z[1] < 14466829657984787300 || (z[1] == 14466829657984787300 && (z[0] < 1860204336533995521))))))) {
-		var b uint64
-		z[0], b = bits.Sub64(z[0], 1860204336533995521, 0)
-		z[1], b = bits.Sub64(z[1], 14466829657984787300, b)
-		z[2], b = bits.Sub64(z[2], 2737202078770428568, b)
-		z[3], _ = bits.Sub64(z[3], 1832378743606059307, b)
-	}
-
+	z.setBigInt(n)
 	return z, nil
 }
 
@@ -1212,7 +1236,8 @@ func (z *Element) Inverse(x *Element) *Element {
 	a = Element{pSq}
 	// If the function is constant-time ish, this loop will not run (no need to take it out explicitly)
 	for ; i < invIterationsN; i += 2 {
-		// could optimize further with mul by word routine;
+		// could optimize further with mul by word routine or by pre-computing a table since with k=26,
+		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
 		mul(&v, &v, &a)
