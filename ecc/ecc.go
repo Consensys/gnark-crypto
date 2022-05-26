@@ -28,7 +28,9 @@ package ecc
 
 import (
 	"math/big"
+	"strings"
 
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
@@ -55,77 +57,70 @@ func Implemented() []ID {
 }
 
 func (id ID) String() string {
-	switch id {
-	case BLS12_377:
-		return "bls12_377"
-	case BLS12_378:
-		return "bls12_378"
-	case BLS12_381:
-		return config.BLS12_381.EnumID
-	case BN254:
-		return config.BN254.EnumID
-	case BW6_761:
-		return config.BW6_761.EnumID
-	case BW6_633:
-		return config.BW6_633.EnumID
-	case BLS24_315:
-		return "bls24_315"
-	case BLS24_317:
-		return "bls24_317"
-	case BW6_756:
-		return "bw6_756"
-	default:
-		panic("unimplemented ecc ID")
-	}
+	cfg := id.config()
+	return strings.ToLower(cfg.EnumID)
 }
 
-// Info returns constants related to a curve
-func (id ID) Info() Info {
+// ScalarField returns the scalar field of the curve
+func (id ID) ScalarField() field.Field {
+	cfg := id.config()
+	return newField(cfg, true)
+}
+
+// BaseField returns the base field of the curve
+func (id ID) BaseField() field.Field {
+	cfg := id.config()
+	return newField(cfg, false)
+}
+
+func (id ID) config() *config.Curve {
 	// note to avoid circular dependency these are hard coded
 	// values are checked for non regression in code generation
 	switch id {
 	case BLS12_377:
-		return newInfo(&config.BLS12_377)
+		return &config.BLS12_377
 	case BLS12_378:
-		return newInfo(&config.BLS12_378)
+		return &config.BLS12_378
 	case BLS12_381:
-		return newInfo(&config.BLS12_381)
+		return &config.BLS12_381
 	case BN254:
-		return newInfo(&config.BN254)
+		return &config.BN254
 	case BW6_761:
-		return newInfo(&config.BW6_761)
+		return &config.BW6_761
 	case BW6_633:
-		return newInfo(&config.BW6_633)
+		return &config.BW6_633
 	case BLS24_315:
-		return newInfo(&config.BLS24_315)
+		return &config.BLS24_315
 	case BLS24_317:
-		return newInfo(&config.BLS24_317)
+		return &config.BLS24_317
 	case BW6_756:
-		return newInfo(&config.BW6_756)
+		return &config.BW6_756
 	default:
 		panic("unimplemented ecc ID")
 	}
 }
 
-func newInfo(c *config.Curve) Info {
-
-	return Info{
-		Fp: config.Field{
-			Bits:    c.FpInfo.Bits,
-			Bytes:   c.FpInfo.Bytes,
-			Modulus: func() *big.Int { return new(big.Int).Set(c.FpInfo.Modulus()) },
-		},
-		Fr: config.Field{
-			Bits:    c.FrInfo.Bits,
-			Bytes:   c.FrInfo.Bytes,
-			Modulus: func() *big.Int { return new(big.Int).Set(c.FrInfo.Modulus()) },
-		},
+func newField(c *config.Curve, scalarField bool) fieldInfo {
+	if scalarField {
+		return fieldInfo{
+			modulus: new(big.Int).Set(c.FrInfo.Modulus()),
+		}
 	}
+
+	// return the base field
+	return fieldInfo{
+		modulus: new(big.Int).Set(c.FpInfo.Modulus()),
+	}
+
 }
 
-// Info contains constants related to a curve
-type Info struct {
-	Fp, Fr config.Field
+// fieldInfo contains constants related to a curve
+type fieldInfo struct {
+	modulus *big.Int
+}
+
+func (i fieldInfo) Modulus() *big.Int {
+	return new(big.Int).Set(i.modulus)
 }
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
