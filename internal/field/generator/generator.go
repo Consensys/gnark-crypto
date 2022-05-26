@@ -12,10 +12,10 @@ import (
 	"text/template"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field"
-	"github.com/consensys/gnark-crypto/field/asm/amd64"
-	"github.com/consensys/gnark-crypto/field/internal/addchain"
-	"github.com/consensys/gnark-crypto/field/internal/templates/element"
+	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/internal/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
+	"github.com/consensys/gnark-crypto/internal/field/internal/templates/element"
 )
 
 // TODO @gbotrel → pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
@@ -27,7 +27,7 @@ import (
 //
 // 	fp, _ = field.NewField("fp", "Element", fpModulus")
 // 	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
-func GenerateFF(F *field.Field, outputDir string) error {
+func GenerateFF(F *field.FieldConfig, outputDir string) error {
 	// source file templates
 	sourceFiles := []string{
 		element.Base,

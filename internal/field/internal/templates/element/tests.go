@@ -10,7 +10,7 @@ import (
 	"math/bits"
 	"fmt"
 	{{if .UsingP20Inverse}} 
-	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/internal/field"
 	mrand "math/rand" 
 	{{end}}
 	"testing"
