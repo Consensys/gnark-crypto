@@ -121,15 +121,12 @@ func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 }
 
 
-
+// String returns the string representation of the point or "O" if it is infinity
 func (p *{{ $TAffine }}) String() string {
-	if p.X.IsZero() && p.Y.IsZero() {
+	if p.IsInfinity() {
 		return "O"
 	}
-	var x, y {{.CoordType}}
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
+	return "E([" + p.X.String() + "," + p.Y.String() + "])"
 }
 
 // IsInfinity checks if the point is infinity
@@ -254,7 +251,7 @@ func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 
 	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+	if a.IsInfinity() {
 		return p
 	}
 	// p is infinity, return a
@@ -349,18 +346,16 @@ func (p *{{ $TJacobian }}) ScalarMultiplication(a *{{ $TJacobian }}, s *big.Int)
 	{{- end }}
 }
 
+// String returns canonical representation of the point in affine coordinates
 func (p *{{ $TJacobian }}) String() string {
-	if p.Z.IsZero() {
-		return "O"
-	}
 	_p := {{ $TAffine }}{}
 	_p.FromJacobian(p)
-	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
+	return _p.String()
 }
 
 // FromAffine sets p = Q, p in Jacboian, Q in affine
 func (p *{{ $TJacobian }}) FromAffine(Q *{{ $TAffine }}) *{{ $TJacobian }} {
-	if Q.X.IsZero() && Q.Y.IsZero() {
+	if Q.IsInfinity() {
 		p.Z.SetZero()
 		p.X.SetOne()
 		p.Y.SetOne()
@@ -1216,7 +1211,7 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 
 {{define "mAdd" }}
 	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+	if a.IsInfinity() {
 		return p
 	}
 	// p is infinity, return a

@@ -113,14 +113,12 @@ func (p *G1Affine) FromJacobian(p1 *G1Jac) *G1Affine {
 	return p
 }
 
+// String returns the string representation of the point or "O" if it is infinity
 func (p *G1Affine) String() string {
-	if p.X.IsZero() && p.Y.IsZero() {
+	if p.IsInfinity() {
 		return "O"
 	}
-	var x, y fp.Element
-	x.Set(&p.X)
-	y.Set(&p.Y)
-	return "E([" + x.String() + "," + y.String() + "]),"
+	return "E([" + p.X.String() + "," + p.Y.String() + "])"
 }
 
 // IsInfinity checks if the point is infinity
@@ -242,7 +240,7 @@ func (p *G1Jac) AddAssign(a *G1Jac) *G1Jac {
 func (p *G1Jac) AddMixed(a *G1Affine) *G1Jac {
 
 	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+	if a.IsInfinity() {
 		return p
 	}
 	// p is infinity, return a
@@ -332,18 +330,16 @@ func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
+// String returns canonical representation of the point in affine coordinates
 func (p *G1Jac) String() string {
-	if p.Z.IsZero() {
-		return "O"
-	}
 	_p := G1Affine{}
 	_p.FromJacobian(p)
-	return "E([" + _p.X.String() + "," + _p.Y.String() + "]),"
+	return _p.String()
 }
 
 // FromAffine sets p = Q, p in Jacboian, Q in affine
 func (p *G1Jac) FromAffine(Q *G1Affine) *G1Jac {
-	if Q.X.IsZero() && Q.Y.IsZero() {
+	if Q.IsInfinity() {
 		p.Z.SetZero()
 		p.X.SetOne()
 		p.Y.SetOne()
@@ -650,7 +646,7 @@ func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 func (p *g1JacExtended) subMixed(a *G1Affine) *g1JacExtended {
 
 	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+	if a.IsInfinity() {
 		return p
 	}
 	// p is infinity, return a
@@ -706,7 +702,7 @@ func (p *g1JacExtended) subMixed(a *G1Affine) *g1JacExtended {
 func (p *g1JacExtended) addMixed(a *G1Affine) *g1JacExtended {
 
 	//if a is infinity return p
-	if a.X.IsZero() && a.Y.IsZero() {
+	if a.IsInfinity() {
 		return p
 	}
 	// p is infinity, return a
