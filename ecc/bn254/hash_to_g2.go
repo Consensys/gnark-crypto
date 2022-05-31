@@ -75,7 +75,7 @@ func svdwMapG2(u fptower.E2) G2Affine {
 	gx.Mul(&gx, &x)
 	gx.Add(&gx, &bTwistCurveCoeff)
 	y.Sqrt(&gx)
-	e3 := sign0(u.A0) && sign0(y.A0)
+	e3 := sign0(u.A0) == sign0(y.A0)
 	if !e3 {
 		y.Neg(&y)
 	}
