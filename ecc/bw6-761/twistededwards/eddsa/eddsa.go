@@ -60,12 +60,10 @@ type Signature struct {
 
 // GenerateKey generates a public and private key pair.
 func GenerateKey(r io.Reader) (*PrivateKey, error) {
-
 	c := twistededwards.GetEdwardsCurve()
 
 	var pub PublicKey
 	var priv PrivateKey
-
 	// The source of randomness and the secret scalar must come
 	// from 2 distincts sources. Since the scalar is the size of the
 	// field of definition (48 bytes), the scalar must come from a
@@ -88,24 +86,19 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	// prune the key
 	// https://tools.ietf.org/html/rfc8032#section-5.1.5, key generation
-
 	h1[0] &= 0xF8
 	h1[sizeFr-1] &= 0x7F
 	h1[sizeFr-1] |= 0x40
 
 	// reverse first bytes because setBytes interpret stream as big endian
 	// but in eddsa specs s is the first 32 bytes in little endian
-	for i, j := 0, sizeFr; i < j; i, j = i+1, j-1 {
-
-		h1[i], h1[j] = h1[j], h1[i]
-
+	for i, j := 0, sizeFr-1; i < sizeFr; i, j = i+1, j-1 {
+		priv.scalar[i] = h1[j]
 	}
 
-	copy(priv.scalar[:], h1[:sizeFr])
-
-	var bscalar big.Int
-	bscalar.SetBytes(priv.scalar[:])
-	pub.A.ScalarMul(&c.Base, &bscalar)
+	var bScalar big.Int
+	bScalar.SetBytes(priv.scalar[:])
+	pub.A.ScalarMul(&c.Base, &bScalar)
 
 	priv.PublicKey = pub
 
