@@ -86,7 +86,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	// reverse first bytes because setBytes interpret stream as big endian
 	// but in eddsa specs s is the first 32 bytes in little endian
-	for i, j := 0, sizeFr; i < j; i, j = i+1, j-1 {
+	for i, j := 0, sizeFr - 1; i < j; i, j = i+1, j-1 {
 
 		h[i], h[j] = h[j], h[i]
 
