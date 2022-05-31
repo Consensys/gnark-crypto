@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var DST = []byte("QUUX-V01-CS02-with-BN254G1_XMD:SHA-256_SW_NU_")
+const dstPrefixG1 = "QUUX-V01-CS02-with-BN254G1_XMD:SHA-256_SVDW_"
 
 func TestHashToFpG1Vectors(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
@@ -21,7 +21,7 @@ func TestHashToFpG1Vectors(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		g1TestMatchCoord(t, "u0", c.msg, c.u, &elems[0])
+		g1TestMatchCoord(t, "u0", c.msg, c.u0, &elems[0])
 		g1TestMatchCoord(t, "u1", c.msg, c.u1, &elems[1])
 	}
 }
@@ -36,13 +36,33 @@ func TestMapToG1Vectors(t *testing.T) {
 
 	for _, c := range hashToG1Vector.cases {
 		var u fp.Element
-		u.SetString(c.u)
+		u.SetString(c.u0)
 		q := MapToG1(u)
-		g1TestMatchPoint(t, "Q0", c.msg, c.Q, &q)
+		g1TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		u.SetString(c.u1)
 		q = MapToG1(u)
 		g1TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
+	}
+}
+
+func TestEncodeToG1Vectors(t *testing.T) {
+	for _, c := range encodeToG1Vector.cases {
+		p, err := EncodeToG1([]byte(c.msg), encodeToG1Vector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+		g1TestMatchPoint(t, "P", c.msg, c.P, &p)
+	}
+}
+
+func TestHashToG1Vectors(t *testing.T) {
+	for _, c := range hashToG1Vector.cases {
+		p, err := HashToG1([]byte(c.msg), hashToG1Vector.dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+		g1TestMatchPoint(t, "P", c.msg, c.P, &p)
 	}
 }
 
@@ -66,19 +86,31 @@ type hashTestVector struct {
 	cases []hashTestCase
 }
 
+type encodeTestVector struct {
+	dst   []byte
+	cases []encodeTestCase
+}
+
 type point struct {
 	x string
 	y string
 }
 
-type hashTestCase struct {
+type encodeTestCase struct {
 	msg string
 	P   point  //pY a coordinate of P, the final output
 	u   string //u hashed onto the field
-	u1  string //u1 extra hashed onto the field for HashTo
 	Q   point  //Q map to curve output
-	Q1  point  //Q extra map to curve output for HashTo
+}
+
+type hashTestCase struct {
+	msg string
+	P   point  //pY a coordinate of P, the final output
+	u0  string //u0 hashed onto the field
+	u1  string //u1 extra hashed onto the field
+	Q0  point  //Q0 map to curve output
+	Q1  point  //Q1 extra map to curve output
 }
 
 var hashToG1Vector hashTestVector
-var encodeToG1Vector hashTestVector
+var encodeToG1Vector encodeTestVector
