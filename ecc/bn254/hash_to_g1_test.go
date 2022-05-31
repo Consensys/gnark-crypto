@@ -72,7 +72,7 @@ func g1TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr st
 	expected.SetString(expectedStr)
 
 	if !expected.Equal(seen) {
-		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expectedStr, seen.Text(16))
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      0x%s", msg, coordName, expectedStr, seen.Text(16))
 	}
 }
 
