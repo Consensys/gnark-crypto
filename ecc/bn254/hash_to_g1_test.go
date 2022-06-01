@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-const dstPrefixG1 = "QUUX-V01-CS02-with-BN254G1_XMD:SHA-256_SVDW_"
-
 func TestHashToFpG1Vectors(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
 		elems, err := hashToFp([]byte(c.msg), encodeToG1Vector.dst, 1)
