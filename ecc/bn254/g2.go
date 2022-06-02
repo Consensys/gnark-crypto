@@ -66,7 +66,7 @@ func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 }
 
 // Add adds two point in affine coordinates.
-// This should rarely be used as it is very inneficient compared to Jacobian
+// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	var p1, p2 G2Jac
 	p1.FromAffine(a)
@@ -77,7 +77,7 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 }
 
 // Sub subs two point in affine coordinates.
-// This should rarely be used as it is very inneficient compared to Jacobian
+// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
 	var p1, p2 G2Jac
 	p1.FromAffine(a)
@@ -371,7 +371,7 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// [r]P == 0 <==> Frob(P) == [6x²]P
+// [r]P == 0 ⩽=> Frob(P) == [6x²]P
 func (p *G2Jac) IsInSubGroup() bool {
 	var a, res G2Jac
 	a.psi(p)
@@ -866,7 +866,7 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
-	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+	// cost = 2ᶜ⁻¹ + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)

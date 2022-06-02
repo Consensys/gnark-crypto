@@ -28,18 +28,18 @@ func TestMapToG1Vectors(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
 		var u fp.Element
 		u.SetString(c.u)
-		q := MapToG1(u)
+		q := mapToCurve1(u)
 		g1TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
 	for _, c := range hashToG1Vector.cases {
 		var u fp.Element
 		u.SetString(c.u0)
-		q := MapToG1(u)
+		q := mapToCurve1(u)
 		g1TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		u.SetString(c.u1)
-		q = MapToG1(u)
+		q = mapToCurve1(u)
 		g1TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }

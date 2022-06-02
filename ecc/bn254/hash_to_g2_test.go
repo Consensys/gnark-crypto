@@ -33,18 +33,18 @@ func TestMapToG2Vectors(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u)
-		q := MapToG2(u)
+		q := mapToCurve2(u)
 		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
 	for _, c := range hashToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u0)
-		q := MapToG2(u)
+		q := mapToCurve2(u)
 		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g2CoordSetString(&u, c.u1)
-		q = MapToG2(u)
+		q = mapToCurve2(u)
 		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
