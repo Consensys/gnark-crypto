@@ -1,6 +1,8 @@
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
+{{$CurveIndex := "2"}}
+{{if eq $CurveTitle "G1" }}{{$CurveIndex = "1"}}{{end}}
 {{$TowerDegree := .Field.Degree}}
 {{$isogenyNeeded := notNil .Isogeny}}
 
@@ -111,7 +113,7 @@ func Test{{$CurveTitle}}SSWU(t *testing.T) {
 	properties.Property("[{{$CurveTitle}}] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a {{$CoordType}}) bool {
 
-			g := sswuMap{{$CurveTitle}}(&a)
+			g := mapToCurve{{$CurveIndex}}(&a)
 
 			if !isOnEPrime{{$CurveTitle}}(g) {
 				t.Log("SSWU output not on E' curve")

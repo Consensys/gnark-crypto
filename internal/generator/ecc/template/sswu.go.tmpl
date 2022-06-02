@@ -6,6 +6,8 @@
 {{$AffineType := print $CurveTitle "Affine"}}
 {{$JacType := print $CurveTitle "Jac"}}
 {{$IsG1 := eq $CurveTitle "G1"}}
+{{$CurveIndex := "2"}}
+{{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
 
 //Note: This only works for simple extensions
 
@@ -315,9 +317,9 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 {{ end }}}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-// sswuMap{{$CurveTitle}} implements the SSWU map
-// No cofactor clearing
-func sswuMap{{$CurveTitle}}(u *{{$CoordType}}) {{$AffineType}} {
+// mapToCurve{{$CurveIndex}} implements the SSWU map
+// No cofactor clearing or isogeny
+func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
 	var tv1 {{$CoordType}}
 	tv1.Square(u)
@@ -389,7 +391,7 @@ func sswuMap{{$CurveTitle}}(u *{{$CoordType}}) {{$AffineType}} {
 
 // MapTo{{$CurveTitle}} invokes the SSWU map, and guarantees that the result is in {{$CurveName}}
 func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
-    res := sswuMap{{$CurveTitle}}(&u)
+    res := mapToCurve{{$CurveIndex}}(&u)
     {{- if $isogenyNeeded }}
     //this is in an isogenous curve
         {{$CurveName}}Isogeny(&res)
@@ -413,9 +415,9 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	}
 
     {{if eq $TowerDegree 1}}
-    res = sswuMap{{$CurveTitle}}(&u[0])
+    res = mapToCurve{{$CurveIndex}}(&u[0])
     {{else}}
-    res = sswuMap{{$CurveTitle}}( &{{$CoordType}} {
+    res = mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
         {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
     {{end}} })
     {{end}}
@@ -441,13 +443,13 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	}
 
 	{{if eq $TowerDegree 1}}
-	Q0 := sswuMap{{$CurveTitle}}(&u[0])
-	Q1 := sswuMap{{$CurveTitle}}(&u[1])
+	Q0 := mapToCurve{{$CurveIndex}}(&u[0])
+	Q1 := mapToCurve{{$CurveIndex}}(&u[1])
 	{{else}}
-	Q0 := sswuMap{{$CurveTitle}}( &{{$CoordType}} {
+	Q0 := mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
 		{{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
 		{{end}} })
-	Q1 := sswuMap{{$CurveTitle}}( &{{$CoordType}} {
+	Q1 := mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
         {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$TowerDegree}} + {{$i}}],
         {{end}} })
 	{{end}}
