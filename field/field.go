@@ -240,7 +240,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 			F.SqrtG = toUint64Slice(&g, F.NbWords)
 
 			// store non residue in montgomery form
-			F.ToMont(&F.NonResidue, &nonResidue)
+			F.NonResidue = F.ToMont(&nonResidue)
 
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
@@ -320,15 +320,16 @@ func (f *Field) StringToMont(str string) big.Int {
 
 	var i big.Int
 	i.SetString(str, base)
-	f.ToMont(&i, &i)
+	i = f.ToMont(&i)
 
 	return i
 }
 
-func (f *Field) ToMont(mont *big.Int, nonMont *big.Int) *Field {
+func (f *Field) ToMont(nonMont *big.Int) big.Int {
+	var mont big.Int
 	mont.Lsh(nonMont, uint(f.NbWords)*64)
-	mont.Mod(mont, f.ModulusBig)
-	return f
+	mont.Mod(&mont, f.ModulusBig)
+	return mont
 }
 
 func (f *Field) FromMont(nonMont *big.Int, mont *big.Int) *Field {

@@ -50,7 +50,6 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 
 		c[1] = f.Neg(Z)
 		c[1] = f.Sqrt(c[1])
-		c[1] = f.ToMont(c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
 		c = make([][]big.Int, 3)
@@ -64,9 +63,6 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		c[2] = f.Inverse(c[1])
 		c[2] = f.Mul(Z, c[2])
 		c[2] = f.Sqrt(c[2])
-
-		c[1] = f.ToMont(c[1])
-		c[2] = f.ToMont(c[2])
 
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
@@ -93,25 +89,21 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		c7Pow.Rsh(&c7Pow, 1)
 		c[2] = f.Exp(Z, &c7Pow)
 
-		c[1] = f.ToMont(c[1])
-		c[2] = f.ToMont(c[2])
-
 	} else {
 		panic("this is logically impossible")
 	}
 
 	return HashSuiteInfo{
-		A:                f.StringSliceToMont(suite.A),
-		B:                f.StringSliceToMont(suite.B),
-		Z:                suite.Z,
+		A:                field.NewElement(suite.A),
+		B:                field.NewElement(suite.B),
+		Z:                Z,
 		Point:            g,
 		CofactorCleaning: g.CofactorCleaning,
 		Name:             name,
-		Isogeny:          newIsogenousCurveInfoOptional(&f, suite.Isogeny),
+		Isogeny:          newIsogenousCurveInfoOptional(suite.Isogeny),
 		FieldSizeMod256:  fieldSizeMod256,
 		SqrtRatioParams:  c,
 		Field:            &f,
-		ZMont:            f.ToMont(Z),
 		FieldCoordName:   coordNameForExtensionDegree(g.CoordExtDegree),
 	}
 }
@@ -130,18 +122,26 @@ func coordNameForExtensionDegree(degree uint8) string {
 	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
-func newIsogenousCurveInfoOptional(f *field.Extension, isogenousCurve *Isogeny) *IsogenyInfo {
+func stringMatrixToIntMatrix(s [][]string) [][]big.Int {
+	res := make([][]big.Int, len(s))
+	for i, S := range s {
+		res[i] = field.NewElement(S)
+	}
+	return res
+}
+
+func newIsogenousCurveInfoOptional(isogenousCurve *Isogeny) *IsogenyInfo {
 	if isogenousCurve == nil {
 		return nil
 	}
 	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
-			f.StringToIntSliceSlice(isogenousCurve.XMap.Num),
-			f.StringToIntSliceSlice(isogenousCurve.XMap.Den),
+			stringMatrixToIntMatrix(isogenousCurve.XMap.Num),
+			stringMatrixToIntMatrix(isogenousCurve.XMap.Den),
 		},
 		YMap: RationalPolynomialInfo{
-			f.StringToIntSliceSlice(isogenousCurve.YMap.Num),
-			f.StringToIntSliceSlice(isogenousCurve.YMap.Den),
+			stringMatrixToIntMatrix(isogenousCurve.YMap.Num),
+			stringMatrixToIntMatrix(isogenousCurve.YMap.Den),
 		},
 	}
 }
@@ -170,7 +170,6 @@ type HashSuiteInfo struct {
 	FieldSizeMod256 uint8
 	SqrtRatioParams [][]big.Int // SqrtRatioParams[0][n] correspond to integer cₙ₋₁ in std doc
 	// SqrtRatioParams[n≥1] correspond to field element c_( len(SqrtRatioParams[0]) + n - 1 ) in std doc
-	Z                []int     // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-	ZMont            []big.Int // z, in montgomery form
+	Z                []big.Int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 	CofactorCleaning bool
 }

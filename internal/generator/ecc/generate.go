@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
@@ -36,7 +37,11 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 		hashConf := config.NewHashSuiteInfo(conf.Fp, point, conf.Name, suite)
 
-		return bgen.Generate(hashConf, packageName, "./ecc/template", entries...)
+		funcs := make(template.FuncMap)
+		funcs["mont"] = hashConf.Field.ToMont
+		bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
+
+		return bgen.GenerateWithOptions(hashConf, packageName, "./ecc/template", bavardOpts, entries...)
 	}
 
 	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {

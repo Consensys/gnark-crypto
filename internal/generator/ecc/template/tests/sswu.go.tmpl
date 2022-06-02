@@ -79,11 +79,8 @@ func isOnEPrime{{$CurveTitle}}(p {{$CurveTitle}}Affine) bool {
 
 	var A, B {{$CoordType}}
 
-	// TODO: Value already in Mont form, set string without mont conversion
 	{{setString "A" .A}}
 	{{setString "B" .B}}
-	A.FromMont()
-	B.FromMont()
 
 	var LHS {{$CoordType}}
 	LHS.
