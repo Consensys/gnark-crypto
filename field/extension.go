@@ -138,7 +138,7 @@ func (f *Extension) Sqrt(x []big.Int) []big.Int {
 func (f *Extension) ToMont(x []big.Int) []big.Int {
 	z := make([]big.Int, len(x))
 	for i := 0; i < len(x); i++ {
-		f.Base.ToMont(&z[i], &x[i])
+		z[i] = f.Base.ToMont(&x[i])
 	}
 	return z
 }
@@ -206,7 +206,15 @@ func (f *Extension) Exp(x []big.Int, exp *big.Int) []big.Int {
 	return z
 }
 
-func (f *Extension) StringSliceToMont(hex []string) []big.Int {
+func NewElement(s []string) []big.Int {
+	res := make([]big.Int, len(s))
+	for i, S := range s {
+		res[i].SetString(S, 0)
+	}
+	return res
+}
+
+/*func (f *Extension) StringSliceToMont(hex []string) []big.Int {
 	if len(hex) > int(f.Degree) {
 		panic("too many monomials")
 	}
@@ -230,3 +238,4 @@ func (f *Extension) StringToIntSliceSlice(hex [][]string) [][]big.Int {
 
 	return res
 }
+*/

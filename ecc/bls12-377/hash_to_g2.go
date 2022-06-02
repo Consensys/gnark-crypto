@@ -610,7 +610,7 @@ func g2NotOne(x *fptower.E2) uint64 {
 }
 
 /*
-// g2SetZ sets z to [12 1].
+// g2SetZ sets z to [12, 1].
 func g2SetZ(z *fptower.E2) {
     z.Set( &fptower.E2  {
     A0: fp.Element{ 10560307807486212317, 9936456306313395274, 2092561269709285211, 8738829082964617622, 5243865315912343348, 114311569748804731 },
@@ -618,7 +618,7 @@ func g2SetZ(z *fptower.E2) {
 } )
 }*/
 
-// g2MulByZ multiplies x by [12 1] and stores the result in z
+// g2MulByZ multiplies x by [12, 1] and stores the result in z
 func g2MulByZ(z *fptower.E2, x *fptower.E2) {
 
 	z.Mul(x, &fptower.E2{

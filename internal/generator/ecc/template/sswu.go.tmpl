@@ -24,8 +24,8 @@ import (
 	{{- end}}
 )
 
-{{ define "asElement" }} {{ if eq $.TowerDegree 1}}{ {{ words64 (index $.c 0) }} }{{ else }}{ {{ range $i := (interval 0 (len $.c))}}
-    {{if eq $.TowerDegree 2}}A{{end}}{{$i}}: fp.Element{ {{ words64 (index $.c $i) }} },{{ end }}
+{{ define "asElement" }} {{ if eq $.TowerDegree 1}}{ {{ words64 (index (mont $.c) 0) }} }{{ else }}{{$cMont := mont $.c}}{ {{ range $i := (interval 0 (len $.c))}}
+    {{if eq $.TowerDegree 2}}A{{end}}{{$i}}: fp.Element{ {{ words64 (index $cMont $i) }} },{{ end }}
 }{{ end }}{{- end }}
 
 {{ if $isogenyNeeded }}
@@ -172,7 +172,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
     var tv3 {{$CoordType}}
     //Line 20
-    // Z = {{.Z}}
+    // Z = [{{printList .Z}}]
     {{$CurveName}}MulByZ(&tv3, u)
 
 	y2.Select(int(tv2.NotEqual(&tv3)), &tv1, &y2)
@@ -270,12 +270,12 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
 {{ end }}
 
 /*
-// {{$CurveName}}SetZ sets z to {{.Z}}.
+// {{$CurveName}}SetZ sets z to [{{printList .Z}}].
 func {{$CurveName}}SetZ(z *{{$CoordType}}) {
-    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}} )
+    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}} )
 }*/
 
-// {{$CurveName}}MulByZ multiplies x by {{.Z}} and stores the result in z
+// {{$CurveName}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z
 func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ if eq $TowerDegree 1 }}
@@ -310,7 +310,7 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 	{{end}}
 
     *z = res {{ else }}
-    z.Mul(x, &{{$CoordType}} {{template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}})
+    z.Mul(x, &{{$CoordType}} {{template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}})
 
 {{ end }}}
 
@@ -339,7 +339,7 @@ func sswuMap{{$CurveTitle}}(u *{{$CoordType}}) {{$AffineType}} {
     tv2NZero := {{$CurveName}}NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .ZMont "TowerDegree" $TowerDegree}}
+	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}}
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)
