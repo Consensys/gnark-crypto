@@ -30,7 +30,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
@@ -62,15 +61,15 @@ func (id ID) String() string {
 }
 
 // ScalarField returns the scalar field of the curve
-func (id ID) ScalarField() field.Field {
+func (id ID) ScalarField() *big.Int {
 	cfg := id.config()
-	return newField(cfg, true)
+	return modulus(cfg, true)
 }
 
 // BaseField returns the base field of the curve
-func (id ID) BaseField() field.Field {
+func (id ID) BaseField() *big.Int {
 	cfg := id.config()
-	return newField(cfg, false)
+	return modulus(cfg, false)
 }
 
 func (id ID) config() *config.Curve {
@@ -100,27 +99,12 @@ func (id ID) config() *config.Curve {
 	}
 }
 
-func newField(c *config.Curve, scalarField bool) fieldInfo {
+func modulus(c *config.Curve, scalarField bool) *big.Int {
 	if scalarField {
-		return fieldInfo{
-			modulus: new(big.Int).Set(c.FrInfo.Modulus()),
-		}
+		return new(big.Int).Set(c.FrInfo.Modulus())
 	}
 
-	// return the base field
-	return fieldInfo{
-		modulus: new(big.Int).Set(c.FpInfo.Modulus()),
-	}
-
-}
-
-// fieldInfo contains constants related to a curve
-type fieldInfo struct {
-	modulus *big.Int
-}
-
-func (i fieldInfo) Modulus() *big.Int {
-	return new(big.Int).Set(i.modulus)
+	return new(big.Int).Set(c.FpInfo.Modulus())
 }
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp

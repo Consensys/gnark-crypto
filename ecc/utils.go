@@ -170,6 +170,13 @@ func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
 	return res
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // ExpandMsgXmd expands msg to a slice of lenInBytes bytes.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5
 // https://tools.ietf.org/html/rfc8017#section-4.1 (I2OSP/O2ISP)
@@ -187,8 +194,8 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 
 	// Z_pad = I2OSP(0, r_in_bytes)
 	// l_i_b_str = I2OSP(len_in_bytes, 2)
-	// DST_prime = I2OSP(len(DST), 1) || DST
-	// b_0 = H(Z_pad || msg || l_i_b_str || I2OSP(0, 1) || DST_prime)
+	// DST_prime = I2OSP(len(DST), 1) ∥ DST
+	// b₀ = H(Z_pad ∥ msg ∥ l_i_b_str ∥ I2OSP(0, 1) ∥ DST_prime)
 	h.Reset()
 	if _, err := h.Write(make([]byte, h.BlockSize())); err != nil {
 		return nil, err
@@ -207,7 +214,7 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	}
 	b0 := h.Sum(nil)
 
-	// b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
+	// b₁ = H(b₀ ∥ I2OSP(1, 1) ∥ DST_prime)
 	h.Reset()
 	if _, err := h.Write(b0); err != nil {
 		return nil, err
@@ -227,7 +234,7 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	copy(res[:h.Size()], b1)
 
 	for i := 2; i <= ell; i++ {
-		// b_i = H(strxor(b_0, b_(i - 1)) || I2OSP(i, 1) || DST_prime)
+		// b_i = H(strxor(b₀, b_(i - 1)) ∥ I2OSP(i, 1) ∥ DST_prime)
 		h.Reset()
 		strxor := make([]byte, h.Size())
 		for j := 0; j < h.Size(); j++ {
@@ -246,7 +253,7 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 			return nil, err
 		}
 		b1 = h.Sum(nil)
-		copy(res[h.Size()*(i-1):h.Size()*i], b1)
+		copy(res[h.Size()*(i-1):min(h.Size()*i, len(res))], b1)
 	}
 	return res, nil
 }
