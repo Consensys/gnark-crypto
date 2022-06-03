@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/field"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/internal/field"
 )
 
 type Isogeny struct {
@@ -35,7 +36,7 @@ func toBigIntSlice(z []int) []big.Int {
 	return res
 }
 
-func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])
