@@ -26,6 +26,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	}
 
 	// hash To curve
+
 	genHashToCurve := func(point *config.Point, suite *config.HashSuite) error {
 		if suite == nil { //Nothing to generate. Bypass
 			return nil
@@ -35,7 +36,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl", "hash_to_curve_utils.go.tmpl"}},
 			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
 
-		hashConf := config.NewHashSuiteInfo(conf.Fp, point, conf.Name, suite)
+		hashConf := config.NewHashSuiteInfoSSWU(conf.Fp, point, conf.Name, suite)
 
 		funcs := make(template.FuncMap)
 		funcs["mont"] = hashConf.Field.ToMont

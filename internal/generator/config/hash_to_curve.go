@@ -2,8 +2,16 @@ package config
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/field"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/field"
+)
+
+type FieldElementToCurvePoint string
+
+const (
+	SSWU FieldElementToCurvePoint = "SSWU"
+	//SVDW FieldElementToCurvePoint = "SVDW"
 )
 
 type Isogeny struct {
@@ -19,12 +27,17 @@ type RationalPolynomial struct {
 }
 
 type HashSuite struct {
-	A []string // A is the hex-encoded Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
-	B []string // B is the hex-encoded Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
+	A []string // A is the Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
+	B []string // B is the Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
 
 	Z []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 
 	Isogeny *Isogeny
+}
+
+type WeierstrassCoefficients struct {
+	A field.Element
+	B field.Element
 }
 
 func toBigIntSlice(z []int) []big.Int {
@@ -35,7 +48,30 @@ func toBigIntSlice(z []int) []big.Int {
 	return res
 }
 
-func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+/*
+func findSvdwZ(f *field.Extension, curve WeierstrassCoefficients) {
+
+	/*g := func(x field.Element) field.Element {
+		gx := f.Mul(x, x)
+		gx = f.Add(gx, curve.A)
+		gx = f.Mul(gx, x)
+		gx = f.Add(gx, curve.B)
+		return gx
+	}
+
+	checkCandidate := func(u field.Element) {
+
+	}
+}
+
+func NewHashSuiteInfoSvdW(baseField *field.Field, g *Point, curve *Curve, name string) HashSuiteInfo {
+	/*f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
+	c := make([]big.Int, 4)
+
+}*/
+
+//TODO: Find Z automatically
+func NewHashSuiteInfoSSWU(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])
@@ -94,17 +130,17 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 	}
 
 	return HashSuiteInfo{
-		A:                field.NewElement(suite.A),
-		B:                field.NewElement(suite.B),
-		Z:                Z,
-		Point:            g,
-		CofactorCleaning: g.CofactorCleaning,
-		Name:             name,
-		Isogeny:          newIsogenousCurveInfoOptional(suite.Isogeny),
-		FieldSizeMod256:  fieldSizeMod256,
-		SqrtRatioParams:  c,
-		Field:            &f,
-		FieldCoordName:   coordNameForExtensionDegree(g.CoordExtDegree),
+		A:                 field.NewElement(suite.A),
+		B:                 field.NewElement(suite.B),
+		Z:                 Z,
+		Point:             g,
+		CofactorClearing:  g.CofactorCleaning,
+		Name:              name,
+		Isogeny:           newIsogenousCurveInfoOptional(suite.Isogeny),
+		FieldSizeMod256:   fieldSizeMod256,
+		PrecomputedParams: c,
+		Field:             &f,
+		FieldCoordName:    coordNameForExtensionDegree(g.CoordExtDegree),
 	}
 }
 
@@ -122,8 +158,8 @@ func coordNameForExtensionDegree(degree uint8) string {
 	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
-func stringMatrixToIntMatrix(s [][]string) [][]big.Int {
-	res := make([][]big.Int, len(s))
+func stringMatrixToIntMatrix(s [][]string) []field.Element {
+	res := make([]field.Element, len(s))
 	for i, S := range s {
 		res[i] = field.NewElement(S)
 	}
@@ -152,8 +188,8 @@ type IsogenyInfo struct {
 }
 
 type RationalPolynomialInfo struct {
-	Num [][]big.Int
-	Den [][]big.Int //Denominator is monic. The leading coefficient (1) is omitted.
+	Num []field.Element
+	Den []field.Element //Denominator is monic. The leading coefficient (1) is omitted.
 }
 
 type HashSuiteInfo struct {
@@ -163,13 +199,13 @@ type HashSuiteInfo struct {
 	A []big.Int
 	B []big.Int
 
-	Point           *Point
-	Field           *field.Extension
-	FieldCoordName  string
-	Name            string
-	FieldSizeMod256 uint8
-	SqrtRatioParams [][]big.Int // SqrtRatioParams[0][n] correspond to integer cₙ₋₁ in std doc
-	// SqrtRatioParams[n≥1] correspond to field element c_( len(SqrtRatioParams[0]) + n - 1 ) in std doc
+	Point             *Point
+	Field             *field.Extension
+	FieldCoordName    string
+	Name              string
+	FieldSizeMod256   uint8
+	PrecomputedParams [][]big.Int // PrecomputedParams[0][n] correspond to integer cₙ₋₁ in std doc
+	// PrecomputedParams[n≥1] correspond to field element c_( len(PrecomputedParams[0]) + n - 1 ) in std doc
 	Z                []big.Int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-	CofactorCleaning bool
+	CofactorClearing bool
 }

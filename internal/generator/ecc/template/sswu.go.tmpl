@@ -97,7 +97,7 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 
 {{ end }}
 
-{{ $cInts := index .SqrtRatioParams 0 }}
+{{ $cInts := index .PrecomputedParams 0 }}
 
 {{ $c1Int := index $cInts 0}}
 {{ $c1IntBytes := printList (bytes $c1Int ) }}
@@ -124,7 +124,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	y1.Mul(&y1, &tv2)
 
 	var y2 {{$CoordType}}
-	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .SqrtRatioParams 1)  "TowerDegree" $TowerDegree}})
+	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .PrecomputedParams 1)  "TowerDegree" $TowerDegree}})
 
 	var tv3 {{$CoordType}}
 	tv3.Square(&y1)
@@ -153,7 +153,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree}} )
+    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree}} )
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -167,8 +167,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     //Line 15
     isQNr := tv2.NotEqual(u)
     var y2 {{$CoordType}}
-    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "TowerDegree" $TowerDegree}} )
-    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree}})
+    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 2) "TowerDegree" $TowerDegree}} )
+    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree}})
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
@@ -199,7 +199,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ $c5Int := index $cInts 4}}
 {{ $c5IntBytes := printList (bytes $c5Int ) }}
 
-   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 1) "TowerDegree" $TowerDegree }}    //tv1 = c6
+   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree }}    //tv1 = c6
 
     var tv2, tv3, tv4, tv5 {{$CoordType}}
    var exp big.Int
@@ -230,7 +230,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
    isQNr := {{$CurveName}}NotOne(&tv5)
 
-   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .SqrtRatioParams 2) "TowerDegree" $TowerDegree}} )
+   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 2) "TowerDegree" $TowerDegree}} )
    tv5.Mul(&tv4, &tv1)
 
    // line 15

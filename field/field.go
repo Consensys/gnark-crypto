@@ -311,15 +311,8 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 //Useful for hard-coding in implementation field elements from standards documents
 func (f *Field) StringToMont(str string) big.Int {
 
-	base := 10
-
-	if len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X') {
-		base = 16
-		str = str[2:]
-	}
-
 	var i big.Int
-	i.SetString(str, base)
+	i.SetString(str, 0)
 	i = f.ToMont(&i)
 
 	return i
@@ -410,4 +403,12 @@ func (f *Field) Mul(z *big.Int, x *big.Int, y *big.Int) *Field {
 func (f *Field) Add(z *big.Int, x *big.Int, y *big.Int) *Field {
 	z.Add(x, y).Mod(z, f.ModulusBig)
 	return f
+}
+
+func (f *Field) ToMontSlice(x []big.Int) []big.Int {
+	z := make(Element, len(x))
+	for i := 0; i < len(x); i++ {
+		z[i] = f.ToMont(&x[i])
+	}
+	return z
 }

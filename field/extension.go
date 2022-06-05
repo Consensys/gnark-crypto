@@ -2,6 +2,8 @@ package field
 
 import "math/big"
 
+type Element []big.Int
+
 //Extension is a simple radical extension, obtained by adjoining ⁿ√α to Fp
 type Extension struct {
 	Base   *Field  //Fp
@@ -20,16 +22,16 @@ func NewTower(base *Field, degree uint8, rootOf int64) Extension {
 	return ret
 }
 
-func (f *Extension) FromInt64(i []int64) []big.Int {
-	z := make([]big.Int, f.Degree)
+func (f *Extension) FromInt64(i []int64) Element {
+	z := make(Element, f.Degree)
 	for n := 0; n < len(i) && n < int(f.Degree); n++ {
 		z[n].SetInt64(i[n])
 	}
 	return z
 }
 
-func (f *Extension) Neg(x []big.Int) []big.Int {
-	z := make([]big.Int, len(x))
+func (f *Extension) Neg(x Element) Element {
+	z := make(Element, len(x))
 	for n := 0; n < len(x); n++ {
 		z[n].Neg(&x[n])
 	}
@@ -43,8 +45,19 @@ func max(x int, y int) int {
 	return y
 }
 
-func (f *Extension) Mul(x []big.Int, y []big.Int) []big.Int {
-	z := make([]big.Int, f.Degree)
+func (f *Extension) Add(x Element, y Element) Element {
+	z := make(Element, f.Degree)
+
+	for i := 0; i < f.Degree; i++ {
+		z[i].
+			Add(&x[i], &y[i]).
+			Mod(&z[i], f.Base.ModulusBig)
+	}
+	return z
+}
+
+func (f *Extension) Mul(x Element, y Element) Element {
+	z := make(Element, f.Degree)
 	maxP := len(x) + len(y) - 2
 	alpha := big.NewInt(f.RootOf)
 
@@ -71,15 +84,15 @@ func (f *Extension) Mul(x []big.Int, y []big.Int) []big.Int {
 	return z
 }
 
-func (f *Extension) MulScalar(c *big.Int, x []big.Int) []big.Int {
-	z := make([]big.Int, len(x))
+func (f *Extension) MulScalar(c *big.Int, x Element) Element {
+	z := make(Element, len(x))
 	for i := 0; i < len(x); i++ {
 		f.Base.Mul(&z[i], c, &x[i])
 	}
 	return z
 }
 
-func (f *Extension) Halve(z []big.Int) {
+func (f *Extension) Halve(z Element) {
 	for i := 0; i < len(z); i++ {
 		if z[i].Bit(0) != 0 {
 			z[i].Add(&z[i], f.Base.ModulusBig)
@@ -88,16 +101,16 @@ func (f *Extension) Halve(z []big.Int) {
 	}
 }
 
-func (f *Extension) reduce(z []big.Int) {
+func (f *Extension) reduce(z Element) {
 	for i := 0; i < len(z); i++ {
 		z[i].Mod(&z[i], f.Base.ModulusBig)
 	}
 }
 
 // Sqrt returning √ x, or nil if x is not qr.
-func (f *Extension) Sqrt(x []big.Int) []big.Int {
+func (f *Extension) Sqrt(x Element) Element {
 
-	z := make([]big.Int, f.Degree)
+	z := make(Element, f.Degree)
 	switch f.Degree {
 	case 1:
 		if z[0].ModSqrt(&x[0], f.Base.ModulusBig) == nil {
@@ -135,7 +148,7 @@ func (f *Extension) Sqrt(x []big.Int) []big.Int {
 	return z
 }
 
-func (f *Extension) ToMont(x []big.Int) []big.Int {
+func (f *Extension) ToMont(x Element) Element {
 	z := make([]big.Int, len(x))
 	for i := 0; i < len(x); i++ {
 		z[i] = f.Base.ToMont(&x[i])
@@ -143,7 +156,7 @@ func (f *Extension) ToMont(x []big.Int) []big.Int {
 	return z
 }
 
-func (f *Extension) Equal(x []big.Int, y []big.Int) bool {
+func (f *Extension) Equal(x Element, y Element) bool {
 	if len(x) != len(y) {
 		return false
 	}
@@ -156,7 +169,7 @@ func (f *Extension) Equal(x []big.Int, y []big.Int) bool {
 	return true
 }
 
-func (f *Extension) norm(z *big.Int, x []big.Int) *Extension {
+func (f *Extension) norm(z *big.Int, x Element) *Extension {
 	if f.Degree != 2 {
 		panic("only degree 2 supported")
 	}
@@ -172,8 +185,8 @@ func (f *Extension) norm(z *big.Int, x []big.Int) *Extension {
 	return f
 }
 
-func (f *Extension) Inverse(x []big.Int) []big.Int {
-	z := make([]big.Int, f.Degree)
+func (f *Extension) Inverse(x Element) Element {
+	z := make(Element, f.Degree)
 	switch f.Degree {
 	case 1:
 		z[0].ModInverse(&x[0], f.Base.ModulusBig)
@@ -188,7 +201,7 @@ func (f *Extension) Inverse(x []big.Int) []big.Int {
 	return z
 }
 
-func (f *Extension) Exp(x []big.Int, exp *big.Int) []big.Int {
+func (f *Extension) Exp(x Element, exp *big.Int) Element {
 
 	if exp.BitLen() == 0 {
 		return f.FromInt64([]int64{1})
@@ -213,29 +226,3 @@ func NewElement(s []string) []big.Int {
 	}
 	return res
 }
-
-/*func (f *Extension) StringSliceToMont(hex []string) []big.Int {
-	if len(hex) > int(f.Degree) {
-		panic("too many monomials")
-	}
-
-	res := make([]big.Int, f.Degree)
-
-	for i := 0; i < len(res); i++ {
-		res[i] = f.Base.StringToMont(hex[i])
-	}
-
-	return res
-}
-
-func (f *Extension) StringToIntSliceSlice(hex [][]string) [][]big.Int {
-
-	res := make([][]big.Int, len(hex))
-
-	for i, hex := range hex {
-		res[i] = f.StringSliceToMont(hex)
-	}
-
-	return res
-}
-*/
