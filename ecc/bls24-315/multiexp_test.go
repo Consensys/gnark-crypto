@@ -161,22 +161,19 @@ func TestMultiExpG1(t *testing.T) {
 }
 
 func BenchmarkMultiExpG1(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
-	const nbSamples = 1 << pow
+	const (
+		pow       = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+		nbSamples = 1 << pow
+	)
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g1GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
@@ -193,21 +190,15 @@ func BenchmarkMultiExpG1(b *testing.B) {
 }
 
 func BenchmarkMultiExpG1Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g1GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
@@ -218,21 +209,15 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 }
 
 func BenchmarkManyMultiExpG1Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g1GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG1(samplePoints[:])
 
 	var t1, t2, t3 G1Affine
 	b.ResetTimer()
@@ -252,6 +237,26 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 			wg.Done()
 		}()
 		wg.Wait()
+	}
+}
+
+// WARNING: this return points that are NOT on the curve and is meant to be use for benchmarking
+// purposes only. We don't check that the result is valid but just measure "computational complexity".
+//
+// Rationale for generating points that are not on the curve is that for large benchmarks, generating
+// a vector of different points can take minutes. Using the same point or subset will bias the benchmark result
+// since bucket additions in extended jacobian coordinates will hit doubling algorithm instead of add.
+func fillBenchBasesG1(samplePoints []G1Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
 	}
 }
 
@@ -386,22 +391,19 @@ func TestMultiExpG2(t *testing.T) {
 }
 
 func BenchmarkMultiExpG2(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
-	const nbSamples = 1 << pow
+	const (
+		pow       = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+		nbSamples = 1 << pow
+	)
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g2GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
@@ -418,21 +420,15 @@ func BenchmarkMultiExpG2(b *testing.B) {
 }
 
 func BenchmarkMultiExpG2Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g2GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
@@ -443,21 +439,15 @@ func BenchmarkMultiExpG2Reference(b *testing.B) {
 }
 
 func BenchmarkManyMultiExpG2Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		samplePoints[i-1] = g2GenAff
-	}
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG2(samplePoints[:])
 
 	var t1, t2, t3 G2Affine
 	b.ResetTimer()
@@ -477,5 +467,36 @@ func BenchmarkManyMultiExpG2Reference(b *testing.B) {
 			wg.Done()
 		}()
 		wg.Wait()
+	}
+}
+
+// WARNING: this return points that are NOT on the curve and is meant to be use for benchmarking
+// purposes only. We don't check that the result is valid but just measure "computational complexity".
+//
+// Rationale for generating points that are not on the curve is that for large benchmarks, generating
+// a vector of different points can take minutes. Using the same point or subset will bias the benchmark result
+// since bucket additions in extended jacobian coordinates will hit doubling algorithm instead of add.
+func fillBenchBasesG2(samplePoints []G2Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
+	}
+}
+
+func fillBenchScalars(sampleScalars []fr.Element) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+	for i := 1; i <= len(sampleScalars); i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
 	}
 }
