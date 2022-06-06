@@ -165,17 +165,24 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+	const pow = (bits.UintSize / 2) - (bits.UintSize / 5)
 	const nbSamples = 1 << pow
 
 	var samplePoints [nbSamples]G1Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g1GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
 	}
 
 	var testPoint G1Affine
@@ -202,11 +209,18 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 	var samplePoints [nbSamples]G1Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g1GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
 	}
 
 	var testPoint G1Affine
@@ -227,11 +241,18 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 	var samplePoints [nbSamples]G1Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g1GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
 	}
 
 	var t1, t2, t3 G1Affine
@@ -390,17 +411,24 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+	const pow = (bits.UintSize / 2) - (bits.UintSize / 5)
 	const nbSamples = 1 << pow
 
 	var samplePoints [nbSamples]G2Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g2GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
 	}
 
 	var testPoint G2Affine
@@ -427,11 +455,18 @@ func BenchmarkMultiExpG2Reference(b *testing.B) {
 	var samplePoints [nbSamples]G2Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g2GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
 	}
 
 	var testPoint G2Affine
@@ -452,11 +487,18 @@ func BenchmarkManyMultiExpG2Reference(b *testing.B) {
 	var samplePoints [nbSamples]G2Affine
 	var sampleScalars [nbSamples]fr.Element
 
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
 			Mul(&sampleScalars[i-1], &mixer).
 			FromMont()
-		samplePoints[i-1] = g2GenAff
+		if i == nbSamples {
+			continue
+		}
+		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
 	}
 
 	var t1, t2, t3 G2Affine
