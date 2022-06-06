@@ -61,7 +61,7 @@ func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 }
 
 // Add adds two point in affine coordinates.
-// This should rarely be used as it is very inneficient compared to Jacobian
+// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	var p1, p2 G2Jac
 	p1.FromAffine(a)
@@ -72,7 +72,7 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 }
 
 // Sub subs two point in affine coordinates.
-// This should rarely be used as it is very inneficient compared to Jacobian
+// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
 	var p1, p2 G2Jac
 	p1.FromAffine(a)

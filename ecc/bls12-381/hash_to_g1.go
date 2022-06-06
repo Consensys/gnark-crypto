@@ -183,9 +183,9 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 }
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
-// sswuMapG1 implements the SSWU map
-// No cofactor clearing
-func sswuMapG1(u *fp.Element) G1Affine {
+// mapToCurve1 implements the SSWU map
+// No cofactor clearing or isogeny
+func mapToCurve1(u *fp.Element) G1Affine {
 
 	var tv1 fp.Element
 	tv1.Square(u)
@@ -257,7 +257,7 @@ func sswuMapG1(u *fp.Element) G1Affine {
 
 // MapToG1 invokes the SSWU map, and guarantees that the result is in g1
 func MapToG1(u fp.Element) G1Affine {
-	res := sswuMapG1(&u)
+	res := mapToCurve1(&u)
 	//this is in an isogenous curve
 	g1Isogeny(&res)
 	res.ClearCofactor(&res)
@@ -276,7 +276,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 		return res, err
 	}
 
-	res = sswuMapG1(&u[0])
+	res = mapToCurve1(&u[0])
 
 	//this is in an isogenous curve
 	g1Isogeny(&res)
@@ -294,8 +294,8 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 		return G1Affine{}, err
 	}
 
-	Q0 := sswuMapG1(&u[0])
-	Q1 := sswuMapG1(&u[1])
+	Q0 := mapToCurve1(&u[0])
+	Q1 := mapToCurve1(&u[1])
 
 	//TODO: Add in E' first, then apply isogeny
 	g1Isogeny(&Q0)

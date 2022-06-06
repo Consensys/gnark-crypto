@@ -107,7 +107,7 @@ func TestG2SSWU(t *testing.T) {
 	properties.Property("[G2] hash outputs must be in appropriate groups", prop.ForAll(
 		func(a fp.Element) bool {
 
-			g := sswuMapG2(&a)
+			g := mapToCurve2(&a)
 
 			if !isOnEPrimeG2(g) {
 				t.Log("SSWU output not on E' curve")
