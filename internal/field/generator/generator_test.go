@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/internal/field"
 )
 
 // integration test will create modulus for various field sizes and run tests
@@ -74,10 +74,10 @@ func TestIntegration(t *testing.T) {
 	moduli["e_nocarry_edge_1279"] = "10407932194664399081925240327364085538615262247266704805319112350403608059673360298012239441732324184842421613954281007791383566248323464908139906605677320762924129509389220345773183349661583550472959420547689811211693677147548478866962501384438260291732348885311160828538416585028255604666224831890918801847068222203140521026698435488732958028878050869736186900714720710555703168729087"
 
 	for elementName, modulus := range moduli {
-		var fIntegration *field.Field
+		var fIntegration *field.FieldConfig
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
-		fIntegration, err = field.NewField("integration", elementName, modulus, false)
+		fIntegration, err = field.NewFieldConfig("integration", elementName, modulus, false)
 		if err != nil {
 			t.Fatal(elementName, err)
 		}

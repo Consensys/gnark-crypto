@@ -3,7 +3,7 @@ package config
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/internal/field"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -15,8 +15,8 @@ type Curve struct {
 	FpModulus    string
 	FrModulus    string
 
-	Fp           *field.Field
-	Fr           *field.Field
+	Fp           *field.FieldConfig
+	Fr           *field.FieldConfig
 	FpUnusedBits int
 
 	FpInfo, FrInfo Field

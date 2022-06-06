@@ -22,15 +22,15 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/field/internal/addchain"
+	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 )
 
 var (
 	errParseModulus = errors.New("can't parse modulus")
 )
 
-// Field precomputed values used in template for code generation of field element APIs
-type Field struct {
+// FieldConfig precomputed values used in template for code generation of field element APIs
+type FieldConfig struct {
 	PackageName               string
 	ElementName               string
 	ModulusBig                *big.Int
@@ -71,10 +71,10 @@ type Field struct {
 	UseAddChain               bool
 }
 
-// NewField returns a data structure with needed information to generate apis for field element
+// NewFieldConfig returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
-func NewField(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
+func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) (*FieldConfig, error) {
 	// parse modulus
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 0); !ok {
@@ -82,7 +82,7 @@ func NewField(packageName, elementName, modulus string, useAddChain bool) (*Fiel
 	}
 
 	// field info
-	F := &Field{
+	F := &FieldConfig{
 		PackageName: packageName,
 		ElementName: elementName,
 		Modulus:     bModulus.Text(10),
@@ -309,7 +309,7 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 
 //StringToMont takes an element written in string form, and returns it in Montgomery form
 //Useful for hard-coding in implementation field elements from standards documents
-func (f *Field) StringToMont(str string) big.Int {
+func (f *FieldConfig) StringToMont(str string) big.Int {
 
 	var i big.Int
 	i.SetString(str, 0)
@@ -318,14 +318,13 @@ func (f *Field) StringToMont(str string) big.Int {
 	return i
 }
 
-func (f *Field) ToMont(nonMont *big.Int) big.Int {
-	var mont big.Int
+func (f *FieldConfig) ToMont(mont *big.Int, nonMont *big.Int) *FieldConfig {
 	mont.Lsh(nonMont, uint(f.NbWords)*64)
 	mont.Mod(&mont, f.ModulusBig)
 	return mont
 }
 
-func (f *Field) FromMont(nonMont *big.Int, mont *big.Int) *Field {
+func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
 
 	if f.NbWords == 0 {
 		nonMont.SetInt64(0)
@@ -339,7 +338,7 @@ func (f *Field) FromMont(nonMont *big.Int, mont *big.Int) *Field {
 	return f
 }
 
-func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
+func (f *FieldConfig) Exp(res *big.Int, x *big.Int, pow *big.Int) *FieldConfig {
 	res.SetInt64(1)
 
 	for i := pow.BitLen() - 1; ; {
@@ -360,7 +359,7 @@ func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
 	return f
 }
 
-func (f *Field) halve(res *big.Int, x *big.Int) {
+func (f *FieldConfig) halve(res *big.Int, x *big.Int) {
 	var z big.Int
 	if x.Bit(0) == 0 {
 		z.Set(x)
@@ -395,12 +394,12 @@ func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 	return nil
 }
 
-func (f *Field) Mul(z *big.Int, x *big.Int, y *big.Int) *Field {
+func (f *FieldConfig) Mul(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 	z.Mul(x, y).Mod(z, f.ModulusBig)
 	return f
 }
 
-func (f *Field) Add(z *big.Int, x *big.Int, y *big.Int) *Field {
+func (f *FieldConfig) Add(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 	z.Add(x, y).Mod(z, f.ModulusBig)
 	return f
 }

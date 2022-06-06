@@ -6,6 +6,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/internal/field"
 )
 
 type FieldElementToCurvePoint string
@@ -123,6 +124,7 @@ func NewHashSuiteInfoSvdW(baseField *field.Field, g *Point, curve *Curve, name s
 
 //TODO: Find Z automatically
 func NewHashSuiteInfoSSWU(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite *HashSuite) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])

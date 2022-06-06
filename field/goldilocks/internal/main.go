@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/field"
-	"github.com/consensys/gnark-crypto/field/generator"
+	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/internal/field/generator"
 )
 
 //go:generate go run main.go
 func main() {
 	const modulus = "0xFFFFFFFF00000001"
-	goldilocks, err := field.NewField("goldilocks", "Element", modulus, true)
+	goldilocks, err := field.NewFieldConfig("goldilocks", "Element", modulus, true)
 	if err != nil {
 		panic(err)
 	}
