@@ -22,7 +22,7 @@ func NewTower(base *Field, degree uint8, rootOf int64) Extension {
 	return ret
 }
 
-func (f *Extension) FromInt64(i []int64) Element {
+func (f *Extension) FromInt64(i ...int64) Element {
 	z := make(Element, f.Degree)
 	for n := 0; n < len(i) && n < int(f.Degree); n++ {
 		z[n].SetInt64(i[n])
@@ -197,6 +197,8 @@ func (f *Extension) Inverse(x Element) Element {
 		z[0].Mul(&x[0], &normInv)
 
 		z[1].Neg(&x[1]).Mul(&z[1], &normInv)
+	default:
+		panic("can't invert in extensions of degree > 2")
 	}
 	return z
 }
@@ -204,7 +206,7 @@ func (f *Extension) Inverse(x Element) Element {
 func (f *Extension) Exp(x Element, exp *big.Int) Element {
 
 	if exp.BitLen() == 0 {
-		return f.FromInt64([]int64{1})
+		return f.FromInt64(1)
 	}
 
 	z := x
@@ -217,6 +219,20 @@ func (f *Extension) Exp(x Element, exp *big.Int) Element {
 	}
 
 	return z
+}
+
+// Div returns u/v
+func (f *Extension) Div(u, v Element) Element {
+	return f.Mul(u, f.Inverse(v))
+}
+
+func (f *Extension) IsZero(u Element) bool {
+	for i := 0; i < len(u); i++ {
+		if u[i].BitLen() != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func NewElement(s []string) []big.Int {

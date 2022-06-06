@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/field"
 )
@@ -36,8 +37,25 @@ type HashSuite struct {
 }
 
 type WeierstrassCoefficients struct {
+	f *field.Extension
 	A field.Element
 	B field.Element
+}
+
+func (c *WeierstrassCoefficients) g(x field.Element) field.Element {
+	gx := c.f.Mul(x, x)
+	gx = c.f.Add(gx, c.A)
+	gx = c.f.Mul(gx, x)
+	gx = c.f.Add(gx, c.B)
+	return gx
+}
+
+func NewWeierstrassCoefficients(f *field.Extension, A []string, B []string) WeierstrassCoefficients {
+	return WeierstrassCoefficients{
+		f: f,
+		A: field.NewElement(A),
+		B: field.NewElement(B),
+	}
 }
 
 func toBigIntSlice(z []int) []big.Int {
@@ -48,27 +66,60 @@ func toBigIntSlice(z []int) []big.Int {
 	return res
 }
 
-/*
-func findSvdwZ(f *field.Extension, curve WeierstrassCoefficients) {
+func findSvdwZ(f *field.Extension, curve WeierstrassCoefficients) field.Element {
 
-	/*g := func(x field.Element) field.Element {
-		gx := f.Mul(x, x)
-		gx = f.Add(gx, curve.A)
-		gx = f.Mul(gx, x)
-		gx = f.Add(gx, curve.B)
-		return gx
+	fourA := f.Mul(f.FromInt64(4), curve.A)
+	negHalf := f.Div(f.FromInt64(-1), f.FromInt64(2))
+	checkCandidate := func(z field.Element) bool {
+		gZ := curve.g(z)
+		if f.IsZero(gZ) {
+			return false
+		}
+
+		h := f.Div(
+			f.Add(
+				f.Mul(f.FromInt64(3), f.Mul(gZ, gZ)),
+				fourA,
+			),
+			f.Mul(
+				f.FromInt64(-4),
+				gZ,
+			),
+		)
+
+		if f.IsZero(h) {
+			return false
+		}
+		if f.Sqrt(h) == nil {
+			return false
+		}
+
+		if f.Sqrt(gZ) != nil {
+			return true
+		}
+
+		return f.Sqrt(curve.g(f.Mul(z, negHalf))) != nil
 	}
 
-	checkCandidate := func(u field.Element) {
-
+	for _z := int64(1); _z < 1024; _z++ {
+		z := f.FromInt64(_z)
+		if checkCandidate(z) {
+			return z
+		}
+		z = f.FromInt64(-_z)
+		if checkCandidate(z) {
+			return z
+		}
 	}
+
 }
 
 func NewHashSuiteInfoSvdW(baseField *field.Field, g *Point, curve *Curve, name string) HashSuiteInfo {
-	/*f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
+
+	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	c := make([]big.Int, 4)
 
-}*/
+}
 
 //TODO: Find Z automatically
 func NewHashSuiteInfoSSWU(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
