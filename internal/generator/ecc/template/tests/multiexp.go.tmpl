@@ -167,7 +167,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 	const (
-		pow = (bits.UintSize / 2 ) - (bits.UintSize / 5) 
+		pow = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
 		nbSamples = 1 << pow
 	)
 
@@ -176,8 +176,8 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 		sampleScalars [nbSamples]fr.Element
 	)
 
-	randScalars(sampleScalars[:])
-	randBases{{ toUpper $.PointName }}(samplePoints[:])
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBases{{ toUpper $.PointName }}(samplePoints[:])
 
 	var testPoint {{ $.TAffine }}
 
@@ -202,8 +202,8 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 		sampleScalars [nbSamples]fr.Element
 	)
 
-	randScalars(sampleScalars[:])
-	randBases{{ toUpper $.PointName }}(samplePoints[:])
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBases{{ toUpper $.PointName }}(samplePoints[:])
 
 	var testPoint {{ $.TAffine }}
 
@@ -222,8 +222,8 @@ func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 		sampleScalars [nbSamples]fr.Element
 	)
 
-	randScalars(sampleScalars[:])
-	randBases{{ toUpper $.PointName }}(samplePoints[:])
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBases{{ toUpper $.PointName }}(samplePoints[:])
 
 
 	var t1, t2, t3 {{ $.TAffine }}
@@ -247,20 +247,29 @@ func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 	}
 }
 
-// set samplePoints to different bases
-func randBases{{ toUpper $.PointName }}(samplePoints []{{ $.TAffine }}) {
+// WARNING: this return points that are NOT on the curve and is meant to be use for benchmarking
+// purposes only. We don't check that the result is valid but just measure "computational complexity".
+//
+// Rationale for generating points that are not on the curve is that for large benchmarks, generating
+// a vector of different points can take minutes. Using the same point or subset will bias the benchmark result
+// since bucket additions in extended jacobian coordinates will hit doubling algorithm instead of add. 
+func fillBenchBases{{ toUpper $.PointName }}(samplePoints []{{ $.TAffine }}) {
 	var r big.Int
 	r.SetString("340444420969191673093399857471996460938405", 10)
 	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
 
+	one := samplePoints[0].X
+	one.SetOne()
+	
 	for i := 1; i < len(samplePoints); i++ {
-		samplePoints[i].Add(&samplePoints[i-1], &{{ toLower .PointName}}GenAff)
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one) 
 	}
 }
 
 {{end }}
 
-func randScalars(sampleScalars []fr.Element) {
+func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
