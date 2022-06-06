@@ -161,29 +161,19 @@ func TestMultiExpG1(t *testing.T) {
 }
 
 func BenchmarkMultiExpG1(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 5)
-	const nbSamples = 1 << pow
+	const (
+		pow       = (bits.UintSize / 2) - (bits.UintSize / 5)
+		nbSamples = 1 << pow
+	)
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
@@ -200,28 +190,15 @@ func BenchmarkMultiExpG1(b *testing.B) {
 }
 
 func BenchmarkMultiExpG1Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
@@ -232,28 +209,15 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 }
 
 func BenchmarkManyMultiExpG1Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G1Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG1(samplePoints[:])
 
 	var t1, t2, t3 G1Affine
 	b.ResetTimer()
@@ -273,6 +237,17 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 			wg.Done()
 		}()
 		wg.Wait()
+	}
+}
+
+// set samplePoints to different bases
+func randBasesG1(samplePoints []G1Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].Add(&samplePoints[i-1], &g1GenAff)
 	}
 }
 
@@ -407,29 +382,19 @@ func TestMultiExpG2(t *testing.T) {
 }
 
 func BenchmarkMultiExpG2(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2) - (bits.UintSize / 5)
-	const nbSamples = 1 << pow
+	const (
+		pow       = (bits.UintSize / 2) - (bits.UintSize / 5)
+		nbSamples = 1 << pow
+	)
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
@@ -446,28 +411,15 @@ func BenchmarkMultiExpG2(b *testing.B) {
 }
 
 func BenchmarkMultiExpG2Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
@@ -478,28 +430,15 @@ func BenchmarkMultiExpG2Reference(b *testing.B) {
 }
 
 func BenchmarkManyMultiExpG2Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]G2Affine
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBasesG2(samplePoints[:])
 
 	var t1, t2, t3 G2Affine
 	b.ResetTimer()
@@ -519,5 +458,27 @@ func BenchmarkManyMultiExpG2Reference(b *testing.B) {
 			wg.Done()
 		}()
 		wg.Wait()
+	}
+}
+
+// set samplePoints to different bases
+func randBasesG2(samplePoints []G2Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].Add(&samplePoints[i-1], &g2GenAff)
+	}
+}
+
+func randScalars(sampleScalars []fr.Element) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+	for i := 1; i <= len(sampleScalars); i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
 	}
 }

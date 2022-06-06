@@ -165,29 +165,19 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 
 
 func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
 
-	const pow = (bits.UintSize / 2 ) - (bits.UintSize / 5) 
-	const nbSamples = 1 << pow
+	const (
+		pow = (bits.UintSize / 2 ) - (bits.UintSize / 5) 
+		nbSamples = 1 << pow
+	)
 
-	var samplePoints [nbSamples]{{ $.TAffine }}
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints [nbSamples]{{ $.TAffine }}
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-			if i == nbSamples {
-				continue 
-			}
-			samplePoints[i].Add(&samplePoints[i-1], &{{ toLower .PointName}}GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBases{{ toUpper $.PointName }}(samplePoints[:])
 
 	var testPoint {{ $.TAffine }}
 
@@ -205,28 +195,15 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 
 func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]{{ $.TAffine }}
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints [nbSamples]{{ $.TAffine }}
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-			if i == nbSamples {
-				continue 
-			}
-			samplePoints[i].Add(&samplePoints[i-1], &{{ toLower .PointName}}GenAff)
-	}
+	randScalars(sampleScalars[:])
+	randBases{{ toUpper $.PointName }}(samplePoints[:])
 
 	var testPoint {{ $.TAffine }}
 
@@ -238,28 +215,16 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 
 
 func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
 	const nbSamples = 1 << 20
 
-	var samplePoints [nbSamples]{{ $.TAffine }}
-	var sampleScalars [nbSamples]fr.Element
+	var (
+		samplePoints [nbSamples]{{ $.TAffine }}
+		sampleScalars [nbSamples]fr.Element
+	)
 
-	var r big.Int
-	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+	randScalars(sampleScalars[:])
+	randBases{{ toUpper $.PointName }}(samplePoints[:])
 
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-		if i == nbSamples {
-			continue 
-		}
-		samplePoints[i].Add(&samplePoints[i-1], &{{ toLower .PointName}}GenAff)
-	}
 
 	var t1, t2, t3 {{ $.TAffine }}
 	b.ResetTimer()
@@ -282,4 +247,26 @@ func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 	}
 }
 
+// set samplePoints to different bases
+func randBases{{ toUpper $.PointName }}(samplePoints []{{ $.TAffine }}) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].Add(&samplePoints[i-1], &{{ toLower .PointName}}GenAff)
+	}
+}
+
 {{end }}
+
+func randScalars(sampleScalars []fr.Element) {
+	// ensure every words of the scalars are filled
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+	for i := 1; i <= len(sampleScalars); i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+	}
+}
