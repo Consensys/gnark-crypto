@@ -16,14 +16,14 @@
 
 package bls12377
 
-//Note: This only works for simple extensions
-
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
+
+	"math/big"
 )
+
+//Note: This only works for simple extensions
 
 func g2IsogenyXNumerator(dst *fptower.E2, x *fptower.E2) {
 	g2EvalPolynomial(dst,
@@ -720,69 +720,19 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	return G2Affine{x, y}
 }
 
-// MapToG2 invokes the SSWU map, and guarantees that the result is in g2
-func MapToG2(u fptower.E2) G2Affine {
-	res := mapToCurve2(&u)
-	//this is in an isogenous curve
-	g2Isogeny(&res)
-	res.ClearCofactor(&res)
-	return res
-}
+func g2EvalPolynomial(z *fptower.E2, monic bool, coefficients []fptower.E2, x *fptower.E2) {
+	dst := coefficients[len(coefficients)-1]
 
-// EncodeToG2 hashes a message to a point on the G2 curve using the Simplified Shallue and van de Woestijne Ulas map.
-// It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
-func EncodeToG2(msg, dst []byte) (G2Affine, error) {
-
-	var res G2Affine
-	u, err := hashToFp(msg, dst, 2)
-	if err != nil {
-		return res, err
+	if monic {
+		dst.Add(&dst, x)
 	}
 
-	res = mapToCurve2(&fptower.E2{
-		A0: u[0],
-		A1: u[1],
-	})
-
-	//this is in an isogenous curve
-	g2Isogeny(&res)
-	res.ClearCofactor(&res)
-	return res, nil
-}
-
-// HashToG2 hashes a message to a point on the G2 curve using the Simplified Shallue and van de Woestijne Ulas map.
-// Slower than EncodeToG2, but usable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToG2(msg, dst []byte) (G2Affine, error) {
-	u, err := hashToFp(msg, dst, 2*2)
-	if err != nil {
-		return G2Affine{}, err
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
 	}
 
-	Q0 := mapToCurve2(&fptower.E2{
-		A0: u[0],
-		A1: u[1],
-	})
-	Q1 := mapToCurve2(&fptower.E2{
-		A0: u[2+0],
-		A1: u[2+1],
-	})
-
-	//TODO: Add in E' first, then apply isogeny
-	g2Isogeny(&Q0)
-	g2Isogeny(&Q1)
-
-	var _Q0, _Q1 G2Jac
-	_Q0.FromAffine(&Q0)
-	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
-
-	_Q1.ClearCofactor(&_Q1)
-
-	Q1.FromJacobian(&_Q1)
-	return Q1, nil
+	z.Set(&dst)
 }
 
 // g2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
@@ -813,19 +763,69 @@ func g2Sgn0(z *fptower.E2) uint64 {
 
 }
 
-func g2EvalPolynomial(z *fptower.E2, monic bool, coefficients []fptower.E2, x *fptower.E2) {
-	dst := coefficients[len(coefficients)-1]
+// MapToG2 invokes the SSWU map, and guarantees that the result is in g2
+func MapToG2(u fptower.E2) G2Affine {
+	res := mapToCurve2(&u)
+	//this is in an isogenous curve
+	g2Isogeny(&res)
+	res.ClearCofactor(&res)
+	return res
+}
 
-	if monic {
-		dst.Add(&dst, x)
+// EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
+// It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToG2(msg, dst []byte) (G2Affine, error) {
+
+	var res G2Affine
+	u, err := hashToFp(msg, dst, 2)
+	if err != nil {
+		return res, err
 	}
 
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
+	res = mapToCurve2(&fptower.E2{
+		A0: u[0],
+		A1: u[1],
+	})
+
+	//this is in an isogenous curve
+	g2Isogeny(&res)
+	res.ClearCofactor(&res)
+	return res, nil
+}
+
+// HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
+// Slower than EncodeToG2, but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+func HashToG2(msg, dst []byte) (G2Affine, error) {
+	u, err := hashToFp(msg, dst, 2*2)
+	if err != nil {
+		return G2Affine{}, err
 	}
 
-	z.Set(&dst)
+	Q0 := mapToCurve2(&fptower.E2{
+		A0: u[0],
+		A1: u[1],
+	})
+	Q1 := mapToCurve2(&fptower.E2{
+		A0: u[2+0],
+		A1: u[2+1],
+	})
+
+	//TODO: Add in E' first, then apply isogeny
+	g2Isogeny(&Q0)
+	g2Isogeny(&Q1)
+
+	var _Q0, _Q1 G2Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+
+	_Q1.ClearCofactor(&_Q1)
+
+	Q1.FromJacobian(&_Q1)
+	return Q1, nil
 }
 
 func g2NotZero(x *fptower.E2) uint64 {

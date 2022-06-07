@@ -416,13 +416,18 @@ func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
 }
 
 //TODO: Spaghetti Alert: Okay to have codegen functions here?
-func getSubElementNames(size int) string {
-	switch size {
+func CoordNameForExtensionDegree(degree uint8) string {
+	switch degree {
+	case 1:
+		return ""
 	case 2:
 		return "A"
+	case 6:
+		return "B"
+	case 12:
+		return "C"
 	}
-	//default:
-	panic("not implemented")
+	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
 func (f *FieldConfig) WriteElement(element Element) string {
@@ -435,7 +440,7 @@ func (f *FieldConfig) WriteElement(element Element) string {
 	var subElementNames string
 	if length > 1 {
 		builder.WriteString("\n")
-		subElementNames = getSubElementNames(length)
+		subElementNames = CoordNameForExtensionDegree(uint8(length))
 	}
 	for i, e := range element {
 		if length > 1 {

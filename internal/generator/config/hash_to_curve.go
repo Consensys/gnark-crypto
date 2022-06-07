@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/internal/field"
 	"math/big"
 )
@@ -68,6 +67,8 @@ func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point,
 		CofactorClearing:  g.CofactorCleaning,
 		Point:             g,
 		MappingAlgorithm:  SVDW,
+		Name:              name,
+		FieldCoordName:    field.CoordNameForExtensionDegree(g.CoordExtDegree),
 		Field:             &f,
 	}
 }
@@ -141,23 +142,9 @@ func (suite *HashSuiteSswu) GetInfo(baseField *field.FieldConfig, g *Point, name
 		FieldSizeMod256:   fieldSizeMod256,
 		PrecomputedParams: c,
 		Field:             &f,
-		FieldCoordName:    coordNameForExtensionDegree(g.CoordExtDegree),
+		FieldCoordName:    field.CoordNameForExtensionDegree(g.CoordExtDegree),
 		MappingAlgorithm:  SSWU,
 	}
-}
-
-func coordNameForExtensionDegree(degree uint8) string {
-	switch degree {
-	case 1:
-		return ""
-	case 2:
-		return "A"
-	case 6:
-		return "B"
-	case 12:
-		return "C"
-	}
-	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
 func stringMatrixToIntMatrix(s [][]string) []field.Element {

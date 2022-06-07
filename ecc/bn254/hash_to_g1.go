@@ -21,9 +21,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 )
 
+// mapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
+// No cofactor clearing or isogeny
 // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-14#appendix-F.1
-// Shallue and van de Woestijne method, works for any elliptic curve in Weierstrass curve
-func mapToCurve1(u fp.Element) G1Affine {
+func mapToCurve1(u *fp.Element) G1Affine {
 	var tv1, tv2, tv3, tv4 fp.Element
 	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element
 	var one fp.Element
@@ -35,28 +36,29 @@ func mapToCurve1(u fp.Element) G1Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	var Z, c1, c2, c3, c4 fp.Element
-	Z.SetOne()
-	c1.SetString("4")
-	c2.SetString("10944121435919637611123202872628637544348155578648911831344518947322613104291")
-	c3.SetString("8815841940592487685674414971303048083897117035520822607866")
-	c4.SetString("7296080957279758407415468581752425029565437052432607887563012631548408736189")
+	//TODO: Move outside function?
+	Z := fp.Element{15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287}
+	c1 := fp.Element{1248766071674976557, 10548065924188627562, 16242874202584236114, 560012691975822483}
+	c2 := fp.Element{12997850613838968789, 14304628359724097447, 2950087706404981016, 1237622763554136189}
+	c3 := fp.Element{8972444824031832946, 5898165201680709844, 10690697896010808308, 824354360198587078}
+	c4 := fp.Element{12077013577332951089, 1872782865047492001, 13514471836495169457, 415649166299893576}
 
 	one.SetOne()
 
-	tv1.Square(&u)      //    1.  tv1 = u²
+	tv1.Square(u)       //    1.  tv1 = u²
 	tv1.Mul(&tv1, &c1)  //    2.  tv1 = tv1 * c1
 	tv2.Add(&one, &tv1) //    3.  tv2 = 1 + tv1
 	tv1.Sub(&one, &tv1) //    4.  tv1 = 1 - tv1
 	tv3.Mul(&tv1, &tv2) //    5.  tv3 = tv1 * tv2
 
 	tv3.Inverse(&tv3)   //    6.  tv3 = inv0(tv3)
-	tv4.Mul(&u, &tv1)   //    7.  tv4 = u * tv1
+	tv4.Mul(u, &tv1)    //    7.  tv4 = u * tv1
 	tv4.Mul(&tv4, &tv3) //    8.  tv4 = tv4 * tv3
 	tv4.Mul(&tv4, &c3)  //    9.  tv4 = tv4 * c3
 	x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
 
 	gx1.Square(&x1) //    11. gx1 = x1²
+	//TODO: Beware A ≠ 0
 	//12. gx1 = gx1 + A
 	gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
 	gx1.Add(&gx1, &bCurveCoeff)        //    14. gx1 = gx1 + B
@@ -90,63 +92,21 @@ func mapToCurve1(u fp.Element) G1Affine {
 	gx.Mul(&gx, &x)           //    31.  gx = gx * x
 	gx.Add(&gx, &bCurveCoeff) //    32.  gx = gx + B
 
-	y.Sqrt(&gx)                          //    33.   y = sqrt(gx)
-	signsNotEqual := sign0(u) ^ sign0(y) //    34.  e3 = sgn0(u) == sgn0(y)
+	y.Sqrt(&gx)                             //    33.   y = sqrt(gx)
+	signsNotEqual := g1Sgn0(u) ^ g1Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
 
 	tv1.Neg(&y)
 	y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y
 	return G1Affine{x, y}
 }
 
-// MapToG1 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.1
-func MapToG1(t fp.Element) G1Affine {
-	return mapToCurve1(t)
-}
-
-// EncodeToG1 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
-func EncodeToG1(msg, dst []byte) (G1Affine, error) {
-	var res G1Affine
-	t, err := hashToFp(msg, dst, 1)
-	if err != nil {
-		return res, err
-	}
-	res = MapToG1(t[0])
-	return res, nil
-}
-
-// HashToG1 maps an fp.Element to a point on the curve using the Shallue and van de Woestijne map
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
-func HashToG1(msg, dst []byte) (G1Affine, error) {
-	var res G1Affine
-	u, err := hashToFp(msg, dst, 2)
-	if err != nil {
-		return res, err
-	}
-	Q0 := MapToG1(u[0])
-	Q1 := MapToG1(u[1])
-	var _Q0, _Q1, _res G1Jac
-	_Q0.FromAffine(&Q0)
-	_Q1.FromAffine(&Q1)
-	_res.Set(&_Q1).AddAssign(&_Q0)
-	res.FromJacobian(&_res)
-	return res, nil
-}
-
-func sign0(u fp.Element) uint64 {
-	x := u
-	x.FromMont()
-	return x[0] % 2
-}
-
 // hashToFp hashes msg to count prime field elements.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
 func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-
 	// 128 bits of security
 	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
-	L := 48
+	const Bytes = 1 + (fp.Bits-1)/8
+	const L = 16 + Bytes
 
 	lenInBytes := count * L
 	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
@@ -159,4 +119,67 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
 	}
 	return res, nil
+}
+
+// g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// The sign of an element is not obviously related to that of its Montgomery form
+func g1Sgn0(z *fp.Element) uint64 {
+
+	nonMont := *z
+	nonMont.FromMont()
+
+	return nonMont[0] % 2
+
+}
+
+// MapToG1 invokes the SVDW map, and guarantees that the result is in g1
+func MapToG1(u fp.Element) G1Affine {
+	res := mapToCurve1(&u)
+	return res
+}
+
+// EncodeToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+func EncodeToG1(msg, dst []byte) (G1Affine, error) {
+
+	var res G1Affine
+	u, err := hashToFp(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+
+	res = mapToCurve1(&u[0])
+
+	return res, nil
+}
+
+// HashToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// Slower than EncodeToG1, but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+func HashToG1(msg, dst []byte) (G1Affine, error) {
+	u, err := hashToFp(msg, dst, 2*1)
+	if err != nil {
+		return G1Affine{}, err
+	}
+
+	Q0 := mapToCurve1(&u[0])
+	Q1 := mapToCurve1(&u[1])
+
+	var _Q0, _Q1 G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+
+	Q1.FromJacobian(&_Q1)
+	return Q1, nil
+}
+
+func g1NotZero(x *fp.Element) uint64 {
+
+	return x[0] | x[1] | x[2] | x[3]
+
 }
