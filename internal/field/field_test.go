@@ -31,7 +31,7 @@ func TestIntToMont(t *testing.T) {
 			i.Mod(&i, f.ModulusBig)
 
 			// turn into mont
-			mont := f.ToMont(&i)
+			mont := f.ToMont(i)
 			f.FromMont(&mont, &mont)
 
 			return mont.Cmp(&i) == 0, nil
@@ -43,7 +43,7 @@ func TestIntToMont(t *testing.T) {
 			// test if using the same R
 			i := big.NewInt(1)
 			i.Lsh(i, 64*uint(f.NbWords))
-			*i = f.ToMont(i)
+			*i = f.ToMont(*i)
 
 			err := BigIntMatchUint64Slice(i, f.RSquare)
 			return err == nil, err

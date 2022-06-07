@@ -151,7 +151,7 @@ func (f *Extension) Sqrt(x Element) Element {
 func (f *Extension) ToMont(x Element) Element {
 	z := make([]big.Int, len(x))
 	for i := 0; i < len(x); i++ {
-		z[i] = f.Base.ToMont(&x[i])
+		z[i] = f.Base.ToMont(x[i])
 	}
 	return z
 }

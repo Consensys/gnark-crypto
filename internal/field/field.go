@@ -242,7 +242,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			F.SqrtG = toUint64Slice(&g, F.NbWords)
 
 			// store non residue in montgomery form
-			F.NonResidue = F.ToMont(&nonResidue)
+			F.NonResidue = F.ToMont(nonResidue)
 
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
@@ -315,14 +315,14 @@ func (f *FieldConfig) StringToMont(str string) big.Int {
 
 	var i big.Int
 	i.SetString(str, 0)
-	i = f.ToMont(&i)
+	i = f.ToMont(i)
 
 	return i
 }
 
-func (f *FieldConfig) ToMont(nonMont *big.Int) big.Int {
+func (f *FieldConfig) ToMont(nonMont big.Int) big.Int {
 	var mont big.Int
-	mont.Lsh(nonMont, uint(f.NbWords)*64)
+	mont.Lsh(&nonMont, uint(f.NbWords)*64)
 	mont.Mod(&mont, f.ModulusBig)
 	return mont
 }
@@ -410,7 +410,7 @@ func (f *FieldConfig) Add(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
 	z := make(Element, len(x))
 	for i := 0; i < len(x); i++ {
-		z[i] = f.ToMont(&x[i])
+		z[i] = f.ToMont(x[i])
 	}
 	return z
 }
@@ -448,7 +448,7 @@ func (f *FieldConfig) WriteElement(element Element) string {
 			builder.WriteString(strconv.Itoa(i))
 			builder.WriteString(": fp.Element{")
 		}
-		mont := f.ToMont(&e)
+		mont := f.ToMont(e)
 		bavard.WriteBigIntAsUint64Slice(builder, &mont)
 		if length > 1 {
 			builder.WriteString("},\n")
