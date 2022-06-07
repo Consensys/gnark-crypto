@@ -1,5 +1,7 @@
 github.com/consensys/bavard v0.1.11-0.20220418151131-08e04eec2153 h1:6d1VynA5G53Rfk0DXEPWeBakhNzXAnN1R7HUOYKCDBM=
 github.com/consensys/bavard v0.1.11-0.20220418151131-08e04eec2153/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
+github.com/consensys/bavard v0.1.12 h1:rApQlUvBg5FeW/fnigtVnAs0sBrgDN2pEuHNdWElSUE=
+github.com/consensys/bavard v0.1.12/go.mod h1:9ItSMtA/dXMAiL7BG6bqW2m3NdSEObYWoH223nGHukI=
 github.com/cpuguy83/go-md2man/v2 v2.0.1/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
