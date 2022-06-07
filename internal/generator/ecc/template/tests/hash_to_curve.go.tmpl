@@ -121,22 +121,24 @@ func TestMapToCurve{{$CurveIndex}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+	{{$runIsogeny := select $isogenyNeeded "" (print $CurveName "Isogeny(&q)\n")}}
+
 	for _, c := range encodeTo{{$CurveTitle}}Vector.cases {
 		var u {{$CoordType}}
 		{{$CurveName}}CoordSetString(&u, c.u)
 		q := mapToCurve{{$CurveIndex}}(&u)
-		{{$CurveName}}TestMatchPoint(t, "Q", c.msg, c.Q, &q)
+		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
 	for _, c := range hashTo{{$CurveTitle}}Vector.cases {
 		var u {{$CoordType}}
 		{{$CurveName}}CoordSetString(&u, c.u0)
 		q := mapToCurve{{$CurveIndex}}(&u)
-		{{$CurveName}}TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
+		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		{{$CurveName}}CoordSetString(&u, c.u1)
 		q = mapToCurve{{$CurveIndex}}(&u)
-		{{$CurveName}}TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
+		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
 
@@ -270,8 +272,9 @@ func {{$CurveName}}CoordSetString(z *{{$CoordType}}, s string) {
 		panic("not equal to tower size")
 	}
 	z.SetString(
-		{{range $i := interval 0 $TowerDegree}}
-		ssplit[{{$i}}],{{end}}
+		{{- range $i := interval 0 $TowerDegree}}
+		ssplit[{{$i}}],
+		{{- end}}
 	)
 {{- end}}
 }

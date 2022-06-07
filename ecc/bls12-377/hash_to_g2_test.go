@@ -119,6 +119,7 @@ func TestMapToCurve2(t *testing.T) {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u)
 		q := mapToCurve2(&u)
+		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
@@ -126,10 +127,12 @@ func TestMapToCurve2(t *testing.T) {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u0)
 		q := mapToCurve2(&u)
+		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g2CoordSetString(&u, c.u1)
 		q = mapToCurve2(&u)
+		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
@@ -255,7 +258,6 @@ func g2CoordSetString(z *fptower.E2, s string) {
 		panic("not equal to tower size")
 	}
 	z.SetString(
-
 		ssplit[0],
 		ssplit[1],
 	)

@@ -184,7 +184,6 @@ func g2CoordSetString(z *fptower.E2, s string) {
 		panic("not equal to tower size")
 	}
 	z.SetString(
-
 		ssplit[0],
 		ssplit[1],
 	)

@@ -117,6 +117,7 @@ func TestMapToCurve1(t *testing.T) {
 		var u fp.Element
 		g1CoordSetString(&u, c.u)
 		q := mapToCurve1(&u)
+		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
@@ -124,10 +125,12 @@ func TestMapToCurve1(t *testing.T) {
 		var u fp.Element
 		g1CoordSetString(&u, c.u0)
 		q := mapToCurve1(&u)
+		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g1CoordSetString(&u, c.u1)
 		q = mapToCurve1(&u)
+		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
