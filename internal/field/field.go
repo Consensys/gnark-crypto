@@ -18,11 +18,13 @@ package field
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 	"math"
 	"math/big"
 	"math/bits"
-
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -318,7 +320,8 @@ func (f *FieldConfig) StringToMont(str string) big.Int {
 	return i
 }
 
-func (f *FieldConfig) ToMont(mont *big.Int, nonMont *big.Int) *FieldConfig {
+func (f *FieldConfig) ToMont(nonMont *big.Int) big.Int {
+	var mont big.Int
 	mont.Lsh(nonMont, uint(f.NbWords)*64)
 	mont.Mod(&mont, f.ModulusBig)
 	return mont
@@ -404,10 +407,48 @@ func (f *FieldConfig) Add(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 	return f
 }
 
-func (f *Field) ToMontSlice(x []big.Int) []big.Int {
+func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
 	z := make(Element, len(x))
 	for i := 0; i < len(x); i++ {
 		z[i] = f.ToMont(&x[i])
 	}
 	return z
+}
+
+//TODO: Spaghetti Alert: Okay to have codegen functions here?
+func getSubElementNames(size int) string {
+	switch size {
+	case 2:
+		return "A"
+	}
+	//default:
+	panic("not implemented")
+}
+
+func (f *FieldConfig) WriteElement(element Element) string {
+	builder := bavard.StringBuilderPool.Get().(*strings.Builder)
+	builder.Reset()
+	defer bavard.StringBuilderPool.Put(builder)
+
+	builder.WriteString("{")
+	length := len(element)
+	var subElementNames string
+	if length > 1 {
+		builder.WriteString("\n")
+		subElementNames = getSubElementNames(length)
+	}
+	for i, e := range element {
+		if length > 1 {
+			builder.WriteString(subElementNames)
+			builder.WriteString(strconv.Itoa(i))
+			builder.WriteString(": fp.Element{")
+		}
+		mont := f.ToMont(&e)
+		bavard.WriteBigIntAsUint64Slice(builder, &mont)
+		if length > 1 {
+			builder.WriteString("},\n")
+		}
+	}
+	builder.WriteString("}")
+	return builder.String()
 }

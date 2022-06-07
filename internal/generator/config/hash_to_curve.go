@@ -2,18 +2,15 @@ package config
 
 import (
 	"fmt"
-	"math/big"
-	"math/bits"
-
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/consensys/gnark-crypto/internal/field"
+	"math/big"
 )
 
 type FieldElementToCurvePoint string
 
 const (
 	SSWU FieldElementToCurvePoint = "SSWU"
-	//SVDW FieldElementToCurvePoint = "SVDW"
+	SVDW FieldElementToCurvePoint = "SVDW"
 )
 
 type Isogeny struct {
@@ -28,35 +25,17 @@ type RationalPolynomial struct {
 	Den [][]string //Den is stored. It is also monic. The leading coefficient (1) is omitted.
 }
 
-type HashSuite struct {
+type HashSuite interface {
+	GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo
+}
+
+type HashSuiteSswu struct {
+	//TODO: Move into Isogeny
 	A []string // A is the Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
 	B []string // B is the Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
 
-	Z []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-
+	Z       []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 	Isogeny *Isogeny
-}
-
-type WeierstrassCoefficients struct {
-	f *field.Extension
-	A field.Element
-	B field.Element
-}
-
-func (c *WeierstrassCoefficients) g(x field.Element) field.Element {
-	gx := c.f.Mul(x, x)
-	gx = c.f.Add(gx, c.A)
-	gx = c.f.Mul(gx, x)
-	gx = c.f.Add(gx, c.B)
-	return gx
-}
-
-func NewWeierstrassCoefficients(f *field.Extension, A []string, B []string) WeierstrassCoefficients {
-	return WeierstrassCoefficients{
-		f: f,
-		A: field.NewElement(A),
-		B: field.NewElement(B),
-	}
 }
 
 func toBigIntSlice(z []int) []big.Int {
@@ -67,73 +46,42 @@ func toBigIntSlice(z []int) []big.Int {
 	return res
 }
 
-func findSvdwZ(f *field.Extension, curve WeierstrassCoefficients) field.Element {
-
-	fourA := f.Mul(f.FromInt64(4), curve.A)
-	negHalf := f.Div(f.FromInt64(-1), f.FromInt64(2))
-	checkCandidate := func(z field.Element) bool {
-		gZ := curve.g(z)
-		if f.IsZero(gZ) {
-			return false
-		}
-
-		h := f.Div(
-			f.Add(
-				f.Mul(f.FromInt64(3), f.Mul(gZ, gZ)),
-				fourA,
-			),
-			f.Mul(
-				f.FromInt64(-4),
-				gZ,
-			),
-		)
-
-		if f.IsZero(h) {
-			return false
-		}
-		if f.Sqrt(h) == nil {
-			return false
-		}
-
-		if f.Sqrt(gZ) != nil {
-			return true
-		}
-
-		return f.Sqrt(curve.g(f.Mul(z, negHalf))) != nil
-	}
-
-	for _z := int64(1); _z < 1024; _z++ {
-		z := f.FromInt64(_z)
-		if checkCandidate(z) {
-			return z
-		}
-		z = f.FromInt64(-_z)
-		if checkCandidate(z) {
-			return z
-		}
-	}
-
+type HashSuiteSvdw struct {
+	z  []string
+	c1 []string
+	c2 []string
+	c3 []string
+	c4 []string
 }
 
-func NewHashSuiteInfoSvdW(baseField *field.Field, g *Point, curve *Curve, name string) HashSuiteInfo {
-
+func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
-	c := make([]big.Int, 4)
-
+	c := []field.Element{
+		field.NewElement(parameters.z),
+		field.NewElement(parameters.c1),
+		field.NewElement(parameters.c2),
+		field.NewElement(parameters.c3),
+		field.NewElement(parameters.c4),
+	}
+	return HashSuiteInfo{
+		PrecomputedParams: c,
+		CofactorClearing:  g.CofactorCleaning,
+		Point:             g,
+		MappingAlgorithm:  SVDW,
+		Field:             &f,
+	}
 }
 
-//TODO: Find Z automatically
-func NewHashSuiteInfoSSWU(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
-func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+func (suite *HashSuiteSswu) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])
 
 	Z := toBigIntSlice(suite.Z)
-	var c [][]big.Int
+	var c []field.Element
 
 	if fieldSizeMod256%4 == 3 {
-		c = make([][]big.Int, 2)
+		c = make([]field.Element, 2)
 		c[0] = make([]big.Int, 1)
 		c[0][0].Rsh(&f.Size, 2)
 
@@ -141,7 +89,7 @@ func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite
 		c[1] = f.Sqrt(c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
-		c = make([][]big.Int, 3)
+		c = make([]field.Element, 3)
 		c[0] = make([]big.Int, 1)
 		c[0][0].Rsh(&f.Size, 3)
 
@@ -155,7 +103,7 @@ func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite
 
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
-		c = make([][]big.Int, 3)
+		c = make([]field.Element, 3)
 
 		c[0] = make([]big.Int, 5)
 		// c1 .. c5 stored as c[0][0] .. c[0][4]
@@ -194,6 +142,7 @@ func NewHashSuiteInfo(baseField *field.FieldConfig, g *Point, name string, suite
 		PrecomputedParams: c,
 		Field:             &f,
 		FieldCoordName:    coordNameForExtensionDegree(g.CoordExtDegree),
+		MappingAlgorithm:  SSWU,
 	}
 }
 
@@ -249,7 +198,7 @@ type HashSuiteInfo struct {
 	//Isogeny to original curve
 	Isogeny *IsogenyInfo //pointer so it's nullable.
 
-	A []big.Int
+	A []big.Int //TODO: Move inside IsogenyInfo
 	B []big.Int
 
 	Point             *Point
@@ -257,8 +206,9 @@ type HashSuiteInfo struct {
 	FieldCoordName    string
 	Name              string
 	FieldSizeMod256   uint8
-	PrecomputedParams [][]big.Int // PrecomputedParams[0][n] correspond to integer cₙ₋₁ in std doc
+	PrecomputedParams []field.Element // PrecomputedParams[0][n] correspond to integer cₙ₋₁ in std doc
 	// PrecomputedParams[n≥1] correspond to field element c_( len(PrecomputedParams[0]) + n - 1 ) in std doc
 	Z                []big.Int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 	CofactorClearing bool
+	MappingAlgorithm FieldElementToCurvePoint
 }

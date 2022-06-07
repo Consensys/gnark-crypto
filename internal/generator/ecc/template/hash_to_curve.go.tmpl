@@ -1,0 +1,30 @@
+
+{{if eq $.MappingAlgorithm "SSWU"}}
+    {{template "sswu" .}}
+{{end}}
+{{if eq $.MappingAlgorithm "SVDW"}}
+    {{template "svdw" .}}
+{{end}}
+
+{{if eq .Point.PointName "g1"}}
+// hashToFp hashes msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
+    // 128 bits of security
+    // L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+    const Bytes = 1 + (fp.Bits - 1 ) / 8
+    const L = 16 + Bytes
+
+    lenInBytes := count * L
+    pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
+    if err != nil {
+        return nil, err
+    }
+
+    res := make([]fp.Element, count)
+    for i := 0; i < count; i++ {
+        res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+    }
+    return res, nil
+}
+{{end}}

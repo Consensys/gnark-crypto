@@ -1,3 +1,5 @@
+{{define "sswu"}}
+
 {{$isogenyNeeded := notNil .Isogeny}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
@@ -26,10 +28,6 @@ import (
 	{{- end}}
 )
 
-{{ define "asElement" }} {{ if eq $.TowerDegree 1}}{ {{ words64 (index (mont $.c) 0) }} }{{ else }}{{$cMont := mont $.c}}{ {{ range $i := (interval 0 (len $.c))}}
-    {{if eq $.TowerDegree 2}}A{{end}}{{$i}}: fp.Element{ {{ words64 (index $cMont $i) }} },{{ end }}
-}{{ end }}{{- end }}
-
 {{ if $isogenyNeeded }}
 
 func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
@@ -37,7 +35,7 @@ func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
-            {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree}},
+            {{ asElement $c}},
             {{- end}}
         },
         x)
@@ -48,7 +46,7 @@ func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Den}}
-                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
+                {{ asElement $c}},
             {{- end}}
         },
         x)
@@ -60,7 +58,7 @@ func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *
         false,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Num}}
-                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
+                {{ asElement $c}},
             {{- end}}
         },
         x)
@@ -73,7 +71,7 @@ func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         true,
         []{{$CoordType}} {
             {{- range $c := .Isogeny.YMap.Den}}
-                {{ template "asElement" dict "c" $c "TowerDegree" $TowerDegree }},
+                {{ asElement $c}},
             {{- end}}
         },
         x)
@@ -124,7 +122,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	y1.Mul(&y1, &tv2)
 
 	var y2 {{$CoordType}}
-	y2.Mul(&y1, &{{$CoordType}} {{ template "asElement" dict "c" (index .PrecomputedParams 1)  "TowerDegree" $TowerDegree}})
+	y2.Mul(&y1, &{{$CoordType}} {{ asElement (index .PrecomputedParams 1)}})
 
 	var tv3 {{$CoordType}}
 	tv3.Square(&y1)
@@ -153,7 +151,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     var y1 {{$CoordType}}
     y1.Exp(tv1, &c1)
     y1.Mul(&y1, &tv2)
-    tv1.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree}} )
+    tv1.Mul(&y1, &{{$CoordType}} {{asElement (index .PrecomputedParams 1)}} )
     tv2.Square(&tv1)
 
     //Line 10 in std doc
@@ -167,8 +165,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     //Line 15
     isQNr := tv2.NotEqual(u)
     var y2 {{$CoordType}}
-    y2.Mul(&y1, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 2) "TowerDegree" $TowerDegree}} )
-    tv1.Mul(&y2, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree}})
+    y2.Mul(&y1, &{{$CoordType}} {{asElement (index .PrecomputedParams 2)}} )
+    tv1.Mul(&y2, &{{$CoordType}} {{asElement (index .PrecomputedParams 1)}})
     tv2.Square(&tv1)
     tv2.Mul(&tv2, v)
 
@@ -199,7 +197,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ $c5Int := index $cInts 4}}
 {{ $c5IntBytes := printList (bytes $c5Int ) }}
 
-   tv1 := {{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 1) "TowerDegree" $TowerDegree }}    //tv1 = c6
+   tv1 := {{$CoordType}} {{asElement (index .PrecomputedParams 1) }}    //tv1 = c6
 
     var tv2, tv3, tv4, tv5 {{$CoordType}}
    var exp big.Int
@@ -230,7 +228,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 
    isQNr := {{$CurveName}}NotOne(&tv5)
 
-   tv2.Mul(&tv3, &{{$CoordType}} {{template "asElement" dict "c" (index .PrecomputedParams 2) "TowerDegree" $TowerDegree}} )
+   tv2.Mul(&tv3, &{{$CoordType}} {{asElement (index .PrecomputedParams 2) }} )
    tv5.Mul(&tv4, &tv1)
 
    // line 15
@@ -274,7 +272,7 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
 /*
 // {{$CurveName}}SetZ sets z to [{{printList .Z}}].
 func {{$CurveName}}SetZ(z *{{$CoordType}}) {
-    z.Set( &{{$CoordType}} {{template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}} )
+    z.Set( &{{$CoordType}} {{asElement .Z }} )
 }*/
 
 // {{$CurveName}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z
@@ -312,9 +310,11 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 	{{end}}
 
     *z = res {{ else }}
-    z.Mul(x, &{{$CoordType}} {{template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}})
+    z.Mul(x, &{{$CoordType}} {{asElement .Z }})
 
 {{ end }}}
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve{{$CurveIndex}} implements the SSWU map
@@ -336,16 +336,18 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &{{$CoordType}}{{ template "asElement" dict "c" .B  "TowerDegree" $TowerDegree}})
+	//TODO: Use bCurveConf when no isogeny
+	tv3.Mul(&tv3, &{{$CoordType}}{{ asElement .B  }})
 
     tv2NZero := {{$CurveName}}NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = {{$CoordType}}{{ template "asElement" dict "c" .Z "TowerDegree" $TowerDegree}}
+	tv4 = {{$CoordType}}{{ asElement  .Z }}
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)
-    tv2 = {{$CoordType}}{{ template "asElement" dict "c" .A  "TowerDegree" $TowerDegree}}
+	//TODO: When no isogeny use curve constants
+    tv2 = {{$CoordType}}{{ asElement .A }}
     tv4.Mul(&tv4, &tv2)
 
 	tv2.Square(&tv3)
@@ -355,14 +357,14 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	tv6.Square(&tv4)
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .A  "TowerDegree" $TowerDegree}})
+	tv5.Mul(&tv6, &{{$CoordType}}{{ asElement .A }})
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &{{$CoordType}}{{ template "asElement" dict "c" .B  "TowerDegree" $TowerDegree}})
+	tv5.Mul(&tv6, &{{$CoordType}}{{asElement .B}})
 	tv2.Add(&tv2, &tv5)
 
 	var x {{$CoordType}}
@@ -522,6 +524,4 @@ func {{$CurveName}}NotZero(x *{{$CoordType}}) uint64 {
 	{{end}}
 }
 
-{{if $IsG1}}
-{{template "hashToFp"}}
 {{end}}

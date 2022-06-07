@@ -27,19 +27,19 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 	// hash To curve
 
-	genHashToCurve := func(point *config.Point, suite *config.HashSuite) error {
+	genHashToCurve := func(point *config.Point, suite config.HashSuite) error {
 		if suite == nil { //Nothing to generate. Bypass
 			return nil
 		}
 
 		entries = []bavard.Entry{
-			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl", "hash_to_curve_utils.go.tmpl"}},
+			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"hash_to_curve.go.tmpl", "sswu.go.tmpl", "svdw.go.tmpl"}},
 			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
 
-		hashConf := config.NewHashSuiteInfoSSWU(conf.Fp, point, conf.Name, suite)
+		hashConf := suite.GetInfo(conf.Fp, point, conf.Name)
 
 		funcs := make(template.FuncMap)
-		funcs["mont"] = hashConf.Field.ToMont
+		funcs["asElement"] = hashConf.Field.Base.WriteElement
 		bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
 		return bgen.GenerateWithOptions(hashConf, packageName, "./ecc/template", bavardOpts, entries...)

@@ -135,7 +135,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 /*
 // g1SetZ sets z to [8].
 func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 18400687542797871745, 809728271075671860, 17770696641280178537, 10361798156408411167, 334758614216279309 } )
+    z.Set( &fp.Element {18400687542797871745, 809728271075671860, 17770696641280178537, 10361798156408411167, 334758614216279309} )
 }*/
 
 // g1MulByZ multiplies x by [8] and stores the result in z
@@ -149,6 +149,8 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	*z = res
 }
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve1 implements the SSWU map
@@ -170,6 +172,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
+	//TODO: Use bCurveConf when no isogeny
 	tv3.Mul(&tv3, &fp.Element{14477170886729819615, 1154054877908840441, 13400991584556574205, 3277375072715511934, 979998381373634863})
 
 	tv2NZero := g1NotZero(&tv2)
@@ -179,6 +182,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
+	//TODO: When no isogeny use curve constants
 	tv2 = fp.Element{2751493217506761890, 10508083672876982400, 9568653941102734201, 1934905759174260726, 590687129635764257}
 	tv4.Mul(&tv4, &tv2)
 
@@ -316,7 +320,6 @@ func g1NotZero(x *fp.Element) uint64 {
 // hashToFp hashes msg to count prime field elements.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
 func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-
 	// 128 bits of security
 	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
 	const Bytes = 1 + (fp.Bits-1)/8

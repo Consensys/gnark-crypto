@@ -163,7 +163,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 /*
 // g1SetZ sets z to [11].
 func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 6130771042861286320, 11947466704102345269, 5006184736040647654, 10738967583325648129, 6155303802163134778, 6459686480506411032, 14448065740527999419, 1019798761927372322, 5080373183861200608, 66158761009468389 } )
+    z.Set( &fp.Element {6130771042861286320, 11947466704102345269, 5006184736040647654, 10738967583325648129, 6155303802163134778, 6459686480506411032, 14448065740527999419, 1019798761927372322, 5080373183861200608, 66158761009468389} )
 }*/
 
 // g1MulByZ multiplies x by [11] and stores the result in z
@@ -179,6 +179,8 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	*z = res
 }
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve1 implements the SSWU map
@@ -200,6 +202,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
+	//TODO: Use bCurveConf when no isogeny
 	tv3.Mul(&tv3, &fp.Element{1447342806075484185, 5642327672839545870, 16783436050687675045, 2630023864181351186, 5909133526915342434, 1057352115267779153, 1923190814798170064, 13280701548970829092, 3305076617946573429, 29606717104036842})
 
 	tv2NZero := g1NotZero(&tv2)
@@ -209,6 +212,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
+	//TODO: When no isogeny use curve constants
 	tv2 = fp.Element{12925890271846221020, 6355149021182850637, 12305199997029221454, 3176370205483940054, 1111744716227392272, 1674946515969267914, 9082444721826297409, 17859522351279563418, 11442187008395780520, 4206825732020662}
 	tv4.Mul(&tv4, &tv2)
 
@@ -346,7 +350,6 @@ func g1NotZero(x *fp.Element) uint64 {
 // hashToFp hashes msg to count prime field elements.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
 func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-
 	// 128 bits of security
 	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
 	const Bytes = 1 + (fp.Bits-1)/8

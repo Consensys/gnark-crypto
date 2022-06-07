@@ -164,7 +164,7 @@ func g1NotOne(x *fp.Element) uint64 {
 /*
 // g1SetZ sets z to [11].
 func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222 } )
+    z.Set( &fp.Element {18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222} )
 }*/
 
 // g1MulByZ multiplies x by [11] and stores the result in z
@@ -180,6 +180,8 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	*z = res
 }
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve1 implements the SSWU map
@@ -201,6 +203,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
+	//TODO: Use bCurveConf when no isogeny
 	tv3.Mul(&tv3, &fp.Element{18446744073709458379, 881299893533802495, 4886355625346099349, 6225448195760991771, 6629400315996169345, 12607886696045185322, 7201730065066775519, 1932403901886200506, 8616600553259348813, 6369175937589644082, 7499857803942196586, 3773119276850162})
 
 	tv2NZero := g1NotZero(&tv2)
@@ -210,6 +213,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
+	//TODO: When no isogeny use curve constants
 	tv2 = fp.Element{6087387690755251612, 7643068232434215576, 6195945763281467660, 97569654519975969, 1505434147110560758, 12342644747290341982, 14059794106692380317, 15229664573794943703, 16908793757593141664, 1949816925291208189, 9451095697369482684, 234190359239853}
 	tv4.Mul(&tv4, &tv2)
 
@@ -347,7 +351,6 @@ func g1NotZero(x *fp.Element) uint64 {
 // hashToFp hashes msg to count prime field elements.
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
 func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-
 	// 128 bits of security
 	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
 	const Bytes = 1 + (fp.Bits-1)/8

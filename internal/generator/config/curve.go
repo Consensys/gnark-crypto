@@ -23,8 +23,8 @@ type Curve struct {
 	G1             Point
 	G2             Point
 
-	HashE1 *HashSuite
-	HashE2 *HashSuite
+	HashE1 HashSuite
+	HashE2 HashSuite
 }
 
 type TwistedEdwardsCurve struct {
