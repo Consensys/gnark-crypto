@@ -422,6 +422,8 @@ func CoordNameForExtensionDegree(degree uint8) string {
 		return ""
 	case 2:
 		return "A"
+	case 4:
+		return "B"
 	case 6:
 		return "B"
 	case 12:
