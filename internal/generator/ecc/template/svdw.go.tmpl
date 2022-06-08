@@ -26,6 +26,12 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     //c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
     //c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
+	//Z  = {{writeElementPretty (index $.PrecomputedParams 0)}}
+    //c1 = {{writeElementPretty (index $.PrecomputedParams 1)}}
+    //c2 = {{writeElementPretty (index $.PrecomputedParams 2)}}
+    //c3 = {{writeElementPretty (index $.PrecomputedParams 3)}}
+    //c4 = {{writeElementPretty (index $.PrecomputedParams 4)}}
+
     //TODO: Move outside function?
     Z  := {{$CoordType}}{{asElement (index $.PrecomputedParams 0)}}
     c1 := {{$CoordType}}{{asElement (index $.PrecomputedParams 1)}}

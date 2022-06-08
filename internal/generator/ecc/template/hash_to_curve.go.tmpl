@@ -9,6 +9,10 @@
 {{$CurveIndex := "2"}}
 {{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
 
+{{define "writeElementPretty c"}}
+{{- $c := .c}}{{index $c 0}}{{- range $i := iterate 1 (len $c)}}{{$n := index $c $i}}{{if ne (pretty $n) "0"}} + {{if ne (pretty $n) "1"}}{{index $c $i}}*{{end}}u{{if ne $i 1}}{{supScr $i}}{{end}}{{end}}{{end}}
+{{- end}}
+
 import(
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
     {{- if not (eq $TowerDegree 1) }}
