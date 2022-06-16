@@ -18,11 +18,13 @@ package field
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 	"math"
 	"math/big"
 	"math/bits"
-
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -240,7 +242,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			F.SqrtG = toUint64Slice(&g, F.NbWords)
 
 			// store non residue in montgomery form
-			F.ToMont(&F.NonResidue, &nonResidue)
+			F.NonResidue = F.ToMont(nonResidue)
 
 			// (s+1) /2
 			s.Sub(&s, &one).Rsh(&s, 1)
@@ -311,24 +313,18 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 //Useful for hard-coding in implementation field elements from standards documents
 func (f *FieldConfig) StringToMont(str string) big.Int {
 
-	base := 10
-
-	if len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X') {
-		base = 16
-		str = str[2:]
-	}
-
 	var i big.Int
-	i.SetString(str, base)
-	f.ToMont(&i, &i)
+	i.SetString(str, 0)
+	i = f.ToMont(i)
 
 	return i
 }
 
-func (f *FieldConfig) ToMont(mont *big.Int, nonMont *big.Int) *FieldConfig {
-	mont.Lsh(nonMont, uint(f.NbWords)*64)
-	mont.Mod(mont, f.ModulusBig)
-	return f
+func (f *FieldConfig) ToMont(nonMont big.Int) big.Int {
+	var mont big.Int
+	mont.Lsh(&nonMont, uint(f.NbWords)*64)
+	mont.Mod(&mont, f.ModulusBig)
+	return mont
 }
 
 func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
@@ -409,4 +405,55 @@ func (f *FieldConfig) Mul(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 func (f *FieldConfig) Add(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
 	z.Add(x, y).Mod(z, f.ModulusBig)
 	return f
+}
+
+func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
+	z := make(Element, len(x))
+	for i := 0; i < len(x); i++ {
+		z[i] = f.ToMont(x[i])
+	}
+	return z
+}
+
+//TODO: Spaghetti Alert: Okay to have codegen functions here?
+func CoordNameForExtensionDegree(degree uint8) string {
+	switch degree {
+	case 1:
+		return ""
+	case 2:
+		return "A"
+	case 6:
+		return "B"
+	case 12:
+		return "C"
+	}
+	panic(fmt.Sprint("unknown extension degree", degree))
+}
+
+func (f *FieldConfig) WriteElement(element Element) string {
+	builder := bavard.StringBuilderPool.Get().(*strings.Builder)
+	builder.Reset()
+	defer bavard.StringBuilderPool.Put(builder)
+
+	builder.WriteString("{")
+	length := len(element)
+	var subElementNames string
+	if length > 1 {
+		builder.WriteString("\n")
+		subElementNames = CoordNameForExtensionDegree(uint8(length))
+	}
+	for i, e := range element {
+		if length > 1 {
+			builder.WriteString(subElementNames)
+			builder.WriteString(strconv.Itoa(i))
+			builder.WriteString(": fp.Element{")
+		}
+		mont := f.ToMont(e)
+		bavard.WriteBigIntAsUint64Slice(builder, &mont)
+		if length > 1 {
+			builder.WriteString("},\n")
+		}
+	}
+	builder.WriteString("}")
+	return builder.String()
 }

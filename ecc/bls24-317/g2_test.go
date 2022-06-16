@@ -84,37 +84,6 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestMapToG2(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	properties.Property("[G2] mapping to curve should output point on the curve", prop.ForAll(
-		func(a fptower.E4) bool {
-			g := MapToG2(a)
-			return g.IsInSubGroup()
-		},
-		GenE4(),
-	))
-
-	properties.Property("[G2] mapping to curve should be deterministic", prop.ForAll(
-		func(a fptower.E4) bool {
-			g1 := MapToG2(a)
-			g2 := MapToG2(a)
-			return g1.Equal(&g2)
-		},
-		GenE4(),
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
 func TestG2AffineIsOnCurve(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()

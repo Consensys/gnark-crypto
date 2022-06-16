@@ -23,8 +23,8 @@ type Curve struct {
 	G1             Point
 	G2             Point
 
-	HashE1 *HashSuite
-	HashE2 *HashSuite
+	HashE1 HashSuite
+	HashE2 HashSuite
 }
 
 type TwistedEdwardsCurve struct {
@@ -55,10 +55,12 @@ type Point struct {
 	CoordExtDegree   uint8 // value n, such that q = pⁿ
 	CoordExtRoot     int64 // value a, such that the field is Fp[X]/(Xⁿ - a)
 	PointName        string
-	GLV              bool  // scalar multiplication using GLV
-	CofactorCleaning bool  // flag telling if the Cofactor cleaning is available
-	CRange           []int // multiexp bucket method: generate inner methods (with const arrays) for each c
-	Projective       bool  // generate projective coordinates
+	GLV              bool     // scalar multiplication using GLV
+	CofactorCleaning bool     // flag telling if the Cofactor cleaning is available
+	CRange           []int    // multiexp bucket method: generate inner methods (with const arrays) for each c
+	Projective       bool     // generate projective coordinates
+	A                []string //A linear coefficient in Weierstrass form
+	B                []string //B constant term in Weierstrass form
 }
 
 var Curves []Curve

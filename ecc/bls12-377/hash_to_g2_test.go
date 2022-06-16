@@ -17,6 +17,7 @@
 package bls12377
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -61,41 +62,26 @@ func TestG2SqrtRatio(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-//TODO: Crude. Do something clever in Jacobian
-func isOnEPrimeG2(p G2Affine) bool {
+func TestHashToFpG2(t *testing.T) {
+	for _, c := range encodeToG2Vector.cases {
+		elems, err := hashToFp([]byte(c.msg), encodeToG2Vector.dst, 2)
+		if err != nil {
+			t.Error(err)
+		}
+		g2TestMatchCoord(t, "u", c.msg, c.u, g2CoordAt(elems, 0))
+	}
 
-	var A, B fptower.E2
-
-	// TODO: Value already in Mont form, set string without mont conversion
-
-	A.SetString(
-		"192303301554269313181660764167541068935015005067716784718238368109912383535701623721396365381487905911696649066633",
-		"238897945013062074976279153251328447620218191425589119205116795771589078924735215947253587296362858980098699360207",
-	)
-
-	B.SetString(
-		"83302375486017726917223037125692465591206602048090339920546707365830857600189735185762598025188583956478510093329",
-		"178392938419256735777994810259399555271177817806504714948859994527129989661345236041170726234726725813118559137093",
-	)
-
-	A.FromMont()
-	B.FromMont()
-
-	var LHS fptower.E2
-	LHS.
-		Square(&p.Y).
-		Sub(&LHS, &B)
-
-	var RHS fptower.E2
-	RHS.
-		Square(&p.X).
-		Add(&RHS, &A).
-		Mul(&RHS, &p.X)
-
-	return LHS.Equal(&RHS)
+	for _, c := range hashToG2Vector.cases {
+		elems, err := hashToFp([]byte(c.msg), hashToG2Vector.dst, 2*2)
+		if err != nil {
+			t.Error(err)
+		}
+		g2TestMatchCoord(t, "u0", c.msg, c.u0, g2CoordAt(elems, 0))
+		g2TestMatchCoord(t, "u1", c.msg, c.u1, g2CoordAt(elems, 1))
+	}
 }
 
-func TestG2SSWU(t *testing.T) {
+func TestMapToCurve2(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -106,20 +92,19 @@ func TestG2SSWU(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[G2] hash outputs must be in appropriate groups", prop.ForAll(
+	properties.Property("[G2] mapping output must be on curve", prop.ForAll(
 		func(a fptower.E2) bool {
 
 			g := mapToCurve2(&a)
 
-			if !isOnEPrimeG2(g) {
-				t.Log("SSWU output not on E' curve")
+			if !isOnE2Prime(g) {
+				t.Log("Mapping output not on E' curve")
 				return false
 			}
-
 			g2Isogeny(&g)
 
 			if !g.IsOnCurve() {
-				t.Log("Isogeny/SSWU output not on curve")
+				t.Log("Isogeny∘SSWU output not on curve")
 				return false
 			}
 
@@ -129,63 +114,86 @@ func TestG2SSWU(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
 
-//Only works on simple extensions (two-story towers)
-func g2CoordSetString(z *fptower.E2, s string) {
-	ssplit := strings.Split(s, ",")
-	if len(ssplit) != 2 {
-		panic("not equal to tower size")
+	for _, c := range encodeToG2Vector.cases {
+		var u fptower.E2
+		g2CoordSetString(&u, c.u)
+		q := mapToCurve2(&u)
+		g2Isogeny(&q)
+		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
-	z.SetString(
 
-		ssplit[0],
-		ssplit[1],
-	)
-}
+	for _, c := range hashToG2Vector.cases {
+		var u fptower.E2
+		g2CoordSetString(&u, c.u0)
+		q := mapToCurve2(&u)
+		g2Isogeny(&q)
+		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
-func g2TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen *fptower.E2) {
-	var expected fptower.E2
-
-	g2CoordSetString(&expected, expectedStr)
-
-	if !expected.Equal(seen) {
-		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), seen)
+		g2CoordSetString(&u, c.u1)
+		q = mapToCurve2(&u)
+		g2Isogeny(&q)
+		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
 
-func g2TestMatch(t *testing.T, c hashTestCase, seen *G2Affine) {
-	g2TestMatchCoord(t, "x", c.msg, c.x, &seen.X)
-	g2TestMatchCoord(t, "y", c.msg, c.y, &seen.Y)
+func TestMapToG2(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[G2] mapping to curve should output point on the curve", prop.ForAll(
+		func(a fptower.E2) bool {
+			g := MapToG2(a)
+			return g.IsInSubGroup()
+		},
+		GenE2(),
+	))
+
+	properties.Property("[G2] mapping to curve should be deterministic", prop.ForAll(
+		func(a fptower.E2) bool {
+			g1 := MapToG2(a)
+			g2 := MapToG2(a)
+			return g1.Equal(&g2)
+		},
+		GenE2(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestEncodeToG2(t *testing.T) {
 	t.Parallel()
-	for _, c := range g2EncodeToCurveSSWUVector.cases {
-		seen, err := EncodeToG2([]byte(c.msg), g2EncodeToCurveSSWUVector.dst)
+	for _, c := range encodeToG2Vector.cases {
+		p, err := EncodeToG2([]byte(c.msg), encodeToG2Vector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-		g2TestMatch(t, c, &seen)
+		g2TestMatchPoint(t, "P", c.msg, c.P, &p)
 	}
 }
 
 func TestHashToG2(t *testing.T) {
 	t.Parallel()
-	for _, c := range g2HashToCurveSSWUVector.cases {
-		seen, err := HashToG2([]byte(c.msg), g2HashToCurveSSWUVector.dst)
+	for _, c := range hashToG2Vector.cases {
+		p, err := HashToG2([]byte(c.msg), hashToG2Vector.dst)
 		if err != nil {
 			t.Fatal(err)
 		}
-		g2TestMatch(t, c, &seen)
+		g2TestMatchPoint(t, "P", c.msg, c.P, &p)
 	}
-	t.Log(len(g2HashToCurveSSWUVector.cases), "cases verified")
 }
 
 func BenchmarkEncodeToG2(b *testing.B) {
 	const size = 54
 	bytes := make([]byte, size)
-	dst := g2EncodeToCurveSSWUVector.dst
+	dst := encodeToG2Vector.dst
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -201,7 +209,7 @@ func BenchmarkEncodeToG2(b *testing.B) {
 func BenchmarkHashToG2(b *testing.B) {
 	const size = 54
 	bytes := make([]byte, size)
-	dst := g2HashToCurveSSWUVector.dst
+	dst := hashToG2Vector.dst
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -214,5 +222,68 @@ func BenchmarkHashToG2(b *testing.B) {
 	}
 }
 
-var g2HashToCurveSSWUVector hashTestVector
-var g2EncodeToCurveSSWUVector hashTestVector
+//TODO: Crude. Do something clever in Jacobian
+func isOnE2Prime(p G2Affine) bool {
+
+	var A, B fptower.E2
+
+	A.SetString(
+		"203567575243095400658685394654545117908398249146024925306257919445062693445414588103741379252427065422417496933054",
+		"69357795553467368835766998649443114298653120475771922004522583893765862042427351483161253261358624703462995261783",
+	)
+
+	B.SetString(
+		"249039961697346248294162904170316935273494032138504221215795383014884687447192317932476994472315647695087734549420",
+		"806998283981877041862626354975415285020485827233942100233224759047656510577433749137260740227904569833498998565",
+	)
+
+	var LHS fptower.E2
+	LHS.
+		Square(&p.Y).
+		Sub(&LHS, &B)
+
+	var RHS fptower.E2
+	RHS.
+		Square(&p.X).
+		Add(&RHS, &A).
+		Mul(&RHS, &p.X)
+
+	return LHS.Equal(&RHS)
+}
+
+//Only works on simple extensions (two-story towers)
+func g2CoordSetString(z *fptower.E2, s string) {
+	ssplit := strings.Split(s, ",")
+	if len(ssplit) != 2 {
+		panic("not equal to tower size")
+	}
+	z.SetString(
+		ssplit[0],
+		ssplit[1],
+	)
+}
+
+func g2CoordAt(slice []fp.Element, i int) fptower.E2 {
+	return fptower.E2{
+		A0: slice[i*2+0],
+		A1: slice[i*2+1],
+	}
+}
+
+func g2TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen fptower.E2) {
+	var expected fptower.E2
+
+	g2CoordSetString(&expected, expectedStr)
+
+	if !expected.Equal(&seen) {
+		t.Errorf("mismatch on \"%s\", %s:\n\texpected %s\n\tsaw      %s", msg, coordName, expected.String(), &seen)
+	}
+}
+
+func g2TestMatchPoint(t *testing.T, pointName string, msg string, expected point, seen *G2Affine) {
+	g2TestMatchCoord(t, pointName+".x", msg, expected.x, seen.X)
+	g2TestMatchCoord(t, pointName+".y", msg, expected.y, seen.Y)
+}
+
+var encodeToG2Vector encodeTestVector
+var hashToG2Vector hashTestVector

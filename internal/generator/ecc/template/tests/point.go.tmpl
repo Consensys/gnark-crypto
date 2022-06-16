@@ -27,8 +27,6 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-
-
 {{if .GLV}}
     func Test{{ $TAffine }}Endomorphism(t *testing.T) {
 		t.Parallel()
@@ -97,37 +95,6 @@ import (
         properties.TestingRun(t, gopter.ConsoleReporter(false))
     }
 {{end}}
-
-func TestMapTo{{ toUpper .PointName }}(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	properties.Property("[{{ toUpper .PointName}}] mapping to curve should output point on the curve", prop.ForAll(
-		func(a {{ .CoordType}}) bool {
-			g := MapTo{{ toUpper .PointName}}(a)
-			return g.IsInSubGroup()
-		},
-		{{$fuzzer}},
-	))
-
-	properties.Property("[{{ toUpper .PointName}}] mapping to curve should be deterministic", prop.ForAll(
-		func(a {{ .CoordType}}) bool {
-			g1 := MapTo{{ toUpper .PointName}}(a)
-			g2 := MapTo{{ toUpper .PointName}}(a)
-			return g1.Equal(&g2)
-		},
-		{{$fuzzer}},
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
 
 func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 	t.Parallel()

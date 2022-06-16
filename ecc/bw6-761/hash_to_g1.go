@@ -16,14 +16,14 @@
 
 package bw6761
 
-//Note: This only works for simple extensions
-
 import (
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
+
+	"math/big"
 )
+
+//Note: This only works for simple extensions
 
 func g1IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
 	g1EvalPolynomial(dst,
@@ -123,7 +123,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 /*
 // g1SetZ sets z to [2].
 func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 289919226011913130, 13019990545710127566, 4409829457611675068, 13030600802816293865, 15696054586628993047, 9353078419867322391, 5664203968291172875, 5090703637405909511, 17774776443174359288, 10018561694451762270, 12632664537138156478, 46143195394855163 } )
+    z.Set( &fp.Element {289919226011913130, 13019990545710127566, 4409829457611675068, 13030600802816293865, 15696054586628993047, 9353078419867322391, 5664203968291172875, 5090703637405909511, 17774776443174359288, 10018561694451762270, 12632664537138156478, 46143195394855163} )
 }*/
 
 // g1MulByZ multiplies x by [2] and stores the result in z
@@ -135,6 +135,8 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 
 	*z = res
 }
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve1 implements the SSWU map
@@ -156,6 +158,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
+	//TODO: Use bCurveConf when no isogeny
 	tv3.Mul(&tv3, &fp.Element{9514135687797572479, 9972495974968977338, 17954535578332286571, 7437044986470910914, 13903267017721129281, 1871129682978723308, 13401268269932482209, 739043012311877982, 12116264695643437343, 1632209977726909861, 3621981106970059143, 65605772132525947})
 
 	tv2NZero := g1NotZero(&tv2)
@@ -165,6 +168,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
+	//TODO: When no isogeny use curve constants
 	tv2 = fp.Element{12169852093062392636, 3867460573998792965, 2540986171999662608, 3377838107874487171, 6313266756742099767, 5994530928773814047, 5007141583730923456, 2345996307867737670, 7096861766432061441, 10014420324597579745, 8416419844935780388, 63340978449966806}
 	tv4.Mul(&tv4, &tv2)
 
@@ -209,6 +213,55 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	return G1Affine{x, y}
 }
 
+func g1EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *fp.Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	z.Set(&dst)
+}
+
+// hashToFp hashes msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (fp.Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]fp.Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
+}
+
+// g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// The sign of an element is not obviously related to that of its Montgomery form
+func g1Sgn0(z *fp.Element) uint64 {
+
+	nonMont := *z
+	nonMont.FromMont()
+
+	return nonMont[0] % 2
+
+}
+
 // MapToG1 invokes the SSWU map, and guarantees that the result is in g1
 func MapToG1(u fp.Element) G1Affine {
 	res := mapToCurve1(&u)
@@ -218,7 +271,7 @@ func MapToG1(u fp.Element) G1Affine {
 	return res
 }
 
-// EncodeToG1 hashes a message to a point on the G1 curve using the Simplified Shallue and van de Woestijne Ulas map.
+// EncodeToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
@@ -238,7 +291,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 	return res, nil
 }
 
-// HashToG1 hashes a message to a point on the G1 curve using the Simplified Shallue and van de Woestijne Ulas map.
+// HashToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // Slower than EncodeToG1, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
@@ -265,58 +318,8 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 	return Q1, nil
 }
 
-// g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
-// The sign of an element is not obviously related to that of its Montgomery form
-func g1Sgn0(z *fp.Element) uint64 {
-
-	nonMont := *z
-	nonMont.FromMont()
-
-	return nonMont[0] % 2
-
-}
-
-func g1EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *fp.Element) {
-	dst := coefficients[len(coefficients)-1]
-
-	if monic {
-		dst.Add(&dst, x)
-	}
-
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
-	}
-
-	z.Set(&dst)
-}
-
 func g1NotZero(x *fp.Element) uint64 {
 
 	return x[0] | x[1] | x[2] | x[3] | x[4] | x[5] | x[6] | x[7] | x[8] | x[9] | x[10] | x[11]
 
-}
-
-// hashToFp hashes msg to count prime field elements.
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
-func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-
-	// 128 bits of security
-	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
-	const Bytes = 1 + (fp.Bits-1)/8
-	const L = 16 + Bytes
-
-	lenInBytes := count * L
-	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make([]fp.Element, count)
-	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
-	}
-	return res, nil
 }

@@ -31,8 +31,7 @@ func TestIntToMont(t *testing.T) {
 			i.Mod(&i, f.ModulusBig)
 
 			// turn into mont
-			var mont big.Int
-			f.ToMont(&mont, &i)
+			mont := f.ToMont(i)
 			f.FromMont(&mont, &mont)
 
 			return mont.Cmp(&i) == 0, nil
@@ -44,7 +43,7 @@ func TestIntToMont(t *testing.T) {
 			// test if using the same R
 			i := big.NewInt(1)
 			i.Lsh(i, 64*uint(f.NbWords))
-			f.ToMont(i, i)
+			*i = f.ToMont(*i)
 
 			err := BigIntMatchUint64Slice(i, f.RSquare)
 			return err == nil, err
@@ -151,7 +150,7 @@ func TestExponentiationBls12381G2(t *testing.T) {
 	}
 
 	cases := []expTestCase{
-		{big.NewInt(2), f.FromInt64([]int64{3, 4})},
+		{big.NewInt(2), f.FromInt64(3, 4)},
 	}
 	for _, c := range cases {
 		res := f.Exp(Z, c.pow)

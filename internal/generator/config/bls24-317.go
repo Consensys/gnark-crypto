@@ -24,7 +24,7 @@ var BLS24_317 = Curve{
 		Projective:       true,
 	},
 	// 5-isogeny
-	HashE1: &HashSuite{
+	HashE1: &HashSuiteSswu{
 		A: []string{"0x8e4edadd82ff003e6762cff9b559b8cd0f3f6c9311276a6d560dcce30e697a982e1866e3e7c28d5"},
 		B: []string{"0x2064f87ea0196ecbb9b075804c613d4776224e78064823a8568e30f5ad5af3bb70ee17723af3a0d"},
 		Z: []int{8},

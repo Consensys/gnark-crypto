@@ -16,12 +16,13 @@
 
 package bw6756
 
-//Note: This only works for simple extensions
-
 import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fp"
+
 	"math/big"
 )
+
+//Note: This only works for simple extensions
 
 func g2IsogenyXNumerator(dst *fp.Element, x *fp.Element) {
 	g2EvalPolynomial(dst,
@@ -234,7 +235,7 @@ func g2NotOne(x *fp.Element) uint64 {
 /*
 // g2SetZ sets z to [11].
 func g2SetZ(z *fp.Element) {
-    z.Set( &fp.Element  { 18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222 } )
+    z.Set( &fp.Element {18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222} )
 }*/
 
 // g2MulByZ multiplies x by [11] and stores the result in z
@@ -250,6 +251,8 @@ func g2MulByZ(z *fp.Element, x *fp.Element) {
 
 	*z = res
 }
+
+//TODO: Define A,B here
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve2 implements the SSWU map
@@ -271,6 +274,7 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
+	//TODO: Use bCurveConf when no isogeny
 	tv3.Mul(&tv3, &fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206})
 
 	tv2NZero := g2NotZero(&tv2)
@@ -280,6 +284,7 @@ func mapToCurve2(u *fp.Element) G2Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
+	//TODO: When no isogeny use curve constants
 	tv2 = fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385}
 	tv4.Mul(&tv4, &tv2)
 
@@ -324,6 +329,34 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	return G2Affine{x, y}
 }
 
+func g2EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *fp.Element) {
+	dst := coefficients[len(coefficients)-1]
+
+	if monic {
+		dst.Add(&dst, x)
+	}
+
+	for i := len(coefficients) - 2; i >= 0; i-- {
+		dst.Mul(&dst, x)
+		dst.Add(&dst, &coefficients[i])
+	}
+
+	z.Set(&dst)
+}
+
+// g2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
+// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// The sign of an element is not obviously related to that of its Montgomery form
+func g2Sgn0(z *fp.Element) uint64 {
+
+	nonMont := *z
+	nonMont.FromMont()
+
+	return nonMont[0] % 2
+
+}
+
 // MapToG2 invokes the SSWU map, and guarantees that the result is in g2
 func MapToG2(u fp.Element) G2Affine {
 	res := mapToCurve2(&u)
@@ -333,7 +366,7 @@ func MapToG2(u fp.Element) G2Affine {
 	return res
 }
 
-// EncodeToG2 hashes a message to a point on the G2 curve using the Simplified Shallue and van de Woestijne Ulas map.
+// EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
@@ -353,7 +386,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	return res, nil
 }
 
-// HashToG2 hashes a message to a point on the G2 curve using the Simplified Shallue and van de Woestijne Ulas map.
+// HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // Slower than EncodeToG2, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
@@ -378,34 +411,6 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 
 	Q1.FromJacobian(&_Q1)
 	return Q1, nil
-}
-
-// g2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
-// The sign of an element is not obviously related to that of its Montgomery form
-func g2Sgn0(z *fp.Element) uint64 {
-
-	nonMont := *z
-	nonMont.FromMont()
-
-	return nonMont[0] % 2
-
-}
-
-func g2EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *fp.Element) {
-	dst := coefficients[len(coefficients)-1]
-
-	if monic {
-		dst.Add(&dst, x)
-	}
-
-	for i := len(coefficients) - 2; i >= 0; i-- {
-		dst.Mul(&dst, x)
-		dst.Add(&dst, &coefficients[i])
-	}
-
-	z.Set(&dst)
 }
 
 func g2NotZero(x *fp.Element) uint64 {
