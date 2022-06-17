@@ -1,0 +1,123 @@
+on: pull_request
+env: 
+  GOPROXY: "https://proxy.golang.org"
+
+name: pull_request
+jobs:
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.18.x
+    - name: checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/Library/Caches/go-build
+          %LocalAppData%\go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: gofmt
+      run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+          args: --timeout=5m
+    - name: install deps
+      run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
+    - name: generated files should not be modified
+      run: |
+        go generate ./...
+        git update-index --assume-unchanged go.mod
+        git update-index --assume-unchanged go.sum
+        if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after runing go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
+  
+  test:
+    strategy:
+      matrix:
+        go-version: [1.17.x, 1.18.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    needs:
+      - staticcheck
+    steps:
+    - name: install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: checkout code
+      uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          ~/Library/Caches/go-build
+          %LocalAppData%\go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: install deps
+      run: go install golang.org/x/tools/cmd/goimports@latest && go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
+    - name: Test
+      run: go test -p=1 -v -timeout=30m ./...
+    - name: Test (32 bits & race)
+      if: (matrix.os == 'ubuntu-latest') && (matrix.go-version == '1.18.x')
+      run: |
+          go test -p=1 -v -timeout=30m -short -race  ./ecc/bn254/...
+          go test -p=1 -v -timeout=30m -short -tags=noadx  ./ecc/bn254/...
+          GOARCH=386 go test -p=1 -timeout=30m -short -v  ./ecc/bn254/...
+  
+  slack-workflow-status-failed:
+    if: failure()
+    name: post workflow status to slack
+    needs:
+      - staticcheck
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify slack -- workflow failed
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          payload: |
+            {
+              "actor": "${{ github.actor }}",
+              "repo": "${{ github.repository }}",
+              "status": "FAIL",
+              "title": "${{ github.event.pull_request.title }}",
+              "pr": "${{ github.event.pull_request.head.ref }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  slack-workflow-status-success:
+    if: success()
+    name: post workflow status to slack
+    needs:
+      - staticcheck
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify slack -- workflow succeeded
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          payload: |
+            {
+              "actor": "${{ github.actor }}",
+              "repo": "${{ github.repository }}",
+              "status": "SUCCESS",
+              "title": "${{ github.event.pull_request.title }}",
+              "pr": "${{ github.event.pull_request.head.ref }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_SUCCESS }}

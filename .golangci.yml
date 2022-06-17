@@ -1,0 +1,16 @@
+linters-settings:
+  govet:
+    check-shadowing: true
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - staticcheck
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+
+run:
+  issues-exit-code: 1

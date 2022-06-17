@@ -19,8 +19,8 @@ import (
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
-	"github.com/consensys/gnark-crypto/field"
-	"github.com/consensys/gnark-crypto/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/internal/field/asm/amd64"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
@@ -29,11 +29,11 @@ type Fq2Amd64 struct {
 	*amd64.FFAmd64
 	config config.Curve
 	w      io.Writer
-	F      *field.Field
+	F      *field.FieldConfig
 }
 
 // NewFq2Amd64 ...
-func NewFq2Amd64(w io.Writer, F *field.Field, config config.Curve) *Fq2Amd64 {
+func NewFq2Amd64(w io.Writer, F *field.FieldConfig, config config.Curve) *Fq2Amd64 {
 	return &Fq2Amd64{
 		amd64.NewFFAmd64(w, F),
 		config,

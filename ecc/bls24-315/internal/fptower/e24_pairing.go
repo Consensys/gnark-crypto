@@ -20,7 +20,7 @@ func (z *E24) Expt(x *E24) *E24 {
 	result.nSquareCompressed(8)
 	x30.Set(&result)
 
-	batch := BatchDecompress([]E24{x20, x22, x30})
+	batch := BatchDecompressKarabina([]E24{x20, x22, x30})
 
 	x32.CyclotomicSquare(&batch[2]).
 		CyclotomicSquare(&x32).

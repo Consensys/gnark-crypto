@@ -106,6 +106,11 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E6) IsZero() bool {
+	return z.B0.IsZero() && z.B1.IsZero()
+}
+
 // Mul set z=x*y in E6 and return z
 func (z *E6) Mul(x, y *E6) *E6 {
 	var a, b, c E3
@@ -309,6 +314,40 @@ func (z *E6) Inverse(x *E6) *E6 {
 	z.B1.Mul(&x.B1, &t1).Neg(&z.B1)
 
 	return z
+}
+
+// BatchInvertE6 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE6(a []E6) []E6 {
+	res := make([]E6, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E6
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
 }
 
 // Exp sets z=x**e and returns it
@@ -564,4 +603,97 @@ func (z *E6) IsInSubGroup() bool {
 		Mul(&b, &t[0]) // z^(3(t-1))
 
 	return a.Equal(&b)
+}
+
+// CompressTorus GT/E6 element to half its size
+// z must be in the cyclotomic subgroup
+// i.e. z^(p^4-p^2+1)=1
+// e.g. GT
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+// z.B1 == 0 only when z \in {-1,1}
+func (z *E6) CompressTorus() (E3, error) {
+
+	if z.B1.IsZero() {
+		return E3{}, errors.New("invalid input")
+	}
+
+	var res, tmp, one E3
+	one.SetOne()
+	tmp.Inverse(&z.B1)
+	res.Add(&z.B0, &one).
+		Mul(&res, &tmp)
+
+	return res, nil
+}
+
+// BatchCompressTorus GT/E6 elements to half their size
+// using a batch inversion
+func BatchCompressTorus(x []E6) ([]E3, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E3{}, errors.New("invalid input size")
+	}
+
+	var one E3
+	one.SetOne()
+	res := make([]E3, n)
+
+	for i := 0; i < n; i++ {
+		res[i].Set(&x[i].B1)
+	}
+
+	t := BatchInvertE3(res) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Add(&x[i].B0, &one).
+			Mul(&res[i], &t[i])
+	}
+
+	return res, nil
+}
+
+// DecompressTorus GT/E6 a compressed element
+// element must be in the cyclotomic subgroup
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E3) DecompressTorus() E6 {
+
+	var res, num, denum E6
+	num.B0.Set(z)
+	num.B1.SetOne()
+	denum.B0.Set(z)
+	denum.B1.SetOne().Neg(&denum.B1)
+	res.Inverse(&denum).
+		Mul(&res, &num)
+
+	return res
+}
+
+// BatchDecompressTorus GT/E6 compressed elements
+// using a batch inversion
+func BatchDecompressTorus(x []E3) ([]E6, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E6{}, errors.New("invalid input size")
+	}
+
+	res := make([]E6, n)
+	num := make([]E6, n)
+	denum := make([]E6, n)
+
+	for i := 0; i < n; i++ {
+		num[i].B0.Set(&x[i])
+		num[i].B1.SetOne()
+		denum[i].B0.Set(&x[i])
+		denum[i].B1.SetOne().Neg(&denum[i].B1)
+	}
+
+	denum = BatchInvertE6(denum) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Mul(&num[i], &denum[i])
+	}
+
+	return res, nil
 }
