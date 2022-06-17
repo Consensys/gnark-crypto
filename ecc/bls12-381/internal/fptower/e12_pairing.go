@@ -35,7 +35,7 @@ func (z *E12) ExptHalf(x *E12) *E12 {
 	return z.Conjugate(&result) // because tAbsVal is negative
 }
 
-// Expt set z to x^t in E12 and return z
+// Expt set z to xᵗ in E12 and return z
 // const t uint64 = 15132376222941642752 // negative
 func (z *E12) Expt(x *E12) *E12 {
 	var result E12

@@ -260,7 +260,7 @@ func TestE12Ops(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusSquare(&b).Mul(a, &b)
 
-			c := a.CompressTorus()
+			c, _ := a.CompressTorus()
 			d := c.DecompressTorus()
 			return a.Equal(&d)
 		},

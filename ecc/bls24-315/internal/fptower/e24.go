@@ -638,7 +638,12 @@ func (z *E24) IsInSubGroup() bool {
 // i.e. z^(p^4-p^2+1)=1
 // e.g. GT
 // "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
-func (z *E24) CompressTorus() E12 {
+// z.C1 == 0 only when z \in {-1,1}
+func (z *E24) CompressTorus() (E12, error) {
+
+	if z.D1.IsZero() {
+		return E12{}, errors.New("invalid input")
+	}
 
 	var res, tmp, one E12
 	one.SetOne()
@@ -646,7 +651,7 @@ func (z *E24) CompressTorus() E12 {
 	res.Add(&z.D0, &one).
 		Mul(&res, &tmp)
 
-	return res
+	return res, nil
 }
 
 // BatchCompressTorus GT/E24 elements to half their size

@@ -54,14 +54,14 @@ func (z *E24) Expt(x *E24) *E24 {
 
 	// Step 19: t0 = x^0x1b200
 	t0.nSquareCompressed(9)
-	t0.Decompress(&t0)
+	t0.DecompressKarabina(&t0)
 
 	// Step 20: result = x^0x1b203
 	result.Mul(&result, &t0)
 
 	// Step 35: result = x^0xd9018000
 	result.nSquareCompressed(15)
-	result.Decompress(&result)
+	result.DecompressKarabina(&result)
 
 	z.Set(&result)
 

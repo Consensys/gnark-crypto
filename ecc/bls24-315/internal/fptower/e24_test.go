@@ -257,7 +257,7 @@ func TestE24Ops(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusQuad(&b).Mul(a, &b)
 
-			c := a.CompressTorus()
+			c, _ := a.CompressTorus()
 			d := c.DecompressTorus()
 			return a.Equal(&d)
 		},

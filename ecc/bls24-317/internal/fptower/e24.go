@@ -103,6 +103,11 @@ func (z *E24) SetRandom() (*E24, error) {
 	return z, nil
 }
 
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E24) IsZero() bool {
+	return z.D0.IsZero() && z.D1.IsZero()
+}
+
 // Mul set z=x*y in E24 and return z
 func (z *E24) Mul(x, y *E24) *E24 {
 	var a, b, c E12
@@ -208,8 +213,8 @@ func (z *E24) CyclotomicSquareCompressed(x *E24) *E24 {
 	return z
 }
 
-// Decompress Karabina's cyclotomic square result
-func (z *E24) Decompress(x *E24) *E24 {
+// DecompressKarabina Karabina's cyclotomic square result
+func (z *E24) DecompressKarabina(x *E24) *E24 {
 
 	var t [3]E4
 	var one E4
@@ -254,8 +259,8 @@ func (z *E24) Decompress(x *E24) *E24 {
 	return z
 }
 
-// BatchDecompress multiple Karabina's cyclotomic square results
-func BatchDecompress(x []E24) []E24 {
+// BatchDecompressKarabina multiple Karabina's cyclotomic square results
+func BatchDecompressKarabina(x []E24) []E24 {
 
 	n := len(x)
 	if n == 0 {
@@ -285,7 +290,7 @@ func BatchDecompress(x []E24) []E24 {
 			Double(&t1[i])
 	}
 
-	t1 = BatchInvert(t1) // costs 1 inverse
+	t1 = BatchInvertE4(t1) // costs 1 inverse
 
 	for i := 0; i < n; i++ {
 		// z4 = g4
@@ -363,6 +368,40 @@ func (z *E24) Inverse(x *E24) *E24 {
 	z.D1.Mul(&x.D1, &t1).Neg(&z.D1)
 
 	return z
+}
+
+// BatchInvertE24 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE24(a []E24) []E24 {
+	res := make([]E24, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E24
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
 }
 
 // Exp sets z=x**e and returns it
@@ -592,4 +631,97 @@ func (z *E24) IsInSubGroup() bool {
 	b.Expt(z)
 
 	return a.Equal(&b)
+}
+
+// CompressTorus GT/E24 element to half its size
+// z must be in the cyclotomic subgroup
+// i.e. z^(p^4-p^2+1)=1
+// e.g. GT
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+// z.C1 == 0 only when z \in {-1,1}
+func (z *E24) CompressTorus() (E12, error) {
+
+	if z.D1.IsZero() {
+		return E12{}, errors.New("invalid input")
+	}
+
+	var res, tmp, one E12
+	one.SetOne()
+	tmp.Inverse(&z.D1)
+	res.Add(&z.D0, &one).
+		Mul(&res, &tmp)
+
+	return res, nil
+}
+
+// BatchCompressTorus GT/E24 elements to half their size
+// using a batch inversion
+func BatchCompressTorus(x []E24) ([]E12, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E12{}, errors.New("invalid input size")
+	}
+
+	var one E12
+	one.SetOne()
+	res := make([]E12, n)
+
+	for i := 0; i < n; i++ {
+		res[i].Set(&x[i].D1)
+	}
+
+	t := BatchInvertE12(res) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Add(&x[i].D0, &one).
+			Mul(&res[i], &t[i])
+	}
+
+	return res, nil
+}
+
+// DecompressTorus GT/E24 a compressed element
+// element must be in the cyclotomic subgroup
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E12) DecompressTorus() E24 {
+
+	var res, num, denum E24
+	num.D0.Set(z)
+	num.D1.SetOne()
+	denum.D0.Set(z)
+	denum.D1.SetOne().Neg(&denum.D1)
+	res.Inverse(&denum).
+		Mul(&res, &num)
+
+	return res
+}
+
+// BatchDecompressTorus GT/E24 compressed elements
+// using a batch inversion
+func BatchDecompressTorus(x []E12) ([]E24, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E24{}, errors.New("invalid input size")
+	}
+
+	res := make([]E24, n)
+	num := make([]E24, n)
+	denum := make([]E24, n)
+
+	for i := 0; i < n; i++ {
+		num[i].D0.Set(&x[i])
+		num[i].D1.SetOne()
+		denum[i].D0.Set(&x[i])
+		denum[i].D1.SetOne().Neg(&denum[i].D1)
+	}
+
+	denum = BatchInvertE24(denum) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Mul(&num[i], &denum[i])
+	}
+
+	return res, nil
 }

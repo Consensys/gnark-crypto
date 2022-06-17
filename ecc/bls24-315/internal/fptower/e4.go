@@ -339,3 +339,9 @@ func BatchInvertE4(a []E4) []E4 {
 
 	return res
 }
+
+func (z *E4) Div(x *E4, y *E4) *E4 {
+	var r E4
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
+}
