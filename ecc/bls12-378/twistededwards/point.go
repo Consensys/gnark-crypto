@@ -268,6 +268,13 @@ func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
 	return p
 }
 
+// setInfinity sets p to O (0:1)
+func (p *PointAffine) setInfinity() *PointAffine {
+	p.X.SetZero()
+	p.Y.SetOne()
+	return p
+}
+
 //-------- Projective coordinates
 
 // Set sets p to p1 and return it

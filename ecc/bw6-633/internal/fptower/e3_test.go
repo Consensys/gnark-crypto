@@ -12,7 +12,7 @@ import (
 // tests
 
 func TestE3ReceiverIsOperand(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -136,7 +136,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE3Ops(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -268,8 +268,8 @@ func TestE3Ops(t *testing.T) {
 
 func BenchmarkE3Add(b *testing.B) {
 	var a, c E3
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -278,8 +278,8 @@ func BenchmarkE3Add(b *testing.B) {
 
 func BenchmarkE3Sub(b *testing.B) {
 	var a, c E3
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -288,8 +288,8 @@ func BenchmarkE3Sub(b *testing.B) {
 
 func BenchmarkE3Mul(b *testing.B) {
 	var a, c E3
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -299,8 +299,8 @@ func BenchmarkE3Mul(b *testing.B) {
 func BenchmarkE3MulByElement(b *testing.B) {
 	var a E3
 	var c fp.Element
-	c.SetRandom()
-	a.SetRandom()
+	_, _ = c.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByElement(&a, &c)
@@ -309,7 +309,7 @@ func BenchmarkE3MulByElement(b *testing.B) {
 
 func BenchmarkE3Square(b *testing.B) {
 	var a E3
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -318,7 +318,7 @@ func BenchmarkE3Square(b *testing.B) {
 
 func BenchmarkE3Inverse(b *testing.B) {
 	var a E3
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -327,7 +327,7 @@ func BenchmarkE3Inverse(b *testing.B) {
 
 func BenchmarkE3MulNonRes(b *testing.B) {
 	var a E3
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
@@ -336,7 +336,7 @@ func BenchmarkE3MulNonRes(b *testing.B) {
 
 func BenchmarkE3Conjugate(b *testing.B) {
 	var a E3
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)

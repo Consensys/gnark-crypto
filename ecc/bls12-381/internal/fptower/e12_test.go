@@ -29,8 +29,13 @@ import (
 
 func TestE12Serialization(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -54,7 +59,11 @@ func TestE12Serialization(t *testing.T) {
 func TestE12ReceiverIsOperand(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -170,23 +179,17 @@ func TestE12ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-381] Having the receiver as operand (FrobeniusCube) should output the same result", prop.ForAll(
-		func(a *E12) bool {
-			var b E12
-			b.FrobeniusCube(a)
-			a.FrobeniusCube(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestE12Ops(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -318,18 +321,6 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-381] (pi**3)**4=id", prop.ForAll(
-		func(a *E12) bool {
-			var b E12
-			b.FrobeniusCube(a).
-				FrobeniusCube(&b).
-				FrobeniusCube(&b).
-				FrobeniusCube(&b)
-			return b.Equal(a)
-		},
-		genA,
-	))
-
 	properties.Property("[BLS12-381] cyclotomic square (Granger-Scott) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
 			var b, c, d E12
@@ -406,17 +397,6 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-381] FrobeniusCube of x in E12 should be equal to x^(q^3)", prop.ForAll(
-		func(a *E12) bool {
-			var b, c E12
-			q := fp.Modulus()
-			b.FrobeniusCube(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q)
-			return c.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
@@ -426,8 +406,8 @@ func TestE12Ops(t *testing.T) {
 
 func BenchmarkE12Add(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -436,8 +416,8 @@ func BenchmarkE12Add(b *testing.B) {
 
 func BenchmarkE12Sub(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -446,8 +426,8 @@ func BenchmarkE12Sub(b *testing.B) {
 
 func BenchmarkE12Mul(b *testing.B) {
 	var a, c E12
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -456,7 +436,7 @@ func BenchmarkE12Mul(b *testing.B) {
 
 func BenchmarkE12Cyclosquare(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.CyclotomicSquare(&a)
@@ -465,7 +445,7 @@ func BenchmarkE12Cyclosquare(b *testing.B) {
 
 func BenchmarkE12Square(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -474,7 +454,7 @@ func BenchmarkE12Square(b *testing.B) {
 
 func BenchmarkE12Inverse(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -483,7 +463,7 @@ func BenchmarkE12Inverse(b *testing.B) {
 
 func BenchmarkE12Conjugate(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)
@@ -492,7 +472,7 @@ func BenchmarkE12Conjugate(b *testing.B) {
 
 func BenchmarkE12Frobenius(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Frobenius(&a)
@@ -501,25 +481,16 @@ func BenchmarkE12Frobenius(b *testing.B) {
 
 func BenchmarkE12FrobeniusSquare(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.FrobeniusSquare(&a)
 	}
 }
 
-func BenchmarkE12FrobeniusCube(b *testing.B) {
-	var a E12
-	a.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.FrobeniusCube(&a)
-	}
-}
-
 func BenchmarkE12Expt(b *testing.B) {
 	var a E12
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Expt(&a)

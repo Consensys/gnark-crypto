@@ -16,20 +16,6 @@
 
 package fptower
 
-// q (modulus)
-var qE2 = [4]uint64{
-	4332616871279656263,
-	10917124144477883021,
-	13281191951274694749,
-	3486998266802970665,
-}
-
-// q'[0], see montgommery multiplication algorithm
-var (
-	qE2Inv0 uint64 = 9786893198990664585
-	_              = qE2Inv0 // used in asm
-)
-
 //go:noescape
 func addE2(res, x, y *E2)
 

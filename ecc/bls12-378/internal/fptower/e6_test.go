@@ -28,8 +28,13 @@ import (
 
 func TestE6ReceiverIsOperand(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -142,8 +147,13 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 
 func TestE6Ops(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -284,8 +294,8 @@ func TestE6Ops(t *testing.T) {
 
 func BenchmarkE6Add(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -294,8 +304,8 @@ func BenchmarkE6Add(b *testing.B) {
 
 func BenchmarkE6Sub(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -304,8 +314,8 @@ func BenchmarkE6Sub(b *testing.B) {
 
 func BenchmarkE6Mul(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -314,7 +324,7 @@ func BenchmarkE6Mul(b *testing.B) {
 
 func BenchmarkE6Square(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -323,7 +333,7 @@ func BenchmarkE6Square(b *testing.B) {
 
 func BenchmarkE6Inverse(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)

@@ -29,10 +29,19 @@ import (
 // ------------------------------------------------------------
 // tests
 
-func TestReceiverIsOperand(t *testing.T) {
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
+func TestReceiverIsOperand(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -264,8 +273,13 @@ func TestReceiverIsOperand(t *testing.T) {
 }
 
 func TestField(t *testing.T) {
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 	genS := GenBigInt()
@@ -291,13 +305,47 @@ func TestField(t *testing.T) {
 func TestOps(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 	genS1 := GenBigInt()
 	genS2 := GenBigInt()
 
 	// affine
+	properties.Property("(affine) 0+0=2*0=0", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			var p1, p2, zero PointAffine
+			zero.setInfinity()
+
+			p1.Add(&zero, &zero)
+			p2.Double(&zero)
+
+			return p1.IsOnCurve() && p1.Equal(&zero) && p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) P+0=P", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var p1, p2, zero PointAffine
+			p1.ScalarMul(&params.Base, &s1)
+			zero.setInfinity()
+
+			p2.Add(&p1, &zero)
+
+			return p2.IsOnCurve() && p2.Equal(&p1)
+		},
+		genS1,
+	))
+
 	properties.Property("(affine) P+(-P)=O", prop.ForAll(
 		func(s1 big.Int) bool {
 
@@ -394,6 +442,37 @@ func TestOps(t *testing.T) {
 	))
 
 	// projective
+	properties.Property("(projective) 0+0=2*0=0", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			var p1, p2, zero PointProj
+			zero.setInfinity()
+
+			p1.Add(&zero, &zero)
+			p2.Double(&zero)
+
+			return p1.Equal(&zero) && p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(projective) P+0=P", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, p1, p2, zero PointProj
+			baseProj.FromAffine(&params.Base)
+			p1.ScalarMul(&baseProj, &s1)
+			zero.setInfinity()
+
+			p2.Add(&p1, &zero)
+
+			return p2.Equal(&p1)
+		},
+		genS1,
+	))
+
 	properties.Property("(projective) P+(-P)=O", prop.ForAll(
 		func(s1 big.Int) bool {
 
@@ -448,6 +527,36 @@ func TestOps(t *testing.T) {
 	))
 
 	// extended
+	properties.Property("(extended) 0+0=0", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			var p1, zero PointExtended
+			zero.setInfinity()
+
+			p1.Add(&zero, &zero)
+
+			return p1.Equal(&zero)
+		},
+		genS1,
+	))
+
+	properties.Property("(extended) P+0=P", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, p1, p2, zero PointExtended
+			baseExtended.FromAffine(&params.Base)
+			p1.ScalarMul(&baseExtended, &s1)
+			zero.setInfinity()
+
+			p2.Add(&p1, &zero)
+
+			return p2.Equal(&p1)
+		},
+		genS1,
+	))
+
 	properties.Property("(extended) P+(-P)=O", prop.ForAll(
 		func(s1 big.Int) bool {
 
@@ -579,7 +688,7 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("scalar multiplication in Proj vs Ext should be consistant", prop.ForAll(
+	properties.Property("scalar multiplication in Proj vs Ext should be consistent", prop.ForAll(
 		func(s big.Int) bool {
 
 			params := GetEdwardsCurve()
@@ -605,6 +714,7 @@ func TestOps(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
+	t.Parallel()
 	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine

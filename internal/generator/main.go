@@ -8,14 +8,15 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field"
-	"github.com/consensys/gnark-crypto/field/generator"
+	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/internal/field/generator"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
+	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
@@ -25,7 +26,6 @@ import (
 )
 
 const (
-	fpTower         = "fptower"
 	copyrightHolder = "ConsenSys Software Inc."
 	copyrightYear   = 2020
 	baseDir         = "../../"
@@ -45,10 +45,10 @@ func main() {
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 			// generate base field
-			conf.Fp, err = field.NewField("fp", "Element", conf.FpModulus, true)
+			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewField("fr", "Element", conf.FrModulus, true)
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, true)
 			assertNoError(err)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
@@ -71,11 +71,14 @@ func main() {
 			// generate plookup on fr
 			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))
 
-			// generate plookup on fr
+			// generate permutation on fr
 			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate eddsa on companion curves
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate G1, G2, multiExp, ...
 			assertNoError(ecc.Generate(conf, curveDir, bgen))
