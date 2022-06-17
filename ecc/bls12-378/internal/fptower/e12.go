@@ -23,7 +23,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"math/big"
+	"sync"
 )
+
+var bigIntPool = sync.Pool{
+	New: func() interface{} {
+		return new(big.Int)
+	},
+}
 
 // E12 is a degree two finite field extension of fp6
 type E12 struct {
@@ -408,9 +415,25 @@ func BatchInvertE12(a []E12) []E12 {
 	return res
 }
 
-// Exp sets z=x**e and returns it
+// Exp sets z=x**k and returns it
 // uses 2-bits windowed method
-func (z *E12) Exp(x *E12, e big.Int) *E12 {
+func (z *E12) Exp(x *E12, k big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = *bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(&k)
+	}
 
 	var res E12
 	var ops [3]E12
@@ -438,11 +461,28 @@ func (z *E12) Exp(x *E12, e big.Int) *E12 {
 	return z
 }
 
-// CyclotomicExp sets z=x**e and returns it
+// CyclotomicExp sets z=x**k and returns it
 // uses 2-NAF decomposition
 // x must be in the cyclotomic subgroup
 // TODO: use a windowed method
-func (z *E12) CyclotomicExp(x *E12, e big.Int) *E12 {
+func (z *E12) CyclotomicExp(x *E12, k big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = *bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(&k)
+	}
+
 	var res, xInv E12
 	xInv.InverseUnitary(x)
 	res.SetOne()
@@ -460,37 +500,53 @@ func (z *E12) CyclotomicExp(x *E12, e big.Int) *E12 {
 	return z
 }
 
-// ExpGLV sets z=x**e and returns it
+// ExpGLV sets z=x**k and returns it
 // uses 2-dimensional GLV with 2-bits windowed method
 // x must be in GT
 // TODO: use 2-NAF
 // TODO: use higher dimensional decomposition
-func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
+func (z *E12) ExpGLV(x *E12, k big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = *bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(&k)
+	}
 
 	var table [15]E12
 	var res E12
-	var k1, k2 fr.Element
+	var s1, s2 fr.Element
 
 	res.SetOne()
 
-	// table[b3b2b1b0-1] = b3b2*Frobinius(a) + b1b0*a
-	table[0].Set(a)
-	table[3].Frobenius(a)
+	// table[b3b2b1b0-1] = b3b2*Frobinius(x) + b1b0*x
+	table[0].Set(x)
+	table[3].Frobenius(x)
 
 	// split the scalar, modifies +-x, Frob(x) accordingly
-	k := ecc.SplitScalar(s, &glvBasis)
+	s := ecc.SplitScalar(&e, &glvBasis)
 
-	if k[0].Sign() == -1 {
-		k[0].Neg(&k[0])
+	if s[0].Sign() == -1 {
+		s[0].Neg(&s[0])
 		table[0].InverseUnitary(&table[0])
 	}
-	if k[1].Sign() == -1 {
-		k[1].Neg(&k[1])
+	if s[1].Sign() == -1 {
+		s[1].Neg(&s[1])
 		table[3].InverseUnitary(&table[3])
 	}
 
 	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2*Frobenius(a) + b1b0*a if b3b2b1b0 != 0
+	// table[b3b2b1b0-1] = b3b2*Frobenius(x) + b1b0*x if b3b2b1b0 != 0
 	table[1].CyclotomicSquare(&table[0])
 	table[2].Mul(&table[1], &table[0])
 	table[4].Mul(&table[3], &table[0])
@@ -505,17 +561,17 @@ func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
 	table[13].Mul(&table[11], &table[1])
 	table[14].Mul(&table[11], &table[2])
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
+	s1.SetBigInt(&s[0]).FromMont()
+	s2.SetBigInt(&s[1]).FromMont()
 
-	// loop starts from len(k1)/2 due to the bounds
-	for i := len(k1) / 2; i >= 0; i-- {
+	// loop starts from len(s1)/2 due to the bounds
+	for i := len(s1) / 2; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
+			b1 := (s1[i] & mask) >> (62 - 2*j)
+			b2 := (s2[i] & mask) >> (62 - 2*j)
 			if b1|b2 != 0 {
 				s := (b2<<2 | b1)
 				res.Mul(&res, &table[s-1])
@@ -524,8 +580,8 @@ func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
 		}
 	}
 
-	p.Set(&res)
-	return p
+	z.Set(&res)
+	return z
 }
 
 // InverseUnitary inverse a unitary element

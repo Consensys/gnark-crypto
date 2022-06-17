@@ -78,7 +78,7 @@ func TestPairing(t *testing.T) {
 
 			var b, c, d GT
 			b.Exp(&a, _e)
-			c.ExpGLV(&a, &_e)
+			c.ExpGLV(&a, _e)
 			d.CyclotomicExp(&a, _e)
 
 			return b.Equal(&c) && c.Equal(&d)
@@ -408,7 +408,7 @@ func BenchmarkExpGT(b *testing.B) {
 	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.ExpGLV(&a, &_e)
+			a.ExpGLV(&a, _e)
 		}
 	})
 }
