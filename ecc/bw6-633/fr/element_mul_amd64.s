@@ -49,8 +49,7 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 // mul(res, x, y *Element)
 TEXT ·mul(SB), $24-24
 
-	// the algorithm is described here
-	// https://hackmd.io/@gnark/modular_multiplication
+	// the algorithm is described in the Element.Mul declaration (.go)
 	// however, to benefit from the ADCX and ADOX carry chains
 	// we split the inner loops in 2:
 	// for i=0 to N-1

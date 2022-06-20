@@ -215,23 +215,37 @@ func (z *E4) Inverse(x *E4) *E4 {
 	return z
 }
 
-// Exp sets z=x**e and returns it
-func (z *E4) Exp(x *E4, e big.Int) *E4 {
-	var res E4
-	res.SetOne()
+// Exp sets z=xᵏ (mod q⁴) and returns it
+func (z *E4) Exp(x E4, k *big.Int) *E4 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q⁴) == (x⁻¹)ᵏ (mod q⁴)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
+	z.SetOne()
 	b := e.Bytes()
-	for i := range b {
+	for i := 0; i < len(b); i++ {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		for j := 0; j < 8; j++ {
+			z.Square(z)
+			if (w & (0b10000000 >> j)) != 0 {
+				z.Mul(z, &x)
 			}
-			mask = mask >> 1
 		}
 	}
-	z.Set(&res)
+
 	return z
 }
 
@@ -282,13 +296,13 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	var exp, one big.Int
 	one.SetUint64(1)
 	exp.Mul(q, q).Sub(&exp, &one).Rsh(&exp, 1)
-	d.Exp(&c, exp)
+	d.Exp(c, &exp)
 	e.Mul(&d, &c).Inverse(&e)
 	f.Mul(&d, &c).Square(&f)
 
 	// computation
 	exp.Rsh(&exp, 1)
-	b.Exp(x, exp)
+	b.Exp(*x, &exp)
 	b.norm(&_b)
 	o.SetOne()
 	if _b.Equal(&o) {
@@ -306,9 +320,9 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	return z
 }
 
-// BatchInvert returns a new slice with every element inverted.
+// BatchInvertE4 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
-func BatchInvert(a []E4) []E4 {
+func BatchInvertE4(a []E4) []E4 {
 	res := make([]E4, len(a))
 	if len(a) == 0 {
 		return res
@@ -338,4 +352,10 @@ func BatchInvert(a []E4) []E4 {
 	}
 
 	return res
+}
+
+func (z *E4) Div(x *E4, y *E4) *E4 {
+	var r E4
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
 }

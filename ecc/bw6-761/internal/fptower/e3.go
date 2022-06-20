@@ -16,7 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 )
 
-// E3 is a degree-three finite field extension of fp2
+// E3 is a degree-three finite field extension of fp3
 type E3 struct {
 	A0, A1, A2 fp.Element
 }
@@ -27,7 +27,7 @@ func (z *E3) Equal(x *E3) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1) && z.A2.Equal(&x.A2)
 }
 
-// SetString sets a E3 elmt from stringf
+// SetString sets a E3 elmt from string
 func (z *E3) SetString(s1, s2, s3 string) *E3 {
 	z.A0.SetString(s1)
 	z.A1.SetString(s2)
@@ -296,4 +296,38 @@ func (z *E3) Inverse(x *E3) *E3 {
 	z.A2.Mul(&c2, &t6)
 
 	return z
+}
+
+// BatchInvertE3 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE3(a []E3) []E3 {
+	res := make([]E3, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E3
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
 }

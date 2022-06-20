@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+
+	"github.com/consensys/gnark-crypto/internal/field"
 	mrand "math/rand"
+
 	"testing"
 
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter"
 	ggen "github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -45,8 +47,19 @@ func BenchmarkElementSelect(b *testing.B) {
 	x.SetRandom()
 	y.SetRandom()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Select(i%3, &x, &y)
+	}
+}
+
+func BenchmarkElementSetRandom(b *testing.B) {
+	var x Element
+	x.SetRandom()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = x.SetRandom()
 	}
 }
 
@@ -269,7 +282,6 @@ func TestElementCmp(t *testing.T) {
 		t.Fatal("x < y")
 	}
 }
-
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
@@ -279,6 +291,34 @@ func TestElementIsRandom(t *testing.T) {
 			t.Fatal("2 random numbers are unlikely to be equal")
 		}
 	}
+}
+
+func TestElementIsUint64(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("reduce should output a result smaller than modulus", prop.ForAll(
+		func(v uint64) bool {
+			var e Element
+			e.SetUint64(v)
+
+			if !e.IsUint64() {
+				return false
+			}
+
+			return e.Uint64() == v
+		},
+		ggen.UInt64(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementNegZero(t *testing.T) {
@@ -318,24 +358,31 @@ func init() {
 
 	{
 		a := qElement
-		a[9]--
-		staticTestValues = append(staticTestValues, a)
-	}
-	{
-		a := qElement
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
+	staticTestValues = append(staticTestValues, Element{0})
+	staticTestValues = append(staticTestValues, Element{0, 0})
+	staticTestValues = append(staticTestValues, Element{1})
+	staticTestValues = append(staticTestValues, Element{0, 1})
+	staticTestValues = append(staticTestValues, Element{2})
+	staticTestValues = append(staticTestValues, Element{0, 2})
 
-	for i := 0; i <= 3; i++ {
-		staticTestValues = append(staticTestValues, Element{uint64(i)})
-		staticTestValues = append(staticTestValues, Element{0, uint64(i)})
+	{
+		a := qElement
+		a[9]--
+		staticTestValues = append(staticTestValues, a)
 	}
-
 	{
 		a := qElement
 		a[9]--
 		a[0]++
+		staticTestValues = append(staticTestValues, a)
+	}
+
+	{
+		a := qElement
+		a[9] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
 
@@ -371,19 +418,12 @@ func TestElementReduce(t *testing.T) {
 			b := a
 			reduce(&a)
 			_reduceGeneric(&b)
-			return !a.biggerOrEqualModulus() && a.Equal(&b)
+			return a.smallerThanModulus() && a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -477,13 +517,12 @@ func TestElementInverseExp(t *testing.T) {
 	properties.Property("inv(0) == 0", prop.ForAll(invMatchExp, ggen.OneConstOf(testPairElement{})))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
+}
+
+func mulByConstant(z *Element, c uint8) {
+	var y Element
+	y.SetUint64(uint64(c))
+	z.Mul(z, &y)
 }
 
 func TestElementMulByConstants(t *testing.T) {
@@ -569,13 +608,6 @@ func TestElementMulByConstants(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -600,13 +632,30 @@ func TestElementLegendre(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
+
+}
+
+func TestElementBitLen(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
 	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
+		func(a testPairElement) bool {
+			return a.element.FromMont().BitLen() == a.bigint.BitLen()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
 
@@ -638,13 +687,6 @@ func TestElementButterflies(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -681,13 +723,6 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 
 }
 
@@ -749,14 +784,6 @@ func TestElementAdd(t *testing.T) {
 				c.Add(&a.element, &r)
 				d.Add(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -773,18 +800,7 @@ func TestElementAdd(t *testing.T) {
 
 			c.Add(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
-		},
-		genA,
-		genB,
-	))
-
-	properties.Property("Add: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Add(&a.element, &b.element)
-			_addGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -807,13 +823,6 @@ func TestElementAdd(t *testing.T) {
 				c.Add(&a, &b)
 				d.Add(&aBig, &bBig).Mod(&d, Modulus())
 
-				// checking asm against generic impl
-				var cGeneric Element
-				_addGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Add failed special test values: asm and generic impl don't match")
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Add failed special test values")
 				}
@@ -823,14 +832,7 @@ func TestElementAdd(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSub(t *testing.T) {
@@ -891,14 +893,6 @@ func TestElementSub(t *testing.T) {
 				c.Sub(&a.element, &r)
 				d.Sub(&a.bigint, &rb).Mod(&d, Modulus())
 
-				// checking generic impl against asm path
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a.element, &r)
-				if !cGeneric.Equal(&c) {
-					// need to give context to failing error.
-					return false
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
@@ -915,18 +909,7 @@ func TestElementSub(t *testing.T) {
 
 			c.Sub(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
-		},
-		genA,
-		genB,
-	))
-
-	properties.Property("Sub: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a, b testPairElement) bool {
-			var c, d Element
-			c.Sub(&a.element, &b.element)
-			_subGeneric(&d, &a.element, &b.element)
-			return c.Equal(&d)
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -949,13 +932,6 @@ func TestElementSub(t *testing.T) {
 				c.Sub(&a, &b)
 				d.Sub(&aBig, &bBig).Mod(&d, Modulus())
 
-				// checking asm against generic impl
-				var cGeneric Element
-				_subGeneric(&cGeneric, &a, &b)
-				if !cGeneric.Equal(&c) {
-					t.Fatal("Sub failed special test values: asm and generic impl don't match")
-				}
-
 				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Sub failed special test values")
 				}
@@ -965,14 +941,7 @@ func TestElementSub(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementMul(t *testing.T) {
@@ -1057,7 +1026,7 @@ func TestElementMul(t *testing.T) {
 
 			c.Mul(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1107,14 +1076,7 @@ func TestElementMul(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementDiv(t *testing.T) {
@@ -1193,7 +1155,7 @@ func TestElementDiv(t *testing.T) {
 
 			c.Div(&a.element, &b.element)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1226,14 +1188,7 @@ func TestElementDiv(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementExp(t *testing.T) {
@@ -1310,7 +1265,7 @@ func TestElementExp(t *testing.T) {
 
 			c.Exp(a.element, &b.bigint)
 
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 		genB,
@@ -1342,14 +1297,7 @@ func TestElementExp(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSquare(t *testing.T) {
@@ -1394,7 +1342,7 @@ func TestElementSquare(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Square(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1421,14 +1369,7 @@ func TestElementSquare(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementInverse(t *testing.T) {
@@ -1473,7 +1414,7 @@ func TestElementInverse(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Inverse(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1500,14 +1441,7 @@ func TestElementInverse(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementSqrt(t *testing.T) {
@@ -1552,7 +1486,7 @@ func TestElementSqrt(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Sqrt(&a.element)
-			return !c.biggerOrEqualModulus()
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1579,14 +1513,7 @@ func TestElementSqrt(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementDouble(t *testing.T) {
@@ -1631,17 +1558,7 @@ func TestElementDouble(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Double(&a.element)
-			return !c.biggerOrEqualModulus()
-		},
-		genA,
-	))
-
-	properties.Property("Double: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Double(&a.element)
-			_doubleGeneric(&d, &a.element)
-			return c.Equal(&d)
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1660,13 +1577,6 @@ func TestElementDouble(t *testing.T) {
 			var d, e big.Int
 			d.Lsh(&aBig, 1).Mod(&d, Modulus())
 
-			// checking asm against generic impl
-			var cGeneric Element
-			_doubleGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Double failed special test values: asm and generic impl don't match")
-			}
-
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Double failed special test values")
 			}
@@ -1675,14 +1585,7 @@ func TestElementDouble(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementNeg(t *testing.T) {
@@ -1727,17 +1630,7 @@ func TestElementNeg(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Neg(&a.element)
-			return !c.biggerOrEqualModulus()
-		},
-		genA,
-	))
-
-	properties.Property("Neg: assembly implementation must be consistent with generic one", prop.ForAll(
-		func(a testPairElement) bool {
-			var c, d Element
-			c.Neg(&a.element)
-			_negGeneric(&d, &a.element)
-			return c.Equal(&d)
+			return c.smallerThanModulus()
 		},
 		genA,
 	))
@@ -1756,13 +1649,6 @@ func TestElementNeg(t *testing.T) {
 			var d, e big.Int
 			d.Neg(&aBig).Mod(&d, Modulus())
 
-			// checking asm against generic impl
-			var cGeneric Element
-			_negGeneric(&cGeneric, &a)
-			if !cGeneric.Equal(&c) {
-				t.Fatal("Neg failed special test values: asm and generic impl don't match")
-			}
-
 			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Neg failed special test values")
 			}
@@ -1771,14 +1657,7 @@ func TestElementNeg(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 	specialValueTest()
-	// if we have ADX instruction enabled, test both path in assembly
-	if supportAdx {
-		supportAdx = false
-		t.Log("disabling ADX")
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		specialValueTest()
-		supportAdx = true
-	}
+
 }
 
 func TestElementFixedExp(t *testing.T) {
@@ -2107,6 +1986,170 @@ func TestElementSetInterface(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+	{
+		assert := require.New(t)
+		var e Element
+		r, err := e.SetInterface(nil)
+		assert.Nil(r)
+		assert.Error(err)
+
+		var ptE *Element
+		var ptB *big.Int
+
+		r, err = e.SetInterface(ptE)
+		assert.Nil(r)
+		assert.Error(err)
+		ptE = new(Element).SetOne()
+		r, err = e.SetInterface(ptE)
+		assert.NoError(err)
+		assert.True(r.IsOne())
+
+		r, err = e.SetInterface(ptB)
+		assert.Nil(r)
+		assert.Error(err)
+
+	}
+}
+
+func TestElementNegativeExp(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
+		func(a, b testPairElement) bool {
+
+			var nb, d, e big.Int
+			nb.Neg(&b.bigint)
+
+			var c Element
+			c.Exp(a.element, &nb)
+
+			d.Exp(&a.bigint, &nb, Modulus())
+
+			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+		},
+		genA, genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestElementNewElement(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	e := NewElement(1)
+	assert.True(e.IsOne())
+
+	e = NewElement(0)
+	assert.True(e.IsZero())
+}
+
+func TestElementBatchInvert(t *testing.T) {
+	assert := require.New(t)
+
+	t.Parallel()
+
+	// ensure batchInvert([x]) == invert(x)
+	for i := int64(-1); i <= 2; i++ {
+		var e, eInv Element
+		e.SetInt64(i)
+		eInv.Inverse(&e)
+
+		a := []Element{e}
+		aInv := BatchInvert(a)
+
+		assert.True(aInv[0].Equal(&eInv), "batchInvert != invert")
+
+	}
+
+	// test x * x⁻¹ == 1
+	tData := [][]int64{
+		{-1, 1, 2, 3},
+		{0, -1, 1, 2, 3, 0},
+		{0, -1, 1, 0, 2, 3, 0},
+		{-1, 1, 0, 2, 3},
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 0, 0},
+	}
+
+	for _, t := range tData {
+		a := make([]Element, len(t))
+		for i := 0; i < len(a); i++ {
+			a[i].SetInt64(t[i])
+		}
+
+		aInv := BatchInvert(a)
+
+		assert.True(len(aInv) == len(a))
+
+		for i := 0; i < len(a); i++ {
+			if a[i].IsZero() {
+				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
+			} else {
+				assert.True(a[i].Mul(&a[i], &aInv[i]).IsOne(), "x * x⁻¹ != 1")
+			}
+		}
+	}
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("batchInvert --> x * x⁻¹ == 1", prop.ForAll(
+		func(tp testPairElement, r uint8) bool {
+
+			a := make([]Element, r)
+			if r != 0 {
+				a[0] = tp.element
+
+			}
+			one := One()
+			for i := 1; i < len(a); i++ {
+				a[i].Add(&a[i-1], &one)
+			}
+
+			aInv := BatchInvert(a)
+
+			assert.True(len(aInv) == len(a))
+
+			for i := 0; i < len(a); i++ {
+				if a[i].IsZero() {
+					if !aInv[i].IsZero() {
+						return false
+					}
+				} else {
+					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
+						return false
+					}
+				}
+			}
+			return true
+		},
+		genA, ggen.UInt8(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestElementFromMont(t *testing.T) {
@@ -2164,8 +2207,8 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	expected := "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	assert.Equal(string(encoded), expected)
+	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	assert.Equal(expected, string(encoded))
 
 	// decode valid
 	var decoded S
@@ -2190,73 +2233,6 @@ type testPairElement struct {
 	bigint  big.Int
 }
 
-func (z *Element) biggerOrEqualModulus() bool {
-	if z[9] > qElement[9] {
-		return true
-	}
-	if z[9] < qElement[9] {
-		return false
-	}
-
-	if z[8] > qElement[8] {
-		return true
-	}
-	if z[8] < qElement[8] {
-		return false
-	}
-
-	if z[7] > qElement[7] {
-		return true
-	}
-	if z[7] < qElement[7] {
-		return false
-	}
-
-	if z[6] > qElement[6] {
-		return true
-	}
-	if z[6] < qElement[6] {
-		return false
-	}
-
-	if z[5] > qElement[5] {
-		return true
-	}
-	if z[5] < qElement[5] {
-		return false
-	}
-
-	if z[4] > qElement[4] {
-		return true
-	}
-	if z[4] < qElement[4] {
-		return false
-	}
-
-	if z[3] > qElement[3] {
-		return true
-	}
-	if z[3] < qElement[3] {
-		return false
-	}
-
-	if z[2] > qElement[2] {
-		return true
-	}
-	if z[2] < qElement[2] {
-		return false
-	}
-
-	if z[1] > qElement[1] {
-		return true
-	}
-	if z[1] < qElement[1] {
-		return false
-	}
-
-	return z[0] >= qElement[0]
-}
-
 func gen() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var g testPairElement
@@ -2277,7 +2253,7 @@ func gen() gopter.Gen {
 			g.element[9] %= (qElement[9] + 1)
 		}
 
-		for g.element.biggerOrEqualModulus() {
+		for !g.element.smallerThanModulus() {
 			g.element = Element{
 				genParams.NextUint64(),
 				genParams.NextUint64(),
@@ -2324,7 +2300,7 @@ func genFull() gopter.Gen {
 				g[9] %= (qElement[9] + 1)
 			}
 
-			for g.biggerOrEqualModulus() {
+			for !g.smallerThanModulus() {
 				g = Element{
 					genParams.NextUint64(),
 					genParams.NextUint64(),
@@ -2363,8 +2339,6 @@ func genFull() gopter.Gen {
 	}
 }
 
-// Some utils
-
 func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
 	var aIntMod big.Int
@@ -2383,45 +2357,6 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
-}
-
-func BenchmarkMontReduce(b *testing.B) {
-	var x Element
-	xHiBase := mrand.Uint64()
-	x.SetRandom()
-	benchResElement.SetRandom()
-
-	b.Run("oldPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newPositive", func(b *testing.B) {
-		xHi := xHiBase & ^signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
-
-	b.Run("oldNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSigned(&x, xHi)
-		}
-	})
-
-	b.Run("newNegative", func(b *testing.B) {
-		xHi := xHiBase | signBitSelector
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchResElement.montReduceSignedSimpleButSlow(&x, xHi)
-		}
-	})
 }
 
 func TestElementInversionApproximation(t *testing.T) {
@@ -2531,7 +2466,7 @@ func TestElementInversionCorrectionFactor(t *testing.T) {
 
 func TestElementBigNumNeg(t *testing.T) {
 	var a Element
-	aHi := a.neg(&a, 0)
+	aHi := negL(&a, 0)
 	if !a.IsZero() || aHi != 0 {
 		t.Error("-0 != 0")
 	}
@@ -2621,19 +2556,6 @@ func TestElementMontReduce(t *testing.T) {
 		gen,
 	))
 
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(g veryBigInt) bool {
-			var res Element
-			var resInt big.Int
-
-			montReduce(&resInt, &g.asInt)
-			res.montReduceSignedSimpleButSlow(&g.low, g.hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -2659,21 +2581,6 @@ func TestElementMontReduceMultipleOfR(t *testing.T) {
 
 			montReduce(&resInt, &asInt)
 			res.montReduceSigned(&zero, hi)
-
-			return res.matchVeryBigInt(0, &resInt) == nil
-		},
-		gen,
-	))
-
-	properties.Property("New montgomery reduction is correct", prop.ForAll(
-		func(hi uint64) bool {
-			var zero, res Element
-			var asInt, resInt big.Int
-
-			zero.toVeryBigIntSigned(&asInt, hi)
-
-			montReduce(&resInt, &asInt)
-			res.montReduceSignedSimpleButSlow(&zero, hi)
 
 			return res.matchVeryBigInt(0, &resInt) == nil
 		},

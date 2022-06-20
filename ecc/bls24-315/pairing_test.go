@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -45,6 +46,7 @@ func TestPairing(t *testing.T) {
 
 	genR1 := GenFr()
 	genR2 := GenFr()
+	genP := GenFp()
 
 	properties.Property("[BLS24-315] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
@@ -64,6 +66,31 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Exp, CyclotomicExp and ExpGLV results must be the same in GT", prop.ForAll(
+		func(a GT, e fp.Element) bool {
+			a = FinalExponentiation(&a)
+
+			var _e, ne big.Int
+
+			k := new(big.Int).SetUint64(24)
+
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+			ne.Neg(&_e)
+
+			var b, c, d GT
+			b.Exp(a, &ne)
+			b.Inverse(&b)
+			c.ExpGLV(a, &ne)
+			c.Conjugate(&c)
+			d.CyclotomicExp(a, &_e)
+
+			return b.Equal(&c) && c.Equal(&d)
+		},
+		genA,
+		genP,
+	))
+
 	properties.Property("[BLS24-315] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
 		func(a GT) bool {
 			var b, c, d GT
@@ -75,7 +102,7 @@ func TestPairing(t *testing.T) {
 				Mul(&a, &b)
 
 			c.Expt(&a).Expt(&c)
-			d.Exp(&a, xGen).Exp(&d, xGen)
+			d.Exp(a, &xGen).Exp(d, &xGen)
 			return c.Equal(&d)
 		},
 		genA,
@@ -102,9 +129,9 @@ func TestPairing(t *testing.T) {
 			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
 			resb, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{bg2})
 
-			resab.Exp(&res, ab)
-			resa.Exp(&resa, bbigint)
-			resb.Exp(&resb, abigint)
+			resab.Exp(res, &ab)
+			resa.Exp(resa, &bbigint)
+			resb.Exp(resb, &abigint)
 
 			return resab.Equal(&resa) && resab.Equal(&resb) && !res.Equal(&zero)
 
@@ -230,6 +257,32 @@ func TestMillerLoop(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BLS24-315] compressed pairing", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			res, _ := Pair([]G1Affine{ag1}, []G2Affine{bg2})
+
+			compressed, _ := res.CompressTorus()
+			decompressed := compressed.DecompressTorus()
+
+			return decompressed.Equal(&res)
+
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -326,4 +379,41 @@ func BenchmarkMultiPair(b *testing.B) {
 			}
 		})
 	}
+}
+
+func BenchmarkExpGT(b *testing.B) {
+
+	var a GT
+	a.SetRandom()
+	a = FinalExponentiation(&a)
+
+	var e fp.Element
+	e.SetRandom()
+
+	k := new(big.Int).SetUint64(24)
+
+	e.Exp(e, k)
+	var _e big.Int
+	e.ToBigIntRegular(&_e)
+
+	b.Run("Naive windowed Exp", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Exp(a, &_e)
+		}
+	})
+
+	b.Run("2-NAF cyclotomic Exp", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.CyclotomicExp(a, &_e)
+		}
+	})
+
+	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.ExpGLV(a, &_e)
+		}
+	})
 }

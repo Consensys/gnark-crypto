@@ -193,6 +193,20 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-381] BatchInvertE6 should output the same result as Inverse", prop.ForAll(
+		func(a, b, c *E6) bool {
+
+			batch := BatchInvertE6([]E6{*a, *b, *c})
+			a.Inverse(a)
+			b.Inverse(b)
+			c.Inverse(c)
+			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BLS12-381] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
@@ -280,8 +294,8 @@ func TestE6Ops(t *testing.T) {
 
 func BenchmarkE6Add(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -290,8 +304,8 @@ func BenchmarkE6Add(b *testing.B) {
 
 func BenchmarkE6Sub(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -300,8 +314,8 @@ func BenchmarkE6Sub(b *testing.B) {
 
 func BenchmarkE6Mul(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -310,7 +324,7 @@ func BenchmarkE6Mul(b *testing.B) {
 
 func BenchmarkE6Square(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -319,7 +333,7 @@ func BenchmarkE6Square(b *testing.B) {
 
 func BenchmarkE6Inverse(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)

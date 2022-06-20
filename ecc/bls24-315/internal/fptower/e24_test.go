@@ -17,6 +17,7 @@
 package fptower
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
@@ -192,6 +193,7 @@ func TestE24Ops(t *testing.T) {
 
 	genA := GenE24()
 	genB := GenE24()
+	genExp := GenFp()
 
 	properties.Property("[BLS24-315] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E24) bool {
@@ -246,6 +248,41 @@ func TestE24Ops(t *testing.T) {
 			f.Double(&a.D1)
 			return c.D1.Equal(&g) && d.D0.Equal(&g) && e.Equal(&c.D0) && f.Equal(&d.D1)
 		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Torus-based Compress/decompress E24 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+
+			c, _ := a.CompressTorus()
+			d := c.DecompressTorus()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Torus-based batch Compress/decompress E24 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a, e, f *E24) bool {
+			var b E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+
+			e.CyclotomicSquare(a)
+			f.CyclotomicSquare(e)
+
+			c, _ := BatchCompressTorus([]E24{*a, *e, *f})
+			d, _ := BatchDecompressTorus(c)
+			return a.Equal(&d[0]) && e.Equal(&d[1]) && f.Equal(&d[2])
+		},
+		genA,
+		genA,
 		genA,
 	))
 
@@ -339,7 +376,7 @@ func TestE24Ops(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusQuad(&b).Mul(a, &b)
 			c.Square(a)
-			d.CyclotomicSquareCompressed(a).Decompress(&d)
+			d.CyclotomicSquareCompressed(a).DecompressKarabina(&d)
 			return c.Equal(&d)
 		},
 		genA,
@@ -361,14 +398,37 @@ func TestE24Ops(t *testing.T) {
 			a2.nSquareCompressed(2)
 			a4.nSquareCompressed(4)
 			a17.nSquareCompressed(17)
-			batch := BatchDecompress([]E24{a2, a4, a17})
-			a2.Decompress(&a2)
-			a4.Decompress(&a4)
-			a17.Decompress(&a17)
+			batch := BatchDecompressKarabina([]E24{a2, a4, a17})
+			a2.DecompressKarabina(&a2)
+			a4.DecompressKarabina(&a4)
+			a17.DecompressKarabina(&a17)
 
 			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
 		},
 		genA,
+	))
+
+	properties.Property("[BLS24-315] Exp and CyclotomicExp results must be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E24, e fp.Element) bool {
+			var b, c, d E24
+			// put in the cyclo subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+
+			var _e big.Int
+			k := new(big.Int).SetUint64(24)
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+
+			c.Exp(*a, &_e)
+			d.CyclotomicExp(*a, &_e)
+
+			return c.Equal(&d)
+		},
+		genA,
+		genExp,
 	))
 
 	properties.Property("[BLS24-315] Frobenius of x in E24 should be equal to x^q", prop.ForAll(
@@ -377,7 +437,7 @@ func TestE24Ops(t *testing.T) {
 			q := fp.Modulus()
 			b.Frobenius(a)
 			c.Set(a)
-			c.Exp(&c, *q)
+			c.Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -388,7 +448,7 @@ func TestE24Ops(t *testing.T) {
 			var b, c E24
 			q := fp.Modulus()
 			b.FrobeniusSquare(a)
-			c.Exp(a, *q).Exp(&c, *q)
+			c.Exp(*a, q).Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -399,7 +459,7 @@ func TestE24Ops(t *testing.T) {
 			var b, c E24
 			q := fp.Modulus()
 			b.FrobeniusQuad(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			c.Exp(*a, q).Exp(c, q).Exp(c, q).Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,

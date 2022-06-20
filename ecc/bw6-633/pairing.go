@@ -31,6 +31,7 @@ type lineEvaluation struct {
 }
 
 // Pair calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ)
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
 	if err != nil {
@@ -40,6 +41,7 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 }
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
 	if err != nil {
@@ -50,7 +52,10 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	return f.Equal(&one), nil
 }
 
-// FinalExponentiation computes the final expo x**(c*(p**3-1)(p+1)(p**2-p+1)/r)
+// FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
+// where d = (p^6-1)/r = (p^6-1)/Φ_6(p) ⋅ Φ_6(p)/r = (p^3-1)(p+1)(p^2 - p +1)/r
+// we use instead d=s ⋅ (p^3-1)(p+1)(p^2 - p +1)/r
+// where s is the cofactor 3(x_0+1) (El Housni and Guillevic)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -62,14 +67,17 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var buf GT
 
-	// easy part exponent: (p**3 - 1)*(p+1)
+	// Easy part
+	// (p^3-1)(p+1)
 	buf.Conjugate(&result)
 	result.Inverse(&result)
 	buf.Mul(&buf, &result)
 	result.Frobenius(&buf).
 		Mul(&result, &buf)
 
-	// hard part exponent: 3(u+1)(p^2-p+1)/r
+	// Hard part (up to permutation)
+	// El Housni and Guillevic
+	// https://eprint.iacr.org/2021/1359.pdf
 	var m [11]GT
 	var f10, _m1, _m3, _m4, _m5, _m7, _m8, _m8m5, _m6, f11, f11f10, f12, f1, f1u, f1q, f1a GT
 	m[0].Set(&result)
@@ -163,7 +171,8 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-// MillerLoop Optimal Tate (or twisted ate or Eta revisited)
+// MillerLoop Optimal Tate alternative (or twisted ate or Eta revisited)
+// computes the multi-Miller loop ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
 // Alg.2 in https://eprint.iacr.org/2021/1359.pdf
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// check input size match
@@ -216,14 +225,14 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	BatchProjectiveToAffineG1(pProj01, p01)
 	BatchProjectiveToAffineG1(pProj10, p10)
 
-	// f_{a0+lambda*a1,P}(Q)
+	// f_{a0+\lambda*a1,P}(Q)
 	var result, ss GT
 	result.SetOne()
 	var l, l0 lineEvaluation
 
 	var j int8
 
-	// i = 157
+	// i = len(loopCounter)-2
 	for k := 0; k < n; k++ {
 		pProj0[k].DoubleStep(&l0)
 		l0.r1.Mul(&l0.r1, &q[k].X)
@@ -232,7 +241,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var tmp G1Affine
-	for i := 156; i >= 0; i-- {
+	for i := len(loopCounter0) - 3; i >= 0; i-- {
 		result.Square(&result)
 
 		j = loopCounter0[i]*3 + loopCounter1[i]

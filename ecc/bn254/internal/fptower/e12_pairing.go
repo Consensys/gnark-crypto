@@ -12,7 +12,7 @@ func (z *E12) nSquareCompressed(n int) {
 	}
 }
 
-// Expt set z to x^t in E12 and return z (t is the generator of the curve)
+// Expt set z to xᵗ (mod q¹²) and return z (t is the generator of the curve)
 func (z *E12) Expt(x *E12) *E12 {
 	// Expt computation is derived from the addition chain:
 	//

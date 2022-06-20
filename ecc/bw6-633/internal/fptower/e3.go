@@ -300,3 +300,37 @@ func (z *E3) Inverse(x *E3) *E3 {
 
 	return z
 }
+
+// BatchInvertE3 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE3(a []E3) []E3 {
+	res := make([]E3, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E3
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}

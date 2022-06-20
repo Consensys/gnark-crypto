@@ -17,6 +17,7 @@
 package fptower
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
@@ -172,6 +173,7 @@ func TestE6Ops(t *testing.T) {
 
 	genA := GenE6()
 	genB := GenE6()
+	genExp := GenFp()
 
 	properties.Property("[BW6-761] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6) bool {
@@ -229,6 +231,41 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BW6-761] Torus-based Compress/decompress E6 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E6) bool {
+			var b E6
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			c, _ := a.CompressTorus()
+			d := c.DecompressTorus()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BW6-761] Torus-based batch Compress/decompress E6 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a, e, f *E6) bool {
+			var b E6
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			e.CyclotomicSquare(a)
+			f.CyclotomicSquare(e)
+
+			c, _ := BatchCompressTorus([]E6{*a, *e, *f})
+			d, _ := BatchDecompressTorus(c)
+			return a.Equal(&d[0]) && e.Equal(&d[1]) && f.Equal(&d[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BW6-761] pi**12=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
@@ -277,12 +314,35 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BW6-761] Exp and CyclotomicExp results must be the same in the cyclotomic subgroup", prop.ForAll(
+		func(a *E6, e fp.Element) bool {
+			var b, c, d E6
+			// put in the cyclo subgroup
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			var _e big.Int
+			k := new(big.Int).SetUint64(6)
+			e.Exp(e, k)
+			e.ToBigIntRegular(&_e)
+
+			c.Exp(*a, &_e)
+			d.CyclotomicExp(*a, &_e)
+
+			return c.Equal(&d)
+		},
+		genA,
+		genExp,
+	))
+
 	properties.Property("[BW6-761] Frobenius of x in E6 should be equal to x^q", prop.ForAll(
 		func(a *E6) bool {
 			var b, c E6
 			q := fp.Modulus()
 			b.Frobenius(a)
-			c.Exp(a, *q)
+			c.Exp(*a, q)
 			return c.Equal(&b)
 		},
 		genA,
