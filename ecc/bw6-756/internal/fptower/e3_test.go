@@ -180,6 +180,20 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BW756] BatchInvertE3 should output the same result as Inverse", prop.ForAll(
+		func(a, b, c *E3) bool {
+
+			batch := BatchInvertE3([]E3{*a, *b, *c})
+			a.Inverse(a)
+			b.Inverse(b)
+			c.Inverse(c)
+			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BW756] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E3) bool {
 			var b E3

@@ -263,10 +263,10 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BLS12-381] BatchInvert should output the same result as Inverse", prop.ForAll(
+	properties.Property("[BLS12-381] BatchInvertE2 should output the same result as Inverse", prop.ForAll(
 		func(a, b, c *E2) bool {
 
-			batch := BatchInvert([]E2{*a, *b, *c})
+			batch := BatchInvertE2([]E2{*a, *b, *c})
 			a.Inverse(a)
 			b.Inverse(b)
 			c.Inverse(c)

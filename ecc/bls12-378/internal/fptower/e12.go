@@ -105,6 +105,11 @@ func (z *E12) SetRandom() (*E12, error) {
 	return z, nil
 }
 
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E12) IsZero() bool {
+	return z.C0.IsZero() && z.C1.IsZero()
+}
+
 // Mul set z=x*y in E12 and return z
 func (z *E12) Mul(x, y *E12) *E12 {
 	var a, b, c E6
@@ -210,8 +215,8 @@ func (z *E12) CyclotomicSquareCompressed(x *E12) *E12 {
 	return z
 }
 
-// Decompress Karabina's cyclotomic square result
-func (z *E12) Decompress(x *E12) *E12 {
+// DecompressKarabina Karabina's cyclotomic square result
+func (z *E12) DecompressKarabina(x *E12) *E12 {
 
 	var t [3]E2
 	var one E2
@@ -256,8 +261,8 @@ func (z *E12) Decompress(x *E12) *E12 {
 	return z
 }
 
-// BatchDecompress multiple Karabina's cyclotomic square results
-func BatchDecompress(x []E12) []E12 {
+// BatchDecompressKarabina multiple Karabina's cyclotomic square results
+func BatchDecompressKarabina(x []E12) []E12 {
 
 	n := len(x)
 	if n == 0 {
@@ -287,7 +292,7 @@ func BatchDecompress(x []E12) []E12 {
 			Double(&t1[i])
 	}
 
-	t1 = BatchInvert(t1) // costs 1 inverse
+	t1 = BatchInvertE2(t1) // costs 1 inverse
 
 	for i := 0; i < n; i++ {
 		// z4 = g4
@@ -365,6 +370,40 @@ func (z *E12) Inverse(x *E12) *E12 {
 	z.C1.Mul(&x.C1, &t1).Neg(&z.C1)
 
 	return z
+}
+
+// BatchInvertE12 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE12(a []E12) []E12 {
+	res := make([]E12, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E12
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
 }
 
 // Exp sets z=x**e and returns it
@@ -558,6 +597,99 @@ func (z *E12) IsInSubGroup() bool {
 	b.Expt(z)
 
 	return a.Equal(&b)
+}
+
+// CompressTorus GT/E12 element to half its size
+// z must be in the cyclotomic subgroup
+// i.e. z^(p^4-p^2+1)=1
+// e.g. GT
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+// z.C1 == 0 only when z \in {-1,1}
+func (z *E12) CompressTorus() (E6, error) {
+
+	if z.C1.IsZero() {
+		return E6{}, errors.New("invalid input")
+	}
+
+	var res, tmp, one E6
+	one.SetOne()
+	tmp.Inverse(&z.C1)
+	res.Add(&z.C0, &one).
+		Mul(&res, &tmp)
+
+	return res, nil
+}
+
+// BatchCompressTorus GT/E12 elements to half their size
+// using a batch inversion
+func BatchCompressTorus(x []E12) ([]E6, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E6{}, errors.New("invalid input size")
+	}
+
+	var one E6
+	one.SetOne()
+	res := make([]E6, n)
+
+	for i := 0; i < n; i++ {
+		res[i].Set(&x[i].C1)
+	}
+
+	t := BatchInvertE6(res) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Add(&x[i].C0, &one).
+			Mul(&res[i], &t[i])
+	}
+
+	return res, nil
+}
+
+// DecompressTorus GT/E12 a compressed element
+// element must be in the cyclotomic subgroup
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E6) DecompressTorus() E12 {
+
+	var res, num, denum E12
+	num.C0.Set(z)
+	num.C1.SetOne()
+	denum.C0.Set(z)
+	denum.C1.SetOne().Neg(&denum.C1)
+	res.Inverse(&denum).
+		Mul(&res, &num)
+
+	return res
+}
+
+// BatchDecompressTorus GT/E12 compressed elements
+// using a batch inversion
+func BatchDecompressTorus(x []E6) ([]E12, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E12{}, errors.New("invalid input size")
+	}
+
+	res := make([]E12, n)
+	num := make([]E12, n)
+	denum := make([]E12, n)
+
+	for i := 0; i < n; i++ {
+		num[i].C0.Set(&x[i])
+		num[i].C1.SetOne()
+		denum[i].C0.Set(&x[i])
+		denum[i].C1.SetOne().Neg(&denum[i].C1)
+	}
+
+	denum = BatchInvertE12(denum) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Mul(&num[i], &denum[i])
+	}
+
+	return res, nil
 }
 
 func (z *E12) Select(cond int, caseZ *E12, caseNz *E12) *E12 {

@@ -229,6 +229,32 @@ func TestMillerLoop(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BLS12-381] compressed pairing", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			res, _ := Pair([]G1Affine{ag1}, []G2Affine{bg2})
+
+			compressed, _ := res.CompressTorus()
+			decompressed := compressed.DecompressTorus()
+
+			return decompressed.Equal(&res)
+
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

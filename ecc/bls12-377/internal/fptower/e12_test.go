@@ -252,6 +252,41 @@ func TestE12Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-377] Torus-based Compress/decompress E12 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E12) bool {
+			var b E12
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			c, _ := a.CompressTorus()
+			d := c.DecompressTorus()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-377] Torus-based batch Compress/decompress E12 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a, e, f *E12) bool {
+			var b E12
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusSquare(&b).Mul(a, &b)
+
+			e.CyclotomicSquare(a)
+			f.CyclotomicSquare(e)
+
+			c, _ := BatchCompressTorus([]E12{*a, *e, *f})
+			d, _ := BatchDecompressTorus(c)
+			return a.Equal(&d[0]) && e.Equal(&d[1]) && f.Equal(&d[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BLS12-377] pi**12=id", prop.ForAll(
 		func(a *E12) bool {
 			var b E12
@@ -308,7 +343,7 @@ func TestE12Ops(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusSquare(&b).Mul(a, &b)
 			c.Square(a)
-			d.CyclotomicSquareCompressed(a).Decompress(&d)
+			d.CyclotomicSquareCompressed(a).DecompressKarabina(&d)
 			return c.Equal(&d)
 		},
 		genA,
@@ -330,10 +365,10 @@ func TestE12Ops(t *testing.T) {
 			a2.nSquareCompressed(2)
 			a4.nSquareCompressed(4)
 			a17.nSquareCompressed(17)
-			batch := BatchDecompress([]E12{a2, a4, a17})
-			a2.Decompress(&a2)
-			a4.Decompress(&a4)
-			a17.Decompress(&a17)
+			batch := BatchDecompressKarabina([]E12{a2, a4, a17})
+			a2.DecompressKarabina(&a2)
+			a4.DecompressKarabina(&a4)
+			a17.DecompressKarabina(&a17)
 
 			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
 		},

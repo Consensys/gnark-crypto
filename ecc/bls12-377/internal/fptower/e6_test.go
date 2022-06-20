@@ -193,6 +193,20 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-377] BatchInvertE6 should output the same result as Inverse", prop.ForAll(
+		func(a, b, c *E6) bool {
+
+			batch := BatchInvertE6([]E6{*a, *b, *c})
+			a.Inverse(a)
+			b.Inverse(b)
+			c.Inverse(c)
+			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BLS12-377] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
