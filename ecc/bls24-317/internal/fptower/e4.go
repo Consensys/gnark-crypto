@@ -160,7 +160,7 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 	return z
 }
 
-// MulByNonResidueInv mul x by (0,1)^{-1}
+// MulByNonResidueInv mul x by (0,1)⁻¹
 func (z *E4) MulByNonResidueInv(x *E4) *E4 {
 	a := x.B1
 	var uInv E2
@@ -216,40 +216,37 @@ func (z *E4) Inverse(x *E4) *E4 {
 	return z
 }
 
-// Exp sets z=x**e and returns it
-func (z *E4) Exp(x *E4, e big.Int) *E4 {
-	if e.IsUint64() && e.Uint64() == 0 {
+// Exp sets z=xᵏ (mod q⁴) and returns it
+func (z *E4) Exp(x E4, k *big.Int) *E4 {
+	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
 
-	k := e
+	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q12) == (x⁻¹)ᵏ (mod q12)
-		x.Inverse(x)
+		// if k < 0: xᵏ (mod q⁴) == (x⁻¹)ᵏ (mod q⁴)
+		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		k = *bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(k)
-		k.Neg(&k)
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
 	}
 
-	var res E4
-	res.SetOne()
+	z.SetOne()
 	b := e.Bytes()
-	for i := range b {
+	for i := 0; i < len(b); i++ {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		for j := 0; j < 8; j++ {
+			z.Square(z)
+			if (w & (0b10000000 >> j)) != 0 {
+				z.Mul(z, &x)
 			}
-			mask = mask >> 1
 		}
 	}
-	z.Set(&res)
+
 	return z
 }
 
@@ -300,13 +297,13 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	var exp, one big.Int
 	one.SetUint64(1)
 	exp.Mul(q, q).Sub(&exp, &one).Rsh(&exp, 1)
-	d.Exp(&c, exp)
+	d.Exp(c, &exp)
 	e.Mul(&d, &c).Inverse(&e)
 	f.Mul(&d, &c).Square(&f)
 
 	// computation
 	exp.Rsh(&exp, 1)
-	b.Exp(x, exp)
+	b.Exp(*x, &exp)
 	b.norm(&_b)
 	o.SetOne()
 	if _b.Equal(&o) {

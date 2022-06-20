@@ -240,23 +240,49 @@ func BatchInvertE12(a []E12) []E12 {
 	return res
 }
 
-// Exp sets z=x**e and returns it
-func (z *E12) Exp(x *E12, e big.Int) *E12 {
+// Exp sets z=xᵏ (mod q¹²) and returns it
+// uses 2-bits windowed method
+func (z *E12) Exp(x E12, k *big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
 	var res E12
+	var ops [3]E12
+
 	res.SetOne()
+	ops[0].Set(&x)
+	ops[1].Square(&ops[0])
+	ops[2].Set(&ops[0]).Mul(&ops[2], &ops[1])
+
 	b := e.Bytes()
 	for i := range b {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		mask := byte(0xc0)
+		for j := 0; j < 4; j++ {
+			res.Square(&res).Square(&res)
+			c := (w & mask) >> (6 - 2*j)
+			if c != 0 {
+				res.Mul(&res, &ops[c-1])
 			}
-			mask = mask >> 1
+			mask = mask >> 2
 		}
 	}
 	z.Set(&res)
+
 	return z
 }
 

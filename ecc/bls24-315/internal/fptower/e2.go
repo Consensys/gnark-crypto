@@ -163,23 +163,23 @@ func (z *E2) Legendre() int {
 	return n.Legendre()
 }
 
-// Exp sets z=x**e and returns it
-func (z *E2) Exp(x E2, e *big.Int) *E2 {
-	if e.IsUint64() && e.Uint64() == 0 {
+// Exp sets z=xᵏ (mod q²) and returns it
+func (z *E2) Exp(x E2, k *big.Int) *E2 {
+	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
 
-	k := e
+	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q12) == (x⁻¹)ᵏ (mod q12)
+		// if k < 0: xᵏ (mod q²) == (x⁻¹)ᵏ (mod q²)
 		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		k = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(k)
-		k.Neg(k)
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
 	}
 
 	z.SetOne()

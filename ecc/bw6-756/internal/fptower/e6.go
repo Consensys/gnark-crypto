@@ -154,25 +154,25 @@ func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
 
 	var t [7]fp.Element
 
-	// t0 = g1^2
+	// t0 = g1²
 	t[0].Square(&x.B0.A1)
-	// t1 = g5^2
+	// t1 = g5²
 	t[1].Square(&x.B1.A2)
 	// t5 = g1 + g5
 	t[5].Add(&x.B0.A1, &x.B1.A2)
-	// t2 = (g1 + g5)^2
+	// t2 = (g1 + g5)²
 	t[2].Square(&t[5])
 
-	// t3 = g1^2 + g5^2
+	// t3 = g1² + g5²
 	t[3].Add(&t[0], &t[1])
 	// t5 = 2 * g1 * g5
 	t[5].Sub(&t[2], &t[3])
 
 	// t6 = g3 + g2
 	t[6].Add(&x.B1.A0, &x.B0.A2)
-	// t3 = (g3 + g2)^2
+	// t3 = (g3 + g2)²
 	t[3].Square(&t[6])
-	// t2 = g3^2
+	// t2 = g3²
 	t[2].Square(&x.B1.A0)
 
 	// t6 = 2 * nr * g1 * g5
@@ -183,33 +183,33 @@ func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
 	// z3 = 6 * nr * g1 * g5 + 2 * g3
 	z.B1.A0.Add(&t[5], &t[6])
 
-	// t4 = nr * g5^2
+	// t4 = nr * g5²
 	t[4].MulByNonResidue(&t[1])
-	// t5 = nr * g5^2 + g1^2
+	// t5 = nr * g5² + g1²
 	t[5].Add(&t[0], &t[4])
-	// t6 = nr * g5^2 + g1^2 - g2
+	// t6 = nr * g5² + g1² - g2
 	t[6].Sub(&t[5], &x.B0.A2)
 
-	// t1 = g2^2
+	// t1 = g2²
 	t[1].Square(&x.B0.A2)
 
-	// t6 = 2 * nr * g5^2 + 2 * g1^2 - 2*g2
+	// t6 = 2 * nr * g5² + 2 * g1² - 2*g2
 	t[6].Double(&t[6])
-	// z2 = 3 * nr * g5^2 + 3 * g1^2 - 2*g2
+	// z2 = 3 * nr * g5² + 3 * g1² - 2*g2
 	z.B0.A2.Add(&t[6], &t[5])
 
-	// t4 = nr * g2^2
+	// t4 = nr * g2²
 	t[4].MulByNonResidue(&t[1])
-	// t5 = g3^2 + nr * g2^2
+	// t5 = g3² + nr * g2²
 	t[5].Add(&t[2], &t[4])
-	// t6 = g3^2 + nr * g2^2 - g1
+	// t6 = g3² + nr * g2² - g1
 	t[6].Sub(&t[5], &x.B0.A1)
-	// t6 = 2 * g3^2 + 2 * nr * g2^2 - 2 * g1
+	// t6 = 2 * g3² + 2 * nr * g2² - 2 * g1
 	t[6].Double(&t[6])
-	// z1 = 3 * g3^2 + 3 * nr * g2^2 - 2 * g1
+	// z1 = 3 * g3² + 3 * nr * g2² - 2 * g1
 	z.B0.A1.Add(&t[6], &t[5])
 
-	// t0 = g2^2 + g3^2
+	// t0 = g2² + g3²
 	t[0].Add(&t[2], &t[1])
 	// t5 = 2 * g3 * g2
 	t[5].Sub(&t[3], &t[0])
@@ -230,13 +230,13 @@ func (z *E6) Decompress(x *E6) *E6 {
 	var one fp.Element
 	one.SetOne()
 
-	// t0 = g1^2
+	// t0 = g1²
 	t[0].Square(&x.B0.A1)
-	// t1 = 3 * g1^2 - 2 * g2
+	// t1 = 3 * g1² - 2 * g2
 	t[1].Sub(&t[0], &x.B0.A2).
 		Double(&t[1]).
 		Add(&t[1], &t[0])
-		// t0 = E * g5^2 + t1
+		// t0 = E * g5² + t1
 	t[2].Square(&x.B1.A2)
 	t[0].MulByNonResidue(&t[2]).
 		Add(&t[0], &t[1])
@@ -249,14 +249,14 @@ func (z *E6) Decompress(x *E6) *E6 {
 
 	// t1 = g2 * g1
 	t[1].Mul(&x.B0.A2, &x.B0.A1)
-	// t2 = 2 * g4^2 - 3 * g2 * g1
+	// t2 = 2 * g4² - 3 * g2 * g1
 	t[2].Square(&x.B1.A1).
 		Sub(&t[2], &t[1]).
 		Double(&t[2]).
 		Sub(&t[2], &t[1])
 	// t1 = g3 * g5
 	t[1].Mul(&x.B1.A0, &x.B1.A2)
-	// c_0 = E * (2 * g4^2 + g3 * g5 - 3 * g2 * g1) + 1
+	// c₀ = E * (2 * g4² + g3 * g5 - 3 * g2 * g1) + 1
 	t[2].Add(&t[2], &t[1])
 	z.B0.A0.MulByNonResidue(&t[2]).
 		Add(&z.B0.A0, &one)
@@ -272,10 +272,10 @@ func (z *E6) Decompress(x *E6) *E6 {
 // Granger-Scott's cyclotomic square
 // https://eprint.iacr.org/2009/565.pdf, 3.2
 func (z *E6) CyclotomicSquare(x *E6) *E6 {
-	// x=(x0,x1,x2,x3,x4,x5,x6,x7) in E3^6
-	// cyclosquare(x)=(3*x4^2*u + 3*x0^2 - 2*x0,
-	//					3*x2^2*u + 3*x3^2 - 2*x1,
-	//					3*x5^2*u + 3*x1^2 - 2*x2,
+	// x=(x0,x1,x2,x3,x4,x5,x6,x7) in E3⁶
+	// cyclosquare(x)=(3*x4²*u + 3*x0² - 2*x0,
+	//					3*x2²*u + 3*x3² - 2*x1,
+	//					3*x5²*u + 3*x1² - 2*x2,
 	//					6*x1*x5*u + 2*x3,
 	//					6*x0*x4 + 2*x4,
 	//					6*x2*x3 + 2*x5)
@@ -292,9 +292,9 @@ func (z *E6) CyclotomicSquare(x *E6) *E6 {
 	t[5].Square(&x.B0.A1)
 	t[8].Add(&x.B1.A2, &x.B0.A1).Square(&t[8]).Sub(&t[8], &t[4]).Sub(&t[8], &t[5]).MulByNonResidue(&t[8]) // 2*x5*x1*u
 
-	t[0].MulByNonResidue(&t[0]).Add(&t[0], &t[1]) // x4^2*u + x0^2
-	t[2].MulByNonResidue(&t[2]).Add(&t[2], &t[3]) // x2^2*u + x3^2
-	t[4].MulByNonResidue(&t[4]).Add(&t[4], &t[5]) // x5^2*u + x1^2
+	t[0].MulByNonResidue(&t[0]).Add(&t[0], &t[1]) // x4²*u + x0²
+	t[2].MulByNonResidue(&t[2]).Add(&t[2], &t[3]) // x2²*u + x3²
+	t[4].MulByNonResidue(&t[4]).Add(&t[4], &t[5]) // x5²*u + x1²
 
 	z.B0.A0.Sub(&t[0], &x.B0.A0).Double(&z.B0.A0).Add(&z.B0.A0, &t[0])
 	z.B0.A1.Sub(&t[2], &x.B0.A1).Double(&z.B0.A1).Add(&z.B0.A1, &t[2])
@@ -357,9 +357,9 @@ func BatchInvertE6(a []E6) []E6 {
 	return res
 }
 
-// Exp sets z=x**k and returns it
+// Exp sets z=xᵏ (mod q⁶) and returns it
 // uses 2-bits windowed method
-func (z *E6) Exp(x *E6, k big.Int) *E6 {
+func (z *E6) Exp(x E6, k *big.Int) *E6 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
@@ -367,21 +367,21 @@ func (z *E6) Exp(x *E6, k big.Int) *E6 {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		// if k < 0: xᵏ (mod q⁶) == (x⁻¹)ᵏ (mod q⁶)
+		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
 	var res E6
 	var ops [3]E6
 
 	res.SetOne()
-	ops[0].Set(x)
+	ops[0].Set(&x)
 	ops[1].Square(&ops[0])
 	ops[2].Set(&ops[0]).Mul(&ops[2], &ops[1])
 
@@ -403,37 +403,37 @@ func (z *E6) Exp(x *E6, k big.Int) *E6 {
 	return z
 }
 
-// CyclotomicExp sets z=x**k and returns it
+// CyclotomicExp sets z=xᵏ (mod q⁶) and returns it
 // uses 2-NAF decomposition
 // x must be in the cyclotomic subgroup
 // TODO: use a windowed method
-func (z *E6) CyclotomicExp(x *E6, k big.Int) *E6 {
+func (z *E6) CyclotomicExp(x E6, k *big.Int) *E6 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
 
 	e := k
 	if k.Sign() == -1 {
-		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		// negative k, we invert (=conjugate)
+		// if k < 0: xᵏ (mod q⁶) == (x⁻¹)ᵏ (mod q⁶)
+		x.Conjugate(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
 	var res, xInv E6
-	xInv.InverseUnitary(x)
+	xInv.InverseUnitary(&x)
 	res.SetOne()
 	eNAF := make([]int8, e.BitLen()+3)
-	n := ecc.NafDecomposition(&e, eNAF[:])
+	n := ecc.NafDecomposition(e, eNAF[:])
 	for i := n - 1; i >= 0; i-- {
 		res.CyclotomicSquare(&res)
 		if eNAF[i] == 1 {
-			res.Mul(&res, x)
+			res.Mul(&res, &x)
 		} else if eNAF[i] == -1 {
 			res.Mul(&res, &xInv)
 		}
@@ -442,12 +442,12 @@ func (z *E6) CyclotomicExp(x *E6, k big.Int) *E6 {
 	return z
 }
 
-// ExpGLV sets z=x**k and returns it
+// ExpGLV sets z=xᵏ (q⁶) and returns it
 // uses 2-dimensional GLV with 2-bits windowed method
 // x must be in GT
 // TODO: use 2-NAF
 // TODO: use higher dimensional decomposition
-func (z *E6) ExpGLV(x *E6, k big.Int) *E6 {
+func (z *E6) ExpGLV(x E6, k *big.Int) *E6 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
@@ -455,14 +455,14 @@ func (z *E6) ExpGLV(x *E6, k big.Int) *E6 {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		// if k < 0: xᵏ (mod q⁶) == (x⁻¹)ᵏ (mod q⁶)
+		x.Conjugate(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
 	var table [15]E6
@@ -472,11 +472,11 @@ func (z *E6) ExpGLV(x *E6, k big.Int) *E6 {
 	res.SetOne()
 
 	// table[b3b2b1b0-1] = b3b2*Frobinius(x) + b1b0*x
-	table[0].Set(x)
-	table[3].Frobenius(x)
+	table[0].Set(&x)
+	table[3].Frobenius(&x)
 
-	// split the scalar, modifies +-x, Frob(x) accordingly
-	s := ecc.SplitScalar(&e, &glvBasis)
+	// split the scalar, modifies ±x, Frob(x) accordingly
+	s := ecc.SplitScalar(e, &glvBasis)
 
 	if s[0].Sign() == -1 {
 		s[0].Neg(&s[0])
@@ -604,16 +604,16 @@ func (z *E6) SetBytes(e []byte) error {
 func (z *E6) IsInSubGroup() bool {
 	var one, _z E6
 	one.SetOne()
-	_z.Exp(z, *fr.Modulus())
+	_z.Exp(*z, fr.Modulus())
 	return _z.Equal(&one)
 }
 
 // CompressTorus GT/E6 element to half its size
 // z must be in the cyclotomic subgroup
-// i.e. z^(p^4-p^2+1)=1
+// i.e. z^(p⁴-p²+1)=1
 // e.g. GT
 // "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
-// z.B1 == 0 only when z \in {-1,1}
+// z.B1 == 0 only when z ∈ {-1,1}
 func (z *E6) CompressTorus() (E3, error) {
 
 	if z.B1.IsZero() {

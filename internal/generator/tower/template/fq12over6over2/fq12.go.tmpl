@@ -398,9 +398,9 @@ func BatchInvertE12(a []E12) []E12 {
 	return res
 }
 
-// Exp sets z=x**k and returns it
+// Exp sets z=xᵏ (mod q¹²) and returns it
 // uses 2-bits windowed method
-func (z *E12) Exp(x *E12, k big.Int) *E12 {
+func (z *E12) Exp(x E12, k *big.Int) *E12 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
@@ -409,20 +409,20 @@ func (z *E12) Exp(x *E12, k big.Int) *E12 {
 	if k.Sign() == -1 {
 		// negative k, we invert
 		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
 	var res E12
 	var ops [3]E12
 
 	res.SetOne()
-	ops[0].Set(x)
+	ops[0].Set(&x)
 	ops[1].Square(&ops[0])
 	ops[2].Set(&ops[0]).Mul(&ops[2], &ops[1])
 
@@ -444,37 +444,37 @@ func (z *E12) Exp(x *E12, k big.Int) *E12 {
 	return z
 }
 
-// CyclotomicExp sets z=x**k and returns it
+// CyclotomicExp sets z=xᵏ (mod q¹²) and returns it
 // uses 2-NAF decomposition
 // x must be in the cyclotomic subgroup
 // TODO: use a windowed method
-func (z *E12) CyclotomicExp(x *E12, k big.Int) *E12 {
+func (z *E12) CyclotomicExp(x E12, k *big.Int) *E12 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
 
 	e := k
 	if k.Sign() == -1 {
-		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		// negative k, we invert (=conjugate)
+		// if k < 0: xᵏ (mod q¹²) == (x⁻¹)ᵏ (mod q¹²)
+		x.Conjugate(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
 	var res, xInv E12
-	xInv.InverseUnitary(x)
+	xInv.InverseUnitary(&x)
 	res.SetOne()
 	eNAF := make([]int8, e.BitLen()+3)
-	n := ecc.NafDecomposition(&e, eNAF[:])
+	n := ecc.NafDecomposition(e, eNAF[:])
 	for i := n - 1; i >= 0; i-- {
 		res.CyclotomicSquare(&res)
 		if eNAF[i] == 1 {
-			res.Mul(&res, x)
+			res.Mul(&res, &x)
 		} else if eNAF[i] == -1 {
 			res.Mul(&res, &xInv)
 		}
@@ -483,41 +483,41 @@ func (z *E12) CyclotomicExp(x *E12, k big.Int) *E12 {
 	return z
 }
 
-// ExpGLV sets z=x**k and returns it
+// ExpGLV sets z=xᵏ (q¹²) and returns it
 // uses 2-dimensional GLV with 2-bits windowed method
 // x must be in GT
 // TODO: use 2-NAF
 // TODO: use higher dimensional decomposition
-func (z *E12) ExpGLV(x *E12, k big.Int) *E12 {
+func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	if k.IsUint64() && k.Uint64() == 0 {
 		return z.SetOne()
 	}
 
 	e := k
 	if k.Sign() == -1 {
-		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
-		x.Inverse(x)
+		// negative k, we invert (=conjugate)
+		// if k < 0: xᵏ (mod q¹²) == (x⁻¹)ᵏ (mod q¹²)
+		x.Conjugate(&x)
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = *bigIntPool.Get().(*big.Int)
+		e = bigIntPool.Get().(*big.Int)
 		defer bigIntPool.Put(e)
-		e.Neg(&k)
+		e.Neg(k)
 	}
 
- 	var table [15]E12
+	var table [15]E12
 	var res E12
 	var s1, s2 fr.Element
 
 	res.SetOne()
 
 	// table[b3b2b1b0-1] = b3b2*Frobinius(x) + b1b0*x
-	table[0].Set(x)
-	table[3].Frobenius(x)
+	table[0].Set(&x)
+	table[3].Frobenius(&x)
 
-	// split the scalar, modifies +-x, Frob(x) accordingly
-	s := ecc.SplitScalar(&e, &glvBasis)
+	// split the scalar, modifies ±x, Frob(x) accordingly
+	s := ecc.SplitScalar(e, &glvBasis)
 
 	if s[0].Sign() == -1 {
 		s[0].Neg(&s[0])

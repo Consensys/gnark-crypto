@@ -78,9 +78,9 @@ func TestPairing(t *testing.T) {
 			e.ToBigIntRegular(&_e)
 
 			var b, c, d GT
-			b.Exp(&a, _e)
-			c.ExpGLV(&a, _e)
-			d.CyclotomicExp(&a, _e)
+			b.Exp(a, &_e)
+			c.ExpGLV(a, &_e)
+			d.CyclotomicExp(a, &_e)
 
 			return b.Equal(&c) && c.Equal(&d)
 		},
@@ -99,7 +99,7 @@ func TestPairing(t *testing.T) {
 				Mul(&a, &b)
 
 			c.Expt(&a).Expt(&c)
-			d.Exp(&a, xGen).Exp(&d, xGen)
+			d.Exp(a, &xGen).Exp(d, &xGen)
 			return c.Equal(&d)
 		},
 		genA,
@@ -126,9 +126,9 @@ func TestPairing(t *testing.T) {
 			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
 			resb, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{bg2})
 
-			resab.Exp(&res, ab)
-			resa.Exp(&resa, bbigint)
-			resb.Exp(&resb, abigint)
+			resab.Exp(res, &ab)
+			resa.Exp(resa, &bbigint)
+			resb.Exp(resb, &abigint)
 
 			return resab.Equal(&resa) && resab.Equal(&resb) && !res.Equal(&zero)
 
@@ -396,21 +396,21 @@ func BenchmarkExpGT(b *testing.B) {
 	b.Run("Naive windowed Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.Exp(&a, _e)
+			a.Exp(a, &_e)
 		}
 	})
 
 	b.Run("2-NAF cyclotomic Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.CyclotomicExp(&a, _e)
+			a.CyclotomicExp(a, &_e)
 		}
 	})
 
 	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.ExpGLV(&a, _e)
+			a.ExpGLV(a, &_e)
 		}
 	})
 }

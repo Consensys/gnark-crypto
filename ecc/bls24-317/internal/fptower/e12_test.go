@@ -248,6 +248,6 @@ func BenchmarkE12ExpBySeed(b *testing.B) {
 	_, _ = a.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Exp(&a, seed).Conjugate(&a)
+		a.Exp(a, &seed).Conjugate(&a)
 	}
 }

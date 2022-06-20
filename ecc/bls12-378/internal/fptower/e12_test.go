@@ -391,8 +391,8 @@ func TestE12Ops(t *testing.T) {
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
 
-			c.Exp(a, _e)
-			d.CyclotomicExp(a, _e)
+			c.Exp(*a, &_e)
+			d.CyclotomicExp(*a, &_e)
 
 			return c.Equal(&d)
 		},
@@ -405,7 +405,7 @@ func TestE12Ops(t *testing.T) {
 			var b, c E12
 			q := fp.Modulus()
 			b.Frobenius(a)
-			c.Exp(a, *q)
+			c.Exp(*a, q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -416,7 +416,7 @@ func TestE12Ops(t *testing.T) {
 			var b, c E12
 			q := fp.Modulus()
 			b.FrobeniusSquare(a)
-			c.Exp(a, *q).Exp(&c, *q)
+			c.Exp(*a, q).Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,
