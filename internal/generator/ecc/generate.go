@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
@@ -24,28 +25,24 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
-	// fuzz testing
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "fuzz.go"), Templates: []string{"fuzz.go.tmpl"}, BuildTag: "gofuzz"},
-		{File: filepath.Join(baseDir, "fuzz_test.go"), Templates: []string{"tests/fuzz.go.tmpl"}, BuildTag: "gofuzz"},
-	}
-	if err := bgen.Generate(conf, packageName, "./ecc/template", entries...); err != nil {
-		return err
-	}
-
 	// hash To curve
-	genHashToCurve := func(point *config.Point, suite *config.HashSuite) error {
+
+	genHashToCurve := func(point *config.Point, suite config.HashSuite) error {
 		if suite == nil { //Nothing to generate. Bypass
 			return nil
 		}
 
 		entries = []bavard.Entry{
-			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s.go", point.PointName)), Templates: []string{"sswu.go.tmpl"}},
-			{File: filepath.Join(baseDir, fmt.Sprintf("sswu_%s_test.go", point.PointName)), Templates: []string{"tests/sswu.go.tmpl"}}}
+			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"hash_to_curve.go.tmpl", "sswu.go.tmpl", "svdw.go.tmpl"}},
+			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s_test.go", point.PointName)), Templates: []string{"tests/hash_to_curve.go.tmpl"}}}
 
-		hashConf := config.NewHashSuiteInfo(conf.Fp, point, conf.Name, suite)
+		hashConf := suite.GetInfo(conf.Fp, point, conf.Name)
 
-		return bgen.Generate(hashConf, packageName, "./ecc/template", entries...)
+		funcs := make(template.FuncMap)
+		funcs["asElement"] = hashConf.Field.Base.WriteElement
+		bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
+
+		return bgen.GenerateWithOptions(hashConf, packageName, "./ecc/template", bavardOpts, entries...)
 	}
 
 	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {

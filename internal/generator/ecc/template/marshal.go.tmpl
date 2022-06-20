@@ -25,8 +25,11 @@ import (
 // metadata needed for point (de)compression
 {{- if ge .FpUnusedBits 3}}
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
+//
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+//
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+//
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 const (
 	mMask                 byte = 0b111 << 5
@@ -83,7 +86,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("{{.Name}} decoder: unsupported type, need pointer")
 	}
 
@@ -92,7 +95,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memallocs 
 	// in very large (de)serialization upstream in gnark.
 	// (but detrimental to code lisibility here)
-	// TODO double check memory usage and factorize this
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
@@ -398,9 +400,12 @@ func NoSubgroupChecks() func(*Decoder)  {
 {{ define "encode"}}
 
 func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+		return errors.New("{{.Name}} encoder: can't encode <nil>")
+	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
-	// TODO double check memory usage and factorize this
 
 	var written int
 	switch t := v.(type) {
@@ -550,17 +555,22 @@ func (p *{{ $.TAffine }}) Unmarshal(buf []byte) error {
 // will store X coordinate in regular form and a parity bit
 {{- if ge .all.FpUnusedBits 3}}
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
+//
 // The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+//
 // The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+//
 // The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 {{- else}}
 // as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
+//
 // we use the 2 most significant bits instead
-// 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y^2
-// 11 -> compressed, use largest lexicographically square root of Y^2
-// 01 -> compressed infinity point
-// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+//
+//  00 -> uncompressed
+//  10 -> compressed, use smallest lexicographically square root of Y^2
+//  11 -> compressed, use largest lexicographically square root of Y^2
+//  01 -> compressed infinity point
+//  the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 {{- end}}
 func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 
@@ -671,10 +681,14 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 
 
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
+//
 // bytes in buf must match either RawBytes() or Bytes() output
+//
 // if buf is too short io.ErrShortBuffer is returned
+//
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
-// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// the Y coordinate (i.e the square root doesn't exist) this function returns an error
+//
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 	return p.setBytes(buf, true)

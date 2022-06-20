@@ -31,8 +31,13 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/internal/fptower"
 )
 
-func TestEncoder(t *testing.T) {
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
+func TestEncoder(t *testing.T) {
+	t.Parallel()
 	// TODO need proper fuzz testing here
 
 	var inA uint64
@@ -138,6 +143,7 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestIsCompressed(t *testing.T) {
+	t.Parallel()
 	var g1Inf, g1 G1Affine
 	var g2Inf, g2 G2Affine
 
@@ -203,7 +209,7 @@ func TestIsCompressed(t *testing.T) {
 }
 
 func TestG1AffineSerialization(t *testing.T) {
-
+	t.Parallel()
 	// test round trip serialization of infinity
 	{
 		// compressed
@@ -245,9 +251,9 @@ func TestG1AffineSerialization(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
-		parameters.MinSuccessfulTests = 100
+		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
-		parameters.MinSuccessfulTests = 1000
+		parameters.MinSuccessfulTests = nbFuzz
 	}
 
 	properties := gopter.NewProperties(parameters)
@@ -296,7 +302,7 @@ func TestG1AffineSerialization(t *testing.T) {
 }
 
 func TestG2AffineSerialization(t *testing.T) {
-
+	t.Parallel()
 	// test round trip serialization of infinity
 	{
 		// compressed
@@ -338,9 +344,9 @@ func TestG2AffineSerialization(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
-		parameters.MinSuccessfulTests = 100
+		parameters.MinSuccessfulTests = nbFuzzShort
 	} else {
-		parameters.MinSuccessfulTests = 1000
+		parameters.MinSuccessfulTests = nbFuzz
 	}
 
 	properties := gopter.NewProperties(parameters)
@@ -394,14 +400,12 @@ func TestG2AffineSerialization(t *testing.T) {
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-		var b [fr.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
+
+		if _, err := elmt.SetRandom(); err != nil {
 			panic(err)
 		}
-		elmt.SetBytes(b[:])
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
-		return genResult
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
 }
 
@@ -409,14 +413,12 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
-		if err != nil {
+
+		if _, err := elmt.SetRandom(); err != nil {
 			panic(err)
 		}
-		elmt.SetBytes(b[:])
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
-		return genResult
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
 }
 

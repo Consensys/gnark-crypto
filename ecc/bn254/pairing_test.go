@@ -32,8 +32,13 @@ import (
 
 func TestPairing(t *testing.T) {
 
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 100
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
 
 	properties := gopter.NewProperties(parameters)
 
@@ -64,16 +69,19 @@ func TestPairing(t *testing.T) {
 		func(a GT, e fp.Element) bool {
 			a = FinalExponentiation(&a)
 
-			var _e big.Int
+			var _e, ne big.Int
 
 			k := new(big.Int).SetUint64(12)
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
+			ne.Neg(&_e)
 
 			var b, c, d GT
-			b.Exp(&a, _e)
-			c.ExpGLV(&a, &_e)
-			d.CyclotomicExp(&a, _e)
+			b.Exp(a, &ne)
+			b.Inverse(&b)
+			c.ExpGLV(a, &ne)
+			c.Conjugate(&c)
+			d.CyclotomicExp(a, &_e)
 
 			return b.Equal(&c) && c.Equal(&d)
 		},
@@ -92,7 +100,7 @@ func TestPairing(t *testing.T) {
 				Mul(&a, &b)
 
 			c.Expt(&a).Expt(&c)
-			d.Exp(&a, xGen).Exp(&d, xGen)
+			d.Exp(a, &xGen).Exp(d, &xGen)
 			return c.Equal(&d)
 		},
 		genA,
@@ -119,9 +127,9 @@ func TestPairing(t *testing.T) {
 			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
 			resb, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{bg2})
 
-			resab.Exp(&res, ab)
-			resa.Exp(&resa, bbigint)
-			resb.Exp(&resb, abigint)
+			resab.Exp(res, &ab)
+			resa.Exp(resa, &bbigint)
+			resb.Exp(resb, &abigint)
 
 			return resab.Equal(&resa) && resab.Equal(&resb) && !res.Equal(&zero)
 
@@ -129,6 +137,40 @@ func TestPairing(t *testing.T) {
 		genR1,
 		genR2,
 	))
+
+	properties.Property("[BN254] PairingCheck", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var g1GenAffNeg G1Affine
+			g1GenAffNeg.Neg(&g1GenAff)
+			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
+			tabQ := []G2Affine{g2GenAff, g2GenAff}
+
+			res, _ := PairingCheck(tabP, tabQ)
+
+			return res
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestMillerLoop(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
 
 	properties.Property("[BN254] MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
 		func(a, b fr.Element) bool {
@@ -171,22 +213,6 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BN254] PairingCheck", prop.ForAll(
-		func(a, b fr.Element) bool {
-
-			var g1GenAffNeg G1Affine
-			g1GenAffNeg.Neg(&g1GenAff)
-			tabP := []G1Affine{g1GenAff, g1GenAffNeg}
-			tabQ := []G2Affine{g2GenAff, g2GenAff}
-
-			res, _ := PairingCheck(tabP, tabQ)
-
-			return res
-		},
-		genR1,
-		genR2,
-	))
-
 	properties.Property("[BN254] MillerLoop should skip pairs with a point at infinity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
@@ -224,6 +250,32 @@ func TestPairing(t *testing.T) {
 			res3, _ := Pair(tabP, tabQ)
 
 			return res1.Equal(&res2) && !res2.Equal(&res3) && res3.Equal(&one)
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.Property("[BN254] compressed pairing", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.ToBigIntRegular(&abigint)
+			b.ToBigIntRegular(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			res, _ := Pair([]G1Affine{ag1}, []G2Affine{bg2})
+
+			compressed, _ := res.CompressTorus()
+			decompressed := compressed.DecompressTorus()
+
+			return decompressed.Equal(&res)
+
 		},
 		genR1,
 		genR2,
@@ -344,21 +396,21 @@ func BenchmarkExpGT(b *testing.B) {
 	b.Run("Naive windowed Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.Exp(&a, _e)
+			a.Exp(a, &_e)
 		}
 	})
 
 	b.Run("2-NAF cyclotomic Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.CyclotomicExp(&a, _e)
+			a.CyclotomicExp(a, &_e)
 		}
 	})
 
 	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			a.ExpGLV(&a, &_e)
+			a.ExpGLV(a, &_e)
 		}
 	})
 }

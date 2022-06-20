@@ -35,7 +35,7 @@ func (z *E12) Expt(x *E12) *E12 {
 
 	// the remaining 46 bits
 	result.nSquareCompressed(46)
-	result.Decompress(&result)
+	result.DecompressKarabina(&result)
 	result.Mul(&result, x)
 
 	z.Set(&result)

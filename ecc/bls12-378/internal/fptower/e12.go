@@ -23,7 +23,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"math/big"
+	"sync"
 )
+
+var bigIntPool = sync.Pool{
+	New: func() interface{} {
+		return new(big.Int)
+	},
+}
 
 // E12 is a degree two finite field extension of fp6
 type E12 struct {
@@ -105,6 +112,11 @@ func (z *E12) SetRandom() (*E12, error) {
 		return nil, err
 	}
 	return z, nil
+}
+
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E12) IsZero() bool {
+	return z.C0.IsZero() && z.C1.IsZero()
 }
 
 // Mul set z=x*y in E12 and return z
@@ -212,8 +224,8 @@ func (z *E12) CyclotomicSquareCompressed(x *E12) *E12 {
 	return z
 }
 
-// Decompress Karabina's cyclotomic square result
-func (z *E12) Decompress(x *E12) *E12 {
+// DecompressKarabina Karabina's cyclotomic square result
+func (z *E12) DecompressKarabina(x *E12) *E12 {
 
 	var t [3]E2
 	var one E2
@@ -258,8 +270,8 @@ func (z *E12) Decompress(x *E12) *E12 {
 	return z
 }
 
-// BatchDecompress multiple Karabina's cyclotomic square results
-func BatchDecompress(x []E12) []E12 {
+// BatchDecompressKarabina multiple Karabina's cyclotomic square results
+func BatchDecompressKarabina(x []E12) []E12 {
 
 	n := len(x)
 	if n == 0 {
@@ -289,7 +301,7 @@ func BatchDecompress(x []E12) []E12 {
 			Double(&t1[i])
 	}
 
-	t1 = BatchInvert(t1) // costs 1 inverse
+	t1 = BatchInvertE2(t1) // costs 1 inverse
 
 	for i := 0; i < n; i++ {
 		// z4 = g4
@@ -369,15 +381,65 @@ func (z *E12) Inverse(x *E12) *E12 {
 	return z
 }
 
-// Exp sets z=x**e and returns it
+// BatchInvertE12 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE12(a []E12) []E12 {
+	res := make([]E12, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E12
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}
+
+// Exp sets z=xᵏ (mod q¹²) and returns it
 // uses 2-bits windowed method
-func (z *E12) Exp(x *E12, e big.Int) *E12 {
+func (z *E12) Exp(x E12, k *big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
 
 	var res E12
 	var ops [3]E12
 
 	res.SetOne()
-	ops[0].Set(x)
+	ops[0].Set(&x)
 	ops[1].Square(&ops[0])
 	ops[2].Set(&ops[0]).Mul(&ops[2], &ops[1])
 
@@ -399,20 +461,37 @@ func (z *E12) Exp(x *E12, e big.Int) *E12 {
 	return z
 }
 
-// CyclotomicExp sets z=x**e and returns it
+// CyclotomicExp sets z=xᵏ (mod q¹²) and returns it
 // uses 2-NAF decomposition
 // x must be in the cyclotomic subgroup
 // TODO: use a windowed method
-func (z *E12) CyclotomicExp(x *E12, e big.Int) *E12 {
+func (z *E12) CyclotomicExp(x E12, k *big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert (=conjugate)
+		// if k < 0: xᵏ (mod q¹²) == (x⁻¹)ᵏ (mod q¹²)
+		x.Conjugate(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
 	var res, xInv E12
-	xInv.InverseUnitary(x)
+	xInv.InverseUnitary(&x)
 	res.SetOne()
 	eNAF := make([]int8, e.BitLen()+3)
-	n := ecc.NafDecomposition(&e, eNAF[:])
+	n := ecc.NafDecomposition(e, eNAF[:])
 	for i := n - 1; i >= 0; i-- {
 		res.CyclotomicSquare(&res)
 		if eNAF[i] == 1 {
-			res.Mul(&res, x)
+			res.Mul(&res, &x)
 		} else if eNAF[i] == -1 {
 			res.Mul(&res, &xInv)
 		}
@@ -421,37 +500,53 @@ func (z *E12) CyclotomicExp(x *E12, e big.Int) *E12 {
 	return z
 }
 
-// ExpGLV sets z=x**e and returns it
+// ExpGLV sets z=xᵏ (q¹²) and returns it
 // uses 2-dimensional GLV with 2-bits windowed method
 // x must be in GT
 // TODO: use 2-NAF
 // TODO: use higher dimensional decomposition
-func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
+func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert (=conjugate)
+		// if k < 0: xᵏ (mod q¹²) == (x⁻¹)ᵏ (mod q¹²)
+		x.Conjugate(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
 
 	var table [15]E12
 	var res E12
-	var k1, k2 fr.Element
+	var s1, s2 fr.Element
 
 	res.SetOne()
 
-	// table[b3b2b1b0-1] = b3b2*Frobinius(a) + b1b0*a
-	table[0].Set(a)
-	table[3].Frobenius(a)
+	// table[b3b2b1b0-1] = b3b2*Frobinius(x) + b1b0*x
+	table[0].Set(&x)
+	table[3].Frobenius(&x)
 
-	// split the scalar, modifies +-x, Frob(x) accordingly
-	k := ecc.SplitScalar(s, &glvBasis)
+	// split the scalar, modifies ±x, Frob(x) accordingly
+	s := ecc.SplitScalar(e, &glvBasis)
 
-	if k[0].Sign() == -1 {
-		k[0].Neg(&k[0])
+	if s[0].Sign() == -1 {
+		s[0].Neg(&s[0])
 		table[0].InverseUnitary(&table[0])
 	}
-	if k[1].Sign() == -1 {
-		k[1].Neg(&k[1])
+	if s[1].Sign() == -1 {
+		s[1].Neg(&s[1])
 		table[3].InverseUnitary(&table[3])
 	}
 
 	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2*Frobenius(a) + b1b0*a if b3b2b1b0 != 0
+	// table[b3b2b1b0-1] = b3b2*Frobenius(x) + b1b0*x if b3b2b1b0 != 0
 	table[1].CyclotomicSquare(&table[0])
 	table[2].Mul(&table[1], &table[0])
 	table[4].Mul(&table[3], &table[0])
@@ -466,17 +561,17 @@ func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
 	table[13].Mul(&table[11], &table[1])
 	table[14].Mul(&table[11], &table[2])
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
+	s1.SetBigInt(&s[0]).FromMont()
+	s2.SetBigInt(&s[1]).FromMont()
 
-	// loop starts from len(k1)/2 due to the bounds
-	for i := len(k1) / 2; i >= 0; i-- {
+	// loop starts from len(s1)/2 due to the bounds
+	for i := len(s1) / 2; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
+			b1 := (s1[i] & mask) >> (62 - 2*j)
+			b2 := (s2[i] & mask) >> (62 - 2*j)
 			if b1|b2 != 0 {
 				s := (b2<<2 | b1)
 				res.Mul(&res, &table[s-1])
@@ -485,8 +580,8 @@ func (p *E12) ExpGLV(a *E12, s *big.Int) *E12 {
 		}
 	}
 
-	p.Set(&res)
-	return p
+	z.Set(&res)
+	return z
 }
 
 // InverseUnitary inverse a unitary element
@@ -660,6 +755,99 @@ func (z *E12) IsInSubGroup() bool {
 	b.Expt(z)
 
 	return a.Equal(&b)
+}
+
+// CompressTorus GT/E12 element to half its size
+// z must be in the cyclotomic subgroup
+// i.e. z^(p^4-p^2+1)=1
+// e.g. GT
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+// z.C1 == 0 only when z \in {-1,1}
+func (z *E12) CompressTorus() (E6, error) {
+
+	if z.C1.IsZero() {
+		return E6{}, errors.New("invalid input")
+	}
+
+	var res, tmp, one E6
+	one.SetOne()
+	tmp.Inverse(&z.C1)
+	res.Add(&z.C0, &one).
+		Mul(&res, &tmp)
+
+	return res, nil
+}
+
+// BatchCompressTorus GT/E12 elements to half their size
+// using a batch inversion
+func BatchCompressTorus(x []E12) ([]E6, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E6{}, errors.New("invalid input size")
+	}
+
+	var one E6
+	one.SetOne()
+	res := make([]E6, n)
+
+	for i := 0; i < n; i++ {
+		res[i].Set(&x[i].C1)
+	}
+
+	t := BatchInvertE6(res) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Add(&x[i].C0, &one).
+			Mul(&res[i], &t[i])
+	}
+
+	return res, nil
+}
+
+// DecompressTorus GT/E12 a compressed element
+// element must be in the cyclotomic subgroup
+// "COMPRESSION IN FINITE FIELDS AND TORUS-BASED CRYPTOGRAPHY", K. RUBIN AND A. SILVERBERG
+func (z *E6) DecompressTorus() E12 {
+
+	var res, num, denum E12
+	num.C0.Set(z)
+	num.C1.SetOne()
+	denum.C0.Set(z)
+	denum.C1.SetOne().Neg(&denum.C1)
+	res.Inverse(&denum).
+		Mul(&res, &num)
+
+	return res
+}
+
+// BatchDecompressTorus GT/E12 compressed elements
+// using a batch inversion
+func BatchDecompressTorus(x []E6) ([]E12, error) {
+
+	n := len(x)
+	if n == 0 {
+		return []E12{}, errors.New("invalid input size")
+	}
+
+	res := make([]E12, n)
+	num := make([]E12, n)
+	denum := make([]E12, n)
+
+	for i := 0; i < n; i++ {
+		num[i].C0.Set(&x[i])
+		num[i].C1.SetOne()
+		denum[i].C0.Set(&x[i])
+		denum[i].C1.SetOne().Neg(&denum[i].C1)
+	}
+
+	denum = BatchInvertE12(denum) // costs 1 inverse
+
+	for i := 0; i < n; i++ {
+		res[i].Mul(&num[i], &denum[i])
+	}
+
+	return res, nil
 }
 
 func (z *E12) Select(cond int, caseZ *E12, caseNz *E12) *E12 {

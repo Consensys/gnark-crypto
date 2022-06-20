@@ -25,7 +25,7 @@ type E2 struct {
 	A0, A1 fp.Element
 }
 
-// Equal returns true if z equals x, fasle otherwise
+// Equal returns true if z equals x, false otherwise
 func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
@@ -92,7 +92,7 @@ func (z *E2) SetRandom() (*E2, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
@@ -163,10 +163,27 @@ func (z *E2) Legendre() int {
 	return n.Legendre()
 }
 
-// Exp sets z=x**e and returns it
-func (z *E2) Exp(x E2, exponent *big.Int) *E2 {
+// Exp sets z=xᵏ (mod q²) and returns it
+func (z *E2) Exp(x E2, k *big.Int) *E2 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q²) == (x⁻¹)ᵏ (mod q²)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
 	z.SetOne()
-	b := exponent.Bytes()
+	b := e.Bytes()
 	for i := 0; i < len(b); i++ {
 		w := b[i]
 		for j := 0; j < 8; j++ {
@@ -218,4 +235,10 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	z.Conjugate(&b).MulByElement(z, &_b).Mul(z, &e)
 
 	return z
+}
+
+func (z *E2) Div(x *E2, y *E2) *E2 {
+	var r E2
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
 }

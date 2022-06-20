@@ -246,10 +246,10 @@ func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
 	{{ $n := 2}}
 	{{ $m := div $n 2}}
 	{{ $split := 4}}
-	{{- range $step := reverse (iterate 3)}} 
+	{{- range $step := reverse (iterate 0 3)}} 
 		{{- $offset := 0}}
-		{{- range $s := reverse (iterate $split)}}
-			{{- range $i := iterate $m}}
+		{{- range $s := reverse (iterate 0 $split)}}
+			{{- range $i := iterate 0 $m}}
 				{{- $j := add $i $offset}}
 				{{- $k := add $j $m}}
 				{{- if ne $i 0}}
@@ -278,10 +278,10 @@ func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
 	{{ $n := 8}}
 	{{ $m := div $n 2}}
 	{{ $split := 1}}
-	{{- range $step := iterate 3}} 
+	{{- range $step := iterate 0 3}} 
 		{{- $offset := 0}}
-		{{- range $s := iterate $split}}
-			{{- range $i := iterate $m}}
+		{{- range $s := iterate 0 $split}}
+			{{- range $i := iterate 0 $m}}
 				{{- $j := add $i $offset}}
 				{{- $k := add $j $m}}
 				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
@@ -290,8 +290,8 @@ func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
 		{{- end}}
 
 		{{- $offset := 0}}
-		{{- range $s := iterate $split}}
-			{{- range $i := iterate $m}}
+		{{- range $s := iterate 0 $split}}
+			{{- range $i := iterate 0 $m}}
 				{{- $j := add $i $offset}}
 				{{- $k := add $j $m}}
 				{{- if ne $i 0}}

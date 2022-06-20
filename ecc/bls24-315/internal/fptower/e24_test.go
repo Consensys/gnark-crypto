@@ -251,6 +251,41 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS24-315] Torus-based Compress/decompress E24 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E24) bool {
+			var b E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+
+			c, _ := a.CompressTorus()
+			d := c.DecompressTorus()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Torus-based batch Compress/decompress E24 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a, e, f *E24) bool {
+			var b E24
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.FrobeniusQuad(&b).Mul(a, &b)
+
+			e.CyclotomicSquare(a)
+			f.CyclotomicSquare(e)
+
+			c, _ := BatchCompressTorus([]E24{*a, *e, *f})
+			d, _ := BatchDecompressTorus(c)
+			return a.Equal(&d[0]) && e.Equal(&d[1]) && f.Equal(&d[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BLS24-315] pi**24=id", prop.ForAll(
 		func(a *E24) bool {
 			var b E24
@@ -341,7 +376,7 @@ func TestE24Ops(t *testing.T) {
 			b.Mul(&b, a)
 			a.FrobeniusQuad(&b).Mul(a, &b)
 			c.Square(a)
-			d.CyclotomicSquareCompressed(a).Decompress(&d)
+			d.CyclotomicSquareCompressed(a).DecompressKarabina(&d)
 			return c.Equal(&d)
 		},
 		genA,
@@ -363,10 +398,10 @@ func TestE24Ops(t *testing.T) {
 			a2.nSquareCompressed(2)
 			a4.nSquareCompressed(4)
 			a17.nSquareCompressed(17)
-			batch := BatchDecompress([]E24{a2, a4, a17})
-			a2.Decompress(&a2)
-			a4.Decompress(&a4)
-			a17.Decompress(&a17)
+			batch := BatchDecompressKarabina([]E24{a2, a4, a17})
+			a2.DecompressKarabina(&a2)
+			a4.DecompressKarabina(&a4)
+			a17.DecompressKarabina(&a17)
 
 			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
 		},
@@ -387,8 +422,8 @@ func TestE24Ops(t *testing.T) {
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
 
-			c.Exp(a, _e)
-			d.CyclotomicExp(a, _e)
+			c.Exp(*a, &_e)
+			d.CyclotomicExp(*a, &_e)
 
 			return c.Equal(&d)
 		},
@@ -402,7 +437,7 @@ func TestE24Ops(t *testing.T) {
 			q := fp.Modulus()
 			b.Frobenius(a)
 			c.Set(a)
-			c.Exp(&c, *q)
+			c.Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -413,7 +448,7 @@ func TestE24Ops(t *testing.T) {
 			var b, c E24
 			q := fp.Modulus()
 			b.FrobeniusSquare(a)
-			c.Exp(a, *q).Exp(&c, *q)
+			c.Exp(*a, q).Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,
@@ -424,7 +459,7 @@ func TestE24Ops(t *testing.T) {
 			var b, c E24
 			q := fp.Modulus()
 			b.FrobeniusQuad(a)
-			c.Exp(a, *q).Exp(&c, *q).Exp(&c, *q).Exp(&c, *q)
+			c.Exp(*a, q).Exp(c, q).Exp(c, q).Exp(c, q)
 			return c.Equal(&b)
 		},
 		genA,

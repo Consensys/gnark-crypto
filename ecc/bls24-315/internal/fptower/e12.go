@@ -70,6 +70,11 @@ func (z *E12) SetRandom() (*E12, error) {
 	return z, nil
 }
 
+// IsZero returns true if the two elements are equal, fasle otherwise
+func (z *E12) IsZero() bool {
+	return z.C0.IsZero() && z.C1.IsZero() && z.C2.IsZero()
+}
+
 // ToMont converts to Mont form
 func (z *E12) ToMont() *E12 {
 	z.C0.ToMont()
@@ -201,23 +206,83 @@ func (z *E12) Inverse(x *E12) *E12 {
 	return z
 }
 
-// Exp sets z=x**e and returns it
-func (z *E12) Exp(x *E12, e big.Int) *E12 {
+// BatchInvertE12 returns a new slice with every element inverted.
+// Uses Montgomery batch inversion trick
+func BatchInvertE12(a []E12) []E12 {
+	res := make([]E12, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E12
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}
+
+// Exp sets z=xᵏ (mod q¹²) and returns it
+// uses 2-bits windowed method
+func (z *E12) Exp(x E12, k *big.Int) *E12 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
 	var res E12
+	var ops [3]E12
+
 	res.SetOne()
+	ops[0].Set(&x)
+	ops[1].Square(&ops[0])
+	ops[2].Set(&ops[0]).Mul(&ops[2], &ops[1])
+
 	b := e.Bytes()
 	for i := range b {
 		w := b[i]
-		mask := byte(0x80)
-		for j := 7; j >= 0; j-- {
-			res.Square(&res)
-			if (w&mask)>>j != 0 {
-				res.Mul(&res, x)
+		mask := byte(0xc0)
+		for j := 0; j < 4; j++ {
+			res.Square(&res).Square(&res)
+			c := (w & mask) >> (6 - 2*j)
+			if c != 0 {
+				res.Mul(&res, &ops[c-1])
 			}
-			mask = mask >> 1
+			mask = mask >> 2
 		}
 	}
 	z.Set(&res)
+
 	return z
 }
 

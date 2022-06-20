@@ -1,9 +1,15 @@
 package config
 
 import (
-	"fmt"
-	"github.com/consensys/gnark-crypto/field"
+	"github.com/consensys/gnark-crypto/internal/field"
 	"math/big"
+)
+
+type FieldElementToCurvePoint string
+
+const (
+	SSWU FieldElementToCurvePoint = "SSWU"
+	SVDW FieldElementToCurvePoint = "SVDW"
 )
 
 type Isogeny struct {
@@ -18,12 +24,16 @@ type RationalPolynomial struct {
 	Den [][]string //Den is stored. It is also monic. The leading coefficient (1) is omitted.
 }
 
-type HashSuite struct {
-	A []string // A is the hex-encoded Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
-	B []string // B is the hex-encoded Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
+type HashSuite interface {
+	GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo
+}
 
-	Z []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+type HashSuiteSswu struct {
+	//TODO: Move into Isogeny
+	A []string // A is the Weierstrass curve coefficient of x in the isogenous curve over which the SSWU map is evaluated.
+	B []string // B is the Weierstrass curve constant term in the isogenous curve over which the SSWU map is evaluated.
 
+	Z       []int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
 	Isogeny *Isogeny
 }
 
@@ -35,25 +45,52 @@ func toBigIntSlice(z []int) []big.Int {
 	return res
 }
 
-func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *HashSuite) HashSuiteInfo {
+type HashSuiteSvdw struct {
+	z  []string
+	c1 []string
+	c2 []string
+	c3 []string
+	c4 []string
+}
+
+func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
+	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
+	c := []field.Element{
+		field.NewElement(parameters.z),
+		field.NewElement(parameters.c1),
+		field.NewElement(parameters.c2),
+		field.NewElement(parameters.c3),
+		field.NewElement(parameters.c4),
+	}
+	return HashSuiteInfo{
+		PrecomputedParams: c,
+		CofactorClearing:  g.CofactorCleaning,
+		Point:             g,
+		MappingAlgorithm:  SVDW,
+		Name:              name,
+		FieldCoordName:    field.CoordNameForExtensionDegree(g.CoordExtDegree),
+		Field:             &f,
+	}
+}
+
+func (suite *HashSuiteSswu) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])
 
 	Z := toBigIntSlice(suite.Z)
-	var c [][]big.Int
+	var c []field.Element
 
 	if fieldSizeMod256%4 == 3 {
-		c = make([][]big.Int, 2)
+		c = make([]field.Element, 2)
 		c[0] = make([]big.Int, 1)
 		c[0][0].Rsh(&f.Size, 2)
 
 		c[1] = f.Neg(Z)
 		c[1] = f.Sqrt(c[1])
-		c[1] = f.ToMont(c[1])
 
 	} else if fieldSizeMod256%8 == 5 {
-		c = make([][]big.Int, 3)
+		c = make([]field.Element, 3)
 		c[0] = make([]big.Int, 1)
 		c[0][0].Rsh(&f.Size, 3)
 
@@ -65,12 +102,9 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		c[2] = f.Mul(Z, c[2])
 		c[2] = f.Sqrt(c[2])
 
-		c[1] = f.ToMont(c[1])
-		c[2] = f.ToMont(c[2])
-
 	} else if fieldSizeMod256%8 == 1 {
 		ONE := big.NewInt(1)
-		c = make([][]big.Int, 3)
+		c = make([]field.Element, 3)
 
 		c[0] = make([]big.Int, 5)
 		// c1 .. c5 stored as c[0][0] .. c[0][4]
@@ -93,55 +127,46 @@ func NewHashSuiteInfo(baseField *field.Field, g *Point, name string, suite *Hash
 		c7Pow.Rsh(&c7Pow, 1)
 		c[2] = f.Exp(Z, &c7Pow)
 
-		c[1] = f.ToMont(c[1])
-		c[2] = f.ToMont(c[2])
-
 	} else {
 		panic("this is logically impossible")
 	}
 
 	return HashSuiteInfo{
-		A:                f.StringSliceToMont(suite.A),
-		B:                f.StringSliceToMont(suite.B),
-		Z:                suite.Z,
-		Point:            g,
-		CofactorCleaning: g.CofactorCleaning,
-		Name:             name,
-		Isogeny:          newIsogenousCurveInfoOptional(&f, suite.Isogeny),
-		FieldSizeMod256:  fieldSizeMod256,
-		SqrtRatioParams:  c,
-		Field:            &f,
-		ZMont:            f.ToMont(Z),
-		FieldCoordName:   coordNameForExtensionDegree(g.CoordExtDegree),
+		A:                 field.NewElement(suite.A),
+		B:                 field.NewElement(suite.B),
+		Z:                 Z,
+		Point:             g,
+		CofactorClearing:  g.CofactorCleaning,
+		Name:              name,
+		Isogeny:           newIsogenousCurveInfoOptional(suite.Isogeny),
+		FieldSizeMod256:   fieldSizeMod256,
+		PrecomputedParams: c,
+		Field:             &f,
+		FieldCoordName:    field.CoordNameForExtensionDegree(g.CoordExtDegree),
+		MappingAlgorithm:  SSWU,
 	}
 }
 
-func coordNameForExtensionDegree(degree uint8) string {
-	switch degree {
-	case 1:
-		return ""
-	case 2:
-		return "A"
-	case 6:
-		return "B"
-	case 12:
-		return "C"
+func stringMatrixToIntMatrix(s [][]string) []field.Element {
+	res := make([]field.Element, len(s))
+	for i, S := range s {
+		res[i] = field.NewElement(S)
 	}
-	panic(fmt.Sprint("unknown extension degree", degree))
+	return res
 }
 
-func newIsogenousCurveInfoOptional(f *field.Extension, isogenousCurve *Isogeny) *IsogenyInfo {
+func newIsogenousCurveInfoOptional(isogenousCurve *Isogeny) *IsogenyInfo {
 	if isogenousCurve == nil {
 		return nil
 	}
 	return &IsogenyInfo{
 		XMap: RationalPolynomialInfo{
-			f.StringToIntSliceSlice(isogenousCurve.XMap.Num),
-			f.StringToIntSliceSlice(isogenousCurve.XMap.Den),
+			stringMatrixToIntMatrix(isogenousCurve.XMap.Num),
+			stringMatrixToIntMatrix(isogenousCurve.XMap.Den),
 		},
 		YMap: RationalPolynomialInfo{
-			f.StringToIntSliceSlice(isogenousCurve.YMap.Num),
-			f.StringToIntSliceSlice(isogenousCurve.YMap.Den),
+			stringMatrixToIntMatrix(isogenousCurve.YMap.Num),
+			stringMatrixToIntMatrix(isogenousCurve.YMap.Den),
 		},
 	}
 }
@@ -152,25 +177,25 @@ type IsogenyInfo struct {
 }
 
 type RationalPolynomialInfo struct {
-	Num [][]big.Int
-	Den [][]big.Int //Denominator is monic. The leading coefficient (1) is omitted.
+	Num []field.Element
+	Den []field.Element //Denominator is monic. The leading coefficient (1) is omitted.
 }
 
 type HashSuiteInfo struct {
 	//Isogeny to original curve
 	Isogeny *IsogenyInfo //pointer so it's nullable.
 
-	A []big.Int
+	A []big.Int //TODO: Move inside IsogenyInfo
 	B []big.Int
 
-	Point           *Point
-	Field           *field.Extension
-	FieldCoordName  string
-	Name            string
-	FieldSizeMod256 uint8
-	SqrtRatioParams [][]big.Int // SqrtRatioParams[0][n] correspond to integer cₙ₋₁ in std doc
-	// SqrtRatioParams[n≥1] correspond to field element c_( len(SqrtRatioParams[0]) + n - 1 ) in std doc
-	Z                []int     // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
-	ZMont            []big.Int // z, in montgomery form
-	CofactorCleaning bool
+	Point             *Point
+	Field             *field.Extension
+	FieldCoordName    string
+	Name              string
+	FieldSizeMod256   uint8
+	PrecomputedParams []field.Element // PrecomputedParams[0][n] correspond to integer cₙ₋₁ in std doc
+	// PrecomputedParams[n≥1] correspond to field element c_( len(PrecomputedParams[0]) + n - 1 ) in std doc
+	Z                []big.Int // z (or zeta) is a quadratic non-residue with //TODO: some extra nice properties, refer to WB19
+	CofactorClearing bool
+	MappingAlgorithm FieldElementToCurvePoint
 }

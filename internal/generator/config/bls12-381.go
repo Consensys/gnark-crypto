@@ -25,7 +25,7 @@ var BLS12_381 = Curve{
 		Projective:       true,
 	},
 	// 11-isogeny
-	HashE1: &HashSuite{
+	HashE1: &HashSuiteSswu{
 		A: []string{"0x144698a3b8e9433d693a02c96d4982b0ea985383ee66a8d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d"},
 		B: []string{"0x12e2908d11688030018b12e8753eee3b2016c1f0f24f4070a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0"},
 		Z: []int{11},
@@ -99,7 +99,7 @@ var BLS12_381 = Curve{
 	},
 
 	// 3-isogeny
-	HashE2: &HashSuite{
+	HashE2: &HashSuiteSswu{
 		A: []string{"0", "240"},     // A = 240 * I
 		B: []string{"1012", "1012"}, // B = 1012 * (I+1)
 		Z: []int{-2, -1},            // Z = -(2+I)

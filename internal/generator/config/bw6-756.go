@@ -24,7 +24,7 @@ var BW6_756 = Curve{
 		CRange:           []int{4, 5, 8, 16},
 	},
 	// 2-isogeny
-	HashE1: &HashSuite{
+	HashE1: &HashSuiteSswu{
 		A: []string{"0xf76adbb5bb98ade21e8fbe4eef81b6e9756798f2e64bff3cb65781179d6b076b17683f3cd5042655e16802b1a5b1b5b5e386e23e2731d24c843595d5c79ca4b8b9179cf10cb86e782d614a1f78930c25aeacdc30c0008fb417dfffffffff2"},
 		B: []string{"0x16"},
 		Z: []int{11},
@@ -55,7 +55,7 @@ var BW6_756 = Curve{
 		},
 	},
 	// 17-isogeny
-	HashE2: &HashSuite{
+	HashE2: &HashSuiteSswu{
 		A: []string{"0x2693fe3f93094f745f2f924da1a4260675024d398700e46db4678d6c77e732927310a52e43b73de56540c9dde1f7896d115a7661f0e25e7c54754324cb2ab353f985c8bdaccf0b3ae0e6ee49e40dd2b5d8aee87356b60e17f9de343033534"},
 		B: []string{"0x4577fc0edab719863d99d99fa7737b795dd19e05021cf50e2bfaadf8d3cf9670ba09ab81773af807f37f714475a819c9dd47d9d9b93ec37c70f3b857252cd99cac4151e0b42eb00271779d66c0b0c79e7f450a1fd85b66a23256679146fcb"},
 		Z: []int{11},

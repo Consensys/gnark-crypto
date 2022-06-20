@@ -231,6 +231,41 @@ func TestE6Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BW6-761] Torus-based Compress/decompress E6 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a *E6) bool {
+			var b E6
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			c, _ := a.CompressTorus()
+			d := c.DecompressTorus()
+			return a.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.Property("[BW6-761] Torus-based batch Compress/decompress E6 elements in the cyclotomic subgroup", prop.ForAll(
+		func(a, e, f *E6) bool {
+			var b E6
+			b.Conjugate(a)
+			a.Inverse(a)
+			b.Mul(&b, a)
+			a.Frobenius(&b).Mul(a, &b)
+
+			e.CyclotomicSquare(a)
+			f.CyclotomicSquare(e)
+
+			c, _ := BatchCompressTorus([]E6{*a, *e, *f})
+			d, _ := BatchDecompressTorus(c)
+			return a.Equal(&d[0]) && e.Equal(&d[1]) && f.Equal(&d[2])
+		},
+		genA,
+		genA,
+		genA,
+	))
+
 	properties.Property("[BW6-761] pi**12=id", prop.ForAll(
 		func(a *E6) bool {
 			var b E6
@@ -293,8 +328,8 @@ func TestE6Ops(t *testing.T) {
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
 
-			c.Exp(a, _e)
-			d.CyclotomicExp(a, _e)
+			c.Exp(*a, &_e)
+			d.CyclotomicExp(*a, &_e)
 
 			return c.Equal(&d)
 		},
@@ -307,7 +342,7 @@ func TestE6Ops(t *testing.T) {
 			var b, c E6
 			q := fp.Modulus()
 			b.Frobenius(a)
-			c.Exp(a, *q)
+			c.Exp(*a, q)
 			return c.Equal(&b)
 		},
 		genA,

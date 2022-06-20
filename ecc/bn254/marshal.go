@@ -74,7 +74,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
 func (dec *Decoder) Decode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("bn254 decoder: unsupported type, need pointer")
 	}
 
@@ -83,7 +83,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memallocs
 	// in very large (de)serialization upstream in gnark.
 	// (but detrimental to code lisibility here)
-	// TODO double check memory usage and factorize this
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
@@ -376,9 +375,12 @@ func NoSubgroupChecks() func(*Decoder) {
 }
 
 func (enc *Encoder) encode(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+		return errors.New("<no value> encoder: can't encode <nil>")
+	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
-	// TODO double check memory usage and factorize this
 
 	var written int
 	switch t := v.(type) {
@@ -487,9 +489,12 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 }
 
 func (enc *Encoder) encodeRaw(v interface{}) (err error) {
+	rv := reflect.ValueOf(v)
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+		return errors.New("<no value> encoder: can't encode <nil>")
+	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
-	// TODO double check memory usage and factorize this
 
 	var written int
 	switch t := v.(type) {
@@ -618,12 +623,14 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
+//
 // we use the 2 most significant bits instead
-// 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y^2
-// 11 -> compressed, use largest lexicographically square root of Y^2
-// 01 -> compressed infinity point
-// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+//
+//  00 -> uncompressed
+//  10 -> compressed, use smallest lexicographically square root of Y^2
+//  11 -> compressed, use largest lexicographically square root of Y^2
+//  01 -> compressed infinity point
+//  the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
 
 	// check if p is infinity point
@@ -693,10 +700,14 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 }
 
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
+//
 // bytes in buf must match either RawBytes() or Bytes() output
+//
 // if buf is too short io.ErrShortBuffer is returned
+//
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
-// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// the Y coordinate (i.e the square root doesn't exist) this function returns an error
+//
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
@@ -869,12 +880,14 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 // as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
+//
 // we use the 2 most significant bits instead
-// 00 -> uncompressed
-// 10 -> compressed, use smallest lexicographically square root of Y^2
-// 11 -> compressed, use largest lexicographically square root of Y^2
-// 01 -> compressed infinity point
-// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+//
+//  00 -> uncompressed
+//  10 -> compressed, use smallest lexicographically square root of Y^2
+//  11 -> compressed, use largest lexicographically square root of Y^2
+//  01 -> compressed infinity point
+//  the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 
 	// check if p is infinity point
@@ -968,10 +981,14 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 }
 
 // SetBytes sets p from binary representation in buf and returns number of consumed bytes
+//
 // bytes in buf must match either RawBytes() or Bytes() output
+//
 // if buf is too short io.ErrShortBuffer is returned
+//
 // if buf contains compressed representation (output from Bytes()) and we're unable to compute
-// the Y coordinate (i.e the square root doesn't exist) this function retunrs an error
+// the Y coordinate (i.e the square root doesn't exist) this function returns an error
+//
 // this check if the resulting point is on the curve and in the correct subgroup
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
