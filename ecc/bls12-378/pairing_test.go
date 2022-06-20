@@ -286,6 +286,7 @@ func TestMillerLoop(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
 func TestMultiExpGT(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -361,7 +362,7 @@ func TestMultiExpGT(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ExpGLV(&_g, &finalScalar)
+			expected.ExpGLV(_g, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -416,7 +417,7 @@ func TestMultiExpGT(t *testing.T) {
 			var op1ScalarMul GT
 			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ExpGLV(&_g, &finalBigScalarBi)
+			op1ScalarMul.ExpGLV(_g, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},

@@ -46,6 +46,7 @@ func TestPairing(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	genA := GenE6()
+
 	genR1 := GenFr()
 	genR2 := GenFr()
 	genP := GenFp()
@@ -74,7 +75,7 @@ func TestPairing(t *testing.T) {
 
 			var _e, ne big.Int
 
-			k := new(big.Int).SetUint64(6)
+			k := new(big.Int).SetUint64(12)
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
 			ne.Neg(&_e)
@@ -532,6 +533,7 @@ func BenchmarkExpGT(b *testing.B) {
 	e.SetRandom()
 
 	k := new(big.Int).SetUint64(6)
+
 	e.Exp(e, k)
 	var _e big.Int
 	e.ToBigIntRegular(&_e)
