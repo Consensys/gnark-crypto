@@ -257,7 +257,7 @@ func TestE4Ops(t *testing.T) {
 			var b, c E4
 			q := fp.Modulus()
 			b.Frobenius(a)
-			c.Exp(a, *q)
+			c.Exp(*a, q)
 			return c.Equal(&b)
 		},
 		genA,

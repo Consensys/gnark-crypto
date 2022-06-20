@@ -4,7 +4,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Curve.Name}}/fp"
 )
 
-
 // E2 is a degree two finite field extension of fp.Element
 type E2 struct {
 	A0, A1 fp.Element
@@ -143,7 +142,7 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	return z
 }
 
-// Halve sets z = z / 2 
+// Halve sets z = z / 2
 func (z *E2) Halve()  {
 	z.A0.Halve()
 	z.A1.Halve()
@@ -156,15 +155,32 @@ func (z *E2) Legendre() int {
 	return n.Legendre()
 }
 
-// Exp sets z=x**e and returns it
-func (z *E2) Exp(x E2, exponent *big.Int) *E2 {
+// Exp sets z=xᵏ (mod q²) and returns it
+func (z *E2) Exp(x E2, k *big.Int) *E2 {
+	if k.IsUint64() && k.Uint64() == 0 {
+		return z.SetOne()
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q²) == (x⁻¹)ᵏ (mod q²)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
 	z.SetOne()
-    b := exponent.Bytes()
-    for i :=0;i<len(b); i++ {
+	b := e.Bytes()
+	for i := 0; i < len(b); i++ {
 		w := b[i]
 		for j := 0; j < 8; j++ {
 			z.Square(z)
-			if (w&(0b10000000 >> j)) != 0 {
+			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
 			}
 		}
