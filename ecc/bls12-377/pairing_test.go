@@ -69,15 +69,18 @@ func TestPairing(t *testing.T) {
 		func(a GT, e fp.Element) bool {
 			a = FinalExponentiation(&a)
 
-			var _e big.Int
+			var _e, ne big.Int
 
 			k := new(big.Int).SetUint64(12)
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
+			ne.Neg(&_e)
 
 			var b, c, d GT
-			b.Exp(a, &_e)
-			c.ExpGLV(a, &_e)
+			b.Exp(a, &ne)
+			b.Inverse(&b)
+			c.ExpGLV(a, &ne)
+			c.Conjugate(&c)
 			d.CyclotomicExp(a, &_e)
 
 			return b.Equal(&c) && c.Equal(&d)

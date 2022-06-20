@@ -57,7 +57,7 @@ func TestPairing(t *testing.T) {
 		func(a GT, e fp.Element) bool {
 			a = FinalExponentiation(&a)
 
-			var _e big.Int
+			var _e, ne big.Int
             {{if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
             k := new(big.Int).SetUint64(6)
             {{else if eq .Name "bls24-315"}}
@@ -67,10 +67,13 @@ func TestPairing(t *testing.T) {
             {{- end}}
 			e.Exp(e, k)
 			e.ToBigIntRegular(&_e)
+            ne.Neg(&_e)
 
 			var b, c, d GT
-			b.Exp(a, &_e)
-			c.ExpGLV(a, &_e)
+			b.Exp(a, &ne)
+			b.Inverse(&b)
+			c.ExpGLV(a, &ne)
+			c.Conjugate(&c)
 			d.CyclotomicExp(a, &_e)
 
 			return b.Equal(&c) && c.Equal(&d)
