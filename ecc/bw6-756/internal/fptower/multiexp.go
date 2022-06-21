@@ -443,7 +443,7 @@ func (p *E6) MsmC5(points []E6, scalars []fr.Element, splitFirstChunk bool) *E6 
 		chChunks[i] = make(chan E6, 1)
 	}
 
-	// c doesn't divide 256, last window is smaller we can allocate less buckets
+	// c doesn't divide 384, last window is smaller we can allocate less buckets
 	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 	go func(j uint64, points []E6, scalars []fr.Element) {
 		var buckets [1 << (lastC - 1)]E6

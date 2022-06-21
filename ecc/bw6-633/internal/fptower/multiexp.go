@@ -19,7 +19,7 @@ package fptower
 import (
 	"errors"
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math"
 	"runtime"
@@ -438,17 +438,10 @@ func (p *E6) MsmC5(points []E6, scalars []fr.Element, splitFirstChunk bool) *E6 
 	// critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks + 1]chan E6
+	var chChunks [nbChunks]chan E6
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan E6, 1)
 	}
-
-	// c doesn't divide 384, last window is smaller we can allocate less buckets
-	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	go func(j uint64, points []E6, scalars []fr.Element) {
-		var buckets [1 << (lastC - 1)]E6
-		msmProcessChunkE6(j, chChunks[j], buckets[:], c, points, scalars)
-	}(uint64(nbChunks), points, scalars)
 
 	processChunk := func(j int, points []E6, scalars []fr.Element, chChunk chan E6) {
 		var buckets [1 << (c - 1)]E6
