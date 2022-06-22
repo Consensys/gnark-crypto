@@ -54,12 +54,12 @@ func NafDecomposition(a *big.Int, result []int8) int {
 // Lattice represents a Z module spanned by V1, V2.
 // det is the associated determinant.
 type Lattice struct {
-	V1, V2 [2]big.Int
-	Det    big.Int
+	V1, V2      [2]big.Int
+	Det, b1, b2 big.Int
 }
 
 // PrecomputeLattice res such that res.V1, res.V2
-// are short vectors satisfying v11+v12lambda=v21+v22lambda=0[r].
+// are short vectors satisfying v11+v12.λ=v21+v22.λ=0[r].
 // cf https://www.iacr.org/archive/crypto2001/21390189.pdf
 func PrecomputeLattice(r, lambda *big.Int, res *Lattice) {
 
@@ -126,21 +126,31 @@ func PrecomputeLattice(r, lambda *big.Int, res *Lattice) {
 	tmp[0].Mul(&res.V1[1], &res.V2[0])
 	res.Det.Mul(&res.V1[0], &res.V2[1]).Sub(&res.Det, &tmp[0])
 
+	// sets roundings of 2^n*v21/d and 2^n*v11/d (where 2ⁿ > d)
+	n := 2 * uint(((res.Det.BitLen()+32)>>6)<<6)
+	res.b1.Lsh(&res.V2[1], n)
+	rounding(&res.b1, &res.Det, &res.b1)
+	res.b2.Lsh(&res.V1[1], n)
+	rounding(&res.b2, &res.Det, &res.b2)
 }
 
 // SplitScalar outputs u,v such that u+vlambda=s[r].
 // The method is to view s as (s,0) in ZxZ, and find a close
 // vector w of (s,0) in <l>, where l is a sub Z-module of
-// ker((a,b)->a+blambda[r]): then (u,v)=w-(s,0), and
-// u+vlambda=s[r].
+// ker((a,b) → a+b.λ[r]): then (u,v)=w-(s,0), and
+// u+v.λ=s[r].
 // cf https://www.iacr.org/archive/crypto2001/21390189.pdf
 func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 
 	var k1, k2 big.Int
-	k1.Mul(s, &l.V2[1])
-	k2.Mul(s, &l.V1[1]).Neg(&k2)
-	rounding(&k1, &l.Det, &k1)
-	rounding(&k2, &l.Det, &k2)
+	k1.Mul(s, &l.b1)
+	k2.Mul(s, &l.b2).Neg(&k2)
+	// right-shift instead of division by lattice determinant
+	// this increases the bounds on k1 and k2 by 1
+	// but we check this ScalarMul alg. (not constant-time)
+	n := 2 * uint(((l.Det.BitLen()+32)>>6)<<6)
+	k1.Rsh(&k1, n)
+	k2.Rsh(&k2, n)
 	v := getVector(l, &k1, &k2)
 	v[0].Sub(s, &v[0])
 	v[1].Neg(&v[1])
@@ -159,7 +169,7 @@ func rounding(n, d, res *big.Int) {
 	}
 }
 
-// getVector returns axV1 + bxV2
+// getVector returns aV1 + bV2
 func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
 	var res [2]big.Int
 	var tmp big.Int
