@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
-// Polynomial polynomial represented by coefficients bn254 fr field.
+// Polynomial represented by coefficients bn254 fr field.
 type Polynomial []fr.Element
 
 // Degree returns the degree of the polynomial, which is the length of Data.
