@@ -17,7 +17,6 @@
 package bw6756
 
 import (
-	"math"
 	"math/big"
 	"runtime"
 
@@ -467,12 +466,20 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
+	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
 	k1.SetBigInt(&k[0]).FromMont()
 	k2.SetBigInt(&k[1]).FromMont()
 
-	// loop starts from len(k1)/2 due to the bounds
-	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
+	// we don't target constant-timeness so we check first if we increase the bounds or not
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
+	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
+	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.Double(&res).Double(&res)
