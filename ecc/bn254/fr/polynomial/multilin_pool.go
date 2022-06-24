@@ -113,8 +113,8 @@ func DumpSmall(arrs ...MultiLin) int {
 	cnt := 0
 	for _, arr := range arrs {
 		ptr := arr.ptrSmall()
-		// If the rC did not registers, then
-		// either the multilin was allocated somewhere else and its fine to ignore
+		// If the rC did not register, then
+		// either the multilin was allocated somewhere else and it's fine to ignore
 		// otherwise a double put and we MUST ignore
 		if _, ok := rC.Load(ptr); ok {
 			smallPool.Put(ptr)
