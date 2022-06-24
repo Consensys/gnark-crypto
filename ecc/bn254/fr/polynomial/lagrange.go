@@ -1,7 +1,6 @@
 package polynomial
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
@@ -31,7 +30,6 @@ func precomputeLagrangeCoefficients(domainSize uint8) []Polynomial {
 
 	// compute pₗ
 	for l := uint8(0); l < domainSize; l++ {
-		fmt.Println("l =", l)
 
 		// TODO: Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
 		d := uint8(0) //n is the current degree of res
@@ -46,31 +44,15 @@ func precomputeLagrangeCoefficients(domainSize uint8) []Polynomial {
 			} else {
 				current := res[l][domainSize-d-2:]
 				timesConst := multScratch[domainSize-d-2:]
-				if len(current) != int(d+2) {
-					panic("wrong slice size")
-				}
-
-				/*for j := domainSize - d - 1; j < domainSize; j++ {
-					multScratch[j].
-				}*/
 
 				timesConst.Scale(&constTerms[i], current[1:]) //TODO: Directly double and add since constTerms are tiny? (even less than 4 bits)
 				nonLeading := current[0 : d+1]
 
-				fmt.Printf("X*(%s) - %d*(%s) = %s + %s = ", current[1:].Text(10), i, current[1:].Text(10), current.Text(10), timesConst.Text(10))
-
-				if len(nonLeading) != int(d+1) {
-					panic("wrong nonLeading slice size")
-				}
-
 				nonLeading.Add(nonLeading, timesConst)
 
 			}
-			fmt.Println(res[l][domainSize-d-2:].Text(10))
 			d++
 		}
-		fmt.Println("Before normalization", res[l].Text(10))
-		fmt.Println("Norm =")
 
 	}
 
@@ -105,9 +87,4 @@ func InterpolateOnRange(values []fr.Element) Polynomial {
 	}
 
 	return result
-}
-
-func signedText(v *fr.Element, base int) string {
-	i := signedBigInt(v)
-	return i.Text(base)
 }

@@ -92,3 +92,8 @@ func TestPrecomputeLagrange(t *testing.T) {
 }
 
 // TODO: Benchmark folding? Algorithms is pretty straightforward; unless we want to measure how well memory management is working
+
+func signedText(v *fr.Element, base int) string {
+	i := signedBigInt(v)
+	return i.Text(base)
+}
