@@ -17,7 +17,7 @@
 package polynomial
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
