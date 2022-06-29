@@ -47,7 +47,7 @@ func (bkt *MultiLin) FoldChunk(r fr.Element, start, stop int) {
 // on the given coordinates
 func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 	// Folding is a mutating operation
-	bkCopy := m.DeepCopy()
+	bkCopy := m.Clone()
 
 	// Evaluate step by step through repeated folding (i.e. evaluation at the first remaining variable)
 	for _, r := range coordinates {
@@ -57,19 +57,12 @@ func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 	return bkCopy[0]
 }
 
-// DeepCopy creates a deep copy of a book-keeping table.
+// Clone creates a deep copy of a book-keeping table.
 // Both multilinear interpolation and sumcheck require folding an underlying
 // array, but folding changes the array. To do both one requires a deep copy
 // of the book-keeping table.
-func (m MultiLin) DeepCopy() MultiLin {
-	tableDeepCopy := make([]fr.Element, len(m))
-	copy(tableDeepCopy, m)
-	return tableDeepCopy
-}
-
-// DeepCopyLarge creates a deep copy of a multi-linear table.
-func (m MultiLin) DeepCopyLarge() MultiLin {
-	tableDeepCopy := MakeLarge(len(m))
+func (m MultiLin) Clone() MultiLin {
+	tableDeepCopy := Make(len(m))
 	copy(tableDeepCopy, m)
 	return tableDeepCopy
 }

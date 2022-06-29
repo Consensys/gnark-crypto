@@ -86,13 +86,11 @@ func (p *Polynomial) ScaleInPlace(c *fr.Element) {
 
 // Scale multiplies p0 by v, storing the result in p
 func (p *Polynomial) Scale(c *fr.Element, p0 Polynomial) {
-	if len(*p) == len(p0) {
-		for i := 0; i < len(p0); i++ {
-			(*p)[i].Mul(c, &p0[i])
-		}
-	} else {
-		*p = p0.Clone()
-		p.ScaleInPlace(c)
+	if len(*p) != len(p0) {
+		*p = make(Polynomial, len(p0))
+	}
+	for i := 0; i < len(p0); i++ {
+		(*p)[i].Mul(c, &p0[i])
 	}
 }
 
