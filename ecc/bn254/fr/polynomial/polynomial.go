@@ -17,8 +17,9 @@
 package polynomial
 
 import (
-	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+
+	"github.com/consensys/bavard"
 	"math/big"
 	"strings"
 )
