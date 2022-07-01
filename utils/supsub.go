@@ -208,9 +208,9 @@ var subscripts = map[rune]rune{
 	'\u03c7': '\u1d6a',
 }
 
-// Sup converts a rune to superscript. It returns the superscript or the
+// sup converts a rune to superscript. It returns the superscript or the
 // original rune and a error if there is no corresponding superscript.
-func Sup(r rune) (rune, error) {
+func sup(r rune) (rune, error) {
 	s, ok := superscripts[r]
 	if !ok {
 		return r, fmt.Errorf("no corresponding superscript: %c", r)
@@ -218,20 +218,20 @@ func Sup(r rune) (rune, error) {
 	return s, nil
 }
 
-// ToSup converts a string to superscript to the utmost. It will use original
+// ToSuperscript converts a string to superscript to the utmost. It will use original
 // rune if there has no corresponding superscript for a letter.
-func ToSup(s string) string {
+func ToSuperscript(s string) string {
 	buf := bytes.NewBuffer(make([]byte, 0, len(s)*3))
 	for _, r := range s {
-		sup, _ := Sup(r)
+		sup, _ := sup(r)
 		buf.WriteRune(sup)
 	}
 	return buf.String()
 }
 
-// Sub converts a rune to subscript. It returns the subscript or the original
+// sub converts a rune to subscript. It returns the subscript or the original
 // rune and a error if there is no corresponding subscript.
-func Sub(r rune) (rune, error) {
+func sub(r rune) (rune, error) {
 	s, ok := subscripts[r]
 	if !ok {
 		return r, fmt.Errorf("no corresponding subscript: %c", r)
@@ -239,12 +239,12 @@ func Sub(r rune) (rune, error) {
 	return s, nil
 }
 
-// ToSub converts a string to subscript to the utmost. It will use original
+// ToSubscript converts a string to subscript to the utmost. It will use original
 // rune if there has no corresponding subscript for a letter.
-func ToSub(s string) string {
+func ToSubscript(s string) string {
 	buf := bytes.NewBuffer(make([]byte, 0, len(s)*3))
 	for _, r := range s {
-		sub, _ := Sub(r)
+		sub, _ := sub(r)
 		buf.WriteRune(sub)
 	}
 	return buf.String()
