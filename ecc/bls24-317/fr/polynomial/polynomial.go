@@ -18,8 +18,9 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/utils"
+	"strconv"
 
-	"github.com/consensys/bavard"
 	"math/big"
 	"strings"
 )
@@ -161,11 +162,8 @@ func signedBigInt(v *fr.Element) big.Int {
 }
 
 func (p Polynomial) Text(base int) string {
-	//TODO: Okay to use bavard in non-code-generation context?
-	builder := bavard.StringBuilderPool.Get().(*strings.Builder)
-	defer bavard.StringBuilderPool.Put(builder)
 
-	builder.Reset()
+	var builder strings.Builder
 
 	first := true
 	for d := len(p) - 1; d >= 0; d-- {
@@ -207,8 +205,9 @@ func (p Polynomial) Text(base int) string {
 			builder.WriteString("X")
 		}
 		if d > 1 {
-			s, _ := bavard.ToSuperscript(d)
-			builder.WriteString(s)
+			builder.WriteString(
+				utils.ToSuperscript(strconv.Itoa(d)),
+			)
 		}
 
 	}
