@@ -191,9 +191,9 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	var blambda big.Int
 	lambda.ToBigIntRegular(&blambda)
 	for i := nbRows - 2; i >= 0; i-- {
-		comf.ScalarMultiplication(&comf, &blambda).
+		comf.ScalarMul(&comf, &blambda).
 			Add(&comf, &proof.fs[i])
-		comt.ScalarMultiplication(&comt, &blambda).
+		comt.ScalarMul(&comt, &blambda).
 			Add(&comt, &proof.ts[i])
 	}
 
