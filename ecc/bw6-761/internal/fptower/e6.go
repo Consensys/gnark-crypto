@@ -697,6 +697,10 @@ func BatchCompressTorus(x []E6) ([]E3, error) {
 
 	for i := 0; i < n; i++ {
 		res[i].Set(&x[i].B1)
+		//  throw an error if any of the x[i].C1 is 0
+		if res[i].IsZero() {
+			return []E3{}, errors.New("invalid input")
+		}
 	}
 
 	t := BatchInvertE3(res) // costs 1 inverse
