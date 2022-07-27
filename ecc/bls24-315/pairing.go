@@ -30,7 +30,9 @@ type lineEvaluation struct {
 }
 
 // Pair calculates the reduced pairing for a set of points
-// ∏ᵢ e(Pᵢ, Qᵢ)
+// ∏ᵢ e(Pᵢ, Qᵢ).
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
 func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 	f, err := MillerLoop(P, Q)
 	if err != nil {
@@ -41,6 +43,8 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 
 // PairingCheck calculates the reduced pairing for a set of points and returns True if the result is One
 // ∏ᵢ e(Pᵢ, Qᵢ) =? 1
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
 	if err != nil {
