@@ -28,12 +28,12 @@ func svdwMapG2(u fptower.E4) G2Affine {
 	// constants
 	// sage script to find z: https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-E.1
 	var z, c1, c2, c3, c4 fptower.E4
-	z.B0.A0.SetString("1")
+	z.B0.A0.SetOne()
 	z.B0.A1.SetString("0")
-	z.B1.A0.SetString("1")
+	z.B1.A0.SetOne()
 	z.B1.A1.SetString("0")
-	c1.B0.A0.SetString("1")
-	c1.B0.A1.SetString("1")
+	c1.B0.A0.SetOne()
+	c1.B0.A1.SetOne()
 	c1.B1.A0.SetString("2")
 	c1.B1.A1.SetString("6108483493771298205388567675447533806912846525679192205394505462405828322019437284165171866703")
 	c2.B0.A0.SetString("19852571354756719167512844945204484872466751208457374667532142752818942046563171173536808566784")
