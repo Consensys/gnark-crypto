@@ -1313,8 +1313,7 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 
 {{- if eq .PointName "g1"}}
 // BatchProjectiveToAffine{{ toUpper .PointName }} converts points in Projective coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
+// performing a single field inversion (Montgomery batch inversion trick).
 func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}) []{{ $TAffine }} {
 	result := make([]{{ $TAffine }}, len(points))
 	zeroes := make([]bool, len(points))
@@ -1336,9 +1335,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// X and Y are zeroes in affine.
-            result[i].X.SetZero()
-            result[i].Y.SetZero()
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -1349,9 +1346,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-                // X and Y are zeroes in affine.
-                result[i].X.SetZero()
-                result[i].Y.SetZero()
+                // do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			a := result[i].X
@@ -1369,8 +1364,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 {{- if eq .PointName "g1"}}
 
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
+// performing a single field inversion (Montgomery batch inversion trick).
 func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []{{ $TAffine }} {
 	result := make([]{{ $TAffine }}, len(points))
 	zeroes := make([]bool, len(points))
@@ -1392,9 +1386,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// X and Y are zeroes in affine.
-            result[i].X.SetZero()
-            result[i].Y.SetZero()
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -1405,9 +1397,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 	parallel.Execute( len(points), func(start, end int) {
 		for i:=start; i < end; i++ {
 			if zeroes[i] {
-				// X and Y are zeroes in affine.
-                result[i].X.SetZero()
-                result[i].Y.SetZero()
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			var a, b fp.Element

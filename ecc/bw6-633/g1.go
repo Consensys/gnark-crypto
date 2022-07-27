@@ -873,8 +873,7 @@ func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
 }
 
 // BatchProjectiveToAffineG1 converts points in Projective coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
+// performing a single field inversion (Montgomery batch inversion trick).
 func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
 	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
@@ -896,9 +895,7 @@ func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// X and Y are zeroes in affine.
-			result[i].X.SetZero()
-			result[i].Y.SetZero()
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -909,9 +906,7 @@ func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// X and Y are zeroes in affine.
-				result[i].X.SetZero()
-				result[i].Y.SetZero()
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			a := result[i].X
@@ -923,8 +918,7 @@ func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
 }
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
+// performing a single field inversion (Montgomery batch inversion trick).
 func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
@@ -946,9 +940,7 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// X and Y are zeroes in affine.
-			result[i].X.SetZero()
-			result[i].Y.SetZero()
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -959,9 +951,7 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// X and Y are zeroes in affine.
-				result[i].X.SetZero()
-				result[i].Y.SetZero()
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			var a, b fp.Element
