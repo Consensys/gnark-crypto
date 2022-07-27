@@ -105,7 +105,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	var bScalar big.Int
 	bScalar.SetBytes(priv.scalar[:])
-	pub.A.ScalarMul(&c.Base, &bScalar)
+	pub.A.ScalarMultiplication(&c.Base, &bScalar)
 
 	priv.PublicKey = pub
 
@@ -154,7 +154,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
 
 	// compute R = randScalar*Base
-	res.R.ScalarMul(&curveParams.Base, &blindingFactorBigInt)
+	res.R.ScalarMultiplication(&curveParams.Base, &blindingFactorBigInt)
 	if !res.R.IsOnCurve() {
 		return nil, errNotOnCurve
 	}
@@ -240,8 +240,8 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	var bCofactor, bs big.Int
 	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
 	bs.SetBytes(sig.S[:])
-	lhs.ScalarMul(&curveParams.Base, &bs).
-		ScalarMul(&lhs, &bCofactor)
+	lhs.ScalarMultiplication(&curveParams.Base, &bs).
+		ScalarMultiplication(&lhs, &bCofactor)
 
 	if !lhs.IsOnCurve() {
 		return false, errNotOnCurve
@@ -249,9 +249,9 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 
 	// rhs = cofactor*(R + H(R,A,M)*A)
 	var rhs twistededwards.PointAffine
-	rhs.ScalarMul(&pub.A, &hramInt).
+	rhs.ScalarMultiplication(&pub.A, &hramInt).
 		Add(&rhs, &sig.R).
-		ScalarMul(&rhs, &bCofactor)
+		ScalarMultiplication(&rhs, &bCofactor)
 	if !rhs.IsOnCurve() {
 		return false, errNotOnCurve
 	}

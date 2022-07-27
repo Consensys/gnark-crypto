@@ -52,8 +52,8 @@ func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
        return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *{{ $TAffine }}) ScalarMul(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -62,9 +62,9 @@ func (p *{{ $TAffine }}) ScalarMul(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }
 }
 
 {{- if eq .PointName "g1"}}
-// ScalarMulUnconverted computes and returns p = a ⋅ s
+// ScalarMultiplicationAffine computes and returns p = a ⋅ s
 // Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *{{ $TJacobian }}) ScalarMulUnconverted(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) ScalarMultiplicationAffine(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
 	return p
@@ -345,9 +345,9 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 }
 
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
-func (p *{{ $TJacobian }}) ScalarMul(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) ScalarMultiplication(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 	{{- if .GLV}}
 		return p.mulGLV(a, s)
 	{{- else }}
@@ -413,7 +413,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
             var a, res G2Jac
             a.psi(p)
-            res.ScalarMul(p, &fixedCoeff).
+            res.ScalarMultiplication(p, &fixedCoeff).
                 SubAssign(&a)
 
 			return res.IsOnCurve() && res.Z.IsZero()
@@ -431,13 +431,13 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 		var res, phip {{ $TJacobian }}
 		phip.phi(p)
-		res.ScalarMul(&phip, &xGen).
+		res.ScalarMultiplication(&phip, &xGen).
 			SubAssign(&phip).
-			ScalarMul(&res, &xGen).
-			ScalarMul(&res, &xGen).
+			ScalarMultiplication(&res, &xGen).
+			ScalarMultiplication(&res, &xGen).
 			AddAssign(&phip)
 
-		phip.ScalarMul(p, &xGen).AddAssign(p).AddAssign(&res)
+		phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
 
 		return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -448,11 +448,11 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
         var uP, u4P, u5P, q, r {{ $TJacobian }}
-        uP.ScalarMul(p, &xGen)
-        u4P.ScalarMul(&uP, &xGen).
-            ScalarMul(&u4P, &xGen).
-            ScalarMul(&u4P, &xGen)
-        u5P.ScalarMul(&u4P, &xGen)
+        uP.ScalarMultiplication(p, &xGen)
+        u4P.ScalarMultiplication(&uP, &xGen).
+            ScalarMultiplication(&u4P, &xGen).
+            ScalarMultiplication(&u4P, &xGen)
+        u5P.ScalarMultiplication(&u4P, &xGen)
         q.Set(p).SubAssign(&uP)
         r.phi(&q).SubAssign(&uP).
             AddAssign(&u4P).
@@ -472,10 +472,10 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
             var res {{ $TJacobian }}
             res.phi(p).
-                ScalarMul(&res, &xGen).
-                ScalarMul(&res, &xGen).
-                ScalarMul(&res, &xGen).
-                ScalarMul(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
                 AddAssign(p)
 
             return res.IsOnCurve() && res.Z.IsZero()
@@ -488,7 +488,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
             var res, tmp {{ $TJacobian }}
             tmp.psi(p)
-            res.ScalarMul(p, &xGen).
+            res.ScalarMultiplication(p, &xGen).
             {{ if eq .Name "bls24-315"}}
                 AddAssign(&tmp)
             {{ else }}
@@ -511,8 +511,8 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
             var res {{ $TJacobian }}
             res.phi(p).
-                ScalarMul(&res, &xGen).
-                ScalarMul(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
+                ScalarMultiplication(&res, &xGen).
                 AddAssign(p)
 
             return res.IsOnCurve() && res.Z.IsZero()
@@ -526,7 +526,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
                 var res, tmp {{ $TJacobian }}
                 tmp.psi(p)
-                res.ScalarMul(p, &xGen).
+                res.ScalarMultiplication(p, &xGen).
                     AddAssign(&tmp)
 
                 return res.IsOnCurve() && res.Z.IsZero()
@@ -537,7 +537,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
                 var res, tmp {{ $TJacobian }}
                 tmp.psi(p)
-                res.ScalarMul(p, &xGen).
+                res.ScalarMultiplication(p, &xGen).
                     SubAssign(&tmp)
 
                 return res.IsOnCurve() && res.Z.IsZero()
@@ -705,22 +705,22 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if or (eq .Name "bls12-381") (eq .Name "bls24-315")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.ScalarMul(a, &xGen).AddAssign(a)
+	res.ScalarMultiplication(a, &xGen).AddAssign(a)
 	p.Set(&res)
 	return p
 {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-317")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.ScalarMul(a, &xGen).Neg(&res).AddAssign(a)
+	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
 	p.Set(&res)
 	return p
 {{else if eq .Name "bw6-761"}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
-	points[1].ScalarMul(a, &xGen)
-	points[2].ScalarMul(&points[1], &xGen)
-	points[3].ScalarMul(&points[2], &xGen)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -733,18 +733,18 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	scalars[6].SetInt64(130)
 
 	var p1, p2, tmp {{$TJacobian}}
-	p1.ScalarMul(&points[3], &scalars[0])
-	tmp.ScalarMul(&points[2], &scalars[1]).Neg(&tmp)
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[1], &scalars[2]).Neg(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[3])
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
 	p1.AddAssign(&tmp)
 
-	p2.ScalarMul(&points[2], &scalars[4])
-	tmp.ScalarMul(&points[1], &scalars[5])
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5])
 	p2.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[6])
+	tmp.ScalarMultiplication(&points[0], &scalars[6])
 	p2.AddAssign(&tmp)
 	p2.phi(&p2)
 
@@ -762,20 +762,20 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	ht.SetInt64(7)
 	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
-	uP.ScalarMul(a, &xGen).Neg(&uP)
+	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
 	vP.Set(a).SubAssign(&uP).
-        ScalarMul(&vP, &v)
-	wP.ScalarMul(&vP, &uMinusOne).Neg(&wP).
+        ScalarMultiplication(&vP, &v)
+	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
         AddAssign(&uP)
-	L0.ScalarMul(&wP, &d1)
-	tmp.ScalarMul(&vP, &ht)
+	L0.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &ht)
 	L0.AddAssign(&tmp)
 	tmp.Double(a)
 	L0.AddAssign(&tmp)
-	L1.Set(&uP).AddAssign(a).ScalarMul(&L1, &d1)
-	tmp.ScalarMul(&vP, &d2)
+	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
+	tmp.ScalarMultiplication(&vP, &d2)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMul(a, &ht)
+	tmp.ScalarMultiplication(a, &ht)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
@@ -784,9 +784,9 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if eq .Name "bw6-756"}}
 	var L0, L1, uP, u2P, u3P, tmp G1Jac
 
-	uP.ScalarMul(a, &xGen)
-	u2P.ScalarMul(&uP, &xGen)
-	u3P.ScalarMul(&u2P, &xGen)
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
 
 	L0.Set(a).AddAssign(&u3P).
 		SubAssign(&u2P)
@@ -818,7 +818,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]{{$TJacobian}}
 
-	points[0].ScalarMul(a, &xGen)
+	points[0].ScalarMultiplication(a, &xGen)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
@@ -839,8 +839,8 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if eq .Name "bls12-381"}}
 	// https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMul(a, &xGen).Neg(&xg)
-	xxg.ScalarMul(&xg, &xGen).Neg(&xxg)
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
@@ -864,8 +864,8 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMul(a, &xGen)
-	xxg.ScalarMul(&xg, &xGen)
+	xg.ScalarMultiplication(a, &xGen)
+	xxg.ScalarMultiplication(&xg, &xGen)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
@@ -891,16 +891,16 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	// multiply by (3x⁴-3)*cofacor
     {{ if eq .Name "bls24-315"}}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.ScalarMul(a, &xGen).Neg(&xg).SubAssign(a)
-	xxg.ScalarMul(&xg, &xGen).Neg(&xxg)
-	xxxg.ScalarMul(&xxg, &xGen).Neg(&xxxg)
-	xxxxg.ScalarMul(&xxxg, &xGen).Neg(&xxxxg)
+	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen).Neg(&xxxxg)
     {{ else }}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.ScalarMul(a, &xGen).SubAssign(a)
-	xxg.ScalarMul(&xg, &xGen)
-	xxxg.ScalarMul(&xxg, &xGen)
-	xxxxg.ScalarMul(&xxxg, &xGen)
+	xg.ScalarMultiplication(a, &xGen).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen)
+	xxxg.ScalarMultiplication(&xxg, &xGen)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen)
     {{ end }}
 
 	res.Set(&xxxxg).
@@ -935,9 +935,9 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
-	points[1].ScalarMul(a, &xGen)
-	points[2].ScalarMul(&points[1], &xGen)
-	points[3].ScalarMul(&points[2], &xGen)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -950,18 +950,18 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	scalars[6].SetInt64(109)
 
 	var p1, p2, tmp {{$TJacobian}}
-	p1.ScalarMul(&points[3], &scalars[0])
-	tmp.ScalarMul(&points[2], &scalars[1]).Neg(&tmp)
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[1], &scalars[2]).Neg(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[3])
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
 	p1.AddAssign(&tmp)
 
-	p2.ScalarMul(&points[2], &scalars[4])
-	tmp.ScalarMul(&points[1], &scalars[5]).Neg(&tmp)
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5]).Neg(&tmp)
 	p2.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[6]).Neg(&tmp)
+	tmp.ScalarMultiplication(&points[0], &scalars[6]).Neg(&tmp)
 	p2.AddAssign(&tmp)
 	p2.phi(&p2).phi(&p2)
 
@@ -975,11 +975,11 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.ScalarMul(a, &xGen) // negative
-	u2P.ScalarMul(&uP, &xGen)
-	u3P.ScalarMul(&u2P, &xGen) // negative
-	u4P.ScalarMul(&u3P, &xGen)
-	u5P.ScalarMul(&u4P, &xGen) // negative
+	uP.ScalarMultiplication(a, &xGen) // negative
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen) // negative
+	u4P.ScalarMultiplication(&u3P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen) // negative
 	vP.Set(&u2P).AddAssign(&uP).
 	    AddAssign(&u3P).
 	    Double(&vP).
@@ -987,15 +987,15 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	    AddAssign(a)
 	wP.Set(&uP).SubAssign(&u4P).SubAssign(&u5P)
     xP.Set(a).AddAssign(&vP)
-	L0.Set(&uP).SubAssign(a).ScalarMul(&L0, &d1)
-	tmp.ScalarMul(&xP, &d3)
+	L0.Set(&uP).SubAssign(a).ScalarMultiplication(&L0, &d1)
+	tmp.ScalarMultiplication(&xP, &d3)
 	L0.AddAssign(&tmp)
-    tmp.ScalarMul(a, &ht) // negative
+    tmp.ScalarMultiplication(a, &ht) // negative
 	L0.SubAssign(&tmp)
-	L1.ScalarMul(&wP, &d1)
-	tmp.ScalarMul(&vP, &ht)
+	L1.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &ht)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMul(a, &d3)
+	tmp.ScalarMultiplication(a, &d3)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
@@ -1005,9 +1005,9 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	var L0, L1, uP, u2P, u3P, tmp G2Jac
 
-	uP.ScalarMul(a, &xGen)
-	u2P.ScalarMul(&uP, &xGen)
-	u3P.ScalarMul(&u2P, &xGen)
+	uP.ScalarMultiplication(a, &xGen)
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen)
 	// ht=-2, hy=0
 	// d1=1, d2=-1, d3=-1
 
@@ -1422,10 +1422,10 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 {{- end}}
 
 
-// BatchScalarMul{{ toUpper .PointName }} multiplies the same base by all scalars
+// BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMul{{ toUpper .PointName }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
+func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

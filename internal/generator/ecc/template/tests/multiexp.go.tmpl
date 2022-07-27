@@ -107,7 +107,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar,mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMul(&{{ toLower $.PointName }}Gen, &finalScalar)
+			expected.ScalarMultiplication(&{{ toLower $.PointName }}Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -165,9 +165,9 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul {{ $.TAffine }}
-			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
+			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMul(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
+			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -271,7 +271,7 @@ func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 func fillBenchBases{{ toUpper $.PointName }}(samplePoints []{{ $.TAffine }}) {
 	var r big.Int
 	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMul(&samplePoints[0], &r)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
 
 	one := samplePoints[0].X
 	one.SetOne()

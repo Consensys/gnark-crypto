@@ -161,7 +161,7 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 	case int:
 		return z.SetInt64(int64(c1)), nil
 	case string:
-		return z.SetString(c1), nil
+		return z.SetString(c1)
 	case *big.Int:
 		if c1 == nil {
 			return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} with <nil>")

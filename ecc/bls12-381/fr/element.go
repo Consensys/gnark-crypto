@@ -175,7 +175,7 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case int:
 		return z.SetInt64(int64(c1)), nil
 	case string:
-		return z.SetString(c1), nil
+		return z.SetString(c1)
 	case *big.Int:
 		if c1 == nil {
 			return nil, errors.New("can't set fr.Element with <nil>")
@@ -944,12 +944,13 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // Incorrect placement of underscores is reported as a panic if there
 // are no other errors.
 //
-func (z *Element) SetString(number string) *Element {
+// If the number is invalid this method leaves z unchanged and returns nil, error.
+func (z *Element) SetString(number string) (*Element, error) {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 
 	if _, ok := vv.SetString(number, 0); !ok {
-		panic("Element.SetString failed -> can't parse number into a big.Int " + number)
+		return nil, errors.New("Element.SetString failed -> can't parse number into a big.Int " + number)
 	}
 
 	z.SetBigInt(vv)
@@ -957,7 +958,7 @@ func (z *Element) SetString(number string) *Element {
 	// release object into pool
 	bigIntPool.Put(vv)
 
-	return z
+	return z, nil
 }
 
 // MarshalJSON returns json encoding of z (z.Text(10))

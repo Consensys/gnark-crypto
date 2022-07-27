@@ -50,8 +50,8 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G2Affine) ScalarMul(a *G2Affine, s *big.Int) *G2Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -323,9 +323,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G2Jac) ScalarMul(a *G2Jac, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -369,11 +369,11 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 
 	var uP, u4P, u5P, q, r G2Jac
-	uP.ScalarMul(p, &xGen)
-	u4P.ScalarMul(&uP, &xGen).
-		ScalarMul(&u4P, &xGen).
-		ScalarMul(&u4P, &xGen)
-	u5P.ScalarMul(&u4P, &xGen)
+	uP.ScalarMultiplication(p, &xGen)
+	u4P.ScalarMultiplication(&uP, &xGen).
+		ScalarMultiplication(&u4P, &xGen).
+		ScalarMultiplication(&u4P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen)
 	q.Set(p).SubAssign(&uP)
 	r.phi(&q).SubAssign(&uP).
 		AddAssign(&u4P).
@@ -510,11 +510,11 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.ScalarMul(a, &xGen) // negative
-	u2P.ScalarMul(&uP, &xGen)
-	u3P.ScalarMul(&u2P, &xGen) // negative
-	u4P.ScalarMul(&u3P, &xGen)
-	u5P.ScalarMul(&u4P, &xGen) // negative
+	uP.ScalarMultiplication(a, &xGen) // negative
+	u2P.ScalarMultiplication(&uP, &xGen)
+	u3P.ScalarMultiplication(&u2P, &xGen) // negative
+	u4P.ScalarMultiplication(&u3P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen) // negative
 	vP.Set(&u2P).AddAssign(&uP).
 		AddAssign(&u3P).
 		Double(&vP).
@@ -522,15 +522,15 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 		AddAssign(a)
 	wP.Set(&uP).SubAssign(&u4P).SubAssign(&u5P)
 	xP.Set(a).AddAssign(&vP)
-	L0.Set(&uP).SubAssign(a).ScalarMul(&L0, &d1)
-	tmp.ScalarMul(&xP, &d3)
+	L0.Set(&uP).SubAssign(a).ScalarMultiplication(&L0, &d1)
+	tmp.ScalarMultiplication(&xP, &d3)
 	L0.AddAssign(&tmp)
-	tmp.ScalarMul(a, &ht) // negative
+	tmp.ScalarMultiplication(a, &ht) // negative
 	L0.SubAssign(&tmp)
-	L1.ScalarMul(&wP, &d1)
-	tmp.ScalarMul(&vP, &ht)
+	L1.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &ht)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMul(a, &d3)
+	tmp.ScalarMultiplication(a, &d3)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
@@ -840,10 +840,10 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	return p
 }
 
-// BatchScalarMulG2 multiplies the same base by all scalars
+// BatchScalarMultiplicationG2 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMulG2(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

@@ -121,8 +121,8 @@ func TestPairing(t *testing.T) {
 			b.ToBigIntRegular(&bbigint)
 			ab.Mul(&abigint, &bbigint)
 
-			ag1.ScalarMul(&g1GenAff, &abigint)
-			bg2.ScalarMul(&g2GenAff, &bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
 			res, _ = Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
 			resa, _ = Pair([]G1Affine{ag1}, []G2Affine{g2GenAff})
@@ -186,8 +186,8 @@ func TestMillerLoop(t *testing.T) {
 			a.ToBigIntRegular(&abigint)
 			b.ToBigIntRegular(&bbigint)
 
-			ag1.ScalarMul(&g1GenAff, &abigint)
-			bg2.ScalarMul(&g2GenAff, &bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
 			P0 := []G1Affine{g1GenAff}
 			P1 := []G1Affine{ag1}
@@ -229,8 +229,8 @@ func TestMillerLoop(t *testing.T) {
 			a.ToBigIntRegular(&abigint)
 			b.ToBigIntRegular(&bbigint)
 
-			ag1.ScalarMul(&g1GenAff, &abigint)
-			bg2.ScalarMul(&g2GenAff, &bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
 			g1Inf.FromJacobian(&g1Infinity)
 			g2Inf.FromJacobian(&g2Infinity)
@@ -267,8 +267,8 @@ func TestMillerLoop(t *testing.T) {
 			a.ToBigIntRegular(&abigint)
 			b.ToBigIntRegular(&bbigint)
 
-			ag1.ScalarMul(&g1GenAff, &abigint)
-			bg2.ScalarMul(&g2GenAff, &bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
 			res, _ := Pair([]G1Affine{ag1}, []G2Affine{bg2})
 

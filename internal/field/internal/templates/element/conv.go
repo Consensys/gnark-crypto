@@ -207,12 +207,13 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 // Incorrect placement of underscores is reported as a panic if there
 // are no other errors.
 //
-func (z *{{.ElementName}}) SetString(number string) *{{.ElementName}} {
+// If the number is invalid this method leaves z unchanged and returns nil, error.
+func (z *{{.ElementName}}) SetString(number string) (*{{.ElementName}}, error) {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 
 	if _, ok := vv.SetString(number, 0); !ok {
-		panic("{{.ElementName}}.SetString failed -> can't parse number into a big.Int " + number)
+		return nil, errors.New("{{.ElementName}}.SetString failed -> can't parse number into a big.Int " + number)
 	}
 
 	z.SetBigInt(vv)
@@ -220,7 +221,7 @@ func (z *{{.ElementName}}) SetString(number string) *{{.ElementName}} {
 	// release object into pool
 	bigIntPool.Put(vv)
 
-	return z
+	return z, nil
 }
 
 

@@ -41,7 +41,7 @@ type selector struct {
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
-// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
+// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
