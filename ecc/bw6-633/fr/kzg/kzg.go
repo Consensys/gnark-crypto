@@ -172,7 +172,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	var claimedValueG1Aff bw6633.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMulUnconverted(&srs.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationAffine(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
 	var fminusfaG1Jac bw6633.G1Jac

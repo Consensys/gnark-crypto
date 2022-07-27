@@ -64,9 +64,9 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	return p
 }
 
-// ScalarMulUnconverted computes and returns p = a ⋅ s
+// ScalarMultiplicationAffine computes and returns p = a ⋅ s
 // Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *G1Jac) ScalarMulUnconverted(a *G1Affine, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
 	return p

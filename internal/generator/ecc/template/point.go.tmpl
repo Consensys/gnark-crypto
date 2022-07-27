@@ -62,9 +62,9 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 }
 
 {{- if eq .PointName "g1"}}
-// ScalarMulUnconverted computes and returns p = a ⋅ s
+// ScalarMultiplicationAffine computes and returns p = a ⋅ s
 // Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *{{ $TJacobian }}) ScalarMulUnconverted(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) ScalarMultiplicationAffine(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
 	return p
