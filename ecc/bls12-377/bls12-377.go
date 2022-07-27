@@ -20,6 +20,8 @@ import (
 //     𝔽p⁶[v] = 𝔽p²/v³-u
 //     𝔽p¹²[w] = 𝔽p⁶/w²-v
 // optimal Ate loop size: x₀
+// Security: estimated 126-bit level following [https://eprint.iacr.org/2019/885.pdf]
+//           (r is 253 bits and p¹² is 4521 bits)
 
 // ID bls377 ID
 const ID = ecc.BLS12_377

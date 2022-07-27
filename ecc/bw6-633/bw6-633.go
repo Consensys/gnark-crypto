@@ -32,6 +32,8 @@ import (
 //     𝔽p³[u] = 𝔽p/u³-2
 //     𝔽p⁶[v] = 𝔽p²/v²-u
 // optimal Ate loops: x₀+1, x₀^5-x₀^4-x₀
+// Security: estimated 124-bit level following [https://eprint.iacr.org/2019/885.pdf]
+//           (r is 315 bits and p⁶ is 3798 bits)
 
 // ID BW6_633 ID
 const ID = ecc.BW6_633
