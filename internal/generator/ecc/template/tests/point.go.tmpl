@@ -111,7 +111,7 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 		func(a {{ .CoordType}}) bool {
 			var op1, op2 {{ $TAffine }}
 			op1.FromJacobian(&{{.PointName}}Gen)
-			op2.FromJacobian(&{{.PointName}}Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
@@ -249,6 +249,23 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 		{{$fuzzer}},
 		{{$fuzzer}},
 	))
+
+    {{- if eq .PointName "g1" }}
+	properties.Property("[{{ toUpper .Name }}] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
+		func(a, b {{ .CoordType}}) bool {
+			g1 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, a)
+			g2 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, b)
+			baseTableAff := make([]{{ $TAffine }}, 2)
+			var op1, op2 {{ $TAffine }}
+			op1.FromJacobian(&g1)
+			op2.FromJacobian(&g2)
+			BatchJacobianToAffineG1([]G1Jac{g1, g2}, baseTableAff)
+			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
+		},
+		GenFp(),
+		GenFp(),
+	))
+    {{- end }}
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

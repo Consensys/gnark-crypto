@@ -895,7 +895,9 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// X and Y are zeroes in affine.
+			result[i].X.SetZero()
+			result[i].Y.SetZero()
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -906,7 +908,9 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+				// X and Y are zeroes in affine.
+				result[i].X.SetZero()
+				result[i].Y.SetZero()
 				continue
 			}
 			a := result[i].X
@@ -939,7 +943,9 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// X and Y are zeroes in affine.
+			result[i].X.SetZero()
+			result[i].Y.SetZero()
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -950,7 +956,9 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+				// X and Y are zeroes in affine.
+				result[i].X.SetZero()
+				result[i].Y.SetZero()
 				continue
 			}
 			var a, b fp.Element

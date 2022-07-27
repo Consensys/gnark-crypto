@@ -99,7 +99,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 		func(a fptower.E4) bool {
 			var op1, op2 G2Affine
 			op1.FromJacobian(&g2Gen)
-			op2.FromJacobian(&g2Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
