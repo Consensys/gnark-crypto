@@ -150,7 +150,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul {{ $.TAffine }}
-			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
+			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
 

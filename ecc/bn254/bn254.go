@@ -82,9 +82,9 @@ func init() {
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.Inverse(&twist).MulByElement(&bTwistCurveCoeff, &bCurveCoeff)
 
-	g1Gen.X.SetString("1")
-	g1Gen.Y.SetString("2")
-	g1Gen.Z.SetString("1")
+	g1Gen.X.SetOne()
+	g1Gen.Y.SetUint64(2)
+	g1Gen.Z.SetOne()
 
 	g2Gen.X.SetString("10857046999023057135944570762232829481370756359578518086990519993285655852781",
 		"11559732032986387107991004021392285783925812861821192530917403151452391805634")
