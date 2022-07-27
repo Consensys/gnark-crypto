@@ -13,7 +13,6 @@
 // limitations under the License.
 
 // Package goff (go finite field) is a library that generates fast field arithmetic code for a given modulus
-// see github.com/consensys/goff/cmd for CLI usage
 package main
 
 import "github.com/consensys/gnark-crypto/field/goff/cmd"
