@@ -2,29 +2,36 @@ package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 
-func (z *E6) nSquare(n int) {
+func (z *E6) nSquareCompressed(n int) {
 	for i := 0; i < n; i++ {
-		z.CyclotomicSquare(z)
+		z.CyclotomicSquareCompressed(z)
 	}
 }
 
 // Expt set z to x^t in E6 and return z (t is the seed of the curve)
+// -2**32+2**30+2**22-2**20+1
 func (z *E6) Expt(x *E6) *E6 {
 
-	var result, xInv E6
+	var result, x20, x22, x30, x32 E6
 	result.Set(x)
-	xInv.Conjugate(x)
 
-	result.nSquare(2)
-	result.Mul(&result, &xInv)
-	result.nSquare(8)
-	result.Mul(&result, &xInv)
-	result.nSquare(2)
-	result.Mul(&result, x)
-	result.nSquare(20)
-	result.Mul(&result, &xInv)
+	result.nSquareCompressed(20)
+	x20.Conjugate(&result)
+	result.nSquareCompressed(2)
+	x22.Set(&result)
+	result.nSquareCompressed(8)
+	x30.Set(&result)
 
-	z.Conjugate(&result)
+	batch := BatchDecompressKarabina([]E6{x20, x22, x30})
+
+	x32.CyclotomicSquare(&batch[2]).
+		CyclotomicSquare(&x32).
+		Conjugate(&x32)
+
+	z.Mul(x, &batch[0]).
+		Mul(z, &batch[1]).
+		Mul(z, &batch[2]).
+		Mul(z, &x32)
 
 	return z
 }
