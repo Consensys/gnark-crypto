@@ -163,6 +163,8 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
 	var _p G1Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
@@ -570,6 +572,8 @@ func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, splitFirstChunk 
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Affine, error) {
 	var _p G2Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
