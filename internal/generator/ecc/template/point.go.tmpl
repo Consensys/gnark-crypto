@@ -1323,9 +1323,9 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 
 {{- if eq .PointName "g1"}}
 // BatchProjectiveToAffine{{ toUpper .PointName }} converts points in Projective coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
-func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}, result []{{ $TAffine }}) {
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}) []{{ $TAffine }} {
+	result := make([]{{ $TAffine }}, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -1345,7 +1345,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -1356,7 +1356,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+                // do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			a := result[i].X
@@ -1364,6 +1364,7 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 			result[i].Y.Mul(&points[i].y, &a)
 		}
 	})
+    return result
 }
 {{end }}
 {{end }}
@@ -1373,9 +1374,9 @@ func BatchProjectiveToAffine{{ toUpper .PointName }}(points []{{ $TProjective }}
 {{- if eq .PointName "g1"}}
 
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
-func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, result []{{ $TAffine }}) {
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []{{ $TAffine }} {
+	result := make([]{{ $TAffine }}, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -1395,7 +1396,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -1406,7 +1407,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 	parallel.Execute( len(points), func(start, end int) {
 		for i:=start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			var a, b fp.Element
@@ -1418,6 +1419,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}, re
 		}
 	})
 
+    return result
 }
 {{- end}}
 
@@ -1485,8 +1487,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 
 	{{- if eq .PointName "g1"}}
 		// convert our base exp table into affine to use AddMixed
-		baseTableAff := make([]{{ $TAffine }}, (1<<(c-1)))
-		BatchJacobianToAffine{{ toUpper .PointName}}(baseTable, baseTableAff)
+		baseTableAff := BatchJacobianToAffine{{ toUpper .PointName}}(baseTable)
 		toReturn := make([]{{ $TJacobian }}, len(scalars))
 	{{- else}}
 		toReturn := make([]{{ $TAffine }}, len(scalars))
@@ -1547,8 +1548,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 	})
 
 	{{- if eq .PointName "g1"}}
-		toReturnAff := make([]{{ $TAffine }}, len(scalars))
-		BatchJacobianToAffine{{ toUpper .PointName}}(toReturn, toReturnAff)
+		toReturnAff := BatchJacobianToAffine{{ toUpper .PointName}}(toReturn)
 		return toReturnAff
 	{{- else}}
 		return toReturn

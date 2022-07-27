@@ -85,7 +85,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 		func(a fp.Element) bool {
 			var op1, op2 G1Affine
 			op1.FromJacobian(&g1Gen)
-			op2.FromJacobian(&g1Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
@@ -216,6 +216,19 @@ func TestG1AffineConversions(t *testing.T) {
 			op1 := fuzzG1Jac(&g1Gen, a)
 			op2 := fuzzG1Jac(&g1Gen, b)
 			return op1.Equal(&op2)
+		},
+		GenFp(),
+		GenFp(),
+	))
+	properties.Property("[BLS24-317] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
+		func(a, b fp.Element) bool {
+			g1 := fuzzG1Jac(&g1Gen, a)
+			g2 := fuzzG1Jac(&g1Gen, b)
+			var op1, op2 G1Affine
+			op1.FromJacobian(&g1)
+			op2.FromJacobian(&g2)
+			baseTableAff := BatchJacobianToAffineG1([]G1Jac{g1, g2})
+			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
 		},
 		GenFp(),
 		GenFp(),
