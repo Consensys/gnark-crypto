@@ -50,8 +50,8 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -59,9 +59,9 @@ func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
 	return p
 }
 
-// ScalarMulUnconverted computes and returns p = a ⋅ s
+// ScalarMultiplicationAffine computes and returns p = a ⋅ s
 // Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *G1Jac) ScalarMulUnconverted(a *G1Affine, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
 	return p
@@ -331,9 +331,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMul(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -841,10 +841,10 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 
 }
 
-// BatchScalarMulG1 multiplies the same base by all scalars
+// BatchScalarMultiplicationG1 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMulG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

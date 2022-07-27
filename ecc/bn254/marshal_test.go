@@ -55,9 +55,9 @@ func TestEncoder(t *testing.T) {
 	inA = rand.Uint64()
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMul(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	// inE --> infinity
-	inF.ScalarMul(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
@@ -263,7 +263,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			var start, end G1Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
-			start.ScalarMul(&g1GenAff, &ab)
+			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.RawBytes()
 			n, err := end.SetBytes(buf[:])
@@ -283,7 +283,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			var start, end G1Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
-			start.ScalarMul(&g1GenAff, &ab)
+			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.Bytes()
 			n, err := end.SetBytes(buf[:])
@@ -356,7 +356,7 @@ func TestG2AffineSerialization(t *testing.T) {
 			var start, end G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
-			start.ScalarMul(&g2GenAff, &ab)
+			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.RawBytes()
 			n, err := end.SetBytes(buf[:])
@@ -376,7 +376,7 @@ func TestG2AffineSerialization(t *testing.T) {
 			var start, end G2Affine
 			var ab big.Int
 			a.ToBigIntRegular(&ab)
-			start.ScalarMul(&g2GenAff, &ab)
+			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.Bytes()
 			n, err := end.SetBytes(buf[:])
