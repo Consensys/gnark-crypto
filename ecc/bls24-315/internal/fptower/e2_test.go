@@ -177,12 +177,6 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 }
 
 func TestE2MulMaxed(t *testing.T) {
@@ -386,12 +380,6 @@ func TestE2Ops(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	if supportAdx {
-		t.Log("disabling ADX")
-		supportAdx = false
-		properties.TestingRun(t, gopter.ConsoleReporter(false))
-		supportAdx = true
-	}
 }
 
 // ------------------------------------------------------------
