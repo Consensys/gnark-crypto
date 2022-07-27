@@ -175,8 +175,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// precomputations
 	pProj1 := make([]g1Proj, n)
 	p1 := make([]G1Affine, n)
-	p01 := make([]G1Affine, n)
-	p10 := make([]G1Affine, n)
 	pProj01 := make([]g1Proj, n) // P0+P1
 	pProj10 := make([]g1Proj, n) // P0-P1
 	l01 := make([]lineEvaluation, n)
@@ -198,8 +196,8 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		l10[k].r1.Mul(&l10[k].r1, &q[k].X)
 		l10[k].r0.Mul(&l10[k].r0, &q[k].Y)
 	}
-	BatchProjectiveToAffineG1(pProj01, p01)
-	BatchProjectiveToAffineG1(pProj10, p10)
+	p01 := BatchProjectiveToAffineG1(pProj01)
+	p10 := BatchProjectiveToAffineG1(pProj10)
 
 	// f_{a0+\lambda*a1,P}(Q)
 	var result, ss GT

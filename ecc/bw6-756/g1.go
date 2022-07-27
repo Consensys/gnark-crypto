@@ -875,7 +875,8 @@ func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
 // BatchProjectiveToAffineG1 converts points in Projective coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
+func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
+	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -918,12 +919,14 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 			result[i].Y.Mul(&points[i].y, &a)
 		}
 	})
+	return result
 }
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
 // performing a single field inversion (Montgomery batch inversion trick)
 // result must be allocated with len(result) == len(points)
-func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
+func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
+	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -970,6 +973,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 		}
 	})
 
+	return result
 }
 
 // BatchScalarMultiplicationG1 multiplies the same base by all scalars
@@ -1033,8 +1037,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		selectors[chunk] = d
 	}
 	// convert our base exp table into affine to use AddMixed
-	baseTableAff := make([]G1Affine, (1 << (c - 1)))
-	BatchJacobianToAffineG1(baseTable, baseTableAff)
+	baseTableAff := BatchJacobianToAffineG1(baseTable)
 	toReturn := make([]G1Jac, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voilà.
@@ -1076,7 +1079,6 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 
 		}
 	})
-	toReturnAff := make([]G1Affine, len(scalars))
-	BatchJacobianToAffineG1(toReturn, toReturnAff)
+	toReturnAff := BatchJacobianToAffineG1(toReturn)
 	return toReturnAff
 }

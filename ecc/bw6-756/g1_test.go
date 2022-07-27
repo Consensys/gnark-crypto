@@ -224,11 +224,10 @@ func TestG1AffineConversions(t *testing.T) {
 		func(a, b fp.Element) bool {
 			g1 := fuzzG1Jac(&g1Gen, a)
 			g2 := fuzzG1Jac(&g1Gen, b)
-			baseTableAff := make([]G1Affine, 2)
 			var op1, op2 G1Affine
 			op1.FromJacobian(&g1)
 			op2.FromJacobian(&g2)
-			BatchJacobianToAffineG1([]G1Jac{g1, g2}, baseTableAff)
+			baseTableAff := BatchJacobianToAffineG1([]G1Jac{g1, g2})
 			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
 		},
 		GenFp(),
