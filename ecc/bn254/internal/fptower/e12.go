@@ -785,13 +785,14 @@ func (z *E12) CompressTorus() (E6, error) {
 	return res, nil
 }
 
-// BatchCompressTorus GT/E12 elements to half their size
-// using a batch inversion
+// BatchCompressTorus GT/E12 elements to half their size using a batch inversion.
+//
+// if len(x) == 0 or if any of the x[i].C1 coordinate is 0, this function returns an error.
 func BatchCompressTorus(x []E12) ([]E6, error) {
 
 	n := len(x)
 	if n == 0 {
-		return []E6{}, errors.New("invalid input size")
+		return nil, errors.New("invalid input size")
 	}
 
 	var one E6
@@ -800,6 +801,10 @@ func BatchCompressTorus(x []E12) ([]E6, error) {
 
 	for i := 0; i < n; i++ {
 		res[i].Set(&x[i].C1)
+		//  throw an error if any of the x[i].C1 is 0
+		if res[i].IsZero() {
+			return nil, errors.New("invalid input; C1 is 0")
+		}
 	}
 
 	t := BatchInvertE6(res) // costs 1 inverse
