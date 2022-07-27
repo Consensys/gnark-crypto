@@ -868,10 +868,10 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 	return p
 }
 
-// BatchScalarMulG2 multiplies the same base by all scalars
+// BatchScalarMultiplicationG2 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMulG2(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

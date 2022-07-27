@@ -383,7 +383,7 @@ func TestG1AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineBatchScalarMul(t *testing.T) {
+func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -399,7 +399,7 @@ func TestG1AffineBatchScalarMul(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[BN254] BatchScalarMul should be consistent with individual scalar multiplications", prop.ForAll(
+	properties.Property("[BN254] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -410,7 +410,7 @@ func TestG1AffineBatchScalarMul(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMulG1(&g1GenAff, sampleScalars[:])
+			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -447,7 +447,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 }
 
-func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
+func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -469,7 +469,7 @@ func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMulG1(&g1GenAff, sampleScalars[:using])
+				_ = BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:using])
 			}
 		})
 	}

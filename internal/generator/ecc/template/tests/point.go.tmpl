@@ -479,7 +479,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 }
 {{end}}
 
-func Test{{ $TAffine }}BatchScalarMul(t *testing.T) {
+func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -495,7 +495,7 @@ func Test{{ $TAffine }}BatchScalarMul(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[{{ toUpper .Name }}] BatchScalarMul should be consistent with individual scalar multiplications", prop.ForAll(
+	properties.Property("[{{ toUpper .Name }}] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -506,7 +506,7 @@ func Test{{ $TAffine }}BatchScalarMul(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMul{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:])
+			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -543,7 +543,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
-func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
+func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -565,7 +565,7 @@ func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMul{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:using])
+				_ = BatchScalarMultiplication{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:using])
 			}
 		})
 	}

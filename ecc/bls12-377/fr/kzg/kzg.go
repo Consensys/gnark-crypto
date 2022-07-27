@@ -87,7 +87,7 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	for i := 0; i < len(alphas); i++ {
 		alphas[i].FromMont()
 	}
-	g1s := bls12377.BatchScalarMulG1(&gen1Aff, alphas)
+	g1s := bls12377.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
 	return &srs, nil
