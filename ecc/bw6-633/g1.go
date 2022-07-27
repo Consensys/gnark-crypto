@@ -55,8 +55,8 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -336,9 +336,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMul(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -382,11 +382,11 @@ func (p *G1Jac) IsOnCurve() bool {
 func (p *G1Jac) IsInSubGroup() bool {
 
 	var uP, u4P, u5P, q, r G1Jac
-	uP.ScalarMul(p, &xGen)
-	u4P.ScalarMul(&uP, &xGen).
-		ScalarMul(&u4P, &xGen).
-		ScalarMul(&u4P, &xGen)
-	u5P.ScalarMul(&u4P, &xGen)
+	uP.ScalarMultiplication(p, &xGen)
+	u4P.ScalarMultiplication(&uP, &xGen).
+		ScalarMultiplication(&u4P, &xGen).
+		ScalarMultiplication(&u4P, &xGen)
+	u5P.ScalarMultiplication(&u4P, &xGen)
 	q.Set(p).SubAssign(&uP)
 	r.phi(&q).SubAssign(&uP).
 		AddAssign(&u4P).
@@ -527,20 +527,20 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	ht.SetInt64(7)
 	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
-	uP.ScalarMul(a, &xGen).Neg(&uP)
+	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
 	vP.Set(a).SubAssign(&uP).
-		ScalarMul(&vP, &v)
-	wP.ScalarMul(&vP, &uMinusOne).Neg(&wP).
+		ScalarMultiplication(&vP, &v)
+	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
 		AddAssign(&uP)
-	L0.ScalarMul(&wP, &d1)
-	tmp.ScalarMul(&vP, &ht)
+	L0.ScalarMultiplication(&wP, &d1)
+	tmp.ScalarMultiplication(&vP, &ht)
 	L0.AddAssign(&tmp)
 	tmp.Double(a)
 	L0.AddAssign(&tmp)
-	L1.Set(&uP).AddAssign(a).ScalarMul(&L1, &d1)
-	tmp.ScalarMul(&vP, &d2)
+	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
+	tmp.ScalarMultiplication(&vP, &d2)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMul(a, &ht)
+	tmp.ScalarMultiplication(a, &ht)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)

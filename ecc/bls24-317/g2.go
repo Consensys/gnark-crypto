@@ -55,8 +55,8 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G2Affine) ScalarMul(a *G2Affine, s *big.Int) *G2Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -328,9 +328,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G2Jac) ScalarMul(a *G2Jac, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -375,7 +375,7 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
 	tmp.psi(p)
-	res.ScalarMul(p, &xGen).
+	res.ScalarMultiplication(p, &xGen).
 		SubAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
@@ -517,10 +517,10 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// multiply by (3x⁴-3)*cofacor
 
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.ScalarMul(a, &xGen).SubAssign(a)
-	xxg.ScalarMul(&xg, &xGen)
-	xxxg.ScalarMul(&xxg, &xGen)
-	xxxxg.ScalarMul(&xxxg, &xGen)
+	xg.ScalarMultiplication(a, &xGen).SubAssign(a)
+	xxg.ScalarMultiplication(&xg, &xGen)
+	xxxg.ScalarMultiplication(&xxg, &xGen)
+	xxxxg.ScalarMultiplication(&xxxg, &xGen)
 
 	res.Set(&xxxxg).
 		SubAssign(a)

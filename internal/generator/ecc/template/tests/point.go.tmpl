@@ -136,7 +136,7 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
             var op1, op2 {{ $TJacobian }}
 			op1 = fuzz{{ $TJacobian }}(&{{.PointName}}Gen, a)
             _r := fr.Modulus()
-            op2.ScalarMul(&op1, _r)
+            op2.ScalarMultiplication(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
 		},
 		{{$fuzzer}},
@@ -393,12 +393,12 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 				var scalar, blindedScalar, rminusone big.Int
 				var op1, op2, op3, gneg {{ $TJacobian }}
 				rminusone.SetUint64(1).Sub(r, &rminusone)
-				op3.ScalarMul(&{{.PointName}}Gen, &rminusone)
+				op3.ScalarMultiplication(&{{.PointName}}Gen, &rminusone)
 				gneg.Neg(&{{.PointName}}Gen)
 				s.ToBigIntRegular(&scalar)
 				blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
-				op1.ScalarMul(&{{.PointName}}Gen, &scalar)
-				op2.ScalarMul(&{{.PointName}}Gen, &blindedScalar)
+				op1.ScalarMultiplication(&{{.PointName}}Gen, &scalar)
+				op2.ScalarMultiplication(&{{.PointName}}Gen, &blindedScalar)
 
 				return op1.Equal(&op2) && g.Equal(&{{.PointName}}Infinity) && !op1.Equal(&{{.PointName}}Infinity) && gneg.Equal(&op3)
 
@@ -571,7 +571,7 @@ func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
 	}
 }
 
-func Benchmark{{ $TJacobian }}ScalarMul(b *testing.B) {
+func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()

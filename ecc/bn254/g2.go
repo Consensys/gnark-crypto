@@ -55,8 +55,8 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G2Affine) ScalarMul(a *G2Affine, s *big.Int) *G2Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -328,9 +328,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G2Jac) ScalarMul(a *G2Jac, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -374,7 +374,7 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 	var a, res G2Jac
 	a.psi(p)
-	res.ScalarMul(p, &fixedCoeff).
+	res.ScalarMultiplication(p, &fixedCoeff).
 		SubAssign(&a)
 
 	return res.IsOnCurve() && res.Z.IsZero()
@@ -515,7 +515,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]G2Jac
 
-	points[0].ScalarMul(a, &xGen)
+	points[0].ScalarMultiplication(a, &xGen)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).

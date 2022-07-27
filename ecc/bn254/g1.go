@@ -50,8 +50,8 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -331,9 +331,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMul(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 

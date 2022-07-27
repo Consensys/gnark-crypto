@@ -124,8 +124,8 @@ func TestReceiverIsOperand(t *testing.T) {
 			var s big.Int
 			s.SetUint64(10)
 
-			p2.ScalarMul(&p1, &s)
-			p1.ScalarMul(&p1, &s)
+			p2.ScalarMultiplication(&p1, &s)
+			p1.ScalarMultiplication(&p1, &s)
 
 			return p2.Equal(&p1)
 		},
@@ -336,7 +336,7 @@ func TestOps(t *testing.T) {
 			params := GetEdwardsCurve()
 
 			var p1, p2, zero PointAffine
-			p1.ScalarMul(&params.Base, &s1)
+			p1.ScalarMultiplication(&params.Base, &s1)
 			zero.setInfinity()
 
 			p2.Add(&p1, &zero)
@@ -352,7 +352,7 @@ func TestOps(t *testing.T) {
 			params := GetEdwardsCurve()
 
 			var p1, p2 PointAffine
-			p1.ScalarMul(&params.Base, &s1)
+			p1.ScalarMultiplication(&params.Base, &s1)
 			p2.Neg(&p1)
 
 			p1.Add(&p1, &p2)
@@ -371,8 +371,8 @@ func TestOps(t *testing.T) {
 			params := GetEdwardsCurve()
 
 			var p1, p2, inf PointAffine
-			p1.ScalarMul(&params.Base, &s)
-			p2.ScalarMul(&params.Base, &s)
+			p1.ScalarMultiplication(&params.Base, &s)
+			p2.ScalarMultiplication(&params.Base, &s)
 
 			p1.Add(&p1, &p2)
 			p2.Double(&p2)
@@ -390,14 +390,14 @@ func TestOps(t *testing.T) {
 			var p1, p2, p3, inf PointAffine
 			inf.X.SetZero()
 			inf.Y.SetZero()
-			p1.ScalarMul(&params.Base, &s1)
-			p2.ScalarMul(&params.Base, &s2)
+			p1.ScalarMultiplication(&params.Base, &s1)
+			p2.ScalarMultiplication(&params.Base, &s2)
 			p3.Set(&params.Base)
 
 			p2.Add(&p1, &p2)
 
 			s1.Add(&s1, &s2)
-			p3.ScalarMul(&params.Base, &s1)
+			p3.ScalarMultiplication(&params.Base, &s1)
 
 			return p2.IsOnCurve() && p3.Equal(&p2) && !p3.Equal(&inf)
 		},
@@ -413,9 +413,9 @@ func TestOps(t *testing.T) {
 			var p1, p2, inf PointAffine
 			inf.X.SetZero()
 			inf.Y.SetOne()
-			p1.ScalarMul(&params.Base, &s1)
+			p1.ScalarMultiplication(&params.Base, &s1)
 			s1.Neg(&s1)
-			p2.ScalarMul(&params.Base, &s1)
+			p2.ScalarMultiplication(&params.Base, &s1)
 
 			p2.Add(&p1, &p2)
 
@@ -430,11 +430,11 @@ func TestOps(t *testing.T) {
 			params := GetEdwardsCurve()
 
 			var p1, p2 PointAffine
-			p1.ScalarMul(&params.Base, &s1)
+			p1.ScalarMultiplication(&params.Base, &s1)
 
 			five := big.NewInt(5)
 			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
-			p1.ScalarMul(&p1, five)
+			p1.ScalarMultiplication(&p1, five)
 
 			return p2.IsOnCurve() && p2.Equal(&p1)
 		},
@@ -463,7 +463,7 @@ func TestOps(t *testing.T) {
 
 			var baseProj, p1, p2, zero PointProj
 			baseProj.FromAffine(&params.Base)
-			p1.ScalarMul(&baseProj, &s1)
+			p1.ScalarMultiplication(&baseProj, &s1)
 			zero.setInfinity()
 
 			p2.Add(&p1, &zero)
@@ -480,7 +480,7 @@ func TestOps(t *testing.T) {
 
 			var baseProj, p1, p2, p PointProj
 			baseProj.FromAffine(&params.Base)
-			p1.ScalarMul(&baseProj, &s1)
+			p1.ScalarMultiplication(&baseProj, &s1)
 			p2.Neg(&p1)
 
 			p.Add(&p1, &p2)
@@ -498,7 +498,7 @@ func TestOps(t *testing.T) {
 
 			var baseProj, p1, p2, p PointProj
 			baseProj.FromAffine(&params.Base)
-			p.ScalarMul(&baseProj, &s)
+			p.ScalarMultiplication(&baseProj, &s)
 
 			p1.Add(&p, &p)
 			p2.Double(&p)
@@ -515,11 +515,11 @@ func TestOps(t *testing.T) {
 
 			var baseProj, p1, p2 PointProj
 			baseProj.FromAffine(&params.Base)
-			p1.ScalarMul(&baseProj, &s1)
+			p1.ScalarMultiplication(&baseProj, &s1)
 
 			five := big.NewInt(5)
 			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
-			p1.ScalarMul(&p1, five)
+			p1.ScalarMultiplication(&p1, five)
 
 			return p2.Equal(&p1)
 		},
@@ -547,7 +547,7 @@ func TestOps(t *testing.T) {
 
 			var baseExtended, p1, p2, zero PointExtended
 			baseExtended.FromAffine(&params.Base)
-			p1.ScalarMul(&baseExtended, &s1)
+			p1.ScalarMultiplication(&baseExtended, &s1)
 			zero.setInfinity()
 
 			p2.Add(&p1, &zero)
@@ -564,7 +564,7 @@ func TestOps(t *testing.T) {
 
 			var baseExtended, p1, p2, p PointExtended
 			baseExtended.FromAffine(&params.Base)
-			p1.ScalarMul(&baseExtended, &s1)
+			p1.ScalarMultiplication(&baseExtended, &s1)
 			p2.Neg(&p1)
 
 			p.Add(&p1, &p2)
@@ -582,7 +582,7 @@ func TestOps(t *testing.T) {
 
 			var baseExtended, p1, p2, p PointExtended
 			baseExtended.FromAffine(&params.Base)
-			p.ScalarMul(&baseExtended, &s)
+			p.ScalarMultiplication(&baseExtended, &s)
 
 			p1.Add(&p, &p)
 			p2.Double(&p)
@@ -599,11 +599,11 @@ func TestOps(t *testing.T) {
 
 			var baseExtended, p1, p2 PointExtended
 			baseExtended.FromAffine(&params.Base)
-			p1.ScalarMul(&baseExtended, &s1)
+			p1.ScalarMultiplication(&baseExtended, &s1)
 
 			five := big.NewInt(5)
 			p2.Double(&p1).Double(&p2).Add(&p2, &p1)
-			p1.ScalarMul(&p1, five)
+			p1.ScalarMultiplication(&p1, five)
 
 			return p2.Equal(&p1)
 		},
@@ -619,8 +619,8 @@ func TestOps(t *testing.T) {
 			var baseExtended, pExtended, p PointExtended
 			var pAffine PointAffine
 			baseExtended.FromAffine(&params.Base)
-			pExtended.ScalarMul(&baseExtended, &s)
-			pAffine.ScalarMul(&params.Base, &s)
+			pExtended.ScalarMultiplication(&baseExtended, &s)
+			pAffine.ScalarMultiplication(&params.Base, &s)
 			pAffine.Neg(&pAffine)
 
 			p.MixedAdd(&pExtended, &pAffine)
@@ -638,8 +638,8 @@ func TestOps(t *testing.T) {
 			var baseExtended, pExtended, p, p2 PointExtended
 			var pAffine PointAffine
 			baseExtended.FromAffine(&params.Base)
-			pExtended.ScalarMul(&baseExtended, &s)
-			pAffine.ScalarMul(&params.Base, &s)
+			pExtended.ScalarMultiplication(&baseExtended, &s)
+			pAffine.ScalarMultiplication(&params.Base, &s)
 
 			p.MixedAdd(&pExtended, &pAffine)
 			p2.MixedDouble(&pExtended)
@@ -658,8 +658,8 @@ func TestOps(t *testing.T) {
 			var baseProj, pProj, p PointProj
 			var pAffine PointAffine
 			baseProj.FromAffine(&params.Base)
-			pProj.ScalarMul(&baseProj, &s)
-			pAffine.ScalarMul(&params.Base, &s)
+			pProj.ScalarMultiplication(&baseProj, &s)
+			pAffine.ScalarMultiplication(&params.Base, &s)
 			pAffine.Neg(&pAffine)
 
 			p.MixedAdd(&pProj, &pAffine)
@@ -677,8 +677,8 @@ func TestOps(t *testing.T) {
 			var baseProj, pProj, p, p2 PointProj
 			var pAffine PointAffine
 			baseProj.FromAffine(&params.Base)
-			pProj.ScalarMul(&baseProj, &s)
-			pAffine.ScalarMul(&params.Base, &s)
+			pProj.ScalarMultiplication(&baseProj, &s)
+			pAffine.ScalarMultiplication(&params.Base, &s)
 
 			p.MixedAdd(&pProj, &pAffine)
 			p2.Double(&pProj)
@@ -697,9 +697,9 @@ func TestOps(t *testing.T) {
 			var baseExt PointExtended
 			var p1, p2 PointAffine
 			baseProj.FromAffine(&params.Base)
-			baseProj.ScalarMul(&baseProj, &s)
+			baseProj.ScalarMultiplication(&baseProj, &s)
 			baseExt.FromAffine(&params.Base)
-			baseExt.ScalarMul(&baseExt, &s)
+			baseExt.ScalarMultiplication(&baseExt, &s)
 
 			p1.FromProj(&baseProj)
 			p2.FromExtended(&baseExt)
@@ -760,7 +760,7 @@ func BenchmarkScalarMulExtended(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		doubleAndAdd.ScalarMul(&a, &s)
+		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
 
@@ -776,6 +776,6 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		doubleAndAdd.ScalarMul(&a, &s)
+		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }

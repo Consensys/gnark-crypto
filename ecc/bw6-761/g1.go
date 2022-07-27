@@ -55,8 +55,8 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
-func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
+// ScalarMultiplication computes and returns p = a ⋅ s
+func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -336,9 +336,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMul computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMul(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -387,13 +387,13 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 	var res, phip G1Jac
 	phip.phi(p)
-	res.ScalarMul(&phip, &xGen).
+	res.ScalarMultiplication(&phip, &xGen).
 		SubAssign(&phip).
-		ScalarMul(&res, &xGen).
-		ScalarMul(&res, &xGen).
+		ScalarMultiplication(&res, &xGen).
+		ScalarMultiplication(&res, &xGen).
 		AddAssign(&phip)
 
-	phip.ScalarMul(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
 
 	return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -524,9 +524,9 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]G1Jac
 	points[0].Set(a)
-	points[1].ScalarMul(a, &xGen)
-	points[2].ScalarMul(&points[1], &xGen)
-	points[3].ScalarMul(&points[2], &xGen)
+	points[1].ScalarMultiplication(a, &xGen)
+	points[2].ScalarMultiplication(&points[1], &xGen)
+	points[3].ScalarMultiplication(&points[2], &xGen)
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -539,18 +539,18 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	scalars[6].SetInt64(130)
 
 	var p1, p2, tmp G1Jac
-	p1.ScalarMul(&points[3], &scalars[0])
-	tmp.ScalarMul(&points[2], &scalars[1]).Neg(&tmp)
+	p1.ScalarMultiplication(&points[3], &scalars[0])
+	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[1], &scalars[2]).Neg(&tmp)
+	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[3])
+	tmp.ScalarMultiplication(&points[0], &scalars[3])
 	p1.AddAssign(&tmp)
 
-	p2.ScalarMul(&points[2], &scalars[4])
-	tmp.ScalarMul(&points[1], &scalars[5])
+	p2.ScalarMultiplication(&points[2], &scalars[4])
+	tmp.ScalarMultiplication(&points[1], &scalars[5])
 	p2.AddAssign(&tmp)
-	tmp.ScalarMul(&points[0], &scalars[6])
+	tmp.ScalarMultiplication(&points[0], &scalars[6])
 	p2.AddAssign(&tmp)
 	p2.phi(&p2)
 

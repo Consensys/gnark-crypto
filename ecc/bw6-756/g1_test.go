@@ -110,7 +110,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 			var op1, op2 G1Jac
 			op1 = fuzzG1Jac(&g1Gen, a)
 			_r := fr.Modulus()
-			op2.ScalarMul(&op1, _r)
+			op2.ScalarMultiplication(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
 		},
 		GenFp(),
@@ -353,12 +353,12 @@ func TestG1AffineOps(t *testing.T) {
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMul(&g1Gen, &rminusone)
+			op3.ScalarMultiplication(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
-			op1.ScalarMul(&g1Gen, &scalar)
-			op2.ScalarMul(&g1Gen, &blindedScalar)
+			op1.ScalarMultiplication(&g1Gen, &scalar)
+			op2.ScalarMultiplication(&g1Gen, &blindedScalar)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -514,7 +514,7 @@ func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacScalarMul(b *testing.B) {
+func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()

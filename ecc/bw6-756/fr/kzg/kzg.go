@@ -77,7 +77,7 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	_, _, gen1Aff, gen2Aff := bw6756.Generators()
 	srs.G1[0] = gen1Aff
 	srs.G2[0] = gen2Aff
-	srs.G2[1].ScalarMul(&gen2Aff, bAlpha)
+	srs.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -189,7 +189,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&srs.G2[0])
 	alphaG2Jac.FromAffine(&srs.G2[1])
-	alphaMinusaG2Jac.ScalarMul(&genG2Jac, &pointBigInt).
+	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
 
@@ -418,7 +418,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit bw6756.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.ToBigIntRegular(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMul(&srs.G1[0], &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)
