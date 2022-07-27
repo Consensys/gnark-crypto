@@ -265,12 +265,6 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
 }
 {{ end }}
 
-/*
-// {{$CurveName}}SetZ sets z to [{{printList .Z}}].
-func {{$CurveName}}SetZ(z *{{$CoordType}}) {
-    z.Set( &{{$CoordType}} {{asElement .Z }} )
-}*/
-
 // {{$CurveName}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z
 func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
