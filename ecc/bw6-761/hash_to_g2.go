@@ -291,12 +291,6 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNr
 }
 
-/*
-// g2SetZ sets z to [11].
-func g2SetZ(z *fp.Element) {
-    z.Set( &fp.Element {4056054414400208518, 3320816571827031140, 10263935383895698150, 11003897938091601562, 15597443347325643510, 13135057492086854609, 2659919018052618801, 3683105852685266909, 6137961753831301777, 15077955943918945393, 14961510259660508891, 8138608324875079} )
-}*/
-
 // g2MulByZ multiplies x by [11] and stores the result in z
 func g2MulByZ(z *fp.Element, x *fp.Element) {
 

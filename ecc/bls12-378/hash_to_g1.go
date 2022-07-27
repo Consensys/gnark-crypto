@@ -161,12 +161,6 @@ func g1NotOne(x *fp.Element) uint64 {
 
 }
 
-/*
-// g1SetZ sets z to [11].
-func g1SetZ(z *fp.Element) {
-    z.Set( &fp.Element {5249763402351377716, 3384457438931451475, 13367120442609335946, 13855353052415766542, 11761008755492169078, 30127809456627797} )
-}*/
-
 // g1MulByZ multiplies x by [11] and stores the result in z
 func g1MulByZ(z *fp.Element, x *fp.Element) {
 
