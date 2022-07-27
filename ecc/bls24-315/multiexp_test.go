@@ -95,6 +95,7 @@ func TestMultiExpG1(t *testing.T) {
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	cRange := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
 	if testing.Short() {
+		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
 	}
 
@@ -337,10 +338,9 @@ func TestMultiExpG2(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
-	if testing.Short() {
-		cRange = []uint64{5, 16}
-	}
+	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.
+	// test only "odd" and "even" (ie windows size divide word size vs not)
+	cRange := []uint64{5, 16}
 
 	properties.Property(fmt.Sprintf("[G2] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {

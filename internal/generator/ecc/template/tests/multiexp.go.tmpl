@@ -92,12 +92,19 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
+	{{- if eq $.PointName "g1" }}
 	cRange := []uint64{
 		{{- range $c :=  $.CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
 	}
 	if testing.Short() {
+		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
 	}
+	{{- else }}
+	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.
+	// test only "odd" and "even" (ie windows size divide word size vs not)
+	cRange := []uint64{5, 16}
+	{{- end}}
 
 	properties.Property(fmt.Sprintf("[{{ toUpper $.PointName }}] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
