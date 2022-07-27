@@ -59,7 +59,7 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	_, _, gen1Aff, gen2Aff := {{ .CurvePackage }}.Generators()
 	srs.G1[0] = gen1Aff
 	srs.G2[0] = gen2Aff
-	srs.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	srs.G2[1].ScalarMul(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -69,7 +69,7 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	for i := 0; i < len(alphas); i++ {
 		alphas[i].FromMont()
 	}
-	g1s := {{ .CurvePackage }}.BatchScalarMultiplicationG1(&gen1Aff, alphas)
+	g1s := {{ .CurvePackage }}.BatchScalarMulG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
 	return &srs, nil
@@ -151,16 +151,15 @@ func Open(p []fr.Element, point fr.Element, srs *SRS) (OpeningProof, error) {
 func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS) error {
 
 	// [f(a)]G₁
-	var claimedValueG1Aff {{ .CurvePackage }}.G1Affine
+	var claimedValueG1Aff {{ .CurvePackage }}.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplication(&srs.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMulUnconverted(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
-	var fminusfaG1Jac, tmpG1Jac {{ .CurvePackage }}.G1Jac
+	var fminusfaG1Jac {{ .CurvePackage }}.G1Jac
 	fminusfaG1Jac.FromAffine(commitment)
-	tmpG1Jac.FromAffine(&claimedValueG1Aff)
-	fminusfaG1Jac.SubAssign(&tmpG1Jac)
+	fminusfaG1Jac.SubAssign(&claimedValueG1Aff)
 
 	// [-H(α)]G₁
 	var negH {{ .CurvePackage }}.G1Affine
@@ -172,7 +171,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	point.ToBigIntRegular(&pointBigInt)
 	genG2Jac.FromAffine(&srs.G2[0])
 	alphaG2Jac.FromAffine(&srs.G2[1])
-	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
+	alphaMinusaG2Jac.ScalarMul(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
 
@@ -401,7 +400,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit {{ .CurvePackage }}.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.ToBigIntRegular(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMul(&srs.G1[0], &foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)

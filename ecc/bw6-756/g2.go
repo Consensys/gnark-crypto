@@ -50,8 +50,8 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
-func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
+// ScalarMul computes and returns p = a ⋅ s
+func (p *G2Affine) ScalarMul(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -323,9 +323,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
+// ScalarMul computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMul(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -374,13 +374,13 @@ func (p *G2Jac) IsInSubGroup() bool {
 
 	var res, phip G2Jac
 	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
+	res.ScalarMul(&phip, &xGen).
 		SubAssign(&phip).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
+		ScalarMul(&res, &xGen).
+		ScalarMul(&res, &xGen).
 		AddAssign(&phip)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.ScalarMul(p, &xGen).AddAssign(p).AddAssign(&res)
 
 	return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -511,9 +511,9 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	var L0, L1, uP, u2P, u3P, tmp G2Jac
 
-	uP.ScalarMultiplication(a, &xGen)
-	u2P.ScalarMultiplication(&uP, &xGen)
-	u3P.ScalarMultiplication(&u2P, &xGen)
+	uP.ScalarMul(a, &xGen)
+	u2P.ScalarMul(&uP, &xGen)
+	u3P.ScalarMul(&u2P, &xGen)
 	// ht=-2, hy=0
 	// d1=1, d2=-1, d3=-1
 
@@ -834,10 +834,10 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	return p
 }
 
-// BatchScalarMultiplicationG2 multiplies the same base by all scalars
+// BatchScalarMulG2 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMulG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

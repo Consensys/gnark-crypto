@@ -55,12 +55,20 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
-func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
+// ScalarMul computes and returns p = a ⋅ s
+func (p *G1Affine) ScalarMul(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
 	p.FromJacobian(&_p)
+	return p
+}
+
+// ScalarMulUnconverted computes and returns p = a ⋅ s
+// Takes an affine point and returns a Jacobian point (useful for KZG)
+func (p *G1Jac) ScalarMulUnconverted(a *G1Affine, s *big.Int) *G1Jac {
+	p.FromAffine(a)
+	p.mulGLV(p, s)
 	return p
 }
 
@@ -328,9 +336,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
+// ScalarMul computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) ScalarMul(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -379,13 +387,13 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 	var res, phip G1Jac
 	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
+	res.ScalarMul(&phip, &xGen).
 		SubAssign(&phip).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
+		ScalarMul(&res, &xGen).
+		ScalarMul(&res, &xGen).
 		AddAssign(&phip)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.ScalarMul(p, &xGen).AddAssign(p).AddAssign(&res)
 
 	return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -515,9 +523,9 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	var L0, L1, uP, u2P, u3P, tmp G1Jac
 
-	uP.ScalarMultiplication(a, &xGen)
-	u2P.ScalarMultiplication(&uP, &xGen)
-	u3P.ScalarMultiplication(&u2P, &xGen)
+	uP.ScalarMul(a, &xGen)
+	u2P.ScalarMul(&uP, &xGen)
+	u3P.ScalarMul(&u2P, &xGen)
 
 	L0.Set(a).AddAssign(&u3P).
 		SubAssign(&u2P)
@@ -964,10 +972,10 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 
 }
 
-// BatchScalarMultiplicationG1 multiplies the same base by all scalars
+// BatchScalarMulG1 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+func BatchScalarMulG1(base *G1Affine, scalars []fr.Element) []G1Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

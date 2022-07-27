@@ -55,8 +55,8 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
-func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
+// ScalarMul computes and returns p = a ⋅ s
+func (p *G2Affine) ScalarMul(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
 	_p.FromAffine(a)
 	_p.mulGLV(&_p, s)
@@ -328,9 +328,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
+// ScalarMul computes and returns p = a ⋅ s
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
+func (p *G2Jac) ScalarMul(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
@@ -374,7 +374,7 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
 	tmp.psi(p)
-	res.ScalarMultiplication(p, &xGen).
+	res.ScalarMul(p, &xGen).
 		SubAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
@@ -513,8 +513,8 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	// https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMultiplication(a, &xGen)
-	xxg.ScalarMultiplication(&xg, &xGen)
+	xg.ScalarMul(a, &xGen)
+	xxg.ScalarMul(&xg, &xGen)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
@@ -868,10 +868,10 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 	return p
 }
 
-// BatchScalarMultiplicationG2 multiplies the same base by all scalars
+// BatchScalarMulG2 multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
-func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
+func BatchScalarMulG2(base *G2Affine, scalars []fr.Element) []G2Affine {
 
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)

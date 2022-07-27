@@ -110,7 +110,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 			var op1, op2 G1Jac
 			op1 = fuzzG1Jac(&g1Gen, a)
 			_r := fr.Modulus()
-			op2.ScalarMultiplication(&op1, _r)
+			op2.ScalarMul(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
 		},
 		GenFp(),
@@ -353,12 +353,12 @@ func TestG1AffineOps(t *testing.T) {
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
-			op3.ScalarMultiplication(&g1Gen, &rminusone)
+			op3.ScalarMul(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
 			s.ToBigIntRegular(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
-			op1.ScalarMultiplication(&g1Gen, &scalar)
-			op2.ScalarMultiplication(&g1Gen, &blindedScalar)
+			op1.ScalarMul(&g1Gen, &scalar)
+			op2.ScalarMul(&g1Gen, &blindedScalar)
 
 			return op1.Equal(&op2) && g.Equal(&g1Infinity) && !op1.Equal(&g1Infinity) && gneg.Equal(&op3)
 
@@ -422,7 +422,7 @@ func TestG1AffineCofactorCleaning(t *testing.T) {
 
 }
 
-func TestG1AffineBatchScalarMultiplication(t *testing.T) {
+func TestG1AffineBatchScalarMul(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -438,7 +438,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[BLS24-315] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
+	properties.Property("[BLS24-315] BatchScalarMul should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -449,7 +449,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 					FromMont()
 			}
 
-			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
+			result := BatchScalarMulG1(&g1GenAff, sampleScalars[:])
 
 			if len(result) != len(sampleScalars) {
 				return false
@@ -508,7 +508,7 @@ func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:using])
+				_ = BatchScalarMulG1(&g1GenAff, sampleScalars[:using])
 			}
 		})
 	}

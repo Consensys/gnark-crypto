@@ -100,7 +100,7 @@ func TestMultiExpG1(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g1Gen, &finalScalar)
+			expected.ScalarMul(&g1Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -150,7 +150,7 @@ func TestMultiExpG1(t *testing.T) {
 			var op1ScalarMul G1Affine
 			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
+			op1ScalarMul.ScalarMul(&g1GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -249,7 +249,7 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 func fillBenchBasesG1(samplePoints []G1Affine) {
 	var r big.Int
 	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+	samplePoints[0].ScalarMul(&samplePoints[0], &r)
 
 	one := samplePoints[0].X
 	one.SetOne()
@@ -330,7 +330,7 @@ func TestMultiExpG2(t *testing.T) {
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
 			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
-			expected.ScalarMultiplication(&g2Gen, &finalScalar)
+			expected.ScalarMul(&g2Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -380,7 +380,7 @@ func TestMultiExpG2(t *testing.T) {
 			var op1ScalarMul G2Affine
 			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
-			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
+			op1ScalarMul.ScalarMul(&g2GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
 		},
@@ -479,7 +479,7 @@ func BenchmarkManyMultiExpG2Reference(b *testing.B) {
 func fillBenchBasesG2(samplePoints []G2Affine) {
 	var r big.Int
 	r.SetString("340444420969191673093399857471996460938405", 10)
-	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+	samplePoints[0].ScalarMul(&samplePoints[0], &r)
 
 	one := samplePoints[0].X
 	one.SetOne()
