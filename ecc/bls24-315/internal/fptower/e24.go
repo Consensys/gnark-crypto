@@ -459,7 +459,7 @@ func (z *E24) Exp(x E24, k *big.Int) *E24 {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		// if k < 0: xᵏ (mod q²⁴) == (x⁻¹)ᵏ (mod q²⁴)
 		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since

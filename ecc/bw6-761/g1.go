@@ -349,7 +349,7 @@ func (p *G1Jac) String() string {
 	return _p.String()
 }
 
-// FromAffine sets p = Q, p in Jacboian, Q in affine
+// FromAffine sets p = Q, p in Jacobian, Q in affine
 func (p *G1Jac) FromAffine(Q *G1Affine) *G1Jac {
 	if Q.IsInfinity() {
 		p.Z.SetZero()
