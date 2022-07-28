@@ -7,8 +7,8 @@
 * Finite field arithmetic (fast big.Int)
   * code generation for any modulus (field/goff)
 * [Elliptic curve cryptography](ecc/ecc.md) & Pairing on:
-  * BN254
-  * BLS12-381
+  * BN254 ([audit report]())
+  * BLS12-381 ([audit report]())
   * BLS24-317
   * BLS12-377 / BW6-761
   * BLS24-315 / BW6-633
@@ -28,7 +28,9 @@
 
 ## Warning
 
-**`gnark-crypto` has not been audited and is provided as-is, use at your own risk. In particular, `gnark-crypto` makes no security guarantees such as constant time implementation or side-channel attack resistance.**
+`gnark-crypto` `bn254` and `bls12-381` packages were audited by Kudelski security, for the Algorand Foundation. [The scope]() doesn't cover all the subpackages.
+
+**`gnark-crypto` is not fully audited and is provided as-is, use at your own risk. In particular, `gnark-crypto` makes no security guarantees such as constant time implementation or side-channel attack resistance.**
 
 **To report a security bug, please refer to [`gnark` Security Policy](https://github.com/ConsenSys/gnark/blob/master/SECURITY.md).**
 
