@@ -56,7 +56,7 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BLS381() {
 func (fq2 *Fq2Amd64) generateSquareE2BLS381(forceCheck bool) {
 	// // Square sets z to the E2-product of x,x returns z
 	// func (z *E2) Square(x *E2) *E2 {
-	// 	// algo 22 https://eprint.iacr.org/2010/354.pdf
+	// 	// adapted from algo 22 https://eprint.iacr.org/2010/354.pdf
 	// 	var a, b fp.Element
 	// 	a.Add(&x.A0, &x.A1)
 	// 	b.Sub(&x.A0, &x.A1)

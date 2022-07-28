@@ -362,7 +362,7 @@ func (p *{{ $TJacobian }}) String() string {
 	return _p.String()
 }
 
-// FromAffine sets p = Q, p in Jacboian, Q in affine
+// FromAffine sets p = Q, p in Jacobian, Q in affine
 func (p *{{ $TJacobian }}) FromAffine(Q *{{ $TAffine }}) *{{ $TJacobian }} {
 	if Q.IsInfinity() {
 		p.Z.SetZero()
