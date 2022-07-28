@@ -201,6 +201,8 @@ func (z *E4) Square(x *E4) *E4 {
 }
 
 // Inverse set z to the inverse of x in E4 and return z
+//
+// if x == 0, sets and returns z = x
 func (z *E4) Inverse(x *E4) *E4 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
@@ -323,6 +325,8 @@ func (z *E4) Sqrt(x *E4) *E4 {
 
 // BatchInvertE4 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE4(a []E4) []E4 {
 	res := make([]E4, len(a))
 	if len(a) == 0 {
