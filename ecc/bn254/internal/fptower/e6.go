@@ -242,6 +242,8 @@ func (z *E6) Square(x *E6) *E6 {
 }
 
 // Inverse an element in E6
+//
+// if x == 0, sets and returns z = x
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
 	// step 9 is wrong in the paper it's t1-t4
@@ -270,6 +272,8 @@ func (z *E6) Inverse(x *E6) *E6 {
 
 // BatchInvertE6 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE6(a []E6) []E6 {
 	res := make([]E6, len(a))
 	if len(a) == 0 {

@@ -401,6 +401,8 @@ func (z *E6) CyclotomicSquare(x *E6) *E6 {
 }
 
 // Inverse set z to the inverse of x in E6 and return z
+//
+// if x == 0, sets and returns z = x
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
@@ -418,6 +420,8 @@ func (z *E6) Inverse(x *E6) *E6 {
 
 // BatchInvertE6 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE6(a []E6) []E6 {
 	res := make([]E6, len(a))
 	if len(a) == 0 {

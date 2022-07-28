@@ -246,6 +246,8 @@ func (z *E2) Sqrt(x *E2) *E2 {
 
 // BatchInvertE2 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE2(a []E2) []E2 {
 	res := make([]E2, len(a))
 	if len(a) == 0 {

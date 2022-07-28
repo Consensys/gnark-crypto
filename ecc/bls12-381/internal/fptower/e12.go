@@ -402,6 +402,8 @@ func (z *E12) CyclotomicSquare(x *E12) *E12 {
 }
 
 // Inverse set z to the inverse of x in E12 and return z
+//
+// if x == 0, sets and returns z = x
 func (z *E12) Inverse(x *E12) *E12 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
@@ -419,6 +421,8 @@ func (z *E12) Inverse(x *E12) *E12 {
 
 // BatchInvertE12 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE12(a []E12) []E12 {
 	res := make([]E12, len(a))
 	if len(a) == 0 {
