@@ -1,17 +1,24 @@
-// Copyright 2020 ConsenSys AG
+// Package bw6756 efficient elliptic curve, pairing and hash to curve implementation for bw6-756.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// bw6-756: A Brezing--Weng curve (2-chain with bls12-378)
+// 		embedding degree k=6
+// 		seed x₀=11045256207009841153.
+// 		𝔽p: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
+// 		𝔽r: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
+// 		(E/𝔽p): Y²=X³+1
+// 		(Eₜ/𝔽p): Y² = X³+33 (M-type twist)
+// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
+// Extension fields tower:
+//     𝔽p³[u] = 𝔽p/u³-33
+//     𝔽p⁶[v] = 𝔽p²/v²-u
+// optimal Ate loops:
+//		x₀+1, x₀²-x₀-1
+// Security: estimated 126-bit level following [https://eprint.iacr.org/2019/885.pdf]
+// (r is 378 bits and p⁶ is 4536 bits)
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// Warning
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bw6756
 
 import (
@@ -21,19 +28,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
-
-// BW6-756: A Brezing--Weng curve of embedding degree k=6 with seed x₀=11045256207009841153. It forms a 2-chain with BLS12-378.
-// 𝔽p: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
-// 𝔽r: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
-// (E/𝔽p): Y²=X³+1
-// (Eₜ/𝔽p): Y² = X³+33 (M-type twist)
-// r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
-// Extension fields tower:
-//     𝔽p³[u] = 𝔽p/u³-33
-//     𝔽p⁶[v] = 𝔽p²/v²-u
-// optimal Ate loops: x₀+1, x₀²-x₀-1
-// Security: estimated 126-bit level following [https://eprint.iacr.org/2019/885.pdf]
-//           (r is 378 bits and p⁶ is 4536 bits)
 
 // ID BW6_756 ID
 const ID = ecc.BW6_756
