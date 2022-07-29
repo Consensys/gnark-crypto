@@ -13,8 +13,6 @@
 // limitations under the License.
 
 // Package cmd is the CLI interface for goff
-// 		goff -m 21888242871...94645226208583 -o ./bn256/ -p bn256 -e Element
-// will generate field arithmetic code for given modulus
 package cmd
 
 import (
