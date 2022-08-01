@@ -176,7 +176,8 @@ func g1MulByZ(z *fp.Element, x *fp.Element) {
 	*z = res
 }
 
-//TODO: Define A,B here
+var sswuG1IsoCurveCoeffA = fp.Element{5402807948305211529, 9163880483319140034, 7646126700453841420, 11071466103913358468, 124200740526673728}
+var sswuG1IsoCurveCoeffB = fp.Element{16058189711238232929, 8302337653269510588, 11411933349841587630, 8954038365926617417, 177308873523699836}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve1 implements the SSWU map
@@ -198,8 +199,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var tv4 fp.Element
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	//TODO: Use bCurveConf when no isogeny
-	tv3.Mul(&tv3, &fp.Element{16058189711238232929, 8302337653269510588, 11411933349841587630, 8954038365926617417, 177308873523699836})
+	tv3.Mul(&tv3, &sswuG1IsoCurveCoeffB)
 
 	tv2NZero := g1NotZero(&tv2)
 
@@ -208,9 +208,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
-	//TODO: When no isogeny use curve constants
-	tv2 = fp.Element{5402807948305211529, 9163880483319140034, 7646126700453841420, 11071466103913358468, 124200740526673728}
-	tv4.Mul(&tv4, &tv2)
+	tv4.Mul(&tv4, &sswuG1IsoCurveCoeffA)
 
 	tv2.Square(&tv3)
 
@@ -219,14 +217,14 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	tv6.Square(&tv4)
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &fp.Element{5402807948305211529, 9163880483319140034, 7646126700453841420, 11071466103913358468, 124200740526673728})
+	tv5.Mul(&tv6, &sswuG1IsoCurveCoeffA)
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &fp.Element{16058189711238232929, 8302337653269510588, 11411933349841587630, 8954038365926617417, 177308873523699836})
+	tv5.Mul(&tv6, &sswuG1IsoCurveCoeffB)
 	tv2.Add(&tv2, &tv5)
 
 	var x fp.Element

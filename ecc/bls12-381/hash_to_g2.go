@@ -220,7 +220,14 @@ func g2MulByZ(z *fptower.E2, x *fptower.E2) {
 
 }
 
-//TODO: Define A,B here
+var sswuG2IsoCurveCoeffA = fptower.E2{
+	A0: fp.Element{0},
+	A1: fp.Element{16517514583386313282, 74322656156451461, 16683759486841714365, 815493829203396097, 204518332920448171, 1306242806803223655},
+}
+var sswuG2IsoCurveCoeffB = fptower.E2{
+	A0: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
+	A1: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
+}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve2 implements the SSWU map
@@ -242,11 +249,7 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	var tv4 fptower.E2
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	//TODO: Use bCurveConf when no isogeny
-	tv3.Mul(&tv3, &fptower.E2{
-		A0: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
-		A1: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
-	})
+	tv3.Mul(&tv3, &sswuG2IsoCurveCoeffB)
 
 	tv2NZero := g2NotZero(&tv2)
 
@@ -258,12 +261,7 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2)
-	//TODO: When no isogeny use curve constants
-	tv2 = fptower.E2{
-		A0: fp.Element{0},
-		A1: fp.Element{16517514583386313282, 74322656156451461, 16683759486841714365, 815493829203396097, 204518332920448171, 1306242806803223655},
-	}
-	tv4.Mul(&tv4, &tv2)
+	tv4.Mul(&tv4, &sswuG2IsoCurveCoeffA)
 
 	tv2.Square(&tv3)
 
@@ -272,20 +270,14 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	tv6.Square(&tv4)
 
 	var tv5 fptower.E2
-	tv5.Mul(&tv6, &fptower.E2{
-		A0: fp.Element{0},
-		A1: fp.Element{16517514583386313282, 74322656156451461, 16683759486841714365, 815493829203396097, 204518332920448171, 1306242806803223655},
-	})
+	tv5.Mul(&tv6, &sswuG2IsoCurveCoeffA)
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &fptower.E2{
-		A0: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
-		A1: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
-	})
+	tv5.Mul(&tv6, &sswuG2IsoCurveCoeffB)
 	tv2.Add(&tv2, &tv5)
 
 	var x fptower.E2

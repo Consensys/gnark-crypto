@@ -9,10 +9,10 @@
 {{$AffineType := print $CurveTitle "Affine"}}
 {{$JacType := print $CurveTitle "Jac"}}
 {{$IsG1 := eq $CurveTitle "G1"}}
-{{$CurveIndex := "2"}}
-{{$package := "fptower"}}
-{{if eq $TowerDegree 1}}{{$package = "fp"}}{{end}}
-{{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
+{{$CurveIndex := select $IsG1 "2" "1"}}
+{{$package := select (eq $TowerDegree 1) "fptower" "fp"}}
+{{$sswuCurveACoeff := select $isogenyNeeded "***" (print "sswu" $CurveTitle "IsoCurveCoeffA")}}
+{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" (print "sswu" $CurveTitle "IsoCurveCoeffB")}}
 
 
 //Note: This only works for simple extensions
@@ -133,7 +133,6 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ end }}
 
 {{ if eq (mod .FieldSizeMod256 8) 5 }} // Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.3. q = 5 mod 8
-// TODO: Test correct use of Element.Select
 
     var tv1, tv2 {{$CoordType}}
     tv1.Square(v)
@@ -305,7 +304,10 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ end }}}
 
-//TODO: Define A,B here
+{{if $isogenyNeeded}}
+    var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}
+    var {{$sswuCurveBCoeff}} = {{$CoordType}} {{asElement .B}}
+{{end}}
 
 // From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
 // mapToCurve{{$CurveIndex}} implements the SSWU map
@@ -327,8 +329,7 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4)
-	//TODO: Use bCurveConf when no isogeny
-	tv3.Mul(&tv3, &{{$CoordType}}{{ asElement .B  }})
+	tv3.Mul(&tv3, &{{$sswuCurveBCoeff}})
 
     tv2NZero := {{$CurveName}}NotZero(&tv2)
 
@@ -337,9 +338,7 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)
-	//TODO: When no isogeny use curve constants
-    tv2 = {{$CoordType}}{{ asElement .A }}
-    tv4.Mul(&tv4, &tv2)
+    tv4.Mul(&tv4, &{{$sswuCurveACoeff}})
 
 	tv2.Square(&tv3)
 
@@ -348,14 +347,14 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	tv6.Square(&tv4)
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$CoordType}}{{ asElement .A }})
+	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})
 
 	tv2.Add(&tv2, &tv5)
 	tv2.Mul(&tv2, &tv3)
 	tv6.Mul(&tv6, &tv4)
 
 	//Standards doc line 15
-	tv5.Mul(&tv6, &{{$CoordType}}{{asElement .B}})
+	tv5.Mul(&tv6, &{{$sswuCurveBCoeff}})
 	tv2.Add(&tv2, &tv5)
 
 	var x {{$CoordType}}
