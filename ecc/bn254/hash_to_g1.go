@@ -23,7 +23,7 @@ import (
 
 // mapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
 // No cofactor clearing or isogeny
-// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-14#appendix-F.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
 func mapToCurve1(u *fp.Element) G1Affine {
 	var tv1, tv2, tv3, tv4 fp.Element
 	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element
@@ -36,7 +36,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	//TODO: Move outside function?
+	//@gbotrel: Preferred here or outside the function? Performance impact likely minimal
 	Z := fp.Element{15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287}
 	c1 := fp.Element{1248766071674976557, 10548065924188627562, 16242874202584236114, 560012691975822483}
 	c2 := fp.Element{12997850613838968789, 14304628359724097447, 2950087706404981016, 1237622763554136189}
