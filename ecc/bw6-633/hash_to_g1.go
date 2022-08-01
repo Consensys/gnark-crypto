@@ -111,6 +111,7 @@ func g1Isogeny(p *G1Affine) {
 
 // g1SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 

@@ -73,8 +73,7 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
 
 	gx1.Square(&x1) //    11. gx1 = x1²
-	//TODO: Beware A ≠ 0
-	//12. gx1 = gx1 + A
+	//12. gx1 = gx1 + A     All curves in gnark-crypto have A=0 (j-invariant=0). It is crucial to include this step if the curve has nonzero A coefficient.
 	gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
 	gx1.Add(&gx1, &bTwistCurveCoeff)   //    14. gx1 = gx1 + B
 	gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
@@ -82,7 +81,7 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 
 	x2.Add(&c2, &tv4) //    16.  x2 = c2 + tv4
 	gx2.Square(&x2)   //    17. gx2 = x2²
-	//    18. gx2 = gx2 + A
+	//    18. gx2 = gx2 + A     See line 12
 	gx2.Mul(&gx2, &x2)               //    19. gx2 = gx2 * x2
 	gx2.Add(&gx2, &bTwistCurveCoeff) //    20. gx2 = gx2 + B
 
