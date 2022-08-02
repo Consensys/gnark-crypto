@@ -311,28 +311,29 @@ func g2EvalPolynomial(z *fptower.E2, monic bool, coefficients []fptower.E2, x *f
 
 // g2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
 // The sign of an element is not obviously related to that of its Montgomery form
 func g2Sgn0(z *fptower.E2) uint64 {
 
 	nonMont := *z
 	nonMont.FromMont()
 
-	sign := uint64(0)
-	zero := uint64(1)
+	sign := uint64(0) // 1. sign = 0
+	zero := uint64(1) // 2. zero = 1
 	var signI uint64
 	var zeroI uint64
 
-	signI = nonMont.A0[0] % 2
-	sign = sign | (zero & signI)
-
+	// 3. i = 1
+	signI = nonMont.A0[0] % 2 // 4.   sign_i = x_i mod 2
 	zeroI = g1NotZero(&nonMont.A0)
-	zeroI = 1 ^ (zeroI|-zeroI)>>63
-	zero = zero & zeroI
-
-	signI = nonMont.A1[0] % 2
-	sign = sign | (zero & signI)
-
+	zeroI = 1 ^ (zeroI|-zeroI)>>63 // 5.   zero_i = x_i == 0
+	sign = sign | (zero & signI)   // 6.   sign = sign OR (zero AND sign_i) # Avoid short-circuit logic ops
+	zero = zero & zeroI            // 7.   zero = zero AND zero_i
+	// 3. i = 2
+	signI = nonMont.A1[0] % 2 // 4.   sign_i = x_i mod 2
+	// 5.   zero_i = x_i == 0
+	sign = sign | (zero & signI) // 6.   sign = sign OR (zero AND sign_i) # Avoid short-circuit logic ops
+	// 7.   zero = zero AND zero_i
 	return sign
 
 }
