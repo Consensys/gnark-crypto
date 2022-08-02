@@ -104,32 +104,32 @@ func g1Isogeny(p *G1Affine) {
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
-	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
+	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 fp.Element
-	tv1.Square(v)
+	tv1.Square(v) // 1. tv1 = v^2
 	var tv2 fp.Element
-	tv2.Mul(u, v)
-	tv1.Mul(&tv1, &tv2)
+	tv2.Mul(u, v)       // 2. tv2 = u * v
+	tv1.Mul(&tv1, &tv2) // 3. tv1 = tv1 * tv2
 
 	var y1 fp.Element
 	{
 		var c1 big.Int
 		// c1 = 34098267776073977878774941477068514265486278030354898494302534825976493299308006404506539182762
-		c1.SetBytes([]byte{4, 22, 50, 136, 155, 216, 34, 75, 60, 163, 241, 104, 45, 254, 116, 14, 69, 166, 152, 121, 161, 49, 205, 17, 181, 188, 206, 121, 13, 9, 47, 223, 163, 84, 75, 149, 151, 106, 202, 170})
-		y1.Exp(tv1, &c1)
+		c1.SetBytes([]byte{4, 22, 50, 136, 155, 216, 34, 75, 60, 163, 241, 104, 45, 254, 116, 14, 69, 166, 152, 121, 161, 49, 205, 17, 181, 188, 206, 121, 13, 9, 47, 223, 163, 84, 75, 149, 151, 106, 202, 170}) // c1 = (q - 3) / 4     # Integer arithmetic
+
+		y1.Exp(tv1, &c1) // 4. y1 = tv1^c1
 	}
 
-	y1.Mul(&y1, &tv2)
+	y1.Mul(&y1, &tv2) // 5. y1 = y1 * tv2
 
 	var y2 fp.Element
-	y2.Mul(&y1, &fp.Element{10652859563586318787, 3643689439157831556, 9236201363192486412, 11781990169133948855, 1044489031832785863})
-
-	var tv3 fp.Element
-	tv3.Square(&y1)
-	tv3.Mul(&tv3, v)
-
-	isQNr := tv3.NotEqual(u)
-	z.Select(int(isQNr), &y1, &y2)
+	// c2 = sqrt(-Z)
+	tv3 := fp.Element{10652859563586318787, 3643689439157831556, 9236201363192486412, 11781990169133948855, 1044489031832785863}
+	y2.Mul(&y1, &tv3)              // 6. y2 = y1 * c2
+	tv3.Square(&y1)                // 7. tv3 = y1^2
+	tv3.Mul(&tv3, v)               // 8. tv3 = tv3 * v
+	isQNr := tv3.NotEqual(u)       // 9. isQR = tv3 == u
+	z.Select(int(isQNr), &y1, &y2) // 10. y = CMOV(y2, y1, isQR)
 	return isQNr
 }
 

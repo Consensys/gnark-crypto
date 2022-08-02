@@ -93,7 +93,7 @@ func g1Isogeny(p *G1Affine) {
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
-	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
+	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-sqrt_ratio-for-any-field
 
 	tv1 := fp.Element{3422016347327078217, 15952935974507985473, 10210560017327941857, 6195437588884472512, 1531492004832937820, 17090488542823369} //tv1 = c6
 
@@ -103,52 +103,44 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// q is odd so c1 is at least 1.
 	exp.SetBytes([]byte{1, 255, 255, 255, 255, 255})
 
-	tv2.Exp(*v, &exp)
-	tv3.Mul(&tv2, &tv2)
-	tv3.Mul(&tv3, v)
-
-	// line 5
-	tv5.Mul(u, &tv3)
+	tv2.Exp(*v, &exp) // 2. tv2 = v^c4
+	tv3.Square(&tv2)  // 3. tv3 = tv2^2
+	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
+	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
 
 	// c3 = 137617509170765099891752579783724504691201148437113468788429769127729045045134922651478473733013131816
 	exp.SetBytes([]byte{251, 172, 16, 89, 161, 52, 100, 20, 242, 215, 73, 3, 180, 65, 232, 161, 1, 103, 173, 145, 196, 8, 201, 166, 3, 112, 216, 52, 41, 39, 95, 243, 165, 253, 218, 160, 139, 0, 0, 38, 82, 40})
-	tv5.Exp(tv5, &exp)
-	tv5.Mul(&tv5, &tv2)
-	tv2.Mul(&tv5, v)
-	tv3.Mul(&tv5, u)
 
-	// line 10
-	tv4.Mul(&tv3, &tv2)
+	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5^c3
+	tv5.Mul(&tv5, &tv2) // 7. tv5 = tv5 * tv2
+	tv2.Mul(&tv5, v)    // 8. tv2 = tv5 * v
+	tv3.Mul(&tv5, u)    // 9. tv3 = tv5 * u
+	tv4.Mul(&tv3, &tv2) // 10. tv4 = tv3 * tv2
 
 	// c5 = 1099511627776
 	exp.SetBytes([]byte{1, 0, 0, 0, 0, 0})
-	tv5.Exp(tv4, &exp)
+	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4^c5
+	isQNr := g1NotOne(&tv5) // 12. isQR = tv5 == 1
+	c7 := fp.Element{17614810958234635860, 11393801269165528284, 8781501035240632779, 8106712880529013806, 4971838157288047198, 122121039825317715}
+	tv2.Mul(&tv3, &c7)                 // 13. tv2 = tv3 * c7
+	tv5.Mul(&tv4, &tv1)                // 14. tv5 = tv4 * tv1
+	tv3.Select(int(isQNr), &tv3, &tv2) // 15. tv3 = CMOV(tv2, tv3, isQR)
+	tv4.Select(int(isQNr), &tv4, &tv5) // 16. tv4 = CMOV(tv5, tv4, isQR)
+	exp.Lsh(big.NewInt(1), 41-2)       // 18, 19: tv5 = 2^{i-2} for i = c1
 
-	isQNr := g1NotOne(&tv5)
+	for i := 41; i >= 2; i-- { // 17. for i in (c1, c1 - 1, ..., 2):
 
-	tv2.Mul(&tv3, &fp.Element{17614810958234635860, 11393801269165528284, 8781501035240632779, 8106712880529013806, 4971838157288047198, 122121039825317715})
-	tv5.Mul(&tv4, &tv1)
+		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4^tv5
+		nE1 := g1NotOne(&tv5)            // 21.    e1 = tv5 == 1
+		tv2.Mul(&tv3, &tv1)              // 22.    tv2 = tv3 * tv1
+		tv1.Mul(&tv1, &tv1)              // 23.    tv1 = tv1 * tv1    Why not write square?
+		tv5.Mul(&tv4, &tv1)              // 24.    tv5 = tv4 * tv1
+		tv3.Select(int(nE1), &tv3, &tv2) // 25.    tv3 = CMOV(tv2, tv3, e1)
+		tv4.Select(int(nE1), &tv4, &tv5) // 26.    tv4 = CMOV(tv5, tv4, e1)
 
-	// line 15
-
-	tv3.Select(int(isQNr), &tv3, &tv2)
-	tv4.Select(int(isQNr), &tv4, &tv5)
-
-	exp.Lsh(big.NewInt(1), 41-2)
-
-	for i := 41; i >= 2; i-- {
-		//line 20
-		tv5.Exp(tv4, &exp)
-		nE1 := g1NotOne(&tv5)
-
-		tv2.Mul(&tv3, &tv1)
-		tv1.Mul(&tv1, &tv1)
-		tv5.Mul(&tv4, &tv1)
-
-		tv3.Select(int(nE1), &tv3, &tv2)
-		tv4.Select(int(nE1), &tv4, &tv5)
-
-		exp.Rsh(&exp, 1)
+		if i > 2 {
+			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2^{i-2}
+		}
 	}
 
 	*z = tv3

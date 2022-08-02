@@ -92,32 +92,32 @@ func g1Isogeny(p *G1Affine) {
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
-	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.2. q = 3 mod 4
+	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 fp.Element
-	tv1.Square(v)
+	tv1.Square(v) // 1. tv1 = v^2
 	var tv2 fp.Element
-	tv2.Mul(u, v)
-	tv1.Mul(&tv1, &tv2)
+	tv2.Mul(u, v)       // 2. tv2 = u * v
+	tv1.Mul(&tv1, &tv2) // 3. tv1 = tv1 * tv2
 
 	var y1 fp.Element
 	{
 		var c1 big.Int
 		// c1 = 1722862596078933134849197420568914385619917228134037527378447540052405855560872934021920795822352921910216141938446653362790439780138561939837377924781325399737901274844627212593135907855899198987974925107492278210691228279767074
-		c1.SetBytes([]byte{72, 186, 9, 62, 224, 243, 130, 180, 97, 242, 80, 1, 62, 191, 207, 174, 73, 134, 26, 160, 116, 81, 162, 20, 160, 157, 123, 224, 33, 239, 144, 92, 30, 233, 142, 57, 97, 58, 70, 64, 243, 174, 191, 201, 109, 8, 193, 33, 162, 114, 59, 68, 190, 127, 100, 28, 119, 52, 247, 28, 250, 255, 203, 166, 40, 69, 176, 149, 153, 234, 62, 5, 131, 62, 43, 186, 188, 41, 13, 249, 164, 79, 154, 28, 0, 0, 32, 189, 39, 64, 0, 0, 0, 0, 34})
-		y1.Exp(tv1, &c1)
+		c1.SetBytes([]byte{72, 186, 9, 62, 224, 243, 130, 180, 97, 242, 80, 1, 62, 191, 207, 174, 73, 134, 26, 160, 116, 81, 162, 20, 160, 157, 123, 224, 33, 239, 144, 92, 30, 233, 142, 57, 97, 58, 70, 64, 243, 174, 191, 201, 109, 8, 193, 33, 162, 114, 59, 68, 190, 127, 100, 28, 119, 52, 247, 28, 250, 255, 203, 166, 40, 69, 176, 149, 153, 234, 62, 5, 131, 62, 43, 186, 188, 41, 13, 249, 164, 79, 154, 28, 0, 0, 32, 189, 39, 64, 0, 0, 0, 0, 34}) // c1 = (q - 3) / 4     # Integer arithmetic
+
+		y1.Exp(tv1, &c1) // 4. y1 = tv1^c1
 	}
 
-	y1.Mul(&y1, &tv2)
+	y1.Mul(&y1, &tv2) // 5. y1 = y1 * tv2
 
 	var y2 fp.Element
-	y2.Mul(&y1, &fp.Element{10289215067249928212, 13987875627487618797, 10154775028297877632, 5892581882377791321, 12835424790914788634, 14963278386355512102, 10283221901563449361, 9868336211540881409, 7345304935218488881, 6998778443322886180, 9453359982570584357, 56775348355244645})
-
-	var tv3 fp.Element
-	tv3.Square(&y1)
-	tv3.Mul(&tv3, v)
-
-	isQNr := tv3.NotEqual(u)
-	z.Select(int(isQNr), &y1, &y2)
+	// c2 = sqrt(-Z)
+	tv3 := fp.Element{10289215067249928212, 13987875627487618797, 10154775028297877632, 5892581882377791321, 12835424790914788634, 14963278386355512102, 10283221901563449361, 9868336211540881409, 7345304935218488881, 6998778443322886180, 9453359982570584357, 56775348355244645}
+	y2.Mul(&y1, &tv3)              // 6. y2 = y1 * c2
+	tv3.Square(&y1)                // 7. tv3 = y1^2
+	tv3.Mul(&tv3, v)               // 8. tv3 = tv3 * v
+	isQNr := tv3.NotEqual(u)       // 9. isQR = tv3 == u
+	z.Select(int(isQNr), &y1, &y2) // 10. y = CMOV(y2, y1, isQR)
 	return isQNr
 }
 

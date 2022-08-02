@@ -164,7 +164,7 @@ func g2Isogeny(p *G2Affine) {
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
-	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
+	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-sqrt_ratio-for-any-field
 
 	tv1 := fp.Element{17302715199413996045, 15077845457253267709, 8842885729139027579, 12189878420705505575, 12380986790262239346, 585111498723936856, 4947215576903759546, 1186632482028566920, 14543050817583235372, 5644943604719368358, 9440830989708189862, 1039766423535362} //tv1 = c6
 
@@ -174,52 +174,44 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// q is odd so c1 is at least 1.
 	exp.SetBytes([]byte{3, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
 
-	tv2.Exp(*v, &exp)
-	tv3.Mul(&tv2, &tv2)
-	tv3.Mul(&tv3, v)
-
-	// line 5
-	tv5.Mul(u, &tv3)
+	tv2.Exp(*v, &exp) // 2. tv2 = v^c4
+	tv3.Square(&tv2)  // 3. tv3 = tv2^2
+	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
+	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
 
 	// c3 = 37877157660731232732990269576663233239936484746509109593426423261538632780449313352717366389444912082695314931794809746268936574949192324351273838279701014606648452884726586254167471840902479876056412368
 	exp.SetBytes([]byte{1, 238, 213, 183, 107, 119, 49, 92, 85, 130, 79, 195, 198, 173, 25, 235, 146, 241, 154, 95, 88, 89, 209, 63, 126, 70, 68, 40, 170, 44, 116, 217, 152, 213, 206, 120, 133, 72, 219, 61, 96, 89, 2, 93, 64, 159, 85, 65, 79, 214, 57, 103, 160, 220, 200, 220, 82, 89, 162, 189, 182, 200, 212, 168, 96, 85, 71, 132, 177, 188, 251, 218, 22, 208, 189, 13, 10, 73, 216, 6, 120, 252, 199, 240, 208})
-	tv5.Exp(tv5, &exp)
-	tv5.Mul(&tv5, &tv2)
-	tv2.Mul(&tv5, v)
-	tv3.Mul(&tv5, u)
 
-	// line 10
-	tv4.Mul(&tv3, &tv2)
+	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5^c3
+	tv5.Mul(&tv5, &tv2) // 7. tv5 = tv5 * tv2
+	tv2.Mul(&tv5, v)    // 8. tv2 = tv5 * v
+	tv3.Mul(&tv5, u)    // 9. tv3 = tv5 * u
+	tv4.Mul(&tv3, &tv2) // 10. tv4 = tv3 * tv2
 
 	// c5 = 2417851639229258349412352
 	exp.SetBytes([]byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-	tv5.Exp(tv4, &exp)
+	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4^c5
+	isQNr := g2NotOne(&tv5) // 12. isQR = tv5 == 1
+	c7 := fp.Element{13990906742184113945, 15879050380504523621, 13768460034940508157, 12337541071329853620, 6296858130192020747, 9289986178217863086, 18403114759403589657, 4546259071787184045, 5504643400205978814, 13830311104669138548, 96107744534255859, 1024735223965534}
+	tv2.Mul(&tv3, &c7)                 // 13. tv2 = tv3 * c7
+	tv5.Mul(&tv4, &tv1)                // 14. tv5 = tv4 * tv1
+	tv3.Select(int(isQNr), &tv3, &tv2) // 15. tv3 = CMOV(tv2, tv3, isQR)
+	tv4.Select(int(isQNr), &tv4, &tv5) // 16. tv4 = CMOV(tv5, tv4, isQR)
+	exp.Lsh(big.NewInt(1), 82-2)       // 18, 19: tv5 = 2^{i-2} for i = c1
 
-	isQNr := g2NotOne(&tv5)
+	for i := 82; i >= 2; i-- { // 17. for i in (c1, c1 - 1, ..., 2):
 
-	tv2.Mul(&tv3, &fp.Element{13990906742184113945, 15879050380504523621, 13768460034940508157, 12337541071329853620, 6296858130192020747, 9289986178217863086, 18403114759403589657, 4546259071787184045, 5504643400205978814, 13830311104669138548, 96107744534255859, 1024735223965534})
-	tv5.Mul(&tv4, &tv1)
+		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4^tv5
+		nE1 := g2NotOne(&tv5)            // 21.    e1 = tv5 == 1
+		tv2.Mul(&tv3, &tv1)              // 22.    tv2 = tv3 * tv1
+		tv1.Mul(&tv1, &tv1)              // 23.    tv1 = tv1 * tv1    Why not write square?
+		tv5.Mul(&tv4, &tv1)              // 24.    tv5 = tv4 * tv1
+		tv3.Select(int(nE1), &tv3, &tv2) // 25.    tv3 = CMOV(tv2, tv3, e1)
+		tv4.Select(int(nE1), &tv4, &tv5) // 26.    tv4 = CMOV(tv5, tv4, e1)
 
-	// line 15
-
-	tv3.Select(int(isQNr), &tv3, &tv2)
-	tv4.Select(int(isQNr), &tv4, &tv5)
-
-	exp.Lsh(big.NewInt(1), 82-2)
-
-	for i := 82; i >= 2; i-- {
-		//line 20
-		tv5.Exp(tv4, &exp)
-		nE1 := g2NotOne(&tv5)
-
-		tv2.Mul(&tv3, &tv1)
-		tv1.Mul(&tv1, &tv1)
-		tv5.Mul(&tv4, &tv1)
-
-		tv3.Select(int(nE1), &tv3, &tv2)
-		tv4.Select(int(nE1), &tv4, &tv5)
-
-		exp.Rsh(&exp, 1)
+		if i > 2 {
+			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2^{i-2}
+		}
 	}
 
 	*z = tv3
