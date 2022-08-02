@@ -11,8 +11,8 @@
 {{$IsG1 := eq $CurveTitle "G1"}}
 {{$CurveIndex := select $IsG1 "2" "1"}}
 {{$package := select (eq $TowerDegree 1) "fptower" "fp"}}
-{{$sswuCurveACoeff := select $isogenyNeeded "***" (print "sswu" $CurveTitle "IsoCurveCoeffA")}}
-{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" (print "sswu" $CurveTitle "IsoCurveCoeffB")}}
+{{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
+{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
 
 //Note: This only works for simple extensions
 
@@ -303,32 +303,31 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ end }}}
 
-{{if $isogenyNeeded}}
-    var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}
-    var {{$sswuCurveBCoeff}} = {{$CoordType}} {{asElement .B}}
-{{end}}
-
-// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 // mapToCurve{{$CurveIndex}} implements the SSWU map
 // No cofactor clearing or isogeny
 func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
+    {{if $isogenyNeeded}}
+        var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}
+        var {{$sswuCurveBCoeff}} = {{$CoordType}} {{asElement .B}}
+    {{end}}
+
 	var tv1 {{$CoordType}}
-	tv1.Square(u)
+	tv1.Square(u)   // 1.  tv1 = u^2
 
 	//mul tv1 by Z
-    {{$CurveName}}MulByZ(&tv1, &tv1)
+    {{$CurveName}}MulByZ(&tv1, &tv1)    // 2.  tv1 = Z * tv1
 
 	var tv2 {{$CoordType}}
-	tv2.Square(&tv1)
-	tv2.Add(&tv2, &tv1)
+	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 {{$CoordType}}
-	//Standard doc line 5
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &{{$sswuCurveBCoeff}})
+	tv3.Add(&tv2, &tv4) // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &{{$sswuCurveBCoeff}})    // 6.  tv3 = B * tv3
 
     tv2NZero := {{$CurveName}}NotZero(&tv2)
 
@@ -336,46 +335,45 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	tv4 = {{$CoordType}}{{ asElement  .Z }}
 
     tv2.Neg(&tv2)
-    tv4.Select(int(tv2NZero), &tv4, &tv2)
-    tv4.Mul(&tv4, &{{$sswuCurveACoeff}})
+    tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+    tv4.Mul(&tv4, &{{$sswuCurveACoeff}})    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3)
+    tv2.Square(&tv3)    // 9.  tv2 = tv3^2
 
 	var tv6 {{$CoordType}}
-	//Standard doc line 10
-	tv6.Square(&tv4)
+	tv6.Square(&tv4)    // 10. tv6 = tv4^2
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})
+	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})    // 11. tv5 = A * tv6
 
-	tv2.Add(&tv2, &tv5)
-	tv2.Mul(&tv2, &tv3)
-	tv6.Mul(&tv6, &tv4)
+	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
+	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
+	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	//Standards doc line 15
-	tv5.Mul(&tv6, &{{$sswuCurveBCoeff}})
-	tv2.Add(&tv2, &tv5)
+	tv5.Mul(&tv6, &{{$sswuCurveBCoeff}})    // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5) // 16. tv2 = tv2 + tv5
 
 	var x {{$CoordType}}
-	x.Mul(&tv1, &tv3)
+	x.Mul(&tv1, &tv3)   // 17.   x = tv1 * tv3
 
 	var y1 {{$CoordType}}
-	gx1NSquare := {{$CurveName}}SqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := {{$CurveName}}SqrtRatio(&y1, &tv2, &tv6)  // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
 
 	var y {{$CoordType}}
-	y.Mul(&tv1, u)
+	y.Mul(&tv1, u)  // 19.   y = tv1 * u
 
-	//Standards doc line 20
-	y.Mul(&y, &y1)
+	y.Mul(&y, &y1)  // 20.   y = y * y1
 
-    x.Select(int(gx1NSquare), &tv3, &x)
-    y.Select(int(gx1NSquare), &y1, &y)
+    x.Select(int(gx1NSquare), &tv3, &x) // 21.   x = CMOV(x, tv3, is_gx1_square)
+    y.Select(int(gx1NSquare), &y1, &y)  // 22.   y = CMOV(y, y1, is_gx1_square)
 
     y1.Neg(&y)
     y.Select(int({{$CurveName}}Sgn0(u)^{{$CurveName}}Sgn0(&y)), &y, &y1)
 
-	//Standards doc line 25
-	x.Div(&x, &tv4)
+    // 23.  e1 = sgn0(u) == sgn0(y)
+    // 24.   y = CMOV(-y, y, e1)
+
+    x.Div(&x, &tv4) // 25.   x = x / tv4
 
 	return {{$AffineType}}{x, y}
 }

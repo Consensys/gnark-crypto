@@ -247,30 +247,29 @@ func g2MulByZ(z *fp.Element, x *fp.Element) {
 	*z = res
 }
 
-var sswuG2IsoCurveCoeffA = fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385}
-var sswuG2IsoCurveCoeffB = fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206}
-
-// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 // mapToCurve2 implements the SSWU map
 // No cofactor clearing or isogeny
 func mapToCurve2(u *fp.Element) G2Affine {
 
+	var sswuIsoCurveCoeffA = fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385}
+	var sswuIsoCurveCoeffB = fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206}
+
 	var tv1 fp.Element
-	tv1.Square(u)
+	tv1.Square(u) // 1.  tv1 = u^2
 
 	//mul tv1 by Z
-	g2MulByZ(&tv1, &tv1)
+	g2MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fp.Element
-	tv2.Square(&tv1)
-	tv2.Add(&tv2, &tv1)
+	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fp.Element
-	//Standard doc line 5
 	var tv4 fp.Element
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)
-	tv3.Mul(&tv3, &sswuG2IsoCurveCoeffB)
+	tv3.Add(&tv2, &tv4)                // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &sswuIsoCurveCoeffB) // 6.  tv3 = B * tv3
 
 	tv2NZero := g2NotZero(&tv2)
 
@@ -278,46 +277,45 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	tv4 = fp.Element{18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222}
 
 	tv2.Neg(&tv2)
-	tv4.Select(int(tv2NZero), &tv4, &tv2)
-	tv4.Mul(&tv4, &sswuG2IsoCurveCoeffA)
+	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3)
+	tv2.Square(&tv3) // 9.  tv2 = tv3^2
 
 	var tv6 fp.Element
-	//Standard doc line 10
-	tv6.Square(&tv4)
+	tv6.Square(&tv4) // 10. tv6 = tv4^2
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &sswuG2IsoCurveCoeffA)
+	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
 
-	tv2.Add(&tv2, &tv5)
-	tv2.Mul(&tv2, &tv3)
-	tv6.Mul(&tv6, &tv4)
+	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
+	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
+	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	//Standards doc line 15
-	tv5.Mul(&tv6, &sswuG2IsoCurveCoeffB)
-	tv2.Add(&tv2, &tv5)
+	tv5.Mul(&tv6, &sswuIsoCurveCoeffB) // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5)                // 16. tv2 = tv2 + tv5
 
 	var x fp.Element
-	x.Mul(&tv1, &tv3)
+	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3
 
 	var y1 fp.Element
-	gx1NSquare := g2SqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := g2SqrtRatio(&y1, &tv2, &tv6) // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
 
 	var y fp.Element
-	y.Mul(&tv1, u)
+	y.Mul(&tv1, u) // 19.   y = tv1 * u
 
-	//Standards doc line 20
-	y.Mul(&y, &y1)
+	y.Mul(&y, &y1) // 20.   y = y * y1
 
-	x.Select(int(gx1NSquare), &tv3, &x)
-	y.Select(int(gx1NSquare), &y1, &y)
+	x.Select(int(gx1NSquare), &tv3, &x) // 21.   x = CMOV(x, tv3, is_gx1_square)
+	y.Select(int(gx1NSquare), &y1, &y)  // 22.   y = CMOV(y, y1, is_gx1_square)
 
 	y1.Neg(&y)
 	y.Select(int(g2Sgn0(u)^g2Sgn0(&y)), &y, &y1)
 
-	//Standards doc line 25
-	x.Div(&x, &tv4)
+	// 23.  e1 = sgn0(u) == sgn0(y)
+	// 24.   y = CMOV(-y, y, e1)
+
+	x.Div(&x, &tv4) // 25.   x = x / tv4
 
 	return G2Affine{x, y}
 }
