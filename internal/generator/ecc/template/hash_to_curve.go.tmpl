@@ -101,7 +101,7 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 // EncodeTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
 // It is faster than HashTo{{$CurveTitle}}, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
@@ -131,7 +131,7 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 // HashTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
 // Slower than EncodeTo{{$CurveTitle}}, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := hashToFp(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {
@@ -151,7 +151,7 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	{{end}}
 
 {{ if $isogenyNeeded }}
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
     {{$CurveName}}Isogeny(&Q0)
     {{$CurveName}}Isogeny(&Q1)
 {{ end }}
