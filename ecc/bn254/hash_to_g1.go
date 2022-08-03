@@ -36,7 +36,6 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	//@gbotrel: Preferred here or outside the function? Performance impact likely minimal
 	Z := fp.Element{15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287}
 	c1 := fp.Element{1248766071674976557, 10548065924188627562, 16242874202584236114, 560012691975822483}
 	c2 := fp.Element{12997850613838968789, 14304628359724097447, 2950087706404981016, 1237622763554136189}

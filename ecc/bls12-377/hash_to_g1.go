@@ -99,11 +99,11 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
 	var tv2, tv3, tv4, tv5 fp.Element
 	var exp big.Int
-	// c4 = 70368744177663 = 2^46 - 1
+	// c4 = 70368744177663 = 2⁴⁶ - 1
 	// q is odd so c1 is at least 1.
 	exp.SetBytes([]byte{63, 255, 255, 255, 255, 255})
 
-	tv2.Exp(*v, &exp) // 2. tv2 = v^c4
+	tv2.Exp(*v, &exp) // 2. tv2 = vᶜ⁴
 	tv3.Square(&tv2)  // 3. tv3 = tv2²
 	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
 	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
@@ -111,7 +111,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// c3 = 1837921289030710838195067919506396475074392872918698035817074744121558668640693829665401097909504529
 	exp.SetBytes([]byte{3, 92, 116, 140, 47, 138, 33, 213, 140, 118, 11, 128, 217, 66, 146, 118, 52, 69, 179, 230, 1, 234, 39, 30, 61, 230, 196, 95, 116, 18, 144, 0, 46, 22, 186, 136, 96, 0, 0, 1, 10, 17})
 
-	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5^c3
+	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5ᶜ³
 	tv5.Mul(&tv5, &tv2) // 7. tv5 = tv5 * tv2
 	tv2.Mul(&tv5, v)    // 8. tv2 = tv5 * v
 	tv3.Mul(&tv5, u)    // 9. tv3 = tv5 * u
@@ -119,18 +119,18 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
 	// c5 = 35184372088832
 	exp.SetBytes([]byte{32, 0, 0, 0, 0, 0})
-	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4^c5
+	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4ᶜ⁵
 	isQNr := g1NotOne(&tv5) // 12. isQR = tv5 == 1
 	c7 := fp.Element{13262060633605929793, 16269117706405780335, 1787999441809606207, 11078968899094441280, 17534011895423012165, 96686002316065324}
 	tv2.Mul(&tv3, &c7)                 // 13. tv2 = tv3 * c7
 	tv5.Mul(&tv4, &tv1)                // 14. tv5 = tv4 * tv1
 	tv3.Select(int(isQNr), &tv3, &tv2) // 15. tv3 = CMOV(tv2, tv3, isQR)
 	tv4.Select(int(isQNr), &tv4, &tv5) // 16. tv4 = CMOV(tv5, tv4, isQR)
-	exp.Lsh(big.NewInt(1), 46-2)       // 18, 19: tv5 = 2^{i-2} for i = c1
+	exp.Lsh(big.NewInt(1), 46-2)       // 18, 19: tv5 = 2ⁱ⁻² for i = c1
 
 	for i := 46; i >= 2; i-- { // 17. for i in (c1, c1 - 1, ..., 2):
 
-		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4^tv5
+		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4ᵗᵛ⁵
 		nE1 := g1NotOne(&tv5)            // 21.    e1 = tv5 == 1
 		tv2.Mul(&tv3, &tv1)              // 22.    tv2 = tv3 * tv1
 		tv1.Mul(&tv1, &tv1)              // 23.    tv1 = tv1 * tv1    Why not write square?
@@ -139,7 +139,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 		tv4.Select(int(nE1), &tv4, &tv5) // 26.    tv4 = CMOV(tv5, tv4, e1)
 
 		if i > 2 {
-			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2^{i-2}
+			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2ⁱ⁻²
 		}
 	}
 

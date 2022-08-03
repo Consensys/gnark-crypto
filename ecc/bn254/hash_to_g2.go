@@ -36,7 +36,6 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	//@gbotrel: Preferred here or outside the function? Performance impact likely minimal
 	Z := fptower.E2{
 		A0: fp.Element{15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287},
 		A1: fp.Element{0},
