@@ -94,7 +94,7 @@ func g1Isogeny(p *G1Affine) {
 func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 fp.Element
-	tv1.Square(v) // 1. tv1 = v^2
+	tv1.Square(v) // 1. tv1 = v²
 	var tv2 fp.Element
 	tv2.Mul(u, v)       // 2. tv2 = u * v
 	tv1.Mul(&tv1, &tv2) // 3. tv1 = tv1 * tv2
@@ -114,7 +114,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// c2 = sqrt(-Z)
 	tv3 := fp.Element{10289215067249928212, 13987875627487618797, 10154775028297877632, 5892581882377791321, 12835424790914788634, 14963278386355512102, 10283221901563449361, 9868336211540881409, 7345304935218488881, 6998778443322886180, 9453359982570584357, 56775348355244645}
 	y2.Mul(&y1, &tv3)              // 6. y2 = y1 * c2
-	tv3.Square(&y1)                // 7. tv3 = y1^2
+	tv3.Square(&y1)                // 7. tv3 = y1²
 	tv3.Mul(&tv3, v)               // 8. tv3 = tv3 * v
 	isQNr := tv3.NotEqual(u)       // 9. isQR = tv3 == u
 	z.Select(int(isQNr), &y1, &y2) // 10. y = CMOV(y2, y1, isQR)
@@ -140,13 +140,13 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var sswuIsoCurveCoeffB = fp.Element{9514135687797572479, 9972495974968977338, 17954535578332286571, 7437044986470910914, 13903267017721129281, 1871129682978723308, 13401268269932482209, 739043012311877982, 12116264695643437343, 1632209977726909861, 3621981106970059143, 65605772132525947}
 
 	var tv1 fp.Element
-	tv1.Square(u) // 1.  tv1 = u^2
+	tv1.Square(u) // 1.  tv1 = u²
 
 	//mul tv1 by Z
 	g1MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fp.Element
-	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
 	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fp.Element
@@ -164,10 +164,10 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
 	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3) // 9.  tv2 = tv3^2
+	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
 	var tv6 fp.Element
-	tv6.Square(&tv4) // 10. tv6 = tv4^2
+	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
 	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
@@ -265,7 +265,7 @@ func MapToG1(u fp.Element) G1Affine {
 // EncodeToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
@@ -285,7 +285,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 // HashToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // Slower than EncodeToG1, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
@@ -295,7 +295,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 	Q0 := mapToCurve1(&u[0])
 	Q1 := mapToCurve1(&u[1])
 
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
 	g1Isogeny(&Q0)
 	g1Isogeny(&Q1)
 

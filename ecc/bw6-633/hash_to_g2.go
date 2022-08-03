@@ -95,9 +95,9 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q-5 (mod 8)
 
 	var tv1, tv2 fp.Element
-	tv1.Square(v)       // 1. tv1 = v^2
+	tv1.Square(v)       // 1. tv1 = v²
 	tv2.Mul(&tv1, v)    // 2. tv2 = tv1 * v
-	tv1.Square(&tv1)    // 3. tv1 = tv1^2
+	tv1.Square(&tv1)    // 3. tv1 = tv1²
 	tv2.Mul(&tv2, u)    // 4. tv2 = tv2 * u
 	tv1.Mul(&tv1, &tv2) // 5. tv1 = tv1 * tv2
 
@@ -110,11 +110,11 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// c2 = sqrt(-1)
 	c2 := fp.Element{7899625277197386435, 5217716493391639390, 7472932469883704682, 7632350077606897049, 9296070723299766388, 14353472371414671016, 14644604696869838127, 11421353192299464576, 237964513547175570, 46667570639865841}
 	tv1.Mul(&y1, &c2) // 8. tv1 = y1 * c2
-	tv2.Square(&tv1)  // 9. tv2 = tv1^2
+	tv2.Square(&tv1)  // 9. tv2 = tv1²
 	tv2.Mul(&tv2, v)  // 10. tv2 = tv2 * v
 	// 11. e1 = tv2 == u
 	y1.Select(int(tv2.NotEqual(u)), &tv1, &y1) // 12. y1 = CMOV(y1, tv1, e1)
-	tv2.Square(&y1)                            // 13. tv2 = y1^2
+	tv2.Square(&y1)                            // 13. tv2 = y1²
 	tv2.Mul(&tv2, v)                           // 14. tv2 = tv2 * v
 	isQNr := tv2.NotEqual(u)                   // 15. isQR = tv2 == u
 	var y2 fp.Element
@@ -122,7 +122,7 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	y2 = fp.Element{16212120288951005687, 11690167560162600414, 9845362566212292170, 5006379754746321817, 3559960229467473872, 1378556217976105943, 4841104984578141598, 15436992508257808297, 6778583767067406308, 4544728946065242}
 	y2.Mul(&y1, &y2)  // 16. y2 = y1 * c3
 	tv1.Mul(&y2, &c2) // 17. tv1 = y2 * c2
-	tv2.Square(&tv1)  // 18. tv2 = tv1^2
+	tv2.Square(&tv1)  // 18. tv2 = tv1²
 	tv2.Mul(&tv2, v)  // 19. tv2 = tv2 * v
 	var tv3 fp.Element
 	// Z = [2]
@@ -152,13 +152,13 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	var sswuIsoCurveCoeffB = fp.Element{4170590011558214244, 9101648159034903675, 4256739633972552875, 7483080556638609334, 12430228215152656439, 9977400640742476476, 15847011074743951739, 17768582661138350292, 10869631430819016060, 64187107279947172}
 
 	var tv1 fp.Element
-	tv1.Square(u) // 1.  tv1 = u^2
+	tv1.Square(u) // 1.  tv1 = u²
 
 	//mul tv1 by Z
 	g2MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fp.Element
-	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
 	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fp.Element
@@ -176,10 +176,10 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
 	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3) // 9.  tv2 = tv3^2
+	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
 	var tv6 fp.Element
-	tv6.Square(&tv4) // 10. tv6 = tv4^2
+	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
 	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
@@ -256,7 +256,7 @@ func MapToG2(u fp.Element) G2Affine {
 // EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -276,7 +276,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // Slower than EncodeToG2, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
@@ -286,7 +286,7 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	Q0 := mapToCurve2(&u[0])
 	Q1 := mapToCurve2(&u[1])
 
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
 	g2Isogeny(&Q0)
 	g2Isogeny(&Q1)
 

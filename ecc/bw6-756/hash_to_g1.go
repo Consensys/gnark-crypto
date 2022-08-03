@@ -104,7 +104,7 @@ func g1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	exp.SetBytes([]byte{3, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
 
 	tv2.Exp(*v, &exp) // 2. tv2 = v^c4
-	tv3.Square(&tv2)  // 3. tv3 = tv2^2
+	tv3.Square(&tv2)  // 3. tv3 = tv2²
 	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
 	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
 
@@ -177,13 +177,13 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	var sswuIsoCurveCoeffB = fp.Element{18446744073709458379, 881299893533802495, 4886355625346099349, 6225448195760991771, 6629400315996169345, 12607886696045185322, 7201730065066775519, 1932403901886200506, 8616600553259348813, 6369175937589644082, 7499857803942196586, 3773119276850162}
 
 	var tv1 fp.Element
-	tv1.Square(u) // 1.  tv1 = u^2
+	tv1.Square(u) // 1.  tv1 = u²
 
 	//mul tv1 by Z
 	g1MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fp.Element
-	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
 	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fp.Element
@@ -201,10 +201,10 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
 	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3) // 9.  tv2 = tv3^2
+	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
 	var tv6 fp.Element
-	tv6.Square(&tv4) // 10. tv6 = tv4^2
+	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
 	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
@@ -302,7 +302,7 @@ func MapToG1(u fp.Element) G1Affine {
 // EncodeToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
@@ -322,7 +322,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 // HashToG1 hashes a message to a point on the G1 curve using the SSWU map.
 // Slower than EncodeToG1, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
@@ -332,7 +332,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 	Q0 := mapToCurve1(&u[0])
 	Q1 := mapToCurve1(&u[1])
 
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
 	g1Isogeny(&Q0)
 	g1Isogeny(&Q1)
 

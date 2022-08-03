@@ -102,7 +102,7 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 4) 3 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 {{$CoordType}}
-	tv1.Square(v)   // 1. tv1 = v^2
+	tv1.Square(v)   // 1. tv1 = v²
 	var tv2 {{$CoordType}}
 	tv2.Mul(u, v)   // 2. tv2 = u * v
 	tv1.Mul(&tv1, &tv2) // 3. tv1 = tv1 * tv2
@@ -122,7 +122,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     // c2 = sqrt(-Z)
 	tv3 := {{$CoordType}} {{ asElement (index .PrecomputedParams 1)}}
 	y2.Mul(&y1, &tv3)   // 6. y2 = y1 * c2
-	tv3.Square(&y1) // 7. tv3 = y1^2
+	tv3.Square(&y1) // 7. tv3 = y1²
 	tv3.Mul(&tv3, v)    // 8. tv3 = tv3 * v
     isQNr := tv3.NotEqual(u)    // 9. isQR = tv3 == u
     z.Select(int(isQNr), &y1, &y2)  // 10. y = CMOV(y2, y1, isQR)
@@ -134,9 +134,9 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 {{ if eq (mod .FieldSizeMod256 8) 5 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q-5 (mod 8)
 
     var tv1, tv2 {{$CoordType}}
-    tv1.Square(v)   // 1. tv1 = v^2
+    tv1.Square(v)   // 1. tv1 = v²
     tv2.Mul(&tv1, v)    // 2. tv2 = tv1 * v
-    tv1.Square(&tv1)    // 3. tv1 = tv1^2
+    tv1.Square(&tv1)    // 3. tv1 = tv1²
     tv2.Mul(&tv2, u)    // 4. tv2 = tv2 * u
     tv1.Mul(&tv1, &tv2) // 5. tv1 = tv1 * tv2
 
@@ -149,11 +149,11 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     // c2 = sqrt(-1)
 	c2 := {{$CoordType}} {{asElement (index .PrecomputedParams 1)}}
 	tv1.Mul(&y1, &c2)  // 8. tv1 = y1 * c2
-    tv2.Square(&tv1)    // 9. tv2 = tv1^2
+    tv2.Square(&tv1)    // 9. tv2 = tv1²
     tv2.Mul(&tv2, v)    // 10. tv2 = tv2 * v
     // 11. e1 = tv2 == u
 	y1.Select(int(tv2.NotEqual(u)), &tv1, &y1)  // 12. y1 = CMOV(y1, tv1, e1)
-    tv2.Square(&y1) // 13. tv2 = y1^2
+    tv2.Square(&y1) // 13. tv2 = y1²
     tv2.Mul(&tv2, v)    // 14. tv2 = tv2 * v
     isQNr := tv2.NotEqual(u)    // 15. isQR = tv2 == u
     var y2 {{$CoordType}}
@@ -161,7 +161,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
 	y2 = {{$CoordType}} {{asElement (index .PrecomputedParams 2)}}
 	y2.Mul(&y1, &y2)    // 16. y2 = y1 * c3
     tv1.Mul(&y2, &c2)   // 17. tv1 = y2 * c2
-    tv2.Square(&tv1)    // 18. tv2 = tv1^2
+    tv2.Square(&tv1)    // 18. tv2 = tv1²
     tv2.Mul(&tv2, v)    // 19. tv2 = tv2 * v
     var tv3 {{$CoordType}}
     // Z = [{{printList .Z}}]
@@ -197,7 +197,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    exp.SetBytes([]byte { {{ $c4IntBytes }} })
 
    tv2.Exp(*v, &exp)    // 2. tv2 = v^c4
-   tv3.Square(&tv2)  // 3. tv3 = tv2^2
+   tv3.Square(&tv2)  // 3. tv3 = tv2²
    tv3.Mul(&tv3, v) // 4. tv3 = tv3 * v
    tv5.Mul(u, &tv3) // 5. tv5 = u * tv3
 
@@ -302,13 +302,13 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     {{end}}
 
 	var tv1 {{$CoordType}}
-	tv1.Square(u)   // 1.  tv1 = u^2
+	tv1.Square(u)   // 1.  tv1 = u²
 
 	//mul tv1 by Z
     {{$CurveName}}MulByZ(&tv1, &tv1)    // 2.  tv1 = Z * tv1
 
 	var tv2 {{$CoordType}}
-	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
 	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 {{$CoordType}}
@@ -326,10 +326,10 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
     tv4.Mul(&tv4, &{{$sswuCurveACoeff}})    // 8.  tv4 = A * tv4
 
-    tv2.Square(&tv3)    // 9.  tv2 = tv3^2
+    tv2.Square(&tv3)    // 9.  tv2 = tv3²
 
 	var tv6 {{$CoordType}}
-	tv6.Square(&tv4)    // 10. tv6 = tv4^2
+	tv6.Square(&tv4)    // 10. tv6 = tv4²
 
 	var tv5 {{$CoordType}}
 	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})    // 11. tv5 = A * tv6

@@ -148,7 +148,7 @@ func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 	exp.SetBytes([]byte{7})
 
 	tv2.Exp(*v, &exp) // 2. tv2 = v^c4
-	tv3.Square(&tv2)  // 3. tv3 = tv2^2
+	tv3.Square(&tv2)  // 3. tv3 = tv2²
 	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
 	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
 
@@ -227,13 +227,13 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	}
 
 	var tv1 fptower.E2
-	tv1.Square(u) // 1.  tv1 = u^2
+	tv1.Square(u) // 1.  tv1 = u²
 
 	//mul tv1 by Z
 	g2MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fptower.E2
-	tv2.Square(&tv1)    // 3.  tv2 = tv1^2
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
 	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fptower.E2
@@ -254,10 +254,10 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
 	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3) // 9.  tv2 = tv3^2
+	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
 	var tv6 fptower.E2
-	tv6.Square(&tv4) // 10. tv6 = tv4^2
+	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fptower.E2
 	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
@@ -350,7 +350,7 @@ func MapToG2(u fptower.E2) G2Affine {
 // EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -373,7 +373,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // Slower than EncodeToG2, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := hashToFp(msg, dst, 2*2)
 	if err != nil {
@@ -389,7 +389,7 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 		A1: u[2+1],
 	})
 
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
 	g2Isogeny(&Q0)
 	g2Isogeny(&Q1)
 
