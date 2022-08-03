@@ -23,7 +23,7 @@ import (
 
 // mapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
 // No cofactor clearing or isogeny
-// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-14#appendix-F.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
 func mapToCurve1(u *fp.Element) G1Affine {
 	var tv1, tv2, tv3, tv4 fp.Element
 	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element
@@ -36,7 +36,6 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	//TODO: Move outside function?
 	Z := fp.Element{15230403791020821917, 754611498739239741, 7381016538464732716, 1011752739694698287}
 	c1 := fp.Element{1248766071674976557, 10548065924188627562, 16242874202584236114, 560012691975822483}
 	c2 := fp.Element{12997850613838968789, 14304628359724097447, 2950087706404981016, 1237622763554136189}
@@ -58,8 +57,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
 
 	gx1.Square(&x1) //    11. gx1 = x1²
-	//TODO: Beware A ≠ 0
-	//12. gx1 = gx1 + A
+	//12. gx1 = gx1 + A     All curves in gnark-crypto have A=0 (j-invariant=0). It is crucial to include this step if the curve has nonzero A coefficient.
 	gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
 	gx1.Add(&gx1, &bCurveCoeff)        //    14. gx1 = gx1 + B
 	gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
@@ -67,7 +65,7 @@ func mapToCurve1(u *fp.Element) G1Affine {
 
 	x2.Add(&c2, &tv4) //    16.  x2 = c2 + tv4
 	gx2.Square(&x2)   //    17. gx2 = x2²
-	//    18. gx2 = gx2 + A
+	//    18. gx2 = gx2 + A     See line 12
 	gx2.Mul(&gx2, &x2)          //    19. gx2 = gx2 * x2
 	gx2.Add(&gx2, &bCurveCoeff) //    20. gx2 = gx2 + B
 
@@ -123,13 +121,13 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 
 // g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
 // The sign of an element is not obviously related to that of its Montgomery form
 func g1Sgn0(z *fp.Element) uint64 {
 
 	nonMont := *z
 	nonMont.FromMont()
-
+	// m == 1
 	return nonMont[0] % 2
 
 }
@@ -143,7 +141,7 @@ func MapToG1(u fp.Element) G1Affine {
 // EncodeToG1 hashes a message to a point on the G1 curve using the SVDW map.
 // It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
@@ -160,7 +158,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 // HashToG1 hashes a message to a point on the G1 curve using the SVDW map.
 // Slower than EncodeToG1, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {

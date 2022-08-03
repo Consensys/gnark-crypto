@@ -91,8 +91,22 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 		genScalar,
 	))
 
+	// cRange is generated from template and contains the available parameters for the multiexp window size
+	{{- if eq $.PointName "g1" }}
+	cRange := []uint64{
+		{{- range $c :=  $.CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
+	}
+	if testing.Short() {
+		// test only "odd" and "even" (ie windows size divide word size vs not)
+		cRange = []uint64{5, 16}
+	}
+	{{- else }}
+	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.
+	// test only "odd" and "even" (ie windows size divide word size vs not)
+	cRange := []uint64{5, 16}
+	{{- end}}
 
-	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (c=5, c=16) should be consistent with sum of square", prop.ForAll(
+	properties.Property(fmt.Sprintf("[{{ toUpper $.PointName }}] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 	
 			var expected {{ $.TJacobian }}
@@ -111,14 +125,22 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 					FromMont()
 			}
 
-			scalars5, _ := partitionScalars(sampleScalars[:], 5, false, runtime.NumCPU())
-			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-
 			
-			var r5, r16 {{ $.TJacobian }}
-			r5.msmC5(samplePoints[:], scalars5,  false)
-			r16.msmC16(samplePoints[:], scalars16,  true)
-			return (r5.Equal(&expected) && r16.Equal(&expected))
+			results := make([]{{ $.TJacobian }}, len(cRange) + 1)
+			for i, c := range cRange {
+				scalars, _ :=  partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
+				msmInner{{ $.TJacobian }}(&results[i], int(c), samplePoints[:], scalars, false)
+				if c == 16 {
+					// split the first chunk
+					msmInner{{ $.TJacobian }}(&results[len(results)-1], 16, samplePoints[:], scalars, true)
+				}
+			}
+			for i:=1; i < len(results);i++ {
+				if !results[i].Equal(&results[i-1]) {
+					return false
+				}
+			}
+			return true 
 		},
 		genScalar,
 	))
@@ -150,7 +172,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			var finalBigScalar fr.Element
 			var finalBigScalarBi big.Int
 			var op1ScalarMul {{ $.TAffine }}
-			finalBigScalar.SetString("9455").Mul(&finalBigScalar, &mixer)
+			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
 			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
 

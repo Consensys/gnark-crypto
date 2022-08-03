@@ -255,13 +255,13 @@ func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
 	return p
 }
 
-// ScalarMul scalar multiplication of a point
+// ScalarMultiplication scalar multiplication of a point
 // p1 in affine coordinates with a scalar in big.Int
-func (p *PointAffine) ScalarMul(p1 *PointAffine, scalar *big.Int) *PointAffine {
+func (p *PointAffine) ScalarMultiplication(p1 *PointAffine, scalar *big.Int) *PointAffine {
 
 	var p1Extended, resExtended PointExtended
 	p1Extended.FromAffine(p1)
-	resExtended.ScalarMul(&p1Extended, scalar)
+	resExtended.ScalarMultiplication(&p1Extended, scalar)
 	p.FromExtended(&resExtended)
 
 	return p
@@ -408,9 +408,9 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	return p
 }
 
-// ScalarMul scalar multiplication of a point
+// ScalarMultiplication scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
-func (p *PointProj) ScalarMul(p1 *PointProj, scalar *big.Int) *PointProj {
+func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
 	return p.scalarMulGLV(p1, scalar)
 }
 
@@ -597,8 +597,8 @@ func (p *PointExtended) setInfinity() *PointExtended {
 	return p
 }
 
-// ScalarMul scalar multiplication of a point
+// ScalarMultiplication scalar multiplication of a point
 // p1 in extended coordinates with a scalar in big.Int
-func (p *PointExtended) ScalarMul(p1 *PointExtended, scalar *big.Int) *PointExtended {
+func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int) *PointExtended {
 	return p.scalarMulGLV(p1, scalar)
 }

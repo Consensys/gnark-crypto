@@ -431,9 +431,7 @@ func CoordNameForExtensionDegree(degree uint8) string {
 }
 
 func (f *FieldConfig) WriteElement(element Element) string {
-	builder := bavard.StringBuilderPool.Get().(*strings.Builder)
-	builder.Reset()
-	defer bavard.StringBuilderPool.Put(builder)
+	var builder strings.Builder
 
 	builder.WriteString("{")
 	length := len(element)
@@ -449,7 +447,7 @@ func (f *FieldConfig) WriteElement(element Element) string {
 			builder.WriteString(": fp.Element{")
 		}
 		mont := f.ToMont(e)
-		bavard.WriteBigIntAsUint64Slice(builder, &mont)
+		bavard.WriteBigIntAsUint64Slice(&builder, &mont)
 		if length > 1 {
 			builder.WriteString("},\n")
 		}

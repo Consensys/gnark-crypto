@@ -30,7 +30,7 @@ func (p *PointProj) phi(p1 *PointProj) *PointProj {
 	return p
 }
 
-// ScalarMul scalar multiplication (GLV) of a point
+// ScalarMultiplication scalar multiplication (GLV) of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 
@@ -121,7 +121,7 @@ func (p *PointExtended) phi(p1 *PointExtended) *PointExtended {
 	return p
 }
 
-// ScalarMul scalar multiplication (GLV) of a point
+// ScalarMultiplication scalar multiplication (GLV) of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointExtended {
 	initOnce.Do(initCurveParams)

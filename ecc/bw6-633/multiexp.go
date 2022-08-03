@@ -41,7 +41,7 @@ type selector struct {
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
-// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
+// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
@@ -163,6 +163,8 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
 	var _p G1Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
@@ -173,6 +175,8 @@ func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
@@ -209,6 +213,8 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// if nbTasks is not set, use all available CPUs
 	if config.NbTasks <= 0 {
 		config.NbTasks = runtime.NumCPU()
+	} else if config.NbTasks > 1024 {
+		return nil, errors.New("invalid config: config.NbTasks > 1024")
 	}
 
 	// here, we compute the best C for nbPoints
@@ -566,6 +572,8 @@ func (p *G1Jac) msmC16(points []G1Affine, scalars []fr.Element, splitFirstChunk 
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Affine, error) {
 	var _p G2Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
@@ -576,6 +584,8 @@ func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
@@ -612,6 +622,8 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// if nbTasks is not set, use all available CPUs
 	if config.NbTasks <= 0 {
 		config.NbTasks = runtime.NumCPU()
+	} else if config.NbTasks > 1024 {
+		return nil, errors.New("invalid config: config.NbTasks > 1024")
 	}
 
 	// here, we compute the best C for nbPoints

@@ -18,9 +18,14 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	"github.com/consensys/gnark-crypto/utils"
+	"strconv"
+
+	"math/big"
+	"strings"
 )
 
-// Polynomial polynomial represented by coefficients bn254 fr field.
+// Polynomial represented by coefficients bn254 fr field.
 type Polynomial []fr.Element
 
 // Degree returns the degree of the polynomial, which is the length of Data.
@@ -48,6 +53,18 @@ func (p *Polynomial) Clone() Polynomial {
 	return _p
 }
 
+// Set to another polynomial
+func (p *Polynomial) Set(p1 Polynomial) {
+	if len(*p) != len(p1) {
+		*p = p1.Clone()
+		return
+	}
+
+	for i := 0; i < len(p1); i++ {
+		(*p)[i].Set(&p1[i])
+	}
+}
+
 // AddConstantInPlace adds a constant to the polynomial, modifying p
 func (p *Polynomial) AddConstantInPlace(c *fr.Element) {
 	for i := 0; i < len(*p); i++ {
@@ -66,6 +83,16 @@ func (p *Polynomial) SubConstantInPlace(c *fr.Element) {
 func (p *Polynomial) ScaleInPlace(c *fr.Element) {
 	for i := 0; i < len(*p); i++ {
 		(*p)[i].Mul(&(*p)[i], c)
+	}
+}
+
+// Scale multiplies p0 by v, storing the result in p
+func (p *Polynomial) Scale(c *fr.Element, p0 Polynomial) {
+	if len(*p) != len(p0) {
+		*p = make(Polynomial, len(p0))
+	}
+	for i := 0; i < len(p0); i++ {
+		(*p)[i].Mul(c, &p0[i])
 	}
 }
 
@@ -120,4 +147,74 @@ func (p *Polynomial) Equal(p1 Polynomial) bool {
 	}
 
 	return true
+}
+
+func signedBigInt(v *fr.Element) big.Int {
+	var i big.Int
+	v.ToBigIntRegular(&i)
+	var iDouble big.Int
+	iDouble.Lsh(&i, 1)
+	if iDouble.Cmp(fr.Modulus()) > 0 {
+		i.Sub(fr.Modulus(), &i)
+		i.Neg(&i)
+	}
+	return i
+}
+
+func (p Polynomial) Text(base int) string {
+
+	var builder strings.Builder
+
+	first := true
+	for d := len(p) - 1; d >= 0; d-- {
+		if p[d].IsZero() {
+			continue
+		}
+
+		i := signedBigInt(&p[d])
+
+		initialLen := builder.Len()
+
+		if i.Sign() < 1 {
+			i.Neg(&i)
+			if first {
+				builder.WriteString("-")
+			} else {
+				builder.WriteString(" - ")
+			}
+		} else if !first {
+			builder.WriteString(" + ")
+		}
+
+		first = false
+
+		asInt64 := int64(0)
+		if i.IsInt64() {
+			asInt64 = i.Int64()
+		}
+
+		if asInt64 != 1 || d == 0 {
+			builder.WriteString(i.Text(base))
+		}
+
+		if builder.Len()-initialLen > 10 {
+			builder.WriteString("×")
+		}
+
+		if d != 0 {
+			builder.WriteString("X")
+		}
+		if d > 1 {
+			builder.WriteString(
+				utils.ToSuperscript(strconv.Itoa(d)),
+			)
+		}
+
+	}
+
+	if first {
+		return "0"
+	}
+
+	return builder.String()
 }

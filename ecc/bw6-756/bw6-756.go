@@ -1,17 +1,24 @@
-// Copyright 2020 ConsenSys AG
+// Package bw6756 efficient elliptic curve, pairing and hash to curve implementation for bw6-756.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// bw6-756: A Brezing--Weng curve (2-chain with bls12-378)
+// 		embedding degree k=6
+// 		seed x₀=11045256207009841153.
+// 		𝔽p: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
+// 		𝔽r: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
+// 		(E/𝔽p): Y²=X³+1
+// 		(Eₜ/𝔽p): Y² = X³+33 (M-type twist)
+// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
+// Extension fields tower:
+//     𝔽p³[u] = 𝔽p/u³-33
+//     𝔽p⁶[v] = 𝔽p²/v²-u
+// optimal Ate loops:
+//		x₀+1, x₀²-x₀-1
+// Security: estimated 126-bit level following [https://eprint.iacr.org/2019/885.pdf]
+// (r is 378 bits and p⁶ is 4536 bits)
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// Warning
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bw6756
 
 import (
@@ -21,17 +28,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
-
-// BW6-756: A Brezing--Weng curve of embedding degree k=6 with seed x₀=11045256207009841153. It forms a 2-chain with BLS12-378.
-// 𝔽p: p=366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
-// 𝔽r: r=605248206075306171733248481581800960739847691770924913753520744034740935903401304776283802348837311170974282940417
-// (E/𝔽p): Y²=X³+1
-// (Eₜ/𝔽p): Y² = X³+33 (M-type twist)
-// r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
-// Extension fields tower:
-//     𝔽p³[u] = 𝔽p/u³-33
-//     𝔽p⁶[v] = 𝔽p²/v²-u
-// optimal Ate loops: x₀+1, x₀²-x₀-1
 
 // ID BW6_756 ID
 const ID = ecc.BW6_756
@@ -81,12 +77,12 @@ func init() {
 	// E(3,y) * cofactor
 	g1Gen.X.SetString("286035407532233812057489253822435660910062665263942803649298092690795938518721117964189338863504082781482751182899097859005716378386344565362972291164604792882058761734674709131229927253172681714645554597102571818586966737895501")
 	g1Gen.Y.SetString("250540671634276190125882738767359258920233951524378923555904955920886135268516617166458911260101792169356480449980342047600821278990712908224386045486820019065641642853528653616206514851361917670279865872746658429844440125628329")
-	g1Gen.Z.SetString("1")
+	g1Gen.Z.SetOne()
 
 	// E(1,y) * cofactor
 	g2Gen.X.SetString("270164867145533700243149075881223225204067215320977230235816769808318087164726583740674261721395147407122688542569094772405350936550575160051166652281373572919753182191250641388443572739372443497834910784618354592418817138212395")
 	g2Gen.Y.SetString("296695446824796322573519291690935001172593568823998954880196613542512471119971074118215403545906873458039024520146929054366200365532511334310660691775675887531695313103875249166779149013653038059140912965769351316868363001510735")
-	g2Gen.Z.SetString("1")
+	g2Gen.Z.SetOne()
 
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)

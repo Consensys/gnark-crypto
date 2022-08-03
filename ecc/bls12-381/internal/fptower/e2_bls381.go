@@ -37,7 +37,7 @@ func mulGenericE2(z, x, y *E2) {
 
 // Square sets z to the E2-product of x,x returns z
 func squareGenericE2(z, x *E2) *E2 {
-	// algo 22 https://eprint.iacr.org/2010/354.pdf
+	// adapted from algo 22 https://eprint.iacr.org/2010/354.pdf
 	var a, b fp.Element
 	a.Add(&x.A0, &x.A1)
 	b.Sub(&x.A0, &x.A1)
@@ -69,6 +69,8 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 }
 
 // Inverse sets z to the E2-inverse of x, returns z
+//
+// if x == 0, sets and returns z = x
 func (z *E2) Inverse(x *E2) *E2 {
 	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
 	var t0, t1 fp.Element

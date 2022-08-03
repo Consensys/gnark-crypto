@@ -223,29 +223,46 @@ func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
 	return z
 }
 
-// Decompress Karabina's cyclotomic square result
-func (z *E6) Decompress(x *E6) *E6 {
+// DecompressKarabina Karabina's cyclotomic square result
+// if g3 != 0
+//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+// if g3 == 0
+//   g4 = 2g1g5/g2
+//
+// if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
+// Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
+func (z *E6) DecompressKarabina(x *E6) *E6 {
 
 	var t [3]fp.Element
 	var one fp.Element
 	one.SetOne()
 
-	// t0 = g1²
-	t[0].Square(&x.B0.A1)
-	// t1 = 3 * g1² - 2 * g2
-	t[1].Sub(&t[0], &x.B0.A2).
-		Double(&t[1]).
-		Add(&t[1], &t[0])
-		// t0 = E * g5² + t1
-	t[2].Square(&x.B1.A2)
-	t[0].MulByNonResidue(&t[2]).
-		Add(&t[0], &t[1])
-	// t1 = 1/(4 * g3)
-	t[1].Double(&x.B1.A0).
-		Double(&t[1]).
-		Inverse(&t[1]) // costly
+	// g3 == 0
+	if x.B1.A0.IsZero() {
+		t[0].Mul(&x.B0.A1, &x.B1.A2).
+			Double(&t[0])
+		// t1 = g2
+		t[1].Set(&x.B0.A2)
+
+		// g3 != 0
+	} else {
+		// t0 = g1^2
+		t[0].Square(&x.B0.A1)
+		// t1 = 3 * g1^2 - 2 * g2
+		t[1].Sub(&t[0], &x.B0.A2).
+			Double(&t[1]).
+			Add(&t[1], &t[0])
+			// t0 = E * g5^2 + t1
+		t[2].Square(&x.B1.A2)
+		t[0].MulByNonResidue(&t[2]).
+			Add(&t[0], &t[1])
+		// t1 = 1/(4 * g3)
+		t[1].Double(&x.B1.A0).
+			Double(&t[1])
+	}
+
 	// z4 = g4
-	z.B1.A1.Mul(&t[0], &t[1])
+	z.B1.A1.Div(&t[0], &t[1]) // costly
 
 	// t1 = g2 * g1
 	t[1].Mul(&x.B0.A2, &x.B0.A1)
@@ -254,7 +271,7 @@ func (z *E6) Decompress(x *E6) *E6 {
 		Sub(&t[2], &t[1]).
 		Double(&t[2]).
 		Sub(&t[2], &t[1])
-	// t1 = g3 * g5
+	// t1 = g3 * g5 (g3 can be 0)
 	t[1].Mul(&x.B1.A0, &x.B1.A2)
 	// c₀ = E * (2 * g4² + g3 * g5 - 3 * g2 * g1) + 1
 	t[2].Add(&t[2], &t[1])
@@ -308,6 +325,8 @@ func (z *E6) CyclotomicSquare(x *E6) *E6 {
 }
 
 // Inverse set z to the inverse of x in E6 and return z
+//
+// if x == 0, sets and returns z = x
 func (z *E6) Inverse(x *E6) *E6 {
 	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
 
@@ -325,6 +344,8 @@ func (z *E6) Inverse(x *E6) *E6 {
 
 // BatchInvertE6 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE6(a []E6) []E6 {
 	res := make([]E6, len(a))
 	if len(a) == 0 {
@@ -697,6 +718,10 @@ func BatchCompressTorus(x []E6) ([]E3, error) {
 
 	for i := 0; i < n; i++ {
 		res[i].Set(&x[i].B1)
+		//  throw an error if any of the x[i].C1 is 0
+		if res[i].IsZero() {
+			return []E3{}, errors.New("invalid input")
+		}
 	}
 
 	t := BatchInvertE3(res) // costs 1 inverse

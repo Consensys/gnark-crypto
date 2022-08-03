@@ -1,3 +1,40 @@
+// Copyright 2020 ConsenSys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package bn254 efficient elliptic curve, pairing and hash to curve implementation for bn254. This curve appears in
+// Ethereum pre-compiles as altbn128.
+//
+// bn254: A Barreto--Naerig curve with
+// 		seed x₀=4965661367192848881
+// 		𝔽r: r=21888242871839275222246405745257275088548364400416034343698204186575808495617 (36x₀⁴+36x₀³+18x₀²+6x₀+1)
+// 		𝔽p: p=21888242871839275222246405745257275088696311157297823662689037894645226208583 (36x₀⁴+36x₀³+24x₀²+6x₀+1)
+// 		(E/𝔽p): Y²=X³+3
+// 		(Eₜ/𝔽p²): Y² = X³+3/(u+9) (D-type twist)
+// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
+// Extension fields tower:
+//     𝔽p²[u] = 𝔽p/u²+1
+//     𝔽p⁶[v] = 𝔽p²/v³-9-u
+//     𝔽p¹²[w] = 𝔽p⁶/w²-v
+// optimal Ate loop size:
+//		6x₀+2
+//
+// Security: estimated 103-bit level following [https://eprint.iacr.org/2019/885.pdf]
+// (r is 254 bits and p¹² is 3044 bits)
+//
+// Warning
+//
+// This code has been partially audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bn254
 
 import (
@@ -8,18 +45,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
-
-// BN254: A Barreto--Naerig curve with seed x₀=4965661367192848881
-// 𝔽r: r=21888242871839275222246405745257275088548364400416034343698204186575808495617 (36x₀⁴+36x₀³+18x₀²+6x₀+1)
-// 𝔽p: p=21888242871839275222246405745257275088696311157297823662689037894645226208583 (36x₀⁴+36x₀³+24x₀²+6x₀+1)
-// (E/𝔽p): Y²=X³+3
-// (Eₜ/𝔽p²): Y² = X³+3/(u+9) (D-type twist)
-// r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
-// Extension fields tower:
-//     𝔽p²[u] = 𝔽p/u²+1
-//     𝔽p⁶[v] = 𝔽p²/v³-9-u
-//     𝔽p¹²[w] = 𝔽p⁶/w²-v
-// optimal Ate loop size: 6x₀+2
 
 // ID bn254 ID
 const ID = ecc.BN254
@@ -80,9 +105,9 @@ func init() {
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.Inverse(&twist).MulByElement(&bTwistCurveCoeff, &bCurveCoeff)
 
-	g1Gen.X.SetString("1")
-	g1Gen.Y.SetString("2")
-	g1Gen.Z.SetString("1")
+	g1Gen.X.SetOne()
+	g1Gen.Y.SetUint64(2)
+	g1Gen.Z.SetOne()
 
 	g2Gen.X.SetString("10857046999023057135944570762232829481370756359578518086990519993285655852781",
 		"11559732032986387107991004021392285783925812861821192530917403151452391805634")

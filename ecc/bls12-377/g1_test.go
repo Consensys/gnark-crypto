@@ -85,7 +85,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 		func(a fp.Element) bool {
 			var op1, op2 G1Affine
 			op1.FromJacobian(&g1Gen)
-			op2.FromJacobian(&g1Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
@@ -216,6 +216,19 @@ func TestG1AffineConversions(t *testing.T) {
 			op1 := fuzzG1Jac(&g1Gen, a)
 			op2 := fuzzG1Jac(&g1Gen, b)
 			return op1.Equal(&op2)
+		},
+		GenFp(),
+		GenFp(),
+	))
+	properties.Property("[BLS12-377] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
+		func(a, b fp.Element) bool {
+			g1 := fuzzG1Jac(&g1Gen, a)
+			g2 := fuzzG1Jac(&g1Gen, b)
+			var op1, op2 G1Affine
+			op1.FromJacobian(&g1)
+			op2.FromJacobian(&g2)
+			baseTableAff := BatchJacobianToAffineG1([]G1Jac{g1, g2})
+			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
 		},
 		GenFp(),
 		GenFp(),
@@ -486,7 +499,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 }
 
-func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
+func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -514,7 +527,7 @@ func BenchmarkG1AffineBatchScalarMul(b *testing.B) {
 	}
 }
 
-func BenchmarkG1JacScalarMul(b *testing.B) {
+func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()

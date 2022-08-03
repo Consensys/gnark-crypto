@@ -1,3 +1,26 @@
+// Package bls24317 efficient elliptic curve, pairing and hash to curve implementation for bls24-317.
+//
+// bls24-317: A Barreto--Lynn--Scott curve
+// 		embedding degree k=24
+// 		seed x₀=3640754176
+// 		𝔽r: r=30869589236456844204538189757527902584594726589286811523515204428962673459201 (x₀^8-x₀^4+2)
+// 		𝔽p: p=136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051 ((x₀-1)² ⋅ r(x₀)/3+x₀)
+// 		(E/𝔽p): Y²=X³+4
+// 		(Eₜ/𝔽p⁴): Y² = X³+4v (M-type twist)
+// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p⁴)
+// Extension fields tower:
+//     𝔽p²[u] = 𝔽p/u²+1
+//     𝔽p⁴[v] = 𝔽p²/v²-u-1
+//     𝔽p¹²[w] = 𝔽p⁴/w³-v
+//     𝔽p²⁴[i] = 𝔽p¹²/i²-w
+// optimal Ate loop size:
+//		x₀
+// Security: estimated 160-bit level following [https://eprint.iacr.org/2019/885.pdf]
+// (r is 255 bits and p²⁴ is 7599 bits)
+//
+// Warning
+//
+// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bls24317
 
 import (
@@ -8,19 +31,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/internal/fptower"
 )
-
-// BLS24-317: A Barreto--Lynn--Scott curve of embedding degree k=24 with seed x₀=3640754176
-// 𝔽r: r=30869589236456844204538189757527902584594726589286811523515204428962673459201 (x₀^8-x₀^4+2)
-// 𝔽p: p=136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051 ((x₀-1)² ⋅ r(x₀)/3+x₀)
-// (E/𝔽p): Y²=X³+4
-// (Eₜ/𝔽p⁴): Y² = X³+4v (M-type twist)
-// r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p⁴)
-// Extension fields tower:
-//     𝔽p²[u] = 𝔽p/u²+1
-//     𝔽p⁴[v] = 𝔽p²/v²-u-1
-//     𝔽p¹²[w] = 𝔽p⁴/w³-v
-//     𝔽p²⁴[i] = 𝔽p¹²/i²-w
-// optimal Ate loop size: x₀
 
 // ID bls317 ID
 const ID = ecc.BLS24_317
@@ -80,7 +90,7 @@ func init() {
 	// E(1,y)*c
 	g1Gen.X.SetString("26261810162995192444253184251590159762050205376519976412461726336843100448942248976252388876791")
 	g1Gen.Y.SetString("26146603602820658047261036676090398397874822703333117264049387703172159980214065566219085800243")
-	g1Gen.Z.SetString("1")
+	g1Gen.Z.SetOne()
 
 	// E'(1,y)*c'
 	g2Gen.X.B0.SetString("28498404142312365002533744693556861244212064443103687717510540998257508853975496760832205123607",

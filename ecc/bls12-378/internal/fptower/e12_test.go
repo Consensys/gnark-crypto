@@ -339,13 +339,29 @@ func TestE12Ops(t *testing.T) {
 
 	properties.Property("[BLS12-378] compressed cyclotomic square (Karabina) and square should be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E12) bool {
-			var b, c, d E12
+			var _a, b, c, d, _c, _d E12
+			_a.SetOne().Double(&_a)
+
+			// put a and _a in the cyclotomic subgroup
+			// a (g3 != 0 probably)
 			b.Conjugate(a)
 			a.Inverse(a)
 			b.Mul(&b, a)
 			a.FrobeniusSquare(&b).Mul(a, &b)
+			// _a (g3 == 0)
+			b.Conjugate(&_a)
+			_a.Inverse(&_a)
+			b.Mul(&b, &_a)
+			_a.FrobeniusSquare(&b).Mul(&_a, &b)
+
+			// case g3 != 0
 			c.Square(a)
 			d.CyclotomicSquareCompressed(a).DecompressKarabina(&d)
+
+			// case g3 == 0
+			_c.Square(&_a)
+			_d.CyclotomicSquareCompressed(&_a).DecompressKarabina(&_d)
+
 			return c.Equal(&d)
 		},
 		genA,
@@ -353,18 +369,26 @@ func TestE12Ops(t *testing.T) {
 
 	properties.Property("[BLS12-378] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
 		func(a *E12) bool {
-			var b E12
-			// put in the cyclotomic subgroup
+			var _a, b E12
+			_a.SetOne().Double(&_a)
+
+			// put a and _a in the cyclotomic subgroup
+			// a (g3 !=0 probably)
 			b.Conjugate(a)
 			a.Inverse(a)
 			b.Mul(&b, a)
 			a.FrobeniusSquare(&b).Mul(a, &b)
+			// _a (g3 == 0)
+			b.Conjugate(&_a)
+			_a.Inverse(&_a)
+			b.Mul(&b, &_a)
+			_a.FrobeniusSquare(&b).Mul(&_a, &b)
 
 			var a2, a4, a17 E12
-			a2.Set(a)
+			a2.Set(&_a)
 			a4.Set(a)
 			a17.Set(a)
-			a2.nSquareCompressed(2)
+			a2.nSquareCompressed(2) // case g3 == 0
 			a4.nSquareCompressed(4)
 			a17.nSquareCompressed(17)
 			batch := BatchDecompressKarabina([]E12{a2, a4, a17})

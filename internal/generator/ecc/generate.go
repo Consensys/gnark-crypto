@@ -14,7 +14,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 
 	entries := []bavard.Entry{
-		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp.go"), Templates: []string{"multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_test.go"), Templates: []string{"tests/multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},

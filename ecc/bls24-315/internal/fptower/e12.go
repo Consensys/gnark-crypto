@@ -180,6 +180,8 @@ func (z *E12) Square(x *E12) *E12 {
 }
 
 // Inverse an element in E12
+//
+// if x == 0, sets and returns z = x
 func (z *E12) Inverse(x *E12) *E12 {
 	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
 	// step 9 is wrong in the paper it's t1-t4
@@ -208,6 +210,8 @@ func (z *E12) Inverse(x *E12) *E12 {
 
 // BatchInvertE12 returns a new slice with every element inverted.
 // Uses Montgomery batch inversion trick
+//
+// if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE12(a []E12) []E12 {
 	res := make([]E12, len(a))
 	if len(a) == 0 {
@@ -250,7 +254,7 @@ func (z *E12) Exp(x E12, k *big.Int) *E12 {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q) == (x⁻¹)ᵏ (mod q)
+		// if k < 0: xᵏ (mod q¹²) == (x⁻¹)ᵏ (mod q¹²)
 		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since

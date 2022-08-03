@@ -111,7 +111,7 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 		func(a {{ .CoordType}}) bool {
 			var op1, op2 {{ $TAffine }}
 			op1.FromJacobian(&{{.PointName}}Gen)
-			op2.FromJacobian(&{{.PointName}}Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
@@ -249,6 +249,22 @@ func Test{{ $TAffine }}Conversions(t *testing.T) {
 		{{$fuzzer}},
 		{{$fuzzer}},
 	))
+
+    {{- if eq .PointName "g1" }}
+	properties.Property("[{{ toUpper .Name }}] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
+		func(a, b {{ .CoordType}}) bool {
+			g1 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, a)
+			g2 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, b)
+			var op1, op2 {{ $TAffine }}
+			op1.FromJacobian(&g1)
+			op2.FromJacobian(&g2)
+			baseTableAff := BatchJacobianToAffineG1([]G1Jac{g1, g2})
+			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
+		},
+		GenFp(),
+		GenFp(),
+	))
+    {{- end }}
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
@@ -543,7 +559,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
-func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
+func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -571,7 +587,7 @@ func Benchmark{{ $TAffine }}BatchScalarMul(b *testing.B) {
 	}
 }
 
-func Benchmark{{ $TJacobian }}ScalarMul(b *testing.B) {
+func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()

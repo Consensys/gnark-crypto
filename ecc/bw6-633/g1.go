@@ -64,6 +64,14 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	return p
 }
 
+// ScalarMultiplicationAffine computes and returns p = a ⋅ s
+// Takes an affine point and returns a Jacobian point (useful for KZG)
+func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
+	p.FromAffine(a)
+	p.mulGLV(p, s)
+	return p
+}
+
 // Add adds two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G1Affine) Add(a, b *G1Affine) *G1Affine {
@@ -341,7 +349,7 @@ func (p *G1Jac) String() string {
 	return _p.String()
 }
 
-// FromAffine sets p = Q, p in Jacboian, Q in affine
+// FromAffine sets p = Q, p in Jacobian, Q in affine
 func (p *G1Jac) FromAffine(Q *G1Affine) *G1Jac {
 	if Q.IsInfinity() {
 		p.Z.SetZero()
@@ -873,9 +881,9 @@ func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
 }
 
 // BatchProjectiveToAffineG1 converts points in Projective coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
-func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchProjectiveToAffineG1(points []g1Proj) []G1Affine {
+	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -895,7 +903,7 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -906,7 +914,7 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			a := result[i].X
@@ -914,12 +922,13 @@ func BatchProjectiveToAffineG1(points []g1Proj, result []G1Affine) {
 			result[i].Y.Mul(&points[i].y, &a)
 		}
 	})
+	return result
 }
 
 // BatchJacobianToAffineG1 converts points in Jacobian coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick)
-// result must be allocated with len(result) == len(points)
-func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
+	result := make([]G1Affine, len(points))
 	zeroes := make([]bool, len(points))
 	accumulator := fp.One()
 
@@ -939,7 +948,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 
 	for i := len(points) - 1; i >= 0; i-- {
 		if zeroes[i] {
-			// do nothing, X and Y are zeroes in affine.
+			// do nothing, (X=0, Y=0) is infinity point in affine
 			continue
 		}
 		result[i].X.Mul(&result[i].X, &accInverse)
@@ -950,7 +959,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 	parallel.Execute(len(points), func(start, end int) {
 		for i := start; i < end; i++ {
 			if zeroes[i] {
-				// do nothing, X and Y are zeroes in affine.
+				// do nothing, (X=0, Y=0) is infinity point in affine
 				continue
 			}
 			var a, b fp.Element
@@ -962,6 +971,7 @@ func BatchJacobianToAffineG1(points []G1Jac, result []G1Affine) {
 		}
 	})
 
+	return result
 }
 
 // BatchScalarMultiplicationG1 multiplies the same base by all scalars
@@ -1025,8 +1035,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		selectors[chunk] = d
 	}
 	// convert our base exp table into affine to use AddMixed
-	baseTableAff := make([]G1Affine, (1 << (c - 1)))
-	BatchJacobianToAffineG1(baseTable, baseTableAff)
+	baseTableAff := BatchJacobianToAffineG1(baseTable)
 	toReturn := make([]G1Jac, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voilà.
@@ -1068,7 +1077,6 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 
 		}
 	})
-	toReturnAff := make([]G1Affine, len(scalars))
-	BatchJacobianToAffineG1(toReturn, toReturnAff)
+	toReturnAff := BatchJacobianToAffineG1(toReturn)
 	return toReturnAff
 }

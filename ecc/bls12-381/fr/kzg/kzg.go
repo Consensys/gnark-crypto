@@ -169,16 +169,15 @@ func Open(p []fr.Element, point fr.Element, srs *SRS) (OpeningProof, error) {
 func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS) error {
 
 	// [f(a)]G₁
-	var claimedValueG1Aff bls12381.G1Affine
+	var claimedValueG1Aff bls12381.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplication(&srs.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationAffine(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
-	var fminusfaG1Jac, tmpG1Jac bls12381.G1Jac
+	var fminusfaG1Jac bls12381.G1Jac
 	fminusfaG1Jac.FromAffine(commitment)
-	tmpG1Jac.FromAffine(&claimedValueG1Aff)
-	fminusfaG1Jac.SubAssign(&tmpG1Jac)
+	fminusfaG1Jac.SubAssign(&claimedValueG1Aff)
 
 	// [-H(α)]G₁
 	var negH bls12381.G1Affine

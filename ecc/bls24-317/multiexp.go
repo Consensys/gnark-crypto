@@ -41,7 +41,7 @@ type selector struct {
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
-// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMul)
+// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
@@ -163,6 +163,8 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
 	var _p G1Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
@@ -173,6 +175,8 @@ func (p *G1Affine) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G1Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
@@ -209,6 +213,8 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// if nbTasks is not set, use all available CPUs
 	if config.NbTasks <= 0 {
 		config.NbTasks = runtime.NumCPU()
+	} else if config.NbTasks > 1024 {
+		return nil, errors.New("invalid config: config.NbTasks > 1024")
 	}
 
 	// here, we compute the best C for nbPoints
@@ -332,9 +338,6 @@ func msmInnerG1Jac(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, spl
 
 	case 21:
 		p.msmC21(points, scalars, splitFirstChunk)
-
-	case 22:
-		p.msmC22(points, scalars, splitFirstChunk)
 
 	default:
 		panic("not implemented")
@@ -1180,59 +1183,9 @@ func (p *G1Jac) msmC21(points []G1Affine, scalars []fr.Element, splitFirstChunk 
 	return msmReduceChunkG1Affine(p, c, chChunks[:])
 }
 
-func (p *G1Jac) msmC22(points []G1Affine, scalars []fr.Element, splitFirstChunk bool) *G1Jac {
-	const (
-		c        = 22                  // scalars partitioned into c-bit radixes
-		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	)
-
-	// for each chunk, spawn one go routine that'll loop through all the scalars in the
-	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
-	// critical for performance
-
-	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks + 1]chan g1JacExtended
-	for i := 0; i < len(chChunks); i++ {
-		chChunks[i] = make(chan g1JacExtended, 1)
-	}
-
-	// c doesn't divide 256, last window is smaller we can allocate less buckets
-	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	go func(j uint64, points []G1Affine, scalars []fr.Element) {
-		var buckets [1 << (lastC - 1)]g1JacExtended
-		msmProcessChunkG1Affine(j, chChunks[j], buckets[:], c, points, scalars)
-	}(uint64(nbChunks), points, scalars)
-
-	processChunk := func(j int, points []G1Affine, scalars []fr.Element, chChunk chan g1JacExtended) {
-		var buckets [1 << (c - 1)]g1JacExtended
-		msmProcessChunkG1Affine(uint64(j), chChunk, buckets[:], c, points, scalars)
-	}
-
-	for j := int(nbChunks - 1); j > 0; j-- {
-		go processChunk(j, points, scalars, chChunks[j])
-	}
-
-	if !splitFirstChunk {
-		go processChunk(0, points, scalars, chChunks[0])
-	} else {
-		chSplit := make(chan g1JacExtended, 2)
-		split := len(points) / 2
-		go processChunk(0, points[:split], scalars[:split], chSplit)
-		go processChunk(0, points[split:], scalars[split:], chSplit)
-		go func() {
-			s1 := <-chSplit
-			s2 := <-chSplit
-			close(chSplit)
-			s1.add(&s2)
-			chChunks[0] <- s1
-		}()
-	}
-
-	return msmReduceChunkG1Affine(p, c, chChunks[:])
-}
-
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Affine, error) {
 	var _p G2Jac
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
@@ -1243,6 +1196,8 @@ func (p *G2Affine) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
+//
+// This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) (*G2Jac, error) {
 	// note:
 	// each of the msmCX method is the same, except for the c constant it declares
@@ -1279,13 +1234,15 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// if nbTasks is not set, use all available CPUs
 	if config.NbTasks <= 0 {
 		config.NbTasks = runtime.NumCPU()
+	} else if config.NbTasks > 1024 {
+		return nil, errors.New("invalid config: config.NbTasks > 1024")
 	}
 
 	// here, we compute the best C for nbPoints
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22}
+		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -1402,9 +1359,6 @@ func msmInnerG2Jac(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, spl
 
 	case 21:
 		p.msmC21(points, scalars, splitFirstChunk)
-
-	case 22:
-		p.msmC22(points, scalars, splitFirstChunk)
 
 	default:
 		panic("not implemented")
@@ -2201,58 +2155,6 @@ func (p *G2Jac) msmC20(points []G2Affine, scalars []fr.Element, splitFirstChunk 
 func (p *G2Jac) msmC21(points []G2Affine, scalars []fr.Element, splitFirstChunk bool) *G2Jac {
 	const (
 		c        = 21                  // scalars partitioned into c-bit radixes
-		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	)
-
-	// for each chunk, spawn one go routine that'll loop through all the scalars in the
-	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
-	// critical for performance
-
-	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks + 1]chan g2JacExtended
-	for i := 0; i < len(chChunks); i++ {
-		chChunks[i] = make(chan g2JacExtended, 1)
-	}
-
-	// c doesn't divide 256, last window is smaller we can allocate less buckets
-	const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-	go func(j uint64, points []G2Affine, scalars []fr.Element) {
-		var buckets [1 << (lastC - 1)]g2JacExtended
-		msmProcessChunkG2Affine(j, chChunks[j], buckets[:], c, points, scalars)
-	}(uint64(nbChunks), points, scalars)
-
-	processChunk := func(j int, points []G2Affine, scalars []fr.Element, chChunk chan g2JacExtended) {
-		var buckets [1 << (c - 1)]g2JacExtended
-		msmProcessChunkG2Affine(uint64(j), chChunk, buckets[:], c, points, scalars)
-	}
-
-	for j := int(nbChunks - 1); j > 0; j-- {
-		go processChunk(j, points, scalars, chChunks[j])
-	}
-
-	if !splitFirstChunk {
-		go processChunk(0, points, scalars, chChunks[0])
-	} else {
-		chSplit := make(chan g2JacExtended, 2)
-		split := len(points) / 2
-		go processChunk(0, points[:split], scalars[:split], chSplit)
-		go processChunk(0, points[split:], scalars[split:], chSplit)
-		go func() {
-			s1 := <-chSplit
-			s2 := <-chSplit
-			close(chSplit)
-			s1.add(&s2)
-			chChunks[0] <- s1
-		}()
-	}
-
-	return msmReduceChunkG2Affine(p, c, chChunks[:])
-}
-
-func (p *G2Jac) msmC22(points []G2Affine, scalars []fr.Element, splitFirstChunk bool) *G2Jac {
-	const (
-		c        = 22                  // scalars partitioned into c-bit radixes
 		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	)
 

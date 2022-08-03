@@ -147,7 +147,7 @@ func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 	k2.Mul(s, &l.b2).Neg(&k2)
 	// right-shift instead of division by lattice determinant
 	// this increases the bounds on k1 and k2 by 1
-	// but we check this ScalarMul alg. (not constant-time)
+	// but we check this ScalarMultiplication alg. (not constant-time)
 	n := 2 * uint(((l.Det.BitLen()+32)>>6)<<6)
 	k1.Rsh(&k1, n)
 	k2.Rsh(&k2, n)

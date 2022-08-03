@@ -160,65 +160,58 @@ func g2Isogeny(p *G2Affine) {
 
 // g2SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
-	// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ F.2.1.1. for any field
+	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-sqrt_ratio-for-any-field
 
 	tv1 := fp.Element{17302715199413996045, 15077845457253267709, 8842885729139027579, 12189878420705505575, 12380986790262239346, 585111498723936856, 4947215576903759546, 1186632482028566920, 14543050817583235372, 5644943604719368358, 9440830989708189862, 1039766423535362} //tv1 = c6
 
 	var tv2, tv3, tv4, tv5 fp.Element
 	var exp big.Int
-	// c4 = 4835703278458516698824703 = 2^82 - 1
+	// c4 = 4835703278458516698824703 = 2⁸² - 1
 	// q is odd so c1 is at least 1.
 	exp.SetBytes([]byte{3, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
 
-	tv2.Exp(*v, &exp)
-	tv3.Mul(&tv2, &tv2)
-	tv3.Mul(&tv3, v)
-
-	// line 5
-	tv5.Mul(u, &tv3)
+	tv2.Exp(*v, &exp) // 2. tv2 = vᶜ⁴
+	tv3.Square(&tv2)  // 3. tv3 = tv2²
+	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
+	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
 
 	// c3 = 37877157660731232732990269576663233239936484746509109593426423261538632780449313352717366389444912082695314931794809746268936574949192324351273838279701014606648452884726586254167471840902479876056412368
 	exp.SetBytes([]byte{1, 238, 213, 183, 107, 119, 49, 92, 85, 130, 79, 195, 198, 173, 25, 235, 146, 241, 154, 95, 88, 89, 209, 63, 126, 70, 68, 40, 170, 44, 116, 217, 152, 213, 206, 120, 133, 72, 219, 61, 96, 89, 2, 93, 64, 159, 85, 65, 79, 214, 57, 103, 160, 220, 200, 220, 82, 89, 162, 189, 182, 200, 212, 168, 96, 85, 71, 132, 177, 188, 251, 218, 22, 208, 189, 13, 10, 73, 216, 6, 120, 252, 199, 240, 208})
-	tv5.Exp(tv5, &exp)
-	tv5.Mul(&tv5, &tv2)
-	tv2.Mul(&tv5, v)
-	tv3.Mul(&tv5, u)
 
-	// line 10
-	tv4.Mul(&tv3, &tv2)
+	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5ᶜ³
+	tv5.Mul(&tv5, &tv2) // 7. tv5 = tv5 * tv2
+	tv2.Mul(&tv5, v)    // 8. tv2 = tv5 * v
+	tv3.Mul(&tv5, u)    // 9. tv3 = tv5 * u
+	tv4.Mul(&tv3, &tv2) // 10. tv4 = tv3 * tv2
 
 	// c5 = 2417851639229258349412352
 	exp.SetBytes([]byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-	tv5.Exp(tv4, &exp)
+	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4ᶜ⁵
+	isQNr := g2NotOne(&tv5) // 12. isQR = tv5 == 1
+	c7 := fp.Element{13990906742184113945, 15879050380504523621, 13768460034940508157, 12337541071329853620, 6296858130192020747, 9289986178217863086, 18403114759403589657, 4546259071787184045, 5504643400205978814, 13830311104669138548, 96107744534255859, 1024735223965534}
+	tv2.Mul(&tv3, &c7)                 // 13. tv2 = tv3 * c7
+	tv5.Mul(&tv4, &tv1)                // 14. tv5 = tv4 * tv1
+	tv3.Select(int(isQNr), &tv3, &tv2) // 15. tv3 = CMOV(tv2, tv3, isQR)
+	tv4.Select(int(isQNr), &tv4, &tv5) // 16. tv4 = CMOV(tv5, tv4, isQR)
+	exp.Lsh(big.NewInt(1), 82-2)       // 18, 19: tv5 = 2ⁱ⁻² for i = c1
 
-	isQNr := g2NotOne(&tv5)
+	for i := 82; i >= 2; i-- { // 17. for i in (c1, c1 - 1, ..., 2):
 
-	tv2.Mul(&tv3, &fp.Element{13990906742184113945, 15879050380504523621, 13768460034940508157, 12337541071329853620, 6296858130192020747, 9289986178217863086, 18403114759403589657, 4546259071787184045, 5504643400205978814, 13830311104669138548, 96107744534255859, 1024735223965534})
-	tv5.Mul(&tv4, &tv1)
+		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4ᵗᵛ⁵
+		nE1 := g2NotOne(&tv5)            // 21.    e1 = tv5 == 1
+		tv2.Mul(&tv3, &tv1)              // 22.    tv2 = tv3 * tv1
+		tv1.Mul(&tv1, &tv1)              // 23.    tv1 = tv1 * tv1    Why not write square?
+		tv5.Mul(&tv4, &tv1)              // 24.    tv5 = tv4 * tv1
+		tv3.Select(int(nE1), &tv3, &tv2) // 25.    tv3 = CMOV(tv2, tv3, e1)
+		tv4.Select(int(nE1), &tv4, &tv5) // 26.    tv4 = CMOV(tv5, tv4, e1)
 
-	// line 15
-
-	tv3.Select(int(isQNr), &tv3, &tv2)
-	tv4.Select(int(isQNr), &tv4, &tv5)
-
-	exp.Lsh(big.NewInt(1), 82-2)
-
-	for i := 82; i >= 2; i-- {
-		//line 20
-		tv5.Exp(tv4, &exp)
-		nE1 := g2NotOne(&tv5)
-
-		tv2.Mul(&tv3, &tv1)
-		tv1.Mul(&tv1, &tv1)
-		tv5.Mul(&tv4, &tv1)
-
-		tv3.Select(int(nE1), &tv3, &tv2)
-		tv4.Select(int(nE1), &tv4, &tv5)
-
-		exp.Rsh(&exp, 1)
+		if i > 2 {
+			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2ⁱ⁻²
+		}
 	}
 
 	*z = tv3
@@ -231,12 +224,6 @@ func g2NotOne(x *fp.Element) uint64 {
 	return one.SetOne().NotEqual(x)
 
 }
-
-/*
-// g2SetZ sets z to [11].
-func g2SetZ(z *fp.Element) {
-    z.Set( &fp.Element {18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222} )
-}*/
 
 // g2MulByZ multiplies x by [11] and stores the result in z
 func g2MulByZ(z *fp.Element, x *fp.Element) {
@@ -252,30 +239,29 @@ func g2MulByZ(z *fp.Element, x *fp.Element) {
 	*z = res
 }
 
-//TODO: Define A,B here
-
-// From https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/ Pg 80
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 // mapToCurve2 implements the SSWU map
 // No cofactor clearing or isogeny
 func mapToCurve2(u *fp.Element) G2Affine {
 
+	var sswuIsoCurveCoeffA = fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385}
+	var sswuIsoCurveCoeffB = fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206}
+
 	var tv1 fp.Element
-	tv1.Square(u)
+	tv1.Square(u) // 1.  tv1 = u²
 
 	//mul tv1 by Z
-	g2MulByZ(&tv1, &tv1)
+	g2MulByZ(&tv1, &tv1) // 2.  tv1 = Z * tv1
 
 	var tv2 fp.Element
-	tv2.Square(&tv1)
-	tv2.Add(&tv2, &tv1)
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
+	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
 
 	var tv3 fp.Element
-	//Standard doc line 5
 	var tv4 fp.Element
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)
-	//TODO: Use bCurveConf when no isogeny
-	tv3.Mul(&tv3, &fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206})
+	tv3.Add(&tv2, &tv4)                // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &sswuIsoCurveCoeffB) // 6.  tv3 = B * tv3
 
 	tv2NZero := g2NotZero(&tv2)
 
@@ -283,48 +269,45 @@ func mapToCurve2(u *fp.Element) G2Affine {
 	tv4 = fp.Element{18446744073709504998, 11529623972028612607, 739483395258014634, 5527028560780200701, 11477868704616895891, 15905434021829949368, 2844651761892435780, 17567410508478669002, 4162242322955979641, 15743938111024983262, 11916654042695069468, 4062866236140222}
 
 	tv2.Neg(&tv2)
-	tv4.Select(int(tv2NZero), &tv4, &tv2)
-	//TODO: When no isogeny use curve constants
-	tv2 = fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385}
-	tv4.Mul(&tv4, &tv2)
+	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
 
-	tv2.Square(&tv3)
+	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
 	var tv6 fp.Element
-	//Standard doc line 10
-	tv6.Square(&tv4)
+	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &fp.Element{11188695195863236139, 18339800635248689929, 13644954250665578253, 16122525194076552550, 1985822167495960177, 11021218035968661748, 12951199075167016614, 18080500199774882647, 3065668365127963650, 1810223365641727596, 18249180996905802984, 4351293214471385})
+	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
 
-	tv2.Add(&tv2, &tv5)
-	tv2.Mul(&tv2, &tv3)
-	tv6.Mul(&tv6, &tv4)
+	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
+	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
+	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	//Standards doc line 15
-	tv5.Mul(&tv6, &fp.Element{3597427888115195847, 8485485194496420669, 9451115945982544412, 10217463679676360079, 3023875305953960937, 5866766270380139867, 15059909646037855295, 1065687373540957157, 12978541562777068958, 18112033168403904062, 11632286302244735111, 1469792042332206})
-	tv2.Add(&tv2, &tv5)
+	tv5.Mul(&tv6, &sswuIsoCurveCoeffB) // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5)                // 16. tv2 = tv2 + tv5
 
 	var x fp.Element
-	x.Mul(&tv1, &tv3)
+	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3
 
 	var y1 fp.Element
-	gx1NSquare := g2SqrtRatio(&y1, &tv2, &tv6)
+	gx1NSquare := g2SqrtRatio(&y1, &tv2, &tv6) // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
 
 	var y fp.Element
-	y.Mul(&tv1, u)
+	y.Mul(&tv1, u) // 19.   y = tv1 * u
 
-	//Standards doc line 20
-	y.Mul(&y, &y1)
+	y.Mul(&y, &y1) // 20.   y = y * y1
 
-	x.Select(int(gx1NSquare), &tv3, &x)
-	y.Select(int(gx1NSquare), &y1, &y)
+	x.Select(int(gx1NSquare), &tv3, &x) // 21.   x = CMOV(x, tv3, is_gx1_square)
+	y.Select(int(gx1NSquare), &y1, &y)  // 22.   y = CMOV(y, y1, is_gx1_square)
 
 	y1.Neg(&y)
 	y.Select(int(g2Sgn0(u)^g2Sgn0(&y)), &y, &y1)
 
-	//Standards doc line 25
-	x.Div(&x, &tv4)
+	// 23.  e1 = sgn0(u) == sgn0(y)
+	// 24.   y = CMOV(-y, y, e1)
+
+	x.Div(&x, &tv4) // 25.   x = x / tv4
 
 	return G2Affine{x, y}
 }
@@ -346,13 +329,13 @@ func g2EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *f
 
 // g2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
 // The sign of an element is not obviously related to that of its Montgomery form
 func g2Sgn0(z *fp.Element) uint64 {
 
 	nonMont := *z
 	nonMont.FromMont()
-
+	// m == 1
 	return nonMont[0] % 2
 
 }
@@ -369,7 +352,7 @@ func MapToG2(u fp.Element) G2Affine {
 // EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -389,7 +372,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // Slower than EncodeToG2, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := hashToFp(msg, dst, 2*1)
 	if err != nil {
@@ -399,7 +382,7 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	Q0 := mapToCurve2(&u[0])
 	Q1 := mapToCurve2(&u[1])
 
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
 	g2Isogeny(&Q0)
 	g2Isogeny(&Q1)
 

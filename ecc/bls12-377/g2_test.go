@@ -99,7 +99,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 		func(a fptower.E2) bool {
 			var op1, op2 G2Affine
 			op1.FromJacobian(&g2Gen)
-			op2.FromJacobian(&g2Gen)
+			op2.Set(&op1)
 			op2.Y.Mul(&op2.Y, &a)
 			return op1.IsOnCurve() && !op2.IsOnCurve()
 		},
@@ -505,7 +505,7 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 }
 
-func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
+func BenchmarkG2AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
 	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
@@ -533,7 +533,7 @@ func BenchmarkG2AffineBatchScalarMul(b *testing.B) {
 	}
 }
 
-func BenchmarkG2JacScalarMul(b *testing.B) {
+func BenchmarkG2JacScalarMultiplication(b *testing.B) {
 
 	var scalar big.Int
 	r := fr.Modulus()

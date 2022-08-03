@@ -65,7 +65,7 @@ func (z *E6) Expt(x *E6) *E6 {
 
 	// Step 67: result = x^0x9948a20000000000
 	result.nSquareCompressed(41)
-	result.Decompress(&result)
+	result.DecompressKarabina(&result)
 
 	// Step 68: result = x^0x9948a20000000001
 	z.Mul(x, &result)
