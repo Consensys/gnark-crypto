@@ -50,28 +50,36 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 
 // {{$CurveName}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// Taken from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/ section 4.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
 // The sign of an element is not obviously related to that of its Montgomery form
 func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
 
     nonMont := *z
     nonMont.FromMont()
-	{{if eq $TowerDegree 1}}
+	{{if eq $TowerDegree 1}}    // m == 1
         return nonMont[0]%2
 	{{else}}
-        sign := uint64(0)
-        zero := uint64(1)
+        sign := uint64(0)   // 1. sign = 0
+        zero := uint64(1)   // 2. zero = 1
         var signI uint64
         var zeroI uint64
-        {{range $i := interval 0 $TowerDegree}}
-            signI = nonMont.{{$.FieldCoordName}}{{$i}}[0] % 2
-            sign = sign | (zero & signI)
-			{{if not (eq $i (sub $TowerDegree 1))}}
+        {{ range $i := interval 0 $TowerDegree}}
+		// 3. i = {{add $i 1}}
+            signI = nonMont.{{$.FieldCoordName}}{{$i}}[0] % 2   // 4.   sign_i = x_i mod 2
+            {{- $notLast := not (eq $i (sub $TowerDegree 1))}}
+			{{- if $notLast}}
                 zeroI = g1NotZero(&nonMont.{{$.FieldCoordName}}{{$i}})
-                zeroI = 1 ^ (zeroI|-zeroI)>>63
-                zero = zero & zeroI
-            {{end}}
-        {{end}}
+                zeroI = 1 ^ (zeroI|-zeroI)>>63  // 5.   zero_i = x_i == 0
+			{{- else}}
+                // 5.   zero_i = x_i == 0
+            {{- end}}
+            sign = sign | (zero & signI)    // 6.   sign = sign OR (zero AND sign_i) # Avoid short-circuit logic ops
+			{{- if $notLast}}
+			    zero = zero & zeroI // 7.   zero = zero AND zero_i
+			{{- else}}
+                // 7.   zero = zero AND zero_i
+            {{- end}}
+        {{- end}}
         return sign
     {{end}}
 }
@@ -93,7 +101,7 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 // EncodeTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
 // It is faster than HashTo{{$CurveTitle}}, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/13/#section-6.6.3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
@@ -123,7 +131,7 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 // HashTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
 // Slower than EncodeTo{{$CurveTitle}}, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
+//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := hashToFp(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {
@@ -143,7 +151,7 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	{{end}}
 
 {{ if $isogenyNeeded }}
-	//TODO: Add in E' first, then apply isogeny
+	//TODO (perf): Add in E' first, then apply isogeny
     {{$CurveName}}Isogeny(&Q0)
     {{$CurveName}}Isogeny(&Q1)
 {{ end }}

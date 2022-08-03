@@ -13,7 +13,7 @@
 
 // mapToCurve{{$CurveIndex}} implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
 // No cofactor clearing or isogeny
-// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-14#appendix-F.1
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
 func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     var tv1, tv2, tv3, tv4 {{$CoordType}}
     var x1, x2, x3, gx1, gx2, gx, x, y {{$CoordType}}
@@ -26,7 +26,6 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     //c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
     //c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-    //TODO: Move outside function?
     Z  := {{$CoordType}}{{asElement (index $.PrecomputedParams 0)}}
     c1 := {{$CoordType}}{{asElement (index $.PrecomputedParams 1)}}
     c2 := {{$CoordType}}{{asElement (index $.PrecomputedParams 2)}}
@@ -48,8 +47,7 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
 
     gx1.Square(&x1) //    11. gx1 = x1²
-	//TODO: Beware A ≠ 0
-    //12. gx1 = gx1 + A
+    //12. gx1 = gx1 + A     All curves in gnark-crypto have A=0 (j-invariant=0). It is crucial to include this step if the curve has nonzero A coefficient.
     gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
     gx1.Add(&gx1, &{{$B}})   //    14. gx1 = gx1 + B
     gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
@@ -57,7 +55,7 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     x2.Add(&c2, &tv4) //    16.  x2 = c2 + tv4
     gx2.Square(&x2)   //    17. gx2 = x2²
-    //    18. gx2 = gx2 + A
+    //    18. gx2 = gx2 + A     See line 12
     gx2.Mul(&gx2, &x2)               //    19. gx2 = gx2 * x2
     gx2.Add(&gx2, &{{$B}}) //    20. gx2 = gx2 + B
 
