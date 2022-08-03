@@ -26,7 +26,6 @@ func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     //c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
     //c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	//@gbotrel: Preferred here or outside the function? Performance impact likely minimal
     Z  := {{$CoordType}}{{asElement (index $.PrecomputedParams 0)}}
     c1 := {{$CoordType}}{{asElement (index $.PrecomputedParams 1)}}
     c2 := {{$CoordType}}{{asElement (index $.PrecomputedParams 2)}}
