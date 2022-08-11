@@ -1,20 +1,26 @@
 package sumcheck
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 )
 
 type LazyClaims interface {
-	CombinedSum(combinationCoeffs []fr.Element) fr.Element
-	CombinedEval(combinationCoeffs []fr.Element, r []fr.Element) fr.Element
+	CombinedSum(combinationCoeffs fr.Element) fr.Element
+	CombinedEval(combinationCoeffs fr.Element, r []fr.Element) fr.Element
 	Degree(i int) int //Degree of the total claim in the i'th variable=
 	ClaimsNum() int
 	VarsNum() int
 }
 
 func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, challengeSeed []byte) bool {
-	combinationCoeffs := transcript.NextFromBytes(challengeSeed, claims.ClaimsNum()) //TODO: Can we use n-1 coefficients instead of n? By setting the first coeff to 1 always
+	var combinationCoeff fr.Element
+
+	if claims.ClaimsNum() >= 2 {
+		combinationCoeff = transcript.NextFromBytes(challengeSeed)
+	}
+
 	r := make([]fr.Element, claims.VarsNum())
 
 	// Just so that there is enough room for gJ to be reused
@@ -24,10 +30,14 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, cha
 			maxDegree = d
 		}
 	}
-	gJ := make(polynomial.Polynomial, maxDegree)
-	gJR := claims.CombinedSum(combinationCoeffs)
+	gJ := make(polynomial.Polynomial, maxDegree+1)
+	gJR := claims.CombinedSum(combinationCoeff)
 
 	for j := 0; j < claims.VarsNum(); j++ {
+		if len(proof[j]) != claims.Degree(j) {
+			fmt.Println("Malformed proof")
+			return false
+		}
 		copy(gJ[1:], proof[j])
 		gJ[0].Sub(&gJR, &proof[j][0]) // Requirement that g_j(0) + g_j(1) = gⱼ₋₁(r)
 
@@ -38,6 +48,6 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, cha
 		gJR = gJCoeffs.Eval(&r)
 	}
 
-	combinedEval := claims.CombinedEval(combinationCoeffs, r)
+	combinedEval := claims.CombinedEval(combinationCoeff, r)
 	return combinedEval.Equal(&gJR)
 }

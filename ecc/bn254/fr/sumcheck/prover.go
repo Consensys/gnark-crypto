@@ -10,9 +10,9 @@ import (
 
 // Claims to a multi-sumcheck statement. i.e. one of the form ∑_{0≤i<2ⁿ} fⱼ(i) = cⱼ for 1 ≤ j ≤ m.
 type Claims interface {
-	Combine([]fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} rⱼfⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} rⱼcⱼ. Return a SubClaim for j = 1 and g₁.
-	VarsNum() int                                           //number of variables
-	ClaimsNum() int                                         //number of claims
+	Combine(fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} rʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} rʲ⁻¹cⱼ. Return a SubClaim for the first step and g₁.
+	VarsNum() int                                         //number of variables
+	ClaimsNum() int                                       //number of claims
 	//Serialize() []fr.Element                     //An expression of the claims, to be incorporated into Fiat-Shamir hashes
 }
 
@@ -43,11 +43,14 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed []byte 
 	// Are claims supposed to already be incorporated in the challengeSeed? Given the business with the commitments
 
 	//challenge, err := transcript.ComputeChallenge(linearCombinationCoeffsId)
-	combinationCoeffs := transcript.NextFromBytes(challengeSeed, claims.ClaimsNum()) //TODO: Can we use n-1 coefficients instead of n? By setting the first coeff to 1 always
+	var combinationCoeff fr.Element
+	if claims.ClaimsNum() >= 2 {
+		combinationCoeff = transcript.NextFromBytes(challengeSeed)
+	}
 
 	var claim SubClaim
 	proof := make(Proof, claims.VarsNum())
-	claim, proof[0] = claims.Combine(combinationCoeffs)
+	claim, proof[0] = claims.Combine(combinationCoeff)
 
 	for j := 1; j < len(proof); j++ {
 		r := transcript.NextFromElements(proof[j-1])

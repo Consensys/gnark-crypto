@@ -8,8 +8,8 @@ import (
 // i.e. the hashes used operate on and return field elements.
 
 type ArithmeticTranscript interface {
-	NextFromElements(_ []fr.Element) fr.Element    // NextFromElements does not directly incorporate the number of elements in the hash. The size must be fixed and checked by the verifier.
-	NextFromBytes(_ []byte, size int) []fr.Element // NextFromElements does not directly incorporate the size of input in the hash. The size must be fixed and checked by the verifier.
+	NextFromElements(_ []fr.Element) fr.Element // NextFromElements does not directly incorporate the number of elements in the hash. The size must be fixed and checked by the verifier.
+	NextFromBytes(_ []byte) fr.Element          // NextFromElements does not directly incorporate the size of input in the hash. The size must be fixed and checked by the verifier.
 }
 
 /*const linearCombinationCoeffsId = "linear-combination-coeffs"

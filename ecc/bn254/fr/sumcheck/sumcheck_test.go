@@ -3,6 +3,7 @@ package sumcheck
 import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+	"math/bits"
 	"testing"
 )
 
@@ -20,18 +21,19 @@ func (m messageCounter) NextFromElements(_ []fr.Element) fr.Element {
 	m.increment()
 	return m.Element
 }
-func (m messageCounter) NextFromBytes(_ []byte, size int) []fr.Element {
-	res := make([]fr.Element, size)
+func (m messageCounter) NextFromBytes(_ []byte) fr.Element {
+	m.increment()
+	return m.Element
+	/*res := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		m.increment()
 		res[i] = m.Element
 	}
-	return res
+	return res*/
 }
 
 type singleMultilinClaim struct {
-	varsNum int
-	g       polynomial.MultiLin
+	g polynomial.MultiLin
 }
 
 type singleMultilinSubClaim struct {
@@ -39,7 +41,7 @@ type singleMultilinSubClaim struct {
 }
 
 func (c singleMultilinClaim) VarsNum() int {
-	return c.varsNum
+	return bits.TrailingZeros(uint(len(c.g)))
 }
 
 func (c singleMultilinClaim) ClaimsNum() int {
@@ -62,17 +64,62 @@ func getSumsPoly(g polynomial.MultiLin) polynomial.Polynomial {
 	return g1
 }
 
-func (c singleMultilinClaim) Combine([]fr.Element) (SubClaim, polynomial.Polynomial) {
+func (c singleMultilinClaim) Combine(fr.Element) (SubClaim, polynomial.Polynomial) {
 	sub := singleMultilinSubClaim{c.g.Clone()}
 
-	return sub, getSumsPoly(c.g)
+	return sub, getSumsPoly(c.g)[1:]
 }
 
 func (c singleMultilinSubClaim) Next(r fr.Element) polynomial.Polynomial {
 	c.g.Fold(r)
-	return getSumsPoly(c.g)
+	return getSumsPoly(c.g)[1:]
+}
+
+type singleMultilinLazyClaim struct {
+	g          polynomial.MultiLin
+	claimedSum fr.Element
+}
+
+func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
+	return c.claimedSum
+}
+
+func (c singleMultilinLazyClaim) CombinedEval(combinationCoeffs fr.Element, r []fr.Element) fr.Element {
+	return c.g.Evaluate(r)
+}
+
+func (c singleMultilinLazyClaim) Degree(i int) int {
+	return 1
+}
+
+func (c singleMultilinLazyClaim) ClaimsNum() int {
+	return 1
+}
+
+func (c singleMultilinLazyClaim) VarsNum() int {
+	return bits.TrailingZeros(uint(len(c.g)))
 }
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
+	var one, two, three, four, five, six, seven, eight fr.Element
 
+	one.SetOne()
+	two.Double(&one)
+	three.Add(&two, &one)
+	four.Double(&two)
+	five.Add(&three, &two)
+	six.Double(&three)
+	seven.Add(&four, &three)
+	eight.Double(&four)
+
+	poly := polynomial.MultiLin{one, two, three, four}
+	claim := singleMultilinClaim{g: poly}
+
+	proof := Prove(claim, messageCounter{}, []byte{})
+
+	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
+
+	if !Verify(lazyClaim, proof, messageCounter{}, []byte{}) {
+		t.Fail()
+	}
 }
