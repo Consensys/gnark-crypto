@@ -46,6 +46,14 @@ func (m *MultiLin) Fold(r fr.Element) {
 	*m = (*m)[:mid]
 }
 
+func (m MultiLin) Sum() fr.Element {
+	s := m[0]
+	for i := 1; i < len(m); i++ {
+		s.Add(&s, &m[i])
+	}
+	return s
+}
+
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
 func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
