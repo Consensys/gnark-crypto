@@ -14,10 +14,15 @@ type messageCounter struct {
 	step  uint64
 }
 
+func newMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
+	return func() ArithmeticTranscript {
+		return &messageCounter{state: uint64(startState), step: uint64(step)}
+	}
+}
+
 func (m *messageCounter) incrementAndReturn() fr.Element {
 	var res fr.Element
 	res.SetUint64(m.state)
-	fmt.Println("Hash = ", m.state)
 	m.state += m.step
 	return res
 }
@@ -27,12 +32,6 @@ func (m *messageCounter) NextFromElements(_ []fr.Element) fr.Element {
 }
 func (m *messageCounter) NextFromBytes(_ []byte) fr.Element {
 	return m.incrementAndReturn()
-	/*res := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
-		m.increment()
-		res[i] = m.Element
-	}
-	return res*/
 }
 
 type singleMultilinClaim struct {
@@ -62,11 +61,10 @@ func sumForX1One(g polynomial.MultiLin) polynomial.Polynomial {
 func (c singleMultilinClaim) Combine(fr.Element) (SubClaim, polynomial.Polynomial) {
 	sub := singleMultilinSubClaim{c.g.Clone()}
 
-	return sub, sumForX1One(c.g)
+	return &sub, sumForX1One(c.g)
 }
 
-func (c singleMultilinSubClaim) Next(r fr.Element) polynomial.Polynomial {
-	fmt.Println("Prover next called")
+func (c *singleMultilinSubClaim) Next(r fr.Element) polynomial.Polynomial {
 	c.g.Fold(r)
 	return sumForX1One(c.g)
 }
@@ -96,7 +94,7 @@ func (c singleMultilinLazyClaim) VarsNum() int {
 	return bits.TrailingZeros(uint(len(c.g)))
 }
 
-func testSumcheckDeterministicHashSingleClaimMultilin(polyInt []uint64, hash messageCounter) bool {
+func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() ArithmeticTranscript) bool {
 	poly := make(polynomial.MultiLin, len(polyInt))
 	for i, n := range polyInt {
 		poly[i].SetUint64(n)
@@ -104,15 +102,11 @@ func testSumcheckDeterministicHashSingleClaimMultilin(polyInt []uint64, hash mes
 
 	claim := singleMultilinClaim{g: poly}
 
-	workingHash := hash
-	proof := Prove(claim, &workingHash, []byte{})
-
-	fmt.Println("Verify")
+	proof := Prove(claim, hashGenerator(), []byte{})
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 
-	workingHash = hash
-	return Verify(lazyClaim, proof, &workingHash, []byte{})
+	return Verify(lazyClaim, proof, hashGenerator(), []byte{})
 }
 
 func printMsws(limit int) {
@@ -126,10 +120,30 @@ func printMsws(limit int) {
 }
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
-	printMsws(10)
+	printMsws(36)
 
-	poly := []uint64{1, 2, 3, 4} // 1 + 2X₁ + X₂
-	if !testSumcheckDeterministicHashSingleClaimMultilin(poly, messageCounter{1, 0}) {
-		t.Fail()
+	polys := [][]uint64{
+		{1, 2, 3, 4},             // 1 + 2X₁ + X₂
+		{1, 2, 3, 4, 5, 6, 7, 8}, // 1 + 4X₁ + 2X₂ + X₃
+		{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, // 1 + 8X₁ + 4X₂ + 2X₃ + X₄
+	}
+
+	const MaxStep = 4
+	const MaxStart = 4
+	hashGens := make([]func() ArithmeticTranscript, 0, MaxStart*MaxStep)
+
+	for step := 0; step < MaxStep; step++ {
+		for startState := 0; startState < MaxStart; startState++ {
+			hashGens = append(hashGens, newMessageCounterGenerator(startState, step))
+		}
+	}
+
+	for _, poly := range polys {
+		for _, hashGen := range hashGens {
+			if !testSumcheckSingleClaimMultilin(poly, hashGen) {
+				t.Error(poly, hashGen())
+				t.Fail()
+			}
+		}
 	}
 }
