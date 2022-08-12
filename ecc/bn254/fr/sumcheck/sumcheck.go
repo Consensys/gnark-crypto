@@ -10,20 +10,28 @@ import (
 
 // Claims to a multi-sumcheck statement. i.e. one of the form ∑_{0≤i<2ⁿ} fⱼ(i) = cⱼ for 1 ≤ j ≤ m.
 type Claims interface {
-	Combine(fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} rʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} rʲ⁻¹cⱼ. Return a SubClaim for the first step and g₁.
-	VarsNum() int                                         //number of variables
-	ClaimsNum() int                                       //number of claims
+	Combine(a fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} aʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} aʲ⁻¹cⱼ. Return a SubClaim for the first step and g₁.
+	VarsNum() int                                           //number of variables
+	ClaimsNum() int                                         //number of claims
 }
-
-// Proof of a multi-sumcheck statement.
-type Proof []polynomial.Polynomial
 
 // SubClaim is a claim of the form gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...)
 type SubClaim interface {
 	Next(fr.Element) polynomial.Polynomial // Return the evaluations gⱼ(k) for 1 ≤ k < degⱼ(g).
 	//Update the subclaim to gⱼ₊₁ for the input value as rⱼ
-
 }
+
+// LazyClaims is the Claims data structure on the verifier side. It is "lazy" in that it has to compute fewer things.
+type LazyClaims interface {
+	ClaimsNum() int                                           // ClaimsNum = m
+	VarsNum() int                                             // VarsNum = n
+	CombinedSum(a fr.Element) fr.Element                      // CombinedSum returns c = ∑_{1≤j≤m} aʲ⁻¹cⱼ
+	CombinedEval(coeff fr.Element, r []fr.Element) fr.Element // CombinedEval returns returns g(r₁, ..., rₙ) = ∑_{1≤j≤m} aʲ⁻¹fⱼ(r₁, ..., rₙ)
+	Degree(i int) int                                         //Degree of the total claim in the i'th variable
+}
+
+// Proof of a multi-sumcheck statement.
+type Proof []polynomial.Polynomial
 
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
@@ -45,14 +53,6 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed []byte)
 	}
 
 	return proof
-}
-
-type LazyClaims interface {
-	CombinedSum(combinationCoeffs fr.Element) fr.Element
-	CombinedEval(combinationCoeffs fr.Element, r []fr.Element) fr.Element
-	Degree(i int) int //Degree of the total claim in the i'th variable=
-	ClaimsNum() int
-	VarsNum() int
 }
 
 func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, challengeSeed []byte) bool {
