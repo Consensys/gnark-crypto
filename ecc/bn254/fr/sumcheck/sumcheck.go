@@ -39,12 +39,12 @@ type Proof struct {
 
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
-func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed []byte) Proof {
+func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed interface{}) Proof {
 	// TODO: Are claims supposed to already be incorporated in the challengeSeed? Given the business with the commitments
 
 	var combinationCoeff fr.Element
 	if claims.ClaimsNum() >= 2 {
-		combinationCoeff = transcript.NextFromBytes(challengeSeed)
+		combinationCoeff = NextChallenge(transcript, challengeSeed)
 	}
 
 	var claim SubClaim

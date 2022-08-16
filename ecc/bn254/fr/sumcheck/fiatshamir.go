@@ -12,21 +12,28 @@ type ArithmeticTranscript interface {
 	NextFromBytes(_ []byte) fr.Element          // NextFromElements does not directly incorporate the size of input in the hash. The size must be fixed and checked by the verifier.
 }
 
-/*const linearCombinationCoeffsId = "linear-combination-coeffs"
-const polynomialEvaluationId = "polynomial-evaluation"
-
-func newSumcheckTranscript(claims Claims, h hash.Hash, seed []byte) fiatshamir.Transcript {
-	challengesId := make([]string, claims.ClaimsNum()+claims.VarsNum())
-	for i := 0; i < claims.ClaimsNum(); i++ {
-		challengesId[i] = linearCombinationCoeffsId + strconv.Itoa(i)
+func NextChallenge(transcript ArithmeticTranscript, input interface{}) fr.Element {
+	switch i := input.(type) {
+	case []byte:
+		return transcript.NextFromBytes(i)
+	case []fr.Element:
+		return transcript.NextFromElements(i)
+	case fr.Element:
+		return transcript.NextFromElements([]fr.Element{i})
+	case *fr.Element:
+		return transcript.NextFromElements([]fr.Element{*i})
+	default:
+		panic("invalid input type")
 	}
-	for i := 0; i < claims.VarsNum(); i++ {
-		challengesId[i+claims.ClaimsNum()] = polynomialEvaluationId + strconv.Itoa(i)
-	}
-	transcript := fiatshamir.NewTranscript(h, challengesId...)
-	if e := transcript.Bind(linearCombinationCoeffsId+"0", seed); e != nil {
-		panic("Error in setting up sumcheck challenges: " + e.Error())
-	}
-	return transcript
 }
-*/
+
+func NextFromBytes(transcript ArithmeticTranscript, bytes []byte, count int) []fr.Element {
+	res := make([]fr.Element, count)
+
+	for i := 0; i < count; i++ {
+		res[i] = transcript.NextFromBytes(bytes)
+		bytes = nil
+	}
+
+	return res
+}

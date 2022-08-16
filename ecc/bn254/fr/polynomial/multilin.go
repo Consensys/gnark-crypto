@@ -18,6 +18,7 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"math/bits"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
@@ -152,6 +153,10 @@ func (m *MultiLin) Eq(q []fr.Element) {
 			(*m)[j0].Sub(&(*m)[j0], &(*m)[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 		}
 	}
+}
+
+func (m MultiLin) NumVars() int {
+	return bits.TrailingZeros(uint(len(m)))
 }
 
 func init() {
