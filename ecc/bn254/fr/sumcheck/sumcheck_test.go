@@ -38,6 +38,10 @@ type singleMultilinClaim struct {
 	g polynomial.MultiLin
 }
 
+func (c singleMultilinClaim) ProveFinalEval(r []fr.Element) interface{} {
+	return nil // verifier can compute the final eval itself
+}
+
 type singleMultilinSubClaim struct {
 	g polynomial.MultiLin
 }
@@ -74,12 +78,13 @@ type singleMultilinLazyClaim struct {
 	claimedSum fr.Element
 }
 
-func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
-	return c.claimedSum
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
+	val := c.g.Evaluate(r)
+	return val.Equal(&purportedValue)
 }
 
-func (c singleMultilinLazyClaim) CombinedEval(combinationCoeffs fr.Element, r []fr.Element) fr.Element {
-	return c.g.Evaluate(r)
+func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
+	return c.claimedSum
 }
 
 func (c singleMultilinLazyClaim) Degree(i int) int {
@@ -109,6 +114,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 	return Verify(lazyClaim, proof, hashGenerator(), []byte{})
 }
 
+// For debugging TODO Remove
 func printMsws(limit int) {
 	var one, iElem fr.Element
 	one.SetOne()

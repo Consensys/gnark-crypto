@@ -13,6 +13,7 @@ type Claims interface {
 	Combine(a fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} aʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} aʲ⁻¹cⱼ. Return a SubClaim for the first step and g₁.
 	VarsNum() int                                           //number of variables
 	ClaimsNum() int                                         //number of claims
+	ProveFinalEval(r []fr.Element) interface{}              //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
 // SubClaim is a claim of the form gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...)
@@ -23,15 +24,18 @@ type SubClaim interface {
 
 // LazyClaims is the Claims data structure on the verifier side. It is "lazy" in that it has to compute fewer things.
 type LazyClaims interface {
-	ClaimsNum() int                                           // ClaimsNum = m
-	VarsNum() int                                             // VarsNum = n
-	CombinedSum(a fr.Element) fr.Element                      // CombinedSum returns c = ∑_{1≤j≤m} aʲ⁻¹cⱼ
-	CombinedEval(coeff fr.Element, r []fr.Element) fr.Element // CombinedEval returns returns g(r₁, ..., rₙ) = ∑_{1≤j≤m} aʲ⁻¹fⱼ(r₁, ..., rₙ)
-	Degree(i int) int                                         //Degree of the total claim in the i'th variable
+	ClaimsNum() int                      // ClaimsNum = m
+	VarsNum() int                        // VarsNum = n
+	CombinedSum(a fr.Element) fr.Element // CombinedSum returns c = ∑_{1≤j≤m} aʲ⁻¹cⱼ
+	Degree(i int) int                    //Degree of the total claim in the i'th variable
+	VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool
 }
 
 // Proof of a multi-sumcheck statement.
-type Proof []polynomial.Polynomial
+type Proof struct {
+	partialSumPolys []polynomial.Polynomial
+	finalEvalProof  interface{} //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
+}
 
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
@@ -44,12 +48,13 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed []byte)
 	}
 
 	var claim SubClaim
-	proof := make(Proof, claims.VarsNum())
-	claim, proof[0] = claims.Combine(combinationCoeff)
+	var proof Proof
+	proof.partialSumPolys = make([]polynomial.Polynomial, claims.VarsNum())
+	claim, proof.partialSumPolys[0] = claims.Combine(combinationCoeff)
 
-	for j := 1; j < len(proof); j++ {
-		r := transcript.NextFromElements(proof[j-1])
-		proof[j] = claim.Next(r)
+	for j := 1; j < len(proof.partialSumPolys); j++ {
+		r := transcript.NextFromElements(proof.partialSumPolys[j-1])
+		proof.partialSumPolys[j] = claim.Next(r)
 	}
 
 	return proof
@@ -75,20 +80,19 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, cha
 	gJR := claims.CombinedSum(combinationCoeff)    // At the beginning of iteration j, gJR = ∑_{i < 2ⁿ⁻ʲ} g(r₁, ..., rⱼ, i...)
 
 	for j := 0; j < claims.VarsNum(); j++ {
-		if len(proof[j]) != claims.Degree(j) {
+		if len(proof.partialSumPolys[j]) != claims.Degree(j) {
 			return false //Malformed proof
 		}
-		copy(gJ[1:], proof[j])
-		gJ[0].Sub(&gJR, &proof[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)
+		copy(gJ[1:], proof.partialSumPolys[j])
+		gJ[0].Sub(&gJR, &proof.partialSumPolys[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.NextFromElements(proof[j])
+		r[j] = transcript.NextFromElements(proof.partialSumPolys[j])
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
 	}
 
-	combinedEval := claims.CombinedEval(combinationCoeff, r)
-	return combinedEval.Equal(&gJR)
+	return claims.VerifyFinalEval(r, combinationCoeff, gJR, proof.finalEvalProof)
 }
