@@ -84,7 +84,8 @@ func sum(h hash.Hash, data ...[]byte) []byte {
 
 // leafSum returns the hash created from data inserted to form a leaf. Leaf
 // sums are calculated using:
-//		Hash(0x00 || data)
+//
+//	Hash(0x00 || data)
 func leafSum(h hash.Hash, data []byte) []byte {
 
 	//return sum(h, leafHashPrefix, data)
@@ -93,7 +94,8 @@ func leafSum(h hash.Hash, data []byte) []byte {
 
 // nodeSum returns the hash created from two sibling nodes being combined into
 // a parent node. Node sums are calculated using:
-//		Hash(0x01 || left sibling sum || right sibling sum)
+//
+//	Hash(0x01 || left sibling sum || right sibling sum)
 func nodeSum(h hash.Hash, a, b []byte) []byte {
 	//return sum(h, nodeHashPrefix, a, b)
 	return sum(h, a, b)

@@ -94,11 +94,11 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 
 // Bytes returns the binary representation of sig
 // as a byte array of size 3*sizeFr x||y||s where
-// * x, y are the coordinates of a point on the twisted
-//	Edwards represented in big endian
-// * s=r+h(r,a,m) mod l, the Hasse bound guarantess that
-//	s is smaller than sizeFr (in particular it is supposed
-// 	s is NOT blinded)
+//   - x, y are the coordinates of a point on the twisted
+//     Edwards represented in big endian
+//   - s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+//     s is smaller than sizeFr (in particular it is supposed
+//     s is NOT blinded)
 func (sig *Signature) Bytes() []byte {
 	var res [sizeSignature]byte
 	sigRBin := sig.R.Bytes()
@@ -109,11 +109,12 @@ func (sig *Signature) Bytes() []byte {
 
 // SetBytes sets sig from a buffer in binary.
 // buf is read interpreted as x||y||s where
-// * x,y are the coordinates of a point on the twisted
-//	Edwards represented in big endian
-// * s=r+h(r,a,m) mod l, the Hasse bound guarantess that
-//	s is smaller than sizeFr (in particular it is supposed
-// 	s is NOT blinded)
+//   - x,y are the coordinates of a point on the twisted
+//     Edwards represented in big endian
+//   - s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+//     s is smaller than sizeFr (in particular it is supposed
+//     s is NOT blinded)
+//
 // It returns the number of bytes read from buf.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0

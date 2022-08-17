@@ -220,7 +220,7 @@ func BenchmarkHashToG1(b *testing.B) {
 	}
 }
 
-//TODO: Crude. Do something clever in Jacobian
+// TODO: Crude. Do something clever in Jacobian
 func isOnE1Prime(p G1Affine) bool {
 
 	var A, B fp.Element
@@ -247,7 +247,7 @@ func isOnE1Prime(p G1Affine) bool {
 	return LHS.Equal(&RHS)
 }
 
-//Only works on simple extensions (two-story towers)
+// Only works on simple extensions (two-story towers)
 func g1CoordSetString(z *fp.Element, s string) {
 	z.SetString(s)
 }

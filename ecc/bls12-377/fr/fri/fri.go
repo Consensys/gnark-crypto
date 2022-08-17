@@ -121,7 +121,6 @@ type Round struct {
 // a function is d-close to a low degree polynomial.
 //
 // It is composed of a series of Interactions, emulated with Fiat Shamir,
-//
 type ProofOfProximity struct {
 
 	// ID unique ID attached to the proof of proximity. It's needed for

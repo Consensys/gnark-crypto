@@ -68,7 +68,7 @@ type expandMsgXmdTestCase struct {
 	uniformBytesHex string
 }
 
-//Test vectors from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/14/ Page 148 Section K.1.
+// Test vectors from https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/14/ Page 148 Section K.1.
 func TestExpandMsgXmd(t *testing.T) {
 	//name := "expand_message_xmd"
 	dst := "QUUX-V01-CS02-with-expander-SHA256-128"
