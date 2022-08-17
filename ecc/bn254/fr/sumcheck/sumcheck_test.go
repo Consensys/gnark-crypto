@@ -5,6 +5,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"math/bits"
+	"strings"
 	"testing"
 )
 
@@ -42,10 +43,6 @@ func (c singleMultilinClaim) ProveFinalEval(r []fr.Element) interface{} {
 	return nil // verifier can compute the final eval itself
 }
 
-type singleMultilinSubClaim struct {
-	g polynomial.MultiLin
-}
-
 func (c singleMultilinClaim) VarsNum() int {
 	return bits.TrailingZeros(uint(len(c.g)))
 }
@@ -62,13 +59,11 @@ func sumForX1One(g polynomial.MultiLin) polynomial.Polynomial {
 	return []fr.Element{sum}
 }
 
-func (c singleMultilinClaim) Combine(fr.Element) (SubClaim, polynomial.Polynomial) {
-	sub := singleMultilinSubClaim{c.g.Clone()}
-
-	return &sub, sumForX1One(c.g)
+func (c singleMultilinClaim) Combine(fr.Element) polynomial.Polynomial {
+	return sumForX1One(c.g)
 }
 
-func (c *singleMultilinSubClaim) Next(r fr.Element) polynomial.Polynomial {
+func (c *singleMultilinClaim) Next(r fr.Element) polynomial.Polynomial {
 	c.g.Fold(r)
 	return sumForX1One(c.g)
 }
@@ -105,9 +100,23 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 		poly[i].SetUint64(n)
 	}
 
-	claim := singleMultilinClaim{g: poly}
+	claim := singleMultilinClaim{g: poly.Clone()}
 
-	proof := Prove(claim, hashGenerator(), []byte{})
+	proof := Prove(&claim, hashGenerator(), []byte{})
+
+	var sb strings.Builder
+	for _, p := range proof.partialSumPolys {
+
+		sb.WriteString("\t{")
+		for i := 0; i < len(p); i++ {
+			sb.WriteString(p[i].String())
+			if i+1 < len(p) {
+				sb.WriteString(", ")
+			}
+		}
+		sb.WriteString("}\n")
+	}
+	//fmt.Printf("%v, %v:\n%s\n", polyInt, hashGenerator(), sb.String())
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 
@@ -126,7 +135,7 @@ func printMsws(limit int) {
 }
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
-	printMsws(36)
+	//printMsws(36)
 
 	polys := [][]uint64{
 		{1, 2, 3, 4},             // 1 + 2X₁ + X₂
@@ -148,7 +157,6 @@ func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 		for _, hashGen := range hashGens {
 			if !testSumcheckSingleClaimMultilin(poly, hashGen) {
 				t.Error(poly, hashGen())
-				t.Fail()
 			}
 		}
 	}
