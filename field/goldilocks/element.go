@@ -401,7 +401,7 @@ func (z *Element) Mul(x, y *Element) *Element {
 	// reduce r if necessary
 
 	// On the emphasized line, we get r = hi + (lo + m * q) / R
-	// If we write hi2, lo2 = m * q then lo2 + R hi2 = m * q ⇒ R | m * q - lo2 ⇒ R | (lo * qInvNeg) q - lo2 = -lo - lo2
+	// If we write hi2, lo2 = m * q then R | m * q - lo2 ⇒ R | (lo * qInvNeg) q - lo2 = -lo - lo2
 	// This shows lo + lo2 = 0 mod R. i.e. lo + lo2 = 0 if lo = 0 and R otherwise.
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
