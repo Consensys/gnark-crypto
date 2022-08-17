@@ -350,7 +350,7 @@ func MapToG2(u fptower.E2) G2Affine {
 // EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -373,7 +373,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
 // Slower than EncodeToG2, but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := hashToFp(msg, dst, 2*2)
 	if err != nil {

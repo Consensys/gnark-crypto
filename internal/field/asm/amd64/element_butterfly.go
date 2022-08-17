@@ -17,11 +17,12 @@ package amd64
 // Butterfly sets
 // a = a + b
 // b = a - b
-// func Butterfly(a, b *{{.ElementName}}) {
-// 	t := *a
-// 	a.Add(a, b)
-// 	b.Sub(&t, b)
-// }
+//
+//	func Butterfly(a, b *{{.ElementName}}) {
+//		t := *a
+//		a.Add(a, b)
+//		b.Sub(&t, b)
+//	}
 func (f *FFAmd64) generateButterfly() {
 	f.Comment("Butterfly(a, b *Element) sets a = a + b; b = a - b")
 

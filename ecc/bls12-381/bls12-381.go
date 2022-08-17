@@ -1,23 +1,29 @@
 // Package bls12381 efficient elliptic curve, pairing and hash to curve implementation for bls12-381.
 //
 // bls12-381: A Barreto--Lynn--Scott curve
-// 		embedding degree k=12
-// 		seed x₀=-15132376222941642752
-// 		𝔽r: r=52435875175126190479447740508185965837690552500527637822603658699938581184513 (x₀⁴-x₀²+1)
-// 		𝔽p: p=4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787 ((x₀-1)² ⋅ r(x₀)/3+x₀)
-// 		(E/𝔽p): Y²=X³+4
-// 		(Eₜ/𝔽p²): Y² = X³+4(u+1) (M-type twist)
-// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
+//
+//	embedding degree k=12
+//	seed x₀=-15132376222941642752
+//	𝔽r: r=52435875175126190479447740508185965837690552500527637822603658699938581184513 (x₀⁴-x₀²+1)
+//	𝔽p: p=4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787 ((x₀-1)² ⋅ r(x₀)/3+x₀)
+//	(E/𝔽p): Y²=X³+4
+//	(Eₜ/𝔽p²): Y² = X³+4(u+1) (M-type twist)
+//	r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
+//
 // Extension fields tower:
-//     𝔽p²[u] = 𝔽p/u²+1
-//     𝔽p⁶[v] = 𝔽p²/v³-1-u
-//     𝔽p¹²[w] = 𝔽p⁶/w²-v
+//
+//	𝔽p²[u] = 𝔽p/u²+1
+//	𝔽p⁶[v] = 𝔽p²/v³-1-u
+//	𝔽p¹²[w] = 𝔽p⁶/w²-v
+//
 // optimal Ate loop size:
-//		x₀
+//
+//	x₀
+//
 // Security: estimated 126-bit level following [https://eprint.iacr.org/2019/885.pdf]
 // (r is 255 bits and p¹² is 4569 bits)
 //
-// Warning
+// # Warning
 //
 // This code has been partially audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bls12381
