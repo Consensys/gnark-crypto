@@ -397,8 +397,8 @@ func (z *Element) Mul(x, y *Element) *Element {
 	var r uint64
 	hi, lo := bits.Mul64(x[0], y[0])
 	m := lo * qInvNeg
-	hi2, lo2 := bits.Mul64(m, q)
-	_, carry := bits.Add64(lo2, lo, 0)
+	hi2, _ := bits.Mul64(m, q)
+	_, carry := bits.Add64(lo, 0xffffffffffffffff, 0)
 	r, carry = bits.Add64(hi2, hi, carry)
 
 	if carry != 0 || r >= q {
@@ -454,7 +454,7 @@ func (z *Element) Double(x *Element) *Element {
 		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
 		z[0] = (x[0] << 1) - q
 	} else {
-		// highest bit is not set, but x + x can still be >= q
+		// highest bit is not set, but x + x can still be ⩾ q
 		z[0] = (x[0] << 1)
 		if z[0] >= q {
 			z[0] -= q
@@ -520,7 +520,7 @@ func _fromMontGeneric(z *Element) {
 		z[0] = C
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
@@ -528,7 +528,7 @@ func _fromMontGeneric(z *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
@@ -876,7 +876,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
 
-	// b = x^s = w * w * x = y * x
+	// b = xˢ = w * w * x = y * x
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s
@@ -939,7 +939,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var r, s, u, v uint64
 	u = q
-	s = 18446744065119617025 // s = r^2
+	s = 18446744065119617025 // s = r²
 	r = 0
 	v = x[0]
 

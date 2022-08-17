@@ -876,6 +876,16 @@ func TestElementSub(t *testing.T) {
 
 }
 
+func TestElementMulTricky(t *testing.T) {
+	x, y := Element{0xffffffffffffffff}, Element{0xffffffffffffffff}
+	var seen, expected Element
+	seen.Mul(&x, &y)
+	_mulGeneric(&expected, &x, &y)
+	if !seen.Equal(&expected) {
+		t.Error("Saw", seen[0], "expected", expected[0])
+	}
+}
+
 func TestElementMul(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
