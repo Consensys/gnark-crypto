@@ -566,7 +566,7 @@ func (z *Element) Add(x, y *Element) *Element {
 	z[8], carry = bits.Add64(x[8], y[8], carry)
 	z[9], _ = bits.Add64(x[9], y[9], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -598,7 +598,7 @@ func (z *Element) Double(x *Element) *Element {
 	z[8], carry = bits.Add64(x[8], x[8], carry)
 	z[9], _ = bits.Add64(x[9], x[9], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -937,7 +937,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[9], z[8] = madd3(m, q9, c[0], c[2], c[1])
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -1109,7 +1109,7 @@ func _fromMontGeneric(z *Element) {
 		z[9] = C
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -1127,7 +1127,7 @@ func _fromMontGeneric(z *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -1980,7 +1980,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[9], z[8] = madd2(m, q9, t[i+9], C)
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
