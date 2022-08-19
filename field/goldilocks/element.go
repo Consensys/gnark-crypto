@@ -522,7 +522,7 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 func _mulGeneric(z, x, y *Element) {
 	// see Mul for algorithm documentation
 
-	z.Mul(x, y) //Dummy
+	z.Mul(x, y)
 
 }
 
