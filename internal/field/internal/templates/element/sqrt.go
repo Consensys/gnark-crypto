@@ -102,7 +102,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// y = x^((s+1)/2)) = w * x
 		y.Mul(x, &w)
 
-		// b = x^s = w * w * x = y * x
+		// b = xˢ = w * w * x = y * x
 		b.Mul(&w, &y)
 
 		// g = nonResidue ^ s
@@ -113,7 +113,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		r := uint64({{.SqrtE}})
 
 		// compute legendre symbol
-		// t = x^((q-1)/2) = r-1 squaring of x^s
+		// t = x^((q-1)/2) = r-1 squaring of xˢ
 		t = b
 		for i:=uint64(0); i < r-1; i++ {
 			t.Square(&t)

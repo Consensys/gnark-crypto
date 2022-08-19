@@ -619,7 +619,7 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 func _mulGeneric(z,x,y *{{.ElementName}}) {
 	// see Mul for algorithm documentation
 	{{ if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+		z.Mul(x,y)	//Dummy
 	{{ else if .NoCarry}}
 		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
 		{{ template "reduce"  . }}
