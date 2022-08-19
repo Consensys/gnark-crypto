@@ -9,17 +9,13 @@ import (
 // It is currently geared towards arithmetic hashes. Once we have a more unified hash function interface, this can be generified.
 
 // Claims to a multi-sumcheck statement. i.e. one of the form ∑_{0≤i<2ⁿ} fⱼ(i) = cⱼ for 1 ≤ j ≤ m.
+// Later evolving into a claim of the form gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...)
 type Claims interface {
-	Combine(a fr.Element) (SubClaim, polynomial.Polynomial) // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} aʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} aʲ⁻¹cⱼ. Return a SubClaim for the first step and g₁.
-	VarsNum() int                                           //number of variables
-	ClaimsNum() int                                         //number of claims
-	ProveFinalEval(r []fr.Element) interface{}              //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
-}
-
-// SubClaim is a claim of the form gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...)
-type SubClaim interface {
-	Next(fr.Element) polynomial.Polynomial // Return the evaluations gⱼ(k) for 1 ≤ k < degⱼ(g).
-	//Update the subclaim to gⱼ₊₁ for the input value as rⱼ
+	Combine(a fr.Element) polynomial.Polynomial // Combine into the 0ᵗʰ sumcheck subclaim. Create g := ∑_{1≤j≤m} aʲ⁻¹fⱼ for which now we seek to prove ∑_{0≤i<2ⁿ} g(i) = c := ∑_{1≤j≤m} aʲ⁻¹cⱼ. Return g₁.
+	Next(fr.Element) polynomial.Polynomial      // Return the evaluations gⱼ(k) for 1 ≤ k < degⱼ(g). Update the claim to gⱼ₊₁ for the input value as rⱼ
+	VarsNum() int                               //number of variables
+	ClaimsNum() int                             //number of claims
+	ProveFinalEval(r []fr.Element) interface{}  //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
 // LazyClaims is the Claims data structure on the verifier side. It is "lazy" in that it has to compute fewer things.
@@ -47,14 +43,13 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed interfa
 		combinationCoeff = NextChallenge(transcript, challengeSeed)
 	}
 
-	var claim SubClaim
 	var proof Proof
 	proof.partialSumPolys = make([]polynomial.Polynomial, claims.VarsNum())
-	claim, proof.partialSumPolys[0] = claims.Combine(combinationCoeff)
+	proof.partialSumPolys[0] = claims.Combine(combinationCoeff)
 
 	for j := 1; j < len(proof.partialSumPolys); j++ {
 		r := transcript.NextFromElements(proof.partialSumPolys[j-1])
-		proof.partialSumPolys[j] = claim.Next(r)
+		proof.partialSumPolys[j] = claims.Next(r)
 	}
 
 	return proof
