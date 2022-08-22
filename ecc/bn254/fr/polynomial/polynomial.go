@@ -149,6 +149,12 @@ func (p *Polynomial) Equal(p1 Polynomial) bool {
 	return true
 }
 
+func (p Polynomial) SetZero() {
+	for i := 0; i < len(p); i++ {
+		p[i].SetZero()
+	}
+}
+
 func signedBigInt(v *fr.Element) big.Int {
 	var i big.Int
 	v.ToBigIntRegular(&i)

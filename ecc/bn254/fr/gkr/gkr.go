@@ -10,9 +10,10 @@ import (
 
 // Gate must be a low-degree polynomial
 type Gate interface {
-	Combine(...fr.Element) fr.Element
+	Evaluate(...fr.Element) fr.Element
 	NumInput() int
-	Degree(i int)   int
+	Degree() int
+	//Degree(i int)   int
 }
 
 type Wire struct {
@@ -43,8 +44,8 @@ type eqTimesGateEvalSumcheckClaims struct {
 	combinedEvaluation fr.Element
 	combinationCoefficient fr.Element
 	evaluationPoints [][]fr.Element	// x in the paper
-	inputPreprocessors []polynomial.MultiLin	// P_u in the paper
-	eq []polynomial.MultiLin	// \tau_i eq(x_i, -)
+	inputPreprocessors []polynomial.MultiLin	// P_u in the paper, so that we don't need to pass along all the circuit's evaluations
+	eq polynomial.MultiLin	// \sum_i \tau_i eq(x_i, -)
 	gate *Gate	// R_v in the paper
 	//assignment *WireAssignment
 }
@@ -56,36 +57,71 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(a fr.Element) polynomial.Polynom
 	evaluationsAsCoefficients := polynomial.Polynomial(c.claimedEvaluations)
 	c.combinedEvaluation = evaluationsAsCoefficients.Eval(&a)
 
+	eqLength := 1 << len(c.evaluationPoints[0])
 	// initialize the eq tables
-	c.eq = make([]polynomial.MultiLin, c.ClaimsNum())
+	c.eq = polynomial.Make(eqLength)	//TODO: MakeLarge here?
+	eqAsPoly := polynomial.Polynomial(c.eq)
+	eqAsPoly.SetZero()
 
-	var aI fr.Element	// this is being recomputed, already computed in the combinedEvaluation step. TODO: Big deal?
-	aI.SetOne()
-	for k := 0; k < len(c.eq); k++ {
+	newEq := polynomial.MultiLin(polynomial.Make(eqLength))	//TODO: MakeLarge here?
+	newEq[0].SetOne()
+
+	aI := newEq[0]
+	for k := 0; k < len(c.eq); k++ {	//TODO: parallelizable?
 		// define eq_k = a^k eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
-		c.eq[k] = polynomial.Make(1 << len(c.evaluationPoints[k]))
-		c.eq[k][0] = aI
-		c.eq[k].Eq(c.evaluationPoints[k])
+		newEq.Eq(c.evaluationPoints[k])
+
+		if !newEq[0].Equal(&aI) {
+			panic("Incorrect assumption: Eq modifies newEq[0]")
+		}
+
+		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+ 1 < len(c.eq) {
-			aI.Mul(&aI, &a)
+			newEq[0].Mul(&newEq[0], &a)	//TODO: Test this. newEq[0] maybe not preserving value?
+			aI = newEq[0]
 		}
 	}
+
+	// from this point on the claim is a rather simple one: g = E(h) \times R_v (P_u0(h), ...) where E and the P_ui are multilinear and R_v is of low-degree
 
 	return c.computeGJ()
 }
 
-// computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} (\sum eq_k (r_1, ..., X_j, i...) ) Gate( P_u0(r_1, ..., X_j, i...), ... )
-func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
-	eqSum := make([]fr.Element, len(c.eq))	// TODO: Use pool
-	eqStep := make([]fr.Element, len(c.eq))
+// computeSumAndStep returns sum = \sum_i m(1, i...) and step = \sum_i m(1, i...) - m(0, i...)
+func computeSumAndStep(m polynomial.MultiLin) (sum fr.Element, step fr.Element) {
+	sum = m[len(m)/2:].Sum()
+	step = m[:len(m)/2].Sum()
+	step.Sub(&sum, &step)
+	return
+}
 
-	for k := 0; k < len(c.eq); k++ {
-		eq := c.eq[k]
-		eqSum[k] = eq[len(eq)/2:].Sum()	// initially to hold \sum eq_k(r_1, ..., 1, i...)
-		eqStep[k] = eq[:len(eq)/2].Sum()
-		eqStep[k].Sub(&eqStep[k], &eqSum[k])	//holds \sum eq_k(r_1, ..., 1, i..) - \sum eq_k(r_1, ..., 0, i...)
+// computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r_1, ..., X_j, i...) R_v( P_u0(r_1, ..., X_j, i...), ... ) where  E = \sum eq_k
+// the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
+func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
+	degGJ := 1 + c.gate.Degree()	// guaranteed to be no smaller than the actual deg(g_j)
+
+	// Let f \in {E} \cup {P_ui}. It is linear in X_j, so f(n) = n\times(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
+	ESum, EStep := computeSumAndStep(c.eq)
+
+	puSum := polynomial.Polynomial(polynomial.Make(len(c.inputPreprocessors)))
+	puStep := polynomial.Make(len(c.inputPreprocessors))
+
+	for i := 0; i < len(puSum); i++ {
+		puSum[i], puStep[i] = computeSumAndStep(c.inputPreprocessors[i])
 	}
+
+	evals := make([]fr.Element, degGJ)
+	for i := 1; i < degGJ; i++ {
+		evals[i] = c.gate.Evaluate(puSum...)
+		evals[i].Mul(&evals[i], &ESum)
+
+		if i + 1 < degGJ {
+			ESum.Add(&ESum, &EStep)
+			puSum.Add(puSum, puStep)
+		}
+	}
+	return evals
 }
 
 func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
