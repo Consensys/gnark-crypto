@@ -6,84 +6,127 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 )
 
-// This implements the GKR protocol more or less as described in the "Libra" paper
+// The goal is to prove/verify evaluations of many instances of the same circuit
 
-// GateWiring stores the input and output indexes of wires
-type GateWiring struct {
-	out      int
-	inL, inR int // Fan-in = 2
+// Gate must be a low-degree polynomial
+type Gate interface {
+	Combine(...fr.Element) fr.Element
+	NumInput() int
+	Degree(i int)   int
 }
 
-// CircuitLayerGate currently has fan-in 2
-type CircuitLayerGate struct {
-	Degree int // Degree as a polynomial
-	Eval   func(l, r fr.Element) fr.Element
-	Wiring []GateWiring // Because it is assumed to be sparse, the Wiring is not described as a polynomial
+type Wire struct {
+	Gate   *Gate
+	Inputs []*Wire
+	NumOutputs int	// number of other wires using it as input
 }
 
-type CircuitLayer struct {
-	Values polynomial.MultiLin // Consisting of 2ⁿ values
-	Gates  []CircuitLayerGate  // For each kind of computation
-	Input  *CircuitLayer       // Previous layer of the circuit. nil if the current layer is itself the input
+type CircuitLayer []Wire
+
+// TODO: Constructor so that user doesn't have to give layers explicitly.
+type Circuit []CircuitLayer
+
+// WireAssignment is assignment of values to the same wire across many instances of the circuit
+type WireAssignment map[*Wire]polynomial.MultiLin
+
+type Proof struct {
 }
 
-type Claim struct {
-	OutputValues       polynomial.MultiLin //The claimed OutputValues of the circuit
-	InputValues        polynomial.MultiLin //The agreed-upon InputValues of the circuit
-	CircuitOutputLayer CircuitLayer        //The final layer of the circuit, producing the OutputValues
+// A claim about the value of a wire
+type claim struct {
+	in  []fr.Element
+	out fr.Element
 }
 
-//LazyClaim is for the verifier
-type LazyClaim struct {
+type eqTimesGateEvalSumcheckClaims struct {
+	claimedEvaluations []fr.Element	// y in the paper
+	combinedEvaluation fr.Element
+	combinationCoefficient fr.Element
+	evaluationPoints [][]fr.Element	// x in the paper
+	inputPreprocessors []polynomial.MultiLin	// P_u in the paper
+	eq []polynomial.MultiLin	// \tau_i eq(x_i, -)
+	gate *Gate	// R_v in the paper
+	//assignment *WireAssignment
 }
 
-type Proof sumcheck.Proof
+func (c *eqTimesGateEvalSumcheckClaims) Combine(a fr.Element) polynomial.Polynomial {
 
-type gkrOutputSumcheckClaim struct{}
-type gkrOutputSumcheckSubclaim struct{
-	layer *CircuitLayer
+	// TODO: Compute evals in here instead of getting them as input?
+	c.combinationCoefficient = a
+	evaluationsAsCoefficients := polynomial.Polynomial(c.claimedEvaluations)
+	c.combinedEvaluation = evaluationsAsCoefficients.Eval(&a)
+
+	// initialize the eq tables
+	c.eq = make([]polynomial.MultiLin, c.ClaimsNum())
+
+	var aI fr.Element	// this is being recomputed, already computed in the combinedEvaluation step. TODO: Big deal?
+	aI.SetOne()
+	for k := 0; k < len(c.eq); k++ {
+		// define eq_k = a^k eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
+		c.eq[k] = polynomial.Make(1 << len(c.evaluationPoints[k]))
+		c.eq[k][0] = aI
+		c.eq[k].Eq(c.evaluationPoints[k])
+
+		if k+ 1 < len(c.eq) {
+			aI.Mul(&aI, &a)
+		}
+	}
+
+	return c.computeGJ()
 }
 
-func (c *gkrOutputSumcheckSubclaim) Next(element fr.Element) polynomial.Polynomial {
+// computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} (\sum eq_k (r_1, ..., X_j, i...) ) Gate( P_u0(r_1, ..., X_j, i...), ... )
+func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
+	eqSum := make([]fr.Element, len(c.eq))	// TODO: Use pool
+	eqStep := make([]fr.Element, len(c.eq))
+
+	for k := 0; k < len(c.eq); k++ {
+		eq := c.eq[k]
+		eqSum[k] = eq[len(eq)/2:].Sum()	// initially to hold \sum eq_k(r_1, ..., 1, i...)
+		eqStep[k] = eq[:len(eq)/2].Sum()
+		eqStep[k].Sub(&eqStep[k], &eqSum[k])	//holds \sum eq_k(r_1, ..., 1, i..) - \sum eq_k(r_1, ..., 0, i...)
+	}
+}
+
+func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
 	panic("implement me")
 }
 
-func (c gkrOutputSumcheckClaim) Combine(a fr.Element) (sumcheck.SubClaim, polynomial.Polynomial) {
-	//panic("implement me")
-	//TODO Enable multi-sumcheck
-	var subclaim gkrOutputSumcheckSubclaim
-
-	subclaim.layer = 
-
-	return &subclaim, polynomial.Polynomial{}
+func (c *eqTimesGateEvalSumcheckClaims) VarsNum() int {
+	return len(c.evaluationPoints[0])
 }
 
-func (c gkrOutputSumcheckClaim) VarsNum() int {
+func (c *eqTimesGateEvalSumcheckClaims) ClaimsNum() int {
+	return len(c.claimedEvaluations)
+}
+
+func (c eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{} {
 	panic("implement me")
 }
 
-func (c gkrOutputSumcheckClaim) ClaimsNum() int {
-	panic("implement me")
-}
+// Prove consistency of the claimed assignment
+func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript, firstChallenge []fr.Element) Proof {
+	var claims map[*Wire]eqTimesGateEvalSumcheckClaims
 
-func (c gkrOutputSumcheckClaim) ProveFinalEval(r []fr.Element) interface{} {
-	panic("implement me")
-}
+	// firstChallenge called rho in the paper
 
-type gkrMiddleSumcheckClaim struct{}
-type gkrInputSumcheckClaim struct{}
+	outLayer := c[0]
+	inLayer := c[len(c)-1]
+	for i := 0; i < len(outLayer); i++ {
+		//claims[&outLayer[i]] = []claim{{in: firstChallenge}} //TODO: Just directly prove it?
+		claim := eqTimesGateEvalSumcheckClaims{
+			wire: &outLayer[i],
 
-// Prove converts the GKR claim into a number of sumcheck claims. Most of the heavy-lifting all delegated to sumchecks
-func (c Claim) Prove(transcript sumcheck.ArithmeticTranscript, challengeSeed []byte) Proof {
-	g0 := sumcheck.NextFromBytes(transcript, challengeSeed, c.OutputValues.NumVars())
+		}
+		sumcheck.Prove(, transcript, nil)
+	}
 
-	v0G := c.OutputValues.Evaluate(g0)
-	s1 := c.CircuitOutputLayer.Input.Values.NumVars()
-	// We must now prove the claim v0G = ∑_{x,y ∈ {0,1}^s1 } ∑_{G ∈ fan-in-2-gates} GWiring(g0, x, y) × G(V₁(x),V₁(y))
+	for layerI := 1; layerI+1 < len(c); layerI++ {
+		layer := c[layerI]
+		for wireI := 0; wireI < len(layer); wireI++ {
+			wire := &layer[wireI]
 
-	//TODO Fold sparse wiring predicates with g0
-	var foldedGateWirings []polynomial.MultiLin
+		}
 
-	var outputClaim gkrOutputSumcheckClaim
-	return Proof(sumcheck.Prove(outputClaim, transcript, challengeSeed))
+	}
 }
