@@ -29,7 +29,7 @@ type Circuit []CircuitLayer
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
 type WireAssignment map[*Wire]polynomial.MultiLin
 
-type Proof [][][]polynomial.Polynomial // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
+type Proof [][]sumcheck.Proof // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
 
 // A claim about the value of a wire
 type claim struct {
@@ -37,16 +37,61 @@ type claim struct {
 	out fr.Element
 }
 
+type eqTimesGateEvalSumcheckLazyClaims struct {
+	wire               *Wire
+	evaluationPoints   [][]fr.Element
+	claimedEvaluations []fr.Element
+	manager            *claimsManager // WARNING: Circular references
+}
+
+func (e *eqTimesGateEvalSumcheckLazyClaims) ClaimsNum() int {
+	return len(e.evaluationPoints)
+}
+
+func (e *eqTimesGateEvalSumcheckLazyClaims) VarsNum() int {
+	return len(e.evaluationPoints[0])
+}
+
+func (e *eqTimesGateEvalSumcheckLazyClaims) CombinedSum(a fr.Element) fr.Element {
+	evalsAsPoly := polynomial.Polynomial(e.claimedEvaluations)
+	return evalsAsPoly.Eval(&a)
+}
+
+func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(i int) int {
+	return 1 + e.wire.Gate.Degree()
+}
+
+func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
+	inputEvaluations := proof.([]fr.Element)
+	e.manager.addForInput(e.wire, r, inputEvaluations)
+
+	numClaims := len(e.evaluationPoints)
+
+	evaluation := polynomial.EvalEq(e.evaluationPoints[numClaims-1], r)
+	for i := numClaims - 2; i >= 0; i-- {
+		evaluation.Mul(&evaluation, &combinationCoeff)
+		eq := polynomial.EvalEq(e.evaluationPoints[i], r)
+		evaluation.Add(&evaluation, &eq)
+	}
+
+	gateEvaluation := e.wire.Gate.Evaluate(inputEvaluations)
+	evaluation.Mul(&evaluation, &gateEvaluation)
+
+	return evaluation.Equal(&purportedValue)
+}
+
 type eqTimesGateEvalSumcheckClaims struct {
-	gate               *Gate                 // R_v in the paper
-	evaluationPoints   [][]fr.Element        // x in the paper
-	claimedEvaluations []fr.Element          // y in the paper
+	wire               *Wire
+	evaluationPoints   [][]fr.Element // x in the paper
+	claimedEvaluations []fr.Element   // y in the paper
+	manager            *claimsManager
+
 	inputPreprocessors []polynomial.MultiLin // P_u in the paper, so that we don't need to pass along all the circuit's evaluations
 
 	eq polynomial.MultiLin // ∑_i τ_i eq(x_i, -)
 }
 
-func (c *eqTimesGateEvalSumcheckClaims) Combine(a fr.Element) polynomial.Polynomial {
+func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) polynomial.Polynomial {
 
 	eqLength := 1 << len(c.evaluationPoints[0])
 	// initialize the eq tables
@@ -69,7 +114,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(a fr.Element) polynomial.Polynom
 		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+1 < len(c.eq) {
-			newEq[0].Mul(&newEq[0], &a) //TODO: Test this. newEq[0] maybe not preserving value?
+			newEq[0].Mul(&newEq[0], &combinationCoeff) //TODO: Test this. newEq[0] maybe not preserving value?
 			aI = newEq[0]
 		}
 	}
@@ -90,7 +135,7 @@ func computeSumAndStep(m polynomial.MultiLin) (sum fr.Element, step fr.Element) 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
-	degGJ := 1 + c.gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
+	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 
 	// Let f ∈ {E} ∪ {P_ui}. It is linear in X_j, so f(n) = n×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
 	ESum, EStep := computeSumAndStep(c.eq)
@@ -105,7 +150,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
 	evals := make([]fr.Element, degGJ)
 	for i := 1; i < degGJ; i++ {
 		puSumAsElements := []fr.Element(puSum)
-		evals[i] = c.gate.Evaluate(puSumAsElements...)
+		evals[i] = c.wire.Gate.Evaluate(puSumAsElements...)
 		evals[i].Mul(&evals[i], &ESum)
 
 		if i+1 < degGJ {
@@ -133,14 +178,9 @@ func (c *eqTimesGateEvalSumcheckClaims) ClaimsNum() int {
 	return len(c.claimedEvaluations)
 }
 
-type nextClaims struct {
-	evaluationPoint []fr.Element
-	evaluations     []fr.Element
-}
-
-func (c eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{} {
+func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{} {
 	//defer the proof, return list of claims
-	evaluations := polynomial.Make(len(c.inputPreprocessors))
+	evaluations := make([]fr.Element, len(c.inputPreprocessors))
 	for i, puI := range c.inputPreprocessors {
 		if len(puI) != 1 {
 			panic("must be one") //TODO: Remove
@@ -151,11 +191,13 @@ func (c eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{
 	// TODO: Make sure all is dumped
 	polynomial.Dump(c.claimedEvaluations, c.eq)
 
-	return nextClaims{evaluationPoint: r, evaluations: evaluations}
+	c.manager.addForInput(c.wire, r, evaluations)
+
+	return evaluations
 }
 
 type claimsManager struct {
-	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckClaims
+	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
 }
 
@@ -166,17 +208,10 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 		for i := 0; i < len(layer); i++ {
 			wire := &layer[i]
 
-			inputPreprocessors := make([]polynomial.MultiLin, wire.NumOutputs)
-
-			for inputI, inputW := range wire.Inputs {
-				inputPreprocessors[inputI] = assignment[inputW].Clone() //will be edited later, so must be deep copied
-			}
-
-			claims.claimsMap[wire] = &eqTimesGateEvalSumcheckClaims{
-				gate:               wire.Gate,
+			claims.claimsMap[wire] = &eqTimesGateEvalSumcheckLazyClaims{
+				wire:               wire,
 				evaluationPoints:   make([][]fr.Element, 0, wire.NumOutputs),
 				claimedEvaluations: polynomial.Make(wire.NumOutputs),
-				inputPreprocessors: inputPreprocessors,
 			}
 		}
 	}
@@ -188,6 +223,38 @@ func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation
 	i := len(claim.evaluationPoints)
 	claim.claimedEvaluations[i] = evaluation
 	claim.evaluationPoints = append(claim.evaluationPoints, evaluationPoint)
+}
+
+// addForInput claims regarding all inputs to the wire, all evaluated at the same point
+func (m *claimsManager) addForInput(wire *Wire, evaluationPoint []fr.Element, evaluations []fr.Element) {
+	wiresWithClaims := make(map[*Wire]struct{}) // In case the gate takes the same wire as input multiple times, one claim would suffice
+
+	for inputI, inputWire := range wire.Inputs {
+		if _, found := wiresWithClaims[inputWire]; !found { //skip repeated claims
+			wiresWithClaims[inputWire] = struct{}{}
+			m.add(inputWire, evaluationPoint, evaluations[inputI])
+		}
+	}
+}
+
+func (m *claimsManager) getLazyClaim(wire *Wire) *eqTimesGateEvalSumcheckLazyClaims {
+	return m.claimsMap[wire]
+}
+
+func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
+	lazy := m.claimsMap[wire]
+	res := &eqTimesGateEvalSumcheckClaims{
+		wire:               wire,
+		evaluationPoints:   lazy.evaluationPoints,
+		claimedEvaluations: lazy.claimedEvaluations,
+	}
+
+	res.inputPreprocessors = make([]polynomial.MultiLin, wire.NumOutputs)
+
+	for inputI, inputW := range wire.Inputs {
+		res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
+	}
+	return res
 }
 
 // Prove consistency of the claimed assignment
@@ -206,26 +273,11 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	}
 
 	for layerI, layer := range c {
-		proof[layerI] = make([][]polynomial.Polynomial, len(layer))
+		proof[layerI] = make([]sumcheck.Proof, len(layer))
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
 
-			if len(wire.Inputs) == 0 {
-				continue //verifier is responsible for verifying claims about input wires
-			}
-
-			sumcheckProof := sumcheck.Prove(claims.claimsMap[wire], transcript, nil)
-			proof[layerI][wireI] = sumcheckProof.PartialSumPolys
-
-			wiresWithClaims := make(map[*Wire]struct{}) // In case the gate takes the same wire as input multiple times, one claim would suffice
-
-			newClaims := sumcheckProof.FinalEvalProof.(nextClaims)
-			for inputI, inputWire := range wire.Inputs {
-				if _, found := wiresWithClaims[inputWire]; !found { //skip repeated claims
-					wiresWithClaims[inputWire] = struct{}{}
-					claims.add(inputWire, newClaims.evaluationPoint, newClaims.evaluations[inputI])
-				}
-			}
+			proof[layerI][wireI] = sumcheck.Prove(claims.getClaim(wire), transcript, nil)
 		}
 	}
 
@@ -250,26 +302,13 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
+			claim := claims.getLazyClaim(wire)
 
-			if len(wire.Inputs) == 0 {
-				continue //TODO: verifier is responsible for verifying claims about input wires
-			} else {
-				sumcheckProof := sumcheck.Proof{PartialSumPolys: proof[layerI][wireI]}
-
-				sumcheck.Verify()
-
-				wiresWithClaims := make(map[*Wire]struct{}) // In case the gate takes the same wire as input multiple times, one claim would suffice
-
-				newClaims := sumcheckProof.FinalEvalProof.(nextClaims)
-				for inputI, inputWire := range wire.Inputs {
-					if _, found := wiresWithClaims[inputWire]; !found { //skip repeated claims
-						wiresWithClaims[inputWire] = struct{}{}
-						claims.add(inputWire, newClaims.evaluationPoint, newClaims.evaluations[inputI])
-					}
-				}
+			if !sumcheck.Verify(claim, proof[layerI][wireI], transcript, nil) {
+				return false //TODO: Any polynomials to dump?
 			}
 
 		}
 	}
-
+	return true
 }
