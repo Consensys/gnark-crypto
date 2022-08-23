@@ -105,7 +105,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 	proof := Prove(&claim, hashGenerator(), []byte{})
 
 	var sb strings.Builder
-	for _, p := range proof.partialSumPolys {
+	for _, p := range proof.PartialSumPolys {
 
 		sb.WriteString("\t{")
 		for i := 0; i < len(p); i++ {
