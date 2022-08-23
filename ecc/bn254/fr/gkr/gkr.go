@@ -13,7 +13,6 @@ type Gate interface {
 	Evaluate(...fr.Element) fr.Element
 	NumInput() int
 	Degree() int
-	//Degree(i int)   int
 }
 
 type Wire struct {
@@ -231,4 +230,46 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	}
 
 	return proof
+}
+
+// Verify the consistency of the claimed output with the claimed input
+// Unlike in Prove, the assignment argument need not be complete
+func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, challengeSeed []byte) bool {
+	claims := newClaimsManager(c, assignment)
+
+	outLayer := c[0]
+
+	firstChallenge := sumcheck.NextFromBytes(transcript, challengeSeed, assignment[&c[0][0]].NumVars()) //TODO: Clean way to extract numVars
+
+	for i := 0; i < len(outLayer); i++ {
+		wire := &outLayer[i]
+		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
+	}
+
+	for layerI, layer := range c {
+
+		for wireI := 0; wireI < len(layer); wireI++ {
+			wire := &layer[wireI]
+
+			if len(wire.Inputs) == 0 {
+				continue //TODO: verifier is responsible for verifying claims about input wires
+			} else {
+				sumcheckProof := sumcheck.Proof{PartialSumPolys: proof[layerI][wireI]}
+
+				sumcheck.Verify()
+
+				wiresWithClaims := make(map[*Wire]struct{}) // In case the gate takes the same wire as input multiple times, one claim would suffice
+
+				newClaims := sumcheckProof.FinalEvalProof.(nextClaims)
+				for inputI, inputWire := range wire.Inputs {
+					if _, found := wiresWithClaims[inputWire]; !found { //skip repeated claims
+						wiresWithClaims[inputWire] = struct{}{}
+						claims.add(inputWire, newClaims.evaluationPoint, newClaims.evaluations[inputI])
+					}
+				}
+			}
+
+		}
+	}
+
 }
