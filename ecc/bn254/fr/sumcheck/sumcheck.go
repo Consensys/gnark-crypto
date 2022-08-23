@@ -29,8 +29,8 @@ type LazyClaims interface {
 
 // Proof of a multi-sumcheck statement.
 type Proof struct {
-	partialSumPolys []polynomial.Polynomial
-	finalEvalProof  interface{} //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
+	PartialSumPolys []polynomial.Polynomial
+	FinalEvalProof  interface{} //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
 // Prove create a non-interactive sumcheck proof
@@ -43,16 +43,21 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed interfa
 		combinationCoeff = NextChallenge(transcript, challengeSeed)
 	}
 
-	var proof Proof
-	proof.partialSumPolys = make([]polynomial.Polynomial, claims.VarsNum())
-	proof.partialSumPolys[0] = claims.Combine(combinationCoeff)
+	varsNum := claims.VarsNum()
+	proof.PartialSumPolys = make([]polynomial.Polynomial, varsNum)
+	proof.PartialSumPolys[0] = claims.Combine(combinationCoeff)
+	challenges := make([]fr.Element, varsNum)
 
-	for j := 1; j < len(proof.partialSumPolys); j++ {
-		r := transcript.NextFromElements(proof.partialSumPolys[j-1])
-		proof.partialSumPolys[j] = claims.Next(r)
+	for j := 0; j+1 < varsNum; j++ {
+		challenges[j] = transcript.NextFromElements(proof.PartialSumPolys[j])
+		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	return proof
+	challenges[varsNum-1] = transcript.NextFromElements(proof.PartialSumPolys[varsNum-1])
+
+	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
+
+	return
 }
 
 func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, challengeSeed []byte) bool {
@@ -75,19 +80,19 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, cha
 	gJR := claims.CombinedSum(combinationCoeff)    // At the beginning of iteration j, gJR = ∑_{i < 2ⁿ⁻ʲ} g(r₁, ..., rⱼ, i...)
 
 	for j := 0; j < claims.VarsNum(); j++ {
-		if len(proof.partialSumPolys[j]) != claims.Degree(j) {
+		if len(proof.PartialSumPolys[j]) != claims.Degree(j) {
 			return false //Malformed proof
 		}
-		copy(gJ[1:], proof.partialSumPolys[j])
-		gJ[0].Sub(&gJR, &proof.partialSumPolys[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)
+		copy(gJ[1:], proof.PartialSumPolys[j])
+		gJ[0].Sub(&gJR, &proof.PartialSumPolys[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.NextFromElements(proof.partialSumPolys[j])
+		r[j] = transcript.NextFromElements(proof.PartialSumPolys[j])
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
 	}
 
-	return claims.VerifyFinalEval(r, combinationCoeff, gJR, proof.finalEvalProof)
+	return claims.VerifyFinalEval(r, combinationCoeff, gJR, proof.FinalEvalProof)
 }
