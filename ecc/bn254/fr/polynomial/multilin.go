@@ -66,7 +66,10 @@ func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 		bkCopy.Fold(r)
 	}
 
-	return bkCopy[0]
+	result := bkCopy[0]
+
+	Dump(bkCopy)
+	return result
 }
 
 // Clone creates a deep copy of a book-keeping table.
@@ -102,15 +105,17 @@ func (m *MultiLin) Add(left, right MultiLin) {
 
 // EvalEq computes Eq(q₁, ... , qₙ, h₁, ... , hₙ) = Π₁ⁿ Eq(qᵢ, hᵢ)
 // where Eq(x,y) = xy + (1-x)(1-y) = 1 - x - y + xy + xy interpolates
-//      _________________
-//      |       |       |
-//      |   0   |   1   |
-//      |_______|_______|
-//  y   |       |       |
-//      |   1   |   0   |
-//      |_______|_______|
 //
-//              x
+//	    _________________
+//	    |       |       |
+//	    |   0   |   1   |
+//	    |_______|_______|
+//	y   |       |       |
+//	    |   1   |   0   |
+//	    |_______|_______|
+//
+//	            x
+//
 // In other words the polynomial evaluated here is the multilinear extrapolation of
 // one that evaluates to q' == h' for vectors q', h' of binary values
 func EvalEq(q, h []fr.Element) fr.Element {
