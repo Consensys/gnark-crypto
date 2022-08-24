@@ -11,7 +11,6 @@ import (
 // Gate must be a low-degree polynomial
 type Gate interface {
 	Evaluate(...fr.Element) fr.Element
-	NumInput() int
 	Degree() int
 }
 
@@ -19,6 +18,10 @@ type Wire struct {
 	Gate       Gate
 	Inputs     []*Wire // if there are no Inputs, the wire is assumed an input wire
 	NumOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one). By convention, equal to 1 for output wires
+}
+
+func (w *Wire) IsInput() bool {
+	return len(w.Inputs) == 0
 }
 
 type CircuitLayer []Wire
@@ -38,20 +41,6 @@ func (c Circuit) Size() int { //TODO: Worth caching?
 type WireAssignment map[*Wire]polynomial.MultiLin
 
 type Proof [][]sumcheck.Proof // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
-
-type identityGate struct{}
-
-func (*identityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (*identityGate) NumInput() int {
-	return 1
-}
-
-func (*identityGate) Degree() int {
-	return 1
-}
 
 type eqTimesGateEvalSumcheckLazyClaims struct {
 	wire               *Wire
@@ -78,15 +67,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 }
 
 func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
-	inputEvaluations, ok := proof.([]fr.Element)
-
-	if !ok {
-		if proof != nil || len(e.wire.Inputs) != 0 {
-			return false // malformed proof
-		}
-		// input wire
-		inputEvaluations = []fr.Element{purportedValue} // an identity gate will be applied to this
-	}
+	inputEvaluations := proof.([]fr.Element)
 
 	// defer verification, store the new claims
 	e.manager.addForInput(e.wire, r, inputEvaluations) // TODO This is wrong. Must add claims for each input wire
@@ -203,10 +184,6 @@ func (c *eqTimesGateEvalSumcheckClaims) ClaimsNum() int {
 
 func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{} {
 
-	if len(c.wire.Inputs) == 0 {
-		return nil //Verifier will check it directly
-	}
-
 	//defer the proof, return list of claims
 	evaluations := make([]fr.Element, len(c.inputPreprocessors))
 	for i, puI := range c.inputPreprocessors {
@@ -236,8 +213,6 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 	for _, layer := range c {
 		for i := 0; i < len(layer); i++ {
 			wire := &layer[i]
-
-			wire.Gate = &identityGate{}
 
 			claims.claimsMap[wire] = &eqTimesGateEvalSumcheckLazyClaims{
 				wire:               wire,
@@ -281,14 +256,10 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 		manager:            m,
 	}
 
-	if len(wire.Inputs) == 0 { //special case for input wires
-		res.inputPreprocessors = []polynomial.MultiLin{m.assignment[wire].Clone()}
-	} else {
-		res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
+	res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
 
-		for inputI, inputW := range wire.Inputs {
-			res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
-		}
+	for inputI, inputW := range wire.Inputs {
+		res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
 	}
 	return res
 }
@@ -313,7 +284,10 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
 
-			proof[layerI][wireI] = sumcheck.Prove(claims.getClaim(wire), transcript, nil)
+			if !wire.IsInput() {
+				proof[layerI][wireI] = sumcheck.Prove(claims.getClaim(wire), transcript, nil)
+			}
+			// the verifier checks claim about input wires itself
 		}
 	}
 
@@ -340,7 +314,17 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 			wire := &layer[wireI]
 			claim := claims.getLazyClaim(wire)
 
-			if !sumcheck.Verify(claim, proof[layerI][wireI], transcript, nil) {
+			if wire.IsInput() {
+				// simply evaluate and see if it matches
+				wireAssignment := assignment[wire]
+				for i := 0; i < len(claim.claimedEvaluations); i++ {
+					evaluation := wireAssignment.Evaluate(claim.evaluationPoints[i])
+					if !claim.claimedEvaluations[i].Equal(&evaluation) {
+						return false
+					}
+				}
+
+			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript, nil) {
 				return false //TODO: Any polynomials to dump?
 			}
 
