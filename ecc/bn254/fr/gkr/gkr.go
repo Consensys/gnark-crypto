@@ -16,7 +16,7 @@ type Gate interface {
 }
 
 type Wire struct {
-	Gate       *Gate
+	Gate       Gate
 	Inputs     []*Wire
 	NumOutputs int // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one). By convention, equal to 1 for output wires
 }
@@ -26,16 +26,18 @@ type CircuitLayer []Wire
 // TODO: Constructor so that user doesn't have to give layers explicitly.
 type Circuit []CircuitLayer
 
+func (c Circuit) Size() int { //TODO: Worth caching?
+	res := len(c[0])
+	for i := 1; i < len(c); i++ {
+		res += len(c[i])
+	}
+	return res
+}
+
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
 type WireAssignment map[*Wire]polynomial.MultiLin
 
 type Proof [][]sumcheck.Proof // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
-
-// A claim about the value of a wire
-type claim struct {
-	in  []fr.Element
-	out fr.Element
-}
 
 type eqTimesGateEvalSumcheckLazyClaims struct {
 	wire               *Wire
@@ -74,7 +76,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 		evaluation.Add(&evaluation, &eq)
 	}
 
-	gateEvaluation := e.wire.Gate.Evaluate(inputEvaluations)
+	gateEvaluation := e.wire.Gate.Evaluate(inputEvaluations...)
 	evaluation.Mul(&evaluation, &gateEvaluation)
 
 	return evaluation.Equal(&purportedValue)
@@ -95,11 +97,11 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 
 	eqLength := 1 << len(c.evaluationPoints[0])
 	// initialize the eq tables
-	c.eq = polynomial.Make(eqLength) //TODO: MakeLarge here?
+	c.eq = polynomial.Make(eqLength)
 	eqAsPoly := polynomial.Polynomial(c.eq)
 	eqAsPoly.SetZero()
 
-	newEq := polynomial.MultiLin(polynomial.Make(eqLength)) //TODO: MakeLarge here?
+	newEq := polynomial.MultiLin(polynomial.Make(eqLength))
 	newEq[0].SetOne()
 
 	aI := newEq[0]
@@ -203,6 +205,7 @@ type claimsManager struct {
 
 func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManager) {
 	claims.assignment = assignment
+	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, c.Size())
 
 	for _, layer := range c {
 		for i := 0; i < len(layer); i++ {
@@ -247,6 +250,7 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 		wire:               wire,
 		evaluationPoints:   lazy.evaluationPoints,
 		claimedEvaluations: lazy.claimedEvaluations,
+		manager:            m,
 	}
 
 	res.inputPreprocessors = make([]polynomial.MultiLin, wire.NumOutputs)
