@@ -1,24 +1,11 @@
 package gkr
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	"testing"
 )
-
-type IdentityGate struct{}
-
-func (*IdentityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (*IdentityGate) NumInput() int {
-	return 1
-}
-
-func (*IdentityGate) Degree() int {
-	return 1
-}
 
 func TestSingleIdentityGateTwoInstances(t *testing.T) {
 	// Testing a single instance is not possible because the sumcheck implementation doesn't cover the trivial 0-variate case
@@ -28,7 +15,7 @@ func TestSingleIdentityGateTwoInstances(t *testing.T) {
 			{
 				Inputs:     []*Wire{},
 				NumOutputs: 1,
-				Gate:       &IdentityGate{},
+				Gate:       nil,
 			},
 		},
 	}
@@ -41,7 +28,7 @@ func TestSingleIdentityGateTwoInstances(t *testing.T) {
 	proof := Prove(c, assignment, &messageCounter{state: 1, step: 1}, []byte{})
 
 	if !Verify(c, assignment, proof, &messageCounter{state: 1, step: 1}, []byte{}) {
-		t.Error("Proof failed to verify")
+		t.Error("Proof rejected")
 	}
 }
 
@@ -60,6 +47,7 @@ func newMessageCounterGenerator(startState, step int) func() sumcheck.Arithmetic
 func (m *messageCounter) incrementAndReturn() fr.Element {
 	var res fr.Element
 	res.SetUint64(m.state)
+	fmt.Println("Hash returning", m.state)
 	m.state += m.step
 	return res
 }
