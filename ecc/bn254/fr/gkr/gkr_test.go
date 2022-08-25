@@ -73,7 +73,7 @@ func TestSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	c[1] = CircuitLayer{
 		{
 			Inputs:     []*Wire{},
-			NumOutputs: 1,
+			NumOutputs: 2,
 			Gate:       nil,
 		},
 	}

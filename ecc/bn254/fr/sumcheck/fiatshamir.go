@@ -22,8 +22,9 @@ func NextChallenge(transcript ArithmeticTranscript, input interface{}) fr.Elemen
 		return transcript.NextFromElements([]fr.Element{i})
 	case *fr.Element:
 		return transcript.NextFromElements([]fr.Element{*i})
+
 	default:
-		panic("invalid input type")
+		panic("invalid hash input type")
 	}
 }
 
