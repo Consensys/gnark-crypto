@@ -69,7 +69,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 	inputEvaluations := proof.([]fr.Element)
 
 	// defer verification, store the new claims
-	e.manager.addForInput(e.wire, r, inputEvaluations) // TODO This is wrong. Must add claims for each input wire
+	e.manager.addForInput(e.wire, r, inputEvaluations)
 
 	numClaims := len(e.evaluationPoints)
 
@@ -213,9 +213,12 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 	//defer the proof, return list of claims
 	evaluations := make([]fr.Element, len(c.inputPreprocessors))
 	for i, puI := range c.inputPreprocessors {
+		puI.Fold(r[len(r)-1])
+
 		if len(puI) != 1 {
 			panic("must be one") //TODO: Remove
 		}
+
 		evaluations[i].Set(&puI[0])
 		polynomial.Dump(puI)
 	}
