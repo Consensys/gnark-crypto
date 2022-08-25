@@ -67,6 +67,43 @@ func TestSingleMulGateTwoInstances(t *testing.T) {
 	}
 }
 
+func TestSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
+	c := make(Circuit, 2)
+
+	c[1] = CircuitLayer{
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: 1,
+			Gate:       nil,
+		},
+	}
+
+	c[0] = CircuitLayer{
+		{
+			Inputs:     []*Wire{&c[1][0]},
+			NumOutputs: 1,
+			Gate:       identityGate{},
+		},
+		{
+			Inputs:     []*Wire{&c[1][0]},
+			NumOutputs: 1,
+			Gate:       identityGate{},
+		},
+	}
+
+	var two, three fr.Element
+	two.SetUint64(2)
+	three.SetUint64(3)
+
+	assignment := WireAssignment{&c[1][0]: []fr.Element{two, three}}.Complete(c)
+
+	proof := Prove(c, assignment, &messageCounter{state: 1, step: 1}, []byte{})
+
+	if !Verify(c, assignment, proof, &messageCounter{state: 1, step: 1}, []byte{}) {
+		t.Error("Proof rejected")
+	}
+}
+
 // Complete the circuit evaluation from input values
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 	numEvaluations := len(a[&c[len(c)-1][0]])

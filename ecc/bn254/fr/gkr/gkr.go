@@ -19,15 +19,14 @@ type Wire struct {
 	Inputs     []*Wire // if there are no Inputs, the wire is assumed an input wire
 	NumOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one). By convention, equal to 1 for output wires
 }
-
-func (w *Wire) IsInput() bool {
-	return len(w.Inputs) == 0
-}
-
 type CircuitLayer []Wire
 
 // TODO: Constructor so that user doesn't have to give layers explicitly.
 type Circuit []CircuitLayer
+
+func (w *Wire) IsInput() bool {
+	return len(w.Inputs) == 0
+}
 
 func (c Circuit) Size() int { //TODO: Worth caching?
 	res := len(c[0])
@@ -104,18 +103,19 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	claimsNum := c.ClaimsNum()
 	// initialize the eq tables
 	c.eq = polynomial.Make(eqLength)
-	eqAsPoly := polynomial.Polynomial(c.eq)
-	eqAsPoly.SetZero()
+
+	c.eq[0].SetOne()
+	c.eq.Eq(c.evaluationPoints[0])
 
 	newEq := polynomial.MultiLin(polynomial.Make(eqLength))
-	var aI fr.Element
-	aI.SetOne()
+	aI := combinationCoeff
 
-	for k := 0; k < claimsNum; k++ { //TODO: parallelizable?
+	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0] = aI
 		newEq.Eq(c.evaluationPoints[k])
 
+		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
 		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+1 < claimsNum {
@@ -162,6 +162,9 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
 			puSum.Add(puSum, puStep)
 		}
 	}
+
+	polynomial.Dump(puSum, puStep)
+	
 	return evals
 }
 
@@ -218,6 +221,7 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 				wire:               wire,
 				evaluationPoints:   make([][]fr.Element, 0, wire.NumOutputs),
 				claimedEvaluations: polynomial.Make(wire.NumOutputs),
+				manager:            &claims,
 			}
 		}
 	}
@@ -244,6 +248,9 @@ func (m *claimsManager) addForInput(wire *Wire, evaluationPoint []fr.Element, ev
 }
 
 func (m *claimsManager) getLazyClaim(wire *Wire) *eqTimesGateEvalSumcheckLazyClaims {
+	if wire.IsInput() {
+		wire.Gate = identityGate{}
+	}
 	return m.claimsMap[wire]
 }
 
@@ -283,11 +290,11 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		proof[layerI] = make([]sumcheck.Proof, len(layer))
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
-
-			if !wire.IsInput() {
-				proof[layerI][wireI] = sumcheck.Prove(claims.getClaim(wire), transcript, nil)
+			claim := claims.getClaim(wire)
+			if !wire.IsInput() || claim.ClaimsNum() > 1 {
+				proof[layerI][wireI] = sumcheck.Prove(claim, transcript, nil)
 			}
-			// the verifier checks claim about input wires itself
+			// the verifier checks a single claim about input wires itself
 		}
 	}
 
@@ -313,15 +320,11 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
 			claim := claims.getLazyClaim(wire)
-
-			if wire.IsInput() {
+			if claim.ClaimsNum() == 1 && wire.IsInput() {
 				// simply evaluate and see if it matches
-				wireAssignment := assignment[wire]
-				for i := 0; i < len(claim.claimedEvaluations); i++ {
-					evaluation := wireAssignment.Evaluate(claim.evaluationPoints[i])
-					if !claim.claimedEvaluations[i].Equal(&evaluation) {
-						return false
-					}
+				evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0])
+				if !claim.claimedEvaluations[0].Equal(&evaluation) {
+					return false
 				}
 
 			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript, nil) {
@@ -331,4 +334,14 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 		}
 	}
 	return true
+}
+
+type identityGate struct{}
+
+func (identityGate) Evaluate(input ...fr.Element) fr.Element {
+	return input[0]
+}
+
+func (identityGate) Degree() int {
+	return 1
 }
