@@ -9,32 +9,6 @@ import (
 	"testing"
 )
 
-// This is a very bad fiat-shamir challenge generator
-type messageCounter struct {
-	state uint64
-	step  uint64
-}
-
-func newMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
-	return func() ArithmeticTranscript {
-		return &messageCounter{state: uint64(startState), step: uint64(step)}
-	}
-}
-
-func (m *messageCounter) incrementAndReturn() fr.Element {
-	var res fr.Element
-	res.SetUint64(m.state)
-	m.state += m.step
-	return res
-}
-
-func (m *messageCounter) NextFromElements(_ []fr.Element) fr.Element {
-	return m.incrementAndReturn()
-}
-func (m *messageCounter) NextFromBytes(_ []byte) fr.Element {
-	return m.incrementAndReturn()
-}
-
 type singleMultilinClaim struct {
 	g polynomial.MultiLin
 }
@@ -102,7 +76,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 	claim := singleMultilinClaim{g: poly.Clone()}
 
-	proof := Prove(&claim, hashGenerator(), []byte{})
+	proof := Prove(&claim, hashGenerator())
 
 	var sb strings.Builder
 	for _, p := range proof.PartialSumPolys {
@@ -120,7 +94,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 
-	return Verify(lazyClaim, proof, hashGenerator(), []byte{})
+	return Verify(lazyClaim, proof, hashGenerator())
 }
 
 // For debugging TODO Remove

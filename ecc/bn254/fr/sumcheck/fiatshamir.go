@@ -8,33 +8,45 @@ import (
 // i.e. the hashes used operate on and return field elements.
 
 type ArithmeticTranscript interface {
-	NextFromElements(_ []fr.Element) fr.Element // NextFromElements does not directly incorporate the number of elements in the hash. The size must be fixed and checked by the verifier.
-	NextFromBytes(_ []byte) fr.Element          // NextFromElements does not directly incorporate the size of input in the hash. The size must be fixed and checked by the verifier.
+	Update(...interface{})
+	Next(...interface{}) fr.Element
+	NextN(int, ...interface{}) []fr.Element
 }
 
-func NextChallenge(transcript ArithmeticTranscript, input interface{}) fr.Element {
-	switch i := input.(type) {
-	case []byte:
-		return transcript.NextFromBytes(i)
-	case []fr.Element:
-		return transcript.NextFromElements(i)
-	case fr.Element:
-		return transcript.NextFromElements([]fr.Element{i})
-	case *fr.Element:
-		return transcript.NextFromElements([]fr.Element{*i})
-
-	default:
-		panic("invalid hash input type")
-	}
+// This is a very bad fiat-shamir challenge generator
+type MessageCounter struct {
+	state   uint64
+	step    uint64
+	updated bool
 }
 
-func NextFromBytes(transcript ArithmeticTranscript, bytes []byte, count int) []fr.Element {
-	res := make([]fr.Element, count)
+func (m *MessageCounter) Update(i ...interface{}) {
+	m.state += m.step
+	m.updated = true
+}
 
-	for i := 0; i < count; i++ {
-		res[i] = transcript.NextFromBytes(bytes)
-		bytes = nil
+func (m *MessageCounter) Next(i ...interface{}) (challenge fr.Element) {
+	if !m.updated || len(i) != 0 {
+		m.Update(i)
 	}
+	challenge.SetUint64(m.state)
+	m.updated = false
+	return
+}
 
-	return res
+func (m *MessageCounter) NextN(N int, i ...interface{}) (challenges []fr.Element) {
+	challenges = make([]fr.Element, N)
+	for n := 0; n < N; n++ {
+		challenges[n] = m.Next(i)
+		i = []interface{}{}
+	}
+	return
+}
+
+func newMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
+	return func() ArithmeticTranscript {
+		transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
+		transcript.Update([]byte{})
+		return transcript
+	}
 }

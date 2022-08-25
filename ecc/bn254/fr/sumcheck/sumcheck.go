@@ -35,12 +35,14 @@ type Proof struct {
 
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
-func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed interface{}) (proof Proof) {
+
+func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
+
 	// TODO: Are claims supposed to already be incorporated in the challengeSeed? Given the business with the commitments
 
 	var combinationCoeff fr.Element
 	if claims.ClaimsNum() >= 2 {
-		combinationCoeff = NextChallenge(transcript, challengeSeed)
+		combinationCoeff = transcript.Next()
 	}
 
 	varsNum := claims.VarsNum()
@@ -49,22 +51,22 @@ func Prove(claims Claims, transcript ArithmeticTranscript, challengeSeed interfa
 	challenges := make([]fr.Element, varsNum)
 
 	for j := 0; j+1 < varsNum; j++ {
-		challenges[j] = transcript.NextFromElements(proof.PartialSumPolys[j])
+		challenges[j] = transcript.Next(proof.PartialSumPolys[j])
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	challenges[varsNum-1] = transcript.NextFromElements(proof.PartialSumPolys[varsNum-1])
+	challenges[varsNum-1] = transcript.Next(proof.PartialSumPolys[varsNum-1])
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
 	return
 }
 
-func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, challengeSeed []byte) bool {
+func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) bool {
 	var combinationCoeff fr.Element
 
 	if claims.ClaimsNum() >= 2 {
-		combinationCoeff = transcript.NextFromBytes(challengeSeed)
+		combinationCoeff = transcript.Next()
 	}
 
 	r := make([]fr.Element, claims.VarsNum())
@@ -88,7 +90,7 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript, cha
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.NextFromElements(proof.PartialSumPolys[j])
+		r[j] = transcript.Next(proof.PartialSumPolys[j])
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
