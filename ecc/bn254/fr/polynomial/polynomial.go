@@ -130,6 +130,18 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 	return p
 }
 
+// Sub subtracts p2 from p1
+// TODO make interface more consistent with Add
+func (p *Polynomial) Sub(p1, p2 Polynomial) *Polynomial {
+	if len(p1) != len(p2) || len(p2) != len(*p) {
+		return nil
+	}
+	for i := 0; i < len(*p); i++ {
+		(*p)[i].Sub(&p1[i], &p2[i])
+	}
+	return p
+}
+
 // Equal checks equality between two polynomials
 func (p *Polynomial) Equal(p1 Polynomial) bool {
 	if (*p == nil) != (p1 == nil) {

@@ -30,7 +30,7 @@ func (w *Wire) IsInput() bool {
 
 func (c Circuit) Size() int { //TODO: Worth caching?
 	res := len(c[0])
-	for i := 1; i < len(c); i++ {
+	for i := range c {
 		res += len(c[i])
 	}
 	return res
@@ -112,7 +112,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 
 	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
-		newEq[0] = aI
+		newEq[0].Set(&aI)
 		newEq.Eq(c.evaluationPoints[k])
 
 		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
@@ -123,49 +123,72 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 		}
 	}
 
-	// from this point on the claim is a rather simple one: g = E(h) × R_v (P_u0(h), ...) where E and the P_ui are multilinear and R_v is of low-degree
+	// from this point on the claim is a rather simple one: g = E(h) × R_v (P_u0(h), ...) where E and the P_u are multilinear and R_v is of low-degree
 
 	return c.computeGJ()
 }
 
-// computeSumAndStep returns sum = ∑_i m(1, i...) and step = ∑_i m(1, i...) - m(0, i...)
-func computeSumAndStep(m polynomial.MultiLin) (sum fr.Element, step fr.Element) {
-	sum = m[len(m)/2:].Sum()
-	step = m[:len(m)/2].Sum()
-	step.Sub(&sum, &step)
+// computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
+func computeValAndStep(m polynomial.MultiLin) (val polynomial.MultiLin, step polynomial.MultiLin) {
+	val = m[len(m)/2:].Clone()
+	step = m[:len(m)/2].Clone()
+
+	valAsPoly, stepAsPoly := polynomial.Polynomial(val), polynomial.Polynomial(step)
+
+	stepAsPoly.Sub(valAsPoly, stepAsPoly)
 	return
 }
 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
-func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
-	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
+func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
-	// Let f ∈ {E} ∪ {P_ui}. It is linear in X_j, so f(n) = n×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	ESum, EStep := computeSumAndStep(c.eq)
+	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
+	EVal, EStep := computeValAndStep(c.eq)
 
-	puSum := polynomial.Polynomial(polynomial.Make(len(c.inputPreprocessors)))
-	puStep := polynomial.Make(len(c.inputPreprocessors))
+	puVal := make([]polynomial.MultiLin, len(c.wire.Inputs))  //TODO: Make a two dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
+	puStep := make([]polynomial.MultiLin, len(c.wire.Inputs)) //TODO, ctd: the greater degGJ, the more this would matter
 
-	for i := 0; i < len(puSum); i++ {
-		puSum[i], puStep[i] = computeSumAndStep(c.inputPreprocessors[i])
+	for i, puI := range c.inputPreprocessors {
+		puVal[i], puStep[i] = computeValAndStep(puI)
 	}
 
-	evals := make([]fr.Element, degGJ)
-	for i := 1; i < degGJ; i++ {
-		puSumAsElements := []fr.Element(puSum)
-		evals[i] = c.wire.Gate.Evaluate(puSumAsElements...)
-		evals[i].Mul(&evals[i], &ESum)
+	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
+	gJ = make([]fr.Element, degGJ)
 
-		if i+1 < degGJ {
-			ESum.Add(&ESum, &EStep)
-			puSum.Add(puSum, puStep)
+	gateInput := polynomial.Make(len(c.wire.Inputs))
+	for d := 0; d < degGJ; d++ {
+
+		notLastIteration := d+1 < degGJ
+		gJ[d].SetZero()
+
+		for i := range EVal {
+
+			for inputI := range puVal {
+				gateInput[inputI].Set(&puVal[inputI][i])
+				if notLastIteration {
+					puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
+				}
+			}
+
+			// gJAtDI = gJ(d, i...)
+			gJAtDI := c.wire.Gate.Evaluate(gateInput...)
+			gJAtDI.Mul(&gJAtDI, &EVal[i])
+
+			gJ[d].Add(&gJ[d], &gJAtDI)
+
+			if notLastIteration {
+				EVal[i].Add(&EVal[i], &EStep[i])
+			}
 		}
 	}
 
-	polynomial.Dump(puSum, puStep)
-	
-	return evals
+	polynomial.Dump(EVal, EStep, gateInput)
+	for inputI := range puVal {
+		polynomial.Dump(puVal[inputI], puStep[inputI])
+	}
+
+	return
 }
 
 // Next first folds the "preprocessing" and "eq" polynomials then compute the new g_j
@@ -193,7 +216,7 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 		if len(puI) != 1 {
 			panic("must be one") //TODO: Remove
 		}
-		evaluations[i] = puI[0]
+		evaluations[i].Set(&puI[0])
 		polynomial.Dump(puI)
 	}
 	// TODO: Make sure all is dumped
@@ -281,7 +304,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	// firstChallenge called rho in the paper
 	firstChallenge := sumcheck.NextFromBytes(transcript, challengeSeed, assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
 
-	for i := 0; i < len(outLayer); i++ {
+	for i := range outLayer {
 		wire := &outLayer[i]
 		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
 	}
@@ -310,14 +333,14 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 	firstChallenge := sumcheck.NextFromBytes(transcript, challengeSeed, assignment[&c[0][0]].NumVars()) //TODO: Clean way to extract numVars
 
-	for i := 0; i < len(outLayer); i++ {
+	for i := range outLayer {
 		wire := &outLayer[i]
 		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
 	}
 
 	for layerI, layer := range c {
 
-		for wireI := 0; wireI < len(layer); wireI++ {
+		for wireI := range layer {
 			wire := &layer[wireI]
 			claim := claims.getLazyClaim(wire)
 			if claim.ClaimsNum() == 1 && wire.IsInput() {
