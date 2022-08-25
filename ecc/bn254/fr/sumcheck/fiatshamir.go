@@ -43,10 +43,14 @@ func (m *MessageCounter) NextN(N int, i ...interface{}) (challenges []fr.Element
 	return
 }
 
-func newMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
+func NewMessageCounter(startState, step int) ArithmeticTranscript {
+	transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
+	transcript.Update([]byte{})
+	return transcript
+}
+
+func NewMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
 	return func() ArithmeticTranscript {
-		transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
-		transcript.Update([]byte{})
-		return transcript
+		return NewMessageCounter(startState, step)
 	}
 }

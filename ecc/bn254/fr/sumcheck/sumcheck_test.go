@@ -123,7 +123,7 @@ func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 
 	for step := 0; step < MaxStep; step++ {
 		for startState := 0; startState < MaxStart; startState++ {
-			hashGens = append(hashGens, newMessageCounterGenerator(startState, step))
+			hashGens = append(hashGens, NewMessageCounterGenerator(startState, step))
 		}
 	}
 
