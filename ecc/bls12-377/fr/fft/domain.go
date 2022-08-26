@@ -63,7 +63,8 @@ type Domain struct {
 
 // NewDomain returns a subgroup with a power of 2 cardinality
 // cardinality >= m
-func NewDomain(m uint64) *Domain {
+// shift: when specified, it's the element by which the set of root of unity is shifted.
+func NewDomain(m uint64, shift ...fr.Element) *Domain {
 
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
@@ -75,6 +76,10 @@ func NewDomain(m uint64) *Domain {
 	rootOfUnity.SetString("8065159656716812877374967518403273466521432693661810619979959746626482506078")
 	const maxOrderRoot uint64 = 47
 	domain.FrMultiplicativeGen.SetUint64(22)
+
+	if len(shift) != 0 {
+		domain.FrMultiplicativeGen.Set(&shift[0])
+	}
 
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
 

@@ -39,7 +39,7 @@ var rC = sync.Map{}
 
 var (
 	largePool = sync.Pool{
-		New: func() interface{} {
+		New:= func() interface{} {
 			var res largeArr
 			return &res
 		},
