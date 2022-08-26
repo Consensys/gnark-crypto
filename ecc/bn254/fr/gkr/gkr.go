@@ -146,8 +146,8 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
 	EVal, EStep := computeValAndStep(c.eq)
 
-	puVal := make([]polynomial.MultiLin, len(c.wire.Inputs))  //TODO: Make a two dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
-	puStep := make([]polynomial.MultiLin, len(c.wire.Inputs)) //TODO, ctd: the greater degGJ, the more this would matter
+	puVal := make([]polynomial.MultiLin, len(c.inputPreprocessors))  //TODO: Make a two-dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
+	puStep := make([]polynomial.MultiLin, len(c.inputPreprocessors)) //TODO, ctd: the greater degGJ, the more this would matter
 
 	for i, puI := range c.inputPreprocessors {
 		puVal[i], puStep[i] = computeValAndStep(puI)
@@ -156,7 +156,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
 
-	gateInput := polynomial.Make(len(c.wire.Inputs))
+	gateInput := polynomial.Make(len(c.inputPreprocessors))
 	for d := 0; d < degGJ; d++ {
 
 		notLastIteration := d+1 < degGJ
@@ -255,6 +255,9 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 }
 
 func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation fr.Element) {
+	if wire.IsInput() {
+		wire.Gate = identityGate{}
+	}
 	claim := m.claimsMap[wire]
 	i := len(claim.evaluationPoints)
 	claim.claimedEvaluations[i] = evaluation
@@ -274,9 +277,7 @@ func (m *claimsManager) addForInput(wire *Wire, evaluationPoint []fr.Element, ev
 }
 
 func (m *claimsManager) getLazyClaim(wire *Wire) *eqTimesGateEvalSumcheckLazyClaims {
-	if wire.IsInput() {
-		wire.Gate = identityGate{}
-	}
+
 	return m.claimsMap[wire]
 }
 
@@ -289,23 +290,28 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 		manager:            m,
 	}
 
-	res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
+	if wire.IsInput() {
+		wire.Gate = identityGate{} // a bit dirty, modifying data structure given from outside
+		res.inputPreprocessors = []polynomial.MultiLin{m.assignment[wire].Clone()}
+	} else {
+		res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
 
-	for inputI, inputW := range wire.Inputs {
-		res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
+		for inputI, inputW := range wire.Inputs {
+			res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
+		}
 	}
 	return res
 }
 
 // Prove consistency of the claimed assignment
-func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript, challengeSeed []byte) Proof {
+func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript) Proof {
 	claims := newClaimsManager(c, assignment)
 
 	outLayer := c[0]
 
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
-	firstChallenge := sumcheck.NextFromBytes(transcript, challengeSeed, assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
+	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
 
 	for i := range outLayer {
 		wire := &outLayer[i]
@@ -318,7 +324,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 			wire := &layer[wireI]
 			claim := claims.getClaim(wire)
 			if !wire.IsInput() || claim.ClaimsNum() > 1 {
-				proof[layerI][wireI] = sumcheck.Prove(claim, transcript, nil)
+				proof[layerI][wireI] = sumcheck.Prove(claim, transcript)
 			}
 			// the verifier checks a single claim about input wires itself
 		}
@@ -329,12 +335,12 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 
 // Verify the consistency of the claimed output with the claimed input
 // Unlike in Prove, the assignment argument need not be complete
-func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, challengeSeed []byte) bool {
+func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript) bool {
 	claims := newClaimsManager(c, assignment)
 
 	outLayer := c[0]
 
-	firstChallenge := sumcheck.NextFromBytes(transcript, challengeSeed, assignment[&c[0][0]].NumVars()) //TODO: Clean way to extract numVars
+	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
 
 	for i := range outLayer {
 		wire := &outLayer[i]
@@ -353,7 +359,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 					return false
 				}
 
-			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript, nil) {
+			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript) {
 				return false //TODO: Any polynomials to dump?
 			}
 

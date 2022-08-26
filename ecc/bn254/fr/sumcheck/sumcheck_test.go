@@ -99,17 +99,19 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 // For debugging TODO Remove
 func printMsws(limit int) {
-	var one, iElem fr.Element
-	one.SetOne()
 
-	for i := 1; i <= limit; i++ {
-		iElem.Add(&iElem, &one)
+	for i := -limit; i <= limit; i++ {
+		if i == 0 {
+			continue
+		}
+		var iElem fr.Element
+		iElem.SetInt64(int64(i))
 		fmt.Printf("%d: %d\n", i, iElem[fr.Limbs-1])
 	}
 }
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
-	//printMsws(36)
+	//printMsws(100)
 
 	polys := [][]uint64{
 		{1, 2, 3, 4},             // 1 + 2X₁ + X₂

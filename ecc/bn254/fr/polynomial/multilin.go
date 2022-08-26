@@ -72,10 +72,10 @@ func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 	return result
 }
 
-// Clone creates a deep copy of a book-keeping table.
+// Clone creates a deep copy of a bookkeeping table.
 // Both multilinear interpolation and sumcheck require folding an underlying
 // array, but folding changes the array. To do both one requires a deep copy
-// of the book-keeping table.
+// of the bookkeeping table.
 func (m MultiLin) Clone() MultiLin {
 	tableDeepCopy := Make(len(m))
 	copy(tableDeepCopy, m)

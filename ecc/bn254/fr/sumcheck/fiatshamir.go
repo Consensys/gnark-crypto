@@ -1,6 +1,7 @@
 package sumcheck
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
@@ -29,6 +30,7 @@ func (m *MessageCounter) Next(i ...interface{}) (challenge fr.Element) {
 	if !m.updated || len(i) != 0 {
 		m.Update(i)
 	}
+	fmt.Println("hash returning", m.state)
 	challenge.SetUint64(m.state)
 	m.updated = false
 	return
