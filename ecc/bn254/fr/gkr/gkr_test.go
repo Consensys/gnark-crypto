@@ -23,14 +23,38 @@ func TestSingleMulGate(t *testing.T) {
 	testManyInstances(t, 2, testSingleMulGate)
 }
 
-func TestSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
+func TestSingleInputTwoIdentityGatesTwoInstances(t *testing.T) {
 
 	testSingleInputTwoIdentityGates(t, []fr.Element{two, three})
 }
 
-func TestSingleInputTwoIdentityGatesGate(t *testing.T) {
+func TestSingleInputTwoIdentityGates(t *testing.T) {
 
 	testManyInstances(t, 2, testSingleInputTwoIdentityGates)
+}
+
+func TestSingleInputTwoEqualityGatesComposedTwoInstances(t *testing.T) {
+	testSingleInputTwoEqualityGatesComposed(t, []fr.Element{two, one})
+}
+
+func TestSingleInputTwoEqualityGatesComposed(t *testing.T) {
+	testManyInstances(t, 1, testSingleInputTwoEqualityGatesComposed)
+}
+
+func TestSingleMimcCipherGateTwoInstances(t *testing.T) {
+	testSingleMimcCipherGate(t, []fr.Element{one, one}, []fr.Element{one, two})
+}
+
+func TestSingleMimcCipherGate(t *testing.T) {
+	testManyInstances(t, 2, testSingleMimcCipherGate)
+}
+
+func TestMimcTwoInstances(t *testing.T) {
+	testMimc(t, []fr.Element{one, one}, []fr.Element{one, two})
+}
+
+func TestMimc(t *testing.T) {
+	testManyInstances(t, 2, testMimc)
 }
 
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
@@ -57,8 +81,8 @@ func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t 
 	sumcheck.Verify(claimsManagerGen().getLazyClaim(wire), proof, transcriptGen())
 }
 
-// Complete the circuit evaluation from input values
-func (a WireAssignment) Complete(c Circuit) WireAssignment {
+// complete the circuit evaluation from input values
+func (a WireAssignment) complete(c Circuit) WireAssignment {
 	numEvaluations := len(a[&c[len(c)-1][0]])
 
 	for i := len(c) - 2; i >= 0; i-- { //there can only be input wires in the bottommost layer
@@ -156,7 +180,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 		Gate:       mulGate{},
 	}}
 
-	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.Complete(c)
+	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
 
@@ -193,7 +217,7 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 		},
 	}
 
-	assignment := WireAssignment{&c[1][0]: inputAssignments[0]}.Complete(c)
+	assignment := WireAssignment{&c[1][0]: inputAssignments[0]}.complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
 
@@ -203,6 +227,124 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 
 	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
 		t.Error("Bad proof accepted")
+	}
+}
+
+func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
+	c := make(Circuit, 2)
+
+	c[1] = CircuitLayer{
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: 1,
+			Gate:       nil,
+		},
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: 1,
+			Gate:       nil,
+		},
+	}
+
+	c[0] = CircuitLayer{
+		{
+			Inputs:     []*Wire{&c[1][0], &c[1][1]},
+			NumOutputs: 1,
+			Gate:       mimcCipherGate{},
+		},
+	}
+
+	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.complete(c)
+
+	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+
+	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+		t.Error("Proof rejected")
+	}
+
+	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+		t.Error("Bad proof accepted")
+	}
+}
+
+func testSingleInputTwoEqualityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
+	c := make(Circuit, 3)
+
+	c[2] = CircuitLayer{{
+		Gate:       nil,
+		Inputs:     []*Wire{},
+		NumOutputs: 1,
+	}}
+	c[1] = CircuitLayer{{
+		Gate:       identityGate{},
+		Inputs:     []*Wire{&c[2][0]},
+		NumOutputs: 1,
+	}}
+	c[0] = CircuitLayer{{
+		Gate:       identityGate{},
+		Inputs:     []*Wire{&c[1][0]},
+		NumOutputs: 1,
+	}}
+
+	assignment := WireAssignment{&c[2][0]: inputAssignments[0]}.complete(c)
+
+	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+
+	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+		t.Error("Proof rejected")
+	}
+
+	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+		t.Error("Bad proof accepted")
+	}
+}
+
+func testMimc(t *testing.T, inputAssignments ...[]fr.Element) {
+	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
+	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
+	numRounds := 91
+
+	c := make(Circuit, numRounds+1)
+
+	c[numRounds] = CircuitLayer{
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: numRounds,
+			Gate:       nil,
+		},
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: 1,
+			Gate:       nil,
+		},
+	}
+
+	for i := numRounds; i > 0; i-- {
+		c[i-1] = CircuitLayer{
+			{
+				Inputs:     []*Wire{&c[i][0], &c[numRounds][1]},
+				NumOutputs: 1,
+				Gate:       mimcCipherGate{}, //TODO: Put arks in there
+			},
+		}
+	}
+
+	assignment := WireAssignment{&c[numRounds][0]: inputAssignments[0], &c[numRounds][1]: inputAssignments[1]}.complete(c)
+
+	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+
+	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+		t.Error("Proof rejected")
+	}
+
+	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+		t.Error("Bad proof accepted")
+	}
+}
+
+func setRandom(slice []fr.Element) {
+	for i := range slice {
+		slice[i].SetRandom()
 	}
 }
 
@@ -217,8 +359,25 @@ func (m mulGate) Degree() int {
 	return 2
 }
 
-func setRandom(slice []fr.Element) {
-	for i := range slice {
-		slice[i].SetRandom()
-	}
+type mimcCipherGate struct {
+	ark fr.Element
+}
+
+func (m mimcCipherGate) Evaluate(input ...fr.Element) (res fr.Element) {
+	var sum fr.Element
+
+	sum.
+		Add(&input[0], &input[1]).
+		Add(&sum, &m.ark)
+
+	res.Square(&sum)    // sum^2
+	res.Mul(&res, &sum) // sum^3
+	res.Square(&sum)    //sum^6
+	res.Mul(&res, &sum) //sum^7
+
+	return
+}
+
+func (m mimcCipherGate) Degree() int {
+	return 7
 }
