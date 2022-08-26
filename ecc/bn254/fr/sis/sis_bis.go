@@ -19,9 +19,9 @@ var (
 // Ring-SIS instance
 type RSis struct {
 
-	// Vectors in \mathbb{Z}_{p}/X^{n}+1
+	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
-	// AFftBitreversed the evaluation form of the polynomials in A on the coset \sqrt(g) * <g>
+	// AFftBitreversed the evaluation form of the polynomials in A on the coset √(g) * <g>
 	A                    [][]fr.Element
 	AfftCosetBitreversed [][]fr.Element
 
@@ -51,16 +51,16 @@ func genRandom(seed, i, j int64) fr.Element {
 
 // NewRSis creates an instance of RSis.
 // seed: seed for the randomness for generating A.
-// d: the ring will be Zp[X]/X^{d}-1, where X^{2^d} is the 2^{d+1}-th cyclotomic polynomial
+// d: the ring will be ℤ_{p}[X]/Xᵈ-1, where X^{2ᵈ} is the 2ᵈ⁺¹-th cyclotomic polynomial
 // b: the bound of the vector to hash (using the infinity norm).
 // keySize: number of polynomials in A.
 func NewRSis(seed int64, degreeBin, bound, keySize int) (RSis, error) {
 
 	var res RSis
 
-	// domains (shift is \sqrt{gen} )
+	// domains (shift is √{gen} )
 	var shift fr.Element
-	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2^28-th root of unity of bn254
+	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
 	e := int64(1 << (28 - (degreeBin + 1)))
 	shift.Exp(shift, big.NewInt(e))
 	res.Domain = fft.NewDomain(uint64(1<<degreeBin), shift)
@@ -98,9 +98,9 @@ func printPoly(p []fr.Element) {
 	fmt.Println("")
 }
 
-// mulMod computes p * q in \mathbb{Z}[X]/X^{d}+1.
+// mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
 // Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
-// and that they are in evaluation form on \sqrt(g) * <g>
+// and that they are in evaluation form on √(g) * <g>
 func (r RSis) mulMod(pLagrangeShifted, qLagrangeShifted []fr.Element) []fr.Element {
 
 	res := make([]fr.Element, len(pLagrangeShifted))
@@ -108,7 +108,7 @@ func (r RSis) mulMod(pLagrangeShifted, qLagrangeShifted []fr.Element) []fr.Eleme
 		res[i].Mul(&pLagrangeShifted[i], &qLagrangeShifted[i])
 	}
 
-	// FFTinv on the coset, it automagically reduces mod X^{d}+1
+	// FFTinv on the coset, it automagically reduces mod Xᵈ+1
 	r.Domain.FFTInverse(res, fft.DIT, true)
 
 	return res
