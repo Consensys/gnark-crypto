@@ -1,6 +1,7 @@
 package gkr
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
@@ -233,6 +234,7 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
+	numClaims  int
 }
 
 func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManager) {
@@ -255,6 +257,10 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 }
 
 func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation fr.Element) {
+	m.numClaims++
+	if m.numClaims%claimsPerLog == 0 {
+		fmt.Println("GKR:", m.numClaims, "total claims")
+	}
 	if wire.IsInput() {
 		wire.Gate = identityGate{}
 	}
@@ -303,6 +309,16 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 	return res
 }
 
+const claimsPerLog = 2
+
+func (m *claimsManager) deleteClaim(wire *Wire) {
+	m.numClaims--
+	if m.numClaims%claimsPerLog == 0 {
+		fmt.Println("GKR:", m.numClaims, "total claims")
+	}
+	delete(m.claimsMap, wire)
+}
+
 // Prove consistency of the claimed assignment
 func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript) Proof {
 	claims := newClaimsManager(c, assignment)
@@ -318,6 +334,8 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
 	}
 
+	fmt.Println("GKR: Assigned first claims")
+
 	for layerI, layer := range c {
 		proof[layerI] = make([]sumcheck.Proof, len(layer))
 		for wireI := 0; wireI < len(layer); wireI++ {
@@ -327,6 +345,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 				proof[layerI][wireI] = sumcheck.Prove(claim, transcript)
 			}
 			// the verifier checks a single claim about input wires itself
+			claims.deleteClaim(wire)
 		}
 	}
 
@@ -362,7 +381,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript) {
 				return false //TODO: Any polynomials to dump?
 			}
-
+			claims.deleteClaim(wire)
 		}
 	}
 	return true

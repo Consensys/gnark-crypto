@@ -1,7 +1,6 @@
 package sumcheck
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
@@ -14,7 +13,7 @@ type ArithmeticTranscript interface {
 	NextN(int, ...interface{}) []fr.Element
 }
 
-// This is a very bad fiat-shamir challenge generator
+// MessageCounter is a very bad fiat-shamir challenge generator
 type MessageCounter struct {
 	state   uint64
 	step    uint64
@@ -30,7 +29,7 @@ func (m *MessageCounter) Next(i ...interface{}) (challenge fr.Element) {
 	if !m.updated || len(i) != 0 {
 		m.Update(i)
 	}
-	fmt.Println("hash returning", m.state)
+	//fmt.Println("hash returning", m.state)
 	challenge.SetUint64(m.state)
 	m.updated = false
 	return

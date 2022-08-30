@@ -49,12 +49,20 @@ func TestSingleMimcCipherGate(t *testing.T) {
 	testManyInstances(t, 2, testSingleMimcCipherGate)
 }
 
+func TestATimesBSquaredTwoInstances(t *testing.T) {
+	testATimesBSquared(t, 2, []fr.Element{one, one}, []fr.Element{one, two})
+}
+
+func TestShallowMimcTwoInstances(t *testing.T) {
+	testMimc(t, 2, []fr.Element{one, one}, []fr.Element{one, two})
+}
+
 func TestMimcTwoInstances(t *testing.T) {
-	testMimc(t, []fr.Element{one, one}, []fr.Element{one, two})
+	testMimc(t, 93, []fr.Element{one, one}, []fr.Element{one, two})
 }
 
 func TestMimc(t *testing.T) {
-	testManyInstances(t, 2, testMimc)
+	testManyInstances(t, 2, generateTestMimc(93))
 }
 
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
@@ -121,17 +129,20 @@ func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]fr
 	fullAssignments := make([][]fr.Element, numInput)
 	maxSize := 16777216
 
+	t.Log("Entered test orchestrator, assigning and randomizing inputs")
+
 	for i := range fullAssignments {
 		fullAssignments[i] = make([]fr.Element, maxSize)
 		setRandom(fullAssignments[i])
 	}
 
 	inputAssignments := make([][]fr.Element, numInput)
-	for numEvals := 2; numEvals <= maxSize; numEvals *= 2 {
+	for numEvals := maxSize; numEvals <= maxSize; numEvals *= 2 {
 		for i, fullAssignment := range fullAssignments {
 			inputAssignments[i] = fullAssignment[:numEvals]
 		}
 
+		t.Log("Selected inputs for test")
 		test(t, inputAssignments...)
 	}
 }
@@ -253,18 +264,19 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
 			Gate:       mimcCipherGate{},
 		},
 	}
-
+	t.Log("Evaluating all circuit wires")
 	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.complete(c)
-
+	t.Log("Circuit evaluation complete")
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
-
+	t.Log("Proof complete")
 	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
 		t.Error("Proof rejected")
 	}
-
+	t.Log("Successful verification complete")
 	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
 		t.Error("Bad proof accepted")
 	}
+	t.Log("Unsuccessful verification complete")
 }
 
 func testSingleInputTwoEqualityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
@@ -299,22 +311,27 @@ func testSingleInputTwoEqualityGatesComposed(t *testing.T, inputAssignments ...[
 	}
 }
 
-func testMimc(t *testing.T, inputAssignments ...[]fr.Element) {
+func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
+	return func(t *testing.T, inputAssignments ...[]fr.Element) {
+		testMimc(t, numRounds, inputAssignments...)
+	}
+}
+
+func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
 	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
-	numRounds := 91
 
 	c := make(Circuit, numRounds+1)
 
 	c[numRounds] = CircuitLayer{
 		{
 			Inputs:     []*Wire{},
-			NumOutputs: numRounds,
+			NumOutputs: 1,
 			Gate:       nil,
 		},
 		{
 			Inputs:     []*Wire{},
-			NumOutputs: 1,
+			NumOutputs: numRounds,
 			Gate:       nil,
 		},
 	}
@@ -325,6 +342,52 @@ func testMimc(t *testing.T, inputAssignments ...[]fr.Element) {
 				Inputs:     []*Wire{&c[i][0], &c[numRounds][1]},
 				NumOutputs: 1,
 				Gate:       mimcCipherGate{}, //TODO: Put arks in there
+			},
+		}
+	}
+
+	t.Log("Evaluating all circuit wires")
+	assignment := WireAssignment{&c[numRounds][0]: inputAssignments[0], &c[numRounds][1]: inputAssignments[1]}.complete(c)
+	t.Log("Circuit evaluation complete")
+
+	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+
+	t.Log("Proof finished")
+	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+		t.Error("Proof rejected")
+	}
+
+	t.Log("Successful verification finished")
+	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+		t.Error("Bad proof accepted")
+	}
+	t.Log("Unsuccessful verification finished")
+}
+
+func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
+	// This imitates the MiMC circuit
+
+	c := make(Circuit, numRounds+1)
+
+	c[numRounds] = CircuitLayer{
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: 1,
+			Gate:       nil,
+		},
+		{
+			Inputs:     []*Wire{},
+			NumOutputs: numRounds,
+			Gate:       nil,
+		},
+	}
+
+	for i := numRounds; i > 0; i-- {
+		c[i-1] = CircuitLayer{
+			{
+				Inputs:     []*Wire{&c[i][0], &c[numRounds][1]},
+				NumOutputs: 1,
+				Gate:       mulGate{},
 			},
 		}
 	}
