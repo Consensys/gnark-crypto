@@ -1,7 +1,6 @@
 package sis
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -10,15 +9,24 @@ import (
 
 func TestRSis(t *testing.T) {
 
-	sis, err := NewRSis(5, 2, 3, 8)
+	sis, err := NewRSis(5, 1, 8, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < len(sis.A); i++ {
-		printPoly(sis.A[i])
-		fmt.Println("")
-	}
+	m := make([]byte, 8)
+	m[0] = 0xa1
+	m[1] = 0x90
+	m[2] = 0xff
+	m[3] = 0x0a
+	m[4] = 0x13
+	m[5] = 0x59
+	m[6] = 0x79
+	m[7] = 0xcc
+
+	sis.Write(m)
+
+	sis.Sum(nil)
 
 }
 

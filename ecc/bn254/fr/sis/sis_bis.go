@@ -133,7 +133,8 @@ func (r RSis) mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.E
 }
 
 func (r *RSis) Write(p []byte) (n int, err error) {
-	return 0, nil
+	r.buffer.Write(p)
+	return len(p), nil
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
@@ -155,7 +156,8 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	mBits := make([]byte, r.maxSizeByte*8)
+	totalNbBits := r.maxSizeByte * 8
+	mBits := make([]byte, totalNbBits)
 	var tmp [1]byte
 	for i := 0; i < r.maxSizeByte; i++ {
 		_, err := r.buffer.Read(tmp[:])
@@ -172,9 +174,9 @@ func (r *RSis) Sum(b []byte) []byte {
 	nbBitsPerCoefficients := r.LogTwoBound
 	offset := nbBitsPerCoefficients % 8
 	sizeM := r.d * len(r.A)
-	buf := make([]byte, nbBytesPerCoefficients)
+	buf := make([]byte, nbBytesPerCoefficients+1)
 	m := make([]fr.Element, sizeM)
-	for i := 0; i < sizeM; i++ {
+	for i := 0; i < totalNbBits/nbBitsPerCoefficients; i++ {
 		for j := 0; j < offset; j++ {
 			buf[0] += (mBits[i*nbBitsPerCoefficients+j]) << (offset - 1 - j)
 		}
@@ -184,6 +186,9 @@ func (r *RSis) Sum(b []byte) []byte {
 			}
 		}
 		m[i].SetBytes(buf)
+		for j := 0; j < nbBytesPerCoefficients+1; j++ {
+			buf[j] = 0
+		}
 	}
 
 	return nil
