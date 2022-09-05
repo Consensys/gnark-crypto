@@ -45,6 +45,16 @@ func TestMulMod(t *testing.T) {
 	sis.Domain.FFT(q, fft.DIF, true)
 	r := sis.mulMod(p, q)
 
-	printPoly(r)
+	expectedr := make([]fr.Element, 4)
+	expectedr[0].SetString("21888242871839275222246405745257275088548364400416034343698204185887558114297")
+	expectedr[1].SetString("631644300118")
+	expectedr[2].SetString("229913166975959")
+	expectedr[3].SetString("1123315390878")
+
+	for i := 0; i < 4; i++ {
+		if !expectedr[i].Equal(&r[i]) {
+			t.Fatal("product failed")
+		}
+	}
 
 }
