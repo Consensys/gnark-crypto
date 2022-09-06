@@ -9,7 +9,9 @@ import (
 
 func TestRSis(t *testing.T) {
 
-	sis, err := NewRSis(5, 1, 8, 4)
+	keySize := 8
+
+	sis, err := NewRSis(5, 1, 4, keySize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +28,22 @@ func TestRSis(t *testing.T) {
 
 	sis.Write(m)
 
-	sis.Sum(nil)
+	res := sis.Sum(nil)
+
+	resPol := make([]fr.Element, sis.degree)
+	for i := 0; i < sis.degree; i++ {
+		resPol[i].SetBytes(res[i*32 : (i+1)*32])
+	}
+
+	expectedRes := make([]fr.Element, sis.degree)
+	expectedRes[0].SetString("13271020168286836418355708644485735593608516629558571827355518635690915176270")
+	expectedRes[1].SetString("9885652947755511462638910175213772082420069489359143817296501612386750845004")
+
+	for i := 0; i < sis.degree; i++ {
+		if !expectedRes[i].Equal(&resPol[i]) {
+			t.Fatal("error sis hash")
+		}
+	}
 
 }
 
