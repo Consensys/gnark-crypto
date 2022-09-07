@@ -39,7 +39,7 @@ type RSis struct {
 	Domain *fft.Domain
 
 	// d, the degree of X^{d}+1
-	degree int
+	Degree int
 }
 
 func genRandom(seed, i, j int64) fr.Element {
@@ -102,7 +102,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (RSis, error) {
 	res.maxSizeByte = res.LogTwoBound * degree * len(res.A) / 8
 
 	// degree
-	res.degree = degree
+	res.Degree = degree
 
 	return res, nil
 }
@@ -168,7 +168,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	nbBytesPerCoefficients := (r.LogTwoBound - (r.LogTwoBound % 8)) / 8
 	nbBitsPerCoefficients := r.LogTwoBound
 	offset := nbBitsPerCoefficients % 8
-	sizeM := r.degree * len(r.A)
+	sizeM := r.Degree * len(r.A)
 	buf := make([]byte, nbBytesPerCoefficients+1)
 	m := make([]fr.Element, sizeM)
 	for i := 0; i < totalNbBits/nbBitsPerCoefficients; i++ {
@@ -187,18 +187,18 @@ func (r *RSis) Sum(b []byte) []byte {
 	}
 
 	// we can hash now
-	res := make([]fr.Element, r.degree)
+	res := make([]fr.Element, r.Degree)
 	for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-		r.Domain.FFT(m[i*r.degree:(i+1)*r.degree], fft.DIF, true)
-		t := r.mulMod(r.AfftCosetBitreversed[i], m[i*r.degree:(i+1)*r.degree])
+		r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
+		t := r.mulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
 		for j := 0; j < len(res); j++ {
 			res[j].Add(&res[j], &t[j])
 		}
 	}
 
 	sizeFrElmt := len(res[0].Bytes())
-	resBytes := make([]byte, sizeFrElmt*r.degree)
-	for i := 0; i < r.degree; i++ {
+	resBytes := make([]byte, sizeFrElmt*r.Degree)
+	for i := 0; i < r.Degree; i++ {
 		b := res[i].Bytes()
 		copy(resBytes[i*sizeFrElmt:(i+1)*sizeFrElmt], b[:])
 	}

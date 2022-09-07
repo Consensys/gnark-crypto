@@ -30,16 +30,16 @@ func TestRSis(t *testing.T) {
 
 	res := sis.Sum(nil)
 
-	resPol := make([]fr.Element, sis.degree)
-	for i := 0; i < sis.degree; i++ {
+	resPol := make([]fr.Element, sis.Degree)
+	for i := 0; i < sis.Degree; i++ {
 		resPol[i].SetBytes(res[i*32 : (i+1)*32])
 	}
 
-	expectedRes := make([]fr.Element, sis.degree)
+	expectedRes := make([]fr.Element, sis.Degree)
 	expectedRes[0].SetString("13271020168286836418355708644485735593608516629558571827355518635690915176270")
 	expectedRes[1].SetString("9885652947755511462638910175213772082420069489359143817296501612386750845004")
 
-	for i := 0; i < sis.degree; i++ {
+	for i := 0; i < sis.Degree; i++ {
 		if !expectedRes[i].Equal(&resPol[i]) {
 			t.Fatal("error sis hash")
 		}
