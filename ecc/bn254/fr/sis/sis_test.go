@@ -68,7 +68,7 @@ func TestMulMod(t *testing.T) {
 
 	sis.Domain.FFT(p, fft.DIF, true)
 	sis.Domain.FFT(q, fft.DIF, true)
-	r := sis.mulMod(p, q)
+	r := sis.MulMod(p, q)
 
 	expectedr := make([]fr.Element, 4)
 	expectedr[0].SetString("21888242871839275222246405745257275088548364400416034343698204185887558114297")

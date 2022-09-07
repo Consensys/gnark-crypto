@@ -107,11 +107,11 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (RSis, error) {
 	return res, nil
 }
 
-// mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
+// MulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
 // Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
 // and that they are in evaluation form on √(g) * <g>
 // The result is in canonical form.
-func (r RSis) mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
+func (r RSis) MulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
 
 	res := make([]fr.Element, len(pLagrangeCosetBitReversed))
 	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
@@ -190,7 +190,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	res := make([]fr.Element, r.Degree)
 	for i := 0; i < len(r.AfftCosetBitreversed); i++ {
 		r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
-		t := r.mulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
+		t := r.MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
 		for j := 0; j < len(res); j++ {
 			res[j].Add(&res[j], &t[j])
 		}
