@@ -33,7 +33,7 @@ type RSis struct {
 	LogTwoBound int
 
 	// maximal number of bytes to sum
-	maxSizeByte int
+	NbBytesToSum int
 
 	// domain for the polynomial multiplication
 	Domain *fft.Domain
@@ -99,7 +99,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (RSis, error) {
 	}
 
 	// computing the maximal size in bytes of a vector to hash
-	res.maxSizeByte = res.LogTwoBound * degree * len(res.A) / 8
+	res.NbBytesToSum = res.LogTwoBound * degree * len(res.A) / 8
 
 	// degree
 	res.Degree = degree
@@ -139,10 +139,10 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
 
-	// if maxSizeBytes is not reached, the buffer is padded with zeroes.
+	// if NbBytesToSums is not reached, the buffer is padded with zeroes.
 	sizeBuffer := r.buffer.Len()
-	if sizeBuffer < r.maxSizeByte {
-		toPadd := make([]byte, r.maxSizeByte-sizeBuffer)
+	if sizeBuffer < r.NbBytesToSum {
+		toPadd := make([]byte, r.NbBytesToSum-sizeBuffer)
 		_, err := r.buffer.Write(toPadd)
 		if err != nil {
 			panic(err)
@@ -151,10 +151,10 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	totalNbBits := r.maxSizeByte * 8
+	totalNbBits := r.NbBytesToSum * 8
 	mBits := make([]byte, totalNbBits)
 	var tmp [1]byte
-	for i := 0; i < r.maxSizeByte; i++ {
+	for i := 0; i < r.NbBytesToSum; i++ {
 		_, err := r.buffer.Read(tmp[:])
 		if err != nil {
 			panic(err)
