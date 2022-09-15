@@ -107,7 +107,7 @@ func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 // The ij-th entry of M is p[m*i + j] (it's the transpose of the more
 // logical order p[j*m + i], but it's more practical memory wise, it avoids
 // rearranging the coeffs for the fft)
-func (tc *TensorCommitment) Commit(p []fr.Element) (Digest, error) {
+func (tc *TensorCommitment) Commit(p []fr.Element, entryList []int) (Digest, error) {
 
 	// first we adjust the size of p so it fits the fft domain
 	if len(p) > tc.MaxSize {
@@ -132,6 +132,44 @@ func (tc *TensorCommitment) Commit(p []fr.Element) (Digest, error) {
 		}
 		tc.Hash.Sum(res[i])
 		tc.Hash.Reset()
+	}
+
+	return res, nil
+
+}
+
+// buildProof builds a proof to be tested against a previous commitment to p
+// attesting that the commitment corresponds to p.
+// * p the polynomial which has been committed (supposed to be of the correct size)
+// * l the random linear coefficients used for the linear combination
+// * entryList list of columns to hash
+// l and entryList are supposed to be precomputed using Fiat Shamir
+func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proof, error) {
+
+	var res Proof
+
+	res.Generator.Set(&tc.Domain.Generator)
+	res.EntryList = entryList
+
+	// Linear combination of the line of p
+	var tmp fr.Element
+	res.LinearCombination = make([]fr.Element, len(l))
+	for i := 0; i < len(l); i++ {
+		for j := 0; j < len(l); j++ {
+			tmp.Mul(&p[j*tc.SqrtSize+i], &l[j])
+			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
+		}
+	}
+
+	// Reed Solomon encoding of each rows of p (when p is interpreted as a matrix
+	// M = M_ij where M_ij = p[i*m + j], m^2 = len(p)) corresponding to the indices
+	// in entryList
+	res.Columns = make([][]fr.Element, len(entryList))
+	for i := 0; i < len(l); i++ {
+		res.Columns[i] = make([]fr.Element, len(l))
+		for j := 0; j < len(entryList); j++ {
+			res.Columns[j][i] = evalAtPower(p[i*tc.SqrtSize:(i+1)*tc.SqrtSize], tc.Domain.Generator, entryList[j])
+		}
 	}
 
 	return res, nil
