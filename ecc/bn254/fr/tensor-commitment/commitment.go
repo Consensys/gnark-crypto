@@ -76,6 +76,9 @@ type TensorCommitment struct {
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
+// * \rho rate of the code ( > 1)
+// * size size of the polynomial to be committed. The size of the commitment is
+// then \rho * \sqrt(m) where m^2 = size
 func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 
 	res := TensorCommitment{
@@ -84,8 +87,9 @@ func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 		Hash:    h,
 	}
 
-	sqrt := math.Floor(math.Sqrt(float64(size + 1)))
-	if sqrt*sqrt != float64(size+1) {
+	sqrt := math.Floor(math.Sqrt(float64(size)))
+
+	if sqrt*sqrt != float64(size) {
 		return res, ErrNotSquare
 	}
 
@@ -109,7 +113,7 @@ func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 // rearranging the coeffs for the fft)
 func (tc *TensorCommitment) Commit(p []fr.Element, entryList []int) (Digest, error) {
 
-	// first we adjust the size of p so it fits the fft domain
+	// first we adjus	t the size of p so it fits the fft domain
 	if len(p) > tc.MaxSize {
 		return nil, ErrWrongSize
 	}
