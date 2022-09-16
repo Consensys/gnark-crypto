@@ -77,9 +77,9 @@ type TensorCommitment struct {
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
-// * \rho rate of the code ( > 1)
+// * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
-// then \rho * \sqrt(m) where m^2 = size
+// then ρ * √(m) where m² = size
 func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 
 	res := TensorCommitment{
@@ -168,7 +168,7 @@ func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proo
 	res.EntryList = entryList
 
 	// Linear combination of the line of p (written as a matrix
-	// M = M_ij where M_ij = p[i*m + j], m^2 = len(p)))
+	// M = M_ij where M_ij = p[i*m + j], m² = len(p)))
 	var tmp fr.Element
 	res.LinearCombination = make([]fr.Element, tc.SqrtSize)
 	for i := 0; i < tc.SqrtSize; i++ { // for each column of p
@@ -178,15 +178,8 @@ func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proo
 		}
 	}
 
-	// printVector(res.LinearCombination)
-	// fmt.Printf("[")
-	// for i := 0; i < tc.SqrtSize; i++ {
-	// 	fmt.Printf("%s,", p[i].String())
-	// }
-	// fmt.Printf("]\n")
-
 	// Reed Solomon encoding of each rows of p (when p is interpreted as a matrix
-	// M = M_ij where M_ij = p[i*m + j], m^2 = len(p)) corresponding to the indices
+	// M = M_ij where M_ij = p[i*m + j], m² = len(p)) corresponding to the indices
 	// in entryList
 	res.Columns = make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
