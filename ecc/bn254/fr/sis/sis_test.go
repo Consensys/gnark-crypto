@@ -97,3 +97,26 @@ func TestMulMod(t *testing.T) {
 	}
 
 }
+
+func BenchmarkSIS(b *testing.B) {
+
+	keySize := 64
+	logTwoBound := 6
+	logTwoDegree := 6
+
+	sis, _ := NewRSis(5, logTwoDegree, logTwoBound, keySize)
+
+	// 96 = (1 << logTwoDegree) * logTwoBound * keySize / 256
+	var p fr.Element
+	for i := 0; i < 96; i++ {
+		p.SetRandom()
+		sis.Write(p.Marshal())
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sis.Sum(nil)
+		sis.Reset()
+	}
+
+}
