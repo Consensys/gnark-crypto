@@ -15,6 +15,8 @@
 package tensorcommitment
 
 import (
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -116,7 +118,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// random polynomial and random linear
+	// random polynomial
 	p := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		p[i].SetRandom()
@@ -150,6 +152,72 @@ func TestCommitmentDummyHash(t *testing.T) {
 	err = Verify(proof, digest, l, h)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+}
+
+func TestOpeningDummyHash(t *testing.T) {
+
+	var rho, size, sqrtSize int
+	rho = 4
+	size = 64
+	sqrtSize = 8
+
+	var h DummyHash
+	tc, err := NewTensorCommitment(rho, size, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// random polynomial
+	p := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		p[i].SetRandom()
+	}
+
+	// the coefficients are (1,x,x^2,..,x^{n-1}) where x is the point
+	// at which the opening is done
+	var xm, x fr.Element
+	x.SetRandom()
+	hi := make([]fr.Element, sqrtSize) // stores [1,x^{m},..,x^{m^{2}-1}]
+	lo := make([]fr.Element, sqrtSize) // stores [1,x,..,x^{m-1}]
+	lo[0].SetInt64(1)
+	hi[0].SetInt64(1)
+	xm.Exp(x, big.NewInt(int64(sqrtSize)))
+	for i := 1; i < sqrtSize; i++ {
+		lo[i].Mul(&lo[i-1], &x)
+		hi[i].Mul(&hi[i-1], &xm)
+	}
+
+	// build the proof
+	entryList := make([]int, rho*sqrtSize)
+	for i := 0; i < rho*sqrtSize; i++ {
+		entryList[i] = i
+	}
+	proof, err := tc.buildProof(p, hi, entryList)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// finish the evalutation by computing
+	// [linearCombination] * [lo]^t
+	var eval, tmp fr.Element
+	for i := 0; i < sqrtSize; i++ {
+		tmp.Mul(&proof.LinearCombination[i], &lo[i])
+		eval.Add(&eval, &tmp)
+	}
+	fmt.Printf("%s\n", eval.String())
+
+	// compute the real evaluation of p at x manually
+	var expectedEval fr.Element
+	for i := 0; i < size; i++ {
+		expectedEval.Mul(&expectedEval, &x)
+		expectedEval.Add(&expectedEval, &p[len(p)-i-1])
+	}
+
+	// the results coincide
+	if !expectedEval.Equal(&eval) {
+		t.Fatal("p(x) != [ hi ] x M x [ lo ]^t")
 	}
 
 }
