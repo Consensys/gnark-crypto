@@ -16,6 +16,7 @@ package tensorcommitment
 
 import (
 	"errors"
+	"fmt"
 	"hash"
 	"math"
 	"math/big"
@@ -111,7 +112,7 @@ func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 // The ij-th entry of M is p[m*i + j] (it's the transpose of the more
 // logical order p[j*m + i], but it's more practical memory wise, it avoids
 // rearranging the coeffs for the fft)
-func (tc *TensorCommitment) Commit(p []fr.Element, entryList []int) (Digest, error) {
+func (tc *TensorCommitment) Commit(p []fr.Element) (Digest, error) {
 
 	// first we adjus	t the size of p so it fits the fft domain
 	if len(p) > tc.MaxSize {
@@ -142,12 +143,23 @@ func (tc *TensorCommitment) Commit(p []fr.Element, entryList []int) (Digest, err
 
 }
 
+func printVector(v []fr.Element) {
+	fmt.Printf("[")
+	for i := 0; i < len(v); i++ {
+		fmt.Printf("%s,", v[i].String())
+	}
+	fmt.Printf("]\n")
+}
+
 // buildProof builds a proof to be tested against a previous commitment to p
 // attesting that the commitment corresponds to p.
 // * p the polynomial which has been committed (supposed to be of the correct size)
 // * l the random linear coefficients used for the linear combination
 // * entryList list of columns to hash
 // l and entryList are supposed to be precomputed using Fiat Shamir
+//
+// The proof is the linear combination (using l) of the encoded rows of p written
+// as a matrix. Only the entries contained in entryList are kept.
 func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proof, error) {
 
 	var res Proof
@@ -155,24 +167,32 @@ func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proo
 	res.Generator.Set(&tc.Domain.Generator)
 	res.EntryList = entryList
 
-	// Linear combination of the line of p
+	// Linear combination of the line of p (written as a matrix
+	// M = M_ij where M_ij = p[i*m + j], m^2 = len(p)))
 	var tmp fr.Element
-	res.LinearCombination = make([]fr.Element, len(l))
-	for i := 0; i < len(l); i++ {
-		for j := 0; j < len(l); j++ {
-			tmp.Mul(&p[j*tc.SqrtSize+i], &l[j])
+	res.LinearCombination = make([]fr.Element, tc.SqrtSize)
+	for i := 0; i < tc.SqrtSize; i++ { // for each column of p
+		for j := 0; j < tc.SqrtSize; j++ { // for each line of p
+			tmp.Mul(&l[j], &p[j*tc.SqrtSize+i])
 			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
 		}
 	}
+
+	// printVector(res.LinearCombination)
+	// fmt.Printf("[")
+	// for i := 0; i < tc.SqrtSize; i++ {
+	// 	fmt.Printf("%s,", p[i].String())
+	// }
+	// fmt.Printf("]\n")
 
 	// Reed Solomon encoding of each rows of p (when p is interpreted as a matrix
 	// M = M_ij where M_ij = p[i*m + j], m^2 = len(p)) corresponding to the indices
 	// in entryList
 	res.Columns = make([][]fr.Element, len(entryList))
-	for i := 0; i < len(l); i++ {
+	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
 		res.Columns[i] = make([]fr.Element, len(l))
-		for j := 0; j < len(entryList); j++ {
-			res.Columns[j][i] = evalAtPower(p[i*tc.SqrtSize:(i+1)*tc.SqrtSize], tc.Domain.Generator, entryList[j])
+		for j := 0; j < tc.SqrtSize; j++ {
+			res.Columns[i][j] = evalAtPower(p[j*tc.SqrtSize:(j+1)*tc.SqrtSize], tc.Domain.Generator, entryList[i])
 		}
 	}
 
@@ -233,8 +253,13 @@ func cmpBytes(a, b []byte) bool {
 // digest: hash of the polynomial
 // l: random coefficients for the linear combination, chosen by the verifier
 // h: hash function that is used for hashing the columns of the polynomial
+// TODO make this function private and add a Verify function that derives
+// the randomness using Fiat Shamir
 func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 
+	// for each entry in the list -> it corresponds to the sampling
+	// set on which we probabilistically check that
+	// Encoded(linear_combination) = linear_combination(encoded)
 	for i := 0; i < len(proof.EntryList); i++ {
 
 		if proof.EntryList[i] >= len(digest) {
@@ -251,22 +276,25 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 			return ErrProofFailedHash
 		}
 
-		// probabilistically check that the encoding of the random linear combination
-		// matches the linear combination of the encoding
-		var linCombEncoded, encodedLinComb, tmp fr.Element
+		// linear combination of the i-th column, whose entries
+		// are the entryList[i]-th entries of the encoded lines
+		// of p
+		var linCombEncoded, tmp fr.Element
 		for j := 0; j < len(proof.Columns[i]); j++ {
 
 			// linear combination of the encoded rows at column i
 			tmp.Mul(&proof.Columns[i][j], &l[j])
 			linCombEncoded.Add(&linCombEncoded, &tmp)
+		}
 
-			// entry i of the encoded linear combination
-			encodedLinComb = evalAtPower(proof.LinearCombination, proof.Generator, i)
+		// entry i of the encoded linear combination
+		var encodedLinComb fr.Element
+		encodedLinComb = evalAtPower(proof.LinearCombination, proof.Generator, proof.EntryList[i])
 
-			// compare both values
-			if !encodedLinComb.Equal(&linCombEncoded) {
-				return ErrProofFailedEncoding
-			}
+		// compare both values
+		if !encodedLinComb.Equal(&linCombEncoded) {
+			return ErrProofFailedEncoding
+
 		}
 	}
 
