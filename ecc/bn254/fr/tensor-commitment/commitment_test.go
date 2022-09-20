@@ -15,11 +15,11 @@
 package tensorcommitment
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sis"
 )
 
 type DummyHash uint
@@ -52,7 +52,7 @@ func getRandomVector(size int) []fr.Element {
 	return a
 }
 
-func TestCommitmentLinearCombination(t *testing.T) {
+func TestLinearCombination(t *testing.T) {
 
 	var rho, size, sqrtSize int
 	rho = 4
@@ -105,6 +105,7 @@ func TestCommitmentLinearCombination(t *testing.T) {
 	}
 }
 
+// Test the verification of a correct proof using a mock hash
 func TestCommitmentDummyHash(t *testing.T) {
 
 	var rho, size, sqrtSize int
@@ -156,6 +157,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 
 }
 
+// Test the opening using a dummy hash
 func TestOpeningDummyHash(t *testing.T) {
 
 	var rho, size, sqrtSize int
@@ -206,7 +208,6 @@ func TestOpeningDummyHash(t *testing.T) {
 		tmp.Mul(&proof.LinearCombination[i], &lo[i])
 		eval.Add(&eval, &tmp)
 	}
-	fmt.Printf("%s\n", eval.String())
 
 	// compute the real evaluation of p at x manually
 	var expectedEval fr.Element
@@ -218,6 +219,64 @@ func TestOpeningDummyHash(t *testing.T) {
 	// the results coincide
 	if !expectedEval.Equal(&eval) {
 		t.Fatal("p(x) != [ hi ] x M x [ lo ]^t")
+	}
+
+}
+
+// Test the verification of a correct proof using SIS as hash
+func TestCommitmentSis(t *testing.T) {
+
+	var rho, size, sqrtSize int
+	rho = 4
+	size = 64
+	sqrtSize = 8
+
+	logTwoDegree := 1
+	logTwoBound := 3
+	keySize := 128
+	h, err := sis.NewRSis(5, logTwoDegree, logTwoBound, keySize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc, err := NewTensorCommitment(rho, size, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// random polynomial
+	p := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		p[i].SetRandom()
+	}
+
+	// coefficients for the linear combination
+	l := make([]fr.Element, sqrtSize)
+	for i := 0; i < sqrtSize; i++ {
+		l[i].SetRandom()
+	}
+
+	// we select all the entries for the test
+	entryList := make([]int, rho*sqrtSize)
+	for i := 0; i < rho*sqrtSize; i++ {
+		entryList[i] = i
+	}
+
+	// compute the digest...
+	digest, err := tc.Commit(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// build the proof...
+	proof, err := tc.buildProof(p, l, entryList)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verfiy that the proof is correct
+	err = Verify(proof, digest, l, h)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }

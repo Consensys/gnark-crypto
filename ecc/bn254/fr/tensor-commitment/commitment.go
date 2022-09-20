@@ -135,7 +135,7 @@ func (tc *TensorCommitment) Commit(p []fr.Element) (Digest, error) {
 		for j := 0; j < tc.SqrtSize; j++ {
 			tc.Hash.Write(_p[j][i].Marshal())
 		}
-		tc.Hash.Sum(res[i])
+		res[i] = tc.Hash.Sum(nil)
 		tc.Hash.Reset()
 	}
 
@@ -262,7 +262,7 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 		// check that the hash of the columns correspond to what's in the digest
 		h.Reset()
 		for j := 0; j < len(proof.Columns[i]); j++ {
-			h.Write(proof.Columns[i][j].Marshal())
+			h.Write(proof.Columns[proof.EntryList[i]][j].Marshal())
 		}
 		s := h.Sum(nil)
 		if !cmpBytes(s, digest[proof.EntryList[i]]) {
