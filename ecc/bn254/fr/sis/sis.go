@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"hash"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -78,7 +79,7 @@ func genRandom(seed, i, j int64) fr.Element {
 // logTwoDegree: if d := logTwoDegree, the ring will be ℤ_{p}[X]/Xᵈ-1, where X^{2ᵈ} is the 2ᵈ⁺¹-th cyclotomic polynomial
 // b: the bound of the vector to hash (using the infinity norm).
 // keySize: number of polynomials in A.
-func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (RSis, error) {
+func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, error) {
 
 	var res RSis
 
@@ -118,7 +119,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (RSis, error) {
 	// degree
 	res.Degree = degree
 
-	return res, nil
+	return &res, nil
 }
 
 // MulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
