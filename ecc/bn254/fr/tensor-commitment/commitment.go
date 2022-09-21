@@ -151,7 +151,7 @@ func printVector(v []fr.Element) {
 	fmt.Printf("]\n")
 }
 
-// buildProof builds a proof to be tested against a previous commitment to p
+// BuildProof builds a proof to be tested against a previous commitment to p
 // attesting that the commitment corresponds to p.
 // * p the polynomial which has been committed (supposed to be of the correct size)
 // * l the random linear coefficients used for the linear combination
@@ -160,7 +160,7 @@ func printVector(v []fr.Element) {
 //
 // The proof is the linear combination (using l) of the encoded rows of p written
 // as a matrix. Only the entries contained in entryList are kept.
-func (tc *TensorCommitment) buildProof(p, l []fr.Element, entryList []int) (Proof, error) {
+func (tc *TensorCommitment) BuildProof(p, l []fr.Element, entryList []int) (Proof, error) {
 
 	var res Proof
 
