@@ -232,8 +232,8 @@ func TestCommitmentSis(t *testing.T) {
 	sqrtSize = 8
 
 	logTwoDegree := 1
-	logTwoBound := 3
-	keySize := 128
+	logTwoBound := 4
+	keySize := 256
 	h, err := sis.NewRSis(5, logTwoDegree, logTwoBound, keySize)
 	if err != nil {
 		t.Fatal(err)
@@ -255,28 +255,54 @@ func TestCommitmentSis(t *testing.T) {
 		l[i].SetRandom()
 	}
 
-	// we select all the entries for the test
-	entryList := make([]int, rho*sqrtSize)
-	for i := 0; i < rho*sqrtSize; i++ {
-		entryList[i] = i
-	}
+	// test 1: we select all the entries
+	{
+		entryList := make([]int, rho*sqrtSize)
+		for i := 0; i < rho*sqrtSize; i++ {
+			entryList[i] = i
+		}
+		// compute the digest...
+		digest, err := tc.Commit(p)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// compute the digest...
-	digest, err := tc.Commit(p)
-	if err != nil {
-		t.Fatal(err)
-	}
+		// build the proof...
+		proof, err := tc.BuildProof(p, l, entryList)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// build the proof...
-	proof, err := tc.BuildProof(p, l, entryList)
-	if err != nil {
-		t.Fatal(err)
+		// verfiy that the proof is correct
+		err = Verify(proof, digest, l, h)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
+	// test 2: we select a subset of the entries
+	{
 
-	// verfiy that the proof is correct
-	err = Verify(proof, digest, l, h)
-	if err != nil {
-		t.Fatal(err)
+		entryList := make([]int, 2)
+		entryList[0] = 1
+		entryList[1] = 4
+
+		// compute the digest...
+		digest, err := tc.Commit(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// build the proof...
+		proof, err := tc.BuildProof(p, l, entryList)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// verfiy that the proof is correct
+		err = Verify(proof, digest, l, h)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 }
