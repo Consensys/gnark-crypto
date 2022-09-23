@@ -44,16 +44,17 @@ func TestRSis(t *testing.T) {
 
 	res := sis.Sum(nil)
 
-	resPol := make([]fr.Element, sis.Degree)
-	for i := 0; i < sis.Degree; i++ {
+	_sis := sis.(*RSis)
+	resPol := make([]fr.Element, _sis.Degree)
+	for i := 0; i < _sis.Degree; i++ {
 		resPol[i].SetBytes(res[i*32 : (i+1)*32])
 	}
 
-	expectedRes := make([]fr.Element, sis.Degree)
+	expectedRes := make([]fr.Element, _sis.Degree)
 	expectedRes[0].SetString("13271020168286836418355708644485735593608516629558571827355518635690915176270")
 	expectedRes[1].SetString("9885652947755511462638910175213772082420069489359143817296501612386750845004")
 
-	for i := 0; i < sis.Degree; i++ {
+	for i := 0; i < _sis.Degree; i++ {
 		if !expectedRes[i].Equal(&resPol[i]) {
 			t.Fatal("error sis hash")
 		}
@@ -80,9 +81,10 @@ func TestMulMod(t *testing.T) {
 	q[2].SetString("989273")
 	q[3].SetString("675273")
 
-	sis.Domain.FFT(p, fft.DIF, true)
-	sis.Domain.FFT(q, fft.DIF, true)
-	r := sis.MulMod(p, q)
+	_sis := sis.(*RSis)
+	_sis.Domain.FFT(p, fft.DIF, true)
+	_sis.Domain.FFT(q, fft.DIF, true)
+	r := _sis.MulMod(p, q)
 
 	expectedr := make([]fr.Element, 4)
 	expectedr[0].SetString("21888242871839275222246405745257275088548364400416034343698204185887558114297")
