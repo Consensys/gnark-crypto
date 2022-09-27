@@ -32,10 +32,9 @@ func (z *E2) Equal(x *E2) bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *E2) Cmp(x *E2) int {
 	if a1 := z.A1.Cmp(&x.A1); a1 != 0 {
 		return a1

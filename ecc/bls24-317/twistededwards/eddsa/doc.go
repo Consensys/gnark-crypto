@@ -16,7 +16,7 @@
 
 // Package eddsa provides EdDSA signature scheme on bls24-317's twisted edwards curve.
 //
-// See also
+// # See also
 //
 // https://en.wikipedia.org/wiki/EdDSA
 package eddsa

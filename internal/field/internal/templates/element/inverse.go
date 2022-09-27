@@ -34,7 +34,7 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 
 	var r,s,u,v uint64
 	u = q
-	s = {{index .RSquare 0}} // s = r^2
+	s = {{index .RSquare 0}} // s = r²
 	r = 0
 	v = x[0]
 

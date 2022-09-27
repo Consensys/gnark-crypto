@@ -626,11 +626,11 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 //
 // we use the 2 most significant bits instead
 //
-//  00 -> uncompressed
-//  10 -> compressed, use smallest lexicographically square root of Y^2
-//  11 -> compressed, use largest lexicographically square root of Y^2
-//  01 -> compressed infinity point
-//  the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+//	00 -> uncompressed
+//	10 -> compressed, use smallest lexicographically square root of Y^2
+//	11 -> compressed, use largest lexicographically square root of Y^2
+//	01 -> compressed infinity point
+//	the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
 
 	// check if p is infinity point
@@ -883,11 +883,11 @@ func (p *G2Affine) Unmarshal(buf []byte) error {
 //
 // we use the 2 most significant bits instead
 //
-//  00 -> uncompressed
-//  10 -> compressed, use smallest lexicographically square root of Y^2
-//  11 -> compressed, use largest lexicographically square root of Y^2
-//  01 -> compressed infinity point
-//  the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+//	00 -> uncompressed
+//	10 -> compressed, use smallest lexicographically square root of Y^2
+//	11 -> compressed, use largest lexicographically square root of Y^2
+//	01 -> compressed infinity point
+//	the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
 func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 
 	// check if p is infinity point

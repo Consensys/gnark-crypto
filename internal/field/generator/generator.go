@@ -23,8 +23,8 @@ import (
 //
 // Example usage
 //
-// 	fp, _ = field.NewField("fp", "Element", fpModulus")
-// 	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
+//	fp, _ = field.NewField("fp", "Element", fpModulus")
+//	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
 func GenerateFF(F *field.FieldConfig, outputDir string) error {
 	// source file templates
 	sourceFiles := []string{

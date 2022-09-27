@@ -35,10 +35,10 @@ import (
 //
 // Modulus q =
 //
-// 	q[base10] = 136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051
-// 	q[base16] = 0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab
+//	q[base10] = 136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051
+//	q[base16] = 0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab
 //
-// Warning
+// # Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type Element [5]uint64
@@ -70,8 +70,8 @@ var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
-// 	q[base10] = 136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051
-// 	q[base16] = 0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab
+//	q[base10] = 136393071104295911515099765908274057061945112121419593977210139303905973197232025618026156731051
+//	q[base16] = 0x1058ca226f60892cf28fc5a0b7f9d039169a61e684c73446d6f339e43424bf7e8d512e565dab2aab
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
@@ -93,8 +93,9 @@ func init() {
 // NewElement returns a new Element from a uint64 value
 //
 // it is equivalent to
-// 		var v Element
-// 		v.SetUint64(...)
+//
+//	var v Element
+//	v.SetUint64(...)
 func NewElement(v uint64) Element {
 	z := Element{v}
 	z.Mul(&z, &rSquare)
@@ -136,14 +137,15 @@ func (z *Element) Set(x *Element) *Element {
 // SetInterface converts provided interface into Element
 // returns an error if provided type is not supported
 // supported types:
-//  Element
-//  *Element
-//  uint64
-//  int
-//  string (see SetString for valid formats)
-//  *big.Int
-//  big.Int
-//  []byte
+//
+//	Element
+//	*Element
+//	uint64
+//	int
+//	string (see SetString for valid formats)
+//	*big.Int
+//	big.Int
+//	[]byte
 func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set fp.Element with <nil>")
@@ -275,10 +277,9 @@ func (z *Element) FitsOnOneWord() bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *Element) Cmp(x *Element) int {
 	_z := *z
 	_x := *x
@@ -490,7 +491,7 @@ func (z *Element) Add(x, y *Element) *Element {
 	z[3], carry = bits.Add64(x[3], y[3], carry)
 	z[4], _ = bits.Add64(x[4], y[4], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -512,7 +513,7 @@ func (z *Element) Double(x *Element) *Element {
 	z[3], carry = bits.Add64(x[3], x[3], carry)
 	z[4], _ = bits.Add64(x[4], x[4], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -651,7 +652,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[4], z[3] = madd3(m, q4, c[0], c[2], c[1])
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -718,7 +719,7 @@ func _fromMontGeneric(z *Element) {
 		z[4] = C
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -731,7 +732,7 @@ func _fromMontGeneric(z *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -999,14 +1000,14 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
-// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
+// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ''_'' may appear between a base
+// An underscore character ”_” may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
@@ -1405,7 +1406,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[4], z[3] = madd2(m, q4, t[i+4], C)
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)

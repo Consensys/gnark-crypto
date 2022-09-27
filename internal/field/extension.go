@@ -4,7 +4,7 @@ import "math/big"
 
 type Element []big.Int
 
-//Extension is a simple radical extension, obtained by adjoining ⁿ√α to Fp
+// Extension is a simple radical extension, obtained by adjoining ⁿ√α to Fp
 type Extension struct {
 	Base   *FieldConfig //Fp
 	Size   big.Int      //q
