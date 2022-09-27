@@ -309,8 +309,8 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 	qInv.Neg(qInv)
 }
 
-//StringToMont takes an element written in string form, and returns it in Montgomery form
-//Useful for hard-coding in implementation field elements from standards documents
+// StringToMont takes an element written in string form, and returns it in Montgomery form
+// Useful for hard-coding in implementation field elements from standards documents
 func (f *FieldConfig) StringToMont(str string) big.Int {
 
 	var i big.Int
@@ -415,7 +415,7 @@ func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
 	return z
 }
 
-//TODO: Spaghetti Alert: Okay to have codegen functions here?
+// TODO: Spaghetti Alert: Okay to have codegen functions here?
 func CoordNameForExtensionDegree(degree uint8) string {
 	switch degree {
 	case 1:

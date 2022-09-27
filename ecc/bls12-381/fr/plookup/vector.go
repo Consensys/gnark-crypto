@@ -125,7 +125,8 @@ func evaluateAccumulationPolynomial(lf, lt, lh1, lh2 []fr.Element, beta, gamma f
 
 // evaluateNumBitReversed computes the evaluation (shifted, bit reversed) of h where
 // h = (x-1)*z*(1+\beta)*(\gamma+f)*(\gamma(1+\beta) + t+ \beta*t(gX)) -
-//		(x-1)*z(gX)*(\gamma(1+\beta) + h_{1} + \beta*h_{1}(gX))*(\gamma(1+\beta) + h_{2} + \beta*h_{2}(gX) )
+//
+//	(x-1)*z(gX)*(\gamma(1+\beta) + h_{1} + \beta*h_{1}(gX))*(\gamma(1+\beta) + h_{2} + \beta*h_{2}(gX) )
 //
 // * cz, ch1, ch2, ct, cf are the polynomials z, h1, h2, t, f in canonical basis
 // * _lz, _lh1, _lh2, _lt, _lf are the polynomials z, h1, h2, t, f in shifted Lagrange basis (domainBig)
@@ -370,7 +371,6 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 // before generating a lookup proof), the commitment needs to be done on the
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
-//
 func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 
 	// res

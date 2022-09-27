@@ -1,22 +1,28 @@
 // Package bw6633 efficient elliptic curve, pairing and hash to curve implementation for bw6-633.
 //
 // bw6-633: A Brezing--Weng curve (2-chain with bls24-315)
-// 		embedding degree k=6
-// 		seed x₀=-3218079743
-// 		𝔽p: p=20494478644167774678813387386538961497669590920908778075528754551012016751717791778743535050360001387419576570244406805463255765034468441182772056330021723098661967429339971741066259394985997
-// 		𝔽r: r=39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
-// 		(E/𝔽p): Y²=X³+4
-// 		(Eₜ/𝔽p): Y² = X³+8 (M-type twist)
-// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
+//
+//	embedding degree k=6
+//	seed x₀=-3218079743
+//	𝔽p: p=20494478644167774678813387386538961497669590920908778075528754551012016751717791778743535050360001387419576570244406805463255765034468441182772056330021723098661967429339971741066259394985997
+//	𝔽r: r=39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
+//	(E/𝔽p): Y²=X³+4
+//	(Eₜ/𝔽p): Y² = X³+8 (M-type twist)
+//	r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
+//
 // Extension fields tower:
-//     𝔽p³[u] = 𝔽p/u³-2
-//     𝔽p⁶[v] = 𝔽p²/v²-u
+//
+//	𝔽p³[u] = 𝔽p/u³-2
+//	𝔽p⁶[v] = 𝔽p²/v²-u
+//
 // optimal Ate loops:
-//		x₀+1, x₀^5-x₀^4-x₀
+//
+//	x₀+1, x₀^5-x₀^4-x₀
+//
 // Security: estimated 124-bit level following [https://eprint.iacr.org/2019/885.pdf]
 // (r is 315 bits and p⁶ is 3798 bits)
 //
-// Warning
+// # Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bw6633

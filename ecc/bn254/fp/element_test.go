@@ -2309,7 +2309,7 @@ func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	return field.BigIntMatchUint64Slice(&aIntMod, slice)
 }
 
-//TODO: Phase out in favor of property based testing
+// TODO: Phase out in favor of property based testing
 func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int) {
 
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
@@ -2538,7 +2538,7 @@ func TestElement0Inverse(t *testing.T) {
 	}
 }
 
-//TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
+// TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 
