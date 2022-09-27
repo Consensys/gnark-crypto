@@ -2,7 +2,7 @@ package element
 
 const Reduce = `
 {{ define "reduce" }}
-// if z >= q → z -= q
+// if z ⩾ q → z -= q
 if !z.smallerThanModulus() {
 {{- if eq $.NbWords 1}}
 		z[0] -= q

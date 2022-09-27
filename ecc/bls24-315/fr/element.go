@@ -476,7 +476,7 @@ func (z *Element) Add(x, y *Element) *Element {
 	z[2], carry = bits.Add64(x[2], y[2], carry)
 	z[3], _ = bits.Add64(x[3], y[3], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -496,7 +496,7 @@ func (z *Element) Double(x *Element) *Element {
 	z[2], carry = bits.Add64(x[2], x[2], carry)
 	z[3], _ = bits.Add64(x[3], x[3], carry)
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -607,7 +607,7 @@ func _mulGeneric(z, x, y *Element) {
 		z[3], z[2] = madd3(m, q3, c[0], c[2], c[1])
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -659,7 +659,7 @@ func _fromMontGeneric(z *Element) {
 		z[3] = C
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -671,7 +671,7 @@ func _fromMontGeneric(z *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)
@@ -1042,7 +1042,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
 
-	// b = x^s = w * w * x = y * x
+	// b = xˢ = w * w * x = y * x
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s
@@ -1055,7 +1055,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	r := uint64(22)
 
 	// compute legendre symbol
-	// t = x^((q-1)/2) = r-1 squaring of x^s
+	// t = x^((q-1)/2) = r-1 squaring of xˢ
 	t = b
 	for i := uint64(0); i < r-1; i++ {
 		t.Square(&t)
@@ -1369,7 +1369,7 @@ func (z *Element) montReduceSigned(x *Element, xHi uint64) {
 		z[3], z[2] = madd2(m, q3, t[i+3], C)
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		var b uint64
 		z[0], b = bits.Sub64(z[0], q0, 0)

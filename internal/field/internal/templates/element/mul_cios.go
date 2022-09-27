@@ -61,12 +61,26 @@ const MulCIOS = `
 {{ end }}
 
 {{ define "mul_cios_one_limb" }}
+	// In fact, since the modulus R fits on one register, the CIOS algorithm gets reduced to standard REDC (textbook Montgomery reduction):
+	// hi, lo := x * y
+	// m := (lo * qInvNeg) mod R
+	// (*) r := (hi * R + lo + m * q) / R
+	// reduce r if necessary
+
+	// On the emphasized line, we get r = hi + (lo + m * q) / R
+	// If we write hi2, lo2 = m * q then R | m * q - lo2 ⇒ R | (lo * qInvNeg) q - lo2 = -lo - lo2
+	// This shows lo + lo2 = 0 mod R. i.e. lo + lo2 = 0 if lo = 0 and R otherwise.
+	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
+	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
+
 	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
+	if lo != 0 {
+		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
+	}
 	m := lo * qInvNeg
-	hi2, lo2 := bits.Mul64(m, q)
-	_, carry := bits.Add64(lo2, lo, 0)
-	r, carry = bits.Add64(hi2, hi, carry)
+	hi2, _ := bits.Mul64(m, q)
+	r, carry := bits.Add64(hi2, hi, 0)
 
 	if carry != 0 || r >= q  {
 		// we need to reduce
