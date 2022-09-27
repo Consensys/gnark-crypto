@@ -1,6 +1,9 @@
 package utils
 
-import "math/bits"
+import (
+	"math/big"
+	"math/bits"
+)
 
 type SmallRational struct {
 	numerator   int64
@@ -73,21 +76,72 @@ func (z *SmallRational) abs() (abs SmallRational) {
 }
 
 func (z *SmallRational) Equal(x *SmallRational) bool {
-	zSign := z.sign()
-	if zSign != x.sign() {
-		return false
-	}
-	xAbs, zAbs := x.abs(), z.abs()
-
-	cross0Hi, cross0Lo := bits.Mul64(uint64(xAbs.numerator), uint64(zAbs.denominator))
-	cross1Hi, cross1Lo := bits.Mul64(uint64(zAbs.numerator), uint64(xAbs.denominator))
-
-	return cross1Hi == cross0Hi && cross1Lo == cross0Lo
+	return z.Cmp(x) == 0
 }
 
 func (z *SmallRational) Sub(x, y *SmallRational) *SmallRational {
 	var yNeg SmallRational
 	yNeg.Neg(y)
 	z.Add(x, &yNeg)
+	return z
+}
+
+func (z *SmallRational) ToBigIntRegular(*big.Int) big.Int {
+	panic("Not implemented")
+}
+
+// TODO: Test this
+func (z *SmallRational) Cmp(x *SmallRational) int {
+	zSign, xSign := z.sign(), x.sign()
+
+	if zSign > xSign {
+		return 1
+	}
+	if zSign < xSign {
+		return -1
+	}
+
+	xAbs, zAbs := x.abs(), z.abs()
+
+	cross0Hi, cross0Lo := bits.Mul64(uint64(xAbs.numerator), uint64(zAbs.denominator))
+	cross1Hi, cross1Lo := bits.Mul64(uint64(zAbs.numerator), uint64(xAbs.denominator))
+
+	if cross1Hi > cross0Hi {
+		return zSign
+	}
+	if cross1Hi < cross0Hi {
+		return -zSign
+	}
+	if cross1Lo > cross0Lo {
+		return zSign
+	}
+	if cross1Lo < cross0Lo {
+		return -zSign
+	}
+	return 0
+}
+
+func BatchInvert(a []SmallRational) []SmallRational {
+	res := make([]SmallRational, len(a))
+	for i := range a {
+		res[i].Inverse(&a[i])
+	}
+	return res
+}
+
+func (z *SmallRational) Mul(x, y *SmallRational) *SmallRational {
+	*z = SmallRational{x.numerator * y.numerator, x.denominator * y.denominator}
+	return z
+}
+
+func (z *SmallRational) SetOne() *SmallRational {
+	z.numerator = 1
+	z.denominator = 1
+	return z
+}
+
+func (z *SmallRational) SetInt64(i int64) *SmallRational {
+	z.numerator = i
+	z.denominator = 1
 	return z
 }
