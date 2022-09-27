@@ -17,9 +17,9 @@
 package gkr
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fr/polynomial"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fr/sumcheck"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/sumcheck"
 	"testing"
 )
 
