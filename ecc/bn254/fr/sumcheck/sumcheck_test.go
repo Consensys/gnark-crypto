@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"math/bits"
+	"strings"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ type singleMultilinClaim struct {
 	g polynomial.MultiLin
 }
 
-func (c singleMultilinClaim) ProveFinalEval([]fr.Element) interface{} {
+func (c singleMultilinClaim) ProveFinalEval(r []fr.Element) interface{} {
 	return nil // verifier can compute the final eval itself
 }
 
@@ -62,16 +63,16 @@ type singleMultilinLazyClaim struct {
 	claimedSum fr.Element
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, _ fr.Element, purportedValue fr.Element, _ interface{}) bool {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
 	val := c.g.Evaluate(r)
 	return val.Equal(&purportedValue)
 }
 
-func (c singleMultilinLazyClaim) CombinedSum(fr.Element) fr.Element {
+func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
 	return c.claimedSum
 }
 
-func (c singleMultilinLazyClaim) Degree(int) int {
+func (c singleMultilinLazyClaim) Degree(i int) int {
 	return 1
 }
 
@@ -93,10 +94,19 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 	proof := Prove(&claim, hashGenerator())
 
-	fmt.Print("For hash ", hashGenerator(), " and poly ")
-	printPoly(poly)
-	fmt.Print("Proof = ")
-	printProof(proof)
+	var sb strings.Builder
+	for _, p := range proof.PartialSumPolys {
+
+		sb.WriteString("\t{")
+		for i := 0; i < len(p); i++ {
+			sb.WriteString(p[i].String())
+			if i+1 < len(p) {
+				sb.WriteString(", ")
+			}
+		}
+		sb.WriteString("}\n")
+	}
+	//fmt.Printf("%v, %v:\n%s\n", polyInt, hashGenerator(), sb.String())
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 
@@ -105,45 +115,17 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 // For debugging TODO Remove
 func printMsws(limit int) {
+	var one, iElem fr.Element
+	one.SetOne()
 
-	for i := -limit; i <= limit; i++ {
-		if i == 0 {
-			continue
-		}
-		var iElem fr.Element
-		iElem.SetInt64(int64(i))
+	for i := 1; i <= limit; i++ {
+		iElem.Add(&iElem, &one)
 		fmt.Printf("%d: %d\n", i, iElem[fr.Limbs-1])
 	}
 }
 
-func printPoly(poly []fr.Element) {
-	text := make([]string, len(poly))
-	for i, element := range poly {
-		text[i] = element.Text(10)
-	}
-	fmt.Println(text)
-}
-
-func printProof(proof Proof) {
-	fmt.Println("[")
-
-	for _, line := range proof.PartialSumPolys {
-		fmt.Print("\t")
-		printPoly(line)
-	}
-
-	fmt.Println("],", proof.FinalEvalProof)
-}
-
-// Autogen proof for SNARK circuit to verify (the others are not usable since they require "interpolation" on points where the polynomial is already specified)
-func TestSumcheckDeterministicHashSingleClaimMultilinSnark(t *testing.T) {
-	if !testSumcheckSingleClaimMultilin([]uint64{1, 2, 3, 4}, NewMessageCounterGenerator(0, 1)) {
-		t.Error()
-	}
-}
-
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
-	//printMsws(100)
+	//printMsws(36)
 
 	polys := [][]uint64{
 		{1, 2, 3, 4},             // 1 + 2X₁ + X₂

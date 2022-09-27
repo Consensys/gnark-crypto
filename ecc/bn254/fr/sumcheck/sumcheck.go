@@ -51,9 +51,7 @@ type Proof struct {
 
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
-
 func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
-
 	// TODO: Are claims supposed to already be incorporated in the challengeSeed? Given the business with the commitments
 
 	var combinationCoeff fr.Element

@@ -7,8 +7,8 @@ import (
 
 // TODO: Put somewhere else, as this is used in the gkr package as well
 type FieldInfo struct {
-	PackagePath string
-	ElementType string
+	FieldPackagePath string
+	ElementType      string
 }
 
 func Generate(conf FieldInfo, baseDir string, bgen *bavard.BatchGenerator) error {

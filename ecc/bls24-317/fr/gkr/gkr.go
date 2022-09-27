@@ -18,9 +18,9 @@ package gkr
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/sumcheck"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit

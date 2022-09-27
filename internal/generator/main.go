@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"os"
 	"os/exec"
@@ -79,12 +80,15 @@ func main() {
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
 			frInfo := sumcheck.FieldInfo{
-				PackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				ElementType: "fr.Element",
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				ElementType:      "fr.Element",
 			}
 
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
+
+			// generate gkr on fr
+			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
