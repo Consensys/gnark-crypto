@@ -21,30 +21,33 @@
 // The modulus is hardcoded in all the operations.
 //
 // Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
-// 	type Element [12]uint64
 //
-// Usage
+//	type Element [12]uint64
+//
+// # Usage
 //
 // Example API signature:
-// 	// Mul z = x * y (mod q)
-// 	func (z *Element) Mul(x, y *Element) *Element
+//
+//	// Mul z = x * y (mod q)
+//	func (z *Element) Mul(x, y *Element) *Element
 //
 // and can be used like so:
-// 	var a, b Element
-// 	a.SetUint64(2)
-// 	b.SetString("984896738")
-// 	a.Mul(a, b)
-// 	a.Sub(a, a)
-// 	 .Add(a, b)
-// 	 .Inv(a)
-// 	b.Exp(b, new(big.Int).SetUint64(42))
+//
+//	var a, b Element
+//	a.SetUint64(2)
+//	b.SetString("984896738")
+//	a.Mul(a, b)
+//	a.Sub(a, a)
+//	 .Add(a, b)
+//	 .Inv(a)
+//	b.Exp(b, new(big.Int).SetUint64(42))
 //
 // Modulus q =
 //
-// 	q[base10] = 366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
-// 	q[base16] = 0xf76adbb5bb98ae2ac127e1e3568cf5c978cd2fac2ce89fbf23221455163a6ccc6ae73c42a46d9eb02c812ea04faaa0a7eb1cb3d06e646e292cd15edb646a54302aa3c258de7ded0b685e868524ec033c7e63f868400000000000000000001
+//	q[base10] = 366325390957376286590726555727219947825377821289246188278797409783441745356050456327989347160777465284190855125642086860525706497928518803244008749360363712553766506755227344593404398783886857865261088226271336335268413437902849
+//	q[base16] = 0xf76adbb5bb98ae2ac127e1e3568cf5c978cd2fac2ce89fbf23221455163a6ccc6ae73c42a46d9eb02c812ea04faaa0a7eb1cb3d06e646e292cd15edb646a54302aa3c258de7ded0b685e868524ec033c7e63f868400000000000000000001
 //
-// Warning
+// # Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package fp

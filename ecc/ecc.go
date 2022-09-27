@@ -18,12 +18,12 @@ limitations under the License.
 //
 // Also
 //
-//	* Multi exponentiation
-//	* FFT
-//	* Polynomial commitment schemes
-//	* MiMC
-//	* twisted edwards "companion curves"
-//	* EdDSA (on the "companion" twisted edwards curves)
+//   - Multi exponentiation
+//   - FFT
+//   - Polynomial commitment schemes
+//   - MiMC
+//   - twisted edwards "companion curves"
+//   - EdDSA (on the "companion" twisted edwards curves)
 package ecc
 
 import (

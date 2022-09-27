@@ -29,6 +29,13 @@ func (m *MultiLin) Fold(r fr.Element) {
 	*m = (*m)[:mid]
 }
 
+func (m MultiLin) Sum() fr.Element {
+	s := m[0]
+	for i := 1; i < len(m); i++ {
+		s.Add(&s, &m[i])
+	}
+	return s
+}
 
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
@@ -216,7 +223,6 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 // InterpolateOnRange performs the interpolation of the given list of elements
 // On the range [0, 1,..., len(values) - 1]
-// TODO: Am I crazy or is this EXTRApolation and not INTERpolation
 func InterpolateOnRange(values []fr.Element) Polynomial {
 	nEvals := len(values)
 	lagrange := getLagrangeBasis(nEvals)

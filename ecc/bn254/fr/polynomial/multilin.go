@@ -249,7 +249,6 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 // InterpolateOnRange performs the interpolation of the given list of elements
 // On the range [0, 1,..., len(values) - 1]
-// TODO: Am I crazy or is this EXTRApolation and not INTERpolation
 func InterpolateOnRange(values []fr.Element) Polynomial {
 	nEvals := len(values)
 	lagrange := getLagrangeBasis(nEvals)

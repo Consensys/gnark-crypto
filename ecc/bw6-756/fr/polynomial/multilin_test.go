@@ -25,7 +25,7 @@ import (
 	"testing"
 )
 
-//TODO: Property based tests?
+// TODO: Property based tests?
 func TestFoldBilinear(t *testing.T) {
 
 	for i := 0; i < 100; i++ {

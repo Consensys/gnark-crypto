@@ -16,7 +16,7 @@
 
 // Package eddsa provides EdDSA signature scheme on bw6-633's twisted edwards curve.
 //
-// See also
+// # See also
 //
 // https://en.wikipedia.org/wiki/EdDSA
 package eddsa

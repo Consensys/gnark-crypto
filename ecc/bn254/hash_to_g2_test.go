@@ -177,7 +177,7 @@ func BenchmarkHashToG2(b *testing.B) {
 	}
 }
 
-//Only works on simple extensions (two-story towers)
+// Only works on simple extensions (two-story towers)
 func g2CoordSetString(z *fptower.E2, s string) {
 	ssplit := strings.Split(s, ",")
 	if len(ssplit) != 2 {

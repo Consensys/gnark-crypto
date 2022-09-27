@@ -175,7 +175,7 @@ func BenchmarkHashToG1(b *testing.B) {
 	}
 }
 
-//Only works on simple extensions (two-story towers)
+// Only works on simple extensions (two-story towers)
 func g1CoordSetString(z *fp.Element, s string) {
 	z.SetString(s)
 }

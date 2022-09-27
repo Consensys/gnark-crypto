@@ -224,9 +224,12 @@ func (z *E24) CyclotomicSquareCompressed(x *E24) *E24 {
 
 // DecompressKarabina Karabina's cyclotomic square result
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
@@ -287,9 +290,12 @@ func (z *E24) DecompressKarabina(x *E24) *E24 {
 
 // BatchDecompressKarabina multiple Karabina's cyclotomic square results
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
