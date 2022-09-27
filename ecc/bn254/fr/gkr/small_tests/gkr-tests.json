@@ -1,0 +1,20 @@
+{
+    "hash": {"2" : "3"},
+    "circuit": [
+        [
+            {
+                "gate": "null",
+                "inputs": []
+            }
+        ]
+    ],
+    "inputAssignment": [
+        ["4", "3"]
+    ],
+    "outputAssignment": [
+        ["4", "3"]
+    ],
+    "proof": {
+        
+    }
+}
