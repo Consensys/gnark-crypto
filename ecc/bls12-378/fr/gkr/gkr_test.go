@@ -20,6 +20,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/sumcheck"
+	"os"
+	"strconv"
 	"testing"
 )
 
@@ -142,9 +144,29 @@ func init() {
 	six.Double(&three)
 }
 
+var testManyInstancesLogMaxInstances = -1
+
+func getLogMaxInstances(t *testing.T) int {
+	if testManyInstancesLogMaxInstances == -1 {
+
+		s := os.Getenv("GKR_LOG_INSTANCES")
+		if s == "" {
+			testManyInstancesLogMaxInstances = 5
+		} else {
+			var err error
+			testManyInstancesLogMaxInstances, err = strconv.Atoi(s)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+
+	}
+	return testManyInstancesLogMaxInstances
+}
+
 func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]fr.Element)) {
 	fullAssignments := make([][]fr.Element, numInput)
-	maxSize := 1 << 17
+	maxSize := 1 << getLogMaxInstances(t)
 
 	t.Log("Entered test orchestrator, assigning and randomizing inputs")
 

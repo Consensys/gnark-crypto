@@ -3,6 +3,8 @@ import (
 	"{{.FieldPackagePath}}"
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
+	"os"
+	"strconv"
 	"testing"
 )
 
@@ -125,9 +127,29 @@ func init() {
 	six.Double(&three)
 }
 
+var testManyInstancesLogMaxInstances = -1
+
+func getLogMaxInstances(t *testing.T) int {
+	if testManyInstancesLogMaxInstances == -1 {
+
+		s := os.Getenv("GKR_LOG_INSTANCES")
+		if s == "" {
+			testManyInstancesLogMaxInstances = 5
+		} else {
+			var err error
+			testManyInstancesLogMaxInstances, err = strconv.Atoi(s)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+
+	}
+	return testManyInstancesLogMaxInstances
+}
+
 func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]{{.ElementType}})) {
 	fullAssignments := make([][]{{.ElementType}}, numInput)
-	maxSize := 1 << 17
+	maxSize := 1 << getLogMaxInstances(t)
 
 	t.Log("Entered test orchestrator, assigning and randomizing inputs")
 
