@@ -18,6 +18,7 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	"math/bits"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
@@ -46,6 +47,14 @@ func (m *MultiLin) Fold(r fr.Element) {
 	*m = (*m)[:mid]
 }
 
+func (m MultiLin) Sum() fr.Element {
+	s := m[0]
+	for i := 1; i < len(m); i++ {
+		s.Add(&s, &m[i])
+	}
+	return s
+}
+
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
 func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
@@ -57,13 +66,16 @@ func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 		bkCopy.Fold(r)
 	}
 
-	return bkCopy[0]
+	result := bkCopy[0]
+
+	Dump(bkCopy)
+	return result
 }
 
-// Clone creates a deep copy of a book-keeping table.
+// Clone creates a deep copy of a bookkeeping table.
 // Both multilinear interpolation and sumcheck require folding an underlying
 // array, but folding changes the array. To do both one requires a deep copy
-// of the book-keeping table.
+// of the bookkeeping table.
 func (m MultiLin) Clone() MultiLin {
 	tableDeepCopy := Make(len(m))
 	copy(tableDeepCopy, m)
@@ -146,6 +158,10 @@ func (m *MultiLin) Eq(q []fr.Element) {
 			(*m)[j0].Sub(&(*m)[j0], &(*m)[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 		}
 	}
+}
+
+func (m MultiLin) NumVars() int {
+	return bits.TrailingZeros(uint(len(m)))
 }
 
 func init() {
@@ -233,7 +249,6 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 // InterpolateOnRange performs the interpolation of the given list of elements
 // On the range [0, 1,..., len(values) - 1]
-// TODO: Am I crazy or is this EXTRApolation and not INTERpolation
 func InterpolateOnRange(values []fr.Element) Polynomial {
 	nEvals := len(values)
 	lagrange := getLagrangeBasis(nEvals)
