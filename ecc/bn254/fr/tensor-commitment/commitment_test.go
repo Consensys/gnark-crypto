@@ -88,7 +88,7 @@ func TestLinearCombination(t *testing.T) {
 		l := make([]fr.Element, sqrtSize)
 		l[i].SetInt64(1)
 
-		proof, err := tc.BuildProof(p, l, entryList)
+		proof, err := tc.BuildProof(l, entryList)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +148,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 	}
 
 	// build the proof...
-	proof, err := tc.BuildProof(p, l, entryList)
+	proof, err := tc.BuildProof(l, entryList)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestOpeningDummyHash(t *testing.T) {
 	for i := 0; i < rho*sqrtSize; i++ {
 		entryList[i] = i
 	}
-	proof, err := tc.BuildProof(p, hi, entryList)
+	proof, err := tc.BuildProof(hi, entryList)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// build the proof...
-		proof, err := tc.BuildProof(p, l, entryList)
+		proof, err := tc.BuildProof(l, entryList)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -301,7 +301,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// build the proof...
-		proof, err := tc.BuildProof(p, l, entryList)
+		proof, err := tc.BuildProof(l, entryList)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -32,6 +32,7 @@ var (
 	ErrProofFailedEncoding = errors.New("inconsistency with the code word")
 	ErrProofFailedOob      = errors.New("the entry is out of bound")
 	ErrMaxCapacity         = errors.New("the state is full")
+	ErrCommitmentNotDone   = errors.New("the proof cannot be built before the computation of the digest")
 )
 
 // commitment (TODO Merkle tree for that...)
@@ -84,6 +85,19 @@ type TensorCommitment struct {
 	// as a square matrix M_ij=p[i*m+j] where m = \sqrt{len(p)}.
 	state [][]fr.Element
 
+	// same content as state, but the polynomials are displayed as a matrix
+	// and the rows are encoded.
+	// encodedState = encodeRows(M_0 || .. || M_n)
+	// where M_i is the i-th polynomial layed out as a matrix, that is
+	// M_i_jk = p_i[i*m+j] where m = \sqrt(len(p)).
+	encodedState [][]fr.Element
+
+	// boolean telling if the commitment has already been done.
+	// The method BuildProof cannot be called before Commit(),
+	// because it would allow to build a proof before giving the commitment
+	// to a verifier, making the worklow not secure.
+	isCommitted bool
+
 	// number of polynomials stored so far
 	nbPolynomialsStored int
 
@@ -122,6 +136,9 @@ func NewTensorCommitment(codeRate, sizePolynomial, capacity int, h hash.Hash) (T
 	// create the state
 	res.state = make([][]fr.Element, capacity)
 	res.nbPolynomialsStored = 0
+
+	// nothing has been committed...
+	res.isCommitted = false
 
 	// domain[0]: domain to perform the FFT^-1, of size capacity * sqrt
 	// domain[1]: domain to perform FFT, of size rho * capacity * sqrt
@@ -182,17 +199,17 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 	// we encode the rows of p using Reed Solomon
 	// encodedState[i][:] = i-th line of M. It is of size domain[1].Cardinality
-	encodedState := make([][]fr.Element, tc.SqrtSizePolynomial)
+	tc.encodedState = make([][]fr.Element, tc.SqrtSizePolynomial)
 	for i := 0; i < tc.SqrtSizePolynomial; i++ { // we fill encodedState line by line
-		encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = SqrtSizePolynomial*rho*capacity
-		for j := 0; j < tc.Capacity; j++ {                              // for each polynomial
+		tc.encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = SqrtSizePolynomial*rho*capacity
+		for j := 0; j < tc.Capacity; j++ {                                 // for each polynomial
 			offset := i * tc.SqrtSizePolynomial
-			copy(encodedState[i][j*tc.SqrtSizePolynomial:], tc.state[j][offset:offset+tc.SqrtSizePolynomial])
+			copy(tc.encodedState[i][j*tc.SqrtSizePolynomial:], tc.state[j][offset:offset+tc.SqrtSizePolynomial])
 		}
-		tc.Domains[0].FFTInverse(encodedState[i][:tc.Domains[0].Cardinality], fft.DIF)
-		fft.BitReverse(encodedState[i][:tc.Domains[0].Cardinality])
-		tc.Domains[0].FFT(encodedState[i], fft.DIF)
-		fft.BitReverse(encodedState[i])
+		tc.Domains[0].FFTInverse(tc.encodedState[i][:tc.Domains[0].Cardinality], fft.DIF)
+		fft.BitReverse(tc.encodedState[i][:tc.Domains[0].Cardinality])
+		tc.Domains[1].FFT(tc.encodedState[i], fft.DIF)
+		fft.BitReverse(tc.encodedState[i])
 	}
 
 	// now we hash each columns of _p
@@ -200,7 +217,7 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 	for i := 0; i < int(tc.Domains[1].Cardinality); i++ {
 		tc.Hash.Reset()
 		for j := 0; j < tc.SqrtSizePolynomial; j++ {
-			tc.Hash.Write(encodedState[j][i].Marshal())
+			tc.Hash.Write(tc.encodedState[j][i].Marshal())
 		}
 		res[i] = tc.Hash.Sum(nil)
 		tc.Hash.Reset()
@@ -218,56 +235,68 @@ func printVector(v []fr.Element) {
 	fmt.Printf("]\n")
 }
 
-// BuildProof builds a proof to be tested against a previous commitment to p
-// attesting that the commitment corresponds to p.
-// * p the polynomial which has been committed (supposed to be of the correct size)
-// * l the random linear coefficients used for the linear combination
+// BuildProof builds a proof to be tested against a previous commitment of a list of
+// polynomials.
+// * l the random linear coefficients used for the linear combination of size SqrtSizePolynomial
 // * entryList list of columns to hash
 // l and entryList are supposed to be precomputed using Fiat Shamir
 //
 // The proof is the linear combination (using l) of the encoded rows of p written
 // as a matrix. Only the entries contained in entryList are kept.
-func (tc *TensorCommitment) BuildProof(p, l []fr.Element, entryList []int) (Proof, error) {
+func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, error) {
 
-	var res Proof
-
-	res.Generator.Set(&tc.Domains[1].Generator)
-	res.EntryList = entryList
-
-	// Linear combination of the line of p (written as a matrix
-	// M = M_ij where M_ij = p[i*m + j], m² = len(p)))
-	var tmp fr.Element
-	res.LinearCombination = make([]fr.Element, tc.SqrtSizePolynomial)
-	for i := 0; i < tc.SqrtSizePolynomial; i++ { // for each column of p
-		for j := 0; j < tc.SqrtSizePolynomial; j++ { // for each line of p
-			tmp.Mul(&l[j], &p[j*tc.SqrtSizePolynomial+i])
-			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
+	// check the capacity
+	if tc.Capacity > tc.nbPolynomialsStored {
+		for i := tc.nbPolynomialsStored; i < tc.Capacity; i++ {
+			tc.state[i] = make([]fr.Element, tc.SizePolynomial)
 		}
 	}
 
-	// Reed Solomon encoding of each rows of p (when p is interpreted as a matrix
-	// M = M_ij where M_ij = p[i*m + j], m² = len(p)) corresponding to the indices
-	// in entryList
+	var res Proof
+
+	// check that the digest has been computed
+	if !tc.isCommitted {
+		return res, ErrCommitmentNotDone
+	}
+
+	// since the digest has been computed, the encodedState is already stored.
+	// We use it to build the proof, without recomputing the ffts.
+
+	// linear combination of the rows of the state, written as a matrix
+	// M = M_0 || ... || M_n where M_i is the i-th polynomial, M_i_jk=p[j*m+k]
+	// where m = \sqrt(len(p)).
+	res.LinearCombination = make([]fr.Element, tc.Capacity*tc.SqrtSizePolynomial)
+	for i := 0; i < tc.Capacity; i++ {
+		linearCombination(
+			res.LinearCombination[i*tc.SqrtSizePolynomial:(i+1)*tc.SqrtSizePolynomial],
+			l,
+			tc.state[i],
+		)
+	}
+
+	// columns of the state whose rows have been encoded, written as a matrix,
+	// corresponding to the indices in entryList (we will select the columns
+	// entryList[0], entryList[1], etc.
 	res.Columns = make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
-		res.Columns[i] = make([]fr.Element, len(l))
+		res.Columns[i] = make([]fr.Element, tc.SqrtSizePolynomial)
 		for j := 0; j < tc.SqrtSizePolynomial; j++ {
-			res.Columns[i][j] = evalAtPower(p[j*tc.SqrtSizePolynomial:(j+1)*tc.SqrtSizePolynomial], tc.Domains[1].Generator, entryList[i])
+			res.Columns[i][j] = tc.encodedState[j][entryList[i]]
 		}
 	}
 
 	return res, nil
-
 }
 
 // linearCombination writes p as a matrix
 // M = (M_ij), where M_ij = p[i*m + j] and m² = len(p).
 // Then it computes ∑_i r[i]*M[i:]
-// It is assmed that len(r)² = len(p)
-func linearCombination(r, p []fr.Element) []fr.Element {
+// It is assumed that len(r)² = len(p)
+//
+// The result is stored in res.
+func linearCombination(res, r, p []fr.Element) {
 
 	m := len(r)
-	res := make([]fr.Element, m)
 	var tmp fr.Element
 
 	for i := 0; i < m; i++ {
@@ -276,8 +305,6 @@ func linearCombination(r, p []fr.Element) []fr.Element {
 			res[i].Add(&res[i], &tmp)
 		}
 	}
-
-	return res
 }
 
 // evalAtPower returns p(x**n) where p is interpreted as a polynomial
