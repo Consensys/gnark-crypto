@@ -17,8 +17,8 @@
 package sumcheck
 
 import (
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
 )
 
 // This does not make use of parallelism and represents polynomials as lists of coefficients

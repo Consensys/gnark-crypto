@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/bits"
 	"strconv"
+	"strings"
 )
 
 type SmallRational struct {
@@ -29,6 +30,11 @@ func (z *SmallRational) simplify() {
 		}
 	}
 
+}
+func (z *SmallRational) Square(x *SmallRational) *SmallRational {
+	z.Numerator = x.Numerator * x.Numerator
+	z.Denominator = x.Denominator * x.Denominator
+	return z
 }
 
 func (z *SmallRational) String() string {
@@ -244,10 +250,53 @@ func (z *SmallRational) Text(base int) string {
 	return numerator + "/" + strconv.FormatInt(z.Denominator, base)
 }
 
-func (z *SmallRational) Set(x *SmallRational) *SmallRational {
-	z.Numerator = x.Numerator
-	z.Denominator = x.Denominator
-	return z
+func (z *SmallRational) Set(x interface{}) (*SmallRational, error) {
+
+	switch v := x.(type) {
+	case *SmallRational:
+		z.Numerator = v.Numerator
+		z.Denominator = v.Denominator
+	case SmallRational:
+		z.Numerator = v.Numerator
+		z.Denominator = v.Denominator
+	case int:
+		z.SetInt64(int64(v))
+	case float64:
+		asInt := int64(v)
+		if float64(asInt) != v {
+			return nil, fmt.Errorf("cannot currently parse float")
+		}
+		z.SetInt64(asInt)
+	case string:
+		sep := strings.Split(v, "/")
+		switch len(sep) {
+		case 1:
+			if asInt, err := strconv.Atoi(sep[0]); err == nil {
+				z.SetInt64(int64(asInt))
+			} else {
+				return nil, err
+			}
+		case 2:
+			var err error
+			var num, denom int
+			num, err = strconv.Atoi(sep[0])
+			if err != nil {
+				return nil, err
+			}
+			denom, err = strconv.Atoi(sep[1])
+			if err != nil {
+				return nil, err
+			}
+			z.Numerator = int64(num)
+			z.Denominator = int64(denom)
+		default:
+			return nil, fmt.Errorf("cannot parse \"%s\"", v)
+		}
+	default:
+		return nil, fmt.Errorf("cannot parse %T", x)
+	}
+
+	return z, nil
 }
 
 func Modulus() *big.Int {

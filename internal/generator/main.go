@@ -89,7 +89,7 @@ func main() {
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 
 			// generate gkr on fr
-			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), bgen))
+			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), true, bgen))
 
 			// test cases for gkr
 			assertNoError(gkr.GenerateForRationals(bgen))
