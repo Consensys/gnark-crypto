@@ -98,4 +98,5 @@ func newFieldInfo(modulus string) Field {
 type FieldDependency struct {
 	FieldPackagePath string
 	ElementType      string
+	FieldPackageName string
 }

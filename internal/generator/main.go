@@ -78,17 +78,21 @@ func main() {
 
 			frInfo := config.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
 				ElementType:      "fr.Element",
 			}
 
 			// generate polynomial on fr
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), bgen))
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 
 			// generate gkr on fr
 			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), bgen))
+
+			// test cases for gkr
+			assertNoError(gkr.GenerateForRationals(bgen))
 
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))

@@ -3,6 +3,7 @@ package gkr
 import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"path/filepath"
 )
 
@@ -15,6 +16,17 @@ func Generate(conf config.FieldDependency, baseDir string, bgen *bavard.BatchGen
 }
 
 func GenerateForRationals(bgen *bavard.BatchGenerator) error {
+
+	conf := config.FieldDependency{
+		FieldPackagePath: "github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational",
+		FieldPackageName: "small_rational",
+		ElementType:      "small_rational.SmallRational",
+	}
+
+	if err := polynomial.Generate(conf, "./gkr/rational_cases/small_rational/polynomial", false, bgen); err != nil {
+		return err
+	}
+
 	/*conf := config.FieldDependency{
 		FieldPackagePath: "./../utils",
 		ElementType:      "",
