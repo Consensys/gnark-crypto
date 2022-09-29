@@ -67,6 +67,7 @@ func TestLinearCombination(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// build a random polynomial
 	p := make([]fr.Element, size)
 	for i := 0; i < 64; i++ {
 		p[i].SetRandom()
@@ -76,6 +77,13 @@ func TestLinearCombination(t *testing.T) {
 	entryList := make([]int, rho*sqrtSize)
 	for i := 0; i < rho*sqrtSize; i++ {
 		entryList[i] = i
+	}
+
+	// append p and commit (otherwise the proof cannot be built)
+	tc.Append(p)
+	_, err = tc.Commit()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// at each trial, it's the i-th line which is selected

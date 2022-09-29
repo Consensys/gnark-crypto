@@ -223,6 +223,9 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 		tc.Hash.Reset()
 	}
 
+	// records that the ccommitment has been built
+	tc.isCommitted = true
+
 	return res, nil
 
 }
