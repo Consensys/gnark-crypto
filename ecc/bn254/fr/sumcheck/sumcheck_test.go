@@ -17,7 +17,6 @@
 package sumcheck
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"math/bits"
@@ -114,7 +113,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 }
 
 // For debugging TODO Remove
-func printMsws(limit int) {
+/*func printMsws(limit int) {
 	var one, iElem fr.Element
 	one.SetOne()
 
@@ -122,7 +121,7 @@ func printMsws(limit int) {
 		iElem.Add(&iElem, &one)
 		fmt.Printf("%d: %d\n", i, iElem[fr.Limbs-1])
 	}
-}
+}*/
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 	//printMsws(36)

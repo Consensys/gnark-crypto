@@ -17,8 +17,8 @@
 package sumcheck
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational/polynomial"
 	"math/bits"
 	"strings"
 	"testing"
@@ -28,7 +28,7 @@ type singleMultilinClaim struct {
 	g polynomial.MultiLin
 }
 
-func (c singleMultilinClaim) ProveFinalEval(r []fr.Element) interface{} {
+func (c singleMultilinClaim) ProveFinalEval(r []small_rational.SmallRational) interface{} {
 	return nil // verifier can compute the final eval itself
 }
 
@@ -45,29 +45,29 @@ func sumForX1One(g polynomial.MultiLin) polynomial.Polynomial {
 	for i := len(g)/2 + 1; i < len(g); i++ {
 		sum.Add(&sum, &g[i])
 	}
-	return []fr.Element{sum}
+	return []small_rational.SmallRational{sum}
 }
 
-func (c singleMultilinClaim) Combine(fr.Element) polynomial.Polynomial {
+func (c singleMultilinClaim) Combine(small_rational.SmallRational) polynomial.Polynomial {
 	return sumForX1One(c.g)
 }
 
-func (c *singleMultilinClaim) Next(r fr.Element) polynomial.Polynomial {
+func (c *singleMultilinClaim) Next(r small_rational.SmallRational) polynomial.Polynomial {
 	c.g.Fold(r)
 	return sumForX1One(c.g)
 }
 
 type singleMultilinLazyClaim struct {
 	g          polynomial.MultiLin
-	claimedSum fr.Element
+	claimedSum small_rational.SmallRational
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []small_rational.SmallRational, combinationCoeff small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) bool {
 	val := c.g.Evaluate(r)
 	return val.Equal(&purportedValue)
 }
 
-func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
+func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs small_rational.SmallRational) small_rational.SmallRational {
 	return c.claimedSum
 }
 
@@ -114,7 +114,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 // For debugging TODO Remove
 /*func printMsws(limit int) {
-	var one, iElem fr.Element
+	var one, iElem small_rational.SmallRational
 	one.SetOne()
 
 	for i := 1; i <= limit; i++ {

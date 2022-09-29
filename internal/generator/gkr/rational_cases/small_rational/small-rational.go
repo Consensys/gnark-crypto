@@ -31,6 +31,10 @@ func (z *SmallRational) simplify() {
 
 }
 
+func (z *SmallRational) String() string {
+	return z.Text(10)
+}
+
 func (z *SmallRational) Add(x, y *SmallRational) *SmallRational {
 	if x.Denominator == 0 {
 		*z = *y

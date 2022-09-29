@@ -4,6 +4,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"path/filepath"
 )
 
@@ -23,7 +24,12 @@ func GenerateForRationals(bgen *bavard.BatchGenerator) error {
 		ElementType:      "small_rational.SmallRational",
 	}
 
-	if err := polynomial.Generate(conf, "./gkr/rational_cases/small_rational/polynomial", false, bgen); err != nil {
+	baseDir := "./gkr/rational_cases/small_rational/"
+	if err := polynomial.Generate(conf, baseDir+"polynomial", false, bgen); err != nil {
+		return err
+	}
+
+	if err := sumcheck.Generate(conf, baseDir+"sumcheck", bgen); err != nil {
 		return err
 	}
 
