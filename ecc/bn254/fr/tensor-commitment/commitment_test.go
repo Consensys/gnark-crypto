@@ -204,6 +204,13 @@ func TestOpeningDummyHash(t *testing.T) {
 		hi[i].Mul(&hi[i-1], &xm)
 	}
 
+	// create the digest before computing the proof
+	tc.Append(p)
+	_, err = tc.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// build the proof
 	entryList := make([]int, rho*sqrtSize)
 	for i := 0; i < rho*sqrtSize; i++ {
@@ -320,7 +327,6 @@ func TestCommitmentSis(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
 }
 
 // benches

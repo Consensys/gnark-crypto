@@ -288,6 +288,10 @@ func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, 
 		}
 	}
 
+	// fill entryList
+	res.EntryList = make([]int, len(entryList))
+	copy(res.EntryList, entryList)
+
 	return res, nil
 }
 
