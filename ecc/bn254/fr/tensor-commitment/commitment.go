@@ -55,7 +55,10 @@ type Proof struct {
 	// Linear combination of the rows of the polynomial P written as a square matrix
 	LinearCombination []fr.Element
 
-	// root of unity
+	// small domain, to retrieve the canonical form of the linear combination
+	Domain *fft.Domain
+
+	// root of unity of the big domain
 	Generator fr.Element
 }
 
@@ -262,6 +265,13 @@ func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, 
 		return res, ErrCommitmentNotDone
 	}
 
+	// small domain to express the linear combination in canonical form
+	res.Domain = tc.Domains[0]
+
+	// generator g of the biggest domain, used to evaluate the canonical form of
+	// the linear combination at some powers of g.
+	res.Generator.Set(&tc.Domains[1].Generator)
+
 	// since the digest has been computed, the encodedState is already stored.
 	// We use it to build the proof, without recomputing the ffts.
 
@@ -383,7 +393,11 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 
 		// entry i of the encoded linear combination
 		var encodedLinComb fr.Element
-		encodedLinComb = evalAtPower(proof.LinearCombination, proof.Generator, proof.EntryList[i])
+		linCombCanonical := make([]fr.Element, proof.Domain.Cardinality)
+		copy(linCombCanonical, proof.LinearCombination)
+		proof.Domain.FFTInverse(linCombCanonical, fft.DIF)
+		fft.BitReverse(linCombCanonical)
+		encodedLinComb = evalAtPower(linCombCanonical, proof.Generator, proof.EntryList[i])
 
 		// compare both values
 		if !encodedLinComb.Equal(&linCombEncoded) {
