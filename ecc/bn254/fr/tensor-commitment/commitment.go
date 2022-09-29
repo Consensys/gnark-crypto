@@ -31,6 +31,7 @@ var (
 	ErrProofFailedHash     = errors.New("hash of one of the columns is wrong")
 	ErrProofFailedEncoding = errors.New("inconsistency with the code word")
 	ErrProofFailedOob      = errors.New("the entry is out of bound")
+	ErrMaxCapacity         = errors.New("the state is full")
 )
 
 // commitment (TODO Merkle tree for that...)
@@ -60,16 +61,36 @@ type Proof struct {
 // TensorCommitment stores the data to use a tensor commitment
 type TensorCommitment struct {
 
-	// Size of the the polynomials to be committed (so the degree of p is MaxSize-1)
-	MaxSize int
+	// Capacity number of polynomials batched by the tensor commitment.
+	// The size of the matrix storing the commitment is
+	// SqrtSizePolynomial x (SqrtSizePolynomial * Capacity).
+	// If SqrtSizePolynomial * Capacity is not a power of 2, for RS encoding
+	// we take the smallest power of 2 'b' bounding above SqrtSizePolynomial * Capacity,
+	// and we interpret the lines of the matrix as a polynomials of size b.
+	Capacity int
 
-	// √{d+1} where d = MaxSize
-	SqrtSize int
+	// Size of the the polynomials to be committed (so the degree of p is SizePolynomial-1)
+	SizePolynomial int
 
-	// Domain used for the Reed Solomon encoding
-	Domain *fft.Domain
+	// √{d+1} where d = SizePolynomial (equal to the number of rows of the matrix storing the
+	// polynomial)
+	SqrtSizePolynomial int
 
-	// Rho⁻¹, rate of the RS code
+	// Domains[1] used for the Reed Solomon encoding
+	Domains [2]*fft.Domain
+
+	// State contains the polynomials that have been appended so far.
+	// The i-th entry is the i-th polynomial. Each polynomial is interpreted
+	// as a square matrix M_ij=p[i*m+j] where m = \sqrt{len(p)}.
+	state [][]fr.Element
+
+	// number of polynomials stored so far
+	nbPolynomialsStored int
+
+	// number of columns which have already been hashed
+	nbColumnsHashed int
+
+	// Rho⁻¹, rate of the RS code ( > 1)
 	Rho int
 
 	// Hash function for hashing the columns
@@ -80,31 +101,69 @@ type TensorCommitment struct {
 // * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
 // then ρ * √(m) where m² = size
-func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
+func NewTensorCommitment(codeRate, sizePolynomial, capacity int, h hash.Hash) (TensorCommitment, error) {
 
 	res := TensorCommitment{
-		MaxSize: size,
-		Rho:     rho,
-		Hash:    h,
+		SizePolynomial: sizePolynomial,
+		Rho:            codeRate,
+		Hash:           h,
 	}
 
-	sqrt := math.Floor(math.Sqrt(float64(size)))
+	sqrt := math.Floor(math.Sqrt(float64(sizePolynomial)))
 
-	if sqrt*sqrt != float64(size) {
+	if sqrt*sqrt != float64(sizePolynomial) {
 		return res, ErrNotSquare
 	}
 
-	res.SqrtSize = int(sqrt)
+	res.SqrtSizePolynomial = int(sqrt)
 
-	sizeDomain := uint64(rho * res.SqrtSize)
-	res.Domain = fft.NewDomain(sizeDomain)
+	res.Capacity = capacity
+
+	// create the state
+	res.state = make([][]fr.Element, capacity)
+	res.nbPolynomialsStored = 0
+
+	// domain[0]: domain to perform the FFT^-1, of size capacity * sqrt
+	// domain[1]: domain to perform FFT, of size rho * capacity * sqrt
+	res.Domains[0] = fft.NewDomain(uint64(res.Capacity * res.SqrtSizePolynomial))
+	res.Domains[1] = fft.NewDomain(uint64(res.Rho * res.Capacity * res.SqrtSizePolynomial))
 
 	return res, nil
 
 }
 
+// Append appends p to the state.
+// p is interpreted as the evaluation of a polynomial of degree len(p)
+// on domain[0] (the domain of size SqrtSizePolynomial).
+func (tc *TensorCommitment) Append(p []fr.Element) error {
+
+	if tc.nbPolynomialsStored == tc.Capacity {
+		return ErrMaxCapacity
+	}
+	if len(p) > tc.SizePolynomial {
+		return ErrWrongSize
+	}
+
+	tc.state[tc.nbPolynomialsStored] = make([]fr.Element, tc.SizePolynomial)
+	copy(tc.state[tc.nbPolynomialsStored], p)
+
+	tc.nbPolynomialsStored++
+
+	return nil
+}
+
+// HashState hashed the columns of the state. If the first k columns
+// have already been hashed, then we hash the remaining columns only.
+func (tc *TensorCommitment) HashState() []byte {
+	return nil
+}
+
 // Commit to p. The commitment procedure is the following:
-// write p as a m x m matrix with m² = len(p)
+// for each polynomial p_i in the state, write p_i as a square matrix
+// M_i, where M_i_jk=p_i[j*m+k], m = \sqrt(size poly). Then we
+// build M = M_0 || ... || M_n. We then encode the rows
+// of M, and then we hash the columns of M. If the capacity of the
+// tensorCommitment is not reached, we padd M with zeros.
 //
 // p is a polynomial expressed in canonical form.
 // For committing to P, we interpret P as a matrix M
@@ -112,28 +171,36 @@ func NewTensorCommitment(rho, size int, h hash.Hash) (TensorCommitment, error) {
 // The ij-th entry of M is p[m*i + j] (it's the transpose of the more
 // logical order p[j*m + i], but it's more practical memory wise, it avoids
 // rearranging the coeffs for the fft)
-func (tc *TensorCommitment) Commit(p []fr.Element) (Digest, error) {
+func (tc *TensorCommitment) Commit() (Digest, error) {
 
-	// first we adjus	t the size of p so it fits the fft domain
-	if len(p) > tc.MaxSize {
-		return nil, ErrWrongSize
+	// check the capacity
+	if tc.Capacity > tc.nbPolynomialsStored {
+		for i := tc.nbPolynomialsStored; i < tc.Capacity; i++ {
+			tc.state[i] = make([]fr.Element, tc.SizePolynomial)
+		}
 	}
 
 	// we encode the rows of p using Reed Solomon
-	_p := make([][]fr.Element, tc.SqrtSize)
-	for i := 0; i < tc.SqrtSize; i++ {
-		_p[i] = make([]fr.Element, tc.Domain.Cardinality)
-		copy(_p[i], p[i*tc.SqrtSize:(i+1)*tc.SqrtSize])
-		tc.Domain.FFT(_p[i], fft.DIF)
-		fft.BitReverse(_p[i])
+	// encodedState[i][:] = i-th line of M. It is of size domain[1].Cardinality
+	encodedState := make([][]fr.Element, tc.SqrtSizePolynomial)
+	for i := 0; i < tc.SqrtSizePolynomial; i++ { // we fill encodedState line by line
+		encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = SqrtSizePolynomial*rho*capacity
+		for j := 0; j < tc.Capacity; j++ {                              // for each polynomial
+			offset := i * tc.SqrtSizePolynomial
+			copy(encodedState[i][j*tc.SqrtSizePolynomial:], tc.state[j][offset:offset+tc.SqrtSizePolynomial])
+		}
+		tc.Domains[0].FFTInverse(encodedState[i][:tc.Domains[0].Cardinality], fft.DIF)
+		fft.BitReverse(encodedState[i][:tc.Domains[0].Cardinality])
+		tc.Domains[0].FFT(encodedState[i], fft.DIF)
+		fft.BitReverse(encodedState[i])
 	}
 
 	// now we hash each columns of _p
-	res := make([][]byte, tc.Domain.Cardinality)
-	for i := 0; i < int(tc.Domain.Cardinality); i++ {
+	res := make([][]byte, tc.Domains[1].Cardinality)
+	for i := 0; i < int(tc.Domains[1].Cardinality); i++ {
 		tc.Hash.Reset()
-		for j := 0; j < tc.SqrtSize; j++ {
-			tc.Hash.Write(_p[j][i].Marshal())
+		for j := 0; j < tc.SqrtSizePolynomial; j++ {
+			tc.Hash.Write(encodedState[j][i].Marshal())
 		}
 		res[i] = tc.Hash.Sum(nil)
 		tc.Hash.Reset()
@@ -164,16 +231,16 @@ func (tc *TensorCommitment) BuildProof(p, l []fr.Element, entryList []int) (Proo
 
 	var res Proof
 
-	res.Generator.Set(&tc.Domain.Generator)
+	res.Generator.Set(&tc.Domains[1].Generator)
 	res.EntryList = entryList
 
 	// Linear combination of the line of p (written as a matrix
 	// M = M_ij where M_ij = p[i*m + j], m² = len(p)))
 	var tmp fr.Element
-	res.LinearCombination = make([]fr.Element, tc.SqrtSize)
-	for i := 0; i < tc.SqrtSize; i++ { // for each column of p
-		for j := 0; j < tc.SqrtSize; j++ { // for each line of p
-			tmp.Mul(&l[j], &p[j*tc.SqrtSize+i])
+	res.LinearCombination = make([]fr.Element, tc.SqrtSizePolynomial)
+	for i := 0; i < tc.SqrtSizePolynomial; i++ { // for each column of p
+		for j := 0; j < tc.SqrtSizePolynomial; j++ { // for each line of p
+			tmp.Mul(&l[j], &p[j*tc.SqrtSizePolynomial+i])
 			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
 		}
 	}
@@ -184,8 +251,8 @@ func (tc *TensorCommitment) BuildProof(p, l []fr.Element, entryList []int) (Proo
 	res.Columns = make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
 		res.Columns[i] = make([]fr.Element, len(l))
-		for j := 0; j < tc.SqrtSize; j++ {
-			res.Columns[i][j] = evalAtPower(p[j*tc.SqrtSize:(j+1)*tc.SqrtSize], tc.Domain.Generator, entryList[i])
+		for j := 0; j < tc.SqrtSizePolynomial; j++ {
+			res.Columns[i][j] = evalAtPower(p[j*tc.SqrtSizePolynomial:(j+1)*tc.SqrtSizePolynomial], tc.Domains[1].Generator, entryList[i])
 		}
 	}
 

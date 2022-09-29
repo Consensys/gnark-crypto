@@ -16,6 +16,7 @@ package tensorcommitment
 
 import (
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -58,9 +59,10 @@ func TestLinearCombination(t *testing.T) {
 	rho = 4
 	size = 64
 	sqrtSize = 8
+	capacity := 1
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, h)
+	tc, err := NewTensorCommitment(rho, size, capacity, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,9 +114,10 @@ func TestCommitmentDummyHash(t *testing.T) {
 	rho = 4
 	size = 64
 	sqrtSize = 8
+	capacity := 1
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, h)
+	tc, err := NewTensorCommitment(rho, size, capacity, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +141,8 @@ func TestCommitmentDummyHash(t *testing.T) {
 	}
 
 	// compute the digest...
-	digest, err := tc.Commit(p)
+	tc.Append(p)
+	digest, err := tc.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,9 +168,10 @@ func TestOpeningDummyHash(t *testing.T) {
 	rho = 4
 	size = 64
 	sqrtSize = 8
+	capacity := 1
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, h)
+	tc, err := NewTensorCommitment(rho, size, capacity, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,6 +235,7 @@ func TestCommitmentSis(t *testing.T) {
 	rho = 4
 	size = 64
 	sqrtSize = 8
+	capacity := 1
 
 	logTwoDegree := 1
 	logTwoBound := 4
@@ -238,7 +244,7 @@ func TestCommitmentSis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tc, err := NewTensorCommitment(rho, size, h)
+	tc, err := NewTensorCommitment(rho, size, capacity, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +268,8 @@ func TestCommitmentSis(t *testing.T) {
 			entryList[i] = i
 		}
 		// compute the digest...
-		digest, err := tc.Commit(p)
+		tc.Append(p)
+		digest, err := tc.Commit()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -287,7 +294,8 @@ func TestCommitmentSis(t *testing.T) {
 		entryList[1] = 4
 
 		// compute the digest...
-		digest, err := tc.Commit(p)
+		tc.Append(p)
+		digest, err := tc.Commit()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -303,6 +311,47 @@ func TestCommitmentSis(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+
+}
+
+// benches
+func BenchmarkTensorCommitment(b *testing.B) {
+
+	// prepare the tensor commitment
+	sizeFr := 256
+	logTwoDegree := 4
+	logTwoBound := 4
+	rho := 4
+	capacity := 1
+
+	for i := 0; i < 4; i++ {
+
+		sqrtSizePoly := (1 << (5 + i))
+		sizePoly := sqrtSizePoly * sqrtSizePoly
+
+		// (sqrtSizePoly * sizeFr) = nbBitsToHash
+		// nbBitsToHash / (logTwoBound * degree) = nb coeffs to pack
+		sizeKey := (sqrtSizePoly * sizeFr) / (logTwoBound * (1 << logTwoDegree))
+
+		h, _ := sis.NewRSis(5, logTwoDegree, logTwoBound, sizeKey)
+		tc, _ := NewTensorCommitment(rho, sizePoly, capacity, h)
+
+		// random polynomial
+		p := make([]fr.Element, sizePoly)
+		for i := 0; i < sizePoly; i++ {
+			p[i].SetRandom()
+		}
+
+		// run the benchmark
+		b.Run("size poly"+strconv.Itoa(sizePoly), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				tc.Append(p)
+				tc.Commit()
+			}
+		})
+
 	}
 
 }
