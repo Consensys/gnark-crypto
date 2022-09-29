@@ -1,4 +1,4 @@
-package utils
+package small_rational
 
 import (
 	"math/big"

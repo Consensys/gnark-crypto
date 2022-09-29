@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-// Polynomial represented by coefficients bn254 fr field.
+// Polynomial represented by coefficients in the field.
 type Polynomial []fr.Element
 
 // Degree returns the degree of the polynomial, which is the length of Data.

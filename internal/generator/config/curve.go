@@ -94,3 +94,8 @@ func newFieldInfo(modulus string) Field {
 	F.Modulus = func() *big.Int { return new(big.Int).Set(&bModulus) }
 	return F
 }
+
+type FieldDependency struct {
+	FieldPackagePath string
+	ElementType      string
+}

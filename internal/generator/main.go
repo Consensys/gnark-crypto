@@ -64,9 +64,6 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
-
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
 
@@ -79,10 +76,13 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
-			frInfo := sumcheck.FieldInfo{
+			frInfo := config.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
 				ElementType:      "fr.Element",
 			}
+
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), bgen))
 
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
