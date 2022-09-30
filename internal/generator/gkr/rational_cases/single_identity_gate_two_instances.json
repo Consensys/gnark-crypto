@@ -3,9 +3,5 @@
   "circuit": "resources/single_identity_gate.json",
   "input": [[4, 3]],
   "output": [[4, 3]],
-  "proof": [
-    [
-
-    ]
-  ]
+  "proof": [[{"partialSumPolys":[[6,10]],"finalEvalProof":[2]}],[{"partialSumPolys":null,"finalEvalProof":null}]]
 }

@@ -109,6 +109,15 @@ func (z *SmallRational) abs() (abs SmallRational) {
 	return abs
 }
 
+func (z *SmallRational) MarshalJSON() ([]byte, error) {
+	return []byte(z.String()), nil
+}
+
+func (z *SmallRational) UnmarshalJson(data []byte) error {
+	_, err := z.Set(string(data))
+	return err
+}
+
 func (z *SmallRational) Equal(x *SmallRational) bool {
 	return z.Cmp(x) == 0
 }

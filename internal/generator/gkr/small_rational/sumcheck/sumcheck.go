@@ -45,8 +45,8 @@ type LazyClaims interface {
 
 // Proof of a multi-sumcheck statement.
 type Proof struct {
-	PartialSumPolys []polynomial.Polynomial
-	FinalEvalProof  interface{} //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
+	PartialSumPolys []polynomial.Polynomial `json:"partialSumPolys"`
+	FinalEvalProof  interface{}             `json:"finalEvalProof"` //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
 // Prove create a non-interactive sumcheck proof
@@ -69,7 +69,13 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	challenges[varsNum-1] = transcript.Next(proof.PartialSumPolys[varsNum-1])
+	//TODO: User unfriendly. Fix
+	toHash := make([]interface{}, len(proof.PartialSumPolys[varsNum-1]))
+	for i := range proof.PartialSumPolys[varsNum-1] {
+		toHash[i] = &proof.PartialSumPolys[varsNum-1][i]
+	}
+
+	challenges[varsNum-1] = transcript.Next(toHash...)
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
