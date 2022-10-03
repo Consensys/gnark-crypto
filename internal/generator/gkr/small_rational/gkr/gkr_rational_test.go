@@ -14,28 +14,53 @@ import (
 	"testing"
 )
 
-func TestSingleIdentityGateTwoInstancesProver(t *testing.T) {
-	testCase := newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
-	testCase.Transcript.Update(0)
-	proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-	serialized, err := json.Marshal(proof)
-	assert.NoError(t, err)
-	fmt.Println(string(serialized))
-	//printGkrProof(t, proof)
-	assertProofEquals(t, testCase.Proof, proof)
+func generateTestProver(path string) func(t *testing.T) {
+	return func(t *testing.T) {
+		testCase := newTestCase(t, path)
+		testCase.Transcript.Update(0)
+		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+		serialized, err := json.Marshal(proof)
+		assert.NoError(t, err)
+		fmt.Println(string(serialized))
+		//printGkrProof(t, proof)
+		assertProofEquals(t, testCase.Proof, proof)
+	}
 }
 
-func TestSingeIdentityGateTwoInstancesVerifier(t *testing.T) {
-	testCase := newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
-	testCase.Transcript.Update(0)
-	success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-	assert.True(t, success)
+func generateTestVerifier(path string) func(t *testing.T) {
+	return func(t *testing.T) {
+		testCase := newTestCase(t, path)
+		testCase.Transcript.Update(0)
+		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+		assert.True(t, success)
 
-	testCase = newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
-	testCase.Transcript.Update(1)
-	success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-	assert.False(t, success)
+		testCase = newTestCase(t, path)
+		testCase.Transcript.Update(1)
+		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+		assert.False(t, success)
+	}
+}
 
+func TestGkr(t *testing.T) {
+
+	testDirPath := "../../rational_cases"
+	dirEntries, err := os.ReadDir(testDirPath)
+	if err != nil {
+		t.Error(err)
+	}
+	for _, dirEntry := range dirEntries {
+		if !dirEntry.IsDir() {
+
+			if filepath.Ext(dirEntry.Name()) == ".json" {
+				path := filepath.Join(testDirPath, dirEntry.Name())
+				noExt := dirEntry.Name()[:len(dirEntry.Name())-len(".json")]
+
+				t.Run(noExt+"_prover", generateTestProver(path))
+				t.Run(noExt+"_verifier", generateTestVerifier(path))
+
+			}
+		}
+	}
 }
 
 func TestLoadCircuit(t *testing.T) {
@@ -441,87 +466,3 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 	}
 	return
 }
-
-/*type PrintableProof [][]PrintableSumcheckProof
-
-type PrintableSumcheckProof struct {
-	FinalEvalProof interface{}`json:"finalEvalProof"`
-	PartialSumPolys []polynomial.Polynomial `json:"partialSumPolys"`
-}
-
-func toPrintableProof(t *testing.T, proof Proof) (printable PrintableProof){
-	printable = make(PrintableProof, len(proof))
-
-	for i, layer := range proof {
-		printable[i] = make([]PrintableSumcheckProof, len(layer))
-		for j, wire := range layer {
-
-			assert.Nil(t, wire.FinalEvalProof)
-			printable[i][j] = make([]polynomial.Polynomial, len(wire.PartialSumPolys))
-			for k, poly := range wire.PartialSumPolys {
-				printable[i][j][k] = make(polynomial.Polynomial, len(poly))
-				for l := range poly {
-					printable[i][j][k][l] = poly[l]
-				}
-			}
-		}
-	}
-	serialized, err := json.Marshal(printable)
-	assert.NoError(t, err)
-	fmt.Println(serialized)
-}*/
-
-/*func toPrintableProof(t *testing.T, proof Proof) {
-	forPrint := make([][][]polynomial.Polynomial, len(proof))
-
-	for i, layer := range proof {
-		forPrint[i] = make([][]polynomial.Polynomial, len(layer))
-		for j, wire := range layer {
-			assert.Nil(t, wire.FinalEvalProof)
-			forPrint[i][j] = make([]polynomial.Polynomial, len(wire.PartialSumPolys))
-			for k, poly := range wire.PartialSumPolys {
-				forPrint[i][j][k] = make(polynomial.Polynomial, len(poly))
-				for l := range poly {
-					forPrint[i][j][k][l] = poly[l]
-				}
-			}
-		}
-	}
-	serialized, err := json.Marshal(forPrint)
-	assert.NoError(t, err)
-	fmt.Println(serialized)
-}
-*/
-/*func printProof(proof Proof) {
-	fmt.Println("[")
-	for i, layer := range proof {
-		fmt.Println("[")
-
-		for j, wire := range layer {
-			fmt.Println("[")
-			for k, poly := range wire.PartialSumPolys {
-				fmt.Println("[")
-				for l := range poly {
-					fmt.Print(poly[l].String())
-					if l+1 != len(poly) {
-						fmt.Print(",")
-					}
-				}
-				fmt.Print("[")
-				if k+1 != len(wire.PartialSumPolys) {
-					fmt.Print(",")
-				}
-				fmt.Println()
-			}
-			fmt.Print("]")
-			if j+1 != len(layer) {
-				fmt.Pr
-			}
-		}
-
-		fmt.Println("]")
-		if i != len(proof) {
-			fmt.Println(",")
-		}
-	}
-}*/
