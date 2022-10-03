@@ -36,7 +36,7 @@ type G1Jac struct {
 	X, Y, Z fp.Element
 }
 
-//  g1JacExtended parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
+// g1JacExtended parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
 type g1JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
