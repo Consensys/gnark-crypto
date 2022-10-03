@@ -35,10 +35,10 @@ import (
 //
 // Modulus q =
 //
-//	q[base10] = 39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
-//	q[base16] = 0x4c23a02b586d650d3f7498be97c5eafdec1d01aa27a1ae0421ee5da52bde5026fe802ff40300001
+// 	q[base10] = 39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
+// 	q[base16] = 0x4c23a02b586d650d3f7498be97c5eafdec1d01aa27a1ae0421ee5da52bde5026fe802ff40300001
 //
-// # Warning
+// Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type Element [5]uint64
@@ -70,8 +70,8 @@ var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
-//	q[base10] = 39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
-//	q[base16] = 0x4c23a02b586d650d3f7498be97c5eafdec1d01aa27a1ae0421ee5da52bde5026fe802ff40300001
+// 	q[base10] = 39705142709513438335025689890408969744933502416914749335064285505637884093126342347073617133569
+// 	q[base16] = 0x4c23a02b586d650d3f7498be97c5eafdec1d01aa27a1ae0421ee5da52bde5026fe802ff40300001
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
@@ -93,9 +93,8 @@ func init() {
 // NewElement returns a new Element from a uint64 value
 //
 // it is equivalent to
-//
-//	var v Element
-//	v.SetUint64(...)
+// 		var v Element
+// 		v.SetUint64(...)
 func NewElement(v uint64) Element {
 	z := Element{v}
 	z.Mul(&z, &rSquare)
@@ -137,15 +136,14 @@ func (z *Element) Set(x *Element) *Element {
 // SetInterface converts provided interface into Element
 // returns an error if provided type is not supported
 // supported types:
-//
-//	Element
-//	*Element
-//	uint64
-//	int
-//	string (see SetString for valid formats)
-//	*big.Int
-//	big.Int
-//	[]byte
+//  Element
+//  *Element
+//  uint64
+//  int
+//  string (see SetString for valid formats)
+//  *big.Int
+//  big.Int
+//  []byte
 func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set fp.Element with <nil>")
@@ -277,9 +275,10 @@ func (z *Element) FitsOnOneWord() bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//	-1 if z <  x
-//	 0 if z == x
-//	+1 if z >  x
+//   -1 if z <  x
+//    0 if z == x
+//   +1 if z >  x
+//
 func (z *Element) Cmp(x *Element) int {
 	_z := *z
 	_x := *x
@@ -1000,14 +999,14 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
-// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
+// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
+// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ”_” may appear between a base
+// An underscore character ''_'' may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there

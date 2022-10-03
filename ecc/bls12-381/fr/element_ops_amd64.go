@@ -35,9 +35,7 @@ func fromMont(res *Element)
 func reduce(res *Element)
 
 // Butterfly sets
-//
-//	a = a + b (mod q)
-//	b = a - b (mod q)
-//
+//  a = a + b (mod q)
+//  b = a - b (mod q)
 //go:noescape
 func Butterfly(a, b *Element)

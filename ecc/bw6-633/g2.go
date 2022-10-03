@@ -36,7 +36,7 @@ type G2Jac struct {
 	X, Y, Z fp.Element
 }
 
-// g2JacExtended parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
+//  g2JacExtended parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
 type g2JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
@@ -47,6 +47,13 @@ type g2JacExtended struct {
 // Set sets p to the provided point
 func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	p.X, p.Y = a.X, a.Y
+	return p
+}
+
+// setInfinity sets p to O
+func (p *G2Affine) setInfinity() *G2Affine {
+	p.X.SetZero()
+	p.Y.SetZero()
 	return p
 }
 
