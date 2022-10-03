@@ -375,7 +375,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 	outLayer := c[0]
 
-	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
+	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars())
 
 	for i := range outLayer {
 		wire := &outLayer[i]

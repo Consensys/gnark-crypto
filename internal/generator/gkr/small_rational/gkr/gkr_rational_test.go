@@ -14,15 +14,28 @@ import (
 	"testing"
 )
 
-func TestSingleIdentityGateTwoInstances(t *testing.T) {
-	testCase := getTestCase(t, true, "../../rational_cases/single_identity_gate_two_instances.json")
+func TestSingleIdentityGateTwoInstancesProver(t *testing.T) {
+	testCase := newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
 	testCase.Transcript.Update(0)
-	proof := Prove(testCase.Circuit, testCase.Assignment, testCase.Transcript)
+	proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
 	serialized, err := json.Marshal(proof)
 	assert.NoError(t, err)
 	fmt.Println(string(serialized))
 	//printGkrProof(t, proof)
 	assertProofEquals(t, testCase.Proof, proof)
+}
+
+func TestSingeIdentityGateTwoInstancesVerifier(t *testing.T) {
+	testCase := newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
+	testCase.Transcript.Update(0)
+	success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+	assert.True(t, success)
+
+	testCase = newTestCase(t, "../../rational_cases/single_identity_gate_two_instances.json")
+	testCase.Transcript.Update(1)
+	success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+	assert.False(t, success)
+
 }
 
 func TestLoadCircuit(t *testing.T) {
@@ -109,7 +122,11 @@ func (m *MapHashTranscript) hash(x *small_rational.SmallRational, y *small_ratio
 	// Not too concerned with efficiency
 	for k, v := range m.hashMap {
 		if k.first.Equal(x) {
-			if (k.secondPresent && k.second.Equal(y)) || ( /*!k.secondPresent &&*/ y == nil) {
+			if y == nil {
+				if !k.secondPresent {
+					return v
+				}
+			} else if k.secondPresent && k.second.Equal(y) {
 				return v
 			}
 		}
@@ -157,7 +174,10 @@ func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational 
 }
 
 func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
-	m.Update(i...)
+
+	if len(i) > 0 {
+		m.Update(i...)
+	}
 
 	res := make([]small_rational.SmallRational, N)
 
@@ -240,10 +260,11 @@ func init() {
 }
 
 type TestCase struct {
-	Circuit    Circuit
-	Transcript sumcheck.ArithmeticTranscript
-	Assignment WireAssignment
-	Proof      Proof
+	Circuit         Circuit
+	Transcript      sumcheck.ArithmeticTranscript
+	Proof           Proof
+	FullAssignment  WireAssignment
+	InOutAssignment WireAssignment
 }
 
 type TestCaseInfo struct {
@@ -255,16 +276,16 @@ type TestCaseInfo struct {
 }
 
 type ParsedTestCase struct {
-	FullAssignment       WireAssignment
-	OutputOnlyAssignment WireAssignment
-	Proof                Proof
-	Hash                 map[pair]small_rational.SmallRational
-	Circuit              Circuit
+	FullAssignment  WireAssignment
+	InOutAssignment WireAssignment
+	Proof           Proof
+	Hash            map[pair]small_rational.SmallRational
+	Circuit         Circuit
 }
 
 var parsedTestCases = make(map[string]*ParsedTestCase)
 
-func getTestCase(t *testing.T, assignmentIsFull bool, path string) *TestCase {
+func newTestCase(t *testing.T, path string) *TestCase {
 	path, err := filepath.Abs(path)
 	assert.NoError(t, err)
 	dir := filepath.Dir(path)
@@ -283,7 +304,7 @@ func getTestCase(t *testing.T, assignmentIsFull bool, path string) *TestCase {
 			proof := unmarshalProof(t, info.Proof)
 
 			fullAssignment := make(WireAssignment)
-			outputOnlyAssignment := make(WireAssignment)
+			inOutAssignment := make(WireAssignment)
 			assignmentSize := len(info.Input[0])
 
 			{
@@ -292,7 +313,10 @@ func getTestCase(t *testing.T, assignmentIsFull bool, path string) *TestCase {
 				assert.Equal(t, len(circuit[i]), len(info.Input), "Input layer not the same size as input vector")
 
 				for j := range circuit[i] {
-					fullAssignment[&circuit[i][j]] = sliceToElementSlice(t, info.Input[j])
+					wire := &circuit[i][j]
+					wireAssignment := sliceToElementSlice(t, info.Input[j])
+					fullAssignment[wire] = wireAssignment
+					inOutAssignment[wire] = wireAssignment
 				}
 			}
 
@@ -315,16 +339,16 @@ func getTestCase(t *testing.T, assignmentIsFull bool, path string) *TestCase {
 			assert.Equal(t, len(circuit[0]), len(info.Output), "Output layer not the same size as output vector")
 			for j := range circuit[0] {
 				wire := &circuit[0][j]
-				outputOnlyAssignment[wire] = sliceToElementSlice(t, info.Output[j])
-				assertSliceEquals(t, outputOnlyAssignment[wire], fullAssignment[wire])
+				inOutAssignment[wire] = sliceToElementSlice(t, info.Output[j])
+				assertSliceEquals(t, inOutAssignment[wire], fullAssignment[wire])
 			}
 
 			parsedCase = &ParsedTestCase{
-				FullAssignment:       fullAssignment,
-				OutputOnlyAssignment: outputOnlyAssignment,
-				Proof:                proof,
-				Hash:                 hash,
-				Circuit:              circuit,
+				FullAssignment:  fullAssignment,
+				InOutAssignment: inOutAssignment,
+				Proof:           proof,
+				Hash:            hash,
+				Circuit:         circuit,
 			}
 
 			parsedTestCases[path] = parsedCase
@@ -333,18 +357,12 @@ func getTestCase(t *testing.T, assignmentIsFull bool, path string) *TestCase {
 		}
 	}
 
-	var assignment WireAssignment
-	if assignmentIsFull {
-		assignment = parsedCase.FullAssignment
-	} else {
-		assignment = parsedCase.OutputOnlyAssignment
-	}
-
 	return &TestCase{
-		Circuit:    parsedCase.Circuit,
-		Transcript: &MapHashTranscript{hashMap: parsedCase.Hash},
-		Assignment: assignment,
-		Proof:      parsedCase.Proof,
+		Circuit:         parsedCase.Circuit,
+		Transcript:      &MapHashTranscript{hashMap: parsedCase.Hash},
+		FullAssignment:  parsedCase.FullAssignment,
+		InOutAssignment: parsedCase.InOutAssignment,
+		Proof:           parsedCase.Proof,
 	}
 }
 

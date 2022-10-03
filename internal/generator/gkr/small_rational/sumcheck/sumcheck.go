@@ -49,6 +49,16 @@ type Proof struct {
 	FinalEvalProof  interface{}             `json:"finalEvalProof"` //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
+// TODO: User unfriendly. Fix
+func elementSliceToInterfaceSlice(elementSlice []small_rational.SmallRational) (interfaceSlice []interface{}) {
+
+	interfaceSlice = make([]interface{}, len(elementSlice))
+	for i := range elementSlice {
+		interfaceSlice[i] = &elementSlice[i]
+	}
+	return
+}
+
 // Prove create a non-interactive sumcheck proof
 // transcript must have a hash function specified and seeded with a
 func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
@@ -69,13 +79,7 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	//TODO: User unfriendly. Fix
-	toHash := make([]interface{}, len(proof.PartialSumPolys[varsNum-1]))
-	for i := range proof.PartialSumPolys[varsNum-1] {
-		toHash[i] = &proof.PartialSumPolys[varsNum-1][i]
-	}
-
-	challenges[varsNum-1] = transcript.Next(toHash...)
+	challenges[varsNum-1] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[varsNum-1])...)
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
@@ -110,7 +114,7 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) boo
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.Next(proof.PartialSumPolys[j])
+		r[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
