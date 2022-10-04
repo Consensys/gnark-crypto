@@ -53,29 +53,132 @@ func getRandomVector(size int) []fr.Element {
 	return a
 }
 
+func TestAppend(t *testing.T) {
+
+	// tensor commitment
+	var h DummyHash
+	rho := 4
+	nbRows := 10
+	nbColumns := 16
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	{
+		// random Polynomial of size nbRows
+		p := make([]fr.Element, nbRows)
+		for i := 0; i < nbRows; i++ {
+			p[i].SetRandom()
+		}
+		_, err := tc.Append(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// check if p corresponds to the first column of the state
+		for i := 0; i < nbRows; i++ {
+			if !tc.state[i][0].Equal(&p[i]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+
+	}
+
+	// after a first polynomial has been filled
+	{
+		// random Polynomial of size nbRows
+		p := make([]fr.Element, nbRows)
+		for i := 0; i < nbRows; i++ {
+			p[i].SetRandom()
+		}
+		_, err := tc.Append(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// check if p corresponds to the second column of the state
+		for i := 0; i < nbRows; i++ {
+			if !tc.state[i][1].Equal(&p[i]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+	}
+
+	// polynomial whose size is not a multiple of nbRows
+	{
+		// random Polynomial of size nbRows
+		offset := 4
+		p := make([]fr.Element, nbRows+offset)
+		for i := 0; i < nbRows+offset; i++ {
+			p[i].SetRandom()
+		}
+		_, err := tc.Append(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// check if p corresponds to the first column of the state
+		for i := 0; i < nbRows; i++ {
+			if !tc.state[i][2].Equal(&p[i]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+		for i := 0; i < offset; i++ {
+			if !tc.state[i][3].Equal(&p[i+nbRows]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+	}
+
+	// same to see if the last column was correctly offset
+	{
+		// random Polynomial of size nbRows
+		offset := 4
+		p := make([]fr.Element, nbRows+offset)
+		for i := 0; i < nbRows+offset; i++ {
+			p[i].SetRandom()
+		}
+		_, err := tc.Append(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// check if p corresponds to the first column of the state
+		for i := 0; i < nbRows; i++ {
+			if !tc.state[i][4].Equal(&p[i]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+		for i := 0; i < offset; i++ {
+			if !tc.state[i][5].Equal(&p[i+nbRows]) {
+				t.Fatal("a column is not filled correctly")
+			}
+		}
+	}
+
+}
+
 func TestLinearCombination(t *testing.T) {
 
-	var rho, size, sqrtSize int
-	rho = 4
-	size = 64
-	sqrtSize = 8
-	capacity := 1
-
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, capacity, h)
+	rho := 4
+	nbRows := 8
+	nbColumns := 8
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// build a random polynomial
-	p := make([]fr.Element, size)
+	p := make([]fr.Element, nbRows*nbColumns)
 	for i := 0; i < 64; i++ {
 		p[i].SetRandom()
 	}
 
 	// we select all the entries for the test
-	entryList := make([]int, rho*sqrtSize)
-	for i := 0; i < rho*sqrtSize; i++ {
+	entryList := make([]int, rho*nbColumns)
+	for i := 0; i < rho*nbColumns; i++ {
 		entryList[i] = i
 	}
 
@@ -87,13 +190,13 @@ func TestLinearCombination(t *testing.T) {
 	}
 
 	// at each trial, it's the i-th line which is selected
-	for i := 0; i < sqrtSize; i++ {
+	for i := 0; i < nbRows; i++ {
 
 		// used for the random linear combination.
 		// it will act as a selector for the test: it selects the i-th
 		// row of p, when p is written as a matrix M_ij, where M_ij=p[i*m+j].
 		// The i-th entry of l is 1, the others are 0.
-		l := make([]fr.Element, sqrtSize)
+		l := make([]fr.Element, nbRows)
 		l[i].SetInt64(1)
 
 		proof, err := tc.BuildProof(l, entryList)
@@ -103,10 +206,12 @@ func TestLinearCombination(t *testing.T) {
 
 		// the i-th line of p is the one that is supposed to be selected
 		// (corresponding to the linear combination)
-		expected := make([]fr.Element, rho*sqrtSize)
-		copy(expected, p[i*sqrtSize:(i+1)*sqrtSize])
+		expected := make([]fr.Element, nbColumns)
+		for j := 0; j < nbColumns; j++ {
+			expected[j].Set(&p[j*nbRows+i])
+		}
 
-		for j := 0; j < sqrtSize; j++ {
+		for j := 0; j < nbColumns; j++ {
 			if !expected[j].Equal(&proof.LinearCombination[j]) {
 				t.Fatal("expected linear combination is incorrect")
 			}
@@ -118,38 +223,40 @@ func TestLinearCombination(t *testing.T) {
 // Test the verification of a correct proof using a mock hash
 func TestCommitmentDummyHash(t *testing.T) {
 
-	var rho, size, sqrtSize int
+	var rho, nbColumns, nbRows int
 	rho = 4
-	size = 64
-	sqrtSize = 8
-	capacity := 1
+	nbColumns = 8
+	nbRows = 8
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, capacity, h)
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// random polynomial
-	p := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
+	p := make([]fr.Element, nbRows*nbColumns)
+	for i := 0; i < nbRows*nbColumns; i++ {
 		p[i].SetRandom()
 	}
 
 	// coefficients for the linear combination
-	l := make([]fr.Element, sqrtSize)
-	for i := 0; i < sqrtSize; i++ {
+	l := make([]fr.Element, nbRows)
+	for i := 0; i < nbRows; i++ {
 		l[i].SetRandom()
 	}
 
 	// we select all the entries for the test
-	entryList := make([]int, rho*sqrtSize)
-	for i := 0; i < rho*sqrtSize; i++ {
+	entryList := make([]int, rho*nbColumns)
+	for i := 0; i < rho*nbColumns; i++ {
 		entryList[i] = i
 	}
 
 	// compute the digest...
-	tc.Append(p)
+	_, err = tc.Append(p)
+	if err != nil {
+		t.Fatal(err)
+	}
 	digest, err := tc.Commit()
 	if err != nil {
 		t.Fatal(err)
@@ -172,21 +279,20 @@ func TestCommitmentDummyHash(t *testing.T) {
 // Test the opening using a dummy hash
 func TestOpeningDummyHash(t *testing.T) {
 
-	var rho, size, sqrtSize int
+	var rho, nbColumns, nbRows int
 	rho = 4
-	size = 64
-	sqrtSize = 8
-	capacity := 1
+	nbColumns = 8
+	nbRows = 8
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, size, capacity, h)
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// random polynomial
-	p := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
+	p := make([]fr.Element, nbColumns*nbRows)
+	for i := 0; i < nbColumns*nbRows; i++ {
 		p[i].SetRandom()
 	}
 
@@ -194,63 +300,65 @@ func TestOpeningDummyHash(t *testing.T) {
 	// at which the opening is done
 	var xm, x fr.Element
 	x.SetRandom()
-	hi := make([]fr.Element, sqrtSize) // stores [1,x^{m},..,x^{m^{2}-1}]
-	lo := make([]fr.Element, sqrtSize) // stores [1,x,..,x^{m-1}]
+	hi := make([]fr.Element, nbColumns) // stores [1,x^{nbRows},..,x^{nbRows*nbColumns^-1}]
+	lo := make([]fr.Element, nbRows)    // stores [1,x,..,x^{nbRows-1}]
 	lo[0].SetInt64(1)
 	hi[0].SetInt64(1)
-	xm.Exp(x, big.NewInt(int64(sqrtSize)))
-	for i := 1; i < sqrtSize; i++ {
+	xm.Exp(x, big.NewInt(int64(nbRows)))
+	for i := 1; i < nbColumns; i++ {
 		lo[i].Mul(&lo[i-1], &x)
 		hi[i].Mul(&hi[i-1], &xm)
 	}
 
 	// create the digest before computing the proof
-	tc.Append(p)
+	_, err = tc.Append(p)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = tc.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// build the proof
-	entryList := make([]int, rho*sqrtSize)
-	for i := 0; i < rho*sqrtSize; i++ {
+	entryList := make([]int, rho*nbColumns)
+	for i := 0; i < rho*nbColumns; i++ {
 		entryList[i] = i
 	}
-	proof, err := tc.BuildProof(hi, entryList)
+	proof, err := tc.BuildProof(lo, entryList)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// finish the evalutation by computing
-	// [linearCombination] * [lo]^t
+	// [linearCombination] * [hi]^t
 	var eval, tmp fr.Element
-	for i := 0; i < sqrtSize; i++ {
-		tmp.Mul(&proof.LinearCombination[i], &lo[i])
+	for i := 0; i < nbColumns; i++ {
+		tmp.Mul(&proof.LinearCombination[i], &hi[i])
 		eval.Add(&eval, &tmp)
 	}
 
 	// compute the real evaluation of p at x manually
 	var expectedEval fr.Element
-	for i := 0; i < size; i++ {
+	for i := 0; i < nbRows*nbColumns; i++ {
 		expectedEval.Mul(&expectedEval, &x)
 		expectedEval.Add(&expectedEval, &p[len(p)-i-1])
 	}
 
 	// the results coincide
 	if !expectedEval.Equal(&eval) {
-		t.Fatal("p(x) != [ hi ] x M x [ lo ]^t")
+		t.Fatal("p(x) != [ lo ] x M x [ hi ]^t")
 	}
 
 }
 
-// Test the verification of a correct proof using SIS as hash
-func TestCommitmentSis(t *testing.T) {
+// Check the commitments are correctly formed when appending a polynomial
+func TestAppendSis(t *testing.T) {
 
-	var rho, size, sqrtSize int
+	var rho, nbColumns, nbRows int
 	rho = 4
-	size = 64
-	sqrtSize = 8
-	capacity := 1
+	nbColumns = 8
+	nbRows = 8
 
 	logTwoDegree := 1
 	logTwoBound := 4
@@ -259,34 +367,100 @@ func TestCommitmentSis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tc, err := NewTensorCommitment(rho, size, capacity, h)
+
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// random polynomial (that does not fill the full matrix)
+	offset := 4
+	p := make([]fr.Element, nbRows*nbColumns-offset)
+	for i := 0; i < nbRows*nbColumns-offset; i++ {
+		p[i].SetRandom()
+	}
+
+	s, err := tc.Append(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check the hashes of the columns
+	for i := 0; i < nbColumns-1; i++ {
+		h.Reset()
+		for j := 0; j < nbRows; j++ {
+			h.Write(p[i*nbRows+j].Marshal())
+		}
+		_s := h.Sum(nil)
+		if !cmpBytes(_s, s[i]) {
+			t.Fatal("error hash column when appending a polynomial")
+		}
+	}
+
+	// last column
+	h.Reset()
+	for i := (nbColumns - 1) * nbRows; i < nbColumns*nbRows-offset; i++ {
+		h.Write(p[i].Marshal())
+	}
+	var tmp fr.Element
+	for i := nbColumns*nbRows - offset; i < nbColumns*nbRows; i++ {
+		h.Write(tmp.Marshal())
+	}
+	_s := h.Sum(nil)
+	if !cmpBytes(_s, s[nbColumns-1]) {
+		t.Fatal("error hash column when appending a polynomial")
+	}
+
+}
+
+// Test the verification of a correct proof using SIS as hash
+func TestCommitmentSis(t *testing.T) {
+
+	var rho, nbColumns, nbRows int
+	rho = 4
+	nbColumns = 8
+	nbRows = 8
+
+	logTwoDegree := 1
+	logTwoBound := 4
+	keySize := 256
+	h, err := sis.NewRSis(5, logTwoDegree, logTwoBound, keySize)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// random polynomial
-	p := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
+	p := make([]fr.Element, nbRows*nbColumns)
+	for i := 0; i < nbRows*nbColumns; i++ {
 		p[i].SetRandom()
 	}
 
 	// coefficients for the linear combination
-	l := make([]fr.Element, sqrtSize)
-	for i := 0; i < sqrtSize; i++ {
+	l := make([]fr.Element, nbRows)
+	for i := 0; i < nbRows; i++ {
 		l[i].SetRandom()
+	}
+
+	// compute the digest...
+	_, err = tc.Append(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := tc.Commit()
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// test 1: we select all the entries
 	{
-		entryList := make([]int, rho*sqrtSize)
-		for i := 0; i < rho*sqrtSize; i++ {
+		entryList := make([]int, rho*nbColumns)
+		for i := 0; i < rho*nbColumns; i++ {
 			entryList[i] = i
-		}
-		// compute the digest...
-		tc.Append(p)
-		digest, err := tc.Commit()
-		if err != nil {
-			t.Fatal(err)
 		}
 
 		// build the proof...
@@ -307,13 +481,6 @@ func TestCommitmentSis(t *testing.T) {
 		entryList := make([]int, 2)
 		entryList[0] = 1
 		entryList[1] = 4
-
-		// compute the digest...
-		tc.Append(p)
-		digest, err := tc.Commit()
-		if err != nil {
-			t.Fatal(err)
-		}
 
 		// build the proof...
 		proof, err := tc.BuildProof(l, entryList)
@@ -337,28 +504,27 @@ func BenchmarkTensorCommitment(b *testing.B) {
 	logTwoDegree := 4
 	logTwoBound := 4
 	rho := 4
-	capacity := 1
 
 	for i := 0; i < 4; i++ {
 
-		sqrtSizePoly := (1 << (5 + i))
-		sizePoly := sqrtSizePoly * sqrtSizePoly
+		nbColumns := (1 << (3 + i))
+		nbRows := nbColumns
 
 		// (sqrtSizePoly * sizeFr) = nbBitsToHash
 		// nbBitsToHash / (logTwoBound * degree) = nb coeffs to pack
-		sizeKey := (sqrtSizePoly * sizeFr) / (logTwoBound * (1 << logTwoDegree))
+		sizeKey := (nbColumns * sizeFr) / (logTwoBound * (1 << logTwoDegree))
 
 		h, _ := sis.NewRSis(5, logTwoDegree, logTwoBound, sizeKey)
-		tc, _ := NewTensorCommitment(rho, sizePoly, capacity, h)
+		tc, _ := NewTensorCommitment(rho, nbColumns, nbRows, h)
 
 		// random polynomial
-		p := make([]fr.Element, sizePoly)
-		for i := 0; i < sizePoly; i++ {
+		p := make([]fr.Element, nbRows*nbColumns)
+		for i := 0; i < nbRows*nbColumns; i++ {
 			p[i].SetRandom()
 		}
 
 		// run the benchmark
-		b.Run("size poly"+strconv.Itoa(sizePoly), func(b *testing.B) {
+		b.Run("size poly"+strconv.Itoa(nbRows*nbColumns), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				tc.Append(p)

@@ -16,9 +16,7 @@ package tensorcommitment
 
 import (
 	"errors"
-	"fmt"
 	"hash"
-	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -31,7 +29,7 @@ var (
 	ErrProofFailedHash     = errors.New("hash of one of the columns is wrong")
 	ErrProofFailedEncoding = errors.New("inconsistency with the code word")
 	ErrProofFailedOob      = errors.New("the entry is out of bound")
-	ErrMaxCapacity         = errors.New("the state is full")
+	ErrMaxNbColumns        = errors.New("the state is full")
 	ErrCommitmentNotDone   = errors.New("the proof cannot be built before the computation of the digest")
 )
 
@@ -65,27 +63,30 @@ type Proof struct {
 // TensorCommitment stores the data to use a tensor commitment
 type TensorCommitment struct {
 
-	// Capacity number of polynomials batched by the tensor commitment.
-	// The size of the matrix storing the commitment is
-	// SqrtSizePolynomial x (SqrtSizePolynomial * Capacity).
-	// If SqrtSizePolynomial * Capacity is not a power of 2, for RS encoding
-	// we take the smallest power of 2 'b' bounding above SqrtSizePolynomial * Capacity,
-	// and we interpret the lines of the matrix as a polynomials of size b.
-	Capacity int
+	// NbColumns number of columns of the matrix storing the polynomials. The total size of
+	// the polynomials which are committed is NbColumns x NbRows.
+	// The Number of columns is a power of 2, it corresponds to the original size of the codewords
+	// of the Reed Solomon code.
+	NbColumns int
 
 	// Size of the the polynomials to be committed (so the degree of p is SizePolynomial-1)
 	SizePolynomial int
 
-	// √{d+1} where d = SizePolynomial (equal to the number of rows of the matrix storing the
-	// polynomial)
-	SqrtSizePolynomial int
+	// NbRows number of rows of the matrix storing the polynomials. If a polynomial p is appended
+	// whose size if not 0 mod NbRows, it is padded as p' so that len(p')=0 mod NbRows.
+	NbRows int
 
 	// Domains[1] used for the Reed Solomon encoding
 	Domains [2]*fft.Domain
 
 	// State contains the polynomials that have been appended so far.
-	// The i-th entry is the i-th polynomial. Each polynomial is interpreted
-	// as a square matrix M_ij=p[i*m+j] where m = \sqrt{len(p)}.
+	// when we append a polynomial p, it is stored in the state like this:
+	// state[i][j] = p[j*nbRows + i]:
+	// p[0] 		| p[nbRows] 	| p[2*nbRows] 	...
+	// p[1] 		| p[nbRows+1]	| p[2*nbRows+1]
+	// p[2] 		| p[nbRows+2]	| p[2*nbRows+2]
+	// ..
+	// p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
 	state [][]fr.Element
 
 	// same content as state, but the polynomials are displayed as a matrix
@@ -101,8 +102,8 @@ type TensorCommitment struct {
 	// to a verifier, making the worklow not secure.
 	isCommitted bool
 
-	// number of polynomials stored so far
-	nbPolynomialsStored int
+	// current column to fill
+	currentColumnToFill int
 
 	// number of columns which have already been hashed
 	nbColumnsHashed int
@@ -118,96 +119,108 @@ type TensorCommitment struct {
 // * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
 // then ρ * √(m) where m² = size
-func NewTensorCommitment(codeRate, sizePolynomial, capacity int, h hash.Hash) (TensorCommitment, error) {
+func NewTensorCommitment(codeRate, NbColumns, NbRows int, h hash.Hash) (TensorCommitment, error) {
 
-	res := TensorCommitment{
-		SizePolynomial: sizePolynomial,
-		Rho:            codeRate,
-		Hash:           h,
-	}
-
-	sqrt := math.Floor(math.Sqrt(float64(sizePolynomial)))
-
-	if sqrt*sqrt != float64(sizePolynomial) {
-		return res, ErrNotSquare
-	}
-
-	res.SqrtSizePolynomial = int(sqrt)
-
-	res.Capacity = capacity
-
-	// create the state
-	res.state = make([][]fr.Element, capacity)
-	res.nbPolynomialsStored = 0
-
-	// nothing has been committed...
-	res.isCommitted = false
+	var res TensorCommitment
 
 	// domain[0]: domain to perform the FFT^-1, of size capacity * sqrt
 	// domain[1]: domain to perform FFT, of size rho * capacity * sqrt
-	res.Domains[0] = fft.NewDomain(uint64(res.Capacity * res.SqrtSizePolynomial))
-	res.Domains[1] = fft.NewDomain(uint64(res.Rho * res.Capacity * res.SqrtSizePolynomial))
+	res.Domains[0] = fft.NewDomain(uint64(NbColumns))
+	res.Domains[1] = fft.NewDomain(uint64(codeRate * NbColumns))
+
+	// size of the matrix
+	res.NbColumns = int(res.Domains[0].Cardinality)
+	res.NbRows = NbRows
+
+	// rate
+	res.Rho = codeRate
+
+	// Hash function
+	res.Hash = h
+
+	// create the state. It's the matrix containing the polynomials, the ij-th
+	// entry of the matrix is state[i][j]. The polynomials are split and stacked
+	// columns per column.
+	res.state = make([][]fr.Element, res.NbRows)
+	for i := 0; i < res.NbRows; i++ {
+		res.state[i] = make([]fr.Element, res.NbColumns)
+	}
+
+	// first column to fill
+	res.currentColumnToFill = 0
+
+	// nothing has been committed...
+	res.isCommitted = false
 
 	return res, nil
 
 }
 
 // Append appends p to the state.
-// p is interpreted as the evaluation of a polynomial of degree len(p)
-// on domain[0] (the domain of size SqrtSizePolynomial).
-func (tc *TensorCommitment) Append(p []fr.Element) error {
+// when we append a polynomial p, it is stored in the state like this:
+// state[i][j] = p[j*nbRows + i]:
+// p[0] 		| p[nbRows] 	| p[2*nbRows] 	...
+// p[1] 		| p[nbRows+1]	| p[2*nbRows+1]
+// p[2] 		| p[nbRows+2]	| p[2*nbRows+2]
+// ..
+// p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
+// If p doesn't fill a full submatrix it is padded with zeroes.
+func (tc *TensorCommitment) Append(p []fr.Element) ([][]byte, error) {
 
-	if tc.nbPolynomialsStored == tc.Capacity {
-		return ErrMaxCapacity
+	// check if there is some room for p
+	nbColumnsTakenByP := (len(p) - len(p)%tc.NbRows) / tc.NbRows
+	if len(p)%tc.NbRows != 0 {
+		nbColumnsTakenByP += 1
 	}
-	if len(p) > tc.SizePolynomial {
-		return ErrWrongSize
+	if tc.currentColumnToFill+nbColumnsTakenByP > tc.NbColumns {
+		return nil, ErrMaxNbColumns
 	}
 
-	tc.state[tc.nbPolynomialsStored] = make([]fr.Element, tc.SizePolynomial)
-	copy(tc.state[tc.nbPolynomialsStored], p)
+	// put p in the state
+	backupCurrentColumnToFill := tc.currentColumnToFill
+	if len(p)%tc.NbRows != 0 {
+		nbColumnsTakenByP -= 1
+	}
+	for i := 0; i < nbColumnsTakenByP; i++ {
+		for j := 0; j < tc.NbRows; j++ {
+			tc.state[j][tc.currentColumnToFill+i] = p[i*tc.NbRows+j]
+		}
+	}
+	tc.currentColumnToFill += nbColumnsTakenByP
+	if len(p)%tc.NbRows != 0 {
+		offsetP := len(p) - len(p)%tc.NbRows
+		for j := offsetP; j < len(p); j++ {
+			tc.state[j-offsetP][tc.currentColumnToFill] = p[j]
+		}
+		tc.currentColumnToFill += 1
+		nbColumnsTakenByP += 1
+	}
 
-	tc.nbPolynomialsStored++
+	// hash the columns
+	res := make([][]byte, nbColumnsTakenByP)
+	for i := 0; i < nbColumnsTakenByP; i++ {
+		tc.Hash.Reset()
+		for j := 0; j < tc.NbRows; j++ {
+			tc.Hash.Write(tc.state[j][i+backupCurrentColumnToFill].Marshal())
+		}
+		res[i] = tc.Hash.Sum(nil)
+	}
 
-	return nil
-}
-
-// HashState hashed the columns of the state. If the first k columns
-// have already been hashed, then we hash the remaining columns only.
-func (tc *TensorCommitment) HashState() []byte {
-	return nil
+	return res, nil
 }
 
 // Commit to p. The commitment procedure is the following:
-// for each polynomial p_i in the state, write p_i as a square matrix
-// M_i, where M_i_jk=p_i[j*m+k], m = \sqrt(size poly). Then we
-// build M = M_0 || ... || M_n. We then encode the rows
-// of M, and then we hash the columns of M. If the capacity of the
-// tensorCommitment is not reached, we padd M with zeros.
-//
-// p is a polynomial expressed in canonical form.
-// For committing to P, we interpret P as a matrix M
-// of size m x m where m² = len(p).
-// The ij-th entry of M is p[m*i + j] (it's the transpose of the more
-// logical order p[j*m + i], but it's more practical memory wise, it avoids
-// rearranging the coeffs for the fft)
+// * Encode the rows of the state to get M'
+// * Hash the columns of M'
 func (tc *TensorCommitment) Commit() (Digest, error) {
-
-	// check the capacity
-	if tc.Capacity > tc.nbPolynomialsStored {
-		for i := tc.nbPolynomialsStored; i < tc.Capacity; i++ {
-			tc.state[i] = make([]fr.Element, tc.SizePolynomial)
-		}
-	}
 
 	// we encode the rows of p using Reed Solomon
 	// encodedState[i][:] = i-th line of M. It is of size domain[1].Cardinality
-	tc.encodedState = make([][]fr.Element, tc.SqrtSizePolynomial)
-	for i := 0; i < tc.SqrtSizePolynomial; i++ { // we fill encodedState line by line
-		tc.encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = SqrtSizePolynomial*rho*capacity
-		for j := 0; j < tc.Capacity; j++ {                                 // for each polynomial
-			offset := i * tc.SqrtSizePolynomial
-			copy(tc.encodedState[i][j*tc.SqrtSizePolynomial:], tc.state[j][offset:offset+tc.SqrtSizePolynomial])
+	tc.encodedState = make([][]fr.Element, tc.NbRows)
+	for i := 0; i < tc.NbRows; i++ { // we fill encodedState line by line
+		tc.encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = NbRows*rho*capacity
+		for j := 0; j < tc.NbColumns; j++ {                                // for each polynomial
+			tc.encodedState[i][j].Set(&tc.state[i][j])
 		}
 		tc.Domains[0].FFTInverse(tc.encodedState[i][:tc.Domains[0].Cardinality], fft.DIF)
 		fft.BitReverse(tc.encodedState[i][:tc.Domains[0].Cardinality])
@@ -219,7 +232,7 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 	res := make([][]byte, tc.Domains[1].Cardinality)
 	for i := 0; i < int(tc.Domains[1].Cardinality); i++ {
 		tc.Hash.Reset()
-		for j := 0; j < tc.SqrtSizePolynomial; j++ {
+		for j := 0; j < tc.NbRows; j++ {
 			tc.Hash.Write(tc.encodedState[j][i].Marshal())
 		}
 		res[i] = tc.Hash.Sum(nil)
@@ -233,30 +246,23 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 }
 
-func printVector(v []fr.Element) {
-	fmt.Printf("[")
-	for i := 0; i < len(v); i++ {
-		fmt.Printf("%s,", v[i].String())
-	}
-	fmt.Printf("]\n")
-}
+// func printVector(v []fr.Element) {
+// 	fmt.Printf("[")
+// 	for i := 0; i < len(v); i++ {
+// 		fmt.Printf("%s,", v[i].String())
+// 	}
+// 	fmt.Printf("]\n")
+// }
 
 // BuildProof builds a proof to be tested against a previous commitment of a list of
 // polynomials.
-// * l the random linear coefficients used for the linear combination of size SqrtSizePolynomial
+// * l the random linear coefficients used for the linear combination of size NbRows
 // * entryList list of columns to hash
 // l and entryList are supposed to be precomputed using Fiat Shamir
 //
 // The proof is the linear combination (using l) of the encoded rows of p written
 // as a matrix. Only the entries contained in entryList are kept.
 func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, error) {
-
-	// check the capacity
-	if tc.Capacity > tc.nbPolynomialsStored {
-		for i := tc.nbPolynomialsStored; i < tc.Capacity; i++ {
-			tc.state[i] = make([]fr.Element, tc.SizePolynomial)
-		}
-	}
 
 	var res Proof
 
@@ -275,16 +281,14 @@ func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, 
 	// since the digest has been computed, the encodedState is already stored.
 	// We use it to build the proof, without recomputing the ffts.
 
-	// linear combination of the rows of the state, written as a matrix
-	// M = M_0 || ... || M_n where M_i is the i-th polynomial, M_i_jk=p[j*m+k]
-	// where m = \sqrt(len(p)).
-	res.LinearCombination = make([]fr.Element, tc.Capacity*tc.SqrtSizePolynomial)
-	for i := 0; i < tc.Capacity; i++ {
-		linearCombination(
-			res.LinearCombination[i*tc.SqrtSizePolynomial:(i+1)*tc.SqrtSizePolynomial],
-			l,
-			tc.state[i],
-		)
+	// linear combination of the rows of the state
+	res.LinearCombination = make([]fr.Element, tc.NbColumns)
+	for i := 0; i < tc.NbColumns; i++ {
+		var tmp fr.Element
+		for j := 0; j < tc.NbRows; j++ {
+			tmp.Mul(&tc.state[j][i], &l[j])
+			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
+		}
 	}
 
 	// columns of the state whose rows have been encoded, written as a matrix,
@@ -292,8 +296,8 @@ func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, 
 	// entryList[0], entryList[1], etc.
 	res.Columns = make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
-		res.Columns[i] = make([]fr.Element, tc.SqrtSizePolynomial)
-		for j := 0; j < tc.SqrtSizePolynomial; j++ {
+		res.Columns[i] = make([]fr.Element, tc.NbRows)
+		for j := 0; j < tc.NbRows; j++ {
 			res.Columns[i][j] = tc.encodedState[j][entryList[i]]
 		}
 	}
@@ -303,25 +307,6 @@ func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, 
 	copy(res.EntryList, entryList)
 
 	return res, nil
-}
-
-// linearCombination writes p as a matrix
-// M = (M_ij), where M_ij = p[i*m + j] and m² = len(p).
-// Then it computes ∑_i r[i]*M[i:]
-// It is assumed that len(r)² = len(p)
-//
-// The result is stored in res.
-func linearCombination(res, r, p []fr.Element) {
-
-	m := len(r)
-	var tmp fr.Element
-
-	for i := 0; i < m; i++ {
-		for j := 0; j < m; j++ {
-			tmp.Mul(&p[j*m+i], &r[j])
-			res[i].Add(&res[i], &tmp)
-		}
-	}
 }
 
 // evalAtPower returns p(x**n) where p is interpreted as a polynomial
@@ -353,7 +338,7 @@ func cmpBytes(a, b []byte) bool {
 }
 
 // Verify a proof that digest is the hash of a  polynomial given a proof
-// proof: proof that the commitment is correct
+// proof: contains the linear combination of the non-encoded rows + the
 // digest: hash of the polynomial
 // l: random coefficients for the linear combination, chosen by the verifier
 // h: hash function that is used for hashing the columns of the polynomial
