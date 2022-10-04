@@ -14,15 +14,22 @@ import (
 	"testing"
 )
 
+func TestMimcProver(t *testing.T) {
+	generateTestProver("../../rational_cases/single_mimc_gate_two_instances.json")(t)
+}
+
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase := newTestCase(t, path)
 		testCase.Transcript.Update(0)
 		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-		serialized, err := json.Marshal(proof)
-		assert.NoError(t, err)
-		fmt.Println(string(serialized))
-		//printGkrProof(t, proof)
+
+		{
+			serialized, err := json.Marshal(proof)
+			assert.NoError(t, err)
+			fmt.Println(string(serialized))
+		}
+
 		assertProofEquals(t, testCase.Proof, proof)
 	}
 }
@@ -282,6 +289,7 @@ func init() {
 	gates = make(map[string]Gate)
 	gates["identity"] = identityGate{}
 	gates["mul"] = mulGate{}
+	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
 }
 
 type TestCase struct {
@@ -465,4 +473,27 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 		}
 	}
 	return
+}
+
+type mimcCipherGate struct {
+	ark small_rational.SmallRational
+}
+
+func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
+	var sum small_rational.SmallRational
+
+	sum.
+		Add(&input[0], &input[1]).
+		Add(&sum, &m.ark)
+
+	res.Square(&sum)    // sum^2
+	res.Mul(&res, &sum) // sum^3
+	res.Square(&res)    //sum^6
+	res.Mul(&res, &sum) //sum^7
+
+	return
+}
+
+func (m mimcCipherGate) Degree() int {
+	return 7
 }
