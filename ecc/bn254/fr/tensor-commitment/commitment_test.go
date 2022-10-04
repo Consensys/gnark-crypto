@@ -60,10 +60,11 @@ func TestAppend(t *testing.T) {
 	rho := 4
 	nbRows := 10
 	nbColumns := 16
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	{
 		// random Polynomial of size nbRows
@@ -78,7 +79,7 @@ func TestAppend(t *testing.T) {
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.state[i][0].Equal(&p[i]) {
+			if !tc.State[i][0].Equal(&p[i]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
@@ -99,7 +100,7 @@ func TestAppend(t *testing.T) {
 
 		// check if p corresponds to the second column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.state[i][1].Equal(&p[i]) {
+			if !tc.State[i][1].Equal(&p[i]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
@@ -120,12 +121,12 @@ func TestAppend(t *testing.T) {
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.state[i][2].Equal(&p[i]) {
+			if !tc.State[i][2].Equal(&p[i]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
 		for i := 0; i < offset; i++ {
-			if !tc.state[i][3].Equal(&p[i+nbRows]) {
+			if !tc.State[i][3].Equal(&p[i+nbRows]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
@@ -146,12 +147,12 @@ func TestAppend(t *testing.T) {
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.state[i][4].Equal(&p[i]) {
+			if !tc.State[i][4].Equal(&p[i]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
 		for i := 0; i < offset; i++ {
-			if !tc.state[i][5].Equal(&p[i+nbRows]) {
+			if !tc.State[i][5].Equal(&p[i+nbRows]) {
 				t.Fatal("a column is not filled correctly")
 			}
 		}
@@ -165,10 +166,11 @@ func TestLinearCombination(t *testing.T) {
 	rho := 4
 	nbRows := 8
 	nbColumns := 8
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	// build a random polynomial
 	p := make([]fr.Element, nbRows*nbColumns)
@@ -229,10 +231,11 @@ func TestCommitmentDummyHash(t *testing.T) {
 	nbRows = 8
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	// random polynomial
 	p := make([]fr.Element, nbRows*nbColumns)
@@ -285,10 +288,11 @@ func TestOpeningDummyHash(t *testing.T) {
 	nbRows = 8
 
 	var h DummyHash
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	// random polynomial
 	p := make([]fr.Element, nbColumns*nbRows)
@@ -368,10 +372,11 @@ func TestAppendSis(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	// random polynomial (that does not fill the full matrix)
 	offset := 4
@@ -429,10 +434,11 @@ func TestCommitmentSis(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tc, err := NewTensorCommitment(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, h)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tc := NewTensorCommitment(params)
 
 	// random polynomial
 	p := make([]fr.Element, nbRows*nbColumns)
@@ -515,7 +521,8 @@ func BenchmarkTensorCommitment(b *testing.B) {
 		sizeKey := (nbColumns * sizeFr) / (logTwoBound * (1 << logTwoDegree))
 
 		h, _ := sis.NewRSis(5, logTwoDegree, logTwoBound, sizeKey)
-		tc, _ := NewTensorCommitment(rho, nbColumns, nbRows, h)
+		params, _ := NewTCParams(rho, nbColumns, nbRows, h)
+		tc := NewTensorCommitment(params)
 
 		// random polynomial
 		p := make([]fr.Element, nbRows*nbColumns)
