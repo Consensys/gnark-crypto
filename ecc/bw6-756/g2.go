@@ -50,6 +50,13 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
+// setInfinity sets p to O
+func (p *G2Affine) setInfinity() *G2Affine {
+	p.X.SetZero()
+	p.Y.SetZero()
+	return p
+}
+
 // ScalarMultiplication computes and returns p = a ⋅ s
 func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
