@@ -3,5 +3,5 @@
   "circuit": "resources/single_mimc_gate.json",
   "input": [[1, 1], [1, 2]],
   "output": [[128, 2187]],
-  "proof": [[{"partialSumPolys":[[3,4]],"finalEvalProof":[3]}],[{"partialSumPolys":null,"finalEvalProof":null}]]
+  "proof": [[{"partialSumPolys":[[2187,32768,234375,1119744,4117715,12582912,33480783,80000000]],"finalEvalProof":[1,5]}],[{"partialSumPolys":null,"finalEvalProof":null},{"partialSumPolys":null,"finalEvalProof":null}]]
 }

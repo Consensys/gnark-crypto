@@ -18,6 +18,10 @@ func TestMimcProver(t *testing.T) {
 	generateTestProver("../../rational_cases/single_mimc_gate_two_instances.json")(t)
 }
 
+func TestMimcVerifier(t *testing.T) {
+	generateTestVerifier("../../rational_cases/single_mimc_gate_two_instances.json")(t)
+}
+
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase := newTestCase(t, path)
