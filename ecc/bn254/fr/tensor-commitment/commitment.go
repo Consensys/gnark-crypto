@@ -251,6 +251,28 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 }
 
+// BuildProofAtOnceForTest builds a proof to be tested against a previous commitment of a list of
+// polynomials.
+// * l the random linear coefficients used for the linear combination of size NbRows
+// * entryList list of columns to hash
+// l and entryList are supposed to be precomputed using Fiat Shamir
+//
+// The proof is the linear combination (using l) of the encoded rows of p written
+// as a matrix. Only the entries contained in entryList are kept.
+func (tc *TensorCommitment) BuildProofAtOnceForTest(l []fr.Element, entryList []int) (Proof, error) {
+	linComb, err := tc.ProverComputeLinComb(l)
+	if err != nil {
+		return Proof{}, err
+	}
+
+	openedColumns, err := tc.ProverOpenColumns(entryList)
+	if err != nil {
+		return Proof{}, err
+	}
+
+	return BuildProof(tc.params, linComb, entryList, openedColumns), nil
+}
+
 // func printVector(v []fr.Element) {
 // 	fmt.Printf("[")
 // 	for i := 0; i < len(v); i++ {
@@ -267,51 +289,69 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 //
 // The proof is the linear combination (using l) of the encoded rows of p written
 // as a matrix. Only the entries contained in entryList are kept.
-func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, error) {
-
-	var res Proof
+func (tc *TensorCommitment) ProverComputeLinComb(l []fr.Element) ([]fr.Element, error) {
 
 	// check that the digest has been computed
 	if !tc.isCommitted {
-		return res, ErrCommitmentNotDone
+		return []fr.Element{}, ErrCommitmentNotDone
 	}
-
-	// small domain to express the linear combination in canonical form
-	res.Domain = tc.params.Domains[0]
-
-	// generator g of the biggest domain, used to evaluate the canonical form of
-	// the linear combination at some powers of g.
-	res.Generator.Set(&tc.params.Domains[1].Generator)
 
 	// since the digest has been computed, the encodedState is already stored.
 	// We use it to build the proof, without recomputing the ffts.
 
 	// linear combination of the rows of the state
-	res.LinearCombination = make([]fr.Element, tc.params.NbColumns)
+	linComb := make([]fr.Element, tc.params.NbColumns)
 	for i := 0; i < tc.params.NbColumns; i++ {
 		var tmp fr.Element
 		for j := 0; j < tc.params.NbRows; j++ {
 			tmp.Mul(&tc.State[j][i], &l[j])
-			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
+			linComb[i].Add(&linComb[i], &tmp)
 		}
+	}
+
+	return linComb, nil
+}
+
+func (tc *TensorCommitment) ProverOpenColumns(entryList []int) ([][]fr.Element, error) {
+
+	// check that the digest has been computed
+	if !tc.isCommitted {
+		return [][]fr.Element{}, ErrCommitmentNotDone
 	}
 
 	// columns of the state whose rows have been encoded, written as a matrix,
 	// corresponding to the indices in entryList (we will select the columns
 	// entryList[0], entryList[1], etc.
-	res.Columns = make([][]fr.Element, len(entryList))
+	openedColumns := make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
-		res.Columns[i] = make([]fr.Element, tc.params.NbRows)
+		openedColumns[i] = make([]fr.Element, tc.params.NbRows)
 		for j := 0; j < tc.params.NbRows; j++ {
-			res.Columns[i][j] = tc.EncodedState[j][entryList[i]]
+			openedColumns[i][j] = tc.EncodedState[j][entryList[i]]
 		}
 	}
 
-	// fill entryList
-	res.EntryList = make([]int, len(entryList))
-	copy(res.EntryList, entryList)
+	return openedColumns, nil
+}
 
-	return res, nil
+/*
+	Reconstruct the proof from the prover's outputs
+*/
+func BuildProof(params *TcParams, linComb []fr.Element, entryList []int, openedCols [][]fr.Element) Proof {
+
+	var res Proof
+
+	// small domain to express the linear combination in canonical form
+	res.Domain = params.Domains[0]
+
+	// generator g of the biggest domain, used to evaluate the canonical form of
+	// the linear combination at some powers of g.
+	res.Generator.Set(&params.Domains[1].Generator)
+
+	res.Columns = openedCols
+	res.EntryList = entryList
+	res.LinearCombination = linComb
+
+	return res
 }
 
 // evalAtPower returns p(x**n) where p is interpreted as a polynomial
