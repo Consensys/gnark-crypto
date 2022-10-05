@@ -4,36 +4,45 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"math/bits"
 	"strconv"
 	"strings"
 )
 
 type SmallRational struct {
-	Numerator   int64
-	Denominator int64 // By convention, Denominator == 0 also indicates zero
+	Numerator   big.Int
+	Denominator big.Int // By convention, Denominator == 0 also indicates zero
 }
 
-var smallPrimes = []int64{2, 3, 5, 7, 11, 13}
+var smallPrimes = []*big.Int{
+	big.NewInt(2), big.NewInt(3), big.NewInt(5),
+	big.NewInt(7), big.NewInt(11), big.NewInt(13),
+}
+
+func bigDivides(p, a *big.Int) bool {
+	var remainder big.Int
+	remainder.Mod(a, p)
+	return remainder.BitLen() == 0
+}
 
 func (z *SmallRational) simplify() {
 	// factoring 64bit numbers can be practical, TODO: Sophisticated algorithm?
 
-	if z.Numerator == 0 || z.Denominator == 0 {
+	if z.Numerator.BitLen() == 0 || z.Denominator.BitLen() == 0 {
 		return
 	}
 
 	for _, p := range smallPrimes {
-		for z.Numerator%p == 0 && z.Denominator%p == 0 {
-			z.Numerator /= p
-			z.Denominator /= p
+		for bigDivides(p, &z.Numerator) && bigDivides(p, &z.Denominator) {
+			z.Numerator.Div(&z.Numerator, p)
+			z.Denominator.Div(&z.Denominator, p)
 		}
 	}
 
 }
 func (z *SmallRational) Square(x *SmallRational) *SmallRational {
-	z.Numerator = x.Numerator * x.Numerator
-	z.Denominator = x.Denominator * x.Denominator
+	z.Numerator.Mul(&x.Numerator, &x.Numerator)
+	z.Denominator.Mul(&x.Denominator, &x.Denominator)
+
 	return z
 }
 
@@ -42,13 +51,17 @@ func (z *SmallRational) String() string {
 }
 
 func (z *SmallRational) Add(x, y *SmallRational) *SmallRational {
-	if x.Denominator == 0 {
+	if x.Denominator.BitLen() == 0 {
 		*z = *y
-	} else if y.Denominator == 0 {
+	} else if y.Denominator.BitLen() == 0 {
 		*z = *x
 	} else {
 		//TODO: Exploit cases where one denom divides the other
-		*z = SmallRational{x.Numerator*y.Denominator + y.Numerator*x.Denominator, x.Denominator * y.Denominator}
+		var numDen, denNum big.Int
+		numDen.Mul(&x.Numerator, &y.Denominator)
+		denNum.Mul(&x.Denominator, &y.Numerator)
+		z.Numerator.Add(&denNum, &numDen)
+		z.Denominator.Mul(&x.Denominator, &y.Denominator)
 		z.simplify()
 	}
 
@@ -56,7 +69,7 @@ func (z *SmallRational) Add(x, y *SmallRational) *SmallRational {
 }
 
 func (z *SmallRational) IsZero() bool {
-	return z.Numerator == 0 || z.Denominator == 0
+	return z.Numerator.BitLen() == 0 || z.Denominator.BitLen() == 0
 }
 
 func (z *SmallRational) Inverse(x *SmallRational) *SmallRational {
@@ -69,35 +82,24 @@ func (z *SmallRational) Inverse(x *SmallRational) *SmallRational {
 }
 
 func (z *SmallRational) Neg(x *SmallRational) *SmallRational {
-	*z = SmallRational{-x.Numerator, x.Denominator}
+	z.Numerator.Neg(&x.Numerator)
+	z.Denominator = x.Denominator
 	return z
 }
 
 func (z *SmallRational) Double(x *SmallRational) *SmallRational {
-	if x.Denominator%2 == 0 {
-		*z = SmallRational{x.Numerator, x.Denominator / 2}
-	} else {
-		*z = SmallRational{x.Numerator * 2, x.Denominator}
+	if x.Denominator.Bit(0) == 0 {
+		z.Numerator = x.Numerator
+		z.Denominator.Rsh(&x.Denominator, 1)
 	}
 	return z
 }
 
 func (z *SmallRational) sign() int {
-	if z.IsZero() {
-		return 0
-	}
-	if z.Numerator > 0 {
-		if z.Denominator > 0 {
-			return 1
-		}
-		return -1
-	}
-	if z.Denominator > 0 {
-		return -1
-	}
-	return 1
+	return z.Numerator.Sign() * z.Denominator.Sign()
 }
 
+/*
 func (z *SmallRational) abs() (abs SmallRational) {
 	abs = *z
 	if abs.Numerator < 0 {
@@ -107,7 +109,7 @@ func (z *SmallRational) abs() (abs SmallRational) {
 		abs.Denominator = -abs.Denominator
 	}
 	return abs
-}
+}*/
 
 func (z *SmallRational) MarshalJSON() ([]byte, error) {
 	return []byte(z.String()), nil
@@ -133,7 +135,6 @@ func (z *SmallRational) ToBigIntRegular(*big.Int) big.Int {
 	panic("Not implemented")
 }
 
-// TODO: Test this
 func (z *SmallRational) Cmp(x *SmallRational) int {
 	zSign, xSign := z.sign(), x.sign()
 
@@ -144,24 +145,15 @@ func (z *SmallRational) Cmp(x *SmallRational) int {
 		return -1
 	}
 
-	xAbs, zAbs := x.abs(), z.abs()
+	var Z, X big.Int
+	Z.Mul(&z.Numerator, &x.Denominator)
+	X.Mul(&x.Numerator, &z.Denominator)
 
-	cross0Hi, cross0Lo := bits.Mul64(uint64(xAbs.Numerator), uint64(zAbs.Denominator))
-	cross1Hi, cross1Lo := bits.Mul64(uint64(zAbs.Numerator), uint64(xAbs.Denominator))
+	Z.Abs(&Z)
+	X.Abs(&X)
 
-	if cross1Hi > cross0Hi {
-		return zSign
-	}
-	if cross1Hi < cross0Hi {
-		return -zSign
-	}
-	if cross1Lo > cross0Lo {
-		return zSign
-	}
-	if cross1Lo < cross0Lo {
-		return -zSign
-	}
-	return 0
+	return Z.Cmp(&X) * zSign
+
 }
 
 func BatchInvert(a []SmallRational) []SmallRational {
@@ -173,7 +165,8 @@ func BatchInvert(a []SmallRational) []SmallRational {
 }
 
 func (z *SmallRational) Mul(x, y *SmallRational) *SmallRational {
-	*z = SmallRational{x.Numerator * y.Numerator, x.Denominator * y.Denominator}
+	z.Numerator.Mul(&x.Numerator, &y.Numerator)
+	z.Denominator.Mul(&x.Denominator, &y.Denominator)
 	z.simplify()
 	return z
 }
@@ -187,26 +180,12 @@ func (z *SmallRational) SetZero() *SmallRational {
 }
 
 func (z *SmallRational) SetInt64(i int64) *SmallRational {
-	z.Numerator = i
-	z.Denominator = 1
+	z.Numerator.SetInt64(i)
+	z.Denominator.SetInt64(1)
 	return z
 }
 
 func (z *SmallRational) SetRandom() (*SmallRational, error) {
-	/*bytes := make([]byte, 2*64/8)
-	n, err := rand.Read(bytes)
-	if err != nil {
-		return nil, err
-	}
-	if n != len(bytes) {
-		return nil, fmt.Errorf("%d bytes read instead of %d", n, len(bytes))
-	}
-
-	// TODO: Verify that in case of overflow casting gives a negative
-	z.Numerator = int64(binary.BigEndian.Uint64(bytes[:64/8]))
-	z.Denominator = int64(binary.BigEndian.Uint64(bytes[64/8:]))
-
-	return z, nil*/
 
 	bytes := make([]byte, 1)
 	n, err := rand.Read(bytes)
@@ -217,8 +196,8 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 		return nil, fmt.Errorf("%d bytes read instead of %d", n, len(bytes))
 	}
 
-	z.Numerator = int64(bytes[0]%16) - 8
-	z.Denominator = int64((bytes[0]) / 16)
+	z.Numerator.SetInt64(int64(bytes[0]%16) - 8)
+	z.Denominator.SetInt64(int64((bytes[0]) / 16))
 
 	z.simplify()
 
@@ -226,37 +205,37 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 }
 
 func (z *SmallRational) SetUint64(i uint64) {
-	z.Numerator = int64(i)
-	z.Denominator = 1
+	z.Numerator.SetUint64(i)
+	z.Denominator.SetUint64(1)
 }
 
 func (z *SmallRational) IsOne() bool {
-	return z.Numerator == z.Denominator && z.Denominator != 0
+	return z.Numerator.Cmp(&z.Denominator) == 0 && z.Denominator.BitLen() != 0
 }
 
 func (z *SmallRational) Text(base int) string {
 
-	if z.Denominator == 0 {
+	if z.Denominator.BitLen() == 0 {
 		return "0"
 	}
 
-	if z.Denominator < 0 {
-		z.Numerator = -z.Numerator
-		z.Denominator = -z.Denominator
+	if z.Denominator.Sign() < 0 {
+		z.Numerator.Neg(&z.Numerator)
+		z.Denominator.Neg(&z.Denominator)
 	}
 
-	if z.Numerator%z.Denominator == 0 {
-		z.Numerator /= z.Denominator
-		z.Denominator = 1
+	if bigDivides(&z.Denominator, &z.Numerator) {
+		z.Numerator.Div(&z.Numerator, &z.Denominator)
+		z.Denominator.SetInt64(1)
 	}
 
-	numerator := strconv.FormatInt(z.Numerator, base)
+	numerator := z.Numerator.Text(base)
 
-	if z.Denominator == 1 {
+	if z.Denominator.IsInt64() && z.Denominator.Int64() == 1 {
 		return numerator
 	}
 
-	return numerator + "/" + strconv.FormatInt(z.Denominator, base)
+	return numerator + "/" + z.Denominator.Text(base)
 }
 
 func (z *SmallRational) Set(x interface{}) (*SmallRational, error) {
@@ -296,8 +275,8 @@ func (z *SmallRational) Set(x interface{}) (*SmallRational, error) {
 			if err != nil {
 				return nil, err
 			}
-			z.Numerator = int64(num)
-			z.Denominator = int64(denom)
+			z.Numerator.SetInt64(int64(num))
+			z.Denominator.SetInt64(int64(denom))
 		default:
 			return nil, fmt.Errorf("cannot parse \"%s\"", v)
 		}
