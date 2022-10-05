@@ -18,6 +18,7 @@ import (
 	"errors"
 	"hash"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
@@ -110,11 +111,8 @@ type TensorCommitment struct {
 	// to a verifier, making the worklow not secure.
 	isCommitted bool
 
-	// current column to fill
-	currentColumnToFill int
-
 	// number of columns which have already been hashed
-	nbColumnsHashed int
+	nbColumnsHashed uint64 // uint64 (and not int) is so that we can do atomic operations in it
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
@@ -144,7 +142,7 @@ func NewTCParams(codeRate, NbColumns, NbRows int, h hash.Hash) (*TcParams, error
 
 // Initializes an instance of tensor commitment that we can use start
 // appending value into it
-func NewTensorCommitment(params *TcParams) TensorCommitment {
+func NewTensorCommitment(params *TcParams) *TensorCommitment {
 	var res TensorCommitment
 
 	// create the state. It's the matrix containing the polynomials, the ij-th
@@ -155,15 +153,10 @@ func NewTensorCommitment(params *TcParams) TensorCommitment {
 		res.State[i] = make([]fr.Element, params.NbColumns)
 	}
 
-	// first column to fill
-	res.currentColumnToFill = 0
-
 	// nothing has been committed...
 	res.isCommitted = false
-
 	res.params = params
-
-	return res
+	return &res
 }
 
 // Append appends p to the state.
@@ -175,34 +168,36 @@ func NewTensorCommitment(params *TcParams) TensorCommitment {
 // ..
 // p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
 // If p doesn't fill a full submatrix it is padded with zeroes.
-func (tc *TensorCommitment) Append(p []fr.Element) ([][]byte, error) {
+func (tc *TensorCommitment) Append(currentColumnToFill int, p []fr.Element) ([][]byte, error) {
 
 	// check if there is some room for p
 	nbColumnsTakenByP := (len(p) - len(p)%tc.params.NbRows) / tc.params.NbRows
 	if len(p)%tc.params.NbRows != 0 {
 		nbColumnsTakenByP += 1
 	}
-	if tc.currentColumnToFill+nbColumnsTakenByP > tc.params.NbColumns {
+	if currentColumnToFill+nbColumnsTakenByP > tc.params.NbColumns {
 		return nil, ErrMaxNbColumns
 	}
 
+	atomic.AddUint64(&tc.nbColumnsHashed, uint64(nbColumnsTakenByP))
+
 	// put p in the state
-	backupCurrentColumnToFill := tc.currentColumnToFill
+	backupCurrentColumnToFill := currentColumnToFill
 	if len(p)%tc.params.NbRows != 0 {
 		nbColumnsTakenByP -= 1
 	}
 	for i := 0; i < nbColumnsTakenByP; i++ {
 		for j := 0; j < tc.params.NbRows; j++ {
-			tc.State[j][tc.currentColumnToFill+i] = p[i*tc.params.NbRows+j]
+			tc.State[j][currentColumnToFill+i] = p[i*tc.params.NbRows+j]
 		}
 	}
-	tc.currentColumnToFill += nbColumnsTakenByP
+	currentColumnToFill += nbColumnsTakenByP
 	if len(p)%tc.params.NbRows != 0 {
 		offsetP := len(p) - len(p)%tc.params.NbRows
 		for j := offsetP; j < len(p); j++ {
-			tc.State[j-offsetP][tc.currentColumnToFill] = p[j]
+			tc.State[j-offsetP][currentColumnToFill] = p[j]
 		}
-		tc.currentColumnToFill += 1
+		currentColumnToFill += 1
 		nbColumnsTakenByP += 1
 	}
 
