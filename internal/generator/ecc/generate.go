@@ -11,6 +11,10 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+	if conf.Equal(config.SECP256K1) {
+		return nil
+	}
+
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 
 	entries := []bavard.Entry{
