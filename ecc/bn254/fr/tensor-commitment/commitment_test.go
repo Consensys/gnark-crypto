@@ -272,7 +272,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 	}
 
 	// verfiy that the proof is correct
-	err = Verify(proof, digest, l, h)
+	err = Verify(proof, digest, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// verfiy that the proof is correct
-		err = Verify(proof, digest, l, h)
+		err = Verify(proof, digest, l)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -495,7 +495,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// verfiy that the proof is correct
-		err = Verify(proof, digest, l, h)
+		err = Verify(proof, digest, l)
 		if err != nil {
 			t.Fatal(err)
 		}

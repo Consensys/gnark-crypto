@@ -111,8 +111,11 @@ type TensorCommitment struct {
 	// to a verifier, making the worklow not secure.
 	isCommitted bool
 
-	// number of columns which have already been hashed
-	nbColumnsHashed uint64 // uint64 (and not int) is so that we can do atomic operations in it
+	// number of columns which have already been hashed (atomic)
+	NbColumnsHashed uint64 // uint64 (and not int) is so that we can do atomic operations in it
+
+	// counts the number of time `Append` was called (atomic).
+	NbAppendsSoFar uint64
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
@@ -179,7 +182,8 @@ func (tc *TensorCommitment) Append(currentColumnToFill int, p []fr.Element) ([][
 		return nil, ErrMaxNbColumns
 	}
 
-	atomic.AddUint64(&tc.nbColumnsHashed, uint64(nbColumnsTakenByP))
+	atomic.AddUint64(&tc.NbColumnsHashed, uint64(nbColumnsTakenByP))
+	atomic.AddUint64(&tc.NbAppendsSoFar, 1)
 
 	// put p in the state
 	backupCurrentColumnToFill := currentColumnToFill
@@ -389,7 +393,11 @@ func cmpBytes(a, b []byte) bool {
 // h: hash function that is used for hashing the columns of the polynomial
 // TODO make this function private and add a Verify function that derives
 // the randomness using Fiat Shamir
-func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
+// Note (alex), I removed the FS from this function. (I already do it from
+// outside). This is actually the simpler for me to do this. If you absolutely
+// want to expose a wrapper around it, can you keep exposing a this function
+// (possibly under a different name).
+func Verify(proof Proof, digest Digest, l []fr.Element) error {
 
 	// for each entry in the list -> it corresponds to the sampling
 	// set on which we probabilistically check that
@@ -398,16 +406,6 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 
 		if proof.EntryList[i] >= len(digest) {
 			return ErrProofFailedOob
-		}
-
-		// check that the hash of the columns correspond to what's in the digest
-		h.Reset()
-		for j := 0; j < len(proof.Columns[i]); j++ {
-			h.Write(proof.Columns[i][j].Marshal())
-		}
-		s := h.Sum(nil)
-		if !cmpBytes(s, digest[proof.EntryList[i]]) {
-			return ErrProofFailedHash
 		}
 
 		// linear combination of the i-th column, whose entries
