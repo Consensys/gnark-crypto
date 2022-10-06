@@ -56,8 +56,8 @@ func (z *SmallRational) Square(x *SmallRational) *SmallRational {
 	num.Mul(&x.numerator, &x.numerator)
 	den.Mul(&x.denominator, &x.denominator)
 
-	x.numerator = num
-	x.denominator = den
+	z.numerator = num
+	z.denominator = den
 
 	z.UpdateText()
 

@@ -7,8 +7,6 @@ import (
 
 func TestCmp(t *testing.T) {
 
-	const i = 4
-	var x [i]int
 	cases := make([]SmallRational, 36)
 
 	for i := int64(0); i < 9; i++ {
@@ -92,4 +90,14 @@ func TestOperandConstancy(t *testing.T) {
 	res := p
 	res.Add(&res, &p0)
 	assert.True(t, p.Equal(&pPure))
+}
+
+func TestSquare(t *testing.T) {
+	var two, four, x SmallRational
+	two.SetInt64(2)
+	four.SetInt64(4)
+
+	x.Square(&two)
+
+	assert.True(t, x.Equal(&four), "expected 4, saw %s", x.Text(10))
 }

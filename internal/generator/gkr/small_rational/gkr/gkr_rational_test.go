@@ -30,9 +30,9 @@ func generateTestProver(path string) func(t *testing.T) {
 		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
 
 		{
-			serialized, err := json.Marshal(proof)
+			/*serialized, err := json.Marshal(proof)
 			assert.NoError(t, err)
-			fmt.Println(string(serialized))
+			fmt.Println(string(serialized))*/
 		}
 
 		assertProofEquals(t, testCase.Proof, proof)
@@ -115,9 +115,9 @@ func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
 	}
 }
 
-var hashCache = make(map[string][]*RationalTriplet)
+var hashCache = make(map[string]HashMap)
 
-func getHash(t *testing.T, path string) []*RationalTriplet {
+func getHash(t *testing.T, path string) HashMap {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		t.Error(err)
@@ -131,16 +131,16 @@ func getHash(t *testing.T, path string) []*RationalTriplet {
 			t.Error(err)
 		}
 
-		res := make([]*RationalTriplet, 0, len(asMap))
+		res := make(HashMap, 0, len(asMap))
 
 		for k, v := range asMap {
-			var value small_rational.SmallRational
-			if _, err := value.Set(v); err != nil {
+			var entry RationalTriplet
+			if _, err := entry.value.Set(v); err != nil {
 				t.Error(err)
 			}
 
 			key := strings.Split(k, ",")
-			var entry RationalTriplet
+
 			switch len(key) {
 			case 1:
 				entry.key2Present = false
@@ -173,14 +173,16 @@ func getHash(t *testing.T, path string) []*RationalTriplet {
 	return nil //Unreachable
 }
 
+type HashMap []*RationalTriplet
+
 type MapHashTranscript struct {
-	hashMap         []*RationalTriplet
+	hashMap         HashMap
 	stateValid      bool
 	resultAvailable bool
 	state           small_rational.SmallRational
 }
 
-func (m *MapHashTranscript) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
 
 	toFind := RationalTriplet{
 		key1:        *x,
@@ -191,10 +193,10 @@ func (m *MapHashTranscript) hash(x *small_rational.SmallRational, y *small_ratio
 		toFind.key2 = *y
 	}
 
-	i := sort.Search(len(m.hashMap), func(i int) bool { return m.hashMap[i].CmpKey(&toFind) >= 0 })
+	i := sort.Search(len(m), func(i int) bool { return m[i].CmpKey(&toFind) >= 0 })
 
-	if i < len(m.hashMap) && m.hashMap[i].CmpKey(&toFind) == 0 {
-		return m.hashMap[i].value
+	if i < len(m) && m[i].CmpKey(&toFind) == 0 {
+		return m[i].value
 	}
 
 	if y == nil {
@@ -213,9 +215,9 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 				panic(err.Error())
 			}
 			if m.stateValid {
-				m.state = m.hash(&xElement, &m.state)
+				m.state = m.hashMap.hash(&xElement, &m.state)
 			} else {
-				m.state = m.hash(&xElement, nil)
+				m.state = m.hashMap.hash(&xElement, nil)
 			}
 
 			m.stateValid = true
@@ -224,7 +226,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		if !m.stateValid {
 			panic("nothing to hash")
 		}
-		m.state = m.hash(&m.state, nil)
+		m.state = m.hashMap.hash(&m.state, nil)
 	}
 	m.resultAvailable = true
 }
@@ -345,7 +347,7 @@ type ParsedTestCase struct {
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
 	Proof           Proof
-	Hash            []*RationalTriplet
+	Hash            HashMap
 	Circuit         Circuit
 }
 
@@ -406,7 +408,7 @@ func newTestCase(t *testing.T, path string) *TestCase {
 			for j := range circuit[0] {
 				wire := &circuit[0][j]
 				inOutAssignment[wire] = sliceToElementSlice(t, info.Output[j])
-				assertSliceEquals(t, inOutAssignment[wire], fullAssignment[wire])
+				assert.NoError(t, sliceEquals(inOutAssignment[wire], fullAssignment[wire]), "circuit output mismatch on wire 0,%d", j)
 			}
 
 			parsedCase = &ParsedTestCase{
@@ -442,13 +444,16 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []smal
 	return
 }
 
-func assertSliceEquals(t *testing.T, a []small_rational.SmallRational, b []small_rational.SmallRational) {
-	assert.Equal(t, len(a), len(b))
+func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
 	for i := range a {
 		if !a[i].Equal(&b[i]) {
-			t.Error(a[i].String(), "≠", b[i].String())
+			return fmt.Errorf("at index %d: %s ≠ %s", i, a[i].String(), b[i].String())
 		}
 	}
+	return nil
 }
 
 func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
@@ -467,7 +472,7 @@ func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
 			assert.Equal(t, len(y.PartialSumPolys), len(ySeen.PartialSumPolys))
 			for k, z := range y.PartialSumPolys {
 				zSeen := ySeen.PartialSumPolys[k]
-				assertSliceEquals(t, z, zSeen)
+				assert.NoError(t, sliceEquals(z, zSeen))
 			}
 		}
 	}
@@ -529,4 +534,15 @@ func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res sma
 
 func (m mimcCipherGate) Degree() int {
 	return 7
+}
+
+func TestHash(t *testing.T) {
+	m := getHash(t, "../../rational_cases/resources/hash.json")
+	var one, two, negFour small_rational.SmallRational
+	one.SetOne()
+	two.SetInt64(2)
+	negFour.SetInt64(-4)
+
+	h := m.hash(&one, &two)
+	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
 }
