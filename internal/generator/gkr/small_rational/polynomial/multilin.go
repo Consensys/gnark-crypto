@@ -175,16 +175,16 @@ func init() {
 	lagrangeBasis[1][0][0].SetOne()
 
 	//for size ≥ 2, the function works
-	//for size := uint8(2); size <= maxLagrangeDomainSize; size++ {
-	//lagrangeBasis[size] = computeLagrangeBasis(size)
-	//}
+	for size := uint8(2); size <= maxLagrangeDomainSize; size++ {
+		lagrangeBasis[size] = computeLagrangeBasis(size)
+	}
 }
 
 func getLagrangeBasis(domainSize int) []Polynomial {
 	//TODO: Precompute everything at init or this?
-	if lagrangeBasis[domainSize] == nil {
-		lagrangeBasis[domainSize] = computeLagrangeBasis(uint8(domainSize))
-	}
+	/*if lagrangeBasis[domainSize] == nil {
+		lagrangeBasis[domainSize] = computeLagrangeBasis(domainSize)
+	}*/
 	return lagrangeBasis[domainSize]
 }
 

@@ -20,8 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
-
-	"math/big"
 	"strings"
 )
 
@@ -167,18 +165,6 @@ func (p Polynomial) SetZero() {
 	}
 }
 
-func signedBigInt(v *fr.Element) big.Int {
-	var i big.Int
-	v.ToBigIntRegular(&i)
-	var iDouble big.Int
-	iDouble.Lsh(&i, 1)
-	if iDouble.Cmp(fr.Modulus()) > 0 {
-		i.Sub(fr.Modulus(), &i)
-		i.Neg(&i)
-	}
-	return i
-}
-
 func (p Polynomial) Text(base int) string {
 
 	var builder strings.Builder
@@ -189,12 +175,13 @@ func (p Polynomial) Text(base int) string {
 			continue
 		}
 
-		i := signedBigInt(&p[d])
+		pD := p[d]
+		pDText := pD.Text(base)
 
 		initialLen := builder.Len()
 
-		if i.Sign() < 1 {
-			i.Neg(&i)
+		if pDText[0] == '-' {
+			pDText = pDText[1:]
 			if first {
 				builder.WriteString("-")
 			} else {
@@ -206,13 +193,8 @@ func (p Polynomial) Text(base int) string {
 
 		first = false
 
-		asInt64 := int64(0)
-		if i.IsInt64() {
-			asInt64 = i.Int64()
-		}
-
-		if asInt64 != 1 || d == 0 {
-			builder.WriteString(i.Text(base))
+		if !pD.IsOne() || d == 0 {
+			builder.WriteString(pDText)
 		}
 
 		if builder.Len()-initialLen > 10 {

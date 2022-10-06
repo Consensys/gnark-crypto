@@ -75,7 +75,7 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 	challenges := make([]small_rational.SmallRational, varsNum)
 
 	for j := 0; j+1 < varsNum; j++ {
-		challenges[j] = transcript.Next(proof.PartialSumPolys[j])
+		challenges[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 

@@ -17,7 +17,6 @@
 package gkr
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/sumcheck"
@@ -275,7 +274,7 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation fr.Element) {
 	m.numClaims++
 	if m.numClaims%claimsPerLog == 0 {
-		fmt.Println("GKR:", m.numClaims, "total claims")
+		//fmt.Println("GKR:", m.numClaims, "total claims")
 	}
 	if wire.IsInput() {
 		wire.Gate = identityGate{}
@@ -330,7 +329,7 @@ const claimsPerLog = 2
 func (m *claimsManager) deleteClaim(wire *Wire) {
 	m.numClaims--
 	if m.numClaims%claimsPerLog == 0 {
-		fmt.Println("GKR:", m.numClaims, "total claims")
+		//fmt.Println("GKR:", m.numClaims, "total claims")
 	}
 	delete(m.claimsMap, wire)
 }
@@ -350,7 +349,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
 	}
 
-	fmt.Println("GKR: Assigned first claims")
+	//fmt.Println("GKR: Assigned first claims")
 
 	for layerI, layer := range c {
 		proof[layerI] = make([]sumcheck.Proof, len(layer))

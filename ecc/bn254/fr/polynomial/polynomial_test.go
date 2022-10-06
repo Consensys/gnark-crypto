@@ -17,6 +17,7 @@
 package polynomial
 
 import (
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 
@@ -205,4 +206,14 @@ func TestPolynomialAdd(t *testing.T) {
 	if !_f2.Equal(f2Backup) {
 		t.Fatal("side effect, _f2 should not have been modified")
 	}
+}
+
+func TestPolynomialText(t *testing.T) {
+	var one, negTwo fr.Element
+	one.SetOne()
+	negTwo.SetInt64(-2)
+
+	p := Polynomial{one, negTwo, one}
+
+	assert.Equal(t, "X² - 2X + 1", p.Text(10))
 }

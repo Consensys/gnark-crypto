@@ -52,12 +52,12 @@ func TestSingleInputTwoIdentityGates(t *testing.T) {
 	testManyInstances(t, 2, testSingleInputTwoIdentityGates)
 }
 
-func TestSingleInputTwoEqualityGatesComposedTwoInstances(t *testing.T) {
-	testSingleInputTwoEqualityGatesComposed(t, []fr.Element{two, one})
+func TestSingleInputTwoIdentityGatesComposedTwoInstances(t *testing.T) {
+	testSingleInputTwoIdentityGatesComposed(t, []fr.Element{two, one})
 }
 
-func TestSingleInputTwoEqualityGatesComposed(t *testing.T) {
-	testManyInstances(t, 1, testSingleInputTwoEqualityGatesComposed)
+func TestSingleInputTwoIdentityGatesComposed(t *testing.T) {
+	testManyInstances(t, 1, testSingleInputTwoIdentityGatesComposed)
 }
 
 func TestSingleMimcCipherGateTwoInstances(t *testing.T) {
@@ -320,7 +320,7 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
 	t.Log("Unsuccessful verification complete")
 }
 
-func testSingleInputTwoEqualityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
+func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
 
 	c[2] = CircuitLayer{{

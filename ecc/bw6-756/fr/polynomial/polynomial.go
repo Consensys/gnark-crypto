@@ -20,8 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
-
-	"math/big"
 	"strings"
 )
 
@@ -167,18 +165,6 @@ func (p Polynomial) SetZero() {
 	}
 }
 
-func signedBigInt(v *fr.Element) big.Int {
-	var i big.Int
-	v.ToBigIntRegular(&i)
-	var iDouble big.Int
-	iDouble.Lsh(&i, 1)
-	if iDouble.Cmp(fr.Modulus()) > 0 {
-		i.Sub(fr.Modulus(), &i)
-		i.Neg(&i)
-	}
-	return i
-}
-
 func (p Polynomial) Text(base int) string {
 
 	var builder strings.Builder
@@ -189,7 +175,7 @@ func (p Polynomial) Text(base int) string {
 			continue
 		}
 
-		i := signedBigInt(&p[d])
+		i := p[d]
 
 		initialLen := builder.Len()
 
@@ -206,12 +192,7 @@ func (p Polynomial) Text(base int) string {
 
 		first = false
 
-		asInt64 := int64(0)
-		if i.IsInt64() {
-			asInt64 = i.Int64()
-		}
-
-		if asInt64 != 1 || d == 0 {
+		if !i.IsOne() || d == 0 {
 			builder.WriteString(i.Text(base))
 		}
 

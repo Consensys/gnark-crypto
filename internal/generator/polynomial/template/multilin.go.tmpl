@@ -191,7 +191,7 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	for l := uint8(0); l < domainSize; l++ {
 
 		// TODO: Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
-		d := uint8(0) //n is the current degree of res
+		d := uint8(0) //d is the current degree of res
 		for i := uint8(0); i < domainSize; i++ {
 			if i == l {
 				continue

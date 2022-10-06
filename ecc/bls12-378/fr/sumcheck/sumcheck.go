@@ -45,8 +45,18 @@ type LazyClaims interface {
 
 // Proof of a multi-sumcheck statement.
 type Proof struct {
-	PartialSumPolys []polynomial.Polynomial
-	FinalEvalProof  interface{} //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
+	PartialSumPolys []polynomial.Polynomial `json:"partialSumPolys"`
+	FinalEvalProof  interface{}             `json:"finalEvalProof"` //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
+}
+
+// TODO: User unfriendly. Fix
+func elementSliceToInterfaceSlice(elementSlice []fr.Element) (interfaceSlice []interface{}) {
+
+	interfaceSlice = make([]interface{}, len(elementSlice))
+	for i := range elementSlice {
+		interfaceSlice[i] = &elementSlice[i]
+	}
+	return
 }
 
 // Prove create a non-interactive sumcheck proof
@@ -65,11 +75,11 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 	challenges := make([]fr.Element, varsNum)
 
 	for j := 0; j+1 < varsNum; j++ {
-		challenges[j] = transcript.Next(proof.PartialSumPolys[j])
+		challenges[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	challenges[varsNum-1] = transcript.Next(proof.PartialSumPolys[varsNum-1])
+	challenges[varsNum-1] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[varsNum-1])...)
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
@@ -104,7 +114,7 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) boo
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.Next(proof.PartialSumPolys[j])
+		r[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
