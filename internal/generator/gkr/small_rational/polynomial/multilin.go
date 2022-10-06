@@ -175,16 +175,16 @@ func init() {
 	lagrangeBasis[1][0][0].SetOne()
 
 	//for size ≥ 2, the function works
-	for size := uint8(2); size <= maxLagrangeDomainSize; size++ {
-		lagrangeBasis[size] = computeLagrangeBasis(size)
-	}
+	//for size := uint8(2); size <= maxLagrangeDomainSize; size++ {
+	//lagrangeBasis[size] = computeLagrangeBasis(size)
+	//}
 }
 
 func getLagrangeBasis(domainSize int) []Polynomial {
 	//TODO: Precompute everything at init or this?
-	/*if lagrangeBasis[domainSize] == nil {
-		lagrangeBasis[domainSize] = computeLagrangeBasis(domainSize)
-	}*/
+	if lagrangeBasis[domainSize] == nil {
+		lagrangeBasis[domainSize] = computeLagrangeBasis(uint8(domainSize))
+	}
 	return lagrangeBasis[domainSize]
 }
 
@@ -209,7 +209,7 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	for l := uint8(0); l < domainSize; l++ {
 
 		// TODO: Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
-		d := uint8(0) //n is the current degree of res
+		d := uint8(0) //d is the current degree of res
 		for i := uint8(0); i < domainSize; i++ {
 			if i == l {
 				continue

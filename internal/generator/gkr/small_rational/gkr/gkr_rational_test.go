@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -89,9 +90,34 @@ func TestLoadHash(t *testing.T) {
 	fmt.Println(s.Text(10))
 }
 
-var hashCache = make(map[string]map[pair]small_rational.SmallRational)
+type RationalTriplet struct {
+	key1        small_rational.SmallRational
+	key2        small_rational.SmallRational
+	key2Present bool
+	value       small_rational.SmallRational
+}
 
-func getHash(t *testing.T, path string) map[pair]small_rational.SmallRational {
+func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
+	if cmp1 := t.key1.Cmp(&o.key1); cmp1 != 0 {
+		return cmp1
+	}
+
+	if t.key2Present {
+		if o.key2Present {
+			return t.key2.Cmp(&o.key2)
+		}
+		return 1
+	} else {
+		if o.key2Present {
+			return -1
+		}
+		return 0
+	}
+}
+
+var hashCache = make(map[string][]*RationalTriplet)
+
+func getHash(t *testing.T, path string) []*RationalTriplet {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		t.Error(err)
@@ -105,7 +131,7 @@ func getHash(t *testing.T, path string) map[pair]small_rational.SmallRational {
 			t.Error(err)
 		}
 
-		res := make(map[pair]small_rational.SmallRational)
+		res := make([]*RationalTriplet, 0, len(asMap))
 
 		for k, v := range asMap {
 			var value small_rational.SmallRational
@@ -114,25 +140,31 @@ func getHash(t *testing.T, path string) map[pair]small_rational.SmallRational {
 			}
 
 			key := strings.Split(k, ",")
-			var pair pair
+			var entry RationalTriplet
 			switch len(key) {
 			case 1:
-				pair.secondPresent = false
+				entry.key2Present = false
 			case 2:
-				pair.secondPresent = true
-				if _, err := pair.second.Set(key[1]); err != nil {
+				entry.key2Present = true
+				if _, err := entry.key2.Set(key[1]); err != nil {
 					t.Error(err)
 				}
 			default:
-				t.Error(fmt.Errorf("cannot parse %T as one or two field elements", v))
+				t.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := pair.first.Set(key[0]); err != nil {
+			if _, err := entry.key1.Set(key[0]); err != nil {
 				t.Error(err)
 			}
 
-			res[pair] = value
+			res = append(res, &entry)
 		}
+
+		sort.Slice(res, func(i, j int) bool {
+			return res[i].CmpKey(res[j]) <= 0
+		})
+
 		hashCache[path] = res
+
 		return res
 
 	} else {
@@ -141,31 +173,28 @@ func getHash(t *testing.T, path string) map[pair]small_rational.SmallRational {
 	return nil //Unreachable
 }
 
-type pair struct {
-	first         small_rational.SmallRational
-	second        small_rational.SmallRational
-	secondPresent bool
-}
-
 type MapHashTranscript struct {
-	hashMap         map[pair]small_rational.SmallRational
+	hashMap         []*RationalTriplet
 	stateValid      bool
 	resultAvailable bool
 	state           small_rational.SmallRational
 }
 
 func (m *MapHashTranscript) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
-	// Not too concerned with efficiency
-	for k, v := range m.hashMap {
-		if k.first.Equal(x) {
-			if y == nil {
-				if !k.secondPresent {
-					return v
-				}
-			} else if k.secondPresent && k.second.Equal(y) {
-				return v
-			}
-		}
+
+	toFind := RationalTriplet{
+		key1:        *x,
+		key2Present: y != nil,
+	}
+
+	if y != nil {
+		toFind.key2 = *y
+	}
+
+	i := sort.Search(len(m.hashMap), func(i int) bool { return m.hashMap[i].CmpKey(&toFind) >= 0 })
+
+	if i < len(m.hashMap) && m.hashMap[i].CmpKey(&toFind) == 0 {
+		return m.hashMap[i].value
 	}
 
 	if y == nil {
@@ -316,7 +345,7 @@ type ParsedTestCase struct {
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
 	Proof           Proof
-	Hash            map[pair]small_rational.SmallRational
+	Hash            []*RationalTriplet
 	Circuit         Circuit
 }
 

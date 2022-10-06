@@ -17,7 +17,7 @@
 package polynomial
 
 import (
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/rational_cases/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -74,6 +74,19 @@ func TestFoldBilinear(t *testing.T) {
 	}
 }
 
+func TestPrecomputeLagrangeAt3(t *testing.T) {
+	polys := computeLagrangeBasis(3)
+
+	expectedPoly := make(Polynomial, 3)
+
+	// \delta_0 = X^2/2 - 3/2X + 1
+	expectedPoly[0].Set(1)
+	expectedPoly[1].Set("-3/2")
+	expectedPoly[2].Set("1/2")
+
+	assert.True(t, polys[0].Equal(expectedPoly), "expected X²/2 - 3/2X + 1, saw %s", polys[0].Text(10))
+}
+
 func TestPrecomputeLagrange(t *testing.T) {
 
 	testForDomainSize := func(domainSize uint8) bool {
@@ -97,13 +110,15 @@ func TestPrecomputeLagrange(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 
-	parameters.MinSuccessfulTests = int(maxLagrangeDomainSize)
+	const numTests = 3 //int(maxLagrangeDomainSize)
+
+	parameters.MinSuccessfulTests = numTests
 
 	properties := gopter.NewProperties(parameters)
 
 	properties.Property("l'th lagrange polynomials must evaluate to 1 on l and 0 on other values in the domain", prop.ForAll(
 		testForDomainSize,
-		gen.UInt8Range(2, maxLagrangeDomainSize),
+		gen.UInt8Range(2, numTests),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -149,39 +164,32 @@ func TestEvalEq(t *testing.T) {
 	assert.Equal(t, "-4", eq.Text(10))
 }
 
+// TODO: Delete this or TestFoldedEqTable
 func TestEvalEqs(t *testing.T) {
 	x := make([]small_rational.SmallRational, 2)
 	x[0].SetInt64(2)
 	x[1].SetInt64(3)
 
-	eqX := make([]small_rational.SmallRational, 4)
-	y := make([]small_rational.SmallRational, 2)
-
-	var one small_rational.SmallRational
+	var one, zero small_rational.SmallRational
 	one.SetOne()
-
-	for p0 := 0; p0 < 2; p0++ {
-		y[1].SetZero()
-		for p1 := 0; p1 < 2; p1++ {
-			eqX[p0*2+p1] = EvalEq(x, y)
-			y[1].Add(&y[1], &one)
-		}
-		y[0].Add(&y[0], &one)
-	}
 
 	var expected small_rational.SmallRational
 
 	expected.SetInt64(2)
-	assert.Equal(t, expected.Text(10), eqX[0].Text(10), 0)
+	seen := EvalEq(x, []small_rational.SmallRational{zero, zero})
+	assert.True(t, seen.Equal(&expected), "Expected Eq({2,3}, {0,0}) = 2, saw %s", seen.Text(10))
 
 	expected.SetInt64(-3)
-	assert.Equal(t, expected.Text(10), eqX[1].Text(10), 1)
+	seen = EvalEq(x, []small_rational.SmallRational{zero, one})
+	assert.True(t, seen.Equal(&expected), "Expected Eq({2,3}, {0,1}) = -3, saw %s", seen.Text(10))
 
 	expected.SetInt64(-4)
-	assert.Equal(t, expected.Text(10), eqX[2].Text(10), 2)
+	seen = EvalEq(x, []small_rational.SmallRational{one, zero})
+	assert.True(t, seen.Equal(&expected), "Expected Eq({2,3}, {1,0}) = -4, saw %s", seen.Text(10))
 
 	expected.SetInt64(6)
-	assert.Equal(t, expected.Text(10), eqX[3].Text(10), 3)
+	seen = EvalEq(x, []small_rational.SmallRational{one, one})
+	assert.True(t, seen.Equal(&expected), "Expected Eq({2,3}, {1,1}) = 6, saw %s", seen.Text(10))
 }
 
 func TestFoldedEqTable(t *testing.T) {
@@ -209,7 +217,7 @@ func TestFoldedEqTable(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		assert.Equal(t, eqXpected[i].Text(10), eqX[i].Text(10), "folded table disagrees with EqEval", i)
+		assert.Equal(t, eqXpected[i].Text(10), eqX[i].Text(10), "folded table disagrees with EqEval %d", i)
 	}
 
 }
@@ -223,16 +231,9 @@ func TestEq2(t *testing.T) {
 
 	eqX.Eq([]small_rational.SmallRational{x})
 
-	expectedEqX := MultiLin{
-		{
-			Numerator:   -2,
-			Denominator: 1,
-		},
-		{
-			Numerator:   3,
-			Denominator: 1,
-		},
-	}
+	expectedEqX := make(MultiLin, 2)
+	expectedEqX[0].SetInt64(-2)
+	expectedEqX[1].SetInt64(3)
 
 	assert.Equal(t, expectedEqX, eqX)
 }

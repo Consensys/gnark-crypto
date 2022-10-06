@@ -7,25 +7,27 @@ import (
 
 func TestCmp(t *testing.T) {
 
+	const i = 4
+	var x [i]int
 	cases := make([]SmallRational, 36)
 
 	for i := int64(0); i < 9; i++ {
 		if i%2 == 0 {
-			cases[4*i].Numerator.SetInt64((i - 4) / 2)
-			cases[4*i].Denominator.SetInt64(1)
+			cases[4*i].numerator.SetInt64((i - 4) / 2)
+			cases[4*i].denominator.SetInt64(1)
 		} else {
-			cases[4*i].Numerator.SetInt64(i - 4)
-			cases[4*i].Denominator.SetInt64(2)
+			cases[4*i].numerator.SetInt64(i - 4)
+			cases[4*i].denominator.SetInt64(2)
 		}
 
-		cases[4*i+1].Numerator.Neg(&cases[4*i].Numerator)
-		cases[4*i+1].Denominator.Neg(&cases[4*i].Denominator)
+		cases[4*i+1].numerator.Neg(&cases[4*i].numerator)
+		cases[4*i+1].denominator.Neg(&cases[4*i].denominator)
 
-		cases[4*i+2].Numerator.Lsh(&cases[4*i].Numerator, 1)
-		cases[4*i+2].Denominator.Lsh(&cases[4*i].Denominator, 1)
+		cases[4*i+2].numerator.Lsh(&cases[4*i].numerator, 1)
+		cases[4*i+2].denominator.Lsh(&cases[4*i].denominator, 1)
 
-		cases[4*i+3].Numerator.Neg(&cases[4*i+2].Numerator)
-		cases[4*i+3].Denominator.Neg(&cases[4*i+2].Denominator)
+		cases[4*i+3].numerator.Neg(&cases[4*i+2].numerator)
+		cases[4*i+3].denominator.Neg(&cases[4*i+2].denominator)
 	}
 
 	for i := range cases {
@@ -62,4 +64,32 @@ func TestCmp(t *testing.T) {
 		assert.Equal(t, expectedCmp, cmp, "comparing index %d, 0/0", i)
 		assert.Equal(t, -expectedCmp, cmpNeg, "comparing 0/0, index %d", i)
 	}
+}
+
+func TestDouble(t *testing.T) {
+	values := []interface{}{1, 2, 3, 4, 5, "2/3", "3/2", "-3/-2"}
+	valsDoubled := []interface{}{2, 4, 6, 8, 10, "-4/-3", 3, 3}
+
+	for i := range values {
+		var v, vDoubled, vDoubledExpected SmallRational
+		_, err := v.Set(values[i])
+		assert.NoError(t, err)
+		_, err = vDoubledExpected.Set(valsDoubled[i])
+		assert.NoError(t, err)
+		vDoubled.Double(&v)
+		assert.True(t, vDoubled.Equal(&vDoubledExpected),
+			"mismatch at %d: expected 2×%s = %s, saw %s", i, v.text, vDoubledExpected.text, vDoubled.text)
+
+	}
+}
+
+func TestOperandConstancy(t *testing.T) {
+	var p0, p, pPure SmallRational
+	p0.SetInt64(1)
+	p.SetInt64(-3)
+	pPure.SetInt64(-3)
+
+	res := p
+	res.Add(&res, &p0)
+	assert.True(t, p.Equal(&pPure))
 }
