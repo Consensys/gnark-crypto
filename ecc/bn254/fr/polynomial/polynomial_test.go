@@ -17,7 +17,6 @@
 package polynomial
 
 import (
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 

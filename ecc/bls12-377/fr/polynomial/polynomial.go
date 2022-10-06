@@ -175,12 +175,13 @@ func (p Polynomial) Text(base int) string {
 			continue
 		}
 
-		i := p[d]
+		pD := p[d]
+		pDText := pD.Text(base)
 
 		initialLen := builder.Len()
 
-		if i.Sign() < 1 {
-			i.Neg(&i)
+		if pDText[0] == '-' {
+			pDText = pDText[1:]
 			if first {
 				builder.WriteString("-")
 			} else {
@@ -192,8 +193,8 @@ func (p Polynomial) Text(base int) string {
 
 		first = false
 
-		if !i.IsOne() || d == 0 {
-			builder.WriteString(i.Text(base))
+		if !pD.IsOne() || d == 0 {
+			builder.WriteString(pDText)
 		}
 
 		if builder.Len()-initialLen > 10 {

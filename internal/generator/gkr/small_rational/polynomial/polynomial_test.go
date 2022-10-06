@@ -47,3 +47,13 @@ func TestEval1(t *testing.T) {
 	assert.True(t, c.Equal(&expectedC))
 	assert.True(t, p[1].Equal(&expectedP[1]), "evaluation shouldn't modify a polynomial. p[1] changed to %s", p[1].Text(10))
 }
+
+func TestPolynomialText(t *testing.T) {
+	var one, negTwo small_rational.SmallRational
+	one.SetOne()
+	negTwo.SetInt64(-2)
+
+	p := Polynomial{one, negTwo, one}
+
+	assert.Equal(t, "X² - 2X + 1", p.Text(10))
+}
