@@ -17,7 +17,6 @@
 package secp256k1
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -396,57 +395,6 @@ func TestG1AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineBatchScalarMultiplication(t *testing.T) {
-
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	genScalar := GenFr()
-
-	// size of the multiExps
-	const nbSamples = 10
-
-	properties.Property("[SECP256K1] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
-		func(mixer fr.Element) bool {
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
-			}
-
-			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
-
-			if len(result) != len(sampleScalars) {
-				return false
-			}
-
-			for i := 0; i < len(result); i++ {
-				var expectedJac G1Jac
-				var expected G1Affine
-				var b big.Int
-				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
-				expected.FromJacobian(&expectedJac)
-				if !result[i].Equal(&expected) {
-					return false
-				}
-			}
-			return true
-		},
-		genScalar,
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
 // ------------------------------------------------------------
 // benches
 
@@ -458,34 +406,6 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
-}
-
-func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
-	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-
-	const pow = 15
-	const nbSamples = 1 << pow
-
-	var sampleScalars [nbSamples]fr.Element
-
-	for i := 1; i <= nbSamples; i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
-	}
-
-	for i := 5; i <= pow; i++ {
-		using := 1 << i
-
-		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				_ = BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:using])
-			}
-		})
-	}
 }
 
 func BenchmarkG1JacScalarMultiplication(b *testing.B) {
