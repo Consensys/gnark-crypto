@@ -30,23 +30,34 @@ func (z *SmallRational) UpdateText() {
 }
 
 func (z *SmallRational) simplify() {
-	// factoring 64bit numbers can be practical, TODO: Sophisticated algorithm?
 
 	if z.numerator.BitLen() == 0 || z.denominator.BitLen() == 0 {
 		return
 	}
 
+	var num, den big.Int
+
+	num.Set(&z.numerator)
+	den.Set(&z.denominator)
+
 	for _, p := range smallPrimes {
-		for bigDivides(p, &z.numerator) && bigDivides(p, &z.denominator) {
-			z.numerator.Div(&z.numerator, p)
-			z.denominator.Div(&z.denominator, p)
+		for bigDivides(p, &num) && bigDivides(p, &den) {
+			num.Div(&num, p)
+			den.Div(&den, p)
 		}
 	}
 
+	z.numerator = num
+	z.denominator = den
+
 }
 func (z *SmallRational) Square(x *SmallRational) *SmallRational {
-	z.numerator.Mul(&x.numerator, &x.numerator)
-	z.denominator.Mul(&x.denominator, &x.denominator)
+	var num, den big.Int
+	num.Mul(&x.numerator, &x.numerator)
+	den.Mul(&x.denominator, &x.denominator)
+
+	x.numerator = num
+	x.denominator = den
 
 	z.UpdateText()
 
@@ -114,11 +125,16 @@ func (z *SmallRational) Neg(x *SmallRational) *SmallRational {
 }
 
 func (z *SmallRational) Double(x *SmallRational) *SmallRational {
+
+	var y big.Int
+
 	if x.denominator.Bit(0) == 0 {
 		z.numerator = x.numerator
-		z.denominator.Rsh(&x.denominator, 1)
+		y.Rsh(&x.denominator, 1)
+		z.denominator = y
 	} else {
-		z.numerator.Lsh(&x.numerator, 1)
+		y.Lsh(&x.numerator, 1)
+		z.numerator = y
 		z.denominator = x.denominator
 	}
 
@@ -153,9 +169,9 @@ func (z *SmallRational) Sub(x, y *SmallRational) *SmallRational {
 	return z
 }
 
-func (z *SmallRational) ToBigIntRegular(*big.Int) big.Int {
+/*func (z *SmallRational) ToBigIntRegular(*big.Int) big.Int {
 	panic("Not implemented")
-}
+}*/
 
 func (z *SmallRational) Cmp(x *SmallRational) int {
 	zSign, xSign := z.Sign(), x.Sign()
@@ -187,8 +203,14 @@ func BatchInvert(a []SmallRational) []SmallRational {
 }
 
 func (z *SmallRational) Mul(x, y *SmallRational) *SmallRational {
-	z.numerator.Mul(&x.numerator, &y.numerator)
-	z.denominator.Mul(&x.denominator, &y.denominator)
+	var num, den big.Int
+
+	num.Mul(&x.numerator, &y.numerator)
+	den.Mul(&x.denominator, &y.denominator)
+
+	z.numerator = num
+	z.denominator = den
+
 	z.simplify()
 	z.UpdateText()
 	return z
@@ -203,8 +225,8 @@ func (z *SmallRational) SetZero() *SmallRational {
 }
 
 func (z *SmallRational) SetInt64(i int64) *SmallRational {
-	z.numerator.SetInt64(i)
-	z.denominator.SetInt64(1)
+	z.numerator = *big.NewInt(i)
+	z.denominator = *big.NewInt(1)
 	z.text = strconv.FormatInt(i, 10)
 	return z
 }
@@ -220,8 +242,8 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 		return nil, fmt.Errorf("%d bytes read instead of %d", n, len(bytes))
 	}
 
-	z.numerator.SetInt64(int64(bytes[0]%16) - 8)
-	z.denominator.SetInt64(int64((bytes[0]) / 16))
+	z.numerator = *big.NewInt(int64(bytes[0]%16) - 8)
+	z.denominator = *big.NewInt(int64((bytes[0]) / 16))
 
 	z.simplify()
 	z.UpdateText()
@@ -230,8 +252,10 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 }
 
 func (z *SmallRational) SetUint64(i uint64) {
-	z.numerator.SetUint64(i)
-	z.denominator.SetUint64(1)
+	var num big.Int
+	num.SetUint64(i)
+	z.numerator = num
+	z.denominator = *big.NewInt(1)
 	z.text = strconv.FormatUint(i, 10)
 }
 
@@ -246,13 +270,18 @@ func (z *SmallRational) Text(base int) string {
 	}
 
 	if z.denominator.Sign() < 0 {
-		z.numerator.Neg(&z.numerator)
-		z.denominator.Neg(&z.denominator)
+		var num, den big.Int
+		num.Neg(&z.numerator)
+		den.Neg(&z.denominator)
+		z.numerator = num
+		z.denominator = den
 	}
 
 	if bigDivides(&z.denominator, &z.numerator) {
-		z.numerator.Div(&z.numerator, &z.denominator)
-		z.denominator.SetInt64(1)
+		var num big.Int
+		num.Div(&z.numerator, &z.denominator)
+		z.numerator = num
+		z.denominator = *big.NewInt(1)
 	}
 
 	numerator := z.numerator.Text(base)
@@ -300,8 +329,8 @@ func (z *SmallRational) Set(x interface{}) (*SmallRational, error) {
 			if err != nil {
 				return nil, err
 			}
-			z.numerator.SetInt64(int64(num))
-			z.denominator.SetInt64(int64(denom))
+			z.numerator = *big.NewInt(int64(num))
+			z.denominator = *big.NewInt(int64(denom))
 		default:
 			return nil, fmt.Errorf("cannot parse \"%s\"", v)
 		}
