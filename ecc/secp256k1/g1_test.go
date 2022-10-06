@@ -18,6 +18,7 @@ package secp256k1
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
@@ -25,6 +26,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+)
+
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
 )
 
 func TestG1AffineEndomorphism(t *testing.T) {
@@ -553,4 +559,47 @@ func fuzzg1JacExtended(p *g1JacExtended, f fp.Element) g1JacExtended {
 	res.ZZ.Mul(&p.ZZ, &ff)
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
+}
+
+// define Gopters generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := rand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
+	}
 }
