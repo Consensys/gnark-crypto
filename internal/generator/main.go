@@ -38,6 +38,7 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 //go:generate go run main.go
 func main() {
 	var wg sync.WaitGroup
+
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
@@ -91,9 +92,6 @@ func main() {
 			// generate gkr on fr
 			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), true, bgen))
 
-			// test cases for gkr
-			assertNoError(gkr.GenerateForRationals(bgen))
-
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
@@ -125,11 +123,24 @@ func main() {
 
 	}
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// test case generator for gkr
+		assertNoError(gkr.GenerateForRationals(bgen))
+	}()
+
 	wg.Wait()
+
+	// generate test cases for gkr
+	cmd := exec.Command("go", "run", filepath.Join(baseDir, "internal/generator/gkr/rational_cases"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
 
 	// format the whole directory
 
-	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
+	cmd = exec.Command("gofmt", "-s", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())

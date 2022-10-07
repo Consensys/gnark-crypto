@@ -17,10 +17,10 @@
 package polynomial
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
-
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 func TestPolynomialEval(t *testing.T) {
