@@ -3,6 +3,7 @@ import (
 	"{{.FieldPackagePath}}"
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"strconv"
 	"testing"
@@ -468,3 +469,64 @@ func (m mimcCipherGate) Evaluate(input ...{{.ElementType}}) (res {{.ElementType}
 func (m mimcCipherGate) Degree() int {
 	return 7
 }
+
+func generateTestProver(path string) func(t *testing.T) {
+	return func(t *testing.T) {
+		testCase := newTestCase(t, path)
+		testCase.Transcript.Update(0)
+		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+		assertProofEquals(t, testCase.Proof, proof)
+	}
+}
+
+func generateTestVerifier(path string) func(t *testing.T) {
+	return func(t *testing.T) {
+		testCase := newTestCase(t, path)
+		testCase.Transcript.Update(0)
+		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+		assert.True(t, success)
+
+		testCase = newTestCase(t, path)
+		testCase.Transcript.Update(1)
+		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
+		assert.False(t, success)
+	}
+}
+
+func TestGkrVectors(t *testing.T) {
+
+	testDirPath := "../../rational_cases"
+	dirEntries, err := os.ReadDir(testDirPath)
+	if err != nil {
+		t.Error(err)
+	}
+	for _, dirEntry := range dirEntries {
+		if !dirEntry.IsDir() {
+
+			if filepath.Ext(dirEntry.Name()) == ".json" {
+				path := filepath.Join(testDirPath, dirEntry.Name())
+				noExt := dirEntry.Name()[:len(dirEntry.Name())-len(".json")]
+
+				t.Run(noExt+"_prover", generateTestProver(path))
+				t.Run(noExt+"_verifier", generateTestVerifier(path))
+
+			}
+		}
+	}
+}
+
+func TestTestHash(t *testing.T) {
+	m := getHash(t, "../../rational_cases/resources/hash.json")
+	var one, two, negFour small_rational.SmallRational
+	one.SetOne()
+	two.SetInt64(2)
+	negFour.SetInt64(-4)
+
+	h := m.hash(&one, &two)
+	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
+}
+
+{{template "testVectorCache" .}}
+{{template "circuitCache" .}}
+{{template "testHash" .}}
+{{template "serializationUtils" .}}

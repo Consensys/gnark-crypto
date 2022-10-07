@@ -90,7 +90,11 @@ func main() {
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 
 			// generate gkr on fr
-			assertNoError(gkr.Generate(frInfo, filepath.Join(curveDir, "fr", "gkr"), true, bgen))
+			assertNoError(gkr.Generate(gkr.Config{
+				FieldDependency:         frInfo,
+				GenerateLargeTests:      true,
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/rational_cases",
+			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))

@@ -1,87 +1,4 @@
-package gkr
-
-import (
-	"encoding/json"
-	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/sumcheck"
-	"github.com/stretchr/testify/assert"
-	"os"
-	"path/filepath"
-	"reflect"
-	"sort"
-	"strings"
-	"testing"
-)
-
-func generateTestProver(path string) func(t *testing.T) {
-	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
-		testCase.Transcript.Update(0)
-		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-
-		{
-			/*serialized, err := json.Marshal(proof)
-			assert.NoError(t, err)
-			fmt.Println(string(serialized))*/
-		}
-
-		assertProofEquals(t, testCase.Proof, proof)
-	}
-}
-
-func generateTestVerifier(path string) func(t *testing.T) {
-	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
-		testCase.Transcript.Update(0)
-		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-		assert.True(t, success)
-
-		testCase = newTestCase(t, path)
-		testCase.Transcript.Update(1)
-		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-		assert.False(t, success)
-	}
-}
-
-func TestGkr(t *testing.T) {
-
-	testDirPath := "../../rational_cases"
-	dirEntries, err := os.ReadDir(testDirPath)
-	if err != nil {
-		t.Error(err)
-	}
-	for _, dirEntry := range dirEntries {
-		if !dirEntry.IsDir() {
-
-			if filepath.Ext(dirEntry.Name()) == ".json" {
-				path := filepath.Join(testDirPath, dirEntry.Name())
-				noExt := dirEntry.Name()[:len(dirEntry.Name())-len(".json")]
-
-				t.Run(noExt+"_prover", generateTestProver(path))
-				t.Run(noExt+"_verifier", generateTestVerifier(path))
-
-			}
-		}
-	}
-}
-
-func TestLoadCircuit(t *testing.T) {
-	if getCircuit(t, "../../rational_cases/resources/single_identity_gate.json") == nil {
-		t.Fail()
-	}
-}
-
-func TestLoadHash(t *testing.T) {
-	h := MapHashTranscript{hashMap: getHash(t, "../../rational_cases/resources/hash.json")}
-
-	var one small_rational.SmallRational
-	one.SetOne()
-	s := h.Next(one)
-	fmt.Println(s.Text(10))
-}
-
+{{define "testHash"}}
 type RationalTriplet struct {
 	key1        small_rational.SmallRational
 	key2        small_rational.SmallRational
@@ -246,6 +163,9 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 
 	return res
 }
+{{end}}
+
+{{define "circuitCache"}}
 
 type WireInfo struct {
 	Gate   string  `json:"gate"`
@@ -318,6 +238,115 @@ func init() {
 	gates["mul"] = mulGate{}
 	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
 }
+
+type mimcCipherGate struct {
+	ark small_rational.SmallRational
+}
+
+func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
+	var sum small_rational.SmallRational
+
+	sum.
+		Add(&input[0], &input[1]).
+		Add(&sum, &m.ark)
+
+	res.Square(&sum)    // sum^2
+	res.Mul(&res, &sum) // sum^3
+	res.Square(&res)    //sum^6
+	res.Mul(&res, &sum) //sum^7
+
+	return
+}
+
+func (m mimcCipherGate) Degree() int {
+	return 7
+}
+
+{{end}}
+
+{{define "serializationUtils"}}
+
+func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
+	elementSlice = make([]small_rational.SmallRational, len(slice))
+	for i, v := range slice {
+		if _, err := elementSlice[i].Set(v); err != nil {
+			t.Error(err)
+		}
+	}
+	return
+}
+
+func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
+	for i := range a {
+		if !a[i].Equal(&b[i]) {
+			return fmt.Errorf("at index %d: %s ≠ %s", i, a[i].String(), b[i].String())
+		}
+	}
+	return nil
+}
+
+func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
+	assert.Equal(t, len(expected), len(seen))
+	for i, x := range expected {
+		xSeen := seen[i]
+		assert.Equal(t, len(x), len(xSeen))
+		for j, y := range x {
+			ySeen := xSeen[j]
+
+			if ySeen.FinalEvalProof == nil {
+				assert.Equal(t, 0, len(y.FinalEvalProof.([]small_rational.SmallRational)))
+			} else {
+				assert.Equal(t, y.FinalEvalProof, ySeen.FinalEvalProof)
+			}
+			assert.Equal(t, len(y.PartialSumPolys), len(ySeen.PartialSumPolys))
+			for k, z := range y.PartialSumPolys {
+				zSeen := ySeen.PartialSumPolys[k]
+				assert.NoError(t, sliceEquals(z, zSeen))
+			}
+		}
+	}
+}
+
+type PrintableProof [][]PrintableSumcheckProof
+
+type PrintableSumcheckProof struct {
+	FinalEvalProof  interface{}     `json:"finalEvalProof"`
+	PartialSumPolys [][]interface{} `json:"partialSumPolys"`
+}
+
+func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
+	proof = make(Proof, len(printable))
+	for i := range printable {
+		proof[i] = make([]sumcheck.Proof, len(printable[i]))
+		for j, printableSumcheck := range printable[i] {
+			finalEvalProof := []small_rational.SmallRational(nil)
+
+			if printableSumcheck.FinalEvalProof != nil {
+				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
+				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
+				for k := range finalEvalProof {
+					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
+					assert.NoError(t, err)
+				}
+			}
+
+			proof[i][j] = sumcheck.Proof{
+				PartialSumPolys: make([]polynomial.Polynomial, len(printableSumcheck.PartialSumPolys)),
+				FinalEvalProof:  finalEvalProof,
+			}
+			for k := range printableSumcheck.PartialSumPolys {
+				proof[i][j].PartialSumPolys[k] = sliceToElementSlice(t, printableSumcheck.PartialSumPolys[k])
+			}
+		}
+	}
+	return
+}
+{{end}}
+
+{{define "testVectorCache"}}
 
 type TestCase struct {
 	Circuit         Circuit
@@ -426,115 +455,4 @@ func newTestCase(t *testing.T, path string) *TestCase {
 	}
 }
 
-func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
-	elementSlice = make([]small_rational.SmallRational, len(slice))
-	for i, v := range slice {
-		if _, err := elementSlice[i].Set(v); err != nil {
-			t.Error(err)
-		}
-	}
-	return
-}
-
-func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
-	if len(a) != len(b) {
-		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
-	}
-	for i := range a {
-		if !a[i].Equal(&b[i]) {
-			return fmt.Errorf("at index %d: %s ≠ %s", i, a[i].String(), b[i].String())
-		}
-	}
-	return nil
-}
-
-func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
-	assert.Equal(t, len(expected), len(seen))
-	for i, x := range expected {
-		xSeen := seen[i]
-		assert.Equal(t, len(x), len(xSeen))
-		for j, y := range x {
-			ySeen := xSeen[j]
-
-			if ySeen.FinalEvalProof == nil {
-				assert.Equal(t, 0, len(y.FinalEvalProof.([]small_rational.SmallRational)))
-			} else {
-				assert.Equal(t, y.FinalEvalProof, ySeen.FinalEvalProof)
-			}
-			assert.Equal(t, len(y.PartialSumPolys), len(ySeen.PartialSumPolys))
-			for k, z := range y.PartialSumPolys {
-				zSeen := ySeen.PartialSumPolys[k]
-				assert.NoError(t, sliceEquals(z, zSeen))
-			}
-		}
-	}
-}
-
-type PrintableProof [][]PrintableSumcheckProof
-
-type PrintableSumcheckProof struct {
-	FinalEvalProof  interface{}     `json:"finalEvalProof"`
-	PartialSumPolys [][]interface{} `json:"partialSumPolys"`
-}
-
-func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
-	proof = make(Proof, len(printable))
-	for i := range printable {
-		proof[i] = make([]sumcheck.Proof, len(printable[i]))
-		for j, printableSumcheck := range printable[i] {
-			finalEvalProof := []small_rational.SmallRational(nil)
-
-			if printableSumcheck.FinalEvalProof != nil {
-				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
-				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
-				for k := range finalEvalProof {
-					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
-					assert.NoError(t, err)
-				}
-			}
-
-			proof[i][j] = sumcheck.Proof{
-				PartialSumPolys: make([]polynomial.Polynomial, len(printableSumcheck.PartialSumPolys)),
-				FinalEvalProof:  finalEvalProof,
-			}
-			for k := range printableSumcheck.PartialSumPolys {
-				proof[i][j].PartialSumPolys[k] = sliceToElementSlice(t, printableSumcheck.PartialSumPolys[k])
-			}
-		}
-	}
-	return
-}
-
-type mimcCipherGate struct {
-	ark small_rational.SmallRational
-}
-
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
-	var sum small_rational.SmallRational
-
-	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&res)    //sum^6
-	res.Mul(&res, &sum) //sum^7
-
-	return
-}
-
-func (m mimcCipherGate) Degree() int {
-	return 7
-}
-
-func TestHash(t *testing.T) {
-	m := getHash(t, "../../rational_cases/resources/hash.json")
-	var one, two, negFour small_rational.SmallRational
-	one.SetOne()
-	two.SetInt64(2)
-	negFour.SetInt64(-4)
-
-	h := m.hash(&one, &two)
-	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
-}
+{{end}}
