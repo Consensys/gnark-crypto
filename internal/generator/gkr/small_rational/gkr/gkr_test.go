@@ -17,12 +17,18 @@
 package gkr
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/sumcheck"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -462,29 +468,6 @@ func (m mulGate) Evaluate(element ...small_rational.SmallRational) (result small
 
 func (m mulGate) Degree() int {
 	return 2
-}
-
-type mimcCipherGate struct {
-	ark small_rational.SmallRational
-}
-
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
-	var sum small_rational.SmallRational
-
-	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&sum)    //sum^6
-	res.Mul(&res, &sum) //sum^7
-
-	return
-}
-
-func (m mimcCipherGate) Degree() int {
-	return 7
 }
 
 func generateTestProver(path string) func(t *testing.T) {

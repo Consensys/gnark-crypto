@@ -1,9 +1,9 @@
 {{define "testHash"}}
 type RationalTriplet struct {
-	key1        small_rational.SmallRational
-	key2        small_rational.SmallRational
+	key1        {{.ElementType}}
+	key2        {{.ElementType}}
 	key2Present bool
-	value       small_rational.SmallRational
+	value       {{.ElementType}}
 }
 
 func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
@@ -88,10 +88,10 @@ type MapHashTranscript struct {
 	hashMap         HashMap
 	stateValid      bool
 	resultAvailable bool
-	state           small_rational.SmallRational
+	state           {{.ElementType}}
 }
 
-func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m HashMap) hash(x *{{.ElementType}}, y *{{.ElementType}}) {{.ElementType}} {
 
 	toFind := RationalTriplet{
 		key1:        *x,
@@ -119,7 +119,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 	if len(i) > 0 {
 		for _, x := range i {
 
-			var xElement small_rational.SmallRational
+			var xElement {{.ElementType}}
 			if _, err := xElement.Set(x); err != nil {
 				panic(err.Error())
 			}
@@ -140,7 +140,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 	m.resultAvailable = true
 }
 
-func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational {
+func (m *MapHashTranscript) Next(i ...interface{}) {{.ElementType}} {
 
 	if len(i) > 0 || !m.resultAvailable {
 		m.Update(i...)
@@ -149,13 +149,13 @@ func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational 
 	return m.state
 }
 
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
+func (m *MapHashTranscript) NextN(N int, i ...interface{}) []{{.ElementType}} {
 
 	if len(i) > 0 {
 		m.Update(i...)
 	}
 
-	res := make([]small_rational.SmallRational, N)
+	res := make([]{{.ElementType}}, N)
 
 	for n := range res {
 		res[n] = m.Next()
@@ -240,11 +240,11 @@ func init() {
 }
 
 type mimcCipherGate struct {
-	ark small_rational.SmallRational
+	ark {{.ElementType}}
 }
 
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
-	var sum small_rational.SmallRational
+func (m mimcCipherGate) Evaluate(input ...{{.ElementType}}) (res {{.ElementType}}) {
+	var sum {{.ElementType}}
 
 	sum.
 		Add(&input[0], &input[1]).
@@ -266,8 +266,8 @@ func (m mimcCipherGate) Degree() int {
 
 {{define "serializationUtils"}}
 
-func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
-	elementSlice = make([]small_rational.SmallRational, len(slice))
+func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []{{.ElementType}}) {
+	elementSlice = make([]{{.ElementType}}, len(slice))
 	for i, v := range slice {
 		if _, err := elementSlice[i].Set(v); err != nil {
 			t.Error(err)
@@ -276,7 +276,7 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []smal
 	return
 }
 
-func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+func sliceEquals(a []{{.ElementType}}, b []{{.ElementType}}) error {
 	if len(a) != len(b) {
 		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
 	}
@@ -297,7 +297,7 @@ func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
 			ySeen := xSeen[j]
 
 			if ySeen.FinalEvalProof == nil {
-				assert.Equal(t, 0, len(y.FinalEvalProof.([]small_rational.SmallRational)))
+				assert.Equal(t, 0, len(y.FinalEvalProof.([]{{.ElementType}})))
 			} else {
 				assert.Equal(t, y.FinalEvalProof, ySeen.FinalEvalProof)
 			}
@@ -322,11 +322,11 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 	for i := range printable {
 		proof[i] = make([]sumcheck.Proof, len(printable[i]))
 		for j, printableSumcheck := range printable[i] {
-			finalEvalProof := []small_rational.SmallRational(nil)
+			finalEvalProof := []{{.ElementType}}(nil)
 
 			if printableSumcheck.FinalEvalProof != nil {
 				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
-				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
+				finalEvalProof = make([]{{.ElementType}}, finalEvalSlice.Len())
 				for k := range finalEvalProof {
 					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
 					assert.NoError(t, err)
@@ -413,7 +413,7 @@ func newTestCase(t *testing.T, path string) *TestCase {
 				for j := range circuit[i] {
 					wire := &circuit[i][j]
 					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]small_rational.SmallRational, len(wire.Inputs))
+					in := make([]{{.ElementType}}, len(wire.Inputs))
 					for k := range assignment {
 						for l, inputWire := range circuit[i][j].Inputs {
 							in[l] = fullAssignment[inputWire][k]

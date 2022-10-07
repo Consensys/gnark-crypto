@@ -30,7 +30,7 @@ func Generate() error {
 		return err
 	}
 
-	fmt.Printf("Generating GKR test cases: scanning directory %s for test specs\n", testDirPath)
+	fmt.Printf("generating GKR test cases: scanning directory %s for test specs\n", testDirPath)
 	//debug.PrintStack()
 
 	dirEntries, err := os.ReadDir(testDirPath)
@@ -42,7 +42,7 @@ func Generate() error {
 
 			if filepath.Ext(dirEntry.Name()) == ".json" {
 
-				fmt.Println("processing", dirEntry.Name())
+				fmt.Println("\tprocessing", dirEntry.Name())
 
 				path := filepath.Join(testDirPath, dirEntry.Name())
 

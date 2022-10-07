@@ -4,9 +4,15 @@ import (
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
 	"github.com/stretchr/testify/assert"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
+	"path/filepath"
+	"encoding/json"
+	"strings"
+	"reflect"
+	"sort"
 )
 
 func TestNoGateTwoInstances(t *testing.T) {
@@ -447,29 +453,6 @@ func (m mulGate) Degree() int {
 	return 2
 }
 
-type mimcCipherGate struct {
-	ark {{.ElementType}}
-}
-
-func (m mimcCipherGate) Evaluate(input ...{{.ElementType}}) (res {{.ElementType}}) {
-	var sum {{.ElementType}}
-
-	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&sum)    //sum^6
-	res.Mul(&res, &sum) //sum^7
-
-	return
-}
-
-func (m mimcCipherGate) Degree() int {
-	return 7
-}
-
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase := newTestCase(t, path)
@@ -517,7 +500,7 @@ func TestGkrVectors(t *testing.T) {
 
 func TestTestHash(t *testing.T) {
 	m := getHash(t, "../../rational_cases/resources/hash.json")
-	var one, two, negFour small_rational.SmallRational
+	var one, two, negFour {{.ElementType}}
 	one.SetOne()
 	two.SetInt64(2)
 	negFour.SetInt64(-4)

@@ -17,12 +17,18 @@
 package gkr
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/sumcheck"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -464,29 +470,6 @@ func (m mulGate) Degree() int {
 	return 2
 }
 
-type mimcCipherGate struct {
-	ark fr.Element
-}
-
-func (m mimcCipherGate) Evaluate(input ...fr.Element) (res fr.Element) {
-	var sum fr.Element
-
-	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&sum)    //sum^6
-	res.Mul(&res, &sum) //sum^7
-
-	return
-}
-
-func (m mimcCipherGate) Degree() int {
-	return 7
-}
-
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase := newTestCase(t, path)
@@ -534,7 +517,7 @@ func TestGkrVectors(t *testing.T) {
 
 func TestTestHash(t *testing.T) {
 	m := getHash(t, "../../rational_cases/resources/hash.json")
-	var one, two, negFour small_rational.SmallRational
+	var one, two, negFour fr.Element
 	one.SetOne()
 	two.SetInt64(2)
 	negFour.SetInt64(-4)
@@ -608,7 +591,7 @@ func newTestCase(t *testing.T, path string) *TestCase {
 				for j := range circuit[i] {
 					wire := &circuit[i][j]
 					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]small_rational.SmallRational, len(wire.Inputs))
+					in := make([]fr.Element, len(wire.Inputs))
 					for k := range assignment {
 						for l, inputWire := range circuit[i][j].Inputs {
 							in[l] = fullAssignment[inputWire][k]
@@ -723,11 +706,11 @@ func init() {
 }
 
 type mimcCipherGate struct {
-	ark small_rational.SmallRational
+	ark fr.Element
 }
 
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
-	var sum small_rational.SmallRational
+func (m mimcCipherGate) Evaluate(input ...fr.Element) (res fr.Element) {
+	var sum fr.Element
 
 	sum.
 		Add(&input[0], &input[1]).
@@ -746,10 +729,10 @@ func (m mimcCipherGate) Degree() int {
 }
 
 type RationalTriplet struct {
-	key1        small_rational.SmallRational
-	key2        small_rational.SmallRational
+	key1        fr.Element
+	key2        fr.Element
 	key2Present bool
-	value       small_rational.SmallRational
+	value       fr.Element
 }
 
 func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
@@ -834,10 +817,10 @@ type MapHashTranscript struct {
 	hashMap         HashMap
 	stateValid      bool
 	resultAvailable bool
-	state           small_rational.SmallRational
+	state           fr.Element
 }
 
-func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m HashMap) hash(x *fr.Element, y *fr.Element) fr.Element {
 
 	toFind := RationalTriplet{
 		key1:        *x,
@@ -865,7 +848,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 	if len(i) > 0 {
 		for _, x := range i {
 
-			var xElement small_rational.SmallRational
+			var xElement fr.Element
 			if _, err := xElement.Set(x); err != nil {
 				panic(err.Error())
 			}
@@ -886,7 +869,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 	m.resultAvailable = true
 }
 
-func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational {
+func (m *MapHashTranscript) Next(i ...interface{}) fr.Element {
 
 	if len(i) > 0 || !m.resultAvailable {
 		m.Update(i...)
@@ -895,13 +878,13 @@ func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational 
 	return m.state
 }
 
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
+func (m *MapHashTranscript) NextN(N int, i ...interface{}) []fr.Element {
 
 	if len(i) > 0 {
 		m.Update(i...)
 	}
 
-	res := make([]small_rational.SmallRational, N)
+	res := make([]fr.Element, N)
 
 	for n := range res {
 		res[n] = m.Next()
@@ -910,8 +893,8 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 	return res
 }
 
-func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
-	elementSlice = make([]small_rational.SmallRational, len(slice))
+func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []fr.Element) {
+	elementSlice = make([]fr.Element, len(slice))
 	for i, v := range slice {
 		if _, err := elementSlice[i].Set(v); err != nil {
 			t.Error(err)
@@ -920,7 +903,7 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []smal
 	return
 }
 
-func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+func sliceEquals(a []fr.Element, b []fr.Element) error {
 	if len(a) != len(b) {
 		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
 	}
@@ -941,7 +924,7 @@ func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
 			ySeen := xSeen[j]
 
 			if ySeen.FinalEvalProof == nil {
-				assert.Equal(t, 0, len(y.FinalEvalProof.([]small_rational.SmallRational)))
+				assert.Equal(t, 0, len(y.FinalEvalProof.([]fr.Element)))
 			} else {
 				assert.Equal(t, y.FinalEvalProof, ySeen.FinalEvalProof)
 			}
@@ -966,11 +949,11 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 	for i := range printable {
 		proof[i] = make([]sumcheck.Proof, len(printable[i]))
 		for j, printableSumcheck := range printable[i] {
-			finalEvalProof := []small_rational.SmallRational(nil)
+			finalEvalProof := []fr.Element(nil)
 
 			if printableSumcheck.FinalEvalProof != nil {
 				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
-				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
+				finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
 				for k := range finalEvalProof {
 					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
 					assert.NoError(t, err)
