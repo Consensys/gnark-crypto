@@ -494,7 +494,7 @@ func generateTestVerifier(path string) func(t *testing.T) {
 
 func TestGkrVectors(t *testing.T) {
 
-	testDirPath := "../../rational_cases"
+	testDirPath := "../../../../internal/generator/gkr/rational_cases"
 	dirEntries, err := os.ReadDir(testDirPath)
 	if err != nil {
 		t.Error(err)
@@ -515,7 +515,7 @@ func TestGkrVectors(t *testing.T) {
 }
 
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "../../rational_cases/resources/hash.json")
+	m := getHash(t, "../../../../internal/generator/gkr/rational_cases/resources/hash.json")
 	var one, two, negFour fr.Element
 	one.SetOne()
 	two.SetInt64(2)
@@ -970,23 +970,33 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 	}
 	return
 }
-func setElement(element *fr.Element, value interface{}) (*fr.Element, error) {
+func setElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
-	if str, ok := value.(string); ok {
-		// TODO: Put this in element.SetString?
-		if fracI := strings.Index(str, "/"); fracI != -1 {
-			numStr, denomStr := str[:fracI], str[fracI+1:]
+	// TODO: Put this in element.SetString?
+	switch v := value.(type) {
+	case string:
+		if fracI := strings.Index(v, "/"); fracI != -1 {
+			numStr, denomStr := v[:fracI], v[fracI+1:]
 			var denom fr.Element
-			if _, err := element.SetString(numStr); err != nil {
+			if _, err := z.SetString(numStr); err != nil {
 				return nil, err
 			}
 			if _, err := denom.SetString(denomStr); err != nil {
 				return nil, err
 			}
 			denom.Inverse(&denom)
-			element.Mul(element, &denom)
-			return element, nil
+			z.Mul(z, &denom)
+			return z, nil
 		}
+
+	case float64:
+		asInt := int64(v)
+		if float64(asInt) != v {
+			return nil, fmt.Errorf("cannot currently parse float")
+		}
+		z.SetInt64(asInt)
+		return z, nil
 	}
-	return element.SetInterface(value)
+
+	return z.SetInterface(value)
 }
