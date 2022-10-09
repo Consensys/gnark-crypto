@@ -313,7 +313,7 @@ func getHash(path string) (HashMap, error) {
 
 		for k, v := range asMap {
 			var entry RationalTriplet
-			if _, err := entry.value.Set(v); err != nil {
+			if _, err := entry.value.SetInterface(v); err != nil {
 				return nil, err
 			}
 
@@ -324,13 +324,13 @@ func getHash(path string) (HashMap, error) {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err := entry.key2.Set(key[1]); err != nil {
+				if _, err := entry.key2.SetInterface(key[1]); err != nil {
 					return nil, err
 				}
 			default:
 				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := entry.key1.Set(key[0]); err != nil {
+			if _, err := entry.key1.SetInterface(key[0]); err != nil {
 				return nil, err
 			}
 
@@ -413,7 +413,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		for _, x := range i {
 
 			var xElement small_rational.SmallRational
-			if _, err := xElement.Set(x); err != nil {
+			if _, err := xElement.SetInterface(x); err != nil {
 				panic(err.Error())
 			}
 			if m.stateValid {
@@ -460,7 +460,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 func sliceToElementSlice(slice []interface{}) ([]small_rational.SmallRational, error) {
 	elementSlice := make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
-		if _, err := elementSlice[i].Set(v); err != nil {
+		if _, err := elementSlice[i].SetInterface(v); err != nil {
 			return nil, err
 		}
 	}

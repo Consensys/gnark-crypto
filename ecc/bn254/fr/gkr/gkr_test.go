@@ -82,7 +82,6 @@ func TestATimesBSquaredTwoInstances(t *testing.T) {
 func TestShallowMimcTwoInstances(t *testing.T) {
 	testMimc(t, 2, []fr.Element{one, one}, []fr.Element{one, two})
 }
-
 func TestMimcTwoInstances(t *testing.T) {
 	testMimc(t, 93, []fr.Element{one, one}, []fr.Element{one, two})
 }
@@ -849,10 +848,9 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		for _, x := range i {
 
 			var xElement fr.Element
-			if _, err := setElement(&xElement, x); err != nil {
+			if _, err := xElement.SetInterface(x); err != nil {
 				panic(err.Error())
 			}
-
 			if m.stateValid {
 				m.state = m.hashMap.hash(&xElement, &m.state)
 			} else {
@@ -900,7 +898,6 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []fr.E
 		if _, err := setElement(&elementSlice[i], v); err != nil {
 			t.Error(err)
 		}
-
 	}
 	return
 }
@@ -973,8 +970,8 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 	}
 	return
 }
-
 func setElement(element *fr.Element, value interface{}) (*fr.Element, error) {
+
 	if str, ok := value.(string); ok {
 		// TODO: Put this in element.SetString?
 		if fracI := strings.Index(str, "/"); fracI != -1 {

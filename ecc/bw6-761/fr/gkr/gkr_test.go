@@ -82,7 +82,6 @@ func TestATimesBSquaredTwoInstances(t *testing.T) {
 func TestShallowMimcTwoInstances(t *testing.T) {
 	testMimc(t, 2, []fr.Element{one, one}, []fr.Element{one, two})
 }
-
 func TestMimcTwoInstances(t *testing.T) {
 	testMimc(t, 93, []fr.Element{one, one}, []fr.Element{one, two})
 }
@@ -773,7 +772,7 @@ func getHash(t *testing.T, path string) HashMap {
 
 		for k, v := range asMap {
 			var entry RationalTriplet
-			if _, err := entry.value.Set(v); err != nil {
+			if _, err := setElement(&entry.value, v); err != nil {
 				t.Error(err)
 			}
 
@@ -784,13 +783,13 @@ func getHash(t *testing.T, path string) HashMap {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err := entry.key2.Set(key[1]); err != nil {
+				if _, err := setElement(&entry.key2, key[1]); err != nil {
 					t.Error(err)
 				}
 			default:
 				t.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := entry.key1.Set(key[0]); err != nil {
+			if _, err := setElement(&entry.key1, key[0]); err != nil {
 				t.Error(err)
 			}
 
@@ -849,7 +848,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		for _, x := range i {
 
 			var xElement fr.Element
-			if _, err := xElement.Set(x); err != nil {
+			if _, err := xElement.SetInterface(x); err != nil {
 				panic(err.Error())
 			}
 			if m.stateValid {
@@ -896,7 +895,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []fr.Element {
 func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []fr.Element) {
 	elementSlice = make([]fr.Element, len(slice))
 	for i, v := range slice {
-		if _, err := elementSlice[i].Set(v); err != nil {
+		if _, err := setElement(&elementSlice[i], v); err != nil {
 			t.Error(err)
 		}
 	}
@@ -955,7 +954,7 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
 				finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
 				for k := range finalEvalProof {
-					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
+					_, err := setElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface())
 					assert.NoError(t, err)
 				}
 			}
@@ -970,4 +969,24 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 		}
 	}
 	return
+}
+func setElement(element *fr.Element, value interface{}) (*fr.Element, error) {
+
+	if str, ok := value.(string); ok {
+		// TODO: Put this in element.SetString?
+		if fracI := strings.Index(str, "/"); fracI != -1 {
+			numStr, denomStr := str[:fracI], str[fracI+1:]
+			var denom fr.Element
+			if _, err := element.SetString(numStr); err != nil {
+				return nil, err
+			}
+			if _, err := denom.SetString(denomStr); err != nil {
+				return nil, err
+			}
+			denom.Inverse(&denom)
+			element.Mul(element, &denom)
+			return element, nil
+		}
+	}
+	return element.SetInterface(value)
 }

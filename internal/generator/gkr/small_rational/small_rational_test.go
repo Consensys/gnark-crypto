@@ -70,9 +70,9 @@ func TestDouble(t *testing.T) {
 
 	for i := range values {
 		var v, vDoubled, vDoubledExpected SmallRational
-		_, err := v.Set(values[i])
+		_, err := v.SetInterface(values[i])
 		assert.NoError(t, err)
-		_, err = vDoubledExpected.Set(valsDoubled[i])
+		_, err = vDoubledExpected.SetInterface(valsDoubled[i])
 		assert.NoError(t, err)
 		vDoubled.Double(&v)
 		assert.True(t, vDoubled.Equal(&vDoubledExpected),

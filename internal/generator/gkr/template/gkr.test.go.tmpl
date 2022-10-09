@@ -66,6 +66,7 @@ func TestShallowMimcTwoInstances(t *testing.T) {
 	testMimc(t, 2, []{{.ElementType}}{one, one}, []{{.ElementType}}{one, two})
 }
 
+{{- if .GenerateLargeTests}}
 func TestMimcTwoInstances(t *testing.T) {
 	testMimc(t, 93, []{{.ElementType}}{one, one}, []{{.ElementType}}{one, two})
 }
@@ -73,6 +74,7 @@ func TestMimcTwoInstances(t *testing.T) {
 func TestMimc(t *testing.T) {
 	testManyInstances(t, 2, generateTestMimc(93))
 }
+{{- end}}
 
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{ { Wire{

@@ -83,14 +83,6 @@ func TestShallowMimcTwoInstances(t *testing.T) {
 	testMimc(t, 2, []small_rational.SmallRational{one, one}, []small_rational.SmallRational{one, two})
 }
 
-func TestMimcTwoInstances(t *testing.T) {
-	testMimc(t, 93, []small_rational.SmallRational{one, one}, []small_rational.SmallRational{one, two})
-}
-
-func TestMimc(t *testing.T) {
-	testManyInstances(t, 2, generateTestMimc(93))
-}
-
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{{Wire{
 		Gate:       nil,
@@ -773,7 +765,7 @@ func getHash(t *testing.T, path string) HashMap {
 
 		for k, v := range asMap {
 			var entry RationalTriplet
-			if _, err := entry.value.Set(v); err != nil {
+			if _, err := entry.value.SetInterface(v); err != nil {
 				t.Error(err)
 			}
 
@@ -784,13 +776,13 @@ func getHash(t *testing.T, path string) HashMap {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err := entry.key2.Set(key[1]); err != nil {
+				if _, err := entry.key2.SetInterface(key[1]); err != nil {
 					t.Error(err)
 				}
 			default:
 				t.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := entry.key1.Set(key[0]); err != nil {
+			if _, err := entry.key1.SetInterface(key[0]); err != nil {
 				t.Error(err)
 			}
 
@@ -849,7 +841,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		for _, x := range i {
 
 			var xElement small_rational.SmallRational
-			if _, err := xElement.Set(x); err != nil {
+			if _, err := xElement.SetInterface(x); err != nil {
 				panic(err.Error())
 			}
 			if m.stateValid {
@@ -896,7 +888,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
 	elementSlice = make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
-		if _, err := elementSlice[i].Set(v); err != nil {
+		if _, err := elementSlice[i].SetInterface(v); err != nil {
 			t.Error(err)
 		}
 	}
@@ -955,7 +947,7 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
 				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
 				for k := range finalEvalProof {
-					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
+					_, err := finalEvalProof[k].SetInterface(finalEvalSlice.Index(k).Interface())
 					assert.NoError(t, err)
 				}
 			}

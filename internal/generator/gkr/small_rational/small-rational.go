@@ -152,7 +152,7 @@ func (z *SmallRational) MarshalJSON() ([]byte, error) {
 }
 
 func (z *SmallRational) UnmarshalJson(data []byte) error {
-	_, err := z.Set(string(data))
+	_, err := z.SetInterface(string(data))
 	return err
 }
 
@@ -168,10 +168,6 @@ func (z *SmallRational) Sub(x, y *SmallRational) *SmallRational {
 	z.UpdateText()
 	return z
 }
-
-/*func (z *SmallRational) ToBigIntRegular(*big.Int) big.Int {
-	panic("Not implemented")
-}*/
 
 func (z *SmallRational) Cmp(x *SmallRational) int {
 	zSign, xSign := z.Sign(), x.Sign()
@@ -293,7 +289,12 @@ func (z *SmallRational) Text(base int) string {
 	return numerator + "/" + z.denominator.Text(base)
 }
 
-func (z *SmallRational) Set(x interface{}) (*SmallRational, error) {
+func (z *SmallRational) Set(x *SmallRational) *SmallRational {
+	*z = *x // shallow copy is safe because ops are never in place
+	return z
+}
+
+func (z *SmallRational) SetInterface(x interface{}) (*SmallRational, error) {
 
 	switch v := x.(type) {
 	case *SmallRational:

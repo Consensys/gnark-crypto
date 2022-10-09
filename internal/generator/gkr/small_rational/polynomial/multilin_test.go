@@ -80,9 +80,9 @@ func TestPrecomputeLagrangeAt3(t *testing.T) {
 	expectedPoly := make(Polynomial, 3)
 
 	// \delta_0 = X^2/2 - 3/2X + 1
-	expectedPoly[0].Set(1)
-	expectedPoly[1].Set("-3/2")
-	expectedPoly[2].Set("1/2")
+	expectedPoly[0].SetInterface(1)
+	expectedPoly[1].SetInterface("-3/2")
+	expectedPoly[2].SetInterface("1/2")
 
 	assert.True(t, polys[0].Equal(expectedPoly), "expected X²/2 - 3/2X + 1, saw %s", polys[0].Text(10))
 }
