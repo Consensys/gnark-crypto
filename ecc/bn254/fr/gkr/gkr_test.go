@@ -776,6 +776,7 @@ func getHash(t *testing.T, path string) HashMap {
 			if _, err := entry.value.Set(v); err != nil {
 				t.Error(err)
 			}
+			setElement(&entry.value, v)
 
 			key := strings.Split(k, ",")
 
@@ -787,12 +788,14 @@ func getHash(t *testing.T, path string) HashMap {
 				if _, err := entry.key2.Set(key[1]); err != nil {
 					t.Error(err)
 				}
+				setElement(&entry.key2, key[1])
 			default:
 				t.Errorf("cannot parse %T as one or two field elements", v)
 			}
 			if _, err := entry.key1.Set(key[0]); err != nil {
 				t.Error(err)
 			}
+			setElement(&entry.key1, key[0])
 
 			res = append(res, &entry)
 		}
@@ -852,6 +855,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 			if _, err := xElement.Set(x); err != nil {
 				panic(err.Error())
 			}
+			setElement(&xElement, x)
 			if m.stateValid {
 				m.state = m.hashMap.hash(&xElement, &m.state)
 			} else {
@@ -899,6 +903,7 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []fr.E
 		if _, err := elementSlice[i].Set(v); err != nil {
 			t.Error(err)
 		}
+		setElement(&elementSlice[i], v)
 	}
 	return
 }
@@ -957,6 +962,7 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 				for k := range finalEvalProof {
 					_, err := finalEvalProof[k].Set(finalEvalSlice.Index(k).Interface())
 					assert.NoError(t, err)
+					setElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface())
 				}
 			}
 
@@ -970,4 +976,25 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 		}
 	}
 	return
+}
+
+func setElement(element *fr.Element, value interface{}) error {
+	if str, ok := value.(string); ok {
+		// TODO: Put this in element.SetString?
+		if fracI := strings.Index(str, "/"); fracI != -1 {
+			numStr, denomStr := str[:fracI], str[fracI+1:]
+			var denom fr.Element
+			if _, err := element.SetString(numStr); err != nil {
+				return err
+			}
+			if _, err := denom.SetString(denomStr); err != nil {
+				return err
+			}
+			denom.Inverse(&denom)
+			element.Mul(element, &denom)
+			return nil
+		}
+	}
+	_, err := element.SetInterface(value)
+	return err
 }
