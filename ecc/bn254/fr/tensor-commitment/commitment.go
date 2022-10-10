@@ -397,12 +397,22 @@ func cmpBytes(a, b []byte) bool {
 // Note (alex), A more convenient API would be to expose two functions,
 // one that does FS for you and what that let you do it for yourself. And likewise
 // for the prover.
-func Verify(proof Proof, digest Digest, l []fr.Element) error {
+func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 
 	// for each entry in the list -> it corresponds to the sampling
 	// set on which we probabilistically check that
 	// Encoded(linear_combination) = linear_combination(encoded)
 	for i := 0; i < len(proof.EntryList); i++ {
+
+		// check that the hash of the columns correspond to what's in the digest
+		h.Reset()
+		for j := 0; j < len(proof.Columns[i]); j++ {
+			h.Write(proof.Columns[i][j].Marshal())
+		}
+		s := h.Sum(nil)
+		if !cmpBytes(s, digest[proof.EntryList[i]]) {
+			return ErrProofFailedHash
+		}
 
 		if proof.EntryList[i] >= len(digest) {
 			return ErrProofFailedOob
