@@ -105,18 +105,19 @@ func newTestCase(path string) (*TestCase, error) {
 	var bytes []byte
 	if bytes, err = os.ReadFile(path); err == nil {
 		var info TestCaseInfo
-		err = json.Unmarshal(bytes, &info)
-		if err != nil {
+		if err = json.Unmarshal(bytes, &info); err != nil {
 			return nil, err
 		}
 
 		var circuit gkr.Circuit
-		circuit, err = getCircuit(filepath.Join(dir, info.Circuit))
-		if err != nil {
+		if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 			return nil, err
 		}
+
 		var hash HashMap
-		hash, err = getHash(filepath.Join(dir, info.Hash))
+		if hash, err = getHash(filepath.Join(dir, info.Hash)); err != nil {
+			return nil, err
+		}
 
 		fullAssignment := make(gkr.WireAssignment)
 		assignmentSize := len(info.Input[0])
@@ -490,7 +491,7 @@ func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRatio
 
 func elementToInterface(x *small_rational.SmallRational) interface{} {
 	text := x.Text(10)
-	if len(text) != 10 && strings.Index(text, "/") == -1 {
+	if len(text) < 10 && !strings.Contains(text, "/") {
 		if res, err := strconv.Atoi(text); err != nil {
 			panic("error: " + err.Error())
 		} else {

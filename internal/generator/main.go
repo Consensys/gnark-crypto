@@ -137,7 +137,7 @@ func main() {
 	wg.Wait()
 
 	// generate test cases for gkr
-	cmd := exec.Command("go", "run", filepath.Join(baseDir, "internal/generator/gkr/rational_cases"))
+	cmd := exec.Command("go", "run", "../../internal/generator/gkr/rational_cases")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
