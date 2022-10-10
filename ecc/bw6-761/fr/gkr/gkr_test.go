@@ -558,7 +558,8 @@ func newTestCase(t *testing.T, path string) *TestCase {
 
 	parsedCase, ok := parsedTestCases[path]
 	if !ok {
-		if bytes, err := os.ReadFile(path); err == nil {
+		var bytes []byte
+		if bytes, err = os.ReadFile(path); err == nil {
 			var info TestCaseInfo
 			err = json.Unmarshal(bytes, &info)
 			if err != nil {
@@ -649,9 +650,10 @@ func getCircuit(t *testing.T, path string) Circuit {
 	if circuit, ok := circuitCache[path]; ok {
 		return circuit
 	}
-	if bytes, err := os.ReadFile(path); err == nil {
+	var bytes []byte
+	if bytes, err = os.ReadFile(path); err == nil {
 		var circuitInfo CircuitInfo
-		if err := json.Unmarshal(bytes, &circuitInfo); err == nil {
+		if err = json.Unmarshal(bytes, &circuitInfo); err == nil {
 			circuit := circuitInfo.toCircuit()
 			circuitCache[path] = circuit
 			return circuit
@@ -762,9 +764,10 @@ func getHash(t *testing.T, path string) HashMap {
 	if h, ok := hashCache[path]; ok {
 		return h
 	}
-	if bytes, err := os.ReadFile(path); err == nil {
+	var bytes []byte
+	if bytes, err = os.ReadFile(path); err == nil {
 		var asMap map[string]interface{}
-		if err := json.Unmarshal(bytes, &asMap); err != nil {
+		if err = json.Unmarshal(bytes, &asMap); err != nil {
 			t.Error(err)
 		}
 
@@ -772,7 +775,7 @@ func getHash(t *testing.T, path string) HashMap {
 
 		for k, v := range asMap {
 			var entry RationalTriplet
-			if _, err := setElement(&entry.value, v); err != nil {
+			if _, err = setElement(&entry.value, v); err != nil {
 				t.Error(err)
 			}
 
@@ -783,13 +786,13 @@ func getHash(t *testing.T, path string) HashMap {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err := setElement(&entry.key2, key[1]); err != nil {
+				if _, err = setElement(&entry.key2, key[1]); err != nil {
 					t.Error(err)
 				}
 			default:
 				t.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := setElement(&entry.key1, key[0]); err != nil {
+			if _, err = setElement(&entry.key1, key[0]); err != nil {
 				t.Error(err)
 			}
 

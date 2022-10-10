@@ -46,7 +46,8 @@ func Generate() error {
 
 				path := filepath.Join(testDirPath, dirEntry.Name())
 
-				testCase, err := newTestCase(path)
+				var testCase *TestCase
+				testCase, err = newTestCase(path)
 				if err != nil {
 					return err
 				}
@@ -55,8 +56,9 @@ func Generate() error {
 				proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
 
 				testCase.Info.Proof = toPrintableProof(proof)
-				if outBytes, err := json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
-					if err := os.WriteFile(path, outBytes, 0); err != nil {
+				var outBytes []byte
+				if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
+					if err = os.WriteFile(path, outBytes, 0); err != nil {
 						return err
 					}
 				} else {
@@ -100,18 +102,21 @@ func newTestCase(path string) (*TestCase, error) {
 
 	dir := filepath.Dir(path)
 
-	if bytes, err := os.ReadFile(path); err == nil {
+	var bytes []byte
+	if bytes, err = os.ReadFile(path); err == nil {
 		var info TestCaseInfo
 		err = json.Unmarshal(bytes, &info)
 		if err != nil {
 			return nil, err
 		}
 
-		circuit, err := getCircuit(filepath.Join(dir, info.Circuit))
+		var circuit gkr.Circuit
+		circuit, err = getCircuit(filepath.Join(dir, info.Circuit))
 		if err != nil {
 			return nil, err
 		}
-		hash, err := getHash(filepath.Join(dir, info.Hash))
+		var hash HashMap
+		hash, err = getHash(filepath.Join(dir, info.Hash))
 
 		fullAssignment := make(gkr.WireAssignment)
 		assignmentSize := len(info.Input[0])
@@ -125,7 +130,8 @@ func newTestCase(path string) (*TestCase, error) {
 
 			for j := range circuit[i] {
 				wire := &circuit[i][j]
-				if wireAssignment, err := sliceToElementSlice(info.Input[j]); err == nil {
+				var wireAssignment []small_rational.SmallRational
+				if wireAssignment, err = sliceToElementSlice(info.Input[j]); err == nil {
 					fullAssignment[wire] = wireAssignment
 				} else {
 					return nil, err
@@ -154,8 +160,9 @@ func newTestCase(path string) (*TestCase, error) {
 			return nil, fmt.Errorf("output layer not the same size as output vector: %d ≠ %d", len(circuit[0]), len(info.Output))
 		}
 		for j := range circuit[0] {
-			if outAssignment, err := sliceToElementSlice(info.Output[j]); err == nil {
-				if err := sliceEquals(outAssignment, fullAssignment[&circuit[0][j]]); err != nil {
+			var outAssignment []small_rational.SmallRational
+			if outAssignment, err = sliceToElementSlice(info.Output[j]); err == nil {
+				if err = sliceEquals(outAssignment, fullAssignment[&circuit[0][j]]); err != nil {
 					return nil, err
 				}
 			} else {
@@ -192,9 +199,10 @@ func getCircuit(path string) (gkr.Circuit, error) {
 	if circuit, ok := circuitCache[path]; ok {
 		return circuit, nil
 	}
-	if bytes, err := os.ReadFile(path); err == nil {
+	var bytes []byte
+	if bytes, err = os.ReadFile(path); err == nil {
 		var circuitInfo CircuitInfo
-		if err := json.Unmarshal(bytes, &circuitInfo); err == nil {
+		if err = json.Unmarshal(bytes, &circuitInfo); err == nil {
 			circuit := circuitInfo.toCircuit()
 			circuitCache[path] = circuit
 			return circuit, nil
@@ -303,9 +311,10 @@ func getHash(path string) (HashMap, error) {
 	if h, ok := hashCache[path]; ok {
 		return h, nil
 	}
-	if bytes, err := os.ReadFile(path); err == nil {
+	var bytes []byte
+	if bytes, err = os.ReadFile(path); err == nil {
 		var asMap map[string]interface{}
-		if err := json.Unmarshal(bytes, &asMap); err != nil {
+		if err = json.Unmarshal(bytes, &asMap); err != nil {
 			return nil, err
 		}
 
@@ -313,7 +322,7 @@ func getHash(path string) (HashMap, error) {
 
 		for k, v := range asMap {
 			var entry RationalTriplet
-			if _, err := entry.value.SetInterface(v); err != nil {
+			if _, err = entry.value.SetInterface(v); err != nil {
 				return nil, err
 			}
 
@@ -324,13 +333,13 @@ func getHash(path string) (HashMap, error) {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err := entry.key2.SetInterface(key[1]); err != nil {
+				if _, err = entry.key2.SetInterface(key[1]); err != nil {
 					return nil, err
 				}
 			default:
 				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err := entry.key1.SetInterface(key[0]); err != nil {
+			if _, err = entry.key1.SetInterface(key[0]); err != nil {
 				return nil, err
 			}
 
