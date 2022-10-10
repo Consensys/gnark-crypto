@@ -67,6 +67,17 @@ func Generate() error {
 			}
 		}
 	}
+
+	for s, h := range hashCache {
+		if unused := h.unusedEntries(); len(unused) != 0 {
+			var bytes []byte
+			if bytes, err = json.Marshal(&unused); err != nil {
+				return err
+			}
+			return fmt.Errorf("unused entries in hash file \"%s\": %s", s, bytes[1:len(bytes)-1])
+		}
+	}
+
 	return nil
 }
 
@@ -374,6 +385,7 @@ type RationalTriplet struct {
 	key2        small_rational.SmallRational
 	key2Present bool
 	value       small_rational.SmallRational
+	used        bool
 }
 
 func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
@@ -408,6 +420,7 @@ func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRa
 	i := sort.Search(len(m), func(i int) bool { return m[i].CmpKey(&toFind) >= 0 })
 
 	if i < len(m) && m[i].CmpKey(&toFind) == 0 {
+		m[i].used = true
 		return m[i].value
 	}
 
@@ -416,6 +429,22 @@ func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRa
 	} else {
 		panic("No hash available for input " + x.Text(10) + "," + y.Text(10))
 	}
+}
+
+func (m HashMap) unusedEntries() []interface{} {
+	unused := make([]interface{}, 0)
+	for _, v := range m {
+		if !v.used {
+			var vInterface interface{}
+			if v.key2Present {
+				vInterface = []interface{}{elementToInterface(&v.key1), elementToInterface(&v.key2)}
+			} else {
+				vInterface = elementToInterface(&v.key1)
+			}
+			unused = append(unused, vInterface)
+		}
+	}
+	return unused
 }
 
 func (m *MapHashTranscript) Update(i ...interface{}) {
