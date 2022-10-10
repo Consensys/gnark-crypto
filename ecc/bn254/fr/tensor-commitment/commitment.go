@@ -393,10 +393,10 @@ func cmpBytes(a, b []byte) bool {
 // h: hash function that is used for hashing the columns of the polynomial
 // TODO make this function private and add a Verify function that derives
 // the randomness using Fiat Shamir
-// Note (alex), I removed the FS from this function. (I already do it from
-// outside). This is actually the simpler for me to do this. If you absolutely
-// want to expose a wrapper around it, can you keep exposing a this function
-// (possibly under a different name).
+//
+// Note (alex), A more convenient API would be to expose two functions,
+// one that does FS for you and what that let you do it for yourself. And likewise
+// for the prover.
 func Verify(proof Proof, digest Digest, l []fr.Element) error {
 
 	// for each entry in the list -> it corresponds to the sampling
