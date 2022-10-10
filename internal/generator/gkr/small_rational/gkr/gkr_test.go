@@ -351,12 +351,6 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	}
 }
 
-func generateTestMimc(numRounds int) func(*testing.T, ...[]small_rational.SmallRational) {
-	return func(t *testing.T, inputAssignments ...[]small_rational.SmallRational) {
-		testMimc(t, numRounds, inputAssignments...)
-	}
-}
-
 func testMimc(t *testing.T, numRounds int, inputAssignments ...[]small_rational.SmallRational) {
 	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
 	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10

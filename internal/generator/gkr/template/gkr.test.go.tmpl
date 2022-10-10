@@ -74,6 +74,13 @@ func TestMimcTwoInstances(t *testing.T) {
 func TestMimc(t *testing.T) {
 	testManyInstances(t, 2, generateTestMimc(93))
 }
+
+func generateTestMimc(numRounds int) func(*testing.T, ...[]{{.ElementType}}) {
+	return func(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
+		testMimc(t, numRounds, inputAssignments...)
+	}
+}
+
 {{- end}}
 
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
@@ -341,12 +348,6 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 
 	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
 		t.Error("Bad proof accepted")
-	}
-}
-
-func generateTestMimc(numRounds int) func(*testing.T, ...[]{{.ElementType}}) {
-	return func(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
-		testMimc(t, numRounds, inputAssignments...)
 	}
 }
 

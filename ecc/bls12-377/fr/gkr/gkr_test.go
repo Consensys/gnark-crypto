@@ -90,6 +90,12 @@ func TestMimc(t *testing.T) {
 	testManyInstances(t, 2, generateTestMimc(93))
 }
 
+func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
+	return func(t *testing.T, inputAssignments ...[]fr.Element) {
+		testMimc(t, numRounds, inputAssignments...)
+	}
+}
+
 func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{{Wire{
 		Gate:       nil,
@@ -355,12 +361,6 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 
 	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
 		t.Error("Bad proof accepted")
-	}
-}
-
-func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
-	return func(t *testing.T, inputAssignments ...[]fr.Element) {
-		testMimc(t, numRounds, inputAssignments...)
 	}
 }
 
@@ -978,13 +978,13 @@ func setElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 	// TODO: Put this in element.SetString?
 	switch v := value.(type) {
 	case string:
-		if fracI := strings.Index(v, "/"); fracI != -1 {
-			numStr, denomStr := v[:fracI], v[fracI+1:]
+
+		if sep := strings.Split(v, "/"); len(sep) == 2 {
 			var denom fr.Element
-			if _, err := z.SetString(numStr); err != nil {
+			if _, err := z.SetString(sep[0]); err != nil {
 				return nil, err
 			}
-			if _, err := denom.SetString(denomStr); err != nil {
+			if _, err := denom.SetString(sep[1]); err != nil {
 				return nil, err
 			}
 			denom.Inverse(&denom)
