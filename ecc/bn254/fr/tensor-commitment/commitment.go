@@ -171,7 +171,9 @@ func NewTensorCommitment(params *TcParams) *TensorCommitment {
 // ..
 // p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
 // If p doesn't fill a full submatrix it is padded with zeroes.
-func (tc *TensorCommitment) Append(currentColumnToFill int, p []fr.Element) ([][]byte, error) {
+func (tc *TensorCommitment) Append(p []fr.Element) ([][]byte, error) {
+
+	currentColumnToFill := int(tc.NbColumnsHashed)
 
 	// check if there is some room for p
 	nbColumnsTakenByP := (len(p) - len(p)%tc.params.NbRows) / tc.params.NbRows

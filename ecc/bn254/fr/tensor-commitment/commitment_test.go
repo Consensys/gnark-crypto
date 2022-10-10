@@ -72,7 +72,7 @@ func TestAppend(t *testing.T) {
 		for i := 0; i < nbRows; i++ {
 			p[i].SetRandom()
 		}
-		_, err := tc.Append(0, p)
+		_, err := tc.Append(p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func TestAppend(t *testing.T) {
 		for i := 0; i < nbRows; i++ {
 			p[i].SetRandom()
 		}
-		_, err := tc.Append(1, p)
+		_, err := tc.Append(p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -114,7 +114,7 @@ func TestAppend(t *testing.T) {
 		for i := 0; i < nbRows+offset; i++ {
 			p[i].SetRandom()
 		}
-		_, err := tc.Append(2, p)
+		_, err := tc.Append(p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,7 +140,7 @@ func TestAppend(t *testing.T) {
 		for i := 0; i < nbRows+offset; i++ {
 			p[i].SetRandom()
 		}
-		_, err := tc.Append(4, p)
+		_, err := tc.Append(p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -185,7 +185,7 @@ func TestLinearCombination(t *testing.T) {
 	}
 
 	// append p and commit (otherwise the proof cannot be built)
-	tc.Append(0, p)
+	tc.Append(p)
 	_, err = tc.Commit()
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 	}
 
 	// compute the digest...
-	_, err = tc.Append(0, p)
+	_, err = tc.Append(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestOpeningDummyHash(t *testing.T) {
 	}
 
 	// create the digest before computing the proof
-	_, err = tc.Append(0, p)
+	_, err = tc.Append(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestAppendSis(t *testing.T) {
 		p[i].SetRandom()
 	}
 
-	s, err := tc.Append(0, p)
+	s, err := tc.Append(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +453,7 @@ func TestCommitmentSis(t *testing.T) {
 	}
 
 	// compute the digest...
-	_, err = tc.Append(0, p)
+	_, err = tc.Append(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -534,7 +534,7 @@ func BenchmarkTensorCommitment(b *testing.B) {
 		b.Run("size poly"+strconv.Itoa(nbRows*nbColumns), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				tc.Append(0, p)
+				tc.Append(p)
 				tc.Commit()
 			}
 		})
