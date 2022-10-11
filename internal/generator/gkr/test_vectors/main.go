@@ -68,13 +68,17 @@ func Generate() error {
 		}
 	}
 
+	// TODO: Find a suitable place to check for deadweight in the hash spec.
+	// TODO: If done here, some entries that are necessary for verification but not
+	// TODO: proof are wrongly marked as unnecessary
 	for s, h := range hashCache {
 		if unused := h.unusedEntries(); len(unused) != 0 {
 			var bytes []byte
 			if bytes, err = json.Marshal(&unused); err != nil {
 				return err
 			}
-			return fmt.Errorf("unused entries in hash file \"%s\": %s", s, bytes[1:len(bytes)-1])
+			fmt.Printf("Seemingly unnecessary entries in hash file \"%s\". Erase or ensure they are used in the verification stage: %s\n", s, bytes[1:len(bytes)-1])
+			//return fmt.Errorf("unused entries in hash file \"%s\": %s", s, bytes[1:len(bytes)-1])
 		}
 	}
 
