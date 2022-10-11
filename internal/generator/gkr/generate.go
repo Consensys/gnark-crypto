@@ -32,7 +32,7 @@ func GenerateForRationals(bgen *bavard.BatchGenerator) error {
 			ElementType:      "small_rational.SmallRational",
 		},
 		GenerateLargeTests:      false,
-		TestVectorsRelativePath: "../../rational_cases",
+		TestVectorsRelativePath: "../../test_vectors",
 	}
 
 	baseDir := "./gkr/small_rational/"

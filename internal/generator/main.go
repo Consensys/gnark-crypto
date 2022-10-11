@@ -93,7 +93,7 @@ func main() {
 			assertNoError(gkr.Generate(gkr.Config{
 				FieldDependency:         frInfo,
 				GenerateLargeTests:      true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/rational_cases",
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
 			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			// generate eddsa on companion curves
@@ -137,7 +137,7 @@ func main() {
 	wg.Wait()
 
 	// generate test cases for gkr
-	cmd := exec.Command("go", "run", "../../internal/generator/gkr/rational_cases")
+	cmd := exec.Command("go", "run", "../../internal/generator/gkr/test_vectors")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())

@@ -494,7 +494,7 @@ func generateTestVerifier(path string) func(t *testing.T) {
 
 func TestGkrVectors(t *testing.T) {
 
-	testDirPath := "../../../../internal/generator/gkr/rational_cases"
+	testDirPath := "../../../../internal/generator/gkr/test_vectors"
 	dirEntries, err := os.ReadDir(testDirPath)
 	if err != nil {
 		t.Error(err)
@@ -515,7 +515,7 @@ func TestGkrVectors(t *testing.T) {
 }
 
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "../../../../internal/generator/gkr/rational_cases/resources/hash.json")
+	m := getHash(t, "../../../../internal/generator/gkr/test_vectors/resources/hash.json")
 	var one, two, negFour fr.Element
 	one.SetOne()
 	two.SetInt64(2)

@@ -25,7 +25,7 @@ func main() {
 // TODO: Lots of copy-pasting here. Fix that.
 
 func Generate() error {
-	testDirPath, err := filepath.Abs("gkr/rational_cases")
+	testDirPath, err := filepath.Abs("gkr/test_vectors")
 	if err != nil {
 		return err
 	}

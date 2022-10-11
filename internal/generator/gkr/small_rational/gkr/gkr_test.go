@@ -481,7 +481,7 @@ func generateTestVerifier(path string) func(t *testing.T) {
 
 func TestGkrVectors(t *testing.T) {
 
-	testDirPath := "../../rational_cases"
+	testDirPath := "../../test_vectors"
 	dirEntries, err := os.ReadDir(testDirPath)
 	if err != nil {
 		t.Error(err)
@@ -502,7 +502,7 @@ func TestGkrVectors(t *testing.T) {
 }
 
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "../../rational_cases/resources/hash.json")
+	m := getHash(t, "../../test_vectors/resources/hash.json")
 	var one, two, negFour small_rational.SmallRational
 	one.SetOne()
 	two.SetInt64(2)
