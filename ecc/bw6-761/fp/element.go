@@ -1581,7 +1581,22 @@ func (z *Element) SetBytes(e []byte) *Element {
 	vv.SetBytes(e)
 
 	// set big int
-	z.SetBigInt(vv)
+	// same than z.SetBigInt(vv) but avoid an extra big.Int allocation
+	{
+		// fast path
+		if c := vv.Cmp(&_modulus); c == 0 {
+			// v == 0
+			z.SetZero()
+		} else if c != 1 && vv.Sign() != -1 {
+			// 0 < v < q
+			z.setBigInt(vv)
+		} else {
+			// modular reduction
+			vv.Mod(vv, &_modulus)
+			// set big int byte value
+			z.setBigInt(vv)
+		}
+	}
 
 	// put temporary object back in pool
 	bigIntPool.Put(vv)
@@ -1593,14 +1608,12 @@ func (z *Element) SetBytes(e []byte) *Element {
 func (z *Element) SetBigInt(v *big.Int) *Element {
 	z.SetZero()
 
-	var zero big.Int
-
 	// fast path
 	c := v.Cmp(&_modulus)
 	if c == 0 {
 		// v == 0
 		return z
-	} else if c != 1 && v.Cmp(&zero) != -1 {
+	} else if c != 1 && v.Sign() != -1 {
 		// 0 < v < q
 		return z.setBigInt(v)
 	}
