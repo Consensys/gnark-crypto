@@ -138,11 +138,13 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 			z.SetZero()
 		} else if c != 1 && vv.Sign() != -1 {
 			// 0 < v < q
+			z.SetZero()
 			z.setBigInt(vv)
 		} else {
 			// modular reduction
 			vv.Mod(vv, &_modulus)
 			// set big int byte value
+			z.SetZero()
 			z.setBigInt(vv)
 		}
 	}
