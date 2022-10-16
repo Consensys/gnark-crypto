@@ -72,6 +72,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			var r16, splitted1, splitted2 G1Jac
+			var r16a, splittedA G1Affine
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples * 13]fr.Element
@@ -84,10 +85,12 @@ func TestMultiExpG1(t *testing.T) {
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
 			r16.msmC16(samplePoints[:], scalars16, true)
+			r16a.FromJacobian(&r16)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
-			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+			splittedA.MultiExpBatchAffine(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
+			return r16.Equal(&splitted1) && r16.Equal(&splitted2) && r16a.Equal(&splittedA)
 		},
 		genScalar,
 	))
@@ -220,6 +223,37 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
+	}
+}
+
+func BenchmarkMultiExpG1ReferenceBatchAffine(b *testing.B) {
+	const MIN = 20
+	const MAX = 26
+	const nbSamples = 1 << MAX
+
+	var (
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+	)
+
+	fillBenchScalars(sampleScalars[:])
+	fillBenchBasesG1(samplePoints[:])
+
+	var testPoint G1Affine
+
+	for i := MIN; i <= MAX; i++ {
+		b.Run(fmt.Sprintf("Reference-2^%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExp(samplePoints[:1 << i], sampleScalars[:1 << i], ecc.MultiExpConfig{})
+			}
+		})
+		b.Run(fmt.Sprintf("BatchAffine-2^%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExpBatchAffine(samplePoints[:1 << i], sampleScalars[:1 << i], ecc.MultiExpConfig{})
+			}
+		})
 	}
 }
 
