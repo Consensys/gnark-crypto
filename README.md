@@ -5,8 +5,8 @@
 `gnark-crypto` provides efficient cryptographic primitives, in Go:
 
 * Elliptic curve cryptography & **Pairing** on:
-  * [`bn254`] ([audit report]())
-  * [`bls12-381`] ([audit report]())
+  * [`bn254`] ([audit report](audit_oct2022.pdf))
+  * [`bls12-381`] ([audit report](audit_oct2022.pdf))
   * [`bls24-317`]
   * [`bls12-377`] / [`bw6-761`]
   * [`bls24-315`] / [`bw6-633`]
