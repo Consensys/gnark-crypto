@@ -378,7 +378,8 @@ func (p *G2Jac) IsOnCurve() bool {
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 // https://eprint.iacr.org/2021/1130.pdf, sec.4
-// ψ(p) = x₀ P
+// and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
+// ψ(p) = [x₀]P
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
 	tmp.psi(p)
