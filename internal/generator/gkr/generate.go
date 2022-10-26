@@ -27,15 +27,15 @@ func GenerateForRationals(bgen *bavard.BatchGenerator) error {
 
 	conf := Config{
 		FieldDependency: config.FieldDependency{
-			FieldPackagePath: "github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational",
+			FieldPackagePath: "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational",
 			FieldPackageName: "small_rational",
 			ElementType:      "small_rational.SmallRational",
 		},
 		GenerateLargeTests:      false,
-		TestVectorsRelativePath: "../../test_vectors",
+		TestVectorsRelativePath: "../../../gkr/test_vectors",
 	}
 
-	baseDir := "./gkr/small_rational/"
+	baseDir := "./test_vector_utils/small_rational/"
 	if err := polynomial.Generate(conf.FieldDependency, baseDir+"polynomial", false, bgen); err != nil {
 		return err
 	}

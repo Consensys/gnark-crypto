@@ -18,7 +18,7 @@ package polynomial
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"reflect"
 	"sync"
 	"unsafe"

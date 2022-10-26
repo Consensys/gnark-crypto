@@ -17,9 +17,9 @@
 package gkr
 
 import (
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit

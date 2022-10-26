@@ -17,8 +17,8 @@
 package sumcheck
 
 import (
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"math/bits"
 	"strings"
 	"testing"

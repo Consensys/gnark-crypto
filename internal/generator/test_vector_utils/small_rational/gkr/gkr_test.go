@@ -19,9 +19,9 @@ package gkr
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/polynomial"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -481,7 +481,7 @@ func generateTestVerifier(path string) func(t *testing.T) {
 
 func TestGkrVectors(t *testing.T) {
 
-	testDirPath := "../../test_vectors"
+	testDirPath := "../../../gkr/test_vectors"
 	dirEntries, err := os.ReadDir(testDirPath)
 	if err != nil {
 		t.Error(err)
@@ -502,7 +502,7 @@ func TestGkrVectors(t *testing.T) {
 }
 
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "../../test_vectors/resources/hash.json")
+	m := getHash(t, "../../../gkr/test_vectors/resources/hash.json")
 	var one, two, negFour small_rational.SmallRational
 	one.SetOne()
 	two.SetInt64(2)
