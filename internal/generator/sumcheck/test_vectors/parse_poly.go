@@ -1,4 +1,4 @@
-package test_vectors
+package main
 
 /*
 import (

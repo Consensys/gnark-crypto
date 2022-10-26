@@ -3,16 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
-	"strconv"
-	"strings"
 )
 
 func main() {
@@ -68,20 +65,6 @@ func Generate() error {
 		}
 	}
 
-	// TODO: Find a suitable place to check for deadweight in the hash spec.
-	// TODO: If done here, some entries that are necessary for verification but not
-	// TODO: proof are wrongly marked as unnecessary
-	for s, h := range hashCache {
-		if unused := h.unusedEntries(); len(unused) != 0 {
-			var bytes []byte
-			if bytes, err = json.Marshal(&unused); err != nil {
-				return err
-			}
-			fmt.Printf("Seemingly unnecessary entries in hash file \"%s\". Erase or ensure they are used in the verification stage: %s\n", s, bytes[1:len(bytes)-1])
-			//return fmt.Errorf("unused entries in hash file \"%s\": %s", s, bytes[1:len(bytes)-1])
-		}
-	}
-
 	return nil
 }
 
@@ -129,8 +112,8 @@ func newTestCase(path string) (*TestCase, error) {
 			return nil, err
 		}
 
-		var hash HashMap
-		if hash, err = getHash(filepath.Join(dir, info.Hash)); err != nil {
+		var hash test_vector_utils.HashMap
+		if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 			return nil, err
 		}
 
@@ -147,7 +130,7 @@ func newTestCase(path string) (*TestCase, error) {
 			for j := range circuit[i] {
 				wire := &circuit[i][j]
 				var wireAssignment []small_rational.SmallRational
-				if wireAssignment, err = sliceToElementSlice(info.Input[j]); err == nil {
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(info.Input[j]); err == nil {
 					fullAssignment[wire] = wireAssignment
 				} else {
 					return nil, err
@@ -177,8 +160,8 @@ func newTestCase(path string) (*TestCase, error) {
 		}
 		for j := range circuit[0] {
 			var outAssignment []small_rational.SmallRational
-			if outAssignment, err = sliceToElementSlice(info.Output[j]); err == nil {
-				if err = sliceEquals(outAssignment, fullAssignment[&circuit[0][j]]); err != nil {
+			if outAssignment, err = test_vector_utils.SliceToElementSlice(info.Output[j]); err == nil {
+				if err = test_vector_utils.SliceEquals(outAssignment, fullAssignment[&circuit[0][j]]); err != nil {
 					return nil, err
 				}
 			} else {
@@ -188,7 +171,7 @@ func newTestCase(path string) (*TestCase, error) {
 
 		return &TestCase{
 			Circuit:        circuit,
-			Transcript:     &MapHashTranscript{hashMap: hash},
+			Transcript:     &test_vector_utils.MapHashTranscript{HashMap: hash},
 			FullAssignment: fullAssignment,
 			Info:           &info,
 		}, nil
@@ -317,238 +300,6 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-var hashCache = make(map[string]HashMap)
-
-func getHash(path string) (HashMap, error) {
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	if h, ok := hashCache[path]; ok {
-		return h, nil
-	}
-	var bytes []byte
-	if bytes, err = os.ReadFile(path); err == nil {
-		var asMap map[string]interface{}
-		if err = json.Unmarshal(bytes, &asMap); err != nil {
-			return nil, err
-		}
-
-		res := make(HashMap, 0, len(asMap))
-
-		for k, v := range asMap {
-			var entry RationalTriplet
-			if _, err = entry.value.SetInterface(v); err != nil {
-				return nil, err
-			}
-
-			key := strings.Split(k, ",")
-
-			switch len(key) {
-			case 1:
-				entry.key2Present = false
-			case 2:
-				entry.key2Present = true
-				if _, err = entry.key2.SetInterface(key[1]); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
-			}
-			if _, err = entry.key1.SetInterface(key[0]); err != nil {
-				return nil, err
-			}
-
-			res = append(res, &entry)
-		}
-
-		sort.Slice(res, func(i, j int) bool {
-			return res[i].CmpKey(res[j]) <= 0
-		})
-
-		hashCache[path] = res
-
-		return res, nil
-
-	} else {
-		return nil, err
-	}
-}
-
-type HashMap []*RationalTriplet
-
-type MapHashTranscript struct {
-	hashMap         HashMap
-	stateValid      bool
-	resultAvailable bool
-	state           small_rational.SmallRational
-}
-
-type RationalTriplet struct {
-	key1        small_rational.SmallRational
-	key2        small_rational.SmallRational
-	key2Present bool
-	value       small_rational.SmallRational
-	used        bool
-}
-
-func (t *RationalTriplet) CmpKey(o *RationalTriplet) int {
-	if cmp1 := t.key1.Cmp(&o.key1); cmp1 != 0 {
-		return cmp1
-	}
-
-	if t.key2Present {
-		if o.key2Present {
-			return t.key2.Cmp(&o.key2)
-		}
-		return 1
-	} else {
-		if o.key2Present {
-			return -1
-		}
-		return 0
-	}
-}
-
-func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
-
-	toFind := RationalTriplet{
-		key1:        *x,
-		key2Present: y != nil,
-	}
-
-	if y != nil {
-		toFind.key2 = *y
-	}
-
-	i := sort.Search(len(m), func(i int) bool { return m[i].CmpKey(&toFind) >= 0 })
-
-	if i < len(m) && m[i].CmpKey(&toFind) == 0 {
-		m[i].used = true
-		return m[i].value
-	}
-
-	if y == nil {
-		panic("No hash available for input " + x.Text(10))
-	} else {
-		panic("No hash available for input " + x.Text(10) + "," + y.Text(10))
-	}
-}
-
-func (m HashMap) unusedEntries() []interface{} {
-	unused := make([]interface{}, 0)
-	for _, v := range m {
-		if !v.used {
-			var vInterface interface{}
-			if v.key2Present {
-				vInterface = []interface{}{elementToInterface(&v.key1), elementToInterface(&v.key2)}
-			} else {
-				vInterface = elementToInterface(&v.key1)
-			}
-			unused = append(unused, vInterface)
-		}
-	}
-	return unused
-}
-
-func (m *MapHashTranscript) Update(i ...interface{}) {
-	if len(i) > 0 {
-		for _, x := range i {
-
-			var xElement small_rational.SmallRational
-			if _, err := xElement.SetInterface(x); err != nil {
-				panic(err.Error())
-			}
-			if m.stateValid {
-				m.state = m.hashMap.hash(&xElement, &m.state)
-			} else {
-				m.state = m.hashMap.hash(&xElement, nil)
-			}
-
-			m.stateValid = true
-		}
-	} else { //just hash the state itself
-		if !m.stateValid {
-			panic("nothing to hash")
-		}
-		m.state = m.hashMap.hash(&m.state, nil)
-	}
-	m.resultAvailable = true
-}
-
-func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational {
-
-	if len(i) > 0 || !m.resultAvailable {
-		m.Update(i...)
-	}
-	m.resultAvailable = false
-	return m.state
-}
-
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
-
-	if len(i) > 0 {
-		m.Update(i...)
-	}
-
-	res := make([]small_rational.SmallRational, N)
-
-	for n := range res {
-		res[n] = m.Next()
-	}
-
-	return res
-}
-
-func sliceToElementSlice(slice []interface{}) ([]small_rational.SmallRational, error) {
-	elementSlice := make([]small_rational.SmallRational, len(slice))
-	for i, v := range slice {
-		if _, err := elementSlice[i].SetInterface(v); err != nil {
-			return nil, err
-		}
-	}
-	return elementSlice, nil
-}
-
-func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
-	if len(a) != len(b) {
-		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
-	}
-	for i := range a {
-		if !a[i].Equal(&b[i]) {
-			return fmt.Errorf("at index %d: %s ≠ %s", i, a[i].String(), b[i].String())
-		}
-	}
-	return nil
-}
-
-func elementToInterface(x *small_rational.SmallRational) interface{} {
-	text := x.Text(10)
-	if len(text) < 10 && !strings.Contains(text, "/") {
-		if res, err := strconv.Atoi(text); err != nil {
-			panic("error: " + err.Error())
-		} else {
-			return res
-		}
-	}
-	return text
-}
-
-func elementSliceToInterfaceSlice(x interface{}) []interface{} {
-	if x == nil {
-		return nil
-	}
-
-	X := reflect.ValueOf(x)
-
-	res := make([]interface{}, X.Len())
-	for i := range res {
-		xI := X.Index(i).Interface().(small_rational.SmallRational)
-		res[i] = elementToInterface(&xI)
-	}
-	return res
-}
-
 func toPrintableProof(proof gkr.Proof) PrintableProof {
 	res := make(PrintableProof, len(proof))
 
@@ -561,11 +312,11 @@ func toPrintableProof(proof gkr.Proof) PrintableProof {
 
 				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
 				for k, partialK := range proofIJ.PartialSumPolys {
-					partialSumPolys[k] = elementSliceToInterfaceSlice(partialK)
+					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
 				}
 
 				res[i][j] = PrintableSumcheckProof{
-					FinalEvalProof:  elementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
+					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
 					PartialSumPolys: partialSumPolys,
 				}
 			}
