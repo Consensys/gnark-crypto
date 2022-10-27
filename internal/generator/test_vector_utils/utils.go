@@ -243,3 +243,18 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 	}
 	return res
 }
+
+func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
+	if x == nil {
+		return nil
+	}
+
+	X := reflect.ValueOf(x)
+
+	res := make([][]interface{}, X.Len())
+	for i := range res {
+		res[i] = ElementSliceToInterfaceSlice(X.Index(i).Interface())
+	}
+
+	return res
+}
