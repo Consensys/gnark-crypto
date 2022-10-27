@@ -339,6 +339,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 			wire := &layer[wireI]
 			claim := claims.getClaim(wire)
 			if !wire.IsInput() || claim.ClaimsNum() > 1 {
+				// TODO: Incorporate the claims into transcript here
 				proof[layerI][wireI] = sumcheck.Prove(claim, transcript)
 			}
 			// the verifier checks a single claim about input wires itself
@@ -375,6 +376,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 					return false
 				}
 
+			// TODO: Incorporate the claims into transcript here
 			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript) {
 				return false //TODO: Any polynomials to dump?
 			}

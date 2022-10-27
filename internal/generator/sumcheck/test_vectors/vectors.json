@@ -1,5 +1,5 @@
 {
-	"linear_univariate": {
+	"linear_univariate_single_claim": {
 		"type": "multilin",
 		"hash": "hash.json",
 		"values": [
@@ -16,5 +16,35 @@
 			"finalEvalProof": {}
 		},
 		"claimedSum": 4
+	},
+	"trilinear_single_claim": {
+		"type": "multilin",
+		"hash": "hash.json",
+		"values": [
+			1,
+			2,
+			3,
+			4,
+			5,
+			6,
+			7,
+			8
+		],
+		"description": "X₁, X₂, X₃ ↦ 1 + 4X₁ + 2X₂ + X₃",
+		"proof": {
+			"partialSumPolys": [
+				[
+					26
+				],
+				[
+					31
+				],
+				[
+					18
+				]
+			],
+			"finalEvalProof": {}
+		},
+		"claimedSum": 36
 	}
 }
