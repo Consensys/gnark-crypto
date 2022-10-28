@@ -377,15 +377,22 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// [r]P == 0 <==> Frob(P) == [6x²]P
+// https://eprint.iacr.org/2022/348.pdf, sec. 3 and 5.1
+// [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
 func (p *G2Jac) IsInSubGroup() bool {
-	var a, res G2Jac
-	a.psi(p)
-	res.ScalarMultiplication(p, &fixedCoeff).
-		SubAssign(&a)
+	var a, b, c, res G2Jac
+	a.ScalarMultiplication(p, &xGen)
+	b.psi(&a)
+	a.AddAssign(p)
+	res.psi(&b)
+	c.Set(&res).
+		AddAssign(&b).
+		AddAssign(&a)
+	res.psi(&res).
+		Double(&res).
+		SubAssign(&c)
 
 	return res.IsOnCurve() && res.Z.IsZero()
-
 }
 
 // mulWindowed computes a 2-bits windowed scalar multiplication
