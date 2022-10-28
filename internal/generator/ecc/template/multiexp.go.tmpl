@@ -76,7 +76,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 	// processing in the msm in 2, to ensure all go routines finish at ~same time
 	// /!\ nbTasks is enough as parallel.Execute is not going to spawn more than nbTasks go routine
 	// if it does, though, this will deadlocK.
-	chSmallValues := make(chan int, nbTasks) 
+	chSmallValues := make(chan int, nbTasks)
 
 	parallel.Execute(len(scalars), func(start, end int) {
 		smallValues := 0
@@ -116,7 +116,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 				// if digit is zero, no impact on result
 				if digit == 0 {
-					continue 
+					continue
 				}
 
 
@@ -145,8 +145,8 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 		chSmallValues <- smallValues
 
 	}, nbTasks)
-	
-	
+
+
 	// aggregate small values
 	close(chSmallValues)
 	smallValues := 0
@@ -165,19 +165,19 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// 
+//
 // This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) (*{{ $.TAffine }}, error) {
 	var _p {{$.TJacobian}}
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
-		return nil, err 
+		return nil, err
 	}
 	p.FromJacobian(&_p)
 	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// 
+//
 // This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) (*{{ $.TJacobian }}, error) {
 	// note:
@@ -259,39 +259,39 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 		nbChunks *= nbSplits
 		if nbChunks < config.NbTasks {
 			nbSplits <<= 1
-			nbPoints >>= 1 
+			nbPoints >>= 1
 		}
 	}
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	var smallValues int 
+	var smallValues int
 	scalars, smallValues = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in msmInner{{ $.TJacobian }} , but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
 
-	// we have nbSplits intermediate results that we must sum together. 
+	// we have nbSplits intermediate results that we must sum together.
 	_p := make([]{{ $.TJacobian }}, nbSplits - 1)
 	chDone := make(chan int, nbSplits - 1)
 	for i:=0; i < nbSplits-1; i++ {
 		start := i * nbPoints
-		end := start + nbPoints 
+		end := start + nbPoints
 		go func(start, end, i int) {
 			msmInner{{ $.TJacobian }}(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
 			chDone <- i
 		}(start, end, i)
 	}
-	
+
 	msmInner{{ $.TJacobian }}(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
 	for i:=0; i < nbSplits-1; i++ {
 		done := <-chDone
 		p.AddAssign(&_p[done])
 	}
 	close(chDone)
-	return p, nil 
+	return p, nil
 }
 
 func msmInner{{ $.TJacobian }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, scalars []fr.Element, splitFirstChunk bool)  {
@@ -308,18 +308,19 @@ func msmInner{{ $.TJacobian }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffin
 
 // msmReduceChunk{{ $.TAffine }} reduces the weighted sum of the buckets into the result of the multiExp
 func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan {{ $.TJacobianExtended }})  *{{ $.TJacobian }} {
-	var _p {{ $.TJacobianExtended }}
+	var _p {{ $.TJacobian }}
 	totalj := <-chChunks[len(chChunks)-1]
-    _p.Set(&totalj)
+    p.unsafeFromJacExtended(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
-			_p.double(&_p)
+			p.Double(p)
 		}
 		totalj := <-chChunks[j]
-		_p.add(&totalj)
+		_p.unsafeFromJacExtended(&totalj)
+		p.AddAssign(&_p)
 	}
 
-	return p.unsafeFromJacExtended(&_p)
+	return p
 }
 
 
@@ -403,9 +404,9 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 		nbChunks = (fr.Limbs * 64 / c) 			// number of c-bit radixes in a scalar
 	)
 
-	// for each chunk, spawn one go routine that'll loop through all the scalars in the 
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is 
+	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
 	// critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
