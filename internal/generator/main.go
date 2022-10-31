@@ -97,6 +97,12 @@ func main() {
 				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
 			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
+			// generate test vector utils on fr
+			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
+				FieldDependency:             frInfo,
+				RandomizeMissingHashEntries: false,
+			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
@@ -154,7 +160,7 @@ func main() {
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
 
-	//mathfmt doesn't accept directories. TODO: PR?
+	//mathfmt doesn't accept directories. TODO: PR pending
 	/*cmd = exec.Command("mathfmt", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

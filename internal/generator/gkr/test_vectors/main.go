@@ -312,19 +312,13 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 			for j, proofIJ := range proofI {
 
 				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
-				var err error
 				for k, partialK := range proofIJ.PartialSumPolys {
-					if partialSumPolys[k], err = test_vector_utils.ElementSliceToInterfaceSlice(partialK); err != nil {
-						return nil, err
-					}
+					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
 				}
 
 				res[i][j] = PrintableSumcheckProof{
+					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
 					PartialSumPolys: partialSumPolys,
-				}
-
-				if res[i][j].FinalEvalProof, err = test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof); err != nil {
-					return nil, err
 				}
 			}
 		}

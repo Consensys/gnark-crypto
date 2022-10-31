@@ -19,8 +19,8 @@ package test_vector_utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
-	"math/rand"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,10 +30,10 @@ import (
 )
 
 type ElementTriplet struct {
-	key1        small_rational.SmallRational
-	key2        small_rational.SmallRational
+	key1        fr.Element
+	key2        fr.Element
 	key2Present bool
-	value       small_rational.SmallRational
+	value       fr.Element
 	used        bool
 }
 
@@ -76,7 +76,7 @@ func GetHash(path string) (HashMap, error) {
 
 		for k, v := range asMap {
 			var entry ElementTriplet
-			if _, err = entry.value.SetInterface(v); err != nil {
+			if _, err = setElement(&entry.value, v); err != nil {
 				return nil, err
 			}
 
@@ -87,13 +87,13 @@ func GetHash(path string) (HashMap, error) {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err = entry.key2.SetInterface(key[1]); err != nil {
+				if _, err = setElement(&entry.key2, key[1]); err != nil {
 					return nil, err
 				}
 			default:
 				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err = entry.key1.SetInterface(key[0]); err != nil {
+			if _, err = setElement(&entry.key1, key[0]); err != nil {
 				return nil, err
 			}
 
@@ -121,47 +121,20 @@ func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 		sb.WriteString(t.key2.String())
 	}
 }
-
-func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
-	t.writeKey(sb)
-	sb.WriteString("\":")
-
-	if valueBytes, err := json.Marshal(ElementToInterface(&t.value)); err == nil {
-		sb.WriteString(string(valueBytes))
-		return nil
-	} else {
-		return err
-	}
-}
-
-func (m *HashMap) SaveUsedEntries(path string) error {
-
-	var sb strings.Builder
-	sb.WriteRune('[')
-
-	first := true
-
-	for _, element := range *m {
-		if !element.used {
-			continue
-		}
-		if !first {
-			sb.WriteRune(',')
-		}
-		first = false
-		sb.WriteString("\n\t")
-		if err := element.writeKeyValue(&sb); err != nil {
-			return err
+func (m *HashMap) UnusedEntries() []interface{} {
+	unused := make([]interface{}, 0)
+	for _, v := range *m {
+		if !v.used {
+			var vInterface interface{}
+			if v.key2Present {
+				vInterface = []interface{}{ElementToInterface(&v.key1), ElementToInterface(&v.key2)}
+			} else {
+				vInterface = ElementToInterface(&v.key1)
+			}
+			unused = append(unused, vInterface)
 		}
 	}
-
-	if !first {
-		sb.WriteRune(',')
-	}
-
-	sb.WriteString("\n]")
-
-	return os.WriteFile(path, []byte(sb.String()), 0)
+	return unused
 }
 
 func (m *HashMap) sort() {
@@ -170,25 +143,20 @@ func (m *HashMap) sort() {
 	})
 }
 
-func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
+func (m *HashMap) find(toFind *ElementTriplet) fr.Element {
 	i := sort.Search(len(*m), func(i int) bool { return (*m)[i].CmpKey(toFind) >= 0 })
 
 	if i < len(*m) && (*m)[i].CmpKey(toFind) == 0 {
 		(*m)[i].used = true
 		return (*m)[i].value
 	}
-	// if not found, add it:
-	if _, err := toFind.value.SetInterface(rand.Int63n(11) - 5); err != nil {
-		panic(err.Error())
-	}
-	toFind.used = true
-	*m = append(*m, toFind)
-	m.sort() //Inefficient, but it's okay. This is only run when a new test case is introduced
-
-	return toFind.value
+	var sb strings.Builder
+	sb.WriteString("no value available for input ")
+	toFind.writeKey(&sb)
+	panic(sb.String())
 }
 
-func (m *HashMap) findPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m *HashMap) findPair(x *fr.Element, y *fr.Element) fr.Element {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -206,14 +174,14 @@ type MapHashTranscript struct {
 	HashMap         HashMap
 	stateValid      bool
 	resultAvailable bool
-	state           small_rational.SmallRational
+	state           fr.Element
 }
 
 func (m *MapHashTranscript) Update(i ...interface{}) {
 	if len(i) > 0 {
 		for _, x := range i {
 
-			var xElement small_rational.SmallRational
+			var xElement fr.Element
 			if _, err := xElement.SetInterface(x); err != nil {
 				panic(err.Error())
 			}
@@ -234,7 +202,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 	m.resultAvailable = true
 }
 
-func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational {
+func (m *MapHashTranscript) Next(i ...interface{}) fr.Element {
 
 	if len(i) > 0 || !m.resultAvailable {
 		m.Update(i...)
@@ -243,13 +211,13 @@ func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational 
 	return m.state
 }
 
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
+func (m *MapHashTranscript) NextN(N int, i ...interface{}) []fr.Element {
 
 	if len(i) > 0 {
 		m.Update(i...)
 	}
 
-	res := make([]small_rational.SmallRational, N)
+	res := make([]fr.Element, N)
 
 	for n := range res {
 		res[n] = m.Next()
@@ -257,18 +225,48 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 
 	return res
 }
+func setElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
-func SliceToElementSlice(slice []interface{}) ([]small_rational.SmallRational, error) {
-	elementSlice := make([]small_rational.SmallRational, len(slice))
+	// TODO: Put this in element.SetString?
+	switch v := value.(type) {
+	case string:
+
+		if sep := strings.Split(v, "/"); len(sep) == 2 {
+			var denom fr.Element
+			if _, err := z.SetString(sep[0]); err != nil {
+				return nil, err
+			}
+			if _, err := denom.SetString(sep[1]); err != nil {
+				return nil, err
+			}
+			denom.Inverse(&denom)
+			z.Mul(z, &denom)
+			return z, nil
+		}
+
+	case float64:
+		asInt := int64(v)
+		if float64(asInt) != v {
+			return nil, fmt.Errorf("cannot currently parse float")
+		}
+		z.SetInt64(asInt)
+		return z, nil
+	}
+
+	return z.SetInterface(value)
+}
+
+func SliceToElementSlice(slice []interface{}) ([]fr.Element, error) {
+	elementSlice := make([]fr.Element, len(slice))
 	for i, v := range slice {
-		if _, err := elementSlice[i].SetInterface(v); err != nil {
+		if _, err := setElement(&elementSlice[i], v); err != nil {
 			return nil, err
 		}
 	}
 	return elementSlice, nil
 }
 
-func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+func SliceEquals(a []fr.Element, b []fr.Element) error {
 	if len(a) != len(b) {
 		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
 	}
@@ -280,7 +278,7 @@ func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRatio
 	return nil
 }
 
-func ElementToInterface(x *small_rational.SmallRational) interface{} {
+func ElementToInterface(x *fr.Element) interface{} {
 	text := x.Text(10)
 	if len(text) < 10 && !strings.Contains(text, "/") {
 		if i, err := strconv.Atoi(text); err != nil {
@@ -301,7 +299,7 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 
 	res := make([]interface{}, X.Len())
 	for i := range res {
-		xI := X.Index(i).Interface().(small_rational.SmallRational)
+		xI := X.Index(i).Interface().(fr.Element)
 		res[i] = ElementToInterface(&xI)
 	}
 	return res

@@ -2,7 +2,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"{{.FieldPackagePath}}"
-	"math/rand"
+	{{if .RandomizeMissingHashEntries}}"math/rand"{{end}}
 	"os"
 	"path/filepath"
 	"sort"
@@ -95,27 +95,27 @@ func GetHash(path string) (HashMap, error) {
 
 type HashMap []*ElementTriplet
 
-{{- if .RandomizeMissingHashEntries}}
-func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
-	sb.WriteString("\t\"")
+func (t *ElementTriplet) writeKey(sb *strings.Builder) {
+	sb.WriteString("\"")
 	sb.WriteString(t.key1.String())
 	if t.key2Present {
 		sb.WriteRune(',')
 		sb.WriteString(t.key2.String())
 	}
-	sb.WriteString("\":")
-	var value interface{}
-	var valueBytes []byte
-	var err error
+}
 
-	if value, err = ElementToInterface(&t.value); err != nil {
+{{- if .RandomizeMissingHashEntries}}
+
+func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
+	t.writeKey(sb)
+	sb.WriteString("\":")
+
+	if valueBytes, err := json.Marshal(ElementToInterface(&t.value)); err == nil {
+		sb.WriteString(string(valueBytes))
+		return nil
+	} else {
 		return err
 	}
-	if valueBytes, err = json.Marshal(value); err != nil {
-		return err
-	}
-	sb.WriteString(string(valueBytes))
-	return nil
 }
 
 func (m *HashMap) SaveUsedEntries(path string) error {
@@ -171,7 +171,7 @@ func (m *HashMap) sort() {
 	})
 }
 
-func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
+func (m *HashMap) find(toFind *ElementTriplet) {{.ElementType}} {
 	i := sort.Search(len(*m), func(i int) bool { return (*m)[i].CmpKey(toFind) >= 0 })
 
 	if i < len(*m) && (*m)[i].CmpKey(toFind) == 0 {
@@ -190,11 +190,10 @@ func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
 
 	return toFind.value
 	{{- else}}
-	if y == nil {
-	panic("No hash available for input " + x.Text(10))
-	} else {
-	panic("No hash available for input " + x.Text(10) + "," + y.Text(10))
-	}
+	var sb strings.Builder
+	sb.WriteString("no value available for input ")
+	toFind.writeKey(&sb)
+	panic(sb.String())
 	{{- end}}
 }
 
@@ -331,46 +330,44 @@ func SliceEquals(a []{{.ElementType}}, b []{{.ElementType}}) error {
 	return nil
 }
 
-func ElementToInterface(x *{{.ElementType}}) (interface{}, error) {
+func ElementToInterface(x *{{.ElementType}}) interface{} {
 	text := x.Text(10)
 	if len(text) < 10 && !strings.Contains(text, "/") {
-		return strconv.Atoi(text)
+		if i, err := strconv.Atoi(text); err != nil {
+			panic(err.Error())
+		} else {
+			return i
+		}
 	}
-	return text, nil
+	return text
 }
 
-func ElementSliceToInterfaceSlice(x interface{}) ([]interface{}, error) {
+func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 	if x == nil {
-		return nil, nil
+		return nil
 	}
 
 	X := reflect.ValueOf(x)
 
 	res := make([]interface{}, X.Len())
-	var err error
 	for i := range res {
-		xI := X.Index(i).Interface().(small_rational.SmallRational)
-		if res[i], err = ElementToInterface(&xI); err != nil {
-			return nil, err
-		}
+		xI := X.Index(i).Interface().({{.ElementType}})
+		res[i] = ElementToInterface(&xI)
 	}
-	return res, nil
+	return res
 }
 
-func ElementSliceSliceToInterfaceSliceSlice(x interface{}) ([][]interface{}, error) {
+func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
-		return nil, nil
+		return nil
 	}
 
 	X := reflect.ValueOf(x)
 
 	res := make([][]interface{}, X.Len())
-	var err error
 	for i := range res {
-		if res[i], err = ElementSliceToInterfaceSlice(X.Index(i).Interface()); err != nil {
-			return nil, err
-		}
+		res[i] = ElementSliceToInterfaceSlice(X.Index(i).Interface())
 	}
 
-	return res, nil
+	return res
 }
