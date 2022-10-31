@@ -16,6 +16,19 @@
 
 package test_vector_utils
 
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+)
+
 type ElementTriplet struct {
 	key1        small_rational.SmallRational
 	key2        small_rational.SmallRational
@@ -44,19 +57,19 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 
 var hashCache = make(map[string]HashMap)
 
-func GetHash(t *testing.T, path string) HashMap {
+func GetHash(path string) (HashMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
-		t.Error(err)
+		return nil, err
 	}
 	if h, ok := hashCache[path]; ok {
-		return h
+		return h, nil
 	}
 	var bytes []byte
 	if bytes, err = os.ReadFile(path); err == nil {
 		var asMap map[string]interface{}
 		if err = json.Unmarshal(bytes, &asMap); err != nil {
-			t.Error(err)
+			return nil, err
 		}
 
 		res := make(HashMap, 0, len(asMap))
@@ -64,7 +77,7 @@ func GetHash(t *testing.T, path string) HashMap {
 		for k, v := range asMap {
 			var entry ElementTriplet
 			if _, err = entry.value.SetInterface(v); err != nil {
-				t.Error(err)
+				return nil, err
 			}
 
 			key := strings.Split(k, ",")
@@ -75,13 +88,13 @@ func GetHash(t *testing.T, path string) HashMap {
 			case 2:
 				entry.key2Present = true
 				if _, err = entry.key2.SetInterface(key[1]); err != nil {
-					t.Error(err)
+					return nil, err
 				}
 			default:
-				t.Errorf("cannot parse %T as one or two field elements", v)
+				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
 			}
 			if _, err = entry.key1.SetInterface(key[0]); err != nil {
-				t.Error(err)
+				return nil, err
 			}
 
 			res = append(res, &entry)
@@ -91,12 +104,11 @@ func GetHash(t *testing.T, path string) HashMap {
 
 		hashCache[path] = res
 
-		return res
+		return res, nil
 
 	} else {
-		t.Error(err)
+		return nil, err
 	}
-	return nil //Unreachable
 }
 
 type HashMap []*ElementTriplet
@@ -168,14 +180,7 @@ func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
 	return toFind.value
 }
 
-type MapHashTranscript struct {
-	hashMap         HashMap
-	stateValid      bool
-	resultAvailable bool
-	state           small_rational.SmallRational
-}
-
-func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -189,6 +194,13 @@ func (m HashMap) hash(x *small_rational.SmallRational, y *small_rational.SmallRa
 	return m.find(&toFind)
 }
 
+type MapHashTranscript struct {
+	hashMap         HashMap
+	stateValid      bool
+	resultAvailable bool
+	state           small_rational.SmallRational
+}
+
 func (m *MapHashTranscript) Update(i ...interface{}) {
 	if len(i) > 0 {
 		for _, x := range i {
@@ -198,18 +210,18 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 				panic(err.Error())
 			}
 			if m.stateValid {
-				m.state = m.hashMap.hash(&xElement, &m.state)
+				m.state = m.hashMap.FindPair(&xElement, &m.state)
 			} else {
-				m.state = m.hashMap.hash(&xElement, nil)
+				m.state = m.hashMap.FindPair(&xElement, nil)
 			}
 
 			m.stateValid = true
 		}
-	} else { //just hash the state itself
+	} else { //just FindPair the state itself
 		if !m.stateValid {
-			panic("nothing to hash")
+			panic("nothing to FindPair")
 		}
-		m.state = m.hashMap.hash(&m.state, nil)
+		m.state = m.hashMap.FindPair(&m.state, nil)
 	}
 	m.resultAvailable = true
 }
@@ -238,7 +250,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 	return res
 }
 
-func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
+func SliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
 	elementSlice = make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
 		if _, err := elementSlice[i].SetInterface(v); err != nil {
@@ -248,7 +260,7 @@ func sliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []smal
 	return
 }
 
-func sliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
+func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
 	if len(a) != len(b) {
 		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
 	}
