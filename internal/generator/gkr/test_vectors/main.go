@@ -28,7 +28,6 @@ func Generate() error {
 	}
 
 	fmt.Printf("generating GKR test cases: scanning directory %s for test specs\n", testDirPath)
-	//debug.PrintStack()
 
 	dirEntries, err := os.ReadDir(testDirPath)
 	if err != nil {

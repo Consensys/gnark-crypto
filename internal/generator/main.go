@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -130,8 +131,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// test case generator for gkr
-		assertNoError(gkr.GenerateForRationals(bgen))
+		assertNoError(test_vector_utils.GenerateRationals(bgen))
 	}()
 
 	wg.Wait()

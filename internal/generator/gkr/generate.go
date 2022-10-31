@@ -3,8 +3,6 @@ package gkr
 import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
-	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
-	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"path/filepath"
 )
 
@@ -21,32 +19,4 @@ func Generate(config Config, baseDir string, bgen *bavard.BatchGenerator) error 
 	}
 
 	return bgen.Generate(config, "gkr", "./gkr/template/", entries...)
-}
-
-func GenerateForRationals(bgen *bavard.BatchGenerator) error {
-
-	conf := Config{
-		FieldDependency: config.FieldDependency{
-			FieldPackagePath: "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational",
-			FieldPackageName: "small_rational",
-			ElementType:      "small_rational.SmallRational",
-		},
-		GenerateLargeTests:      false,
-		TestVectorsRelativePath: "../../../gkr/test_vectors",
-	}
-
-	baseDir := "./test_vector_utils/small_rational/"
-	if err := polynomial.Generate(conf.FieldDependency, baseDir+"polynomial", false, bgen); err != nil {
-		return err
-	}
-
-	if err := sumcheck.Generate(conf.FieldDependency, baseDir+"sumcheck", bgen); err != nil {
-		return err
-	}
-
-	if err := Generate(conf, baseDir+"gkr", bgen); err != nil {
-		return err
-	}
-
-	return nil
 }

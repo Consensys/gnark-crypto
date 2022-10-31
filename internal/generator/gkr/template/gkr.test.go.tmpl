@@ -3,6 +3,7 @@ import (
 	"{{.FieldPackagePath}}"
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
+	"{{.FieldPackagePath}}/test_vector_utils"
 	"github.com/stretchr/testify/assert"
 	"fmt"
 	"os"
@@ -514,5 +515,4 @@ func TestTestHash(t *testing.T) {
 
 {{template "testVectorCache" .}}
 {{template "circuitCache" .}}
-{{template "testHash" .}}
 {{template "serializationUtils" .}}
