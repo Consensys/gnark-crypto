@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
 	"os"
 	"path/filepath"
 )
@@ -51,7 +51,9 @@ func Generate() error {
 				testCase.Transcript.Update(0)
 				proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
 
-				testCase.Info.Proof = toPrintableProof(proof)
+				if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
+					return err
+				}
 				var outBytes []byte
 				if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
 					if err = os.WriteFile(path, outBytes, 0); err != nil {
@@ -299,7 +301,7 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-func toPrintableProof(proof gkr.Proof) PrintableProof {
+func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	res := make(PrintableProof, len(proof))
 
 	for i, proofI := range proof {
@@ -310,16 +312,22 @@ func toPrintableProof(proof gkr.Proof) PrintableProof {
 			for j, proofIJ := range proofI {
 
 				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
+				var err error
 				for k, partialK := range proofIJ.PartialSumPolys {
-					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
+					if partialSumPolys[k], err = test_vector_utils.ElementSliceToInterfaceSlice(partialK); err != nil {
+						return nil, err
+					}
 				}
 
 				res[i][j] = PrintableSumcheckProof{
-					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
 					PartialSumPolys: partialSumPolys,
+				}
+
+				if res[i][j].FinalEvalProof, err = test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof); err != nil {
+					return nil, err
 				}
 			}
 		}
 	}
-	return res
+	return res, nil
 }

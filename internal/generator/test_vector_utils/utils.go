@@ -1,18 +1,6 @@
 package test_vector_utils
 
-import (
-	"encoding/json"
-	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"reflect"
-	"sort"
-	"strconv"
-	"strings"
-)
-
+/*
 var hashCache = make(map[string]HashMap)
 
 func GetHash(path string) (HashMap, error) {
@@ -257,44 +245,4 @@ func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRatio
 	return nil
 }
 
-func ElementToInterface(x *small_rational.SmallRational) interface{} {
-	text := x.Text(10)
-	if len(text) < 10 && !strings.Contains(text, "/") {
-		if res, err := strconv.Atoi(text); err != nil {
-			panic("error: " + err.Error())
-		} else {
-			return res
-		}
-	}
-	return text
-}
-
-func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
-	if x == nil {
-		return nil
-	}
-
-	X := reflect.ValueOf(x)
-
-	res := make([]interface{}, X.Len())
-	for i := range res {
-		xI := X.Index(i).Interface().(small_rational.SmallRational)
-		res[i] = ElementToInterface(&xI)
-	}
-	return res
-}
-
-func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
-	if x == nil {
-		return nil
-	}
-
-	X := reflect.ValueOf(x)
-
-	res := make([][]interface{}, X.Len())
-	for i := range res {
-		res[i] = ElementSliceToInterfaceSlice(X.Index(i).Interface())
-	}
-
-	return res
-}
+*/

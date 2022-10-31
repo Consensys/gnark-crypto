@@ -19,14 +19,14 @@ package test_vector_utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
-	"testing"
 )
 
 type ElementTriplet struct {
@@ -113,7 +113,7 @@ func GetHash(path string) (HashMap, error) {
 
 type HashMap []*ElementTriplet
 
-func (t *ElementTriplet) WriteKeyValue(sb *strings.Builder) {
+func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
 	sb.WriteString("\t\"")
 	sb.WriteString(t.key1.String())
 	if t.key2Present {
@@ -121,11 +121,18 @@ func (t *ElementTriplet) WriteKeyValue(sb *strings.Builder) {
 		sb.WriteString(t.key2.String())
 	}
 	sb.WriteString("\":")
-	if valueBytes, err := json.Marshal(test_vector_utils.ElementToInterface(&t.value)); err == nil {
-		sb.WriteString(string(valueBytes))
-	} else {
-		panic(err.Error())
+	var value interface{}
+	var valueBytes []byte
+	var err error
+
+	if value, err = ElementToInterface(&t.value); err != nil {
+		return err
 	}
+	if valueBytes, err = json.Marshal(value); err != nil {
+		return err
+	}
+	sb.WriteString(string(valueBytes))
+	return nil
 }
 
 func (m *HashMap) SaveUsedEntries(path string) error {
@@ -144,7 +151,9 @@ func (m *HashMap) SaveUsedEntries(path string) error {
 		}
 		first = false
 		sb.WriteString("\n\t")
-		element.WriteKeyValue(&sb)
+		if err := element.writeKeyValue(&sb); err != nil {
+			return err
+		}
 	}
 
 	if !first {
@@ -180,7 +189,7 @@ func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
 	return toFind.value
 }
 
-func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m *HashMap) findPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -195,7 +204,7 @@ func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.Sm
 }
 
 type MapHashTranscript struct {
-	hashMap         HashMap
+	HashMap         HashMap
 	stateValid      bool
 	resultAvailable bool
 	state           small_rational.SmallRational
@@ -210,18 +219,18 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 				panic(err.Error())
 			}
 			if m.stateValid {
-				m.state = m.hashMap.FindPair(&xElement, &m.state)
+				m.state = m.HashMap.findPair(&xElement, &m.state)
 			} else {
-				m.state = m.hashMap.FindPair(&xElement, nil)
+				m.state = m.HashMap.findPair(&xElement, nil)
 			}
 
 			m.stateValid = true
 		}
-	} else { //just FindPair the state itself
+	} else { //just hash the state itself
 		if !m.stateValid {
-			panic("nothing to FindPair")
+			panic("nothing to hash")
 		}
-		m.state = m.hashMap.FindPair(&m.state, nil)
+		m.state = m.HashMap.findPair(&m.state, nil)
 	}
 	m.resultAvailable = true
 }
@@ -250,14 +259,14 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 	return res
 }
 
-func SliceToElementSlice(t *testing.T, slice []interface{}) (elementSlice []small_rational.SmallRational) {
-	elementSlice = make([]small_rational.SmallRational, len(slice))
+func SliceToElementSlice(slice []interface{}) ([]small_rational.SmallRational, error) {
+	elementSlice := make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
 		if _, err := elementSlice[i].SetInterface(v); err != nil {
-			t.Error(err)
+			return nil, err
 		}
 	}
-	return
+	return elementSlice, nil
 }
 
 func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRational) error {
@@ -270,4 +279,48 @@ func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRatio
 		}
 	}
 	return nil
+}
+
+func ElementToInterface(x *small_rational.SmallRational) (interface{}, error) {
+	text := x.Text(10)
+	if len(text) < 10 && !strings.Contains(text, "/") {
+		return strconv.Atoi(text)
+	}
+	return text, nil
+}
+
+func ElementSliceToInterfaceSlice(x interface{}) ([]interface{}, error) {
+	if x == nil {
+		return nil, nil
+	}
+
+	X := reflect.ValueOf(x)
+
+	res := make([]interface{}, X.Len())
+	var err error
+	for i := range res {
+		xI := X.Index(i).Interface().(small_rational.SmallRational)
+		if res[i], err = ElementToInterface(&xI); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func ElementSliceSliceToInterfaceSliceSlice(x interface{}) ([][]interface{}, error) {
+	if x == nil {
+		return nil, nil
+	}
+
+	X := reflect.ValueOf(x)
+
+	res := make([][]interface{}, X.Len())
+	var err error
+	for i := range res {
+		if res[i], err = ElementSliceToInterfaceSlice(X.Index(i).Interface()); err != nil {
+			return nil, err
+		}
+	}
+
+	return res, nil
 }
