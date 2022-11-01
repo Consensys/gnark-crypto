@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/polynomial"
 
 	"os"
 	"path/filepath"
@@ -156,7 +157,7 @@ func (m *HashMap) find(toFind *ElementTriplet) fr.Element {
 	panic(sb.String())
 }
 
-func (m *HashMap) findPair(x *fr.Element, y *fr.Element) fr.Element {
+func (m *HashMap) FindPair(x *fr.Element, y *fr.Element) fr.Element {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -186,9 +187,9 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 				panic(err.Error())
 			}
 			if m.stateValid {
-				m.state = m.HashMap.findPair(&xElement, &m.state)
+				m.state = m.HashMap.FindPair(&xElement, &m.state)
 			} else {
-				m.state = m.HashMap.findPair(&xElement, nil)
+				m.state = m.HashMap.FindPair(&xElement, nil)
 			}
 
 			m.stateValid = true
@@ -197,7 +198,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		if !m.stateValid {
 			panic("nothing to hash")
 		}
-		m.state = m.HashMap.findPair(&m.state, nil)
+		m.state = m.HashMap.FindPair(&m.state, nil)
 	}
 	m.resultAvailable = true
 }
@@ -225,7 +226,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []fr.Element {
 
 	return res
 }
-func setElement(z *fr.Element, value interface{}) (*fr.Element, error) {
+func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
 	// TODO: Put this in element.SetString?
 	switch v := value.(type) {
@@ -278,6 +279,30 @@ func SliceEquals(a []fr.Element, b []fr.Element) error {
 	return nil
 }
 
+func SliceSliceEquals(a [][]fr.Element, b [][]fr.Element) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
+	for i := range a {
+		if err := SliceEquals(a[i], b[i]); err != nil {
+			return fmt.Errorf("at index %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func PolynomialSliceEquals(a []polynomial.Polynomial, b []polynomial.Polynomial) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
+	for i := range a {
+		if err := SliceEquals(a[i], b[i]); err != nil {
+			return fmt.Errorf("at index %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
 func ElementToInterface(x *fr.Element) interface{} {
 	text := x.Text(10)
 	if len(text) < 10 && !strings.Contains(text, "/") {
@@ -307,6 +332,7 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 
 func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
+		return nil
 		return nil
 	}
 

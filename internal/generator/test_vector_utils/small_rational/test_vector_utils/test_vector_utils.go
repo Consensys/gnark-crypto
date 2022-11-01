@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -188,7 +189,7 @@ func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
 	return toFind.value
 }
 
-func (m *HashMap) findPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -218,9 +219,9 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 				panic(err.Error())
 			}
 			if m.stateValid {
-				m.state = m.HashMap.findPair(&xElement, &m.state)
+				m.state = m.HashMap.FindPair(&xElement, &m.state)
 			} else {
-				m.state = m.HashMap.findPair(&xElement, nil)
+				m.state = m.HashMap.FindPair(&xElement, nil)
 			}
 
 			m.stateValid = true
@@ -229,7 +230,7 @@ func (m *MapHashTranscript) Update(i ...interface{}) {
 		if !m.stateValid {
 			panic("nothing to hash")
 		}
-		m.state = m.HashMap.findPair(&m.state, nil)
+		m.state = m.HashMap.FindPair(&m.state, nil)
 	}
 	m.resultAvailable = true
 }
@@ -280,6 +281,30 @@ func SliceEquals(a []small_rational.SmallRational, b []small_rational.SmallRatio
 	return nil
 }
 
+func SliceSliceEquals(a [][]small_rational.SmallRational, b [][]small_rational.SmallRational) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
+	for i := range a {
+		if err := SliceEquals(a[i], b[i]); err != nil {
+			return fmt.Errorf("at index %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func PolynomialSliceEquals(a []polynomial.Polynomial, b []polynomial.Polynomial) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("length mismatch %d≠%d", len(a), len(b))
+	}
+	for i := range a {
+		if err := SliceEquals(a[i], b[i]); err != nil {
+			return fmt.Errorf("at index %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
 func ElementToInterface(x *small_rational.SmallRational) interface{} {
 	text := x.Text(10)
 	if len(text) < 10 && !strings.Contains(text, "/") {
@@ -309,6 +334,7 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 
 func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
+		return nil
 		return nil
 	}
 

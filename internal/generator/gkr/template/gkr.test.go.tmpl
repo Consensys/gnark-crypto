@@ -459,21 +459,24 @@ func (m mulGate) Degree() int {
 
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
+		testCase, err := newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(0)
 		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-		assertProofEquals(t, testCase.Proof, proof)
+		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
 }
 
 func generateTestVerifier(path string) func(t *testing.T) {
 	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
+		testCase, err := newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(0)
 		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
 		assert.True(t, success)
 
-		testCase = newTestCase(t, path)
+		testCase, err = newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(1)
 		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
 		assert.False(t, success)
@@ -484,9 +487,7 @@ func TestGkrVectors(t *testing.T) {
 
 	testDirPath := "{{.TestVectorsRelativePath}}"
 	dirEntries, err := os.ReadDir(testDirPath)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 	for _, dirEntry := range dirEntries {
 		if !dirEntry.IsDir() {
 
@@ -502,17 +503,18 @@ func TestGkrVectors(t *testing.T) {
 	}
 }
 
+
+// TODO: Move into test_vector_utils package
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "{{.TestVectorsRelativePath}}/resources/hash.json")
+	m, err := test_vector_utils.GetHash("{{.TestVectorsRelativePath}}/resources/hash.json")
+	assert.NoError(t, err)
 	var one, two, negFour {{.ElementType}}
 	one.SetOne()
 	two.SetInt64(2)
 	negFour.SetInt64(-4)
 
-	h := m.hash(&one, &two)
+	h := m.FindPair(&one, &two)
 	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
 }
 
-{{template "testVectorCache" .}}
-{{template "circuitCache" .}}
-{{template "serializationUtils" .}}
+{{template "gkrTestVectors" .}}

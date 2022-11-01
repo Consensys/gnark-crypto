@@ -27,9 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -472,21 +470,24 @@ func (m mulGate) Degree() int {
 
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
+		testCase, err := newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(0)
 		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-		assertProofEquals(t, testCase.Proof, proof)
+		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
 }
 
 func generateTestVerifier(path string) func(t *testing.T) {
 	return func(t *testing.T) {
-		testCase := newTestCase(t, path)
+		testCase, err := newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(0)
 		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
 		assert.True(t, success)
 
-		testCase = newTestCase(t, path)
+		testCase, err = newTestCase(path)
+		assert.NoError(t, err)
 		testCase.Transcript.Update(1)
 		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
 		assert.False(t, success)
@@ -497,9 +498,7 @@ func TestGkrVectors(t *testing.T) {
 
 	testDirPath := "../../../../internal/generator/gkr/test_vectors"
 	dirEntries, err := os.ReadDir(testDirPath)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 	for _, dirEntry := range dirEntries {
 		if !dirEntry.IsDir() {
 
@@ -515,123 +514,17 @@ func TestGkrVectors(t *testing.T) {
 	}
 }
 
+// TODO: Move into test_vector_utils package
 func TestTestHash(t *testing.T) {
-	m := getHash(t, "../../../../internal/generator/gkr/test_vectors/resources/hash.json")
+	m, err := test_vector_utils.GetHash("../../../../internal/generator/gkr/test_vectors/resources/hash.json")
+	assert.NoError(t, err)
 	var one, two, negFour fr.Element
 	one.SetOne()
 	two.SetInt64(2)
 	negFour.SetInt64(-4)
 
-	h := m.hash(&one, &two)
+	h := m.FindPair(&one, &two)
 	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
-}
-
-type TestCase struct {
-	Circuit         Circuit
-	Transcript      sumcheck.ArithmeticTranscript
-	Proof           Proof
-	FullAssignment  WireAssignment
-	InOutAssignment WireAssignment
-}
-
-type TestCaseInfo struct {
-	Hash    string          `json:"hash"`
-	Circuit string          `json:"circuit"`
-	Input   [][]interface{} `json:"input"`
-	Output  [][]interface{} `json:"output"`
-	Proof   PrintableProof  `json:"proof"`
-}
-
-type ParsedTestCase struct {
-	FullAssignment  WireAssignment
-	InOutAssignment WireAssignment
-	Proof           Proof
-	Hash            HashMap
-	Circuit         Circuit
-}
-
-var parsedTestCases = make(map[string]*ParsedTestCase)
-
-func newTestCase(t *testing.T, path string) *TestCase {
-	path, err := filepath.Abs(path)
-	assert.NoError(t, err)
-	dir := filepath.Dir(path)
-
-	parsedCase, ok := parsedTestCases[path]
-	if !ok {
-		var bytes []byte
-		if bytes, err = os.ReadFile(path); err == nil {
-			var info TestCaseInfo
-			err = json.Unmarshal(bytes, &info)
-			if err != nil {
-				t.Error(err)
-			}
-
-			circuit := getCircuit(t, filepath.Join(dir, info.Circuit))
-			hash := getHash(t, filepath.Join(dir, info.Hash))
-			proof := unmarshalProof(t, info.Proof)
-
-			fullAssignment := make(WireAssignment)
-			inOutAssignment := make(WireAssignment)
-			assignmentSize := len(info.Input[0])
-
-			{
-				i := len(circuit) - 1
-
-				assert.Equal(t, len(circuit[i]), len(info.Input), "Input layer not the same size as input vector")
-
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					wireAssignment := sliceToElementSlice(t, info.Input[j])
-					fullAssignment[wire] = wireAssignment
-					inOutAssignment[wire] = wireAssignment
-				}
-			}
-
-			for i := len(circuit) - 2; i >= 0; i-- {
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]fr.Element, len(wire.Inputs))
-					for k := range assignment {
-						for l, inputWire := range circuit[i][j].Inputs {
-							in[l] = fullAssignment[inputWire][k]
-						}
-						assignment[k] = wire.Gate.Evaluate(in...)
-					}
-
-					fullAssignment[wire] = assignment
-				}
-			}
-
-			assert.Equal(t, len(circuit[0]), len(info.Output), "Output layer not the same size as output vector")
-			for j := range circuit[0] {
-				wire := &circuit[0][j]
-				inOutAssignment[wire] = sliceToElementSlice(t, info.Output[j])
-				assert.NoError(t, sliceEquals(inOutAssignment[wire], fullAssignment[wire]), "circuit output mismatch on wire 0,%d", j)
-			}
-
-			parsedCase = &ParsedTestCase{
-				FullAssignment:  fullAssignment,
-				InOutAssignment: inOutAssignment,
-				Proof:           proof,
-				Hash:            hash,
-				Circuit:         circuit,
-			}
-
-			parsedTestCases[path] = parsedCase
-		} else {
-			t.Error(err)
-		}
-	}
-
-	return &TestCase{
-		Circuit:         parsedCase.Circuit,
-		Transcript:      &MapHashTranscript{hashMap: parsedCase.Hash},
-		FullAssignment:  parsedCase.FullAssignment,
-		InOutAssignment: parsedCase.InOutAssignment,
-		Proof:           parsedCase.Proof,
-	}
 }
 
 type WireInfo struct {
@@ -643,13 +536,13 @@ type CircuitInfo [][]WireInfo
 
 var circuitCache = make(map[string]Circuit)
 
-func getCircuit(t *testing.T, path string) Circuit {
+func getCircuit(path string) (Circuit, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
-		t.Error(err)
+		return nil, err
 	}
 	if circuit, ok := circuitCache[path]; ok {
-		return circuit
+		return circuit, nil
 	}
 	var bytes []byte
 	if bytes, err = os.ReadFile(path); err == nil {
@@ -657,14 +550,13 @@ func getCircuit(t *testing.T, path string) Circuit {
 		if err = json.Unmarshal(bytes, &circuitInfo); err == nil {
 			circuit := circuitInfo.toCircuit()
 			circuitCache[path] = circuit
-			return circuit
+			return circuit, nil
 		} else {
-			t.Error(err)
+			return nil, err
 		}
 	} else {
-		t.Error(err)
+		return nil, err
 	}
-	return nil //unreachable
 }
 
 func (c CircuitInfo) toCircuit() (circuit Circuit) {
@@ -730,26 +622,33 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-func assertProofEquals(t *testing.T, expected Proof, seen Proof) {
-	assert.Equal(t, len(expected), len(seen))
+func proofEquals(expected Proof, seen Proof) error {
+	if len(expected) != len(seen) {
+		return fmt.Errorf("length mismatch %d ≠ %d", len(expected), len(seen))
+	}
 	for i, x := range expected {
 		xSeen := seen[i]
-		assert.Equal(t, len(x), len(xSeen))
+		if len(expected) != len(seen) {
+			return fmt.Errorf("length mismatch %d ≠ %d", len(x), len(xSeen))
+		}
 		for j, y := range x {
 			ySeen := xSeen[j]
 
 			if ySeen.FinalEvalProof == nil {
-				assert.Equal(t, 0, len(y.FinalEvalProof.([]fr.Element)))
+				if seenFinalEval := y.FinalEvalProof.([]fr.Element); 0 != len(seenFinalEval) {
+					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
+				}
 			} else {
-				assert.Equal(t, y.FinalEvalProof, ySeen.FinalEvalProof)
+				if err := test_vector_utils.SliceEquals(y.FinalEvalProof.([]fr.Element), ySeen.FinalEvalProof.([]fr.Element)); err != nil {
+					return fmt.Errorf("final evaluation proof mismatch")
+				}
 			}
-			assert.Equal(t, len(y.PartialSumPolys), len(ySeen.PartialSumPolys))
-			for k, z := range y.PartialSumPolys {
-				zSeen := ySeen.PartialSumPolys[k]
-				assert.NoError(t, sliceEquals(z, zSeen))
+			if err := test_vector_utils.PolynomialSliceEquals(y.PartialSumPolys, ySeen.PartialSumPolys); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 type PrintableProof [][]PrintableSumcheckProof
@@ -759,8 +658,8 @@ type PrintableSumcheckProof struct {
 	PartialSumPolys [][]interface{} `json:"partialSumPolys"`
 }
 
-func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
-	proof = make(Proof, len(printable))
+func unmarshalProof(printable PrintableProof) (Proof, error) {
+	proof := make(Proof, len(printable))
 	for i := range printable {
 		proof[i] = make([]sumcheck.Proof, len(printable[i]))
 		for j, printableSumcheck := range printable[i] {
@@ -770,8 +669,9 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
 				finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
 				for k := range finalEvalProof {
-					_, err := setElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface())
-					assert.NoError(t, err)
+					if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
+						return nil, err
+					}
 				}
 			}
 
@@ -780,9 +680,142 @@ func unmarshalProof(t *testing.T, printable PrintableProof) (proof Proof) {
 				FinalEvalProof:  finalEvalProof,
 			}
 			for k := range printableSumcheck.PartialSumPolys {
-				proof[i][j].PartialSumPolys[k] = sliceToElementSlice(t, printableSumcheck.PartialSumPolys[k])
+				var err error
+				if proof[i][j].PartialSumPolys[k], err = test_vector_utils.SliceToElementSlice(printableSumcheck.PartialSumPolys[k]); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	return
+	return proof, nil
+}
+
+type TestCase struct {
+	Circuit         Circuit
+	Transcript      sumcheck.ArithmeticTranscript
+	Proof           Proof
+	FullAssignment  WireAssignment
+	InOutAssignment WireAssignment
+}
+
+type TestCaseInfo struct {
+	Hash    string          `json:"hash"`
+	Circuit string          `json:"circuit"`
+	Input   [][]interface{} `json:"input"`
+	Output  [][]interface{} `json:"output"`
+	Proof   PrintableProof  `json:"proof"`
+}
+
+type ParsedTestCase struct {
+	FullAssignment  WireAssignment
+	InOutAssignment WireAssignment
+	Proof           Proof
+	Hash            test_vector_utils.HashMap
+	Circuit         Circuit
+}
+
+var parsedTestCases = make(map[string]*ParsedTestCase)
+
+func newTestCase(path string) (*TestCase, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Dir(path)
+
+	parsedCase, ok := parsedTestCases[path]
+	if !ok {
+		var bytes []byte
+		if bytes, err = os.ReadFile(path); err == nil {
+			var info TestCaseInfo
+			err = json.Unmarshal(bytes, &info)
+			if err != nil {
+				return nil, err
+			}
+
+			var circuit Circuit
+			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
+				return nil, err
+			}
+			var hash test_vector_utils.HashMap
+			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
+				return nil, err
+			}
+			var proof Proof
+			if proof, err = unmarshalProof(info.Proof); err != nil {
+				return nil, err
+			}
+
+			fullAssignment := make(WireAssignment)
+			inOutAssignment := make(WireAssignment)
+			assignmentSize := len(info.Input[0])
+
+			{
+				i := len(circuit) - 1
+
+				if expected, seen := len(circuit[i]), len(info.Input); expected != seen {
+					return nil, fmt.Errorf("input layer length %d must match that of input vector %d", expected, seen)
+				}
+
+				for j := range circuit[i] {
+					wire := &circuit[i][j]
+					var wireAssignment []fr.Element
+					if wireAssignment, err = test_vector_utils.SliceToElementSlice(info.Input[j]); err != nil {
+						return nil, err
+					}
+					fullAssignment[wire] = wireAssignment
+					inOutAssignment[wire] = wireAssignment
+				}
+			}
+
+			for i := len(circuit) - 2; i >= 0; i-- {
+				for j := range circuit[i] {
+					wire := &circuit[i][j]
+					assignment := make(polynomial.MultiLin, assignmentSize)
+					in := make([]fr.Element, len(wire.Inputs))
+					for k := range assignment {
+						for l, inputWire := range circuit[i][j].Inputs {
+							in[l] = fullAssignment[inputWire][k]
+						}
+						assignment[k] = wire.Gate.Evaluate(in...)
+					}
+
+					fullAssignment[wire] = assignment
+				}
+			}
+
+			if expected, seen := len(circuit[0]), len(info.Output); expected != seen {
+				return nil, fmt.Errorf("output layer length %d must match that of input vector %d", expected, seen)
+			}
+			for j := range circuit[0] {
+				wire := &circuit[0][j]
+				if inOutAssignment[wire], err = test_vector_utils.SliceToElementSlice(info.Output[j]); err != nil {
+					return nil, err
+				}
+				if err = test_vector_utils.SliceEquals(inOutAssignment[wire], fullAssignment[wire]); err != nil {
+					return nil, err
+				}
+			}
+
+			parsedCase = &ParsedTestCase{
+				FullAssignment:  fullAssignment,
+				InOutAssignment: inOutAssignment,
+				Proof:           proof,
+				Hash:            hash,
+				Circuit:         circuit,
+			}
+
+			parsedTestCases[path] = parsedCase
+		} else {
+			return nil, err
+		}
+	}
+
+	return &TestCase{
+		Circuit:         parsedCase.Circuit,
+		Transcript:      &test_vector_utils.MapHashTranscript{HashMap: parsedCase.Hash},
+		FullAssignment:  parsedCase.FullAssignment,
+		InOutAssignment: parsedCase.InOutAssignment,
+		Proof:           parsedCase.Proof,
+	}, nil
 }
