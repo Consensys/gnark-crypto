@@ -78,15 +78,15 @@ func GenerateVectors() error {
 					return err
 				}
 
-				/*testCase, err = newTestCase(path)
-								if err != nil {
-									return err
-				                }
-								testCase.Transcript.Update(0)
+				testCase, err = newTestCase(path)
+				if err != nil {
+					return err
+				}
+				testCase.Transcript.Update(0)
 
-								if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-									return fmt.Errorf("verification failed")
-				                }*/
+				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
+					return fmt.Errorf("verification failed")
+				}
 			}
 		}
 	}
@@ -212,35 +212,6 @@ func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res sma
 
 func (m mimcCipherGate) Degree() int {
 	return 7
-}
-
-func proofEquals(expected gkr.Proof, seen gkr.Proof) error {
-	if len(expected) != len(seen) {
-		return fmt.Errorf("length mismatch %d ≠ %d", len(expected), len(seen))
-	}
-	for i, x := range expected {
-		xSeen := seen[i]
-		if len(expected) != len(seen) {
-			return fmt.Errorf("length mismatch %d ≠ %d", len(x), len(xSeen))
-		}
-		for j, y := range x {
-			ySeen := xSeen[j]
-
-			if ySeen.FinalEvalProof == nil {
-				if seenFinalEval := y.FinalEvalProof.([]small_rational.SmallRational); 0 != len(seenFinalEval) {
-					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
-				}
-			} else {
-				if err := test_vector_utils.SliceEquals(y.FinalEvalProof.([]small_rational.SmallRational), ySeen.FinalEvalProof.([]small_rational.SmallRational)); err != nil {
-					return fmt.Errorf("final evaluation proof mismatch")
-				}
-			}
-			if err := test_vector_utils.PolynomialSliceEquals(y.PartialSumPolys, ySeen.PartialSumPolys); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 type PrintableProof [][]PrintableSumcheckProof

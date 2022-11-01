@@ -104,35 +104,6 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-func proofEquals(expected {{$Proof}}, seen {{$Proof}}) error {
-	if len(expected) != len(seen) {
-		return fmt.Errorf("length mismatch %d ≠ %d", len(expected), len(seen))
-	}
-	for i, x := range expected {
-		xSeen := seen[i]
-		if len(expected) != len(seen) {
-			return fmt.Errorf("length mismatch %d ≠ %d", len(x), len(xSeen))
-		}
-		for j, y := range x {
-			ySeen := xSeen[j]
-
-			if ySeen.FinalEvalProof == nil {
-				if seenFinalEval := y.FinalEvalProof.([]{{.ElementType}}); 0 != len(seenFinalEval) {
-					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
-				}
-			} else {
-				if err := test_vector_utils.SliceEquals(y.FinalEvalProof.([]{{.ElementType}}), ySeen.FinalEvalProof.([]{{.ElementType}})); err != nil {
-					return fmt.Errorf("final evaluation proof mismatch")
-				}
-			}
-			if err := test_vector_utils.PolynomialSliceEquals(y.PartialSumPolys, ySeen.PartialSumPolys); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 type PrintableProof [][]PrintableSumcheckProof
 
 type PrintableSumcheckProof struct {
