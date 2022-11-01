@@ -49,10 +49,9 @@ func GenerateRationals(bgen *bavard.BatchGenerator) error {
 }
 
 func Generate(conf Config, baseDir string, bgen *bavard.BatchGenerator) error {
-	entries := []bavard.Entry{
-		{File: filepath.Join(baseDir, "test_vector_utils.go"), Templates: []string{"test_vector_utils.go.tmpl"}},
-		//{File: filepath.Join(baseDir, "gkr_test.go"), Templates: []string{"gkr.test.go.tmpl", "gkr.test.utils.go.tmpl"}},
+	entry := bavard.Entry{
+		File: filepath.Join(baseDir, "test_vector_utils.go"), Templates: []string{"test_vector_utils.go.tmpl"},
 	}
 
-	return bgen.Generate(conf, "test_vector_utils", "./test_vector_utils/template/", entries...)
+	return bgen.Generate(conf, "test_vector_utils", "./test_vector_utils/template/", entry)
 }
