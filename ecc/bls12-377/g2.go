@@ -55,6 +55,13 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
+// setInfinity sets p to O
+func (p *G2Affine) setInfinity() *G2Affine {
+	p.X.SetZero()
+	p.Y.SetZero()
+	return p
+}
+
 // ScalarMultiplication computes and returns p = a ⋅ s
 func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
@@ -370,7 +377,8 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // https://eprint.iacr.org/2021/1130.pdf, sec.4
-// ψ(p) = x₀ P
+// and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
+// ψ(p) = [x₀]P
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
 	tmp.psi(p)
@@ -600,15 +608,15 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 		return p
 	}
 
-	var A, B, X1ZZ2, X2ZZ1, Y1ZZZ2, Y2ZZZ1 fptower.E2
+	var A, B, U1, U2, S1, S2 fptower.E2
 
 	// p2: q, p1: p
-	X2ZZ1.Mul(&q.X, &p.ZZ)
-	X1ZZ2.Mul(&p.X, &q.ZZ)
-	A.Sub(&X2ZZ1, &X1ZZ2)
-	Y2ZZZ1.Mul(&q.Y, &p.ZZZ)
-	Y1ZZZ2.Mul(&p.Y, &q.ZZZ)
-	B.Sub(&Y2ZZZ1, &Y1ZZZ2)
+	U2.Mul(&q.X, &p.ZZ)
+	U1.Mul(&p.X, &q.ZZ)
+	A.Sub(&U2, &U1)
+	S2.Mul(&q.Y, &p.ZZZ)
+	S1.Mul(&p.Y, &q.ZZZ)
+	B.Sub(&S2, &S1)
 
 	if A.IsZero() {
 		if B.IsZero() {
@@ -620,11 +628,7 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 		return p
 	}
 
-	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fptower.E2
-	U1.Mul(&p.X, &q.ZZ)
-	U2.Mul(&q.X, &p.ZZ)
-	S1.Mul(&p.Y, &q.ZZZ)
-	S2.Mul(&q.Y, &p.ZZZ)
+	var P, R, PP, PPP, Q, V fptower.E2
 	P.Sub(&U2, &U1)
 	R.Sub(&S2, &S1)
 	PP.Square(&P)

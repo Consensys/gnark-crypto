@@ -55,6 +55,13 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
+// setInfinity sets p to O
+func (p *G1Affine) setInfinity() *G1Affine {
+	p.X.SetZero()
+	p.Y.SetZero()
+	return p
+}
+
 // ScalarMultiplication computes and returns p = a ⋅ s
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
@@ -623,15 +630,15 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 		return p
 	}
 
-	var A, B, X1ZZ2, X2ZZ1, Y1ZZZ2, Y2ZZZ1 fp.Element
+	var A, B, U1, U2, S1, S2 fp.Element
 
 	// p2: q, p1: p
-	X2ZZ1.Mul(&q.X, &p.ZZ)
-	X1ZZ2.Mul(&p.X, &q.ZZ)
-	A.Sub(&X2ZZ1, &X1ZZ2)
-	Y2ZZZ1.Mul(&q.Y, &p.ZZZ)
-	Y1ZZZ2.Mul(&p.Y, &q.ZZZ)
-	B.Sub(&Y2ZZZ1, &Y1ZZZ2)
+	U2.Mul(&q.X, &p.ZZ)
+	U1.Mul(&p.X, &q.ZZ)
+	A.Sub(&U2, &U1)
+	S2.Mul(&q.Y, &p.ZZZ)
+	S1.Mul(&p.Y, &q.ZZZ)
+	B.Sub(&S2, &S1)
 
 	if A.IsZero() {
 		if B.IsZero() {
@@ -643,11 +650,7 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 		return p
 	}
 
-	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fp.Element
-	U1.Mul(&p.X, &q.ZZ)
-	U2.Mul(&q.X, &p.ZZ)
-	S1.Mul(&p.Y, &q.ZZZ)
-	S2.Mul(&q.Y, &p.ZZZ)
+	var P, R, PP, PPP, Q, V fp.Element
 	P.Sub(&U2, &U1)
 	R.Sub(&S2, &S1)
 	PP.Square(&P)
