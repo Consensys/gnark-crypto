@@ -1,18 +1,8 @@
 {
-	"hash": "resources/hash.json",
-	"circuit": "resources/single_identity_gate.json",
-	"input": [
-		[
-			4,
-			3
-		]
-	],
-	"output": [
-		[
-			4,
-			3
-		]
-	],
+	"hash": "",
+	"circuit": "",
+	"input": null,
+	"output": null,
 	"proof": [
 		[
 			{

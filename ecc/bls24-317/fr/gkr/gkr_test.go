@@ -457,17 +457,6 @@ func setRandom(slice []fr.Element) {
 	}
 }
 
-type mulGate struct{}
-
-func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (m mulGate) Degree() int {
-	return 2
-}
-
 func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
@@ -594,7 +583,7 @@ var gates map[string]Gate
 
 func init() {
 	gates = make(map[string]Gate)
-	gates["identity"] = identityGate{}
+	gates["identity"] = IdentityGate{}
 	gates["mul"] = mulGate{}
 	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
 }
@@ -818,4 +807,15 @@ func newTestCase(path string) (*TestCase, error) {
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,
 	}, nil
+}
+
+type mulGate struct{}
+
+func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
+	result.Mul(&element[0], &element[1])
+	return
+}
+
+func (m mulGate) Degree() int {
+	return 2
 }

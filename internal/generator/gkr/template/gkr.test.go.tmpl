@@ -14,6 +14,8 @@ import (
 	"reflect"
 )
 
+{{$GenerateLargeTests := .GenerateTests}} {{/* this is redundant. soon to be removed if a use case for it doesn't come back */}}
+
 func TestNoGateTwoInstances(t *testing.T) {
 	// Testing a single instance is not possible because the sumcheck implementation doesn't cover the trivial 0-variate case
 	testNoGate(t, []{{.ElementType}}{four, three})
@@ -65,7 +67,7 @@ func TestShallowMimcTwoInstances(t *testing.T) {
 	testMimc(t, 2, []{{.ElementType}}{one, one}, []{{.ElementType}}{one, two})
 }
 
-{{- if .GenerateLargeTests}}
+{{- if $GenerateLargeTests}}
 func TestMimcTwoInstances(t *testing.T) {
 	testMimc(t, 93, []{{.ElementType}}{one, one}, []{{.ElementType}}{one, two})
 }
@@ -442,17 +444,6 @@ func setRandom(slice []{{.ElementType}}) {
 	for i := range slice {
 		slice[i].SetRandom()
 	}
-}
-
-type mulGate struct{}
-
-func (m mulGate) Evaluate(element ...{{.ElementType}}) (result {{.ElementType}}) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (m mulGate) Degree() int {
-	return 2
 }
 
 func generateTestProver(path string) func(t *testing.T) {

@@ -93,7 +93,7 @@ func main() {
 			// generate gkr on fr
 			assertNoError(gkr.Generate(gkr.Config{
 				FieldDependency:         frInfo,
-				GenerateLargeTests:      true,
+				GenerateTests:           true,
 				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
 			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 

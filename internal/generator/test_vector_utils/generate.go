@@ -15,31 +15,37 @@ type Config struct {
 }
 
 func GenerateRationals(bgen *bavard.BatchGenerator) error {
-	conf := gkr.Config{
+	gkrConf := gkr.Config{
 		FieldDependency: config.FieldDependency{
 			FieldPackagePath: "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational",
 			FieldPackageName: "small_rational",
 			ElementType:      "small_rational.SmallRational",
 		},
-		GenerateLargeTests:      false,
+		GenerateTests:           false,
+		RetainTestCaseRawInfo:   true,
 		TestVectorsRelativePath: "../../../gkr/test_vectors",
 	}
 
 	baseDir := "./test_vector_utils/small_rational/"
-	if err := polynomial.Generate(conf.FieldDependency, baseDir+"polynomial", false, bgen); err != nil {
+	if err := polynomial.Generate(gkrConf.FieldDependency, baseDir+"polynomial", false, bgen); err != nil {
 		return err
 	}
-	if err := sumcheck.Generate(conf.FieldDependency, baseDir+"sumcheck", bgen); err != nil {
+	if err := sumcheck.Generate(gkrConf.FieldDependency, baseDir+"sumcheck", bgen); err != nil {
 		return err
 	}
-	if err := gkr.Generate(conf, baseDir+"gkr", bgen); err != nil {
+	if err := gkr.Generate(gkrConf, baseDir+"gkr", bgen); err != nil {
 		return err
 	}
-	if err := Generate(Config{conf.FieldDependency, true}, baseDir+"test_vector_utils", bgen); err != nil {
+	if err := Generate(Config{gkrConf.FieldDependency, true}, baseDir+"test_vector_utils", bgen); err != nil {
 		return err
 	}
 
-	return nil
+	// generate gkr test vector generator for rationals
+	gkrConf.OutsideGkrPackage = true
+	return bgen.Generate(gkrConf, "main", "./gkr/template", bavard.Entry{
+		File: filepath.Join("gkr", "test_vectors", "main.go"), Templates: []string{"gkr.test.vectors.gen.go.tmpl", "gkr.test.vectors.go.tmpl"},
+	})
+
 }
 
 func Generate(conf Config, baseDir string, bgen *bavard.BatchGenerator) error {

@@ -277,7 +277,7 @@ func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation
 		//fmt.Println("GKR:", m.numClaims, "total claims")
 	}
 	if wire.IsInput() {
-		wire.Gate = identityGate{}
+		wire.Gate = IdentityGate{}
 	}
 	claim := m.claimsMap[wire]
 	i := len(claim.evaluationPoints)
@@ -312,7 +312,7 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 	}
 
 	if wire.IsInput() {
-		wire.Gate = identityGate{} // a bit dirty, modifying data structure given from outside
+		wire.Gate = IdentityGate{} // a bit dirty, modifying data structure given from outside
 		res.inputPreprocessors = []polynomial.MultiLin{m.assignment[wire].Clone()}
 	} else {
 		res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
@@ -404,12 +404,12 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 	return true
 }
 
-type identityGate struct{}
+type IdentityGate struct{}
 
-func (identityGate) Evaluate(input ...fr.Element) fr.Element {
+func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
 	return input[0]
 }
 
-func (identityGate) Degree() int {
+func (IdentityGate) Degree() int {
 	return 1
 }

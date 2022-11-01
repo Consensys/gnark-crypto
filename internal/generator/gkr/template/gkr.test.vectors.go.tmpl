@@ -1,5 +1,14 @@
 {{define "gkrTestVectors"}}
 
+{{$GkrPackagePrefix := select .OutsideGkrPackage "" "gkr."}}
+
+{{$Circuit          := print $GkrPackagePrefix "Circuit"}}
+{{$Gate             := print $GkrPackagePrefix "Gate"}}
+{{$Proof            := print $GkrPackagePrefix "Proof"}}
+{{$WireAssignment   := print $GkrPackagePrefix "WireAssignment"}}
+{{$Wire             := print $GkrPackagePrefix "Wire"}}
+{{$CircuitLayer     := print $GkrPackagePrefix "CircuitLayer"}}
+
 type WireInfo struct {
 	Gate   string  `json:"gate"`
 	Inputs [][]int `json:"inputs"`
@@ -7,9 +16,9 @@ type WireInfo struct {
 
 type CircuitInfo [][]WireInfo
 
-var circuitCache = make(map[string]Circuit)
+var circuitCache = make(map[string]{{$Circuit}})
 
-func getCircuit(path string) (Circuit, error) {
+func getCircuit(path string) ({{$Circuit}}, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -32,14 +41,14 @@ func getCircuit(path string) (Circuit, error) {
 	}
 }
 
-func (c CircuitInfo) toCircuit() (circuit Circuit) {
-	isOutput := make(map[*Wire]interface{})
-	circuit = make(Circuit, len(c))
+func (c CircuitInfo) toCircuit() (circuit {{$Circuit}}) {
+	isOutput := make(map[*{{$Wire}}]interface{})
+	circuit = make({{$Circuit}}, len(c))
 	for i := len(c) - 1; i >= 0; i-- {
-		circuit[i] = make(CircuitLayer, len(c[i]))
+		circuit[i] = make({{$CircuitLayer}}, len(c[i]))
 		for j, wireInfo := range c[i] {
 			circuit[i][j].Gate = gates[wireInfo.Gate]
-			circuit[i][j].Inputs = make([]*Wire, len(wireInfo.Inputs))
+			circuit[i][j].Inputs = make([]*{{$Wire}}, len(wireInfo.Inputs))
 			isOutput[&circuit[i][j]] = nil
 			for k, inputCoord := range wireInfo.Inputs {
 				if len(inputCoord) != 2 {
@@ -63,11 +72,11 @@ func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	return
 }
 
-var gates map[string]Gate
+var gates map[string]{{$Gate}}
 
 func init() {
-	gates = make(map[string]Gate)
-	gates["identity"] = identityGate{}
+	gates = make(map[string]{{$Gate}})
+	gates["identity"] = {{$GkrPackagePrefix}}IdentityGate{}
 	gates["mul"] = mulGate{}
 	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
 }
@@ -95,7 +104,7 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-func proofEquals(expected Proof, seen Proof) error {
+func proofEquals(expected {{$Proof}}, seen {{$Proof}}) error {
 	if len(expected) != len(seen) {
 		return fmt.Errorf("length mismatch %d ≠ %d", len(expected), len(seen))
 	}
@@ -131,8 +140,8 @@ type PrintableSumcheckProof struct {
 	PartialSumPolys [][]interface{} `json:"partialSumPolys"`
 }
 
-func unmarshalProof(printable PrintableProof) (Proof, error) {
-	proof := make(Proof, len(printable))
+func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
+	proof := make({{$Proof}}, len(printable))
 	for i := range printable {
 		proof[i] = make([]sumcheck.Proof, len(printable[i]))
 		for j, printableSumcheck := range printable[i] {
@@ -164,11 +173,12 @@ func unmarshalProof(printable PrintableProof) (Proof, error) {
 }
 
 type TestCase struct {
-	Circuit         Circuit
+	Circuit         {{$Circuit}}
 	Transcript      sumcheck.ArithmeticTranscript
-	Proof           Proof
-	FullAssignment  WireAssignment
-	InOutAssignment WireAssignment
+	Proof           {{$Proof}}
+	FullAssignment  {{$WireAssignment}}
+	InOutAssignment {{$WireAssignment}}
+	{{if .RetainTestCaseRawInfo}}Info TestCaseInfo{{end}}
 }
 
 type TestCaseInfo struct {
@@ -180,11 +190,11 @@ type TestCaseInfo struct {
 }
 
 type ParsedTestCase struct {
-	FullAssignment  WireAssignment
-	InOutAssignment WireAssignment
-	Proof           Proof
+	FullAssignment  {{$WireAssignment}}
+	InOutAssignment {{$WireAssignment}}
+	Proof           {{$Proof}}
 	Hash            test_vector_utils.HashMap
-	Circuit         Circuit
+	Circuit         {{$Circuit}}
 }
 
 var parsedTestCases = make(map[string]*ParsedTestCase)
@@ -206,7 +216,7 @@ func newTestCase(path string) (*TestCase, error) {
 				return nil, err
 			}
 
-			var circuit Circuit
+			var circuit {{$Circuit}}
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
@@ -214,13 +224,13 @@ func newTestCase(path string) (*TestCase, error) {
 			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
-			var proof Proof
+			var proof {{$Proof}}
 			if proof, err = unmarshalProof(info.Proof); err != nil {
 				return nil, err
 			}
 
-			fullAssignment := make(WireAssignment)
-			inOutAssignment := make(WireAssignment)
+			fullAssignment := make({{$WireAssignment}})
+			inOutAssignment := make({{$WireAssignment}})
 			assignmentSize := len(info.Input[0])
 
 			{
@@ -291,6 +301,17 @@ func newTestCase(path string) (*TestCase, error) {
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,
 	}, nil
+}
+
+type mulGate struct{}
+
+func (m mulGate) Evaluate(element ...{{.ElementType}}) (result {{.ElementType}}) {
+	result.Mul(&element[0], &element[1])
+	return
+}
+
+func (m mulGate) Degree() int {
+	return 2
 }
 
 {{end}}
