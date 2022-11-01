@@ -27,9 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
-	"strings"
 	"testing"
 )
 

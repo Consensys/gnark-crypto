@@ -77,7 +77,7 @@ func GetHash(path string) (HashMap, error) {
 
 		for k, v := range asMap {
 			var entry ElementTriplet
-			if _, err = setElement(&entry.value, v); err != nil {
+			if _, err = SetElement(&entry.value, v); err != nil {
 				return nil, err
 			}
 
@@ -88,13 +88,13 @@ func GetHash(path string) (HashMap, error) {
 				entry.key2Present = false
 			case 2:
 				entry.key2Present = true
-				if _, err = setElement(&entry.key2, key[1]); err != nil {
+				if _, err = SetElement(&entry.key2, key[1]); err != nil {
 					return nil, err
 				}
 			default:
 				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
 			}
-			if _, err = setElement(&entry.key1, key[0]); err != nil {
+			if _, err = SetElement(&entry.key1, key[0]); err != nil {
 				return nil, err
 			}
 
@@ -260,7 +260,7 @@ func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 func SliceToElementSlice(slice []interface{}) ([]fr.Element, error) {
 	elementSlice := make([]fr.Element, len(slice))
 	for i, v := range slice {
-		if _, err := setElement(&elementSlice[i], v); err != nil {
+		if _, err := SetElement(&elementSlice[i], v); err != nil {
 			return nil, err
 		}
 	}

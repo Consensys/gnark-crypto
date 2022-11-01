@@ -302,7 +302,7 @@ func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 {{- end}}
 
 {{- define "setElement element value elementType"}}
-{{- if eq .elementType "fr.Element"}} setElement(&{{.element}}, {{.value}})
+{{- if eq .elementType "fr.Element"}} SetElement(&{{.element}}, {{.value}})
 {{- else if eq .elementType "small_rational.SmallRational"}} {{.element}}.SetInterface({{.value}})
 {{- else}}
 	{{print "\"UNEXPECTED TYPE" .elementType "\""}}
