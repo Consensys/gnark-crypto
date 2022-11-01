@@ -746,7 +746,7 @@ func newTestCase(path string) (*TestCase, error) {
 
 				for j := range circuit[i] {
 					wire := &circuit[i][j]
-					var wireAssignment []fr.Element
+					var wireAssignment []small_rational.SmallRational
 					if wireAssignment, err = test_vector_utils.SliceToElementSlice(info.Input[j]); err != nil {
 						return nil, err
 					}
