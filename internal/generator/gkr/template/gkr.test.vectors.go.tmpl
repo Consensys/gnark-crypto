@@ -195,6 +195,7 @@ type ParsedTestCase struct {
 	Proof           {{$Proof}}
 	Hash            test_vector_utils.HashMap
 	Circuit         {{$Circuit}}
+	{{if .RetainTestCaseRawInfo}}Info TestCaseInfo{{end}}
 }
 
 var parsedTestCases = make(map[string]*ParsedTestCase)
@@ -286,6 +287,7 @@ func newTestCase(path string) (*TestCase, error) {
 				Proof:           proof,
 				Hash:            hash,
 				Circuit:         circuit,
+				{{-if .RetainTestCaseRawInfo }}Info: info{{- end}}
 			}
 
 			parsedTestCases[path] = parsedCase
@@ -300,6 +302,7 @@ func newTestCase(path string) (*TestCase, error) {
 		FullAssignment:  parsedCase.FullAssignment,
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,
+		{{- if .RetainTestCaseRawInfo}}Info: info{{- end}}
 	}, nil
 }
 

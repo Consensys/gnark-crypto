@@ -258,12 +258,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]small_r
 		{
 			Inputs:     []*Wire{&c[1][0]},
 			NumOutputs: 1,
-			Gate:       identityGate{},
+			Gate:       IdentityGate{},
 		},
 		{
 			Inputs:     []*Wire{&c[1][0]},
 			NumOutputs: 1,
-			Gate:       identityGate{},
+			Gate:       IdentityGate{},
 		},
 	}
 
@@ -327,12 +327,12 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 		NumOutputs: 1,
 	}}
 	c[1] = CircuitLayer{{
-		Gate:       identityGate{},
+		Gate:       IdentityGate{},
 		Inputs:     []*Wire{&c[2][0]},
 		NumOutputs: 1,
 	}}
 	c[0] = CircuitLayer{{
-		Gate:       identityGate{},
+		Gate:       IdentityGate{},
 		Inputs:     []*Wire{&c[1][0]},
 		NumOutputs: 1,
 	}}
@@ -581,7 +581,7 @@ var gates map[string]Gate
 
 func init() {
 	gates = make(map[string]Gate)
-	gates["identity"] = identityGate{}
+	gates["identity"] = IdentityGate{}
 	gates["mul"] = mulGate{}
 	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
 }

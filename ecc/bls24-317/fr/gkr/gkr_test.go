@@ -271,12 +271,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 		{
 			Inputs:     []*Wire{&c[1][0]},
 			NumOutputs: 1,
-			Gate:       identityGate{},
+			Gate:       IdentityGate{},
 		},
 		{
 			Inputs:     []*Wire{&c[1][0]},
 			NumOutputs: 1,
-			Gate:       identityGate{},
+			Gate:       IdentityGate{},
 		},
 	}
 
@@ -340,12 +340,12 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 		NumOutputs: 1,
 	}}
 	c[1] = CircuitLayer{{
-		Gate:       identityGate{},
+		Gate:       IdentityGate{},
 		Inputs:     []*Wire{&c[2][0]},
 		NumOutputs: 1,
 	}}
 	c[0] = CircuitLayer{{
-		Gate:       identityGate{},
+		Gate:       IdentityGate{},
 		Inputs:     []*Wire{&c[1][0]},
 		NumOutputs: 1,
 	}}

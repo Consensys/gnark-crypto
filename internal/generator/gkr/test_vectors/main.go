@@ -37,7 +37,7 @@ func main() {
 }
 
 func GenerateVectors() error {
-	testDirPath, err := filepath.Abs("gkr/test_vectors")
+	testDirPath, err := filepath.Abs("internal/generator/gkr/test_vectors")
 	if err != nil {
 		return err
 	}
