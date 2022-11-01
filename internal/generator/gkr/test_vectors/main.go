@@ -305,6 +305,7 @@ type ParsedTestCase struct {
 	Proof           gkr.Proof
 	Hash            test_vector_utils.HashMap
 	Circuit         gkr.Circuit
+	Info            TestCaseInfo
 }
 
 var parsedTestCases = make(map[string]*ParsedTestCase)
@@ -396,6 +397,7 @@ func newTestCase(path string) (*TestCase, error) {
 				Proof:           proof,
 				Hash:            hash,
 				Circuit:         circuit,
+				Info:            info,
 			}
 
 			parsedTestCases[path] = parsedCase
@@ -410,6 +412,7 @@ func newTestCase(path string) (*TestCase, error) {
 		FullAssignment:  parsedCase.FullAssignment,
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,
+		Info:            parsedCase.Info,
 	}, nil
 }
 
