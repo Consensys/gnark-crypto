@@ -96,6 +96,16 @@ func GenerateVectors() error {
 					return fmt.Errorf("verification failed")
 				}
 
+				testCase, err = newTestCase(path)
+				if err != nil {
+					return err
+				}
+				testCase.Transcript.Update(1)
+
+				if gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
+					return fmt.Errorf("verification should have failed")
+				}
+
 			}
 		}
 	}

@@ -492,20 +492,6 @@ func TestGkrVectors(t *testing.T) {
 	}
 }
 
-
-// TODO: Move into test_vector_utils package
-func TestTestHash(t *testing.T) {
-	m, err := test_vector_utils.GetHash("{{.TestVectorsRelativePath}}/resources/hash.json")
-	assert.NoError(t, err)
-	var one, two, negFour {{.ElementType}}
-	one.SetOne()
-	two.SetInt64(2)
-	negFour.SetInt64(-4)
-
-	h := m.FindPair(&one, &two)
-	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
-}
-
 func proofEquals(expected Proof, seen Proof) error {
 	if len(expected) != len(seen) {
 		return fmt.Errorf("length mismatch %d ≠ %d", len(expected), len(seen))
