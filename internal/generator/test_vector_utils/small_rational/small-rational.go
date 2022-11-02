@@ -65,6 +65,7 @@ func (z *SmallRational) Square(x *SmallRational) *SmallRational {
 }
 
 func (z *SmallRational) String() string {
+	z.text = z.Text(10)
 	return z.text
 }
 
@@ -301,6 +302,8 @@ func (z *SmallRational) SetInterface(x interface{}) (*SmallRational, error) {
 		*z = *v
 	case SmallRational:
 		*z = v
+	case int64:
+		z.SetInt64(v)
 	case int:
 		z.SetInt64(int64(v))
 	case float64:

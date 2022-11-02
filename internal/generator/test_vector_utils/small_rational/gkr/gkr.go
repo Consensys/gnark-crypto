@@ -298,7 +298,6 @@ func (m *claimsManager) addForInput(wire *Wire, evaluationPoint []small_rational
 }
 
 func (m *claimsManager) getLazyClaim(wire *Wire) *eqTimesGateEvalSumcheckLazyClaims {
-
 	return m.claimsMap[wire]
 }
 
@@ -356,9 +355,16 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		for wireI := 0; wireI < len(layer); wireI++ {
 			wire := &layer[wireI]
 			claim := claims.getClaim(wire)
-			if !wire.IsInput() || claim.ClaimsNum() > 1 {
-				// TODO: Incorporate the claims into transcript here
+			if wire.IsInput() && claim.ClaimsNum() == 1 || claim.ClaimsNum() == 0 { // no proof necessary
+				proof[layerI][wireI] = sumcheck.Proof{
+					PartialSumPolys: []polynomial.Polynomial{},
+					FinalEvalProof:  []small_rational.SmallRational{},
+				}
+			} else {
 				proof[layerI][wireI] = sumcheck.Prove(claim, transcript)
+				if finalEvalProof := proof[layerI][wireI].FinalEvalProof.([]small_rational.SmallRational); len(finalEvalProof) != 0 {
+					transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
+				}
 			}
 			// the verifier checks a single claim about input wires itself
 			claims.deleteClaim(wire)
@@ -386,17 +392,27 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 		for wireI := range layer {
 			wire := &layer[wireI]
+			proofW := proof[layerI][wireI]
+			finalEvalProof := proofW.FinalEvalProof.([]small_rational.SmallRational)
 			claim := claims.getLazyClaim(wire)
-			if claim.ClaimsNum() == 1 && wire.IsInput() {
-				// simply evaluate and see if it matches
-				evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0])
-				if !claim.claimedEvaluations[0].Equal(&evaluation) {
+			if claimsNum := claim.ClaimsNum(); wire.IsInput() && claimsNum == 1 || claimsNum == 0 {
+				// make sure the proof is empty
+				if len(finalEvalProof) != 0 || len(proofW.PartialSumPolys) != 0 {
 					return false
 				}
 
-				// TODO: Incorporate the claims into transcript here
+				if claimsNum == 1 {
+					// simply evaluate and see if it matches
+					evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0])
+					if !claim.claimedEvaluations[0].Equal(&evaluation) {
+						return false
+					}
+				}
 			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript) {
 				return false //TODO: Any polynomials to dump?
+			}
+			if len(finalEvalProof) != 0 {
+				transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
 			}
 			claims.deleteClaim(wire)
 		}

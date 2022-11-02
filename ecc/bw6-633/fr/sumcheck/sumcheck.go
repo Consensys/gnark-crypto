@@ -50,7 +50,7 @@ type Proof struct {
 }
 
 // TODO: User unfriendly. Fix
-func elementSliceToInterfaceSlice(elementSlice []fr.Element) (interfaceSlice []interface{}) {
+func ElementSliceToInterfaceSlice(elementSlice []fr.Element) (interfaceSlice []interface{}) {
 
 	interfaceSlice = make([]interface{}, len(elementSlice))
 	for i := range elementSlice {
@@ -75,11 +75,11 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 	challenges := make([]fr.Element, varsNum)
 
 	for j := 0; j+1 < varsNum; j++ {
-		challenges[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
+		challenges[j] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	challenges[varsNum-1] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[varsNum-1])...)
+	challenges[varsNum-1] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[varsNum-1])...)
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
@@ -114,7 +114,7 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) boo
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.Next(elementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
+		r[j] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])

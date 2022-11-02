@@ -69,6 +69,8 @@ func GenerateVectors() error {
 				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
 					return fmt.Errorf("verification failed")
                 }
+
+
             }
         }
     }

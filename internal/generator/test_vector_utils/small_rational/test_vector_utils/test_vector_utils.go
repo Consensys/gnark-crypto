@@ -56,14 +56,14 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var hashCache = make(map[string]HashMap)
+var HashCache = make(map[string]*HashMap)
 
-func GetHash(path string) (HashMap, error) {
+func GetHash(path string) (*HashMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if h, ok := hashCache[path]; ok {
+	if h, ok := HashCache[path]; ok {
 		return h, nil
 	}
 	var bytes []byte
@@ -103,9 +103,9 @@ func GetHash(path string) (HashMap, error) {
 
 		res.sort()
 
-		hashCache[path] = res
+		HashCache[path] = &res
 
-		return res, nil
+		return &res, nil
 
 	} else {
 		return nil, err
@@ -135,10 +135,9 @@ func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
 	}
 }
 
-func (m *HashMap) SaveUsedEntries(path string) error {
-
+func (m *HashMap) serializedUsedEntries() (string, error) {
 	var sb strings.Builder
-	sb.WriteRune('[')
+	sb.WriteRune('{')
 
 	first := true
 
@@ -152,17 +151,26 @@ func (m *HashMap) SaveUsedEntries(path string) error {
 		first = false
 		sb.WriteString("\n\t")
 		if err := element.writeKeyValue(&sb); err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	if !first {
+	if first {
 		sb.WriteRune(',')
 	}
 
-	sb.WriteString("\n]")
+	sb.WriteString("\n}")
 
-	return os.WriteFile(path, []byte(sb.String()), 0)
+	return sb.String(), nil
+}
+
+func (m *HashMap) SaveUsedEntries(path string) error {
+
+	if s, err := m.serializedUsedEntries(); err != nil {
+		return err
+	} else {
+		return os.WriteFile(path, []byte(s), 0)
+	}
 }
 
 func (m *HashMap) sort() {
@@ -200,7 +208,11 @@ func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.Sm
 		toFind.key2 = *y
 	}
 
-	return m.find(&toFind)
+	res := m.find(&toFind)
+	var sb strings.Builder
+	toFind.writeKey(&sb)
+	fmt.Printf("hash(%s)=%s\n", sb.String(), res.String())
+	return res
 }
 
 type MapHashTranscript struct {
@@ -334,7 +346,6 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 
 func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
-		return nil
 		return nil
 	}
 

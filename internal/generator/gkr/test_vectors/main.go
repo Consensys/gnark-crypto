@@ -30,14 +30,24 @@ import (
 )
 
 func main() {
-	if err := GenerateVectors(); err != nil {
-		fmt.Println(err.Error())
+	if err := func() error {
+		err := GenerateVectors()
+
+		for path, hashMap := range test_vector_utils.HashCache {
+			if err := hashMap.SaveUsedEntries(path); err != nil {
+				return err
+			}
+		}
+
+		return err
+	}(); err != nil {
+		fmt.Println(err)
 		os.Exit(-1)
 	}
 }
 
 func GenerateVectors() error {
-	testDirPath, err := filepath.Abs("gkr/test_vectors")
+	testDirPath, err := filepath.Abs("internal/generator/gkr/test_vectors")
 	if err != nil {
 		return err
 	}
@@ -56,6 +66,8 @@ func GenerateVectors() error {
 				fmt.Println("\tprocessing", dirEntry.Name())
 
 				path := filepath.Join(testDirPath, dirEntry.Name())
+
+				fmt.Println("prove")
 
 				var testCase *TestCase
 				testCase, err = newTestCase(path)
@@ -78,12 +90,13 @@ func GenerateVectors() error {
 					return err
 				}
 
+				fmt.Println("verify")
+
 				testCase, err = newTestCase(path)
 				if err != nil {
 					return err
 				}
 				testCase.Transcript.Update(0)
-
 				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
 					return fmt.Errorf("verification failed")
 				}
@@ -255,7 +268,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 
 type TestCase struct {
 	Circuit         gkr.Circuit
-	Transcript      sumcheck.ArithmeticTranscript
+	Transcript      *test_vector_utils.MapHashTranscript
 	Proof           gkr.Proof
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
