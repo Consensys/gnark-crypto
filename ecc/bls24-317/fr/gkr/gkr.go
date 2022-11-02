@@ -249,7 +249,6 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
-	numClaims  int
 }
 
 func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManager) {
@@ -272,10 +271,6 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 }
 
 func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation fr.Element) {
-	m.numClaims++
-	if m.numClaims%claimsPerLog == 0 {
-		//fmt.Println("GKR:", m.numClaims, "total claims")
-	}
 	if wire.IsInput() {
 		wire.Gate = IdentityGate{}
 	}
@@ -323,13 +318,7 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 	return res
 }
 
-const claimsPerLog = 2
-
 func (m *claimsManager) deleteClaim(wire *Wire) {
-	m.numClaims--
-	if m.numClaims%claimsPerLog == 0 {
-		//fmt.Println("GKR:", m.numClaims, "total claims")
-	}
 	delete(m.claimsMap, wire)
 }
 
