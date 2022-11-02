@@ -340,7 +340,6 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
 		return nil
-		return nil
 	}
 
 	X := reflect.ValueOf(x)
