@@ -501,19 +501,6 @@ func TestGkrVectors(t *testing.T) {
 	}
 }
 
-// TODO: Move into test_vector_utils package
-func TestTestHash(t *testing.T) {
-	m, err := test_vector_utils.GetHash("../../../gkr/test_vectors/resources/hash.json")
-	assert.NoError(t, err)
-	var one, two, negFour small_rational.SmallRational
-	one.SetOne()
-	two.SetInt64(2)
-	negFour.SetInt64(-4)
-
-	h := m.FindPair(&one, &two)
-	assert.True(t, h.Equal(&negFour), "expected -4, saw %s", h.Text(10))
-}
-
 type WireInfo struct {
 	Gate   string  `json:"gate"`
 	Inputs [][]int `json:"inputs"`

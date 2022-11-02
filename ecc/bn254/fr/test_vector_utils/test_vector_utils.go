@@ -167,7 +167,7 @@ func (m *HashMap) FindPair(x *fr.Element, y *fr.Element) fr.Element {
 	if y != nil {
 		toFind.key2 = *y
 	}
-	
+
 	return m.find(&toFind)
 }
 

@@ -30,7 +30,15 @@ import (
 )
 
 func main() {
-	if err := GenerateVectors(); err != nil {
+	if err := func() error {
+		err := GenerateVectors()
+		for path, hash := range test_vector_utils.HashCache {
+			if err := hash.SaveUsedEntries(path); err != nil {
+				return err
+			}
+		}
+		return err
+	}(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
