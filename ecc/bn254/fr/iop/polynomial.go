@@ -42,7 +42,7 @@ type Status int64
 
 const (
 	Locked Status = iota
-	Free
+	Unlocked
 )
 
 // Form describes the form of a polynomial.
@@ -56,5 +56,5 @@ type Form struct {
 // along with the basis and the layout.
 type Polynomial struct {
 	Coefficients []fr.Element
-	Form         Form
+	Info         Form
 }
