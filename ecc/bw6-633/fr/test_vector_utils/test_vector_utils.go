@@ -115,12 +115,13 @@ func GetHash(path string) (*HashMap, error) {
 type HashMap []*ElementTriplet
 
 func (t *ElementTriplet) writeKey(sb *strings.Builder) {
-	sb.WriteString("\"")
+	sb.WriteRune('"')
 	sb.WriteString(t.key1.String())
 	if t.key2Present {
 		sb.WriteRune(',')
 		sb.WriteString(t.key2.String())
 	}
+	sb.WriteRune('"')
 }
 func (m *HashMap) UnusedEntries() []interface{} {
 	unused := make([]interface{}, 0)

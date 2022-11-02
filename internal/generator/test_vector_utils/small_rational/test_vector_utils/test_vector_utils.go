@@ -115,17 +115,18 @@ func GetHash(path string) (*HashMap, error) {
 type HashMap []*ElementTriplet
 
 func (t *ElementTriplet) writeKey(sb *strings.Builder) {
-	sb.WriteString("\"")
+	sb.WriteRune('"')
 	sb.WriteString(t.key1.String())
 	if t.key2Present {
 		sb.WriteRune(',')
 		sb.WriteString(t.key2.String())
 	}
+	sb.WriteRune('"')
 }
 
 func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
 	t.writeKey(sb)
-	sb.WriteString("\":")
+	sb.WriteRune(':')
 
 	if valueBytes, err := json.Marshal(ElementToInterface(&t.value)); err == nil {
 		sb.WriteString(string(valueBytes))
