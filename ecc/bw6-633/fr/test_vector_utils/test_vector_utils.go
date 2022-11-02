@@ -56,14 +56,14 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var hashCache = make(map[string]HashMap)
+var HashCache = make(map[string]*HashMap)
 
-func GetHash(path string) (HashMap, error) {
+func GetHash(path string) (*HashMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if h, ok := hashCache[path]; ok {
+	if h, ok := HashCache[path]; ok {
 		return h, nil
 	}
 	var bytes []byte
@@ -103,9 +103,9 @@ func GetHash(path string) (HashMap, error) {
 
 		res.sort()
 
-		hashCache[path] = res
+		HashCache[path] = &res
 
-		return res, nil
+		return &res, nil
 
 	} else {
 		return nil, err
@@ -172,7 +172,7 @@ func (m *HashMap) FindPair(x *fr.Element, y *fr.Element) fr.Element {
 }
 
 type MapHashTranscript struct {
-	HashMap         HashMap
+	HashMap         *HashMap
 	stateValid      bool
 	resultAvailable bool
 	state           fr.Element

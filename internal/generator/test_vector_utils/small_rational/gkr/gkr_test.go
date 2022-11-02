@@ -697,7 +697,7 @@ type ParsedTestCase struct {
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
 	Proof           Proof
-	Hash            test_vector_utils.HashMap
+	Hash            *test_vector_utils.HashMap
 	Circuit         Circuit
 }
 
@@ -724,7 +724,7 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var hash test_vector_utils.HashMap
+			var hash *test_vector_utils.HashMap
 			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}

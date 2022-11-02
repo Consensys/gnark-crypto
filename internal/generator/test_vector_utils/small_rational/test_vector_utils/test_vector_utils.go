@@ -155,10 +155,6 @@ func (m *HashMap) serializedUsedEntries() (string, error) {
 		}
 	}
 
-	if first {
-		sb.WriteRune(',')
-	}
-
 	sb.WriteString("\n}")
 
 	return sb.String(), nil
@@ -208,15 +204,11 @@ func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.Sm
 		toFind.key2 = *y
 	}
 
-	res := m.find(&toFind)
-	var sb strings.Builder
-	toFind.writeKey(&sb)
-	fmt.Printf("hash(%s)=%s\n", sb.String(), res.String())
-	return res
+	return m.find(&toFind)
 }
 
 type MapHashTranscript struct {
-	HashMap         HashMap
+	HashMap         *HashMap
 	stateValid      bool
 	resultAvailable bool
 	state           small_rational.SmallRational
@@ -346,6 +338,7 @@ func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
 
 func ElementSliceSliceToInterfaceSliceSlice(x interface{}) [][]interface{} {
 	if x == nil {
+		return nil
 		return nil
 	}
 

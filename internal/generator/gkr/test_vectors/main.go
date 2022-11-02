@@ -30,24 +30,14 @@ import (
 )
 
 func main() {
-	if err := func() error {
-		err := GenerateVectors()
-
-		for path, hashMap := range test_vector_utils.HashCache {
-			if err := hashMap.SaveUsedEntries(path); err != nil {
-				return err
-			}
-		}
-
-		return err
-	}(); err != nil {
-		fmt.Println(err)
+	if err := GenerateVectors(); err != nil {
+		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
 }
 
 func GenerateVectors() error {
-	testDirPath, err := filepath.Abs("internal/generator/gkr/test_vectors")
+	testDirPath, err := filepath.Abs("gkr/test_vectors")
 	if err != nil {
 		return err
 	}
@@ -66,8 +56,6 @@ func GenerateVectors() error {
 				fmt.Println("\tprocessing", dirEntry.Name())
 
 				path := filepath.Join(testDirPath, dirEntry.Name())
-
-				fmt.Println("prove")
 
 				var testCase *TestCase
 				testCase, err = newTestCase(path)
@@ -90,16 +78,16 @@ func GenerateVectors() error {
 					return err
 				}
 
-				fmt.Println("verify")
-
 				testCase, err = newTestCase(path)
 				if err != nil {
 					return err
 				}
 				testCase.Transcript.Update(0)
+
 				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
 					return fmt.Errorf("verification failed")
 				}
+
 			}
 		}
 	}
@@ -268,7 +256,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 
 type TestCase struct {
 	Circuit         gkr.Circuit
-	Transcript      *test_vector_utils.MapHashTranscript
+	Transcript      sumcheck.ArithmeticTranscript
 	Proof           gkr.Proof
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
@@ -287,7 +275,7 @@ type ParsedTestCase struct {
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
 	Proof           gkr.Proof
-	Hash            test_vector_utils.HashMap
+	Hash            *test_vector_utils.HashMap
 	Circuit         gkr.Circuit
 	Info            TestCaseInfo
 }
@@ -315,7 +303,7 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var hash test_vector_utils.HashMap
+			var hash *test_vector_utils.HashMap
 			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}

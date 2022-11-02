@@ -217,7 +217,7 @@ func (m *HashMap) FindPair(x *{{.ElementType}}, y *{{.ElementType}}) {{.ElementT
 }
 
 type MapHashTranscript struct {
-	HashMap         HashMap
+	HashMap         *HashMap
 	stateValid      bool
 	resultAvailable bool
 	state           {{.ElementType}}
