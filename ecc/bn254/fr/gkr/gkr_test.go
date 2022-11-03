@@ -20,10 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/test_vector_utils"
 	"github.com/stretchr/testify/assert"
+	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -119,26 +121,95 @@ func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t 
 	sumcheck.Verify(claimsManagerGen().getLazyClaim(wire), proof, transcriptGen())
 }
 
+func setHas[T comparable](set *map[T]struct{}, elt T) bool {
+	_, ok := (*set)[elt]
+	return ok
+}
+
+func setAdd[T comparable](set *map[T]struct{}, elt T) {
+	(*set)[elt] = struct{}{}
+}
+
+type stack struct {
+	size  int
+	slice []*Wire
+}
+
+func (s *stack) pop() *Wire {
+	s.size--
+	return s.slice[s.size]
+}
+
+func (s *stack) push(v *Wire) {
+	if s.size < len(s.slice) {
+		s.slice[s.size] = v
+	} else {
+		s.slice = append(s.slice, v)
+	}
+	s.size++
+}
+
+func topologicalSort(c Circuit) (sortedWires []*Wire) {
+	circuitSizeEstimate := len(c)
+	sortedWires = make([]*Wire, 0, circuitSizeEstimate)
+	visited := make(map[*Wire]struct{}, circuitSizeEstimate)
+
+	stack := stack{slice: make([]*Wire, circuitSizeEstimate)}
+
+	for i := range c {
+		for j := range c[i] {
+			w := &c[i][j]
+			stackTraceSet := make(map[*Wire]struct{}, circuitSizeEstimate)
+
+			if !w.IsInput() && !setHas(&visited, w) {
+				stack.push(w)
+
+				for stack.size != 0 {
+					w := stack.pop()
+
+					if setHas(&stackTraceSet, w) { //fully explored
+						sortedWires = append(sortedWires, w)
+						delete(stackTraceSet, w)
+					} else {
+						setAdd(&stackTraceSet, w)
+						stack.push(w)
+
+						for _, v := range w.Inputs {
+							if setHas(&stackTraceSet, v) {
+								panic("cycle detected")
+							} else if !setHas(&visited, v) {
+								setAdd(&visited, v)
+								stack.push(v)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 // complete the circuit evaluation from input values
 func (a WireAssignment) complete(c Circuit) WireAssignment {
-	numEvaluations := len(a[&c[len(c)-1][0]])
 
-	for i := len(c) - 2; i >= 0; i-- { //there can only be input wires in the bottommost layer
-		layer := c[i]
-		for j := 0; j < len(layer); j++ {
-			wire := &layer[j]
+	sortedWires := topologicalSort(c)
+	numEvaluations := 0
 
-			if !wire.IsInput() {
-				evals := make([]fr.Element, numEvaluations)
-				ins := make([]fr.Element, len(wire.Inputs))
-				for k := 0; k < numEvaluations; k++ {
-					for inI, in := range wire.Inputs {
-						ins[inI] = a[in][k]
-					}
-					evals[k] = wire.Gate.Evaluate(ins...)
-				}
-				a[wire] = evals
+	for _, w := range sortedWires {
+		if !w.IsInput() {
+			if numEvaluations == 0 {
+				numEvaluations = len(a[w.Inputs[0]])
 			}
+			evals := make([]fr.Element, numEvaluations)
+			ins := make([]fr.Element, len(w.Inputs))
+			for k := 0; k < numEvaluations; k++ {
+				for inI, in := range w.Inputs {
+					ins[inI] = a[in][k]
+				}
+				evals[k] = w.Gate.Evaluate(ins...)
+			}
+			a[w] = evals
 		}
 	}
 	return a
@@ -363,10 +434,7 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	}
 }
 
-func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
-	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
-	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
-
+func mimcCircuit(numRounds int) Circuit {
 	c := make(Circuit, numRounds+1)
 
 	c[numRounds] = CircuitLayer{
@@ -391,6 +459,14 @@ func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 			},
 		}
 	}
+	return c
+}
+
+func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
+	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
+	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
+
+	c := mimcCircuit(numRounds)
 
 	t.Log("Evaluating all circuit wires")
 	assignment := WireAssignment{&c[numRounds][0]: inputAssignments[0], &c[numRounds][1]: inputAssignments[1]}.complete(c)
@@ -805,4 +881,78 @@ func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 
 func (m mulGate) Degree() int {
 	return 2
+}
+
+func BenchmarkGkrMimc(b *testing.B) {
+	const N = 1 << 17
+	fmt.Println("creating circuit structure")
+	c := mimcCircuit(91)
+
+	in0 := make([]fr.Element, N)
+	in1 := make([]fr.Element, N)
+	setRandom(in0)
+	setRandom(in1)
+
+	fmt.Println("evaluating circuit")
+	assignment := WireAssignment{&c[len(c)-1][0]: in0, &c[len(c)-1][1]: in1}.complete(c)
+
+	//b.ResetTimer()
+	fmt.Println("constructing proof")
+	Prove(c, assignment, newMimcTranscript())
+}
+
+// TODO: Move into main package?
+type hashTranscript struct {
+	hash          hash.Hash
+	nextAvailable bool
+}
+
+func newMimcTranscript() sumcheck.ArithmeticTranscript {
+	return &hashTranscript{hash: mimc.NewMiMC()}
+}
+
+func (t *hashTranscript) hashToField() fr.Element {
+	var res fr.Element
+	res.SetBytes(t.hash.Sum(nil))
+	return res
+}
+
+func toBytes(i interface{}) []byte {
+	switch v := i.(type) {
+	case fr.Element:
+		return v.Marshal()
+	case *fr.Element:
+		return v.Marshal()
+	}
+	panic(fmt.Errorf("can't serialize type %T", i))
+}
+
+func (t *hashTranscript) Update(i ...interface{}) {
+	if len(i) == 0 {
+		t.hash.Write([]byte{})
+	}
+	for _, iI := range i {
+		t.hash.Write(toBytes(iI))
+	}
+	t.nextAvailable = true
+}
+
+func (t *hashTranscript) Next(i ...interface{}) fr.Element {
+	if !t.nextAvailable || len(i) != 0 {
+		t.Update(i...)
+	}
+	t.nextAvailable = false
+	return t.hashToField()
+}
+
+func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
+	if n <= 0 {
+		return []fr.Element{}
+	}
+	res := make([]fr.Element, n)
+	res[0] = t.Next(i...)
+	for j := 1; j < n; j++ {
+		res[j] = t.Next()
+	}
+	return res
 }

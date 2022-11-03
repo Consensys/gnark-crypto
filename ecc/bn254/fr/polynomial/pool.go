@@ -17,6 +17,7 @@
 package polynomial
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"reflect"
@@ -28,24 +29,28 @@ import (
 // Copied verbatim from gkr repo
 
 // Sets a maximum for the array size we keep in pool
-const maxNForLargePool int = 1 << 24
+const maxNForLargePool int = 1 << 17
 const maxNForSmallPool int = 256
 
 // Aliases because it is annoying to use arrays in all the places
 type largeArr = [maxNForLargePool]fr.Element
 type smallArr = [maxNForSmallPool]fr.Element
 
+var largeAllocated, smallAllocated, largeUsed, smallUsed int
+
 var rC = sync.Map{}
 
 var (
 	largePool = sync.Pool{
 		New: func() interface{} {
+			largeAllocated++
 			var res largeArr
 			return &res
 		},
 	}
 	smallPool = sync.Pool{
 		New: func() interface{} {
+			smallAllocated++
 			var res smallArr
 			return &res
 		},
@@ -89,11 +94,13 @@ func Make(n int) []fr.Element {
 	}
 
 	if n <= maxNForSmallPool {
+		smallUsed++
 		ptr := smallPool.Get().(*smallArr)
 		rC.Store(ptr, struct{}{}) // registers the pointer being used
 		return (*ptr)[:n]
 	}
 
+	largeUsed++
 	ptr := largePool.Get().(*largeArr)
 	rC.Store(ptr, struct{}{}) // remember we allocated the pointer is being used
 	return (*ptr)[:n]
@@ -127,4 +134,13 @@ func ptr(m []fr.Element) unsafe.Pointer {
 		panic(fmt.Sprintf("can't cast to large or small array, the put array's is %v it should have capacity %v or %v", cap(m), maxNForLargePool, maxNForSmallPool))
 	}
 	return unsafe.Pointer(&m[0])
+}
+
+type poolStats struct {
+	Hi string
+}
+
+func PrintPoolStats() {
+	poolStats := poolStats{Hi: "hi"}
+	fmt.Println(json.Marshal(poolStats))
 }
