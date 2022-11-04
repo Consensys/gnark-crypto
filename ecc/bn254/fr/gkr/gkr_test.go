@@ -233,7 +233,7 @@ func getLogMaxInstances(t *testing.T) int {
 
 		s := os.Getenv("GKR_LOG_INSTANCES")
 		if s == "" {
-			testManyInstancesLogMaxInstances = 15
+			testManyInstancesLogMaxInstances = 5
 		} else {
 			var err error
 			testManyInstancesLogMaxInstances, err = strconv.Atoi(s)
@@ -606,6 +606,80 @@ func proofEquals(expected Proof, seen Proof) error {
 	return nil
 }
 
+func BenchmarkGkrMimc(b *testing.B) {
+	const N = 1 << 19
+	fmt.Println("creating circuit structure")
+	c := mimcCircuit(91)
+
+	in0 := make([]fr.Element, N)
+	in1 := make([]fr.Element, N)
+	setRandom(in0)
+	setRandom(in1)
+
+	fmt.Println("evaluating circuit")
+	assignment := WireAssignment{&c[len(c)-1][0]: in0, &c[len(c)-1][1]: in1}.complete(c)
+
+	//b.ResetTimer()
+	fmt.Println("constructing proof")
+	Prove(c, assignment, newMimcTranscript())
+}
+
+// TODO: Move into main package?
+type hashTranscript struct {
+	hash          hash.Hash
+	nextAvailable bool
+}
+
+func newMimcTranscript() sumcheck.ArithmeticTranscript {
+	return &hashTranscript{hash: mimc.NewMiMC()}
+}
+
+func (t *hashTranscript) hashToField() fr.Element {
+	var res fr.Element
+	res.SetBytes(t.hash.Sum(nil))
+	return res
+}
+
+func toBytes(i interface{}) []byte {
+	switch v := i.(type) {
+	case fr.Element:
+		return v.Marshal()
+	case *fr.Element:
+		return v.Marshal()
+	}
+	panic(fmt.Errorf("can't serialize type %T", i))
+}
+
+func (t *hashTranscript) Update(i ...interface{}) {
+	if len(i) == 0 {
+		t.hash.Write([]byte{})
+	}
+	for _, iI := range i {
+		t.hash.Write(toBytes(iI))
+	}
+	t.nextAvailable = true
+}
+
+func (t *hashTranscript) Next(i ...interface{}) fr.Element {
+	if !t.nextAvailable || len(i) != 0 {
+		t.Update(i...)
+	}
+	t.nextAvailable = false
+	return t.hashToField()
+}
+
+func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
+	if n <= 0 {
+		return []fr.Element{}
+	}
+	res := make([]fr.Element, n)
+	res[0] = t.Next(i...)
+	for j := 1; j < n; j++ {
+		res[j] = t.Next()
+	}
+	return res
+}
+
 type WireInfo struct {
 	Gate   string  `json:"gate"`
 	Inputs [][]int `json:"inputs"`
@@ -879,78 +953,4 @@ func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 
 func (m mulGate) Degree() int {
 	return 2
-}
-
-func BenchmarkGkrMimc(b *testing.B) {
-	const N = 1 << 19
-	fmt.Println("creating circuit structure")
-	c := mimcCircuit(91)
-
-	in0 := make([]fr.Element, N)
-	in1 := make([]fr.Element, N)
-	setRandom(in0)
-	setRandom(in1)
-
-	fmt.Println("evaluating circuit")
-	assignment := WireAssignment{&c[len(c)-1][0]: in0, &c[len(c)-1][1]: in1}.complete(c)
-
-	//b.ResetTimer()
-	fmt.Println("constructing proof")
-	Prove(c, assignment, newMimcTranscript())
-}
-
-// TODO: Move into main package?
-type hashTranscript struct {
-	hash          hash.Hash
-	nextAvailable bool
-}
-
-func newMimcTranscript() sumcheck.ArithmeticTranscript {
-	return &hashTranscript{hash: mimc.NewMiMC()}
-}
-
-func (t *hashTranscript) hashToField() fr.Element {
-	var res fr.Element
-	res.SetBytes(t.hash.Sum(nil))
-	return res
-}
-
-func toBytes(i interface{}) []byte {
-	switch v := i.(type) {
-	case fr.Element:
-		return v.Marshal()
-	case *fr.Element:
-		return v.Marshal()
-	}
-	panic(fmt.Errorf("can't serialize type %T", i))
-}
-
-func (t *hashTranscript) Update(i ...interface{}) {
-	if len(i) == 0 {
-		t.hash.Write([]byte{})
-	}
-	for _, iI := range i {
-		t.hash.Write(toBytes(iI))
-	}
-	t.nextAvailable = true
-}
-
-func (t *hashTranscript) Next(i ...interface{}) fr.Element {
-	if !t.nextAvailable || len(i) != 0 {
-		t.Update(i...)
-	}
-	t.nextAvailable = false
-	return t.hashToField()
-}
-
-func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
-	if n <= 0 {
-		return []fr.Element{}
-	}
-	res := make([]fr.Element, n)
-	res[0] = t.Next(i...)
-	for j := 1; j < n; j++ {
-		res[j] = t.Next()
-	}
-	return res
 }

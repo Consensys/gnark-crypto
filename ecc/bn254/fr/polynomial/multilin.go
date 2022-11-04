@@ -83,7 +83,6 @@ func (m MultiLin) Evaluate(coordinates []fr.Element, p *Pool) fr.Element {
 	result := bkCopy[0]
 
 	_dump(bkCopy, p)
-
 	return result
 }
 
@@ -101,16 +100,9 @@ func (m MultiLin) Clone() MultiLin {
 func (m *MultiLin) Add(left, right MultiLin) {
 	size := len(left)
 	// Check that left and right have the same size
-	if len(right) != size {
-		panic("Left and right do not have the right size")
+	if len(right) != size || len(*m) != size {
+		panic("left, right and destination must have the right size")
 	}
-	// Reallocate the table if necessary
-	if cap(*m) < size {
-		*m = make([]fr.Element, size)
-	}
-
-	// Resize the destination table
-	*m = (*m)[:size]
 
 	// Add elementwise
 	for i := 0; i < size; i++ {
@@ -153,14 +145,11 @@ func EvalEq(q, h []fr.Element) fr.Element {
 }
 
 // Eq sets m to the representation of the polynomial Eq(q₁, ..., qₙ, *, ..., *) × m[0]
-func (m *MultiLin) Eq(q []fr.Element, p *Pool) {
+func (m *MultiLin) Eq(q []fr.Element) {
 	n := len(q)
 
 	if len(*m) != 1<<n {
-		n := p.Make(1 << n)
-		n[0].Set(&(*m)[0])
-		//TODO: Dump m?
-		*m = n
+		panic("destination must have size 2 raised to the size of source")
 	}
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)

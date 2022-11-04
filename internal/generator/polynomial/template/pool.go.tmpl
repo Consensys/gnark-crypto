@@ -1,15 +1,43 @@
+{{ $sham := eq .ElementType "small_rational.SmallRational"}}
 import (
+"{{.FieldPackagePath}}"
+{{- if not $sham}}
 	"C"
 	"encoding/json"
 	"fmt"
-	"{{.FieldPackagePath}}"
 	"reflect"
 	"runtime"
 	"sort"
 	"sync"
 	"unsafe"
+{{- end}}
 )
 
+{{ if $sham}}
+// Do as little as possible to instantiate the interface
+type Pool struct {
+}
+
+func NewPool(...int) (pool Pool) {
+	return Pool{}
+}
+
+func (p *Pool) Make(n int) []{{.ElementType}} {
+	return make([]{{.ElementType}}, n)
+}
+
+// Dump dumps a set of polynomials into the pool
+func (p *Pool) Dump(...[]{{.ElementType}}) {
+}
+
+func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
+	res := p.Make(len(slice))
+	for i, v := range slice {
+		res[i] = v
+	}
+	return res
+}
+{{ else}}
 // Memory management for polynomials
 // WARNING: This is not thread safe TODO: Make sure that is not a problem
 // TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
@@ -186,3 +214,4 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 	copy(res, slice)
 	return res
 }
+{{end}}

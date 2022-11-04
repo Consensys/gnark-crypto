@@ -122,7 +122,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	c.eq = c.manager.memPool.Make(eqLength)
 
 	c.eq[0].SetOne()
-	c.eq.Eq(c.evaluationPoints[0], c.manager.memPool)
+	c.eq.Eq(c.evaluationPoints[0])
 
 	newEq := polynomial.MultiLin(c.manager.memPool.Make(eqLength))
 	aI := combinationCoeff
@@ -130,13 +130,13 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
-		newEq.Eq(c.evaluationPoints[k], c.manager.memPool)
+		newEq.Eq(c.evaluationPoints[k])
 
 		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
 		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+1 < claimsNum {
-			aI.Mul(&aI, &combinationCoeff) //TODO: Test this. newEq[0] maybe not preserving value?
+			aI.Mul(&aI, &combinationCoeff)
 		}
 	}
 
@@ -227,12 +227,11 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 			wg.Add(1) // formalities
 			sumOverI(&gJ[d], gateInput[0], 0, len(EVal))
 		}
-
-		//}
 	}
 
 	c.manager.memPool.Dump(gateInput...)
 	c.manager.memPool.Dump(EVal, EStep)
+
 	for inputI := range puVal {
 		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
 	}
@@ -288,6 +287,7 @@ type claimsManager struct {
 func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, c.Size())
+
 	if pool == nil {
 
 		// extract the number of instances. TODO: Clean way?
@@ -426,8 +426,6 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 			claims.deleteClaim(wire)
 		}
 	}
-
-	claims.memPool.PrintPoolStats()
 
 	return proof
 }

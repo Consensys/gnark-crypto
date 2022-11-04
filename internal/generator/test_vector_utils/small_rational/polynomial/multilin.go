@@ -55,11 +55,25 @@ func (m MultiLin) Sum() small_rational.SmallRational {
 	return s
 }
 
+func _clone(m MultiLin, p *Pool) MultiLin {
+	if p == nil {
+		return m.Clone()
+	} else {
+		return p.Clone(m)
+	}
+}
+
+func _dump(m MultiLin, p *Pool) {
+	if p != nil {
+		p.Dump(m)
+	}
+}
+
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
-func (m MultiLin) Evaluate(coordinates []small_rational.SmallRational) small_rational.SmallRational {
+func (m MultiLin) Evaluate(coordinates []small_rational.SmallRational, p *Pool) small_rational.SmallRational {
 	// Folding is a mutating operation
-	bkCopy := m.Clone()
+	bkCopy := _clone(m, p)
 
 	// Evaluate step by step through repeated folding (i.e. evaluation at the first remaining variable)
 	for _, r := range coordinates {
@@ -68,7 +82,7 @@ func (m MultiLin) Evaluate(coordinates []small_rational.SmallRational) small_rat
 
 	result := bkCopy[0]
 
-	Dump(bkCopy)
+	_dump(bkCopy, p)
 	return result
 }
 
@@ -77,25 +91,18 @@ func (m MultiLin) Evaluate(coordinates []small_rational.SmallRational) small_rat
 // array, but folding changes the array. To do both one requires a deep copy
 // of the bookkeeping table.
 func (m MultiLin) Clone() MultiLin {
-	tableDeepCopy := Make(len(m))
-	copy(tableDeepCopy, m)
-	return tableDeepCopy
+	res := make(MultiLin, len(m))
+	copy(res, m)
+	return res
 }
 
 // Add two bookKeepingTables
 func (m *MultiLin) Add(left, right MultiLin) {
 	size := len(left)
 	// Check that left and right have the same size
-	if len(right) != size {
-		panic("Left and right do not have the right size")
+	if len(right) != size || len(*m) != size {
+		panic("left, right and destination must have the right size")
 	}
-	// Reallocate the table if necessary
-	if cap(*m) < size {
-		*m = make([]small_rational.SmallRational, size)
-	}
-
-	// Resize the destination table
-	*m = (*m)[:size]
 
 	// Add elementwise
 	for i := 0; i < size; i++ {
@@ -142,10 +149,7 @@ func (m *MultiLin) Eq(q []small_rational.SmallRational) {
 	n := len(q)
 
 	if len(*m) != 1<<n {
-		n := Make(1 << n)
-		n[0].Set(&(*m)[0])
-		//TODO: Dump m?
-		*m = n
+		panic("destination must have size 2 raised to the size of source")
 	}
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
