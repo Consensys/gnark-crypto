@@ -21,8 +21,8 @@ import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 type Layout int64
 
 const (
-	BitReverse Layout = iota
-	Regular
+	Regular Layout = iota
+	BitReverse
 )
 
 // Enum to tell in which basis a polynomial is represented.

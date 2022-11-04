@@ -15,208 +15,118 @@
 package iop
 
 import (
-	"errors"
-	"math/bits"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
-var (
-	ErrInconsistantSize       = errors.New("the sizes of the polynomial must be the same as the size of the domain")
-	ErrNumberPolynomials      = errors.New("the number of polynomials in the denominator and the numerator must be the same")
-	ErrSizeNotPowerOfTwo      = errors.New("the size of the polynomials must be a power of two")
-	ErrInconsistantSizeDomain = errors.New("the size of the domain must be consistant with the size of the polynomials")
-)
+type mutator func(p *Polynomial, d *fft.Domain) *Polynomial
 
-// Build an 'accumulating ratio' polynomial.
-// * numerator list of polynomials that will form the numerator of the ratio
-// * denominator list of polynomials that will form the denominator of the ratio
-// The polynomials in the denominator and the numerator are expected to be of
-// the same size and the size must be a power of 2. The polynomials are given as
-// pointers in case the caller wants to FFTInv the polynomials during the process.
-// * challenge variable at which the numerator and denominators are evaluated
-// * expectedForm expected form of the resulting polynomial
-// * Return: say challenge=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
-// returns a polynomial whose evaluation on the j-th root of unity is
-// (Π_{k<j}Π_{i<m}(P_i(ω^k)-β))/(Q_i(ω^k)-β)
-func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
-
-	var res Polynomial
-
-	// check that len(numerator)=len(denominator)
-	if len(numerator) != len(denominator) {
-		return res, ErrNumberPolynomials
-	}
-	nbPolynomials := len(numerator)
-
-	// check sizes between one another
-	n := len(numerator[0].Coefficients)
-	for i := 0; i < len(numerator); i++ {
-		if len(numerator[i].Coefficients) != n {
-			return res, ErrInconsistantSize
-		}
-		if len(denominator[i].Coefficients) != n {
-			return res, ErrInconsistantSize
-		}
-	}
-
-	// check if the sizes are a power of 2
-	if n&(n-1) != 0 {
-		return res, ErrSizeNotPowerOfTwo
-	}
-
-	// check if domain is of the correct size (if not we create it)
-	if domain == nil {
-		domain = fft.NewDomain(uint64(n))
-	}
-	if domain.Cardinality != uint64(n) {
-		return res, ErrInconsistantSizeDomain
-	}
-
-	// put every polynomials in Lagrange form
-	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = putIntLagrangeForm(numerator[i], domain)
-		denominator[i] = putIntLagrangeForm(denominator[i], domain)
-	}
-
-	// build the ratio (careful with the indices of
-	// the polynomials which are bit reversed)
-	res.Coefficients = make([]fr.Element, n)
-	t := make([]fr.Element, n)
-	res.Coefficients[0].SetOne()
-	t[0].SetOne()
-	var a, b, c, d fr.Element
-
-	nn := uint64(64 - bits.TrailingZeros(uint(n)))
-	for i := 1; i < n; i++ {
-
-		b.SetOne()
-		c.SetOne()
-
-		iMinusOnerev := bits.Reverse64(uint64(i-1)) >> nn
-
-		for j := 0; j < nbPolynomials; j++ {
-
-			if numerator[j].Info.Layout == BitReverse {
-				a.Sub(&challenge, &numerator[j].Coefficients[iMinusOnerev])
-			} else {
-				a.Sub(&challenge, &numerator[j].Coefficients[i-1])
-			}
-			b.Mul(&b, &a)
-
-			if denominator[j].Info.Layout == BitReverse {
-				c.Sub(&challenge, &denominator[j].Coefficients[iMinusOnerev])
-			} else {
-				c.Sub(&challenge, &denominator[j].Coefficients[i-1])
-			}
-			d.Mul(&d, &c)
-		}
-		// b = Πₖ (β-P_k(ωⁱ⁻¹))
-		// d = Πₖ (β-Q_k(ωⁱ⁻¹))
-
-		res.Coefficients[i].Mul(&res.Coefficients[i-1], &b)
-		t[i].Mul(&t[i-1], &d)
-
-	}
-	t = fr.BatchInvert(t)
-	for i := 1; i < n; i++ {
-		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
-	}
-
-	res.Info = expectedForm
-
-	// at this stage the result is in Lagrange form, Regular layout
-	if expectedForm.Basis == Canonical {
-		domain.FFTInverse(res.Coefficients, fft.DIF)
-		if expectedForm.Layout == Regular {
-			fft.BitReverse(res.Coefficients)
-		}
-		return res, nil
-	}
-
-	if expectedForm.Basis == LagrangeCoset {
-		domain.FFTInverse(res.Coefficients, fft.DIF)
-		domain.FFT(res.Coefficients, fft.DIT, true)
-		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(res.Coefficients)
-		}
-		return res, nil
-	}
-
-	if expectedForm.Layout == BitReverse {
-		fft.BitReverse(res.Coefficients)
-	}
-	return res, nil
+func toLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := copyPoly(*p)
+	_p.Info.Basis = Lagrange
+	_p.Info.Layout = BitReverse
+	_p.Info.Status = Unlocked
+	d.FFT(_p.Coefficients, fft.DIF)
+	return &_p
 }
 
-// puts p in Lagrange form (does not bitReverse the polynomial)
-func putIntLagrangeForm(p *Polynomial, domain *fft.Domain) *Polynomial {
-
-	if p.Info.Basis == Canonical {
-
-		// if the polynomial can be modified, we do the fft in place
-		if p.Info.Status == Unlocked {
-			p.Info.Basis = Lagrange
-			if p.Info.Layout == BitReverse {
-				domain.FFT(p.Coefficients, fft.DIT)
-				p.Info.Layout = Regular
-			} else {
-				domain.FFT(p.Coefficients, fft.DIF)
-				p.Info.Layout = BitReverse
-			}
-			return p
-		}
-
-		// else we allocate another polynomial
-		var res Polynomial
-		res.Coefficients = make([]fr.Element, len(p.Coefficients))
-		copy(res.Coefficients, p.Coefficients)
-		res.Info.Basis = Lagrange
-		res.Info.Status = Unlocked
-		res.Info.Layout = p.Info.Layout
-		if res.Info.Layout == BitReverse {
-			domain.FFT(res.Coefficients, fft.DIT)
-			res.Info.Layout = Regular
-		} else {
-			domain.FFT(res.Coefficients, fft.DIF)
-			res.Info.Layout = BitReverse
-		}
-		return &res
-	}
-
-	if p.Info.Basis == LagrangeCoset {
-
-		// if the polynomial can be modified, we do the fft in place
-		if p.Info.Status == Unlocked {
-			p.Info.Basis = Lagrange
-			if p.Info.Layout == BitReverse {
-				domain.FFTInverse(p.Coefficients, fft.DIT, true)
-				domain.FFT(p.Coefficients, fft.DIF)
-			} else {
-				domain.FFTInverse(p.Coefficients, fft.DIF, true)
-				domain.FFT(p.Coefficients, fft.DIT)
-			}
-			return p
-		}
-
-		// else we allocate another polynomial
-		var res Polynomial
-		res.Coefficients = make([]fr.Element, len(p.Coefficients))
-		copy(res.Coefficients, p.Coefficients)
-		res.Info.Basis = Lagrange
-		res.Info.Status = Unlocked
-		res.Info.Layout = p.Info.Layout
-		if res.Info.Layout == BitReverse {
-			domain.FFTInverse(res.Coefficients, fft.DIT, true)
-			domain.FFT(res.Coefficients, fft.DIF)
-		} else {
-			domain.FFTInverse(res.Coefficients, fft.DIF, true)
-			domain.FFT(res.Coefficients, fft.DIT)
-		}
-		return &res
-	}
-
-	// in this case the polynomial is already in Lagrange basis
+func toLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
+	p.Info.Basis = Lagrange
+	p.Info.Layout = BitReverse
+	d.FFT(p.Coefficients, fft.DIF)
 	return p
+}
+
+func toLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := copyPoly(*p)
+	_p.Info.Basis = Lagrange
+	_p.Info.Layout = Regular
+	_p.Info.Status = Unlocked
+	d.FFT(_p.Coefficients, fft.DIT)
+	return &_p
+}
+
+func toLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
+	p.Info.Basis = Lagrange
+	p.Info.Layout = Regular
+	d.FFT(p.Coefficients, fft.DIT)
+	return p
+}
+
+func toLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
+	return p
+}
+
+func toLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
+	return p
+}
+
+func toLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
+	return p
+}
+
+func toLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
+	return p
+}
+
+func toLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := copyPoly(*p)
+	_p.Info.Basis = Lagrange
+	_p.Info.Layout = Regular
+	_p.Info.Status = Unlocked
+	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIT)
+	return &_p
+}
+
+func toLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
+	p.Info.Basis = Lagrange
+	d.FFTInverse(p.Coefficients, fft.DIF, true)
+	d.FFT(p.Coefficients, fft.DIT)
+	return p
+}
+
+func toLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := copyPoly(*p)
+	_p.Info.Basis = Lagrange
+	d.FFTInverse(_p.Coefficients, fft.DIT, true)
+	d.FFT(_p.Coefficients, fft.DIF)
+	return &_p
+}
+
+func toLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
+	p.Info.Basis = Lagrange
+	d.FFTInverse(p.Coefficients, fft.DIT, true)
+	d.FFT(p.Coefficients, fft.DIF)
+	return p
+}
+
+// return a copy of p
+func copyPoly(p Polynomial) Polynomial {
+	size := len(p.Coefficients)
+	var r Polynomial
+	r.Coefficients = make([]fr.Element, size)
+	copy(r.Coefficients, p.Coefficients)
+	r.Info = p.Info
+	return r
+}
+
+// return an ID corresponding to the polynomial extra data
+func getFootPrint(p Polynomial) int {
+	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
+}
+
+var toLagrange [12]mutator = [12]mutator{
+	toLagrange0,
+	toLagrange1,
+	toLagrange2,
+	toLagrange3,
+	toLagrange4,
+	toLagrange5,
+	toLagrange6,
+	toLagrange7,
+	toLagrange8,
+	toLagrange9,
+	toLagrange10,
+	toLagrange11,
 }
