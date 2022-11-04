@@ -41,3 +41,20 @@ func reduce(res *Element)
 //
 //go:noescape
 func Butterfly(a, b *Element)
+
+// Mul z = x * y (mod q)
+//
+// x and y must be strictly inferior to q
+func (z *Element) Mul(x, y *Element) *Element {
+	// TODO @gbotrel restore doc
+	mul(z, x, y)
+	return z
+}
+
+// Square z = x * x (mod q)
+//
+// x must be strictly inferior to q
+func (z *Element) Square(x *Element) *Element {
+	mul(z, x, x)
+	return z
+}

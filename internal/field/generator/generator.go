@@ -58,6 +58,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		"_mul_arm64.s",
 		"_mul_arm64.go",
 		"_ops_amd64.s",
+		"_ops_noasm.go",
 		"_mul_adx_amd64.s",
 		"_ops_amd64.go",
 		"_fuzz.go",
@@ -178,7 +179,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			element.MulNoCarry,
 			element.Reduce,
 		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_noasm.go")
+		pathSrc := filepath.Join(outputDir, eName+"_ops_purego.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		if F.ASM {

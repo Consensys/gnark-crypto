@@ -430,64 +430,6 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y (mod q)
-//
-// x and y must be strictly inferior to q
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	//
-	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	//
-	// for i=0 to N-1
-	// 		(A,t[0]) := t[0] + x[0]*y[i]
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(A,t[j])  := t[j] + x[j]*y[i] + A
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		t[N-1] = C + A
-	//
-	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit
-	// of the modulus is zero (and not all of the remaining bits are set).
-	mul(z, x, y)
-	return z
-}
-
-// Square z = x * x (mod q)
-//
-// x must be strictly inferior to q
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-	mul(z, x, x)
-	return z
-}
-
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func (z *Element) FromMont() *Element {
@@ -1419,7 +1361,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
-		mul(&v, &v, &a)
+		v.Mul(&v, &a)
 	}
 
 	u.Set(x) // for correctness check

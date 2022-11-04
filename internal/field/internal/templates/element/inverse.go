@@ -258,7 +258,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
-		mul(&v, &v, &a)
+		v.Mul(&v, &a)
 	}
 
 	u.Set(x) // for correctness check
