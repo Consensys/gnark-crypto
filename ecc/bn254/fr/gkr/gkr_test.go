@@ -97,7 +97,7 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
 	}
 }
 
-func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
+func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{{Wire{
 		Gate:       nil,
 		Inputs:     []*Wire{},
@@ -109,7 +109,7 @@ func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t 
 	assignment := WireAssignment{&circuit[0][0]: []fr.Element{two, three}}
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment)
+		manager := newClaimsManager(circuit, assignment, nil)
 		manager.add(wire, []fr.Element{three}, five)
 		manager.add(wire, []fr.Element{four}, six)
 		return &manager
@@ -253,11 +253,9 @@ func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]fr
 	t.Log("Entered test orchestrator, assigning and randomizing inputs")
 
 	for i := range fullAssignments {
-		fullAssignments[i] = polynomial.Make(maxSize)
+		fullAssignments[i] = make([]fr.Element, maxSize)
 		setRandom(fullAssignments[i])
 	}
-
-	defer polynomial.Dump(fullAssignments...)
 
 	inputAssignments := make([][]fr.Element, numInput)
 	for numEvals := maxSize; numEvals <= maxSize; numEvals *= 2 {
@@ -899,8 +897,6 @@ func BenchmarkGkrMimc(b *testing.B) {
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
 	Prove(c, assignment, newMimcTranscript())
-
-	polynomial.PrintPoolStats()
 }
 
 // TODO: Move into main package?

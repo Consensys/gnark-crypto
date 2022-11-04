@@ -118,18 +118,18 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	eqLength := 1 << varsNum
 	claimsNum := c.ClaimsNum()
 	// initialize the eq tables
-	c.eq = polynomial.Make(eqLength)
+	c.eq = c.manager.memPool.Make(eqLength)
 
 	c.eq[0].SetOne()
-	c.eq.Eq(c.evaluationPoints[0])
+	c.eq.Eq(c.evaluationPoints[0], c.manager.memPool)
 
-	newEq := polynomial.MultiLin(polynomial.Make(eqLength))
+	newEq := polynomial.MultiLin(c.manager.memPool.Make(eqLength))
 	aI := combinationCoeff
 
 	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
-		newEq.Eq(c.evaluationPoints[k])
+		newEq.Eq(c.evaluationPoints[k], c.manager.memPool)
 
 		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
 		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
@@ -139,7 +139,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 		}
 	}
 
-	polynomial.Dump(newEq)
+	c.manager.memPool.Dump(newEq)
 
 	// from this point on the claim is a rather simple one: g = E(h) × R_v (P_u0(h), ...) where E and the P_u are multilinear and R_v is of low-degree
 
@@ -147,9 +147,9 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 }
 
 // computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
-func computeValAndStep(m polynomial.MultiLin) (val polynomial.MultiLin, step polynomial.MultiLin) {
-	val = m[len(m)/2:].Clone()
-	step = m[:len(m)/2].Clone()
+func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomial.MultiLin, step polynomial.MultiLin) {
+	val = p.Clone(m[len(m)/2:])
+	step = p.Clone(m[:len(m)/2])
 
 	valAsPoly, stepAsPoly := polynomial.Polynomial(val), polynomial.Polynomial(step)
 
@@ -163,19 +163,19 @@ func computeValAndStep(m polynomial.MultiLin) (val polynomial.MultiLin, step pol
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	EVal, EStep := computeValAndStep(c.eq)
+	EVal, EStep := computeValAndStep(c.eq, c.manager.memPool)
 
 	puVal := make([]polynomial.MultiLin, len(c.inputPreprocessors))  //TODO: Make a two-dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
 	puStep := make([]polynomial.MultiLin, len(c.inputPreprocessors)) //TODO, ctd: the greater degGJ, the more this would matter
 
 	for i, puI := range c.inputPreprocessors {
-		puVal[i], puStep[i] = computeValAndStep(puI)
+		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
 	}
 
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
 
-	gateInput := polynomial.Make(len(c.inputPreprocessors))
+	gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
 	for d := 0; d < degGJ; d++ {
 
 		notLastIteration := d+1 < degGJ
@@ -202,9 +202,9 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		}
 	}
 
-	polynomial.Dump(EVal, EStep, gateInput)
+	c.manager.memPool.Dump(EVal, EStep, gateInput)
 	for inputI := range puVal {
-		polynomial.Dump(puVal[inputI], puStep[inputI])
+		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
 	}
 
 	return
@@ -239,10 +239,10 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 		}
 
 		evaluations[i].Set(&puI[0])
-		polynomial.Dump(puI)
+		c.manager.memPool.Dump(puI)
 	}
 
-	polynomial.Dump(c.claimedEvaluations, c.eq)
+	c.manager.memPool.Dump(c.claimedEvaluations, c.eq)
 
 	c.manager.addForInput(c.wire, r, evaluations)
 
@@ -252,11 +252,26 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
+	memPool    *polynomial.Pool
 }
 
-func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManager) {
+func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, c.Size())
+	if pool == nil {
+
+		// extract the number of instances. TODO: Clean way?
+		nInstances := 0
+		for _, a := range assignment {
+			nInstances = len(a)
+			break
+		}
+
+		pool := polynomial.NewPool(1<<11, nInstances)
+		claims.memPool = &pool
+	} else {
+		claims.memPool = pool
+	}
 
 	for _, layer := range c {
 		for i := 0; i < len(layer); i++ {
@@ -265,7 +280,7 @@ func newClaimsManager(c Circuit, assignment WireAssignment) (claims claimsManage
 			claims.claimsMap[wire] = &eqTimesGateEvalSumcheckLazyClaims{
 				wire:               wire,
 				evaluationPoints:   make([][]fr.Element, 0, wire.NumOutputs),
-				claimedEvaluations: polynomial.Make(wire.NumOutputs),
+				claimedEvaluations: claims.memPool.Make(wire.NumOutputs),
 				manager:            &claims,
 			}
 		}
@@ -310,12 +325,12 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 
 	if wire.IsInput() {
 		wire.Gate = IdentityGate{} // a bit dirty, modifying data structure given from outside
-		res.inputPreprocessors = []polynomial.MultiLin{m.assignment[wire].Clone()}
+		res.inputPreprocessors = []polynomial.MultiLin{m.memPool.Clone(m.assignment[wire])}
 	} else {
 		res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
 
 		for inputI, inputW := range wire.Inputs {
-			res.inputPreprocessors[inputI] = m.assignment[inputW].Clone() //will be edited later, so must be deep copied
+			res.inputPreprocessors[inputI] = m.memPool.Clone(m.assignment[inputW]) //will be edited later, so must be deep copied
 		}
 	}
 	return res
@@ -325,9 +340,28 @@ func (m *claimsManager) deleteClaim(wire *Wire) {
 	delete(m.claimsMap, wire)
 }
 
+func WithPool(pool *polynomial.Pool) Option {
+	return Option{pool: pool}
+}
+
+type Option struct {
+	pool *polynomial.Pool
+}
+
+func (o *Option) combine(os []Option) {
+	for _, oI := range os {
+		if oI.pool != nil {
+			o.pool = oI.pool
+		}
+	}
+}
+
 // Prove consistency of the claimed assignment
-func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript) Proof {
-	claims := newClaimsManager(c, assignment)
+func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript, options ...Option) Proof {
+	var o Option
+	o.combine(options)
+
+	claims := newClaimsManager(c, assignment, o.pool)
 
 	outLayer := c[0]
 
@@ -337,7 +371,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 
 	for i := range outLayer {
 		wire := &outLayer[i]
-		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
+		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
 	}
 
 	//fmt.Println("GKR: Assigned first claims")
@@ -363,13 +397,18 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 		}
 	}
 
+	claims.memPool.PrintPoolStats()
+
 	return proof
 }
 
 // Verify the consistency of the claimed output with the claimed input
 // Unlike in Prove, the assignment argument need not be complete
-func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript) bool {
-	claims := newClaimsManager(c, assignment)
+func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, options ...Option) bool {
+	var o Option
+	o.combine(options)
+
+	claims := newClaimsManager(c, assignment, o.pool)
 
 	outLayer := c[0]
 
@@ -377,7 +416,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 	for i := range outLayer {
 		wire := &outLayer[i]
-		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge))
+		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
 	}
 
 	for layerI, layer := range c {
@@ -395,7 +434,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 
 				if claimsNum == 1 {
 					// simply evaluate and see if it matches
-					evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0])
+					evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0], claims.memPool)
 					if !claim.claimedEvaluations[0].Equal(&evaluation) {
 						return false
 					}

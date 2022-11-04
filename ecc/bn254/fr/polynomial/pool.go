@@ -32,7 +32,7 @@ import (
 
 // TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
 
-type enormousArray = [1 << 64]fr.Element
+type enormousArray = [1 << 32]fr.Element
 
 type sizedPool struct {
 	maxN  int
@@ -40,9 +40,14 @@ type sizedPool struct {
 	stats poolStats
 }
 
+type inUseData struct {
+	allocatedFor []uintptr
+	pool         *sizedPool
+}
+
 type Pool struct {
 	//lock     sync.Mutex
-	inUse    map[unsafe.Pointer][]uintptr
+	inUse    map[unsafe.Pointer]inUseData
 	subPools []sizedPool
 }
 
@@ -60,7 +65,7 @@ func NewPool(maxN ...int) (pool Pool) {
 
 	sort.Ints(maxN)
 	pool = Pool{
-		inUse:    make(map[unsafe.Pointer][]uintptr),
+		inUse:    make(map[unsafe.Pointer]inUseData),
 		subPools: make([]sizedPool, len(maxN)),
 	}
 
@@ -87,35 +92,36 @@ func (p *Pool) findCorrespondingPool(n int) *sizedPool {
 }
 
 func (p *Pool) Make(n int) []fr.Element {
-	ptr := p.findCorrespondingPool(n).get(n)
-	p.addInUse(ptr)
+	pool := p.findCorrespondingPool(n)
+	ptr := pool.get(n)
+	p.addInUse(ptr, pool)
 	return (*enormousArray)(ptr)[:n]
 }
 
 // Dump dumps a set of polynomials into the pool
 func (p *Pool) Dump(slices ...[]fr.Element) {
 	for _, slice := range slices {
-		data := getDataPointer(slice)
-		p.findCorrespondingPool(len(slice)).put(data)
-		p.dumpInUse(data)
+		ptr := getDataPointer(slice)
+		if metadata, ok := p.inUse[ptr]; ok {
+			delete(p.inUse, ptr)
+			metadata.pool.put(ptr)
+		} else {
+			panic("attempting to dump a slice not created by the pool")
+		}
 	}
 }
 
-func (p *Pool) addInUse(ptr unsafe.Pointer) {
+func (p *Pool) addInUse(ptr unsafe.Pointer, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
 	if prevPcs, ok := p.inUse[ptr]; ok { // TODO: remove if unnecessary for security
-		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs)))
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.allocatedFor)))
 	}
-	p.inUse[ptr] = pcs[:n]
-}
-
-func (p *Pool) dumpInUse(ptr unsafe.Pointer) {
-	if _, ok := p.inUse[ptr]; !ok {
-		panic("attempting to dump a slice not created by the pool")
+	p.inUse[ptr] = inUseData{
+		allocatedFor: pcs[:n],
+		pool:         pool,
 	}
-	delete(p.inUse, ptr)
 }
 
 func printFrame(frame runtime.Frame) {
@@ -128,7 +134,7 @@ func (p *Pool) printInUse() {
 		fmt.Println("-------------------------")
 
 		var frame runtime.Frame
-		frames := runtime.CallersFrames(pcs)
+		frames := runtime.CallersFrames(pcs.allocatedFor)
 		more := true
 		for more {
 			frame, more = frames.Next()
@@ -143,6 +149,7 @@ type poolStats struct {
 	ReuseRate     float64
 	InUse         int
 	GreatestNUsed int
+	SmallestNUsed int
 }
 
 type poolsStats struct {
@@ -155,6 +162,9 @@ func (s *poolStats) maake(n int) {
 	s.InUse++
 	if n > s.GreatestNUsed {
 		s.GreatestNUsed = n
+	}
+	if s.SmallestNUsed == 0 || s.SmallestNUsed > n {
+		s.SmallestNUsed = n
 	}
 }
 
@@ -176,8 +186,8 @@ func (p *Pool) PrintPoolStats() {
 	subStats := make([]poolStats, len(p.subPools))
 	for i := range p.subPools {
 		subPool := &p.subPools[i]
-		subStats[i] = subPool.stats
 		subPool.stats.finalize()
+		subStats[i] = subPool.stats
 		InUse += subPool.stats.InUse
 	}
 
