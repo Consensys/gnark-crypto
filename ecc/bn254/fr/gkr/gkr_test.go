@@ -899,6 +899,8 @@ func BenchmarkGkrMimc(b *testing.B) {
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
 	Prove(c, assignment, newMimcTranscript())
+
+	polynomial.PrintPoolStats()
 }
 
 // TODO: Move into main package?
@@ -955,4 +957,23 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 		res[j] = t.Next()
 	}
 	return res
+}
+
+// This only works when run alone TODO: Fix that
+func TestPool(t *testing.T) {
+	var r fr.Element
+	_, err := r.SetRandom()
+	assert.NoError(t, err)
+	{
+		p := polynomial.Make(1)
+		p[0] = r
+		assert.True(t, p[0].Equal(&r))
+		polynomial.Dump(p)
+	}
+
+	{
+		q := polynomial.Make(1)
+		assert.True(t, q[0].Equal(&r))
+		polynomial.Dump(q)
+	}
 }

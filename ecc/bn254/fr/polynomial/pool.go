@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"reflect"
+	"runtime"
 	"sync"
 	"unsafe"
 )
 
-// Memory management for polynomials
-// Copied verbatim from gkr repo
+// TODO: Implement configurable sizes, using calloc instead of arrays
 
 // Sets a maximum for the array size we keep in pool
 const maxNForLargePool int = 1 << 17
@@ -36,111 +36,143 @@ const maxNForSmallPool int = 256
 type largeArr = [maxNForLargePool]fr.Element
 type smallArr = [maxNForSmallPool]fr.Element
 
-var largeAllocated, smallAllocated, largeUsed, smallUsed int
+var inUse = make(map[unsafe.Pointer][]uintptr)
 
-var rC = sync.Map{}
+func newInUse(slice []fr.Element) {
+	pcs := make([]uintptr, 5)
+	n := runtime.Callers(3, pcs)
+	ptr := getDataPointer(slice)
+
+	if prevPcs, ok := inUse[ptr]; ok {
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs)))
+	}
+
+	inUse[ptr] = pcs[:n]
+}
+
+func dumpInUse(slice []fr.Element) {
+	ptr := getDataPointer(slice)
+	if _, ok := inUse[ptr]; !ok {
+		panic("attempting to dump a slice not created by the pool")
+	}
+	delete(inUse, ptr)
+}
+
+func printFrame(frame runtime.Frame) {
+	fmt.Printf("\t%s line %d, function %s\n", frame.File, frame.Line, frame.Function)
+}
+
+func printInUse() {
+	fmt.Println("slices never dumped allocated at:")
+	for _, pcs := range inUse {
+		fmt.Println("-------------------------")
+
+		var frame runtime.Frame
+		frames := runtime.CallersFrames(pcs)
+		more := true
+		for more {
+			frame, more = frames.Next()
+			printFrame(frame)
+		}
+	}
+}
+
+type poolStats struct {
+	Used      int
+	Allocated int
+	ReuseRate float64
+	InUse     int
+}
+
+var poolsStats struct {
+	Small poolStats
+	Large poolStats
+
+	InUse int
+}
+
+func (s *poolStats) maake() {
+	s.Used++
+	s.InUse++
+}
+
+func (s *poolStats) dump() {
+	s.InUse--
+}
+
+func (s *poolStats) finalize() {
+	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
+}
 
 var (
 	largePool = sync.Pool{
 		New: func() interface{} {
-			largeAllocated++
+			poolsStats.Large.Allocated++
 			var res largeArr
 			return &res
 		},
 	}
 	smallPool = sync.Pool{
 		New: func() interface{} {
-			smallAllocated++
+			poolsStats.Small.Allocated++
 			var res smallArr
 			return &res
 		},
 	}
 )
 
-// ClearPool Clears the pool completely, shields against memory leaks
-// Eg: if we forgot to dump a polynomial at some point, this will ensure the value get dumped eventually
-// Returns how many polynomials were cleared that way
-func ClearPool() int {
-	res := 0
-	rC.Range(func(k, _ interface{}) bool {
-		switch ptr := k.(type) {
-		case *largeArr:
-			largePool.Put(ptr)
-		case *smallArr:
-			smallPool.Put(ptr)
-		default:
-			panic(fmt.Sprintf("tried to clear %v", reflect.TypeOf(ptr)))
-		}
-		res++
-		return true
-	})
-	return res
-}
-
-// CountPool Returns the number of elements in the pool without mutating it
-func CountPool() int {
-	res := 0
-	rC.Range(func(_, _ interface{}) bool {
-		res++
-		return true
-	})
-	return res
+func giantPoolError(n int) error {
+	return fmt.Errorf("slice too large: size is %v, max allowed is %v", n, maxNForLargePool)
 }
 
 // Make tries to find a reusable polynomial or allocates a new one
-func Make(n int) []fr.Element {
-	if n > maxNForLargePool {
-		panic(fmt.Sprintf("been provided with size of %v but the maximum is %v", n, maxNForLargePool))
-	}
-
+func Make(n int) (slice []fr.Element) {
 	if n <= maxNForSmallPool {
-		smallUsed++
-		ptr := smallPool.Get().(*smallArr)
-		rC.Store(ptr, struct{}{}) // registers the pointer being used
-		return (*ptr)[:n]
+		poolsStats.Small.maake()
+		arr := smallPool.Get().(*smallArr)
+		slice = arr[:n]
+	} else if n <= maxNForLargePool {
+		poolsStats.Large.maake()
+		arr := largePool.Get().(*largeArr)
+		slice = arr[:n]
+	} else {
+		panic(giantPoolError(n))
 	}
+	newInUse(slice)
+	return
+}
 
-	largeUsed++
-	ptr := largePool.Get().(*largeArr)
-	rC.Store(ptr, struct{}{}) // remember we allocated the pointer is being used
-	return (*ptr)[:n]
+func getDataPointer(slice []fr.Element) unsafe.Pointer {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	return unsafe.Pointer(header.Data)
 }
 
 // Dump dumps a set of polynomials into the pool
-// Returns the number of deallocated polys
-func Dump(arrs ...[]fr.Element) int {
-	cnt := 0
-	for _, arr := range arrs {
-		ptr := ptr(arr)
-		pool := &smallPool
-		if len(arr) > maxNForSmallPool {
-			pool = &largePool
+func Dump(slices ...[]fr.Element) {
+	for _, slice := range slices {
+		n := len(slice)
+		data := getDataPointer(slice)
+		if n <= maxNForSmallPool {
+			poolsStats.Small.dump()
+			smallPool.Put((*smallArr)(data))
+		} else if n <= maxNForLargePool {
+			poolsStats.Large.dump()
+			largePool.Put((*largeArr)(data))
+		} else {
+			panic(giantPoolError(n))
 		}
-		// If the rC did not register, then
-		// either the array was allocated somewhere else which can be ignored
-		// otherwise a double put which MUST be ignored
-		if _, ok := rC.Load(ptr); ok {
-			pool.Put(ptr)
-			// And deregisters the ptr
-			rC.Delete(ptr)
-			cnt++
-		}
-	}
-	return cnt
-}
 
-func ptr(m []fr.Element) unsafe.Pointer {
-	if cap(m) != maxNForSmallPool && cap(m) != maxNForLargePool {
-		panic(fmt.Sprintf("can't cast to large or small array, the put array's is %v it should have capacity %v or %v", cap(m), maxNForLargePool, maxNForSmallPool))
+		dumpInUse(slice)
 	}
-	return unsafe.Pointer(&m[0])
-}
-
-type poolStats struct {
-	Hi string
 }
 
 func PrintPoolStats() {
-	poolStats := poolStats{Hi: "hi"}
-	fmt.Println(json.Marshal(poolStats))
+	poolsStats.Large.finalize()
+	poolsStats.Small.finalize()
+	poolsStats.InUse = poolsStats.Small.InUse + poolsStats.Large.InUse
+
+	serialized, _ := json.MarshalIndent(poolsStats, "", "  ")
+	fmt.Println(string(serialized))
+
+	printInUse()
 }
