@@ -233,7 +233,7 @@ func getLogMaxInstances(t *testing.T) int {
 
 		s := os.Getenv("GKR_LOG_INSTANCES")
 		if s == "" {
-			testManyInstancesLogMaxInstances = 5
+			testManyInstancesLogMaxInstances = 15
 		} else {
 			var err error
 			testManyInstancesLogMaxInstances, err = strconv.Atoi(s)
@@ -957,23 +957,4 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 		res[j] = t.Next()
 	}
 	return res
-}
-
-// This only works when run alone TODO: Fix that
-func TestPool(t *testing.T) {
-	var r fr.Element
-	_, err := r.SetRandom()
-	assert.NoError(t, err)
-	{
-		p := polynomial.Make(1)
-		p[0] = r
-		assert.True(t, p[0].Equal(&r))
-		polynomial.Dump(p)
-	}
-
-	{
-		q := polynomial.Make(1)
-		assert.True(t, q[0].Equal(&r))
-		polynomial.Dump(q)
-	}
 }
