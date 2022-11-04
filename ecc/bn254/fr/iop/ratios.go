@@ -149,3 +149,24 @@ func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expe
 	}
 	return res, nil
 }
+
+// getSupportIdentityPermutation returns the support on which the permutation acts.
+// Concrectly it's X evaluated on
+// [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
+func getSupportIdentityPermutation(n int, domain *fft.Domain) []fr.Element {
+
+	res := make([]fr.Element, uint64(n)*domain.Cardinality)
+
+	res[0].SetOne()
+	for i := 1; i < n; i++ {
+		res[domain.Cardinality].Mul(&res[uint64(i-1)*domain.Cardinality], &domain.FrMultiplicativeGen)
+	}
+
+	for i := uint64(1); i < domain.Cardinality; i++ {
+		for j := 0; j < n; j++ {
+			res[i+uint64(j)*domain.Cardinality].Mul(&res[i-1], &domain.Generator)
+		}
+	}
+
+	return res
+}
