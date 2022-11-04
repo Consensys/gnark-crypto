@@ -12,6 +12,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/field"
 	"github.com/consensys/gnark-crypto/internal/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/internal/field/asm/arm64"
 	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 	"github.com/consensys/gnark-crypto/internal/field/internal/templates/element"
 )
@@ -59,6 +60,8 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		"_mul_amd64.s",
 		"_mul_arm64.s",
 		"_mul_arm64.go",
+		"_butterfly_arm64.go",
+		"_butterfly_arm64.s",
 		"_ops_amd64.s",
 		"_ops_noasm.go",
 		"_mul_adx_amd64.s",
@@ -164,6 +167,37 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			}
 		}
 
+		{
+			pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.s")
+			if F.NbWords <= 6 {
+				fmt.Println("generating", pathSrc)
+				f, err := os.Create(pathSrc)
+				if err != nil {
+					return err
+				}
+
+				_, _ = io.WriteString(f, "// +build !purego\n")
+
+				if err := arm64.Generate(f, F); err != nil {
+					_ = f.Close()
+					return err
+				}
+				_ = f.Close()
+
+				// run asmfmt
+				// run go fmt on whole directory
+				cmd := exec.Command("asmfmt", "-w", pathSrc)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					return err
+				}
+			} else {
+				os.Remove(pathSrc)
+			}
+
+		}
+
 	}
 
 	if F.ASM {
@@ -177,6 +211,36 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		copy(bavardOptsCpy, bavardOpts)
 		if F.ASM {
 			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
+		}
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	if F.ASM && F.NbWords <= 6 {
+		// generate_ops_arm64.go
+		src := []string{
+			element.OpsARM64,
+		}
+		pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	{
+		// generate ops_amd64.go
+		src := []string{
+			element.OpsPureGo,
+		}
+		pathSrc := filepath.Join(outputDir, eName+"_butterfly_purego.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		if F.ASM && F.NbWords <= 6 {
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("purego"))
 		}
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err

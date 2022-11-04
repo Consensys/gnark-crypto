@@ -3,7 +3,7 @@ module github.com/consensys/gnark-crypto
 go 1.17
 
 require (
-	github.com/consensys/bavard v0.1.13
+	github.com/consensys/bavard v0.1.14-0.20220927202850-66a0914561b0
 	github.com/leanovate/gopter v0.2.9
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.5.0

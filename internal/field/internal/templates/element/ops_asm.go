@@ -54,3 +54,29 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 
 
 `
+
+const OpsARM64 = `
+
+{{if .ASM}}
+
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
+//go:noescape
+func Butterfly(a, b *{{.ElementName}})
+
+{{end}}
+
+`
+
+const OpsPureGo = `
+
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
+func Butterfly(a, b *{{.ElementName}}) {
+	_butterflyGeneric(a, b)
+}
+
+
+`
