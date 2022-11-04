@@ -21,6 +21,8 @@ import (
 
 type mutator func(p *Polynomial, d *fft.Domain) *Polynomial
 
+// the numeration corresponds to the following formatting:
+// num = int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 func toLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Lagrange

@@ -155,43 +155,6 @@ var fromLagrange [12]mutator = [12]mutator{
 	t11,
 }
 
-// func TestPrintCombinations(t *testing.T) {
-
-// 	index := make([]int, 12)
-// 	index[0] = int(Canonical)*4 + int(Regular)*2 + int(Locked)
-// 	index[1] = int(Canonical)*4 + int(Regular)*2 + int(Unlocked)
-// 	index[2] = int(Canonical)*4 + int(BitReverse)*2 + int(Locked)
-// 	index[3] = int(Canonical)*4 + int(BitReverse)*2 + int(Unlocked)
-// 	index[4] = int(Lagrange)*4 + int(Regular)*2 + int(Locked)
-// 	index[5] = int(Lagrange)*4 + int(Regular)*2 + int(Unlocked)
-// 	index[6] = int(Lagrange)*4 + int(BitReverse)*2 + int(Locked)
-// 	index[7] = int(Lagrange)*4 + int(BitReverse)*2 + int(Unlocked)
-// 	index[8] = int(LagrangeCoset)*4 + int(Regular)*2 + int(Locked)
-// 	index[9] = int(LagrangeCoset)*4 + int(Regular)*2 + int(Unlocked)
-// 	index[10] = int(LagrangeCoset)*4 + int(BitReverse)*2 + int(Locked)
-// 	index[11] = int(LagrangeCoset)*4 + int(BitReverse)*2 + int(Unlocked)
-
-// 	for i := 0; i < 12; i++ {
-// 		fmt.Printf("%d\n", index[i])
-// 	}
-// }
-
-// return a vector of Polynomials with all combination of Info
-// func generateTestPolynomials(c []fr.Element) []Polynomial {
-
-// 	size := len(c)
-// 	res := make([]Polynomial, size)
-
-// 	info := getListInfo()
-// 	for i := 0; i < 12; i++ {
-// 		res[i].Info = info[i]
-// 		res[i].Coefficients = make([]fr.Element, size)
-// 		copy(res[i].Coefficients, c)
-// 	}
-
-// 	return res
-// }
-
 // return all the possible form combination, in the same order
 // a generateTestPolynomials
 func getListInfo() []Form {
