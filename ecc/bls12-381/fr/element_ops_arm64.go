@@ -25,9 +25,4 @@ package fr
 //	b = a - b (mod q)
 //
 //go:noescape
-func Butterfly2(a, b *Element)
-
-func Butterfly(a, b *Element) {
-	_butterflyGeneric(a, b)
-}
-
+func Butterfly(a, b *Element)

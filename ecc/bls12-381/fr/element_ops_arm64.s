@@ -25,7 +25,7 @@ DATA q<>+24(SB)/8, $0x73eda753299d7d48
 GLOBL q<>(SB), (RODATA+NOPTR), $32
 
 // Butterfly(a, b *Element) sets a = a + b; b = a - b
-TEXT ·Butterfly2(SB), NOSPLIT, $0-16
+TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	// a[0] -> R0
 	// a[1] -> R1
 	// a[2] -> R2
