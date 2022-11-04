@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,6 +119,8 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 				return err
 			}
 
+			_, _ = io.WriteString(f, "// +build !purego\n")
+
 			if err := amd64.Generate(f, F); err != nil {
 				_ = f.Close()
 				return err
@@ -141,6 +144,8 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			if err != nil {
 				return err
 			}
+
+			_, _ = io.WriteString(f, "// +build !purego\n")
 
 			if err := amd64.GenerateMul(f, F); err != nil {
 				_ = f.Close()
@@ -166,7 +171,12 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		if F.ASM {
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
+		}
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}
@@ -183,7 +193,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64"))
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64 purego"))
 		}
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
