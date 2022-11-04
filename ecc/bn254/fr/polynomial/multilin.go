@@ -55,25 +55,11 @@ func (m MultiLin) Sum() fr.Element {
 	return s
 }
 
-func _clone(m MultiLin, p *Pool) MultiLin {
-	if p == nil {
-		return m.Clone()
-	} else {
-		return p.Clone(m)
-	}
-}
-
-func _dump(m MultiLin, p *Pool) {
-	if p != nil {
-		p.Dump(m)
-	}
-}
-
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
-func (m MultiLin) Evaluate(coordinates []fr.Element, p *Pool) fr.Element {
+func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
 	// Folding is a mutating operation
-	bkCopy := _clone(m, p)
+	bkCopy := m.Clone()
 
 	// Evaluate step by step through repeated folding (i.e. evaluation at the first remaining variable)
 	for _, r := range coordinates {
@@ -82,8 +68,7 @@ func (m MultiLin) Evaluate(coordinates []fr.Element, p *Pool) fr.Element {
 
 	result := bkCopy[0]
 
-	_dump(bkCopy, p)
-
+	Dump(bkCopy)
 	return result
 }
 
@@ -92,9 +77,9 @@ func (m MultiLin) Evaluate(coordinates []fr.Element, p *Pool) fr.Element {
 // array, but folding changes the array. To do both one requires a deep copy
 // of the bookkeeping table.
 func (m MultiLin) Clone() MultiLin {
-	res := make(MultiLin, len(m))
-	copy(res, m)
-	return res
+	tableDeepCopy := Make(len(m))
+	copy(tableDeepCopy, m)
+	return tableDeepCopy
 }
 
 // Add two bookKeepingTables
@@ -153,11 +138,11 @@ func EvalEq(q, h []fr.Element) fr.Element {
 }
 
 // Eq sets m to the representation of the polynomial Eq(q₁, ..., qₙ, *, ..., *) × m[0]
-func (m *MultiLin) Eq(q []fr.Element, p *Pool) {
+func (m *MultiLin) Eq(q []fr.Element) {
 	n := len(q)
 
 	if len(*m) != 1<<n {
-		n := p.Make(1 << n)
+		n := Make(1 << n)
 		n[0].Set(&(*m)[0])
 		//TODO: Dump m?
 		*m = n

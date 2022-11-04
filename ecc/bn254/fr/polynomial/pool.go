@@ -28,11 +28,11 @@ import (
 	"unsafe"
 )
 
+// Memory management for polynomials
 // WARNING: This is not thread safe TODO: Make sure that is not a problem
-
 // TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
 
-type enormousArray = [1 << 32]fr.Element
+type enormousArray = [1 << 32]fr.Element // semantic necessity
 
 type sizedPool struct {
 	maxN  int
@@ -79,7 +79,6 @@ func NewPool(maxN ...int) (pool Pool) {
 			},
 		}
 	}
-
 	return
 }
 
