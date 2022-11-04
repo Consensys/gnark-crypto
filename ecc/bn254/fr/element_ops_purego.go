@@ -66,113 +66,158 @@ func reduce(z *Element) {
 func (z *Element) Mul(x, y *Element) *Element {
 	// TODO @gbotrel restore doc
 
-	var t [5]uint64
-	var D uint64
-	var m, C uint64
-	// -----------------------------------
-	// First loop
+	var t0, t1, t2, t3 uint64
+	var u0, u1, u2, u3 uint64
+	{
+		var c0, c1, c2 uint64
+		v := x[0]
+		u0, t0 = bits.Mul64(v, y[0])
+		u1, t1 = bits.Mul64(v, y[1])
+		u2, t2 = bits.Mul64(v, y[2])
+		u3, t3 = bits.Mul64(v, y[3])
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, 0, c0)
 
-	C, t[0] = bits.Mul64(y[0], x[0])
-	C, t[1] = madd1(y[0], x[1], C)
-	C, t[2] = madd1(y[0], x[2], C)
-	C, t[3] = madd1(y[0], x[3], C)
+		m := qInvNeg * t0
 
-	t[4], D = bits.Add64(t[4], C, 0)
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
 
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
 
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(y[1], x[0], t[0])
-	C, t[1] = madd2(y[1], x[1], t[1], C)
-	C, t[2] = madd2(y[1], x[2], t[2], C)
-	C, t[3] = madd2(y[1], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(y[2], x[0], t[0])
-	C, t[1] = madd2(y[2], x[1], t[1], C)
-	C, t[2] = madd2(y[2], x[2], t[2], C)
-	C, t[3] = madd2(y[2], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(y[3], x[0], t[0])
-	C, t[1] = madd2(y[3], x[1], t[1], C)
-	C, t[2] = madd2(y[3], x[2], t[2], C)
-	C, t[3] = madd2(y[3], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-
-	if t[4] != 0 {
-		// we need to reduce, we have a result on 5 words
-		var b uint64
-		z[0], b = bits.Sub64(t[0], q0, 0)
-		z[1], b = bits.Sub64(t[1], q1, b)
-		z[2], b = bits.Sub64(t[2], q2, b)
-		z[3], _ = bits.Sub64(t[3], q3, b)
-		return z
 	}
+	{
+		var c0, c1, c2 uint64
+		v := x[1]
+		u0, c1 = bits.Mul64(v, y[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, y[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, y[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, y[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
 
-	// copy t into z
-	z[0] = t[0]
-	z[1] = t[1]
-	z[2] = t[2]
-	z[3] = t[3]
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	{
+		var c0, c1, c2 uint64
+		v := x[2]
+		u0, c1 = bits.Mul64(v, y[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, y[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, y[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, y[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
+
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	{
+		var c0, c1, c2 uint64
+		v := x[3]
+		u0, c1 = bits.Mul64(v, y[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, y[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, y[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, y[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
+
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	z[0] = t0
+	z[1] = t1
+	z[2] = t2
+	z[3] = t3
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
@@ -191,113 +236,158 @@ func (z *Element) Mul(x, y *Element) *Element {
 func (z *Element) Square(x *Element) *Element {
 	// see Mul for algorithm documentation
 
-	var t [5]uint64
-	var D uint64
-	var m, C uint64
-	// -----------------------------------
-	// First loop
+	var t0, t1, t2, t3 uint64
+	var u0, u1, u2, u3 uint64
+	{
+		var c0, c1, c2 uint64
+		v := x[0]
+		u0, t0 = bits.Mul64(v, x[0])
+		u1, t1 = bits.Mul64(v, x[1])
+		u2, t2 = bits.Mul64(v, x[2])
+		u3, t3 = bits.Mul64(v, x[3])
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, 0, c0)
 
-	C, t[0] = bits.Mul64(x[0], x[0])
-	C, t[1] = madd1(x[0], x[1], C)
-	C, t[2] = madd1(x[0], x[2], C)
-	C, t[3] = madd1(x[0], x[3], C)
+		m := qInvNeg * t0
 
-	t[4], D = bits.Add64(t[4], C, 0)
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
 
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
 
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(x[1], x[0], t[0])
-	C, t[1] = madd2(x[1], x[1], t[1], C)
-	C, t[2] = madd2(x[1], x[2], t[2], C)
-	C, t[3] = madd2(x[1], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(x[2], x[0], t[0])
-	C, t[1] = madd2(x[2], x[1], t[1], C)
-	C, t[2] = madd2(x[2], x[2], t[2], C)
-	C, t[3] = madd2(x[2], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = madd1(x[3], x[0], t[0])
-	C, t[1] = madd2(x[3], x[1], t[1], C)
-	C, t[2] = madd2(x[3], x[2], t[2], C)
-	C, t[3] = madd2(x[3], x[3], t[3], C)
-
-	t[4], D = bits.Add64(t[4], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-	C, t[0] = madd2(m, q1, t[1], C)
-	C, t[1] = madd2(m, q2, t[2], C)
-	C, t[2] = madd2(m, q3, t[3], C)
-
-	t[3], C = bits.Add64(t[4], C, 0)
-	t[4], _ = bits.Add64(0, D, C)
-
-	if t[4] != 0 {
-		// we need to reduce, we have a result on 5 words
-		var b uint64
-		z[0], b = bits.Sub64(t[0], q0, 0)
-		z[1], b = bits.Sub64(t[1], q1, b)
-		z[2], b = bits.Sub64(t[2], q2, b)
-		z[3], _ = bits.Sub64(t[3], q3, b)
-		return z
 	}
+	{
+		var c0, c1, c2 uint64
+		v := x[1]
+		u0, c1 = bits.Mul64(v, x[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, x[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, x[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, x[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
 
-	// copy t into z
-	z[0] = t[0]
-	z[1] = t[1]
-	z[2] = t[2]
-	z[3] = t[3]
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	{
+		var c0, c1, c2 uint64
+		v := x[2]
+		u0, c1 = bits.Mul64(v, x[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, x[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, x[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, x[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
+
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	{
+		var c0, c1, c2 uint64
+		v := x[3]
+		u0, c1 = bits.Mul64(v, x[0])
+		t0, c0 = bits.Add64(c1, t0, 0)
+		u1, c1 = bits.Mul64(v, x[1])
+		t1, c0 = bits.Add64(c1, t1, c0)
+		u2, c1 = bits.Mul64(v, x[2])
+		t2, c0 = bits.Add64(c1, t2, c0)
+		u3, c1 = bits.Mul64(v, x[3])
+		t3, c0 = bits.Add64(c1, t3, c0)
+
+		c2, _ = bits.Add64(0, 0, c0)
+		t1, c0 = bits.Add64(u0, t1, 0)
+		t2, c0 = bits.Add64(u1, t2, c0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		m := qInvNeg * t0
+
+		u0, c1 = bits.Mul64(m, q0)
+		_, c0 = bits.Add64(t0, c1, 0)
+		u1, c1 = bits.Mul64(m, q1)
+		t0, c0 = bits.Add64(t1, c1, c0)
+		u2, c1 = bits.Mul64(m, q2)
+		t1, c0 = bits.Add64(t2, c1, c0)
+		u3, c1 = bits.Mul64(m, q3)
+
+		t2, c0 = bits.Add64(0, c1, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
+
+	}
+	z[0] = t0
+	z[1] = t1
+	z[2] = t2
+	z[3] = t3
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {

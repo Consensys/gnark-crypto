@@ -1,5 +1,6 @@
 package element
 
+// MulCIOS text book CIOS works for all modulus.
 const MulCIOS = `
 {{ define "mul_cios" }}
 	var t [{{add .all.NbWords 1}}]uint64

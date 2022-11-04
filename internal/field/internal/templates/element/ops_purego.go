@@ -62,7 +62,11 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{- else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "ReturnZ" true}}
+		{{- if $.NoCarry}}
+			{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
+		{{- else}}
+			{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" "ReturnZ" true}}
+		{{- end}}
 		{{ template "reduce"  . }}
 	{{- end }}
 	return z
@@ -78,7 +82,11 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
 	{{- else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "x" "ReturnZ" true}}
+		{{- if $.NoCarry}}
+			{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "x"}}
+		{{- else}}
+			{{ template "mul_cios" dict "all" . "V1" "x" "V2" "x" "ReturnZ" true}}
+		{{- end}}
 		{{ template "reduce"  . }}
 	{{- end }}
 	return z
