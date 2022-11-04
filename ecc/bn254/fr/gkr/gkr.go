@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
+	"sync"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
@@ -175,34 +176,63 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
 
-	gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+	parallel := len(EVal) >= 1024 //TODO: Experiment with threshold
+
+	var gateInput [][]fr.Element
+
+	if parallel {
+		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors)),
+			c.manager.memPool.Make(len(c.inputPreprocessors))}
+	} else {
+		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors))}
+	}
+
+	var wg sync.WaitGroup
+
 	for d := 0; d < degGJ; d++ {
 
 		notLastIteration := d+1 < degGJ
-		gJ[d].SetZero()
 
-		for i := range EVal {
+		sumOverI := func(res *fr.Element, gateInput []fr.Element, start, end int) {
+			for i := start; i < end; i++ {
 
-			for inputI := range puVal {
-				gateInput[inputI].Set(&puVal[inputI][i])
+				for inputI := range puVal {
+					gateInput[inputI].Set(&puVal[inputI][i])
+					if notLastIteration {
+						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
+					}
+				}
+
+				// gJAtDI = gJ(d, i...)
+				gJAtDI := c.wire.Gate.Evaluate(gateInput...)
+				gJAtDI.Mul(&gJAtDI, &EVal[i])
+
+				res.Add(res, &gJAtDI)
+
 				if notLastIteration {
-					puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
+					EVal[i].Add(&EVal[i], &EStep[i])
 				}
 			}
-
-			// gJAtDI = gJ(d, i...)
-			gJAtDI := c.wire.Gate.Evaluate(gateInput...)
-			gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-			gJ[d].Add(&gJ[d], &gJAtDI)
-
-			if notLastIteration {
-				EVal[i].Add(&EVal[i], &EStep[i])
-			}
+			wg.Done()
 		}
+
+		if parallel {
+			var firstHalf, secondHalf fr.Element
+			wg.Add(2)
+			go sumOverI(&secondHalf, gateInput[1], len(EVal)/2, len(EVal))
+			go sumOverI(&firstHalf, gateInput[0], 0, len(EVal)/2)
+			wg.Wait()
+			gJ[d].Add(&firstHalf, &secondHalf)
+		} else {
+			wg.Add(1) // formalities
+			sumOverI(&gJ[d], gateInput[0], 0, len(EVal))
+		}
+
+		//}
 	}
 
-	c.manager.memPool.Dump(EVal, EStep, gateInput)
+	c.manager.memPool.Dump(gateInput...)
+	c.manager.memPool.Dump(EVal, EStep)
 	for inputI := range puVal {
 		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
 	}
