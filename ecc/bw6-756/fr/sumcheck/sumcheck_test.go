@@ -63,7 +63,7 @@ type singleMultilinLazyClaim struct {
 }
 
 func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
-	val := c.g.Evaluate(r)
+	val := c.g.Evaluate(r, nil)
 	return val.Equal(&purportedValue)
 }
 
@@ -111,17 +111,6 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 	return Verify(lazyClaim, proof, hashGenerator())
 }
-
-// For debugging TODO Remove
-/*func printMsws(limit int) {
-	var one, iElem fr.Element
-	one.SetOne()
-
-	for i := 1; i <= limit; i++ {
-		iElem.Add(&iElem, &one)
-		fmt.Printf("%d: %d\n", i, iElem[fr.Limbs-1])
-	}
-}*/
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 	//printMsws(36)

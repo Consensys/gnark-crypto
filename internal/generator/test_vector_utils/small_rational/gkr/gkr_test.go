@@ -94,7 +94,7 @@ func TestRecreateSumcheckErrorFromSingleInputTwoIdentityGatesGateTwoInstances(t 
 	assignment := WireAssignment{&circuit[0][0]: []small_rational.SmallRational{two, three}}
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment)
+		manager := newClaimsManager(circuit, assignment, nil)
 		manager.add(wire, []small_rational.SmallRational{three}, five)
 		manager.add(wire, []small_rational.SmallRational{four}, six)
 		return &manager
@@ -169,11 +169,9 @@ func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]sm
 	t.Log("Entered test orchestrator, assigning and randomizing inputs")
 
 	for i := range fullAssignments {
-		fullAssignments[i] = polynomial.Make(maxSize)
+		fullAssignments[i] = make(polynomial.MultiLin, maxSize)
 		setRandom(fullAssignments[i])
 	}
-
-	defer polynomial.Dump(fullAssignments...)
 
 	inputAssignments := make([][]small_rational.SmallRational, numInput)
 	for numEvals := maxSize; numEvals <= maxSize; numEvals *= 2 {
