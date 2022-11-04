@@ -884,7 +884,7 @@ func (m mulGate) Degree() int {
 }
 
 func BenchmarkGkrMimc(b *testing.B) {
-	const N = 1 << 17
+	const N = 1 << 19
 	fmt.Println("creating circuit structure")
 	c := mimcCircuit(91)
 

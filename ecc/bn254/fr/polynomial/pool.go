@@ -29,7 +29,7 @@ import (
 // TODO: Implement configurable sizes, using calloc instead of arrays
 
 // Sets a maximum for the array size we keep in pool
-const maxNForLargePool int = 1 << 17
+const maxNForLargePool int = 1 << 19
 const maxNForSmallPool int = 256
 
 // Aliases because it is annoying to use arrays in all the places
