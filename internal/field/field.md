@@ -37,12 +37,3 @@ b.Exp(b, 42)
 b.Neg(b)
 ```
 
-### Build tags
-
-Generates optimized assembly for `amd64` target. 
-
-For the `Mul` operation, using `ADX` instructions and `ADOX/ADCX` result in a significant performance gain. 
-
-The "default" target `amd64` checks if the running architecture supports these instruction, and reverts to generic path if not. This check adds a branch and forces the function to reserve some bytes on the frame to store the argument to call `_mulGeneric` .
-
-This package outputs code that can be compiled with `amd64_adx` flag which omits this check. Will crash if the platform running the binary doesn't support the `ADX` instructions (roughly, before 2016). 
