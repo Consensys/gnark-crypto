@@ -29,6 +29,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		element.Reduce,
 		element.Exp,
 		element.Conv,
+		element.MulDoc,
 		element.MulCIOS,
 		element.MulNoCarry,
 		element.Sqrt,
@@ -168,6 +169,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 	if F.ASM {
 		// generate ops_amd64.go
 		src := []string{
+			element.MulDoc,
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
@@ -188,6 +190,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			element.MulCIOS,
 			element.MulNoCarry,
 			element.Reduce,
+			element.MulDoc,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_purego.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))

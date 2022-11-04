@@ -58,10 +58,10 @@ func reduce(z *{{.ElementName}})  {
 // x and y must be strictly inferior to q
 {{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
-	// TODO @gbotrel restore doc
 	{{- if eq $.NbWords 1}}
 		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
 	{{- else }}
+		{{ mul_doc $.NoCarry }}
 		{{- if $.NoCarry}}
 			{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
 		{{- else}}

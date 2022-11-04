@@ -547,6 +547,7 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 // it is a fallback solution on x86 when ADX instruction set is not available
 // and is used for testing purposes.
 func _mulGeneric(z,x,y *{{.ElementName}}) {
+	{{ mul_doc false }}
 	{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y"}}
 	{{ template "reduce"  . }}
 }

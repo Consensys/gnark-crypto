@@ -35,7 +35,7 @@ func Butterfly(a, b *{{.ElementName}})
 //
 // x and y must be strictly inferior to q
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
-	// TODO @gbotrel restore doc
+	{{ mul_doc $.NoCarry }}
 	mul(z, x, y)
 	return z
 }
@@ -44,6 +44,7 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 //
 // x must be strictly inferior to q
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
+	// see Mul for doc.
 	mul(z, x, x)
 	return z
 }

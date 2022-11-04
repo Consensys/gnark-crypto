@@ -57,7 +57,6 @@ func reduce(z *Element) {
 
 // Mul z = x * y (mod q)
 func (z *Element) Mul(x, y *Element) *Element {
-	// TODO @gbotrel restore doc
 
 	// In fact, since the modulus R fits on one register, the CIOS algorithm gets reduced to standard REDC (textbook Montgomery reduction):
 	// hi, lo := x * y
