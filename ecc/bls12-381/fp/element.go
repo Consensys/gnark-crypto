@@ -593,113 +593,190 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	var t [6]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd1(v, y[3], c[1])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd1(v, y[4], c[1])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd1(v, y[5], c[1])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
+	var t [7]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+	C, t[1] = madd1(y[0], x[1], C)
+	C, t[2] = madd1(y[0], x[2], C)
+	C, t[3] = madd1(y[0], x[3], C)
+	C, t[4] = madd1(y[0], x[4], C)
+	C, t[5] = madd1(y[0], x[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[1], x[0], t[0])
+	C, t[1] = madd2(y[1], x[1], t[1], C)
+	C, t[2] = madd2(y[1], x[2], t[2], C)
+	C, t[3] = madd2(y[1], x[3], t[3], C)
+	C, t[4] = madd2(y[1], x[4], t[4], C)
+	C, t[5] = madd2(y[1], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[2], x[0], t[0])
+	C, t[1] = madd2(y[2], x[1], t[1], C)
+	C, t[2] = madd2(y[2], x[2], t[2], C)
+	C, t[3] = madd2(y[2], x[3], t[3], C)
+	C, t[4] = madd2(y[2], x[4], t[4], C)
+	C, t[5] = madd2(y[2], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[3], x[0], t[0])
+	C, t[1] = madd2(y[3], x[1], t[1], C)
+	C, t[2] = madd2(y[3], x[2], t[2], C)
+	C, t[3] = madd2(y[3], x[3], t[3], C)
+	C, t[4] = madd2(y[3], x[4], t[4], C)
+	C, t[5] = madd2(y[3], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[4], x[0], t[0])
+	C, t[1] = madd2(y[4], x[1], t[1], C)
+	C, t[2] = madd2(y[4], x[2], t[2], C)
+	C, t[3] = madd2(y[4], x[3], t[3], C)
+	C, t[4] = madd2(y[4], x[4], t[4], C)
+	C, t[5] = madd2(y[4], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[5], x[0], t[0])
+	C, t[1] = madd2(y[5], x[1], t[1], C)
+	C, t[2] = madd2(y[5], x[2], t[2], C)
+	C, t[3] = madd2(y[5], x[3], t[3], C)
+	C, t[4] = madd2(y[5], x[4], t[4], C)
+	C, t[5] = madd2(y[5], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+
+	if t[6] != 0 {
+		// we need to reduce, we have a result on 7 words
+		var b uint64
+		z[0], b = bits.Sub64(t[0], q0, 0)
+		z[1], b = bits.Sub64(t[1], q1, b)
+		z[2], b = bits.Sub64(t[2], q2, b)
+		z[3], b = bits.Sub64(t[3], q3, b)
+		z[4], b = bits.Sub64(t[4], q4, b)
+		z[5], _ = bits.Sub64(t[5], q5, b)
+		return
 	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 4
-		v := x[4]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 5
-		v := x[5]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], z[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], z[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		z[5], z[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
+
+	// copy t into z
+	z[0] = t[0]
+	z[1] = t[1]
+	z[2] = t[2]
+	z[3] = t[3]
+	z[4] = t[4]
+	z[5] = t[5]
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
@@ -711,7 +788,6 @@ func _mulGeneric(z, x, y *Element) {
 		z[4], b = bits.Sub64(z[4], q4, b)
 		z[5], _ = bits.Sub64(z[5], q5, b)
 	}
-
 }
 
 func _fromMontGeneric(z *Element) {

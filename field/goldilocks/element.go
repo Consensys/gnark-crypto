@@ -519,11 +519,44 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	z.Mul(x, y)
+	var t [2]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
 
+	C, t[0] = bits.Mul64(y[0], x[0])
+
+	t[1], D = bits.Add64(t[1], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+
+	t[0], C = bits.Add64(t[1], C, 0)
+	t[1], _ = bits.Add64(0, D, C)
+
+	if t[1] != 0 {
+		// we need to reduce, we have a result on 2 words
+		z[0], _ = bits.Sub64(t[0], q0, 0)
+		return
+	}
+
+	// copy t into z
+	z[0] = t[0]
+
+	// if z ⩾ q → z -= q
+	if !z.smallerThanModulus() {
+		z[0] -= q
+	}
 }
 
 func _fromMontGeneric(z *Element) {

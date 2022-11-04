@@ -615,18 +615,12 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 	return z
 }
 
-
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z,x,y *{{.ElementName}}) {
-	// see Mul for algorithm documentation
-	{{ if eq $.NbWords 1}}
-		z.Mul(x,y)
-	{{ else if .NoCarry}}
-		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
-		{{ template "reduce"  . }}
-	{{ else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
-		{{ template "reduce"  . }}
-	{{ end }}
+	{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
+	{{ template "reduce"  . }}
 }
 
 

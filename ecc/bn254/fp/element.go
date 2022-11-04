@@ -549,63 +549,118 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	var t [4]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd1(v, y[3], c[1])
-		t[3], t[2] = madd3(m, q3, c[0], c[2], c[1])
+	var t [5]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+	C, t[1] = madd1(y[0], x[1], C)
+	C, t[2] = madd1(y[0], x[2], C)
+	C, t[3] = madd1(y[0], x[3], C)
+
+	t[4], D = bits.Add64(t[4], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+
+	t[3], C = bits.Add64(t[4], C, 0)
+	t[4], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[1], x[0], t[0])
+	C, t[1] = madd2(y[1], x[1], t[1], C)
+	C, t[2] = madd2(y[1], x[2], t[2], C)
+	C, t[3] = madd2(y[1], x[3], t[3], C)
+
+	t[4], D = bits.Add64(t[4], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+
+	t[3], C = bits.Add64(t[4], C, 0)
+	t[4], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[2], x[0], t[0])
+	C, t[1] = madd2(y[2], x[1], t[1], C)
+	C, t[2] = madd2(y[2], x[2], t[2], C)
+	C, t[3] = madd2(y[2], x[3], t[3], C)
+
+	t[4], D = bits.Add64(t[4], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+
+	t[3], C = bits.Add64(t[4], C, 0)
+	t[4], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[3], x[0], t[0])
+	C, t[1] = madd2(y[3], x[1], t[1], C)
+	C, t[2] = madd2(y[3], x[2], t[2], C)
+	C, t[3] = madd2(y[3], x[3], t[3], C)
+
+	t[4], D = bits.Add64(t[4], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+
+	t[3], C = bits.Add64(t[4], C, 0)
+	t[4], _ = bits.Add64(0, D, C)
+
+	if t[4] != 0 {
+		// we need to reduce, we have a result on 5 words
+		var b uint64
+		z[0], b = bits.Sub64(t[0], q0, 0)
+		z[1], b = bits.Sub64(t[1], q1, b)
+		z[2], b = bits.Sub64(t[2], q2, b)
+		z[3], _ = bits.Sub64(t[3], q3, b)
+		return
 	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		t[3], t[2] = madd3(m, q3, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		t[3], t[2] = madd3(m, q3, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		z[3], z[2] = madd3(m, q3, c[0], c[2], c[1])
-	}
+
+	// copy t into z
+	z[0] = t[0]
+	z[1] = t[1]
+	z[2] = t[2]
+	z[3] = t[3]
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
@@ -615,7 +670,6 @@ func _mulGeneric(z, x, y *Element) {
 		z[2], b = bits.Sub64(z[2], q2, b)
 		z[3], _ = bits.Sub64(z[3], q3, b)
 	}
-
 }
 
 func _fromMontGeneric(z *Element) {
