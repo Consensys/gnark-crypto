@@ -187,6 +187,39 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property(fmt.Sprintf("[G1] MultiExp and MultiExpBatchAffine (c in %v) should output the same result", cRange), prop.ForAll(
+		func(mixer fr.Element) bool {
+			// multi exp points
+			var samplePoints [nbSamples]G1Affine
+			var g G1Jac
+			g.Set(&g1Gen)
+			for i := 1; i <= nbSamples; i++ {
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g1Gen)
+			}
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+			var result1, result2 G1Jac
+			for _, c := range cRange {
+				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
+				msmInnerG1Jac(&result1, int(c), samplePoints[:], scalars, false)
+				msmInnerG1JacBatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+				if !result1.Equal(&result2) {
+					return false
+				}
+			}
+			return true
+		},
+		genScalar,
+	))
+
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("[G1] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
@@ -245,10 +278,17 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -478,6 +518,39 @@ func TestMultiExpG2(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property(fmt.Sprintf("[G2] MultiExp and MultiExpBatchAffine (c in %v) should output the same result", cRange), prop.ForAll(
+		func(mixer fr.Element) bool {
+			// multi exp points
+			var samplePoints [nbSamples]G2Affine
+			var g G2Jac
+			g.Set(&g2Gen)
+			for i := 1; i <= nbSamples; i++ {
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&g2Gen)
+			}
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+			var result1, result2 G2Jac
+			for _, c := range cRange {
+				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
+				msmInnerG2Jac(&result1, int(c), samplePoints[:], scalars, false)
+				msmInnerG2JacBatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+				if !result1.Equal(&result2) {
+					return false
+				}
+			}
+			return true
+		},
+		genScalar,
+	))
+
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("[G2] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
@@ -536,10 +609,17 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}

@@ -1094,3 +1094,77 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	toReturnAff := BatchJacobianToAffineG1(toReturn)
 	return toReturnAff
 }
+
+// batch add/dbl in affine coordinates
+// using batch inversion
+// cost add: 5*batchSize M + 1I, dbl: +1M
+func BatchAddG1Affine(R []*G1Affine, P []G1Affine, batchSize int) {
+	if batchSize == 0 {
+		return
+	}
+	var isDbl [MAX_BATCH_SIZE]bool
+	var lambda [MAX_BATCH_SIZE]fp.Element
+
+	{
+		var lambdain [MAX_BATCH_SIZE]fp.Element
+
+		for j := 0; j < batchSize; j++ {
+			// detect dbl vs add & compute denominator
+			if P[j].Equal(R[j]) {
+				isDbl[j] = true
+				lambdain[j].Double(&P[j].Y)
+			} else {
+				lambdain[j].Sub(&P[j].X, &R[j].X)
+			}
+		}
+
+		// invert denominator
+		BatchInvertG1Affine(&lambda, &lambdain, batchSize)
+
+	}
+
+	var d fp.Element
+	var rr G1Affine
+
+	for j := 0; j < batchSize; j++ {
+		// computa lambda, distinguishing dbl / add
+		if isDbl[j] {
+			d.Square(&P[j].X)
+			lambda[j].Mul(&lambda[j], &d)
+			d.Double(&lambda[j])
+			lambda[j].Add(&lambda[j], &d)
+		} else {
+			d.Sub(&P[j].Y, &R[j].Y)
+			lambda[j].Mul(&lambda[j], &d)
+		}
+
+		// compute X, Y
+		rr.X.Square(&lambda[j])
+		rr.X.Sub(&rr.X, &R[j].X)
+		rr.X.Sub(&rr.X, &P[j].X)
+		d.Sub(&R[j].X, &rr.X)
+		rr.Y.Mul(&lambda[j], &d)
+		rr.Y.Sub(&rr.Y, &R[j].Y)
+		R[j].Set(&rr)
+	}
+}
+
+// batch inversion
+// similar to BatchInvertfp.Element, ignores edge cases
+func BatchInvertG1Affine(res, a *[MAX_BATCH_SIZE]fp.Element, n int) {
+
+	var accumulator fp.Element
+	accumulator.SetOne()
+
+	for i := 0; i < n; i++ {
+		res[i] = accumulator
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := n - 1; i >= 0; i-- {
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+}

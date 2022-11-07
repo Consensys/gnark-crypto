@@ -196,6 +196,40 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 	))
 
 
+	properties.Property(fmt.Sprintf("[{{ toUpper $.PointName }}] MultiExp and MultiExpBatchAffine (c in %v) should output the same result", cRange), prop.ForAll(
+		func(mixer fr.Element) bool {
+			// multi exp points
+			var samplePoints [nbSamples]{{ $.TAffine }}
+			var g {{ $.TJacobian }}
+			g.Set(&{{ toLower .PointName}}Gen)
+			for i := 1; i <= nbSamples; i++ {
+				samplePoints[i-1].FromJacobian(&g)
+				g.AddAssign(&{{ toLower .PointName}}Gen)
+			}
+			// mixer ensures that all the words of a fpElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer).
+					FromMont()
+			}
+
+            var result1, result2 {{ $.TJacobian }}
+			for _, c := range cRange {
+				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
+				msmInner{{ $.TJacobian }}(&result1, int(c), samplePoints[:], scalars, false)
+				msmInner{{ $.TJacobian }}BatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+                if !result1.Equal(&result2) {
+					return false
+				}
+			}
+			return true
+		},
+		genScalar,
+	))
+
+
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
 	properties.Property("[{{ toUpper $.PointName }}] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
@@ -256,10 +290,17 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
 			}
 		})
 	}
