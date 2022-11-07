@@ -35,12 +35,12 @@ var (
 // The polynomials in the denominator and the numerator are expected to be of
 // the same size and the size must be a power of 2. The polynomials are given as
 // pointers in case the caller wants to FFTInv the polynomials during the process.
-// * challenge variable at which the numerator and denominators are evaluated
+// * beta variable at which the numerator and denominators are evaluated
 // * expectedForm expected form of the resulting polynomial
-// * Return: say challenge=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
+// * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
-// (Π_{k<j}Π_{i<m}(P_i(ω^k)-β))/(Q_i(ω^k)-β)
-func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
+// (Π_{k<j}Π_{i<m}(\beta-P_i(ω^k)))/(\beta-Q_i(ω^k))
+func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
 
 	var res Polynomial
 
@@ -50,28 +50,10 @@ func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expe
 	}
 	nbPolynomials := len(numerator)
 
-	// check sizes between one another
-	n := len(numerator[0].Coefficients)
-	for i := 0; i < len(numerator); i++ {
-		if len(numerator[i].Coefficients) != n {
-			return res, ErrInconsistantSize
-		}
-		if len(denominator[i].Coefficients) != n {
-			return res, ErrInconsistantSize
-		}
-	}
-
-	// check if the sizes are a power of 2
-	if n&(n-1) != 0 {
-		return res, ErrSizeNotPowerOfTwo
-	}
-
-	// check if domain is of the correct size (if not we create it)
-	if domain == nil {
-		domain = fft.NewDomain(uint64(n))
-	}
-	if domain.Cardinality != uint64(n) {
-		return res, ErrInconsistantSizeDomain
+	// create the domain + some checks on the sizes of the polynomials
+	domain, err := buildDomain(numerator, denominator, domain)
+	if err != nil {
+		return res, err
 	}
 
 	// put every polynomials in Lagrange form
@@ -82,6 +64,7 @@ func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expe
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
+	n := len(numerator[0].Coefficients)
 	res.Coefficients = make([]fr.Element, n)
 	t := make([]fr.Element, n)
 	res.Coefficients[0].SetOne()
@@ -99,16 +82,16 @@ func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expe
 		for j := 0; j < nbPolynomials; j++ {
 
 			if numerator[j].Info.Layout == BitReverse {
-				a.Sub(&challenge, &numerator[j].Coefficients[iMinusOnerev])
+				a.Sub(&beta, &numerator[j].Coefficients[iMinusOnerev])
 			} else {
-				a.Sub(&challenge, &numerator[j].Coefficients[i-1])
+				a.Sub(&beta, &numerator[j].Coefficients[i-1])
 			}
 			b.Mul(&b, &a)
 
 			if denominator[j].Info.Layout == BitReverse {
-				c.Sub(&challenge, &denominator[j].Coefficients[iMinusOnerev])
+				c.Sub(&beta, &denominator[j].Coefficients[iMinusOnerev])
 			} else {
-				c.Sub(&challenge, &denominator[j].Coefficients[i-1])
+				c.Sub(&beta, &denominator[j].Coefficients[i-1])
 			}
 			d.Mul(&d, &c)
 		}
@@ -148,6 +131,49 @@ func BuildRatio(numerator, denominator []*Polynomial, challenge fr.Element, expe
 		fft.BitReverse(res.Coefficients)
 	}
 	return res, nil
+}
+
+func buildDomain(numerator, denominator []*Polynomial, domain *fft.Domain) (*fft.Domain, error) {
+
+	// check sizes between one another
+	n := len(numerator[0].Coefficients)
+	for i := 0; i < len(numerator); i++ {
+		if len(numerator[i].Coefficients) != n {
+			return nil, ErrInconsistantSize
+		}
+		if len(denominator[i].Coefficients) != n {
+			return nil, ErrInconsistantSize
+		}
+	}
+
+	// check if the sizes are a power of 2
+	if n&(n-1) != 0 {
+		return nil, ErrSizeNotPowerOfTwo
+	}
+
+	// check if domain is of the correct size (if not we create it)
+	if domain == nil {
+		domain = fft.NewDomain(uint64(n))
+	}
+
+	// in case domain was not nil, it must match the size of the polynomials.
+	if domain.Cardinality != uint64(n) {
+		return nil, ErrInconsistantSizeDomain
+	}
+
+	return domain, nil
+}
+
+func BuildRatioWithPermutation(
+	numerator, denominator []*Polynomial,
+	beta, gamma fr.Element,
+	permutation []int64,
+	expectedForm Form,
+	domain *fft.Domain) (Polynomial, error) {
+
+	var a Polynomial
+	return a, nil
+
 }
 
 // getSupportIdentityPermutation returns the support on which the permutation acts.
