@@ -1,6 +1,7 @@
 {{define "gkrTestVectors"}}
 
 {{$GkrPackagePrefix := select .OutsideGkrPackage "" "gkr."}}
+{{$CheckOutputCorrectness := not .OutsideGkrPackage}}
 
 {{$Circuit          := print $GkrPackagePrefix "Circuit"}}
 {{$Gate             := print $GkrPackagePrefix "Gate"}}
@@ -239,6 +240,7 @@ func newTestCase(path string) (*TestCase, error) {
 				}
 			}
 
+			{{ if $CheckOutputCorrectness}}
 			if expected, seen := len(circuit[0]), len(info.Output); expected != seen {
 				return nil, fmt.Errorf("output layer length %d must match that of input vector %d", expected, seen)
 			}
@@ -251,6 +253,15 @@ func newTestCase(path string) (*TestCase, error) {
 					return nil, err
 				}
 			}
+			{{- else}}
+			info.Output = make([][]interface{}, len(circuit[0]))
+
+			for j := range circuit[0] {
+				wire := &circuit[0][j]
+				inOutAssignment[wire] = fullAssignment[wire]
+				info.Output[j] = test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[wire])
+			}
+			{{- end}}
 
 			parsedCase = &ParsedTestCase{
 				FullAssignment:  fullAssignment,
