@@ -92,7 +92,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			innerMsmG1(&r16, 16, samplePoints[:], scalars16, true)
+			innerMsmG1(&r16, 16, samplePointsLarge[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -425,7 +425,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			innerMsmG2(&r16, 16, samplePoints[:], scalars16, true)
+			innerMsmG2(&r16, 16, samplePointsLarge[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})

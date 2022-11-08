@@ -1030,7 +1030,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
+	pScalars, _ := partitionScalarsOld(scalars, c, false, runtime.NumCPU())
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)

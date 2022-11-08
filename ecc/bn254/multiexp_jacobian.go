@@ -16,54 +16,32 @@
 
 package bn254
 
-import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-)
-
 func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	scalars []fr.Element) {
-
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
+	pscalars []uint32) {
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
 
-	jc := uint64(chunk * c)
-	s := selector{}
-	s.index = jc / 64
-	s.shift = jc - (s.index * 64)
-	s.mask = mask << s.shift
-	s.multiWordSelect = (64%c) != 0 && s.shift > (64-c) && s.index < (fr.Limbs-1)
-	if s.multiWordSelect {
-		nbBitsHigh := s.shift - uint64(64-c)
-		s.maskHigh = (1 << nbBitsHigh) - 1
-		s.shiftHigh = (c - nbBitsHigh)
-	}
-
 	// for each scalars, get the digit corresponding to the chunk we're processing.
-	for i := 0; i < len(scalars); i++ {
-		bits := (scalars[i][s.index] & s.mask) >> s.shift
-		if s.multiWordSelect {
-			bits += (scalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-		}
+	for i := 0; i < len(pscalars); i++ {
+		bits := pscalars[i]
 
 		if bits == 0 {
 			continue
 		}
 
 		// if msbWindow bit is set, we need to substract
-		if bits&msbWindow == 0 {
+		if bits&1 == 0 {
 			// add
-			buckets[bits-1].addMixed(&points[i])
+			buckets[(bits>>1)-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[bits & ^msbWindow].subMixed(&points[i])
+			buckets[(bits >> 1)].subMixed(&points[i])
 		}
 	}
 
@@ -127,46 +105,28 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
 	points []G2Affine,
-	scalars []fr.Element) {
-
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
+	pscalars []uint32) {
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
 
-	jc := uint64(chunk * c)
-	s := selector{}
-	s.index = jc / 64
-	s.shift = jc - (s.index * 64)
-	s.mask = mask << s.shift
-	s.multiWordSelect = (64%c) != 0 && s.shift > (64-c) && s.index < (fr.Limbs-1)
-	if s.multiWordSelect {
-		nbBitsHigh := s.shift - uint64(64-c)
-		s.maskHigh = (1 << nbBitsHigh) - 1
-		s.shiftHigh = (c - nbBitsHigh)
-	}
-
 	// for each scalars, get the digit corresponding to the chunk we're processing.
-	for i := 0; i < len(scalars); i++ {
-		bits := (scalars[i][s.index] & s.mask) >> s.shift
-		if s.multiWordSelect {
-			bits += (scalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-		}
+	for i := 0; i < len(pscalars); i++ {
+		bits := pscalars[i]
 
 		if bits == 0 {
 			continue
 		}
 
 		// if msbWindow bit is set, we need to substract
-		if bits&msbWindow == 0 {
+		if bits&1 == 0 {
 			// add
-			buckets[bits-1].addMixed(&points[i])
+			buckets[(bits>>1)-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[bits & ^msbWindow].subMixed(&points[i])
+			buckets[(bits >> 1)].subMixed(&points[i])
 		}
 	}
 

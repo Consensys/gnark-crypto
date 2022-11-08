@@ -91,7 +91,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			innerMsm{{ toUpper $.PointName }}(&r16, 16, samplePoints[:], scalars16, true)
+			innerMsm{{ toUpper $.PointName }}(&r16, 16, samplePointsLarge[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})

@@ -106,75 +106,68 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 		return C
 	}
 
-	var C uint64
-	nbSplits := 1
-	nbChunks := 0
-	for nbChunks < config.NbTasks {
-		C = bestC(nbPoints)
-		nbChunks = int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
-		if (fr.Limbs*64)%C != 0 {
-			nbChunks++
-		}
-		nbChunks *= nbSplits
-		if nbChunks < config.NbTasks {
-			nbSplits <<= 1
-			nbPoints >>= 1
-		}
+	// TODO @gbotrel restore split by calling outterMsm BEFORE partitioning scalars.
+	// nbSplits := 1
+	C := bestC(nbPoints)
+	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%C != 0 {
+		nbChunks++
 	}
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	var smallValues int
-	scalars, smallValues = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	// var smallValues int
+	pscalars, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-
+	innerMsmG1(p, int(C), points, pscalars, splitFirstChunk)
 	// we have nbSplits intermediate results that we must sum together.
-	_p := make([]G1Jac, nbSplits-1)
-	chDone := make(chan int, nbSplits-1)
-	for i := 0; i < nbSplits-1; i++ {
-		start := i * nbPoints
-		end := start + nbPoints
-		go func(start, end, i int) {
-			innerMsmG1(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
-			chDone <- i
-		}(start, end, i)
-	}
 
-	innerMsmG1(p, int(C), points[(nbSplits-1)*nbPoints:], scalars[(nbSplits-1)*nbPoints:], splitFirstChunk)
-	for i := 0; i < nbSplits-1; i++ {
-		done := <-chDone
-		p.AddAssign(&_p[done])
-	}
-	close(chDone)
+	// _p := make([]G1Jac, nbSplits - 1)
+	// chDone := make(chan int, nbSplits - 1)
+	// for i:=0; i < nbSplits-1; i++ {
+	// 	start := i * nbPoints
+	// 	end := start + nbPoints
+	// 	go func(start, end, i int) {
+	// 		innerMsmG1(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
+	// 		chDone <- i
+	// 	}(start, end, i)
+	// }
+
+	// innerMsmG1(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
+	// for i:=0; i < nbSplits-1; i++ {
+	// 	done := <-chDone
+	// 	p.AddAssign(&_p[done])
+	// }
+	// close(chDone)
 	return p, nil
 }
 
-func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, splitFirstChunk bool) {
+func innerMsmG1(p *G1Jac, c int, points []G1Affine, pscalars []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 4, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 4, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 5:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC5]
-		_innerMsmG1(p, 5, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 5, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 8:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC8]
-		_innerMsmG1(p, 8, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 8, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 16:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC16]
-		_innerMsmG1(p, 16, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 16, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")
 	}
 }
 
-func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, scalars []fr.Element)) *G1Jac {
+func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, pscalars []uint32, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, pscalars []uint32)) *G1Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -193,10 +186,11 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, sp
 	}
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, scalars)
+	n := len(points)
+	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, pscalars[int(nbChunks-1)*n:])
 
 	for j := int(nbChunks - 2); j > 0; j-- {
-		go processChunk(uint64(j), chChunks[j], c, points, scalars)
+		go processChunk(uint64(j), chChunks[j], c, points, pscalars[j*n:(j+1)*n])
 	}
 
 	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
@@ -204,12 +198,12 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, sp
 	// in the ~same amount of time
 	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
 		if !splitFirstChunk {
-			go processChunk(0, chChunks[0], c, points, scalars)
+			go processChunk(0, chChunks[0], c, points, pscalars[:n])
 		} else {
 			chSplit := make(chan g1JacExtended, 2)
-			split := len(points) / 2
-			go processChunk(0, chSplit, c, points[:split], scalars[:split])
-			go processChunk(0, chSplit, c, points[split:], scalars[split:])
+			split := n / 2
+			go processChunk(0, chSplit, c, points[:split], pscalars[:split])
+			go processChunk(0, chSplit, c, points[split:], pscalars[split:n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit
@@ -321,75 +315,68 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 		return C
 	}
 
-	var C uint64
-	nbSplits := 1
-	nbChunks := 0
-	for nbChunks < config.NbTasks {
-		C = bestC(nbPoints)
-		nbChunks = int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
-		if (fr.Limbs*64)%C != 0 {
-			nbChunks++
-		}
-		nbChunks *= nbSplits
-		if nbChunks < config.NbTasks {
-			nbSplits <<= 1
-			nbPoints >>= 1
-		}
+	// TODO @gbotrel restore split by calling outterMsm BEFORE partitioning scalars.
+	// nbSplits := 1
+	C := bestC(nbPoints)
+	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%C != 0 {
+		nbChunks++
 	}
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	var smallValues int
-	scalars, smallValues = partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	// var smallValues int
+	pscalars, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-
+	innerMsmG2(p, int(C), points, pscalars, splitFirstChunk)
 	// we have nbSplits intermediate results that we must sum together.
-	_p := make([]G2Jac, nbSplits-1)
-	chDone := make(chan int, nbSplits-1)
-	for i := 0; i < nbSplits-1; i++ {
-		start := i * nbPoints
-		end := start + nbPoints
-		go func(start, end, i int) {
-			innerMsmG2(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
-			chDone <- i
-		}(start, end, i)
-	}
 
-	innerMsmG2(p, int(C), points[(nbSplits-1)*nbPoints:], scalars[(nbSplits-1)*nbPoints:], splitFirstChunk)
-	for i := 0; i < nbSplits-1; i++ {
-		done := <-chDone
-		p.AddAssign(&_p[done])
-	}
-	close(chDone)
+	// _p := make([]G2Jac, nbSplits - 1)
+	// chDone := make(chan int, nbSplits - 1)
+	// for i:=0; i < nbSplits-1; i++ {
+	// 	start := i * nbPoints
+	// 	end := start + nbPoints
+	// 	go func(start, end, i int) {
+	// 		innerMsmG2(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
+	// 		chDone <- i
+	// 	}(start, end, i)
+	// }
+
+	// innerMsmG2(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
+	// for i:=0; i < nbSplits-1; i++ {
+	// 	done := <-chDone
+	// 	p.AddAssign(&_p[done])
+	// }
+	// close(chDone)
 	return p, nil
 }
 
-func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, splitFirstChunk bool) {
+func innerMsmG2(p *G2Jac, c int, points []G2Affine, pscalars []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 4, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 4, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 5:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC5]
-		_innerMsmG2(p, 5, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 5, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 8:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC8]
-		_innerMsmG2(p, 8, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 8, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	case 16:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC16]
-		_innerMsmG2(p, 16, points, scalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 16, points, pscalars, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")
 	}
 }
 
-func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, scalars []fr.Element)) *G2Jac {
+func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, pscalars []uint32, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, pscalars []uint32)) *G2Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -408,10 +395,11 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, sp
 	}
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, scalars)
+	n := len(points)
+	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, pscalars[int(nbChunks-1)*n:])
 
 	for j := int(nbChunks - 2); j > 0; j-- {
-		go processChunk(uint64(j), chChunks[j], c, points, scalars)
+		go processChunk(uint64(j), chChunks[j], c, points, pscalars[j*n:(j+1)*n])
 	}
 
 	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
@@ -419,12 +407,12 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, sp
 	// in the ~same amount of time
 	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
 		if !splitFirstChunk {
-			go processChunk(0, chChunks[0], c, points, scalars)
+			go processChunk(0, chChunks[0], c, points, pscalars[:n])
 		} else {
 			chSplit := make(chan g2JacExtended, 2)
-			split := len(points) / 2
-			go processChunk(0, chSplit, c, points[:split], scalars[:split])
-			go processChunk(0, chSplit, c, points[split:], scalars[split:])
+			split := n / 2
+			go processChunk(0, chSplit, c, points[:split], pscalars[:split])
+			go processChunk(0, chSplit, c, points[split:], pscalars[split:n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit
@@ -475,7 +463,132 @@ type selector struct {
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]fr.Element, int) {
+func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint32, int) {
+	// number of c-bit radixes in a scalar
+	nbChunks := fr.Limbs * 64 / c
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
+
+	toReturn := make([]uint32, len(scalars)*int(nbChunks))
+
+	mask := uint64((1 << c) - 1) // low c bits are 1
+	// msbWindow := uint64(1 << (c -1)) 			// msb of the c-bit window
+	max := int(1 << (c - 1))    // max value we want for our digits
+	cDivides64 := (64 % c) == 0 // if c doesn't divide 64, we may need to select over multiple words
+
+	// compute offset and word selector / shift to select the right bits of our windows
+	selectors := make([]selector, nbChunks)
+	for chunk := uint64(0); chunk < nbChunks; chunk++ {
+		jc := uint64(chunk * c)
+		d := selector{}
+		d.index = jc / 64
+		d.shift = jc - (d.index * 64)
+		d.mask = mask << d.shift
+		d.multiWordSelect = !cDivides64 && d.shift > (64-c) && d.index < (fr.Limbs-1)
+		if d.multiWordSelect {
+			nbBitsHigh := d.shift - uint64(64-c)
+			d.maskHigh = (1 << nbBitsHigh) - 1
+			d.shiftHigh = (c - nbBitsHigh)
+		}
+		selectors[chunk] = d
+	}
+
+	// for each chunk, we could track the number of non-zeros points we will need to process
+	// this way, if a chunk has more work to do than others, we can spawn off more go routines
+	// (at the cost of more buckets allocated)
+	// a simplified approach is to track the small values where only the first word is set
+	// if this number represent a significant number of points, then we will split first chunk
+	// processing in the msm in 2, to ensure all go routines finish at ~same time
+	// /!\ nbTasks is enough as parallel.Execute is not going to spawn more than nbTasks go routine
+	// if it does, though, this will deadlocK.
+	chSmallValues := make(chan int, nbTasks)
+
+	parallel.Execute(len(scalars), func(start, end int) {
+		smallValues := 0
+		for i := start; i < end; i++ {
+			var carry int
+
+			scalar := scalars[i]
+			if scalarsMont {
+				scalar.FromMont()
+			}
+			if scalar.FitsOnOneWord() {
+				// everything is 0, no need to process this scalar
+				if scalar[0] == 0 {
+					continue
+				}
+				// low c-bits are 1 in mask
+				if scalar[0]&mask == scalar[0] {
+					smallValues++
+				}
+			}
+
+			// for each chunk in the scalar, compute the current digit, and an eventual carry
+			for chunk := uint64(0); chunk < nbChunks; chunk++ {
+				s := selectors[chunk]
+
+				// init with carry if any
+				digit := carry
+				carry = 0
+
+				// digit = value of the c-bit window
+				digit += int((scalar[s.index] & s.mask) >> s.shift)
+
+				if s.multiWordSelect {
+					// we are selecting bits over 2 words
+					digit += int(scalar[s.index+1]&s.maskHigh) << s.shiftHigh
+				}
+
+				// if digit is zero, no impact on result
+				if digit == 0 {
+					continue
+				}
+
+				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+				// 2^{c} to the current digit, making it negative.
+				if digit >= max {
+					digit -= (1 << c)
+					carry = 1
+				}
+
+				var bits uint32
+				if digit >= 0 {
+					bits = uint32(digit) << 1
+				} else {
+					bits = (uint32(-digit-1) << 1) + 1
+				}
+				toReturn[int(chunk)*len(scalars)+i] = bits
+				// [s.index] |= (bits << s.shift)
+				// if s.multiWordSelect {
+				// 	toReturn[i][s.index+1] |= (bits >> s.shiftHigh)
+				// }
+
+			}
+		}
+
+		chSmallValues <- smallValues
+
+	}, nbTasks)
+
+	// aggregate small values
+	close(chSmallValues)
+	smallValues := 0
+	for o := range chSmallValues {
+		smallValues += o
+	}
+	return toReturn, smallValues
+}
+
+// partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
+// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
+// 2^{c} to the current digit, making it negative.
+// negative digits can be processed in a later step as adding -G into the bucket instead of G
+// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
+// scalarsMont indicates wheter the provided scalars are in montgomery form
+// returns smallValues, which represent the number of scalars which meets the following condition
+// 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
+func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]fr.Element, int) {
 	toReturn := make([]fr.Element, len(scalars))
 
 	// number of c-bit radixes in a scalar

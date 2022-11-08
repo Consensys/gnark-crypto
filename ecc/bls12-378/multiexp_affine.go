@@ -16,10 +16,6 @@
 
 package bls12378
 
-import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
-)
-
 const MAX_BATCH_SIZE = 600
 
 type batchOp struct {
@@ -40,35 +36,18 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	scalars []fr.Element) {
+	pscalars []uint32) {
 
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
 
-	jc := uint64(chunk * c)
-	s := selector{}
-	s.index = jc / 64
-	s.shift = jc - (s.index * 64)
-	s.mask = mask << s.shift
-	s.multiWordSelect = (64%c) != 0 && s.shift > (64-c) && s.index < (fr.Limbs-1)
-	if s.multiWordSelect {
-		nbBitsHigh := s.shift - uint64(64-c)
-		s.maskHigh = (1 << nbBitsHigh) - 1
-		s.shiftHigh = (c - nbBitsHigh)
-	}
-
 	batch := newBatchG1Affine(&buckets, points)
 	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
 	nbBatches := 0
-	for i := 0; i < len(scalars); i++ {
-		bits := (scalars[i][s.index] & s.mask) >> s.shift
-		if s.multiWordSelect {
-			bits += (scalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-		}
+	for i := 0; i < len(pscalars); i++ {
+		bits := pscalars[i]
 
 		if bits == 0 {
 			continue
@@ -76,13 +55,13 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 
 		op := batchOp{pointID: uint32(i) << 1}
 		// if msbWindow bit is set, we need to substract
-		if bits&msbWindow == 0 {
+		if bits&1 == 0 {
 			// add
-			op.bucketID = uint32(bits - 1)
+			op.bucketID = uint32((bits >> 1) - 1)
 			// buckets[bits-1].Add(&points[i], &buckets[bits-1])
 		} else {
 			// sub
-			op.bucketID = (uint32(bits & ^msbWindow))
+			op.bucketID = (uint32((bits >> 1)))
 			op.pointID += 1
 			// op.isNeg = true
 			// buckets[bits & ^msbWindow].Sub( &buckets[bits & ^msbWindow], &points[i])
@@ -283,35 +262,18 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
 	points []G2Affine,
-	scalars []fr.Element) {
+	pscalars []uint32) {
 
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
 
-	jc := uint64(chunk * c)
-	s := selector{}
-	s.index = jc / 64
-	s.shift = jc - (s.index * 64)
-	s.mask = mask << s.shift
-	s.multiWordSelect = (64%c) != 0 && s.shift > (64-c) && s.index < (fr.Limbs-1)
-	if s.multiWordSelect {
-		nbBitsHigh := s.shift - uint64(64-c)
-		s.maskHigh = (1 << nbBitsHigh) - 1
-		s.shiftHigh = (c - nbBitsHigh)
-	}
-
 	batch := newBatchG2Affine(&buckets, points)
 	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
 	nbBatches := 0
-	for i := 0; i < len(scalars); i++ {
-		bits := (scalars[i][s.index] & s.mask) >> s.shift
-		if s.multiWordSelect {
-			bits += (scalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-		}
+	for i := 0; i < len(pscalars); i++ {
+		bits := pscalars[i]
 
 		if bits == 0 {
 			continue
@@ -319,13 +281,13 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 
 		op := batchOp{pointID: uint32(i) << 1}
 		// if msbWindow bit is set, we need to substract
-		if bits&msbWindow == 0 {
+		if bits&1 == 0 {
 			// add
-			op.bucketID = uint32(bits - 1)
+			op.bucketID = uint32((bits >> 1) - 1)
 			// buckets[bits-1].Add(&points[i], &buckets[bits-1])
 		} else {
 			// sub
-			op.bucketID = (uint32(bits & ^msbWindow))
+			op.bucketID = (uint32((bits >> 1)))
 			op.pointID += 1
 			// op.isNeg = true
 			// buckets[bits & ^msbWindow].Sub( &buckets[bits & ^msbWindow], &points[i])
