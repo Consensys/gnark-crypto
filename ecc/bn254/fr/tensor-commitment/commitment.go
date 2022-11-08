@@ -18,6 +18,7 @@ import (
 	"errors"
 	"hash"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
@@ -60,17 +61,13 @@ type Proof struct {
 	Generator fr.Element
 }
 
-// TensorCommitment stores the data to use a tensor commitment
-type TensorCommitment struct {
-
+// TcParams stores the public parameters of the tensor commitment
+type TcParams struct {
 	// NbColumns number of columns of the matrix storing the polynomials. The total size of
 	// the polynomials which are committed is NbColumns x NbRows.
 	// The Number of columns is a power of 2, it corresponds to the original size of the codewords
 	// of the Reed Solomon code.
 	NbColumns int
-
-	// Size of the the polynomials to be committed (so the degree of p is SizePolynomial-1)
-	SizePolynomial int
 
 	// NbRows number of rows of the matrix storing the polynomials. If a polynomial p is appended
 	// whose size if not 0 mod NbRows, it is padded as p' so that len(p')=0 mod NbRows.
@@ -78,6 +75,18 @@ type TensorCommitment struct {
 
 	// Domains[1] used for the Reed Solomon encoding
 	Domains [2]*fft.Domain
+
+	// Rho⁻¹, rate of the RS code ( > 1)
+	Rho int
+
+	// Hash function for hashing the columns
+	Hash hash.Hash
+}
+
+// TensorCommitment stores the data to use a tensor commitment
+type TensorCommitment struct {
+	// The public parameters of the tensor commitment
+	params *TcParams
 
 	// State contains the polynomials that have been appended so far.
 	// when we append a polynomial p, it is stored in the state like this:
@@ -87,14 +96,14 @@ type TensorCommitment struct {
 	// p[2] 		| p[nbRows+2]	| p[2*nbRows+2]
 	// ..
 	// p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
-	state [][]fr.Element
+	State [][]fr.Element
 
 	// same content as state, but the polynomials are displayed as a matrix
 	// and the rows are encoded.
 	// encodedState = encodeRows(M_0 || .. || M_n)
 	// where M_i is the i-th polynomial layed out as a matrix, that is
 	// M_i_jk = p_i[i*m+j] where m = \sqrt(len(p)).
-	encodedState [][]fr.Element
+	EncodedState [][]fr.Element
 
 	// boolean telling if the commitment has already been done.
 	// The method BuildProof cannot be called before Commit(),
@@ -102,26 +111,19 @@ type TensorCommitment struct {
 	// to a verifier, making the worklow not secure.
 	isCommitted bool
 
-	// current column to fill
-	currentColumnToFill int
+	// number of columns which have already been hashed (atomic)
+	NbColumnsHashed uint64 // uint64 (and not int) is so that we can do atomic operations in it
 
-	// number of columns which have already been hashed
-	nbColumnsHashed int
-
-	// Rho⁻¹, rate of the RS code ( > 1)
-	Rho int
-
-	// Hash function for hashing the columns
-	Hash hash.Hash
+	// counts the number of time `Append` was called (atomic).
+	NbAppendsSoFar uint64
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
 // * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
 // then ρ * √(m) where m² = size
-func NewTensorCommitment(codeRate, NbColumns, NbRows int, h hash.Hash) (TensorCommitment, error) {
-
-	var res TensorCommitment
+func NewTCParams(codeRate, NbColumns, NbRows int, h hash.Hash) (*TcParams, error) {
+	var res TcParams
 
 	// domain[0]: domain to perform the FFT^-1, of size capacity * sqrt
 	// domain[1]: domain to perform FFT, of size rho * capacity * sqrt
@@ -138,22 +140,26 @@ func NewTensorCommitment(codeRate, NbColumns, NbRows int, h hash.Hash) (TensorCo
 	// Hash function
 	res.Hash = h
 
+	return &res, nil
+}
+
+// Initializes an instance of tensor commitment that we can use start
+// appending value into it
+func NewTensorCommitment(params *TcParams) *TensorCommitment {
+	var res TensorCommitment
+
 	// create the state. It's the matrix containing the polynomials, the ij-th
 	// entry of the matrix is state[i][j]. The polynomials are split and stacked
 	// columns per column.
-	res.state = make([][]fr.Element, res.NbRows)
-	for i := 0; i < res.NbRows; i++ {
-		res.state[i] = make([]fr.Element, res.NbColumns)
+	res.State = make([][]fr.Element, params.NbRows)
+	for i := 0; i < params.NbRows; i++ {
+		res.State[i] = make([]fr.Element, params.NbColumns)
 	}
-
-	// first column to fill
-	res.currentColumnToFill = 0
 
 	// nothing has been committed...
 	res.isCommitted = false
-
-	return res, nil
-
+	res.params = params
+	return &res
 }
 
 // Append appends p to the state.
@@ -167,43 +173,48 @@ func NewTensorCommitment(codeRate, NbColumns, NbRows int, h hash.Hash) (TensorCo
 // If p doesn't fill a full submatrix it is padded with zeroes.
 func (tc *TensorCommitment) Append(p []fr.Element) ([][]byte, error) {
 
+	currentColumnToFill := int(tc.NbColumnsHashed)
+
 	// check if there is some room for p
-	nbColumnsTakenByP := (len(p) - len(p)%tc.NbRows) / tc.NbRows
-	if len(p)%tc.NbRows != 0 {
+	nbColumnsTakenByP := (len(p) - len(p)%tc.params.NbRows) / tc.params.NbRows
+	if len(p)%tc.params.NbRows != 0 {
 		nbColumnsTakenByP += 1
 	}
-	if tc.currentColumnToFill+nbColumnsTakenByP > tc.NbColumns {
+	if currentColumnToFill+nbColumnsTakenByP > tc.params.NbColumns {
 		return nil, ErrMaxNbColumns
 	}
 
+	atomic.AddUint64(&tc.NbColumnsHashed, uint64(nbColumnsTakenByP))
+	atomic.AddUint64(&tc.NbAppendsSoFar, 1)
+
 	// put p in the state
-	backupCurrentColumnToFill := tc.currentColumnToFill
-	if len(p)%tc.NbRows != 0 {
+	backupCurrentColumnToFill := currentColumnToFill
+	if len(p)%tc.params.NbRows != 0 {
 		nbColumnsTakenByP -= 1
 	}
 	for i := 0; i < nbColumnsTakenByP; i++ {
-		for j := 0; j < tc.NbRows; j++ {
-			tc.state[j][tc.currentColumnToFill+i] = p[i*tc.NbRows+j]
+		for j := 0; j < tc.params.NbRows; j++ {
+			tc.State[j][currentColumnToFill+i] = p[i*tc.params.NbRows+j]
 		}
 	}
-	tc.currentColumnToFill += nbColumnsTakenByP
-	if len(p)%tc.NbRows != 0 {
-		offsetP := len(p) - len(p)%tc.NbRows
+	currentColumnToFill += nbColumnsTakenByP
+	if len(p)%tc.params.NbRows != 0 {
+		offsetP := len(p) - len(p)%tc.params.NbRows
 		for j := offsetP; j < len(p); j++ {
-			tc.state[j-offsetP][tc.currentColumnToFill] = p[j]
+			tc.State[j-offsetP][currentColumnToFill] = p[j]
 		}
-		tc.currentColumnToFill += 1
+		currentColumnToFill += 1
 		nbColumnsTakenByP += 1
 	}
 
 	// hash the columns
 	res := make([][]byte, nbColumnsTakenByP)
 	for i := 0; i < nbColumnsTakenByP; i++ {
-		tc.Hash.Reset()
-		for j := 0; j < tc.NbRows; j++ {
-			tc.Hash.Write(tc.state[j][i+backupCurrentColumnToFill].Marshal())
+		tc.params.Hash.Reset()
+		for j := 0; j < tc.params.NbRows; j++ {
+			tc.params.Hash.Write(tc.State[j][i+backupCurrentColumnToFill].Marshal())
 		}
-		res[i] = tc.Hash.Sum(nil)
+		res[i] = tc.params.Hash.Sum(nil)
 	}
 
 	return res, nil
@@ -216,27 +227,27 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 	// we encode the rows of p using Reed Solomon
 	// encodedState[i][:] = i-th line of M. It is of size domain[1].Cardinality
-	tc.encodedState = make([][]fr.Element, tc.NbRows)
-	for i := 0; i < tc.NbRows; i++ { // we fill encodedState line by line
-		tc.encodedState[i] = make([]fr.Element, tc.Domains[1].Cardinality) // size = NbRows*rho*capacity
-		for j := 0; j < tc.NbColumns; j++ {                                // for each polynomial
-			tc.encodedState[i][j].Set(&tc.state[i][j])
+	tc.EncodedState = make([][]fr.Element, tc.params.NbRows)
+	for i := 0; i < tc.params.NbRows; i++ { // we fill encodedState line by line
+		tc.EncodedState[i] = make([]fr.Element, tc.params.Domains[1].Cardinality) // size = NbRows*rho*capacity
+		for j := 0; j < tc.params.NbColumns; j++ {                                // for each polynomial
+			tc.EncodedState[i][j].Set(&tc.State[i][j])
 		}
-		tc.Domains[0].FFTInverse(tc.encodedState[i][:tc.Domains[0].Cardinality], fft.DIF)
-		fft.BitReverse(tc.encodedState[i][:tc.Domains[0].Cardinality])
-		tc.Domains[1].FFT(tc.encodedState[i], fft.DIF)
-		fft.BitReverse(tc.encodedState[i])
+		tc.params.Domains[0].FFTInverse(tc.EncodedState[i][:tc.params.Domains[0].Cardinality], fft.DIF)
+		fft.BitReverse(tc.EncodedState[i][:tc.params.Domains[0].Cardinality])
+		tc.params.Domains[1].FFT(tc.EncodedState[i], fft.DIF)
+		fft.BitReverse(tc.EncodedState[i])
 	}
 
 	// now we hash each columns of _p
-	res := make([][]byte, tc.Domains[1].Cardinality)
-	for i := 0; i < int(tc.Domains[1].Cardinality); i++ {
-		tc.Hash.Reset()
-		for j := 0; j < tc.NbRows; j++ {
-			tc.Hash.Write(tc.encodedState[j][i].Marshal())
+	res := make([][]byte, tc.params.Domains[1].Cardinality)
+	for i := 0; i < int(tc.params.Domains[1].Cardinality); i++ {
+		tc.params.Hash.Reset()
+		for j := 0; j < tc.params.NbRows; j++ {
+			tc.params.Hash.Write(tc.EncodedState[j][i].Marshal())
 		}
-		res[i] = tc.Hash.Sum(nil)
-		tc.Hash.Reset()
+		res[i] = tc.params.Hash.Sum(nil)
+		tc.params.Hash.Reset()
 	}
 
 	// records that the ccommitment has been built
@@ -244,6 +255,28 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 	return res, nil
 
+}
+
+// BuildProofAtOnceForTest builds a proof to be tested against a previous commitment of a list of
+// polynomials.
+// * l the random linear coefficients used for the linear combination of size NbRows
+// * entryList list of columns to hash
+// l and entryList are supposed to be precomputed using Fiat Shamir
+//
+// The proof is the linear combination (using l) of the encoded rows of p written
+// as a matrix. Only the entries contained in entryList are kept.
+func (tc *TensorCommitment) BuildProofAtOnceForTest(l []fr.Element, entryList []int) (Proof, error) {
+	linComb, err := tc.ProverComputeLinComb(l)
+	if err != nil {
+		return Proof{}, err
+	}
+
+	openedColumns, err := tc.ProverOpenColumns(entryList)
+	if err != nil {
+		return Proof{}, err
+	}
+
+	return BuildProof(tc.params, linComb, entryList, openedColumns), nil
 }
 
 // func printVector(v []fr.Element) {
@@ -262,51 +295,69 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 //
 // The proof is the linear combination (using l) of the encoded rows of p written
 // as a matrix. Only the entries contained in entryList are kept.
-func (tc *TensorCommitment) BuildProof(l []fr.Element, entryList []int) (Proof, error) {
-
-	var res Proof
+func (tc *TensorCommitment) ProverComputeLinComb(l []fr.Element) ([]fr.Element, error) {
 
 	// check that the digest has been computed
 	if !tc.isCommitted {
-		return res, ErrCommitmentNotDone
+		return []fr.Element{}, ErrCommitmentNotDone
 	}
-
-	// small domain to express the linear combination in canonical form
-	res.Domain = tc.Domains[0]
-
-	// generator g of the biggest domain, used to evaluate the canonical form of
-	// the linear combination at some powers of g.
-	res.Generator.Set(&tc.Domains[1].Generator)
 
 	// since the digest has been computed, the encodedState is already stored.
 	// We use it to build the proof, without recomputing the ffts.
 
 	// linear combination of the rows of the state
-	res.LinearCombination = make([]fr.Element, tc.NbColumns)
-	for i := 0; i < tc.NbColumns; i++ {
+	linComb := make([]fr.Element, tc.params.NbColumns)
+	for i := 0; i < tc.params.NbColumns; i++ {
 		var tmp fr.Element
-		for j := 0; j < tc.NbRows; j++ {
-			tmp.Mul(&tc.state[j][i], &l[j])
-			res.LinearCombination[i].Add(&res.LinearCombination[i], &tmp)
+		for j := 0; j < tc.params.NbRows; j++ {
+			tmp.Mul(&tc.State[j][i], &l[j])
+			linComb[i].Add(&linComb[i], &tmp)
 		}
+	}
+
+	return linComb, nil
+}
+
+func (tc *TensorCommitment) ProverOpenColumns(entryList []int) ([][]fr.Element, error) {
+
+	// check that the digest has been computed
+	if !tc.isCommitted {
+		return [][]fr.Element{}, ErrCommitmentNotDone
 	}
 
 	// columns of the state whose rows have been encoded, written as a matrix,
 	// corresponding to the indices in entryList (we will select the columns
 	// entryList[0], entryList[1], etc.
-	res.Columns = make([][]fr.Element, len(entryList))
+	openedColumns := make([][]fr.Element, len(entryList))
 	for i := 0; i < len(entryList); i++ { // for each column (corresponding to an elmt in entryList)
-		res.Columns[i] = make([]fr.Element, tc.NbRows)
-		for j := 0; j < tc.NbRows; j++ {
-			res.Columns[i][j] = tc.encodedState[j][entryList[i]]
+		openedColumns[i] = make([]fr.Element, tc.params.NbRows)
+		for j := 0; j < tc.params.NbRows; j++ {
+			openedColumns[i][j] = tc.EncodedState[j][entryList[i]]
 		}
 	}
 
-	// fill entryList
-	res.EntryList = make([]int, len(entryList))
-	copy(res.EntryList, entryList)
+	return openedColumns, nil
+}
 
-	return res, nil
+/*
+Reconstruct the proof from the prover's outputs
+*/
+func BuildProof(params *TcParams, linComb []fr.Element, entryList []int, openedCols [][]fr.Element) Proof {
+
+	var res Proof
+
+	// small domain to express the linear combination in canonical form
+	res.Domain = params.Domains[0]
+
+	// generator g of the biggest domain, used to evaluate the canonical form of
+	// the linear combination at some powers of g.
+	res.Generator.Set(&params.Domains[1].Generator)
+
+	res.Columns = openedCols
+	res.EntryList = entryList
+	res.LinearCombination = linComb
+
+	return res
 }
 
 // evalAtPower returns p(x**n) where p is interpreted as a polynomial
@@ -344,16 +395,16 @@ func cmpBytes(a, b []byte) bool {
 // h: hash function that is used for hashing the columns of the polynomial
 // TODO make this function private and add a Verify function that derives
 // the randomness using Fiat Shamir
+//
+// Note (alex), A more convenient API would be to expose two functions,
+// one that does FS for you and what that let you do it for yourself. And likewise
+// for the prover.
 func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 
 	// for each entry in the list -> it corresponds to the sampling
 	// set on which we probabilistically check that
 	// Encoded(linear_combination) = linear_combination(encoded)
 	for i := 0; i < len(proof.EntryList); i++ {
-
-		if proof.EntryList[i] >= len(digest) {
-			return ErrProofFailedOob
-		}
 
 		// check that the hash of the columns correspond to what's in the digest
 		h.Reset()
@@ -363,6 +414,10 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 		s := h.Sum(nil)
 		if !cmpBytes(s, digest[proof.EntryList[i]]) {
 			return ErrProofFailedHash
+		}
+
+		if proof.EntryList[i] >= len(digest) {
+			return ErrProofFailedOob
 		}
 
 		// linear combination of the i-th column, whose entries
