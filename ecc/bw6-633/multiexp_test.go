@@ -92,7 +92,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			msmCG1Affine[bucketg1JacExtendedC16, bucketg1JacExtendedC16](&r16, 16, samplePoints[:], scalars16, true)
+			innerMsmG1(&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -102,7 +102,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
+	cRange := []uint64{4, 5, 8, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -130,10 +130,10 @@ func TestMultiExpG1(t *testing.T) {
 			results := make([]G1Jac, len(cRange)+1)
 			for i, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG1Jac(&results[i], int(c), samplePoints[:], scalars, false)
+				innerMsmG1(&results[i], int(c), samplePoints[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInnerG1Jac(&results[len(results)-1], 16, samplePoints[:], scalars, true)
+					innerMsmG1(&results[len(results)-1], 16, samplePoints[:], scalars, true)
 				}
 			}
 			for i := 1; i < len(results); i++ {
@@ -171,10 +171,10 @@ func TestMultiExpG1(t *testing.T) {
 			results := make([]G1Jac, len(cRange)+1)
 			for i, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG1Jac(&results[i], int(c), samplePointsZero[:], scalars, false)
+				innerMsmG1(&results[i], int(c), samplePointsZero[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInnerG1Jac(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
+					innerMsmG1(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
 				}
 			}
 			for i := 1; i < len(results); i++ {
@@ -209,8 +209,8 @@ func TestMultiExpG1(t *testing.T) {
 			var result1, result2 G1Jac
 			for _, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG1Jac(&result1, int(c), samplePoints[:], scalars, false)
-				msmInnerG1JacBatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+				innerMsmG1(&result1, int(c), samplePoints[:], scalars, false)
+				innerMsmG1(&result2, int(c), samplePoints[:], scalars, false)
 				if !result1.Equal(&result2) {
 					return false
 				}
@@ -288,7 +288,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -425,7 +425,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			msmCG2Affine[bucketg2JacExtendedC16, bucketg2JacExtendedC16](&r16, 16, samplePoints[:], scalars16, true)
+			innerMsmG2(&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -461,10 +461,10 @@ func TestMultiExpG2(t *testing.T) {
 			results := make([]G2Jac, len(cRange)+1)
 			for i, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG2Jac(&results[i], int(c), samplePoints[:], scalars, false)
+				innerMsmG2(&results[i], int(c), samplePoints[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInnerG2Jac(&results[len(results)-1], 16, samplePoints[:], scalars, true)
+					innerMsmG2(&results[len(results)-1], 16, samplePoints[:], scalars, true)
 				}
 			}
 			for i := 1; i < len(results); i++ {
@@ -502,10 +502,10 @@ func TestMultiExpG2(t *testing.T) {
 			results := make([]G2Jac, len(cRange)+1)
 			for i, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG2Jac(&results[i], int(c), samplePointsZero[:], scalars, false)
+				innerMsmG2(&results[i], int(c), samplePointsZero[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInnerG2Jac(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
+					innerMsmG2(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
 				}
 			}
 			for i := 1; i < len(results); i++ {
@@ -540,8 +540,8 @@ func TestMultiExpG2(t *testing.T) {
 			var result1, result2 G2Jac
 			for _, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInnerG2Jac(&result1, int(c), samplePoints[:], scalars, false)
-				msmInnerG2JacBatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+				innerMsmG2(&result1, int(c), samplePoints[:], scalars, false)
+				innerMsmG2(&result2, int(c), samplePoints[:], scalars, false)
 				if !result1.Equal(&result2) {
 					return false
 				}
@@ -619,7 +619,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}

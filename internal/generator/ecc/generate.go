@@ -17,6 +17,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "multiexp.go"), Templates: []string{"multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_affine.go"), Templates: []string{"multiexp_affine.go.tmpl"}},
+		{File: filepath.Join(baseDir, "multiexp_jacobian.go"), Templates: []string{"multiexp_jacobian.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_test.go"), Templates: []string{"tests/multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
@@ -26,7 +27,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	funcs["last"] = func(x int, a interface{}) bool {
 		return x == reflect.ValueOf(a).Len()-1
 	}
-	funcs["lastC"] = func(c int) int {
+	lastC := func(c int) int {
 		// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
 		// if c divides fr.Limbs * 64;
 		n := (conf.Fr.NbWords * 64)
@@ -35,6 +36,8 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		return n - (c * (n / c))
 	}
+	funcs["lastC"] = lastC
+
 	funcs["contains"] = func(v int, s []int) bool {
 		for _, sv := range s {
 			if v == sv {
@@ -43,12 +46,17 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		return false
 	}
-	// TODO @gbotrel fix me. need to generate usual C, and missing lastC for bucket size.
-	conf.G1.CRange = make([]int, 23)
-	conf.G2.CRange = make([]int, 23)
 	for i := 0; i < len(conf.G1.CRange); i++ {
-		conf.G1.CRange[i] = i + 1
-		conf.G2.CRange[i] = i + 1
+		lc := lastC(conf.G1.CRange[i])
+		if !contains(conf.G1.CRange, lc) && !contains(conf.G1.LastCRange, lc) {
+			conf.G1.LastCRange = append(conf.G1.LastCRange, lc)
+		}
+	}
+	for i := 0; i < len(conf.G2.CRange); i++ {
+		lc := lastC(conf.G2.CRange[i])
+		if !contains(conf.G2.CRange, lc) && !contains(conf.G2.LastCRange, lc) {
+			conf.G2.LastCRange = append(conf.G2.LastCRange, lc)
+		}
 	}
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...); err != nil {
@@ -104,4 +112,13 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 type pconf struct {
 	config.Curve
 	config.Point
+}
+
+func contains(slice []int, v int) bool {
+	for i := 0; i < len(slice); i++ {
+		if slice[i] == v {
+			return true
+		}
+	}
+	return false
 }

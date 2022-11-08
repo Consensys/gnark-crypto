@@ -91,7 +91,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			msmC{{ $.TAffine }}[bucket{{ $.TJacobianExtended }}C16, bucket{{ $.TJacobianExtended }}C{{lastC 16}}](&r16, 16, samplePoints[:], scalars16, true)
+			innerMsm{{ toUpper $.PointName }}(&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -138,10 +138,10 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			results := make([]{{ $.TJacobian }}, len(cRange) + 1)
 			for i, c := range cRange {
 				scalars, _ :=  partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInner{{ $.TJacobian }}(&results[i], int(c), samplePoints[:], scalars, false)
+				innerMsm{{ toUpper $.PointName }}(&results[i], int(c), samplePoints[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInner{{ $.TJacobian }}(&results[len(results)-1], 16, samplePoints[:], scalars, true)
+					innerMsm{{ toUpper $.PointName }}(&results[len(results)-1], 16, samplePoints[:], scalars, true)
 				}
 			}
 			for i:=1; i < len(results);i++ {
@@ -179,10 +179,10 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			results := make([]{{ $.TJacobian }}, len(cRange)+1)
 			for i, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInner{{ $.TJacobian }}(&results[i], int(c), samplePointsZero[:], scalars, false)
+				innerMsm{{ toUpper $.PointName }}(&results[i], int(c), samplePointsZero[:], scalars, false)
 				if c == 16 {
 					// split the first chunk
-					msmInner{{ $.TJacobian }}(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
+					innerMsm{{ toUpper $.PointName }}(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
 				}
 			}
 			for i := 1; i < len(results); i++ {
@@ -218,8 +218,8 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
             var result1, result2 {{ $.TJacobian }}
 			for _, c := range cRange {
 				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				msmInner{{ $.TJacobian }}(&result1, int(c), samplePoints[:], scalars, false)
-				msmInner{{ $.TJacobian }}BatchAffine(&result2, int(c), samplePoints[:], scalars, false)
+				innerMsm{{ toUpper $.PointName }}(&result1, int(c), samplePoints[:], scalars, false)
+				innerMsm{{ toUpper $.PointName }}(&result2, int(c), samplePoints[:], scalars, false)
                 if !result1.Equal(&result2) {
 					return false
 				}
@@ -300,7 +300,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				testPoint.MultiExpBatchAffine(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
+				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
 			}
 		})
 	}

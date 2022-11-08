@@ -1,0 +1,106 @@
+{{ $G1TAffine := print (toUpper .G1.PointName) "Affine" }}
+{{ $G1TJacobian := print (toUpper .G1.PointName) "Jac" }}
+{{ $G1TJacobianExtended := print (toLower .G1.PointName) "JacExtended" }}
+
+{{ $G2TAffine := print (toUpper .G2.PointName) "Affine" }}
+{{ $G2TJacobian := print (toUpper .G2.PointName) "Jac" }}
+{{ $G2TJacobianExtended := print (toLower .G2.PointName) "JacExtended" }}
+
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+
+{{ template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "LastCRange" .G1.LastCRange}}
+{{ template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "LastCRange" .G2.LastCRange}}
+
+
+
+{{define "multiexp" }}
+
+func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk uint64,
+	chRes chan<- {{ $.TJacobianExtended }},
+	c uint64,
+	points []{{ $.TAffine }},
+	scalars []fr.Element) {
+
+
+   mask  := uint64((1 << c) - 1)	// low c bits are 1
+   msbWindow  := uint64(1 << (c -1))
+
+   var buckets B
+   for i := 0 ; i < len(buckets); i++ {
+	   buckets[i].setInfinity()
+   }
+
+   jc := uint64(chunk * c)
+   s := selector{}
+   s.index = jc / 64
+   s.shift = jc - (s.index * 64)
+   s.mask = mask << s.shift
+   s.multiWordSelect = (64 %c)!=0   && s.shift > (64-c) && s.index < (fr.Limbs - 1 )
+   if s.multiWordSelect {
+	   nbBitsHigh := s.shift - uint64(64-c)
+	   s.maskHigh = (1 << nbBitsHigh) - 1
+	   s.shiftHigh = (c - nbBitsHigh)
+   }
+
+
+   // for each scalars, get the digit corresponding to the chunk we're processing.
+   for i := 0; i < len(scalars); i++ {
+	   bits := (scalars[i][s.index] & s.mask) >> s.shift
+	   if s.multiWordSelect {
+		   bits += (scalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+	   }
+
+	   if bits == 0 {
+		   continue
+	   }
+
+	   // if msbWindow bit is set, we need to substract
+	   if bits & msbWindow == 0 {
+		   // add
+		   buckets[bits-1].addMixed(&points[i])
+	   } else {
+		   // sub
+		   buckets[bits & ^msbWindow].subMixed(&points[i])
+	   }
+   }
+
+
+   // reduce buckets into total
+   // total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
+
+   var runningSum, total {{ $.TJacobianExtended }}
+   runningSum.setInfinity()
+   total.setInfinity()
+   for k := len(buckets) - 1; k >= 0; k-- {
+	   if !buckets[k].ZZ.IsZero() {
+		   runningSum.add(&buckets[k])
+	   }
+	   total.add(&runningSum)
+   }
+
+   chRes <- total
+   {{/* close(chRes) */}}
+}
+
+// we declare the buckets as fixed-size array types
+// this allow us to allocate the buckets on the stack
+{{- range $c :=  $.CRange}}
+type bucket{{ $.TJacobianExtended }}C{{$c}} [1<<({{$c}}-1)]{{ $.TJacobianExtended }}
+{{- end}}
+{{- range $c :=  $.LastCRange}}
+type bucket{{ $.TJacobianExtended }}C{{$c}} [1<<({{$c}}-1)]{{ $.TJacobianExtended }}
+{{- end}}
+
+type ib{{ $.TJacobianExtended }} interface {
+	{{- range $i, $c :=  $.LastCRange}}
+	bucket{{ $.TJacobianExtended }}C{{$c}} |
+	{{- end}}
+	{{- range $i, $c :=  $.CRange}}
+	bucket{{ $.TJacobianExtended }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	{{- end}}
+}
+
+{{end }}
