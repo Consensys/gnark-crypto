@@ -298,6 +298,8 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 
 
 func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, scalars []fr.Element, splitFirstChunk bool)  {
+	{{- /* TODO @gbotrel need to deal with cases where lastC == 1 ; having a whole chunk with 1-bit window makes no sense */}}
+	{{- /* also need to determine until which window size the ext-jacobian version is worth it. */}}
 	switch c {
 	{{range $c :=  $.CRange}}
 	{{- $lc := lastC $c}}
