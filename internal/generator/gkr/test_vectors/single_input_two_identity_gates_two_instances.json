@@ -1,6 +1,6 @@
 {
 	"hash": "resources/hash.json",
-	"circuit": "resources/two_input_single_identity_gate.json",
+	"circuit": "resources/single_input_two_identity_gates.json",
 	"input": [
 		[
 			2,

@@ -16,8 +16,6 @@
 
 package polynomial
 
-// #include <stdlib.h>
-import "C" //a COMMENT has to be places just at the right place for this to work. Excellent language design!
 import (
 	"encoding/json"
 	"fmt"
@@ -76,7 +74,7 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool.pool = sync.Pool{
 			New: func() interface{} {
 				subPool.stats.Allocated++
-				return C.malloc(C.ulong(8 * fr.Bytes * subPool.maxN))
+				return getDataPointer(make([]fr.Element, 0, subPool.maxN))
 			},
 		}
 	}
@@ -204,10 +202,4 @@ func (p *Pool) Clone(slice []fr.Element) []fr.Element {
 	res := p.Make(len(slice))
 	copy(res, slice)
 	return res
-}
-
-func (p *Pool) Free() {
-	for ptr := range p.inUse {
-		C.free(ptr)
-	}
 }

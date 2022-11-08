@@ -1,8 +1,4 @@
 {{ $sham := eq .ElementType "small_rational.SmallRational"}}
-{{- if not $sham}}
-// #include <stdlib.h>
-import "C"	//a COMMENT has to be places just at the right place for this to work. Excellent language design!
-{{- end}}
 import (
 "{{.FieldPackagePath}}"
 {{- if not $sham}}
@@ -30,9 +26,6 @@ func (p *Pool) Make(n int) []{{.ElementType}} {
 }
 
 func (p *Pool) Dump(...[]{{.ElementType}}) {
-}
-
-func (p *Pool) Free() {
 }
 
 func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
@@ -88,7 +81,7 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool.pool = sync.Pool{
 			New: func() interface{} {
 				subPool.stats.Allocated++
-				return C.malloc(C.ulong(8 * fr.Bytes * subPool.maxN))
+				return getDataPointer(make([]{{.ElementType}}, 0, subPool.maxN))
 			},
 		}
 	}
@@ -216,11 +209,5 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 	res := p.Make(len(slice))
 	copy(res, slice)
 	return res
-}
-
-func (p *Pool) Free() {
-	for ptr := range p.inUse {
-		C.free(ptr)
-	}
 }
 {{end}}

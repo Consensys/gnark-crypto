@@ -370,12 +370,6 @@ func (m *claimsManager) deleteClaim(wire *Wire) {
 	delete(m.claimsMap, wire)
 }
 
-func (m *claimsManager) freePool(givenPool *polynomial.Pool) {
-	if givenPool == nil { // if the pool is given from outside, it's the provider's responsibility to free it
-		m.memPool.Free()
-	}
-}
-
 func WithPool(pool *polynomial.Pool) Option {
 	return Option{pool: pool}
 }
@@ -398,7 +392,6 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	o.combine(options)
 
 	claims := newClaimsManager(c, assignment, o.pool)
-	defer claims.freePool(o.pool)
 
 	outLayer := c[0]
 
@@ -444,7 +437,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 	o.combine(options)
 
 	claims := newClaimsManager(c, assignment, o.pool)
-	defer claims.freePool(o.pool)
 
 	outLayer := c[0]
 

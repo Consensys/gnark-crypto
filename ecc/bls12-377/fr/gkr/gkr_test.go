@@ -590,7 +590,7 @@ func proofEquals(expected Proof, seen Proof) error {
 			ySeen := xSeen[j]
 
 			if ySeen.FinalEvalProof == nil {
-				if seenFinalEval := y.FinalEvalProof.([]fr.Element); 0 != len(seenFinalEval) {
+				if seenFinalEval := y.FinalEvalProof.([]fr.Element); len(seenFinalEval) != 0 {
 					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
 				}
 			} else {

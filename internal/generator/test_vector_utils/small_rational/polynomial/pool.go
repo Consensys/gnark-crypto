@@ -35,9 +35,6 @@ func (p *Pool) Make(n int) []small_rational.SmallRational {
 func (p *Pool) Dump(...[]small_rational.SmallRational) {
 }
 
-func (p *Pool) Free() {
-}
-
 func (p *Pool) Clone(slice []small_rational.SmallRational) []small_rational.SmallRational {
 	res := p.Make(len(slice))
 	copy(res, slice)
