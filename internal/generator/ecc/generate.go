@@ -3,6 +3,7 @@ package ecc
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -21,7 +22,36 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
 	}
 	conf.Package = packageName
-	if err := bgen.Generate(conf, packageName, "./ecc/template", entries...); err != nil {
+	funcs := make(template.FuncMap)
+	funcs["last"] = func(x int, a interface{}) bool {
+		return x == reflect.ValueOf(a).Len()-1
+	}
+	funcs["lastC"] = func(c int) int {
+		// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+		// if c divides fr.Limbs * 64;
+		n := (conf.Fr.NbWords * 64)
+		if n%c == 0 {
+			return c
+		}
+		return n - (c * (n / c))
+	}
+	funcs["contains"] = func(v int, s []int) bool {
+		for _, sv := range s {
+			if v == sv {
+				return true
+			}
+		}
+		return false
+	}
+	// TODO @gbotrel fix me. need to generate usual C, and missing lastC for bucket size.
+	conf.G1.CRange = make([]int, 23)
+	conf.G2.CRange = make([]int, 23)
+	for i := 0; i < len(conf.G1.CRange); i++ {
+		conf.G1.CRange[i] = i + 1
+		conf.G2.CRange[i] = i + 1
+	}
+	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
+	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...); err != nil {
 		return err
 	}
 

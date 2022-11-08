@@ -299,7 +299,7 @@ func msmInner{{ $.TJacobian }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffin
 	switch c {
 	{{range $c :=  $.CRange}}
 	case {{$c}}:
-		p.msmC{{$c}}(points, scalars, splitFirstChunk)
+		msmC{{ $.TAffine }}[bucket{{ $.TJacobianExtended }}C{{$c}}, bucket{{ $.TJacobianExtended }}C{{lastC $c}}](p, {{$c}}, points, scalars, splitFirstChunk)
 	{{end}}
 	default:
 		panic("not implemented")
@@ -323,9 +323,8 @@ func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan 
 }
 
 
-func msmProcessChunk{{ $.TAffine }}(chunk uint64,
+func msmProcessChunk{{ $.TAffine }}[B ib{{ $.TJacobianExtended }}](chunk uint64,
 	 chRes chan<- {{ $.TJacobianExtended }},
-	 buckets []{{ $.TJacobianExtended }},
 	 c uint64,
 	 points []{{ $.TAffine }},
 	 scalars []fr.Element) {
@@ -334,6 +333,7 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 	mask  := uint64((1 << c) - 1)	// low c bits are 1
 	msbWindow  := uint64(1 << (c -1))
 
+	var buckets B
 	for i := 0 ; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
@@ -391,44 +391,41 @@ func msmProcessChunk{{ $.TAffine }}(chunk uint64,
 }
 
 
-{{range $c :=  $.CRange}}
 
-{{- $frBits := mul $.FrNbWords 64}}
-{{- $cDividesBits := divides $c $frBits}}
-{{- $nbChunks := div $frBits $c}}
-
-func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.Element, splitFirstChunk bool) *{{ $.TJacobian }} {
-	const (
-		c  = {{$c}} 							// scalars partitioned into c-bit radixes
-		nbChunks = (fr.Limbs * 64 / c) 			// number of c-bit radixes in a scalar
-	)
-
+func msmC{{ $.TAffine }}[B ib{{ $.TJacobianExtended }}, LB ib{{ $.TJacobianExtended }}](p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, scalars []fr.Element, splitFirstChunk bool) *{{ $.TJacobian }} {
+	nbChunks := (fr.Limbs * 64 / c) 			// number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the 
 	// corresponding bit-window
 	// note that buckets is an array allocated on the stack (for most sizes of c) and this is 
 	// critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks{{if not $cDividesBits }} + 1 {{end}} ]chan {{ $.TJacobianExtended }}
+	chChunks := make([]chan {{ $.TJacobianExtended }}, nbChunks)
 	for i:=0; i < len(chChunks);i++ {
 		chChunks[i] = make(chan {{ $.TJacobianExtended }}, 1)
 	}
 
 
-	{{ if not $cDividesBits }}
 
-		// c doesn't divide {{$frBits}}, last window is smaller we can allocate less buckets
-		const lastC = (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+
+	if (fr.Limbs*64)%c != 0 {
+		// TODO @gbotrel not always needed to do ext jac here. 
 		go func(j uint64, points []{{ $.TAffine }}, scalars []fr.Element) {
-			var buckets [1<<(lastC-1)]{{ $.TJacobianExtended }}
-			msmProcessChunk{{ $.TAffine }}(j, chChunks[j], buckets[:], c, points, scalars)
-		}(uint64(nbChunks), points, scalars)
+			// var buckets LB
+			// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+			// buckets := make([]{{ $.TJacobianExtended }}, 1<<(lastC-1))
+			// TODO @gbotrel last C restore.
+			msmProcessChunk{{ $.TAffine }}[LB](j, chChunks[j],  c, points, scalars)
+		}(uint64(nbChunks - 1), points, scalars)
+		nbChunks--
+	}
 
-	{{- end}}
 
 	processChunk := func(j int, points []{{ $.TAffine }}, scalars []fr.Element, chChunk chan {{ $.TJacobianExtended }}) {
-		var buckets [1<<(c-1)]{{ $.TJacobianExtended }}
-		msmProcessChunk{{ $.TAffine }}(uint64(j), chChunk,  buckets[:], c, points, scalars)
+		msmProcessChunk{{ $.TAffine }}[B](uint64(j), chChunk,  c, points, scalars)
 	}
 
 	for j := int(nbChunks - 1); j >0; j-- {
@@ -452,9 +449,7 @@ func (p *{{ $.TJacobian }}) msmC{{$c}}(points []{{ $.TAffine }}, scalars []fr.El
 	}
 
 
-	return msmReduceChunk{{ $.TAffine }}(p, c, chChunks[:])
+	return msmReduceChunk{{ $.TAffine }}(p, int(c), chChunks[:])
 }
-{{end}}
-
 
 {{end }}

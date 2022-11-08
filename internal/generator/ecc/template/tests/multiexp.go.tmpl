@@ -91,7 +91,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			r16.msmC16(samplePoints[:], scalars16, true)
+			msmC{{ $.TAffine }}[bucket{{ $.TJacobianExtended }}C16, bucket{{ $.TJacobianExtended }}C{{lastC 16}}](&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -287,7 +287,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 	var testPoint {{ $.TAffine }}
 
-	for i := 5; i <= pow; i++ {
+	for i := 11; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {

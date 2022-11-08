@@ -92,7 +92,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			r16.msmC16(samplePoints[:], scalars16, true)
+			msmCG1Affine[bucketg1JacExtendedC16, bucketg1JacExtendedC16](&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -102,7 +102,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 8, 16}
+	cRange := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -275,7 +275,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 	var testPoint G1Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 11; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
@@ -425,7 +425,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			r16.msmC16(samplePoints[:], scalars16, true)
+			msmCG2Affine[bucketg2JacExtendedC16, bucketg2JacExtendedC16](&r16, 16, samplePoints[:], scalars16, true)
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -606,7 +606,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 
 	var testPoint G2Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 11; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {

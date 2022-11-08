@@ -93,7 +93,7 @@ func (p *G1Jac) MultiExpBatchAffine(points []G1Affine, scalars []fr.Element, con
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented batchAffineMsmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 16}
+		implementedCs := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -166,69 +166,111 @@ func msmInnerG1JacBatchAffine(p *G1Jac, c int, points []G1Affine, scalars []fr.E
 
 	switch c {
 
+	case 1:
+		msmCG1Affine[bucketg1JacExtendedC1, bucketg1JacExtendedC1](p, 1, points, scalars, splitFirstChunk)
+
+	case 2:
+		msmCG1Affine[bucketg1JacExtendedC2, bucketg1JacExtendedC2](p, 2, points, scalars, splitFirstChunk)
+
+	case 3:
+		msmCG1Affine[bucketg1JacExtendedC3, bucketg1JacExtendedC3](p, 3, points, scalars, splitFirstChunk)
+
 	case 4:
-		p.msmC4(points, scalars, splitFirstChunk)
+		msmCG1Affine[bucketg1JacExtendedC4, bucketg1JacExtendedC4](p, 4, points, scalars, splitFirstChunk)
 
 	case 5:
-		p.msmC5(points, scalars, splitFirstChunk)
+		msmCG1Affine[bucketg1JacExtendedC5, bucketg1JacExtendedC4](p, 5, points, scalars, splitFirstChunk)
+
+	case 6:
+		msmCG1Affine[bucketg1JacExtendedC6, bucketg1JacExtendedC6](p, 6, points, scalars, splitFirstChunk)
+
+	case 7:
+		msmCG1Affine[bucketg1JacExtendedC7, bucketg1JacExtendedC6](p, 7, points, scalars, splitFirstChunk)
 
 	case 8:
-		p.msmC8(points, scalars, splitFirstChunk)
+		msmCG1Affine[bucketg1JacExtendedC8, bucketg1JacExtendedC8](p, 8, points, scalars, splitFirstChunk)
+
+	case 9:
+		msmCG1Affine[bucketg1JacExtendedC9, bucketg1JacExtendedC6](p, 9, points, scalars, splitFirstChunk)
+
+	case 10:
+		batchG1AffineMsm[bucketG1AffineC10, bucketg1JacExtendedC4](p, 10, points, scalars, splitFirstChunk)
+
+	case 11:
+		batchG1AffineMsm[bucketG1AffineC11, bucketg1JacExtendedC10](p, 11, points, scalars, splitFirstChunk)
+
+	case 12:
+		batchG1AffineMsm[bucketG1AffineC12, bucketg1JacExtendedC12](p, 12, points, scalars, splitFirstChunk)
+
+	case 13:
+		batchG1AffineMsm[bucketG1AffineC13, bucketg1JacExtendedC7](p, 13, points, scalars, splitFirstChunk)
+
+	case 14:
+		batchG1AffineMsm[bucketG1AffineC14, bucketg1JacExtendedC6](p, 14, points, scalars, splitFirstChunk)
+
+	case 15:
+		batchG1AffineMsm[bucketG1AffineC15, bucketg1JacExtendedC9](p, 15, points, scalars, splitFirstChunk)
 
 	case 16:
-		p.batchAffineMsmC16(points, scalars, splitFirstChunk)
+		batchG1AffineMsm[bucketG1AffineC16, bucketg1JacExtendedC16](p, 16, points, scalars, splitFirstChunk)
+
+	case 17:
+		batchG1AffineMsm[bucketG1AffineC17, bucketg1JacExtendedC10](p, 17, points, scalars, splitFirstChunk)
+
+	case 18:
+		batchG1AffineMsm[bucketG1AffineC18, bucketg1JacExtendedC6](p, 18, points, scalars, splitFirstChunk)
+
+	case 19:
+		batchG1AffineMsm[bucketG1AffineC19, bucketg1JacExtendedC4](p, 19, points, scalars, splitFirstChunk)
+
+	case 20:
+		batchG1AffineMsm[bucketG1AffineC20, bucketg1JacExtendedC4](p, 20, points, scalars, splitFirstChunk)
+
+	case 21:
+		batchG1AffineMsm[bucketG1AffineC21, bucketg1JacExtendedC6](p, 21, points, scalars, splitFirstChunk)
+
+	case 22:
+		batchG1AffineMsm[bucketG1AffineC22, bucketg1JacExtendedC10](p, 22, points, scalars, splitFirstChunk)
+
+	case 23:
+		batchG1AffineMsm[bucketG1AffineC23, bucketg1JacExtendedC16](p, 23, points, scalars, splitFirstChunk)
 
 	default:
 		panic("not implemented")
 	}
 }
 
-// msmReduceChunkG1AffineBatchAffine reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunkG1AffineBatchAffine(p *G1Jac, c int, chChunks []chan g1JacExtended) *G1Jac {
-	var _p g1JacExtended
-	totalj := <-chChunks[len(chChunks)-1]
-	_p.Set(&totalj)
-	for j := len(chChunks) - 2; j >= 0; j-- {
-		for l := 0; l < c; l++ {
-			_p.double(&_p)
-		}
-		totalj := <-chChunks[j]
-		_p.add(&totalj)
-	}
-
-	return p.unsafeFromJacExtended(&_p)
+type BatchG1Affine[B ibG1Affine] struct {
+	P         [MAX_BATCH_SIZE]G1Affine
+	R         [MAX_BATCH_SIZE]*G1Affine
+	batchSize int
+	cptP      int
+	bucketIds map[uint32]struct{}
+	points    []G1Affine
+	buckets   *B
 }
 
-type BatchG1Affine struct {
-	P               [MAX_BATCH_SIZE]G1Affine
-	R               [MAX_BATCH_SIZE]*G1Affine
-	batchSize       int
-	cptP            int
-	bucketIds       map[uint32]struct{}
-	buckets, points []G1Affine
-}
-
-func newBatchG1Affine(buckets, points []G1Affine) BatchG1Affine {
-	batchSize := len(buckets) / 5
+func newBatchG1Affine[B ibG1Affine](buckets *B, points []G1Affine) BatchG1Affine[B] {
+	batchSize := len(*buckets) / 5
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	return BatchG1Affine{
+	return BatchG1Affine[B]{
 		buckets:   buckets,
 		points:    points,
 		batchSize: batchSize,
-		bucketIds: make(map[uint32]struct{}, len(buckets)/2),
+		bucketIds: make(map[uint32]struct{}, len(*buckets)/2),
 	}
 }
 
-func (b *BatchG1Affine) IsFull() bool {
+func (b *BatchG1Affine[B]) IsFull() bool {
 	return b.cptP == b.batchSize
 }
 
-func (b *BatchG1Affine) ExecuteAndReset() {
+func (b *BatchG1Affine[B]) ExecuteAndReset() {
 	if b.cptP == 0 {
 		return
 	}
@@ -243,45 +285,45 @@ func (b *BatchG1Affine) ExecuteAndReset() {
 	b.cptP = 0
 }
 
-func (b *BatchG1Affine) CanAdd(bID uint32) bool {
+func (b *BatchG1Affine[B]) CanAdd(bID uint32) bool {
 	_, ok := b.bucketIds[bID]
 	return !ok
 }
 
-func (b *BatchG1Affine) Add(op batchOp) {
+func (b *BatchG1Affine[B]) Add(op batchOp) {
 	// CanAdd must be called before --> ensures bucket is not "used" in current batch
 
-	B := &b.buckets[op.bucketID]
+	BK := &(*b.buckets)[op.bucketID]
 	P := &b.points[op.pointID>>1]
 	if P.IsInfinity() {
 		return
 	}
 	// handle special cases with inf or -P / P
-	if B.IsInfinity() {
+	if BK.IsInfinity() {
 		if op.isNeg() {
-			B.Neg(P)
+			BK.Neg(P)
 		} else {
-			B.Set(P)
+			BK.Set(P)
 		}
 		return
 	}
 	if op.isNeg() {
 		// if bucket == P --> -P == 0
-		if B.Equal(P) {
-			B.setInfinity()
+		if BK.Equal(P) {
+			BK.setInfinity()
 			return
 		}
 	} else {
 		// if bucket == -P, B == 0
-		if B.X.Equal(&P.X) && !B.Y.Equal(&P.Y) {
-			B.setInfinity()
+		if BK.X.Equal(&P.X) && !BK.Y.Equal(&P.Y) {
+			BK.setInfinity()
 			return
 		}
 	}
 
 	// b.bucketIds[b.cptP] = op.bucketID
 	b.bucketIds[op.bucketID] = struct{}{}
-	b.R[b.cptP] = B
+	b.R[b.cptP] = BK
 	if op.isNeg() {
 		b.P[b.cptP].Neg(P)
 	} else {
@@ -290,7 +332,7 @@ func (b *BatchG1Affine) Add(op batchOp) {
 	b.cptP++
 }
 
-func processQueueG1Affine(queue []batchOp, batch *BatchG1Affine) []batchOp {
+func processQueueG1Affine[B ibG1Affine](queue []batchOp, batch *BatchG1Affine[B]) []batchOp {
 	for i := len(queue) - 1; i >= 0; i-- {
 		if batch.CanAdd(queue[i].bucketID) {
 			batch.Add(queue[i])
@@ -305,16 +347,15 @@ func processQueueG1Affine(queue []batchOp, batch *BatchG1Affine) []batchOp {
 
 }
 
-func msmProcessChunkG1AffineBatchAffine(chunk uint64,
+func msmProcessChunkG1AffineBatchAffine[B ibG1Affine](chunk uint64,
 	chRes chan<- g1JacExtended,
-	buckets []G1Affine,
 	c uint64,
 	points []G1Affine,
 	scalars []fr.Element) {
 
 	mask := uint64((1 << c) - 1) // low c bits are 1
 	msbWindow := uint64(1 << (c - 1))
-
+	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
@@ -331,7 +372,7 @@ func msmProcessChunkG1AffineBatchAffine(chunk uint64,
 		s.shiftHigh = (c - nbBitsHigh)
 	}
 
-	batch := newBatchG1Affine(buckets, points)
+	batch := newBatchG1Affine(&buckets, points)
 	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
 	nbBatches := 0
 	for i := 0; i < len(scalars); i++ {
@@ -400,11 +441,12 @@ func msmProcessChunkG1AffineBatchAffine(chunk uint64,
 
 }
 
-func (p *G1Jac) batchAffineMsmC16(points []G1Affine, scalars []fr.Element, splitFirstChunk bool) *G1Jac {
-	const (
-		c        = 16                  // scalars partitioned into c-bit radixes
-		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	)
+func batchG1AffineMsm[B ibG1Affine, J ibg1JacExtended](p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, splitFirstChunk bool) *G1Jac {
+
+	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -412,14 +454,25 @@ func (p *G1Jac) batchAffineMsmC16(points []G1Affine, scalars []fr.Element, split
 	// critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks]chan g1JacExtended
+	chChunks := make([]chan g1JacExtended, nbChunks)
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
+	if (fr.Limbs*64)%c != 0 {
+		// TODO @gbotrel not always needed to do ext jac here.
+		go func(j uint64, points []G1Affine, scalars []fr.Element) {
+			// var buckets LB
+			// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+			// buckets := make([]g1JacExtended, 1<<(lastC-1))
+			// TODO @gbotrel lastC restore.
+			msmProcessChunkG1Affine[J](j, chChunks[j], c, points, scalars)
+		}(uint64(nbChunks-1), points, scalars)
+		nbChunks--
+	}
+
 	processChunk := func(j int, points []G1Affine, scalars []fr.Element, chChunk chan g1JacExtended) {
-		var buckets [1 << (c - 1)]G1Affine
-		msmProcessChunkG1AffineBatchAffine(uint64(j), chChunk, buckets[:], c, points, scalars)
+		msmProcessChunkG1AffineBatchAffine[B](uint64(j), chChunk, c, points, scalars)
 	}
 
 	for j := int(nbChunks - 1); j > 0; j-- {
@@ -442,7 +495,106 @@ func (p *G1Jac) batchAffineMsmC16(points []G1Affine, scalars []fr.Element, split
 		}()
 	}
 
-	return msmReduceChunkG1AffineBatchAffine(p, c, chChunks[:])
+	return msmReduceChunkG1Affine(p, int(c), chChunks[:])
+}
+
+type bucketG1AffineC1 [1 << (1 - 1)]G1Affine
+type bucketG1AffineC2 [1 << (2 - 1)]G1Affine
+type bucketG1AffineC3 [1 << (3 - 1)]G1Affine
+type bucketG1AffineC4 [1 << (4 - 1)]G1Affine
+type bucketG1AffineC5 [1 << (5 - 1)]G1Affine
+type bucketG1AffineC6 [1 << (6 - 1)]G1Affine
+type bucketG1AffineC7 [1 << (7 - 1)]G1Affine
+type bucketG1AffineC8 [1 << (8 - 1)]G1Affine
+type bucketG1AffineC9 [1 << (9 - 1)]G1Affine
+type bucketG1AffineC10 [1 << (10 - 1)]G1Affine
+type bucketG1AffineC11 [1 << (11 - 1)]G1Affine
+type bucketG1AffineC12 [1 << (12 - 1)]G1Affine
+type bucketG1AffineC13 [1 << (13 - 1)]G1Affine
+type bucketG1AffineC14 [1 << (14 - 1)]G1Affine
+type bucketG1AffineC15 [1 << (15 - 1)]G1Affine
+type bucketG1AffineC16 [1 << (16 - 1)]G1Affine
+type bucketG1AffineC17 [1 << (17 - 1)]G1Affine
+type bucketG1AffineC18 [1 << (18 - 1)]G1Affine
+type bucketG1AffineC19 [1 << (19 - 1)]G1Affine
+type bucketG1AffineC20 [1 << (20 - 1)]G1Affine
+type bucketG1AffineC21 [1 << (21 - 1)]G1Affine
+type bucketG1AffineC22 [1 << (22 - 1)]G1Affine
+type bucketG1AffineC23 [1 << (23 - 1)]G1Affine
+type bucketg1JacExtendedC1 [1 << (1 - 1)]g1JacExtended
+type bucketg1JacExtendedC2 [1 << (2 - 1)]g1JacExtended
+type bucketg1JacExtendedC3 [1 << (3 - 1)]g1JacExtended
+type bucketg1JacExtendedC4 [1 << (4 - 1)]g1JacExtended
+type bucketg1JacExtendedC5 [1 << (5 - 1)]g1JacExtended
+type bucketg1JacExtendedC6 [1 << (6 - 1)]g1JacExtended
+type bucketg1JacExtendedC7 [1 << (7 - 1)]g1JacExtended
+type bucketg1JacExtendedC8 [1 << (8 - 1)]g1JacExtended
+type bucketg1JacExtendedC9 [1 << (9 - 1)]g1JacExtended
+type bucketg1JacExtendedC10 [1 << (10 - 1)]g1JacExtended
+type bucketg1JacExtendedC11 [1 << (11 - 1)]g1JacExtended
+type bucketg1JacExtendedC12 [1 << (12 - 1)]g1JacExtended
+type bucketg1JacExtendedC13 [1 << (13 - 1)]g1JacExtended
+type bucketg1JacExtendedC14 [1 << (14 - 1)]g1JacExtended
+type bucketg1JacExtendedC15 [1 << (15 - 1)]g1JacExtended
+type bucketg1JacExtendedC16 [1 << (16 - 1)]g1JacExtended
+type bucketg1JacExtendedC17 [1 << (17 - 1)]g1JacExtended
+type bucketg1JacExtendedC18 [1 << (18 - 1)]g1JacExtended
+type bucketg1JacExtendedC19 [1 << (19 - 1)]g1JacExtended
+type bucketg1JacExtendedC20 [1 << (20 - 1)]g1JacExtended
+type bucketg1JacExtendedC21 [1 << (21 - 1)]g1JacExtended
+type bucketg1JacExtendedC22 [1 << (22 - 1)]g1JacExtended
+type bucketg1JacExtendedC23 [1 << (23 - 1)]g1JacExtended
+
+type ibG1Affine interface {
+	bucketG1AffineC1 |
+		bucketG1AffineC2 |
+		bucketG1AffineC3 |
+		bucketG1AffineC4 |
+		bucketG1AffineC5 |
+		bucketG1AffineC6 |
+		bucketG1AffineC7 |
+		bucketG1AffineC8 |
+		bucketG1AffineC9 |
+		bucketG1AffineC10 |
+		bucketG1AffineC11 |
+		bucketG1AffineC12 |
+		bucketG1AffineC13 |
+		bucketG1AffineC14 |
+		bucketG1AffineC15 |
+		bucketG1AffineC16 |
+		bucketG1AffineC17 |
+		bucketG1AffineC18 |
+		bucketG1AffineC19 |
+		bucketG1AffineC20 |
+		bucketG1AffineC21 |
+		bucketG1AffineC22 |
+		bucketG1AffineC23
+}
+
+type ibg1JacExtended interface {
+	bucketg1JacExtendedC1 |
+		bucketg1JacExtendedC2 |
+		bucketg1JacExtendedC3 |
+		bucketg1JacExtendedC4 |
+		bucketg1JacExtendedC5 |
+		bucketg1JacExtendedC6 |
+		bucketg1JacExtendedC7 |
+		bucketg1JacExtendedC8 |
+		bucketg1JacExtendedC9 |
+		bucketg1JacExtendedC10 |
+		bucketg1JacExtendedC11 |
+		bucketg1JacExtendedC12 |
+		bucketg1JacExtendedC13 |
+		bucketg1JacExtendedC14 |
+		bucketg1JacExtendedC15 |
+		bucketg1JacExtendedC16 |
+		bucketg1JacExtendedC17 |
+		bucketg1JacExtendedC18 |
+		bucketg1JacExtendedC19 |
+		bucketg1JacExtendedC20 |
+		bucketg1JacExtendedC21 |
+		bucketg1JacExtendedC22 |
+		bucketg1JacExtendedC23
 }
 
 // MultiExpBatchAffine implements section 4 of https://eprint.iacr.org/2012/549.pdf
@@ -504,7 +656,7 @@ func (p *G2Jac) MultiExpBatchAffine(points []G2Affine, scalars []fr.Element, con
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented batchAffineMsmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 16}
+		implementedCs := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -577,69 +729,111 @@ func msmInnerG2JacBatchAffine(p *G2Jac, c int, points []G2Affine, scalars []fr.E
 
 	switch c {
 
+	case 1:
+		msmCG2Affine[bucketg2JacExtendedC1, bucketg2JacExtendedC1](p, 1, points, scalars, splitFirstChunk)
+
+	case 2:
+		msmCG2Affine[bucketg2JacExtendedC2, bucketg2JacExtendedC2](p, 2, points, scalars, splitFirstChunk)
+
+	case 3:
+		msmCG2Affine[bucketg2JacExtendedC3, bucketg2JacExtendedC3](p, 3, points, scalars, splitFirstChunk)
+
 	case 4:
-		p.msmC4(points, scalars, splitFirstChunk)
+		msmCG2Affine[bucketg2JacExtendedC4, bucketg2JacExtendedC4](p, 4, points, scalars, splitFirstChunk)
 
 	case 5:
-		p.msmC5(points, scalars, splitFirstChunk)
+		msmCG2Affine[bucketg2JacExtendedC5, bucketg2JacExtendedC4](p, 5, points, scalars, splitFirstChunk)
+
+	case 6:
+		msmCG2Affine[bucketg2JacExtendedC6, bucketg2JacExtendedC6](p, 6, points, scalars, splitFirstChunk)
+
+	case 7:
+		msmCG2Affine[bucketg2JacExtendedC7, bucketg2JacExtendedC6](p, 7, points, scalars, splitFirstChunk)
 
 	case 8:
-		p.msmC8(points, scalars, splitFirstChunk)
+		msmCG2Affine[bucketg2JacExtendedC8, bucketg2JacExtendedC8](p, 8, points, scalars, splitFirstChunk)
+
+	case 9:
+		msmCG2Affine[bucketg2JacExtendedC9, bucketg2JacExtendedC6](p, 9, points, scalars, splitFirstChunk)
+
+	case 10:
+		batchG2AffineMsm[bucketG2AffineC10, bucketg2JacExtendedC4](p, 10, points, scalars, splitFirstChunk)
+
+	case 11:
+		batchG2AffineMsm[bucketG2AffineC11, bucketg2JacExtendedC10](p, 11, points, scalars, splitFirstChunk)
+
+	case 12:
+		batchG2AffineMsm[bucketG2AffineC12, bucketg2JacExtendedC12](p, 12, points, scalars, splitFirstChunk)
+
+	case 13:
+		batchG2AffineMsm[bucketG2AffineC13, bucketg2JacExtendedC7](p, 13, points, scalars, splitFirstChunk)
+
+	case 14:
+		batchG2AffineMsm[bucketG2AffineC14, bucketg2JacExtendedC6](p, 14, points, scalars, splitFirstChunk)
+
+	case 15:
+		batchG2AffineMsm[bucketG2AffineC15, bucketg2JacExtendedC9](p, 15, points, scalars, splitFirstChunk)
 
 	case 16:
-		p.batchAffineMsmC16(points, scalars, splitFirstChunk)
+		batchG2AffineMsm[bucketG2AffineC16, bucketg2JacExtendedC16](p, 16, points, scalars, splitFirstChunk)
+
+	case 17:
+		batchG2AffineMsm[bucketG2AffineC17, bucketg2JacExtendedC10](p, 17, points, scalars, splitFirstChunk)
+
+	case 18:
+		batchG2AffineMsm[bucketG2AffineC18, bucketg2JacExtendedC6](p, 18, points, scalars, splitFirstChunk)
+
+	case 19:
+		batchG2AffineMsm[bucketG2AffineC19, bucketg2JacExtendedC4](p, 19, points, scalars, splitFirstChunk)
+
+	case 20:
+		batchG2AffineMsm[bucketG2AffineC20, bucketg2JacExtendedC4](p, 20, points, scalars, splitFirstChunk)
+
+	case 21:
+		batchG2AffineMsm[bucketG2AffineC21, bucketg2JacExtendedC6](p, 21, points, scalars, splitFirstChunk)
+
+	case 22:
+		batchG2AffineMsm[bucketG2AffineC22, bucketg2JacExtendedC10](p, 22, points, scalars, splitFirstChunk)
+
+	case 23:
+		batchG2AffineMsm[bucketG2AffineC23, bucketg2JacExtendedC16](p, 23, points, scalars, splitFirstChunk)
 
 	default:
 		panic("not implemented")
 	}
 }
 
-// msmReduceChunkG2AffineBatchAffine reduces the weighted sum of the buckets into the result of the multiExp
-func msmReduceChunkG2AffineBatchAffine(p *G2Jac, c int, chChunks []chan g2JacExtended) *G2Jac {
-	var _p g2JacExtended
-	totalj := <-chChunks[len(chChunks)-1]
-	_p.Set(&totalj)
-	for j := len(chChunks) - 2; j >= 0; j-- {
-		for l := 0; l < c; l++ {
-			_p.double(&_p)
-		}
-		totalj := <-chChunks[j]
-		_p.add(&totalj)
-	}
-
-	return p.unsafeFromJacExtended(&_p)
+type BatchG2Affine[B ibG2Affine] struct {
+	P         [MAX_BATCH_SIZE]G2Affine
+	R         [MAX_BATCH_SIZE]*G2Affine
+	batchSize int
+	cptP      int
+	bucketIds map[uint32]struct{}
+	points    []G2Affine
+	buckets   *B
 }
 
-type BatchG2Affine struct {
-	P               [MAX_BATCH_SIZE]G2Affine
-	R               [MAX_BATCH_SIZE]*G2Affine
-	batchSize       int
-	cptP            int
-	bucketIds       map[uint32]struct{}
-	buckets, points []G2Affine
-}
-
-func newBatchG2Affine(buckets, points []G2Affine) BatchG2Affine {
-	batchSize := len(buckets) / 5
+func newBatchG2Affine[B ibG2Affine](buckets *B, points []G2Affine) BatchG2Affine[B] {
+	batchSize := len(*buckets) / 5
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	return BatchG2Affine{
+	return BatchG2Affine[B]{
 		buckets:   buckets,
 		points:    points,
 		batchSize: batchSize,
-		bucketIds: make(map[uint32]struct{}, len(buckets)/2),
+		bucketIds: make(map[uint32]struct{}, len(*buckets)/2),
 	}
 }
 
-func (b *BatchG2Affine) IsFull() bool {
+func (b *BatchG2Affine[B]) IsFull() bool {
 	return b.cptP == b.batchSize
 }
 
-func (b *BatchG2Affine) ExecuteAndReset() {
+func (b *BatchG2Affine[B]) ExecuteAndReset() {
 	if b.cptP == 0 {
 		return
 	}
@@ -654,45 +848,45 @@ func (b *BatchG2Affine) ExecuteAndReset() {
 	b.cptP = 0
 }
 
-func (b *BatchG2Affine) CanAdd(bID uint32) bool {
+func (b *BatchG2Affine[B]) CanAdd(bID uint32) bool {
 	_, ok := b.bucketIds[bID]
 	return !ok
 }
 
-func (b *BatchG2Affine) Add(op batchOp) {
+func (b *BatchG2Affine[B]) Add(op batchOp) {
 	// CanAdd must be called before --> ensures bucket is not "used" in current batch
 
-	B := &b.buckets[op.bucketID]
+	BK := &(*b.buckets)[op.bucketID]
 	P := &b.points[op.pointID>>1]
 	if P.IsInfinity() {
 		return
 	}
 	// handle special cases with inf or -P / P
-	if B.IsInfinity() {
+	if BK.IsInfinity() {
 		if op.isNeg() {
-			B.Neg(P)
+			BK.Neg(P)
 		} else {
-			B.Set(P)
+			BK.Set(P)
 		}
 		return
 	}
 	if op.isNeg() {
 		// if bucket == P --> -P == 0
-		if B.Equal(P) {
-			B.setInfinity()
+		if BK.Equal(P) {
+			BK.setInfinity()
 			return
 		}
 	} else {
 		// if bucket == -P, B == 0
-		if B.X.Equal(&P.X) && !B.Y.Equal(&P.Y) {
-			B.setInfinity()
+		if BK.X.Equal(&P.X) && !BK.Y.Equal(&P.Y) {
+			BK.setInfinity()
 			return
 		}
 	}
 
 	// b.bucketIds[b.cptP] = op.bucketID
 	b.bucketIds[op.bucketID] = struct{}{}
-	b.R[b.cptP] = B
+	b.R[b.cptP] = BK
 	if op.isNeg() {
 		b.P[b.cptP].Neg(P)
 	} else {
@@ -701,7 +895,7 @@ func (b *BatchG2Affine) Add(op batchOp) {
 	b.cptP++
 }
 
-func processQueueG2Affine(queue []batchOp, batch *BatchG2Affine) []batchOp {
+func processQueueG2Affine[B ibG2Affine](queue []batchOp, batch *BatchG2Affine[B]) []batchOp {
 	for i := len(queue) - 1; i >= 0; i-- {
 		if batch.CanAdd(queue[i].bucketID) {
 			batch.Add(queue[i])
@@ -716,16 +910,15 @@ func processQueueG2Affine(queue []batchOp, batch *BatchG2Affine) []batchOp {
 
 }
 
-func msmProcessChunkG2AffineBatchAffine(chunk uint64,
+func msmProcessChunkG2AffineBatchAffine[B ibG2Affine](chunk uint64,
 	chRes chan<- g2JacExtended,
-	buckets []G2Affine,
 	c uint64,
 	points []G2Affine,
 	scalars []fr.Element) {
 
 	mask := uint64((1 << c) - 1) // low c bits are 1
 	msbWindow := uint64(1 << (c - 1))
-
+	var buckets B
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 	}
@@ -742,7 +935,7 @@ func msmProcessChunkG2AffineBatchAffine(chunk uint64,
 		s.shiftHigh = (c - nbBitsHigh)
 	}
 
-	batch := newBatchG2Affine(buckets, points)
+	batch := newBatchG2Affine(&buckets, points)
 	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
 	nbBatches := 0
 	for i := 0; i < len(scalars); i++ {
@@ -811,11 +1004,12 @@ func msmProcessChunkG2AffineBatchAffine(chunk uint64,
 
 }
 
-func (p *G2Jac) batchAffineMsmC16(points []G2Affine, scalars []fr.Element, splitFirstChunk bool) *G2Jac {
-	const (
-		c        = 16                  // scalars partitioned into c-bit radixes
-		nbChunks = (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	)
+func batchG2AffineMsm[B ibG2Affine, J ibg2JacExtended](p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, splitFirstChunk bool) *G2Jac {
+
+	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
+	}
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -823,14 +1017,25 @@ func (p *G2Jac) batchAffineMsmC16(points []G2Affine, scalars []fr.Element, split
 	// critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
-	var chChunks [nbChunks]chan g2JacExtended
+	chChunks := make([]chan g2JacExtended, nbChunks)
 	for i := 0; i < len(chChunks); i++ {
 		chChunks[i] = make(chan g2JacExtended, 1)
 	}
 
+	if (fr.Limbs*64)%c != 0 {
+		// TODO @gbotrel not always needed to do ext jac here.
+		go func(j uint64, points []G2Affine, scalars []fr.Element) {
+			// var buckets LB
+			// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
+			// buckets := make([]g2JacExtended, 1<<(lastC-1))
+			// TODO @gbotrel lastC restore.
+			msmProcessChunkG2Affine[J](j, chChunks[j], c, points, scalars)
+		}(uint64(nbChunks-1), points, scalars)
+		nbChunks--
+	}
+
 	processChunk := func(j int, points []G2Affine, scalars []fr.Element, chChunk chan g2JacExtended) {
-		var buckets [1 << (c - 1)]G2Affine
-		msmProcessChunkG2AffineBatchAffine(uint64(j), chChunk, buckets[:], c, points, scalars)
+		msmProcessChunkG2AffineBatchAffine[B](uint64(j), chChunk, c, points, scalars)
 	}
 
 	for j := int(nbChunks - 1); j > 0; j-- {
@@ -853,5 +1058,104 @@ func (p *G2Jac) batchAffineMsmC16(points []G2Affine, scalars []fr.Element, split
 		}()
 	}
 
-	return msmReduceChunkG2AffineBatchAffine(p, c, chChunks[:])
+	return msmReduceChunkG2Affine(p, int(c), chChunks[:])
+}
+
+type bucketG2AffineC1 [1 << (1 - 1)]G2Affine
+type bucketG2AffineC2 [1 << (2 - 1)]G2Affine
+type bucketG2AffineC3 [1 << (3 - 1)]G2Affine
+type bucketG2AffineC4 [1 << (4 - 1)]G2Affine
+type bucketG2AffineC5 [1 << (5 - 1)]G2Affine
+type bucketG2AffineC6 [1 << (6 - 1)]G2Affine
+type bucketG2AffineC7 [1 << (7 - 1)]G2Affine
+type bucketG2AffineC8 [1 << (8 - 1)]G2Affine
+type bucketG2AffineC9 [1 << (9 - 1)]G2Affine
+type bucketG2AffineC10 [1 << (10 - 1)]G2Affine
+type bucketG2AffineC11 [1 << (11 - 1)]G2Affine
+type bucketG2AffineC12 [1 << (12 - 1)]G2Affine
+type bucketG2AffineC13 [1 << (13 - 1)]G2Affine
+type bucketG2AffineC14 [1 << (14 - 1)]G2Affine
+type bucketG2AffineC15 [1 << (15 - 1)]G2Affine
+type bucketG2AffineC16 [1 << (16 - 1)]G2Affine
+type bucketG2AffineC17 [1 << (17 - 1)]G2Affine
+type bucketG2AffineC18 [1 << (18 - 1)]G2Affine
+type bucketG2AffineC19 [1 << (19 - 1)]G2Affine
+type bucketG2AffineC20 [1 << (20 - 1)]G2Affine
+type bucketG2AffineC21 [1 << (21 - 1)]G2Affine
+type bucketG2AffineC22 [1 << (22 - 1)]G2Affine
+type bucketG2AffineC23 [1 << (23 - 1)]G2Affine
+type bucketg2JacExtendedC1 [1 << (1 - 1)]g2JacExtended
+type bucketg2JacExtendedC2 [1 << (2 - 1)]g2JacExtended
+type bucketg2JacExtendedC3 [1 << (3 - 1)]g2JacExtended
+type bucketg2JacExtendedC4 [1 << (4 - 1)]g2JacExtended
+type bucketg2JacExtendedC5 [1 << (5 - 1)]g2JacExtended
+type bucketg2JacExtendedC6 [1 << (6 - 1)]g2JacExtended
+type bucketg2JacExtendedC7 [1 << (7 - 1)]g2JacExtended
+type bucketg2JacExtendedC8 [1 << (8 - 1)]g2JacExtended
+type bucketg2JacExtendedC9 [1 << (9 - 1)]g2JacExtended
+type bucketg2JacExtendedC10 [1 << (10 - 1)]g2JacExtended
+type bucketg2JacExtendedC11 [1 << (11 - 1)]g2JacExtended
+type bucketg2JacExtendedC12 [1 << (12 - 1)]g2JacExtended
+type bucketg2JacExtendedC13 [1 << (13 - 1)]g2JacExtended
+type bucketg2JacExtendedC14 [1 << (14 - 1)]g2JacExtended
+type bucketg2JacExtendedC15 [1 << (15 - 1)]g2JacExtended
+type bucketg2JacExtendedC16 [1 << (16 - 1)]g2JacExtended
+type bucketg2JacExtendedC17 [1 << (17 - 1)]g2JacExtended
+type bucketg2JacExtendedC18 [1 << (18 - 1)]g2JacExtended
+type bucketg2JacExtendedC19 [1 << (19 - 1)]g2JacExtended
+type bucketg2JacExtendedC20 [1 << (20 - 1)]g2JacExtended
+type bucketg2JacExtendedC21 [1 << (21 - 1)]g2JacExtended
+type bucketg2JacExtendedC22 [1 << (22 - 1)]g2JacExtended
+type bucketg2JacExtendedC23 [1 << (23 - 1)]g2JacExtended
+
+type ibG2Affine interface {
+	bucketG2AffineC1 |
+		bucketG2AffineC2 |
+		bucketG2AffineC3 |
+		bucketG2AffineC4 |
+		bucketG2AffineC5 |
+		bucketG2AffineC6 |
+		bucketG2AffineC7 |
+		bucketG2AffineC8 |
+		bucketG2AffineC9 |
+		bucketG2AffineC10 |
+		bucketG2AffineC11 |
+		bucketG2AffineC12 |
+		bucketG2AffineC13 |
+		bucketG2AffineC14 |
+		bucketG2AffineC15 |
+		bucketG2AffineC16 |
+		bucketG2AffineC17 |
+		bucketG2AffineC18 |
+		bucketG2AffineC19 |
+		bucketG2AffineC20 |
+		bucketG2AffineC21 |
+		bucketG2AffineC22 |
+		bucketG2AffineC23
+}
+
+type ibg2JacExtended interface {
+	bucketg2JacExtendedC1 |
+		bucketg2JacExtendedC2 |
+		bucketg2JacExtendedC3 |
+		bucketg2JacExtendedC4 |
+		bucketg2JacExtendedC5 |
+		bucketg2JacExtendedC6 |
+		bucketg2JacExtendedC7 |
+		bucketg2JacExtendedC8 |
+		bucketg2JacExtendedC9 |
+		bucketg2JacExtendedC10 |
+		bucketg2JacExtendedC11 |
+		bucketg2JacExtendedC12 |
+		bucketg2JacExtendedC13 |
+		bucketg2JacExtendedC14 |
+		bucketg2JacExtendedC15 |
+		bucketg2JacExtendedC16 |
+		bucketg2JacExtendedC17 |
+		bucketg2JacExtendedC18 |
+		bucketg2JacExtendedC19 |
+		bucketg2JacExtendedC20 |
+		bucketg2JacExtendedC21 |
+		bucketg2JacExtendedC22 |
+		bucketg2JacExtendedC23
 }
