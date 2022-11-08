@@ -85,9 +85,6 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
 	inputEvaluations := proof.([]fr.Element)
 
-	// defer verification, store the new claims
-	e.manager.addForInput(e.wire, r, inputEvaluations)
-
 	numClaims := len(e.evaluationPoints)
 
 	evaluation := polynomial.EvalEq(e.evaluationPoints[numClaims-1], r)
@@ -97,7 +94,15 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 		evaluation.Add(&evaluation, &eq)
 	}
 
-	gateEvaluation := e.wire.Gate.Evaluate(inputEvaluations...)
+	var gateEvaluation fr.Element
+	if manager := e.manager; e.wire.IsInput() {
+		gateEvaluation = manager.assignment[e.wire].Evaluate(r, manager.memPool)
+	} else {
+		gateEvaluation = e.wire.Gate.Evaluate(inputEvaluations...)
+		// defer verification, store the new claims
+		e.manager.addForInput(e.wire, r, inputEvaluations)
+	}
+
 	evaluation.Mul(&evaluation, &gateEvaluation)
 
 	return evaluation.Equal(&purportedValue)
@@ -319,9 +324,6 @@ func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Poo
 }
 
 func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation fr.Element) {
-	if wire.IsInput() {
-		wire.Gate = IdentityGate{}
-	}
 	claim := m.claimsMap[wire]
 	i := len(claim.evaluationPoints)
 	claim.claimedEvaluations[i] = evaluation

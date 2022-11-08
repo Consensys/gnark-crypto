@@ -324,9 +324,6 @@ func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Poo
 }
 
 func (m *claimsManager) add(wire *Wire, evaluationPoint []small_rational.SmallRational, evaluation small_rational.SmallRational) {
-	if wire.IsInput() {
-		wire.Gate = IdentityGate{}
-	}
 	claim := m.claimsMap[wire]
 	i := len(claim.evaluationPoints)
 	claim.claimedEvaluations[i] = evaluation
