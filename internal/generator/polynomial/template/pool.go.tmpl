@@ -38,8 +38,6 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 // WARNING: This is not thread safe TODO: Make sure that is not a problem
 // TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
 
-type enormousArray = [1 << 32]{{.ElementType}}	// semantic necessity
-
 type sizedPool struct {
 	maxN  int
 	pool  sync.Pool
@@ -53,16 +51,16 @@ type inUseData struct {
 
 type Pool struct {
 	//lock     sync.Mutex
-	inUse    map[unsafe.Pointer]inUseData
+	inUse    map[*{{.ElementType}}]inUseData
 	subPools []sizedPool
 }
 
-func (p *sizedPool) get(n int) unsafe.Pointer {
+func (p *sizedPool) get(n int) *{{.ElementType}} {
 	p.stats.maake(n)
-	return p.pool.Get().(unsafe.Pointer)
+	return p.pool.Get().(*{{.ElementType}})
 }
 
-func (p *sizedPool) put(ptr unsafe.Pointer) {
+func (p *sizedPool) put(ptr *{{.ElementType}}) {
 	p.stats.dump()
 	p.pool.Put(ptr)
 }
@@ -71,7 +69,7 @@ func NewPool(maxN ...int) (pool Pool) {
 
 	sort.Ints(maxN)
 	pool = Pool{
-		inUse:    make(map[unsafe.Pointer]inUseData),
+		inUse:    make(map[*{{.ElementType}}]inUseData),
 		subPools: make([]sizedPool, len(maxN)),
 	}
 
@@ -100,7 +98,7 @@ func (p *Pool) Make(n int) []{{.ElementType}} {
 	pool := p.findCorrespondingPool(n)
 	ptr := pool.get(n)
 	p.addInUse(ptr, pool)
-	return (*enormousArray)(ptr)[:n]
+	return unsafe.Slice(ptr,n)
 }
 
 // Dump dumps a set of polynomials into the pool
@@ -116,7 +114,7 @@ func (p *Pool) Dump(slices ...[]{{.ElementType}}) {
 	}
 }
 
-func (p *Pool) addInUse(ptr unsafe.Pointer, pool *sizedPool) {
+func (p *Pool) addInUse(ptr *{{.ElementType}}, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
@@ -181,9 +179,9 @@ func (s *poolStats) finalize() {
 	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
 }
 
-func getDataPointer(slice []{{.ElementType}}) unsafe.Pointer {
+func getDataPointer(slice []{{.ElementType}}) *{{.ElementType}} {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
-	return unsafe.Pointer(header.Data)
+	return (*{{.ElementType}})(unsafe.Pointer(header.Data))
 }
 
 func (p *Pool) PrintPoolStats() {

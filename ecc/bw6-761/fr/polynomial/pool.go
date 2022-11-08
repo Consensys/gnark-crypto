@@ -31,8 +31,6 @@ import (
 // WARNING: This is not thread safe TODO: Make sure that is not a problem
 // TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
 
-type enormousArray = [1 << 32]fr.Element // semantic necessity
-
 type sizedPool struct {
 	maxN  int
 	pool  sync.Pool
@@ -46,16 +44,16 @@ type inUseData struct {
 
 type Pool struct {
 	//lock     sync.Mutex
-	inUse    map[unsafe.Pointer]inUseData
+	inUse    map[*fr.Element]inUseData
 	subPools []sizedPool
 }
 
-func (p *sizedPool) get(n int) unsafe.Pointer {
+func (p *sizedPool) get(n int) *fr.Element {
 	p.stats.maake(n)
-	return p.pool.Get().(unsafe.Pointer)
+	return p.pool.Get().(*fr.Element)
 }
 
-func (p *sizedPool) put(ptr unsafe.Pointer) {
+func (p *sizedPool) put(ptr *fr.Element) {
 	p.stats.dump()
 	p.pool.Put(ptr)
 }
@@ -64,7 +62,7 @@ func NewPool(maxN ...int) (pool Pool) {
 
 	sort.Ints(maxN)
 	pool = Pool{
-		inUse:    make(map[unsafe.Pointer]inUseData),
+		inUse:    make(map[*fr.Element]inUseData),
 		subPools: make([]sizedPool, len(maxN)),
 	}
 
@@ -93,7 +91,7 @@ func (p *Pool) Make(n int) []fr.Element {
 	pool := p.findCorrespondingPool(n)
 	ptr := pool.get(n)
 	p.addInUse(ptr, pool)
-	return (*enormousArray)(ptr)[:n]
+	return unsafe.Slice(ptr, n)
 }
 
 // Dump dumps a set of polynomials into the pool
@@ -109,7 +107,7 @@ func (p *Pool) Dump(slices ...[]fr.Element) {
 	}
 }
 
-func (p *Pool) addInUse(ptr unsafe.Pointer, pool *sizedPool) {
+func (p *Pool) addInUse(ptr *fr.Element, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
@@ -174,9 +172,9 @@ func (s *poolStats) finalize() {
 	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
 }
 
-func getDataPointer(slice []fr.Element) unsafe.Pointer {
+func getDataPointer(slice []fr.Element) *fr.Element {
 	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
-	return unsafe.Pointer(header.Data)
+	return (*fr.Element)(unsafe.Pointer(header.Data))
 }
 
 func (p *Pool) PrintPoolStats() {
