@@ -1,8 +1,11 @@
 {{ $sham := eq .ElementType "small_rational.SmallRational"}}
+{{- if not $sham}}
+// #include <stdlib.h>
+import "C"	//a COMMENT has to be places just at the right place for this to work. Excellent language design!
+{{- end}}
 import (
 "{{.FieldPackagePath}}"
 {{- if not $sham}}
-	"C"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -26,15 +29,15 @@ func (p *Pool) Make(n int) []{{.ElementType}} {
 	return make([]{{.ElementType}}, n)
 }
 
-// Dump dumps a set of polynomials into the pool
 func (p *Pool) Dump(...[]{{.ElementType}}) {
+}
+
+func (p *Pool) Free() {
 }
 
 func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 	res := p.Make(len(slice))
-	for i, v := range slice {
-		res[i] = v
-	}
+	copy(res, slice)
 	return res
 }
 {{ else}}
@@ -213,5 +216,11 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 	res := p.Make(len(slice))
 	copy(res, slice)
 	return res
+}
+
+func (p *Pool) Free() {
+	for ptr := range p.inUse {
+		C.free(ptr)
+	}
 }
 {{end}}

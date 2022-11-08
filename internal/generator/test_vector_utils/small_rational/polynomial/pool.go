@@ -32,14 +32,14 @@ func (p *Pool) Make(n int) []small_rational.SmallRational {
 	return make([]small_rational.SmallRational, n)
 }
 
-// Dump dumps a set of polynomials into the pool
 func (p *Pool) Dump(...[]small_rational.SmallRational) {
+}
+
+func (p *Pool) Free() {
 }
 
 func (p *Pool) Clone(slice []small_rational.SmallRational) []small_rational.SmallRational {
 	res := p.Make(len(slice))
-	for i, v := range slice {
-		res[i] = v
-	}
+	copy(res, slice)
 	return res
 }
