@@ -20,7 +20,7 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	pscalars []uint32) {
+	digits []uint32) {
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
@@ -28,20 +28,18 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	}
 
 	// for each scalars, get the digit corresponding to the chunk we're processing.
-	for i := 0; i < len(pscalars); i++ {
-		bits := pscalars[i]
-
-		if bits == 0 {
+	for i, digit := range digits {
+		if digit == 0 {
 			continue
 		}
 
 		// if msbWindow bit is set, we need to substract
-		if bits&1 == 0 {
+		if digit&1 == 0 {
 			// add
-			buckets[(bits>>1)-1].addMixed(&points[i])
+			buckets[(digit>>1)-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[(bits >> 1)].subMixed(&points[i])
+			buckets[(digit >> 1)].subMixed(&points[i])
 		}
 	}
 
@@ -79,7 +77,7 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
 	points []G2Affine,
-	pscalars []uint32) {
+	digits []uint32) {
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
@@ -87,20 +85,18 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 	}
 
 	// for each scalars, get the digit corresponding to the chunk we're processing.
-	for i := 0; i < len(pscalars); i++ {
-		bits := pscalars[i]
-
-		if bits == 0 {
+	for i, digit := range digits {
+		if digit == 0 {
 			continue
 		}
 
 		// if msbWindow bit is set, we need to substract
-		if bits&1 == 0 {
+		if digit&1 == 0 {
 			// add
-			buckets[(bits>>1)-1].addMixed(&points[i])
+			buckets[(digit>>1)-1].addMixed(&points[i])
 		} else {
 			// sub
-			buckets[(bits >> 1)].subMixed(&points[i])
+			buckets[(digit >> 1)].subMixed(&points[i])
 		}
 	}
 

@@ -118,12 +118,12 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int
-	pscalars, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsmG1(p, int(C), points, pscalars, splitFirstChunk)
+	innerMsmG1(p, int(C), points, digits, splitFirstChunk)
 	// we have nbSplits intermediate results that we must sum together.
 
 	// _p := make([]G1Jac, nbSplits - 1)
@@ -146,73 +146,73 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	return p, nil
 }
 
-func innerMsmG1(p *G1Jac, c int, points []G1Affine, pscalars []uint32, splitFirstChunk bool) {
+func innerMsmG1(p *G1Jac, c int, points []G1Affine, digits []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 4, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 4, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 5:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC5]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC1]
-		_innerMsmG1(p, 5, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 5, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 6:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC6]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 6, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 6, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 7:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC7]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 7, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 7, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 8:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC8]
-		_innerMsmG1(p, 8, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 9:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC9]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 9, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 9, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 10:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC10]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC6]
-		_innerMsmG1(p, 10, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 10, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 11:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC11]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC3]
-		_innerMsmG1(p, 11, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 11, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 12:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC12]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 12, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 12, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 13:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC13]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC9]
-		_innerMsmG1(p, 13, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 13, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 14:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC14]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 14, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC15]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC1]
-		_innerMsmG1(p, 15, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC16]
-		_innerMsmG1(p, 16, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 20:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC20]
 		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC16]
-		_innerMsmG1(p, 20, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 20, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 21:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC21]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 21, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG1(p, 21, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}
 }
 
-func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, pscalars []uint32, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, pscalars []uint32)) *G1Jac {
+func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint32, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint32)) *G1Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -232,10 +232,10 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, pscalars []uint32, split
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, pscalars[int(nbChunks-1)*n:])
+	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, digits[int(nbChunks-1)*n:])
 
 	for j := int(nbChunks - 2); j > 0; j-- {
-		go processChunk(uint64(j), chChunks[j], c, points, pscalars[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
 	}
 
 	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
@@ -243,12 +243,12 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, pscalars []uint32, split
 	// in the ~same amount of time
 	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
 		if !splitFirstChunk {
-			go processChunk(0, chChunks[0], c, points, pscalars[:n])
+			go processChunk(0, chChunks[0], c, points, digits[:n])
 		} else {
 			chSplit := make(chan g1JacExtended, 2)
 			split := n / 2
-			go processChunk(0, chSplit, c, points[:split], pscalars[:split])
-			go processChunk(0, chSplit, c, points[split:], pscalars[split:n])
+			go processChunk(0, chSplit, c, points[:split], digits[:split])
+			go processChunk(0, chSplit, c, points[split:], digits[split:n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit
@@ -372,12 +372,12 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int
-	pscalars, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsmG2(p, int(C), points, pscalars, splitFirstChunk)
+	innerMsmG2(p, int(C), points, digits, splitFirstChunk)
 	// we have nbSplits intermediate results that we must sum together.
 
 	// _p := make([]G2Jac, nbSplits - 1)
@@ -400,73 +400,73 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	return p, nil
 }
 
-func innerMsmG2(p *G2Jac, c int, points []G2Affine, pscalars []uint32, splitFirstChunk bool) {
+func innerMsmG2(p *G2Jac, c int, points []G2Affine, digits []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 4, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 4, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 5:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC5]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC1]
-		_innerMsmG2(p, 5, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 5, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 6:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC6]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 6, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 6, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 7:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC7]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 7, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 7, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 8:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC8]
-		_innerMsmG2(p, 8, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 9:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC9]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 9, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 9, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 10:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC10]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC6]
-		_innerMsmG2(p, 10, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 10, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 11:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC11]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC3]
-		_innerMsmG2(p, 11, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 11, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 12:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC12]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 12, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 12, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 13:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC13]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC9]
-		_innerMsmG2(p, 13, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 13, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 14:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC14]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 14, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC15]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC1]
-		_innerMsmG2(p, 15, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC16]
-		_innerMsmG2(p, 16, points, pscalars, splitFirstChunk, processChunk, processChunk)
+		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 20:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC20]
 		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC16]
-		_innerMsmG2(p, 20, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 20, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 21:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC21]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 21, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+		_innerMsmG2(p, 21, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}
 }
 
-func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, pscalars []uint32, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, pscalars []uint32)) *G2Jac {
+func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint32, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint32)) *G2Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -486,10 +486,10 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, pscalars []uint32, split
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, pscalars[int(nbChunks-1)*n:])
+	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, digits[int(nbChunks-1)*n:])
 
 	for j := int(nbChunks - 2); j > 0; j-- {
-		go processChunk(uint64(j), chChunks[j], c, points, pscalars[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
 	}
 
 	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
@@ -497,12 +497,12 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, pscalars []uint32, split
 	// in the ~same amount of time
 	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
 		if !splitFirstChunk {
-			go processChunk(0, chChunks[0], c, points, pscalars[:n])
+			go processChunk(0, chChunks[0], c, points, digits[:n])
 		} else {
 			chSplit := make(chan g2JacExtended, 2)
 			split := n / 2
-			go processChunk(0, chSplit, c, points[:split], pscalars[:split])
-			go processChunk(0, chSplit, c, points[split:], pscalars[split:n])
+			go processChunk(0, chSplit, c, points[:split], digits[:split])
+			go processChunk(0, chSplit, c, points[split:], digits[split:n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit

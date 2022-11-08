@@ -387,12 +387,12 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int 
-	pscalars, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsm{{ $.UPointName }}(p, int(C), points, pscalars, splitFirstChunk)
+	innerMsm{{ $.UPointName }}(p, int(C), points, digits, splitFirstChunk)
 	// we have nbSplits intermediate results that we must sum together.
 	
 
@@ -417,7 +417,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 }
 
 
-func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, pscalars []uint32, splitFirstChunk bool)  {
+func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, digits []uint32, splitFirstChunk bool)  {
 	{{- /* TODO @gbotrel need to deal with cases where lastC == 1 ; having a whole chunk with 1-bit window makes no sense */}}
 	{{- /* also need to determine until which window size the ext-jacobian version is worth it. */}}
 	switch c {
@@ -430,14 +430,14 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 			processChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{$c}}]
 		{{- end}}
 		{{- if eq $c $lc}}
-			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, pscalars, splitFirstChunk, processChunk, processChunk)
+			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, digits, splitFirstChunk, processChunk, processChunk)
 		{{- else}}
 			{{- if le $lc 9}}
 				processLastChunk := processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{lastC $c}}]
 			{{- else}}
 				processLastChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{lastC $c}}]
 			{{- end}}
-			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, pscalars, splitFirstChunk, processChunk, processLastChunk)
+			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, digits, splitFirstChunk, processChunk, processLastChunk)
 		{{- end}}
 	{{- end}}
 	default:
@@ -445,8 +445,8 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 	}
 }
 
-func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, pscalars []uint32, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, pscalars []uint32)) *{{ $.TJacobian }} {
+func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, digits []uint32, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, digits []uint32)) *{{ $.TJacobian }} {
 	
 	nbChunks := (fr.Limbs * 64 / c) 			// number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -466,10 +466,10 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, pscalars[int(nbChunks-1)*n:])
+	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, digits[int(nbChunks-1)*n:])
 
 	for j := int(nbChunks - 2); j >0; j-- {
-		go processChunk(uint64(j), chChunks[j], c, points, pscalars[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
 	}
 
 	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
@@ -477,12 +477,12 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 	// in the ~same amount of time
 	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
 		if !splitFirstChunk {
-			go processChunk(0,chChunks[0], c, points, pscalars[:n])
+			go processChunk(0,chChunks[0], c, points, digits[:n])
 		} else {
 			chSplit := make(chan {{ $.TJacobianExtended }}, 2)
 			split := n / 2
-			go processChunk(0,chSplit, c, points[:split], pscalars[:split])
-			go processChunk(0,chSplit, c, points[split:], pscalars[split:n])
+			go processChunk(0,chSplit, c, points[:split], digits[:split])
+			go processChunk(0,chSplit, c, points[split:], digits[split:n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit

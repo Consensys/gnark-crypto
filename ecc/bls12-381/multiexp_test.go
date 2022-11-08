@@ -275,7 +275,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 	var testPoint G1Affine
 
-	for i := 11; i <= pow; i++ {
+	for i := 14; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
@@ -606,7 +606,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 
 	var testPoint G2Affine
 
-	for i := 11; i <= pow; i++ {
+	for i := 14; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
