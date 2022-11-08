@@ -95,8 +95,8 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.S
 	}
 
 	var gateEvaluation small_rational.SmallRational
-	if manager := e.manager; e.wire.IsInput() {
-		gateEvaluation = manager.assignment[e.wire].Evaluate(r, manager.memPool)
+	if e.wire.IsInput() {
+		gateEvaluation = e.manager.assignment[e.wire].Evaluate(r, e.manager.memPool)
 	} else {
 		gateEvaluation = e.wire.Gate.Evaluate(inputEvaluations...)
 		// defer verification, store the new claims
