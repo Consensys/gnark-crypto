@@ -607,7 +607,7 @@ func proofEquals(expected Proof, seen Proof) error {
 			ySeen := xSeen[j]
 
 			if ySeen.FinalEvalProof == nil {
-				if seenFinalEval := y.FinalEvalProof.([]small_rational.SmallRational); 0 != len(seenFinalEval) {
+				if seenFinalEval := y.FinalEvalProof.([]small_rational.SmallRational); len(seenFinalEval) != 0 {
 					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
 				}
 			} else {

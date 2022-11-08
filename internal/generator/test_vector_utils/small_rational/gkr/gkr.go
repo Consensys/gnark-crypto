@@ -85,9 +85,6 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.SmallRational, combinationCoeff small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) bool {
 	inputEvaluations := proof.([]small_rational.SmallRational)
 
-	// defer verification, store the new claims
-	e.manager.addForInput(e.wire, r, inputEvaluations)
-
 	numClaims := len(e.evaluationPoints)
 
 	evaluation := polynomial.EvalEq(e.evaluationPoints[numClaims-1], r)
@@ -97,7 +94,15 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.S
 		evaluation.Add(&evaluation, &eq)
 	}
 
-	gateEvaluation := e.wire.Gate.Evaluate(inputEvaluations...)
+	var gateEvaluation small_rational.SmallRational
+	if manager := e.manager; e.wire.IsInput() {
+		gateEvaluation = manager.assignment[e.wire].Evaluate(r, manager.memPool)
+	} else {
+		gateEvaluation = e.wire.Gate.Evaluate(inputEvaluations...)
+		// defer verification, store the new claims
+		e.manager.addForInput(e.wire, r, inputEvaluations)
+	}
+
 	evaluation.Mul(&evaluation, &gateEvaluation)
 
 	return evaluation.Equal(&purportedValue)
