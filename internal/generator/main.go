@@ -116,8 +116,6 @@ func main() {
 
 	}
 
-	wg.Wait()
-
 	for _, conf := range config.TwistedEdwardsCurves {
 		wg.Add(1)
 
@@ -139,18 +137,30 @@ func main() {
 		defer wg.Done()
 		assertNoError(test_vector_utils.GenerateRationals(bgen))
 	}()
-
 	wg.Wait()
 
-	// generate test cases for gkr
-	cmd := exec.Command("go", "run", "./gkr/test_vectors")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
+	wg.Add(2)
+	go func() {
+		// generate test vectors for sumcheck
+		cmd := exec.Command("go", "run", "./sumcheck/test_vectors")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		assertNoError(cmd.Run())
+		wg.Done()
+	}()
+
+	go func() {
+		// generate test vectors for gkr
+		cmd := exec.Command("go", "run", "./gkr/test_vectors")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		assertNoError(cmd.Run())
+		wg.Done()
+	}()
 
 	// format the whole directory
 
-	cmd = exec.Command("gofmt", "-s", "-w", baseDir)
+	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
@@ -165,6 +175,7 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())*/
+	wg.Wait()
 }
 
 func assertNoError(err error) {

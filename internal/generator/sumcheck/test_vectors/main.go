@@ -67,7 +67,7 @@ func main() {
 
 	var filename string
 	var err error
-	if filename, err = filepath.Abs("internal/generator/sumcheck/test_vectors/vectors.json"); err != nil {
+	if filename, err = filepath.Abs("sumcheck/test_vectors/vectors.json"); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
@@ -174,7 +174,7 @@ type singleMultilinLazyClaim struct {
 }
 
 func (c singleMultilinLazyClaim) VerifyFinalEval(r []small_rational.SmallRational, _ small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) bool {
-	val := c.g.Evaluate(r)
+	val := c.g.Evaluate(r, nil)
 	return val.Equal(&purportedValue)
 }
 

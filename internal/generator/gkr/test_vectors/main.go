@@ -368,17 +368,12 @@ func newTestCase(path string) (*TestCase, error) {
 				}
 			}
 
-			if expected, seen := len(circuit[0]), len(info.Output); expected != seen {
-				return nil, fmt.Errorf("output layer length %d must match that of input vector %d", expected, seen)
-			}
+			info.Output = make([][]interface{}, len(circuit[0]))
+
 			for j := range circuit[0] {
 				wire := &circuit[0][j]
-				if inOutAssignment[wire], err = test_vector_utils.SliceToElementSlice(info.Output[j]); err != nil {
-					return nil, err
-				}
-				if err = test_vector_utils.SliceEquals(inOutAssignment[wire], fullAssignment[wire]); err != nil {
-					return nil, err
-				}
+				inOutAssignment[wire] = fullAssignment[wire]
+				info.Output[j] = test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[wire])
 			}
 
 			parsedCase = &ParsedTestCase{
