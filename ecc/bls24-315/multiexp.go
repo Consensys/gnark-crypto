@@ -172,31 +172,31 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, digits []uint32, splitFirstC
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
 		_innerMsmG1(p, 9, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 10:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC10]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC10, bitSetC10]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC6]
 		_innerMsmG1(p, 10, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 11:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC11]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC11, bitSetC11]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC3]
 		_innerMsmG1(p, 11, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 12:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC12]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC12, bitSetC12]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
 		_innerMsmG1(p, 12, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 13:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC13]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC13, bitSetC13]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC9]
 		_innerMsmG1(p, 13, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 14:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC14]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC14, bitSetC14]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
 		_innerMsmG1(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC15]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC15, bitSetC15]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC1]
 		_innerMsmG1(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC16]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC16, bitSetC16]
 		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")
@@ -418,31 +418,31 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, digits []uint32, splitFirstC
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
 		_innerMsmG2(p, 9, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 10:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC10]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC10, bitSetC10]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC6]
 		_innerMsmG2(p, 10, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 11:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC11]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC11, bitSetC11]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC3]
 		_innerMsmG2(p, 11, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 12:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC12]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC12, bitSetC12]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
 		_innerMsmG2(p, 12, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 13:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC13]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC13, bitSetC13]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC9]
 		_innerMsmG2(p, 13, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 14:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC14]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC14, bitSetC14]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
 		_innerMsmG2(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC15]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC15, bitSetC15]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC1]
 		_innerMsmG2(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC16]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC16, bitSetC16]
 		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")

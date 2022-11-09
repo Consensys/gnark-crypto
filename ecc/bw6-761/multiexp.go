@@ -160,7 +160,7 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, digits []uint32, splitFirstC
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC8]
 		_innerMsmG1(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 16:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC16]
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC16, bitSetC16]
 		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")
@@ -370,7 +370,7 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, digits []uint32, splitFirstC
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC8]
 		_innerMsmG2(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
 	case 16:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC16]
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC16, bitSetC16]
 		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
 	default:
 		panic("not implemented")

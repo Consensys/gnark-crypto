@@ -32,7 +32,7 @@ func (o batchOp) isNeg() bool {
 //
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
+func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
@@ -45,6 +45,8 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
+	// we do that instead of a separate object to give enough hints to the compiler to..
+	// keep things on the stack.
 	batchSize := len(buckets) / 20
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
@@ -52,15 +54,14 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	bucketIds := make(map[uint32]struct{}, batchSize)
-	cptP := 0 // count the number of point added to current batch
+	var bucketIds BS // bitSet to signify presence of a bucket in current batch
+	cptP := 0        // count the number of point added to current batch
 
-	var P [MAX_BATCH_SIZE]G1Affine  // allocated on the stack
-	var R [MAX_BATCH_SIZE]*G1Affine // ...
+	var P [MAX_BATCH_SIZE]G1Affine  // points to be added to R (buckets)
+	var R [MAX_BATCH_SIZE]*G1Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
-		_, ok := bucketIds[bID]
-		return !ok
+		return !bucketIds[bID]
 	}
 
 	isFull := func() bool {
@@ -72,9 +73,8 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 			return
 		}
 		BatchAddG1Affine(R[:cptP], P[:cptP])
-		for k := range bucketIds {
-			delete(bucketIds, k)
-		}
+		var tmp BS
+		bucketIds = tmp
 		cptP = 0
 	}
 
@@ -109,8 +109,7 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 			}
 		}
 
-		// bucketIds[cptP] = op.bucketID
-		bucketIds[op.bucketID] = struct{}{}
+		bucketIds[op.bucketID] = true //struct{}{}
 		R[cptP] = BK
 		if op.isNeg() {
 			P[cptP].Neg(PP)
@@ -120,7 +119,6 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 		cptP++
 	}
 
-	// queue := make([]batchOp, 0, 20 * batchSize) // TODO find right capacity here.
 	var queue [MAX_BATCH_SIZE]batchOp
 	qID := 0
 
@@ -183,9 +181,7 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 			// queue = append(queue, op)
 		}
 	}
-	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
-	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
-	// executeAndReset()
+
 	for qID != 0 {
 		processQueue()
 		executeAndReset() // execute batch even if not full.
@@ -231,7 +227,7 @@ type ibG1Affine interface {
 //
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
+func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
 	points []G2Affine,
@@ -244,6 +240,8 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
+	// we do that instead of a separate object to give enough hints to the compiler to..
+	// keep things on the stack.
 	batchSize := len(buckets) / 20
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
@@ -251,15 +249,14 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	bucketIds := make(map[uint32]struct{}, batchSize)
-	cptP := 0 // count the number of point added to current batch
+	var bucketIds BS // bitSet to signify presence of a bucket in current batch
+	cptP := 0        // count the number of point added to current batch
 
-	var P [MAX_BATCH_SIZE]G2Affine  // allocated on the stack
-	var R [MAX_BATCH_SIZE]*G2Affine // ...
+	var P [MAX_BATCH_SIZE]G2Affine  // points to be added to R (buckets)
+	var R [MAX_BATCH_SIZE]*G2Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
-		_, ok := bucketIds[bID]
-		return !ok
+		return !bucketIds[bID]
 	}
 
 	isFull := func() bool {
@@ -271,9 +268,8 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 			return
 		}
 		BatchAddG2Affine(R[:cptP], P[:cptP])
-		for k := range bucketIds {
-			delete(bucketIds, k)
-		}
+		var tmp BS
+		bucketIds = tmp
 		cptP = 0
 	}
 
@@ -308,8 +304,7 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 			}
 		}
 
-		// bucketIds[cptP] = op.bucketID
-		bucketIds[op.bucketID] = struct{}{}
+		bucketIds[op.bucketID] = true //struct{}{}
 		R[cptP] = BK
 		if op.isNeg() {
 			P[cptP].Neg(PP)
@@ -319,7 +314,6 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 		cptP++
 	}
 
-	// queue := make([]batchOp, 0, 20 * batchSize) // TODO find right capacity here.
 	var queue [MAX_BATCH_SIZE]batchOp
 	qID := 0
 
@@ -382,9 +376,7 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 			// queue = append(queue, op)
 		}
 	}
-	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
-	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
-	// executeAndReset()
+
 	for qID != 0 {
 		processQueue()
 		executeAndReset() // execute batch even if not full.
@@ -422,4 +414,16 @@ type ibG2Affine interface {
 		bucketG2AffineC5 |
 		bucketG2AffineC8 |
 		bucketG2AffineC16
+}
+
+type bitSetC4 [1 << (4 - 1)]bool
+type bitSetC5 [1 << (5 - 1)]bool
+type bitSetC8 [1 << (8 - 1)]bool
+type bitSetC16 [1 << (16 - 1)]bool
+
+type bitSet interface {
+	bitSetC4 |
+		bitSetC5 |
+		bitSetC8 |
+		bitSetC16
 }

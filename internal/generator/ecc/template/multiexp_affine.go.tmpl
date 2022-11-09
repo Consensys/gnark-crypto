@@ -33,7 +33,7 @@ func (o batchOp) isNeg() bool {
 // 
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64,
+func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](chunk uint64,
 	 chRes chan<- {{ $.TJacobianExtended }},
 	 c uint64,
 	 points []{{ $.TAffine }},
@@ -46,6 +46,8 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 	}
 
 	// setup for the batch affine;
+	// we do that instead of a separate object to give enough hints to the compiler to..
+	// keep things on the stack.
 	batchSize := len(buckets) / 20
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
@@ -53,15 +55,14 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	bucketIds := make(map[uint32]struct{}, batchSize) 
+	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptP := 0 // count the number of point added to current batch
 
-	var P [MAX_BATCH_SIZE]{{ $.TAffine }} // allocated on the stack
-	var R [MAX_BATCH_SIZE]*{{ $.TAffine }} // ... 
+	var P [MAX_BATCH_SIZE]{{ $.TAffine }} // points to be added to R (buckets)
+	var R [MAX_BATCH_SIZE]*{{ $.TAffine }} // bucket references
 
 	canAdd := func(bID uint32) bool {
-		_, ok := bucketIds[bID]
-		return !ok
+		return !bucketIds[bID]
 	}
 
 	isFull := func() bool {
@@ -73,9 +74,8 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 			return
 		}
 		BatchAdd{{ $.TAffine }}(R[:cptP], P[:cptP])
-		for k := range bucketIds {
-			delete(bucketIds, k)
-		}
+		var tmp BS
+		bucketIds = tmp
 		cptP = 0
 	}
 
@@ -110,8 +110,7 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 			}
 		}
 	
-		// bucketIds[cptP] = op.bucketID
-		bucketIds[op.bucketID] = struct{}{}
+		bucketIds[op.bucketID] = true //struct{}{}
 		R[cptP] = BK
 		if op.isNeg() {
 			P[cptP].Neg(PP)
@@ -122,7 +121,6 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 	}
 	
 
-	// queue := make([]batchOp, 0, 20 * batchSize) // TODO find right capacity here.
 	var queue [MAX_BATCH_SIZE]batchOp
 	qID := 0
 
@@ -185,9 +183,7 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}](chunk uint64
 			// queue = append(queue, op)
 		}
 	}
-	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
-	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
-	// executeAndReset()
+
 	for qID != 0 {
 		processQueue()
 		executeAndReset() // execute batch even if not full.
@@ -226,3 +222,13 @@ type ib{{ $.TAffine }} interface {
 }
 
 {{end }}
+
+{{- range $c :=  $.G1.CRange}}
+type bitSetC{{$c}} [1<<({{$c}}-1)]bool
+{{- end}}
+
+type bitSet interface {
+	{{- range $i, $c :=  $.G1.CRange}}
+	bitSetC{{$c}} {{- if not (last $i $.G1.CRange)}} | {{- end}}
+	{{- end}}
+}
