@@ -16,7 +16,7 @@
 
 package bls12381
 
-const MAX_BATCH_SIZE = 600
+const MAX_BATCH_SIZE = 2000
 
 type batchOp struct {
 	bucketID, pointID uint32
@@ -45,7 +45,7 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
-	batchSize := len(buckets) / 5
+	batchSize := len(buckets) / 30
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
@@ -120,7 +120,7 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 		cptP++
 	}
 
-	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
+	queue := make([]batchOp, 0, 20*batchSize) // TODO find right capacity here.
 
 	processQueue := func() {
 		// for i := len(queue) - 1; i >= 0; i-- {
@@ -159,19 +159,19 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 			if isFull() {
 				executeAndReset()
 				nbBatches++
-				if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
-					add(queue[len(queue)-1])
-					queue = queue[:len(queue)-1]
-				}
-				// processQueue()
+				// if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
+				// 	add(queue[len(queue)-1])
+				// 	queue = queue[:len(queue)-1]
+				// }
+				processQueue()
 			}
 		} else {
 			// put it in queue.
 			queue = append(queue, op)
 		}
 	}
-	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n",
-	// 	chunk, len(queue), nbBatches, batch.batchSize, len(buckets), len(points))
+	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
+	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
 	// executeAndReset()
 	for len(queue) != 0 {
 		processQueue()
@@ -253,7 +253,7 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
-	batchSize := len(buckets) / 5
+	batchSize := len(buckets) / 30
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
@@ -328,7 +328,7 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 		cptP++
 	}
 
-	queue := make([]batchOp, 0, 4096) // TODO find right capacity here.
+	queue := make([]batchOp, 0, 20*batchSize) // TODO find right capacity here.
 
 	processQueue := func() {
 		// for i := len(queue) - 1; i >= 0; i-- {
@@ -367,19 +367,19 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 			if isFull() {
 				executeAndReset()
 				nbBatches++
-				if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
-					add(queue[len(queue)-1])
-					queue = queue[:len(queue)-1]
-				}
-				// processQueue()
+				// if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
+				// 	add(queue[len(queue)-1])
+				// 	queue = queue[:len(queue)-1]
+				// }
+				processQueue()
 			}
 		} else {
 			// put it in queue.
 			queue = append(queue, op)
 		}
 	}
-	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n",
-	// 	chunk, len(queue), nbBatches, batch.batchSize, len(buckets), len(points))
+	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
+	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
 	// executeAndReset()
 	for len(queue) != 0 {
 		processQueue()
