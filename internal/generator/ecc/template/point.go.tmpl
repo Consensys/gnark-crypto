@@ -1574,31 +1574,27 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 // batch add/dbl in affine coordinates
 // using batch inversion
 // cost add: 5*batchSize M + 1I, dbl: +1M
-func BatchAdd{{ $TAffine }}(R []*{{ $TAffine }}, P []{{ $TAffine }}, batchSize int) {
+func BatchAdd{{ $TAffine }}(R []*{{ $TAffine }}, P []{{ $TAffine }}) {
+	batchSize := len(R)
 	if batchSize == 0 {
 		return
 	}
 	var isDbl [MAX_BATCH_SIZE]bool
-	var lambda [MAX_BATCH_SIZE]{{.CoordType}}
-
-	{
-		var lambdain [MAX_BATCH_SIZE]{{.CoordType}}
+	var lambda, lambdain [MAX_BATCH_SIZE]{{.CoordType}}
 
 
-		for j := 0; j < batchSize; j++ {
-			// detect dbl vs add & compute denominator
-			if P[j].Equal(R[j]) {
-				isDbl[j] = true
-				lambdain[j].Double(&P[j].Y)
-			} else {
-				lambdain[j].Sub(&P[j].X, &R[j].X)
-			}
+	for j := 0; j < batchSize; j++ {
+		// detect dbl vs add & compute denominator
+		if P[j].Equal(R[j]) {
+			isDbl[j] = true
+			lambdain[j].Double(&P[j].Y)
+		} else {
+			lambdain[j].Sub(&P[j].X, &R[j].X)
 		}
-
-		// invert denominator
-		BatchInvert{{ $TAffine }}(&lambda, &lambdain, batchSize)
-
 	}
+
+	// invert denominator
+	batchInvert{{ $TAffine }}(lambda[:batchSize], lambdain[:batchSize])
 
 	var d {{.CoordType}}
 	var rr {{ $TAffine }}
@@ -1630,19 +1626,19 @@ func BatchAdd{{ $TAffine }}(R []*{{ $TAffine }}, P []{{ $TAffine }}, batchSize i
 
 // batch inversion
 // similar to BatchInvert{{.CoordType}}, ignores edge cases
-func BatchInvert{{ $TAffine }}(res, a *[MAX_BATCH_SIZE]{{.CoordType}},  n int) {
+func batchInvert{{ $TAffine }}(res, a []{{.CoordType}}) {
 
     var accumulator {{.CoordType}}
 	accumulator.SetOne()
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < len(res); i++ {
 		res[i] = accumulator
 		accumulator.Mul(&accumulator, &a[i])
 	}
 
 	accumulator.Inverse(&accumulator)
 
-	for i := n - 1; i >= 0; i-- {
+	for i := len(res) - 1; i >= 0; i-- {
 		res[i].Mul(&res[i], &accumulator)
 		accumulator.Mul(&accumulator, &a[i])
 	}

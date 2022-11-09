@@ -269,6 +269,8 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+	
+
 
 func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
@@ -285,19 +287,13 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 	fillBenchScalars(sampleScalars[:])
 	fillBenchBases{{ toUpper $.PointName }}(samplePoints[:])
 
+
 	var testPoint {{ $.TAffine }}
 
-	for i := 14; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using],ecc.MultiExpConfig{})
@@ -308,7 +304,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 
 func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
-	const nbSamples = 1 << 20
+	const nbSamples = 1 << 23
 
 	var (
 		samplePoints [nbSamples]{{ $.TAffine }}

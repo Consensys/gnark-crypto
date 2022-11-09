@@ -16,7 +16,7 @@
 
 package bw6761
 
-const MAX_BATCH_SIZE = 2000
+const MAX_BATCH_SIZE = 600
 
 type batchOp struct {
 	bucketID, pointID uint32
@@ -45,15 +45,15 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
-	batchSize := len(buckets) / 30
+	batchSize := len(buckets) / 20
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	bucketIds := make(map[uint32]struct{}, len(buckets)/2) // TODO @gbotrel tune the capacity here
-	cptP := 0                                              // count the number of point added to current batch
+	bucketIds := make(map[uint32]struct{}, batchSize)
+	cptP := 0 // count the number of point added to current batch
 
 	var P [MAX_BATCH_SIZE]G1Affine  // allocated on the stack
 	var R [MAX_BATCH_SIZE]*G1Affine // ...
@@ -71,7 +71,7 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 		if cptP == 0 {
 			return
 		}
-		BatchAddG1Affine(R[:cptP], P[:cptP], cptP)
+		BatchAddG1Affine(R[:cptP], P[:cptP])
 		for k := range bucketIds {
 			delete(bucketIds, k)
 		}
@@ -120,24 +120,36 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 		cptP++
 	}
 
-	queue := make([]batchOp, 0, 20*batchSize) // TODO find right capacity here.
+	// queue := make([]batchOp, 0, 20 * batchSize) // TODO find right capacity here.
+	var queue [MAX_BATCH_SIZE]batchOp
+	qID := 0
 
 	processQueue := func() {
-		// for i := len(queue) - 1; i >= 0; i-- {
-		for i := 0; i < len(queue); i++ {
+		for i := qID - 1; i >= 0; i-- {
 			if canAdd(queue[i].bucketID) {
 				add(queue[i])
 				if isFull() {
 					executeAndReset()
 				}
-				queue[i] = queue[len(queue)-1]
-				queue = queue[:len(queue)-1]
-				i--
+				queue[i] = queue[qID-1]
+				qID--
 			}
 		}
 	}
 
-	nbBatches := 0
+	processTopQueue := func() {
+		for i := qID - 1; i >= 0; i-- {
+			if !canAdd(queue[i].bucketID) {
+				return
+			}
+			add(queue[i])
+			if isFull() {
+				executeAndReset()
+			}
+			qID--
+		}
+	}
+
 	for i, digit := range digits {
 
 		if digit == 0 {
@@ -158,22 +170,23 @@ func processChunkG1BatchAffine[B ibG1Affine](chunk uint64,
 			add(op)
 			if isFull() {
 				executeAndReset()
-				nbBatches++
-				// if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
-				// 	add(queue[len(queue)-1])
-				// 	queue = queue[:len(queue)-1]
-				// }
-				processQueue()
+				processTopQueue()
 			}
 		} else {
 			// put it in queue.
-			queue = append(queue, op)
+			queue[qID] = op
+			qID++
+			if qID == MAX_BATCH_SIZE-1 {
+				executeAndReset()
+				processQueue()
+			}
+			// queue = append(queue, op)
 		}
 	}
 	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
 	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
 	// executeAndReset()
-	for len(queue) != 0 {
+	for qID != 0 {
 		processQueue()
 		executeAndReset() // execute batch even if not full.
 	}
@@ -231,15 +244,15 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 	}
 
 	// setup for the batch affine;
-	batchSize := len(buckets) / 30
+	batchSize := len(buckets) / 20
 	if batchSize > MAX_BATCH_SIZE {
 		batchSize = MAX_BATCH_SIZE
 	}
 	if batchSize <= 0 {
 		batchSize = 1
 	}
-	bucketIds := make(map[uint32]struct{}, len(buckets)/2) // TODO @gbotrel tune the capacity here
-	cptP := 0                                              // count the number of point added to current batch
+	bucketIds := make(map[uint32]struct{}, batchSize)
+	cptP := 0 // count the number of point added to current batch
 
 	var P [MAX_BATCH_SIZE]G2Affine  // allocated on the stack
 	var R [MAX_BATCH_SIZE]*G2Affine // ...
@@ -257,7 +270,7 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 		if cptP == 0 {
 			return
 		}
-		BatchAddG2Affine(R[:cptP], P[:cptP], cptP)
+		BatchAddG2Affine(R[:cptP], P[:cptP])
 		for k := range bucketIds {
 			delete(bucketIds, k)
 		}
@@ -306,24 +319,36 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 		cptP++
 	}
 
-	queue := make([]batchOp, 0, 20*batchSize) // TODO find right capacity here.
+	// queue := make([]batchOp, 0, 20 * batchSize) // TODO find right capacity here.
+	var queue [MAX_BATCH_SIZE]batchOp
+	qID := 0
 
 	processQueue := func() {
-		// for i := len(queue) - 1; i >= 0; i-- {
-		for i := 0; i < len(queue); i++ {
+		for i := qID - 1; i >= 0; i-- {
 			if canAdd(queue[i].bucketID) {
 				add(queue[i])
 				if isFull() {
 					executeAndReset()
 				}
-				queue[i] = queue[len(queue)-1]
-				queue = queue[:len(queue)-1]
-				i--
+				queue[i] = queue[qID-1]
+				qID--
 			}
 		}
 	}
 
-	nbBatches := 0
+	processTopQueue := func() {
+		for i := qID - 1; i >= 0; i-- {
+			if !canAdd(queue[i].bucketID) {
+				return
+			}
+			add(queue[i])
+			if isFull() {
+				executeAndReset()
+			}
+			qID--
+		}
+	}
+
 	for i, digit := range digits {
 
 		if digit == 0 {
@@ -344,22 +369,23 @@ func processChunkG2BatchAffine[B ibG2Affine](chunk uint64,
 			add(op)
 			if isFull() {
 				executeAndReset()
-				nbBatches++
-				// if len(queue) != 0 { // TODO @gbotrel this doesn't seem to help much? should minimize queue resizing
-				// 	add(queue[len(queue)-1])
-				// 	queue = queue[:len(queue)-1]
-				// }
-				processQueue()
+				processTopQueue()
 			}
 		} else {
 			// put it in queue.
-			queue = append(queue, op)
+			queue[qID] = op
+			qID++
+			if qID == MAX_BATCH_SIZE-1 {
+				executeAndReset()
+				processQueue()
+			}
+			// queue = append(queue, op)
 		}
 	}
 	// fmt.Printf("chunk %d\nlen(queue)=%d\nnbBatches=%d\nbatchSize=%d\nnbBuckets=%d\nnbPoints=%d\n\n",
 	// 	chunk, len(queue), nbBatches, batchSize, len(buckets), len(points))
 	// executeAndReset()
-	for len(queue) != 0 {
+	for qID != 0 {
 		processQueue()
 		executeAndReset() // execute batch even if not full.
 	}

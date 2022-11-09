@@ -102,7 +102,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
+	cRange := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -275,17 +275,10 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 	var testPoint G1Affine
 
-	for i := 14; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
@@ -295,7 +288,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 }
 
 func BenchmarkMultiExpG1Reference(b *testing.B) {
-	const nbSamples = 1 << 20
+	const nbSamples = 1 << 23
 
 	var (
 		samplePoints  [nbSamples]G1Affine
@@ -606,17 +599,10 @@ func BenchmarkMultiExpG2(b *testing.B) {
 
 	var testPoint G2Affine
 
-	for i := 14; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
-		b.Run(fmt.Sprintf("%d points ext-jacobian", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points affine", using), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
@@ -626,7 +612,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 }
 
 func BenchmarkMultiExpG2Reference(b *testing.B) {
-	const nbSamples = 1 << 20
+	const nbSamples = 1 << 23
 
 	var (
 		samplePoints  [nbSamples]G2Affine

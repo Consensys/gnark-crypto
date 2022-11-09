@@ -84,7 +84,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
+		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -198,14 +198,6 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, digits []uint32, splitFirstC
 	case 16:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC16]
 		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
-	case 20:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC20]
-		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC16]
-		_innerMsmG1(p, 20, points, digits, splitFirstChunk, processChunk, processLastChunk)
-	case 21:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC21]
-		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 21, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}
@@ -338,7 +330,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
+		implementedCs := []uint64{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -452,14 +444,6 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, digits []uint32, splitFirstC
 	case 16:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC16]
 		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
-	case 20:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC20]
-		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC16]
-		_innerMsmG2(p, 20, points, digits, splitFirstChunk, processChunk, processLastChunk)
-	case 21:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC21]
-		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 21, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}

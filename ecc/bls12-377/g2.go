@@ -979,30 +979,26 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 // batch add/dbl in affine coordinates
 // using batch inversion
 // cost add: 5*batchSize M + 1I, dbl: +1M
-func BatchAddG2Affine(R []*G2Affine, P []G2Affine, batchSize int) {
+func BatchAddG2Affine(R []*G2Affine, P []G2Affine) {
+	batchSize := len(R)
 	if batchSize == 0 {
 		return
 	}
 	var isDbl [MAX_BATCH_SIZE]bool
-	var lambda [MAX_BATCH_SIZE]fptower.E2
+	var lambda, lambdain [MAX_BATCH_SIZE]fptower.E2
 
-	{
-		var lambdain [MAX_BATCH_SIZE]fptower.E2
-
-		for j := 0; j < batchSize; j++ {
-			// detect dbl vs add & compute denominator
-			if P[j].Equal(R[j]) {
-				isDbl[j] = true
-				lambdain[j].Double(&P[j].Y)
-			} else {
-				lambdain[j].Sub(&P[j].X, &R[j].X)
-			}
+	for j := 0; j < batchSize; j++ {
+		// detect dbl vs add & compute denominator
+		if P[j].Equal(R[j]) {
+			isDbl[j] = true
+			lambdain[j].Double(&P[j].Y)
+		} else {
+			lambdain[j].Sub(&P[j].X, &R[j].X)
 		}
-
-		// invert denominator
-		BatchInvertG2Affine(&lambda, &lambdain, batchSize)
-
 	}
+
+	// invert denominator
+	batchInvertG2Affine(lambda[:batchSize], lambdain[:batchSize])
 
 	var d fptower.E2
 	var rr G2Affine
@@ -1032,19 +1028,19 @@ func BatchAddG2Affine(R []*G2Affine, P []G2Affine, batchSize int) {
 
 // batch inversion
 // similar to BatchInvertfptower.E2, ignores edge cases
-func BatchInvertG2Affine(res, a *[MAX_BATCH_SIZE]fptower.E2, n int) {
+func batchInvertG2Affine(res, a []fptower.E2) {
 
 	var accumulator fptower.E2
 	accumulator.SetOne()
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < len(res); i++ {
 		res[i] = accumulator
 		accumulator.Mul(&accumulator, &a[i])
 	}
 
 	accumulator.Inverse(&accumulator)
 
-	for i := n - 1; i >= 0; i-- {
+	for i := len(res) - 1; i >= 0; i-- {
 		res[i].Mul(&res[i], &accumulator)
 		accumulator.Mul(&accumulator, &a[i])
 	}
