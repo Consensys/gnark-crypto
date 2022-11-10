@@ -79,8 +79,9 @@ type TcParams struct {
 	// Rho⁻¹, rate of the RS code ( > 1)
 	Rho int
 
-	// Function that returns a clean hasher
-	// Hash function for hashing the columns
+	// Function that returns a fresh hasher. The returned hash function is used for hashing the
+	// columns. We use this and not directly a hasher for threadsafety hasher. Indeed, if different
+	// thread share the same hasher, they will end up mixing hash inputs that should remain separate.
 	MakeHash func() hash.Hash
 }
 
