@@ -15,6 +15,7 @@
 package sis
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -84,7 +85,7 @@ func TestSISParamsZKEVM(t *testing.T) {
 
 func BenchmarkSIS(b *testing.B) {
 
-	keySize := 65536
+	keySize := 1 << 20
 	logTwoBound := 3
 	logTwoDegree := 1
 
@@ -97,6 +98,8 @@ func BenchmarkSIS(b *testing.B) {
 		p.SetRandom()
 		sis.Write(p.Marshal())
 	}
+
+	fmt.Printf("#Field elements %v\n", nbFrElements)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

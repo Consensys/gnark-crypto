@@ -122,6 +122,53 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 	return &res, nil
 }
 
+// Construct a hasher generator. It takes as input the same parameters
+// as `NewRingSIS` and outputs a function which returns fresh hasher
+// everytime it is called
+func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func() hash.Hash, error) {
+	// domains (shift is √{gen} )
+	var shift fr.Element
+	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
+	e := int64(1 << (28 - (logTwoDegree + 1)))
+	shift.Exp(shift, big.NewInt(e))
+	domain := fft.NewDomain(uint64(1<<logTwoDegree), shift)
+
+	// filling A
+	degree := 1 << logTwoDegree
+	a := make([][]fr.Element, keySize)
+	for i := 0; i < keySize; i++ {
+		a[i] = make([]fr.Element, degree)
+		for j := 0; j < degree; j++ {
+			a[i][j] = genRandom(seed, int64(i), int64(j))
+		}
+	}
+
+	// filling AfftCosetBitreversed
+	afftCosetBitreversed := make([][]fr.Element, keySize)
+	for i := 0; i < keySize; i++ {
+		afftCosetBitreversed[i] = make([]fr.Element, degree)
+		for j := 0; j < degree; j++ {
+			copy(afftCosetBitreversed[i], a[i])
+			domain.FFT(afftCosetBitreversed[i], fft.DIF, true)
+		}
+	}
+
+	// computing the maximal size in bytes of a vector to hash
+	nbBytesToSum := logTwoBound * degree * len(a) / 8
+
+	return func() hash.Hash {
+		return &RSis{
+			A:                    a,
+			AfftCosetBitreversed: afftCosetBitreversed,
+			LogTwoBound:          logTwoBound,
+			Degree:               degree,
+			Domain:               domain,
+			NbBytesToSum:         nbBytesToSum,
+		}
+	}, nil
+
+}
+
 func (r *RSis) Write(p []byte) (n int, err error) {
 	r.buffer.Write(p)
 	return len(p), nil
@@ -236,10 +283,7 @@ func (r *RSis) Sum(b []byte) []byte {
 
 // Reset resets the Hash to its initial state.
 func (r *RSis) Reset() {
-
 	r.buffer.Reset()
-
-	return
 }
 
 // Size returns the number of bytes Sum will return.

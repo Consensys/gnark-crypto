@@ -18,10 +18,10 @@ import (
 	"errors"
 	"hash"
 	"math/big"
-	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 var (
@@ -79,8 +79,9 @@ type TcParams struct {
 	// Rho⁻¹, rate of the RS code ( > 1)
 	Rho int
 
+	// Function that returns a clean hasher
 	// Hash function for hashing the columns
-	Hash hash.Hash
+	MakeHash func() hash.Hash
 }
 
 // TensorCommitment stores the data to use a tensor commitment
@@ -112,17 +113,17 @@ type TensorCommitment struct {
 	isCommitted bool
 
 	// number of columns which have already been hashed (atomic)
-	NbColumnsHashed uint64 // uint64 (and not int) is so that we can do atomic operations in it
+	NbColumnsHashed int
 
 	// counts the number of time `Append` was called (atomic).
-	NbAppendsSoFar uint64
+	NbAppendsSoFar int
 }
 
 // NewTensorCommitment retunrs a new TensorCommitment
 // * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
 // then ρ * √(m) where m² = size
-func NewTCParams(codeRate, NbColumns, NbRows int, h hash.Hash) (*TcParams, error) {
+func NewTCParams(codeRate, NbColumns, NbRows int, makeHash func() hash.Hash) (*TcParams, error) {
 	var res TcParams
 
 	// domain[0]: domain to perform the FFT^-1, of size capacity * sqrt
@@ -138,7 +139,7 @@ func NewTCParams(codeRate, NbColumns, NbRows int, h hash.Hash) (*TcParams, error
 	res.Rho = codeRate
 
 	// Hash function
-	res.Hash = h
+	res.MakeHash = makeHash
 
 	return &res, nil
 }
@@ -171,51 +172,91 @@ func NewTensorCommitment(params *TcParams) *TensorCommitment {
 // ..
 // p[nbRows-1] 	| p[2*nbRows-1]	| p[3*nbRows-1] ..
 // If p doesn't fill a full submatrix it is padded with zeroes.
-func (tc *TensorCommitment) Append(p []fr.Element) ([][]byte, error) {
+func (tc *TensorCommitment) Append(ps ...[]fr.Element) ([][]byte, error) {
 
+	nbColumnsTakenByPs := make([]int, len(ps))
+	totalNumberOfColumnsTakenByPs := 0
+	// Short-hand to avoid writing `tc.params.NbRows` all over the places
+	numRows := tc.params.NbRows
+
+	/*
+		Precomputes the number of columns that will be taken by each colums
+	*/
+	for iPol, p := range ps {
+		// check if there is some room for p
+		nbColumnsTakenByP := len(p) / numRows
+		// Note, Alex. Really, if you want to not handle the padding and just
+		// panic whenever you receive "incomplete" columns this would be fine.
+		if len(p)%numRows != 0 {
+			// If the division has a remainder. Add an extra column
+			// Implicitly, it will be padded
+			nbColumnsTakenByP += 1
+		}
+
+		nbColumnsTakenByPs[iPol] = nbColumnsTakenByP
+		totalNumberOfColumnsTakenByPs += nbColumnsTakenByP
+	}
+
+	// Position at which we need to start inserting columns in the state
 	currentColumnToFill := int(tc.NbColumnsHashed)
 
-	// check if there is some room for p
-	nbColumnsTakenByP := (len(p) - len(p)%tc.params.NbRows) / tc.params.NbRows
-	if len(p)%tc.params.NbRows != 0 {
-		nbColumnsTakenByP += 1
-	}
-	if currentColumnToFill+nbColumnsTakenByP > tc.params.NbColumns {
+	// Check that we are not inserting more columns that we can handle
+	if currentColumnToFill+totalNumberOfColumnsTakenByPs > tc.params.NbColumns {
 		return nil, ErrMaxNbColumns
 	}
 
-	atomic.AddUint64(&tc.NbColumnsHashed, uint64(nbColumnsTakenByP))
-	atomic.AddUint64(&tc.NbAppendsSoFar, 1)
+	// Update the internal state variables to keep track of how many poly
+	// have been appended so far and how many columns.
+	tc.NbAppendsSoFar += len(ps)
+	tc.NbColumnsHashed += totalNumberOfColumnsTakenByPs
+
+	backupCurrentColumnToFill := currentColumnToFill
 
 	// put p in the state
-	backupCurrentColumnToFill := currentColumnToFill
-	if len(p)%tc.params.NbRows != 0 {
-		nbColumnsTakenByP -= 1
-	}
-	for i := 0; i < nbColumnsTakenByP; i++ {
-		for j := 0; j < tc.params.NbRows; j++ {
-			tc.State[j][currentColumnToFill+i] = p[i*tc.params.NbRows+j]
+	for iPol, p := range ps {
+
+		pIsPadded := false
+		if len(p)%numRows != 0 {
+			pIsPadded = true
 		}
-	}
-	currentColumnToFill += nbColumnsTakenByP
-	if len(p)%tc.params.NbRows != 0 {
-		offsetP := len(p) - len(p)%tc.params.NbRows
-		for j := offsetP; j < len(p); j++ {
-			tc.State[j-offsetP][currentColumnToFill] = p[j]
+
+		// Number of column taken by P, ignoring the last one if it is padded
+		nbFullColumnsTakenByP := nbColumnsTakenByPs[iPol]
+		if pIsPadded {
+			nbFullColumnsTakenByP--
 		}
-		currentColumnToFill += 1
-		nbColumnsTakenByP += 1
+
+		// Insert the "full columns" in the state
+		for i := 0; i < nbFullColumnsTakenByP; i++ {
+			for j := 0; j < numRows; j++ {
+				tc.State[j][currentColumnToFill+i] = p[i*numRows+j]
+			}
+		}
+
+		// Insert the padded column in the state if any
+		currentColumnToFill += nbFullColumnsTakenByP
+		if pIsPadded {
+			offsetP := len(p) - len(p)%numRows
+			for j := offsetP; j < len(p); j++ {
+				tc.State[j-offsetP][currentColumnToFill] = p[j]
+			}
+			currentColumnToFill += 1
+		}
 	}
 
-	// hash the columns
-	res := make([][]byte, nbColumnsTakenByP)
-	for i := 0; i < nbColumnsTakenByP; i++ {
-		tc.params.Hash.Reset()
-		for j := 0; j < tc.params.NbRows; j++ {
-			tc.params.Hash.Write(tc.State[j][i+backupCurrentColumnToFill].Marshal())
+	// Preallocate the result, and as well a buffer for the columns to hash
+	res := make([][]byte, totalNumberOfColumnsTakenByPs)
+
+	parallel.Execute(totalNumberOfColumnsTakenByPs, func(start, stop int) {
+		hasher := tc.params.MakeHash()
+		for i := start; i < stop; i++ {
+			hasher.Reset()
+			for j := 0; j < tc.params.NbRows; j++ {
+				hasher.Write(tc.State[j][i+backupCurrentColumnToFill].Marshal())
+			}
+			res[i] = hasher.Sum(nil)
 		}
-		res[i] = tc.params.Hash.Sum(nil)
-	}
+	})
 
 	return res, nil
 }
@@ -241,14 +282,17 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 
 	// now we hash each columns of _p
 	res := make([][]byte, tc.params.Domains[1].Cardinality)
-	for i := 0; i < int(tc.params.Domains[1].Cardinality); i++ {
-		tc.params.Hash.Reset()
-		for j := 0; j < tc.params.NbRows; j++ {
-			tc.params.Hash.Write(tc.EncodedState[j][i].Marshal())
+
+	parallel.Execute(int(tc.params.Domains[1].Cardinality), func(start, stop int) {
+		hasher := tc.params.MakeHash()
+		for i := start; i < stop; i++ {
+			hasher.Reset()
+			for j := 0; j < tc.params.NbRows; j++ {
+				hasher.Write(tc.EncodedState[j][i].Marshal())
+			}
+			res[i] = hasher.Sum(nil)
 		}
-		res[i] = tc.params.Hash.Sum(nil)
-		tc.params.Hash.Reset()
-	}
+	})
 
 	// records that the ccommitment has been built
 	tc.isCommitted = true
