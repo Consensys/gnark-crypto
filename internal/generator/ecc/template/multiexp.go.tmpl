@@ -368,56 +368,58 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 				C = c
 			}
 		}
-		// empirical, needs to be tuned.
-		// if C > 16 && nbPoints < 1 << 23 {
-		// 	C = 16
-		// }
 		return C
 	}
 
-	// TODO @gbotrel restore split by calling outterMsm BEFORE partitioning scalars.
-	// nbSplits := 1
 	C := bestC(nbPoints)
-	nbChunks := int(fr.Limbs * 64 / C)  // number of c-bit radixes in a scalar
-	if (fr.Limbs * 64) % C != 0 {
-		nbChunks ++
+	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
+	if (fr.Limbs*64)%C != 0 {
+		nbChunks++
 	}
+	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
+	if config.NbTasks > 1 && nbChunks < config.NbTasks {
+		// before spliting, let's see if we endup with more tasks than thread;
+		cSplit := bestC(nbPoints/2)
+		nbChunksPostSplit := int(fr.Limbs * 64 / cSplit)
+		if (fr.Limbs*64)%cSplit != 0 {
+			nbChunksPostSplit++
+		}
+		nbTasksPostSplit := nbChunksPostSplit*2
+		if (nbTasksPostSplit <= config.NbTasks) || ( nbTasksPostSplit - config.NbTasks ) <= ( config.NbTasks - nbChunks) {
+			// if postSplit we still have less tasks than available CPU
+			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split. 
+			config.NbTasks /= 2
+			var _p {{ $.TJacobian }}
+			chDone := make(chan struct{}, 1)
+			go func() {
+				innerMsm{{ $.UPointName }}(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				close(chDone)
+			}()
+			innerMsm{{ $.UPointName }}(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			<-chDone
+			p.AddAssign(&_p)
+			return p, nil
+		}
+	}
+
+	innerMsm{{ $.UPointName }}(p, int(C), points, scalars, config)
+
+	return p, nil
+}
+
+
+func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig)  {
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int 
-	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, uint64(c), config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsm{{ $.UPointName }}(p, int(C), points, digits, splitFirstChunk)
-	// we have nbSplits intermediate results that we must sum together.
-	
 
-	// _p := make([]{{ $.TJacobian }}, nbSplits - 1)
-	// chDone := make(chan int, nbSplits - 1)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	start := i * nbPoints
-	// 	end := start + nbPoints
-	// 	go func(start, end, i int) {
-	// 		innerMsm{{ $.UPointName }}(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
-	// 		chDone <- i
-	// 	}(start, end, i)
-	// }
-
-	// innerMsm{{ $.UPointName }}(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	done := <-chDone
-	// 	p.AddAssign(&_p[done])
-	// }
-	// close(chDone)
-	return p, nil
-}
-
-
-func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffine }}, digits []uint32, splitFirstChunk bool)  {
 	{{- /* TODO @gbotrel need to deal with cases where lastC == 1 ; having a whole chunk with 1-bit window makes no sense */}}
 	{{- /* also need to determine until which window size the ext-jacobian version is worth it. */}}
 	switch c {

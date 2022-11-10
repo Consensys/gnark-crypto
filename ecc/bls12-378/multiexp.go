@@ -99,54 +99,56 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 				C = c
 			}
 		}
-		// empirical, needs to be tuned.
-		// if C > 16 && nbPoints < 1 << 23 {
-		// 	C = 16
-		// }
 		return C
 	}
 
-	// TODO @gbotrel restore split by calling outterMsm BEFORE partitioning scalars.
-	// nbSplits := 1
 	C := bestC(nbPoints)
 	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%C != 0 {
 		nbChunks++
 	}
+	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
+	if config.NbTasks > 1 && nbChunks < config.NbTasks {
+		// before spliting, let's see if we endup with more tasks than thread;
+		cSplit := bestC(nbPoints / 2)
+		nbChunksPostSplit := int(fr.Limbs * 64 / cSplit)
+		if (fr.Limbs*64)%cSplit != 0 {
+			nbChunksPostSplit++
+		}
+		nbTasksPostSplit := nbChunksPostSplit * 2
+		if (nbTasksPostSplit <= config.NbTasks) || (nbTasksPostSplit-config.NbTasks) <= (config.NbTasks-nbChunks) {
+			// if postSplit we still have less tasks than available CPU
+			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split.
+			config.NbTasks /= 2
+			var _p G1Jac
+			chDone := make(chan struct{}, 1)
+			go func() {
+				innerMsmG1(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				close(chDone)
+			}()
+			innerMsmG1(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			<-chDone
+			p.AddAssign(&_p)
+			return p, nil
+		}
+	}
+
+	innerMsmG1(p, int(C), points, scalars, config)
+
+	return p, nil
+}
+
+func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) {
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int
-	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, uint64(c), config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsmG1(p, int(C), points, digits, splitFirstChunk)
-	// we have nbSplits intermediate results that we must sum together.
-
-	// _p := make([]G1Jac, nbSplits - 1)
-	// chDone := make(chan int, nbSplits - 1)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	start := i * nbPoints
-	// 	end := start + nbPoints
-	// 	go func(start, end, i int) {
-	// 		innerMsmG1(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
-	// 		chDone <- i
-	// 	}(start, end, i)
-	// }
-
-	// innerMsmG1(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	done := <-chDone
-	// 	p.AddAssign(&_p[done])
-	// }
-	// close(chDone)
-	return p, nil
-}
-
-func innerMsmG1(p *G1Jac, c int, points []G1Affine, digits []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:
@@ -345,54 +347,56 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 				C = c
 			}
 		}
-		// empirical, needs to be tuned.
-		// if C > 16 && nbPoints < 1 << 23 {
-		// 	C = 16
-		// }
 		return C
 	}
 
-	// TODO @gbotrel restore split by calling outterMsm BEFORE partitioning scalars.
-	// nbSplits := 1
 	C := bestC(nbPoints)
 	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%C != 0 {
 		nbChunks++
 	}
+	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
+	if config.NbTasks > 1 && nbChunks < config.NbTasks {
+		// before spliting, let's see if we endup with more tasks than thread;
+		cSplit := bestC(nbPoints / 2)
+		nbChunksPostSplit := int(fr.Limbs * 64 / cSplit)
+		if (fr.Limbs*64)%cSplit != 0 {
+			nbChunksPostSplit++
+		}
+		nbTasksPostSplit := nbChunksPostSplit * 2
+		if (nbTasksPostSplit <= config.NbTasks) || (nbTasksPostSplit-config.NbTasks) <= (config.NbTasks-nbChunks) {
+			// if postSplit we still have less tasks than available CPU
+			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split.
+			config.NbTasks /= 2
+			var _p G2Jac
+			chDone := make(chan struct{}, 1)
+			go func() {
+				innerMsmG2(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				close(chDone)
+			}()
+			innerMsmG2(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			<-chDone
+			p.AddAssign(&_p)
+			return p, nil
+		}
+	}
+
+	innerMsmG2(p, int(C), points, scalars, config)
+
+	return p, nil
+}
+
+func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) {
 
 	// partition the scalars
 	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
 	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
 	// var smallValues int
-	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, smallValues := partitionScalars(scalars, uint64(c), config.ScalarsMont, config.NbTasks)
 
 	// if we have more than 10% of small values, we split the processing of the first chunk in 2
 	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
 	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-	innerMsmG2(p, int(C), points, digits, splitFirstChunk)
-	// we have nbSplits intermediate results that we must sum together.
-
-	// _p := make([]G2Jac, nbSplits - 1)
-	// chDone := make(chan int, nbSplits - 1)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	start := i * nbPoints
-	// 	end := start + nbPoints
-	// 	go func(start, end, i int) {
-	// 		innerMsmG2(&_p[i], int(C), points[start:end], scalars[start:end], splitFirstChunk)
-	// 		chDone <- i
-	// 	}(start, end, i)
-	// }
-
-	// innerMsmG2(p, int(C), points[(nbSplits - 1) * nbPoints:], scalars[(nbSplits - 1) * nbPoints:], splitFirstChunk)
-	// for i:=0; i < nbSplits-1; i++ {
-	// 	done := <-chDone
-	// 	p.AddAssign(&_p[done])
-	// }
-	// close(chDone)
-	return p, nil
-}
-
-func innerMsmG2(p *G2Jac, c int, points []G2Affine, digits []uint32, splitFirstChunk bool) {
 	switch c {
 
 	case 4:

@@ -94,8 +94,7 @@ func TestMultiExpG1(t *testing.T) {
 					FromMont()
 			}
 
-			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			innerMsmG1(&r16, 16, samplePointsLarge[:], scalars16, true)
+			innerMsmG1(&r16, 16, samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -130,14 +129,9 @@ func TestMultiExpG1(t *testing.T) {
 					FromMont()
 			}
 
-			results := make([]G1Jac, len(cRange)+1)
+			results := make([]G1Jac, len(cRange))
 			for i, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG1(&results[i], int(c), samplePoints[:], scalars, false)
-				if c == 16 {
-					// split the first chunk
-					innerMsmG1(&results[len(results)-1], 16, samplePoints[:], scalars, true)
-				}
+				innerMsmG1(&results[i], int(c), samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -171,50 +165,12 @@ func TestMultiExpG1(t *testing.T) {
 					FromMont()
 			}
 
-			results := make([]G1Jac, len(cRange)+1)
+			results := make([]G1Jac, len(cRange))
 			for i, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG1(&results[i], int(c), samplePointsZero[:], scalars, false)
-				if c == 16 {
-					// split the first chunk
-					innerMsmG1(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
-				}
+				innerMsmG1(&results[i], int(c), samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
-					return false
-				}
-			}
-			return true
-		},
-		genScalar,
-	))
-
-	properties.Property(fmt.Sprintf("[G1] MultiExp and MultiExpBatchAffine (c in %v) should output the same result", cRange), prop.ForAll(
-		func(mixer fr.Element) bool {
-			// multi exp points
-			var samplePoints [nbSamples]G1Affine
-			var g G1Jac
-			g.Set(&g1Gen)
-			for i := 1; i <= nbSamples; i++ {
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&g1Gen)
-			}
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
-			}
-
-			var result1, result2 G1Jac
-			for _, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG1(&result1, int(c), samplePoints[:], scalars, false)
-				innerMsmG1(&result2, int(c), samplePoints[:], scalars, false)
-				if !result1.Equal(&result2) {
 					return false
 				}
 			}
@@ -420,8 +376,7 @@ func TestMultiExpG2(t *testing.T) {
 					FromMont()
 			}
 
-			scalars16, _ := partitionScalars(sampleScalars[:], 16, false, runtime.NumCPU())
-			innerMsmG2(&r16, 16, samplePointsLarge[:], scalars16, true)
+			innerMsmG2(&r16, 16, samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
@@ -454,14 +409,9 @@ func TestMultiExpG2(t *testing.T) {
 					FromMont()
 			}
 
-			results := make([]G2Jac, len(cRange)+1)
+			results := make([]G2Jac, len(cRange))
 			for i, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG2(&results[i], int(c), samplePoints[:], scalars, false)
-				if c == 16 {
-					// split the first chunk
-					innerMsmG2(&results[len(results)-1], 16, samplePoints[:], scalars, true)
-				}
+				innerMsmG2(&results[i], int(c), samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -495,50 +445,12 @@ func TestMultiExpG2(t *testing.T) {
 					FromMont()
 			}
 
-			results := make([]G2Jac, len(cRange)+1)
+			results := make([]G2Jac, len(cRange))
 			for i, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG2(&results[i], int(c), samplePointsZero[:], scalars, false)
-				if c == 16 {
-					// split the first chunk
-					innerMsmG2(&results[len(results)-1], 16, samplePointsZero[:], scalars, true)
-				}
+				innerMsmG2(&results[i], int(c), samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
-					return false
-				}
-			}
-			return true
-		},
-		genScalar,
-	))
-
-	properties.Property(fmt.Sprintf("[G2] MultiExp and MultiExpBatchAffine (c in %v) should output the same result", cRange), prop.ForAll(
-		func(mixer fr.Element) bool {
-			// multi exp points
-			var samplePoints [nbSamples]G2Affine
-			var g G2Jac
-			g.Set(&g2Gen)
-			for i := 1; i <= nbSamples; i++ {
-				samplePoints[i-1].FromJacobian(&g)
-				g.AddAssign(&g2Gen)
-			}
-			// mixer ensures that all the words of a fpElement are set
-			var sampleScalars [nbSamples]fr.Element
-
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
-			}
-
-			var result1, result2 G2Jac
-			for _, c := range cRange {
-				scalars, _ := partitionScalars(sampleScalars[:], c, false, runtime.NumCPU())
-				innerMsmG2(&result1, int(c), samplePoints[:], scalars, false)
-				innerMsmG2(&result2, int(c), samplePoints[:], scalars, false)
-				if !result1.Equal(&result2) {
 					return false
 				}
 			}
