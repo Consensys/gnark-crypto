@@ -122,25 +122,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 	return &res, nil
 }
 
-// MulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
-// Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
-// and that they are in evaluation form on √(g) * <g>
-// The result is not FFTinversed. The fft inverse is done once every
-// multiplications are done.
-func (r RSis) MulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
-
-	res := make([]fr.Element, len(pLagrangeCosetBitReversed))
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		res[i].Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
-	}
-
-	// NOT fft inv for now, wait until every part of the keys have been multiplied
-	// r.Domain.FFTInverse(res, fft.DIT, true)
-
-	return res
-
-}
-
 func (r *RSis) Write(p []byte) (n int, err error) {
 	r.buffer.Write(p)
 	return len(p), nil
@@ -180,7 +161,8 @@ func (r *RSis) Sum(b []byte) []byte {
 		}
 	}
 
-	// now we can construct m
+	// now we can construct m. The input to hash consists of the polynomials
+	// m[k*r.Degree:(k+1)*r.Degree]
 	nbBytesPerCoefficients := (r.LogTwoBound - (r.LogTwoBound % 8)) / 8
 	nbBitsPerCoefficients := r.LogTwoBound
 	offset := nbBitsPerCoefficients % 8
@@ -202,19 +184,44 @@ func (r *RSis) Sum(b []byte) []byte {
 		}
 	}
 
-	// we can hash now
+	// we can hash now.
 	res := make([]fr.Element, r.Degree)
-	for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-		r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
-		t := r.MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
-		for j := 0; j < len(res); j++ {
-			res[j].Add(&res[j], &t[j])
+
+	// method 1: fft
+	// for i := 0; i < len(r.AfftCosetBitreversed); i++ {
+	// 	r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
+	// 	t := MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
+	// 	for j := 0; j < len(res); j++ {
+	// 		res[j].Add(&res[j], &t[j])
+	// 	}
+	// }
+	// r.Domain.FFTInverse(res, fft.DIT, true) // -> automagically reduces mod Xᵈ+1
+
+	// method 2: naive mul THEN naive reduction at the end
+	// _res := make([]fr.Element, 2*r.Degree)
+	// for i := 0; i < len(r.A); i++ {
+	// 	t := naiveMul(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
+	// 	for j := 0; j < 2*r.Degree; j++ {
+	// 		_res[j].Add(&t[j], &_res[j])
+	// 	}
+	// }
+	// res = naiveReduction(_res, r.Degree)
+
+	// method 3: naive mulMod naive reduction at the end
+	for i := 0; i < len(r.A); i++ {
+		t := naiveMulMod(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
+		for j := 0; j < r.Degree; j++ {
+			res[j].Add(&t[j], &res[j])
 		}
 	}
 
-	// Now that every part of the key have been multiplied,
-	// we do the FFTinv on the coset, it automagically reduces mod Xᵈ+1
-	r.Domain.FFTInverse(res, fft.DIT, true)
+	// method 4: buckets
+	// q := make([][]fr.Element, len(r.A))
+	// for i := 0; i < len(r.A); i++ { // -> useless conversion, could do it earlier
+	// 	q[i] = m[i*r.Degree : (i+1)*r.Degree]
+	// }
+	// bound := 1 << r.LogTwoBound
+	// res = mulModBucketsMethod(r.A, q, bound, r.Degree)
 
 	sizeFrElmt := len(res[0].Bytes())
 	resBytes := make([]byte, sizeFrElmt*r.Degree)

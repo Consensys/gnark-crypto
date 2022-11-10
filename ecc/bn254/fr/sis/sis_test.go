@@ -15,11 +15,9 @@
 package sis
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
 func TestRSis(t *testing.T) {
@@ -63,59 +61,9 @@ func TestRSis(t *testing.T) {
 
 }
 
-func TestMulMod(t *testing.T) {
-
-	logTwoDegree := 2
-
-	sis, err := NewRSis(5, logTwoDegree, 3, 8)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	p := make([]fr.Element, 4)
-	p[0].SetString("2389")
-	p[1].SetString("987192")
-	p[2].SetString("623")
-	p[3].SetString("91")
-
-	q := make([]fr.Element, 4)
-	q[0].SetString("76755")
-	q[1].SetString("232893720")
-	q[2].SetString("989273")
-	q[3].SetString("675273")
-
-	_sis := sis.(*RSis)
-	_sis.Domain.FFT(p, fft.DIF, true)
-	_sis.Domain.FFT(q, fft.DIF, true)
-	r := _sis.MulMod(p, q)
-
-	// creation of the domain
-	var shift fr.Element
-	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
-	e := int64(1 << (28 - (logTwoDegree + 1)))
-	shift.Exp(shift, big.NewInt(e))
-	domain := fft.NewDomain(uint64(1<<logTwoDegree), shift)
-
-	// fft inv
-	domain.FFTInverse(r, fft.DIT, true)
-
-	expectedr := make([]fr.Element, 4)
-	expectedr[0].SetString("21888242871839275222246405745257275088548364400416034343698204185887558114297")
-	expectedr[1].SetString("631644300118")
-	expectedr[2].SetString("229913166975959")
-	expectedr[3].SetString("1123315390878")
-
-	for i := 0; i < 4; i++ {
-		if !expectedr[i].Equal(&r[i]) {
-			t.Fatal("product failed")
-		}
-	}
-
-}
-
 func BenchmarkSIS(b *testing.B) {
 
-	keySize := 256
+	keySize := 65536
 	logTwoBound := 2
 	logTwoDegree := 2
 
