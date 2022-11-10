@@ -188,16 +188,25 @@ func (r *RSis) Sum(b []byte) []byte {
 	res := make([]fr.Element, r.Degree)
 
 	// method 1: fft
-	// for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-	// 	r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
-	// 	t := MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
-	// 	for j := 0; j < len(res); j++ {
-	// 		res[j].Add(&res[j], &t[j])
-	// 	}
-	// }
-	// r.Domain.FFTInverse(res, fft.DIT, true) // -> automagically reduces mod Xᵈ+1
+	if r.Degree > 3 { // we keep this track to have a complete code...
+		for i := 0; i < len(r.AfftCosetBitreversed); i++ {
+			r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
+			t := MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
+			for j := 0; j < len(res); j++ {
+				res[j].Add(&res[j], &t[j])
+			}
+		}
+		r.Domain.FFTInverse(res, fft.DIT, true) // -> automagically reduces mod Xᵈ+1
+	} else { // method 2: naive mulMod+reduction
+		for i := 0; i < len(r.A); i++ {
+			t := naiveMulMod(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
+			for j := 0; j < r.Degree; j++ {
+				res[j].Add(&t[j], &res[j])
+			}
+		}
+	}
 
-	// method 2: naive mul THEN naive reduction at the end
+	// method 3: naive mul THEN naive reduction at the end
 	// _res := make([]fr.Element, 2*r.Degree)
 	// for i := 0; i < len(r.A); i++ {
 	// 	t := naiveMul(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
@@ -206,14 +215,6 @@ func (r *RSis) Sum(b []byte) []byte {
 	// 	}
 	// }
 	// res = naiveReduction(_res, r.Degree)
-
-	// method 3: naive mulMod naive reduction at the end
-	for i := 0; i < len(r.A); i++ {
-		t := naiveMulMod(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
-		for j := 0; j < r.Degree; j++ {
-			res[j].Add(&t[j], &res[j])
-		}
-	}
 
 	// method 4: buckets
 	// q := make([][]fr.Element, len(r.A))

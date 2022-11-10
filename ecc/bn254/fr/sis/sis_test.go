@@ -61,11 +61,32 @@ func TestRSis(t *testing.T) {
 
 }
 
+func TestSISParamsZKEVM(t *testing.T) {
+
+	keySize := 65536
+	logTwoBound := 3
+	logTwoDegree := 1
+
+	sis, _ := NewRSis(5, logTwoDegree, logTwoBound, keySize)
+
+	// 96 = (1 << logTwoDegree) * logTwoBound * keySize / 256
+	nbFrElements := ((1 << logTwoDegree) * logTwoBound * keySize) >> 8
+	var p fr.Element
+	for i := 0; i < nbFrElements; i++ {
+		p.SetRandom()
+		sis.Write(p.Marshal())
+	}
+
+	// sum
+	sis.Sum(nil)
+
+}
+
 func BenchmarkSIS(b *testing.B) {
 
 	keySize := 65536
-	logTwoBound := 2
-	logTwoDegree := 2
+	logTwoBound := 3
+	logTwoDegree := 1
 
 	sis, _ := NewRSis(5, logTwoDegree, logTwoBound, keySize)
 

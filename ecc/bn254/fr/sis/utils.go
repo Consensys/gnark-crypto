@@ -18,7 +18,6 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // MulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
@@ -132,16 +131,16 @@ func fillBuckets(pols [][]fr.Element, nbBuckets int, bound int) [][]int {
 	}
 	nbBitsBound := bits.TrailingZeros(uint(bound))
 	nbPols := len(pols)
-	// for i := 0; i < len(pols); i++ {
-	// 	ind := selectIndex(pols[i], choices, nbBitsBound)
-	// 	res[ind] = append(res[ind], i)
-	// }
-	parallel.Execute(nbPols, func(start, end int) {
-		for i := start; i < end; i++ {
-			ind := selectIndex(pols[i], choices, nbBitsBound)
-			res[ind] = append(res[ind], i)
-		}
-	})
+	for i := 0; i < nbPols; i++ {
+		ind := selectIndex(pols[i], choices, nbBitsBound)
+		res[ind] = append(res[ind], i)
+	}
+	// parallel.Execute(nbPols, func(start, end int) {
+	// 	for i := start; i < end; i++ {
+	// 		ind := selectIndex(pols[i], choices, nbBitsBound)
+	// 		res[ind] = append(res[ind], i)
+	// 	}
+	// })
 
 	return res
 }
@@ -161,24 +160,24 @@ func accumulateSums(polys [][]fr.Element, bucketsList [][]int, degree int) [][]f
 
 	nbBuckets := len(bucketsList)
 
-	res := make([][]fr.Element, len(bucketsList))
+	res := make([][]fr.Element, nbBuckets)
 	for i := 0; i < nbBuckets; i++ {
 		res[i] = make([]fr.Element, degree)
 	}
 
 	// to parallelise
-	parallel.Execute(nbBuckets, func(start, end int) {
-		for i := start; i < end; i++ {
-			for j := 0; j < len(bucketsList[i]); j++ {
-				addPolys(res[i], polys[bucketsList[i][j]])
-			}
-		}
-	})
-	// for i := 0; i < nbBuckets; i++ {
-	// 	for j := 0; j < len(bucketsList[i]); j++ {
-	// 		addPolys(res[i], polys[bucketsList[i][j]])
+	// parallel.Execute(nbBuckets, func(start, end int) {
+	// 	for i := start; i < end; i++ {
+	// 		for j := 0; j < len(bucketsList[i]); j++ {
+	// 			addPolys(res[i], polys[bucketsList[i][j]])
+	// 		}
 	// 	}
-	// }
+	// })
+	for i := 0; i < nbBuckets; i++ {
+		for j := 0; j < len(bucketsList[i]); j++ {
+			addPolys(res[i], polys[bucketsList[i][j]])
+		}
+	}
 
 	return res
 }
