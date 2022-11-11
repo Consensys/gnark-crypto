@@ -385,17 +385,17 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 			nbChunksPostSplit++
 		}
 		nbTasksPostSplit := nbChunksPostSplit*2
-		if (nbTasksPostSplit <= config.NbTasks) || ( nbTasksPostSplit - config.NbTasks ) <= ( config.NbTasks - nbChunks) {
+		if (nbTasksPostSplit <= config.NbTasks /2 ) || ( nbTasksPostSplit - config.NbTasks/2 ) <= ( config.NbTasks - nbChunks) {
 			// if postSplit we still have less tasks than available CPU
 			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split. 
 			config.NbTasks /= 2
 			var _p {{ $.TJacobian }}
 			chDone := make(chan struct{}, 1)
 			go func() {
-				innerMsm{{ $.UPointName }}(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				_p.MultiExp(points[:nbPoints/2], scalars[:nbPoints/2], config)
 				close(chDone)
 			}()
-			innerMsm{{ $.UPointName }}(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
 			<-chDone
 			p.AddAssign(&_p)
 			return p, nil

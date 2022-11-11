@@ -116,17 +116,17 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 			nbChunksPostSplit++
 		}
 		nbTasksPostSplit := nbChunksPostSplit * 2
-		if (nbTasksPostSplit <= config.NbTasks) || (nbTasksPostSplit-config.NbTasks) <= (config.NbTasks-nbChunks) {
+		if (nbTasksPostSplit <= config.NbTasks/2) || (nbTasksPostSplit-config.NbTasks/2) <= (config.NbTasks-nbChunks) {
 			// if postSplit we still have less tasks than available CPU
 			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split.
 			config.NbTasks /= 2
 			var _p G1Jac
 			chDone := make(chan struct{}, 1)
 			go func() {
-				innerMsmG1(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				_p.MultiExp(points[:nbPoints/2], scalars[:nbPoints/2], config)
 				close(chDone)
 			}()
-			innerMsmG1(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
 			<-chDone
 			p.AddAssign(&_p)
 			return p, nil
@@ -328,17 +328,17 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 			nbChunksPostSplit++
 		}
 		nbTasksPostSplit := nbChunksPostSplit * 2
-		if (nbTasksPostSplit <= config.NbTasks) || (nbTasksPostSplit-config.NbTasks) <= (config.NbTasks-nbChunks) {
+		if (nbTasksPostSplit <= config.NbTasks/2) || (nbTasksPostSplit-config.NbTasks/2) <= (config.NbTasks-nbChunks) {
 			// if postSplit we still have less tasks than available CPU
 			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split.
 			config.NbTasks /= 2
 			var _p G2Jac
 			chDone := make(chan struct{}, 1)
 			go func() {
-				innerMsmG2(&_p, int(cSplit), points[:nbPoints/2], scalars[:nbPoints/2], config)
+				_p.MultiExp(points[:nbPoints/2], scalars[:nbPoints/2], config)
 				close(chDone)
 			}()
-			innerMsmG2(p, int(cSplit), points[nbPoints/2:], scalars[nbPoints/2:], config)
+			p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
 			<-chDone
 			p.AddAssign(&_p)
 			return p, nil
