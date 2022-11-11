@@ -12,14 +12,11 @@ import (
     "time"
 	"runtime"
     "math/rand"
-	rrand "crypto/rand"
 	"math/big"
 	"testing"
     "math/bits"
 	"sync"
-	"math"
 
-	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/leanovate/gopter"
@@ -262,7 +259,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 
 func BenchmarkMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
-	const nbSamples = 1 << 23
+	const nbSamples = 1 << 20
 
 	var (
 		samplePoints [nbSamples]{{ $.TAffine }}
@@ -321,26 +318,30 @@ func BenchmarkManyMultiExp{{ toUpper $.PointName }}Reference(b *testing.B) {
 // a vector of different points can take minutes. Using the same point or subset will bias the benchmark result
 // since bucket additions in extended jacobian coordinates will hit doubling algorithm instead of add.
 func fillBenchBases{{ toUpper $.PointName }}(samplePoints []{{ $.TAffine }}) {
-	max := new(big.Int).SetInt64(math.MaxInt64)
-	parallel.Execute(len(samplePoints), func(start, end int) {
-		r, _ := rrand.Int(rrand.Reader, max)
-		samplePoints[start].ScalarMultiplication(&{{$.PointName}}GenAff, r)
-		rr :=  samplePoints[start].X
-		rr.SetOne()
-		for i := start+1; i < end; i++ {
-			samplePoints[i].X.Add(&samplePoints[i-1].X, &rr)
-			samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &rr)
-		}
-	})
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
+	}
 }
+
 
 {{end }}
 
+
 func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
-	parallel.Execute(len(sampleScalars), func(start, end int) {
-		for i := start; i < end; i++ {
-			sampleScalars[i].SetRandom()
-		}
-	})
+	var mixer fr.Element
+	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
+	for i := 1; i <= len(sampleScalars); i++ {
+		sampleScalars[i-1].SetUint64(uint64(i)).
+			Mul(&sampleScalars[i-1], &mixer).
+			FromMont()
+	}
 }
