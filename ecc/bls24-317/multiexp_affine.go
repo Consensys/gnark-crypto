@@ -55,9 +55,10 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 		batchSize = 1
 	}
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
-	cptP := 0        // count the number of point added to current batch
+	cptAdd := 0      // count the number of bucket + point added to current batch
+	cptSub := 0      // count the number of bucket - point added to current batch
 
-	var P [MAX_BATCH_SIZE]G1Affine  // points to be added to R (buckets)
+	var P [MAX_BATCH_SIZE]*G1Affine // points to be added to R (buckets)
 	var R [MAX_BATCH_SIZE]*G1Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
@@ -65,17 +66,19 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	}
 
 	isFull := func() bool {
-		return cptP == batchSize
+		return (cptAdd + cptSub) == batchSize
 	}
 
 	executeAndReset := func() {
-		if cptP == 0 {
+		if (cptAdd + cptSub) == 0 {
 			return
 		}
-		BatchAddG1Affine(R[:cptP], P[:cptP])
+		batchAddG1Affine(R[:batchSize], P[:batchSize], cptAdd, cptSub)
+
 		var tmp BS
 		bucketIds = tmp
-		cptP = 0
+		cptAdd = 0
+		cptSub = 0
 	}
 
 	add := func(op batchOp) {
@@ -95,28 +98,40 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 			}
 			return
 		}
-		if op.isNeg() {
-			// if bucket == P --> -P == 0
-			if BK.Equal(PP) {
-				BK.setInfinity()
+		if BK.X.Equal(&PP.X) {
+			if BK.Y.Equal(&PP.Y) {
+				if op.isNeg() {
+					// P + -P
+					BK.setInfinity()
+					return
+				}
+				// P + P: doubling, which should be quite rare -- may want to put it back in the batch add?
+				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
+				// need doubling in affine implemented ?
+				BK.Add(BK, BK)
 				return
 			}
-		} else {
-			// if bucket == -P, B == 0
-			if BK.X.Equal(&PP.X) && !BK.Y.Equal(&PP.Y) {
-				BK.setInfinity()
+			// b.Y == -p.Y
+			if op.isNeg() {
+				// doubling .
+				BK.Add(BK, BK)
 				return
 			}
+			BK.setInfinity()
+			return
 		}
 
-		bucketIds[op.bucketID] = true //struct{}{}
-		R[cptP] = BK
+		bucketIds[op.bucketID] = true
 		if op.isNeg() {
-			P[cptP].Neg(PP)
+			cptSub++
+			R[batchSize-cptSub] = BK
+			P[batchSize-cptSub] = PP
 		} else {
-			P[cptP].Set(PP)
+			R[cptAdd] = BK
+			P[cptAdd] = PP
+			cptAdd++
 		}
-		cptP++
+
 	}
 
 	var queue [MAX_BATCH_SIZE]batchOp
@@ -268,9 +283,10 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 		batchSize = 1
 	}
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
-	cptP := 0        // count the number of point added to current batch
+	cptAdd := 0      // count the number of bucket + point added to current batch
+	cptSub := 0      // count the number of bucket - point added to current batch
 
-	var P [MAX_BATCH_SIZE]G2Affine  // points to be added to R (buckets)
+	var P [MAX_BATCH_SIZE]*G2Affine // points to be added to R (buckets)
 	var R [MAX_BATCH_SIZE]*G2Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
@@ -278,17 +294,19 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	}
 
 	isFull := func() bool {
-		return cptP == batchSize
+		return (cptAdd + cptSub) == batchSize
 	}
 
 	executeAndReset := func() {
-		if cptP == 0 {
+		if (cptAdd + cptSub) == 0 {
 			return
 		}
-		BatchAddG2Affine(R[:cptP], P[:cptP])
+		batchAddG2Affine(R[:batchSize], P[:batchSize], cptAdd, cptSub)
+
 		var tmp BS
 		bucketIds = tmp
-		cptP = 0
+		cptAdd = 0
+		cptSub = 0
 	}
 
 	add := func(op batchOp) {
@@ -308,28 +326,40 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 			}
 			return
 		}
-		if op.isNeg() {
-			// if bucket == P --> -P == 0
-			if BK.Equal(PP) {
-				BK.setInfinity()
+		if BK.X.Equal(&PP.X) {
+			if BK.Y.Equal(&PP.Y) {
+				if op.isNeg() {
+					// P + -P
+					BK.setInfinity()
+					return
+				}
+				// P + P: doubling, which should be quite rare -- may want to put it back in the batch add?
+				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
+				// need doubling in affine implemented ?
+				BK.Add(BK, BK)
 				return
 			}
-		} else {
-			// if bucket == -P, B == 0
-			if BK.X.Equal(&PP.X) && !BK.Y.Equal(&PP.Y) {
-				BK.setInfinity()
+			// b.Y == -p.Y
+			if op.isNeg() {
+				// doubling .
+				BK.Add(BK, BK)
 				return
 			}
+			BK.setInfinity()
+			return
 		}
 
-		bucketIds[op.bucketID] = true //struct{}{}
-		R[cptP] = BK
+		bucketIds[op.bucketID] = true
 		if op.isNeg() {
-			P[cptP].Neg(PP)
+			cptSub++
+			R[batchSize-cptSub] = BK
+			P[batchSize-cptSub] = PP
 		} else {
-			P[cptP].Set(PP)
+			R[cptAdd] = BK
+			P[cptAdd] = PP
+			cptAdd++
 		}
-		cptP++
+
 	}
 
 	var queue [MAX_BATCH_SIZE]batchOp

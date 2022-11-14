@@ -955,25 +955,29 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	return toReturn
 }
 
-// batch add/dbl in affine coordinates
+// batch add/sub in affine coordinates
 // using batch inversion
 // cost add: 5*batchSize M + 1I, dbl: +1M
-func BatchAddG2Affine(R []*G2Affine, P []G2Affine) {
-	batchSize := len(R)
+// len(R) == len(P) == N
+// R[:cptAdd], P[:cptAdd] contains points references to ADD
+// R[N-cptSub:], P[N-cptSub] contains points references to SUB
+// cptAdd + cptSub == batchSize, and batchSize may be smaller than N
+func batchAddG2Affine(R, P []*G2Affine, cptAdd, cptSub int) {
+	batchSize := cptAdd + cptSub
 	if batchSize == 0 {
 		return
 	}
-	var isDbl [MAX_BATCH_SIZE]bool
 	var lambda, lambdain [MAX_BATCH_SIZE]fp.Element
 
-	for j := 0; j < batchSize; j++ {
-		// detect dbl vs add & compute denominator
-		if P[j].Equal(R[j]) {
-			isDbl[j] = true
-			lambdain[j].Double(&P[j].Y)
-		} else {
-			lambdain[j].Sub(&P[j].X, &R[j].X)
-		}
+	j := 0
+	// add part
+	for j = 0; j < cptAdd; j++ {
+		lambdain[j].Sub(&P[j].X, &R[j].X)
+	}
+	// sub part
+	for i := len(R) - cptSub; i < len(R); i++ {
+		lambdain[j].Sub(&P[i].X, &R[i].X)
+		j++
 	}
 
 	// invert denominator
@@ -982,17 +986,11 @@ func BatchAddG2Affine(R []*G2Affine, P []G2Affine) {
 	var d fp.Element
 	var rr G2Affine
 
-	for j := 0; j < batchSize; j++ {
-		// computa lambda, distinguishing dbl / add
-		if isDbl[j] {
-			d.Square(&P[j].X)
-			lambda[j].Mul(&lambda[j], &d)
-			d.Double(&lambda[j])
-			lambda[j].Add(&lambda[j], &d)
-		} else {
-			d.Sub(&P[j].Y, &R[j].Y)
-			lambda[j].Mul(&lambda[j], &d)
-		}
+	// add part
+	for j := 0; j < cptAdd; j++ {
+		// computa lambda
+		d.Sub(&P[j].Y, &R[j].Y)
+		lambda[j].Mul(&lambda[j], &d)
 
 		// compute X, Y
 		rr.X.Square(&lambda[j])
@@ -1002,6 +1000,27 @@ func BatchAddG2Affine(R []*G2Affine, P []G2Affine) {
 		rr.Y.Mul(&lambda[j], &d)
 		rr.Y.Sub(&rr.Y, &R[j].Y)
 		R[j].Set(&rr)
+	}
+
+	// middle of the input may be ignored if cptAdd + cptSub != len(R)
+	offset := len(R) - batchSize
+
+	// sub part
+	for j := cptAdd; j < batchSize; j++ {
+		// computa lambda
+		idx := j + offset
+		d.Neg(&P[idx].Y)
+		d.Sub(&d, &R[idx].Y)
+		lambda[j].Mul(&lambda[j], &d)
+
+		// compute X, Y
+		rr.X.Square(&lambda[j])
+		rr.X.Sub(&rr.X, &R[idx].X)
+		rr.X.Sub(&rr.X, &P[idx].X)
+		d.Sub(&R[idx].X, &rr.X)
+		rr.Y.Mul(&lambda[j], &d)
+		rr.Y.Sub(&rr.Y, &R[idx].Y)
+		R[idx].Set(&rr)
 	}
 }
 

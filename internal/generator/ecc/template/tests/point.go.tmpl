@@ -562,7 +562,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 	var P, R [MAX_BATCH_SIZE]{{ $TAffine }}
-	var RR [MAX_BATCH_SIZE]*{{ $TAffine }}
+	var RR, PP [MAX_BATCH_SIZE]*{{ $TAffine }}
 	var ridx [MAX_BATCH_SIZE]int
 
 	fillBenchBases{{ toUpper $.PointName }}(P[:])
@@ -577,11 +577,12 @@ func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 
 	for i, ri := range ridx {
 		RR[i] = &R[ri]
+		PP[i] = &P[ri]
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchAdd{{ $TAffine }}(RR[:], P[:])
+		batchAdd{{ $TAffine }}(RR[:], PP[:], MAX_BATCH_SIZE / 2, MAX_BATCH_SIZE / 2)
 	}
 
 }

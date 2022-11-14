@@ -507,7 +507,7 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkBatchAddG2Affine(b *testing.B) {
 	var P, R [MAX_BATCH_SIZE]G2Affine
-	var RR [MAX_BATCH_SIZE]*G2Affine
+	var RR, PP [MAX_BATCH_SIZE]*G2Affine
 	var ridx [MAX_BATCH_SIZE]int
 
 	fillBenchBasesG2(P[:])
@@ -522,11 +522,12 @@ func BenchmarkBatchAddG2Affine(b *testing.B) {
 
 	for i, ri := range ridx {
 		RR[i] = &R[ri]
+		PP[i] = &P[ri]
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		BatchAddG2Affine(RR[:], P[:])
+		batchAddG2Affine(RR[:], PP[:], MAX_BATCH_SIZE/2, MAX_BATCH_SIZE/2)
 	}
 
 }
