@@ -56,9 +56,8 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	}
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptAdd := 0      // count the number of bucket + point added to current batch
-	cptSub := 0      // count the number of bucket - point added to current batch
 
-	var P [MAX_BATCH_SIZE]*G1Affine // points to be added to R (buckets)
+	var P [MAX_BATCH_SIZE]G1Affine  // points to be added to R (buckets)
 	var R [MAX_BATCH_SIZE]*G1Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
@@ -66,19 +65,18 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	}
 
 	isFull := func() bool {
-		return (cptAdd + cptSub) == batchSize
+		return (cptAdd) == batchSize
 	}
 
 	executeAndReset := func() {
-		if (cptAdd + cptSub) == 0 {
+		if (cptAdd) == 0 {
 			return
 		}
-		batchAddG1Affine(R[:batchSize], P[:batchSize], cptAdd, cptSub)
+		batchAddG1Affine(R[:cptAdd], P[:cptAdd])
 
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
-		cptSub = 0
 	}
 
 	add := func(op batchOp) {
@@ -122,16 +120,13 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 		}
 
 		bucketIds[op.bucketID] = true
+		R[cptAdd] = BK
 		if op.isNeg() {
-			cptSub++
-			R[batchSize-cptSub] = BK
-			P[batchSize-cptSub] = PP
+			P[cptAdd].Neg(PP)
 		} else {
-			R[cptAdd] = BK
-			P[cptAdd] = PP
-			cptAdd++
+			P[cptAdd].Set(PP)
 		}
-
+		cptAdd++
 	}
 
 	var queue [MAX_BATCH_SIZE]batchOp
@@ -284,9 +279,8 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	}
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptAdd := 0      // count the number of bucket + point added to current batch
-	cptSub := 0      // count the number of bucket - point added to current batch
 
-	var P [MAX_BATCH_SIZE]*G2Affine // points to be added to R (buckets)
+	var P [MAX_BATCH_SIZE]G2Affine  // points to be added to R (buckets)
 	var R [MAX_BATCH_SIZE]*G2Affine // bucket references
 
 	canAdd := func(bID uint32) bool {
@@ -294,19 +288,18 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	}
 
 	isFull := func() bool {
-		return (cptAdd + cptSub) == batchSize
+		return (cptAdd) == batchSize
 	}
 
 	executeAndReset := func() {
-		if (cptAdd + cptSub) == 0 {
+		if (cptAdd) == 0 {
 			return
 		}
-		batchAddG2Affine(R[:batchSize], P[:batchSize], cptAdd, cptSub)
+		batchAddG2Affine(R[:cptAdd], P[:cptAdd])
 
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
-		cptSub = 0
 	}
 
 	add := func(op batchOp) {
@@ -350,16 +343,13 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 		}
 
 		bucketIds[op.bucketID] = true
+		R[cptAdd] = BK
 		if op.isNeg() {
-			cptSub++
-			R[batchSize-cptSub] = BK
-			P[batchSize-cptSub] = PP
+			P[cptAdd].Neg(PP)
 		} else {
-			R[cptAdd] = BK
-			P[cptAdd] = PP
-			cptAdd++
+			P[cptAdd].Set(PP)
 		}
-
+		cptAdd++
 	}
 
 	var queue [MAX_BATCH_SIZE]batchOp

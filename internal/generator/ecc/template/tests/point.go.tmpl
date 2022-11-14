@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"math/rand"
 
 	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -560,32 +559,32 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
-func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
-	var P, R [MAX_BATCH_SIZE]{{ $TAffine }}
-	var RR, PP [MAX_BATCH_SIZE]*{{ $TAffine }}
-	var ridx [MAX_BATCH_SIZE]int
+// func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
+// 	var P, R [MAX_BATCH_SIZE]{{ $TAffine }}
+// 	var RR, PP [MAX_BATCH_SIZE]*{{ $TAffine }}
+// 	var ridx [MAX_BATCH_SIZE]int
 
-	fillBenchBases{{ toUpper $.PointName }}(P[:])
-	fillBenchBases{{ toUpper $.PointName }}(R[:])
+// 	fillBenchBases{{ toUpper $.PointName }}(P[:])
+// 	fillBenchBases{{ toUpper $.PointName }}(R[:])
 
-	for i:=0; i < len(ridx);i++ {
-		ridx[i] = i
-	}
+// 	for i:=0; i < len(ridx);i++ {
+// 		ridx[i] = i
+// 	}
 
-	// random permute
-	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+// 	// random permute
+// 	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
 
-	for i, ri := range ridx {
-		RR[i] = &R[ri]
-		PP[i] = &P[ri]
-	}
+// 	for i, ri := range ridx {
+// 		RR[i] = &R[ri]
+// 		PP[i] = &P[ri]
+// 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		batchAdd{{ $TAffine }}(RR[:], PP[:], MAX_BATCH_SIZE / 2, MAX_BATCH_SIZE / 2)
-	}
+// 	b.ResetTimer()
+// 	for i := 0; i < b.N; i++ {
+// 		batchAdd{{ $TAffine }}(RR[:], PP[:], MAX_BATCH_SIZE / 2, MAX_BATCH_SIZE / 2)
+// 	}
 
-}
+// }
 
 func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled

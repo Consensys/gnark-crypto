@@ -19,7 +19,6 @@ package bn254
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
@@ -461,32 +460,32 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 }
 
-func BenchmarkBatchAddG1Affine(b *testing.B) {
-	var P, R [MAX_BATCH_SIZE]G1Affine
-	var RR, PP [MAX_BATCH_SIZE]*G1Affine
-	var ridx [MAX_BATCH_SIZE]int
+// func BenchmarkBatchAddG1Affine(b *testing.B) {
+// 	var P, R [MAX_BATCH_SIZE]G1Affine
+// 	var RR, PP [MAX_BATCH_SIZE]*G1Affine
+// 	var ridx [MAX_BATCH_SIZE]int
 
-	fillBenchBasesG1(P[:])
-	fillBenchBasesG1(R[:])
+// 	fillBenchBasesG1(P[:])
+// 	fillBenchBasesG1(R[:])
 
-	for i := 0; i < len(ridx); i++ {
-		ridx[i] = i
-	}
+// 	for i:=0; i < len(ridx);i++ {
+// 		ridx[i] = i
+// 	}
 
-	// random permute
-	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+// 	// random permute
+// 	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
 
-	for i, ri := range ridx {
-		RR[i] = &R[ri]
-		PP[i] = &P[ri]
-	}
+// 	for i, ri := range ridx {
+// 		RR[i] = &R[ri]
+// 		PP[i] = &P[ri]
+// 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		batchAddG1Affine(RR[:], PP[:], MAX_BATCH_SIZE/2, MAX_BATCH_SIZE/2)
-	}
+// 	b.ResetTimer()
+// 	for i := 0; i < b.N; i++ {
+// 		batchAddG1Affine(RR[:], PP[:], MAX_BATCH_SIZE / 2, MAX_BATCH_SIZE / 2)
+// 	}
 
-}
+// }
 
 func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
