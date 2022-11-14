@@ -8,8 +8,10 @@
 
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{- if ne .G1.CoordType .G2.CoordType}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}
 )
 
 

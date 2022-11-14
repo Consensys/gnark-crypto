@@ -18,7 +18,6 @@ package bw6761
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
 )
 
 type batchOpG1Affine struct {
