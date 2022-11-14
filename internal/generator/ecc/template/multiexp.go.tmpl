@@ -429,7 +429,7 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 		{{- if le $c 9}}
 			processChunk := processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
 		{{- else}}
-			processChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{$c}}, bitSetC{{$c}}]
+			processChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{$c}}, bitSetC{{$c}}, p{{$.TAffine}}C{{$c}}, pp{{$.TAffine}}C{{$c}}, qOps{{$.TAffine}}C{{$c}}, c{{$.TAffine}}C{{$c}}]
 		{{- end}}
 		{{- if eq $c $lc}}
 			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, digits, splitFirstChunk, processChunk, processChunk)
@@ -437,7 +437,7 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 			{{- if le $lc 9}}
 				processLastChunk := processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{lastC $c}}]
 			{{- else}}
-				processLastChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{lastC $c}}, bitSetC{{$c}}]
+				processLastChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{lastC $c}}, bitSetC{{$c}}, p{{$.TAffine}}C{{$c}}, pp{{$.TAffine}}C{{$c}}, qOps{{$.TAffine}}C{{$c}}, c{{$.TAffine}}C{{$c}}]
 			{{- end}}
 			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, digits, splitFirstChunk, processChunk, processLastChunk)
 		{{- end}}

@@ -7,26 +7,31 @@
 {{ $G2TJacobianExtended := print (toLower .G2.PointName) "JacExtended" }}
 
 
-const MAX_BATCH_SIZE = 600
-
-type batchOp struct {
-	pointID uint32
-	bucketID uint16
-}
-
-func (o batchOp) isNeg() bool {
-	return o.pointID&1 == 1
-}
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+)
 
 
 
-{{ template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "LastCRange" .G1.LastCRange}}
-{{ template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "LastCRange" .G2.LastCRange}}
+
+
+
+{{ template "multiexp" dict "CoordType" .G1.CoordType "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "LastCRange" .G1.LastCRange}}
+{{ template "multiexp" dict "CoordType" .G2.CoordType "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "LastCRange" .G2.LastCRange}}
 
 
 
 {{define "multiexp" }}
 
+type batchOp{{ $.TAffine }} struct {
+	bucketID uint16
+	point {{ $.TAffine }}
+}
+
+func (o batchOp{{ $.TAffine }}) isNeg() bool {
+	return o.bucketID&1 == 1
+}
 
 // processChunk{{ $.UPointName }}BatchAffine process a chunk of the scalars during the msm
 // using affine coordinates for the buckets. To amortize the cost of the inverse in the affine addition
@@ -34,7 +39,8 @@ func (o batchOp) isNeg() bool {
 // 
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](chunk uint64,
+func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet, TP p{{ $.TAffine }}, TPP pp{{ $.TAffine }}, TQ qOps{{ $.TAffine }}, TC c{{ $.TAffine}}](
+	 chunk uint64,
 	 chRes chan<- {{ $.TJacobianExtended }},
 	 c uint64,
 	 points []{{ $.TAffine }},
@@ -48,24 +54,16 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 
 	// setup for the batch affine;
 	// we do that instead of a separate object to give enough hints to the compiler to..
-	// keep things on the stack.
-	batchSize := len(buckets) / 20
-	if batchSize > MAX_BATCH_SIZE {
-		batchSize = MAX_BATCH_SIZE
-	}
-	if batchSize <= 0 {
-		batchSize = 1
-	}
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptAdd := 0 // count the number of bucket + point added to current batch
 
-	// bucket references
-	var R [MAX_BATCH_SIZE]*{{ $.TAffine }} 
-
-	// points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
-	var P [MAX_BATCH_SIZE]{{ $.TAffine }} 
-
-
+	
+	var R TPP // bucket references 
+	var P TP // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+	
+	batchSize := len(P)
+	
+	
 	canAdd := func(bID uint16) bool {
 		return !bucketIds[bID]
 	}
@@ -78,46 +76,27 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 		if (cptAdd) == 0 {
 			return
 		}
-		batchAdd{{ $.TAffine }}(R[:cptAdd], P[:cptAdd])
+		batchAdd{{ $.TAffine }}[TP, TPP, TC](&R, &P, cptAdd)
 		
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
 	}
 
-	add := func(op batchOp) {
+	addFromQueue := func(op batchOp{{$.TAffine}}) {
 		// CanAdd must be called before --> ensures bucket is not "used" in current batch
 	
 		BK := &buckets[op.bucketID]
-		PP := &points[op.pointID>>1]
-		if PP.IsInfinity() {
-			return
-		}
 		// handle special cases with inf or -P / P
 		if BK.IsInfinity() {
-			if op.isNeg() {
-				BK.Neg(PP)
-			} else {
-				BK.Set(PP)
-			}
+			BK.Set(&op.point)
 			return
 		}
-		if BK.X.Equal(&PP.X) {
-			if BK.Y.Equal(&PP.Y) {
-				if op.isNeg() {
-					// P + -P
-					BK.setInfinity()
-					return
-				}
-				// P + P: doubling, which should be quite rare -- may want to put it back in the batch add?
+		if BK.X.Equal(&op.point.X) {
+			if BK.Y.Equal(&op.point.Y) {
+				// P + P: doubling, which should be quite rare --
 				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
 				// need doubling in affine implemented ?
-				BK.Add(BK, BK)
-				return
-			}
-			// b.Y == -p.Y
-			if op.isNeg() {
-				// doubling . 
 				BK.Add(BK, BK)
 				return
 			}
@@ -128,28 +107,70 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 	
 		bucketIds[op.bucketID] = true
 		R[cptAdd] = BK
-		if op.isNeg() {
-			P[cptAdd].Neg(PP)
-		} else {
+		P[cptAdd] = op.point
+		cptAdd++
+	}
+
+	add := func(bucketID uint16, PP *{{$.TAffine}}, isAdd bool) {
+		// CanAdd must be called before --> ensures bucket is not "used" in current batch
+	
+		BK := &buckets[bucketID]
+		// handle special cases with inf or -P / P
+		if BK.IsInfinity() {
+			if isAdd {
+				BK.Set(PP)
+			} else {
+				BK.Neg(PP)
+			}
+			return
+		}
+		if BK.X.Equal(&PP.X) {
+			if BK.Y.Equal(&PP.Y) {
+				// P + P: doubling, which should be quite rare --
+				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
+				// need doubling in affine implemented ?
+				if isAdd {
+					BK.Add(BK, BK)
+				} else {
+					BK.setInfinity()		
+				}
+				
+				return
+			}
+			if isAdd {
+				BK.setInfinity()
+			} else {
+				BK.Add(BK, BK)
+			}
+			return
+		}
+		
+	
+		bucketIds[bucketID] = true
+		R[cptAdd] = BK
+		if isAdd {
 			P[cptAdd].Set(PP)
+		} else {
+			P[cptAdd].Neg(PP)
 		}
 		cptAdd++
 	}
 	
 
-	var queue [MAX_BATCH_SIZE]batchOp
+	var queue TQ
 	qID := 0
 
 	processQueue := func () {
 		for i := qID - 1; i >= 0; i-- {
-			if canAdd(queue[i].bucketID) {
-				add(queue[i])
-				if isFull() {
-					executeAndReset()
-				}
-				queue[i] = queue[qID-1]
-				qID--
+			if !canAdd(queue[i].bucketID) {
+				continue
 			}
+			addFromQueue(queue[i])
+			if isFull() {
+				executeAndReset()
+			}
+			queue[i] = queue[qID-1]
+			qID--
 		}
 	}
 
@@ -158,7 +179,7 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 			if !canAdd(queue[i].bucketID) {
 				return
 			}
-			add(queue[i])
+			addFromQueue(queue[i])
 			if isFull() {
 				executeAndReset()
 			}
@@ -168,40 +189,47 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 
 	for i, digit := range digits {
 
-		if digit == 0 {
+		if digit == 0 || points[i].IsInfinity() {
 			continue
 		}
 
-		op := batchOp{pointID: uint32(i) << 1}
-		// if msbWindow bit is set, we need to substract
-		if digit&1 == 0 {
+		bucketID := uint16((digit>>1))
+		isAdd := digit&1 == 0
+		if isAdd {
 			// add
-			op.bucketID = uint16((digit>>1) - 1)
-		} else {
-			// sub
-			op.bucketID = (uint16((digit>>1)))
-			op.pointID += 1
+			bucketID-=1
 		}
-		if canAdd(op.bucketID) {
-			add(op)
-			if isFull() {
-				executeAndReset()
-				processTopQueue()
+
+		if !canAdd(bucketID) {
+			// put it in queue
+			queue[qID].bucketID = bucketID
+			if isAdd {
+				queue[qID].point = points[i]
+			} else {
+				queue[qID].point.Neg(&points[i])
 			}
-		} else {
-			// put it in queue.
-			queue[qID] = op 
 			qID++
-			if qID == MAX_BATCH_SIZE - 1 {
+
+			// queue is full, flush it.
+			if qID == len(queue) - 1 {
 				executeAndReset()
 				processQueue()
 			}
+			continue
+		}
+
+		// we add the point to the batch.
+		add(bucketID, &points[i], isAdd)
+		if isFull() {
+			executeAndReset()
+			processTopQueue()
 		}
 	}
 
+	// empty the queue
 	for qID != 0 {
 		processQueue()
-		executeAndReset() // execute batch even if not full.
+		executeAndReset()
 	}
 
 	// flush items in batch.
@@ -227,14 +255,68 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet](c
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
 {{- range $c :=  $.CRange}}
+{{- if gt $c 9}}
 type bucket{{ $.TAffine }}C{{$c}} [1<<({{$c}}-1)]{{ $.TAffine }}
 {{- end}}
+{{- end}}
 
+
+// buckets: array of {{ $.TAffine }} points of size 1 << (c-1)
 type ib{{ $.TAffine }} interface {
 	{{- range $i, $c :=  $.CRange}}
+	{{- if gt $c 9}}
 	bucket{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
 	{{- end}}
+	{{- end}}
 }
+
+// array of coordinates {{ $.CoordType }}
+type c{{ $.TAffine }} interface {
+	{{- range $i, $c :=  $.CRange}}
+	{{- if gt $c 9}}
+	c{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	{{- end}}
+	{{- end}}
+}
+
+// buckets: array of {{ $.TAffine }} points (for the batch addition)
+type p{{ $.TAffine }} interface {
+	{{- range $i, $c :=  $.CRange}}
+	{{- if gt $c 9}}
+	p{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	{{- end}}
+	{{- end}}
+}
+
+// buckets: array of *{{ $.TAffine }} points (for the batch addition)
+type pp{{ $.TAffine }} interface {
+	{{- range $i, $c :=  $.CRange}}
+	{{- if gt $c 9}}
+	pp{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	{{- end}}
+	{{- end}}
+}
+
+// buckets: array of {{ $.TAffine }} queue operations (for the batch addition)
+type qOps{{ $.TAffine }} interface {
+	{{- range $i, $c :=  $.CRange}}
+	{{- if gt $c 9}}
+	qOps{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	{{- end}}
+	{{- end}}
+}
+
+
+{{- range $c :=  $.CRange}}
+{{- if gt $c 9}}
+type c{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]{{ $.CoordType }}
+type p{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]{{ $.TAffine }}
+type pp{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]*{{ $.TAffine }}
+type qOps{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]batchOp{{ $.TAffine }}
+
+{{- end}}
+{{- end}}
+
 
 {{end }}
 

@@ -36,7 +36,39 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		return n - (c * (n / c))
 	}
+	batchSize := func(c int) int {
+		// nbBuckets := (1 << (c - 1))
+		// if c <= 12 {
+		// 	return nbBuckets/10 + 3*c
+		// }
+		// if c <= 14 {
+		// 	return nbBuckets/15
+		// }
+		// return nbBuckets / 20
+		// TODO @gbotrel / @yelhousni this need a better heuristic
+		// in theory, larger batch size == less inversions
+		// but if nbBuckets is small, then a large batch size will produce lots of collisions
+		// and queue ops.
+		// there is probably a cache-friendlyness factor at play here too.
+		switch c {
+		case 10:
+			return 80
+		case 11:
+			return 150
+		case 12:
+			return 200
+		case 13:
+			return 350
+		case 14:
+			return 400
+		case 15:
+			return 500
+		default:
+			return 640
+		}
+	}
 	funcs["lastC"] = lastC
+	funcs["batchSize"] = batchSize
 
 	funcs["contains"] = func(v int, s []int) bool {
 		for _, sv := range s {

@@ -1098,20 +1098,31 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 // batch add affine coordinates
 // using batch inversion
 // special cases (doubling, infinity) must be filtered out before this call
-func batchAddG1Affine(R []*G1Affine, P []G1Affine) {
-	batchSize := len(R)
-	if batchSize == 0 {
-		return
-	}
-	var lambda, lambdain [MAX_BATCH_SIZE]fp.Element
+func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
+	var lambda, lambdain TC
 
 	// add part
 	for j := 0; j < batchSize; j++ {
-		lambdain[j].Sub(&P[j].X, &R[j].X)
+		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
-	// invert denominator
-	batchInvertG1Affine(lambda[:batchSize], lambdain[:batchSize])
+	// invert denominator using montgomery batch invert technique
+	{
+		var accumulator fp.Element
+		accumulator.SetOne()
+
+		for i := 0; i < batchSize; i++ {
+			lambda[i] = accumulator
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+
+		accumulator.Inverse(&accumulator)
+
+		for i := batchSize - 1; i >= 0; i-- {
+			lambda[i].Mul(&lambda[i], &accumulator)
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+	}
 
 	var d fp.Element
 	var rr G1Affine
@@ -1119,36 +1130,16 @@ func batchAddG1Affine(R []*G1Affine, P []G1Affine) {
 	// add part
 	for j := 0; j < batchSize; j++ {
 		// computa lambda
-		d.Sub(&P[j].Y, &R[j].Y)
+		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &d)
 
 		// compute X, Y
 		rr.X.Square(&lambda[j])
-		rr.X.Sub(&rr.X, &R[j].X)
-		rr.X.Sub(&rr.X, &P[j].X)
-		d.Sub(&R[j].X, &rr.X)
+		rr.X.Sub(&rr.X, &(*R)[j].X)
+		rr.X.Sub(&rr.X, &(*P)[j].X)
+		d.Sub(&(*R)[j].X, &rr.X)
 		rr.Y.Mul(&lambda[j], &d)
-		rr.Y.Sub(&rr.Y, &R[j].Y)
-		R[j].Set(&rr)
-	}
-}
-
-// batch inversion
-// similar to BatchInvertfp.Element, ignores edge cases
-func batchInvertG1Affine(res, a []fp.Element) {
-
-	var accumulator fp.Element
-	accumulator.SetOne()
-
-	for i := 0; i < len(res); i++ {
-		res[i] = accumulator
-		accumulator.Mul(&accumulator, &a[i])
-	}
-
-	accumulator.Inverse(&accumulator)
-
-	for i := len(res) - 1; i >= 0; i-- {
-		res[i].Mul(&res[i], &accumulator)
-		accumulator.Mul(&accumulator, &a[i])
+		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
+		(*R)[j].Set(&rr)
 	}
 }
