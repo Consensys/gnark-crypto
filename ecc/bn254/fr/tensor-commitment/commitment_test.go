@@ -15,6 +15,7 @@
 package tensorcommitment
 
 import (
+	"hash"
 	"math/big"
 	"strconv"
 	"testing"
@@ -33,9 +34,7 @@ func (d DummyHash) Sum(b []byte) []byte {
 	return b
 }
 
-func (d DummyHash) Reset() {
-	return
-}
+func (d DummyHash) Reset() {}
 
 func (d DummyHash) Size() int {
 	return 0
@@ -43,6 +42,11 @@ func (d DummyHash) Size() int {
 
 func (d DummyHash) BlockSize() int {
 	return 0
+}
+
+func DummyHashMaker() hash.Hash {
+	var res DummyHash
+	return &res
 }
 
 func getRandomVector(size int) []fr.Element {
@@ -56,11 +60,10 @@ func getRandomVector(size int) []fr.Element {
 func TestAppend(t *testing.T) {
 
 	// tensor commitment
-	var h DummyHash
 	rho := 4
 	nbRows := 10
 	nbColumns := 16
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, DummyHashMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,11 +165,10 @@ func TestAppend(t *testing.T) {
 
 func TestLinearCombination(t *testing.T) {
 
-	var h DummyHash
 	rho := 4
 	nbRows := 8
 	nbColumns := 8
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, DummyHashMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +233,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 	nbRows = 8
 
 	var h DummyHash
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, DummyHashMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,8 +289,7 @@ func TestOpeningDummyHash(t *testing.T) {
 	nbColumns = 8
 	nbRows = 8
 
-	var h DummyHash
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, DummyHashMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,12 +368,12 @@ func TestAppendSis(t *testing.T) {
 	logTwoDegree := 1
 	logTwoBound := 4
 	keySize := 256
-	h, err := sis.NewRSis(5, logTwoDegree, logTwoBound, keySize)
+	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, keySize)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, hMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +391,12 @@ func TestAppendSis(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if len(s) != nbColumns {
+		t.Fatalf("Expected %v columns, but got %v\n", nbColumns, len(s))
+	}
+
 	// check the hashes of the columns
+	h := hMaker()
 	for i := 0; i < nbColumns-1; i++ {
 		h.Reset()
 		for j := 0; j < nbRows; j++ {
@@ -398,7 +404,7 @@ func TestAppendSis(t *testing.T) {
 		}
 		_s := h.Sum(nil)
 		if !cmpBytes(_s, s[i]) {
-			t.Fatal("error hash column when appending a polynomial")
+			t.Fatalf("error hash column when appending a polynomial for column %v", i)
 		}
 	}
 
@@ -429,12 +435,12 @@ func TestCommitmentSis(t *testing.T) {
 	logTwoDegree := 1
 	logTwoBound := 4
 	keySize := 256
-	h, err := sis.NewRSis(5, logTwoDegree, logTwoBound, keySize)
+	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, keySize)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	params, err := NewTCParams(rho, nbColumns, nbRows, h)
+	params, err := NewTCParams(rho, nbColumns, nbRows, hMaker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +482,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// verfiy that the proof is correct
-		err = Verify(proof, digest, l, h)
+		err = Verify(proof, digest, l, hMaker())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -495,7 +501,7 @@ func TestCommitmentSis(t *testing.T) {
 		}
 
 		// verfiy that the proof is correct
-		err = Verify(proof, digest, l, h)
+		err = Verify(proof, digest, l, hMaker())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -520,7 +526,7 @@ func BenchmarkTensorCommitment(b *testing.B) {
 		// nbBitsToHash / (logTwoBound * degree) = nb coeffs to pack
 		sizeKey := (nbColumns * sizeFr) / (logTwoBound * (1 << logTwoDegree))
 
-		h, _ := sis.NewRSis(5, logTwoDegree, logTwoBound, sizeKey)
+		h, _ := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, sizeKey)
 		params, _ := NewTCParams(rho, nbColumns, nbRows, h)
 		tc := NewTensorCommitment(params)
 
