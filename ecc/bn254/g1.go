@@ -952,13 +952,9 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	return toReturnAff
 }
 
-// batch add/sub in affine coordinates
+// batch add affine coordinates
 // using batch inversion
-// cost add: 5*batchSize M + 1I, dbl: +1M
-// len(R) == len(P) == N
-// R[:cptAdd], P[:cptAdd] contains points references to ADD
-// R[N-cptSub:], P[N-cptSub] contains points references to SUB
-// cptAdd + cptSub == batchSize, and batchSize may be smaller than N
+// special cases (doubling, infinity) must be filtered out before this call
 func batchAddG1Affine(R []*G1Affine, P []G1Affine) {
 	batchSize := len(R)
 	if batchSize == 0 {

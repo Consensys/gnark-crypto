@@ -19,7 +19,7 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 	chRes chan<- {{ $.TJacobianExtended }},
 	c uint64,
 	points []{{ $.TAffine }},
-	digits []uint32) {
+	digits []uint16) {
 
 
 

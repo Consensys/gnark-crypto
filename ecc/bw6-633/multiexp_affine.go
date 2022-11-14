@@ -19,7 +19,8 @@ package bw6633
 const MAX_BATCH_SIZE = 600
 
 type batchOp struct {
-	bucketID, pointID uint32
+	pointID  uint32
+	bucketID uint16
 }
 
 func (o batchOp) isNeg() bool {
@@ -36,7 +37,7 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	digits []uint32) {
+	digits []uint16) {
 
 	// init the buckets
 	var buckets B
@@ -57,10 +58,13 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptAdd := 0      // count the number of bucket + point added to current batch
 
-	var P [MAX_BATCH_SIZE]G1Affine  // points to be added to R (buckets)
-	var R [MAX_BATCH_SIZE]*G1Affine // bucket references
+	// bucket references
+	var R [MAX_BATCH_SIZE]*G1Affine
 
-	canAdd := func(bID uint32) bool {
+	// points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+	var P [MAX_BATCH_SIZE]G1Affine
+
+	canAdd := func(bID uint16) bool {
 		return !bucketIds[bID]
 	}
 
@@ -168,10 +172,10 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 		// if msbWindow bit is set, we need to substract
 		if digit&1 == 0 {
 			// add
-			op.bucketID = uint32((digit >> 1) - 1)
+			op.bucketID = uint16((digit >> 1) - 1)
 		} else {
 			// sub
-			op.bucketID = (uint32((digit >> 1)))
+			op.bucketID = (uint16((digit >> 1)))
 			op.pointID += 1
 		}
 		if canAdd(op.bucketID) {
@@ -188,7 +192,6 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet](chunk uint64,
 				executeAndReset()
 				processQueue()
 			}
-			// queue = append(queue, op)
 		}
 	}
 
@@ -241,7 +244,7 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
 	points []G2Affine,
-	digits []uint32) {
+	digits []uint16) {
 
 	// init the buckets
 	var buckets B
@@ -262,10 +265,13 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 	var bucketIds BS // bitSet to signify presence of a bucket in current batch
 	cptAdd := 0      // count the number of bucket + point added to current batch
 
-	var P [MAX_BATCH_SIZE]G2Affine  // points to be added to R (buckets)
-	var R [MAX_BATCH_SIZE]*G2Affine // bucket references
+	// bucket references
+	var R [MAX_BATCH_SIZE]*G2Affine
 
-	canAdd := func(bID uint32) bool {
+	// points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+	var P [MAX_BATCH_SIZE]G2Affine
+
+	canAdd := func(bID uint16) bool {
 		return !bucketIds[bID]
 	}
 
@@ -373,10 +379,10 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 		// if msbWindow bit is set, we need to substract
 		if digit&1 == 0 {
 			// add
-			op.bucketID = uint32((digit >> 1) - 1)
+			op.bucketID = uint16((digit >> 1) - 1)
 		} else {
 			// sub
-			op.bucketID = (uint32((digit >> 1)))
+			op.bucketID = (uint16((digit >> 1)))
 			op.pointID += 1
 		}
 		if canAdd(op.bucketID) {
@@ -393,7 +399,6 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet](chunk uint64,
 				executeAndReset()
 				processQueue()
 			}
-			// queue = append(queue, op)
 		}
 	}
 

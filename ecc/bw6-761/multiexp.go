@@ -169,8 +169,8 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config
 	}
 }
 
-func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint32, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint32)) *G1Jac {
+func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint16, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16)) *G1Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -381,8 +381,8 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config
 	}
 }
 
-func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint32, splitFirstChunk bool,
-	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint32)) *G2Jac {
+func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint16, splitFirstChunk bool,
+	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16)) *G2Jac {
 
 	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
 	if (fr.Limbs*64)%c != 0 {
@@ -469,14 +469,14 @@ type selector struct {
 // scalarsMont indicates wheter the provided scalars are in montgomery form
 // returns smallValues, which represent the number of scalars which meets the following condition
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint32, int) {
+func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, int) {
 	// number of c-bit radixes in a scalar
 	nbChunks := fr.Limbs * 64 / c
 	if (fr.Limbs*64)%c != 0 {
 		nbChunks++
 	}
 
-	toReturn := make([]uint32, len(scalars)*int(nbChunks))
+	toReturn := make([]uint16, len(scalars)*int(nbChunks))
 
 	mask := uint64((1 << c) - 1) // low c bits are 1
 	// msbWindow := uint64(1 << (c -1)) 			// msb of the c-bit window
@@ -558,11 +558,11 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 					carry = 1
 				}
 
-				var bits uint32
+				var bits uint16
 				if digit >= 0 {
-					bits = uint32(digit) << 1
+					bits = uint16(digit) << 1
 				} else {
-					bits = (uint32(-digit-1) << 1) + 1
+					bits = (uint16(-digit-1) << 1) + 1
 				}
 				toReturn[int(chunk)*len(scalars)+i] = bits
 				// [s.index] |= (bits << s.shift)
