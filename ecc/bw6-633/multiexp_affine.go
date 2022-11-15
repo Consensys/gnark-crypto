@@ -49,64 +49,30 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 	}
 
 	// setup for the batch affine;
-	// we do that instead of a separate object to give enough hints to the compiler to..
-	var bucketIds BS // bitSet to signify presence of a bucket in current batch
-	cptAdd := 0      // count the number of bucket + point added to current batch
-
-	var R TPP // bucket references
-	var P TP  // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+	var (
+		bucketIds BS  // bitSet to signify presence of a bucket in current batch
+		cptAdd    int // count the number of bucket + point added to current batch
+		R         TPP // bucket references
+		P         TP  // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+		queue     TQ  // queue of points that conflict the current batch
+		qID       int // current position in queue
+	)
 
 	batchSize := len(P)
 
-	canAdd := func(bID uint16) bool {
-		return !bucketIds[bID]
-	}
-
 	isFull := func() bool {
-		return (cptAdd) == batchSize
+		return cptAdd == batchSize
 	}
 
 	executeAndReset := func() {
-		if (cptAdd) == 0 {
-			return
-		}
 		batchAddG1Affine[TP, TPP, TC](&R, &P, cptAdd)
-
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
 	}
 
-	addFromQueue := func(op batchOpG1Affine) {
-		// CanAdd must be called before --> ensures bucket is not "used" in current batch
-
-		BK := &buckets[op.bucketID]
-		// handle special cases with inf or -P / P
-		if BK.IsInfinity() {
-			BK.Set(&op.point)
-			return
-		}
-		if BK.X.Equal(&op.point.X) {
-			if BK.Y.Equal(&op.point.Y) {
-				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
-				BK.Add(BK, BK)
-				return
-			}
-			BK.setInfinity()
-			return
-		}
-
-		bucketIds[op.bucketID] = true
-		R[cptAdd] = BK
-		P[cptAdd] = op.point
-		cptAdd++
-	}
-
 	add := func(bucketID uint16, PP *G1Affine, isAdd bool) {
-		// CanAdd must be called before --> ensures bucket is not "used" in current batch
-
+		// @precondition: ensures bucket is not "used" in current batch
 		BK := &buckets[bucketID]
 		// handle special cases with inf or -P / P
 		if BK.IsInfinity() {
@@ -148,32 +114,16 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		cptAdd++
 	}
 
-	var queue TQ
-	qID := 0
-
 	processQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
-			if !canAdd(queue[i].bucketID) {
+			if bucketIds[queue[i].bucketID] {
 				continue
 			}
-			addFromQueue(queue[i])
+			add(queue[i].bucketID, &queue[i].point, true)
 			if isFull() {
 				executeAndReset()
 			}
 			queue[i] = queue[qID-1]
-			qID--
-		}
-	}
-
-	processTopQueue := func() {
-		for i := qID - 1; i >= 0; i-- {
-			if !canAdd(queue[i].bucketID) {
-				return
-			}
-			addFromQueue(queue[i])
-			if isFull() {
-				executeAndReset()
-			}
 			qID--
 		}
 	}
@@ -191,7 +141,7 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 			bucketID -= 1
 		}
 
-		if !canAdd(bucketID) {
+		if bucketIds[bucketID] {
 			// put it in queue
 			queue[qID].bucketID = bucketID
 			if isAdd {
@@ -213,7 +163,6 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processTopQueue()
 		}
 	}
 
@@ -307,64 +256,30 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 	}
 
 	// setup for the batch affine;
-	// we do that instead of a separate object to give enough hints to the compiler to..
-	var bucketIds BS // bitSet to signify presence of a bucket in current batch
-	cptAdd := 0      // count the number of bucket + point added to current batch
-
-	var R TPP // bucket references
-	var P TP  // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+	var (
+		bucketIds BS  // bitSet to signify presence of a bucket in current batch
+		cptAdd    int // count the number of bucket + point added to current batch
+		R         TPP // bucket references
+		P         TP  // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
+		queue     TQ  // queue of points that conflict the current batch
+		qID       int // current position in queue
+	)
 
 	batchSize := len(P)
 
-	canAdd := func(bID uint16) bool {
-		return !bucketIds[bID]
-	}
-
 	isFull := func() bool {
-		return (cptAdd) == batchSize
+		return cptAdd == batchSize
 	}
 
 	executeAndReset := func() {
-		if (cptAdd) == 0 {
-			return
-		}
 		batchAddG2Affine[TP, TPP, TC](&R, &P, cptAdd)
-
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
 	}
 
-	addFromQueue := func(op batchOpG2Affine) {
-		// CanAdd must be called before --> ensures bucket is not "used" in current batch
-
-		BK := &buckets[op.bucketID]
-		// handle special cases with inf or -P / P
-		if BK.IsInfinity() {
-			BK.Set(&op.point)
-			return
-		}
-		if BK.X.Equal(&op.point.X) {
-			if BK.Y.Equal(&op.point.Y) {
-				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
-				BK.Add(BK, BK)
-				return
-			}
-			BK.setInfinity()
-			return
-		}
-
-		bucketIds[op.bucketID] = true
-		R[cptAdd] = BK
-		P[cptAdd] = op.point
-		cptAdd++
-	}
-
 	add := func(bucketID uint16, PP *G2Affine, isAdd bool) {
-		// CanAdd must be called before --> ensures bucket is not "used" in current batch
-
+		// @precondition: ensures bucket is not "used" in current batch
 		BK := &buckets[bucketID]
 		// handle special cases with inf or -P / P
 		if BK.IsInfinity() {
@@ -406,32 +321,16 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		cptAdd++
 	}
 
-	var queue TQ
-	qID := 0
-
 	processQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
-			if !canAdd(queue[i].bucketID) {
+			if bucketIds[queue[i].bucketID] {
 				continue
 			}
-			addFromQueue(queue[i])
+			add(queue[i].bucketID, &queue[i].point, true)
 			if isFull() {
 				executeAndReset()
 			}
 			queue[i] = queue[qID-1]
-			qID--
-		}
-	}
-
-	processTopQueue := func() {
-		for i := qID - 1; i >= 0; i-- {
-			if !canAdd(queue[i].bucketID) {
-				return
-			}
-			addFromQueue(queue[i])
-			if isFull() {
-				executeAndReset()
-			}
 			qID--
 		}
 	}
@@ -449,7 +348,7 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 			bucketID -= 1
 		}
 
-		if !canAdd(bucketID) {
+		if bucketIds[bucketID] {
 			// put it in queue
 			queue[qID].bucketID = bucketID
 			if isAdd {
@@ -471,7 +370,6 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processTopQueue()
 		}
 	}
 

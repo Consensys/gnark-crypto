@@ -21,7 +21,6 @@ import (
 	"math/big"
 	"math/bits"
 	"math/rand"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -91,8 +90,7 @@ func TestMultiExpG1(t *testing.T) {
 					FromMont()
 			}
 
-			innerMsmG1(&r16, 16, samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
-
+			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
 			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
@@ -127,8 +125,9 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			results := make([]G1Jac, len(cRange))
-			for i, c := range cRange {
-				innerMsmG1(&results[i], int(c), samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
+			for i := range cRange {
+				// TODO @gbotrel restore test of all C
+				results[i].MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -163,8 +162,9 @@ func TestMultiExpG1(t *testing.T) {
 			}
 
 			results := make([]G1Jac, len(cRange))
-			for i, c := range cRange {
-				innerMsmG1(&results[i], int(c), samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
+			for i := range cRange {
+				// TODO @gbotrel restore test for all C
+				results[i].MultiExp(samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -231,7 +231,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 	var testPoint G1Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 15; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
@@ -373,8 +373,7 @@ func TestMultiExpG2(t *testing.T) {
 					FromMont()
 			}
 
-			innerMsmG2(&r16, 16, samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
-
+			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
 			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
@@ -407,8 +406,9 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			results := make([]G2Jac, len(cRange))
-			for i, c := range cRange {
-				innerMsmG2(&results[i], int(c), samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
+			for i := range cRange {
+				// TODO @gbotrel restore test of all C
+				results[i].MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -443,8 +443,9 @@ func TestMultiExpG2(t *testing.T) {
 			}
 
 			results := make([]G2Jac, len(cRange))
-			for i, c := range cRange {
-				innerMsmG2(&results[i], int(c), samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
+			for i := range cRange {
+				// TODO @gbotrel restore test for all C
+				results[i].MultiExp(samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{})
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
@@ -511,7 +512,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 
 	var testPoint G2Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 15; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
