@@ -55,7 +55,18 @@ func lastC(c uint64) uint64 {
 }
 
 type chunkStat struct {
-	weight float32 // relative weight compared to other chunks.
+	// relative weight of work compared to other chunks. 100.0 -> nominal weight. 
+	weight int
+
+	// average absolute deviation. this is meant to give a sense of statistical 
+	// dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
+	deviation int 
+
+	// count the number of buckets that are non zeroes for this chunk
+	nonZeroBuckets int
+
+	// average ops per non-zero buckets
+	averageOpsPerBucket int 
 }
 
 
@@ -94,9 +105,14 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 	}
 
 	chOpsPerChunk := make(chan []int, nbTasks)
+	chOpsPerBucketPerChunk := make(chan [][]int, nbTasks)
 
 	parallel.Execute(len(scalars), func(start, end int) {
 		opsPerChunk := make([]int, nbChunks)
+		opsPerBucketPerChunk := make([][]int, nbChunks)
+		for i:=0; i < len(opsPerBucketPerChunk);i++ {
+			opsPerBucketPerChunk[i] = make([]int, (1 << (c-1))) // nbBuckets
+		}
 		for i:=start; i < end; i++ {
 			scalar := scalars[i]
 			if scalarsMont {
@@ -133,16 +149,18 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 					carry = 1
 				}
 
-				var bits uint16
-
 				// if digit is zero, no impact on result
 				if digit == 0 {
 					continue 
 				} 
+
+				var bits uint16
 				if digit > 0 {
 					bits = uint16(digit) << 1
+					opsPerBucketPerChunk[chunk][uint16(digit)]++
 				} else {
 					bits = (uint16(-digit-1) << 1) + 1
+					opsPerBucketPerChunk[chunk][uint16(-digit-1)]++
 				}
 				digits[int(chunk)*len(scalars)+i] = bits
 				opsPerChunk[chunk]++
@@ -150,26 +168,77 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 		}
 
 		chOpsPerChunk <- opsPerChunk
+		chOpsPerBucketPerChunk <- opsPerBucketPerChunk
 
 	}, nbTasks)
 	
 	
 	// aggregate  chunk stats
+	chunkStats := make([]chunkStat, nbChunks)
 	close(chOpsPerChunk)
+	close(chOpsPerBucketPerChunk)
 	opsPerChunk := make([]int, nbChunks)
 	totalOps := 0
-	for o := range chOpsPerChunk {
-		for i, nbOps := range o {
+	for chunks := range chOpsPerChunk {
+		for i, nbOps := range chunks {
 			opsPerChunk[i]+=nbOps
 			totalOps += nbOps
 		} 
 	}
-	chunkStats := make([]chunkStat, nbChunks)
-	target := float32(totalOps) / float32(nbChunks)
-	// what percentage are you of the target
-	for i := 0; i < len(chunkStats); i++ {
-		chunkStats[i].weight = float32(opsPerChunk[i]) * 100.0 / target
+
+
+	opsPerBucketPerChunk := make([][]int, nbChunks)
+	for i:=0; i < len(opsPerBucketPerChunk);i++ {
+		opsPerBucketPerChunk[i] = make([]int, (1 << (c-1))) // nbBuckets
 	}
+	for chunks := range chOpsPerBucketPerChunk {
+		for i, opsPerBucket := range chunks {
+			for j, o := range opsPerBucket {
+				// bucket j in chunk i has o operations
+				if opsPerBucketPerChunk[i][j] == 0 && o != 0 {
+					chunkStats[i].nonZeroBuckets++
+				}
+				opsPerBucketPerChunk[i][j] += o
+			}
+		} 
+	}
+
+	abs := func(v int) int {
+		if v < 0 {
+			return -v 
+		}
+		return v 
+	}
+
+	// we know the total ops for the chunk, the number of non zero buckets
+	// so we can compute the deviation;
+	// TODO @gbotrel do that in go routines
+	for chunkID:=0; chunkID < len(chunkStats); chunkID++ {
+		nz := chunkStats[chunkID].nonZeroBuckets
+		if nz == 0 {
+			continue // ignore chunk, full of zeroes. 
+		}
+		mean := opsPerChunk[chunkID] / nz
+		aad := 0
+		averageOpsPerBucket := 0
+		for _, bucketOps := range opsPerBucketPerChunk[chunkID] {
+			aad += abs(bucketOps - mean)
+			averageOpsPerBucket += bucketOps 
+		}
+		chunkStats[chunkID].averageOpsPerBucket = averageOpsPerBucket / nz
+		chunkStats[chunkID].deviation =  aad / nz
+	}
+	
+
+	target := totalOps / int(nbChunks)
+	// what percentage are you of the target
+	if target != 0 {
+		// if target == 0, it means all the scalars are 0 everywhere, there is no work to be done.
+		for i := 0; i < len(chunkStats); i++ {
+			chunkStats[i].weight = opsPerChunk[i] * 100 / target
+		}
+	}
+	
 
 	return digits, chunkStats
 }
@@ -420,15 +489,16 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 }
 
 
-func getChunkProcessor{{ $.UPointName }}(c uint64 /* some other params to determine extJac*/) func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, digits []uint16) {
-	mustBeExt := false
+func getChunkProcessor{{ $.UPointName }}(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, digits []uint16) {
 	switch c {
 		{{range $c :=  $.CRange}}
 		case {{$c}}:
 			{{- if le $c 9}}
 				return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
 			{{- else}}
-				if mustBeExt {
+				const batchSize = {{batchSize $c}}
+				edgeCaseAffine := (stat.nonZeroBuckets < (batchSize)) || (stat.deviation >= 4) // stat.averageOpsPerBucket/3)
+				if edgeCaseAffine {
 					return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
 				}
 				return processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{$c}}, bitSetC{{$c}}, p{{$.TAffine}}C{{$c}}, pp{{$.TAffine}}C{{$c}}, q{{$.TAffine}}C{{$c}}, c{{$.TAffine}}C{{$c}}]
@@ -459,24 +529,24 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 	n := len(points)
 
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		processChunk := getChunkProcessor{{ $.UPointName }}(c)
+		processChunk := getChunkProcessor{{ $.UPointName }}(c, chunkStats[j])
 		if j == int(nbChunks - 1) {
-			processChunk = getChunkProcessor{{ $.UPointName }}(lastC(c))
+			processChunk = getChunkProcessor{{ $.UPointName }}(lastC(c), chunkStats[j])
 		}
-		if chunkStats[j].weight >= 150.0 {
+		if chunkStats[j].weight >= 115 {
 			// we split this in more go routines since this chunk has more work to do than the others.
 			// else what would happen is this go routine would finish much later than the others.
 			chSplit := make(chan {{ $.TJacobianExtended }}, 2)
 			split := n / 2
 			go processChunk(uint64(j),chSplit, c, points[:split], digits[j*n:(j*n)+split])
 			go processChunk(uint64(j),chSplit, c, points[split:], digits[(j*n)+split:(j+1)*n])
-			go func() {
+			go func(chunkID int) {
 				s1 := <-chSplit
 				s2 := <-chSplit
 				close(chSplit)
 				s1.add(&s2)
-				chChunks[j] <- s1
-			}()
+				chChunks[chunkID] <- s1
+			}(j)
 			continue 
 		} 
 		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])

@@ -253,7 +253,9 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 		}
 	}
 
-	// bad case for batch affine
+	// bad case for batch affine because scalar distribution might look uniform
+	// but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
+	// to process small batches of additions to flush its queue of conflicted points.
 	for i:=0; i < len(sampleScalarsRedundant);i+=100 {
 		for j:=i+1; j < i+100 && j < len(sampleScalarsRedundant);j++ {
 			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
