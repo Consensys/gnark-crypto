@@ -54,6 +54,10 @@ func lastC(c uint64) uint64 {
 	return n - (c * (n / c))
 }
 
+type chunkStat struct {
+	weight float32 // relative weight compared to other chunks.
+}
+
 
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
@@ -61,16 +65,13 @@ func lastC(c uint64) uint64 {
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
 // scalarsMont indicates wheter the provided scalars are in montgomery form
-// returns smallValues, which represent the number of scalars which meets the following condition
-// 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, int) {
+func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, []chunkStat) {
 	// number of c-bit radixes in a scalar
 	nbChunks := computeNbChunks(c)
 
-	toReturn := make([]uint16, len(scalars)*int(nbChunks))
+	digits := make([]uint16, len(scalars)*int(nbChunks))
 
 	mask  := uint64((1 << c) - 1) 		// low c bits are 1
-	// msbWindow := uint64(1 << (c -1)) 			// msb of the c-bit window
 	max := int(1 << (c -1)) 					// max value we want for our digits
 	cDivides64 :=  (64 %c ) == 0 				// if c doesn't divide 64, we may need to select over multiple words
 
@@ -92,35 +93,21 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 		selectors[chunk] = d
 	}
 
-	// for each chunk, we could track the number of non-zeros points we will need to process
-	// this way, if a chunk has more work to do than others, we can spawn off more go routines
-	// (at the cost of more buckets allocated)
-	// a simplified approach is to track the small values where only the first word is set
-	// if this number represent a significant number of points, then we will split first chunk
-	// processing in the msm in 2, to ensure all go routines finish at ~same time
-	// /!\ nbTasks is enough as parallel.Execute is not going to spawn more than nbTasks go routine
-	// if it does, though, this will deadlocK.
-	chSmallValues := make(chan int, nbTasks) 
+	chOpsPerChunk := make(chan []int, nbTasks)
 
 	parallel.Execute(len(scalars), func(start, end int) {
-		smallValues := 0
+		opsPerChunk := make([]int, nbChunks)
 		for i:=start; i < end; i++ {
-			var carry int
-
 			scalar := scalars[i]
 			if scalarsMont {
 				scalar.FromMont()
 			}
-			if scalar.FitsOnOneWord() {
+			if scalar.IsZero() {
 				// everything is 0, no need to process this scalar
-				if scalar[0] == 0 {
-					continue
-				}
-				// low c-bits are 1 in mask
-				if scalar[0]&mask == scalar[0] {
-					smallValues++
-				}
+				continue
 			}
+
+			var carry int
 
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
 			for chunk := uint64(0); chunk < nbChunks; chunk++ {
@@ -151,27 +138,40 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 				// if digit is zero, no impact on result
 				if digit == 0 {
 					continue 
-				} else if digit > 0 {
+				} 
+				if digit > 0 {
 					bits = uint16(digit) << 1
 				} else {
 					bits = (uint16(-digit-1) << 1) + 1
 				}
-				toReturn[int(chunk)*len(scalars)+i] = bits
+				digits[int(chunk)*len(scalars)+i] = bits
+				opsPerChunk[chunk]++
 			}
 		}
 
-		chSmallValues <- smallValues
+		chOpsPerChunk <- opsPerChunk
 
 	}, nbTasks)
 	
 	
-	// aggregate small values
-	close(chSmallValues)
-	smallValues := 0
-	for o := range chSmallValues {
-		smallValues+=o
+	// aggregate  chunk stats
+	close(chOpsPerChunk)
+	opsPerChunk := make([]int, nbChunks)
+	totalOps := 0
+	for o := range chOpsPerChunk {
+		for i, nbOps := range o {
+			opsPerChunk[i]+=nbOps
+			totalOps += nbOps
+		} 
 	}
-	return toReturn, smallValues
+	chunkStats := make([]chunkStat, nbChunks)
+	target := float32(totalOps) / float32(nbChunks)
+	// what percentage are you of the target
+	for i := 0; i < len(chunkStats); i++ {
+		chunkStats[i].weight = float32(opsPerChunk[i]) * 100.0 / target
+	}
+
+	return digits, chunkStats
 }
 
 
@@ -412,16 +412,9 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	}
 
 	// partition the scalars
-	// note: we do that before the actual chunk processing, as for each c-bit window (starting from LSW)
-	// if it's larger than 2^{c-1}, we have a carry we need to propagate up to the higher window
-	// var smallValues int 
-	digits, smallValues := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
+	digits, chunkStats := partitionScalars(scalars, C, config.ScalarsMont, config.NbTasks)
 
-	// if we have more than 10% of small values, we split the processing of the first chunk in 2
-	// we may want to do that in innerMsm, but that would incur a cost of looping through all scalars one more time
-	splitFirstChunk := (float64(smallValues) / float64(len(scalars))) >= 0.1
-
-	_innerMsm{{ $.UPointName }}(p, C, points, digits, splitFirstChunk)
+	_innerMsm{{ $.UPointName }}(p, C, points, digits, chunkStats)
 
 	return p, nil
 }
@@ -447,7 +440,7 @@ func getChunkProcessor{{ $.UPointName }}(c uint64 /* some other params to determ
 	}
 }
 
-func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, digits []uint16, splitFirstChunk bool) *{{ $.TJacobian }} {
+func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, digits []uint16, chunkStats []chunkStat) *{{ $.TJacobian }} {
 	
 	nbChunks := computeNbChunks(c)
 
@@ -464,37 +457,31 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	processLastChunk := getChunkProcessor{{ $.UPointName }}(lastC(c))
-	go processLastChunk(uint64(nbChunks-1), chChunks[nbChunks-1], c, points, digits[int(nbChunks-1)*n:])
 
-	for j := int(nbChunks - 2); j >0; j-- {
+	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := getChunkProcessor{{ $.UPointName }}(c)
-		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
-	}
-
-	// the first chunk may be imbalanced with the others, in particular for SNARK witness values [0,1]
-	// --> if that is the case, we launch 2 go routines to process the chunk to ensure all chunk are processed
-	// in the ~same amount of time
-	if nbChunks > 1 { // sanity check since we processed the "last chunk" up there, shouldn't happen.
-		processChunk := getChunkProcessor{{ $.UPointName }}(c)
-		if !splitFirstChunk {
-			go processChunk(0,chChunks[0], c, points, digits[:n])
-		} else {
+		if j == int(nbChunks - 1) {
+			processChunk = getChunkProcessor{{ $.UPointName }}(lastC(c))
+		}
+		if chunkStats[j].weight >= 150.0 {
+			// we split this in more go routines since this chunk has more work to do than the others.
+			// else what would happen is this go routine would finish much later than the others.
 			chSplit := make(chan {{ $.TJacobianExtended }}, 2)
 			split := n / 2
-			go processChunk(0,chSplit, c, points[:split], digits[:split])
-			go processChunk(0,chSplit, c, points[split:], digits[split:n])
+			go processChunk(uint64(j),chSplit, c, points[:split], digits[j*n:(j*n)+split])
+			go processChunk(uint64(j),chSplit, c, points[split:], digits[(j*n)+split:(j+1)*n])
 			go func() {
 				s1 := <-chSplit
 				s2 := <-chSplit
 				close(chSplit)
 				s1.add(&s2)
-				chChunks[0] <- s1
+				chChunks[j] <- s1
 			}()
-		}
-	
+			continue 
+		} 
+		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
 	}
-	
+
 	return msmReduceChunk{{ $.TAffine }}(p, int(c), chChunks[:])
 }
 
