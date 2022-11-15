@@ -267,7 +267,7 @@ func BenchmarkMultiExp{{ toUpper $.PointName }}(b *testing.B) {
 
 	var testPoint {{ $.TAffine }}
 
-	for i := 15; i <= pow; i++ {
+	for i := 22; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {

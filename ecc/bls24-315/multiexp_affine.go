@@ -36,7 +36,7 @@ func (o batchOpG1Affine) isNeg() bool {
 //
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Affine, TQ qOpsG1Affine, TC cG1Affine](
+func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Affine, TQ qOpsG1Affine, TC cG1Affine](
 	chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
@@ -45,8 +45,10 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 
 	// init the buckets
 	var buckets B
+	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
+		bucketsJE[i].setInfinity()
 	}
 
 	// setup for the batch affine;
@@ -70,6 +72,31 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
+	}
+	addFromQueue := func(op batchOpG1Affine) {
+		// @precondition: ensures bucket is not "used" in current batch
+		BK := &buckets[op.bucketID]
+		// handle special cases with inf or -P / P
+		if BK.IsInfinity() {
+			BK.Set(&op.point)
+			return
+		}
+		if BK.X.Equal(&op.point.X) {
+			if BK.Y.Equal(&op.point.Y) {
+				// P + P: doubling, which should be quite rare --
+				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
+				// need doubling in affine implemented ?
+				BK.Add(BK, BK)
+				return
+			}
+			BK.setInfinity()
+			return
+		}
+
+		bucketIds[op.bucketID] = true
+		R[cptAdd] = BK
+		P[cptAdd] = op.point
+		cptAdd++
 	}
 
 	add := func(bucketID uint16, PP *G1Affine, isAdd bool) {
@@ -115,12 +142,19 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		cptAdd++
 	}
 
+	flushQueue := func() {
+		for i := 0; i < qID; i++ {
+			bucketsJE[queue[i].bucketID].addMixed(&queue[i].point)
+		}
+		qID = 0
+	}
+
 	processQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
 			if bucketIds[queue[i].bucketID] {
 				continue
 			}
-			add(queue[i].bucketID, &queue[i].point, true)
+			addFromQueue(queue[i])
 			if isFull() {
 				executeAndReset()
 			}
@@ -154,8 +188,7 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 
 			// queue is full, flush it.
 			if qID == len(queue)-1 {
-				executeAndReset()
-				processQueue()
+				flushQueue()
 			}
 			continue
 		}
@@ -164,15 +197,16 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processQueue()
+			processQueue() // TODO top queue only
 		}
 	}
 
 	// empty the queue
-	for qID != 0 {
-		processQueue()
-		executeAndReset()
-	}
+	flushQueue()
+	// for qID != 0 {
+	// 	processQueue()
+	// 	executeAndReset()
+	// }
 
 	// flush items in batch.
 	executeAndReset()
@@ -316,7 +350,7 @@ func (o batchOpG2Affine) isNeg() bool {
 //
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
-func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Affine, TQ qOpsG2Affine, TC cG2Affine](
+func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Affine, TQ qOpsG2Affine, TC cG2Affine](
 	chunk uint64,
 	chRes chan<- g2JacExtended,
 	c uint64,
@@ -325,8 +359,10 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 
 	// init the buckets
 	var buckets B
+	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
+		bucketsJE[i].setInfinity()
 	}
 
 	// setup for the batch affine;
@@ -350,6 +386,31 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		var tmp BS
 		bucketIds = tmp
 		cptAdd = 0
+	}
+	addFromQueue := func(op batchOpG2Affine) {
+		// @precondition: ensures bucket is not "used" in current batch
+		BK := &buckets[op.bucketID]
+		// handle special cases with inf or -P / P
+		if BK.IsInfinity() {
+			BK.Set(&op.point)
+			return
+		}
+		if BK.X.Equal(&op.point.X) {
+			if BK.Y.Equal(&op.point.Y) {
+				// P + P: doubling, which should be quite rare --
+				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
+				// need doubling in affine implemented ?
+				BK.Add(BK, BK)
+				return
+			}
+			BK.setInfinity()
+			return
+		}
+
+		bucketIds[op.bucketID] = true
+		R[cptAdd] = BK
+		P[cptAdd] = op.point
+		cptAdd++
 	}
 
 	add := func(bucketID uint16, PP *G2Affine, isAdd bool) {
@@ -395,12 +456,19 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		cptAdd++
 	}
 
+	flushQueue := func() {
+		for i := 0; i < qID; i++ {
+			bucketsJE[queue[i].bucketID].addMixed(&queue[i].point)
+		}
+		qID = 0
+	}
+
 	processQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
 			if bucketIds[queue[i].bucketID] {
 				continue
 			}
-			add(queue[i].bucketID, &queue[i].point, true)
+			addFromQueue(queue[i])
 			if isFull() {
 				executeAndReset()
 			}
@@ -434,8 +502,7 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 
 			// queue is full, flush it.
 			if qID == len(queue)-1 {
-				executeAndReset()
-				processQueue()
+				flushQueue()
 			}
 			continue
 		}
@@ -444,15 +511,16 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processQueue()
+			processQueue() // TODO top queue only
 		}
 	}
 
 	// empty the queue
-	for qID != 0 {
-		processQueue()
-		executeAndReset()
-	}
+	flushQueue()
+	// for qID != 0 {
+	// 	processQueue()
+	// 	executeAndReset()
+	// }
 
 	// flush items in batch.
 	executeAndReset()
