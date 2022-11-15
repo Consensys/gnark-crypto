@@ -222,11 +222,31 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	)
 
 	var (
-		samplePoints  [nbSamples]G1Affine
-		sampleScalars [nbSamples]fr.Element
+		samplePoints             [nbSamples]G1Affine
+		sampleScalars            [nbSamples]fr.Element
+		sampleScalarsSmallValues [nbSamples]fr.Element
+		sampleScalarsRedundant   [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
+	copy(sampleScalarsSmallValues[:], sampleScalars[:])
+	copy(sampleScalarsRedundant[:], sampleScalars[:])
+
+	// should split the scalars
+	for i := 0; i < len(sampleScalarsSmallValues); i++ {
+		if i%5 == 0 {
+			sampleScalarsSmallValues[i].SetZero()
+			sampleScalarsSmallValues[i][0] = 1
+		}
+	}
+
+	// bad case for batch affine
+	for i := 0; i < len(sampleScalarsRedundant); i += 10 {
+		for j := i + 1; j < i+10 && j < len(sampleScalarsRedundant); j++ {
+			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
+		}
+	}
+
 	fillBenchBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
@@ -238,6 +258,20 @@ func BenchmarkMultiExpG1(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -503,11 +537,31 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	)
 
 	var (
-		samplePoints  [nbSamples]G2Affine
-		sampleScalars [nbSamples]fr.Element
+		samplePoints             [nbSamples]G2Affine
+		sampleScalars            [nbSamples]fr.Element
+		sampleScalarsSmallValues [nbSamples]fr.Element
+		sampleScalarsRedundant   [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
+	copy(sampleScalarsSmallValues[:], sampleScalars[:])
+	copy(sampleScalarsRedundant[:], sampleScalars[:])
+
+	// should split the scalars
+	for i := 0; i < len(sampleScalarsSmallValues); i++ {
+		if i%5 == 0 {
+			sampleScalarsSmallValues[i].SetZero()
+			sampleScalarsSmallValues[i][0] = 1
+		}
+	}
+
+	// bad case for batch affine
+	for i := 0; i < len(sampleScalarsRedundant); i += 10 {
+		for j := i + 1; j < i+10 && j < len(sampleScalarsRedundant); j++ {
+			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
+		}
+	}
+
 	fillBenchBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
@@ -519,6 +573,20 @@ func BenchmarkMultiExpG2(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}

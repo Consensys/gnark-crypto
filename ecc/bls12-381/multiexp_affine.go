@@ -164,6 +164,7 @@ func processChunkG1BatchAffine[B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
+			processQueue()
 		}
 	}
 
@@ -443,6 +444,7 @@ func processChunkG2BatchAffine[B ibG2Affine, BS bitSet, TP pG2Affine, TPP ppG2Af
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
+			processQueue()
 		}
 	}
 

@@ -173,6 +173,7 @@ func processChunk{{ $.UPointName }}BatchAffine[B ib{{ $.TAffine }}, BS bitSet, T
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
+			processQueue()
 		}
 	}
 
