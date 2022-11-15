@@ -74,12 +74,12 @@ type bucketg1JacExtendedC13 [1 << (13 - 1)]g1JacExtended
 type bucketg1JacExtendedC14 [1 << (14 - 1)]g1JacExtended
 type bucketg1JacExtendedC15 [1 << (15 - 1)]g1JacExtended
 type bucketg1JacExtendedC16 [1 << (16 - 1)]g1JacExtended
-type bucketg1JacExtendedC1 [1 << (1 - 1)]g1JacExtended
 type bucketg1JacExtendedC3 [1 << (3 - 1)]g1JacExtended
+type bucketg1JacExtendedC2 [1 << (2 - 1)]g1JacExtended
 
 type ibg1JacExtended interface {
-	bucketg1JacExtendedC1 |
-		bucketg1JacExtendedC3 |
+	bucketg1JacExtendedC3 |
+		bucketg1JacExtendedC2 |
 		bucketg1JacExtendedC4 |
 		bucketg1JacExtendedC5 |
 		bucketg1JacExtendedC6 |
@@ -153,12 +153,12 @@ type bucketg2JacExtendedC13 [1 << (13 - 1)]g2JacExtended
 type bucketg2JacExtendedC14 [1 << (14 - 1)]g2JacExtended
 type bucketg2JacExtendedC15 [1 << (15 - 1)]g2JacExtended
 type bucketg2JacExtendedC16 [1 << (16 - 1)]g2JacExtended
-type bucketg2JacExtendedC1 [1 << (1 - 1)]g2JacExtended
 type bucketg2JacExtendedC3 [1 << (3 - 1)]g2JacExtended
+type bucketg2JacExtendedC2 [1 << (2 - 1)]g2JacExtended
 
 type ibg2JacExtended interface {
-	bucketg2JacExtendedC1 |
-		bucketg2JacExtendedC3 |
+	bucketg2JacExtendedC3 |
+		bucketg2JacExtendedC2 |
 		bucketg2JacExtendedC4 |
 		bucketg2JacExtendedC5 |
 		bucketg2JacExtendedC6 |

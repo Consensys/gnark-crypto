@@ -92,7 +92,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
 		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+			cc := (fr.Bits + 1) * (nbPoints + (1 << (c)))
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
@@ -103,16 +103,16 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	C := bestC(nbPoints)
-	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
-	if (fr.Limbs*64)%C != 0 {
+	nbChunks := int((fr.Bits + 1) / C) // number of c-bit radixes in a scalar
+	if (fr.Bits+1)%C != 0 {
 		nbChunks++
 	}
 	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
 	if config.NbTasks > 1 && nbChunks < config.NbTasks {
 		// before spliting, let's see if we endup with more tasks than thread;
 		cSplit := bestC(nbPoints / 2)
-		nbChunksPostSplit := int(fr.Limbs * 64 / cSplit)
-		if (fr.Limbs*64)%cSplit != 0 {
+		nbChunksPostSplit := int((fr.Bits + 1) / cSplit)
+		if (fr.Bits+1)%cSplit != 0 {
 			nbChunksPostSplit++
 		}
 		nbTasksPostSplit := nbChunksPostSplit * 2
@@ -153,17 +153,20 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config
 
 	case 4:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
-		_innerMsmG1(p, 4, points, digits, splitFirstChunk, processChunk, processChunk)
+		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC3]
+		_innerMsmG1(p, 4, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 5:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC5]
 		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC4]
 		_innerMsmG1(p, 5, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 8:
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC8]
-		_innerMsmG1(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
+		processLastChunk := processChunkG1Jacobian[bucketg1JacExtendedC3]
+		_innerMsmG1(p, 8, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
-		processChunk := processChunkG1BatchAffine[bucketG1AffineC16, bitSetC16, pG1AffineC16, ppG1AffineC16, qOpsG1AffineC16, cG1AffineC16]
-		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
+		processChunk := processChunkG1BatchAffine[bucketG1AffineC16, bitSetC16, pG1AffineC16, ppG1AffineC16, qG1AffineC16, cG1AffineC16]
+		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC11, bitSetC16, pG1AffineC16, ppG1AffineC16, qG1AffineC16, cG1AffineC16]
+		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}
@@ -172,8 +175,8 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config
 func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint16, splitFirstChunk bool,
 	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16)) *G1Jac {
 
-	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	if (fr.Limbs*64)%c != 0 {
+	nbChunks := ((fr.Bits + 1) / c) // number of c-bit radixes in a scalar
+	if (fr.Bits+1)%c != 0 {
 		nbChunks++
 	}
 
@@ -304,7 +307,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
 		for _, c := range implementedCs {
-			cc := fr.Limbs * 64 * (nbPoints + (1 << (c)))
+			cc := (fr.Bits + 1) * (nbPoints + (1 << (c)))
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
@@ -315,16 +318,16 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	C := bestC(nbPoints)
-	nbChunks := int(fr.Limbs * 64 / C) // number of c-bit radixes in a scalar
-	if (fr.Limbs*64)%C != 0 {
+	nbChunks := int((fr.Bits + 1) / C) // number of c-bit radixes in a scalar
+	if (fr.Bits+1)%C != 0 {
 		nbChunks++
 	}
 	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
 	if config.NbTasks > 1 && nbChunks < config.NbTasks {
 		// before spliting, let's see if we endup with more tasks than thread;
 		cSplit := bestC(nbPoints / 2)
-		nbChunksPostSplit := int(fr.Limbs * 64 / cSplit)
-		if (fr.Limbs*64)%cSplit != 0 {
+		nbChunksPostSplit := int((fr.Bits + 1) / cSplit)
+		if (fr.Bits+1)%cSplit != 0 {
 			nbChunksPostSplit++
 		}
 		nbTasksPostSplit := nbChunksPostSplit * 2
@@ -365,17 +368,20 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config
 
 	case 4:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
-		_innerMsmG2(p, 4, points, digits, splitFirstChunk, processChunk, processChunk)
+		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC3]
+		_innerMsmG2(p, 4, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 5:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC5]
 		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC4]
 		_innerMsmG2(p, 5, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 8:
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC8]
-		_innerMsmG2(p, 8, points, digits, splitFirstChunk, processChunk, processChunk)
+		processLastChunk := processChunkG2Jacobian[bucketg2JacExtendedC3]
+		_innerMsmG2(p, 8, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
-		processChunk := processChunkG2BatchAffine[bucketG2AffineC16, bitSetC16, pG2AffineC16, ppG2AffineC16, qOpsG2AffineC16, cG2AffineC16]
-		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processChunk)
+		processChunk := processChunkG2BatchAffine[bucketG2AffineC16, bitSetC16, pG2AffineC16, ppG2AffineC16, qG2AffineC16, cG2AffineC16]
+		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC11, bitSetC16, pG2AffineC16, ppG2AffineC16, qG2AffineC16, cG2AffineC16]
+		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
 	}
@@ -384,8 +390,8 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config
 func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint16, splitFirstChunk bool,
 	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16)) *G2Jac {
 
-	nbChunks := (fr.Limbs * 64 / c) // number of c-bit radixes in a scalar
-	if (fr.Limbs*64)%c != 0 {
+	nbChunks := ((fr.Bits + 1) / c) // number of c-bit radixes in a scalar
+	if (fr.Bits+1)%c != 0 {
 		nbChunks++
 	}
 
@@ -471,8 +477,8 @@ type selector struct {
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
 func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, int) {
 	// number of c-bit radixes in a scalar
-	nbChunks := fr.Limbs * 64 / c
-	if (fr.Limbs*64)%c != 0 {
+	nbChunks := (fr.Bits + 1) / c
+	if (fr.Bits+1)%c != 0 {
 		nbChunks++
 	}
 
@@ -546,11 +552,6 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 					digit += int(scalar[s.index+1]&s.maskHigh) << s.shiftHigh
 				}
 
-				// if digit is zero, no impact on result
-				if digit == 0 {
-					continue
-				}
-
 				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 				// 2^{c} to the current digit, making it negative.
 				if digit >= max {
@@ -559,17 +560,16 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 				}
 
 				var bits uint16
-				if digit >= 0 {
+
+				// if digit is zero, no impact on result
+				if digit == 0 {
+					continue
+				} else if digit > 0 {
 					bits = uint16(digit) << 1
 				} else {
 					bits = (uint16(-digit-1) << 1) + 1
 				}
 				toReturn[int(chunk)*len(scalars)+i] = bits
-				// [s.index] |= (bits << s.shift)
-				// if s.multiWordSelect {
-				// 	toReturn[i][s.index+1] |= (bits >> s.shiftHigh)
-				// }
-
 			}
 		}
 

@@ -303,19 +303,19 @@ type pp{{ $.TAffine }} interface {
 type qOps{{ $.TAffine }} interface {
 	{{- range $i, $c :=  $.CRange}}
 	{{- if gt $c 9}}
-	qOps{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
+	q{{ $.TAffine }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
 	{{- end}}
 	{{- end}}
 }
 
 
 {{- range $c :=  $.CRange}}
-{{- if gt $c 9}}
+{{if gt $c 9}}
+// batch size {{batchSize $c}} when c = {{$c}}
 type c{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]{{ $.CoordType }}
 type p{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]{{ $.TAffine }}
 type pp{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]*{{ $.TAffine }}
-type qOps{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]batchOp{{ $.TAffine }}
-
+type q{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]batchOp{{ $.TAffine }}
 {{- end}}
 {{- end}}
 

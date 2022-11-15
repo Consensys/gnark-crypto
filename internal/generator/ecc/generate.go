@@ -28,9 +28,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return x == reflect.ValueOf(a).Len()-1
 	}
 	lastC := func(c int) int {
-		// lastC := (fr.Limbs * 64) - (c * (fr.Limbs * 64 / c))
-		// if c divides fr.Limbs * 64;
-		n := (conf.Fr.NbWords * 64)
+		n := (conf.Fr.NbBits + 1) // +1 for the potential carry of the NAF decomposition
 		if n%c == 0 {
 			return c
 		}

@@ -269,12 +269,14 @@ type ppG1Affine interface {
 
 // buckets: array of G1Affine queue operations (for the batch addition)
 type qOpsG1Affine interface {
-	qOpsG1AffineC16
+	qG1AffineC16
 }
+
+// batch size 640 when c = 16
 type cG1AffineC16 [640]fp.Element
 type pG1AffineC16 [640]G1Affine
 type ppG1AffineC16 [640]*G1Affine
-type qOpsG1AffineC16 [640]batchOpG1Affine
+type qG1AffineC16 [640]batchOpG1Affine
 
 type batchOpG2Affine struct {
 	bucketID uint16
@@ -525,12 +527,14 @@ type ppG2Affine interface {
 
 // buckets: array of G2Affine queue operations (for the batch addition)
 type qOpsG2Affine interface {
-	qOpsG2AffineC16
+	qG2AffineC16
 }
+
+// batch size 640 when c = 16
 type cG2AffineC16 [640]fp.Element
 type pG2AffineC16 [640]G2Affine
 type ppG2AffineC16 [640]*G2Affine
-type qOpsG2AffineC16 [640]batchOpG2Affine
+type qG2AffineC16 [640]batchOpG2Affine
 
 type bitSetC4 [1 << (4 - 1)]bool
 type bitSetC5 [1 << (5 - 1)]bool

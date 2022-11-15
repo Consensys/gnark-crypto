@@ -300,42 +300,56 @@ type ppG1Affine interface {
 
 // buckets: array of G1Affine queue operations (for the batch addition)
 type qOpsG1Affine interface {
-	qOpsG1AffineC10 |
-		qOpsG1AffineC11 |
-		qOpsG1AffineC12 |
-		qOpsG1AffineC13 |
-		qOpsG1AffineC14 |
-		qOpsG1AffineC15 |
-		qOpsG1AffineC16
+	qG1AffineC10 |
+		qG1AffineC11 |
+		qG1AffineC12 |
+		qG1AffineC13 |
+		qG1AffineC14 |
+		qG1AffineC15 |
+		qG1AffineC16
 }
+
+// batch size 80 when c = 10
 type cG1AffineC10 [80]fp.Element
 type pG1AffineC10 [80]G1Affine
 type ppG1AffineC10 [80]*G1Affine
-type qOpsG1AffineC10 [80]batchOpG1Affine
+type qG1AffineC10 [80]batchOpG1Affine
+
+// batch size 150 when c = 11
 type cG1AffineC11 [150]fp.Element
 type pG1AffineC11 [150]G1Affine
 type ppG1AffineC11 [150]*G1Affine
-type qOpsG1AffineC11 [150]batchOpG1Affine
+type qG1AffineC11 [150]batchOpG1Affine
+
+// batch size 200 when c = 12
 type cG1AffineC12 [200]fp.Element
 type pG1AffineC12 [200]G1Affine
 type ppG1AffineC12 [200]*G1Affine
-type qOpsG1AffineC12 [200]batchOpG1Affine
+type qG1AffineC12 [200]batchOpG1Affine
+
+// batch size 350 when c = 13
 type cG1AffineC13 [350]fp.Element
 type pG1AffineC13 [350]G1Affine
 type ppG1AffineC13 [350]*G1Affine
-type qOpsG1AffineC13 [350]batchOpG1Affine
+type qG1AffineC13 [350]batchOpG1Affine
+
+// batch size 400 when c = 14
 type cG1AffineC14 [400]fp.Element
 type pG1AffineC14 [400]G1Affine
 type ppG1AffineC14 [400]*G1Affine
-type qOpsG1AffineC14 [400]batchOpG1Affine
+type qG1AffineC14 [400]batchOpG1Affine
+
+// batch size 500 when c = 15
 type cG1AffineC15 [500]fp.Element
 type pG1AffineC15 [500]G1Affine
 type ppG1AffineC15 [500]*G1Affine
-type qOpsG1AffineC15 [500]batchOpG1Affine
+type qG1AffineC15 [500]batchOpG1Affine
+
+// batch size 640 when c = 16
 type cG1AffineC16 [640]fp.Element
 type pG1AffineC16 [640]G1Affine
 type ppG1AffineC16 [640]*G1Affine
-type qOpsG1AffineC16 [640]batchOpG1Affine
+type qG1AffineC16 [640]batchOpG1Affine
 
 type batchOpG2Affine struct {
 	bucketID uint16
@@ -616,42 +630,56 @@ type ppG2Affine interface {
 
 // buckets: array of G2Affine queue operations (for the batch addition)
 type qOpsG2Affine interface {
-	qOpsG2AffineC10 |
-		qOpsG2AffineC11 |
-		qOpsG2AffineC12 |
-		qOpsG2AffineC13 |
-		qOpsG2AffineC14 |
-		qOpsG2AffineC15 |
-		qOpsG2AffineC16
+	qG2AffineC10 |
+		qG2AffineC11 |
+		qG2AffineC12 |
+		qG2AffineC13 |
+		qG2AffineC14 |
+		qG2AffineC15 |
+		qG2AffineC16
 }
+
+// batch size 80 when c = 10
 type cG2AffineC10 [80]fptower.E2
 type pG2AffineC10 [80]G2Affine
 type ppG2AffineC10 [80]*G2Affine
-type qOpsG2AffineC10 [80]batchOpG2Affine
+type qG2AffineC10 [80]batchOpG2Affine
+
+// batch size 150 when c = 11
 type cG2AffineC11 [150]fptower.E2
 type pG2AffineC11 [150]G2Affine
 type ppG2AffineC11 [150]*G2Affine
-type qOpsG2AffineC11 [150]batchOpG2Affine
+type qG2AffineC11 [150]batchOpG2Affine
+
+// batch size 200 when c = 12
 type cG2AffineC12 [200]fptower.E2
 type pG2AffineC12 [200]G2Affine
 type ppG2AffineC12 [200]*G2Affine
-type qOpsG2AffineC12 [200]batchOpG2Affine
+type qG2AffineC12 [200]batchOpG2Affine
+
+// batch size 350 when c = 13
 type cG2AffineC13 [350]fptower.E2
 type pG2AffineC13 [350]G2Affine
 type ppG2AffineC13 [350]*G2Affine
-type qOpsG2AffineC13 [350]batchOpG2Affine
+type qG2AffineC13 [350]batchOpG2Affine
+
+// batch size 400 when c = 14
 type cG2AffineC14 [400]fptower.E2
 type pG2AffineC14 [400]G2Affine
 type ppG2AffineC14 [400]*G2Affine
-type qOpsG2AffineC14 [400]batchOpG2Affine
+type qG2AffineC14 [400]batchOpG2Affine
+
+// batch size 500 when c = 15
 type cG2AffineC15 [500]fptower.E2
 type pG2AffineC15 [500]G2Affine
 type ppG2AffineC15 [500]*G2Affine
-type qOpsG2AffineC15 [500]batchOpG2Affine
+type qG2AffineC15 [500]batchOpG2Affine
+
+// batch size 640 when c = 16
 type cG2AffineC16 [640]fptower.E2
 type pG2AffineC16 [640]G2Affine
 type ppG2AffineC16 [640]*G2Affine
-type qOpsG2AffineC16 [640]batchOpG2Affine
+type qG2AffineC16 [640]batchOpG2Affine
 
 type bitSetC4 [1 << (4 - 1)]bool
 type bitSetC5 [1 << (5 - 1)]bool
