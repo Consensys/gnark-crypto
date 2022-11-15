@@ -96,6 +96,27 @@ func naiveMulMod(p, q []fr.Element) []fr.Element {
 	return res
 }
 
+// naiveMulMod2 naiveMulMod with hardcoded degree = 2
+func naiveMulMod2(p, q []fr.Element) [2]fr.Element {
+
+	d := len(p)
+	var res [2]fr.Element
+
+	var tmp fr.Element
+	for i := 0; i < d; i++ {
+		for j := 0; j < d-i; j++ {
+			tmp.Mul(&p[j], &q[i])
+			res[i+j].Add(&tmp, &res[i+j])
+		}
+		for j := d - i; j < d; j++ {
+			tmp.Mul(&p[j], &q[i])
+			res[j-d+i].Sub(&res[j-d+i], &tmp)
+		}
+	}
+
+	return res
+}
+
 // write pols[i] = anX^n + .. + a0, then return the number p_i = a0||..||an
 // choices are the possible values of the a_i.
 // nbBitsBound is the number of bits of the bound.
