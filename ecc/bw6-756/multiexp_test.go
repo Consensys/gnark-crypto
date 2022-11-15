@@ -232,7 +232,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	copy(sampleScalarsSmallValues[:], sampleScalars[:])
 	copy(sampleScalarsRedundant[:], sampleScalars[:])
 
-	// should split the scalars
+	// this means first chunk is going to have more work to do and should be split into several go routines
 	for i := 0; i < len(sampleScalarsSmallValues); i++ {
 		if i%5 == 0 {
 			sampleScalarsSmallValues[i].SetZero()
@@ -241,8 +241,8 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	}
 
 	// bad case for batch affine
-	for i := 0; i < len(sampleScalarsRedundant); i += 10 {
-		for j := i + 1; j < i+10 && j < len(sampleScalarsRedundant); j++ {
+	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
+		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
 			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
 		}
 	}
@@ -547,7 +547,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	copy(sampleScalarsSmallValues[:], sampleScalars[:])
 	copy(sampleScalarsRedundant[:], sampleScalars[:])
 
-	// should split the scalars
+	// this means first chunk is going to have more work to do and should be split into several go routines
 	for i := 0; i < len(sampleScalarsSmallValues); i++ {
 		if i%5 == 0 {
 			sampleScalarsSmallValues[i].SetZero()
@@ -556,8 +556,8 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	}
 
 	// bad case for batch affine
-	for i := 0; i < len(sampleScalarsRedundant); i += 10 {
-		for j := i + 1; j < i+10 && j < len(sampleScalarsRedundant); j++ {
+	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
+		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
 			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
 		}
 	}
