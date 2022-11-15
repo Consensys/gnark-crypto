@@ -32,6 +32,17 @@ type selector struct {
 	shiftHigh uint64		// same than shift, for index+1
 }
 
+// return number of chunks for a given window size c
+func computeNbChunks(c uint64) uint64 {
+	// note that we use fr.Bits + 1 --> +1 for a potential carry propagation due to the NAF 
+	// decomposition in partitionScalars
+	nbChunks := (fr.Bits+1) / c
+	if (fr.Bits+1)%c != 0 {
+		nbChunks++
+	}
+	return nbChunks
+}
+
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
@@ -42,10 +53,7 @@ type selector struct {
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
 func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, int) {
 	// number of c-bit radixes in a scalar
-	nbChunks := (fr.Bits+1) / c
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
+	nbChunks := computeNbChunks(c)
 
 	toReturn := make([]uint16, len(scalars)*int(nbChunks))
 
@@ -355,7 +363,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
 		for _, c := range implementedCs {
-			cc := (fr.Bits+1) * (nbPoints + (1 << (c)))
+			cc := (fr.Bits+1) * (nbPoints + (1 << c))
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
@@ -366,18 +374,13 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	}
 
 	C := bestC(nbPoints)
-	nbChunks := int((fr.Bits+1) / C) // number of c-bit radixes in a scalar
-	if (fr.Bits+1)%C != 0 {
-		nbChunks++
-	}
+	nbChunks := int(computeNbChunks(C))
+
 	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
 	if config.NbTasks > 1 && nbChunks < config.NbTasks {
 		// before spliting, let's see if we endup with more tasks than thread;
 		cSplit := bestC(nbPoints/2)
-		nbChunksPostSplit := int((fr.Bits+1) / cSplit)
-		if (fr.Bits+1)%cSplit != 0 {
-			nbChunksPostSplit++
-		}
+		nbChunksPostSplit := int(computeNbChunks(cSplit))
 		nbTasksPostSplit := nbChunksPostSplit*2
 		if (nbTasksPostSplit <= config.NbTasks /2 ) || ( nbTasksPostSplit - config.NbTasks/2 ) <= ( config.NbTasks - nbChunks) {
 			// if postSplit we still have less tasks than available CPU
@@ -431,7 +434,7 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 			{{- if le $lc 9}}
 				processLastChunk := processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{lastC $c}}]
 			{{- else}}
-				processLastChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{lastC $c}}, bitSetC{{$c}}, p{{$.TAffine}}C{{$c}}, pp{{$.TAffine}}C{{$c}}, q{{$.TAffine}}C{{$c}}, c{{$.TAffine}}C{{$c}}]
+				processLastChunk := processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TAffine }}C{{lastC $c}}, bitSetC{{lastC $c}}, p{{$.TAffine}}C{{lastC $c}}, pp{{$.TAffine}}C{{lastC $c}}, q{{$.TAffine}}C{{lastC $c}}, c{{$.TAffine}}C{{lastC $c}}]
 			{{- end}}
 			_innerMsm{{ $.UPointName }}(p, {{$c}}, points, digits, splitFirstChunk, processChunk, processLastChunk)
 		{{- end}}
@@ -444,10 +447,7 @@ func innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c int, points []{{ $.TAffi
 func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.TAffine }}, digits []uint16, splitFirstChunk bool,
 	processChunk, processLastChunk func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, digits []uint16)) *{{ $.TJacobian }} {
 	
-	nbChunks := ((fr.Bits+1) / c) 			// number of c-bit radixes in a scalar
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
+	nbChunks := computeNbChunks(c)
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window

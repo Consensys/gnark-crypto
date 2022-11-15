@@ -92,7 +92,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
 		for _, c := range implementedCs {
-			cc := (fr.Bits + 1) * (nbPoints + (1 << (c)))
+			cc := (fr.Bits + 1) * (nbPoints + (1 << c))
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
@@ -103,18 +103,13 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	C := bestC(nbPoints)
-	nbChunks := int((fr.Bits + 1) / C) // number of c-bit radixes in a scalar
-	if (fr.Bits+1)%C != 0 {
-		nbChunks++
-	}
+	nbChunks := int(computeNbChunks(C))
+
 	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
 	if config.NbTasks > 1 && nbChunks < config.NbTasks {
 		// before spliting, let's see if we endup with more tasks than thread;
 		cSplit := bestC(nbPoints / 2)
-		nbChunksPostSplit := int((fr.Bits + 1) / cSplit)
-		if (fr.Bits+1)%cSplit != 0 {
-			nbChunksPostSplit++
-		}
+		nbChunksPostSplit := int(computeNbChunks(cSplit))
 		nbTasksPostSplit := nbChunksPostSplit * 2
 		if (nbTasksPostSplit <= config.NbTasks/2) || (nbTasksPostSplit-config.NbTasks/2) <= (config.NbTasks-nbChunks) {
 			// if postSplit we still have less tasks than available CPU
@@ -197,11 +192,11 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config
 		_innerMsmG1(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC15, bitSetC15, pG1AffineC15, ppG1AffineC15, qG1AffineC15, cG1AffineC15]
-		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC14, bitSetC15, pG1AffineC15, ppG1AffineC15, qG1AffineC15, cG1AffineC15]
+		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC14, bitSetC14, pG1AffineC14, ppG1AffineC14, qG1AffineC14, cG1AffineC14]
 		_innerMsmG1(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
 		processChunk := processChunkG1BatchAffine[bucketG1AffineC16, bitSetC16, pG1AffineC16, ppG1AffineC16, qG1AffineC16, cG1AffineC16]
-		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC14, bitSetC16, pG1AffineC16, ppG1AffineC16, qG1AffineC16, cG1AffineC16]
+		processLastChunk := processChunkG1BatchAffine[bucketG1AffineC14, bitSetC14, pG1AffineC14, ppG1AffineC14, qG1AffineC14, cG1AffineC14]
 		_innerMsmG1(p, 16, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
@@ -211,10 +206,7 @@ func innerMsmG1(p *G1Jac, c int, points []G1Affine, scalars []fr.Element, config
 func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint16, splitFirstChunk bool,
 	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16)) *G1Jac {
 
-	nbChunks := ((fr.Bits + 1) / c) // number of c-bit radixes in a scalar
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
+	nbChunks := computeNbChunks(c)
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -343,7 +335,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 		// for example, on a MBP 2016, for G2 MultiExp > 8M points, hand picking c gives better results
 		min := math.MaxFloat64
 		for _, c := range implementedCs {
-			cc := (fr.Bits + 1) * (nbPoints + (1 << (c)))
+			cc := (fr.Bits + 1) * (nbPoints + (1 << c))
 			cost := float64(cc) / float64(c)
 			if cost < min {
 				min = cost
@@ -354,18 +346,13 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	}
 
 	C := bestC(nbPoints)
-	nbChunks := int((fr.Bits + 1) / C) // number of c-bit radixes in a scalar
-	if (fr.Bits+1)%C != 0 {
-		nbChunks++
-	}
+	nbChunks := int(computeNbChunks(C))
+
 	// if we don't utilise all the tasks (CPU in the default case) that we could, let's see if it's worth it to split
 	if config.NbTasks > 1 && nbChunks < config.NbTasks {
 		// before spliting, let's see if we endup with more tasks than thread;
 		cSplit := bestC(nbPoints / 2)
-		nbChunksPostSplit := int((fr.Bits + 1) / cSplit)
-		if (fr.Bits+1)%cSplit != 0 {
-			nbChunksPostSplit++
-		}
+		nbChunksPostSplit := int(computeNbChunks(cSplit))
 		nbTasksPostSplit := nbChunksPostSplit * 2
 		if (nbTasksPostSplit <= config.NbTasks/2) || (nbTasksPostSplit-config.NbTasks/2) <= (config.NbTasks-nbChunks) {
 			// if postSplit we still have less tasks than available CPU
@@ -448,11 +435,11 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config
 		_innerMsmG2(p, 14, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 15:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC15, bitSetC15, pG2AffineC15, ppG2AffineC15, qG2AffineC15, cG2AffineC15]
-		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC14, bitSetC15, pG2AffineC15, ppG2AffineC15, qG2AffineC15, cG2AffineC15]
+		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC14, bitSetC14, pG2AffineC14, ppG2AffineC14, qG2AffineC14, cG2AffineC14]
 		_innerMsmG2(p, 15, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	case 16:
 		processChunk := processChunkG2BatchAffine[bucketG2AffineC16, bitSetC16, pG2AffineC16, ppG2AffineC16, qG2AffineC16, cG2AffineC16]
-		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC14, bitSetC16, pG2AffineC16, ppG2AffineC16, qG2AffineC16, cG2AffineC16]
+		processLastChunk := processChunkG2BatchAffine[bucketG2AffineC14, bitSetC14, pG2AffineC14, ppG2AffineC14, qG2AffineC14, cG2AffineC14]
 		_innerMsmG2(p, 16, points, digits, splitFirstChunk, processChunk, processLastChunk)
 	default:
 		panic("not implemented")
@@ -462,10 +449,7 @@ func innerMsmG2(p *G2Jac, c int, points []G2Affine, scalars []fr.Element, config
 func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint16, splitFirstChunk bool,
 	processChunk, processLastChunk func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16)) *G2Jac {
 
-	nbChunks := ((fr.Bits + 1) / c) // number of c-bit radixes in a scalar
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
+	nbChunks := computeNbChunks(c)
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -539,6 +523,17 @@ type selector struct {
 	shiftHigh       uint64 // same than shift, for index+1
 }
 
+// return number of chunks for a given window size c
+func computeNbChunks(c uint64) uint64 {
+	// note that we use fr.Bits + 1 --> +1 for a potential carry propagation due to the NAF
+	// decomposition in partitionScalars
+	nbChunks := (fr.Bits + 1) / c
+	if (fr.Bits+1)%c != 0 {
+		nbChunks++
+	}
+	return nbChunks
+}
+
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
 // if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 // 2^{c} to the current digit, making it negative.
@@ -549,10 +544,7 @@ type selector struct {
 // 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
 func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, int) {
 	// number of c-bit radixes in a scalar
-	nbChunks := (fr.Bits + 1) / c
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
+	nbChunks := computeNbChunks(c)
 
 	toReturn := make([]uint16, len(scalars)*int(nbChunks))
 
