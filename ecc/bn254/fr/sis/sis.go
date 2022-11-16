@@ -20,7 +20,6 @@ import (
 	"errors"
 	"hash"
 	"math/big"
-	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
@@ -246,44 +245,44 @@ func (r *RSis) Sum(b []byte) []byte {
 		}
 		r.Domain.FFTInverse(res, fft.DIT, true) // -> automagically reduces mod Xᵈ+1
 	} else if r.Degree == 2 { // method 2: naive mulMod+reductions
-		nbCPUs := runtime.NumCPU()
-		_res := make([][2]fr.Element, nbCPUs)
-		chDone := make(chan int, nbCPUs-1)
-		sizePerTask := int(len(r.A) / nbCPUs)
-		for i := 0; i < nbCPUs-1; i++ {
-			start := i * sizePerTask
-			end := (i + 1) * sizePerTask
-			go func(start, end, i int) {
-				for j := start; j < end; j++ {
-					t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
-					_res[i][0].Add(&t[0], &_res[i][0])
-					_res[i][1].Add(&t[1], &_res[i][1])
-				}
-				chDone <- i
-			}(start, end, i)
-		}
-		start := (nbCPUs - 1) * sizePerTask
-		end := len(r.A)
-		for j := start; j < end; j++ {
-			t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
-			_res[nbCPUs-1][0].Add(&t[0], &_res[nbCPUs-1][0])
-			_res[nbCPUs-1][1].Add(&t[1], &_res[nbCPUs-1][1])
-		}
-
-		for i := 0; i < nbCPUs-1; i++ {
-			done := <-chDone
-			res[0].Add(&res[0], &_res[done][0])
-			res[1].Add(&res[1], &_res[done][1])
-		}
-		close(chDone)
-		res[0].Add(&res[0], &_res[nbCPUs-1][0])
-		res[1].Add(&res[1], &_res[nbCPUs-1][1])
-
-		// for i := 0; i < len(r.A); i++ {
-		// 	t := naiveMulMod2(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
-		// 	res[0].Add(&t[0], &res[0])
-		// 	res[1].Add(&t[1], &res[1])
+		// nbCPUs := runtime.NumCPU()
+		// _res := make([][2]fr.Element, nbCPUs)
+		// chDone := make(chan int, nbCPUs-1)
+		// sizePerTask := int(len(r.A) / nbCPUs)
+		// for i := 0; i < nbCPUs-1; i++ {
+		// 	start := i * sizePerTask
+		// 	end := (i + 1) * sizePerTask
+		// 	go func(start, end, i int) {
+		// 		for j := start; j < end; j++ {
+		// 			t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
+		// 			_res[i][0].Add(&t[0], &_res[i][0])
+		// 			_res[i][1].Add(&t[1], &_res[i][1])
+		// 		}
+		// 		chDone <- i
+		// 	}(start, end, i)
 		// }
+		// start := (nbCPUs - 1) * sizePerTask
+		// end := len(r.A)
+		// for j := start; j < end; j++ {
+		// 	t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
+		// 	_res[nbCPUs-1][0].Add(&t[0], &_res[nbCPUs-1][0])
+		// 	_res[nbCPUs-1][1].Add(&t[1], &_res[nbCPUs-1][1])
+		// }
+
+		// for i := 0; i < nbCPUs-1; i++ {
+		// 	done := <-chDone
+		// 	res[0].Add(&res[0], &_res[done][0])
+		// 	res[1].Add(&res[1], &_res[done][1])
+		// }
+		// close(chDone)
+		// res[0].Add(&res[0], &_res[nbCPUs-1][0])
+		// res[1].Add(&res[1], &_res[nbCPUs-1][1])
+
+		for i := 0; i < len(r.A); i++ {
+			t := naiveMulMod2(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
+			res[0].Add(&t[0], &res[0])
+			res[1].Add(&t[1], &res[1])
+		}
 	} else {
 		panic("SIS must be > 1")
 	}

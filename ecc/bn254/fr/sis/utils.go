@@ -99,20 +99,36 @@ func naiveMulMod(p, q []fr.Element) []fr.Element {
 // naiveMulMod2 naiveMulMod with hardcoded degree = 2
 func naiveMulMod2(p, q []fr.Element) [2]fr.Element {
 
-	d := len(p)
 	var res [2]fr.Element
 
-	var tmp fr.Element
-	for i := 0; i < d; i++ {
-		for j := 0; j < d-i; j++ {
-			tmp.Mul(&p[j], &q[i])
-			res[i+j].Add(&tmp, &res[i+j])
-		}
-		for j := d - i; j < d; j++ {
-			tmp.Mul(&p[j], &q[i])
-			res[j-d+i].Sub(&res[j-d+i], &tmp)
-		}
-	}
+	// (p0+p1*X)*(q0+q1*X) Mod X^2+1 = p0q0-p1q1+(p0q1+p1q0)*X
+	// We do that in 3 muls instead of 4:
+	// a = p0q0
+	// b = p1q1
+	// c = (p0+p1)*(q0+q1)
+	// r = a - b + (c-a-b)*X
+	var a, b, c fr.Element
+	a.Mul(&p[0], &q[0])
+	b.Mul(&p[1], &q[1])
+	res[0].Sub(&a, &b)
+	c.Add(&p[0], &p[1])
+	res[1].Add(&q[0], &q[1]).
+		Mul(&res[1], &c).
+		Sub(&res[1], &a).
+		Sub(&res[1], &b)
+
+	// d := len(p)
+	// var tmp fr.Element
+	// for i := 0; i < d; i++ {
+	// 	for j := 0; j < d-i; j++ {
+	// 		tmp.Mul(&p[j], &q[i])
+	// 		res[i+j].Add(&tmp, &res[i+j])
+	// 	}
+	// 	for j := d - i; j < d; j++ {
+	// 		tmp.Mul(&p[j], &q[i])
+	// 		res[j-d+i].Sub(&res[j-d+i], &tmp)
+	// 	}
+	// }
 
 	return res
 }
