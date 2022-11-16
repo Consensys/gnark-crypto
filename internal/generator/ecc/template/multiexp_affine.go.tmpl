@@ -239,7 +239,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 // this allow us to allocate the buckets on the stack
 {{- range $c :=  $.CRange}}
 {{- if gt $c 9}}
-type bucket{{ $.TAffine }}C{{$c}} [1<<({{$c}}-1)]{{ $.TAffine }}
+type bucket{{ $.TAffine }}C{{$c}} [{{nbBuckets $c}}]{{ $.TAffine }}
 {{- end}}
 {{- end}}
 
@@ -304,7 +304,7 @@ type q{{ $.TAffine }}C{{$c}} [{{batchSize $c}}]batchOp{{ $.TAffine }}
 {{end }}
 
 {{- range $c :=  $.G1.CRange}}
-type bitSetC{{$c}} [1<<({{$c}}-1)]bool
+type bitSetC{{$c}} [{{nbBuckets $c}}]bool
 {{- end}}
 
 type bitSet interface {

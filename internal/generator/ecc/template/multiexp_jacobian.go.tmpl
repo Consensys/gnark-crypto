@@ -64,7 +64,7 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
 {{- range $c :=  $.CRange}}
-type bucket{{ $.TJacobianExtended }}C{{$c}} [1<<({{$c}}-1)]{{ $.TJacobianExtended }}
+type bucket{{ $.TJacobianExtended }}C{{$c}} [{{nbBuckets $c}}]{{ $.TJacobianExtended }}
 {{- end}}
 
 type ib{{ $.TJacobianExtended }} interface {

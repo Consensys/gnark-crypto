@@ -235,13 +235,13 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
-type bucketG1AffineC10 [1 << (10 - 1)]G1Affine
-type bucketG1AffineC11 [1 << (11 - 1)]G1Affine
-type bucketG1AffineC12 [1 << (12 - 1)]G1Affine
-type bucketG1AffineC13 [1 << (13 - 1)]G1Affine
-type bucketG1AffineC14 [1 << (14 - 1)]G1Affine
-type bucketG1AffineC15 [1 << (15 - 1)]G1Affine
-type bucketG1AffineC16 [1 << (16 - 1)]G1Affine
+type bucketG1AffineC10 [512]G1Affine
+type bucketG1AffineC11 [1024]G1Affine
+type bucketG1AffineC12 [2048]G1Affine
+type bucketG1AffineC13 [4096]G1Affine
+type bucketG1AffineC14 [8192]G1Affine
+type bucketG1AffineC15 [16384]G1Affine
+type bucketG1AffineC16 [32768]G1Affine
 
 // buckets: array of G1Affine points of size 1 << (c-1)
 type ibG1Affine interface {
@@ -554,13 +554,13 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
-type bucketG2AffineC10 [1 << (10 - 1)]G2Affine
-type bucketG2AffineC11 [1 << (11 - 1)]G2Affine
-type bucketG2AffineC12 [1 << (12 - 1)]G2Affine
-type bucketG2AffineC13 [1 << (13 - 1)]G2Affine
-type bucketG2AffineC14 [1 << (14 - 1)]G2Affine
-type bucketG2AffineC15 [1 << (15 - 1)]G2Affine
-type bucketG2AffineC16 [1 << (16 - 1)]G2Affine
+type bucketG2AffineC10 [512]G2Affine
+type bucketG2AffineC11 [1024]G2Affine
+type bucketG2AffineC12 [2048]G2Affine
+type bucketG2AffineC13 [4096]G2Affine
+type bucketG2AffineC14 [8192]G2Affine
+type bucketG2AffineC15 [16384]G2Affine
+type bucketG2AffineC16 [32768]G2Affine
 
 // buckets: array of G2Affine points of size 1 << (c-1)
 type ibG2Affine interface {
@@ -659,21 +659,21 @@ type pG2AffineC16 [640]G2Affine
 type ppG2AffineC16 [640]*G2Affine
 type qG2AffineC16 [640]batchOpG2Affine
 
-type bitSetC1 [1 << (1 - 1)]bool
-type bitSetC2 [1 << (2 - 1)]bool
-type bitSetC4 [1 << (4 - 1)]bool
-type bitSetC5 [1 << (5 - 1)]bool
-type bitSetC6 [1 << (6 - 1)]bool
-type bitSetC7 [1 << (7 - 1)]bool
-type bitSetC8 [1 << (8 - 1)]bool
-type bitSetC9 [1 << (9 - 1)]bool
-type bitSetC10 [1 << (10 - 1)]bool
-type bitSetC11 [1 << (11 - 1)]bool
-type bitSetC12 [1 << (12 - 1)]bool
-type bitSetC13 [1 << (13 - 1)]bool
-type bitSetC14 [1 << (14 - 1)]bool
-type bitSetC15 [1 << (15 - 1)]bool
-type bitSetC16 [1 << (16 - 1)]bool
+type bitSetC1 [1]bool
+type bitSetC2 [2]bool
+type bitSetC4 [8]bool
+type bitSetC5 [16]bool
+type bitSetC6 [32]bool
+type bitSetC7 [64]bool
+type bitSetC8 [128]bool
+type bitSetC9 [256]bool
+type bitSetC10 [512]bool
+type bitSetC11 [1024]bool
+type bitSetC12 [2048]bool
+type bitSetC13 [4096]bool
+type bitSetC14 [8192]bool
+type bitSetC15 [16384]bool
+type bitSetC16 [32768]bool
 
 type bitSet interface {
 	bitSetC1 |

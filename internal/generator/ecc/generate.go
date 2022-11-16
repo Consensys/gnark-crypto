@@ -69,6 +69,10 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	funcs["lastC"] = lastC
 	funcs["batchSize"] = batchSize
 
+	funcs["nbBuckets"] = func(c int) int {
+		return 1 << (c - 1)
+	}
+
 	funcs["contains"] = func(v int, s []int) bool {
 		for _, sv := range s {
 			if v == sv {
