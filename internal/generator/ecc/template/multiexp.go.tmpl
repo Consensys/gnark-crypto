@@ -14,7 +14,6 @@ import (
 	"errors"
 	"math"
 	"runtime"
-	"fmt"
 )
 
 {{ template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
@@ -57,22 +56,20 @@ func lastC(c uint64) uint64 {
 
 type chunkStat struct {
 	// relative weight of work compared to other chunks. 100.0 -> nominal weight. 
-	weight int
+	weight float32
 
-	// average absolute deviation. this is meant to give a sense of statistical 
-	// dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
-	deviation int 
+	// // average absolute deviation. this is meant to give a sense of statistical 
+	// // dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
+	// deviation int 
 
-	// count the number of buckets that are non zeroes for this chunk
-	nonZeroBuckets int
+	// percentage of bucket filled in the window; 
+	ppBucketFilled float32
+	nbBucketFilled int 
 
-	// average ops per non-zero buckets
-	averageOpsPerBucket int 
+	// // average ops per non-zero buckets
+	// averageOpsPerBucket int 
 }
 
-func (c *chunkStat) String()  string {
-	return fmt.Sprintf("weight: %d, deviation: %d, nz: %d, averageOps: %d", c.weight, c.deviation, c.nonZeroBuckets, c.averageOpsPerBucket)
-}
 
 
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
@@ -164,75 +161,50 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	}, nbTasks)
 	
-	// abs := func(v int) int {
-	// 	if v < 0 {
-	// 		return -v 
-	// 	}
-	// 	return v 
-	// }
-	
+
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
-			// var opsPerBucket [1 << 15]int // max value is 16 for c
+			// indicates if a bucket is hit. 
+			var b bitSetC16 
+			
 			// digits for the chunk
 			chunkDigits := digits[chunkID*len(scalars):(chunkID+1)*len(scalars)]
 
 			totalOps := 0
-			// nz := 0 // non zero buckets count
+			nz := 0 // non zero buckets count
 			for _, digit := range chunkDigits {
 				if digit == 0 {
 					continue 
 				}
 				totalOps++
-				// bucketID := digit >> 1
-				// if digit &1 == 0 {
-				// 	bucketID-=1
-				// }
-				// if opsPerBucket[bucketID] == 0 {
-				// 	nz++
-				// }
-				// opsPerBucket[bucketID]++
+				bucketID := digit >> 1
+				if digit &1 == 0 {
+					bucketID-=1
+				}
+				if !b[bucketID] {
+					nz++
+					b[bucketID] = true
+				}
 			}
-			chunkStats[chunkID].weight = totalOps // count number of ops for now, we will compute the weight after
-			// chunkStats[chunkID].nonZeroBuckets = nz
-
-		
-			// if nz == 0 {
-			// 	return // no ops, only zeroes
-			// }
-
-			// bound := 1 << (c-1)
-			// if chunkID == int(nbChunks-1) {
-			// 	bound = 1 << (lastC(c)-1)
-			// }
-			// mean := totalOps / nz
-			// aad := 0
-			// averageOpsPerBucket := 0
-			// for b:=0; b < bound; b++ {
-			// 	if opsPerBucket[b] == 0 {
-			// 		continue 
-			// 	}
-			// 	aad += abs(opsPerBucket[b] - mean)
-			// 	averageOpsPerBucket += opsPerBucket[b]
-			// }
-			// chunkStats[chunkID].averageOpsPerBucket = averageOpsPerBucket / nz
-			// chunkStats[chunkID].deviation =  aad / nz
+			chunkStats[chunkID].weight = float32(totalOps) // count number of ops for now, we will compute the weight after
+			chunkStats[chunkID].ppBucketFilled = (float32(nz) * 100.0) / float32(int(1 << (c-1)))
+			chunkStats[chunkID].nbBucketFilled = nz
 		}
 	}, nbTasks)
 
-	totalOps := 0
+	totalOps := float32(0.0)
 	for _, stat := range chunkStats {
 		totalOps+=stat.weight
 	}
 
-	target := totalOps / int(nbChunks)
-	if target != 0 {
+	target := totalOps / float32(nbChunks)
+	if target != 0.0 {
 		// if target == 0, it means all the scalars are 0 everywhere, there is no work to be done.
 		for i := 0; i < len(chunkStats); i++ {
-			chunkStats[i].weight = (chunkStats[i].weight * 100) / target
+			chunkStats[i].weight = (chunkStats[i].weight * 100.0) / target
 		}
 	}
 	
@@ -491,18 +463,15 @@ func getChunkProcessor{{ $.UPointName }}(c uint64, stat chunkStat) func(chunkID 
 		{{range $c :=  $.CRange}}
 		case {{$c}}:
 			{{- if le $c 9}}
-			// fmt.Printf("jacobian \n")
 				return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
 			{{- else}}
-				// const batchSize = {{batchSize $c}}
-				// status: we are losing in perf here in the nominal case. 
-				// stat.deviation seems not good. 
-				// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-				// if edgeCaseAffine {
-				// 	// fmt.Printf("jacobian \n")
-				// 	return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
-				// }
-				// fmt.Printf("affine \n")
+				const batchSize = {{batchSize $c}}
+				// here we could check some chunk statistic (deviation, ...) to determine if calling
+				// the batch affine version is worth it. 
+				if stat.nbBucketFilled < batchSize {
+					// clear indicator that batch affine method is not appropriate here.
+					return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
+				}
 				return processChunk{{ $.UPointName }}BatchAffine[bucket{{ $.TJacobianExtended }}C{{$c}}, bucket{{ $.TAffine }}C{{$c}}, bitSetC{{$c}}, p{{$.TAffine}}C{{$c}}, pp{{$.TAffine}}C{{$c}}, q{{$.TAffine}}C{{$c}}, c{{$.TAffine}}C{{$c}}]
 			{{- end}}
 		{{- end}}
@@ -518,8 +487,7 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
-	// critical for performance
+	// note that buckets is an array allocated on the stack and this is critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan {{ $.TJacobianExtended }}, nbChunks)
@@ -529,10 +497,8 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	// fmt.Printf("\n")
-	// fmt.Println("n", n)
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		// fmt.Printf("chunk[%d]: %s -->", j, chunkStats[j].String())
+		// fmt.Printf("chunk[%d]: %f %f \n", j, chunkStats[j].weight, chunkStats[j].ppBucketFilled)
 		processChunk := getChunkProcessor{{ $.UPointName }}(c, chunkStats[j])
 		if j == int(nbChunks - 1) {
 			processChunk = getChunkProcessor{{ $.UPointName }}(lastC(c), chunkStats[j])

@@ -18,7 +18,6 @@ package bls12381
 
 import (
 	"errors"
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -141,99 +140,79 @@ func getChunkProcessorG1(c uint64, stat chunkStat) func(chunkID uint64, chRes ch
 	switch c {
 
 	case 4:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC4]
 	case 5:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC5]
 	case 6:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC6]
 	case 7:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC7]
 	case 8:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC8]
 	case 9:
-		// fmt.Printf("jacobian \n")
 		return processChunkG1Jacobian[bucketg1JacExtendedC9]
 	case 10:
-		// const batchSize = 80
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC10]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 80
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC10]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC10, bucketG1AffineC10, bitSetC10, pG1AffineC10, ppG1AffineC10, qG1AffineC10, cG1AffineC10]
 	case 11:
-		// const batchSize = 150
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC11]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 150
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC11]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC11, bucketG1AffineC11, bitSetC11, pG1AffineC11, ppG1AffineC11, qG1AffineC11, cG1AffineC11]
 	case 12:
-		// const batchSize = 200
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC12]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 200
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC12]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC12, bucketG1AffineC12, bitSetC12, pG1AffineC12, ppG1AffineC12, qG1AffineC12, cG1AffineC12]
 	case 13:
-		// const batchSize = 350
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC13]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 350
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC13]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC13, bucketG1AffineC13, bitSetC13, pG1AffineC13, ppG1AffineC13, qG1AffineC13, cG1AffineC13]
 	case 14:
-		// const batchSize = 400
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC14]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 400
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC14]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC14, bucketG1AffineC14, bitSetC14, pG1AffineC14, ppG1AffineC14, qG1AffineC14, cG1AffineC14]
 	case 15:
-		// const batchSize = 500
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC15]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 500
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC15]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC15, bucketG1AffineC15, bitSetC15, pG1AffineC15, ppG1AffineC15, qG1AffineC15, cG1AffineC15]
 	case 16:
-		// const batchSize = 640
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG1Jacobian[bucketg1JacExtendedC16]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 640
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC16]
+		}
 		return processChunkG1BatchAffine[bucketg1JacExtendedC16, bucketG1AffineC16, bitSetC16, pG1AffineC16, ppG1AffineC16, qG1AffineC16, cG1AffineC16]
 	default:
 		// panic("will not happen c != previous values is not generated by templates")
@@ -247,8 +226,7 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint16, chunkSt
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
-	// critical for performance
+	// note that buckets is an array allocated on the stack and this is critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan g1JacExtended, nbChunks)
@@ -258,10 +236,8 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, digits []uint16, chunkSt
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	// fmt.Printf("\n")
-	// fmt.Println("n", n)
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		// fmt.Printf("chunk[%d]: %s -->", j, chunkStats[j].String())
+		// fmt.Printf("chunk[%d]: %f %f \n", j, chunkStats[j].weight, chunkStats[j].ppBucketFilled)
 		processChunk := getChunkProcessorG1(c, chunkStats[j])
 		if j == int(nbChunks-1) {
 			processChunk = getChunkProcessorG1(lastC(c), chunkStats[j])
@@ -419,99 +395,79 @@ func getChunkProcessorG2(c uint64, stat chunkStat) func(chunkID uint64, chRes ch
 	switch c {
 
 	case 4:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC4]
 	case 5:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC5]
 	case 6:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC6]
 	case 7:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC7]
 	case 8:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC8]
 	case 9:
-		// fmt.Printf("jacobian \n")
 		return processChunkG2Jacobian[bucketg2JacExtendedC9]
 	case 10:
-		// const batchSize = 80
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC10]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 80
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC10]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC10, bucketG2AffineC10, bitSetC10, pG2AffineC10, ppG2AffineC10, qG2AffineC10, cG2AffineC10]
 	case 11:
-		// const batchSize = 150
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC11]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 150
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC11]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC11, bucketG2AffineC11, bitSetC11, pG2AffineC11, ppG2AffineC11, qG2AffineC11, cG2AffineC11]
 	case 12:
-		// const batchSize = 200
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC12]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 200
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC12]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC12, bucketG2AffineC12, bitSetC12, pG2AffineC12, ppG2AffineC12, qG2AffineC12, cG2AffineC12]
 	case 13:
-		// const batchSize = 350
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC13]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 350
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC13]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC13, bucketG2AffineC13, bitSetC13, pG2AffineC13, ppG2AffineC13, qG2AffineC13, cG2AffineC13]
 	case 14:
-		// const batchSize = 400
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC14]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 400
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC14]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC14, bucketG2AffineC14, bitSetC14, pG2AffineC14, ppG2AffineC14, qG2AffineC14, cG2AffineC14]
 	case 15:
-		// const batchSize = 500
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC15]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 500
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC15]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC15, bucketG2AffineC15, bitSetC15, pG2AffineC15, ppG2AffineC15, qG2AffineC15, cG2AffineC15]
 	case 16:
-		// const batchSize = 640
-		// status: we are losing in perf here in the nominal case.
-		// stat.deviation seems not good.
-		// edgeCaseAffine := (batchSize > (stat.nonZeroBuckets / 10))  || (stat.deviation >= 20)
-		// if edgeCaseAffine {
-		// 	// fmt.Printf("jacobian \n")
-		// 	return processChunkG2Jacobian[bucketg2JacExtendedC16]
-		// }
-		// fmt.Printf("affine \n")
+		const batchSize = 640
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC16]
+		}
 		return processChunkG2BatchAffine[bucketg2JacExtendedC16, bucketG2AffineC16, bitSetC16, pG2AffineC16, ppG2AffineC16, qG2AffineC16, cG2AffineC16]
 	default:
 		// panic("will not happen c != previous values is not generated by templates")
@@ -525,8 +481,7 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint16, chunkSt
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
-	// note that buckets is an array allocated on the stack (for most sizes of c) and this is
-	// critical for performance
+	// note that buckets is an array allocated on the stack and this is critical for performance
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan g2JacExtended, nbChunks)
@@ -536,10 +491,8 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, digits []uint16, chunkSt
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
-	// fmt.Printf("\n")
-	// fmt.Println("n", n)
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		// fmt.Printf("chunk[%d]: %s -->", j, chunkStats[j].String())
+		// fmt.Printf("chunk[%d]: %f %f \n", j, chunkStats[j].weight, chunkStats[j].ppBucketFilled)
 		processChunk := getChunkProcessorG2(c, chunkStats[j])
 		if j == int(nbChunks-1) {
 			processChunk = getChunkProcessorG2(lastC(c), chunkStats[j])
@@ -618,21 +571,18 @@ func lastC(c uint64) uint64 {
 
 type chunkStat struct {
 	// relative weight of work compared to other chunks. 100.0 -> nominal weight.
-	weight int
+	weight float32
 
-	// average absolute deviation. this is meant to give a sense of statistical
-	// dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
-	deviation int
+	// // average absolute deviation. this is meant to give a sense of statistical
+	// // dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
+	// deviation int
 
-	// count the number of buckets that are non zeroes for this chunk
-	nonZeroBuckets int
+	// percentage of bucket filled in the window;
+	ppBucketFilled float32
+	nbBucketFilled int
 
-	// average ops per non-zero buckets
-	averageOpsPerBucket int
-}
-
-func (c *chunkStat) String() string {
-	return fmt.Sprintf("weight: %d, deviation: %d, nz: %d, averageOps: %d", c.weight, c.deviation, c.nonZeroBuckets, c.averageOpsPerBucket)
+	// // average ops per non-zero buckets
+	// averageOpsPerBucket int
 }
 
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
@@ -721,74 +671,49 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	}, nbTasks)
 
-	// abs := func(v int) int {
-	// 	if v < 0 {
-	// 		return -v
-	// 	}
-	// 	return v
-	// }
-
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
-			// var opsPerBucket [1 << 15]int // max value is 16 for c
+			// indicates if a bucket is hit.
+			var b bitSetC16
+
 			// digits for the chunk
 			chunkDigits := digits[chunkID*len(scalars) : (chunkID+1)*len(scalars)]
 
 			totalOps := 0
-			// nz := 0 // non zero buckets count
+			nz := 0 // non zero buckets count
 			for _, digit := range chunkDigits {
 				if digit == 0 {
 					continue
 				}
 				totalOps++
-				// bucketID := digit >> 1
-				// if digit &1 == 0 {
-				// 	bucketID-=1
-				// }
-				// if opsPerBucket[bucketID] == 0 {
-				// 	nz++
-				// }
-				// opsPerBucket[bucketID]++
+				bucketID := digit >> 1
+				if digit&1 == 0 {
+					bucketID -= 1
+				}
+				if !b[bucketID] {
+					nz++
+					b[bucketID] = true
+				}
 			}
-			chunkStats[chunkID].weight = totalOps // count number of ops for now, we will compute the weight after
-			// chunkStats[chunkID].nonZeroBuckets = nz
-
-			// if nz == 0 {
-			// 	return // no ops, only zeroes
-			// }
-
-			// bound := 1 << (c-1)
-			// if chunkID == int(nbChunks-1) {
-			// 	bound = 1 << (lastC(c)-1)
-			// }
-			// mean := totalOps / nz
-			// aad := 0
-			// averageOpsPerBucket := 0
-			// for b:=0; b < bound; b++ {
-			// 	if opsPerBucket[b] == 0 {
-			// 		continue
-			// 	}
-			// 	aad += abs(opsPerBucket[b] - mean)
-			// 	averageOpsPerBucket += opsPerBucket[b]
-			// }
-			// chunkStats[chunkID].averageOpsPerBucket = averageOpsPerBucket / nz
-			// chunkStats[chunkID].deviation =  aad / nz
+			chunkStats[chunkID].weight = float32(totalOps) // count number of ops for now, we will compute the weight after
+			chunkStats[chunkID].ppBucketFilled = (float32(nz) * 100.0) / float32(int(1<<(c-1)))
+			chunkStats[chunkID].nbBucketFilled = nz
 		}
 	}, nbTasks)
 
-	totalOps := 0
+	totalOps := float32(0.0)
 	for _, stat := range chunkStats {
 		totalOps += stat.weight
 	}
 
-	target := totalOps / int(nbChunks)
-	if target != 0 {
+	target := totalOps / float32(nbChunks)
+	if target != 0.0 {
 		// if target == 0, it means all the scalars are 0 everywhere, there is no work to be done.
 		for i := 0; i < len(chunkStats); i++ {
-			chunkStats[i].weight = (chunkStats[i].weight * 100) / target
+			chunkStats[i].weight = (chunkStats[i].weight * 100.0) / target
 		}
 	}
 

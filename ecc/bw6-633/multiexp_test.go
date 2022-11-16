@@ -222,38 +222,38 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	)
 
 	var (
-		samplePoints             [nbSamples]G1Affine
-		sampleScalars            [nbSamples]fr.Element
-		sampleScalarsSmallValues [nbSamples]fr.Element
-		sampleScalarsRedundant   [nbSamples]fr.Element
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
+		// sampleScalarsSmallValues [nbSamples]fr.Element
+		// sampleScalarsRedundant [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
-	copy(sampleScalarsSmallValues[:], sampleScalars[:])
-	copy(sampleScalarsRedundant[:], sampleScalars[:])
+	// copy(sampleScalarsSmallValues[:],sampleScalars[:])
+	// copy(sampleScalarsRedundant[:],sampleScalars[:])
 
-	// this means first chunk is going to have more work to do and should be split into several go routines
-	for i := 0; i < len(sampleScalarsSmallValues); i++ {
-		if i%5 == 0 {
-			sampleScalarsSmallValues[i].SetZero()
-			sampleScalarsSmallValues[i][0] = 1
-		}
-	}
+	// // this means first chunk is going to have more work to do and should be split into several go routines
+	// for i:=0; i < len(sampleScalarsSmallValues);i++ {
+	// 	if i % 5 == 0 {
+	// 		sampleScalarsSmallValues[i].SetZero()
+	// 		sampleScalarsSmallValues[i][0] = 1
+	// 	}
+	// }
 
-	// bad case for batch affine because scalar distribution might look uniform
-	// but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
-	// to process small batches of additions to flush its queue of conflicted points.
-	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
-		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
-			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
-		}
-	}
+	// // bad case for batch affine because scalar distribution might look uniform
+	// // but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
+	// // to process small batches of additions to flush its queue of conflicted points.
+	// for i:=0; i < len(sampleScalarsRedundant);i+=100 {
+	// 	for j:=i+1; j < i+100 && j < len(sampleScalarsRedundant);j++ {
+	// 		sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
+	// 	}
+	// }
 
 	fillBenchBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
-	for i := 22; i <= pow; i++ {
+	for i := 15; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
@@ -263,19 +263,19 @@ func BenchmarkMultiExpG1(b *testing.B) {
 			}
 		})
 
-		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
-			}
-		})
+		// b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
+		// 	b.ResetTimer()
+		// 	for j := 0; j < b.N; j++ {
+		// 		testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using],ecc.MultiExpConfig{})
+		// 	}
+		// })
 
-		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
-			}
-		})
+		// b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
+		// 	b.ResetTimer()
+		// 	for j := 0; j < b.N; j++ {
+		// 		testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using],ecc.MultiExpConfig{})
+		// 	}
+		// })
 	}
 }
 
@@ -539,38 +539,38 @@ func BenchmarkMultiExpG2(b *testing.B) {
 	)
 
 	var (
-		samplePoints             [nbSamples]G2Affine
-		sampleScalars            [nbSamples]fr.Element
-		sampleScalarsSmallValues [nbSamples]fr.Element
-		sampleScalarsRedundant   [nbSamples]fr.Element
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
+		// sampleScalarsSmallValues [nbSamples]fr.Element
+		// sampleScalarsRedundant [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
-	copy(sampleScalarsSmallValues[:], sampleScalars[:])
-	copy(sampleScalarsRedundant[:], sampleScalars[:])
+	// copy(sampleScalarsSmallValues[:],sampleScalars[:])
+	// copy(sampleScalarsRedundant[:],sampleScalars[:])
 
-	// this means first chunk is going to have more work to do and should be split into several go routines
-	for i := 0; i < len(sampleScalarsSmallValues); i++ {
-		if i%5 == 0 {
-			sampleScalarsSmallValues[i].SetZero()
-			sampleScalarsSmallValues[i][0] = 1
-		}
-	}
+	// // this means first chunk is going to have more work to do and should be split into several go routines
+	// for i:=0; i < len(sampleScalarsSmallValues);i++ {
+	// 	if i % 5 == 0 {
+	// 		sampleScalarsSmallValues[i].SetZero()
+	// 		sampleScalarsSmallValues[i][0] = 1
+	// 	}
+	// }
 
-	// bad case for batch affine because scalar distribution might look uniform
-	// but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
-	// to process small batches of additions to flush its queue of conflicted points.
-	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
-		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
-			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
-		}
-	}
+	// // bad case for batch affine because scalar distribution might look uniform
+	// // but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
+	// // to process small batches of additions to flush its queue of conflicted points.
+	// for i:=0; i < len(sampleScalarsRedundant);i+=100 {
+	// 	for j:=i+1; j < i+100 && j < len(sampleScalarsRedundant);j++ {
+	// 		sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
+	// 	}
+	// }
 
 	fillBenchBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
-	for i := 22; i <= pow; i++ {
+	for i := 15; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
@@ -580,19 +580,19 @@ func BenchmarkMultiExpG2(b *testing.B) {
 			}
 		})
 
-		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
-			}
-		})
+		// b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
+		// 	b.ResetTimer()
+		// 	for j := 0; j < b.N; j++ {
+		// 		testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using],ecc.MultiExpConfig{})
+		// 	}
+		// })
 
-		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
-			}
-		})
+		// b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
+		// 	b.ResetTimer()
+		// 	for j := 0; j < b.N; j++ {
+		// 		testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using],ecc.MultiExpConfig{})
+		// 	}
+		// })
 	}
 }
 
