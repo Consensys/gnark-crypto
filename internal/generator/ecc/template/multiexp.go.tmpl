@@ -541,12 +541,14 @@ func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan 
     _p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
+			// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
 		_p.add(&totalj)
 	}
 
+	// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 	return p.unsafeFromJacExtended(&_p)
 }
 

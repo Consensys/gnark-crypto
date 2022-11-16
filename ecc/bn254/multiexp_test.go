@@ -131,6 +131,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -170,6 +171,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -449,6 +451,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -488,6 +491,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}

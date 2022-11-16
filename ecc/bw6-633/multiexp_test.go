@@ -100,7 +100,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{1, 4, 5, 8, 12, 16}
+	cRange := []uint64{4, 5, 8, 12, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -131,6 +131,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -170,6 +171,7 @@ func TestMultiExpG1(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -449,6 +451,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}
@@ -488,6 +491,7 @@ func TestMultiExpG2(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1], cRange[i])
 					return false
 				}
 			}

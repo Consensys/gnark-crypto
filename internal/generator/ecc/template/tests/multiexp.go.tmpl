@@ -101,7 +101,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	{{- if eq $.PointName "g1" }}
 	cRange := []uint64{
-		{{- range $c :=  $.CRange}}{{$c}},{{- end}}
+		{{- range $c :=  $.CRange}}{{- if gt $c 1}}{{$c}},{{- end}}{{- end}}
 	}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
@@ -139,6 +139,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 			for i:=1; i < len(results);i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1],cRange[i])
 					return false
 				}
 			}
@@ -178,6 +179,7 @@ func TestMultiExp{{toUpper $.PointName}}(t *testing.T) {
 			}
 			for i := 1; i < len(results); i++ {
 				if !results[i].Equal(&results[i-1]) {
+					t.Logf("result for c=%d != c=%d", cRange[i-1],cRange[i])
 					return false
 				}
 			}

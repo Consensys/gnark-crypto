@@ -275,12 +275,14 @@ func msmReduceChunkG1Affine(p *G1Jac, c int, chChunks []chan g1JacExtended) *G1J
 	_p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
+			// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
 		_p.add(&totalj)
 	}
 
+	// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 	return p.unsafeFromJacExtended(&_p)
 }
 
@@ -534,12 +536,14 @@ func msmReduceChunkG2Affine(p *G2Jac, c int, chChunks []chan g2JacExtended) *G2J
 	_p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
+			// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
 		_p.add(&totalj)
 	}
 
+	// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 	return p.unsafeFromJacExtended(&_p)
 }
 
