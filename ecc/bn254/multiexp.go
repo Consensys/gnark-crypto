@@ -721,61 +721,61 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	}, nbTasks)
 
-	abs := func(v int) int {
-		if v < 0 {
-			return -v
-		}
-		return v
-	}
+	// abs := func(v int) int {
+	// 	if v < 0 {
+	// 		return -v
+	// 	}
+	// 	return v
+	// }
 
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
-			var opsPerBucket [1 << 15]int // max value is 16 for c
+			// var opsPerBucket [1 << 15]int // max value is 16 for c
 			// digits for the chunk
 			chunkDigits := digits[chunkID*len(scalars) : (chunkID+1)*len(scalars)]
 
 			totalOps := 0
-			nz := 0 // non zero buckets count
+			// nz := 0 // non zero buckets count
 			for _, digit := range chunkDigits {
 				if digit == 0 {
 					continue
 				}
 				totalOps++
-				bucketID := digit >> 1
-				if digit&1 == 0 {
-					bucketID -= 1
-				}
-				if opsPerBucket[bucketID] == 0 {
-					nz++
-				}
-				opsPerBucket[bucketID]++
+				// bucketID := digit >> 1
+				// if digit &1 == 0 {
+				// 	bucketID-=1
+				// }
+				// if opsPerBucket[bucketID] == 0 {
+				// 	nz++
+				// }
+				// opsPerBucket[bucketID]++
 			}
 			chunkStats[chunkID].weight = totalOps // count number of ops for now, we will compute the weight after
-			chunkStats[chunkID].nonZeroBuckets = nz
+			// chunkStats[chunkID].nonZeroBuckets = nz
 
-			if nz == 0 {
-				return // no ops, only zeroes
-			}
+			// if nz == 0 {
+			// 	return // no ops, only zeroes
+			// }
 
-			bound := 1 << (c - 1)
-			if chunkID == int(nbChunks-1) {
-				bound = 1 << (lastC(c) - 1)
-			}
-			mean := totalOps / nz
-			aad := 0
-			averageOpsPerBucket := 0
-			for b := 0; b < bound; b++ {
-				if opsPerBucket[b] == 0 {
-					continue
-				}
-				aad += abs(opsPerBucket[b] - mean)
-				averageOpsPerBucket += opsPerBucket[b]
-			}
-			chunkStats[chunkID].averageOpsPerBucket = averageOpsPerBucket / nz
-			chunkStats[chunkID].deviation = aad / nz
+			// bound := 1 << (c-1)
+			// if chunkID == int(nbChunks-1) {
+			// 	bound = 1 << (lastC(c)-1)
+			// }
+			// mean := totalOps / nz
+			// aad := 0
+			// averageOpsPerBucket := 0
+			// for b:=0; b < bound; b++ {
+			// 	if opsPerBucket[b] == 0 {
+			// 		continue
+			// 	}
+			// 	aad += abs(opsPerBucket[b] - mean)
+			// 	averageOpsPerBucket += opsPerBucket[b]
+			// }
+			// chunkStats[chunkID].averageOpsPerBucket = averageOpsPerBucket / nz
+			// chunkStats[chunkID].deviation =  aad / nz
 		}
 	}, nbTasks)
 
