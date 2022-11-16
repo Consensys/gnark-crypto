@@ -76,7 +76,7 @@ func naiveReduction(p []fr.Element, d int) []fr.Element {
 // naiveMulMod computes a*b mod X^d+1, where d=len(a).
 // It is supposed that len(a) = len(b).
 // /!\ The size check is not done in the function /!\
-func naiveMulMod(p, q []fr.Element) []fr.Element {
+func NaiveMulMod(p, q []fr.Element) []fr.Element {
 
 	d := len(p)
 	res := make([]fr.Element, d)
@@ -255,7 +255,7 @@ func mulModBucketsMethod(p, q [][]fr.Element, bound, degree int) []fr.Element {
 	naiveMulPerBuckets := make([][]fr.Element, nbBuckets)
 	for i := 0; i < nbBuckets; i++ {
 		b := buildPoly(degree, bound, i)
-		naiveMulPerBuckets[i] = naiveMulMod(foldedBuckets[i], b)
+		naiveMulPerBuckets[i] = NaiveMulMod(foldedBuckets[i], b)
 	}
 
 	// 4 - sum the results
