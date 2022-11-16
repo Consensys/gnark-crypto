@@ -669,11 +669,7 @@ func fillBenchBasesG2(samplePoints []G2Affine) {
 
 func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
-	var mixer fr.Element
-	mixer.SetString("7716837800905789770901243404444209691916730933998574719964609384059111546487")
-	for i := 1; i <= len(sampleScalars); i++ {
-		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+	for i := 0; i < len(sampleScalars); i++ {
+		sampleScalars[i].SetRandom()
 	}
 }

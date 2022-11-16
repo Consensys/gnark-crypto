@@ -23,13 +23,7 @@ import (
 
 type batchOpG1Affine struct {
 	bucketID uint16
-	// pointID uint32
-	point G1Affine
-}
-
-func (o batchOpG1Affine) isNeg() bool {
-	return false
-	// return o.pointID&1 == 1
+	point    G1Affine
 }
 
 // processChunkG1BatchAffine process a chunk of the scalars during the msm
@@ -45,10 +39,23 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	points []G1Affine,
 	digits []uint16) {
 
-	// init the buckets
+	// the batch affine addition needs independent points; in other words, for a window of batchSize
+	// we want to hit independent bucketIDs when processing the digit. if there is a conflict (we're trying
+	// to add 2 different points to the same bucket), then we push the conflicted point to a queue.
+	// each time the batch is full, we execute it, and tentatively put the points (if not conflict)
+	// from the top of the queue into the next batch.
+	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
+	// g1JacExtended coordinates.
+	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
+	// non-batch-affine version.
+
+	// note that we have 2 sets of buckets
+	// 1 in G1Affine used with the batch affine additions
+	// 1 in g1JacExtended used in case the queue of conflicting points
 	var buckets B
 	var bucketsJE BJE
-	var bucketSet BS
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 		bucketsJE[i].setInfinity()
@@ -63,13 +70,10 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		queue     TQ  // queue of points that conflict the current batch
 		qID       int // current position in queue
 	)
-	// var queue [batchSize]batchOpG1Affine
 
 	batchSize := len(P)
 
-	isFull := func() bool {
-		return cptAdd == batchSize
-	}
+	isFull := func() bool { return cptAdd == batchSize }
 
 	executeAndReset := func() {
 		batchAddG1Affine[TP, TPP, TC](&R, &P, cptAdd)
@@ -77,12 +81,16 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		bucketIds = tmp
 		cptAdd = 0
 	}
+
 	addFromQueue := func(op batchOpG1Affine) {
-		// @precondition: ensures bucket is not "used" in current batch
+		// @precondition: must ensures bucket is not "used" in current batch
+		// note that there is a bit of duplicate logic between add and addFromQueue
+		// the reason is that as of Go 1.19.3, if we pass a pointer to the queue item (see add signature)
+		// the compiler will put the queue on the heap.
 		BK := &buckets[op.bucketID]
+
 		// handle special cases with inf or -P / P
-		if !bucketSet[op.bucketID] {
-			bucketSet[op.bucketID] = true
+		if BK.IsInfinity() {
 			BK.Set(&op.point)
 			return
 		}
@@ -95,7 +103,6 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 				return
 			}
 			BK.setInfinity()
-			bucketSet[op.bucketID] = false
 			return
 		}
 
@@ -109,13 +116,12 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		// @precondition: ensures bucket is not "used" in current batch
 		BK := &buckets[bucketID]
 		// handle special cases with inf or -P / P
-		if !bucketSet[bucketID] {
+		if BK.IsInfinity() {
 			if isAdd {
 				BK.Set(PP)
 			} else {
 				BK.Neg(PP)
 			}
-			bucketSet[bucketID] = true
 			return
 		}
 		if BK.X.Equal(&PP.X) {
@@ -127,14 +133,11 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 					BK.Add(BK, BK)
 				} else {
 					BK.setInfinity()
-					bucketSet[bucketID] = false
 				}
-
 				return
 			}
 			if isAdd {
 				BK.setInfinity()
-				bucketSet[bucketID] = false
 			} else {
 				BK.Add(BK, BK)
 			}
@@ -158,17 +161,13 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		qID = 0
 	}
 
-	processQueue := func() {
+	processTopQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
 			if bucketIds[queue[i].bucketID] {
 				return
 			}
 			addFromQueue(queue[i])
-			// add(queue[i].bucketID, &points[queue[i].pointID >> 1], !queue[i].isNeg())
-			// if isFull() {
-			// 	executeAndReset()
-			// }
-			// queue[i] = queue[qID-1]
+			// len(queue) < batchSize so no need to check for full batch.
 			qID--
 		}
 	}
@@ -190,10 +189,8 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 			// put it in queue
 			queue[qID].bucketID = bucketID
 			if isAdd {
-				// queue[qID].pointID = uint32(i << 1)
 				queue[qID].point.Set(&points[i])
 			} else {
-				// queue[qID].pointID = uint32(i << 1) + 1
 				queue[qID].point.Neg(&points[i])
 			}
 			qID++
@@ -209,7 +206,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processQueue() // TODO top queue only
+			processTopQueue()
 		}
 	}
 
@@ -218,21 +215,14 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 
 	// empty the queue
 	flushQueue()
-	// for qID != 0 {
-	// 	processQueue()
-	// 	executeAndReset()
-	// }
 
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
 	var runningSum, total g1JacExtended
 	runningSum.setInfinity()
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
-		if bucketSet[k] {
-			runningSum.addMixed(&buckets[k])
-		}
+		runningSum.addMixed(&buckets[k])
 		if !bucketsJE[k].ZZ.IsZero() {
 			runningSum.add(&bucketsJE[k])
 		}
@@ -352,13 +342,7 @@ type qG1AffineC16 [640]batchOpG1Affine
 
 type batchOpG2Affine struct {
 	bucketID uint16
-	// pointID uint32
-	point G2Affine
-}
-
-func (o batchOpG2Affine) isNeg() bool {
-	return false
-	// return o.pointID&1 == 1
+	point    G2Affine
 }
 
 // processChunkG2BatchAffine process a chunk of the scalars during the msm
@@ -374,10 +358,23 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	points []G2Affine,
 	digits []uint16) {
 
-	// init the buckets
+	// the batch affine addition needs independent points; in other words, for a window of batchSize
+	// we want to hit independent bucketIDs when processing the digit. if there is a conflict (we're trying
+	// to add 2 different points to the same bucket), then we push the conflicted point to a queue.
+	// each time the batch is full, we execute it, and tentatively put the points (if not conflict)
+	// from the top of the queue into the next batch.
+	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
+	// g2JacExtended coordinates.
+	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
+	// non-batch-affine version.
+
+	// note that we have 2 sets of buckets
+	// 1 in G2Affine used with the batch affine additions
+	// 1 in g2JacExtended used in case the queue of conflicting points
 	var buckets B
 	var bucketsJE BJE
-	var bucketSet BS
 	for i := 0; i < len(buckets); i++ {
 		buckets[i].setInfinity()
 		bucketsJE[i].setInfinity()
@@ -392,13 +389,10 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		queue     TQ  // queue of points that conflict the current batch
 		qID       int // current position in queue
 	)
-	// var queue [batchSize]batchOpG2Affine
 
 	batchSize := len(P)
 
-	isFull := func() bool {
-		return cptAdd == batchSize
-	}
+	isFull := func() bool { return cptAdd == batchSize }
 
 	executeAndReset := func() {
 		batchAddG2Affine[TP, TPP, TC](&R, &P, cptAdd)
@@ -406,12 +400,16 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		bucketIds = tmp
 		cptAdd = 0
 	}
+
 	addFromQueue := func(op batchOpG2Affine) {
-		// @precondition: ensures bucket is not "used" in current batch
+		// @precondition: must ensures bucket is not "used" in current batch
+		// note that there is a bit of duplicate logic between add and addFromQueue
+		// the reason is that as of Go 1.19.3, if we pass a pointer to the queue item (see add signature)
+		// the compiler will put the queue on the heap.
 		BK := &buckets[op.bucketID]
+
 		// handle special cases with inf or -P / P
-		if !bucketSet[op.bucketID] {
-			bucketSet[op.bucketID] = true
+		if BK.IsInfinity() {
 			BK.Set(&op.point)
 			return
 		}
@@ -424,7 +422,6 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 				return
 			}
 			BK.setInfinity()
-			bucketSet[op.bucketID] = false
 			return
 		}
 
@@ -438,13 +435,12 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		// @precondition: ensures bucket is not "used" in current batch
 		BK := &buckets[bucketID]
 		// handle special cases with inf or -P / P
-		if !bucketSet[bucketID] {
+		if BK.IsInfinity() {
 			if isAdd {
 				BK.Set(PP)
 			} else {
 				BK.Neg(PP)
 			}
-			bucketSet[bucketID] = true
 			return
 		}
 		if BK.X.Equal(&PP.X) {
@@ -456,14 +452,11 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 					BK.Add(BK, BK)
 				} else {
 					BK.setInfinity()
-					bucketSet[bucketID] = false
 				}
-
 				return
 			}
 			if isAdd {
 				BK.setInfinity()
-				bucketSet[bucketID] = false
 			} else {
 				BK.Add(BK, BK)
 			}
@@ -487,17 +480,13 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		qID = 0
 	}
 
-	processQueue := func() {
+	processTopQueue := func() {
 		for i := qID - 1; i >= 0; i-- {
 			if bucketIds[queue[i].bucketID] {
 				return
 			}
 			addFromQueue(queue[i])
-			// add(queue[i].bucketID, &points[queue[i].pointID >> 1], !queue[i].isNeg())
-			// if isFull() {
-			// 	executeAndReset()
-			// }
-			// queue[i] = queue[qID-1]
+			// len(queue) < batchSize so no need to check for full batch.
 			qID--
 		}
 	}
@@ -519,10 +508,8 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 			// put it in queue
 			queue[qID].bucketID = bucketID
 			if isAdd {
-				// queue[qID].pointID = uint32(i << 1)
 				queue[qID].point.Set(&points[i])
 			} else {
-				// queue[qID].pointID = uint32(i << 1) + 1
 				queue[qID].point.Neg(&points[i])
 			}
 			qID++
@@ -538,7 +525,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		add(bucketID, &points[i], isAdd)
 		if isFull() {
 			executeAndReset()
-			processQueue() // TODO top queue only
+			processTopQueue()
 		}
 	}
 
@@ -547,21 +534,14 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 
 	// empty the queue
 	flushQueue()
-	// for qID != 0 {
-	// 	processQueue()
-	// 	executeAndReset()
-	// }
 
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
-
 	var runningSum, total g2JacExtended
 	runningSum.setInfinity()
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
-		if bucketSet[k] {
-			runningSum.addMixed(&buckets[k])
-		}
+		runningSum.addMixed(&buckets[k])
 		if !bucketsJE[k].ZZ.IsZero() {
 			runningSum.add(&bucketsJE[k])
 		}
