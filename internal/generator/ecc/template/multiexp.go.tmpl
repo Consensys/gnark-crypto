@@ -164,6 +164,10 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
+	if c <= 9 {
+		// no need to compute stats for small window sizes
+		return digits, chunkStats
+	}
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
@@ -404,7 +408,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
 		implementedCs := []uint64{
-			{{- range $c :=  $.CRange}} {{- if and (eq $.PointName "g1") (gt $c 21)}}{{- else}} {{$c}},{{- end}}{{- end}}
+			{{- range $c :=  $.CRange}}{{- if ge $c 4}}{{$c}},{{- end}}{{- end}}
 		}
 		var C uint64
 		// approximate cost (in group operations)
@@ -460,6 +464,10 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 
 func getChunkProcessor{{ $.UPointName }}(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- {{ $.TJacobianExtended }}, c uint64, points []{{ $.TAffine }}, digits []uint16) {
 	switch c {
+		{{- range $c :=  $.LastCRange}}
+		case {{$c}}:
+			return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
+		{{- end }}
 		{{range $c :=  $.CRange}}
 		case {{$c}}:
 			{{- if le $c 9}}

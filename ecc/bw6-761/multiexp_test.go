@@ -99,7 +99,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 8, 16}
+	cRange := []uint64{2, 3, 4, 5, 8, 10, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -253,7 +253,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 	var testPoint G1Affine
 
-	for i := 15; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
@@ -570,7 +570,7 @@ func BenchmarkMultiExpG2(b *testing.B) {
 
 	var testPoint G2Affine
 
-	for i := 15; i <= pow; i++ {
+	for i := 5; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {

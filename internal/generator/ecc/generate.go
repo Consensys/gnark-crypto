@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -76,18 +77,26 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		return false
 	}
+	lastCG1 := make([]int, 0)
 	for i := 0; i < len(conf.G1.CRange); i++ {
 		lc := lastC(conf.G1.CRange[i])
-		if !contains(conf.G1.CRange, lc) && !contains(conf.G1.LastCRange, lc) {
-			conf.G1.LastCRange = append(conf.G1.LastCRange, lc)
+		if !contains(conf.G1.CRange, lc) && !contains(lastCG1, lc) {
+			lastCG1 = append(lastCG1, lc)
 		}
 	}
+	conf.G1.CRange = append(conf.G1.CRange, lastCG1...)
+	sort.Ints(conf.G1.CRange)
+
+	lastCG2 := make([]int, 0)
 	for i := 0; i < len(conf.G2.CRange); i++ {
 		lc := lastC(conf.G2.CRange[i])
-		if !contains(conf.G2.CRange, lc) && !contains(conf.G2.LastCRange, lc) {
-			conf.G2.LastCRange = append(conf.G2.LastCRange, lc)
+		if !contains(conf.G2.CRange, lc) && !contains(lastCG2, lc) {
+			lastCG2 = append(lastCG2, lc)
 		}
 	}
+	conf.G2.CRange = append(conf.G2.CRange, lastCG2...)
+	sort.Ints(conf.G2.CRange)
+
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...); err != nil {
 		return err

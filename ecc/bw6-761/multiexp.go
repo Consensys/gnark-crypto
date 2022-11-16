@@ -84,7 +84,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 16}
+		implementedCs := []uint64{4, 5, 8, 10, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -139,12 +139,25 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 func getChunkProcessorG1(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16) {
 	switch c {
 
+	case 2:
+		return processChunkG1Jacobian[bucketg1JacExtendedC2]
+	case 3:
+		return processChunkG1Jacobian[bucketg1JacExtendedC3]
 	case 4:
 		return processChunkG1Jacobian[bucketg1JacExtendedC4]
 	case 5:
 		return processChunkG1Jacobian[bucketg1JacExtendedC5]
 	case 8:
 		return processChunkG1Jacobian[bucketg1JacExtendedC8]
+	case 10:
+		const batchSize = 80
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG1Jacobian[bucketg1JacExtendedC10]
+		}
+		return processChunkG1BatchAffine[bucketg1JacExtendedC10, bucketG1AffineC10, bitSetC10, pG1AffineC10, ppG1AffineC10, qG1AffineC10, cG1AffineC10]
 	case 16:
 		const batchSize = 640
 		// here we could check some chunk statistic (deviation, ...) to determine if calling
@@ -279,7 +292,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 16}
+		implementedCs := []uint64{4, 5, 8, 10, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -334,12 +347,25 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 func getChunkProcessorG2(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16) {
 	switch c {
 
+	case 2:
+		return processChunkG2Jacobian[bucketg2JacExtendedC2]
+	case 3:
+		return processChunkG2Jacobian[bucketg2JacExtendedC3]
 	case 4:
 		return processChunkG2Jacobian[bucketg2JacExtendedC4]
 	case 5:
 		return processChunkG2Jacobian[bucketg2JacExtendedC5]
 	case 8:
 		return processChunkG2Jacobian[bucketg2JacExtendedC8]
+	case 10:
+		const batchSize = 80
+		// here we could check some chunk statistic (deviation, ...) to determine if calling
+		// the batch affine version is worth it.
+		if stat.nbBucketFilled < batchSize {
+			// clear indicator that batch affine method is not appropriate here.
+			return processChunkG2Jacobian[bucketg2JacExtendedC10]
+		}
+		return processChunkG2BatchAffine[bucketg2JacExtendedC10, bucketG2AffineC10, bitSetC10, pG2AffineC10, ppG2AffineC10, qG2AffineC10, cG2AffineC10]
 	case 16:
 		const batchSize = 640
 		// here we could check some chunk statistic (deviation, ...) to determine if calling
@@ -553,6 +579,10 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
+	if c <= 9 {
+		// no need to compute stats for small window sizes
+		return digits, chunkStats
+	}
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {

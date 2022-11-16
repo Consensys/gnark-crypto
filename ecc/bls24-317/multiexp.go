@@ -139,6 +139,10 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 func getChunkProcessorG1(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16) {
 	switch c {
 
+	case 1:
+		return processChunkG1Jacobian[bucketg1JacExtendedC1]
+	case 3:
+		return processChunkG1Jacobian[bucketg1JacExtendedC3]
 	case 4:
 		return processChunkG1Jacobian[bucketg1JacExtendedC4]
 	case 5:
@@ -394,6 +398,10 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 func getChunkProcessorG2(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16) {
 	switch c {
 
+	case 1:
+		return processChunkG2Jacobian[bucketg2JacExtendedC1]
+	case 3:
+		return processChunkG2Jacobian[bucketg2JacExtendedC3]
 	case 4:
 		return processChunkG2Jacobian[bucketg2JacExtendedC4]
 	case 5:
@@ -673,6 +681,10 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
+	if c <= 9 {
+		// no need to compute stats for small window sizes
+		return digits, chunkStats
+	}
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {

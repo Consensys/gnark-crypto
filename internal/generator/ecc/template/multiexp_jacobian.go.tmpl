@@ -8,8 +8,8 @@
 
 
 
-{{ template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "LastCRange" .G1.LastCRange}}
-{{ template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "LastCRange" .G2.LastCRange}}
+{{ template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange }}
+{{ template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange }}
 
 
 
@@ -66,14 +66,8 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 {{- range $c :=  $.CRange}}
 type bucket{{ $.TJacobianExtended }}C{{$c}} [1<<({{$c}}-1)]{{ $.TJacobianExtended }}
 {{- end}}
-{{- range $c :=  $.LastCRange}}
-type bucket{{ $.TJacobianExtended }}C{{$c}} [1<<({{$c}}-1)]{{ $.TJacobianExtended }}
-{{- end}}
 
 type ib{{ $.TJacobianExtended }} interface {
-	{{- range $i, $c :=  $.LastCRange}}
-	bucket{{ $.TJacobianExtended }}C{{$c}} |
-	{{- end}}
 	{{- range $i, $c :=  $.CRange}}
 	bucket{{ $.TJacobianExtended }}C{{$c}} {{- if not (last $i $.CRange)}} | {{- end}}
 	{{- end}}

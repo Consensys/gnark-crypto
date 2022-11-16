@@ -14,8 +14,8 @@ import (
 	{{- end}}
 )
 
-{{ template "multiexp" dict "CoordType" .G1.CoordType "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "LastCRange" .G1.LastCRange}}
-{{ template "multiexp" dict "CoordType" .G2.CoordType "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "LastCRange" .G2.LastCRange}}
+{{ template "multiexp" dict "CoordType" .G1.CoordType "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{ template "multiexp" dict "CoordType" .G2.CoordType "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
 
 
 {{define "multiexp" }}
