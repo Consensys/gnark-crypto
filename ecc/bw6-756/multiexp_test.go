@@ -256,6 +256,12 @@ func TestCrossMultiExpG1(t *testing.T) {
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
 
+	// sprinkle some doublings
+	for i := 10; i < 100; i++ {
+		samplePoints[i] = samplePoints[0]
+		sampleScalars[i] = sampleScalars[0]
+	}
+
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	cRange := []uint64{3, 4, 5, 8, 11, 16}
 	if testing.Short() {
@@ -667,6 +673,12 @@ func TestCrossMultiExpG2(t *testing.T) {
 
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
+
+	// sprinkle some doublings
+	for i := 10; i < 100; i++ {
+		samplePoints[i] = samplePoints[0]
+		sampleScalars[i] = sampleScalars[0]
+	}
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.

@@ -265,8 +265,15 @@ func TestCrossMultiExp{{ $.UPointName }}(t *testing.T) {
 	samplePoints[rand.Intn(nbSamples)].setInfinity()
 	samplePoints[rand.Intn(nbSamples)].setInfinity()
 
+
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
+
+	// sprinkle some doublings
+	for i:=10; i < 100; i++ {
+		samplePoints[i]  = samplePoints[0] 
+		sampleScalars[i] = sampleScalars[0]
+	}
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	{{- if eq $.PointName "g1" }}
