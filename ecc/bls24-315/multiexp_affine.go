@@ -97,9 +97,8 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		if BK.X.Equal(&op.point.X) {
 			if BK.Y.Equal(&op.point.Y) {
 				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
-				BK.Add(BK, BK)
+				// we use the other set of buckets
+				bucketsJE[op.bucketID].addMixed(&op.point)
 				return
 			}
 			BK.setInfinity()
@@ -127,10 +126,8 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		if BK.X.Equal(&PP.X) {
 			if BK.Y.Equal(&PP.Y) {
 				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
 				if isAdd {
-					BK.Add(BK, BK)
+					bucketsJE[bucketID].addMixed(PP)
 				} else {
 					BK.setInfinity()
 				}
@@ -139,7 +136,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 			if isAdd {
 				BK.setInfinity()
 			} else {
-				BK.Add(BK, BK)
+				bucketsJE[bucketID].subMixed(PP)
 			}
 			return
 		}
@@ -416,9 +413,8 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		if BK.X.Equal(&op.point.X) {
 			if BK.Y.Equal(&op.point.Y) {
 				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
-				BK.Add(BK, BK)
+				// we use the other set of buckets
+				bucketsJE[op.bucketID].addMixed(&op.point)
 				return
 			}
 			BK.setInfinity()
@@ -446,10 +442,8 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 		if BK.X.Equal(&PP.X) {
 			if BK.Y.Equal(&PP.Y) {
 				// P + P: doubling, which should be quite rare --
-				// TODO FIXME @gbotrel / @yelhousni this path is not taken by our tests.
-				// need doubling in affine implemented ?
 				if isAdd {
-					BK.Add(BK, BK)
+					bucketsJE[bucketID].addMixed(PP)
 				} else {
 					BK.setInfinity()
 				}
@@ -458,7 +452,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 			if isAdd {
 				BK.setInfinity()
 			} else {
-				BK.Add(BK, BK)
+				bucketsJE[bucketID].subMixed(PP)
 			}
 			return
 		}
