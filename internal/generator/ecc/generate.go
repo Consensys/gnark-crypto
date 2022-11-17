@@ -28,12 +28,23 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	funcs["last"] = func(x int, a interface{}) bool {
 		return x == reflect.ValueOf(a).Len()-1
 	}
+	funcs["binary"] = func(x uint64) string {
+		return strings.TrimSpace(fmt.Sprintf("%b", x))
+	}
 	lastC := func(c int) int {
-		n := (conf.Fr.NbBits + 1) // +1 for the potential carry of the NAF decomposition
-		if n%c == 0 {
-			return c
+		nbChunks := (conf.Fr.NbBits + c - 1) / c
+		nbAvailableBits := (nbChunks * c) - conf.Fr.NbBits
+		if nbAvailableBits == 0 {
+			// we can push a bit the edge case here;
+			// if the c-msb bits of modulus are not all ones, we have space for the carry
+			// (assuming inputs are smaller than modulus)
+			msb16 := conf.Fr.ModulusSixteenMSB
+			msbC := msb16 >> (16 - c)
+			if !(msbC&((1<<c)-1) == ((1 << c) - 1)) {
+				nbAvailableBits++
+			}
 		}
-		return n - (c * (n / c))
+		return c + 1 - nbAvailableBits
 	}
 	batchSize := func(c int) int {
 		// nbBuckets := (1 << (c - 1))
@@ -82,24 +93,36 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return false
 	}
 	lastCG1 := make([]int, 0)
-	for i := 0; i < len(conf.G1.CRange); i++ {
-		lc := lastC(conf.G1.CRange[i])
-		if !contains(conf.G1.CRange, lc) && !contains(lastCG1, lc) {
-			lastCG1 = append(lastCG1, lc)
+	for {
+		for i := 0; i < len(conf.G1.CRange); i++ {
+			lc := lastC(conf.G1.CRange[i])
+			if !contains(conf.G1.CRange, lc) && !contains(lastCG1, lc) {
+				lastCG1 = append(lastCG1, lc)
+			}
 		}
+		if len(lastCG1) == 0 {
+			break
+		}
+		conf.G1.CRange = append(conf.G1.CRange, lastCG1...)
+		sort.Ints(conf.G1.CRange)
+		lastCG1 = lastCG1[:0]
 	}
-	conf.G1.CRange = append(conf.G1.CRange, lastCG1...)
-	sort.Ints(conf.G1.CRange)
 
 	lastCG2 := make([]int, 0)
-	for i := 0; i < len(conf.G2.CRange); i++ {
-		lc := lastC(conf.G2.CRange[i])
-		if !contains(conf.G2.CRange, lc) && !contains(lastCG2, lc) {
-			lastCG2 = append(lastCG2, lc)
+	for {
+		for i := 0; i < len(conf.G2.CRange); i++ {
+			lc := lastC(conf.G2.CRange[i])
+			if !contains(conf.G2.CRange, lc) && !contains(lastCG2, lc) {
+				lastCG2 = append(lastCG2, lc)
+			}
 		}
+		if len(lastCG2) == 0 {
+			break
+		}
+		conf.G2.CRange = append(conf.G2.CRange, lastCG2...)
+		sort.Ints(conf.G2.CRange)
+		lastCG2 = lastCG2[:0]
 	}
-	conf.G2.CRange = append(conf.G2.CRange, lastCG2...)
-	sort.Ints(conf.G2.CRange)
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...); err != nil {

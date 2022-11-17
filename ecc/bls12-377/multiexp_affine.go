@@ -653,7 +653,6 @@ type pG2AffineC16 [640]G2Affine
 type ppG2AffineC16 [640]*G2Affine
 type qG2AffineC16 [640]batchOpG2Affine
 
-type bitSetC1 [1]bool
 type bitSetC2 [2]bool
 type bitSetC4 [8]bool
 type bitSetC5 [16]bool
@@ -670,8 +669,7 @@ type bitSetC15 [16384]bool
 type bitSetC16 [32768]bool
 
 type bitSet interface {
-	bitSetC1 |
-		bitSetC2 |
+	bitSetC2 |
 		bitSetC4 |
 		bitSetC5 |
 		bitSetC6 |

@@ -61,7 +61,6 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
-type bucketg1JacExtendedC1 [1]g1JacExtended
 type bucketg1JacExtendedC4 [8]g1JacExtended
 type bucketg1JacExtendedC5 [16]g1JacExtended
 type bucketg1JacExtendedC8 [128]g1JacExtended
@@ -69,8 +68,7 @@ type bucketg1JacExtendedC12 [2048]g1JacExtended
 type bucketg1JacExtendedC16 [32768]g1JacExtended
 
 type ibg1JacExtended interface {
-	bucketg1JacExtendedC1 |
-		bucketg1JacExtendedC4 |
+	bucketg1JacExtendedC4 |
 		bucketg1JacExtendedC5 |
 		bucketg1JacExtendedC8 |
 		bucketg1JacExtendedC12 |
@@ -122,7 +120,6 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 
 // we declare the buckets as fixed-size array types
 // this allow us to allocate the buckets on the stack
-type bucketg2JacExtendedC1 [1]g2JacExtended
 type bucketg2JacExtendedC4 [8]g2JacExtended
 type bucketg2JacExtendedC5 [16]g2JacExtended
 type bucketg2JacExtendedC8 [128]g2JacExtended
@@ -130,8 +127,7 @@ type bucketg2JacExtendedC12 [2048]g2JacExtended
 type bucketg2JacExtendedC16 [32768]g2JacExtended
 
 type ibg2JacExtended interface {
-	bucketg2JacExtendedC1 |
-		bucketg2JacExtendedC4 |
+	bucketg2JacExtendedC4 |
 		bucketg2JacExtendedC5 |
 		bucketg2JacExtendedC8 |
 		bucketg2JacExtendedC12 |

@@ -183,8 +183,6 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 func getChunkProcessorG1(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g1JacExtended, c uint64, points []G1Affine, digits []uint16) {
 	switch c {
 
-	case 1:
-		return processChunkG1Jacobian[bucketg1JacExtendedC1]
 	case 2:
 		return processChunkG1Jacobian[bucketg1JacExtendedC2]
 	case 4:
@@ -444,8 +442,6 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, co
 func getChunkProcessorG2(c uint64, stat chunkStat) func(chunkID uint64, chRes chan<- g2JacExtended, c uint64, points []G2Affine, digits []uint16) {
 	switch c {
 
-	case 1:
-		return processChunkG2Jacobian[bucketg2JacExtendedC1]
 	case 2:
 		return processChunkG2Jacobian[bucketg2JacExtendedC2]
 	case 4:
@@ -560,25 +556,27 @@ type selector struct {
 }
 
 // return number of chunks for a given window size c
+// the last chunk may be bigger to accomodate a potential carry from the NAF decomposition
 func computeNbChunks(c uint64) uint64 {
-	// note that we use fr.Bits + 1 --> +1 for a potential carry propagation due to the NAF
-	// decomposition in partitionScalars
-	nbChunks := (fr.Bits + 1) / c
-	if (fr.Bits+1)%c != 0 {
-		nbChunks++
-	}
-	return nbChunks
+	return (fr.Bits + c - 1) / c
 }
 
 // return the last window size for a scalar; if c divides the scalar size
 // then it returns c
 // if not, returns lastC << c
 func lastC(c uint64) uint64 {
-	const n = (fr.Bits + 1) // +1 for the potential carry of the NAF decomposition
-	if n%c == 0 {
-		return c
+	nbAvailableBits := (computeNbChunks(c) * c) - fr.Bits
+	if nbAvailableBits == 0 {
+		// we can push a bit the edge case here;
+		// if the c-msb bits of modulus are not all ones, we have space for the carry
+		// (assuming inputs are smaller than modulus)
+		const qMsb16 = 0b1001010101011011
+		msbC := qMsb16 >> (16 - c)
+		if !(msbC&((1<<c)-1) == ((1 << c) - 1)) {
+			nbAvailableBits++
+		}
 	}
-	return n - (c * (n / c))
+	return c + 1 - nbAvailableBits
 }
 
 type chunkStat struct {
@@ -610,7 +608,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 	digits := make([]uint16, len(scalars)*int(nbChunks))
 
 	mask := uint64((1 << c) - 1) // low c bits are 1
-	max := int(1 << (c - 1))     // max value we want for our digits
+	max := int(1<<(c-1)) - 1     // max value (inclusive) we want for our digits
 	cDivides64 := (64 % c) == 0  // if c doesn't divide 64, we may need to select over multiple words
 
 	// compute offset and word selector / shift to select the right bits of our windows
@@ -644,7 +642,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 			var carry int
 
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
-			for chunk := uint64(0); chunk < nbChunks; chunk++ {
+			for chunk := uint64(0); chunk < nbChunks-1; chunk++ {
 				s := selectors[chunk]
 
 				// init with carry if any
@@ -661,7 +659,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 				// 2^{c} to the current digit, making it negative.
-				if digit >= max {
+				if digit > max {
 					digit -= (1 << c)
 					carry = 1
 				}
@@ -679,6 +677,20 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 				}
 				digits[int(chunk)*len(scalars)+i] = bits
 			}
+
+			// for the last chunk, we don't want to borrow from a next window
+			// (but may have a larger max value)
+			chunk := nbChunks - 1
+			s := selectors[chunk]
+			// init with carry if any
+			digit := carry
+			// digit = value of the c-bit window
+			digit += int((scalar[s.index] & s.mask) >> s.shift)
+			if s.multiWordSelect {
+				// we are selecting bits over 2 words
+				digit += int(scalar[s.index+1]&s.maskHigh) << s.shiftHigh
+			}
+			digits[int(chunk)*len(scalars)+i] = uint16(digit) << 1
 		}
 
 	}, nbTasks)
