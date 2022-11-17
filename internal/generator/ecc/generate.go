@@ -28,23 +28,20 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	funcs["last"] = func(x int, a interface{}) bool {
 		return x == reflect.ValueOf(a).Len()-1
 	}
-	funcs["binary"] = func(x uint64) string {
-		return strings.TrimSpace(fmt.Sprintf("%b", x))
-	}
+
+	// return the last window size for a scalar;
+	// this last window should accomodate a carry (from the NAF decomposition)
+	// it can be == c if we have 1 available bit
+	// it can be > c if we have 0 available bit
+	// it can be < c if we have 2+ available bits
 	lastC := func(c int) int {
 		nbChunks := (conf.Fr.NbBits + c - 1) / c
 		nbAvailableBits := (nbChunks * c) - conf.Fr.NbBits
-		if nbAvailableBits == 0 {
-			// we can push a bit the edge case here;
-			// if the c-msb bits of modulus are not all ones, we have space for the carry
-			// (assuming inputs are smaller than modulus)
-			msb16 := conf.Fr.ModulusSixteenMSB
-			msbC := msb16 >> (16 - c)
-			if !(msbC&((1<<c)-1) == ((1 << c) - 1)) {
-				nbAvailableBits++
-			}
+		lc := c + 1 - nbAvailableBits
+		if lc > 16 {
+			panic("we have a problem since we are using uint16 to store digits")
 		}
-		return c + 1 - nbAvailableBits
+		return lc
 	}
 	batchSize := func(c int) int {
 		// nbBuckets := (1 << (c - 1))

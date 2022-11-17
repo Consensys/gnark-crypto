@@ -565,21 +565,13 @@ func computeNbChunks(c uint64) uint64 {
 	return (fr.Bits + c - 1) / c
 }
 
-// return the last window size for a scalar; if c divides the scalar size
-// then it returns c
-// if not, returns lastC << c
+// return the last window size for a scalar;
+// this last window should accomodate a carry (from the NAF decomposition)
+// it can be == c if we have 1 available bit
+// it can be > c if we have 0 available bit
+// it can be < c if we have 2+ available bits
 func lastC(c uint64) uint64 {
 	nbAvailableBits := (computeNbChunks(c) * c) - fr.Bits
-	if nbAvailableBits == 0 {
-		// we can push a bit the edge case here;
-		// if the c-msb bits of modulus are not all ones, we have space for the carry
-		// (assuming inputs are smaller than modulus)
-		const qMsb16 = 0b1100000110010001
-		msbC := qMsb16 >> (16 - c)
-		if !(msbC&((1<<c)-1) == ((1 << c) - 1)) {
-			nbAvailableBits++
-		}
-	}
 	return c + 1 - nbAvailableBits
 }
 

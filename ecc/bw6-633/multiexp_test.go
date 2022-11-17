@@ -100,7 +100,7 @@ func TestMultiExpG1(t *testing.T) {
 	))
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 8, 12, 16}
+	cRange := []uint64{4, 5, 6, 8, 12, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}
@@ -263,7 +263,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 	}
 
 	// cRange is generated from template and contains the available parameters for the multiexp window size
-	cRange := []uint64{4, 5, 8, 12, 16}
+	cRange := []uint64{4, 5, 6, 8, 12, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
 		cRange = []uint64{5, 16}

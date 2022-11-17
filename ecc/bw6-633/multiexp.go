@@ -84,7 +84,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 12, 16}
+		implementedCs := []uint64{4, 5, 6, 8, 12, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -187,6 +187,8 @@ func getChunkProcessorG1(c uint64, stat chunkStat) func(chunkID uint64, chRes ch
 		return processChunkG1Jacobian[bucketg1JacExtendedC4]
 	case 5:
 		return processChunkG1Jacobian[bucketg1JacExtendedC5]
+	case 6:
+		return processChunkG1Jacobian[bucketg1JacExtendedC6]
 	case 8:
 		return processChunkG1Jacobian[bucketg1JacExtendedC8]
 	case 12:
@@ -290,7 +292,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 	// we split recursively until nbChunks(c) >= nbTasks,
 	bestC := func(nbPoints int) uint64 {
 		// implemented msmC methods (the c we use must be in this slice)
-		implementedCs := []uint64{4, 5, 8, 12, 16}
+		implementedCs := []uint64{4, 5, 6, 8, 12, 16}
 		var C uint64
 		// approximate cost (in group operations)
 		// cost = bits/c * (nbPoints + 2^{c})
@@ -393,6 +395,8 @@ func getChunkProcessorG2(c uint64, stat chunkStat) func(chunkID uint64, chRes ch
 		return processChunkG2Jacobian[bucketg2JacExtendedC4]
 	case 5:
 		return processChunkG2Jacobian[bucketg2JacExtendedC5]
+	case 6:
+		return processChunkG2Jacobian[bucketg2JacExtendedC6]
 	case 8:
 		return processChunkG2Jacobian[bucketg2JacExtendedC8]
 	case 12:
@@ -455,21 +459,13 @@ func computeNbChunks(c uint64) uint64 {
 	return (fr.Bits + c - 1) / c
 }
 
-// return the last window size for a scalar; if c divides the scalar size
-// then it returns c
-// if not, returns lastC << c
+// return the last window size for a scalar;
+// this last window should accomodate a carry (from the NAF decomposition)
+// it can be == c if we have 1 available bit
+// it can be > c if we have 0 available bit
+// it can be < c if we have 2+ available bits
 func lastC(c uint64) uint64 {
 	nbAvailableBits := (computeNbChunks(c) * c) - fr.Bits
-	if nbAvailableBits == 0 {
-		// we can push a bit the edge case here;
-		// if the c-msb bits of modulus are not all ones, we have space for the carry
-		// (assuming inputs are smaller than modulus)
-		const qMsb16 = 0b1001100001000111
-		msbC := qMsb16 >> (16 - c)
-		if !(msbC&((1<<c)-1) == ((1 << c) - 1)) {
-			nbAvailableBits++
-		}
-	}
 	return c + 1 - nbAvailableBits
 }
 

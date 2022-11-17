@@ -39,7 +39,6 @@ type FieldConfig struct {
 	ModulusBig                *big.Int
 	Modulus                   string
 	ModulusHex                string
-	ModulusSixteenMSB         uint64 // 16 most significant bits of the modulus, right-aligned.
 	NbWords                   int
 	NbBits                    int
 	NbWordsLastIndex          int
@@ -97,18 +96,6 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
 	F.NbWords = len(bModulus.Bits())
-
-	// compute the 16 msb;
-	if F.NbBits <= 16 {
-		F.ModulusSixteenMSB = F.ModulusBig.Uint64()
-	} else {
-		msb := new(big.Int)
-		msb.Rsh(F.ModulusBig, uint(F.NbBits)-16)
-		if msb.BitLen() != 16 {
-			panic("sanity check.")
-		}
-		F.ModulusSixteenMSB = msb.Uint64()
-	}
 
 	F.NbWordsLastIndex = F.NbWords - 1
 
