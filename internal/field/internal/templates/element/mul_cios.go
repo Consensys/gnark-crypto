@@ -1,5 +1,39 @@
 package element
 
+// MulCIOS text book CIOS works for all modulus.
+//
+// There are couple of variations to the multiplication (and squaring) algorithms.
+//
+// All versions are derived from the Montgomery CIOS algorithm: see
+// section 2.3.2 of Tolga Acar's thesis
+// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+//
+// For 1-word modulus, the generator will call mul_cios_one_limb (standard REDC)
+//
+// For 13-word+ modulus, the generator will output a unoptimized textbook CIOS code, in plain Go.
+//
+// For all other moduli, we look at the available bits in the last limb.
+// If they are none (like secp256k1) we generate a unoptimized textbook CIOS code, in plain Go, for all architectures.
+// If there is at least one we can ommit a carry propagation in the CIOS algorithm.
+// If there is at least two we can use the same technique for the CIOS Squaring.
+// See appendix in https://eprint.iacr.org/2022/1400.pdf for the exact condition.
+//
+// In practice, we have 3 differents targets in mind: x86(amd64), arm64 and wasm.
+//
+// For amd64, we can leverage (when available) the BMI2 and ADX instructions to have 2-carry-chains in parallel.
+// This make the use of assembly worth it as it results in a significant perf improvment; most CPUs since 2016 support these
+// instructions, and we assume it to be the "default path"; in case the CPU has no support, we fall back to a slow, unoptimized version.
+//
+// On amd64, the Squaring algorithm always call the Multiplication (assembly) implementation.
+//
+// For arm64, we unroll the loops in the CIOS (+nocarry optimization) algorithm, such that the instructions generated
+// by the Go compiler closely match what we would hand-write. Hence, there is no assembly needed for arm64 target.
+//
+// Additionally, if 2-bits+ are available on the last limb, we have a template to generate a dedicated Squaring algorithm
+// This is not activated by default, to minimize the codebase size.
+// On M1, AWS Graviton3 it results in a 5-10% speedup. On some mobile devices, speed up observed was more important (~20%).
+//
+// The same (arm64) unrolled Go code produce satisfying perfomrance for WASM (compiled using TinyGo).
 const MulCIOS = `
 {{ define "mul_cios" }}
 	var t [{{add .all.NbWords 1}}]uint64
@@ -50,7 +84,7 @@ const MulCIOS = `
 				z[{{$i}}], b = bits.Sub64(t[{{$i}}], q{{$i}}, b)
 			{{- end}}
 		{{- end}}
-		return
+		return {{if $.ReturnZ }} z{{- end}}
 	}
 
 	// copy t into z 
@@ -87,5 +121,54 @@ const MulCIOS = `
 		r -= q 
 	}
 	z[0] = r 
+{{ end }}
+`
+
+const MulDoc = `
+{{define "mul_doc noCarry"}}
+// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+// 
+// The algorithm:
+// 
+// for i=0 to N-1
+// 		C := 0
+// 		for j=0 to N-1
+// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+// 		(t[N+1],t[N]) := t[N] + C
+//		
+// 		C := 0
+// 		m := t[0]*q'[0] mod D
+// 		(C,_) := t[0] + m*q[0]
+// 		for j=1 to N-1
+// 			(C,t[j-1]) := t[j] + m*q[j] + C
+//		
+// 		(C,t[N-1]) := t[N] + C
+// 		t[N] := t[N+1] + C
+//
+// → N is the number of machine words needed to store the modulus q
+// → D is the word size. For example, on a 64-bit architecture D is 2	64
+// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+// → t is a temporary array of size N+2 
+// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+{{- if .noCarry}}
+// 
+// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
+// (also described in https://eprint.iacr.org/2022/1400.pdf annex)
+//
+// for i=0 to N-1
+// 		(A,t[0]) := t[0] + x[0]*y[i] 
+// 		m := t[0]*q'[0] mod W
+// 		C,_ := t[0] + m*q[0]
+// 		for j=1 to N-1
+// 			(A,t[j])  := t[j] + x[j]*y[i] + A
+// 			(C,t[j-1]) := t[j] + m*q[j] + C
+//		
+// 		t[N-1] = C + A
+//
+// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit 
+// of the modulus is zero (and not all of the remaining bits are set).
+{{- end}}
 {{ end }}
 `

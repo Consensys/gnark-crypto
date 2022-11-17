@@ -29,6 +29,26 @@ func reduce(res *{{.ElementName}})
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
+
+
+// Mul z = x * y (mod q)
+//
+// x and y must be less than q
+func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
+	{{ mul_doc $.NoCarry }}
+	mul(z, x, y)
+	return z
+}
+
+// Square z = x * x (mod q)
+//
+// x must be less than q
+func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
+	// see Mul for doc.
+	mul(z, x, x)
+	return z
+}
+
 {{end}}
 
 

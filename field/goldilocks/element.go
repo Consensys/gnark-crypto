@@ -365,99 +365,6 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y (mod q)
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-
-	// In fact, since the modulus R fits on one register, the CIOS algorithm gets reduced to standard REDC (textbook Montgomery reduction):
-	// hi, lo := x * y
-	// m := (lo * qInvNeg) mod R
-	// (*) r := (hi * R + lo + m * q) / R
-	// reduce r if necessary
-
-	// On the emphasized line, we get r = hi + (lo + m * q) / R
-	// If we write hi2, lo2 = m * q then R | m * q - lo2 ⇒ R | (lo * qInvNeg) q - lo2 = -lo - lo2
-	// This shows lo + lo2 = 0 mod R. i.e. lo + lo2 = 0 if lo = 0 and R otherwise.
-	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
-	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
-
-	var r uint64
-	hi, lo := bits.Mul64(x[0], y[0])
-	if lo != 0 {
-		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
-	}
-	m := lo * qInvNeg
-	hi2, _ := bits.Mul64(m, q)
-	r, carry := bits.Add64(hi2, hi, 0)
-
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
-	}
-	z[0] = r
-
-	return z
-}
-
-// Square z = x * x (mod q)
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-
-	// In fact, since the modulus R fits on one register, the CIOS algorithm gets reduced to standard REDC (textbook Montgomery reduction):
-	// hi, lo := x * y
-	// m := (lo * qInvNeg) mod R
-	// (*) r := (hi * R + lo + m * q) / R
-	// reduce r if necessary
-
-	// On the emphasized line, we get r = hi + (lo + m * q) / R
-	// If we write hi2, lo2 = m * q then R | m * q - lo2 ⇒ R | (lo * qInvNeg) q - lo2 = -lo - lo2
-	// This shows lo + lo2 = 0 mod R. i.e. lo + lo2 = 0 if lo = 0 and R otherwise.
-	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
-	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
-
-	var r uint64
-	hi, lo := bits.Mul64(x[0], x[0])
-	if lo != 0 {
-		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
-	}
-	m := lo * qInvNeg
-	hi2, _ := bits.Mul64(m, q)
-	r, carry := bits.Add64(hi2, hi, 0)
-
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
-	}
-	z[0] = r
-
-	return z
-}
-
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func (z *Element) FromMont() *Element {
@@ -519,11 +426,71 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	z.Mul(x, y)
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
 
+	var t [2]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+
+	t[1], D = bits.Add64(t[1], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+
+	t[0], C = bits.Add64(t[1], C, 0)
+	t[1], _ = bits.Add64(0, D, C)
+
+	if t[1] != 0 {
+		// we need to reduce, we have a result on 2 words
+		z[0], _ = bits.Sub64(t[0], q0, 0)
+		return
+	}
+
+	// copy t into z
+	z[0] = t[0]
+
+	// if z ⩾ q → z -= q
+	if !z.smallerThanModulus() {
+		z[0] -= q
+	}
 }
 
 func _fromMontGeneric(z *Element) {
