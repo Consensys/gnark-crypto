@@ -33,7 +33,7 @@ func Butterfly(a, b *{{.ElementName}})
 
 // Mul z = x * y (mod q)
 //
-// x and y must be strictly inferior to q
+// x and y must be less than q
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{ mul_doc $.NoCarry }}
 	mul(z, x, y)
@@ -42,7 +42,7 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 
 // Square z = x * x (mod q)
 //
-// x must be strictly inferior to q
+// x must be less than q
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	// see Mul for doc.
 	mul(z, x, x)

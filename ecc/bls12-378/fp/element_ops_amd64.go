@@ -47,7 +47,7 @@ func Butterfly(a, b *Element)
 
 // Mul z = x * y (mod q)
 //
-// x and y must be strictly inferior to q
+// x and y must be less than q
 func (z *Element) Mul(x, y *Element) *Element {
 
 	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
@@ -99,7 +99,7 @@ func (z *Element) Mul(x, y *Element) *Element {
 
 // Square z = x * x (mod q)
 //
-// x must be strictly inferior to q
+// x must be less than q
 func (z *Element) Square(x *Element) *Element {
 	// see Mul for doc.
 	mul(z, x, x)

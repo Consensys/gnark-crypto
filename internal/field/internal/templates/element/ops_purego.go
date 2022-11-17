@@ -55,7 +55,7 @@ func reduce(z *{{.ElementName}})  {
 // Mul z = x * y (mod q)
 {{- if $.NoCarry}}
 //
-// x and y must be strictly inferior to q
+// x and y must be less than q
 {{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq $.NbWords 1}}
@@ -75,7 +75,7 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 // Square z = x * x (mod q)
 {{- if $.NoCarry}}
 //
-// x must be strictly inferior to q
+// x must be less than q
 {{- end }}
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	// see Mul for algorithm documentation

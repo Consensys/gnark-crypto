@@ -12,7 +12,7 @@ package element
 //
 // For 13-word+ modulus, the generator will output a unoptimized textbook CIOS code, in plain Go.
 //
-// For all other modulus, we look at the available bits in the last limb.
+// For all other moduli, we look at the available bits in the last limb.
 // If they are none (like secp256k1) we generate a unoptimized textbook CIOS code, in plain Go, for all architectures.
 // If there is at least one we can ommit a carry propagation in the CIOS algorithm.
 // If there is at least two we can use the same technique for the CIOS Squaring.
