@@ -1,0 +1,104 @@
+import (
+    "crypto/rand"
+    "fmt"
+    "github.com/consensys/gnark-crypto/ecc"
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+    "math/big"
+)
+
+// Key for proof and verification
+type Key struct {
+    g             {{.CurvePackage}}.G2Affine // TODO @tabaie: does this really have to be randomized?
+    gRootSigmaNeg {{.CurvePackage}}.G2Affine //gRootSigmaNeg = g^{-1/σ}
+    basis         []*{{.CurvePackage}}.G1Affine
+    basisExpSigma []{{.CurvePackage}}.G1Affine
+}
+
+func randomOnG2() ({{.CurvePackage}}.G2Affine, error) { // TODO: Add to G2.go?
+    gBytes := make([]byte, fr.Bytes)
+    if _, err := rand.Read(gBytes); err != nil {
+        return {{.CurvePackage}}.G2Affine{}, err
+    }
+    return {{.CurvePackage}}.HashToG2(gBytes, []byte("random on g2"))
+}
+
+func Setup(basis []*{{.CurvePackage}}.G1Affine) (Key, error) {
+    var (
+        k   Key
+        err error
+    )
+
+    if k.g, err = randomOnG2(); err != nil {
+        return k, err
+    }
+
+    var modMinusOne big.Int
+    modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
+    var sigma *big.Int
+    if sigma, err = rand.Int(rand.Reader, &modMinusOne); err != nil {
+        return k, err
+    }
+    sigma.Add(sigma, big.NewInt(1))
+
+    var sigmaInvNeg big.Int
+    sigmaInvNeg.ModInverse(sigma, fr.Modulus())
+    sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
+    k.gRootSigmaNeg.ScalarMultiplication(&k.g, &sigmaInvNeg)
+
+    k.basisExpSigma = make([]{{.CurvePackage}}.G1Affine, len(basis))
+    for i, gᵢ := range basis {
+        k.basisExpSigma[i].ScalarMultiplication(gᵢ, sigma)
+    }
+
+    k.basis = basis
+    return k, err
+}
+
+// TODO: If this takes too long in practice, edit MultiExp to accept pointers too
+func ptrSliceToSlice[T any](ptrSlice []*T) []T {
+    slice := make([]T, len(ptrSlice))
+    for i, p := range ptrSlice {
+        slice[i] = *p
+    }
+    return slice
+}
+
+func (k *Key) Commit(values []*fr.Element) (commitment {{.CurvePackage}}.G1Affine, knowledgeProof {{.CurvePackage}}.G1Affine, err error) {
+
+    if len(values) != len(k.basis) {
+        err = fmt.Errorf("unexpected number of values")
+        return
+    }
+
+    valuesNoPtr := ptrSliceToSlice(values)
+    config := ecc.MultiExpConfig{
+        NbTasks:     1, // TODO Experiment
+        ScalarsMont: true,
+    }
+
+    if _, err = commitment.MultiExp(ptrSliceToSlice(k.basis), valuesNoPtr, config); err != nil {
+        return
+    }
+
+    _, err = knowledgeProof.MultiExp(k.basisExpSigma, valuesNoPtr, config)
+
+    return
+}
+
+// VerifyKnowledgeProof checks if the proof of knowledge is valid
+func (k *Key) VerifyKnowledgeProof(commitment {{.CurvePackage}}.G1Affine, knowledgeProof {{.CurvePackage}}.G1Affine) error {
+
+    if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
+        return fmt.Errorf("subgroup check failed")
+    }
+
+    product, err := {{.CurvePackage}}.Pair([]{{.CurvePackage}}.G1Affine{commitment, knowledgeProof}, []{{.CurvePackage}}.G2Affine{k.g, k.gRootSigmaNeg})
+    if err != nil {
+        return err
+    }
+    if product.C0.B0.A0.IsOne() && product.C0.B0.A1.IsZero() && product.C0.B1.IsZero() && product.C1.IsZero() {
+        return nil
+    }
+    return fmt.Errorf("proof rejected")
+}

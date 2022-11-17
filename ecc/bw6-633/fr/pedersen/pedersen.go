@@ -20,28 +20,28 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"math/big"
 )
 
 // Key for proof and verification
 type Key struct {
-	g             bn254.G2Affine // TODO @tabaie: does this really have to be randomized?
-	gRootSigmaNeg bn254.G2Affine //gRootSigmaNeg = g^{-1/σ}
-	basis         []*bn254.G1Affine
-	basisExpSigma []bn254.G1Affine
+	g             bw6633.G2Affine // TODO @tabaie: does this really have to be randomized?
+	gRootSigmaNeg bw6633.G2Affine //gRootSigmaNeg = g^{-1/σ}
+	basis         []*bw6633.G1Affine
+	basisExpSigma []bw6633.G1Affine
 }
 
-func randomOnG2() (bn254.G2Affine, error) { // TODO: Add to G2.go?
+func randomOnG2() (bw6633.G2Affine, error) { // TODO: Add to G2.go?
 	gBytes := make([]byte, fr.Bytes)
 	if _, err := rand.Read(gBytes); err != nil {
-		return bn254.G2Affine{}, err
+		return bw6633.G2Affine{}, err
 	}
-	return bn254.HashToG2(gBytes, []byte("random on g2"))
+	return bw6633.HashToG2(gBytes, []byte("random on g2"))
 }
 
-func Setup(basis []*bn254.G1Affine) (Key, error) {
+func Setup(basis []*bw6633.G1Affine) (Key, error) {
 	var (
 		k   Key
 		err error
@@ -64,7 +64,7 @@ func Setup(basis []*bn254.G1Affine) (Key, error) {
 	sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
 	k.gRootSigmaNeg.ScalarMultiplication(&k.g, &sigmaInvNeg)
 
-	k.basisExpSigma = make([]bn254.G1Affine, len(basis))
+	k.basisExpSigma = make([]bw6633.G1Affine, len(basis))
 	for i, gᵢ := range basis {
 		k.basisExpSigma[i].ScalarMultiplication(gᵢ, sigma)
 	}
@@ -82,7 +82,7 @@ func ptrSliceToSlice[T any](ptrSlice []*T) []T {
 	return slice
 }
 
-func (k *Key) Commit(values []*fr.Element) (commitment bn254.G1Affine, knowledgeProof bn254.G1Affine, err error) {
+func (k *Key) Commit(values []*fr.Element) (commitment bw6633.G1Affine, knowledgeProof bw6633.G1Affine, err error) {
 
 	if len(values) != len(k.basis) {
 		err = fmt.Errorf("unexpected number of values")
@@ -105,13 +105,13 @@ func (k *Key) Commit(values []*fr.Element) (commitment bn254.G1Affine, knowledge
 }
 
 // VerifyKnowledgeProof checks if the proof of knowledge is valid
-func (k *Key) VerifyKnowledgeProof(commitment bn254.G1Affine, knowledgeProof bn254.G1Affine) error {
+func (k *Key) VerifyKnowledgeProof(commitment bw6633.G1Affine, knowledgeProof bw6633.G1Affine) error {
 
 	if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
 		return fmt.Errorf("subgroup check failed")
 	}
 
-	product, err := bn254.Pair([]bn254.G1Affine{commitment, knowledgeProof}, []bn254.G2Affine{k.g, k.gRootSigmaNeg})
+	product, err := bw6633.Pair([]bw6633.G1Affine{commitment, knowledgeProof}, []bw6633.G2Affine{k.g, k.gRootSigmaNeg})
 	if err != nil {
 		return err
 	}

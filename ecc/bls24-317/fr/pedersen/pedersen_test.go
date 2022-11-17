@@ -17,8 +17,8 @@
 package pedersen
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
@@ -46,18 +46,18 @@ func randomFrSlice(t *testing.T, size int) []interface{} {
 	return res
 }
 
-func randomOnG1() (bn254.G1Affine, error) { // TODO: Add to G1.go?
+func randomOnG1() (bls24317.G1Affine, error) { // TODO: Add to G1.go?
 	gBytes := make([]byte, fr.Bytes)
 	if _, err := rand.Read(gBytes); err != nil {
-		return bn254.G1Affine{}, err
+		return bls24317.G1Affine{}, err
 	}
-	return bn254.HashToG1(gBytes, []byte("random on g2"))
+	return bls24317.HashToG1(gBytes, []byte("random on g2"))
 }
 
 func testCommit(t *testing.T, values ...interface{}) {
 	// g₁ g₂
 
-	basis := make([]*bn254.G1Affine, len(values))
+	basis := make([]*bls24317.G1Affine, len(values))
 	for i := range basis {
 		basisI, err := randomOnG1()
 		assert.NoError(t, err)
