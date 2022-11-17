@@ -55,7 +55,6 @@ func randomOnG1() (bls12377.G1Affine, error) { // TODO: Add to G1.go?
 }
 
 func testCommit(t *testing.T, values ...interface{}) {
-	// g₁ g₂
 
 	basis := make([]*bls12377.G1Affine, len(values))
 	for i := range basis {
@@ -64,8 +63,15 @@ func testCommit(t *testing.T, values ...interface{}) {
 		basis[i] = &basisI
 	}
 
-	key, err := Setup(basis)
-	commitment, pok, err := key.Commit(interfaceSliceToFrPtrSlice(t, values...))
+	var (
+		key             Key
+		err             error
+		commitment, pok bls12377.G1Affine
+	)
+
+	key, err = Setup(basis)
+	assert.NoError(t, err)
+	commitment, pok, err = key.Commit(interfaceSliceToFrPtrSlice(t, values...))
 	assert.NoError(t, err)
 	assert.NoError(t, key.VerifyKnowledgeProof(commitment, pok))
 

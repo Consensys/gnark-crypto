@@ -115,7 +115,7 @@ func (k *Key) VerifyKnowledgeProof(commitment bls24315.G1Affine, knowledgeProof 
 	if err != nil {
 		return err
 	}
-	if product.C0.B0.A0.IsOne() && product.C0.B0.A1.IsZero() && product.C0.B1.IsZero() && product.C1.IsZero() {
+	if product.IsOne() {
 		return nil
 	}
 	return fmt.Errorf("proof rejected")
