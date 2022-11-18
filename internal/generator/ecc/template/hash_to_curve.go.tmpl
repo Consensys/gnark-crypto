@@ -14,9 +14,6 @@ import(
     {{- if not (eq $TowerDegree 1) }}
         "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
     {{- end}}
-    {{- if $IsG1}}
-        "github.com/consensys/gnark-crypto/ecc"
-    {{- end}}
 
 {{if eq $.MappingAlgorithm "SSWU"}}
     {{template "sswu" .}}

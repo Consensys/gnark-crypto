@@ -17,7 +17,6 @@
 package bw6761
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 
 	"math/big"

@@ -17,7 +17,6 @@
 package bls12381
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
 	"math/big"

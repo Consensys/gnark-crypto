@@ -68,7 +68,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 func TestHashToFp{{$CurveTitle}}(t *testing.T) {
 	for _, c := range encodeTo{{$CurveTitle}}Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), encodeTo{{$CurveTitle}}Vector.dst, {{$TowerDegree}})
+		elems, err := fp.Hash([]byte(c.msg), encodeTo{{$CurveTitle}}Vector.dst, {{$TowerDegree}})
 		if err != nil {
 			t.Error(err)
 		}
@@ -76,7 +76,7 @@ func TestHashToFp{{$CurveTitle}}(t *testing.T) {
 	}
 
 	for _, c := range hashTo{{$CurveTitle}}Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), hashTo{{$CurveTitle}}Vector.dst, 2 * {{$TowerDegree}})
+		elems, err := fp.Hash([]byte(c.msg), hashTo{{$CurveTitle}}Vector.dst, 2 * {{$TowerDegree}})
 		if err != nil {
 			t.Error(err)
 		}
