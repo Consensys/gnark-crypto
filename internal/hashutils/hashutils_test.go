@@ -1,4 +1,4 @@
-package hash_utils
+package hashutils
 
 import (
 	"bytes"
