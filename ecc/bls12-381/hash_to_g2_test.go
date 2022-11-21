@@ -64,7 +64,7 @@ func TestG2SqrtRatio(t *testing.T) {
 
 func TestHashToFpG2(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), encodeToG2Vector.dst, 2)
+		elems, err := fp.Hash([]byte(c.msg), encodeToG2Vector.dst, 2)
 		if err != nil {
 			t.Error(err)
 		}
@@ -72,7 +72,7 @@ func TestHashToFpG2(t *testing.T) {
 	}
 
 	for _, c := range hashToG2Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), hashToG2Vector.dst, 2*2)
+		elems, err := fp.Hash([]byte(c.msg), hashToG2Vector.dst, 2*2)
 		if err != nil {
 			t.Error(err)
 		}

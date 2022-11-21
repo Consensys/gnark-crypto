@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"io"
 	"math/big"
 	"math/bits"
@@ -914,6 +915,27 @@ func (z *Element) BitLen() int {
 		return 64 + bits.Len64(z[1])
 	}
 	return bits.Len64(z[0])
+}
+
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
 }
 
 // Exp z = xᵏ (mod q)
