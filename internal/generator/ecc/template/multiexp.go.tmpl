@@ -49,19 +49,19 @@ func lastC(c uint64) uint64 {
 }
 
 type chunkStat struct {
-	// relative weight of work compared to other chunks. 100.0 -> nominal weight. 
+	// relative weight of work compared to other chunks. 100.0 -> nominal weight.
 	weight float32
 
-	// // average absolute deviation. this is meant to give a sense of statistical 
+	// // average absolute deviation. this is meant to give a sense of statistical
 	// // dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
-	// deviation int 
+	// deviation int
 
-	// percentage of bucket filled in the window; 
+	// percentage of bucket filled in the window;
 	ppBucketFilled float32
-	nbBucketFilled int 
+	nbBucketFilled int
 
 	// // average ops per non-zero buckets
-	// averageOpsPerBucket int 
+	// averageOpsPerBucket int
 }
 
 
@@ -133,15 +133,15 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
 				// 2^{c} to the current digit, making it negative.
-				if digit > max { 
+				if digit > max {
 					digit -= (1 << c)
 					carry = 1
 				}
 
 				// if digit is zero, no impact on result
 				if digit == 0 {
-					continue 
-				} 
+					continue
+				}
 
 				var bits uint16
 				if digit > 0 {
@@ -152,7 +152,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 				digits[int(chunk)*len(scalars)+i] = bits
 			}
 
-			// for the last chunk, we don't want to borrow from a next window 
+			// for the last chunk, we don't want to borrow from a next window
 			// (but may have a larger max value)
 			chunk := nbChunks - 1
 			s := selectors[chunk]
@@ -168,7 +168,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 		}
 
 	}, nbTasks)
-	
+
 
 	// aggregate  chunk stats
 	chunkStats := make([]chunkStat, nbChunks)
@@ -179,9 +179,9 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 	parallel.Execute(len(chunkStats), func(start, end int) {
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
-			// indicates if a bucket is hit. 
-			var b bitSetC16 
-			
+			// indicates if a bucket is hit.
+			var b bitSetC16
+
 			// digits for the chunk
 			chunkDigits := digits[chunkID*len(scalars):(chunkID+1)*len(scalars)]
 
@@ -189,7 +189,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 			nz := 0 // non zero buckets count
 			for _, digit := range chunkDigits {
 				if digit == 0 {
-					continue 
+					continue
 				}
 				totalOps++
 				bucketID := digit >> 1
@@ -219,7 +219,7 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 			chunkStats[i].weight = (chunkStats[i].weight * 100.0) / target
 		}
 	}
-	
+
 
 	return digits, chunkStats
 }
@@ -273,7 +273,7 @@ func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTas
 	// processing in the msm in 2, to ensure all go routines finish at ~same time
 	// /!\ nbTasks is enough as parallel.Execute is not going to spawn more than nbTasks go routine
 	// if it does, though, this will deadlocK.
-	chSmallValues := make(chan int, nbTasks) 
+	chSmallValues := make(chan int, nbTasks)
 
 	parallel.Execute(len(scalars), func(start, end int) {
 		smallValues := 0
@@ -313,7 +313,7 @@ func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTas
 
 				// if digit is zero, no impact on result
 				if digit == 0 {
-					continue 
+					continue
 				}
 
 
@@ -342,8 +342,8 @@ func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTas
 		chSmallValues <- smallValues
 
 	}, nbTasks)
-	
-	
+
+
 	// aggregate small values
 	close(chSmallValues)
 	smallValues := 0
@@ -357,19 +357,19 @@ func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTas
 
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// 
+//
 // This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *{{ $.TAffine }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) (*{{ $.TAffine }}, error) {
 	var _p {{$.TJacobian}}
 	if _, err := _p.MultiExp(points, scalars, config); err != nil {
-		return nil, err 
+		return nil, err
 	}
 	p.FromJacobian(&_p)
 	return p, nil
 }
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
-// 
+//
 // This call return an error if len(scalars) != len(points) or if provided config is invalid.
 func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) (*{{ $.TJacobian }}, error) {
 	// note:
@@ -446,7 +446,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 		nbTasksPostSplit := nbChunksPostSplit*2
 		if (nbTasksPostSplit <= config.NbTasks /2 ) || ( nbTasksPostSplit - config.NbTasks/2 ) <= ( config.NbTasks - nbChunks) {
 			// if postSplit we still have less tasks than available CPU
-			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split. 
+			// or if we have more tasks BUT the difference of CPU usage is in our favor, we split.
 			config.NbTasks /= 2
 			var _p {{ $.TJacobian }}
 			chDone := make(chan struct{}, 1)
@@ -503,8 +503,8 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 				s1.add(&s2)
 				chChunks[chunkID] <- s1
 			}(j)
-			continue 
-		} 
+			continue
+		}
 		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n])
 	}
 
@@ -527,7 +527,7 @@ func getChunkProcessor{{ $.UPointName }}(c uint64, stat chunkStat) func(chunkID 
 			{{- else}}
 				const batchSize = {{batchSize $c}}
 				// here we could check some chunk statistic (deviation, ...) to determine if calling
-				// the batch affine version is worth it. 
+				// the batch affine version is worth it.
 				if stat.nbBucketFilled < batchSize {
 					// clear indicator that batch affine method is not appropriate here.
 					return processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$c}}]
@@ -549,14 +549,12 @@ func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan 
     _p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
 		for l := 0; l < c; l++ {
-			// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
 		_p.add(&totalj)
 	}
 
-	// TODO @gbotrel / @yelhousni --> what if _p is infinity here?
 	return p.unsafeFromJacExtended(&_p)
 }
 
