@@ -996,19 +996,21 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 	// invert denominator using montgomery batch invert technique
 	{
 		var accumulator fp.Element
-		accumulator.SetOne()
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
 
-		for i := 0; i < batchSize; i++ {
+		for i := 1; i < batchSize; i++ {
 			lambda[i] = accumulator
 			accumulator.Mul(&accumulator, &lambdain[i])
 		}
 
 		accumulator.Inverse(&accumulator)
 
-		for i := batchSize - 1; i >= 0; i-- {
+		for i := batchSize - 1; i > 0; i-- {
 			lambda[i].Mul(&lambda[i], &accumulator)
 			accumulator.Mul(&accumulator, &lambdain[i])
 		}
+		lambda[0].Set(&accumulator)
 	}
 
 	var d fp.Element

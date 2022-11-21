@@ -1586,19 +1586,21 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 	// invert denominator using montgomery batch invert technique
 	{
 		var accumulator {{.CoordType}}
-		accumulator.SetOne()
-	
-		for i := 0; i < batchSize; i++ {
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
+
+		for i := 1; i < batchSize; i++ {
 			lambda[i] = accumulator
 			accumulator.Mul(&accumulator, &lambdain[i])
 		}
-	
+
 		accumulator.Inverse(&accumulator)
-	
-		for i := batchSize - 1; i >= 0; i-- {
+
+		for i := batchSize - 1; i > 0; i-- {
 			lambda[i].Mul(&lambda[i], &accumulator)
 			accumulator.Mul(&accumulator, &lambdain[i])
 		}
+		lambda[0].Set(&accumulator)
 	}
 
 	var d {{.CoordType}}
@@ -1620,4 +1622,3 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 		(*R)[j].Set(&rr)
 	}
 }
-
