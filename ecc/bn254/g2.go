@@ -658,6 +658,8 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 
 // double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// since we consider any point on Z=0 as the point at infinity
+// this doubling formula works for infinity points as well
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
 	var U, V, W, S, XX, M fptower.E2
 
@@ -919,7 +921,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
+	pScalars, _ := partitionScalarsOld(scalars, c, false, runtime.NumCPU())
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
@@ -979,4 +981,55 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		}
 	})
 	return toReturn
+}
+
+// batch add affine coordinates
+// using batch inversion
+// special cases (doubling, infinity) must be filtered out before this call
+func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP, batchSize int) {
+	var lambda, lambdain TC
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
+	}
+
+	// invert denominator using montgomery batch invert technique
+	{
+		var accumulator fptower.E2
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
+
+		for i := 1; i < batchSize; i++ {
+			lambda[i] = accumulator
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+
+		accumulator.Inverse(&accumulator)
+
+		for i := batchSize - 1; i > 0; i-- {
+			lambda[i].Mul(&lambda[i], &accumulator)
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+		lambda[0].Set(&accumulator)
+	}
+
+	var d fptower.E2
+	var rr G2Affine
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		// computa lambda
+		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &d)
+
+		// compute X, Y
+		rr.X.Square(&lambda[j])
+		rr.X.Sub(&rr.X, &(*R)[j].X)
+		rr.X.Sub(&rr.X, &(*P)[j].X)
+		d.Sub(&(*R)[j].X, &rr.X)
+		rr.Y.Mul(&lambda[j], &d)
+		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
+		(*R)[j].Set(&rr)
+	}
 }

@@ -18,13 +18,14 @@ package field
 import (
 	"errors"
 	"fmt"
-	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 	"math"
 	"math/big"
 	"math/bits"
 	"strconv"
 	"strings"
+
+	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
 )
 
 var (
