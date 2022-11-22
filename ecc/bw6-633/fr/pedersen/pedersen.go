@@ -29,7 +29,7 @@ import (
 type Key struct {
 	g             bw6633.G2Affine // TODO @tabaie: does this really have to be randomized?
 	gRootSigmaNeg bw6633.G2Affine //gRootSigmaNeg = g^{-1/σ}
-	basis         []*bw6633.G1Affine
+	basis         []bw6633.G1Affine
 	basisExpSigma []bw6633.G1Affine
 }
 
@@ -41,7 +41,7 @@ func randomOnG2() (bw6633.G2Affine, error) { // TODO: Add to G2.go?
 	return bw6633.HashToG2(gBytes, []byte("random on g2"))
 }
 
-func Setup(basis []*bw6633.G1Affine) (Key, error) {
+func Setup(basis []bw6633.G1Affine) (Key, error) {
 	var (
 		k   Key
 		err error
@@ -65,41 +65,31 @@ func Setup(basis []*bw6633.G1Affine) (Key, error) {
 	k.gRootSigmaNeg.ScalarMultiplication(&k.g, &sigmaInvNeg)
 
 	k.basisExpSigma = make([]bw6633.G1Affine, len(basis))
-	for i, gᵢ := range basis {
-		k.basisExpSigma[i].ScalarMultiplication(gᵢ, sigma)
+	for i := range basis {
+		k.basisExpSigma[i].ScalarMultiplication(&basis[i], sigma)
 	}
 
 	k.basis = basis
 	return k, err
 }
 
-// TODO: If this takes too long in practice, edit MultiExp to accept pointers too
-func ptrSliceToSlice[T any](ptrSlice []*T) []T {
-	slice := make([]T, len(ptrSlice))
-	for i, p := range ptrSlice {
-		slice[i] = *p
-	}
-	return slice
-}
-
-func (k *Key) Commit(values []*fr.Element) (commitment bw6633.G1Affine, knowledgeProof bw6633.G1Affine, err error) {
+func (k *Key) Commit(values []fr.Element) (commitment bw6633.G1Affine, knowledgeProof bw6633.G1Affine, err error) {
 
 	if len(values) != len(k.basis) {
 		err = fmt.Errorf("unexpected number of values")
 		return
 	}
 
-	valuesNoPtr := ptrSliceToSlice(values)
 	config := ecc.MultiExpConfig{
 		NbTasks:     1, // TODO Experiment
 		ScalarsMont: true,
 	}
 
-	if _, err = commitment.MultiExp(ptrSliceToSlice(k.basis), valuesNoPtr, config); err != nil {
+	if _, err = commitment.MultiExp(k.basis, values, config); err != nil {
 		return
 	}
 
-	_, err = knowledgeProof.MultiExp(k.basisExpSigma, valuesNoPtr, config)
+	_, err = knowledgeProof.MultiExp(k.basisExpSigma, values, config)
 
 	return
 }

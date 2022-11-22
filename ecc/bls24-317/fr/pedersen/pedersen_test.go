@@ -24,13 +24,11 @@ import (
 	"testing"
 )
 
-func interfaceSliceToFrPtrSlice(t *testing.T, values ...interface{}) []*fr.Element {
-	res := make([]*fr.Element, len(values))
+func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
+	res := make([]fr.Element, len(values))
 	for i, v := range values {
-		var V fr.Element
-		_, err := V.SetInterface(v)
+		_, err := res[i].SetInterface(v)
 		assert.NoError(t, err)
-		res[i] = &V
 	}
 	return res
 }
@@ -56,11 +54,11 @@ func randomOnG1() (bls24317.G1Affine, error) { // TODO: Add to G1.go?
 
 func testCommit(t *testing.T, values ...interface{}) {
 
-	basis := make([]*bls24317.G1Affine, len(values))
+	basis := make([]bls24317.G1Affine, len(values))
 	for i := range basis {
-		basisI, err := randomOnG1()
+		var err error
+		basis[i], err = randomOnG1()
 		assert.NoError(t, err)
-		basis[i] = &basisI
 	}
 
 	var (
@@ -71,7 +69,7 @@ func testCommit(t *testing.T, values ...interface{}) {
 
 	key, err = Setup(basis)
 	assert.NoError(t, err)
-	commitment, pok, err = key.Commit(interfaceSliceToFrPtrSlice(t, values...))
+	commitment, pok, err = key.Commit(interfaceSliceToFrSlice(t, values...))
 	assert.NoError(t, err)
 	assert.NoError(t, key.VerifyKnowledgeProof(commitment, pok))
 
