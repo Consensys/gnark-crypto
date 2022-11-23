@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
-type mutator func(p *Polynomial, d *fft.Domain) *Polynomial
+type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
 // the numeration corresponds to the following formatting:
 // num = int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
@@ -114,11 +114,11 @@ func copyPoly(p Polynomial) Polynomial {
 }
 
 // return an ID corresponding to the polynomial extra data
-func getFootPrint(p Polynomial) int {
+func getShapeID(p Polynomial) int {
 	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 }
 
-var toLagrange [12]mutator = [12]mutator{
+var toLagrange [12]modifier = [12]modifier{
 	toLagrange0,
 	toLagrange1,
 	toLagrange2,

@@ -140,7 +140,7 @@ func t11(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-var fromLagrange [12]mutator = [12]mutator{
+var fromLagrange [12]modifier = [12]modifier{
 	t0,
 	t1,
 	t2,

@@ -39,7 +39,7 @@ var (
 // * expectedForm expected form of the resulting polynomial
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
-// (Π_{k<j}Π_{i<m}(\beta-P_i(ω^k)))/(\beta-Q_i(ω^k))
+// (Π_{k<j}Π_{i<m}(β-P_i(ω^k)))/(β-Q_i(ω^k))
 func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
 
 	var res Polynomial
@@ -50,21 +50,27 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 	}
 	nbPolynomials := len(numerator)
 
+	// check that the sizes are consistant
+	err := checkSize(numerator, denominator)
+	if err != nil {
+		return res, err
+	}
+
 	// create the domain + some checks on the sizes of the polynomials
-	domain, err := buildDomain(numerator, denominator, domain)
+	n := len(numerator[0].Coefficients)
+	domain, err = buildDomain(n, domain)
 	if err != nil {
 		return res, err
 	}
 
 	// put every polynomials in Lagrange form
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = toLagrange[getFootPrint(*numerator[i])](numerator[i], domain)
-		denominator[i] = toLagrange[getFootPrint(*denominator[i])](denominator[i], domain)
+		numerator[i] = toLagrange[getShapeID(*numerator[i])](numerator[i], domain)
+		denominator[i] = toLagrange[getShapeID(*denominator[i])](denominator[i], domain)
 	}
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	n := len(numerator[0].Coefficients)
 	res.Coefficients = make([]fr.Element, n)
 	t := make([]fr.Element, n)
 	res.Coefficients[0].SetOne()
@@ -72,34 +78,34 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 	var a, b, c, d fr.Element
 
 	nn := uint64(64 - bits.TrailingZeros(uint(n)))
-	for i := 1; i < n; i++ {
+	for i := 0; i < n-1; i++ {
 
 		b.SetOne()
-		c.SetOne()
+		d.SetOne()
 
-		iMinusOnerev := bits.Reverse64(uint64(i-1)) >> nn
+		iRev := bits.Reverse64(uint64(i)) >> nn
 
 		for j := 0; j < nbPolynomials; j++ {
 
 			if numerator[j].Info.Layout == BitReverse {
-				a.Sub(&beta, &numerator[j].Coefficients[iMinusOnerev])
+				a.Sub(&beta, &numerator[j].Coefficients[iRev])
 			} else {
-				a.Sub(&beta, &numerator[j].Coefficients[i-1])
+				a.Sub(&beta, &numerator[j].Coefficients[i])
 			}
 			b.Mul(&b, &a)
 
 			if denominator[j].Info.Layout == BitReverse {
-				c.Sub(&beta, &denominator[j].Coefficients[iMinusOnerev])
+				c.Sub(&beta, &denominator[j].Coefficients[iRev])
 			} else {
-				c.Sub(&beta, &denominator[j].Coefficients[i-1])
+				c.Sub(&beta, &denominator[j].Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}
-		// b = Πₖ (β-P_k(ωⁱ⁻¹))
-		// d = Πₖ (β-Q_k(ωⁱ⁻¹))
+		// b = Πₖ (β-Pₖ(ωⁱ⁻¹))
+		// d = Πₖ (β-Qₖ(ωⁱ⁻¹))
 
-		res.Coefficients[i].Mul(&res.Coefficients[i-1], &b)
-		t[i].Mul(&t[i-1], &d)
+		res.Coefficients[i+1].Mul(&res.Coefficients[i], &b)
+		t[i+1].Mul(&t[i], &d)
 
 	}
 	t = fr.BatchInvert(t)
@@ -133,18 +139,138 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 	return res, nil
 }
 
-func buildDomain(numerator, denominator []*Polynomial, domain *fft.Domain) (*fft.Domain, error) {
+// buildRatioSpecificPermutation builds the accumulating ratio polynomial to prove that
+// [P₁ ∥ .. ∥ P_{n—] = σ([Q₁ ∥ .. ∥ Qₙ]).
+// Namely it returns the polynomial Z whose evaluation on the j-th root of unity is
+// Z(ω^j) = Π_{i<j}(Π_{k<n}(P_k(ω^i)+β*u^k+γ))/(Q_k(ω^i)+σ(kn+i)+γ)))
+func buildRatioSpecificPermutation(
+	numerator, denominator []*Polynomial,
+	permutation []int,
+	beta, gamma fr.Element,
+	expectedForm Form,
+	domain *fft.Domain) (Polynomial, error) {
 
+	var res Polynomial
+
+	// check that len(numerator)=len(denominator)
+	if len(numerator) != len(denominator) {
+		return res, ErrNumberPolynomials
+	}
+	nbPolynomials := len(numerator)
+
+	// check that the sizes are consistant
+	err := checkSize(numerator, denominator)
+	if err != nil {
+		return res, err
+	}
+
+	// create the domain + some checks on the sizes of the polynomials
+	n := len(numerator[0].Coefficients)
+	domain, err = buildDomain(n, domain)
+	if err != nil {
+		return res, err
+	}
+
+	// put every polynomials in Lagrange form
+	for i := 0; i < nbPolynomials; i++ {
+		numerator[i] = toLagrange[getShapeID(*numerator[i])](numerator[i], domain)
+		denominator[i] = toLagrange[getShapeID(*denominator[i])](denominator[i], domain)
+	}
+
+	// get the support for the permutation
+	evaluationIDSmallDomain := getSupportIdentityPermutation(nbPolynomials, domain)
+
+	// build the ratio (careful with the indices of
+	// the polynomials which are bit reversed)
+	res.Coefficients = make([]fr.Element, n)
+	t := make([]fr.Element, n)
+	res.Coefficients[0].SetOne()
+	t[0].SetOne()
+	var a, b, c, d fr.Element
+
+	nn := uint64(64 - bits.TrailingZeros(uint(n)))
+	for i := 0; i < n-1; i++ {
+
+		b.SetOne()
+		d.SetOne()
+
+		iRev := bits.Reverse64(uint64(i-1)) >> nn
+
+		for j := 0; j < nbPolynomials; j++ {
+
+			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
+				Add(&a, &gamma)
+			if numerator[j].Info.Layout == BitReverse {
+				a.Add(&a, &numerator[j].Coefficients[iRev])
+			} else {
+				a.Add(&a, &numerator[j].Coefficients[i])
+			}
+			b.Mul(&a, &b)
+
+			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
+				Add(&c, &gamma)
+			if denominator[j].Info.Layout == BitReverse {
+				c.Add(&c, &denominator[j].Coefficients[iRev])
+			} else {
+				c.Add(&c, &denominator[j].Coefficients[i])
+			}
+			d.Mul(&d, &c)
+		}
+
+		// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
+		// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
+
+		res.Coefficients[i+1].Mul(&res.Coefficients[i], &b)
+		t[i+1].Mul(&t[i], &d)
+	}
+
+	t = fr.BatchInvert(t)
+	for i := 1; i < n; i++ {
+		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
+	}
+
+	// at this stage the result is in Lagrange form, Regular layout
+	if expectedForm.Basis == Canonical {
+		domain.FFTInverse(res.Coefficients, fft.DIF)
+		if expectedForm.Layout == Regular {
+			fft.BitReverse(res.Coefficients)
+		}
+		return res, nil
+	}
+
+	if expectedForm.Basis == LagrangeCoset {
+		domain.FFTInverse(res.Coefficients, fft.DIF)
+		domain.FFT(res.Coefficients, fft.DIT, true)
+		if expectedForm.Layout == BitReverse {
+			fft.BitReverse(res.Coefficients)
+		}
+		return res, nil
+	}
+
+	if expectedForm.Layout == BitReverse {
+		fft.BitReverse(res.Coefficients)
+	}
+	return res, nil
+
+}
+
+func checkSize(numerator, denominator []*Polynomial) error {
 	// check sizes between one another
 	n := len(numerator[0].Coefficients)
 	for i := 0; i < len(numerator); i++ {
 		if len(numerator[i].Coefficients) != n {
-			return nil, ErrInconsistantSize
+			return ErrInconsistantSize
 		}
 		if len(denominator[i].Coefficients) != n {
-			return nil, ErrInconsistantSize
+			return ErrInconsistantSize
 		}
 	}
+	return nil
+}
+
+// buildDomain builds the fft domain necessary to do FFTs.
+// n is the cardinality of the domain, it must be a power of 2.
+func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 
 	// check if the sizes are a power of 2
 	if n&(n-1) != 0 {
@@ -179,6 +305,8 @@ func BuildRatioWithPermutation(
 // getSupportIdentityPermutation returns the support on which the permutation acts.
 // Concrectly it's X evaluated on
 // [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
+// n is the number of cosets of the roots of unity that are needed, including the set of
+// roots of unity itself.
 func getSupportIdentityPermutation(n int, domain *fft.Domain) []fr.Element {
 
 	res := make([]fr.Element, uint64(n)*domain.Cardinality)
