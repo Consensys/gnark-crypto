@@ -15,9 +15,28 @@
 package iop
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
+
+func printVector(v []fr.Element) {
+	fmt.Printf("[")
+	for i := 0; i < len(v); i++ {
+		fmt.Printf("Fr(%s), ", v[i].String())
+	}
+	fmt.Printf("]\n")
+}
+
+func printPolynomials(p []*Polynomial) {
+	fmt.Printf("[\n")
+	for i := 0; i < len(p); i++ {
+		printVector(p[i].Coefficients)
+		fmt.Printf(",\n")
+	}
+	fmt.Printf("]\n")
+}
 
 type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
@@ -118,7 +137,11 @@ func getShapeID(p Polynomial) int {
 	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 }
 
-var toLagrange [12]modifier = [12]modifier{
+func toLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
+	return _toLagrange[getShapeID(*p)](p, d)
+}
+
+var _toLagrange [12]modifier = [12]modifier{
 	toLagrange0,
 	toLagrange1,
 	toLagrange2,

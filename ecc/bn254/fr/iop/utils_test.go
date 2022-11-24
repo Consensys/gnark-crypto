@@ -15,7 +15,6 @@
 package iop
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -33,7 +32,8 @@ func randomVector(size int) []fr.Element {
 }
 
 // list of functions to turn a polynomial in Lagrange-regular form
-// to all different forms in the order they are defined.
+// to all different forms in ordered using this encoding:
+// int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 // p is in Lagrange/Regular form here.
 type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
@@ -233,15 +233,6 @@ func cmpCoefficents(p, q []fr.Element) bool {
 	return res
 }
 
-func printVector(v []fr.Element) {
-	fmt.Printf("[")
-	for i := 0; i < 2; i++ {
-		fmt.Printf("%s, ", v[i].String())
-	}
-	fmt.Printf("...")
-	fmt.Printf(", %s, %s]\n", v[len(v)-2].String(), v[len(v)-1].String())
-}
-
 func TestPutInLagrangeForm(t *testing.T) {
 
 	size := 64
@@ -285,7 +276,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// create the Lagrange form...
 	lagrangePolynomials := make([]Polynomial, 12)
 	for i := 0; i < 12; i++ {
-		lagrangePolynomials[i] = *toLagrange[i](&polynomials[i], domain)
+		lagrangePolynomials[i] = *toLagrange(&polynomials[i], domain)
 	}
 
 	// compare the results that should be in regular form

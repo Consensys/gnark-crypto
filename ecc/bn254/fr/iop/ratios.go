@@ -40,7 +40,7 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-P_i(ω^k)))/(β-Q_i(ω^k))
-func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
 
 	var res Polynomial
 
@@ -65,11 +65,11 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 
 	// put every polynomials in Lagrange form
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = toLagrange[getShapeID(*numerator[i])](numerator[i], domain)
-		denominator[i] = toLagrange[getShapeID(*denominator[i])](denominator[i], domain)
+		numerator[i] = toLagrange(numerator[i], domain)
+		denominator[i] = toLagrange(denominator[i], domain)
 	}
 
-	// build the ratio (careful with the indices of
+	// build 		the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
 	res.Coefficients = make([]fr.Element, n)
 	t := make([]fr.Element, n)
@@ -108,6 +108,7 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 		t[i+1].Mul(&t[i], &d)
 
 	}
+
 	t = fr.BatchInvert(t)
 	for i := 1; i < n; i++ {
 		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
@@ -136,6 +137,7 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 	if expectedForm.Layout == BitReverse {
 		fft.BitReverse(res.Coefficients)
 	}
+
 	return res, nil
 }
 
@@ -143,6 +145,13 @@ func BuildRatio(numerator, denominator []*Polynomial, beta fr.Element, expectedF
 // [P₁ ∥ .. ∥ P_{n—] = σ([Q₁ ∥ .. ∥ Qₙ]).
 // Namely it returns the polynomial Z whose evaluation on the j-th root of unity is
 // Z(ω^j) = Π_{i<j}(Π_{k<n}(P_k(ω^i)+β*u^k+γ))/(Q_k(ω^i)+σ(kn+i)+γ)))
+// * numerator list of polynomials that will form the numerator of the ratio
+// * denominator list of polynomials that will form the denominator of the ratio
+// The polynomials in the denominator and the numerator are expected to be of
+// the same size and the size must be a power of 2. The polynomials are given as
+// pointers in case the caller wants to FFTInv the polynomials during the process.
+// * beta, gamma challenges
+// * expectedForm expected form of the resulting polynomial
 func buildRatioSpecificPermutation(
 	numerator, denominator []*Polynomial,
 	permutation []int,
@@ -173,8 +182,8 @@ func buildRatioSpecificPermutation(
 
 	// put every polynomials in Lagrange form
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = toLagrange[getShapeID(*numerator[i])](numerator[i], domain)
-		denominator[i] = toLagrange[getShapeID(*denominator[i])](denominator[i], domain)
+		numerator[i] = toLagrange(numerator[i], domain)
+		denominator[i] = toLagrange(denominator[i], domain)
 	}
 
 	// get the support for the permutation
@@ -290,7 +299,7 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 	return domain, nil
 }
 
-func BuildRatioWithPermutation(
+func BuildRatioShuffledVectorsWithPermutation(
 	numerator, denominator []*Polynomial,
 	beta, gamma fr.Element,
 	permutation []int64,
