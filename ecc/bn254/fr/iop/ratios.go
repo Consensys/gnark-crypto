@@ -239,28 +239,54 @@ func buildRatioSpecificPermutation(
 	}
 
 	// at this stage the result is in Lagrange form, Regular layout
+	// if expectedForm.Basis == Canonical {
+	// 	domain.FFTInverse(res.Coefficients, fft.DIF)
+	// 	if expectedForm.Layout == Regular {
+	// 		fft.BitReverse(res.Coefficients)
+	// 	}
+	// 	return res, nil
+	// }
+
+	// if expectedForm.Basis == LagrangeCoset {
+	// 	domain.FFTInverse(res.Coefficients, fft.DIF)
+	// 	domain.FFT(res.Coefficients, fft.DIT, true)
+	// 	if expectedForm.Layout == BitReverse {
+	// 		fft.BitReverse(res.Coefficients)
+	// 	}
+	// 	return res, nil
+	// }
+
+	// if expectedForm.Layout == BitReverse {
+	// 	fft.BitReverse(res.Coefficients)
+	// }
+	res = putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
+
+	return res, nil
+
+}
+
+func putInExpectedFormFromLagrangeRegular(p Polynomial, domain *fft.Domain, expectedForm Form) Polynomial {
 	if expectedForm.Basis == Canonical {
-		domain.FFTInverse(res.Coefficients, fft.DIF)
+		domain.FFTInverse(p.Coefficients, fft.DIF)
 		if expectedForm.Layout == Regular {
-			fft.BitReverse(res.Coefficients)
+			fft.BitReverse(p.Coefficients)
 		}
-		return res, nil
+		return p
 	}
 
 	if expectedForm.Basis == LagrangeCoset {
-		domain.FFTInverse(res.Coefficients, fft.DIF)
-		domain.FFT(res.Coefficients, fft.DIT, true)
+		domain.FFTInverse(p.Coefficients, fft.DIF)
+		domain.FFT(p.Coefficients, fft.DIT, true)
 		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(res.Coefficients)
+			fft.BitReverse(p.Coefficients)
 		}
-		return res, nil
+		return p
 	}
 
 	if expectedForm.Layout == BitReverse {
-		fft.BitReverse(res.Coefficients)
+		fft.BitReverse(p.Coefficients)
 	}
-	return res, nil
-
+	return p
 }
 
 func checkSize(numerator, denominator []*Polynomial) error {
