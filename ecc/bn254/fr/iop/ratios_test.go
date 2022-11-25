@@ -38,13 +38,8 @@ func getPermutation(n, g int) []int {
 	return res
 }
 
-func TestBuildRatio(t *testing.T) {
+func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, []*Polynomial) {
 
-	// generate random vectors, interpreted in Lagrange form,
-	// regular layout. It is enough for this test if TestPutInLagrangeForm
-	// passes.
-	sizePolynomials := 8
-	nbPolynomials := 4
 	numerator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = new(Polynomial)
@@ -75,6 +70,19 @@ func TestBuildRatio(t *testing.T) {
 		denominator[in].Coefficients[on].Set(&numerator[id].Coefficients[od])
 	}
 
+	return numerator, denominator
+
+}
+
+func TestBuildRatioShuffledVectors(t *testing.T) {
+
+	// generate random vectors, interpreted in Lagrange form,
+	// regular layout. It is enough for this test if TestPutInLagrangeForm
+	// passes.
+	sizePolynomials := 8
+	nbPolynomials := 4
+	numerator, denominator := getPermutedPolynomials(sizePolynomials, nbPolynomials)
+
 	// build the ratio polynomial, in various forms, and check that
 	// the forms are consistant with each other.
 	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
@@ -103,5 +111,9 @@ func TestBuildRatio(t *testing.T) {
 	if !a.Equal(&one) {
 		t.Fatal("accumulating ratio is not equal to one")
 	}
+
+}
+
+func TestBuildRatioSpecificPermutation(t *testing.T) {
 
 }
