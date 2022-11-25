@@ -170,8 +170,6 @@ func BuildRatioSpecificPermutation(
 	// get the support for the permutation
 	evaluationIDSmallDomain := getSupportIdentityPermutation(nbPolynomials, domain)
 
-	printVector(evaluationIDSmallDomain)
-
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
 	res.Coefficients = make([]fr.Element, n)

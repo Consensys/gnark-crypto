@@ -128,9 +128,32 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	var beta, gamma fr.Element
 	beta.SetRandom()
 	gamma.SetRandom()
-	_, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+	ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
 	if err != nil {
 		t.Fatal()
 	}
 
+	// check that the whole product is equal to one
+	suppID := getSupportIdentityPermutation(nbPolynomials, domain)
+	var a, b, c, d fr.Element
+	b.SetOne()
+	d.SetOne()
+	for i := 0; i < nbPolynomials; i++ {
+		a.Mul(&beta, &suppID[(i+1)*sizePolynomials-1]).
+			Add(&a, &numerator[i].Coefficients[sizePolynomials-1]).
+			Add(&a, &gamma)
+		b.Mul(&b, &a)
+
+		c.Mul(&beta, &suppID[sigma[(i+1)*sizePolynomials-1]]).
+			Add(&c, &denominator[i].Coefficients[sizePolynomials-1]).
+			Add(&c, &gamma)
+		d.Mul(&d, &c)
+	}
+	a.Mul(&b, &ratio.Coefficients[sizePolynomials-1]).
+		Div(&a, &d)
+	var one fr.Element
+	one.SetOne()
+	if !a.Equal(&one) {
+		t.Fatal("accumulating ratio is not equal to one")
+	}
 }
