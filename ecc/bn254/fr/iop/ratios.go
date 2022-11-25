@@ -122,7 +122,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	return res, nil
 }
 
-// buildRatioSpecificPermutation builds the accumulating ratio polynomial to prove that
+// BuildRatioSpecificPermutation builds the accumulating ratio polynomial to prove that
 // [P₁ ∥ .. ∥ P_{n—] = σ([Q₁ ∥ .. ∥ Qₙ]).
 // Namely it returns the polynomial Z whose evaluation on the j-th root of unity is
 // Z(ω^j) = Π_{i<j}(Π_{k<n}(P_k(ω^i)+β*u^k+γ))/(Q_k(ω^i)+σ(kn+i)+γ)))
@@ -133,7 +133,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 // pointers in case the caller wants to FFTInv the polynomials during the process.
 // * beta, gamma challenges
 // * expectedForm expected form of the resulting polynomial
-func buildRatioSpecificPermutation(
+func BuildRatioSpecificPermutation(
 	numerator, denominator []*Polynomial,
 	permutation []int,
 	beta, gamma fr.Element,
@@ -169,6 +169,8 @@ func buildRatioSpecificPermutation(
 
 	// get the support for the permutation
 	evaluationIDSmallDomain := getSupportIdentityPermutation(nbPolynomials, domain)
+
+	printVector(evaluationIDSmallDomain)
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
@@ -301,20 +303,21 @@ func BuildRatioShuffledVectorsWithPermutation(
 // getSupportIdentityPermutation returns the support on which the permutation acts.
 // Concrectly it's X evaluated on
 // [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
-// n is the number of cosets of the roots of unity that are needed, including the set of
+// nbCopies is the number of cosets of the roots of unity that are needed, including the set of
 // roots of unity itself.
-func getSupportIdentityPermutation(n int, domain *fft.Domain) []fr.Element {
+func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Element {
 
-	res := make([]fr.Element, uint64(n)*domain.Cardinality)
+	res := make([]fr.Element, uint64(nbCopies)*domain.Cardinality)
+	sizePoly := int(domain.Cardinality)
 
 	res[0].SetOne()
-	for i := 1; i < n; i++ {
-		res[domain.Cardinality].Mul(&res[uint64(i-1)*domain.Cardinality], &domain.FrMultiplicativeGen)
+	for i := 0; i < sizePoly-1; i++ {
+		res[i+1].Mul(&res[i], &domain.Generator)
 	}
-
-	for i := uint64(1); i < domain.Cardinality; i++ {
-		for j := 0; j < n; j++ {
-			res[i+uint64(j)*domain.Cardinality].Mul(&res[i-1], &domain.Generator)
+	for i := 1; i < nbCopies; i++ {
+		copy(res[i*sizePoly:], res[(i-1)*sizePoly:i*int(domain.Cardinality)])
+		for j := 0; j < sizePoly; j++ {
+			res[i*sizePoly+j].Mul(&res[i*sizePoly+j], &domain.FrMultiplicativeGen)
 		}
 	}
 

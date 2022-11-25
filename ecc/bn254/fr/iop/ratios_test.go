@@ -38,7 +38,7 @@ func getPermutation(n, g int) []int {
 	return res
 }
 
-func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, []*Polynomial) {
+func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, []*Polynomial, []int) {
 
 	numerator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
@@ -70,7 +70,7 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 		denominator[in].Coefficients[on].Set(&numerator[id].Coefficients[od])
 	}
 
-	return numerator, denominator
+	return numerator, denominator, sigma
 
 }
 
@@ -81,10 +81,9 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// passes.
 	sizePolynomials := 8
 	nbPolynomials := 4
-	numerator, denominator := getPermutedPolynomials(sizePolynomials, nbPolynomials)
+	numerator, denominator, _ := getPermutedPolynomials(sizePolynomials, nbPolynomials)
 
-	// build the ratio polynomial, in various forms, and check that
-	// the forms are consistant with each other.
+	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
 	domain := fft.NewDomain(uint64(sizePolynomials))
 	var beta fr.Element
@@ -115,5 +114,23 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 }
 
 func TestBuildRatioSpecificPermutation(t *testing.T) {
+
+	// generate random vectors, interpreted in Lagrange form,
+	// regular layout. It is enough for this test if TestPutInLagrangeForm
+	// passes.
+	sizePolynomials := 8
+	nbPolynomials := 4
+	numerator, denominator, sigma := getPermutedPolynomials(sizePolynomials, nbPolynomials)
+
+	// build the ratio polynomial
+	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
+	domain := fft.NewDomain(uint64(sizePolynomials))
+	var beta, gamma fr.Element
+	beta.SetRandom()
+	gamma.SetRandom()
+	_, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+	if err != nil {
+		t.Fatal()
+	}
 
 }
