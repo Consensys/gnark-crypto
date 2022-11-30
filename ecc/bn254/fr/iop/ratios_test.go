@@ -122,6 +122,9 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	{
 		var err error
 		_ratio, err := BuildRatioShuffledVectors(numerator, denominator, beta, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
 		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
 		if !checkCoeffs {
 			t.Fatal(err)
@@ -215,5 +218,68 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	one.SetOne()
 	if !a.Equal(&one) {
 		t.Fatal("accumulating ratio is not equal to one")
+	}
+
+	// check that the ratio is correct when the inputs are
+	// bit reversed
+	for i := 0; i < nbPolynomials; i++ {
+		fft.BitReverse(numerator[i].Coefficients)
+		numerator[i].Info.Layout = BitReverse
+		fft.BitReverse(denominator[i].Coefficients)
+		denominator[i].Info.Layout = BitReverse
+	}
+	{
+		var err error
+		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal(err)
+		}
+	}
+
+	// check that the ratio is correct when the inputs are in
+	// canonical form, regular
+	for i := 0; i < nbPolynomials; i++ {
+		domain.FFTInverse(numerator[i].Coefficients, fft.DIT)
+		numerator[i].Info.Basis = Canonical
+		numerator[i].Info.Layout = Regular
+		domain.FFTInverse(denominator[i].Coefficients, fft.DIT)
+		denominator[i].Info.Basis = Canonical
+		denominator[i].Info.Layout = Regular
+	}
+	{
+		var err error
+		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal("coefficients of ratio are not consistent")
+		}
+	}
+
+	// check that the ratio is correct when the inputs are in
+	// canonical form, bit reverse
+	for i := 0; i < nbPolynomials; i++ {
+		fft.BitReverse(numerator[i].Coefficients)
+		numerator[i].Info.Layout = BitReverse
+		fft.BitReverse(denominator[i].Coefficients)
+		denominator[i].Info.Layout = BitReverse
+	}
+
+	{
+		var err error
+		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal("coefficients of ratio are not consistent")
+		}
 	}
 }

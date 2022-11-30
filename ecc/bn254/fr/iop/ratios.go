@@ -64,7 +64,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	}
 
 	// put every polynomials in Lagrange form. Also make sure
-	// that don't modify the slices numerator and denominator, but
+	// that we don't modify the slices numerator and denominator, but
 	// only their entries.
 	_numerator := make([]*Polynomial, nbPolynomials)
 	_denominator := make([]*Polynomial, nbPolynomials)
@@ -165,10 +165,14 @@ func BuildRatioSpecificPermutation(
 		return res, err
 	}
 
-	// put every polynomials in Lagrange form
+	// put every polynomials in Lagrange form. Also make sure
+	// that we don't modify the slices numerator and denominator, but
+	// only their entries.
+	_numerator := make([]*Polynomial, nbPolynomials)
+	_denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = toLagrange(numerator[i], domain)
-		denominator[i] = toLagrange(denominator[i], domain)
+		_numerator[i] = toLagrange(numerator[i], domain)
+		_denominator[i] = toLagrange(denominator[i], domain)
 	}
 
 	// get the support for the permutation
@@ -188,25 +192,25 @@ func BuildRatioSpecificPermutation(
 		b.SetOne()
 		d.SetOne()
 
-		iRev := bits.Reverse64(uint64(i-1)) >> nn
+		iRev := bits.Reverse64(uint64(i)) >> nn
 
 		for j := 0; j < nbPolynomials; j++ {
 
 			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 				Add(&a, &gamma)
-			if numerator[j].Info.Layout == BitReverse {
-				a.Add(&a, &numerator[j].Coefficients[iRev])
+			if _numerator[j].Info.Layout == BitReverse {
+				a.Add(&a, &_numerator[j].Coefficients[iRev])
 			} else {
-				a.Add(&a, &numerator[j].Coefficients[i])
+				a.Add(&a, &_numerator[j].Coefficients[i])
 			}
 			b.Mul(&a, &b)
 
 			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 				Add(&c, &gamma)
-			if denominator[j].Info.Layout == BitReverse {
-				c.Add(&c, &denominator[j].Coefficients[iRev])
+			if _denominator[j].Info.Layout == BitReverse {
+				c.Add(&c, &_denominator[j].Coefficients[iRev])
 			} else {
-				c.Add(&c, &denominator[j].Coefficients[i])
+				c.Add(&c, &_denominator[j].Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}
