@@ -38,6 +38,32 @@ func printPolynomials(p []*Polynomial) {
 	fmt.Printf("]\n")
 }
 
+func printLayout(f Form) {
+
+	if f.Basis == Canonical {
+		fmt.Printf("CANONICAL")
+	} else if f.Basis == LagrangeCoset {
+		fmt.Printf("LAGRANGE_COSET")
+	} else {
+		fmt.Printf("LAGRANGE")
+	}
+	fmt.Println("")
+
+	if f.Layout == Regular {
+		fmt.Printf("REGULAR")
+	} else {
+		fmt.Printf("BIT REVERSED")
+	}
+	fmt.Println("")
+
+	if f.Status == Locked {
+		fmt.Printf("LOCKED")
+	} else {
+		fmt.Printf("UNLOCKED")
+	}
+	fmt.Println("")
+}
+
 type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
 // the numeration corresponds to the following formatting:
@@ -137,6 +163,9 @@ func getShapeID(p Polynomial) int {
 	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 }
 
+// toLagrange changes or returns a copy of p (according to its
+// status, Locked or Unlocked), or modifies p to put it in Lagrange
+// basis. The result is not bit reversed.
 func toLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
 	return _toLagrange[getShapeID(*p)](p, d)
 }

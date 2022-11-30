@@ -40,7 +40,7 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-P_i(ω^k)))/(β-Q_i(ω^k))
-func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain, debug ...bool) (Polynomial, error) {
 
 	var res Polynomial
 
@@ -63,13 +63,17 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 		return res, err
 	}
 
-	// put every polynomials in Lagrange form
+	// put every polynomials in Lagrange form. Also make sure
+	// that don't modify the slices numerator and denominator, but
+	// only their entries.
+	_numerator := make([]*Polynomial, nbPolynomials)
+	_denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = toLagrange(numerator[i], domain)
-		denominator[i] = toLagrange(denominator[i], domain)
+		_numerator[i] = toLagrange(numerator[i], domain)
+		_denominator[i] = toLagrange(denominator[i], domain)
 	}
 
-	// build 		the ratio (careful with the indices of
+	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
 	res.Coefficients = make([]fr.Element, n)
 	t := make([]fr.Element, n)
@@ -87,17 +91,17 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 
 		for j := 0; j < nbPolynomials; j++ {
 
-			if numerator[j].Info.Layout == BitReverse {
-				a.Sub(&beta, &numerator[j].Coefficients[iRev])
+			if _numerator[j].Info.Layout == BitReverse {
+				a.Sub(&beta, &_numerator[j].Coefficients[iRev])
 			} else {
-				a.Sub(&beta, &numerator[j].Coefficients[i])
+				a.Sub(&beta, &_numerator[j].Coefficients[i])
 			}
 			b.Mul(&b, &a)
 
-			if denominator[j].Info.Layout == BitReverse {
-				c.Sub(&beta, &denominator[j].Coefficients[iRev])
+			if _denominator[j].Info.Layout == BitReverse {
+				c.Sub(&beta, &_denominator[j].Coefficients[iRev])
 			} else {
-				c.Sub(&beta, &denominator[j].Coefficients[i])
+				c.Sub(&beta, &_denominator[j].Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}

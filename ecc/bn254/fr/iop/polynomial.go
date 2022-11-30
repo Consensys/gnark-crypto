@@ -16,15 +16,6 @@ package iop
 
 import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 
-// Enum to tell if a polynomial is in bit reverse form or
-// in the regular form.
-type Layout int64
-
-const (
-	Regular Layout = iota
-	BitReverse
-)
-
 // Enum to tell in which basis a polynomial is represented.
 type Basis int64
 
@@ -32,6 +23,15 @@ const (
 	Canonical Basis = iota
 	Lagrange
 	LagrangeCoset
+)
+
+// Enum to tell if a polynomial is in bit reverse form or
+// in the regular form.
+type Layout int64
+
+const (
+	Regular Layout = iota
+	BitReverse
 )
 
 // Enum to tell if the polynomial can be modified.
