@@ -68,6 +68,7 @@ type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
 // the numeration corresponds to the following formatting:
 // num = int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
+// CANONICAL REGULAR LOCKED
 func toLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Lagrange
@@ -77,6 +78,7 @@ func toLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &_p
 }
 
+// CANONICAL REGULAR UNLOCKED
 func toLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Lagrange
 	p.Info.Layout = BitReverse
@@ -84,6 +86,7 @@ func toLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// CANONICAL BITREVERSE LOCKED
 func toLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Lagrange
@@ -93,6 +96,7 @@ func toLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &_p
 }
 
+// CANONICAL BITREVERSE UNLOCKED
 func toLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Lagrange
 	p.Info.Layout = Regular
@@ -100,22 +104,27 @@ func toLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE REGULAR LOCKED
 func toLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE REGULAR UNLOCKED
 func toLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE BITREVERSE LOCKED
 func toLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE BITREVERSE UNLOCKED
 func toLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE_COSET REGULAR LOCKED
 func toLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Lagrange
@@ -126,6 +135,7 @@ func toLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &_p
 }
 
+// LAGRANGE_COSET REGULAR UNLOCKED
 func toLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Lagrange
 	d.FFTInverse(p.Coefficients, fft.DIF, true)
@@ -133,6 +143,7 @@ func toLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
+// LAGRANGE_COSET BITREVERSE LOCKED
 func toLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Lagrange
@@ -141,6 +152,7 @@ func toLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &_p
 }
 
+// LAGRANGE_COSET BITREVERSE UNLOCKED
 func toLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Lagrange
 	d.FFTInverse(p.Coefficients, fft.DIT, true)
