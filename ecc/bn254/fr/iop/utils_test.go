@@ -37,7 +37,7 @@ func randomVector(size int) []fr.Element {
 // p is in Lagrange/Regular form here.
 type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
-func t0(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[0]
@@ -46,7 +46,7 @@ func t0(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t1(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[1]
@@ -55,7 +55,7 @@ func t1(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t2(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[2]
@@ -63,7 +63,7 @@ func t2(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t3(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[3]
@@ -71,14 +71,14 @@ func t3(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t4(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[4]
 	return &r
 }
 
-func t5(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[5]
@@ -86,7 +86,7 @@ func t5(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t6(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[6]
@@ -94,7 +94,7 @@ func t6(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t7(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[7]
@@ -102,7 +102,7 @@ func t7(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t8(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[8]
@@ -111,7 +111,7 @@ func t8(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t9(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[9]
@@ -120,7 +120,7 @@ func t9(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t10(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[10]
@@ -130,7 +130,7 @@ func t10(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-func t11(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
 	info := getListInfo()
 	r := copyPoly(*p)
 	r.Info = info[11]
@@ -141,18 +141,18 @@ func t11(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 var fromLagrange [12]modifier = [12]modifier{
-	t0,
-	t1,
-	t2,
-	t3,
-	t4,
-	t5,
-	t6,
-	t7,
-	t8,
-	t9,
-	t10,
-	t11,
+	fromLagrange0,
+	fromLagrange1,
+	fromLagrange2,
+	fromLagrange3,
+	fromLagrange4,
+	fromLagrange5,
+	fromLagrange6,
+	fromLagrange7,
+	fromLagrange8,
+	fromLagrange9,
+	fromLagrange10,
+	fromLagrange11,
 }
 
 // return all the possible form combination, in the same order
