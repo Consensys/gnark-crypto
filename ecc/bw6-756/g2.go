@@ -863,12 +863,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		}
 	}
 	c := uint64(bestC) // window size
-	nbChunks := int(fr.Limbs * 64 / c)
-	if (fr.Limbs*64)%c != 0 {
-		nbChunks++
-	}
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
+	nbChunks := int(computeNbChunks(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -881,55 +876,34 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 		baseTable[i].AddMixed(base)
 	}
 
-	pScalars, _ := partitionScalarsOld(scalars, c, false, runtime.NumCPU())
-
-	// compute offset and word selector / shift to select the right bits of our windows
-	selectors := make([]selector, nbChunks)
-	for chunk := 0; chunk < nbChunks; chunk++ {
-		jc := uint64(uint64(chunk) * c)
-		d := selector{}
-		d.index = jc / 64
-		d.shift = jc - (d.index * 64)
-		d.mask = mask << d.shift
-		d.multiWordSelect = (64%c) != 0 && d.shift > (64-c) && d.index < (fr.Limbs-1)
-		if d.multiWordSelect {
-			nbBitsHigh := d.shift - uint64(64-c)
-			d.maskHigh = (1 << nbBitsHigh) - 1
-			d.shiftHigh = (c - nbBitsHigh)
-		}
-		selectors[chunk] = d
-	}
+	digits, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
 	toReturn := make([]G2Affine, len(scalars))
 
 	// for each digit, take value in the base table, double it c time, voilà.
-	parallel.Execute(len(pScalars), func(start, end int) {
+	parallel.Execute(len(scalars), func(start, end int) {
 		var p G2Jac
 		for i := start; i < end; i++ {
 			p.Set(&g2Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-				s := selectors[chunk]
 				if chunk != nbChunks-1 {
 					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
+				offset := chunk * len(scalars)
+				digit := digits[i+offset]
 
-				bits := (pScalars[i][s.index] & s.mask) >> s.shift
-				if s.multiWordSelect {
-					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-				}
-
-				if bits == 0 {
+				if digit == 0 {
 					continue
 				}
 
 				// if msbWindow bit is set, we need to substract
-				if bits&msbWindow == 0 {
+				if digit&1 == 0 {
 					// add
-					p.AddAssign(&baseTable[bits-1])
+					p.AddAssign(&baseTable[(digit>>1)-1])
 				} else {
 					// sub
-					t := baseTable[bits & ^msbWindow]
+					t := baseTable[digit>>1]
 					t.Neg(&t)
 					p.AddAssign(&t)
 				}
