@@ -15,18 +15,10 @@
 package iop
 
 import (
-	"errors"
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
-)
-
-var (
-	ErrInconsistantSize       = errors.New("the sizes of the polynomial must be the same as the size of the domain")
-	ErrNumberPolynomials      = errors.New("the number of polynomials in the denominator and the numerator must be the same")
-	ErrSizeNotPowerOfTwo      = errors.New("the size of the polynomials must be a power of two")
-	ErrInconsistantSizeDomain = errors.New("the size of the domain must be consistant with the size of the polynomials")
 )
 
 // Build an 'accumulating ratio' polynomial.
@@ -258,17 +250,21 @@ func putInExpectedFormFromLagrangeRegular(p Polynomial, domain *fft.Domain, expe
 	return p
 }
 
-func checkSize(numerator, denominator []*Polynomial) error {
+// check that the polynomials are of the same size.
+// It assumes that pols contains slices of the same size.
+func checkSize(pols ...[]*Polynomial) error {
+
 	// check sizes between one another
-	n := len(numerator[0].Coefficients)
-	for i := 0; i < len(numerator); i++ {
-		if len(numerator[i].Coefficients) != n {
-			return ErrInconsistantSize
-		}
-		if len(denominator[i].Coefficients) != n {
-			return ErrInconsistantSize
+	m := len(pols)
+	n := len(pols[0][0].Coefficients)
+	for i := 0; i < m; i++ {
+		for j := 0; j < len(pols); j++ {
+			if len(pols[i][j].Coefficients) != n {
+				return ErrInconsistantSize
+			}
 		}
 	}
+
 	return nil
 }
 
