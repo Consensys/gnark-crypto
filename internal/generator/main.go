@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,6 +68,9 @@ func main() {
 
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
+
+			// generate pedersen on fr
+			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
 
 			// generate plookup on fr
 			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))

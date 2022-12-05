@@ -101,6 +101,10 @@ func (z *E12) IsZero() bool {
 	return z.C0.IsZero() && z.C1.IsZero()
 }
 
+func (z *E12) IsOne() bool {
+	return z.C0.IsOne() && z.C1.IsZero()
+}
+
 // Mul set z=x*y in E12 and return z
 func (z *E12) Mul(x, y *E12) *E12 {
 	var a, b, c E6

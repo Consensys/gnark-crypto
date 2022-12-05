@@ -152,6 +152,10 @@ func (z *E4) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
 }
 
+func (z *E4) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero()
+}
+
 // MulByNonResidue mul x by (0,1)
 func (z *E4) MulByNonResidue(x *E4) *E4 {
 	z.B1, z.B0 = x.B0, x.B1
