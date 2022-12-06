@@ -277,7 +277,7 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 		return nil, ErrSizeNotPowerOfTwo
 	}
 
-	// check if domain is of the correct size (if not we create it)
+	// if the domain doesn't exist we create it.
 	if domain == nil {
 		domain = fft.NewDomain(uint64(n))
 	}
