@@ -14,7 +14,14 @@
 
 package iop
 
-import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+import (
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+)
+
+//-----------------------------------------------------
+// univariate polynomials
 
 // Enum to tell in which basis a polynomial is represented.
 type Basis int64
@@ -58,3 +65,64 @@ type Polynomial struct {
 	Coefficients []fr.Element
 	Info         Form
 }
+
+//-----------------------------------------------------
+// multivariate polynomials
+
+// monomial represents a monomial encoded as
+// coeff*X₁^{i₁}*..*X_n^{i_n} if exponents = [i₁,..iₙ]
+type monomial struct {
+	coeff     fr.Element
+	exponents []int
+}
+
+func (m monomial) evaluate(x []fr.Element) (fr.Element, error) {
+
+	var res, tmp fr.Element
+
+	// check that the number of variables is correct
+	if len(m.exponents) != len(x) {
+		return res, ErrIncorrectNumberOfVariables
+	}
+
+	nbVars := len(x)
+	for i := 0; i < nbVars; i++ {
+		if m.exponents[i] <= 5 {
+			tmp = smallExp(x[i], m.exponents[i])
+			tmp.Mul(&tmp, &m.coeff)
+			res.Add(&res, &tmp)
+			continue
+		}
+		bi := big.NewInt(int64(i))
+		tmp.Exp(x[i], bi)
+		tmp.Mul(&tmp, &m.coeff)
+		res.Add(&res, &tmp)
+	}
+
+	return res, nil
+
+}
+
+// reprensents a multivariate polynomial as a list of monomial,
+// the multivariate polynomial being the sum of the monomials.
+type multivariatePolynomial []monomial
+
+// degree returns the total degree
+func (m multivariatePolynomial) degree() uint64 {
+	r := 0
+	for i := 0; i < len(m); i++ {
+		t := 0
+		for j := 0; j < len(m[i].exponents); j++ {
+			t += m[i].exponents[j]
+		}
+		if t > r {
+			r = t
+		}
+	}
+	return uint64(r)
+}
+
+// evaluate a multivariate polynomial in x
+// func (m multivariatePolynomial) evaluate(x []fr.Element) fr.Element {
+
+// }

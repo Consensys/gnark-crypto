@@ -17,8 +17,9 @@ package iop
 import "errors"
 
 var (
-	ErrInconsistantSize       = errors.New("the sizes of the polynomial must be the same as the size of the domain")
-	ErrNumberPolynomials      = errors.New("the number of polynomials in the denominator and the numerator must be the same")
-	ErrSizeNotPowerOfTwo      = errors.New("the size of the polynomials must be a power of two")
-	ErrInconsistantSizeDomain = errors.New("the size of the domain must be consistant with the size of the polynomials")
+	ErrInconsistantSize           = errors.New("the sizes of the polynomial must be the same as the size of the domain")
+	ErrNumberPolynomials          = errors.New("the number of polynomials in the denominator and the numerator must be the same")
+	ErrSizeNotPowerOfTwo          = errors.New("the size of the polynomials must be a power of two")
+	ErrInconsistantSizeDomain     = errors.New("the size of the domain must be consistant with the size of the polynomials")
+	ErrIncorrectNumberOfVariables = errors.New("the number of variables is incorrect")
 )

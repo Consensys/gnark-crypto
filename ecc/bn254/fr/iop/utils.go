@@ -66,6 +66,24 @@ func printLayout(f Form) {
 
 type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
+// return a copy of p
+func copyPoly(p Polynomial) Polynomial {
+	size := len(p.Coefficients)
+	var r Polynomial
+	r.Coefficients = make([]fr.Element, size)
+	copy(r.Coefficients, p.Coefficients)
+	r.Info = p.Info
+	return r
+}
+
+// return an ID corresponding to the polynomial extra data
+func getShapeID(p Polynomial) int {
+	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
+}
+
+//----------------------------------------------------
+// toLagrange
+
 // the numeration corresponds to the following formatting:
 // num = int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
 
@@ -161,28 +179,6 @@ func toLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
 	return p
 }
 
-// return a copy of p
-func copyPoly(p Polynomial) Polynomial {
-	size := len(p.Coefficients)
-	var r Polynomial
-	r.Coefficients = make([]fr.Element, size)
-	copy(r.Coefficients, p.Coefficients)
-	r.Info = p.Info
-	return r
-}
-
-// return an ID corresponding to the polynomial extra data
-func getShapeID(p Polynomial) int {
-	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
-}
-
-// toLagrange changes or returns a copy of p (according to its
-// status, Locked or Unlocked), or modifies p to put it in Lagrange
-// basis. The result is not bit reversed.
-func toLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
-	return _toLagrange[getShapeID(*p)](p, d)
-}
-
 var _toLagrange [12]modifier = [12]modifier{
 	toLagrange0,
 	toLagrange1,
@@ -197,6 +193,16 @@ var _toLagrange [12]modifier = [12]modifier{
 	toLagrange10,
 	toLagrange11,
 }
+
+// toLagrange changes or returns a copy of p (according to its
+// status, Locked or Unlocked), or modifies p to put it in Lagrange
+// basis. The result is not bit reversed.
+func toLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
+	return _toLagrange[getShapeID(*p)](p, d)
+}
+
+//----------------------------------------------------
+// toCanonical
 
 // CANONICAL REGULAR LOCKED
 func toCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
@@ -287,4 +293,78 @@ func toCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Layout = Regular
 	d.FFT(p.Coefficients, fft.DIT, true)
 	return p
+}
+
+var _toCanonical [12]modifier = [12]modifier{
+	toCanonical0,
+	toCanonical1,
+	toCanonical2,
+	toCanonical3,
+	toCanonical4,
+	toCanonical5,
+	toCanonical6,
+	toCanonical7,
+	toCanonical8,
+	toCanonical9,
+	toCanonical10,
+	toCanonical11,
+}
+
+// toCanonical changes or returns a copy of p (according to its
+// status, Locked or Unlocked), or modifies p to put it in Lagrange
+// basis. The result is not bit reversed.
+func toCanonical(p *Polynomial, d *fft.Domain) *Polynomial {
+	return _toCanonical[getShapeID(*p)](p, d)
+}
+
+//----------------------------------------------------
+// exp functions until 5
+
+func exp0(x fr.Element) fr.Element {
+	var res fr.Element
+	res.SetOne()
+	return res
+}
+
+func exp1(x fr.Element) fr.Element {
+	return x
+}
+
+func exp2(x fr.Element) fr.Element {
+	return *x.Square(&x)
+}
+
+func exp3(x fr.Element) fr.Element {
+	var res fr.Element
+	res.Square(&x).Mul(&res, &x)
+	return res
+}
+
+func exp4(x fr.Element) fr.Element {
+	x.Square(&x).Square(&x)
+	return x
+}
+
+func exp5(x fr.Element) fr.Element {
+	var res fr.Element
+	res.Square(&x).Square(&res).Mul(&res, &x)
+	return res
+}
+
+// doesn't return any errors, it is a private method, that
+// is assumed to be called with correct arguments.
+func smallExp(x fr.Element, n int) fr.Element {
+	if n == 2 {
+		return exp2(x)
+	}
+	if n == 3 {
+		return exp3(x)
+	}
+	if n == 4 {
+		return exp4(x)
+	}
+	if n == 5 {
+		return exp5(x)
+	}
+	return fr.Element{}
 }
