@@ -354,6 +354,12 @@ func exp5(x fr.Element) fr.Element {
 // doesn't return any errors, it is a private method, that
 // is assumed to be called with correct arguments.
 func smallExp(x fr.Element, n int) fr.Element {
+	if n == 0 {
+		return exp0(x)
+	}
+	if n == 1 {
+		return exp1(x)
+	}
 	if n == 2 {
 		return exp2(x)
 	}
