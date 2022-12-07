@@ -118,6 +118,10 @@ func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
 }
 
+func (z *E6) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero()
+}
+
 // Mul set z=x*y in E6 and return z
 func (z *E6) Mul(x, y *E6) *E6 {
 	var a, b, c E3
@@ -255,7 +259,7 @@ func (z *E6) DecompressKarabina(x *E6) *E6 {
 		t[1].Sub(&t[0], &x.B0.A2).
 			Double(&t[1]).
 			Add(&t[1], &t[0])
-			// t0 = E * g5^2 + t1
+		// t0 = E * g5^2 + t1
 		t[2].Square(&x.B1.A2)
 		t[0].MulByNonResidue(&t[2]).
 			Add(&t[0], &t[1])

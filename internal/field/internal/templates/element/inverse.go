@@ -258,7 +258,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
-		mul(&v, &v, &a)
+		v.Mul(&v, &a)
 	}
 
 	u.Set(x) // for correctness check
@@ -272,17 +272,28 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 	// correctness check
     v.Mul(&u, z)
     if !v.IsOne() && !u.IsZero() {
-            return z.inverseExp(&u)
+            return z.inverseExp(u)
     }
 
 	return z
 }
 
 // inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q) 
-func (z *{{.ElementName}}) inverseExp(x *{{.ElementName}}) *{{.ElementName}} {
-	qMinusTwo := Modulus()
-	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-    return z.Exp(*x, qMinusTwo)
+func (z *{{.ElementName}}) inverseExp(x {{.ElementName}}) *{{.ElementName}} {
+	// e == q-2
+	e := Modulus()
+	e.Sub(e, big.NewInt(2))
+
+	z.Set(&x)
+
+	for i := e.BitLen() - 2; i >= 0; i-- {
+		z.Square(z)
+		if e.Bit(i) == 1 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits

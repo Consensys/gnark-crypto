@@ -2,7 +2,6 @@ package tower
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -78,9 +77,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			return err
 		}
 
-		if conf.Equal(config.BN254) || conf.Equal(config.BLS12_381) {
-			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
-		}
 		Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
 		if err := Fq2Amd64.Generate(true); err != nil {
 			_ = f.Close()
@@ -94,19 +90,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{
 			// fq2 assembly
 			fName := filepath.Join(baseDir, "e2_adx_amd64.s")
-			f, err := os.Create(fName)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build amd64_adx\n")
-			Fq2Amd64 := amd64.NewFq2Amd64(f, conf.Fp, conf)
-			if err := Fq2Amd64.Generate(false); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
+			os.Remove(fName)
 		}
 	}
 

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"math/rand"
 
 	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -557,6 +558,33 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
+}
+
+func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
+	{{$c := 16}}
+	var P, R p{{$TAffine}}C{{$c}}
+	var RR pp{{$TAffine}}C{{$c}}
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBases{{ toUpper $.PointName }}(P[:])
+	fillBenchBases{{ toUpper $.PointName }}(R[:])
+
+	for i:=0; i < len(ridx);i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAdd{{ $TAffine }}[p{{$TAffine}}C{{$c}}, pp{{$TAffine}}C{{$c}}, c{{$TAffine}}C{{$c}}](&RR, &P, len(P))
+	}
 }
 
 func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {

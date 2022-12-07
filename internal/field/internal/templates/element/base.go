@@ -3,6 +3,7 @@ package element
 const Base = `
 
 import (
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"math/big"
 	"math/bits"
 	"io"
@@ -401,78 +402,6 @@ func (z *{{.ElementName}}) Halve()  {
 {{ end }}
 
 
-// Mul z = x * y (mod q)
-{{- if $.NoCarry}}
-//
-// x and y must be strictly inferior to q
-{{- end }}
-func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	// 
-	// The algorithm:
-	// 
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//		
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//		
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2 
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	{{- if $.NoCarry}}
-	// 
-	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	//
-	// for i=0 to N-1
-    // 		(A,t[0]) := t[0] + x[0]*y[i] 
-    // 		m := t[0]*q'[0] mod W
-    // 		C,_ := t[0] + m*q[0]
-    // 		for j=1 to N-1
-    // 			(A,t[j])  := t[j] + x[j]*y[i] + A
-    // 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//		
-    // 		t[N-1] = C + A
-	//
-	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit 
-	// of the modulus is zero (and not all of the remaining bits are set).
-	{{- end}}
-
-	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
-	{{- else }}
-		mul(z, x, y)
-	{{- end }}
-	return z
-}
-
-// Square z = x * x (mod q)
-{{- if $.NoCarry}}
-//
-// x must be strictly inferior to q
-{{- end }}
-func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
-	// see Mul for algorithm documentation
-	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
-	{{- else }}
-		mul(z, x, x)
-	{{- end }}
-	return z
-}
 
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
@@ -615,18 +544,13 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 	return z
 }
 
-
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z,x,y *{{.ElementName}}) {
-	// see Mul for algorithm documentation
-	{{ if eq $.NbWords 1}}
-		z.Mul(x,y)
-	{{ else if .NoCarry}}
-		{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "y"}}
-		{{ template "reduce"  . }}
-	{{ else }}
-		{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y" }}
-		{{ template "reduce"  . }}
-	{{ end }}
+	{{ mul_doc false }}
+	{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y"}}
+	{{ template "reduce"  . }}
 }
 
 
@@ -703,6 +627,26 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]{{.ElementName}}, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
+}
 
 
 {{ define "rsh V nbWords" }}

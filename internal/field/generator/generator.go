@@ -16,9 +16,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/field/internal/templates/element"
 )
 
-// TODO @gbotrel → pattern for code generation is different than gnark-crypto/internal because a binary like goff can generate
-// base field. in Go 1.16, can embed the template in the binary, and use same pattern than gnark-crypto/internal
-
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
 //
 // Example usage
@@ -32,6 +29,7 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 		element.Reduce,
 		element.Exp,
 		element.Conv,
+		element.MulDoc,
 		element.MulCIOS,
 		element.MulNoCarry,
 		element.Sqrt,
@@ -59,7 +57,10 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
 		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s",
 		"_mul_amd64.s",
+		"_mul_arm64.s",
+		"_mul_arm64.go",
 		"_ops_amd64.s",
+		"_ops_noasm.go",
 		"_mul_adx_amd64.s",
 		"_ops_amd64.go",
 		"_fuzz.go",
@@ -119,6 +120,8 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 				return err
 			}
 
+			_, _ = io.WriteString(f, "// +build !purego\n")
+
 			if err := amd64.Generate(f, F); err != nil {
 				_ = f.Close()
 				return err
@@ -143,35 +146,9 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 				return err
 			}
 
-			_, _ = io.WriteString(f, "// +build !amd64_adx\n")
+			_, _ = io.WriteString(f, "// +build !purego\n")
 
 			if err := amd64.GenerateMul(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_mul_adx_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build amd64_adx\n")
-
-			if err := amd64.GenerateMulADX(f, F); err != nil {
 				_ = f.Close()
 				return err
 			}
@@ -192,10 +169,16 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 	if F.ASM {
 		// generate ops_amd64.go
 		src := []string{
+			element.MulDoc,
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		if F.ASM {
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
+		}
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
 	}
@@ -207,12 +190,13 @@ func GenerateFF(F *field.FieldConfig, outputDir string) error {
 			element.MulCIOS,
 			element.MulNoCarry,
 			element.Reduce,
+			element.MulDoc,
 		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_noasm.go")
+		pathSrc := filepath.Join(outputDir, eName+"_ops_purego.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64"))
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64 purego"))
 		}
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
