@@ -76,30 +76,26 @@ type monomial struct {
 	exponents []int
 }
 
-func (m monomial) evaluate(x []fr.Element) (fr.Element, error) {
+// it is supposed that the number of variables matches
+func (m monomial) evaluate(x []fr.Element) fr.Element {
 
 	var res, tmp fr.Element
 
-	// check that the number of variables is correct
-	if len(m.exponents) != len(x) {
-		return res, ErrIncorrectNumberOfVariables
-	}
-
 	nbVars := len(x)
+	res.SetOne()
 	for i := 0; i < nbVars; i++ {
 		if m.exponents[i] <= 5 {
 			tmp = smallExp(x[i], m.exponents[i])
-			tmp.Mul(&tmp, &m.coeff)
-			res.Add(&res, &tmp)
+			res.Mul(&res, &tmp)
 			continue
 		}
 		bi := big.NewInt(int64(i))
 		tmp.Exp(x[i], bi)
-		tmp.Mul(&tmp, &m.coeff)
-		res.Add(&res, &tmp)
+		res.Mul(&res, &tmp)
 	}
+	res.Mul(&res, &m.coeff)
 
-	return res, nil
+	return res
 
 }
 
@@ -123,6 +119,20 @@ func (m multivariatePolynomial) degree() uint64 {
 }
 
 // evaluate a multivariate polynomial in x
-// func (m multivariatePolynomial) evaluate(x []fr.Element) fr.Element {
+// /!\ It is supposed that the multivariate polynomial has been
+// built correctly, that is the sizes of the slices in exponents
+// are of the same size /!\
+func (m multivariatePolynomial) evaluate(x []fr.Element) (fr.Element, error) {
 
-// }
+	var res fr.Element
+
+	nbVars := len(m[0].coeff)
+	if nbVars != len(x) {
+		return res, ErrIncorrectNumberOfVariables
+	}
+	for i := 0; i < len(m); i++ {
+		tmp := m[i].evaluate(x)
+		res.Add(&res, &tmp)
+	}
+	return res, nil
+}
