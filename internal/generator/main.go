@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
-	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"os"
 	"os/exec"
 	"path/filepath"
