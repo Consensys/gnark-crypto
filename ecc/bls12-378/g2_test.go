@@ -19,6 +19,7 @@ package bls12378
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/internal/fptower"
@@ -503,6 +504,33 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
+}
+
+func BenchmarkBatchAddG2Affine(b *testing.B) {
+
+	var P, R pG2AffineC16
+	var RR ppG2AffineC16
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBasesG2(P[:])
+	fillBenchBasesG2(R[:])
+
+	for i := 0; i < len(ridx); i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAddG2Affine[pG2AffineC16, ppG2AffineC16, cG2AffineC16](&RR, &P, len(P))
+	}
 }
 
 func BenchmarkG2AffineBatchScalarMultiplication(b *testing.B) {

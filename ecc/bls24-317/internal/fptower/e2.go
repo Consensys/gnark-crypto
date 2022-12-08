@@ -95,6 +95,10 @@ func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
 
+func (z *E2) IsOne() bool {
+	return z.A0.IsOne() && z.A1.IsZero()
+}
+
 // Add adds two elements of E2
 func (z *E2) Add(x, y *E2) *E2 {
 	addE2(z, x, y)

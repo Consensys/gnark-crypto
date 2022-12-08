@@ -45,7 +45,7 @@ func main() {
 		for _, e := range entries {
 			buf.Reset()
 			count := strconv.Itoa(benchCount)
-			cmd := exec.Command("go", "test", "-timeout", "10m", "-run", "^$", "-bench", regexp, "-count", count, "-tags", "amd64_adx")
+			cmd := exec.Command("go", "test", "-timeout", "10m", "-run", "^$", "-bench", regexp, "-count", count)
 			args := strings.Join(cmd.Args, " ")
 			log.Println("running benchmark", "dir", e.path, "cmd", args)
 			cmd.Dir = e.path

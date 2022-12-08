@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"io"
 	"math/big"
 	"math/bits"
@@ -430,64 +431,6 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y (mod q)
-//
-// x and y must be strictly inferior to q
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	//
-	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	//
-	// for i=0 to N-1
-	// 		(A,t[0]) := t[0] + x[0]*y[i]
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(A,t[j])  := t[j] + x[j]*y[i] + A
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		t[N-1] = C + A
-	//
-	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit
-	// of the modulus is zero (and not all of the remaining bits are set).
-	mul(z, x, y)
-	return z
-}
-
-// Square z = x * x (mod q)
-//
-// x must be strictly inferior to q
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-	mul(z, x, x)
-	return z
-}
-
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func (z *Element) FromMont() *Element {
@@ -593,113 +536,217 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	var t [6]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd1(v, y[3], c[1])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd1(v, y[4], c[1])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd1(v, y[5], c[1])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+
+	var t [7]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+	C, t[1] = madd1(y[0], x[1], C)
+	C, t[2] = madd1(y[0], x[2], C)
+	C, t[3] = madd1(y[0], x[3], C)
+	C, t[4] = madd1(y[0], x[4], C)
+	C, t[5] = madd1(y[0], x[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[1], x[0], t[0])
+	C, t[1] = madd2(y[1], x[1], t[1], C)
+	C, t[2] = madd2(y[1], x[2], t[2], C)
+	C, t[3] = madd2(y[1], x[3], t[3], C)
+	C, t[4] = madd2(y[1], x[4], t[4], C)
+	C, t[5] = madd2(y[1], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[2], x[0], t[0])
+	C, t[1] = madd2(y[2], x[1], t[1], C)
+	C, t[2] = madd2(y[2], x[2], t[2], C)
+	C, t[3] = madd2(y[2], x[3], t[3], C)
+	C, t[4] = madd2(y[2], x[4], t[4], C)
+	C, t[5] = madd2(y[2], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[3], x[0], t[0])
+	C, t[1] = madd2(y[3], x[1], t[1], C)
+	C, t[2] = madd2(y[3], x[2], t[2], C)
+	C, t[3] = madd2(y[3], x[3], t[3], C)
+	C, t[4] = madd2(y[3], x[4], t[4], C)
+	C, t[5] = madd2(y[3], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[4], x[0], t[0])
+	C, t[1] = madd2(y[4], x[1], t[1], C)
+	C, t[2] = madd2(y[4], x[2], t[2], C)
+	C, t[3] = madd2(y[4], x[3], t[3], C)
+	C, t[4] = madd2(y[4], x[4], t[4], C)
+	C, t[5] = madd2(y[4], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[5], x[0], t[0])
+	C, t[1] = madd2(y[5], x[1], t[1], C)
+	C, t[2] = madd2(y[5], x[2], t[2], C)
+	C, t[3] = madd2(y[5], x[3], t[3], C)
+	C, t[4] = madd2(y[5], x[4], t[4], C)
+	C, t[5] = madd2(y[5], x[5], t[5], C)
+
+	t[6], D = bits.Add64(t[6], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+
+	t[5], C = bits.Add64(t[6], C, 0)
+	t[6], _ = bits.Add64(0, D, C)
+
+	if t[6] != 0 {
+		// we need to reduce, we have a result on 7 words
+		var b uint64
+		z[0], b = bits.Sub64(t[0], q0, 0)
+		z[1], b = bits.Sub64(t[1], q1, b)
+		z[2], b = bits.Sub64(t[2], q2, b)
+		z[3], b = bits.Sub64(t[3], q3, b)
+		z[4], b = bits.Sub64(t[4], q4, b)
+		z[5], _ = bits.Sub64(t[5], q5, b)
+		return
 	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 4
-		v := x[4]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		t[5], t[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
-	{
-		// round 5
-		v := x[5]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], z[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], z[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		z[5], z[4] = madd3(m, q5, c[0], c[2], c[1])
-	}
+
+	// copy t into z
+	z[0] = t[0]
+	z[1] = t[1]
+	z[2] = t[2]
+	z[3] = t[3]
+	z[4] = t[4]
+	z[5] = t[5]
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
@@ -711,7 +758,6 @@ func _mulGeneric(z, x, y *Element) {
 		z[4], b = bits.Sub64(z[4], q4, b)
 		z[5], _ = bits.Sub64(z[5], q5, b)
 	}
-
 }
 
 func _fromMontGeneric(z *Element) {
@@ -869,6 +915,27 @@ func (z *Element) BitLen() int {
 		return 64 + bits.Len64(z[1])
 	}
 	return bits.Len64(z[0])
+}
+
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
 }
 
 // Exp z = xᵏ (mod q)
@@ -1343,7 +1410,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
-		mul(&v, &v, &a)
+		v.Mul(&v, &a)
 	}
 
 	u.Set(x) // for correctness check
@@ -1360,17 +1427,28 @@ func (z *Element) Inverse(x *Element) *Element {
 	// correctness check
 	v.Mul(&u, z)
 	if !v.IsOne() && !u.IsZero() {
-		return z.inverseExp(&u)
+		return z.inverseExp(u)
 	}
 
 	return z
 }
 
 // inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q)
-func (z *Element) inverseExp(x *Element) *Element {
-	qMinusTwo := Modulus()
-	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-	return z.Exp(*x, qMinusTwo)
+func (z *Element) inverseExp(x Element) *Element {
+	// e == q-2
+	e := Modulus()
+	e.Sub(e, big.NewInt(2))
+
+	z.Set(&x)
+
+	for i := e.BitLen() - 2; i >= 0; i-- {
+		z.Square(z)
+		if e.Bit(i) == 1 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits

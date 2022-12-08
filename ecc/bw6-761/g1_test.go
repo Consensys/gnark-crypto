@@ -19,6 +19,7 @@ package bw6761
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
@@ -497,6 +498,33 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
+}
+
+func BenchmarkBatchAddG1Affine(b *testing.B) {
+
+	var P, R pG1AffineC16
+	var RR ppG1AffineC16
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBasesG1(P[:])
+	fillBenchBasesG1(R[:])
+
+	for i := 0; i < len(ridx); i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAddG1Affine[pG1AffineC16, ppG1AffineC16, cG1AffineC16](&RR, &P, len(P))
+	}
 }
 
 func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
