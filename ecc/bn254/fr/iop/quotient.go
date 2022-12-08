@@ -15,6 +15,7 @@
 package iop
 
 import (
+	"math/big"
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -25,24 +26,24 @@ import (
 // ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
 func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
 
-	var res Polynomial
+	var quotientLagrangeCosetBitReverse Polynomial
 
 	// check that the sizes are consistant
 	err := checkSize(entries)
 	if err != nil {
-		return res, nil
+		return quotientLagrangeCosetBitReverse, nil
 	}
 
 	// create the domains for the individual polynomials + for the quotient
 	sizeSmall := len(entries[0].Coefficients)
 	domains[0], err = buildDomain(sizeSmall, domains[0])
 	if err != nil {
-		return res, err
+		return quotientLagrangeCosetBitReverse, err
 	}
 	sizeBig := ecc.NextPowerOfTwo(h.degree())
 	domains[1], err = buildDomain(int(sizeBig), domains[1])
 	if err != nil {
-		return res, err
+		return quotientLagrangeCosetBitReverse, err
 	}
 
 	// put every polynomial in Canonical form. Also make sure
@@ -70,6 +71,10 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 		}
 	}
 
+	// prepare the evaluations of x^n-1 on the big domain's coset
+	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains[1], domains[0])
+	ratio := int(domains[1].Cardinality / domains[0].Cardinality)
+
 	// compute the division. We take care of the indices of the
 	// polnyomials which are bit reversed.
 	// The result is temporarily stored in bit reversed Lagrange form,
@@ -79,8 +84,8 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 	nbVars := len(entries)
 	x := make([]fr.Element, nbVars)
 
-	var quotientLagrangeCosetBitReverse Polynomial
 	quotientLagrangeCosetBitReverse.Coefficients = make([]fr.Element, sizeBig)
+
 	for i := 0; i < int(sizeBig); i++ {
 
 		iRev := bits.Reverse64(uint64(i)) >> nn
@@ -99,16 +104,44 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 		// evaluate h on x
 		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.evaluate(x)
 
-		// divide by x-1 on the corresponding evaluation
+		// divide by x^n-1 evaluated on the correct point.
+		quotientLagrangeCosetBitReverse.Coefficients[iRev].
+			Div(&quotientLagrangeCosetBitReverse.Coefficients[iRev], &xnMinusOneInverseLagrangeCoset[i%ratio])
 	}
-
-	// put the result in the expected form
-	quotientLagrangeCosetBitReverse.Info = expectedForm
 
 	// at this stage the result is in Lagrange, bitreversed format.
 	// We put it in the expected format.
+	putInExpectedFormFromLagrangeCosetBitReversed(&quotientLagrangeCosetBitReverse, domains[1], expectedForm)
 
-	return res, nil
+	return quotientLagrangeCosetBitReverse, nil
+}
+
+// evaluateXnMinusOneDomainBigCoset evalutes Xᵐ-1 on DomainBig coset
+func evaluateXnMinusOneDomainBigCoset(domainBig, domainSmall *fft.Domain) []fr.Element {
+
+	ratio := domainBig.Cardinality / domainSmall.Cardinality
+
+	res := make([]fr.Element, ratio)
+
+	expo := big.NewInt(int64(domainSmall.Cardinality))
+	res[0].Exp(domainBig.FrMultiplicativeGen, expo)
+
+	var t fr.Element
+	t.Exp(domainBig.Generator, big.NewInt(int64(domainSmall.Cardinality)))
+
+	for i := 1; i < int(ratio); i++ {
+		res[i].Mul(&res[i-1], &t)
+	}
+
+	var one fr.Element
+	one.SetOne()
+	for i := 0; i < int(ratio); i++ {
+		res[i].Sub(&res[i], &one)
+	}
+
+	fr.BatchInvert(res)
+
+	return res
 }
 
 func putInExpectedFormFromLagrangeCosetBitReversed(p *Polynomial, domain *fft.Domain, expectedForm Form) {
