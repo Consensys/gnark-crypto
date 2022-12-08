@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"io"
 	"math/big"
 	"math/bits"
@@ -408,45 +409,6 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y (mod q)
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	mul(z, x, y)
-	return z
-}
-
-// Square z = x * x (mod q)
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-	mul(z, x, x)
-	return z
-}
-
 // FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
 func (z *Element) FromMont() *Element {
@@ -558,8 +520,37 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
+
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
 
 	var t [5]uint64
 	var D uint64
@@ -677,7 +668,6 @@ func _mulGeneric(z, x, y *Element) {
 		z[2], b = bits.Sub64(z[2], q2, b)
 		z[3], _ = bits.Sub64(z[3], q3, b)
 	}
-
 }
 
 func _fromMontGeneric(z *Element) {
@@ -795,6 +785,27 @@ func (z *Element) BitLen() int {
 		return 64 + bits.Len64(z[1])
 	}
 	return bits.Len64(z[0])
+}
+
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
 }
 
 // Exp z = xᵏ (mod q)

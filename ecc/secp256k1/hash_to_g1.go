@@ -17,8 +17,8 @@
 package secp256k1
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 )
 
 // mapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
@@ -107,7 +107,7 @@ func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
