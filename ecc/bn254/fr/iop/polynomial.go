@@ -122,17 +122,13 @@ func (m multivariatePolynomial) degree() uint64 {
 // /!\ It is supposed that the multivariate polynomial has been
 // built correctly, that is the sizes of the slices in exponents
 // are of the same size /!\
-func (m multivariatePolynomial) evaluate(x []fr.Element) (fr.Element, error) {
+func (m multivariatePolynomial) evaluate(x []fr.Element) fr.Element {
 
 	var res fr.Element
 
-	nbVars := len(m[0].coeff)
-	if nbVars != len(x) {
-		return res, ErrIncorrectNumberOfVariables
-	}
 	for i := 0; i < len(m); i++ {
 		tmp := m[i].evaluate(x)
 		res.Add(&res, &tmp)
 	}
-	return res, nil
+	return res
 }

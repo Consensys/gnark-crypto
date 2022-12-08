@@ -31,7 +31,7 @@ import (
 // * expectedForm expected form of the resulting polynomial
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
-// (Π_{k<j}Π_{i<m}(β-P_i(ω^k)))/(β-Q_i(ω^k))
+// (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
 func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
 
 	var res Polynomial
@@ -113,7 +113,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	res.Info = expectedForm
 
 	// at this stage the result is in Lagrange form, Regular layout
-	res = putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
 
 	return res, nil
 }
@@ -220,19 +220,22 @@ func BuildRatioSpecificPermutation(
 	}
 
 	// at this stage the result is in Lagrange form, Regular layout
-	res = putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
 
 	return res, nil
 
 }
 
-func putInExpectedFormFromLagrangeRegular(p Polynomial, domain *fft.Domain, expectedForm Form) Polynomial {
+func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
+
+	p.Info = expectedForm
+
 	if expectedForm.Basis == Canonical {
 		domain.FFTInverse(p.Coefficients, fft.DIF)
 		if expectedForm.Layout == Regular {
 			fft.BitReverse(p.Coefficients)
 		}
-		return p
+		return
 	}
 
 	if expectedForm.Basis == LagrangeCoset {
@@ -241,13 +244,13 @@ func putInExpectedFormFromLagrangeRegular(p Polynomial, domain *fft.Domain, expe
 		if expectedForm.Layout == BitReverse {
 			fft.BitReverse(p.Coefficients)
 		}
-		return p
+		return
 	}
 
 	if expectedForm.Layout == BitReverse {
 		fft.BitReverse(p.Coefficients)
 	}
-	return p
+
 }
 
 // check that the polynomials are of the same size.

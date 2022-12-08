@@ -67,10 +67,7 @@ func TestEvaluate(t *testing.T) {
 		var res fr.Element
 		res.SetUint64(136)
 
-		r, err := p.evaluate(x)
-		if err != nil {
-			t.Fatal(err)
-		}
+		r := p.evaluate(x)
 		if !r.Equal(&res) {
 			t.Fatal("evaluation multivariate polynomial failed")
 		}
