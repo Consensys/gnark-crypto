@@ -513,25 +513,6 @@ func setClear[T comparable](set *map[T]struct{}) {
 	}
 }
 
-type stack struct {
-	size  int
-	slice []*Wire
-}
-
-func (s *stack) pop() *Wire {
-	s.size--
-	return s.slice[s.size]
-}
-
-func (s *stack) push(v *Wire) {
-	if s.size < len(s.slice) {
-		s.slice[s.size] = v
-	} else {
-		s.slice = append(s.slice, v)
-	}
-	s.size++
-}
-
 func setNbOutputs(c Circuit) {
 	for i := range c {
 		c[i].nbOutputs = 0
@@ -549,43 +530,25 @@ func setNbOutputs(c Circuit) {
 	}
 }
 
-func nbInOutWires(c Circuit) (in, out int) {
-	in, out = 0, 0
+// outputsList also sets the nbOutputs fields
+func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
+	res := make([][]int, len(c))
 	for i := range c {
-		if c[i].IsOutput() {
-			out++
-		} else if c[i].IsInput() {
-			in++
-		}
-	}
-	return
-}
-
-type nodeStatus int
-
-const (
-	notOpened nodeStatus = 0
-	onPath               = 1 // it is on the stack, opened and its children are being seen
-	done                 = 2 // included in final list
-)
-
-func outputsList(c Circuit, indexes map[*Wire]int) [][]*Wire {
-	res := make([][]*Wire, len(c))
-	for i := range c {
-		res[i] = make([]*Wire, 0)
+		res[i] = make([]int, 0)
+		c[i].nbOutputs = 0
 	}
 	for i := range c {
-		cI := &c[i]
-		for _, in := range cI.Inputs {
+		for _, in := range c[i].Inputs {
 			inI := indexes[in]
-			res[inI] = append(res[inI], cI)
+			res[inI] = append(res[inI], i)
+			in.nbOutputs++
 		}
 	}
 	return res
 }
 
 type topSortData struct {
-	outputs    [][]*Wire
+	outputs    [][]int
 	status     []int // status > 0 indicates number of inputs left to be ready. status = 0 means ready. status = -1 means done
 	index      map[*Wire]int
 	c          Circuit
@@ -596,8 +559,7 @@ func (d *topSortData) markDone(i int) {
 
 	d.status[i] = -1
 
-	for _, out := range d.outputs[i] {
-		outI := d.index[out]
+	for _, outI := range d.outputs[i] {
 		d.status[outI]--
 		if d.status[outI] == 0 && outI < d.leastReady {
 			d.leastReady = outI
@@ -627,7 +589,7 @@ func statusList(c Circuit) []int {
 
 // topologicalSort sorts the wires in order of dependence. In particular, all the input
 // wires come first and all the output ones come last. It requires the nbOutputs values to be set.
-// It also tries to stick to the input order as much as possible.
+// It also tries to stick to the input order as much as possible. It also sets the nbOutput flags.
 // It's rather inefficient asymptotically O(n^2), but that probably won't matter since the circuits are small
 func topologicalSort(c Circuit) []*Wire {
 	var data topSortData
@@ -659,117 +621,6 @@ func topologicalSort(c Circuit) []*Wire {
 	}
 
 	return sorted
-}
-
-// topologicalSort sorts the wires in order of dependence. In particular, all the input
-// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
-// It also tries to stick to the input order as much as possible.
-// It's very inefficient asymptotically, but that probably won't matter since the circuits are small
-func topologicalSortInefficient(c Circuit) []*Wire {
-	sorted := make([]*Wire, len(c))
-	sortedSet := make(map[*Wire]struct{}, len(c))
-	leftI := 0
-	rightI := len(c) - 1
-	for i := range c {
-		if c[i].IsInput() {
-			sorted[leftI] = &c[i]
-			setAdd(&sortedSet, &c[i])
-			leftI++
-		} else if c[i].IsOutput() {
-			sorted[rightI] = &c[i]
-			setAdd(&sortedSet, &c[i])
-			rightI--
-		}
-	}
-
-	for leftI <= rightI {
-		for i := range c {
-
-			if setHas(&sortedSet, &c[i]) {
-				continue
-			}
-
-			allInputCovered := true
-			for _, in := range c[i].Inputs {
-				if !setHas(&sortedSet, in) {
-					allInputCovered = false
-					break
-				}
-			}
-			if allInputCovered {
-				sorted[leftI] = &c[i]
-				setAdd(&sortedSet, &c[i])
-				leftI++
-			}
-		}
-	}
-	return sorted
-}
-
-// topologicalSort sorts the wires in order of dependence. In particular, all the input
-// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
-func topologicalSortEfficient(c Circuit) []*Wire {
-	topologicallySortedWires := make([]*Wire, 0, len(c))
-	status := make(map[*Wire]nodeStatus, len(c)) // by the widest possible definition of "visited"
-	stack := stack{slice: make([]*Wire, len(c))} // elements planned to be looked at soon
-
-	for i := range c {
-		w := &c[i]
-
-		switch status[w] {
-		case notOpened:
-			stack.push(w)
-
-			for stack.size != 0 {
-				w := stack.pop()
-				switch status[w] {
-
-				case notOpened:
-					status[w] = onPath
-					stack.push(w)
-
-					for _, v := range w.Inputs {
-						switch status[v] {
-						case notOpened:
-							stack.push(v)
-						case onPath:
-							panic("cycle detected")
-						}
-					}
-
-				case onPath:
-					status[w] = done
-					topologicallySortedWires = append(topologicallySortedWires, w)
-
-				case done:
-					// already looked at
-				}
-			}
-		case done:
-		// do nothing
-		default:
-			panic("a seen or on path status can only be encountered with a non-empty stack")
-		}
-	}
-
-	// now to guarantee that out wires come last
-	nbIns, nbOuts := nbInOutWires(c)
-	sortedWires := make([]*Wire, len(c))
-
-	inI, outI := 0, 0
-	for i, w := range topologicallySortedWires {
-		if w.IsOutput() {
-			sortedWires[len(sortedWires)-nbOuts+outI] = w
-			outI++
-		} else if w.IsInput() {
-			sortedWires[inI] = w
-			inI++
-		} else {
-			sortedWires[i-inI-outI+nbIns] = w
-		}
-	}
-
-	return sortedWires
 }
 
 // Complete the circuit evaluation from input values
