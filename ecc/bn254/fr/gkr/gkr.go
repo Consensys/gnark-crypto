@@ -32,31 +32,33 @@ type Gate interface {
 }
 
 type Wire struct {
-	Gate       Gate
-	Inputs     []*Wire // if there are no Inputs, the wire is assumed an input wire
-	NumOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one). By convention, equal to 1 for output wires
+	Gate      Gate
+	Inputs    []*Wire // if there are no Inputs, the wire is assumed an input wire
+	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one) No need to set this manually. TODO: Make private?
+	meta      int     // TODO: Remove
 }
-type CircuitLayer []Wire
 
-// TODO: Constructor so that user doesn't have to give layers explicitly.
-type Circuit []CircuitLayer
+type Circuit []Wire
 
-func (w *Wire) IsInput() bool {
+func (w Wire) IsInput() bool {
 	return len(w.Inputs) == 0
 }
 
-func (c Circuit) Size() int { //TODO: Worth caching?
-	res := len(c[0])
-	for i := range c {
-		res += len(c[i])
+func (w Wire) IsOutput() bool {
+	return w.nbOutputs == 0
+}
+
+func (w Wire) NbClaims() int {
+	if w.IsOutput() {
+		return 1
 	}
-	return res
+	return w.nbOutputs
 }
 
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
 type WireAssignment map[*Wire]polynomial.MultiLin
 
-type Proof [][]sumcheck.Proof // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
+type Proof []sumcheck.Proof // for each layer, for each wire, a sumcheck (for each variable, a polynomial)
 
 type eqTimesGateEvalSumcheckLazyClaims struct {
 	wire               *Wire
@@ -291,7 +293,7 @@ type claimsManager struct {
 
 func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
-	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, c.Size())
+	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
 
 	if pool == nil {
 
@@ -308,16 +310,14 @@ func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Poo
 		claims.memPool = pool
 	}
 
-	for _, layer := range c {
-		for i := 0; i < len(layer); i++ {
-			wire := &layer[i]
+	for i := range c {
+		wire := &c[i]
 
-			claims.claimsMap[wire] = &eqTimesGateEvalSumcheckLazyClaims{
-				wire:               wire,
-				evaluationPoints:   make([][]fr.Element, 0, wire.NumOutputs),
-				claimedEvaluations: claims.memPool.Make(wire.NumOutputs),
-				manager:            &claims,
-			}
+		claims.claimsMap[wire] = &eqTimesGateEvalSumcheckLazyClaims{
+			wire:               wire,
+			evaluationPoints:   make([][]fr.Element, 0, wire.NbClaims()),
+			claimedEvaluations: claims.memPool.Make(wire.NbClaims()),
+			manager:            &claims,
 		}
 	}
 	return
@@ -372,114 +372,119 @@ func (m *claimsManager) deleteClaim(wire *Wire) {
 	delete(m.claimsMap, wire)
 }
 
-func WithPool(pool *polynomial.Pool) Option {
-	return Option{pool: pool}
-}
-
-type Option struct {
+type _options struct {
 	pool *polynomial.Pool
 }
 
-func (o *Option) combine(os []Option) {
-	for _, oI := range os {
-		if oI.pool != nil {
-			o.pool = oI.pool
-		}
+type Option func(*_options)
+
+func WithPool(pool *polynomial.Pool) Option {
+	return func(options *_options) {
+		options.pool = pool
 	}
 }
 
 // Prove consistency of the claimed assignment
 func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript, options ...Option) Proof {
-	var o Option
-	o.combine(options)
+	var o _options
+	for _, option := range options {
+		option(&o)
+	}
+	setNbOutputs(c) // TODO: Already done in Complete. Find a way to remove
+	cS := topologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
-	outLayer := c[0]
-
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
-	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
+	firstChallenge := transcript.NextN(assignment[&c[0]].NumVars()) //TODO: Clean way to extract numVars
 
-	for i := range outLayer {
-		wire := &outLayer[i]
-		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
-	}
+	for i := len(c) - 1; i >= 0; i-- {
 
-	//fmt.Println("GKR: Assigned first claims")
+		wire := cS[i]
 
-	for layerI, layer := range c {
-		proof[layerI] = make([]sumcheck.Proof, len(layer))
-		for wireI := 0; wireI < len(layer); wireI++ {
-			wire := &layer[wireI]
-			claim := claims.getClaim(wire)
-			if wire.IsInput() && claim.ClaimsNum() == 1 || claim.ClaimsNum() == 0 { // no proof necessary
-				proof[layerI][wireI] = sumcheck.Proof{
-					PartialSumPolys: []polynomial.Polynomial{},
-					FinalEvalProof:  []fr.Element{},
-				}
-			} else {
-				proof[layerI][wireI] = sumcheck.Prove(claim, transcript)
-				if finalEvalProof := proof[layerI][wireI].FinalEvalProof.([]fr.Element); len(finalEvalProof) != 0 {
-					transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
-				}
-			}
-			// the verifier checks a single claim about input wires itself
-			claims.deleteClaim(wire)
+		if wire.IsOutput() {
+			claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
 		}
+
+		claim := claims.getClaim(wire)
+		if wire.IsInput() && claim.ClaimsNum() == 1 || claim.ClaimsNum() == 0 { // no proof necessary
+			proof[i] = sumcheck.Proof{
+				PartialSumPolys: []polynomial.Polynomial{},
+				FinalEvalProof:  []fr.Element{},
+			}
+		} else {
+			proof[i] = sumcheck.Prove(claim, transcript)
+			if finalEvalProof := proof[i].FinalEvalProof.([]fr.Element); len(finalEvalProof) != 0 {
+				transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
+			}
+		}
+		// the verifier checks a single claim about input wires itself
+		claims.deleteClaim(wire)
 	}
 
 	return proof
 }
 
 // Verify the consistency of the claimed output with the claimed input
-// Unlike in Prove, the assignment argument need not be complete
+// Unlike in Prove, the assignment argument need not be Complete
 func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, options ...Option) bool {
-	var o Option
-	o.combine(options)
+	var o _options
+	for _, option := range options {
+		option(&o)
+	}
+	setNbOutputs(c) // TODO: Already done in Complete. Find a way to remove
+	cS := topologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
-	outLayer := c[0]
+	firstChallenge := transcript.NextN(assignment[&c[0]].NumVars()) //TODO: Clean way to extract numVars
 
-	firstChallenge := transcript.NextN(assignment[&outLayer[0]].NumVars()) //TODO: Clean way to extract numVars
+	for i := len(c) - 1; i >= 0; i-- {
+		wire := cS[i]
 
-	for i := range outLayer {
-		wire := &outLayer[i]
-		claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
-	}
+		if wire.IsOutput() {
+			claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
+		}
 
-	for layerI, layer := range c {
+		proofW := proof[i]
+		finalEvalProof := proofW.FinalEvalProof.([]fr.Element)
+		claim := claims.getLazyClaim(wire)
+		if claimsNum := claim.ClaimsNum(); wire.IsInput() && claimsNum == 1 || claimsNum == 0 {
+			// make sure the proof is empty
+			if len(finalEvalProof) != 0 || len(proofW.PartialSumPolys) != 0 {
+				return false
+			}
 
-		for wireI := range layer {
-			wire := &layer[wireI]
-			proofW := proof[layerI][wireI]
-			finalEvalProof := proofW.FinalEvalProof.([]fr.Element)
-			claim := claims.getLazyClaim(wire)
-			if claimsNum := claim.ClaimsNum(); wire.IsInput() && claimsNum == 1 || claimsNum == 0 {
-				// make sure the proof is empty
-				if len(finalEvalProof) != 0 || len(proofW.PartialSumPolys) != 0 {
+			if claimsNum == 1 {
+				// simply evaluate and see if it matches
+				evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0], claims.memPool)
+				if !claim.claimedEvaluations[0].Equal(&evaluation) {
 					return false
 				}
-
-				if claimsNum == 1 {
-					// simply evaluate and see if it matches
-					evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0], claims.memPool)
-					if !claim.claimedEvaluations[0].Equal(&evaluation) {
-						return false
-					}
-				}
-			} else if !sumcheck.Verify(claim, proof[layerI][wireI], transcript) {
-				return false //TODO: Any polynomials to dump?
 			}
-			if len(finalEvalProof) != 0 {
-				transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
-			}
-			claims.deleteClaim(wire)
+		} else if !sumcheck.Verify(claim, proof[i], transcript) {
+			return false //TODO: Any polynomials to dump?
 		}
+		if len(finalEvalProof) != 0 {
+			transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
+		}
+		claims.deleteClaim(wire)
 	}
 	return true
 }
+
+/*func UniqueChallengeNames(c Circuit, prefix string) (names [][]string, proofSize int) {
+	names = make([][]string, 0, len(c)*2)
+	for i, layerI := range c {
+		for j := range layerI {
+			w := &layerI[j]
+			if !w.IsInput() || w.NbOutputs > 1 {
+
+			}
+		}
+	}
+}*/
 
 type IdentityGate struct{}
 
@@ -489,4 +494,307 @@ func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
 
 func (IdentityGate) Degree() int {
 	return 1
+}
+
+// TODO: Make non-pointer
+
+func setHas[T comparable](set *map[T]struct{}, elt T) bool {
+	_, ok := (*set)[elt]
+	return ok
+}
+
+func setAdd[T comparable](set *map[T]struct{}, elt T) {
+	(*set)[elt] = struct{}{}
+}
+
+func setClear[T comparable](set *map[T]struct{}) {
+	for k := range *set {
+		delete(*set, k)
+	}
+}
+
+type stack struct {
+	size  int
+	slice []*Wire
+}
+
+func (s *stack) pop() *Wire {
+	s.size--
+	return s.slice[s.size]
+}
+
+func (s *stack) push(v *Wire) {
+	if s.size < len(s.slice) {
+		s.slice[s.size] = v
+	} else {
+		s.slice = append(s.slice, v)
+	}
+	s.size++
+}
+
+func setNbOutputs(c Circuit) {
+	for i := range c {
+		c[i].nbOutputs = 0
+	}
+	seen := make(map[*Wire]struct{}, len(c))
+	for i := range c {
+		setClear(&seen)
+
+		for _, wIn := range c[i].Inputs {
+			if !setHas(&seen, wIn) {
+				setAdd(&seen, wIn)
+				wIn.nbOutputs++
+			}
+		}
+	}
+}
+
+func nbInOutWires(c Circuit) (in, out int) {
+	in, out = 0, 0
+	for i := range c {
+		if c[i].IsOutput() {
+			out++
+		} else if c[i].IsInput() {
+			in++
+		}
+	}
+	return
+}
+
+type nodeStatus int
+
+const (
+	notOpened nodeStatus = 0
+	onPath               = 1 // it is on the stack, opened and its children are being seen
+	done                 = 2 // included in final list
+)
+
+func outputsList(c Circuit, indexes map[*Wire]int) [][]*Wire {
+	res := make([][]*Wire, len(c))
+	for i := range c {
+		res[i] = make([]*Wire, 0)
+	}
+	for i := range c {
+		cI := &c[i]
+		for _, in := range cI.Inputs {
+			inI := indexes[in]
+			res[inI] = append(res[inI], cI)
+		}
+	}
+	return res
+}
+
+type topSortData struct {
+	outputs    [][]*Wire
+	status     []int // status > 0 indicates number of inputs left to be ready. status = 0 means ready. status = -1 means done
+	index      map[*Wire]int
+	c          Circuit
+	leastReady int
+}
+
+func (d *topSortData) markDone(i int) {
+
+	d.status[i] = -1
+
+	for _, out := range d.outputs[i] {
+		outI := d.index[out]
+		d.status[outI]--
+		if d.status[outI] == 0 && outI < d.leastReady {
+			d.leastReady = outI
+		}
+	}
+
+	for d.leastReady < len(d.status) && d.status[d.leastReady] != 0 {
+		d.leastReady++
+	}
+}
+
+func indexMap(c Circuit) map[*Wire]int {
+	res := make(map[*Wire]int, len(c))
+	for i := range c {
+		res[&c[i]] = i
+	}
+	return res
+}
+
+func statusList(c Circuit) []int {
+	res := make([]int, len(c))
+	for i := range c {
+		res[i] = len(c[i].Inputs)
+	}
+	return res
+}
+
+// topologicalSort sorts the wires in order of dependence. In particular, all the input
+// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
+// It also tries to stick to the input order as much as possible.
+// It's rather inefficient asymptotically O(n^2), but that probably won't matter since the circuits are small
+func topologicalSort(c Circuit) []*Wire {
+	var data topSortData
+	data.index = indexMap(c)
+	data.outputs = outputsList(c, data.index)
+	data.status = statusList(c)
+	data.leastReady = len(c)
+
+	sorted := make([]*Wire, len(c))
+
+	leftI := 0
+	rightI := len(c) - 1
+	for i := range c {
+		if c[i].IsInput() {
+			sorted[leftI] = &c[i]
+			data.markDone(i)
+			leftI++
+		} else if c[i].IsOutput() {
+			sorted[rightI] = &c[i]
+			data.markDone(i)
+			rightI--
+		}
+	}
+
+	for leftI <= rightI {
+		sorted[leftI] = &c[data.leastReady]
+		data.markDone(data.leastReady)
+		leftI++
+	}
+
+	return sorted
+}
+
+// topologicalSort sorts the wires in order of dependence. In particular, all the input
+// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
+// It also tries to stick to the input order as much as possible.
+// It's very inefficient asymptotically, but that probably won't matter since the circuits are small
+func topologicalSortInefficient(c Circuit) []*Wire {
+	sorted := make([]*Wire, len(c))
+	sortedSet := make(map[*Wire]struct{}, len(c))
+	leftI := 0
+	rightI := len(c) - 1
+	for i := range c {
+		if c[i].IsInput() {
+			sorted[leftI] = &c[i]
+			setAdd(&sortedSet, &c[i])
+			leftI++
+		} else if c[i].IsOutput() {
+			sorted[rightI] = &c[i]
+			setAdd(&sortedSet, &c[i])
+			rightI--
+		}
+	}
+
+	for leftI <= rightI {
+		for i := range c {
+
+			if setHas(&sortedSet, &c[i]) {
+				continue
+			}
+
+			allInputCovered := true
+			for _, in := range c[i].Inputs {
+				if !setHas(&sortedSet, in) {
+					allInputCovered = false
+					break
+				}
+			}
+			if allInputCovered {
+				sorted[leftI] = &c[i]
+				setAdd(&sortedSet, &c[i])
+				leftI++
+			}
+		}
+	}
+	return sorted
+}
+
+// topologicalSort sorts the wires in order of dependence. In particular, all the input
+// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
+func topologicalSortEfficient(c Circuit) []*Wire {
+	topologicallySortedWires := make([]*Wire, 0, len(c))
+	status := make(map[*Wire]nodeStatus, len(c)) // by the widest possible definition of "visited"
+	stack := stack{slice: make([]*Wire, len(c))} // elements planned to be looked at soon
+
+	for i := range c {
+		w := &c[i]
+
+		switch status[w] {
+		case notOpened:
+			stack.push(w)
+
+			for stack.size != 0 {
+				w := stack.pop()
+				switch status[w] {
+
+				case notOpened:
+					status[w] = onPath
+					stack.push(w)
+
+					for _, v := range w.Inputs {
+						switch status[v] {
+						case notOpened:
+							stack.push(v)
+						case onPath:
+							panic("cycle detected")
+						}
+					}
+
+				case onPath:
+					status[w] = done
+					topologicallySortedWires = append(topologicallySortedWires, w)
+
+				case done:
+					// already looked at
+				}
+			}
+		case done:
+		// do nothing
+		default:
+			panic("a seen or on path status can only be encountered with a non-empty stack")
+		}
+	}
+
+	// now to guarantee that out wires come last
+	nbIns, nbOuts := nbInOutWires(c)
+	sortedWires := make([]*Wire, len(c))
+
+	inI, outI := 0, 0
+	for i, w := range topologicallySortedWires {
+		if w.IsOutput() {
+			sortedWires[len(sortedWires)-nbOuts+outI] = w
+			outI++
+		} else if w.IsInput() {
+			sortedWires[inI] = w
+			inI++
+		} else {
+			sortedWires[i-inI-outI+nbIns] = w
+		}
+	}
+
+	return sortedWires
+}
+
+// Complete the circuit evaluation from input values
+func (a WireAssignment) Complete(c Circuit) WireAssignment {
+
+	setNbOutputs(c)
+	sortedWires := topologicalSort(c)
+
+	numEvaluations := 0
+
+	for _, w := range sortedWires {
+		if !w.IsInput() {
+			if numEvaluations == 0 {
+				numEvaluations = len(a[w.Inputs[0]])
+			}
+			evals := make([]fr.Element, numEvaluations)
+			ins := make([]fr.Element, len(w.Inputs))
+			for k := 0; k < numEvaluations; k++ {
+				for inI, in := range w.Inputs {
+					ins[inI] = a[in][k]
+				}
+				evals[k] = w.Gate.Evaluate(ins...)
+			}
+			a[w] = evals
+		}
+	}
+	return a
 }

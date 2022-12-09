@@ -98,15 +98,15 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
 }
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
-	circuit := Circuit{{Wire{
-		Gate:       nil,
-		Inputs:     []*Wire{},
-		NumOutputs: 2,
-	}}}
+	circuit := Circuit{Wire{
+		Gate:      nil,
+		Inputs:    []*Wire{},
+		nbOutputs: 2,
+	}}
 
-	wire := &circuit[0][0]
+	wire := &circuit[0]
 
-	assignment := WireAssignment{&circuit[0][0]: []fr.Element{two, three}}
+	assignment := WireAssignment{&circuit[0]: []fr.Element{two, three}}
 
 	claimsManagerGen := func() *claimsManager {
 		manager := newClaimsManager(circuit, assignment, nil)
@@ -119,100 +119,6 @@ func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 
 	proof := sumcheck.Prove(claimsManagerGen().getClaim(wire), transcriptGen())
 	sumcheck.Verify(claimsManagerGen().getLazyClaim(wire), proof, transcriptGen())
-}
-
-func setHas[T comparable](set *map[T]struct{}, elt T) bool {
-	_, ok := (*set)[elt]
-	return ok
-}
-
-func setAdd[T comparable](set *map[T]struct{}, elt T) {
-	(*set)[elt] = struct{}{}
-}
-
-type stack struct {
-	size  int
-	slice []*Wire
-}
-
-func (s *stack) pop() *Wire {
-	s.size--
-	return s.slice[s.size]
-}
-
-func (s *stack) push(v *Wire) {
-	if s.size < len(s.slice) {
-		s.slice[s.size] = v
-	} else {
-		s.slice = append(s.slice, v)
-	}
-	s.size++
-}
-
-func topologicalSort(c Circuit) (sortedWires []*Wire) {
-	circuitSizeEstimate := len(c)
-	sortedWires = make([]*Wire, 0, circuitSizeEstimate)
-	visited := make(map[*Wire]struct{}, circuitSizeEstimate)
-
-	stack := stack{slice: make([]*Wire, circuitSizeEstimate)}
-
-	for i := range c {
-		for j := range c[i] {
-			w := &c[i][j]
-			stackTraceSet := make(map[*Wire]struct{}, circuitSizeEstimate)
-
-			if !w.IsInput() && !setHas(&visited, w) {
-				stack.push(w)
-
-				for stack.size != 0 {
-					w := stack.pop()
-
-					if setHas(&stackTraceSet, w) { //fully explored
-						sortedWires = append(sortedWires, w)
-						delete(stackTraceSet, w)
-					} else {
-						setAdd(&stackTraceSet, w)
-						stack.push(w)
-
-						for _, v := range w.Inputs {
-							if setHas(&stackTraceSet, v) {
-								panic("cycle detected")
-							} else if !setHas(&visited, v) {
-								setAdd(&visited, v)
-								stack.push(v)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return
-}
-
-// complete the circuit evaluation from input values
-func (a WireAssignment) complete(c Circuit) WireAssignment {
-
-	sortedWires := topologicalSort(c)
-	numEvaluations := 0
-
-	for _, w := range sortedWires {
-		if !w.IsInput() {
-			if numEvaluations == 0 {
-				numEvaluations = len(a[w.Inputs[0]])
-			}
-			evals := make([]fr.Element, numEvaluations)
-			ins := make([]fr.Element, len(w.Inputs))
-			for k := 0; k < numEvaluations; k++ {
-				for inI, in := range w.Inputs {
-					ins[inI] = a[in][k]
-				}
-				evals[k] = w.Gate.Evaluate(ins...)
-			}
-			a[w] = evals
-		}
-	}
-	return a
 }
 
 var one, two, three, four, five, six fr.Element
@@ -271,15 +177,14 @@ func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]fr
 func testNoGate(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := Circuit{
 		{
-			{
-				Inputs:     []*Wire{},
-				NumOutputs: 1,
-				Gate:       nil,
-			},
+			Inputs: []*Wire{},
+			Gate:   nil,
 		},
 	}
 
-	assignment := WireAssignment{&c[0][0]: inputAssignments[0]}
+	c.assignIndexes()
+
+	assignment := WireAssignment{&c[0]: inputAssignments[0]}
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
 
@@ -291,28 +196,14 @@ func testNoGate(t *testing.T, inputAssignments ...[]fr.Element) {
 }
 
 func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
-	c := make(Circuit, 2)
 
-	c[1] = CircuitLayer{
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
+	c := make(Circuit, 3)
+	c[2] = Wire{
+		Gate:   mulGate{},
+		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
-	c[0] = CircuitLayer{{
-		Inputs:     []*Wire{&c[1][0], &c[1][1]},
-		NumOutputs: 1,
-		Gate:       mulGate{},
-	}}
-
-	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
 
@@ -326,30 +217,19 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 }
 
 func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Element) {
-	c := make(Circuit, 2)
+	c := make(Circuit, 3)
 
-	c[1] = CircuitLayer{
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 2,
-			Gate:       nil,
-		},
+	c[1] = Wire{
+		Gate:   IdentityGate{},
+		Inputs: []*Wire{&c[0]},
 	}
 
-	c[0] = CircuitLayer{
-		{
-			Inputs:     []*Wire{&c[1][0]},
-			NumOutputs: 1,
-			Gate:       IdentityGate{},
-		},
-		{
-			Inputs:     []*Wire{&c[1][0]},
-			NumOutputs: 1,
-			Gate:       IdentityGate{},
-		},
+	c[2] = Wire{
+		Gate:   IdentityGate{},
+		Inputs: []*Wire{&c[0]},
 	}
 
-	assignment := WireAssignment{&c[1][0]: inputAssignments[0]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0]}.Complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
 
@@ -363,30 +243,15 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 }
 
 func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
-	c := make(Circuit, 2)
+	c := make(Circuit, 3)
 
-	c[1] = CircuitLayer{
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
+	c[2] = Wire{
+		Gate:   mimcCipherGate{},
+		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
-	c[0] = CircuitLayer{
-		{
-			Inputs:     []*Wire{&c[1][0], &c[1][1]},
-			NumOutputs: 1,
-			Gate:       mimcCipherGate{},
-		},
-	}
 	t.Log("Evaluating all circuit wires")
-	assignment := WireAssignment{&c[1][0]: inputAssignments[0], &c[1][1]: inputAssignments[1]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 	t.Log("Circuit evaluation complete")
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
 	t.Log("Proof complete")
@@ -402,24 +267,16 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
+	c[1] = Wire{
+		Gate:   IdentityGate{},
+		Inputs: []*Wire{&c[0]},
+	}
+	c[2] = Wire{
+		Gate:   IdentityGate{},
+		Inputs: []*Wire{&c[1]},
+	}
 
-	c[2] = CircuitLayer{{
-		Gate:       nil,
-		Inputs:     []*Wire{},
-		NumOutputs: 1,
-	}}
-	c[1] = CircuitLayer{{
-		Gate:       IdentityGate{},
-		Inputs:     []*Wire{&c[2][0]},
-		NumOutputs: 1,
-	}}
-	c[0] = CircuitLayer{{
-		Gate:       IdentityGate{},
-		Inputs:     []*Wire{&c[1][0]},
-		NumOutputs: 1,
-	}}
-
-	assignment := WireAssignment{&c[2][0]: inputAssignments[0]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0]}.Complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
 
@@ -433,28 +290,12 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 }
 
 func mimcCircuit(numRounds int) Circuit {
-	c := make(Circuit, numRounds+1)
+	c := make(Circuit, numRounds+2)
 
-	c[numRounds] = CircuitLayer{
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: numRounds,
-			Gate:       nil,
-		},
-	}
-
-	for i := numRounds; i > 0; i-- {
-		c[i-1] = CircuitLayer{
-			{
-				Inputs:     []*Wire{&c[i][0], &c[numRounds][1]},
-				NumOutputs: 1,
-				Gate:       mimcCipherGate{}, //TODO: Put arks in there
-			},
+	for i := 2; i < len(c); i++ {
+		c[i] = Wire{
+			Gate:   mimcCipherGate{},
+			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
 	return c
@@ -467,7 +308,7 @@ func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 	c := mimcCircuit(numRounds)
 
 	t.Log("Evaluating all circuit wires")
-	assignment := WireAssignment{&c[numRounds][0]: inputAssignments[0], &c[numRounds][1]: inputAssignments[1]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 	t.Log("Circuit evaluation complete")
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
@@ -487,32 +328,16 @@ func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 	// This imitates the MiMC circuit
 
-	c := make(Circuit, numRounds+1)
+	c := make(Circuit, numRounds+2)
 
-	c[numRounds] = CircuitLayer{
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: 1,
-			Gate:       nil,
-		},
-		{
-			Inputs:     []*Wire{},
-			NumOutputs: numRounds,
-			Gate:       nil,
-		},
-	}
-
-	for i := numRounds; i > 0; i-- {
-		c[i-1] = CircuitLayer{
-			{
-				Inputs:     []*Wire{&c[i][0], &c[numRounds][1]},
-				NumOutputs: 1,
-				Gate:       mulGate{},
-			},
+	for i := 2; i < len(c); i++ {
+		c[i] = Wire{
+			Gate:   mulGate{},
+			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
 
-	assignment := WireAssignment{&c[numRounds][0]: inputAssignments[0], &c[numRounds][1]: inputAssignments[1]}.complete(c)
+	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
 
@@ -583,24 +408,18 @@ func proofEquals(expected Proof, seen Proof) error {
 	}
 	for i, x := range expected {
 		xSeen := seen[i]
-		if len(expected) != len(seen) {
-			return fmt.Errorf("length mismatch %d ≠ %d", len(x), len(xSeen))
-		}
-		for j, y := range x {
-			ySeen := xSeen[j]
 
-			if ySeen.FinalEvalProof == nil {
-				if seenFinalEval := y.FinalEvalProof.([]fr.Element); len(seenFinalEval) != 0 {
-					return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
-				}
-			} else {
-				if err := test_vector_utils.SliceEquals(y.FinalEvalProof.([]fr.Element), ySeen.FinalEvalProof.([]fr.Element)); err != nil {
-					return fmt.Errorf("final evaluation proof mismatch")
-				}
+		if xSeen.FinalEvalProof == nil {
+			if seenFinalEval := x.FinalEvalProof.([]fr.Element); len(seenFinalEval) != 0 {
+				return fmt.Errorf("length mismatch %d ≠ %d", 0, len(seenFinalEval))
 			}
-			if err := test_vector_utils.PolynomialSliceEquals(y.PartialSumPolys, ySeen.PartialSumPolys); err != nil {
-				return err
+		} else {
+			if err := test_vector_utils.SliceEquals(x.FinalEvalProof.([]fr.Element), xSeen.FinalEvalProof.([]fr.Element)); err != nil {
+				return fmt.Errorf("final evaluation proof mismatch")
 			}
+		}
+		if err := test_vector_utils.PolynomialSliceEquals(x.PartialSumPolys, xSeen.PartialSumPolys); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -617,7 +436,7 @@ func BenchmarkGkrMimc(b *testing.B) {
 	setRandom(in1)
 
 	fmt.Println("evaluating circuit")
-	assignment := WireAssignment{&c[len(c)-1][0]: in0, &c[len(c)-1][1]: in1}.complete(c)
+	assignment := WireAssignment{&c[0]: in0, &c[1]: in1}.Complete(c)
 
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
@@ -681,11 +500,11 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 }
 
 type WireInfo struct {
-	Gate   string  `json:"gate"`
-	Inputs [][]int `json:"inputs"`
+	Gate   string `json:"gate"`
+	Inputs []int  `json:"inputs"`
 }
 
-type CircuitInfo [][]WireInfo
+type CircuitInfo []WireInfo
 
 var circuitCache = make(map[string]Circuit)
 
@@ -713,33 +532,15 @@ func getCircuit(path string) (Circuit, error) {
 }
 
 func (c CircuitInfo) toCircuit() (circuit Circuit) {
-	isOutput := make(map[*Wire]interface{})
 	circuit = make(Circuit, len(c))
-	for i := len(c) - 1; i >= 0; i-- {
-		circuit[i] = make(CircuitLayer, len(c[i]))
-		for j, wireInfo := range c[i] {
-			circuit[i][j].Gate = gates[wireInfo.Gate]
-			circuit[i][j].Inputs = make([]*Wire, len(wireInfo.Inputs))
-			isOutput[&circuit[i][j]] = nil
-			for k, inputCoord := range wireInfo.Inputs {
-				if len(inputCoord) != 2 {
-					panic("circuit wire has two coordinates")
-				}
-				input := &circuit[inputCoord[0]][inputCoord[1]]
-				input.NumOutputs++
-				circuit[i][j].Inputs[k] = input
-				delete(isOutput, input)
-			}
-			if (i == len(c)-1) != (len(circuit[i][j].Inputs) == 0) {
-				panic("wire is input if and only if in last layer")
-			}
+	for i := range c {
+		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
+		for k, inputCoord := range c[i].Inputs {
+			input := &circuit[inputCoord]
+			circuit[i].Inputs[k] = input
 		}
 	}
-
-	for k := range isOutput {
-		k.NumOutputs = 1
-	}
-
 	return
 }
 
@@ -775,7 +576,7 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-type PrintableProof [][]PrintableSumcheckProof
+type PrintableProof []PrintableSumcheckProof
 
 type PrintableSumcheckProof struct {
 	FinalEvalProof  interface{}     `json:"finalEvalProof"`
@@ -785,29 +586,26 @@ type PrintableSumcheckProof struct {
 func unmarshalProof(printable PrintableProof) (Proof, error) {
 	proof := make(Proof, len(printable))
 	for i := range printable {
-		proof[i] = make([]sumcheck.Proof, len(printable[i]))
-		for j, printableSumcheck := range printable[i] {
-			finalEvalProof := []fr.Element(nil)
+		finalEvalProof := []fr.Element(nil)
 
-			if printableSumcheck.FinalEvalProof != nil {
-				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
-				finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
-				for k := range finalEvalProof {
-					if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
-						return nil, err
-					}
-				}
-			}
-
-			proof[i][j] = sumcheck.Proof{
-				PartialSumPolys: make([]polynomial.Polynomial, len(printableSumcheck.PartialSumPolys)),
-				FinalEvalProof:  finalEvalProof,
-			}
-			for k := range printableSumcheck.PartialSumPolys {
-				var err error
-				if proof[i][j].PartialSumPolys[k], err = test_vector_utils.SliceToElementSlice(printableSumcheck.PartialSumPolys[k]); err != nil {
+		if printable[i].FinalEvalProof != nil {
+			finalEvalSlice := reflect.ValueOf(printable[i].FinalEvalProof)
+			finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
+			for k := range finalEvalProof {
+				if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
 					return nil, err
 				}
+			}
+		}
+
+		proof[i] = sumcheck.Proof{
+			PartialSumPolys: make([]polynomial.Polynomial, len(printable[i].PartialSumPolys)),
+			FinalEvalProof:  finalEvalProof,
+		}
+		for k := range printable[i].PartialSumPolys {
+			var err error
+			if proof[i].PartialSumPolys[k], err = test_vector_utils.SliceToElementSlice(printable[i].PartialSumPolys[k]); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -861,8 +659,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var hash *test_vector_utils.HashMap
-			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash *test_vector_utils.HashMap
+			if _hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
 			var proof Proof
@@ -872,60 +670,37 @@ func newTestCase(path string) (*TestCase, error) {
 
 			fullAssignment := make(WireAssignment)
 			inOutAssignment := make(WireAssignment)
-			assignmentSize := len(info.Input[0])
 
-			{
-				i := len(circuit) - 1
+			setNbOutputs(circuit)
+			inI, outI := 0, 0
 
-				if expected, seen := len(circuit[i]), len(info.Input); expected != seen {
-					return nil, fmt.Errorf("input layer length %d must match that of input vector %d", expected, seen)
+			for i := range circuit {
+				w := &circuit[i]
+
+				var assignmentRaw []interface{}
+				if w.IsInput() {
+					assignmentRaw = info.Input[inI]
+					inI++
+				} else if w.IsOutput() {
+					assignmentRaw = info.Output[outI]
+					outI++
 				}
 
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					var wireAssignment []fr.Element
-					if wireAssignment, err = test_vector_utils.SliceToElementSlice(info.Input[j]); err != nil {
-						return nil, err
-					}
-					fullAssignment[wire] = wireAssignment
-					inOutAssignment[wire] = wireAssignment
-				}
-			}
-
-			for i := len(circuit) - 2; i >= 0; i-- {
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]fr.Element, len(wire.Inputs))
-					for k := range assignment {
-						for l, inputWire := range circuit[i][j].Inputs {
-							in[l] = fullAssignment[inputWire][k]
-						}
-						assignment[k] = wire.Gate.Evaluate(in...)
-					}
-
-					fullAssignment[wire] = assignment
-				}
-			}
-
-			if expected, seen := len(circuit[0]), len(info.Output); expected != seen {
-				return nil, fmt.Errorf("output layer length %d must match that of input vector %d", expected, seen)
-			}
-			for j := range circuit[0] {
-				wire := &circuit[0][j]
-				if inOutAssignment[wire], err = test_vector_utils.SliceToElementSlice(info.Output[j]); err != nil {
+				var wireAssignment []fr.Element
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
 					return nil, err
 				}
-				if err = test_vector_utils.SliceEquals(inOutAssignment[wire], fullAssignment[wire]); err != nil {
-					return nil, err
-				}
+				fullAssignment[w] = wireAssignment
+				inOutAssignment[w] = wireAssignment
 			}
+
+			fullAssignment.Complete(circuit)
 
 			parsedCase = &ParsedTestCase{
 				FullAssignment:  fullAssignment,
 				InOutAssignment: inOutAssignment,
 				Proof:           proof,
-				Hash:            hash,
+				Hash:            _hash,
 				Circuit:         circuit,
 			}
 
@@ -953,4 +728,62 @@ func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 
 func (m mulGate) Degree() int {
 	return 2
+}
+
+func (c Circuit) assignIndexes() {
+	for i := range c {
+		c[i].meta = i
+	}
+}
+
+func TestTopSortTrivial(t *testing.T) {
+	c := make(Circuit, 2)
+	c[0].Inputs = []*Wire{&c[1]}
+	setNbOutputs(c)
+	sorted := topologicalSort(c)
+	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
+}
+
+func TestTopSortDeep(t *testing.T) {
+	c := make(Circuit, 4)
+	c[0].Inputs = []*Wire{&c[2]}
+	c[1].Inputs = []*Wire{&c[3]}
+	c[2].Inputs = []*Wire{}
+	c[3].Inputs = []*Wire{&c[0]}
+	c.assignIndexes()
+	setNbOutputs(c)
+	sorted := topologicalSort(c)
+	printIndexes(sorted)
+	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
+}
+
+func TestTopSortWide(t *testing.T) {
+	c := make(Circuit, 10)
+	c[0].Inputs = []*Wire{&c[3], &c[8]}
+	c[1].Inputs = []*Wire{&c[6]}
+	c[2].Inputs = []*Wire{&c[4]}
+	c[3].Inputs = []*Wire{}
+	c[4].Inputs = []*Wire{}
+	c[5].Inputs = []*Wire{&c[9]}
+	c[6].Inputs = []*Wire{&c[9]}
+	c[7].Inputs = []*Wire{&c[9], &c[5], &c[2]}
+	c[8].Inputs = []*Wire{&c[4], &c[3]}
+	c[9].Inputs = []*Wire{}
+
+	c.assignIndexes()
+	setNbOutputs(c)
+	sorted := topologicalSort(c)
+	printIndexes(sorted)
+	//sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[8], &c[6], &c[2], &c[5], &c[0], &c[1], &c[7]}
+	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
+
+	assert.Equal(t, sortedExpected, sorted)
+}
+
+func printIndexes(sorted []*Wire) {
+	indexes := make([]int, len(sorted))
+	for i := range sorted {
+		indexes[i] = sorted[i].meta
+	}
+	fmt.Println(indexes)
 }
