@@ -671,30 +671,34 @@ func newTestCase(path string) (*TestCase, error) {
 			fullAssignment := make(WireAssignment)
 			inOutAssignment := make(WireAssignment)
 
-			setNbOutputs(circuit)
-			inI, outI := 0, 0
+			sorted := topologicalSort(circuit)
 
-			for i := range circuit {
-				w := &circuit[i]
-
-				var assignmentRaw []interface{}
-				if w.IsInput() {
-					assignmentRaw = info.Input[inI]
-					inI++
-				} else if w.IsOutput() {
-					assignmentRaw = info.Output[outI]
-					outI++
-				}
-
+			for i, assignmentRaw := range info.Input {
 				var wireAssignment []fr.Element
 				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
 					return nil, err
 				}
-				fullAssignment[w] = wireAssignment
-				inOutAssignment[w] = wireAssignment
+				wire := sorted[i]
+				fullAssignment[wire] = wireAssignment
+				inOutAssignment[wire] = wireAssignment
+			}
+
+			for i, assignmentRaw := range info.Output {
+				var wireAssignment []fr.Element
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+					return nil, err
+				}
+				wire := sorted[len(circuit)-1-i]
+				inOutAssignment[wire] = wireAssignment
 			}
 
 			fullAssignment.Complete(circuit)
+
+			for i := len(circuit) - 1; sorted[i].IsOutput(); i-- {
+				if err = test_vector_utils.SliceEquals(inOutAssignment[sorted[i]], fullAssignment[sorted[i]]); err != nil {
+					return nil, fmt.Errorf("assignment mismatch: %v", err)
+				}
+			}
 
 			parsedCase = &ParsedTestCase{
 				FullAssignment:  fullAssignment,
@@ -739,7 +743,6 @@ func (c Circuit) assignIndexes() {
 func TestTopSortTrivial(t *testing.T) {
 	c := make(Circuit, 2)
 	c[0].Inputs = []*Wire{&c[1]}
-	setNbOutputs(c)
 	sorted := topologicalSort(c)
 	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
 }
@@ -751,7 +754,6 @@ func TestTopSortDeep(t *testing.T) {
 	c[2].Inputs = []*Wire{}
 	c[3].Inputs = []*Wire{&c[0]}
 	c.assignIndexes()
-	setNbOutputs(c)
 	sorted := topologicalSort(c)
 	printIndexes(sorted)
 	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
@@ -771,7 +773,6 @@ func TestTopSortWide(t *testing.T) {
 	c[9].Inputs = []*Wire{}
 
 	c.assignIndexes()
-	setNbOutputs(c)
 	sorted := topologicalSort(c)
 	printIndexes(sorted)
 	//sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[8], &c[6], &c[2], &c[5], &c[0], &c[1], &c[7]}
