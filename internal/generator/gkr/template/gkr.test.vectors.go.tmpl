@@ -97,11 +97,11 @@ type PrintableSumcheckProof struct {
 func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
 	proof := make({{$Proof}}, len(printable))
 	for i := range printable {
-		finalEvalProof := []fr.Element(nil)
+		finalEvalProof := []{{.ElementType}}(nil)
 
 		if printable[i].FinalEvalProof != nil {
 			finalEvalSlice := reflect.ValueOf(printable[i].FinalEvalProof)
-			finalEvalProof = make([]fr.Element, finalEvalSlice.Len())
+			finalEvalProof = make([]{{.ElementType}}, finalEvalSlice.Len())
 			for k := range finalEvalProof {
 				if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
 					return nil, err
@@ -184,8 +184,10 @@ func newTestCase(path string) (*TestCase, error) {
 			fullAssignment := make({{$WireAssignment}})
 			inOutAssignment := make({{$WireAssignment}})
 
+			sorted := topologicalSort(circuit)
+
 			for i, assignmentRaw := range info.Input {
-				var wireAssignment []fr.Element
+				var wireAssignment []{{.ElementType}}
 				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
 					return nil, err
 				}
@@ -196,38 +198,20 @@ func newTestCase(path string) (*TestCase, error) {
 			}
 
 			for i, assignmentRaw := range info.Output {
-			var wireAssignment []{{.ElementType}}
-			if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
-				return nil, err
-			}
-
-			for i := len(circuit) - 2; i >= 0; i-- {
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]{{.ElementType}}, len(wire.Inputs))
-					for k := range assignment {
-						for l, inputWire := range circuit[i][j].Inputs {
-							in[l] = fullAssignment[inputWire][k]
-						}
-						assignment[k] = wire.Gate.Evaluate(in...)
-					}
-
-					fullAssignment[wire] = assignment
+				var wireAssignment []{{.ElementType}}
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+					return nil, err
 				}
+				wire := sorted[len(circuit)-1-i]
+				inOutAssignment[wire] = wireAssignment
 			}
+
+			fullAssignment.Complete(circuit)
 
 			{{ if $CheckOutputCorrectness}}
-			if expected, seen := len(circuit[0]), len(info.Output); expected != seen {
-				return nil, fmt.Errorf("output layer length %d must match that of input vector %d", expected, seen)
-			}
-			for j := range circuit[0] {
-				wire := &circuit[0][j]
-				if inOutAssignment[wire], err = test_vector_utils.SliceToElementSlice(info.Output[j]); err != nil {
-					return nil, err
-				}
-				if err = test_vector_utils.SliceEquals(inOutAssignment[wire], fullAssignment[wire]); err != nil {
-					return nil, err
+			for i := len(circuit) - 1; sorted[i].IsOutput(); i-- {
+				if err = test_vector_utils.SliceEquals(inOutAssignment[sorted[i]], fullAssignment[sorted[i]]); err != nil {
+					return nil, fmt.Errorf("assignment mismatch: %v", err)
 				}
 			}
 			{{- else}}

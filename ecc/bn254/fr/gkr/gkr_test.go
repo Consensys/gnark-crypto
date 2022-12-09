@@ -182,8 +182,6 @@ func testNoGate(t *testing.T, inputAssignments ...[]fr.Element) {
 		},
 	}
 
-	c.assignIndexes()
-
 	assignment := WireAssignment{&c[0]: inputAssignments[0]}
 
 	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
@@ -267,6 +265,7 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
+
 	c[1] = Wire{
 		Gate:   IdentityGate{},
 		Inputs: []*Wire{&c[0]},
@@ -499,6 +498,42 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 	return res
 }
 
+func TestTopSortTrivial(t *testing.T) {
+	c := make(Circuit, 2)
+	c[0].Inputs = []*Wire{&c[1]}
+	sorted := topologicalSort(c)
+	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
+}
+
+func TestTopSortDeep(t *testing.T) {
+	c := make(Circuit, 4)
+	c[0].Inputs = []*Wire{&c[2]}
+	c[1].Inputs = []*Wire{&c[3]}
+	c[2].Inputs = []*Wire{}
+	c[3].Inputs = []*Wire{&c[0]}
+	sorted := topologicalSort(c)
+	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
+}
+
+func TestTopSortWide(t *testing.T) {
+	c := make(Circuit, 10)
+	c[0].Inputs = []*Wire{&c[3], &c[8]}
+	c[1].Inputs = []*Wire{&c[6]}
+	c[2].Inputs = []*Wire{&c[4]}
+	c[3].Inputs = []*Wire{}
+	c[4].Inputs = []*Wire{}
+	c[5].Inputs = []*Wire{&c[9]}
+	c[6].Inputs = []*Wire{&c[9]}
+	c[7].Inputs = []*Wire{&c[9], &c[5], &c[2]}
+	c[8].Inputs = []*Wire{&c[4], &c[3]}
+	c[9].Inputs = []*Wire{}
+
+	sorted := topologicalSort(c)
+	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
+
+	assert.Equal(t, sortedExpected, sorted)
+}
+
 type WireInfo struct {
 	Gate   string `json:"gate"`
 	Inputs []int  `json:"inputs"`
@@ -678,6 +713,7 @@ func newTestCase(path string) (*TestCase, error) {
 				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
 					return nil, err
 				}
+
 				wire := sorted[i]
 				fullAssignment[wire] = wireAssignment
 				inOutAssignment[wire] = wireAssignment
@@ -732,59 +768,4 @@ func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 
 func (m mulGate) Degree() int {
 	return 2
-}
-
-func (c Circuit) assignIndexes() {
-	for i := range c {
-		c[i].meta = i
-	}
-}
-
-func TestTopSortTrivial(t *testing.T) {
-	c := make(Circuit, 2)
-	c[0].Inputs = []*Wire{&c[1]}
-	sorted := topologicalSort(c)
-	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
-}
-
-func TestTopSortDeep(t *testing.T) {
-	c := make(Circuit, 4)
-	c[0].Inputs = []*Wire{&c[2]}
-	c[1].Inputs = []*Wire{&c[3]}
-	c[2].Inputs = []*Wire{}
-	c[3].Inputs = []*Wire{&c[0]}
-	c.assignIndexes()
-	sorted := topologicalSort(c)
-	printIndexes(sorted)
-	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
-}
-
-func TestTopSortWide(t *testing.T) {
-	c := make(Circuit, 10)
-	c[0].Inputs = []*Wire{&c[3], &c[8]}
-	c[1].Inputs = []*Wire{&c[6]}
-	c[2].Inputs = []*Wire{&c[4]}
-	c[3].Inputs = []*Wire{}
-	c[4].Inputs = []*Wire{}
-	c[5].Inputs = []*Wire{&c[9]}
-	c[6].Inputs = []*Wire{&c[9]}
-	c[7].Inputs = []*Wire{&c[9], &c[5], &c[2]}
-	c[8].Inputs = []*Wire{&c[4], &c[3]}
-	c[9].Inputs = []*Wire{}
-
-	c.assignIndexes()
-	sorted := topologicalSort(c)
-	printIndexes(sorted)
-	//sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[8], &c[6], &c[2], &c[5], &c[0], &c[1], &c[7]}
-	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
-
-	assert.Equal(t, sortedExpected, sorted)
-}
-
-func printIndexes(sorted []*Wire) {
-	indexes := make([]int, len(sorted))
-	for i := range sorted {
-		indexes[i] = sorted[i].meta
-	}
-	fmt.Println(indexes)
 }

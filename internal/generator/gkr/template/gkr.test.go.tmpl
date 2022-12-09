@@ -487,4 +487,40 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 	return res
 }
 
+func TestTopSortTrivial(t *testing.T) {
+	c := make(Circuit, 2)
+	c[0].Inputs = []*Wire{&c[1]}
+	sorted := topologicalSort(c)
+	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
+}
+
+func TestTopSortDeep(t *testing.T) {
+	c := make(Circuit, 4)
+	c[0].Inputs = []*Wire{&c[2]}
+	c[1].Inputs = []*Wire{&c[3]}
+	c[2].Inputs = []*Wire{}
+	c[3].Inputs = []*Wire{&c[0]}
+	sorted := topologicalSort(c)
+	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
+}
+
+func TestTopSortWide(t *testing.T) {
+	c := make(Circuit, 10)
+	c[0].Inputs = []*Wire{&c[3], &c[8]}
+	c[1].Inputs = []*Wire{&c[6]}
+	c[2].Inputs = []*Wire{&c[4]}
+	c[3].Inputs = []*Wire{}
+	c[4].Inputs = []*Wire{}
+	c[5].Inputs = []*Wire{&c[9]}
+	c[6].Inputs = []*Wire{&c[9]}
+	c[7].Inputs = []*Wire{&c[9], &c[5], &c[2]}
+	c[8].Inputs = []*Wire{&c[4], &c[3]}
+	c[9].Inputs = []*Wire{}
+
+	sorted := topologicalSort(c)
+	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
+
+	assert.Equal(t, sortedExpected, sorted)
+}
+
 {{template "gkrTestVectors" .}}

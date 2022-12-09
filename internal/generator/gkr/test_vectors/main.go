@@ -139,11 +139,11 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 }
 
 type WireInfo struct {
-	Gate   string  `json:"gate"`
-	Inputs [][]int `json:"inputs"`
+	Gate   string `json:"gate"`
+	Inputs []int  `json:"inputs"`
 }
 
-type CircuitInfo [][]WireInfo
+type CircuitInfo []WireInfo
 
 var circuitCache = make(map[string]gkr.Circuit)
 
@@ -171,33 +171,15 @@ func getCircuit(path string) (gkr.Circuit, error) {
 }
 
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
-	isOutput := make(map[*gkr.Wire]interface{})
 	circuit = make(gkr.Circuit, len(c))
-	for i := len(c) - 1; i >= 0; i-- {
-		circuit[i] = make(gkr.CircuitLayer, len(c[i]))
-		for j, wireInfo := range c[i] {
-			circuit[i][j].Gate = gates[wireInfo.Gate]
-			circuit[i][j].Inputs = make([]*gkr.Wire, len(wireInfo.Inputs))
-			isOutput[&circuit[i][j]] = nil
-			for k, inputCoord := range wireInfo.Inputs {
-				if len(inputCoord) != 2 {
-					panic("circuit wire has two coordinates")
-				}
-				input := &circuit[inputCoord[0]][inputCoord[1]]
-				input.NumOutputs++
-				circuit[i][j].Inputs[k] = input
-				delete(isOutput, input)
-			}
-			if (i == len(c)-1) != (len(circuit[i][j].Inputs) == 0) {
-				panic("wire is input if and only if in last layer")
-			}
+	for i := range c {
+		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
+		for k, inputCoord := range c[i].Inputs {
+			input := &circuit[inputCoord]
+			circuit[i].Inputs[k] = input
 		}
 	}
-
-	for k := range isOutput {
-		k.NumOutputs = 1
-	}
-
 	return
 }
 
@@ -233,7 +215,7 @@ func (m mimcCipherGate) Degree() int {
 	return 7
 }
 
-type PrintableProof [][]PrintableSumcheckProof
+type PrintableProof []PrintableSumcheckProof
 
 type PrintableSumcheckProof struct {
 	FinalEvalProof  interface{}     `json:"finalEvalProof"`
@@ -243,29 +225,26 @@ type PrintableSumcheckProof struct {
 func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 	proof := make(gkr.Proof, len(printable))
 	for i := range printable {
-		proof[i] = make([]sumcheck.Proof, len(printable[i]))
-		for j, printableSumcheck := range printable[i] {
-			finalEvalProof := []small_rational.SmallRational(nil)
+		finalEvalProof := []small_rational.SmallRational(nil)
 
-			if printableSumcheck.FinalEvalProof != nil {
-				finalEvalSlice := reflect.ValueOf(printableSumcheck.FinalEvalProof)
-				finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
-				for k := range finalEvalProof {
-					if _, err := finalEvalProof[k].SetInterface(finalEvalSlice.Index(k).Interface()); err != nil {
-						return nil, err
-					}
-				}
-			}
-
-			proof[i][j] = sumcheck.Proof{
-				PartialSumPolys: make([]polynomial.Polynomial, len(printableSumcheck.PartialSumPolys)),
-				FinalEvalProof:  finalEvalProof,
-			}
-			for k := range printableSumcheck.PartialSumPolys {
-				var err error
-				if proof[i][j].PartialSumPolys[k], err = test_vector_utils.SliceToElementSlice(printableSumcheck.PartialSumPolys[k]); err != nil {
+		if printable[i].FinalEvalProof != nil {
+			finalEvalSlice := reflect.ValueOf(printable[i].FinalEvalProof)
+			finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
+			for k := range finalEvalProof {
+				if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
 					return nil, err
 				}
+			}
+		}
+
+		proof[i] = sumcheck.Proof{
+			PartialSumPolys: make([]polynomial.Polynomial, len(printable[i].PartialSumPolys)),
+			FinalEvalProof:  finalEvalProof,
+		}
+		for k := range printable[i].PartialSumPolys {
+			var err error
+			if proof[i].PartialSumPolys[k], err = test_vector_utils.SliceToElementSlice(printable[i].PartialSumPolys[k]); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -321,8 +300,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var hash *test_vector_utils.HashMap
-			if hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash *test_vector_utils.HashMap
+			if _hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
 			var proof gkr.Proof
@@ -332,41 +311,30 @@ func newTestCase(path string) (*TestCase, error) {
 
 			fullAssignment := make(gkr.WireAssignment)
 			inOutAssignment := make(gkr.WireAssignment)
-			assignmentSize := len(info.Input[0])
 
-			{
-				i := len(circuit) - 1
+			sorted := topologicalSort(circuit)
 
-				if expected, seen := len(circuit[i]), len(info.Input); expected != seen {
-					return nil, fmt.Errorf("input layer length %d must match that of input vector %d", expected, seen)
+			for i, assignmentRaw := range info.Input {
+				var wireAssignment []small_rational.SmallRational
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+					return nil, err
 				}
 
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					var wireAssignment []small_rational.SmallRational
-					if wireAssignment, err = test_vector_utils.SliceToElementSlice(info.Input[j]); err != nil {
-						return nil, err
-					}
-					fullAssignment[wire] = wireAssignment
-					inOutAssignment[wire] = wireAssignment
-				}
+				wire := sorted[i]
+				fullAssignment[wire] = wireAssignment
+				inOutAssignment[wire] = wireAssignment
 			}
 
-			for i := len(circuit) - 2; i >= 0; i-- {
-				for j := range circuit[i] {
-					wire := &circuit[i][j]
-					assignment := make(polynomial.MultiLin, assignmentSize)
-					in := make([]small_rational.SmallRational, len(wire.Inputs))
-					for k := range assignment {
-						for l, inputWire := range circuit[i][j].Inputs {
-							in[l] = fullAssignment[inputWire][k]
-						}
-						assignment[k] = wire.Gate.Evaluate(in...)
-					}
-
-					fullAssignment[wire] = assignment
+			for i, assignmentRaw := range info.Output {
+				var wireAssignment []small_rational.SmallRational
+				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+					return nil, err
 				}
+				wire := sorted[len(circuit)-1-i]
+				inOutAssignment[wire] = wireAssignment
 			}
+
+			fullAssignment.Complete(circuit)
 
 			info.Output = make([][]interface{}, len(circuit[0]))
 
@@ -380,7 +348,7 @@ func newTestCase(path string) (*TestCase, error) {
 				FullAssignment:  fullAssignment,
 				InOutAssignment: inOutAssignment,
 				Proof:           proof,
-				Hash:            hash,
+				Hash:            _hash,
 				Circuit:         circuit,
 				Info:            info,
 			}
