@@ -258,7 +258,7 @@ func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 	return z.SetInterface(value)
 }
 
-func SliceToElementSlice(slice []interface{}) ([]fr.Element, error) {
+func SliceToElementSlice[T any](slice []T) ([]fr.Element, error) {
 	elementSlice := make([]fr.Element, len(slice))
 	for i, v := range slice {
 		if _, err := SetElement(&elementSlice[i], v); err != nil {

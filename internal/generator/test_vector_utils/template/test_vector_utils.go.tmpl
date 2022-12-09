@@ -314,7 +314,7 @@ func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 {{- end}}
 {{- end}}
 
-func SliceToElementSlice(slice []interface{}) ([]{{.ElementType}}, error) {
+func SliceToElementSlice[T any](slice []T) ([]{{.ElementType}}, error) {
 	elementSlice := make([]{{.ElementType}}, len(slice))
 	for i, v := range slice {
 		if _, err := {{setElement "elementSlice[i]" "v" .ElementType}}; err != nil {

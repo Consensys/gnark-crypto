@@ -264,7 +264,7 @@ func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.Smal
 	return res
 }
 
-func SliceToElementSlice(slice []interface{}) ([]small_rational.SmallRational, error) {
+func SliceToElementSlice[T any](slice []T) ([]small_rational.SmallRational, error) {
 	elementSlice := make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
 		if _, err := elementSlice[i].SetInterface(v); err != nil {
