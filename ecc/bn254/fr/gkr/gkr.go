@@ -390,7 +390,6 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	for _, option := range options {
 		option(&o)
 	}
-	setNbOutputs(c) // TODO: Already done in Complete. Find a way to remove
 	cS := topologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
@@ -433,7 +432,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 	for _, option := range options {
 		option(&o)
 	}
-	setNbOutputs(c) // TODO: Already done in Complete. Find a way to remove
 	cS := topologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
@@ -494,40 +492,6 @@ func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
 
 func (IdentityGate) Degree() int {
 	return 1
-}
-
-// TODO: Make non-pointer
-
-func setHas[T comparable](set *map[T]struct{}, elt T) bool {
-	_, ok := (*set)[elt]
-	return ok
-}
-
-func setAdd[T comparable](set *map[T]struct{}, elt T) {
-	(*set)[elt] = struct{}{}
-}
-
-func setClear[T comparable](set *map[T]struct{}) {
-	for k := range *set {
-		delete(*set, k)
-	}
-}
-
-func setNbOutputs(c Circuit) {
-	for i := range c {
-		c[i].nbOutputs = 0
-	}
-	seen := make(map[*Wire]struct{}, len(c))
-	for i := range c {
-		setClear(&seen)
-
-		for _, wIn := range c[i].Inputs {
-			if !setHas(&seen, wIn) {
-				setAdd(&seen, wIn)
-				wIn.nbOutputs++
-			}
-		}
-	}
 }
 
 // outputsList also sets the nbOutputs fields
@@ -626,7 +590,6 @@ func topologicalSort(c Circuit) []*Wire {
 // Complete the circuit evaluation from input values
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
-	setNbOutputs(c)
 	sortedWires := topologicalSort(c)
 
 	numEvaluations := 0
