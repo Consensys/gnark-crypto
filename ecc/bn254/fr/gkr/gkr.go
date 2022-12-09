@@ -34,8 +34,8 @@ type Gate interface {
 type Wire struct {
 	Gate      Gate
 	Inputs    []*Wire // if there are no Inputs, the wire is assumed an input wire
-	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one) No need to set this manually. TODO: Make private?
-	meta      int     // TODO: Remove
+	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one)
+	metadata  string  // names and the like, for debugging
 }
 
 type Circuit []Wire
@@ -426,7 +426,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 }
 
 // Verify the consistency of the claimed output with the claimed input
-// Unlike in Prove, the assignment argument need not be Complete
+// Unlike in Prove, the assignment argument need not be complete
 func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, options ...Option) bool {
 	var o _options
 	for _, option := range options {
@@ -471,18 +471,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 	}
 	return true
 }
-
-/*func UniqueChallengeNames(c Circuit, prefix string) (names [][]string, proofSize int) {
-	names = make([][]string, 0, len(c)*2)
-	for i, layerI := range c {
-		for j := range layerI {
-			w := &layerI[j]
-			if !w.IsInput() || w.NbOutputs > 1 {
-
-			}
-		}
-	}
-}*/
 
 type IdentityGate struct{}
 
