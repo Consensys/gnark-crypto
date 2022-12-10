@@ -761,11 +761,11 @@ func newTestCase(path string) (*TestCase, error) {
 
 type mulGate struct{}
 
-func (m mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
+func (g mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 	result.Mul(&element[0], &element[1])
 	return
 }
 
-func (m mulGate) Degree() int {
+func (g mulGate) Degree() int {
 	return 2
 }

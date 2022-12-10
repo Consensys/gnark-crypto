@@ -390,7 +390,7 @@ func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticT
 	for _, option := range options {
 		option(&o)
 	}
-	cS := topologicalSort(c)
+	cS := TopologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
@@ -432,7 +432,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 	for _, option := range options {
 		option(&o)
 	}
-	cS := topologicalSort(c)
+	cS := TopologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
@@ -539,7 +539,7 @@ func statusList(c Circuit) []int {
 	return res
 }
 
-// topologicalSort sorts the wires in order of dependence. In particular, all the input
+// TopologicalSort sorts the wires in order of dependence. In particular, all the input
 // wires come first and all the output ones come last. It requires the nbOutputs values to be set.
 // It also tries to stick to the input order as much as possible. It also sets the nbOutput flags.
 // It's rather inefficient asymptotically O(n^2), but that probably won't matter since the circuits are small
@@ -578,7 +578,7 @@ func TopologicalSort(c Circuit) []*Wire {
 // Complete the circuit evaluation from input values
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
-	sortedWires := topologicalSort(c)
+	sortedWires := TopologicalSort(c)
 
 	numEvaluations := 0
 

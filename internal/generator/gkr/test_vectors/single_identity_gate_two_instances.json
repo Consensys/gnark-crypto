@@ -18,16 +18,16 @@
 			"finalEvalProof": [],
 			"partialSumPolys": []
 		},
-			{
-				"finalEvalProof": [
-					3
-				],
-				"partialSumPolys": [
-					[
-						3,
-						4
-					]
+		{
+			"finalEvalProof": [
+				3
+			],
+			"partialSumPolys": [
+				[
+					3,
+					4
 				]
-			}
-		]
+			]
+		}
+	]
 }

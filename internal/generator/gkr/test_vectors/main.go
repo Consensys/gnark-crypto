@@ -31,7 +31,8 @@ import (
 
 func main() {
 	if err := func() error {
-		err := GenerateVectors()
+		//err := GenerateVectors()
+		err := RunThatOneThing()
 		for path, hash := range test_vector_utils.HashCache {
 			if err := hash.SaveUsedEntries(path); err != nil {
 				return err
@@ -42,6 +43,63 @@ func main() {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
+}
+
+func RunThatOneThing() error {
+	testDirPath, err := filepath.Abs("internal/generator/gkr/test_vectors")
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("generating GKR test cases: scanning directory %s for test specs\n", testDirPath)
+
+	name := "single_input_two_outs_two_instances.json"
+	fmt.Println("\tprocessing", name)
+
+	path := filepath.Join(testDirPath, name)
+
+	var testCase *TestCase
+	testCase, err = newTestCase(path)
+	if err != nil {
+		return err
+	}
+
+	testCase.Transcript.Update(0)
+	proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+
+	if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
+		return err
+	}
+	var outBytes []byte
+	if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
+		if err = os.WriteFile(path, outBytes, 0); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	testCase, err = newTestCase(path)
+	if err != nil {
+		return err
+	}
+	testCase.Transcript.Update(0)
+
+	if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
+		return fmt.Errorf("verification failed")
+	}
+
+	testCase, err = newTestCase(path)
+	if err != nil {
+		return err
+	}
+	testCase.Transcript.Update(1)
+
+	if gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
+		return fmt.Errorf("verification should have failed")
+	}
+
+	return nil
 }
 
 func GenerateVectors() error {
@@ -329,12 +387,10 @@ func newTestCase(path string) (*TestCase, error) {
 
 			fullAssignment.Complete(circuit)
 
-			info.Output = make([][]interface{}, len(circuit[0]))
-
-			for j := range circuit[0] {
-				wire := &circuit[0][j]
-				inOutAssignment[wire] = fullAssignment[wire]
-				info.Output[j] = test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[wire])
+			info.Output = make([][]interface{}, 0)
+			for i := len(circuit) - 1; i >= 0 && sorted[i].IsOutput(); i-- {
+				inOutAssignment[sorted[i]] = fullAssignment[sorted[i]]
+				info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[sorted[i]]))
 			}
 
 			parsedCase = &ParsedTestCase{
@@ -364,11 +420,11 @@ func newTestCase(path string) (*TestCase, error) {
 
 type mulGate struct{}
 
-func (m mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
+func (g mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
 	result.Mul(&element[0], &element[1])
 	return
 }
 
-func (m mulGate) Degree() int {
+func (g mulGate) Degree() int {
 	return 2
 }

@@ -18,38 +18,38 @@
 		]
 	],
 	"proof": [
-			{
-				"finalEvalProof": [
-					5
-				],
-				"partialSumPolys": [
-					[
-						3,
-						8
-					]
+		{
+			"finalEvalProof": [
+				-2
+			],
+			"partialSumPolys": [
+				[
+					-27,
+					-96
 				]
-			},
-			{
-				"finalEvalProof": [
-					5
-				],
-				"partialSumPolys": [
-					[
-						3,
-						8
-					]
+			]
+		},
+		{
+			"finalEvalProof": [
+				5
+			],
+			"partialSumPolys": [
+				[
+					3,
+					8
 				]
-			},
-			{
-				"finalEvalProof": [
-					-2
-				],
-				"partialSumPolys": [
-					[
-						-27,
-						-96
-					]
+			]
+		},
+		{
+			"finalEvalProof": [
+				5
+			],
+			"partialSumPolys": [
+				[
+					3,
+					8
 				]
-			}
-		]
+			]
+		}
+	]
 }
