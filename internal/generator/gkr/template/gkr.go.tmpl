@@ -19,7 +19,7 @@ type Wire struct {
 	Gate      Gate
 	Inputs    []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one)
-	metadata  string // names and the like, for debugging
+	//metadata  string // names and the like, for debugging
 }
 
 type Circuit []Wire
@@ -494,7 +494,6 @@ type topSortData struct {
 	outputs    [][]int
 	status     []int // status > 0 indicates number of inputs left to be ready. status = 0 means ready. status = -1 means done
 	index      map[*Wire]int
-	c          Circuit
 	leastReady int
 }
 
