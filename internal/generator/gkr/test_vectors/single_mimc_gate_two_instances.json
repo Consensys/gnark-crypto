@@ -18,35 +18,31 @@
 		]
 	],
 	"proof": [
-		[
-			{
-				"finalEvalProof": [
-					1,
-					5
-				],
-				"partialSumPolys": [
-					[
-						2187,
-						32768,
-						234375,
-						1119744,
-						4117715,
-						12582912,
-						33480783,
-						80000000
-					]
+		{
+			"finalEvalProof": [],
+			"partialSumPolys": []
+		},
+		{
+			"finalEvalProof": [],
+			"partialSumPolys": []
+		},
+		{
+			"finalEvalProof": [
+				1,
+				4
+			],
+			"partialSumPolys": [
+				[
+					2187,
+					32768,
+					234375,
+					1119744,
+					4117715,
+					12582912,
+					33480783,
+					80000000
 				]
-			}
-		],
-		[
-			{
-				"finalEvalProof": [],
-				"partialSumPolys": []
-			},
-			{
-				"finalEvalProof": [],
-				"partialSumPolys": []
-			}
-		]
+			]
+		}
 	]
 }

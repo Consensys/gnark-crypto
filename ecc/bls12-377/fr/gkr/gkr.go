@@ -489,11 +489,18 @@ func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 		res[i] = make([]int, 0)
 		c[i].nbOutputs = 0
 	}
+	ins := make(map[int]struct{}, len(c))
 	for i := range c {
+		for k := range ins { // clear map
+			delete(ins, k)
+		}
 		for _, in := range c[i].Inputs {
 			inI := indexes[in]
 			res[inI] = append(res[inI], i)
-			in.nbOutputs++
+			if _, ok := ins[inI]; !ok {
+				in.nbOutputs++
+				ins[inI] = struct{}{}
+			}
 		}
 	}
 	return res
