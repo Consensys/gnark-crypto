@@ -539,37 +539,23 @@ func statusList(c Circuit) []int {
 	return res
 }
 
-// topologicalSort sorts the wires in order of dependence. In particular, all the input
-// wires come first and all the output ones come last. It requires the nbOutputs values to be set.
-// It also tries to stick to the input order as much as possible. It also sets the nbOutput flags.
-// It's rather inefficient asymptotically O(n^2), but that probably won't matter since the circuits are small
+// topologicalSort sorts the wires in order of dependence. Such that for any wire, any one it depends on
+// occurs before it. It tries to stick to the input order as much as possible. An already sorted list will remain unchanged.
+// It also sets the nbOutput flags. Worst-case inefficient O(n^2), but that probably won't matter since the circuits are small.
+// Furthermore, it is efficient with already-close-to-sorted lists, which are the expected input
 func topologicalSort(c Circuit) []*Wire {
 	var data topSortData
 	data.index = indexMap(c)
 	data.outputs = outputsList(c, data.index)
 	data.status = statusList(c)
-	data.leastReady = len(c)
-
 	sorted := make([]*Wire, len(c))
 
-	leftI := 0
-	rightI := len(c) - 1
-	for i := range c {
-		if c[i].IsInput() {
-			sorted[leftI] = &c[i]
-			data.markDone(i)
-			leftI++
-		} else if c[i].IsOutput() {
-			sorted[rightI] = &c[i]
-			data.markDone(i)
-			rightI--
-		}
+	for data.leastReady = 0; data.status[data.leastReady] != 0; data.leastReady++ {
 	}
 
-	for leftI <= rightI {
-		sorted[leftI] = &c[data.leastReady]
+	for i := range c {
+		sorted[i] = &c[data.leastReady]
 		data.markDone(data.leastReady)
-		leftI++
 	}
 
 	return sorted

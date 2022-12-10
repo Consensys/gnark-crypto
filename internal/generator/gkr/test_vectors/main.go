@@ -31,8 +31,7 @@ import (
 
 func main() {
 	if err := func() error {
-		//err := GenerateVectors()
-		err := RunThatOneThing()
+		err := GenerateVectors()
 		for path, hash := range test_vector_utils.HashCache {
 			if err := hash.SaveUsedEntries(path); err != nil {
 				return err
@@ -43,63 +42,6 @@ func main() {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
-}
-
-func RunThatOneThing() error {
-	testDirPath, err := filepath.Abs("internal/generator/gkr/test_vectors")
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("generating GKR test cases: scanning directory %s for test specs\n", testDirPath)
-
-	name := "single_input_two_outs_two_instances.json"
-	fmt.Println("\tprocessing", name)
-
-	path := filepath.Join(testDirPath, name)
-
-	var testCase *TestCase
-	testCase, err = newTestCase(path)
-	if err != nil {
-		return err
-	}
-
-	testCase.Transcript.Update(0)
-	proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-
-	if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
-		return err
-	}
-	var outBytes []byte
-	if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
-		if err = os.WriteFile(path, outBytes, 0); err != nil {
-			return err
-		}
-	} else {
-		return err
-	}
-
-	testCase, err = newTestCase(path)
-	if err != nil {
-		return err
-	}
-	testCase.Transcript.Update(0)
-
-	if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-		return fmt.Errorf("verification failed")
-	}
-
-	testCase, err = newTestCase(path)
-	if err != nil {
-		return err
-	}
-	testCase.Transcript.Update(1)
-
-	if gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-		return fmt.Errorf("verification should have failed")
-	}
-
-	return nil
 }
 
 func GenerateVectors() error {

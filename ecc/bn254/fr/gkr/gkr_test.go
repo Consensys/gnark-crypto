@@ -529,7 +529,7 @@ func TestTopSortWide(t *testing.T) {
 	c[9].Inputs = []*Wire{}
 
 	sorted := topologicalSort(c)
-	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
+	sortedExpected := []*Wire{&c[3], &c[4], &c[2], &c[8], &c[0], &c[9], &c[5], &c[6], &c[1], &c[7]}
 
 	assert.Equal(t, sortedExpected, sorted)
 }
