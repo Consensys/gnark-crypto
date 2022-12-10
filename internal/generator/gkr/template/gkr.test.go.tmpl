@@ -17,6 +17,7 @@ import (
 )
 
 {{$GenerateLargeTests := .GenerateTests}} {{/* this is redundant. soon to be removed if a use case for it doesn't come back */}}
+{{$topologicalSort := select (eq .ElementType "fr.Element") "TopologicalSort" "topologicalSort"}}
 
 func TestNoGateTwoInstances(t *testing.T) {
 	// Testing a single instance is not possible because the sumcheck implementation doesn't cover the trivial 0-variate case
@@ -490,7 +491,7 @@ func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
 func TestTopSortTrivial(t *testing.T) {
 	c := make(Circuit, 2)
 	c[0].Inputs = []*Wire{&c[1]}
-	sorted := topologicalSort(c)
+	sorted := {{$topologicalSort}}(c)
 	assert.Equal(t, []*Wire{&c[1], &c[0]}, sorted)
 }
 
@@ -500,7 +501,7 @@ func TestTopSortDeep(t *testing.T) {
 	c[1].Inputs = []*Wire{&c[3]}
 	c[2].Inputs = []*Wire{}
 	c[3].Inputs = []*Wire{&c[0]}
-	sorted := topologicalSort(c)
+	sorted := {{$topologicalSort}}(c)
 	assert.Equal(t, []*Wire{&c[2], &c[0], &c[3], &c[1]}, sorted)
 }
 
@@ -517,7 +518,7 @@ func TestTopSortWide(t *testing.T) {
 	c[8].Inputs = []*Wire{&c[4], &c[3]}
 	c[9].Inputs = []*Wire{}
 
-	sorted := topologicalSort(c)
+	sorted := {{$topologicalSort}}(c)
 	sortedExpected := []*Wire{&c[3], &c[4], &c[9], &c[2], &c[5], &c[6], &c[8], &c[7], &c[1], &c[0]}
 
 	assert.Equal(t, sortedExpected, sorted)

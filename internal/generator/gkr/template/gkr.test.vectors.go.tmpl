@@ -46,7 +46,7 @@ func (c CircuitInfo) toCircuit() (circuit {{$Circuit}}) {
 	circuit = make({{$Circuit}}, len(c))
 	for i := range c {
 		circuit[i].Gate = gates[c[i].Gate]
-		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
+		circuit[i].Inputs = make([]*{{$Wire}}, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
 			circuit[i].Inputs[k] = input
@@ -103,7 +103,7 @@ func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
 			finalEvalSlice := reflect.ValueOf(printable[i].FinalEvalProof)
 			finalEvalProof = make([]{{.ElementType}}, finalEvalSlice.Len())
 			for k := range finalEvalProof {
-				if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
+				if _, err := {{ setElement "finalEvalProof[k]" "finalEvalSlice.Index(k).Interface()" .ElementType}}; err != nil {
 					return nil, err
 				}
 			}
@@ -184,7 +184,7 @@ func newTestCase(path string) (*TestCase, error) {
 			fullAssignment := make({{$WireAssignment}})
 			inOutAssignment := make({{$WireAssignment}})
 
-			sorted := topologicalSort(circuit)
+			sorted := {{select .OutsideGkrPackage "t" "gkr.T"}}opologicalSort(circuit)
 
 			for i, assignmentRaw := range info.Input {
 				var wireAssignment []{{.ElementType}}
@@ -215,12 +215,10 @@ func newTestCase(path string) (*TestCase, error) {
 				}
 			}
 			{{- else}}
-			info.Output = make([][]interface{}, len(circuit[0]))
-
-			for j := range circuit[0] {
-				wire := &circuit[0][j]
-				inOutAssignment[wire] = fullAssignment[wire]
-				info.Output[j] = test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[wire])
+			info.Output = make([][]interface{}, 0)
+			for i := len(circuit) - 1; i >= 0 && sorted[i].IsOutput(); i-- {
+				inOutAssignment[sorted[i]] = fullAssignment[sorted[i]]
+				info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[sorted[i]]))
 			}
 			{{- end}}
 
@@ -251,12 +249,12 @@ func newTestCase(path string) (*TestCase, error) {
 
 type mulGate struct{}
 
-func (m mulGate) Evaluate(element ...{{.ElementType}}) (result {{.ElementType}}) {
+func (g mulGate) Evaluate(element ...{{.ElementType}}) (result {{.ElementType}}) {
 	result.Mul(&element[0], &element[1])
 	return
 }
 
-func (m mulGate) Degree() int {
+func (g mulGate) Degree() int {
 	return 2
 }
 

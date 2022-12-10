@@ -98,23 +98,16 @@ func GenerateVectors() error {
 func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	res := make(PrintableProof, len(proof))
 
-	for i, proofI := range proof {
-		if proofI == nil {
-			res[i] = nil
-		} else {
-			res[i] = make([]PrintableSumcheckProof, len(proofI))
-			for j, proofIJ := range proofI {
+	for i := range proof {
 
-				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
-				for k, partialK := range proofIJ.PartialSumPolys {
-					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
-				}
+		partialSumPolys := make([][]interface{}, len(proof[i].PartialSumPolys))
+		for k, partialK := range proof[i].PartialSumPolys {
+			partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
+		}
 
-				res[i][j] = PrintableSumcheckProof{
-					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
-					PartialSumPolys: partialSumPolys,
-				}
-			}
+		res[i] = PrintableSumcheckProof{
+			FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proof[i].FinalEvalProof),
+			PartialSumPolys: partialSumPolys,
 		}
 	}
 	return res, nil

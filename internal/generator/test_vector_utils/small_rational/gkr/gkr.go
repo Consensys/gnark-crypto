@@ -543,7 +543,7 @@ func statusList(c Circuit) []int {
 // wires come first and all the output ones come last. It requires the nbOutputs values to be set.
 // It also tries to stick to the input order as much as possible. It also sets the nbOutput flags.
 // It's rather inefficient asymptotically O(n^2), but that probably won't matter since the circuits are small
-func topologicalSort(c Circuit) []*Wire {
+func TopologicalSort(c Circuit) []*Wire {
 	var data topSortData
 	data.index = indexMap(c)
 	data.outputs = outputsList(c, data.index)

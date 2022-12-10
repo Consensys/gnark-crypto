@@ -116,23 +116,16 @@ func GenerateVectors() error {
 func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	res := make(PrintableProof, len(proof))
 
-	for i, proofI := range proof {
-		if proofI == nil {
-			res[i] = nil
-		} else {
-			res[i] = make([]PrintableSumcheckProof, len(proofI))
-			for j, proofIJ := range proofI {
+	for i := range proof {
 
-				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
-				for k, partialK := range proofIJ.PartialSumPolys {
-					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
-				}
+		partialSumPolys := make([][]interface{}, len(proof[i].PartialSumPolys))
+		for k, partialK := range proof[i].PartialSumPolys {
+			partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
+		}
 
-				res[i][j] = PrintableSumcheckProof{
-					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
-					PartialSumPolys: partialSumPolys,
-				}
-			}
+		res[i] = PrintableSumcheckProof{
+			FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proof[i].FinalEvalProof),
+			PartialSumPolys: partialSumPolys,
 		}
 	}
 	return res, nil
@@ -174,7 +167,7 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
 		circuit[i].Gate = gates[c[i].Gate]
-		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
+		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
 			circuit[i].Inputs[k] = input
@@ -231,7 +224,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 			finalEvalSlice := reflect.ValueOf(printable[i].FinalEvalProof)
 			finalEvalProof = make([]small_rational.SmallRational, finalEvalSlice.Len())
 			for k := range finalEvalProof {
-				if _, err := test_vector_utils.SetElement(&finalEvalProof[k], finalEvalSlice.Index(k).Interface()); err != nil {
+				if _, err := finalEvalProof[k].SetInterface(finalEvalSlice.Index(k).Interface()); err != nil {
 					return nil, err
 				}
 			}
@@ -312,7 +305,7 @@ func newTestCase(path string) (*TestCase, error) {
 			fullAssignment := make(gkr.WireAssignment)
 			inOutAssignment := make(gkr.WireAssignment)
 
-			sorted := topologicalSort(circuit)
+			sorted := gkr.TopologicalSort(circuit)
 
 			for i, assignmentRaw := range info.Input {
 				var wireAssignment []small_rational.SmallRational
