@@ -307,32 +307,43 @@ func newTestCase(path string) (*TestCase, error) {
 
 			sorted := gkr.TopologicalSort(circuit)
 
-			for i, assignmentRaw := range info.Input {
-				var wireAssignment []small_rational.SmallRational
-				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
-					return nil, err
+			inI, outI := 0, 0
+			for _, w := range sorted {
+				var assignmentRaw []interface{}
+				if w.IsInput() {
+					if inI == len(info.Input) {
+						return nil, fmt.Errorf("fewer input in vector than in circuit")
+					}
+					assignmentRaw = info.Input[inI]
+					inI++
+				} else if w.IsOutput() {
+					if outI == len(info.Output) {
+						return nil, fmt.Errorf("fewer output in vector than in circuit")
+					}
+					assignmentRaw = info.Output[outI]
+					outI++
 				}
+				if assignmentRaw != nil {
+					var wireAssignment []small_rational.SmallRational
+					if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+						return nil, err
+					}
 
-				wire := sorted[i]
-				fullAssignment[wire] = wireAssignment
-				inOutAssignment[wire] = wireAssignment
-			}
-
-			for i, assignmentRaw := range info.Output {
-				var wireAssignment []small_rational.SmallRational
-				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
-					return nil, err
+					fullAssignment[w] = wireAssignment
+					inOutAssignment[w] = wireAssignment
 				}
-				wire := sorted[len(circuit)-1-i]
-				inOutAssignment[wire] = wireAssignment
 			}
 
 			fullAssignment.Complete(circuit)
 
-			info.Output = make([][]interface{}, 0)
-			for i := len(circuit) - 1; i >= 0 && sorted[i].IsOutput(); i-- {
-				inOutAssignment[sorted[i]] = fullAssignment[sorted[i]]
-				info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[sorted[i]]))
+			info.Output = make([][]interface{}, 0, outI)
+
+			for _, w := range sorted {
+				if w.IsOutput() {
+
+					info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[w]))
+
+				}
 			}
 
 			parsedCase = &ParsedTestCase{

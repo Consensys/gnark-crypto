@@ -186,41 +186,50 @@ func newTestCase(path string) (*TestCase, error) {
 
 			sorted := {{select .OutsideGkrPackage "t" "gkr.T"}}opologicalSort(circuit)
 
-			for i, assignmentRaw := range info.Input {
-				var wireAssignment []{{.ElementType}}
-				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
-					return nil, err
+			inI, outI := 0, 0
+			for _, w := range sorted {
+				var assignmentRaw []interface{}
+				if w.IsInput() {
+					if inI == len(info.Input) {
+						return nil, fmt.Errorf("fewer input in vector than in circuit")
+					}
+					assignmentRaw = info.Input[inI]
+					inI++
+				} else if w.IsOutput() {
+					if outI == len(info.Output) {
+						return nil, fmt.Errorf("fewer output in vector than in circuit")
+					}
+					assignmentRaw = info.Output[outI]
+					outI++
 				}
-
-				wire := sorted[i]
-				fullAssignment[wire] = wireAssignment
-				inOutAssignment[wire] = wireAssignment
-			}
-
-			for i, assignmentRaw := range info.Output {
-				var wireAssignment []{{.ElementType}}
-				if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
+				if assignmentRaw != nil {
+					var wireAssignment []{{.ElementType}}
+					if wireAssignment, err = test_vector_utils.SliceToElementSlice(assignmentRaw); err != nil {
 					return nil, err
+					}
+
+					fullAssignment[w] = wireAssignment
+					inOutAssignment[w] = wireAssignment
 				}
-				wire := sorted[len(circuit)-1-i]
-				inOutAssignment[wire] = wireAssignment
 			}
 
 			fullAssignment.Complete(circuit)
 
-			{{ if $CheckOutputCorrectness}}
-			for i := len(circuit) - 1; sorted[i].IsOutput(); i-- {
-				if err = test_vector_utils.SliceEquals(inOutAssignment[sorted[i]], fullAssignment[sorted[i]]); err != nil {
-					return nil, fmt.Errorf("assignment mismatch: %v", err)
+			{{if not $CheckOutputCorrectness}}
+				info.Output = make([][]interface{}, 0, outI)
+			{{end}}
+
+			for _, w := range sorted {
+				if w.IsOutput() {
+				{{if $CheckOutputCorrectness}}
+					if err = test_vector_utils.SliceEquals(inOutAssignment[w], fullAssignment[w]); err != nil {
+						return nil, fmt.Errorf("assignment mismatch: %v", err)
+					}
+				{{else}}
+					info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[w]))
+				{{end}}
 				}
 			}
-			{{- else}}
-			info.Output = make([][]interface{}, 0)
-			for i := len(circuit) - 1; i >= 0 && sorted[i].IsOutput(); i-- {
-				inOutAssignment[sorted[i]] = fullAssignment[sorted[i]]
-				info.Output = append(info.Output, test_vector_utils.ElementSliceToInterfaceSlice(inOutAssignment[sorted[i]]))
-			}
-			{{- end}}
 
 			parsedCase = &ParsedTestCase{
 				FullAssignment:  fullAssignment,
