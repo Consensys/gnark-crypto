@@ -35,20 +35,11 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
 	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
 
-	/*
-		Z := fp.Element{18446744073709551585, 18446744073709551615, 18446744073709551615, 576460752303422960}
-		c1 := fp.Element{18446744073709551489, 18446744073709551615, 18446744073709551615, 576460752303421328}
-		c2 := fp.Element{1655860700686938576, 954628823010191568, 14800770664962874450, 27775753394754209}
-		c3 := fp.Element{8072155923723589650, 1826651701527873886, 1065691404236917014, 28991655086233861}
-		c4 := fp.Element{1103907133791292544, 636419215340127712, 16016095134545100172, 18517168929838859}
-	*/
-
-	var Z, c1, c2, c3, c4 fp.Element
-	Z.SetString("1")
-	c1.SetString("3141592653589793238462643383279502884197169399375105820974944592307816406667")
-	c2.SetString("1809251394333065606848661391547535052811553607665798349986546028067936010240")
-	c3.SetString("747120397548504753672821049844706693752799645928246271384591722031176001048")
-	c4.SetString("272520077186478842991245371323181269386250180546566216570369979330317493608")
+	Z := fp.Element{18446744073709551585, 18446744073709551615, 18446744073709551615, 576460752303422960}
+	c1 := fp.Element{3863487492851900810, 7432612994240712710, 12360725113329547591, 88155977965379647}
+	c2 := fp.Element{16, 0, 0, 272}
+	c3 := fp.Element{9918255022489886019, 17523995898334911653, 15291095870552318715, 510280297527296511}
+	c4 := fp.Element{13603787781549958066, 11564287495042065550, 842475966830066354, 443734371708431777}
 
 	one.SetOne()
 
@@ -71,9 +62,9 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
 	// gx1NotSquare = 0 if gx1 is a square, -1 otherwise
 
-	x2.Add(&c2, &tv4) //    16.  x2 = c2 + tv4
-	gx2.Square(&x2)   //    17. gx2 = x2²
-	//    18. gx2 = gx2 + A     See line 12
+	x2.Add(&c2, &tv4)           //    16.  x2 = c2 + tv4
+	gx2.Square(&x2)             //    17. gx2 = x2²
+	gx2.Add(&gx2, &one)         //    18. gx2 = gx2 + A (A=1)
 	gx2.Mul(&gx2, &x2)          //    19. gx2 = gx2 * x2
 	gx2.Add(&gx2, &bCurveCoeff) //    20. gx2 = gx2 + B
 
@@ -92,8 +83,8 @@ func mapToCurve1(u *fp.Element) G1Affine {
 	// Select x1 iff gx1 is square iff gx1NotSquare = 0
 	x.Select(gx1SquareOrGx2Not, &x2, &x) //    28.   x = CMOV(x, x2, e2)    # x = x2 if gx2 is square and gx1 is not
 	// Select x2 iff gx2 is square and gx1 is not, iff gx1SquareOrGx2Not = 0
-	gx.Square(&x) //    29.  gx = x²
-	//    30.  gx = gx + A
+	gx.Square(&x)     //    29.  gx = x²
+	gx.Add(&gx, &one) //    30.  gx = gx + A (A=1)
 
 	gx.Mul(&gx, &x)           //    31.  gx = gx * x
 	gx.Add(&gx, &bCurveCoeff) //    32.  gx = gx + B
