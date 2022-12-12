@@ -3,25 +3,23 @@ package fiatshamir
 import "hash"
 
 type Settings struct {
-	Transcript         Transcript
-	Prefix             string
-	BaseChallenges     [][]byte
-	Hash               hash.Hash
-	TranscriptProvided bool
+	Transcript     *Transcript
+	Prefix         string
+	BaseChallenges [][]byte
+	Hash           hash.Hash
 }
 
-func WithTranscript(transcript Transcript, prefix string, baseChallenges ...[]byte) Settings {
+func WithTranscript(transcript *Transcript, prefix string, baseChallenges ...[]byte) Settings {
 	return Settings{
-		Transcript:         transcript,
-		Prefix:             prefix,
-		TranscriptProvided: true,
+		Transcript:     transcript,
+		Prefix:         prefix,
+		BaseChallenges: baseChallenges,
 	}
 }
 
 func WithBaseChallenge(hash hash.Hash, baseChallenges [][]byte) Settings {
 	return Settings{
-		BaseChallenges:     baseChallenges,
-		Hash:               hash,
-		TranscriptProvided: false,
+		BaseChallenges: baseChallenges,
+		Hash:           hash,
 	}
 }

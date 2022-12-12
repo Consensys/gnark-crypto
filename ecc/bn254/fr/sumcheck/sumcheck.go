@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"hash"
 	"strconv"
 )
 
@@ -75,8 +76,9 @@ func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) 
 	for i := 0; i < varsNum; i++ {
 		challengeNames[i+numChallenges-varsNum] = prefix + strconv.Itoa(i)
 	}
-	if !settings.TranscriptProvided {
-		settings.Transcript = fiatshamir.NewTranscript(settings.Hash, challengeNames...)
+	if settings.Transcript == nil {
+		transcript := fiatshamir.NewTranscript(settings.Hash, challengeNames...)
+		settings.Transcript = &transcript
 	}
 
 	for i := range settings.BaseChallenges {
@@ -85,7 +87,7 @@ func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) 
 	return
 }
 
-func next(transcript fiatshamir.Transcript, bindings []fr.Element, remainingChallengeNames *[]string) (fr.Element, error) {
+func next(transcript *fiatshamir.Transcript, bindings []fr.Element, remainingChallengeNames *[]string) (fr.Element, error) {
 	challengeName := (*remainingChallengeNames)[0]
 	for i := range bindings {
 		bytes := bindings[i].Bytes()
@@ -96,6 +98,9 @@ func next(transcript fiatshamir.Transcript, bindings []fr.Element, remainingChal
 	var res fr.Element
 	bytes, err := transcript.ComputeChallenge(challengeName)
 	res.SetBytes(bytes)
+
+	*remainingChallengeNames = (*remainingChallengeNames)[1:]
+
 	return res, err
 }
 
@@ -185,53 +190,46 @@ func Verify(claims LazyClaims, proof Proof, transcriptSettings fiatshamir.Settin
 
 // -------- fiatshamir  --------- TODO: Replace with existing fiat-shamir impl
 
-// This is an implementation of Fiat-Shamir optimized for in-circuit verifiers.
-// i.e. the hashes used operate on and return field elements.
-
-type ArithmeticTranscript interface {
-	Update(...interface{})
-	Next(...interface{}) fr.Element
-	NextN(int, ...interface{}) []fr.Element
-}
-
 // This is a very bad fiat-shamir challenge generator
 type MessageCounter struct {
-	state   uint64
-	step    uint64
-	updated bool
+	state uint64
+	step  uint64
 }
 
-func (m *MessageCounter) Update(i ...interface{}) {
-	m.state += m.step
-	m.updated = true
+func (m *MessageCounter) Write(p []byte) (n int, err error) {
+	inputBlockSize := (len(p)-1)/fr.Bytes + 1
+	m.step += uint64(inputBlockSize) * m.step
+	return len(p), nil
 }
 
-func (m *MessageCounter) Next(i ...interface{}) (challenge fr.Element) {
-	if !m.updated || len(i) != 0 {
-		m.Update(i)
-	}
-	challenge.SetUint64(m.state)
-	m.updated = false
-	return
+func (m *MessageCounter) Sum(b []byte) []byte {
+	inputBlockSize := (len(b)-1)/fr.Bytes + 1
+	resI := m.state + uint64(inputBlockSize)*m.step
+	var res fr.Element
+	res.SetInt64(int64(resI))
+	resBytes := res.Bytes()
+	return resBytes[:]
 }
 
-func (m *MessageCounter) NextN(N int, i ...interface{}) (challenges []fr.Element) {
-	challenges = make([]fr.Element, N)
-	for n := 0; n < N; n++ {
-		challenges[n] = m.Next(i)
-		i = []interface{}{}
-	}
-	return
+func (m *MessageCounter) Reset() {
+	m.state = 0
 }
 
-func NewMessageCounter(startState, step int) ArithmeticTranscript {
+func (m *MessageCounter) Size() int {
+	return fr.Bytes
+}
+
+func (m *MessageCounter) BlockSize() int {
+	return fr.Bytes
+}
+
+func NewMessageCounter(startState, step int) hash.Hash {
 	transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
-	transcript.Update([]byte{})
 	return transcript
 }
 
-func NewMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
-	return func() ArithmeticTranscript {
+func NewMessageCounterGenerator(startState, step int) func() hash.Hash {
+	return func() hash.Hash {
 		return NewMessageCounter(startState, step)
 	}
 }
