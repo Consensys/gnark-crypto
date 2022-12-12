@@ -17,7 +17,7 @@ func WithTranscript(transcript *Transcript, prefix string, baseChallenges ...[]b
 	}
 }
 
-func WithBaseChallenge(hash hash.Hash, baseChallenges [][]byte) Settings {
+func WithHash(hash hash.Hash, baseChallenges ...[]byte) Settings {
 	return Settings{
 		BaseChallenges: baseChallenges,
 		Hash:           hash,

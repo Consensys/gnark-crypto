@@ -98,7 +98,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash
 
 	claim := singleMultilinClaim{g: poly.Clone()}
 
-	proof, err := Prove(&claim, fiatshamir.WithBaseChallenge(hashGenerator(), nil))
+	proof, err := Prove(&claim, fiatshamir.WithHash(hashGenerator()))
 	if err != nil {
 		return err
 	}
@@ -117,13 +117,13 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash
 	}
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
-	if err = Verify(lazyClaim, proof, fiatshamir.WithBaseChallenge(hashGenerator(), nil)); err != nil {
+	if err = Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())); err != nil {
 		return err
 	}
 
 	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], &fr.Element{1})
 	lazyClaim = singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
-	if Verify(lazyClaim, proof, fiatshamir.WithBaseChallenge(hashGenerator(), nil)) == nil {
+	if Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())) == nil {
 		return fmt.Errorf("incorrect proof accepted")
 	}
 	return nil
