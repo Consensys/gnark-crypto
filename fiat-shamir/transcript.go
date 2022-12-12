@@ -36,7 +36,7 @@ type Transcript struct {
 }
 
 type challenge struct {
-	position   int    // position of the challenge in the transcript. order matters.
+	position   int    // position of the challenge in the Transcript. order matters.
 	bindings   []byte // bindings stores the variables a challenge is binded to.
 	value      []byte // value stores the computed challenge
 	isComputed bool

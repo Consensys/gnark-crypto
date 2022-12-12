@@ -99,9 +99,9 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{Wire{
-		Gate:      nil,
-		Inputs:    []*Wire{},
-		nbOutputs: 2,
+		Gate:            nil,
+		Inputs:          []*Wire{},
+		nbUniqueOutputs: 2,
 	}}
 
 	wire := &circuit[0]
