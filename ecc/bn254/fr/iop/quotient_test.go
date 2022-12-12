@@ -15,7 +15,6 @@
 package iop
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -41,12 +40,22 @@ func allocatePol(size int, form Form) *Polynomial {
 	return f
 }
 
+func evalCanonical(p Polynomial, x fr.Element) fr.Element {
+
+	var res fr.Element
+	for i := len(p.Coefficients) - 1; i >= 0; i-- {
+		res.Mul(&res, &x)
+		res.Add(&res, &p.Coefficients[i])
+	}
+	return res
+}
+
 func TestQuotient(t *testing.T) {
 
 	// create the multivariate polynomial h
 	// h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
-	nbInputs := 3
-	h := make(multivariatePolynomial, nbInputs)
+	nbEntries := 3
+	h := make(multivariatePolynomial, nbEntries)
 
 	h[0].coeff.SetOne()
 	h[0].exponents = []int{2, 1, 0}
@@ -87,12 +96,47 @@ func TestQuotient(t *testing.T) {
 	// compute the quotient q
 	expectedForm := Form{Basis: Canonical, Status: Unlocked, Layout: Regular}
 	domains := [2]*fft.Domain{nil, nil}
-	q, err := ComputeQuotient(entries, h, expectedForm, domains)
+	quotient, err := ComputeQuotient(entries, h, expectedForm, domains)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// checks that h(f_i) = (x^n-1)*q
-	fmt.Printf("size q: %d\n", len(q.Coefficients))
+	// checks that h(f_i) = (x^n-1)*q by evaluating the relation
+	// at a random point
+	var c fr.Element
+	c.SetRandom()
+	fc := make([]*Polynomial, nbEntries)
+	domain := fft.NewDomain(uint64(sizeSystem))
+	fc[0] = toCanonical(entries[0], domain)
+	fft.BitReverse(fc[0].Coefficients)
+	fc[0].Info.Layout = Regular
+
+	fc[1] = toCanonical(entries[1], domain)
+	fft.BitReverse(fc[1].Coefficients)
+	fc[1].Info.Layout = Regular
+
+	fc[2] = toCanonical(entries[2], domain)
+	fft.BitReverse(fc[2].Coefficients)
+	fc[2].Info.Layout = Regular
+
+	x := []fr.Element{
+		evalCanonical(*fc[0], c),
+		evalCanonical(*fc[1], c),
+		evalCanonical(*fc[2], c),
+	}
+	l := h.evaluate(x)
+	var xnminusone, one fr.Element
+	one.SetOne()
+	xnminusone.Set(&c).
+		Square(&xnminusone).
+		Square(&xnminusone).
+		Square(&xnminusone).
+		Sub(&xnminusone, &one)
+	r := evalCanonical(quotient, c)
+	r.Mul(&r, &xnminusone)
+
+	if !r.Equal(&l) {
+		t.Fatal("error quotient")
+	}
 
 }

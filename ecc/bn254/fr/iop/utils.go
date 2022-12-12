@@ -314,7 +314,6 @@ var _toCanonical [12]modifier = [12]modifier{
 // status, Locked or Unlocked), or modifies p to put it in Lagrange
 // basis. The result is not bit reversed.
 func toCanonical(p *Polynomial, d *fft.Domain) *Polynomial {
-	fmt.Printf("shape ID: %d\n", getShapeID(*p))
 	return _toCanonical[getShapeID(*p)](p, d)
 }
 

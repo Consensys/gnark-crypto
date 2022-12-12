@@ -49,10 +49,20 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 	// put every polynomial in Canonical form. Also make sure
 	// that we don't modify the slice entries, but
 	// only its entries.
+	// Note: we will need to interpret the obtained polynomials in
+	// canonical form but of degree the size of the big domain. So
+	// we will padd the obtained polynomials with zeroes, but this
+	// works only if the obtained polynomials are in regular form.
+	// So we call bitReverse here if the polynomials are in bit reverse
+	// layout.
 	nbPolynomials := len(entries)
 	_entries := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
 		_entries[i] = toCanonical(entries[i], domains[0])
+		if _entries[i].Info.Layout == BitReverse {
+			fft.BitReverse(_entries[i].Coefficients)
+			_entries[i].Info.Layout = Regular
+		}
 	}
 
 	// compute h(f₁,..,fₙ) on a coset
@@ -62,17 +72,12 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 		entriesLagrangeBigDomain[i].Info.Status = Unlocked
 		entriesLagrangeBigDomain[i].Coefficients = make([]fr.Element, sizeBig)
 		copy(entriesLagrangeBigDomain[i].Coefficients, _entries[i].Coefficients)
-		if _entries[i].Info.Layout == Regular {
-			entriesLagrangeBigDomain[i].Info.Layout = BitReverse
-			domains[1].FFT(entriesLagrangeBigDomain[i].Coefficients, fft.DIF, true)
-		} else {
-			entriesLagrangeBigDomain[i].Info.Layout = Regular
-			domains[1].FFT(entriesLagrangeBigDomain[i].Coefficients, fft.DIT, true)
-		}
+		entriesLagrangeBigDomain[i].Info.Layout = BitReverse
+		domains[1].FFT(entriesLagrangeBigDomain[i].Coefficients, fft.DIF, true)
 	}
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
-	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains[1], domains[0])
+	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
 	ratio := int(domains[1].Cardinality / domains[0].Cardinality)
 
 	// compute the division. We take care of the indices of the
@@ -92,12 +97,9 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 
 		for j := 0; j < nbVars; j++ {
 
-			// set the variable
-			if entriesLagrangeBigDomain[j].Info.Layout == Regular {
-				x[j].Set(&entriesLagrangeBigDomain[j].Coefficients[j])
-			} else {
-				x[j].Set(&entriesLagrangeBigDomain[j].Coefficients[iRev])
-			}
+			// set the variable. The polynomials in entriesLagrangeBigDomain
+			// are in bit reverse.
+			x[j].Set(&entriesLagrangeBigDomain[j].Coefficients[iRev])
 
 		}
 
@@ -106,7 +108,7 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 
 		// divide by x^n-1 evaluated on the correct point.
 		quotientLagrangeCosetBitReverse.Coefficients[iRev].
-			Div(&quotientLagrangeCosetBitReverse.Coefficients[iRev], &xnMinusOneInverseLagrangeCoset[i%ratio])
+			Mul(&quotientLagrangeCosetBitReverse.Coefficients[iRev], &xnMinusOneInverseLagrangeCoset[i%ratio])
 	}
 
 	// at this stage the result is in Lagrange, bitreversed format.
@@ -117,17 +119,17 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 }
 
 // evaluateXnMinusOneDomainBigCoset evalutes Xᵐ-1 on DomainBig coset
-func evaluateXnMinusOneDomainBigCoset(domainBig, domainSmall *fft.Domain) []fr.Element {
+func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []fr.Element {
 
-	ratio := domainBig.Cardinality / domainSmall.Cardinality
+	ratio := domains[1].Cardinality / domains[0].Cardinality
 
 	res := make([]fr.Element, ratio)
 
-	expo := big.NewInt(int64(domainSmall.Cardinality))
-	res[0].Exp(domainBig.FrMultiplicativeGen, expo)
+	expo := big.NewInt(int64(domains[0].Cardinality))
+	res[0].Exp(domains[1].FrMultiplicativeGen, expo)
 
 	var t fr.Element
-	t.Exp(domainBig.Generator, big.NewInt(int64(domainSmall.Cardinality)))
+	t.Exp(domains[1].Generator, big.NewInt(int64(domains[0].Cardinality)))
 
 	for i := 1; i < int(ratio); i++ {
 		res[i].Mul(&res[i-1], &t)
@@ -139,7 +141,7 @@ func evaluateXnMinusOneDomainBigCoset(domainBig, domainSmall *fft.Domain) []fr.E
 		res[i].Sub(&res[i], &one)
 	}
 
-	fr.BatchInvert(res)
+	res = fr.BatchInvert(res)
 
 	return res
 }
