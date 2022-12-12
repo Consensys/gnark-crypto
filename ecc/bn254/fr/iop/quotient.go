@@ -40,7 +40,7 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 	if err != nil {
 		return quotientLagrangeCosetBitReverse, err
 	}
-	sizeBig := ecc.NextPowerOfTwo(h.degree())
+	sizeBig := ecc.NextPowerOfTwo(h.degree() * domains[0].Cardinality)
 	domains[1], err = buildDomain(int(sizeBig), domains[1])
 	if err != nil {
 		return quotientLagrangeCosetBitReverse, err

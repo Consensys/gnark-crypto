@@ -15,9 +15,11 @@
 package iop
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
 // computes x₃ in h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
@@ -58,21 +60,23 @@ func TestQuotient(t *testing.T) {
 	// create an instance (f_i) where h holds
 	sizeSystem := 8
 	form := Form{Basis: Lagrange, Status: Locked, Layout: Regular}
-	f := make([]*Polynomial, 3)
-	f[0] = allocatePol(sizeSystem, form)
-	f[1] = allocatePol(sizeSystem, form)
-	f[2] = allocatePol(sizeSystem, form)
+	entries := make([]*Polynomial, 3)
+	entries[0] = allocatePol(sizeSystem, form)
+	entries[1] = allocatePol(sizeSystem, form)
+	entries[2] = allocatePol(sizeSystem, form)
 	for i := 0; i < sizeSystem; i++ {
 
-		f[0].Coefficients[i].SetRandom()
-		f[1].Coefficients[i].SetRandom()
-		tmp := computex3([]fr.Element{f[0].Coefficients[i], f[1].Coefficients[i]})
-		f[2].Coefficients[i].Set(&tmp)
+		entries[0].Coefficients[i].SetRandom()
+		entries[1].Coefficients[i].SetRandom()
+		tmp := computex3(
+			[]fr.Element{entries[0].Coefficients[i],
+				entries[1].Coefficients[i]})
+		entries[2].Coefficients[i].Set(&tmp)
 
 		x := []fr.Element{
-			f[0].Coefficients[i],
-			f[1].Coefficients[i],
-			f[2].Coefficients[i],
+			entries[0].Coefficients[i],
+			entries[1].Coefficients[i],
+			entries[2].Coefficients[i],
 		}
 		tmp = h.evaluate(x)
 		if !tmp.IsZero() {
@@ -81,7 +85,14 @@ func TestQuotient(t *testing.T) {
 	}
 
 	// compute the quotient q
+	expectedForm := Form{Basis: Canonical, Status: Unlocked, Layout: Regular}
+	domains := [2]*fft.Domain{nil, nil}
+	q, err := ComputeQuotient(entries, h, expectedForm, domains)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// checks that h(f_i) = (x^n-1)*q
+	fmt.Printf("size q: %d\n", len(q.Coefficients))
 
 }

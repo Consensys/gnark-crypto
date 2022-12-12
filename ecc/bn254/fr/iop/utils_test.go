@@ -432,7 +432,7 @@ func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Lagrange
 	_p.Info.Layout = Regular
 	_p.Info.Status = Locked
-	d.FFTInverse(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients, fft.DIF)
 	fft.BitReverse(_p.Coefficients)
 	return &_p
 }
@@ -443,7 +443,7 @@ func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Lagrange
 	_p.Info.Layout = Regular
 	_p.Info.Status = Unlocked
-	d.FFTInverse(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients, fft.DIF)
 	fft.BitReverse(_p.Coefficients)
 	return &_p
 }
@@ -454,7 +454,7 @@ func fromCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Lagrange
 	_p.Info.Layout = BitReverse
 	_p.Info.Status = Locked
-	d.FFTInverse(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients, fft.DIF)
 	return &_p
 }
 
@@ -464,7 +464,7 @@ func fromCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Lagrange
 	_p.Info.Layout = BitReverse
 	_p.Info.Status = Unlocked
-	d.FFTInverse(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients, fft.DIF)
 	return &_p
 }
 
@@ -474,7 +474,7 @@ func fromCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = LagrangeCoset
 	_p.Info.Layout = Regular
 	_p.Info.Status = Locked
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIF, true)
 	fft.BitReverse(_p.Coefficients)
 	return &_p
 }
@@ -485,7 +485,7 @@ func fromCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = LagrangeCoset
 	_p.Info.Layout = Regular
 	_p.Info.Status = Unlocked
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIF, true)
 	fft.BitReverse(_p.Coefficients)
 	return &_p
 }
@@ -496,7 +496,7 @@ func fromCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = LagrangeCoset
 	_p.Info.Layout = BitReverse
 	_p.Info.Status = Unlocked
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIF, true)
 	return &_p
 }
 
@@ -506,7 +506,7 @@ func fromCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = LagrangeCoset
 	_p.Info.Layout = BitReverse
 	_p.Info.Status = Unlocked
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIF, true)
 	return &_p
 }
 

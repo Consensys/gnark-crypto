@@ -230,13 +230,13 @@ func toCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Canonical
 	_p.Info.Layout = BitReverse
 	_p.Info.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIF)
+	d.FFTInverse(_p.Coefficients, fft.DIF)
 	return &_p
 }
 
 // LAGRANGE REGULAR UNLOCKED
 func toCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
-	d.FFT(p.Coefficients, fft.DIF)
+	d.FFTInverse(p.Coefficients, fft.DIF)
 	p.Info.Basis = Canonical
 	p.Info.Layout = BitReverse
 	return p
@@ -248,13 +248,13 @@ func toCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p.Info.Basis = Canonical
 	_p.Info.Layout = Regular
 	_p.Info.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIT)
+	d.FFTInverse(_p.Coefficients, fft.DIT)
 	return &_p
 }
 
 // LAGRANGE BITREVERSE UNLOCKED
 func toCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
-	d.FFT(p.Coefficients, fft.DIT)
+	d.FFTInverse(p.Coefficients, fft.DIT)
 	p.Info.Basis = Canonical
 	p.Info.Layout = Regular
 	return p
@@ -274,7 +274,7 @@ func toCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
 func toCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Canonical
 	p.Info.Layout = BitReverse
-	d.FFT(p.Coefficients, fft.DIF, true)
+	d.FFTInverse(p.Coefficients, fft.DIF, true)
 	return p
 }
 
@@ -283,7 +283,7 @@ func toCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
 	_p.Info.Basis = Canonical
 	_p.Info.Layout = Regular
-	d.FFT(_p.Coefficients, fft.DIT, true)
+	d.FFTInverse(_p.Coefficients, fft.DIT, true)
 	return &_p
 }
 
@@ -291,7 +291,7 @@ func toCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
 func toCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
 	p.Info.Basis = Canonical
 	p.Info.Layout = Regular
-	d.FFT(p.Coefficients, fft.DIT, true)
+	d.FFTInverse(p.Coefficients, fft.DIT, true)
 	return p
 }
 
@@ -314,6 +314,7 @@ var _toCanonical [12]modifier = [12]modifier{
 // status, Locked or Unlocked), or modifies p to put it in Lagrange
 // basis. The result is not bit reversed.
 func toCanonical(p *Polynomial, d *fft.Domain) *Polynomial {
+	fmt.Printf("shape ID: %d\n", getShapeID(*p))
 	return _toCanonical[getShapeID(*p)](p, d)
 }
 
