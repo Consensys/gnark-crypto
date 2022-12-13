@@ -17,9 +17,12 @@
 package gkr
 
 import (
+	"fmt"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
+	"strconv"
 	"sync"
 )
 
@@ -32,10 +35,10 @@ type Gate interface {
 }
 
 type Wire struct {
-	Gate      Gate
-	Inputs    []*Wire // if there are no Inputs, the wire is assumed an input wire
-	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one)
-	//metadata  string // names and the like, for debugging
+	Gate            Gate
+	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
+	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
+	//nbUniqueInputs  int     // number of inputs, not counting duplicates
 }
 
 type Circuit []Wire
@@ -45,14 +48,27 @@ func (w Wire) IsInput() bool {
 }
 
 func (w Wire) IsOutput() bool {
-	return w.nbOutputs == 0
+	return w.nbUniqueOutputs == 0
 }
 
 func (w Wire) NbClaims() int {
 	if w.IsOutput() {
 		return 1
 	}
-	return w.nbOutputs
+	return w.nbUniqueOutputs
+}
+
+// TODO: Cache this?
+func (w Wire) nbUniqueInputs() int {
+	m := make(map[*Wire]struct{})
+	for _, w := range w.Inputs {
+		m[w] = struct{}{}
+	}
+	return len(m)
+}
+
+func (w Wire) noProof() bool {
+	return w.IsInput() && w.NbClaims() == 1
 }
 
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
@@ -84,7 +100,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 	return 1 + e.wire.Gate.Degree()
 }
 
-func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.SmallRational, combinationCoeff small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) bool {
+func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.SmallRational, combinationCoeff small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) error {
 	inputEvaluations := proof.([]small_rational.SmallRational)
 
 	numClaims := len(e.evaluationPoints)
@@ -107,7 +123,10 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.S
 
 	evaluation.Mul(&evaluation, &gateEvaluation)
 
-	return evaluation.Equal(&purportedValue)
+	if evaluation.Equal(&purportedValue) {
+		return nil
+	}
+	return fmt.Errorf("incompatible evaluations")
 }
 
 type eqTimesGateEvalSumcheckClaims struct {
@@ -356,7 +375,6 @@ func (m *claimsManager) getClaim(wire *Wire) *eqTimesGateEvalSumcheckClaims {
 	}
 
 	if wire.IsInput() {
-		wire.Gate = IdentityGate{} // a bit dirty, modifying data structure given from outside
 		res.inputPreprocessors = []polynomial.MultiLin{m.memPool.Clone(m.assignment[wire])}
 	} else {
 		res.inputPreprocessors = make([]polynomial.MultiLin, len(wire.Inputs))
@@ -372,74 +390,218 @@ func (m *claimsManager) deleteClaim(wire *Wire) {
 	delete(m.claimsMap, wire)
 }
 
-type _options struct {
-	pool *polynomial.Pool
+type settings struct {
+	pool             *polynomial.Pool
+	sorted           []*Wire
+	transcript       *fiatshamir.Transcript
+	transcriptPrefix string
 }
 
-type Option func(*_options)
+type Option func(*settings)
 
 func WithPool(pool *polynomial.Pool) Option {
-	return func(options *_options) {
+	return func(options *settings) {
 		options.pool = pool
 	}
 }
 
-// Prove consistency of the claimed assignment
-func Prove(c Circuit, assignment WireAssignment, transcript sumcheck.ArithmeticTranscript, options ...Option) Proof {
-	var o _options
+func WithSortedCircuit(sorted []*Wire) Option {
+	return func(options *settings) {
+		options.sorted = sorted
+	}
+}
+
+func setup(c Circuit, numVars int, transcriptSettings fiatshamir.Settings, options ...Option) (settings, error) {
+	var o settings
+	var err error
 	for _, option := range options {
 		option(&o)
 	}
-	cS := TopologicalSort(c)
+	if o.sorted == nil {
+		o.sorted = TopologicalSort(c)
+	}
+
+	if transcriptSettings.BaseChallenges == nil {
+		o.transcript, o.transcriptPrefix = transcriptSettings.Transcript, transcriptSettings.Prefix
+	} else {
+		challengeNames := ChallengeNames(o.sorted, numVars, transcriptSettings.Prefix)
+		transcript := fiatshamir.NewTranscript(
+			transcriptSettings.Hash, challengeNames...)
+		o.transcript = &transcript
+		for i := range transcriptSettings.BaseChallenges {
+			if err = o.transcript.Bind(challengeNames[0], transcriptSettings.BaseChallenges[i]); err != nil {
+				return o, err
+			}
+		}
+	}
+
+	return o, err
+}
+
+// ProofSize computes how large the proof for a circuit would be. It needs nbUniqueOutputs to be set
+func ProofSize(c Circuit, logNbInstances int) int {
+	nbUniqueInputs := 0
+	nbPartialEvalPolys := 0
+	for i := range c {
+		nbUniqueInputs += c[i].nbUniqueOutputs // each unique output is manifest in a finalEvalProof entry
+		if !c[i].noProof() {
+			nbPartialEvalPolys += c[i].Gate.Degree() + 1
+		}
+	}
+	return nbUniqueInputs + nbPartialEvalPolys*logNbInstances
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string {
+
+	// Pre-compute the size TODO: Consider not doing this and just grow the list by appending
+	size := logNbInstances // first challenge
+
+	for _, w := range sorted {
+		if w.noProof() { // no proof, no challenge
+			continue
+		}
+		if w.NbClaims() > 1 { //combine the claims
+			size++
+		}
+		size += logNbInstances // full run of sumcheck on logNbInstances variables
+	}
+
+	nums := make([]string, max(len(sorted), logNbInstances))
+	for i := range nums {
+		nums[i] = strconv.Itoa(i)
+	}
+
+	challenges := make([]string, size)
+
+	// output wire claims
+	firstChallengePrefix := prefix + "firstChallenge."
+	for j := 0; j < logNbInstances; j++ {
+		challenges[j] = firstChallengePrefix + nums[j]
+	}
+	j := logNbInstances
+	for i, w := range sorted {
+		if w.noProof() {
+			continue
+		}
+		wirePrefix := prefix + "wire" + nums[len(sorted)-i] + "."
+
+		if w.NbClaims() > 1 {
+			challenges[j] = wirePrefix + "combine"
+			j++
+		}
+
+		partialSumPrefix := wirePrefix + "partialSumPolys."
+		for k := 0; k < logNbInstances; k++ {
+			challenges[j] = partialSumPrefix + nums[k]
+		}
+	}
+	return challenges
+}
+
+func getFirstChallengeNames(logNbInstances int, prefix string) []string {
+	res := make([]string, logNbInstances)
+	firstChallengePrefix := prefix + "firstChallenge."
+	for i := 0; i < logNbInstances; i++ {
+		res[i] = firstChallengePrefix + strconv.Itoa(i)
+	}
+	return res
+}
+
+func getChallenges(transcript *fiatshamir.Transcript, names []string) ([]small_rational.SmallRational, error) {
+	res := make([]small_rational.SmallRational, len(names))
+	for i, name := range names {
+		if bytes, err := transcript.ComputeChallenge(name); err == nil {
+			res[i].SetBytes(bytes)
+		} else {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+// Prove consistency of the claimed assignment
+func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.Settings, options ...Option) (Proof, error) {
+	numVars := assignment.NumVars()
+	o, err := setup(c, numVars, transcriptSettings, options...)
+	if err != nil {
+		return nil, err
+	}
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
-	firstChallenge := transcript.NextN(assignment[&c[0]].NumVars()) //TODO: Clean way to extract numVars
+	var firstChallenge []small_rational.SmallRational
+	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(numVars, o.transcriptPrefix))
+	if err != nil {
+		return nil, err
+	}
 
+	wirePrefix := o.transcriptPrefix + "wire"
+	var baseChallenge [][]byte
 	for i := len(c) - 1; i >= 0; i-- {
 
-		wire := cS[i]
+		wire := o.sorted[i]
 
 		if wire.IsOutput() {
 			claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
 		}
 
 		claim := claims.getClaim(wire)
-		if wire.IsInput() && claim.ClaimsNum() == 1 || claim.ClaimsNum() == 0 { // no proof necessary
+		if wire.noProof() { // input wires with one claim only
 			proof[i] = sumcheck.Proof{
 				PartialSumPolys: []polynomial.Polynomial{},
 				FinalEvalProof:  []small_rational.SmallRational{},
 			}
 		} else {
-			proof[i] = sumcheck.Prove(claim, transcript)
-			if finalEvalProof := proof[i].FinalEvalProof.([]small_rational.SmallRational); len(finalEvalProof) != 0 {
-				transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
+			if proof[i], err = sumcheck.Prove(
+				claim, fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+"partialSumPolys.", baseChallenge...),
+			); err != nil {
+				return proof, err
+			}
+
+			finalEvalProof := proof[i].FinalEvalProof.([]small_rational.SmallRational)
+			baseChallenge = make([][]byte, len(finalEvalProof))
+			for j := range finalEvalProof {
+				bytes := finalEvalProof[j].Bytes()
+				baseChallenge[j] = bytes[:]
 			}
 		}
 		// the verifier checks a single claim about input wires itself
 		claims.deleteClaim(wire)
 	}
 
-	return proof
+	return proof, nil
 }
 
 // Verify the consistency of the claimed output with the claimed input
 // Unlike in Prove, the assignment argument need not be complete
-func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumcheck.ArithmeticTranscript, options ...Option) bool {
-	var o _options
-	for _, option := range options {
-		option(&o)
+func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSettings fiatshamir.Settings, options ...Option) error {
+	numVars := assignment.NumVars()
+	o, err := setup(c, numVars, transcriptSettings, options...)
+	if err != nil {
+		return err
 	}
-	cS := TopologicalSort(c)
 
 	claims := newClaimsManager(c, assignment, o.pool)
 
-	firstChallenge := transcript.NextN(assignment[&c[0]].NumVars()) //TODO: Clean way to extract numVars
+	var firstChallenge []small_rational.SmallRational
+	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(numVars, o.transcriptPrefix))
+	if err != nil {
+		return err
+	}
 
+	wirePrefix := o.transcriptPrefix + "wire"
+	var baseChallenge [][]byte
 	for i := len(c) - 1; i >= 0; i-- {
-		wire := cS[i]
+		wire := o.sorted[i]
 
 		if wire.IsOutput() {
 			claims.add(wire, firstChallenge, assignment[wire].Evaluate(firstChallenge, claims.memPool))
@@ -448,28 +610,33 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcript sumche
 		proofW := proof[i]
 		finalEvalProof := proofW.FinalEvalProof.([]small_rational.SmallRational)
 		claim := claims.getLazyClaim(wire)
-		if claimsNum := claim.ClaimsNum(); wire.IsInput() && claimsNum == 1 || claimsNum == 0 {
+		if wire.noProof() { // input wires with one claim only
 			// make sure the proof is empty
 			if len(finalEvalProof) != 0 || len(proofW.PartialSumPolys) != 0 {
-				return false
+				return fmt.Errorf("no proof allowed for input wire with a single claim")
 			}
 
-			if claimsNum == 1 {
+			if wire.NbClaims() == 1 { // input wire
 				// simply evaluate and see if it matches
 				evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0], claims.memPool)
 				if !claim.claimedEvaluations[0].Equal(&evaluation) {
-					return false
+					return fmt.Errorf("incorrect input wire claim")
 				}
 			}
-		} else if !sumcheck.Verify(claim, proof[i], transcript) {
-			return false //TODO: Any polynomials to dump?
-		}
-		if len(finalEvalProof) != 0 {
-			transcript.Update(sumcheck.ElementSliceToInterfaceSlice(finalEvalProof)...)
+		} else if err = sumcheck.Verify(
+			claim, proof[i], fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+"partialSumPolys.", baseChallenge...),
+		); err == nil {
+			baseChallenge = make([][]byte, len(finalEvalProof))
+			for j := range finalEvalProof {
+				bytes := finalEvalProof[j].Bytes()
+				baseChallenge[j] = bytes[:]
+			}
+		} else {
+			return fmt.Errorf("sumcheck proof rejected: %v", err) //TODO: Any polynomials to dump?
 		}
 		claims.deleteClaim(wire)
 	}
-	return true
+	return nil
 }
 
 type IdentityGate struct{}
@@ -482,12 +649,15 @@ func (IdentityGate) Degree() int {
 	return 1
 }
 
-// outputsList also sets the nbOutputs fields
+// outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 	res := make([][]int, len(c))
 	for i := range c {
 		res[i] = make([]int, 0)
-		c[i].nbOutputs = 0
+		c[i].nbUniqueOutputs = 0
+		if c[i].IsInput() {
+			c[i].Gate = IdentityGate{}
+		}
 	}
 	ins := make(map[int]struct{}, len(c))
 	for i := range c {
@@ -498,7 +668,7 @@ func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 			inI := indexes[in]
 			res[inI] = append(res[inI], i)
 			if _, ok := ins[inI]; !ok {
-				in.nbOutputs++
+				in.nbUniqueOutputs++
 				ins[inI] = struct{}{}
 			}
 		}
@@ -547,7 +717,8 @@ func statusList(c Circuit) []int {
 
 // TopologicalSort sorts the wires in order of dependence. Such that for any wire, any one it depends on
 // occurs before it. It tries to stick to the input order as much as possible. An already sorted list will remain unchanged.
-// It also sets the nbOutput flags. Worst-case inefficient O(n^2), but that probably won't matter since the circuits are small.
+// It also sets the nbOutput flags, and a dummy IdentityGate for input wires.
+// Worst-case inefficient O(n^2), but that probably won't matter since the circuits are small.
 // Furthermore, it is efficient with already-close-to-sorted lists, which are the expected input
 func TopologicalSort(c Circuit) []*Wire {
 	var data topSortData
@@ -591,4 +762,12 @@ func (a WireAssignment) Complete(c Circuit) WireAssignment {
 		}
 	}
 	return a
+}
+
+// TODO: Cleaner way?
+func (a WireAssignment) NumVars() int {
+	for _, aW := range a {
+		return aW.NumVars()
+	}
+	panic("empty assignment")
 }

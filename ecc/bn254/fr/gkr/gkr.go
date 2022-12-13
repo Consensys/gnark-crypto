@@ -39,7 +39,6 @@ type Wire struct {
 	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
 	//nbUniqueInputs  int     // number of inputs, not counting duplicates
-	//metadata  string // names and the like, for debugging
 }
 
 type Circuit []Wire
@@ -394,7 +393,7 @@ func (m *claimsManager) deleteClaim(wire *Wire) {
 type settings struct {
 	pool             *polynomial.Pool
 	sorted           []*Wire
-	transcript       fiatshamir.Transcript
+	transcript       *fiatshamir.Transcript
 	transcriptPrefix string
 }
 
@@ -426,8 +425,9 @@ func setup(c Circuit, numVars int, transcriptSettings fiatshamir.Settings, optio
 		o.transcript, o.transcriptPrefix = transcriptSettings.Transcript, transcriptSettings.Prefix
 	} else {
 		challengeNames := ChallengeNames(o.sorted, numVars, transcriptSettings.Prefix)
-		o.transcript = fiatshamir.NewTranscript(
+		transcript := fiatshamir.NewTranscript(
 			transcriptSettings.Hash, challengeNames...)
+		o.transcript = &transcript
 		for i := range transcriptSettings.BaseChallenges {
 			if err = o.transcript.Bind(challengeNames[0], transcriptSettings.BaseChallenges[i]); err != nil {
 				return o, err
@@ -514,7 +514,7 @@ func getFirstChallengeNames(logNbInstances int, prefix string) []string {
 	return res
 }
 
-func getChallenges(transcript fiatshamir.Transcript, names []string) ([]fr.Element, error) {
+func getChallenges(transcript *fiatshamir.Transcript, names []string) ([]fr.Element, error) {
 	res := make([]fr.Element, len(names))
 	for i, name := range names {
 		if bytes, err := transcript.ComputeChallenge(name); err == nil {
@@ -634,7 +634,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 		} else {
 			return fmt.Errorf("sumcheck proof rejected: %v", err) //TODO: Any polynomials to dump?
 		}
-
 		claims.deleteClaim(wire)
 	}
 	return nil
