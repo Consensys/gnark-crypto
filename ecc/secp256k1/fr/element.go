@@ -402,7 +402,7 @@ func (z *Element) Halve() {
 	z[3] >>= 1
 
 	if carry != 0 {
-		// when we added q, the result was larger than our avaible limbs
+		// when we added q, the result was larger than our available limbs
 		// when we shift right, we need to set the highest bit
 		z[3] |= (1 << 63)
 	}
