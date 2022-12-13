@@ -24,7 +24,7 @@ import (
 )
 
 // ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
-func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
+func ComputeQuotient(entries []*Polynomial, h MultivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
 
 	var quotientLagrangeCosetBitReverse Polynomial
 
@@ -40,7 +40,7 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 	if err != nil {
 		return quotientLagrangeCosetBitReverse, err
 	}
-	sizeBig := ecc.NextPowerOfTwo(h.degree() * domains[0].Cardinality)
+	sizeBig := ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality)
 	domains[1], err = buildDomain(int(sizeBig), domains[1])
 	if err != nil {
 		return quotientLagrangeCosetBitReverse, err
@@ -104,7 +104,7 @@ func ComputeQuotient(entries []*Polynomial, h multivariatePolynomial, expectedFo
 		}
 
 		// evaluate h on x
-		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.evaluate(x)
+		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.Evaluate(x)
 
 		// divide by x^n-1 evaluated on the correct point.
 		quotientLagrangeCosetBitReverse.Coefficients[iRev].
