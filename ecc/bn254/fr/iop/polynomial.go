@@ -118,10 +118,35 @@ func (m MultivariatePolynomial) Degree() uint64 {
 	return uint64(r)
 }
 
+// AddMonomial adds a monomial to m. If m is empty, the monomial is
+// added no matter what. But if m is already populated, an error is
+// returned if len(e)\neq size of the previous list of exponents. This
+// ensure that the number of variables is given by the size of any of
+// the slices of exponent in any monomial.
+func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
+
+	// if m is empty, we add the first monomial.
+	if len(*m) == 0 {
+		r := monomial{c, e}
+		*m = append(*m, r)
+		return nil
+	}
+
+	// at this stage all of exponennt in m are supposed to be of
+	// the same size.
+	if len((*m)[0].exponents) != len(e) {
+		return ErrInconsistantNumberOfVariable
+	}
+	r := monomial{c, e}
+	*m = append(*m, r)
+	return nil
+
+}
+
 // evaluate a multivariate polynomial in x
-// /!\ It is supposed that the multivariate polynomial has been
+// /!\ It is assumed that the multivariate polynomial has been
 // built correctly, that is the sizes of the slices in exponents
-// are of the same size /!\
+// are the same /!\
 func (m MultivariatePolynomial) Evaluate(x []fr.Element) fr.Element {
 
 	var res fr.Element
