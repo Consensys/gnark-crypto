@@ -17,13 +17,12 @@
 package bw6633
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G2Affine point in affine coordinates
@@ -372,6 +371,7 @@ func (p *G2Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+
 // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 func (p *G2Jac) IsInSubGroup() bool {
 
