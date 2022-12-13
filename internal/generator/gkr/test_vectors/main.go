@@ -19,11 +19,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
+	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -32,7 +34,7 @@ import (
 func main() {
 	if err := func() error {
 		err := GenerateVectors()
-		for path, hash := range test_vector_utils.HashCache {
+		for path, hash := range test_vector_utils.MapCache {
 			if err := hash.SaveUsedEntries(path); err != nil {
 				return err
 			}
@@ -71,8 +73,11 @@ func GenerateVectors() error {
 					return err
 				}
 
-				testCase.Transcript.Update(0)
-				proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+				var proof gkr.Proof
+				proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, fiatshamir.WithHash(testCase.Hash))
+				if err != nil {
+					return err
+				}
 
 				if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
 					return err
@@ -90,22 +95,21 @@ func GenerateVectors() error {
 				if err != nil {
 					return err
 				}
-				testCase.Transcript.Update(0)
 
-				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-					return fmt.Errorf("verification failed")
+				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(testCase.Hash))
+				if err != nil {
+					return err
 				}
 
 				testCase, err = newTestCase(path)
 				if err != nil {
 					return err
 				}
-				testCase.Transcript.Update(1)
 
-				if gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-					return fmt.Errorf("verification should have failed")
+				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(testCase.Hash))
+				if err == nil {
+					return fmt.Errorf("bad proof accepted")
 				}
-
 			}
 		}
 	}
