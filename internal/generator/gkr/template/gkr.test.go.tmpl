@@ -174,11 +174,11 @@ func testNoGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	assignment := WireAssignment{&c[0]: inputAssignments[0]}
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1)))
 
 	// Even though a hash is called here, the proof is empty
 
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Proof rejected")
 	}
 }
@@ -193,13 +193,13 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(1, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1)))
 
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Proof rejected")
 	}
 
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Bad proof accepted")
 	}
 }
@@ -219,13 +219,13 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]{{.Elem
 
 	assignment := WireAssignment{&c[0]: inputAssignments[0]}.Complete(c)
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1)))
 
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Proof rejected")
 	}
 
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Bad proof accepted")
 	}
 }
@@ -241,13 +241,13 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]{{.ElementType
 	t.Log("Evaluating all circuit wires")
 	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 	t.Log("Circuit evaluation complete")
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1)))
 	t.Log("Proof complete")
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Proof rejected")
 	}
 	t.Log("Successful verification complete")
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Bad proof accepted")
 	}
 	t.Log("Unsuccessful verification complete")
@@ -267,13 +267,13 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 
 	assignment := WireAssignment{&c[0]: inputAssignments[0]}.Complete(c)
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1)))
 
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Proof rejected")
 	}
 
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Bad proof accepted")
 	}
 }
@@ -300,15 +300,15 @@ func testMimc(t *testing.T, numRounds int, inputAssignments ...[]{{.ElementType}
 	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 	t.Log("Circuit evaluation complete")
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1)))
 
 	t.Log("Proof finished")
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Proof rejected")
 	}
 
 	t.Log("Successful verification finished")
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Bad proof accepted")
 	}
 	t.Log("Unsuccessful verification finished")
@@ -328,13 +328,13 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]{{.El
 
 	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
 
-	proof := Prove(c, assignment, sumcheck.NewMessageCounter(0, 1))
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1)))
 
-	if !Verify(c, assignment, proof, sumcheck.NewMessageCounter(0, 1)) {
+	if !Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(0, 1))) {
 		t.Error("Proof rejected")
 	}
 
-	if Verify(c, assignment, proof, sumcheck.NewMessageCounter(1, 1)) {
+	if Verify(c, assignment, proof, fiatshamir.WithHash(sumcheck.NewMessageCounter(1, 1))) {
 		t.Error("Bad proof accepted")
 	}
 }
@@ -350,7 +350,7 @@ func generateTestProver(path string) func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
 		testCase.Transcript.Update(0)
-		proof := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
 		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
 }
