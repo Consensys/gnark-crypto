@@ -17,8 +17,12 @@
 package sumcheck
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/polynomial"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/stretchr/testify/assert"
+	"hash"
 	"math/bits"
 	"strings"
 	"testing"
@@ -62,9 +66,12 @@ type singleMultilinLazyClaim struct {
 	claimedSum fr.Element
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error {
 	val := c.g.Evaluate(r, nil)
-	return val.Equal(&purportedValue)
+	if val.Equal(&purportedValue) {
+		return nil
+	}
+	return fmt.Errorf("mismatch")
 }
 
 func (c singleMultilinLazyClaim) CombinedSum(combinationCoeffs fr.Element) fr.Element {
@@ -83,7 +90,7 @@ func (c singleMultilinLazyClaim) VarsNum() int {
 	return bits.TrailingZeros(uint(len(c.g)))
 }
 
-func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() ArithmeticTranscript) bool {
+func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash.Hash) error {
 	poly := make(polynomial.MultiLin, len(polyInt))
 	for i, n := range polyInt {
 		poly[i].SetUint64(n)
@@ -91,7 +98,10 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 
 	claim := singleMultilinClaim{g: poly.Clone()}
 
-	proof := Prove(&claim, hashGenerator())
+	proof, err := Prove(&claim, fiatshamir.WithHash(hashGenerator()))
+	if err != nil {
+		return err
+	}
 
 	var sb strings.Builder
 	for _, p := range proof.PartialSumPolys {
@@ -105,11 +115,18 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() Arit
 		}
 		sb.WriteString("}\n")
 	}
-	//fmt.Printf("%v, %v:\n%s\n", polyInt, hashGenerator(), sb.String())
 
 	lazyClaim := singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
+	if err = Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())); err != nil {
+		return err
+	}
 
-	return Verify(lazyClaim, proof, hashGenerator())
+	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], &fr.Element{1})
+	lazyClaim = singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
+	if Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())) == nil {
+		return fmt.Errorf("incorrect proof accepted")
+	}
+	return nil
 }
 
 func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
@@ -123,7 +140,7 @@ func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 
 	const MaxStep = 4
 	const MaxStart = 4
-	hashGens := make([]func() ArithmeticTranscript, 0, MaxStart*MaxStep)
+	hashGens := make([]func() hash.Hash, 0, MaxStart*MaxStep)
 
 	for step := 0; step < MaxStep; step++ {
 		for startState := 0; startState < MaxStart; startState++ {
@@ -133,9 +150,8 @@ func TestSumcheckDeterministicHashSingleClaimMultilin(t *testing.T) {
 
 	for _, poly := range polys {
 		for _, hashGen := range hashGens {
-			if !testSumcheckSingleClaimMultilin(poly, hashGen) {
-				t.Error(poly, hashGen())
-			}
+			assert.NoError(t, testSumcheckSingleClaimMultilin(poly, hashGen),
+				"failed with poly %v and hashGen %v", poly, hashGen())
 		}
 	}
 }

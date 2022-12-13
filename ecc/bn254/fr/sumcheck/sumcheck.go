@@ -53,16 +53,6 @@ type Proof struct {
 	FinalEvalProof  interface{}             `json:"finalEvalProof"` //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
-// TODO: User unfriendly. Fix
-func ElementSliceToInterfaceSlice(elementSlice []fr.Element) (interfaceSlice []interface{}) {
-
-	interfaceSlice = make([]interface{}, len(elementSlice))
-	for i := range elementSlice {
-		interfaceSlice[i] = &elementSlice[i]
-	}
-	return
-}
-
 func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) (challengeNames []string, err error) {
 	numChallenges := varsNum
 	if claimsNum >= 2 {
@@ -150,6 +140,7 @@ func Verify(claims LazyClaims, proof Proof, transcriptSettings fiatshamir.Settin
 	}
 
 	var combinationCoeff fr.Element
+
 	if claims.ClaimsNum() >= 2 {
 		if combinationCoeff, err = next(transcript, []fr.Element{}, &remainingChallengeNames); err != nil {
 			return err
