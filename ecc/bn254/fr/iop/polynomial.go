@@ -15,6 +15,7 @@
 package iop
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -68,6 +69,9 @@ type Polynomial struct {
 
 //-----------------------------------------------------
 // multivariate polynomials
+
+// errors related to the polynomials.
+var ErrInconsistantNumberOfVariable = errors.New("the number of variables is not consistant")
 
 // monomial represents a monomial encoded as
 // coeff*X₁^{i₁}*..*X_n^{i_n} if exponents = [i₁,..iₙ]
