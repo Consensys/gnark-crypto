@@ -55,16 +55,14 @@ func TestQuotient(t *testing.T) {
 	// create the multivariate polynomial h
 	// h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 	nbEntries := 3
-	h := make(MultivariatePolynomial, nbEntries)
-
-	h[0].coeff.SetOne()
-	h[0].exponents = []int{2, 1, 0}
-
-	h[1].coeff.SetOne()
-	h[1].exponents = []int{0, 0, 1}
-
-	h[2].coeff.SetOne().Neg(&h[2].coeff)
-	h[2].exponents = []int{3, 0, 0}
+	//h := make(MultivariatePolynomial, nbEntries)
+	var h MultivariatePolynomial
+	var one, minusOne fr.Element
+	one.SetOne()
+	minusOne.SetOne().Neg(&minusOne)
+	h.AddMonomial(one, []int{2, 1, 0})
+	h.AddMonomial(one, []int{0, 0, 1})
+	h.AddMonomial(minusOne, []int{3, 0, 0})
 
 	// create an instance (f_i) where h holds
 	sizeSystem := 8
@@ -125,8 +123,7 @@ func TestQuotient(t *testing.T) {
 		evalCanonical(*fc[2], c),
 	}
 	l := h.Evaluate(x)
-	var xnminusone, one fr.Element
-	one.SetOne()
+	var xnminusone fr.Element
 	xnminusone.Set(&c).
 		Square(&xnminusone).
 		Square(&xnminusone).

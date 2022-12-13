@@ -16,6 +16,9 @@ package iop
 
 import "errors"
 
+// errors related to the polynomials.
+var ErrInconsistantNumberOfVariable = errors.New("")
+
 // errors related to the computation of the quotient and the ratios.
 var (
 	ErrInconsistantSize           = errors.New("the sizes of the polynomial must be the same as the size of the domain")
