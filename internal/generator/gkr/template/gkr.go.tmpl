@@ -1,7 +1,10 @@
 import (
+	"fmt"
 	"{{.FieldPackagePath}}"
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"strconv"
 	"sync"
 )
 
@@ -16,10 +19,10 @@ type Gate interface {
 }
 
 type Wire struct {
-	Gate      Gate
-	Inputs    []*Wire // if there are no Inputs, the wire is assumed an input wire
-	nbOutputs int     // number of other wires using it as input, not counting doubles (i.e. providing two inputs to the same gate counts as one)
-	//metadata  string // names and the like, for debugging
+	Gate            Gate
+	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
+	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
+	//nbUniqueInputs  int     // number of inputs, not counting duplicates
 }
 
 type Circuit []Wire
@@ -29,14 +32,14 @@ func (w Wire) IsInput() bool {
 }
 
 func (w Wire) IsOutput() bool {
-	return w.nbOutputs == 0
+	return w.nbUniqueOutputs == 0
 }
 
 func (w Wire) NbClaims() int {
 	if w.IsOutput() {
 		return 1
 	}
-	return w.nbOutputs
+	return w.nbUniqueOutputs
 }
 
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
@@ -466,12 +469,12 @@ func (IdentityGate) Degree() int {
 	return 1
 }
 
-// outputsList also sets the nbOutputs fields
+// outputsList also sets the nbUniqueOutputs fields
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 	res := make([][]int, len(c))
 	for i := range c {
 		res[i] = make([]int, 0)
-		c[i].nbOutputs = 0
+		c[i].nbUniqueOutputs = 0
 	}
 	ins := make(map[int]struct{}, len(c))
 	for i := range c {
@@ -482,7 +485,7 @@ func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 			inI := indexes[in]
 			res[inI] = append(res[inI], i)
 			if _, ok := ins[inI]; !ok {
-				in.nbOutputs++
+				in.nbUniqueOutputs++
 				ins[inI] = struct{}{}
 			}
 		}
