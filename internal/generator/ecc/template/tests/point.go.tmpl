@@ -371,7 +371,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 			r := fr.Modulus()
 			var g {{ $TJacobian }}
-			g.mulGLV(&{{.PointName}}Gen, r)
+			g.ScalarMultiplication(&{{.PointName}}Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg {{ $TJacobian }}
@@ -533,7 +533,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 				var expectedJac {{ $TJacobian }}
 				var expected {{ $TAffine }}
 				var b big.Int
-				expectedJac.mulGLV(&{{.PointName}}Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&{{.PointName}}Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false

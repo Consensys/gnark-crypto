@@ -17,13 +17,12 @@
 package bls24317
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -380,6 +379,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+
 // Z[r,0]+Z[-lambdaG1Affine, 1] is the kernel
 // of (u,v)->u+lambdaG1Affinev mod r. Expressing r, lambdaG1Affine as
 // polynomials in x, a short vector of this Zmodule is

@@ -17,13 +17,12 @@
 package bw6633
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -385,6 +384,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+
 // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 func (p *G1Jac) IsInSubGroup() bool {
 
@@ -524,6 +524,7 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
+
 	var uP, vP, wP, L0, L1, tmp G1Jac
 	var v, one, uPlusOne, uMinusOne, d1, d2, ht big.Int
 	one.SetInt64(1)

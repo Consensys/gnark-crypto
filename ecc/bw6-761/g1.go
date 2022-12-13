@@ -17,13 +17,12 @@
 package bw6761
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -385,6 +384,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+
 // Z[r,0]+Z[-lambdaG1Affine, 1] is the kernel
 // of (u,v)->u+lambdaG1Affinev mod r. Expressing r, lambdaG1Affine as
 // polynomials in x, a short vector of this Zmodule is
@@ -528,6 +528,7 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
 func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
+
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]G1Jac
 	points[0].Set(a)
