@@ -55,7 +55,7 @@ func TestQuotient(t *testing.T) {
 	// create the multivariate polynomial h
 	// h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 	nbEntries := 3
-	h := make(multivariatePolynomial, nbEntries)
+	h := make(MultivariatePolynomial, nbEntries)
 
 	h[0].coeff.SetOne()
 	h[0].exponents = []int{2, 1, 0}
@@ -87,7 +87,7 @@ func TestQuotient(t *testing.T) {
 			entries[1].Coefficients[i],
 			entries[2].Coefficients[i],
 		}
-		tmp = h.evaluate(x)
+		tmp = h.Evaluate(x)
 		if !tmp.IsZero() {
 			t.Fatal("system does not vanish on x^n-1")
 		}
@@ -124,7 +124,7 @@ func TestQuotient(t *testing.T) {
 		evalCanonical(*fc[1], c),
 		evalCanonical(*fc[2], c),
 	}
-	l := h.evaluate(x)
+	l := h.Evaluate(x)
 	var xnminusone, one fr.Element
 	one.SetOne()
 	xnminusone.Set(&c).

@@ -101,10 +101,10 @@ func (m monomial) evaluate(x []fr.Element) fr.Element {
 
 // reprensents a multivariate polynomial as a list of monomial,
 // the multivariate polynomial being the sum of the monomials.
-type multivariatePolynomial []monomial
+type MultivariatePolynomial []monomial
 
 // degree returns the total degree
-func (m multivariatePolynomial) degree() uint64 {
+func (m MultivariatePolynomial) Degree() uint64 {
 	r := 0
 	for i := 0; i < len(m); i++ {
 		t := 0
@@ -122,7 +122,7 @@ func (m multivariatePolynomial) degree() uint64 {
 // /!\ It is supposed that the multivariate polynomial has been
 // built correctly, that is the sizes of the slices in exponents
 // are of the same size /!\
-func (m multivariatePolynomial) evaluate(x []fr.Element) fr.Element {
+func (m MultivariatePolynomial) Evaluate(x []fr.Element) fr.Element {
 
 	var res fr.Element
 

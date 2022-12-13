@@ -48,7 +48,7 @@ func TestEvaluate(t *testing.T) {
 
 	// multivariate polynomial
 	{
-		p := make(multivariatePolynomial, 3)
+		p := make(MultivariatePolynomial, 3)
 
 		p[0].coeff.SetUint64(1)
 		p[0].exponents = []int{1, 1, 1}
@@ -67,7 +67,7 @@ func TestEvaluate(t *testing.T) {
 		var res fr.Element
 		res.SetUint64(136)
 
-		r := p.evaluate(x)
+		r := p.Evaluate(x)
 		if !r.Equal(&res) {
 			t.Fatal("evaluation multivariate polynomial failed")
 		}
