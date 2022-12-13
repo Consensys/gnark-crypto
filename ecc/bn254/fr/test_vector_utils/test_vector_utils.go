@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
+
 	"os"
 	"path/filepath"
 	"reflect"
@@ -55,14 +56,14 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var HashCache = make(map[string]ElementMap)
+var MapCache = make(map[string]ElementMap)
 
 func ElementMapFromFile(path string) (ElementMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if h, ok := HashCache[path]; ok {
+	if h, ok := MapCache[path]; ok {
 		return h, nil
 	}
 	var bytes []byte
@@ -71,9 +72,10 @@ func ElementMapFromFile(path string) (ElementMap, error) {
 		if err = json.Unmarshal(bytes, &asMap); err != nil {
 			return nil, err
 		}
+
 		var h ElementMap
 		if h, err = CreateElementMap(asMap); err == nil {
-			HashCache[path] = h
+			MapCache[path] = h
 		}
 
 		return h, err
@@ -93,7 +95,6 @@ func CreateElementMap(rawMap map[string]interface{}) (ElementMap, error) {
 		}
 
 		key := strings.Split(k, ",")
-
 		switch len(key) {
 		case 1:
 			entry.key2Present = false
@@ -170,7 +171,6 @@ func (m *MapHash) write(x fr.Element) error {
 	if !m.stateValid {
 		Y = nil
 	}
-
 	var err error
 	if m.state, err = m.Map.FindPair(X, Y); err == nil {
 		m.stateValid = true
@@ -241,7 +241,6 @@ func ToElement(i int64) *fr.Element {
 	res.SetInt64(i)
 	return &res
 }
-
 func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
 	// TODO: Put this in element.SetString?

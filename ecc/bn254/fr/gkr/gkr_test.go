@@ -369,7 +369,6 @@ func generateTestVerifier(path string) func(t *testing.T) {
 		assert.NoError(t, err)
 		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash))
 		assert.NoError(t, err, "proof rejected")
-
 		testCase, err = newTestCase(path)
 		assert.NoError(t, err)
 		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash, []byte{}))
@@ -645,7 +644,7 @@ func newTestCase(path string) (*TestCase, error) {
 				return nil, err
 			}
 			var _hash test_vector_utils.ElementMap
-			if _hash, err = test_vector_utils.GetMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
+			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
 			var proof Proof

@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/sumcheck"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/test_vector_utils"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/stretchr/testify/assert"
 	"hash"
 	"os"
@@ -356,8 +357,7 @@ func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		testCase.Transcript.Update(0)
-		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
+		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, fiatshamir.WithHash(testCase.Hash))
 		assert.NoError(t, err)
 		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
@@ -367,15 +367,12 @@ func generateTestVerifier(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		testCase.Transcript.Update(0)
-		success := Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-		assert.True(t, success)
-
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash))
+		assert.NoError(t, err, "proof rejected")
 		testCase, err = newTestCase(path)
 		assert.NoError(t, err)
-		testCase.Transcript.Update(1)
-		success = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.Transcript)
-		assert.False(t, success)
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash, []byte{}))
+		assert.NotNil(t, err, "bad proof accepted")
 	}
 }
 
@@ -437,23 +434,7 @@ func BenchmarkGkrMimc(b *testing.B) {
 
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
-	Prove(c, assignment, newMimcTranscript())
-}
-
-// TODO: Move into main package?
-type hashTranscript struct {
-	hash          hash.Hash
-	nextAvailable bool
-}
-
-func newMimcTranscript() sumcheck.ArithmeticTranscript {
-	return &hashTranscript{hash: mimc.NewMiMC()}
-}
-
-func (t *hashTranscript) hashToField() fr.Element {
-	var res fr.Element
-	res.SetBytes(t.hash.Sum(nil))
-	return res
+	Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
 }
 
 func toBytes(i interface{}) []byte {
@@ -464,36 +445,6 @@ func toBytes(i interface{}) []byte {
 		return v.Marshal()
 	}
 	panic(fmt.Errorf("can't serialize type %T", i))
-}
-
-func (t *hashTranscript) Update(i ...interface{}) {
-	if len(i) == 0 {
-		t.hash.Write([]byte{})
-	}
-	for _, iI := range i {
-		t.hash.Write(toBytes(iI))
-	}
-	t.nextAvailable = true
-}
-
-func (t *hashTranscript) Next(i ...interface{}) fr.Element {
-	if !t.nextAvailable || len(i) != 0 {
-		t.Update(i...)
-	}
-	t.nextAvailable = false
-	return t.hashToField()
-}
-
-func (t *hashTranscript) NextN(n int, i ...interface{}) []fr.Element {
-	if n <= 0 {
-		return []fr.Element{}
-	}
-	res := make([]fr.Element, n)
-	res[0] = t.Next(i...)
-	for j := 1; j < n; j++ {
-		res[j] = t.Next()
-	}
-	return res
 }
 
 func TestTopSortTrivial(t *testing.T) {
@@ -647,7 +598,7 @@ func unmarshalProof(printable PrintableProof) (Proof, error) {
 
 type TestCase struct {
 	Circuit         Circuit
-	Transcript      sumcheck.ArithmeticTranscript
+	Hash            hash.Hash
 	Proof           Proof
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
@@ -665,7 +616,7 @@ type ParsedTestCase struct {
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
 	Proof           Proof
-	Hash            *test_vector_utils.HashMap
+	Hash            test_vector_utils.ElementMap
 	Circuit         Circuit
 }
 
@@ -692,8 +643,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.HashMap
-			if _hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash test_vector_utils.ElementMap
+			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
 			var proof Proof
@@ -761,7 +712,7 @@ func newTestCase(path string) (*TestCase, error) {
 
 	return &TestCase{
 		Circuit:         parsedCase.Circuit,
-		Transcript:      &test_vector_utils.MapHashTranscript{HashMap: parsedCase.Hash},
+		Hash:            &test_vector_utils.MapHash{Map: parsedCase.Hash},
 		FullAssignment:  parsedCase.FullAssignment,
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,

@@ -246,7 +246,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 
 type TestCase struct {
 	Circuit         gkr.Circuit
-	Transcript      sumcheck.ArithmeticTranscript
+	Hash            hash.Hash
 	Proof           gkr.Proof
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
@@ -265,7 +265,7 @@ type ParsedTestCase struct {
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
 	Proof           gkr.Proof
-	Hash            *test_vector_utils.HashMap
+	Hash            test_vector_utils.ElementMap
 	Circuit         gkr.Circuit
 	Info            TestCaseInfo
 }
@@ -293,8 +293,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.HashMap
-			if _hash, err = test_vector_utils.GetHash(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash test_vector_utils.ElementMap
+			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
 			var proof gkr.Proof
@@ -363,7 +363,7 @@ func newTestCase(path string) (*TestCase, error) {
 
 	return &TestCase{
 		Circuit:         parsedCase.Circuit,
-		Transcript:      &test_vector_utils.MapHashTranscript{HashMap: parsedCase.Hash},
+		Hash:            &test_vector_utils.MapHash{Map: parsedCase.Hash},
 		FullAssignment:  parsedCase.FullAssignment,
 		InOutAssignment: parsedCase.InOutAssignment,
 		Proof:           parsedCase.Proof,

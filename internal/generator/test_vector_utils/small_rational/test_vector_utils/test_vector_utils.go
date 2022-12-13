@@ -56,14 +56,14 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var HashCache = make(map[string]*HashMap)
+var MapCache = make(map[string]ElementMap)
 
-func GetHash(path string) (*HashMap, error) {
+func ElementMapFromFile(path string) (ElementMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if h, ok := HashCache[path]; ok {
+	if h, ok := MapCache[path]; ok {
 		return h, nil
 	}
 	var bytes []byte
@@ -73,46 +73,110 @@ func GetHash(path string) (*HashMap, error) {
 			return nil, err
 		}
 
-		res := make(HashMap, 0, len(asMap))
-
-		for k, v := range asMap {
-			var entry ElementTriplet
-			if _, err = entry.value.SetInterface(v); err != nil {
-				return nil, err
-			}
-
-			key := strings.Split(k, ",")
-
-			switch len(key) {
-			case 1:
-				entry.key2Present = false
-			case 2:
-				entry.key2Present = true
-				if _, err = entry.key2.SetInterface(key[1]); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
-			}
-			if _, err = entry.key1.SetInterface(key[0]); err != nil {
-				return nil, err
-			}
-
-			res = append(res, &entry)
+		var h ElementMap
+		if h, err = CreateElementMap(asMap); err == nil {
+			MapCache[path] = h
 		}
 
-		res.sort()
-
-		HashCache[path] = &res
-
-		return &res, nil
+		return h, err
 
 	} else {
 		return nil, err
 	}
 }
 
-type HashMap []*ElementTriplet
+func CreateElementMap(rawMap map[string]interface{}) (ElementMap, error) {
+	res := make(ElementMap, 0, len(rawMap))
+
+	for k, v := range rawMap {
+		var entry ElementTriplet
+		if _, err := entry.value.SetInterface(v); err != nil {
+			return nil, err
+		}
+
+		key := strings.Split(k, ",")
+		switch len(key) {
+		case 1:
+			entry.key2Present = false
+		case 2:
+			entry.key2Present = true
+			if _, err := entry.key2.SetInterface(key[1]); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
+		}
+		if _, err := entry.key1.SetInterface(key[0]); err != nil {
+			return nil, err
+		}
+
+		res = append(res, &entry)
+	}
+
+	res.sort()
+	return res, nil
+}
+
+type ElementMap []*ElementTriplet
+
+type MapHash struct {
+	Map        ElementMap
+	state      small_rational.SmallRational
+	stateValid bool
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (m *MapHash) Write(p []byte) (n int, err error) {
+	var x small_rational.SmallRational
+	for i := 0; i < len(p); i += small_rational.Bytes {
+		x.SetBytes(p[i:min(len(p), i+small_rational.Bytes)])
+		if err = m.write(x); err != nil {
+			return
+		}
+	}
+	n = len(p)
+	return
+}
+
+func (m *MapHash) Sum(b []byte) []byte {
+	mP := *m
+	if _, err := mP.Write(b); err != nil {
+		panic(err)
+	}
+	bytes := mP.state.Bytes()
+	return bytes[:]
+}
+
+func (m *MapHash) Reset() {
+	m.stateValid = false
+}
+
+func (m *MapHash) Size() int {
+	return small_rational.Bytes
+}
+
+func (m *MapHash) BlockSize() int {
+	return small_rational.Bytes
+}
+
+func (m *MapHash) write(x small_rational.SmallRational) error {
+	X := &x
+	Y := &m.state
+	if !m.stateValid {
+		Y = nil
+	}
+	var err error
+	if m.state, err = m.Map.FindPair(X, Y); err == nil {
+		m.stateValid = true
+	}
+	return err
+}
 
 func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 	sb.WriteRune('"')
@@ -136,7 +200,7 @@ func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
 	}
 }
 
-func (m *HashMap) serializedUsedEntries() (string, error) {
+func (m *ElementMap) serializedUsedEntries() (string, error) {
 	var sb strings.Builder
 	sb.WriteRune('{')
 
@@ -161,7 +225,7 @@ func (m *HashMap) serializedUsedEntries() (string, error) {
 	return sb.String(), nil
 }
 
-func (m *HashMap) SaveUsedEntries(path string) error {
+func (m *ElementMap) SaveUsedEntries(path string) error {
 
 	if s, err := m.serializedUsedEntries(); err != nil {
 		return err
@@ -170,18 +234,18 @@ func (m *HashMap) SaveUsedEntries(path string) error {
 	}
 }
 
-func (m *HashMap) sort() {
+func (m *ElementMap) sort() {
 	sort.Slice(*m, func(i, j int) bool {
 		return (*m)[i].CmpKey((*m)[j]) <= 0
 	})
 }
 
-func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
+func (m *ElementMap) find(toFind *ElementTriplet) (small_rational.SmallRational, error) {
 	i := sort.Search(len(*m), func(i int) bool { return (*m)[i].CmpKey(toFind) >= 0 })
 
 	if i < len(*m) && (*m)[i].CmpKey(toFind) == 0 {
 		(*m)[i].used = true
-		return (*m)[i].value
+		return (*m)[i].value, nil
 	}
 	// if not found, add it:
 	if _, err := toFind.value.SetInterface(rand.Int63n(11) - 5); err != nil {
@@ -191,10 +255,10 @@ func (m *HashMap) find(toFind *ElementTriplet) small_rational.SmallRational {
 	*m = append(*m, toFind)
 	m.sort() //Inefficient, but it's okay. This is only run when a new test case is introduced
 
-	return toFind.value
+	return toFind.value, nil
 }
 
-func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.SmallRational) small_rational.SmallRational {
+func (m *ElementMap) FindPair(x *small_rational.SmallRational, y *small_rational.SmallRational) (small_rational.SmallRational, error) {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -208,60 +272,10 @@ func (m *HashMap) FindPair(x *small_rational.SmallRational, y *small_rational.Sm
 	return m.find(&toFind)
 }
 
-type MapHashTranscript struct {
-	HashMap         *HashMap
-	stateValid      bool
-	resultAvailable bool
-	state           small_rational.SmallRational
-}
-
-func (m *MapHashTranscript) Update(i ...interface{}) {
-	if len(i) > 0 {
-		for _, x := range i {
-
-			var xElement small_rational.SmallRational
-			if _, err := xElement.SetInterface(x); err != nil {
-				panic(err.Error())
-			}
-			if m.stateValid {
-				m.state = m.HashMap.FindPair(&xElement, &m.state)
-			} else {
-				m.state = m.HashMap.FindPair(&xElement, nil)
-			}
-
-			m.stateValid = true
-		}
-	} else { //just hash the state itself
-		if !m.stateValid {
-			panic("nothing to hash")
-		}
-		m.state = m.HashMap.FindPair(&m.state, nil)
-	}
-	m.resultAvailable = true
-}
-
-func (m *MapHashTranscript) Next(i ...interface{}) small_rational.SmallRational {
-
-	if len(i) > 0 || !m.resultAvailable {
-		m.Update(i...)
-	}
-	m.resultAvailable = false
-	return m.state
-}
-
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []small_rational.SmallRational {
-
-	if len(i) > 0 {
-		m.Update(i...)
-	}
-
-	res := make([]small_rational.SmallRational, N)
-
-	for n := range res {
-		res[n] = m.Next()
-	}
-
-	return res
+func ToElement(i int64) *small_rational.SmallRational {
+	var res small_rational.SmallRational
+	res.SetInt64(i)
+	return &res
 }
 
 func SliceToElementSlice[T any](slice []T) ([]small_rational.SmallRational, error) {
