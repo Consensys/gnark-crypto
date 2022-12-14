@@ -240,8 +240,8 @@ func newTestCase(path string) (*TestCase, error) {
 	return tCase, nil
 }
 
-func (c *TestCase) transcriptSetting() fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash})
+func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
+	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
 }
 
 type mulGate struct{}

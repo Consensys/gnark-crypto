@@ -488,7 +488,6 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		if sorted[i].noProof() {
 			continue
 		}
-
 		wirePrefix := prefix + "w" + nums[i] + "."
 
 		if sorted[i].NbClaims() > 1 {

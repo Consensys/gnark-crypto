@@ -43,9 +43,6 @@ func main() {
 }
 
 func GenerateVectors() error {
-
-	//return run("gkr/test_vectors/single_input_two_identity_gates_two_instances.json")
-
 	testDirPath, err := filepath.Abs("gkr/test_vectors")
 	if err != nil {
 		return err
