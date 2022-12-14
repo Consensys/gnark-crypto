@@ -22,14 +22,14 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return err
 	}
 
-	var mp test_vector_utils.ElementMap
+	var mp *test_vector_utils.ElementMap
 	var err error
 	if mp, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, testCaseInfo.Hash)); err != nil {
 		return err
 	}
 
 	proof, err := sumcheck.Prove(
-		&singleMultilinClaim{poly}, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: &mp}))
+		&singleMultilinClaim{poly}, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp}))
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return err
 	}
 
-	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: &mp})); err != nil {
+	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp})); err != nil {
 		return fmt.Errorf("proof rejected: %v", err)
 	}
 
@@ -141,7 +141,7 @@ type singleMultilinClaim struct {
 	g polynomial.MultiLin
 }
 
-func (c singleMultilinClaim) ProveFinalEval(r []small_rational.SmallRational) interface{} {
+func (c singleMultilinClaim) ProveFinalEval([]small_rational.SmallRational) interface{} {
 	return nil // verifier can compute the final eval itself
 }
 
@@ -175,7 +175,7 @@ type singleMultilinLazyClaim struct {
 	claimedSum small_rational.SmallRational
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []small_rational.SmallRational, _ small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) error {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []small_rational.SmallRational, _ small_rational.SmallRational, purportedValue small_rational.SmallRational, _ interface{}) error {
 	val := c.g.Evaluate(r, nil)
 	if val.Equal(&purportedValue) {
 		return nil
@@ -187,7 +187,7 @@ func (c singleMultilinLazyClaim) CombinedSum(small_rational.SmallRational) small
 	return c.claimedSum
 }
 
-func (c singleMultilinLazyClaim) Degree(i int) int {
+func (c singleMultilinLazyClaim) Degree(int) int {
 	return 1
 }
 
