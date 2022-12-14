@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/test_vector_utils"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/stretchr/testify/assert"
 	"hash"
@@ -121,7 +122,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash
 		return err
 	}
 
-	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], &fr.Element{1})
+	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], test_vector_utils.ToElement(1))
 	lazyClaim = singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 	if Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())) == nil {
 		return fmt.Errorf("incorrect proof accepted")

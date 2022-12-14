@@ -21,6 +21,7 @@ import (
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
 	"github.com/stretchr/testify/assert"
 	"hash"
 	"math/bits"
@@ -66,7 +67,7 @@ type singleMultilinLazyClaim struct {
 	claimedSum small_rational.SmallRational
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []small_rational.SmallRational, combinationCoeff small_rational.SmallRational, purportedValue small_rational.SmallRational, proof interface{}) error {
 	val := c.g.Evaluate(r, nil)
 	if val.Equal(&purportedValue) {
 		return nil
@@ -121,7 +122,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash
 		return err
 	}
 
-	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], &fr.Element{1})
+	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], test_vector_utils.ToElement(1))
 	lazyClaim = singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 	if Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())) == nil {
 		return fmt.Errorf("incorrect proof accepted")

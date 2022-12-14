@@ -120,7 +120,7 @@ func CreateElementMap(rawMap map[string]interface{}) (ElementMap, error) {
 type ElementMap []*ElementTriplet
 
 type MapHash struct {
-	Map        ElementMap
+	Map        *ElementMap
 	state      fr.Element
 	stateValid bool
 }

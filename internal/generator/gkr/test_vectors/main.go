@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
-	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -250,7 +249,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 
 type TestCase struct {
 	Circuit         gkr.Circuit
-	Hash            hash.Hash
+	Hash            *test_vector_utils.ElementMap
 	Proof           gkr.Proof
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
@@ -265,16 +264,7 @@ type TestCaseInfo struct {
 	Proof   PrintableProof  `json:"proof"`
 }
 
-type ParsedTestCase struct {
-	FullAssignment  gkr.WireAssignment
-	InOutAssignment gkr.WireAssignment
-	Proof           gkr.Proof
-	Hash            test_vector_utils.ElementMap
-	Circuit         gkr.Circuit
-	Info            TestCaseInfo
-}
-
-var parsedTestCases = make(map[string]*ParsedTestCase)
+var testCases = make(map[string]*TestCase)
 
 func newTestCase(path string) (*TestCase, error) {
 	path, err := filepath.Abs(path)
@@ -283,7 +273,7 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 	dir := filepath.Dir(path)
 
-	parsedCase, ok := parsedTestCases[path]
+	tCase, ok := testCases[path]
 	if !ok {
 		var bytes []byte
 		if bytes, err = os.ReadFile(path); err == nil {
@@ -350,29 +340,22 @@ func newTestCase(path string) (*TestCase, error) {
 				}
 			}
 
-			parsedCase = &ParsedTestCase{
+			tCase = &TestCase{
 				FullAssignment:  fullAssignment,
 				InOutAssignment: inOutAssignment,
 				Proof:           proof,
-				Hash:            _hash,
+				Hash:            &_hash,
 				Circuit:         circuit,
 				Info:            info,
 			}
 
-			parsedTestCases[path] = parsedCase
+			testCases[path] = tCase
 		} else {
 			return nil, err
 		}
 	}
 
-	return &TestCase{
-		Circuit:         parsedCase.Circuit,
-		Hash:            &test_vector_utils.MapHash{Map: parsedCase.Hash},
-		FullAssignment:  parsedCase.FullAssignment,
-		InOutAssignment: parsedCase.InOutAssignment,
-		Proof:           parsedCase.Proof,
-		Info:            parsedCase.Info,
-	}, nil
+	return tCase, nil
 }
 
 type mulGate struct{}
