@@ -372,8 +372,13 @@ func bytesToBigIntSigned(src []byte) big.Int {
 }
 
 func (z *SmallRational) SetBytes(b []byte) {
-	z.numerator = bytesToBigIntSigned(b[:Bytes/2])
-	z.denominator = bytesToBigIntSigned(b[Bytes/2:])
+	if len(b) > Bytes/2 {
+		z.numerator = bytesToBigIntSigned(b[:Bytes/2])
+		z.denominator = bytesToBigIntSigned(b[Bytes/2:])
+	} else {
+		z.numerator.SetBytes(b)
+		z.denominator.SetInt64(1)
+	}
 }
 
 func Modulus() *big.Int {

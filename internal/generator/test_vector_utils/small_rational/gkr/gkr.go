@@ -313,21 +313,7 @@ type claimsManager struct {
 func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
-
-	if pool == nil {
-
-		// extract the number of instances. TODO: Clean way?
-		nInstances := 0
-		for _, a := range assignment {
-			nInstances = len(a)
-			break
-		}
-
-		pool := polynomial.NewPool(1<<11, nInstances)
-		claims.memPool = &pool
-	} else {
-		claims.memPool = pool
-	}
+	claims.memPool = pool
 
 	for i := range c {
 		wire := &c[i]
@@ -395,6 +381,7 @@ type settings struct {
 	sorted           []*Wire
 	transcript       *fiatshamir.Transcript
 	transcriptPrefix string
+	nbVars           int
 }
 
 type Option func(*settings)
@@ -411,20 +398,30 @@ func WithSortedCircuit(sorted []*Wire) Option {
 	}
 }
 
-func setup(c Circuit, numVars int, transcriptSettings fiatshamir.Settings, options ...Option) (settings, error) {
+func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.Settings, options ...Option) (settings, error) {
 	var o settings
 	var err error
 	for _, option := range options {
 		option(&o)
 	}
+
+	o.nbVars = assignment.NumVars()
+	nbInstances := assignment.NumInstances()
+	if 1<<o.nbVars != nbInstances {
+		return o, fmt.Errorf("number of instances must be power of 2")
+	}
+
+	if o.pool == nil {
+		pool := polynomial.NewPool(1<<11, nbInstances)
+		o.pool = &pool
+	}
+
 	if o.sorted == nil {
 		o.sorted = TopologicalSort(c)
 	}
 
-	if transcriptSettings.BaseChallenges == nil {
-		o.transcript, o.transcriptPrefix = transcriptSettings.Transcript, transcriptSettings.Prefix
-	} else {
-		challengeNames := ChallengeNames(o.sorted, numVars, transcriptSettings.Prefix)
+	if transcriptSettings.Transcript == nil {
+		challengeNames := ChallengeNames(o.sorted, o.nbVars, transcriptSettings.Prefix)
 		transcript := fiatshamir.NewTranscript(
 			transcriptSettings.Hash, challengeNames...)
 		o.transcript = &transcript
@@ -433,6 +430,8 @@ func setup(c Circuit, numVars int, transcriptSettings fiatshamir.Settings, optio
 				return o, err
 			}
 		}
+	} else {
+		o.transcript, o.transcriptPrefix = transcriptSettings.Transcript, transcriptSettings.Prefix
 	}
 
 	return o, err
@@ -481,7 +480,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 	challenges := make([]string, size)
 
 	// output wire claims
-	firstChallengePrefix := prefix + "firstChallenge."
+	firstChallengePrefix := prefix + "fC."
 	for j := 0; j < logNbInstances; j++ {
 		challenges[j] = firstChallengePrefix + nums[j]
 	}
@@ -490,14 +489,14 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		if w.noProof() {
 			continue
 		}
-		wirePrefix := prefix + "wire" + nums[len(sorted)-i] + "."
+		wirePrefix := prefix + "w" + nums[len(sorted)-i] + "."
 
 		if w.NbClaims() > 1 {
-			challenges[j] = wirePrefix + "combine"
+			challenges[j] = wirePrefix + "comb"
 			j++
 		}
 
-		partialSumPrefix := wirePrefix + "partialSumPolys."
+		partialSumPrefix := wirePrefix + "pSP."
 		for k := 0; k < logNbInstances; k++ {
 			challenges[j] = partialSumPrefix + nums[k]
 		}
@@ -507,7 +506,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 
 func getFirstChallengeNames(logNbInstances int, prefix string) []string {
 	res := make([]string, logNbInstances)
-	firstChallengePrefix := prefix + "firstChallenge."
+	firstChallengePrefix := prefix + "fC."
 	for i := 0; i < logNbInstances; i++ {
 		res[i] = firstChallengePrefix + strconv.Itoa(i)
 	}
@@ -528,8 +527,7 @@ func getChallenges(transcript *fiatshamir.Transcript, names []string) ([]small_r
 
 // Prove consistency of the claimed assignment
 func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.Settings, options ...Option) (Proof, error) {
-	numVars := assignment.NumVars()
-	o, err := setup(c, numVars, transcriptSettings, options...)
+	o, err := setup(c, assignment, transcriptSettings, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -539,12 +537,12 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
 	var firstChallenge []small_rational.SmallRational
-	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(numVars, o.transcriptPrefix))
+	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(o.nbVars, o.transcriptPrefix))
 	if err != nil {
 		return nil, err
 	}
 
-	wirePrefix := o.transcriptPrefix + "wire"
+	wirePrefix := o.transcriptPrefix + "w"
 	var baseChallenge [][]byte
 	for i := len(c) - 1; i >= 0; i-- {
 
@@ -562,7 +560,7 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 			}
 		} else {
 			if proof[i], err = sumcheck.Prove(
-				claim, fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+"partialSumPolys.", baseChallenge...),
+				claim, fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+".", baseChallenge...),
 			); err != nil {
 				return proof, err
 			}
@@ -584,8 +582,7 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 // Verify the consistency of the claimed output with the claimed input
 // Unlike in Prove, the assignment argument need not be complete
 func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSettings fiatshamir.Settings, options ...Option) error {
-	numVars := assignment.NumVars()
-	o, err := setup(c, numVars, transcriptSettings, options...)
+	o, err := setup(c, assignment, transcriptSettings, options...)
 	if err != nil {
 		return err
 	}
@@ -593,12 +590,12 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	claims := newClaimsManager(c, assignment, o.pool)
 
 	var firstChallenge []small_rational.SmallRational
-	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(numVars, o.transcriptPrefix))
+	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(o.nbVars, o.transcriptPrefix))
 	if err != nil {
 		return err
 	}
 
-	wirePrefix := o.transcriptPrefix + "wire"
+	wirePrefix := o.transcriptPrefix + "w"
 	var baseChallenge [][]byte
 	for i := len(c) - 1; i >= 0; i-- {
 		wire := o.sorted[i]
@@ -624,7 +621,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 				}
 			}
 		} else if err = sumcheck.Verify(
-			claim, proof[i], fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+"partialSumPolys.", baseChallenge...),
+			claim, proof[i], fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+".", baseChallenge...),
 		); err == nil {
 			baseChallenge = make([][]byte, len(finalEvalProof))
 			for j := range finalEvalProof {
@@ -764,7 +761,13 @@ func (a WireAssignment) Complete(c Circuit) WireAssignment {
 	return a
 }
 
-// TODO: Cleaner way?
+func (a WireAssignment) NumInstances() int {
+	for _, aW := range a {
+		return len(aW)
+	}
+	panic("empty assignment")
+}
+
 func (a WireAssignment) NumVars() int {
 	for _, aW := range a {
 		return aW.NumVars()
