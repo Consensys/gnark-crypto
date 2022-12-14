@@ -48,7 +48,7 @@ type singleMultilinLazyClaim struct {
 	claimedSum {{.ElementType}}
 }
 
-func (c singleMultilinLazyClaim) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error {
+func (c singleMultilinLazyClaim) VerifyFinalEval(r []{{.ElementType}}, combinationCoeff {{.ElementType}}, purportedValue {{.ElementType}}, proof interface{}) error {
 	val := c.g.Evaluate(r, nil)
 	if val.Equal(&purportedValue) {
 		return nil
@@ -103,7 +103,7 @@ func testSumcheckSingleClaimMultilin(polyInt []uint64, hashGenerator func() hash
 		return err
 	}
 
-	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], &fr.Element{1})
+	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], test_vector_utils.ToElement(1))
 	lazyClaim = singleMultilinLazyClaim{g: poly, claimedSum: poly.Sum()}
 	if Verify(lazyClaim, proof, fiatshamir.WithHash(hashGenerator())) == nil {
 		return fmt.Errorf("incorrect proof accepted")

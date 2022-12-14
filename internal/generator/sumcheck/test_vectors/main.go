@@ -29,7 +29,10 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 	}
 
 	proof, err := sumcheck.Prove(
-		&singleMultilinClaim{poly}, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp}))
+		&singleMultilinClaim{poly}, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: &mp}))
+	if err != nil {
+		return err
+	}
 	testCaseInfo.Proof = toPrintableProof(proof)
 
 	// Verification
@@ -43,7 +46,7 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return err
 	}
 
-	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp})); err != nil {
+	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: &mp})); err != nil {
 		return fmt.Errorf("proof rejected: %v", err)
 	}
 
