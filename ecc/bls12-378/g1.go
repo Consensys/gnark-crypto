@@ -879,14 +879,13 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
-
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)
 	bestC := 0
-	for c := 2; c < 18; c++ {
+	for c := 2; c <= 16; c++ {
 		cost := uint64(1 << (c - 1))
 		nbChunks := uint64(fr.Limbs * 64 / c)
 		if (fr.Limbs*64)%c != 0 {
@@ -898,24 +897,24 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 			bestC = c
 		}
 	}
-	c := uint64(bestC) // window size
+	c := uint64(bestC) - 1 // window size
 	nbChunks := int(computeNbChunks(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
 	baseTable := make([]G1Jac, (1 << (c - 1)))
-	baseTable[0].Set(&g1Infinity)
-	baseTable[0].AddMixed(base)
+	baseTable[0].FromAffine(base)
 	for i := 1; i < len(baseTable); i++ {
 		baseTable[i] = baseTable[i-1]
 		baseTable[i].AddMixed(base)
 	}
-
-	digits, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := BatchJacobianToAffineG1(baseTable)
 	toReturn := make([]G1Jac, len(scalars))
+
+	// partition the scalars into digits
+	digits, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
 
 	// for each digit, take value in the base table, double it c time, voilà.
 	parallel.Execute(len(scalars), func(start, end int) {
