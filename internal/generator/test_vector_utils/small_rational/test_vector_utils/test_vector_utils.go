@@ -117,15 +117,6 @@ func CreateElementMap(rawMap map[string]interface{}) (ElementMap, error) {
 	return res, nil
 }
 
-func SaveUsedHashEntries() error {
-	for path, hash := range MapCache {
-		if err := hash.SaveUsedEntries(path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type ElementMap []*ElementTriplet
 
 type MapHash struct {
@@ -195,6 +186,15 @@ func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 		sb.WriteString(t.key2.String())
 	}
 	sb.WriteRune('"')
+}
+
+func SaveUsedHashEntries() error {
+	for path, hash := range MapCache {
+		if err := hash.SaveUsedEntries(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {

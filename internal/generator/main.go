@@ -158,8 +158,8 @@ func main() {
 		/*cmd := exec.Command("go", "run", "./gkr/test_vectors")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		assertNoError(cmd.Run())
-		wg.Done()*/
+		assertNoError(cmd.Run())*/
+		wg.Done()
 	}()
 
 	// format the whole directory

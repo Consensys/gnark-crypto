@@ -624,7 +624,7 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash test_vector_utils.ElementMap
+			var _hash *test_vector_utils.ElementMap
 			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
 				return nil, err
 			}
@@ -681,7 +681,7 @@ func newTestCase(path string) (*TestCase, error) {
 				FullAssignment:  fullAssignment,
 				InOutAssignment: inOutAssignment,
 				Proof:           proof,
-				Hash:            &_hash,
+				Hash:            _hash,
 				Circuit:         circuit,
 			}
 

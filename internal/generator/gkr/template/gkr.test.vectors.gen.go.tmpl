@@ -17,7 +17,7 @@ func main() {
 		if err := GenerateVectors(); err != nil {
 		    return err
         }
-		return test_vector_utils.SavedUsedHashEntries()
+		return test_vector_utils.SaveUsedHashEntries()
 	}(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)

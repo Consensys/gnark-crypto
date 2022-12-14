@@ -56,9 +56,9 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var MapCache = make(map[string]ElementMap)
+var MapCache = make(map[string]*ElementMap)
 
-func ElementMapFromFile(path string) (ElementMap, error) {
+func ElementMapFromFile(path string) (*ElementMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -75,10 +75,10 @@ func ElementMapFromFile(path string) (ElementMap, error) {
 
 		var h ElementMap
 		if h, err = CreateElementMap(asMap); err == nil {
-			MapCache[path] = h
+			MapCache[path] = &h
 		}
 
-		return h, err
+		return &h, err
 
 	} else {
 		return nil, err
