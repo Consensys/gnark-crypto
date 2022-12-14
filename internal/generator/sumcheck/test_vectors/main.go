@@ -36,10 +36,10 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 	testCaseInfo.Proof = toPrintableProof(proof)
 
 	// Verification
-	if v, err := test_vector_utils.SliceToElementSlice(testCaseInfo.Values); err == nil {
+	if v, _err := test_vector_utils.SliceToElementSlice(testCaseInfo.Values); _err == nil {
 		poly = v
 	} else {
-		return err
+		return _err
 	}
 	var claimedSum small_rational.SmallRational
 	if _, err = claimedSum.SetInterface(testCaseInfo.ClaimedSum); err != nil {
