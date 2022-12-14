@@ -484,13 +484,14 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		challenges[j] = firstChallengePrefix + nums[j]
 	}
 	j := logNbInstances
-	for i, w := range sorted {
-		if w.noProof() {
+	for i := len(sorted) - 1; i >= 0; i-- {
+		if sorted[i].noProof() {
 			continue
 		}
-		wirePrefix := prefix + "w" + nums[len(sorted)-i] + "."
 
-		if w.NbClaims() > 1 {
+		wirePrefix := prefix + "w" + nums[i] + "."
+
+		if sorted[i].NbClaims() > 1 {
 			challenges[j] = wirePrefix + "comb"
 			j++
 		}
@@ -498,6 +499,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		partialSumPrefix := wirePrefix + "pSP."
 		for k := 0; k < logNbInstances; k++ {
 			challenges[j] = partialSumPrefix + nums[k]
+			j++
 		}
 	}
 	return challenges

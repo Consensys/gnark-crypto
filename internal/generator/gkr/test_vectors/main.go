@@ -43,6 +43,9 @@ func main() {
 }
 
 func GenerateVectors() error {
+
+	//return run("gkr/test_vectors/single_input_two_identity_gates_two_instances.json")
+
 	testDirPath, err := filepath.Abs("gkr/test_vectors")
 	if err != nil {
 		return err
@@ -58,58 +61,61 @@ func GenerateVectors() error {
 		if !dirEntry.IsDir() {
 
 			if filepath.Ext(dirEntry.Name()) == ".json" {
-
 				fmt.Println("\tprocessing", dirEntry.Name())
-
 				path := filepath.Join(testDirPath, dirEntry.Name())
-
-				var testCase *TestCase
-				testCase, err = newTestCase(path)
-				if err != nil {
+				if err = run(path); err != nil {
 					return err
-				}
-
-				var proof gkr.Proof
-				proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
-				if err != nil {
-					return err
-				}
-
-				if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
-					return err
-				}
-				var outBytes []byte
-				if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
-					if err = os.WriteFile(path, outBytes, 0); err != nil {
-						return err
-					}
-				} else {
-					return err
-				}
-
-				testCase, err = newTestCase(path)
-				if err != nil {
-					return err
-				}
-
-				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
-				if err != nil {
-					return err
-				}
-
-				testCase, err = newTestCase(path)
-				if err != nil {
-					return err
-				}
-
-				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
-				if err == nil {
-					return fmt.Errorf("bad proof accepted")
 				}
 			}
 		}
 	}
 
+	return nil
+}
+
+func run(absPath string) error {
+	testCase, err := newTestCase(absPath)
+	if err != nil {
+		return err
+	}
+
+	var proof gkr.Proof
+	proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
+	if err != nil {
+		return err
+	}
+
+	if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
+		return err
+	}
+	var outBytes []byte
+	if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
+		if err = os.WriteFile(absPath, outBytes, 0); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	testCase, err = newTestCase(absPath)
+	if err != nil {
+		return err
+	}
+
+	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
+	if err != nil {
+		return err
+	}
+
+	testCase, err = newTestCase(absPath)
+	if err != nil {
+		return err
+	}
+
+	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting([]byte{0, 1}))
+	if err == nil {
+		return fmt.Errorf("bad proof accepted")
+	}
 	return nil
 }
 
@@ -355,8 +361,8 @@ func newTestCase(path string) (*TestCase, error) {
 	return tCase, nil
 }
 
-func (c *TestCase) transcriptSetting() fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash})
+func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
+	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
 }
 
 type mulGate struct{}

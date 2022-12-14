@@ -50,6 +50,10 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return fmt.Errorf("proof rejected: %v", err)
 	}
 
+	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], test_vector_utils.ToElement(1))
+	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp})); err == nil {
+		return fmt.Errorf("bad proof accepted")
+	}
 	return nil
 }
 

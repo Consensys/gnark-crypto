@@ -20,36 +20,36 @@
 	"proof": [
 		{
 			"finalEvalProof": [
-				4
+				3
+			],
+			"partialSumPolys": [
+				[
+					-6,
+					-21
+				]
+			]
+		},
+		{
+			"finalEvalProof": [
+				1,
+				1
 			],
 			"partialSumPolys": [
 				[
 					-12,
-					-45
+					-90,
+					-272
 				]
 			]
 		},
 		{
 			"finalEvalProof": [
-				2,
-				2
+				-2
 			],
 			"partialSumPolys": [
 				[
-					4,
-					18,
-					48
-				]
-			]
-		},
-		{
-			"finalEvalProof": [
-				-1
-			],
-			"partialSumPolys": [
-				[
-					2,
-					6
+					-6,
+					-30
 				]
 			]
 		}

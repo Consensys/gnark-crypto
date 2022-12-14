@@ -20,12 +20,12 @@
 	"proof": [
 		{
 			"finalEvalProof": [
-				-2
+				7
 			],
 			"partialSumPolys": [
 				[
-					-27,
-					-96
+					-33,
+					-128
 				]
 			]
 		},
@@ -35,19 +35,19 @@
 			],
 			"partialSumPolys": [
 				[
-					3,
-					8
+					-9,
+					-40
 				]
 			]
 		},
 		{
 			"finalEvalProof": [
-				5
+				-3
 			],
 			"partialSumPolys": [
 				[
-					3,
-					8
+					-9,
+					-40
 				]
 			]
 		}
