@@ -26,7 +26,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/test_vector_utils"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/stretchr/testify/assert"
-	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -357,7 +356,7 @@ func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, fiatshamir.WithHash(testCase.Hash))
+		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
 		assert.NoError(t, err)
 		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
@@ -367,11 +366,11 @@ func generateTestVerifier(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash))
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.transcriptSetting())
 		assert.NoError(t, err, "proof rejected")
 		testCase, err = newTestCase(path)
 		assert.NoError(t, err)
-		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash, []byte{}))
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: testCase.Hash}, []byte{}))
 		assert.NotNil(t, err, "bad proof accepted")
 	}
 }
@@ -435,16 +434,6 @@ func BenchmarkGkrMimc(b *testing.B) {
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
 	Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
-}
-
-func toBytes(i interface{}) []byte {
-	switch v := i.(type) {
-	case fr.Element:
-		return v.Marshal()
-	case *fr.Element:
-		return v.Marshal()
-	}
-	panic(fmt.Errorf("can't serialize type %T", i))
 }
 
 func TestTopSortTrivial(t *testing.T) {
@@ -598,7 +587,7 @@ func unmarshalProof(printable PrintableProof) (Proof, error) {
 
 type TestCase struct {
 	Circuit         Circuit
-	Hash            hash.Hash
+	Hash            *test_vector_utils.ElementMap
 	Proof           Proof
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
@@ -703,6 +692,10 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
+}
+
+func (c *TestCase) transcriptSetting() fiatshamir.Settings {
+	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash})
 }
 
 type mulGate struct{}

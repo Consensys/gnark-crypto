@@ -16,7 +16,7 @@ func TestTranscript(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	hsh := MapHash{Map: mp}
+	hsh := MapHash{Map: &mp}
 	transcript := fiatshamir.NewTranscript(&hsh, "0", "1")
 	bytes := ToElement(3).Bytes()
 	err = transcript.Bind("0", bytes[:])
