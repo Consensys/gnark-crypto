@@ -371,7 +371,7 @@ func generateTestVerifier(path string) func(t *testing.T) {
 		assert.NoError(t, err, "proof rejected")
 		testCase, err = newTestCase(path)
 		assert.NoError(t, err)
-		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: testCase.Hash}, []byte{}))
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: testCase.Hash}, []byte{1}))
 		assert.NotNil(t, err, "bad proof accepted")
 	}
 }
