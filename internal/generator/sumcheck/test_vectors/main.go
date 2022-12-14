@@ -86,7 +86,7 @@ func main() {
 	failed := false
 	for name, testCase := range testCasesInfo {
 		if err = run(dir, testCase); err != nil {
-			fmt.Println(name, ':', err)
+			fmt.Println(name, ":", err)
 			failed = true
 		}
 	}
