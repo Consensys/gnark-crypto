@@ -73,7 +73,7 @@ func GenerateVectors() error {
 				}
 
 				var proof gkr.Proof
-				proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, fiatshamir.WithHash(testCase.Hash))
+				proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
 				if err != nil {
 					return err
 				}
@@ -95,7 +95,7 @@ func GenerateVectors() error {
 					return err
 				}
 
-				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(testCase.Hash))
+				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
 				if err != nil {
 					return err
 				}
@@ -105,7 +105,7 @@ func GenerateVectors() error {
 					return err
 				}
 
-				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(testCase.Hash))
+				err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
 				if err == nil {
 					return fmt.Errorf("bad proof accepted")
 				}
@@ -356,6 +356,10 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
+}
+
+func (c *TestCase) transcriptSetting() fiatshamir.Settings {
+	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash})
 }
 
 type mulGate struct{}
