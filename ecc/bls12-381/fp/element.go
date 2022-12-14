@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"io"
 	"math/big"
 	"math/bits"
@@ -916,6 +917,27 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
+}
+
 // Exp z = xᵏ (mod q)
 func (z *Element) Exp(x Element, k *big.Int) *Element {
 	if k.IsUint64() && k.Uint64() == 0 {
@@ -1405,17 +1427,28 @@ func (z *Element) Inverse(x *Element) *Element {
 	// correctness check
 	v.Mul(&u, z)
 	if !v.IsOne() && !u.IsZero() {
-		return z.inverseExp(&u)
+		return z.inverseExp(u)
 	}
 
 	return z
 }
 
 // inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q)
-func (z *Element) inverseExp(x *Element) *Element {
-	qMinusTwo := Modulus()
-	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-	return z.Exp(*x, qMinusTwo)
+func (z *Element) inverseExp(x Element) *Element {
+	// e == q-2
+	e := Modulus()
+	e.Sub(e, big.NewInt(2))
+
+	z.Set(&x)
+
+	for i := e.BitLen() - 2; i >= 0; i-- {
+		z.Square(z)
+		if e.Bit(i) == 1 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits

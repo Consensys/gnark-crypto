@@ -83,6 +83,10 @@ func (z *E3) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero() && z.A2.IsZero()
 }
 
+func (z *E3) IsOne() bool {
+	return z.A0.IsOne() && z.A1.IsZero() && z.A2.IsZero()
+}
+
 // Neg negates the E3 number
 func (z *E3) Neg(x *E3) *E3 {
 	z.A0.Neg(&x.A0)

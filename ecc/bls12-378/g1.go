@@ -17,13 +17,12 @@
 package bls12378
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -388,6 +387,7 @@ func (p *G1Jac) IsOnCurve() bool {
 func (p *G1Jac) IsInSubGroup() bool {
 
 	var res G1Jac
+
 	res.phi(p).
 		ScalarMultiplication(&res, &xGen).
 		ScalarMultiplication(&res, &xGen).

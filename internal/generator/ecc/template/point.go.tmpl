@@ -9,7 +9,9 @@ import (
 	"math/big"
 	"runtime"
 
+	{{- if .GLV}}
 	"github.com/consensys/gnark-crypto/ecc"
+	{{- end}}
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
@@ -63,7 +65,11 @@ func (p *{{ $TAffine }}) setInfinity() *{{ $TAffine }} {
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
+	{{- if .GLV}}
+        _p.mulGLV(&_p, s)
+	{{- else }}
+        _p.mulWindowed(&_p, s)
+	{{- end }}
 	p.FromJacobian(&_p)
 	return p
 }
@@ -73,7 +79,11 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 // Takes an affine point and returns a Jacobian point (useful for KZG)
 func (p *{{ $TJacobian }}) ScalarMultiplicationAffine(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
 	p.FromAffine(a)
-	p.mulGLV(p, s)
+	{{- if .GLV}}
+        p.mulGLV(p, s)
+	{{- else }}
+        p.mulWindowed(p, s)
+	{{- end }}
 	return p
 }
 {{- end}}
@@ -436,6 +446,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	{{- end}}
 {{else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+    {{ if .GLV}}
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
 	// of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
 	// polynomials in x, a short vector of this Zmodule is
@@ -454,10 +465,18 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 		phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
 
 		return phip.IsOnCurve() && phip.Z.IsZero()
+    {{ else}}
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+		var res {{ $TJacobian }}
+        res.ScalarMultiplication(p, fr.Modulus())
+		return res.IsOnCurve() && res.Z.IsZero()
+    {{ end}}
 
 	}
 {{else if eq .Name "bw6-633"}}
     // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+    {{ if .GLV}}
     // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
@@ -472,11 +491,18 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             AddAssign(&u4P).
             AddAssign(&u5P)
 
+    {{ else}}
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+        var r {{ $TJacobian }}
+        r.ScalarMultiplication(p, fr.Modulus())
+    {{ end}}
 		return r.IsOnCurve() && r.Z.IsZero()
 	}
 {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	{{- if eq .PointName "g1"}}
         // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+        {{ if .GLV}}
         // Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
         // of (u,v)->u+lambda{{ $TAffine }}v mod r. Expressing r, lambda{{ $TAffine }} as
         // polynomials in x, a short vector of this Zmodule is
@@ -491,6 +517,13 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
                 ScalarMultiplication(&res, &xGen).
                 ScalarMultiplication(&res, &xGen).
                 AddAssign(p)
+    {{ else}}
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+
+        var res {{ $TJacobian }}
+        res.ScalarMultiplication(p, fr.Modulus())
+		return res.IsOnCurve() && res.Z.IsZero()
+    {{ end}}
 
             return res.IsOnCurve() && res.Z.IsZero()
 
@@ -525,10 +558,14 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
             var res {{ $TJacobian }}
+            {{ if .GLV}}
             res.phi(p).
                 ScalarMultiplication(&res, &xGen).
                 ScalarMultiplication(&res, &xGen).
                 AddAssign(p)
+            {{ else}}
+            res.ScalarMultiplication(p, fr.Modulus())
+            {{ end}}
 
             return res.IsOnCurve() && res.Z.IsZero()
 
@@ -732,6 +769,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p.Set(&res)
 	return p
 {{else if eq .Name "bw6-761"}}
+{{ if .GLV}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
@@ -766,9 +804,15 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p2.phi(&p2)
 
 	p.Set(&p1).AddAssign(&p2)
+{{ else}}
+    var c1 big.Int
+    c1.SetString("26642435879335816683987677701488073867751118270052650655942102502312977592501693353047140953112195348280268661194876", 10)
+    p.ScalarMultiplication(a, &c1)
+{{ end}}
 
 	return p
 {{else if eq .Name "bw6-633"}}
+{{ if .GLV}}
 	var uP, vP, wP, L0, L1, tmp {{$TJacobian}}
 	var v, one, uPlusOne, uMinusOne, d1, d2, ht big.Int
 	one.SetInt64(1)
@@ -796,9 +840,15 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
+{{ else}}
+    var c1 big.Int
+    c1.SetString("516166855112631370346774477030598579858367278343565509012644853411927535599366632765988905418773", 10)
+    p.ScalarMultiplication(a, &c1)
+{{ end}}
 
     return p
 {{else if eq .Name "bw6-756"}}
+{{ if .GLV}}
 	var L0, L1, uP, u2P, u3P, tmp G1Jac
 
 	uP.ScalarMultiplication(a, &xGen)
@@ -823,6 +873,11 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	p.phi(&L1).
 		AddAssign(&L0)
+{{ else}}
+    var c1 big.Int
+    c1.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196608", 10)
+    p.ScalarMultiplication(a, &c1)
+{{ end}}
 
 	return p
 {{- end}}
@@ -950,6 +1005,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	return p
 {{else if eq .Name "bw6-761"}}
 
+{{- if .GLV}}
 	var points [4]{{$TJacobian}}
 	points[0].Set(a)
 	points[1].ScalarMultiplication(a, &xGen)
@@ -983,9 +1039,15 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	p2.phi(&p2).phi(&p2)
 
 	p.Set(&p1).AddAssign(&p2)
+{{else}}
+    var c2 big.Int
+    c2.SetString("26642435879335816683987677701488073867751118270052650655942102502312977592501693353047140953112195348280268661194869", 10)
+    p.ScalarMultiplication(a, &c2)
+{{end}}
 
 	return p
 {{else if eq .Name "bw6-633"}}
+{{- if .GLV}}
 	var uP, u2P, u3P, u4P, u5P, xP, vP, wP, L0, L1, tmp {{$TJacobian}}
 	var ht, d1, d3 big.Int
 	ht.SetInt64(7) // negative
@@ -1016,10 +1078,16 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
+{{else}}
+    var c2 big.Int
+    c2.SetString("516166855112631370346774477030598579858367278343565509012644853411927535599366632765988905418768", 10)
+    p.ScalarMultiplication(a, &c2)
+{{end}}
 
 	return p
 {{else if eq .Name "bw6-756"}}
 
+{{- if .GLV}}
 	var L0, L1, uP, u2P, u3P, tmp G2Jac
 
 	uP.ScalarMultiplication(a, &xGen)
@@ -1040,6 +1108,11 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 	p.phi(&L0).
 		AddAssign(&L1)
+{{else}}
+    var c2 big.Int
+    c2.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196609", 10)
+    p.ScalarMultiplication(a, &c2)
+{{end}}
 
 	return p
 

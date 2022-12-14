@@ -117,6 +117,10 @@ func (z *E24) IsZero() bool {
 	return z.D0.IsZero() && z.D1.IsZero()
 }
 
+func (z *E24) IsOne() bool {
+	return z.D0.IsOne() && z.D1.IsZero()
+}
+
 // Mul set z=x*y in E24 and return z
 func (z *E24) Mul(x, y *E24) *E24 {
 	var a, b, c E12
@@ -254,7 +258,7 @@ func (z *E24) DecompressKarabina(x *E24) *E24 {
 		t[1].Sub(&t[0], &x.D0.C2).
 			Double(&t[1]).
 			Add(&t[1], &t[0])
-			// t0 = E * g5^2 + t1
+		// t0 = E * g5^2 + t1
 		t[2].Square(&x.D1.C2)
 		t[0].MulByNonResidue(&t[2]).
 			Add(&t[0], &t[1])
@@ -331,7 +335,7 @@ func BatchDecompressKarabina(x []E24) []E24 {
 			t1[i].Sub(&t0[i], &x[i].D0.C2).
 				Double(&t1[i]).
 				Add(&t1[i], &t0[i])
-				// t0 = E * g5^2 + t1
+			// t0 = E * g5^2 + t1
 			t2[i].Square(&x[i].D1.C2)
 			t0[i].MulByNonResidue(&t2[i]).
 				Add(&t0[i], &t1[i])

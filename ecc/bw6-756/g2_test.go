@@ -326,7 +326,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.mulGLV(&g2Gen, r)
+			g.ScalarMultiplication(&g2Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
@@ -460,7 +460,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G2Jac
 				var expected G2Affine
 				var b big.Int
-				expectedJac.mulGLV(&g2Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g2Gen, sampleScalars[i].ToBigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false

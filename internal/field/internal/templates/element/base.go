@@ -3,6 +3,7 @@ package element
 const Base = `
 
 import (
+	"github.com/consensys/gnark-crypto/internal/hashutils"
 	"math/big"
 	"math/bits"
 	"io"
@@ -626,6 +627,26 @@ func (z *{{.ElementName}}) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]{{.ElementName}}, count)
+	for i := 0; i < count; i++ {
+		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+	}
+	return res, nil
+}
 
 
 {{ define "rsh V nbWords" }}
