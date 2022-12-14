@@ -60,9 +60,9 @@ func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) 
 	}
 	challengeNames = make([]string, numChallenges)
 	if claimsNum >= 2 {
-		challengeNames[0] = settings.Prefix + "combine"
+		challengeNames[0] = settings.Prefix + "comb"
 	}
-	prefix := settings.Prefix + "partialSumPolys."
+	prefix := settings.Prefix + "pSP."
 	for i := 0; i < varsNum; i++ {
 		challengeNames[i+numChallenges-varsNum] = prefix + strconv.Itoa(i)
 	}

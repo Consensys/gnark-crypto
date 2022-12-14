@@ -155,11 +155,11 @@ func main() {
 
 	go func() {
 		// generate test vectors for gkr
-		cmd := exec.Command("go", "run", "./gkr/test_vectors")
+		/*cmd := exec.Command("go", "run", "./gkr/test_vectors")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		assertNoError(cmd.Run())
-		wg.Done()
+		wg.Done()*/
 	}()
 
 	// format the whole directory
