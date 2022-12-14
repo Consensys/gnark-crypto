@@ -171,7 +171,13 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 	case big.Int:
 		return z.SetBigInt(&c1), nil
 	case []byte:
-		return z.SetBytes(c1), nil
+		if err := z.SetBytes(c1); err != nil {
+			vv := bigIntPool.Get().(*big.Int)
+			defer bigIntPool.Put(vv)
+			vv.SetBytes(c1)
+			return z.SetBigInt(vv), nil
+		}
+		return z, nil
 	default:
 		return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} from type " + reflect.TypeOf(i1).String())
 	}
@@ -641,10 +647,18 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
 	res := make([]{{.ElementName}}, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
 	return res, nil
 }
 

@@ -211,7 +211,13 @@ func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	case big.Int:
 		return z.SetBigInt(&c1), nil
 	case []byte:
-		return z.SetBytes(c1), nil
+		if err := z.SetBytes(c1); err != nil {
+			vv := bigIntPool.Get().(*big.Int)
+			defer bigIntPool.Put(vv)
+			vv.SetBytes(c1)
+			return z.SetBigInt(vv), nil
+		}
+		return z, nil
 	default:
 		return nil, errors.New("can't set fp.Element from type " + reflect.TypeOf(i1).String())
 	}
@@ -1549,10 +1555,18 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
 	res := make([]Element, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
 	return res, nil
 }
 
@@ -1708,7 +1722,7 @@ func (z *Element) Marshal() []byte {
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
-func (z *Element) SetBytes(e []byte) *Element {
+func (z *Element) SetBytes(e []byte) error {
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
 	vv.SetBytes(e)
@@ -1719,7 +1733,7 @@ func (z *Element) SetBytes(e []byte) *Element {
 	// put temporary object back in pool
 	bigIntPool.Put(vv)
 
-	return z
+	return nil
 }
 
 // SetBigInt sets z to v and returns z

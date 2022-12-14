@@ -100,7 +100,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fr.Bytes])
+		err = t.SetBytes(buf[:fr.Bytes])
 		return
 	case *fp.Element:
 		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
@@ -108,7 +108,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fp.Bytes])
+		err = t.SetBytes(buf[:fp.Bytes])
 		return
 	case *[]fr.Element:
 		var sliceLen uint32
@@ -126,7 +126,9 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			(*t)[i].SetBytes(buf[:fr.Bytes])
+			if err = (*t)[i].SetBytes(buf[:fr.Bytes]); err != nil {
+				return
+			}
 		}
 		return
 	case *[]fp.Element:
@@ -145,7 +147,9 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			(*t)[i].SetBytes(buf[:fp.Bytes])
+			if err = (*t)[i].SetBytes(buf[:fp.Bytes]); err != nil {
+				return
+			}
 		}
 		return
 	case *G1Affine:
@@ -221,7 +225,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -276,7 +284,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -750,8 +762,12 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// uncompressed point
 	if mData == mUncompressed {
 		// read X and Y coordinates
-		p.X.SetBytes(buf[:fp.Bytes])
-		p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2])
+		if err := p.X.SetBytes(buf[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+			return 0, err
+		}
 
 		// subgroup check
 		if subGroupCheck && !p.IsInSubGroup() {
@@ -771,7 +787,9 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+		return 0, err
+	}
 
 	var YSquared, Y fp.Element
 
@@ -845,7 +863,7 @@ func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
@@ -854,7 +872,7 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		p.X.SetZero()
 		p.Y.SetZero()
 		isInfinity = true
-		return
+		return isInfinity, nil
 	}
 
 	// we need to copy the input buffer (to keep this method thread safe)
@@ -863,12 +881,14 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+		return false, err
+	}
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)
 
 	// recomputing Y will be done asynchronously
-	return
+	return isInfinity, nil
 }
 
 // SizeOfG2AffineCompressed represents the size in bytes that a G2Affine need in binary form, compressed
@@ -1089,15 +1109,31 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if mData == mUncompressed {
 		// read X and Y coordinates
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-		p.X.B1.A1.SetBytes(buf[fp.Bytes*0 : fp.Bytes*1])
-		p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2])
-		p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3])
-		p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4])
+		if err := p.X.B1.A1.SetBytes(buf[fp.Bytes*0 : fp.Bytes*1]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4]); err != nil {
+			return 0, err
+		}
 		// p.Y.B1.A1 | p.Y.B1.A0 | p.Y.B0.A1 | p.Y.B0.A0
-		p.Y.B1.A1.SetBytes(buf[fp.Bytes*4 : fp.Bytes*5])
-		p.Y.B1.A0.SetBytes(buf[fp.Bytes*5 : fp.Bytes*6])
-		p.Y.B0.A1.SetBytes(buf[fp.Bytes*6 : fp.Bytes*7])
-		p.Y.B0.A0.SetBytes(buf[fp.Bytes*7 : fp.Bytes*8])
+		if err := p.Y.B1.A1.SetBytes(buf[fp.Bytes*4 : fp.Bytes*5]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B1.A0.SetBytes(buf[fp.Bytes*5 : fp.Bytes*6]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B0.A1.SetBytes(buf[fp.Bytes*6 : fp.Bytes*7]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B0.A0.SetBytes(buf[fp.Bytes*7 : fp.Bytes*8]); err != nil {
+			return 0, err
+		}
 
 		// subgroup check
 		if subGroupCheck && !p.IsInSubGroup() {
@@ -1118,10 +1154,18 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 
 	// read X coordinate
 	// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-	p.X.B1.A1.SetBytes(bufX[fp.Bytes*0 : fp.Bytes*1])
-	p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2])
-	p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3])
-	p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4])
+	if err := p.X.B1.A1.SetBytes(bufX[fp.Bytes*0 : fp.Bytes*1]); err != nil {
+		return 0, err
+	}
+	if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2]); err != nil {
+		return 0, err
+	}
+	if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3]); err != nil {
+		return 0, err
+	}
+	if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4]); err != nil {
+		return 0, err
+	}
 
 	var YSquared, Y fptower.E4
 
@@ -1197,7 +1241,7 @@ func (p *G2Affine) unsafeComputeY(subGroupCheck bool) error {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
@@ -1206,7 +1250,7 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		p.X.SetZero()
 		p.Y.SetZero()
 		isInfinity = true
-		return
+		return isInfinity, nil
 	}
 
 	// we need to copy the input buffer (to keep this method thread safe)
@@ -1216,14 +1260,22 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 
 	// read X coordinate
 	// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-	p.X.B1.A1.SetBytes(bufX[fp.Bytes*0 : fp.Bytes*1])
-	p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2])
-	p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3])
-	p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4])
+	if err := p.X.B1.A1.SetBytes(bufX[fp.Bytes*0 : fp.Bytes*1]); err != nil {
+		return false, err
+	}
+	if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1 : fp.Bytes*2]); err != nil {
+		return false, err
+	}
+	if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3]); err != nil {
+		return false, err
+	}
+	if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4]); err != nil {
+		return false, err
+	}
 
 	// store mData in p.Y.B0.A0[0]
 	p.Y.B0.A0[0] = uint64(mData)
 
 	// recomputing Y will be done asynchronously
-	return
+	return isInfinity, nil
 }

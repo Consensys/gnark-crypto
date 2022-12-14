@@ -756,34 +756,58 @@ func (z *E12) Bytes() (r [SizeOfGT]byte) {
 // SetBytes interprets e as the bytes of a big-endian GT
 // sets z to that value (in Montgomery form), and returns z.
 // size(e) == 48 * 12
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
-	z.C0.B0.A0.SetBytes(e[528 : 528+fp.Bytes])
+	if err := z.C0.B0.A0.SetBytes(e[528 : 528+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C0.B0.A1.SetBytes(e[480 : 480+fp.Bytes])
+	if err := z.C0.B0.A1.SetBytes(e[480 : 480+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C0.B1.A0.SetBytes(e[432 : 432+fp.Bytes])
+	if err := z.C0.B1.A0.SetBytes(e[432 : 432+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C0.B1.A1.SetBytes(e[384 : 384+fp.Bytes])
+	if err := z.C0.B1.A1.SetBytes(e[384 : 384+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C0.B2.A0.SetBytes(e[336 : 336+fp.Bytes])
+	if err := z.C0.B2.A0.SetBytes(e[336 : 336+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C0.B2.A1.SetBytes(e[288 : 288+fp.Bytes])
+	if err := z.C0.B2.A1.SetBytes(e[288 : 288+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B0.A0.SetBytes(e[240 : 240+fp.Bytes])
+	if err := z.C1.B0.A0.SetBytes(e[240 : 240+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B0.A1.SetBytes(e[192 : 192+fp.Bytes])
+	if err := z.C1.B0.A1.SetBytes(e[192 : 192+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B1.A0.SetBytes(e[144 : 144+fp.Bytes])
+	if err := z.C1.B1.A0.SetBytes(e[144 : 144+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B1.A1.SetBytes(e[96 : 96+fp.Bytes])
+	if err := z.C1.B1.A1.SetBytes(e[96 : 96+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B2.A0.SetBytes(e[48 : 48+fp.Bytes])
+	if err := z.C1.B2.A0.SetBytes(e[48 : 48+fp.Bytes]); err != nil {
+		return err
+	}
 
-	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
+	if err := z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes]); err != nil {
+		return err
+	}
 
 	return nil
 }

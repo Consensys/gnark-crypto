@@ -117,12 +117,13 @@ func (z *{{.ElementName}}) Marshal() []byte {
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
-func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
+func (z *{{.ElementName}}) SetBytes(e []byte) error {
 	{{- if eq .NbWords 1}}
 	if len(e) == 8 {
 		// fast path
 		z[0] = binary.BigEndian.Uint64(e)
-		return z.ToMont()
+		z.ToMont()
+		return nil
 	}
 	{{- end}}
 	// get a big int from our pool
@@ -135,7 +136,7 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 	// put temporary object back in pool
 	bigIntPool.Put(vv)
 
-	return z
+	return nil
 }
 
 
@@ -272,6 +273,9 @@ func (z *{{.ElementName}}) UnmarshalJSON(data []byte) error {
 	bigIntPool.Put(vv)
 	return nil
 }
+
+
+
 
 
 `
