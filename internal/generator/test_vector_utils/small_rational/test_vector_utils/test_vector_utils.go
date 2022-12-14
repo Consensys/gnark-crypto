@@ -322,7 +322,7 @@ func (m *MessageCounter) BlockSize() int {
 }
 
 func NewMessageCounter(startState, step int) hash.Hash {
-	transcript := &MessageCounter{startState: uint64(startState), step: uint64(step)}
+	transcript := &MessageCounter{startState: uint64(startState), state: uint64(startState), step: uint64(step)}
 	return transcript
 }
 

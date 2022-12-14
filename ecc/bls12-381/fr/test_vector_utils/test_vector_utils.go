@@ -244,8 +244,9 @@ func ToElement(i int64) *fr.Element {
 }
 
 type MessageCounter struct {
-	state uint64
-	step  uint64
+	startState uint64
+	state      uint64
+	step       uint64
 }
 
 func (m *MessageCounter) Write(p []byte) (n int, err error) {
@@ -264,7 +265,7 @@ func (m *MessageCounter) Sum(b []byte) []byte {
 }
 
 func (m *MessageCounter) Reset() {
-	m.state = 0
+	m.state = m.startState
 }
 
 func (m *MessageCounter) Size() int {
@@ -276,7 +277,7 @@ func (m *MessageCounter) BlockSize() int {
 }
 
 func NewMessageCounter(startState, step int) hash.Hash {
-	transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
+	transcript := &MessageCounter{startState: uint64(startState), state: uint64(startState), step: uint64(step)}
 	return transcript
 }
 
