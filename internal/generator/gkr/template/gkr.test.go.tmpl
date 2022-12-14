@@ -89,17 +89,18 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]{{.ElementType}}) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{ Wire{
-		Gate:       nil,
-		Inputs:     []*Wire{},
+		Gate:            IdentityGate{},
+		Inputs:          []*Wire{},
 		nbUniqueOutputs: 2,
 	} }
 
 	wire := &circuit[0]
 
 	assignment := WireAssignment{&circuit[0]: []{{.ElementType}}{two, three}}
+	pool := polynomial.NewPool(256, 1<<11)
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment, nil)
+		manager := newClaimsManager(circuit, assignment, &pool)
 		manager.add(wire, []{{.ElementType}}{three}, five)
 		manager.add(wire, []{{.ElementType}}{four}, six)
 		return &manager
