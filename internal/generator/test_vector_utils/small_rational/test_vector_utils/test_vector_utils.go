@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"hash"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -285,6 +286,49 @@ func ToElement(i int64) *small_rational.SmallRational {
 	var res small_rational.SmallRational
 	res.SetInt64(i)
 	return &res
+}
+
+type MessageCounter struct {
+	state uint64
+	step  uint64
+}
+
+func (m *MessageCounter) Write(p []byte) (n int, err error) {
+	inputBlockSize := (len(p)-1)/small_rational.Bytes + 1
+	m.state += uint64(inputBlockSize) * m.step
+	return len(p), nil
+}
+
+func (m *MessageCounter) Sum(b []byte) []byte {
+	inputBlockSize := (len(b)-1)/small_rational.Bytes + 1
+	resI := m.state + uint64(inputBlockSize)*m.step
+	var res small_rational.SmallRational
+	res.SetInt64(int64(resI))
+	resBytes := res.Bytes()
+	return resBytes[:]
+}
+
+func (m *MessageCounter) Reset() {
+	m.state = 0
+}
+
+func (m *MessageCounter) Size() int {
+	return small_rational.Bytes
+}
+
+func (m *MessageCounter) BlockSize() int {
+	return small_rational.Bytes
+}
+
+func NewMessageCounter(startState, step int) hash.Hash {
+	transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
+	return transcript
+}
+
+func NewMessageCounterGenerator(startState, step int) func() hash.Hash {
+	return func() hash.Hash {
+		return NewMessageCounter(startState, step)
+	}
 }
 
 func SliceToElementSlice[T any](slice []T) ([]small_rational.SmallRational, error) {
