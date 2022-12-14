@@ -172,6 +172,15 @@ func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 
 {{- if .RandomizeMissingHashEntries}}
 
+func SaveUsedHashEntries() error {
+	for path, hash := range MapCache {
+		if err := hash.SaveUsedEntries(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *ElementTriplet) writeKeyValue(sb *strings.Builder) error {
 	t.writeKey(sb)
 	sb.WriteRune(':')

@@ -62,13 +62,11 @@ func run(dir string, testCaseInfo *TestCaseInfo) error {
 	}
 }
 
-func main() {
-
+func runAll(relPath string) error {
 	var filename string
 	var err error
-	if filename, err = filepath.Abs("sumcheck/test_vectors/vectors.json"); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+	if filename, err = filepath.Abs(relPath); err != nil {
+		return err
 	}
 
 	dir := filepath.Dir(filename)
@@ -76,14 +74,12 @@ func main() {
 	var bytes []byte
 
 	if bytes, err = os.ReadFile(filename); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+		return err
 	}
 
 	var testCasesInfo TestCasesInfo
 	if err = json.Unmarshal(bytes, &testCasesInfo); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+		return err
 	}
 
 	failed := false
@@ -95,15 +91,22 @@ func main() {
 	}
 
 	if failed {
-		os.Exit(-1)
+		return fmt.Errorf("test case failed")
 	}
 
 	if bytes, err = json.MarshalIndent(testCasesInfo, "", "\t"); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+		return err
 	}
 
-	if err = os.WriteFile(filename, bytes, 0); err != nil {
+	if err = test_vector_utils.SaveUsedHashEntries(); err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, bytes, 0)
+}
+
+func main() {
+	if err := runAll("sumcheck/test_vectors/vectors.json"); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}

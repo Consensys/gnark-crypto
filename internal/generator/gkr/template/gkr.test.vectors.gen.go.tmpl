@@ -14,13 +14,10 @@ import (
 
 func main() {
 	if err := func() error {
-		err := GenerateVectors()
-		for path, hash := range test_vector_utils.MapCache {
-			if err := hash.SaveUsedEntries(path); err != nil {
-				return err
-			}
-		}
-		return err
+		if err := GenerateVectors(); err != nil {
+		    return err
+        }
+		return test_vector_utils.SavedUsedHashEntries()
 	}(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
