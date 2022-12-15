@@ -53,7 +53,9 @@ func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) 
 	}
 
 	for i := range settings.BaseChallenges {
-		err = settings.Transcript.Bind(challengeNames[0], settings.BaseChallenges[i])
+		if err = settings.Transcript.Bind(challengeNames[0], settings.BaseChallenges[i]); err != nil {
+			return
+		}
 	}
 	return
 }
