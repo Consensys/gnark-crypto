@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/polynomial"
+	"hash"
 
 	"os"
 	"path/filepath"
@@ -56,14 +57,14 @@ func (t *ElementTriplet) CmpKey(o *ElementTriplet) int {
 	}
 }
 
-var HashCache = make(map[string]*HashMap)
+var MapCache = make(map[string]*ElementMap)
 
-func GetHash(path string) (*HashMap, error) {
+func ElementMapFromFile(path string) (*ElementMap, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if h, ok := HashCache[path]; ok {
+	if h, ok := MapCache[path]; ok {
 		return h, nil
 	}
 	var bytes []byte
@@ -73,46 +74,110 @@ func GetHash(path string) (*HashMap, error) {
 			return nil, err
 		}
 
-		res := make(HashMap, 0, len(asMap))
-
-		for k, v := range asMap {
-			var entry ElementTriplet
-			if _, err = SetElement(&entry.value, v); err != nil {
-				return nil, err
-			}
-
-			key := strings.Split(k, ",")
-
-			switch len(key) {
-			case 1:
-				entry.key2Present = false
-			case 2:
-				entry.key2Present = true
-				if _, err = SetElement(&entry.key2, key[1]); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
-			}
-			if _, err = SetElement(&entry.key1, key[0]); err != nil {
-				return nil, err
-			}
-
-			res = append(res, &entry)
+		var h ElementMap
+		if h, err = CreateElementMap(asMap); err == nil {
+			MapCache[path] = &h
 		}
 
-		res.sort()
-
-		HashCache[path] = &res
-
-		return &res, nil
+		return &h, err
 
 	} else {
 		return nil, err
 	}
 }
 
-type HashMap []*ElementTriplet
+func CreateElementMap(rawMap map[string]interface{}) (ElementMap, error) {
+	res := make(ElementMap, 0, len(rawMap))
+
+	for k, v := range rawMap {
+		var entry ElementTriplet
+		if _, err := SetElement(&entry.value, v); err != nil {
+			return nil, err
+		}
+
+		key := strings.Split(k, ",")
+		switch len(key) {
+		case 1:
+			entry.key2Present = false
+		case 2:
+			entry.key2Present = true
+			if _, err := SetElement(&entry.key2, key[1]); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf("cannot parse %T as one or two field elements", v)
+		}
+		if _, err := SetElement(&entry.key1, key[0]); err != nil {
+			return nil, err
+		}
+
+		res = append(res, &entry)
+	}
+
+	res.sort()
+	return res, nil
+}
+
+type ElementMap []*ElementTriplet
+
+type MapHash struct {
+	Map        *ElementMap
+	state      fr.Element
+	stateValid bool
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (m *MapHash) Write(p []byte) (n int, err error) {
+	var x fr.Element
+	for i := 0; i < len(p); i += fr.Bytes {
+		x.SetBytes(p[i:min(len(p), i+fr.Bytes)])
+		if err = m.write(x); err != nil {
+			return
+		}
+	}
+	n = len(p)
+	return
+}
+
+func (m *MapHash) Sum(b []byte) []byte {
+	mP := *m
+	if _, err := mP.Write(b); err != nil {
+		panic(err)
+	}
+	bytes := mP.state.Bytes()
+	return bytes[:]
+}
+
+func (m *MapHash) Reset() {
+	m.stateValid = false
+}
+
+func (m *MapHash) Size() int {
+	return fr.Bytes
+}
+
+func (m *MapHash) BlockSize() int {
+	return fr.Bytes
+}
+
+func (m *MapHash) write(x fr.Element) error {
+	X := &x
+	Y := &m.state
+	if !m.stateValid {
+		Y = nil
+	}
+	var err error
+	if m.state, err = m.Map.FindPair(X, Y); err == nil {
+		m.stateValid = true
+	}
+	return err
+}
 
 func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 	sb.WriteRune('"')
@@ -123,7 +188,7 @@ func (t *ElementTriplet) writeKey(sb *strings.Builder) {
 	}
 	sb.WriteRune('"')
 }
-func (m *HashMap) UnusedEntries() []interface{} {
+func (m *ElementMap) UnusedEntries() []interface{} {
 	unused := make([]interface{}, 0)
 	for _, v := range *m {
 		if !v.used {
@@ -139,26 +204,26 @@ func (m *HashMap) UnusedEntries() []interface{} {
 	return unused
 }
 
-func (m *HashMap) sort() {
+func (m *ElementMap) sort() {
 	sort.Slice(*m, func(i, j int) bool {
 		return (*m)[i].CmpKey((*m)[j]) <= 0
 	})
 }
 
-func (m *HashMap) find(toFind *ElementTriplet) fr.Element {
+func (m *ElementMap) find(toFind *ElementTriplet) (fr.Element, error) {
 	i := sort.Search(len(*m), func(i int) bool { return (*m)[i].CmpKey(toFind) >= 0 })
 
 	if i < len(*m) && (*m)[i].CmpKey(toFind) == 0 {
 		(*m)[i].used = true
-		return (*m)[i].value
+		return (*m)[i].value, nil
 	}
 	var sb strings.Builder
 	sb.WriteString("no value available for input ")
 	toFind.writeKey(&sb)
-	panic(sb.String())
+	return fr.Element{}, fmt.Errorf(sb.String())
 }
 
-func (m *HashMap) FindPair(x *fr.Element, y *fr.Element) fr.Element {
+func (m *ElementMap) FindPair(x *fr.Element, y *fr.Element) (fr.Element, error) {
 
 	toFind := ElementTriplet{
 		key1:        *x,
@@ -172,60 +237,54 @@ func (m *HashMap) FindPair(x *fr.Element, y *fr.Element) fr.Element {
 	return m.find(&toFind)
 }
 
-type MapHashTranscript struct {
-	HashMap         *HashMap
-	stateValid      bool
-	resultAvailable bool
-	state           fr.Element
+func ToElement(i int64) *fr.Element {
+	var res fr.Element
+	res.SetInt64(i)
+	return &res
 }
 
-func (m *MapHashTranscript) Update(i ...interface{}) {
-	if len(i) > 0 {
-		for _, x := range i {
-
-			var xElement fr.Element
-			if _, err := xElement.SetInterface(x); err != nil {
-				panic(err.Error())
-			}
-			if m.stateValid {
-				m.state = m.HashMap.FindPair(&xElement, &m.state)
-			} else {
-				m.state = m.HashMap.FindPair(&xElement, nil)
-			}
-
-			m.stateValid = true
-		}
-	} else { //just hash the state itself
-		if !m.stateValid {
-			panic("nothing to hash")
-		}
-		m.state = m.HashMap.FindPair(&m.state, nil)
-	}
-	m.resultAvailable = true
+type MessageCounter struct {
+	startState uint64
+	state      uint64
+	step       uint64
 }
 
-func (m *MapHashTranscript) Next(i ...interface{}) fr.Element {
-
-	if len(i) > 0 || !m.resultAvailable {
-		m.Update(i...)
-	}
-	m.resultAvailable = false
-	return m.state
+func (m *MessageCounter) Write(p []byte) (n int, err error) {
+	inputBlockSize := (len(p)-1)/fr.Bytes + 1
+	m.state += uint64(inputBlockSize) * m.step
+	return len(p), nil
 }
 
-func (m *MapHashTranscript) NextN(N int, i ...interface{}) []fr.Element {
+func (m *MessageCounter) Sum(b []byte) []byte {
+	inputBlockSize := (len(b)-1)/fr.Bytes + 1
+	resI := m.state + uint64(inputBlockSize)*m.step
+	var res fr.Element
+	res.SetInt64(int64(resI))
+	resBytes := res.Bytes()
+	return resBytes[:]
+}
 
-	if len(i) > 0 {
-		m.Update(i...)
+func (m *MessageCounter) Reset() {
+	m.state = m.startState
+}
+
+func (m *MessageCounter) Size() int {
+	return fr.Bytes
+}
+
+func (m *MessageCounter) BlockSize() int {
+	return fr.Bytes
+}
+
+func NewMessageCounter(startState, step int) hash.Hash {
+	transcript := &MessageCounter{startState: uint64(startState), state: uint64(startState), step: uint64(step)}
+	return transcript
+}
+
+func NewMessageCounterGenerator(startState, step int) func() hash.Hash {
+	return func() hash.Hash {
+		return NewMessageCounter(startState, step)
 	}
-
-	res := make([]fr.Element, N)
-
-	for n := range res {
-		res[n] = m.Next()
-	}
-
-	return res
 }
 func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
@@ -258,7 +317,7 @@ func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 	return z.SetInterface(value)
 }
 
-func SliceToElementSlice(slice []interface{}) ([]fr.Element, error) {
+func SliceToElementSlice[T any](slice []T) ([]fr.Element, error) {
 	elementSlice := make([]fr.Element, len(slice))
 	for i, v := range slice {
 		if _, err := SetElement(&elementSlice[i], v); err != nil {

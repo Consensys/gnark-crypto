@@ -17,8 +17,11 @@
 package sumcheck
 
 import (
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/polynomial"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"strconv"
 )
 
 // This does not make use of parallelism and represents polynomials as lists of coefficients
@@ -40,7 +43,7 @@ type LazyClaims interface {
 	VarsNum() int                        // VarsNum = n
 	CombinedSum(a fr.Element) fr.Element // CombinedSum returns c = ∑_{1≤j≤m} aʲ⁻¹cⱼ
 	Degree(i int) int                    //Degree of the total claim in the i'th variable
-	VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) bool
+	VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error
 }
 
 // Proof of a multi-sumcheck statement.
@@ -49,24 +52,62 @@ type Proof struct {
 	FinalEvalProof  interface{}             `json:"finalEvalProof"` //in case it is difficult for the verifier to compute g(r₁, ..., rₙ) on its own, the prover can provide the value and a proof
 }
 
-// TODO: User unfriendly. Fix
-func ElementSliceToInterfaceSlice(elementSlice []fr.Element) (interfaceSlice []interface{}) {
+func setupTranscript(claimsNum int, varsNum int, settings *fiatshamir.Settings) (challengeNames []string, err error) {
+	numChallenges := varsNum
+	if claimsNum >= 2 {
+		numChallenges++
+	}
+	challengeNames = make([]string, numChallenges)
+	if claimsNum >= 2 {
+		challengeNames[0] = settings.Prefix + "comb"
+	}
+	prefix := settings.Prefix + "pSP."
+	for i := 0; i < varsNum; i++ {
+		challengeNames[i+numChallenges-varsNum] = prefix + strconv.Itoa(i)
+	}
+	if settings.Transcript == nil {
+		transcript := fiatshamir.NewTranscript(settings.Hash, challengeNames...)
+		settings.Transcript = &transcript
+	}
 
-	interfaceSlice = make([]interface{}, len(elementSlice))
-	for i := range elementSlice {
-		interfaceSlice[i] = &elementSlice[i]
+	for i := range settings.BaseChallenges {
+		err = settings.Transcript.Bind(challengeNames[0], settings.BaseChallenges[i])
 	}
 	return
 }
 
+func next(transcript *fiatshamir.Transcript, bindings []fr.Element, remainingChallengeNames *[]string) (fr.Element, error) {
+	challengeName := (*remainingChallengeNames)[0]
+	for i := range bindings {
+		bytes := bindings[i].Bytes()
+		if err := transcript.Bind(challengeName, bytes[:]); err != nil {
+			return fr.Element{}, err
+		}
+	}
+	var res fr.Element
+	bytes, err := transcript.ComputeChallenge(challengeName)
+	res.SetBytes(bytes)
+
+	*remainingChallengeNames = (*remainingChallengeNames)[1:]
+
+	return res, err
+}
+
 // Prove create a non-interactive sumcheck proof
-// transcript must have a hash function specified and seeded with a
-func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
-	// TODO: Are claims supposed to already be incorporated in the challengeSeed? Given the business with the commitments
+func Prove(claims Claims, transcriptSettings fiatshamir.Settings) (Proof, error) {
+
+	var proof Proof
+	remainingChallengeNames, err := setupTranscript(claims.ClaimsNum(), claims.VarsNum(), &transcriptSettings)
+	transcript := transcriptSettings.Transcript
+	if err != nil {
+		return proof, err
+	}
 
 	var combinationCoeff fr.Element
 	if claims.ClaimsNum() >= 2 {
-		combinationCoeff = transcript.Next()
+		if combinationCoeff, err = next(transcript, []fr.Element{}, &remainingChallengeNames); err != nil {
+			return proof, err
+		}
 	}
 
 	varsNum := claims.VarsNum()
@@ -75,22 +116,34 @@ func Prove(claims Claims, transcript ArithmeticTranscript) (proof Proof) {
 	challenges := make([]fr.Element, varsNum)
 
 	for j := 0; j+1 < varsNum; j++ {
-		challenges[j] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
+		if challenges[j], err = next(transcript, proof.PartialSumPolys[j], &remainingChallengeNames); err != nil {
+			return proof, err
+		}
 		proof.PartialSumPolys[j+1] = claims.Next(challenges[j])
 	}
 
-	challenges[varsNum-1] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[varsNum-1])...)
+	if challenges[varsNum-1], err = next(transcript, proof.PartialSumPolys[varsNum-1], &remainingChallengeNames); err != nil {
+		return proof, err
+	}
 
 	proof.FinalEvalProof = claims.ProveFinalEval(challenges)
 
-	return
+	return proof, nil
 }
 
-func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) bool {
+func Verify(claims LazyClaims, proof Proof, transcriptSettings fiatshamir.Settings) error {
+	remainingChallengeNames, err := setupTranscript(claims.ClaimsNum(), claims.VarsNum(), &transcriptSettings)
+	transcript := transcriptSettings.Transcript
+	if err != nil {
+		return err
+	}
+
 	var combinationCoeff fr.Element
 
 	if claims.ClaimsNum() >= 2 {
-		combinationCoeff = transcript.Next()
+		if combinationCoeff, err = next(transcript, []fr.Element{}, &remainingChallengeNames); err != nil {
+			return err
+		}
 	}
 
 	r := make([]fr.Element, claims.VarsNum())
@@ -107,71 +160,20 @@ func Verify(claims LazyClaims, proof Proof, transcript ArithmeticTranscript) boo
 
 	for j := 0; j < claims.VarsNum(); j++ {
 		if len(proof.PartialSumPolys[j]) != claims.Degree(j) {
-			return false //Malformed proof
+			return fmt.Errorf("malformed proof")
 		}
 		copy(gJ[1:], proof.PartialSumPolys[j])
 		gJ[0].Sub(&gJR, &proof.PartialSumPolys[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)
 		// gJ is ready
 
 		//Prepare for the next iteration
-		r[j] = transcript.Next(ElementSliceToInterfaceSlice(proof.PartialSumPolys[j])...)
+		if r[j], err = next(transcript, proof.PartialSumPolys[j], &remainingChallengeNames); err != nil {
+			return err
+		}
 		// This is an extremely inefficient way of interpolating. TODO: Interpolate without symbolically computing a polynomial
 		gJCoeffs := polynomial.InterpolateOnRange(gJ[:(claims.Degree(j) + 1)])
 		gJR = gJCoeffs.Eval(&r[j])
 	}
 
 	return claims.VerifyFinalEval(r, combinationCoeff, gJR, proof.FinalEvalProof)
-}
-
-// -------- fiatshamir  --------- TODO: Replace with existing fiat-shamir impl
-
-// This is an implementation of Fiat-Shamir optimized for in-circuit verifiers.
-// i.e. the hashes used operate on and return field elements.
-
-type ArithmeticTranscript interface {
-	Update(...interface{})
-	Next(...interface{}) fr.Element
-	NextN(int, ...interface{}) []fr.Element
-}
-
-// This is a very bad fiat-shamir challenge generator
-type MessageCounter struct {
-	state   uint64
-	step    uint64
-	updated bool
-}
-
-func (m *MessageCounter) Update(i ...interface{}) {
-	m.state += m.step
-	m.updated = true
-}
-
-func (m *MessageCounter) Next(i ...interface{}) (challenge fr.Element) {
-	if !m.updated || len(i) != 0 {
-		m.Update(i)
-	}
-	challenge.SetUint64(m.state)
-	m.updated = false
-	return
-}
-
-func (m *MessageCounter) NextN(N int, i ...interface{}) (challenges []fr.Element) {
-	challenges = make([]fr.Element, N)
-	for n := 0; n < N; n++ {
-		challenges[n] = m.Next(i)
-		i = []interface{}{}
-	}
-	return
-}
-
-func NewMessageCounter(startState, step int) ArithmeticTranscript {
-	transcript := &MessageCounter{state: uint64(startState), step: uint64(step)}
-	transcript.Update([]byte{})
-	return transcript
-}
-
-func NewMessageCounterGenerator(startState, step int) func() ArithmeticTranscript {
-	return func() ArithmeticTranscript {
-		return NewMessageCounter(startState, step)
-	}
 }

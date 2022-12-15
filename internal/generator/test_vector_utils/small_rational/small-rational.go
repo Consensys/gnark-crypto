@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const Bytes = 64
+
 type SmallRational struct {
 	text        string //For debugging purposes
 	numerator   big.Int
@@ -343,6 +345,40 @@ func (z *SmallRational) SetInterface(x interface{}) (*SmallRational, error) {
 	}
 
 	return z, nil
+}
+
+func bigIntToBytesSigned(dst []byte, src big.Int) {
+	src.FillBytes(dst[1:])
+	dst[0] = 0
+	if src.Sign() < 0 {
+		dst[0] = 255
+	}
+}
+
+func (z *SmallRational) Bytes() [Bytes]byte {
+	var res [Bytes]byte
+	bigIntToBytesSigned(res[:Bytes/2], z.numerator)
+	bigIntToBytesSigned(res[Bytes/2:], z.denominator)
+	return res
+}
+
+func bytesToBigIntSigned(src []byte) big.Int {
+	var res big.Int
+	res.SetBytes(src[1:])
+	if src[0] != 0 {
+		res.Neg(&res)
+	}
+	return res
+}
+
+func (z *SmallRational) SetBytes(b []byte) {
+	if len(b) > Bytes/2 {
+		z.numerator = bytesToBigIntSigned(b[:Bytes/2])
+		z.denominator = bytesToBigIntSigned(b[Bytes/2:])
+	} else {
+		z.numerator.SetBytes(b)
+		z.denominator.SetInt64(1)
+	}
 }
 
 func Modulus() *big.Int {

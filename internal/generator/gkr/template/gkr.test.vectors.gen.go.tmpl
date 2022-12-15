@@ -1,25 +1,23 @@
 import (
-    "encoding/json"
-    "fmt"
-    "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
-    "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
-    "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
-    "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
-    "github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
-    "os"
-    "path/filepath"
+	"encoding/json"
+	"fmt"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
+	"os"
+	"path/filepath"
 	"reflect"
 )
 
 func main() {
 	if err := func() error {
-		err := GenerateVectors()
-		for path, hash := range test_vector_utils.HashCache {
-			if err := hash.SaveUsedEntries(path); err != nil {
-				return err
-			}
-		}
-		return err
+		if err := GenerateVectors(); err != nil {
+		    return err
+        }
+		return test_vector_utils.SaveUsedHashEntries()
 	}(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
@@ -42,52 +40,11 @@ func GenerateVectors() error {
         if !dirEntry.IsDir() {
 
             if filepath.Ext(dirEntry.Name()) == ".json" {
-
                 fmt.Println("\tprocessing", dirEntry.Name())
-
                 path := filepath.Join(testDirPath, dirEntry.Name())
-
-                var testCase *TestCase
-                testCase, err = newTestCase(path)
-                if err != nil {
+                if err = run(path); err != nil {
                     return err
                 }
-
-                testCase.Transcript.Update(0)
-                proof := gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.Transcript)
-
-                if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
-                    return err
-                }
-                var outBytes []byte
-                if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
-                    if err = os.WriteFile(path, outBytes, 0); err != nil {
-                        return err
-                    }
-                } else {
-                    return err
-                }
-
-				testCase, err = newTestCase(path)
-				if err != nil {
-					return err
-                }
-				testCase.Transcript.Update(0)
-
-				if !gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-					return fmt.Errorf("verification failed")
-                }
-
-                testCase, err = newTestCase(path)
-                if err != nil {
-                    return err
-                }
-                testCase.Transcript.Update(1)
-
-                if gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.Transcript) {
-                    return fmt.Errorf("verification should have failed")
-                }
-
             }
         }
     }
@@ -95,26 +52,65 @@ func GenerateVectors() error {
     return nil
 }
 
+func run(absPath string) error {
+    testCase, err := newTestCase(absPath)
+     if err != nil {
+         return err
+    }
+
+	var proof gkr.Proof
+    proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
+    if err != nil {
+		return err
+    }
+
+    if testCase.Info.Proof, err = toPrintableProof(proof); err != nil {
+        return err
+    }
+    var outBytes []byte
+    if outBytes, err = json.MarshalIndent(testCase.Info, "", "\t"); err == nil {
+        if err = os.WriteFile(absPath, outBytes, 0); err != nil {
+            return err
+        }
+    } else {
+        return err
+    }
+
+	testCase, err = newTestCase(absPath)
+	if err != nil {
+		return err
+    }
+
+	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
+	if err != nil {
+        return err
+    }
+
+    testCase, err = newTestCase(absPath)
+    if err != nil {
+        return err
+    }
+
+    err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting([]byte{0, 1}))
+    if err == nil {
+	    return fmt.Errorf("bad proof accepted")
+    }
+	return nil
+}
+
 func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	res := make(PrintableProof, len(proof))
 
-	for i, proofI := range proof {
-		if proofI == nil {
-			res[i] = nil
-		} else {
-			res[i] = make([]PrintableSumcheckProof, len(proofI))
-			for j, proofIJ := range proofI {
+	for i := range proof {
 
-				partialSumPolys := make([][]interface{}, len(proofIJ.PartialSumPolys))
-				for k, partialK := range proofIJ.PartialSumPolys {
-					partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
-				}
+		partialSumPolys := make([][]interface{}, len(proof[i].PartialSumPolys))
+		for k, partialK := range proof[i].PartialSumPolys {
+			partialSumPolys[k] = test_vector_utils.ElementSliceToInterfaceSlice(partialK)
+		}
 
-				res[i][j] = PrintableSumcheckProof{
-					FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proofIJ.FinalEvalProof),
-					PartialSumPolys: partialSumPolys,
-				}
-			}
+		res[i] = PrintableSumcheckProof{
+			FinalEvalProof:  test_vector_utils.ElementSliceToInterfaceSlice(proof[i].FinalEvalProof),
+			PartialSumPolys: partialSumPolys,
 		}
 	}
 	return res, nil

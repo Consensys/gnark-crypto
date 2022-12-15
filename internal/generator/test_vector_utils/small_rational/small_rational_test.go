@@ -101,3 +101,9 @@ func TestSquare(t *testing.T) {
 
 	assert.True(t, x.Equal(&four), "expected 4, saw %s", x.Text(10))
 }
+
+func TestSetBytes(t *testing.T) {
+	var c SmallRational
+	c.SetBytes([]byte("firstChallenge.0"))
+
+}

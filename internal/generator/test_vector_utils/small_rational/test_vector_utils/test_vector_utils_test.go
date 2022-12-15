@@ -1,45 +1,46 @@
 package test_vector_utils
 
 import (
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestHashNewElementSaved(t *testing.T) {
-	var hash HashMap
+	var hash ElementMap
 
 	var fortyFour small_rational.SmallRational
 	fortyFour.SetInt64(44)
 
-	expected := hash.FindPair(&fortyFour, nil)
+	expected, err := hash.FindPair(&fortyFour, nil)
+	assert.NoError(t, err)
 	for i := 0; i < 10; i++ {
-		seen := hash.FindPair(&fortyFour, nil)
+		seen, err := hash.FindPair(&fortyFour, nil)
+		assert.NoError(t, err)
 		if !expected.Equal(&seen) {
 			t.Errorf("expected %s saw %s", expected.String(), seen.String())
 		}
 	}
 }
 
-func TestHashLoadConsistent(t *testing.T) {
-	var expected small_rational.SmallRational
-	var fortyFour small_rational.SmallRational
+func TestHashConsistency(t *testing.T) {
+	var one small_rational.SmallRational
+	var mp ElementMap
+	one.SetOne()
+	bytes := one.Bytes()
 
-	fortyFour.SetInt64(44)
+	t1 := fiatshamir.NewTranscript(&MapHash{Map: &mp}, "0")
+	assert.NoError(t, t1.Bind("0", bytes[:]))
+	c1, err := t1.ComputeChallenge("0")
+	assert.NoError(t, err)
 
-	for i := 0; i < 10; i++ {
-		hash, err := GetHash("../../../gkr/test_vectors/resources/hash.json")
-		assert.NoError(t, err)
+	t2 := fiatshamir.NewTranscript(&MapHash{Map: &mp}, "0")
+	assert.NoError(t, t2.Bind("0", bytes[:]))
+	c2, err := t2.ComputeChallenge("0")
+	assert.NoError(t, err)
 
-		seen := hash.FindPair(&fortyFour, nil)
-		if i == 0 {
-			expected = seen
-		} else {
-			if !expected.Equal(&seen) {
-				t.Errorf("expected %s saw %s", expected.String(), seen.String())
-			}
-		}
-	}
+	assert.Equal(t, c1, c2)
 }
 
 func TestSaveHash(t *testing.T) {
@@ -49,7 +50,7 @@ func TestSaveHash(t *testing.T) {
 	two.SetInt64(2)
 	three.SetInt64(3)
 
-	hash := HashMap{{
+	hash := ElementMap{{
 		key1:        one,
 		key2:        small_rational.SmallRational{},
 		key2Present: false,
@@ -72,5 +73,4 @@ func TestSaveHash(t *testing.T) {
 	serialized, err := hash.serializedUsedEntries()
 	assert.NoError(t, err)
 	assert.Equal(t, "{\n\t\"1\":2,\n\t\"1,1\":3\n}", serialized)
-
 }
