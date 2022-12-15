@@ -38,7 +38,6 @@ type Wire struct {
 	Gate            Gate
 	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
-	//nbUniqueInputs  int     // number of inputs, not counting duplicates
 }
 
 type Circuit []Wire
@@ -614,16 +613,15 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 			}
 		} else if err = sumcheck.Verify(
 			claim, proof[i], fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+".", baseChallenge...),
-		); err != nil {
+		); err == nil {
+			baseChallenge = make([][]byte, len(finalEvalProof))
+			for j := range finalEvalProof {
+				bytes := finalEvalProof[j].Bytes()
+				baseChallenge[j] = bytes[:]
+			}
+		} else {
 			return fmt.Errorf("sumcheck proof rejected: %v", err) //TODO: Any polynomials to dump?
 		}
-
-		baseChallenge = make([][]byte, len(finalEvalProof))
-		for j := range finalEvalProof {
-			bytes := finalEvalProof[j].Bytes()
-			baseChallenge[j] = bytes[:]
-		}
-
 		claims.deleteClaim(wire)
 	}
 	return nil
