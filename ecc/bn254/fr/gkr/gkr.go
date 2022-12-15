@@ -293,6 +293,7 @@ func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface
 	for inI, in := range c.wire.Inputs {
 		puI := c.inputPreprocessors[inI]
 		if _, found := noMoreClaimsAllowed[in]; !found {
+			noMoreClaimsAllowed[in] = struct{}{}
 			puI.Fold(r[len(r)-1])
 			c.manager.add(in, r, puI[0])
 			evaluations = append(evaluations, puI[0])
