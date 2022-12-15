@@ -42,14 +42,6 @@ func (w Wire) NbClaims() int {
 	return w.nbUniqueOutputs
 }
 
-/*func (w Wire) nbUniqueInputs() int {
-	m := make(map[*Wire]struct{})
-	for _, w := range w.Inputs {
-		m[w] = struct{}{}
-	}
-	return len(m)
-}*/
-
 func (w Wire) noProof() bool {
 	return w.IsInput() && w.NbClaims() == 1
 }
@@ -606,15 +598,16 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 			}
 		} else if err = sumcheck.Verify(
 			claim, proof[i], fiatshamir.WithTranscript(o.transcript, wirePrefix+strconv.Itoa(i)+".", baseChallenge...),
-		); err == nil {
-			baseChallenge = make([][]byte, len(finalEvalProof))
-			for j := range finalEvalProof {
-				bytes := finalEvalProof[j].Bytes()
-				baseChallenge[j] = bytes[:]
-			}
-		} else {
+		); err != nil {
 			return fmt.Errorf("sumcheck proof rejected: %v", err) //TODO: Any polynomials to dump?
 		}
+
+		baseChallenge = make([][]byte, len(finalEvalProof))
+		for j := range finalEvalProof {
+			bytes := finalEvalProof[j].Bytes()
+			baseChallenge[j] = bytes[:]
+		}
+
 		claims.deleteClaim(wire)
 	}
 	return nil
