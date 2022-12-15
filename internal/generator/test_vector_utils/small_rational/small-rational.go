@@ -379,6 +379,8 @@ func (z *SmallRational) SetBytes(b []byte) {
 		z.numerator.SetBytes(b)
 		z.denominator.SetInt64(1)
 	}
+	z.simplify()
+	z.UpdateText()
 }
 
 func Modulus() *big.Int {

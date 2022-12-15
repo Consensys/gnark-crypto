@@ -93,9 +93,8 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error {
 	inputEvaluationsNoRedundancy := proof.([]fr.Element)
 
-	numClaims := len(e.evaluationPoints)
-
 	// the eq terms
+	numClaims := len(e.evaluationPoints)
 	evaluation := polynomial.EvalEq(e.evaluationPoints[numClaims-1], r)
 	for i := numClaims - 2; i >= 0; i-- {
 		evaluation.Mul(&evaluation, &combinationCoeff)
@@ -116,7 +115,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 				firstIndex = inI
 				firstIndexes[in] = inI
 
-				e.manager.add(in, r, inputEvaluations[inI])
+				e.manager.add(in, r, inputEvaluationsNoRedundancy[inI])
 			}
 			inputEvaluations[inI] = inputEvaluationsNoRedundancy[firstIndex]
 		}

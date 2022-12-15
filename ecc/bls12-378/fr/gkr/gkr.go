@@ -91,10 +91,10 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) Degree(int) int {
 }
 
 func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, combinationCoeff fr.Element, purportedValue fr.Element, proof interface{}) error {
-	inputEvaluations := proof.([]fr.Element)
+	inputEvaluationsNoRedundancy := proof.([]fr.Element)
 
+	// the eq terms
 	numClaims := len(e.evaluationPoints)
-
 	evaluation := polynomial.EvalEq(e.evaluationPoints[numClaims-1], r)
 	for i := numClaims - 2; i >= 0; i-- {
 		evaluation.Mul(&evaluation, &combinationCoeff)
@@ -102,13 +102,24 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 		evaluation.Add(&evaluation, &eq)
 	}
 
+	// the g(...) term
 	var gateEvaluation fr.Element
 	if e.wire.IsInput() {
 		gateEvaluation = e.manager.assignment[e.wire].Evaluate(r, e.manager.memPool)
 	} else {
+		inputEvaluations := make([]fr.Element, len(e.wire.Inputs))
+		firstIndexes := make(map[*Wire]int, len(inputEvaluationsNoRedundancy))
+		for inI, in := range e.wire.Inputs {
+			firstIndex, found := firstIndexes[in]
+			if !found {
+				firstIndex = inI
+				firstIndexes[in] = inI
+
+				e.manager.add(in, r, inputEvaluationsNoRedundancy[inI])
+			}
+			inputEvaluations[inI] = inputEvaluationsNoRedundancy[firstIndex]
+		}
 		gateEvaluation = e.wire.Gate.Evaluate(inputEvaluations...)
-		// defer verification, store the new claims
-		e.manager.addForInput(e.wire, r, inputEvaluations)
 	}
 
 	evaluation.Mul(&evaluation, &gateEvaluation)
@@ -275,21 +286,21 @@ func (c *eqTimesGateEvalSumcheckClaims) ClaimsNum() int {
 func (c *eqTimesGateEvalSumcheckClaims) ProveFinalEval(r []fr.Element) interface{} {
 
 	//defer the proof, return list of claims
-	evaluations := make([]fr.Element, len(c.inputPreprocessors))
-	for i, puI := range c.inputPreprocessors {
-		puI.Fold(r[len(r)-1])
+	evaluations := make([]fr.Element, 0, len(c.wire.Inputs))
+	noMoreClaimsAllowed := make(map[*Wire]struct{}, len(c.inputPreprocessors))
+	noMoreClaimsAllowed[c.wire] = struct{}{}
 
-		if len(puI) != 1 {
-			panic("must be one") //TODO: Remove
+	for inI, in := range c.wire.Inputs {
+		puI := c.inputPreprocessors[inI]
+		if _, found := noMoreClaimsAllowed[in]; !found {
+			puI.Fold(r[len(r)-1])
+			c.manager.add(in, r, puI[0])
+			evaluations = append(evaluations, puI[0])
 		}
-
-		evaluations[i].Set(&puI[0])
 		c.manager.memPool.Dump(puI)
 	}
 
 	c.manager.memPool.Dump(c.claimedEvaluations, c.eq)
-
-	c.manager.addForInput(c.wire, r, evaluations)
 
 	return evaluations
 }
@@ -323,18 +334,6 @@ func (m *claimsManager) add(wire *Wire, evaluationPoint []fr.Element, evaluation
 	i := len(claim.evaluationPoints)
 	claim.claimedEvaluations[i] = evaluation
 	claim.evaluationPoints = append(claim.evaluationPoints, evaluationPoint)
-}
-
-// addForInput claims regarding all inputs to the wire, all evaluated at the same point
-func (m *claimsManager) addForInput(wire *Wire, evaluationPoint []fr.Element, evaluations []fr.Element) {
-	wiresWithClaims := make(map[*Wire]struct{}) // In case the gate takes the same wire as input multiple times, one claim would suffice
-
-	for inputI, inputWire := range wire.Inputs {
-		if _, found := wiresWithClaims[inputWire]; !found { //skip repeated claims
-			wiresWithClaims[inputWire] = struct{}{}
-			m.add(inputWire, evaluationPoint, evaluations[inputI])
-		}
-	}
 }
 
 func (m *claimsManager) getLazyClaim(wire *Wire) *eqTimesGateEvalSumcheckLazyClaims {
