@@ -33,7 +33,7 @@ type {{.ElementName}} [{{.NbWords}}]uint64
 const (
 	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
 	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
-	Bytes = Limbs * 8 		// number of bytes needed to represent a {{.ElementName}}
+	Bytes = {{.NbBytes}} 	// number of bytes needed to represent a {{.ElementName}}
 )
 
 
@@ -171,13 +171,7 @@ func (z *{{.ElementName}}) SetInterface(i1 interface{}) (*{{.ElementName}}, erro
 	case big.Int:
 		return z.SetBigInt(&c1), nil
 	case []byte:
-		if err := z.SetBytes(c1); err != nil {
-			vv := bigIntPool.Get().(*big.Int)
-			defer bigIntPool.Put(vv)
-			vv.SetBytes(c1)
-			return z.SetBigInt(vv), nil
-		}
-		return z, nil
+		return z.SetBytes(c1), nil
 	default:
 		return nil, errors.New("can't set {{.PackageName}}.{{.ElementName}} from type " + reflect.TypeOf(i1).String())
 	}

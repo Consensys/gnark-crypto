@@ -90,7 +90,7 @@ func newFieldInfo(modulus string) Field {
 	}
 
 	F.Bits = bModulus.BitLen()
-	F.Bytes = len(bModulus.Bits()) * 8
+	F.Bytes = (F.Bits + 7) / 8
 	F.Modulus = func() *big.Int { return new(big.Int).Set(&bModulus) }
 	return F
 }

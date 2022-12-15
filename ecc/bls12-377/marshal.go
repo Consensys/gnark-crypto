@@ -100,7 +100,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		err = t.SetBytes(buf[:fr.Bytes])
+		err = t.SetBytesCanonical(buf[:fr.Bytes])
 		return
 	case *fp.Element:
 		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
@@ -108,7 +108,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		err = t.SetBytes(buf[:fp.Bytes])
+		err = t.SetBytesCanonical(buf[:fp.Bytes])
 		return
 	case *[]fr.Element:
 		var sliceLen uint32
@@ -126,7 +126,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			if err = (*t)[i].SetBytes(buf[:fr.Bytes]); err != nil {
+			if err = (*t)[i].SetBytesCanonical(buf[:fr.Bytes]); err != nil {
 				return
 			}
 		}
@@ -147,7 +147,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			if err = (*t)[i].SetBytes(buf[:fp.Bytes]); err != nil {
+			if err = (*t)[i].SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 				return
 			}
 		}
@@ -765,10 +765,10 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// uncompressed point
 	if mData == mUncompressed {
 		// read X and Y coordinates
-		if err := p.X.SetBytes(buf[:fp.Bytes]); err != nil {
+		if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 			return 0, err
 		}
-		if err := p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+		if err := p.Y.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
 			return 0, err
 		}
 
@@ -790,7 +790,7 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 		return 0, err
 	}
 
@@ -884,7 +884,7 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 		return false, err
 	}
 	// store mData in p.Y[0]
@@ -1070,17 +1070,17 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if mData == mUncompressed {
 		// read X and Y coordinates
 		// p.X.A1 | p.X.A0
-		if err := p.X.A1.SetBytes(buf[:fp.Bytes]); err != nil {
+		if err := p.X.A1.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 			return 0, err
 		}
-		if err := p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
 			return 0, err
 		}
 		// p.Y.A1 | p.Y.A0
-		if err := p.Y.A1.SetBytes(buf[fp.Bytes*2 : fp.Bytes*3]); err != nil {
+		if err := p.Y.A1.SetBytesCanonical(buf[fp.Bytes*2 : fp.Bytes*3]); err != nil {
 			return 0, err
 		}
-		if err := p.Y.A0.SetBytes(buf[fp.Bytes*3 : fp.Bytes*4]); err != nil {
+		if err := p.Y.A0.SetBytesCanonical(buf[fp.Bytes*3 : fp.Bytes*4]); err != nil {
 			return 0, err
 		}
 
@@ -1103,10 +1103,10 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	if err := p.X.A1.SetBytes(bufX[:fp.Bytes]); err != nil {
+	if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 		return 0, err
 	}
-	if err := p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+	if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
 		return 0, err
 	}
 
@@ -1203,10 +1203,10 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 
 	// read X coordinate
 	// p.X.A1 | p.X.A0
-	if err := p.X.A1.SetBytes(bufX[:fp.Bytes]); err != nil {
+	if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 		return false, err
 	}
-	if err := p.X.A0.SetBytes(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+	if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
 		return false, err
 	}
 

@@ -106,7 +106,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		err = t.SetBytes(buf[:fr.Bytes])
+		err = t.SetBytesCanonical(buf[:fr.Bytes])
 		return
 	case *fp.Element:
 		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
@@ -114,7 +114,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		err = t.SetBytes(buf[:fp.Bytes])
+		err = t.SetBytesCanonical(buf[:fp.Bytes])
 		return
 	case *[]fr.Element:
 		var sliceLen uint32
@@ -132,7 +132,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			if err = (*t)[i].SetBytes(buf[:fr.Bytes]); err != nil {
+			if err = (*t)[i].SetBytesCanonical(buf[:fr.Bytes]); err != nil {
 				return
 			}
 		}
@@ -153,7 +153,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			if err = (*t)[i].SetBytes(buf[:fp.Bytes]); err != nil {
+			if err = (*t)[i].SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 				return
 			}
 		}
@@ -743,51 +743,51 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		// read X and Y coordinates
 		{{- if eq $.CoordType "fptower.E2"}}
 			// p.X.A1 | p.X.A0
-			if err := p.X.A1.SetBytes(buf[:fp.Bytes]); err != nil {
+			if err := p.X.A1.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 				return 0, err
 			}
-			if err := p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
 				return 0, err
 			}
 			// p.Y.A1 | p.Y.A0
-			if err := p.Y.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			if err := p.Y.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
 				return 0, err
 			}
-			if err := p.Y.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			if err := p.Y.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 				return 0, err
 			}
 		{{- else if eq $.CoordType "fptower.E4"}}	
 			// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-			if err := p.X.B1.A1.SetBytes(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			if err := p.X.B1.A1.SetBytesCanonical(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
 				return 0, err
 			}
-			if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
 				return 0, err
 			}
-			if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
 				return 0, err
 			}
-			if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 				return 0, err
 			}
 			// p.Y.B1.A1 | p.Y.B1.A0 | p.Y.B0.A1 | p.Y.B0.A0
-			if err := p.Y.B1.A1.SetBytes(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+			if err := p.Y.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
 				return 0, err
 			}
-			if err := p.Y.B1.A0.SetBytes(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+			if err := p.Y.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
 				return 0, err
 			}
-			if err := p.Y.B0.A1.SetBytes(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+			if err := p.Y.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
 				return 0, err
 			}
-			if err := p.Y.B0.A0.SetBytes(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+			if err := p.Y.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
 				return 0, err
 			}
 		{{- else}}
-			if err := p.X.SetBytes(buf[:fp.Bytes]); err != nil {
+			if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 				return 0, err
 			}
-			if err := p.Y.SetBytes(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			if err := p.Y.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
 				return 0, err
 			}
 		{{- end}}
@@ -812,28 +812,28 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
-		if err := p.X.A1.SetBytes(bufX[:fp.Bytes]); err != nil {
+		if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return 0, err
 		}
-		if err := p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
 			return 0, err
 		}
 	{{- else if eq $.CoordType "fptower.E4"}}
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-		if err := p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+		if err := p.X.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
 			return 0, err
 		}
-		if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+		if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
 			return 0, err
 		}
-		if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+		if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
 			return 0, err
 		}
-		if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 			return 0, err
 		}
 	{{- else}}
-		if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return 0, err
 		}
 	{{- end}}
@@ -957,10 +957,10 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
-		if err := p.X.A1.SetBytes(bufX[:fp.Bytes]); err != nil {
+		if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return false, err
 		}
-		if err := p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
 			return false, err
 		}
 		
@@ -968,23 +968,23 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 		p.Y.A0[0] = uint64(mData)
 	{{- else if eq $.CoordType "fptower.E4"}}
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-		if err := p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+		if err := p.X.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
 			return false, err
 		}
-		if err := p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+		if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
 			return false, err
 		}
-		if err := p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+		if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
 			return false, err
 		}
-		if err := p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 			return false, err
 		}
 		
 		// store mData in p.Y.B0.A0[0]
 		p.Y.B0.A0[0] = uint64(mData)
 	{{- else}}
-		if err := p.X.SetBytes(bufX[:fp.Bytes]); err != nil {
+		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return false, err
 		}
 		// store mData in p.Y[0]

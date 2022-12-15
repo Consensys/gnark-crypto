@@ -777,7 +777,7 @@ func (z *E12) IsInSubGroup() bool {
 {{end}}
 
 {{define "readFp"}}
-	if err := {{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]); err != nil {
+	if err := {{$.To}}.SetBytesCanonical(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]); err != nil {
 		return err
 	}
 {{end}}

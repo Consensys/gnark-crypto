@@ -737,51 +737,51 @@ func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
-	if err := z.C0.B0.A0.SetBytes(e[352 : 352+fp.Bytes]); err != nil {
+	if err := z.C0.B0.A0.SetBytesCanonical(e[352 : 352+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C0.B0.A1.SetBytes(e[320 : 320+fp.Bytes]); err != nil {
+	if err := z.C0.B0.A1.SetBytesCanonical(e[320 : 320+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C0.B1.A0.SetBytes(e[288 : 288+fp.Bytes]); err != nil {
+	if err := z.C0.B1.A0.SetBytesCanonical(e[288 : 288+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C0.B1.A1.SetBytes(e[256 : 256+fp.Bytes]); err != nil {
+	if err := z.C0.B1.A1.SetBytesCanonical(e[256 : 256+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C0.B2.A0.SetBytes(e[224 : 224+fp.Bytes]); err != nil {
+	if err := z.C0.B2.A0.SetBytesCanonical(e[224 : 224+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C0.B2.A1.SetBytes(e[192 : 192+fp.Bytes]); err != nil {
+	if err := z.C0.B2.A1.SetBytesCanonical(e[192 : 192+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B0.A0.SetBytes(e[160 : 160+fp.Bytes]); err != nil {
+	if err := z.C1.B0.A0.SetBytesCanonical(e[160 : 160+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B0.A1.SetBytes(e[128 : 128+fp.Bytes]); err != nil {
+	if err := z.C1.B0.A1.SetBytesCanonical(e[128 : 128+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B1.A0.SetBytes(e[96 : 96+fp.Bytes]); err != nil {
+	if err := z.C1.B1.A0.SetBytesCanonical(e[96 : 96+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B1.A1.SetBytes(e[64 : 64+fp.Bytes]); err != nil {
+	if err := z.C1.B1.A1.SetBytesCanonical(e[64 : 64+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B2.A0.SetBytes(e[32 : 32+fp.Bytes]); err != nil {
+	if err := z.C1.B2.A0.SetBytesCanonical(e[32 : 32+fp.Bytes]); err != nil {
 		return err
 	}
 
-	if err := z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes]); err != nil {
+	if err := z.C1.B2.A1.SetBytesCanonical(e[0 : 0+fp.Bytes]); err != nil {
 		return err
 	}
 

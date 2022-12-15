@@ -77,7 +77,7 @@ func (z *{{.ElementName}}) Text(base int) string {
 
 // ToBigInt returns z as a big.Int in Montgomery form
 func (z *{{.ElementName}}) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs*8]byte
+	var b [Bytes]byte
 	{{- range $i := reverse .NbWordsIndexesFull}}
 		{{- $j := mul $i 8}}
 		{{- $k := sub $.NbWords 1}}
@@ -96,16 +96,8 @@ func (z {{.ElementName}}) ToBigIntRegular(res *big.Int) *big.Int {
 }
 
 // Bytes returns the value of z as a big-endian byte array
-func (z *{{.ElementName}}) Bytes() (res [Limbs*8]byte) {
-	_z := z.ToRegular()
-	{{- range $i := reverse .NbWordsIndexesFull}}
-		{{- $j := mul $i 8}}
-		{{- $k := sub $.NbWords 1}}
-		{{- $k := sub $k $i}}
-		{{- $jj := add $j 8}}
-		binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], _z[{{$k}}])
-	{{- end}}
-
+func (z *{{.ElementName}}) Bytes() (res [Bytes]byte) {
+	BigEndian.PutElement(&res, *z)
 	return
 }
 
@@ -117,15 +109,17 @@ func (z *{{.ElementName}}) Marshal() []byte {
 
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
-func (z *{{.ElementName}}) SetBytes(e []byte) error {
-	{{- if eq .NbWords 1}}
-	if len(e) == 8 {
+func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
+	if len(e) == Bytes {
 		// fast path
-		z[0] = binary.BigEndian.Uint64(e)
-		z.ToMont()
-		return nil
+		v, err := BigEndian.Element((*[Bytes]byte)(e))
+		if err == nil {
+			*z = v
+			return z 
+		}
 	}
-	{{- end}}
+
+	// slow path.
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
 	vv.SetBytes(e)
@@ -136,6 +130,21 @@ func (z *{{.ElementName}}) SetBytes(e []byte) error {
 	// put temporary object back in pool
 	bigIntPool.Put(vv)
 
+	return z 
+}
+
+// SetBytesCanonical interprets e as the bytes of a big-endian {{.NbBytes}}-byte integer.
+// If e is not a {{.NbBytes}}-byte slice or encodes a value higher than q, 
+// SetBytesCanonical returns an error.
+func (z *{{.ElementName}}) SetBytesCanonical(e []byte) error {
+	if len(e) != Bytes {
+		return errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+	}
+	v, err := BigEndian.Element((*[Bytes]byte)(e))
+	if err != nil {
+		return err
+	}
+	*z = v
 	return nil
 }
 
@@ -274,6 +283,70 @@ func (z *{{.ElementName}}) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+
+// A ByteOrder specifies how to convert byte slices into a {{.ElementName}}
+type ByteOrder interface {
+	Element(*[Bytes]byte) ({{.ElementName}}, error)
+	PutElement(*[Bytes]byte, {{.ElementName}})
+	String() string
+}
+
+
+// BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
+var BigEndian bigEndian
+
+type bigEndian struct{}
+
+// Element interpret b is a big-endian {{.NbBytes}}-byte slice.
+// If b encodes a value higher than q, Element returns error.
+func (bigEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
+
+	var z {{.ElementName}}
+	{{- range $i := reverse .NbWordsIndexesFull}}
+		{{- $j := mul $i 8}}
+		{{- $k := sub $.NbWords 1}}
+		{{- $k := sub $k $i}}
+		{{- $jj := add $j 8}}
+		z[{{$k}}] = binary.BigEndian.Uint64((*b)[{{$j}}:{{$jj}}])
+	{{- end}}
+
+	if !z.smallerThanModulus() {
+		return {{.ElementName}}{}, errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+	}
+
+	z.ToMont()
+	return z, nil
+
+}
+func (bigEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
+	e.FromMont()
+
+	{{- range $i := reverse .NbWordsIndexesFull}}
+		{{- $j := mul $i 8}}
+		{{- $k := sub $.NbWords 1}}
+		{{- $k := sub $k $i}}
+		{{- $jj := add $j 8}}
+		binary.BigEndian.PutUint64((*b)[{{$j}}:{{$jj}}], e[{{$k}}])
+	{{- end}}
+
+
+}
+func (bigEndian) String() string { return "BigEndian" }
+
+
+
+// LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
+var LittleEndian littleEndian
+
+type littleEndian struct{}
+
+func (littleEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
+	panic("not implemented")
+}
+func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
+
+}
+func (littleEndian) String() string { return "LittleEndian" }
 
 
 
