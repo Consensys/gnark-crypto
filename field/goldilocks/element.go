@@ -891,7 +891,6 @@ type bigEndian struct{}
 // Element interpret b is a big-endian 8-byte slice.
 // If b encodes a value higher than q, Element returns error.
 func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
-
 	var z Element
 	z[0] = binary.BigEndian.Uint64((*b)[0:8])
 
@@ -901,13 +900,13 @@ func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
 
 	z.ToMont()
 	return z, nil
-
 }
+
 func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
 	e.FromMont()
 	binary.BigEndian.PutUint64((*b)[0:8], e[0])
-
 }
+
 func (bigEndian) String() string { return "BigEndian" }
 
 // LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
@@ -916,11 +915,22 @@ var LittleEndian littleEndian
 type littleEndian struct{}
 
 func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
-	panic("not implemented")
-}
-func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
 
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid goldilocks.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
 }
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+}
+
 func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)

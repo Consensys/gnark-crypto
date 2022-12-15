@@ -1890,7 +1890,6 @@ type bigEndian struct{}
 // Element interpret b is a big-endian 96-byte slice.
 // If b encodes a value higher than q, Element returns error.
 func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
-
 	var z Element
 	z[0] = binary.BigEndian.Uint64((*b)[88:96])
 	z[1] = binary.BigEndian.Uint64((*b)[80:88])
@@ -1911,8 +1910,8 @@ func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
 
 	z.ToMont()
 	return z, nil
-
 }
+
 func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
 	e.FromMont()
 	binary.BigEndian.PutUint64((*b)[88:96], e[0])
@@ -1927,8 +1926,8 @@ func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
 	binary.BigEndian.PutUint64((*b)[16:24], e[9])
 	binary.BigEndian.PutUint64((*b)[8:16], e[10])
 	binary.BigEndian.PutUint64((*b)[0:8], e[11])
-
 }
+
 func (bigEndian) String() string { return "BigEndian" }
 
 // LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
@@ -1937,11 +1936,44 @@ var LittleEndian littleEndian
 type littleEndian struct{}
 
 func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
-	panic("not implemented")
-}
-func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
+	z[1] = binary.LittleEndian.Uint64((*b)[8:16])
+	z[2] = binary.LittleEndian.Uint64((*b)[16:24])
+	z[3] = binary.LittleEndian.Uint64((*b)[24:32])
+	z[4] = binary.LittleEndian.Uint64((*b)[32:40])
+	z[5] = binary.LittleEndian.Uint64((*b)[40:48])
+	z[6] = binary.LittleEndian.Uint64((*b)[48:56])
+	z[7] = binary.LittleEndian.Uint64((*b)[56:64])
+	z[8] = binary.LittleEndian.Uint64((*b)[64:72])
+	z[9] = binary.LittleEndian.Uint64((*b)[72:80])
+	z[10] = binary.LittleEndian.Uint64((*b)[80:88])
+	z[11] = binary.LittleEndian.Uint64((*b)[88:96])
 
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid fp.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
 }
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+	binary.LittleEndian.PutUint64((*b)[8:16], e[1])
+	binary.LittleEndian.PutUint64((*b)[16:24], e[2])
+	binary.LittleEndian.PutUint64((*b)[24:32], e[3])
+	binary.LittleEndian.PutUint64((*b)[32:40], e[4])
+	binary.LittleEndian.PutUint64((*b)[40:48], e[5])
+	binary.LittleEndian.PutUint64((*b)[48:56], e[6])
+	binary.LittleEndian.PutUint64((*b)[56:64], e[7])
+	binary.LittleEndian.PutUint64((*b)[64:72], e[8])
+	binary.LittleEndian.PutUint64((*b)[72:80], e[9])
+	binary.LittleEndian.PutUint64((*b)[80:88], e[10])
+	binary.LittleEndian.PutUint64((*b)[88:96], e[11])
+}
+
 func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)

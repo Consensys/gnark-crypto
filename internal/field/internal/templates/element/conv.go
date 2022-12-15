@@ -300,7 +300,6 @@ type bigEndian struct{}
 // Element interpret b is a big-endian {{.NbBytes}}-byte slice.
 // If b encodes a value higher than q, Element returns error.
 func (bigEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
-
 	var z {{.ElementName}}
 	{{- range $i := reverse .NbWordsIndexesFull}}
 		{{- $j := mul $i 8}}
@@ -316,8 +315,8 @@ func (bigEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
 
 	z.ToMont()
 	return z, nil
-
 }
+
 func (bigEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 	e.FromMont()
 
@@ -328,9 +327,8 @@ func (bigEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 		{{- $jj := add $j 8}}
 		binary.BigEndian.PutUint64((*b)[{{$j}}:{{$jj}}], e[{{$k}}])
 	{{- end}}
-
-
 }
+
 func (bigEndian) String() string { return "BigEndian" }
 
 
@@ -341,11 +339,31 @@ var LittleEndian littleEndian
 type littleEndian struct{}
 
 func (littleEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
-	panic("not implemented")
-}
-func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
+	var z {{.ElementName}}
+	{{- range $i := .NbWordsIndexesFull}}
+		{{- $j := mul $i 8}}
+		{{- $jj := add $j 8}}
+		z[{{$i}}] = binary.LittleEndian.Uint64((*b)[{{$j}}:{{$jj}}])
+	{{- end}}
 
+	if !z.smallerThanModulus() {
+		return {{.ElementName}}{}, errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+	}
+
+	z.ToMont()
+	return z, nil
 }
+
+func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
+	e.FromMont()
+
+	{{- range $i := .NbWordsIndexesFull}}
+		{{- $j := mul $i 8}}
+		{{- $jj := add $j 8}}
+		binary.LittleEndian.PutUint64((*b)[{{$j}}:{{$jj}}], e[{{$i}}])
+	{{- end}}
+}
+
 func (littleEndian) String() string { return "LittleEndian" }
 
 
