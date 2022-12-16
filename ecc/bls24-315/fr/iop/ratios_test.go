@@ -46,9 +46,9 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = new(Polynomial)
 		numerator[i].Coefficients = randomVector(sizePolynomials)
-		numerator[i].Info.Basis = Lagrange
-		numerator[i].Info.Layout = Regular
-		numerator[i].Info.Status = Locked
+		numerator[i].Basis = Lagrange
+		numerator[i].Layout = Regular
+		numerator[i].Status = Locked
 	}
 
 	// get permutation
@@ -60,9 +60,9 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 	for i := 0; i < nbPolynomials; i++ {
 		denominator[i] = new(Polynomial)
 		denominator[i].Coefficients = make([]fr.Element, sizePolynomials)
-		denominator[i].Info.Basis = Lagrange
-		denominator[i].Info.Layout = Regular
-		denominator[i].Info.Status = Locked
+		denominator[i].Basis = Lagrange
+		denominator[i].Layout = Regular
+		denominator[i].Status = Locked
 	}
 	for i := 0; i < len(sigma); i++ {
 		id := int(sigma[i] / sizePolynomials)
@@ -117,9 +117,9 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Info.Layout = BitReverse
+		numerator[i].Layout = BitReverse
 		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Info.Layout = BitReverse
+		denominator[i].Layout = BitReverse
 	}
 	{
 		var err error
@@ -137,11 +137,11 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
 		domain.FFTInverse(numerator[i].Coefficients, fft.DIT)
-		numerator[i].Info.Basis = Canonical
-		numerator[i].Info.Layout = Regular
+		numerator[i].Basis = Canonical
+		numerator[i].Layout = Regular
 		domain.FFTInverse(denominator[i].Coefficients, fft.DIT)
-		denominator[i].Info.Basis = Canonical
-		denominator[i].Info.Layout = Regular
+		denominator[i].Basis = Canonical
+		denominator[i].Layout = Regular
 	}
 	{
 		var err error
@@ -159,9 +159,9 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
 		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Info.Layout = BitReverse
+		numerator[i].Layout = BitReverse
 		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Info.Layout = BitReverse
+		denominator[i].Layout = BitReverse
 	}
 
 	{
@@ -226,9 +226,9 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Info.Layout = BitReverse
+		numerator[i].Layout = BitReverse
 		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Info.Layout = BitReverse
+		denominator[i].Layout = BitReverse
 	}
 	{
 		var err error
@@ -246,11 +246,11 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
 		domain.FFTInverse(numerator[i].Coefficients, fft.DIT)
-		numerator[i].Info.Basis = Canonical
-		numerator[i].Info.Layout = Regular
+		numerator[i].Basis = Canonical
+		numerator[i].Layout = Regular
 		domain.FFTInverse(denominator[i].Coefficients, fft.DIT)
-		denominator[i].Info.Basis = Canonical
-		denominator[i].Info.Layout = Regular
+		denominator[i].Basis = Canonical
+		denominator[i].Layout = Regular
 	}
 	{
 		var err error
@@ -268,9 +268,9 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
 		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Info.Layout = BitReverse
+		numerator[i].Layout = BitReverse
 		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Info.Layout = BitReverse
+		denominator[i].Layout = BitReverse
 	}
 
 	{

@@ -66,7 +66,7 @@ type Form struct {
 // along with the basis and the layout.
 type Polynomial struct {
 	Coefficients []fr.Element
-	Info         Form
+	Form
 }
 
 //-----------------------------------------------------
@@ -112,10 +112,10 @@ type MultivariatePolynomial []monomial
 // degree returns the total degree
 func (m *MultivariatePolynomial) Degree() uint64 {
 	r := 0
-	for i := 0; i < len(m); i++ {
+	for i := 0; i < len(*m); i++ {
 		t := 0
-		for j := 0; j < len(m[i].exponents); j++ {
-			t += m[i].exponents[j]
+		for j := 0; j < len((*m)[i].exponents); j++ {
+			t += (*m)[i].exponents[j]
 		}
 		if t > r {
 			r = t
@@ -157,8 +157,8 @@ func (m *MultivariatePolynomial) Evaluate(x []fr.Element) fr.Element {
 
 	var res fr.Element
 
-	for i := 0; i < len(m); i++ {
-		tmp := m[i].evaluate(x)
+	for i := 0; i < len(*m); i++ {
+		tmp := (*m)[i].evaluate(x)
 		res.Add(&res, &tmp)
 	}
 	return res

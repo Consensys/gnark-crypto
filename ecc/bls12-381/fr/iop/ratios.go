@@ -95,14 +95,14 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 
 		for j := 0; j < nbPolynomials; j++ {
 
-			if _numerator[j].Info.Layout == BitReverse {
+			if _numerator[j].Layout == BitReverse {
 				a.Sub(&beta, &_numerator[j].Coefficients[iRev])
 			} else {
 				a.Sub(&beta, &_numerator[j].Coefficients[i])
 			}
 			b.Mul(&b, &a)
 
-			if _denominator[j].Info.Layout == BitReverse {
+			if _denominator[j].Layout == BitReverse {
 				c.Sub(&beta, &_denominator[j].Coefficients[iRev])
 			} else {
 				c.Sub(&beta, &_denominator[j].Coefficients[i])
@@ -122,7 +122,9 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
 	}
 
-	res.Info = expectedForm
+	res.Basis = expectedForm.Basis
+	res.Layout = expectedForm.Layout
+	res.Status = expectedForm.Status
 
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
@@ -202,7 +204,7 @@ func BuildRatioSpecificPermutation(
 
 			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 				Add(&a, &gamma)
-			if _numerator[j].Info.Layout == BitReverse {
+			if _numerator[j].Layout == BitReverse {
 				a.Add(&a, &_numerator[j].Coefficients[iRev])
 			} else {
 				a.Add(&a, &_numerator[j].Coefficients[i])
@@ -211,7 +213,7 @@ func BuildRatioSpecificPermutation(
 
 			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 				Add(&c, &gamma)
-			if _denominator[j].Info.Layout == BitReverse {
+			if _denominator[j].Layout == BitReverse {
 				c.Add(&c, &_denominator[j].Coefficients[iRev])
 			} else {
 				c.Add(&c, &_denominator[j].Coefficients[i])
@@ -240,7 +242,9 @@ func BuildRatioSpecificPermutation(
 
 func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
 
-	p.Info = expectedForm
+	p.Basis = expectedForm.Basis
+	p.Layout = expectedForm.Layout
+	p.Status = expectedForm.Status
 
 	if expectedForm.Basis == Canonical {
 		domain.FFTInverse(p.Coefficients, fft.DIF)

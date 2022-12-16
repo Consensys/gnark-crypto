@@ -38,7 +38,9 @@ func computex3(x []fr.Element) fr.Element {
 func allocatePol(size int, form Form) *Polynomial {
 	f := new(Polynomial)
 	f.Coefficients = make([]fr.Element, size)
-	f.Info = form
+	f.Basis = form.Basis
+	f.Layout = form.Layout
+	f.Status = form.Status
 	return f
 }
 
@@ -109,15 +111,15 @@ func TestQuotient(t *testing.T) {
 	domain := fft.NewDomain(uint64(sizeSystem))
 	fc[0] = toCanonical(entries[0], domain)
 	fft.BitReverse(fc[0].Coefficients)
-	fc[0].Info.Layout = Regular
+	fc[0].Layout = Regular
 
 	fc[1] = toCanonical(entries[1], domain)
 	fft.BitReverse(fc[1].Coefficients)
-	fc[1].Info.Layout = Regular
+	fc[1].Layout = Regular
 
 	fc[2] = toCanonical(entries[2], domain)
 	fft.BitReverse(fc[2].Coefficients)
-	fc[2].Info.Layout = Regular
+	fc[2].Layout = Regular
 
 	x := []fr.Element{
 		evalCanonical(*fc[0], c),

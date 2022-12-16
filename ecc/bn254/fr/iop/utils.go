@@ -69,12 +69,13 @@ func printLayout(f Form) {
 type modifier func(p *Polynomial, d *fft.Domain) *Polynomial
 
 // return a copy of p
+// return a copy of p
 func copyPoly(p Polynomial) Polynomial {
 	size := len(p.Coefficients)
 	var r Polynomial
 	r.Coefficients = make([]fr.Element, size)
 	copy(r.Coefficients, p.Coefficients)
-	r = p
+	r.Form = p.Form
 	return r
 }
 
