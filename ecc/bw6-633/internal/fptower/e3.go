@@ -99,22 +99,6 @@ func (z *E3) Neg(x *E3) *E3 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E3) ToMont() *E3 {
-	z.A0.ToMont()
-	z.A1.ToMont()
-	z.A2.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E3) FromMont() *E3 {
-	z.A0.FromMont()
-	z.A1.FromMont()
-	z.A2.FromMont()
-	return z
-}
-
 // Add adds two elements of E3
 func (z *E3) Add(x, y *E3) *E3 {
 	z.A0.Add(&x.A0, &y.A0)

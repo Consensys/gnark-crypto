@@ -66,20 +66,6 @@ func (z *E24) SetOne() *E24 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E24) ToMont() *E24 {
-	z.D0.ToMont()
-	z.D1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E24) FromMont() *E24 {
-	z.D0.FromMont()
-	z.D1.FromMont()
-	return z
-}
-
 // Add set z=x+y in E24 and return z
 func (z *E24) Add(x, y *E24) *E24 {
 	z.D0.Add(&x.D0, &y.D0)
@@ -610,8 +596,8 @@ func (z *E24) ExpGLV(x E24, k *big.Int) *E24 {
 	table[14].Mul(&table[11], &table[2])
 
 	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
-	s1.SetBigInt(&s[0]).FromMont()
-	s2.SetBigInt(&s[1]).FromMont()
+	s1 = s1.SetBigInt(&s[0]).Bits()
+	s2 = s2.SetBigInt(&s[1]).Bits()
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := len(s1)/2 + 1; i >= 0; i-- {

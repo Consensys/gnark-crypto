@@ -592,8 +592,6 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
 
 	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
@@ -641,8 +639,6 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
 
 	// not compressed
 	// we store the Y coordinate
@@ -1002,15 +998,6 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 
 
 
-{{define "putFp"}}
-	tmp = {{$.From}}
-	tmp.FromMont() 
-	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
-			{{- $j := mul $i 8}}
-			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Fp.NbWords 1}}
-			{{- $k := sub $k $i}}
-			{{- $jj := add $j 8}}
-			binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
-	{{- end}}
-{{end}}
+{{- define "putFp"}}
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)( res[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]), {{$.From}})
+{{- end}}

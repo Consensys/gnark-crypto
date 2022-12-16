@@ -87,8 +87,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
@@ -121,8 +120,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			results := make([]G1Jac, len(cRange))
@@ -157,8 +155,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePointsZero[i-1].setInfinity()
 			}
 
@@ -211,8 +208,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g1Gen)
 			}
@@ -292,7 +288,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 // _innerMsmG1Reference always do ext jacobian with c == 16
 func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
-	digits, _ := partitionScalars(scalars, 16, config.ScalarsMont, config.NbTasks)
+	digits, _ := partitionScalars(scalars, 16, config.NbTasks)
 
 	nbChunks := computeNbChunks(16)
 
@@ -507,8 +503,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
@@ -539,8 +534,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			results := make([]G2Jac, len(cRange))
@@ -575,8 +569,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePointsZero[i-1].setInfinity()
 			}
 
@@ -629,8 +622,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&g2Gen)
 			}
@@ -708,7 +700,7 @@ func TestCrossMultiExpG2(t *testing.T) {
 // _innerMsmG2Reference always do ext jacobian with c == 16
 func _innerMsmG2Reference(p *G2Jac, points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G2Jac {
 	// partition the scalars
-	digits, _ := partitionScalars(scalars, 16, config.ScalarsMont, config.NbTasks)
+	digits, _ := partitionScalars(scalars, 16, config.NbTasks)
 
 	nbChunks := computeNbChunks(16)
 

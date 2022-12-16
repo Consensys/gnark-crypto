@@ -478,8 +478,8 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	k1 = k1.SetBigInt(&k[0]).Bits()
+	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
 	maxBit := k1.BitLen()
@@ -914,7 +914,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	toReturn := make([]G2Affine, len(scalars))
 
 	// partition the scalars into digits
-	digits, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
+	digits, _ := partitionScalars(scalars, c, runtime.NumCPU())
 
 	// for each digit, take value in the base table, double it c time, voilà.
 	parallel.Execute(len(scalars), func(start, end int) {

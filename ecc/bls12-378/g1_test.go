@@ -459,8 +459,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
@@ -473,7 +472,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].ToBigIntRegular(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -539,8 +538,7 @@ func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {
