@@ -40,6 +40,7 @@ type FieldConfig struct {
 	ModulusHex                string
 	NbWords                   int
 	NbBits                    int
+	NbBytes                   int
 	NbWordsLastIndex          int
 	NbWordsIndexesNoZero      []int
 	NbWordsIndexesFull        []int
@@ -95,6 +96,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
 	F.NbWords = len(bModulus.Bits())
+	F.NbBytes = F.NbWords * 8 // (F.NbBits + 7) / 8
 
 	F.NbWordsLastIndex = F.NbWords - 1
 

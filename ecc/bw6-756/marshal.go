@@ -100,7 +100,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fr.Bytes])
+		err = t.SetBytesCanonical(buf[:fr.Bytes])
 		return
 	case *fp.Element:
 		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
@@ -108,7 +108,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fp.Bytes])
+		err = t.SetBytesCanonical(buf[:fp.Bytes])
 		return
 	case *[]fr.Element:
 		var sliceLen uint32
@@ -126,7 +126,9 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			(*t)[i].SetBytes(buf[:fr.Bytes])
+			if err = (*t)[i].SetBytesCanonical(buf[:fr.Bytes]); err != nil {
+				return
+			}
 		}
 		return
 	case *[]fp.Element:
@@ -145,7 +147,9 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			(*t)[i].SetBytes(buf[:fp.Bytes])
+			if err = (*t)[i].SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+				return
+			}
 		}
 		return
 	case *G1Affine:
@@ -221,7 +225,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -276,7 +284,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -771,8 +783,12 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// uncompressed point
 	if mData == mUncompressed {
 		// read X and Y coordinates
-		p.X.SetBytes(buf[:fp.Bytes])
-		p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2])
+		if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+			return 0, err
+		}
 
 		// subgroup check
 		if subGroupCheck && !p.IsInSubGroup() {
@@ -792,7 +808,9 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+		return 0, err
+	}
 
 	var YSquared, Y fp.Element
 
@@ -866,7 +884,7 @@ func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
@@ -875,7 +893,7 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		p.X.SetZero()
 		p.Y.SetZero()
 		isInfinity = true
-		return
+		return isInfinity, nil
 	}
 
 	// we need to copy the input buffer (to keep this method thread safe)
@@ -884,12 +902,14 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+		return false, err
+	}
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)
 
 	// recomputing Y will be done asynchronously
-	return
+	return isInfinity, nil
 }
 
 // SizeOfG2AffineCompressed represents the size in bytes that a G2Affine need in binary form, compressed
@@ -1055,8 +1075,12 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// uncompressed point
 	if mData == mUncompressed {
 		// read X and Y coordinates
-		p.X.SetBytes(buf[:fp.Bytes])
-		p.Y.SetBytes(buf[fp.Bytes : fp.Bytes*2])
+		if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+			return 0, err
+		}
 
 		// subgroup check
 		if subGroupCheck && !p.IsInSubGroup() {
@@ -1076,7 +1100,9 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+		return 0, err
+	}
 
 	var YSquared, Y fp.Element
 
@@ -1150,7 +1176,7 @@ func (p *G2Affine) unsafeComputeY(subGroupCheck bool) error {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
+func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
@@ -1159,7 +1185,7 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 		p.X.SetZero()
 		p.Y.SetZero()
 		isInfinity = true
-		return
+		return isInfinity, nil
 	}
 
 	// we need to copy the input buffer (to keep this method thread safe)
@@ -1168,10 +1194,12 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool) {
 	bufX[0] &= ^mMask
 
 	// read X coordinate
-	p.X.SetBytes(bufX[:fp.Bytes])
+	if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+		return false, err
+	}
 	// store mData in p.Y[0]
 	p.Y[0] = uint64(mData)
 
 	// recomputing Y will be done asynchronously
-	return
+	return isInfinity, nil
 }

@@ -32,7 +32,7 @@ type {{.ElementName}} [{{.NbWords}}]uint64
 const (
 	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
 	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
-	Bytes = Limbs * 8 		// number of bytes needed to represent a {{.ElementName}}
+	Bytes = {{.NbBytes}} 	// number of bytes needed to represent a {{.ElementName}}
 )
 
 
@@ -634,10 +634,18 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
 	res := make([]{{.ElementName}}, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
 	return res, nil
 }
 

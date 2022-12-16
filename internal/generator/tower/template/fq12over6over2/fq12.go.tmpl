@@ -690,7 +690,7 @@ func (z *E12) Bytes() (r [SizeOfGT]byte) {
 // SetBytes interprets e as the bytes of a big-endian GT
 // sets z to that value (in Montgomery form), and returns z.
 // size(e) == {{ $sizeOfFp }} * 12
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
@@ -777,7 +777,9 @@ func (z *E12) IsInSubGroup() bool {
 {{end}}
 
 {{define "readFp"}}
-	{{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
+	if err := {{$.To}}.SetBytesCanonical(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]); err != nil {
+		return err
+	}
 {{end}}
 
 // CompressTorus GT/E12 element to half its size

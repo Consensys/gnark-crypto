@@ -44,9 +44,9 @@ import (
 type Element [6]uint64
 
 const (
-	Limbs = 6         // number of 64 bits words needed to represent a Element
-	Bits  = 378       // number of bits needed to represent a Element
-	Bytes = Limbs * 8 // number of bytes needed to represent a Element
+	Limbs = 6   // number of 64 bits words needed to represent a Element
+	Bits  = 378 // number of bits needed to represent a Element
+	Bytes = 48  // number of bytes needed to represent a Element
 )
 
 // Field modulus q
@@ -924,10 +924,18 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
 	res := make([]Element, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
 	return res, nil
 }
 
@@ -1027,7 +1035,7 @@ func (z *Element) Text(base int) string {
 
 // ToBigInt returns z as a big.Int in Montgomery form
 func (z *Element) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs * 8]byte
+	var b [Bytes]byte
 	binary.BigEndian.PutUint64(b[40:48], z[0])
 	binary.BigEndian.PutUint64(b[32:40], z[1])
 	binary.BigEndian.PutUint64(b[24:32], z[2])
@@ -1045,15 +1053,8 @@ func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
 }
 
 // Bytes returns the value of z as a big-endian byte array
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[40:48], _z[0])
-	binary.BigEndian.PutUint64(res[32:40], _z[1])
-	binary.BigEndian.PutUint64(res[24:32], _z[2])
-	binary.BigEndian.PutUint64(res[16:24], _z[3])
-	binary.BigEndian.PutUint64(res[8:16], _z[4])
-	binary.BigEndian.PutUint64(res[0:8], _z[5])
-
+func (z *Element) Bytes() (res [Bytes]byte) {
+	BigEndian.PutElement(&res, *z)
 	return
 }
 
@@ -1066,6 +1067,16 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
+	if len(e) == Bytes {
+		// fast path
+		v, err := BigEndian.Element((*[Bytes]byte)(e))
+		if err == nil {
+			*z = v
+			return z
+		}
+	}
+
+	// slow path.
 	// get a big int from our pool
 	vv := field.BigIntPool.Get()
 	vv.SetBytes(e)
@@ -1077,6 +1088,21 @@ func (z *Element) SetBytes(e []byte) *Element {
 	field.BigIntPool.Put(vv)
 
 	return z
+}
+
+// SetBytesCanonical interprets e as the bytes of a big-endian 48-byte integer.
+// If e is not a 48-byte slice or encodes a value higher than q,
+// SetBytesCanonical returns an error.
+func (z *Element) SetBytesCanonical(e []byte) error {
+	if len(e) != Bytes {
+		return errors.New("invalid fr.Element encoding")
+	}
+	v, err := BigEndian.Element((*[Bytes]byte)(e))
+	if err != nil {
+		return err
+	}
+	*z = v
+	return nil
 }
 
 // SetBigInt sets z to v and returns z
@@ -1211,6 +1237,83 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	field.BigIntPool.Put(vv)
 	return nil
 }
+
+// A ByteOrder specifies how to convert byte slices into a Element
+type ByteOrder interface {
+	Element(*[Bytes]byte) (Element, error)
+	PutElement(*[Bytes]byte, Element)
+	String() string
+}
+
+// BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
+var BigEndian bigEndian
+
+type bigEndian struct{}
+
+// Element interpret b is a big-endian 48-byte slice.
+// If b encodes a value higher than q, Element returns error.
+func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.BigEndian.Uint64((*b)[40:48])
+	z[1] = binary.BigEndian.Uint64((*b)[32:40])
+	z[2] = binary.BigEndian.Uint64((*b)[24:32])
+	z[3] = binary.BigEndian.Uint64((*b)[16:24])
+	z[4] = binary.BigEndian.Uint64((*b)[8:16])
+	z[5] = binary.BigEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid fr.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
+}
+
+func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.BigEndian.PutUint64((*b)[40:48], e[0])
+	binary.BigEndian.PutUint64((*b)[32:40], e[1])
+	binary.BigEndian.PutUint64((*b)[24:32], e[2])
+	binary.BigEndian.PutUint64((*b)[16:24], e[3])
+	binary.BigEndian.PutUint64((*b)[8:16], e[4])
+	binary.BigEndian.PutUint64((*b)[0:8], e[5])
+}
+
+func (bigEndian) String() string { return "BigEndian" }
+
+// LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
+var LittleEndian littleEndian
+
+type littleEndian struct{}
+
+func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
+	z[1] = binary.LittleEndian.Uint64((*b)[8:16])
+	z[2] = binary.LittleEndian.Uint64((*b)[16:24])
+	z[3] = binary.LittleEndian.Uint64((*b)[24:32])
+	z[4] = binary.LittleEndian.Uint64((*b)[32:40])
+	z[5] = binary.LittleEndian.Uint64((*b)[40:48])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid fr.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
+}
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+	binary.LittleEndian.PutUint64((*b)[8:16], e[1])
+	binary.LittleEndian.PutUint64((*b)[16:24], e[2])
+	binary.LittleEndian.PutUint64((*b)[24:32], e[3])
+	binary.LittleEndian.PutUint64((*b)[32:40], e[4])
+	binary.LittleEndian.PutUint64((*b)[40:48], e[5])
+}
+
+func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
