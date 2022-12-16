@@ -893,93 +893,70 @@ func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affine {
-
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)
 	bestC := 0
-	for c := 2; c < 18; c++ {
-		cost := uint64(1 << (c - 1))
-		nbChunks := uint64(fr.Limbs * 64 / c)
-		if (fr.Limbs*64)%c != 0 {
-			nbChunks++
-		}
-		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
+	for c := 2; c <= 16; c++ {
+		cost := uint64(1 << (c - 1)) // pre compute the table
+		nbChunks := computeNbChunks(uint64(c))
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
 		if cost < min {
 			min = cost
 			bestC = c
 		}
 	}
 	c := uint64(bestC) // window size
-	nbChunks := int(fr.Limbs * 64 / c)
-	if (fr.Limbs*64)%c != 0 {
-		nbChunks++
+	nbChunks := int(computeNbChunks(c))
+
+	// last window may be slightly larger than c; in which case we need to compute one
+	// extra element in the baseTable
+	maxC := lastC(c)
+	if c > maxC {
+		maxC = c
 	}
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]G2Jac, (1 << (c - 1)))
-	baseTable[0].Set(&g2Infinity)
-	baseTable[0].AddMixed(base)
+	baseTable := make([]G2Jac, (1 << (maxC - 1)))
+	baseTable[0].FromAffine(base)
 	for i := 1; i < len(baseTable); i++ {
 		baseTable[i] = baseTable[i-1]
 		baseTable[i].AddMixed(base)
 	}
-
-	pScalars, _ := partitionScalarsOld(scalars, c, false, runtime.NumCPU())
-
-	// compute offset and word selector / shift to select the right bits of our windows
-	selectors := make([]selector, nbChunks)
-	for chunk := 0; chunk < nbChunks; chunk++ {
-		jc := uint64(uint64(chunk) * c)
-		d := selector{}
-		d.index = jc / 64
-		d.shift = jc - (d.index * 64)
-		d.mask = mask << d.shift
-		d.multiWordSelect = (64%c) != 0 && d.shift > (64-c) && d.index < (fr.Limbs-1)
-		if d.multiWordSelect {
-			nbBitsHigh := d.shift - uint64(64-c)
-			d.maskHigh = (1 << nbBitsHigh) - 1
-			d.shiftHigh = (c - nbBitsHigh)
-		}
-		selectors[chunk] = d
-	}
 	toReturn := make([]G2Affine, len(scalars))
 
+	// partition the scalars into digits
+	digits, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
+
 	// for each digit, take value in the base table, double it c time, voilà.
-	parallel.Execute(len(pScalars), func(start, end int) {
+	parallel.Execute(len(scalars), func(start, end int) {
 		var p G2Jac
 		for i := start; i < end; i++ {
 			p.Set(&g2Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-				s := selectors[chunk]
 				if chunk != nbChunks-1 {
 					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
+				offset := chunk * len(scalars)
+				digit := digits[i+offset]
 
-				bits := (pScalars[i][s.index] & s.mask) >> s.shift
-				if s.multiWordSelect {
-					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-				}
-
-				if bits == 0 {
+				if digit == 0 {
 					continue
 				}
 
 				// if msbWindow bit is set, we need to substract
-				if bits&msbWindow == 0 {
+				if digit&1 == 0 {
 					// add
-					p.AddAssign(&baseTable[bits-1])
+					p.AddAssign(&baseTable[(digit>>1)-1])
 				} else {
 					// sub
-					t := baseTable[bits & ^msbWindow]
+					t := baseTable[digit>>1]
 					t.Neg(&t)
 					p.AddAssign(&t)
 				}
