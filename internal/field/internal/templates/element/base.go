@@ -3,7 +3,7 @@ package element
 const Base = `
 
 import (
-	"github.com/consensys/gnark-crypto/internal/hashutils"
+	"github.com/consensys/gnark-crypto/field"
 	"math/big"
 	"math/bits"
 	"io"
@@ -636,7 +636,7 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
