@@ -857,18 +857,15 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	min := ^uint64(0)
 	bestC := 0
 	for c := 2; c <= 16; c++ {
-		cost := uint64(1 << (c - 1))
-		nbChunks := uint64(fr.Limbs * 64 / c)
-		if (fr.Limbs*64)%c != 0 {
-			nbChunks++
-		}
-		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
+		cost := uint64(1 << (c - 1)) // pre compute the table
+		nbChunks := computeNbChunks(uint64(c))
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
 		if cost < min {
 			min = cost
 			bestC = c
 		}
 	}
-	c := uint64(bestC) - 1 // window size
+	c := uint64(bestC) // window size
 	nbChunks := int(computeNbChunks(c))
 
 	// last window may be slightly larger than c; in which case we need to compute one
