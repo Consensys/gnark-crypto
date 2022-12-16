@@ -45,9 +45,9 @@ import (
 type Element [1]uint64
 
 const (
-	Limbs = 1         // number of 64 bits words needed to represent a Element
-	Bits  = 64        // number of bits needed to represent a Element
-	Bytes = Limbs * 8 // number of bytes needed to represent a Element
+	Limbs = 1  // number of 64 bits words needed to represent a Element
+	Bits  = 64 // number of bits needed to represent a Element
+	Bytes = 8  // number of bytes needed to represent a Element
 )
 
 // Field modulus q
@@ -578,10 +578,18 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := bigIntPool.Get().(*big.Int)
+
 	res := make([]Element, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	bigIntPool.Put(vv)
+
 	return res, nil
 }
 
@@ -670,7 +678,7 @@ func (z *Element) Text(base int) string {
 
 // ToBigInt returns z as a big.Int in Montgomery form
 func (z *Element) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs * 8]byte
+	var b [Bytes]byte
 	binary.BigEndian.PutUint64(b[0:8], z[0])
 
 	return res.SetBytes(b[:])
@@ -683,10 +691,8 @@ func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
 }
 
 // Bytes returns the value of z as a big-endian byte array
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[0:8], _z[0])
-
+func (z *Element) Bytes() (res [Bytes]byte) {
+	BigEndian.PutElement(&res, *z)
 	return
 }
 
@@ -699,11 +705,16 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
-	if len(e) == 8 {
+	if len(e) == Bytes {
 		// fast path
-		z[0] = binary.BigEndian.Uint64(e)
-		return z.ToMont()
+		v, err := BigEndian.Element((*[Bytes]byte)(e))
+		if err == nil {
+			*z = v
+			return z
+		}
 	}
+
+	// slow path.
 	// get a big int from our pool
 	vv := bigIntPool.Get().(*big.Int)
 	vv.SetBytes(e)
@@ -715,6 +726,21 @@ func (z *Element) SetBytes(e []byte) *Element {
 	bigIntPool.Put(vv)
 
 	return z
+}
+
+// SetBytesCanonical interprets e as the bytes of a big-endian 8-byte integer.
+// If e is not a 8-byte slice or encodes a value higher than q,
+// SetBytesCanonical returns an error.
+func (z *Element) SetBytesCanonical(e []byte) error {
+	if len(e) != Bytes {
+		return errors.New("invalid goldilocks.Element encoding")
+	}
+	v, err := BigEndian.Element((*[Bytes]byte)(e))
+	if err != nil {
+		return err
+	}
+	*z = v
+	return nil
 }
 
 // SetBigInt sets z to v and returns z
@@ -849,6 +875,63 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	bigIntPool.Put(vv)
 	return nil
 }
+
+// A ByteOrder specifies how to convert byte slices into a Element
+type ByteOrder interface {
+	Element(*[Bytes]byte) (Element, error)
+	PutElement(*[Bytes]byte, Element)
+	String() string
+}
+
+// BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
+var BigEndian bigEndian
+
+type bigEndian struct{}
+
+// Element interpret b is a big-endian 8-byte slice.
+// If b encodes a value higher than q, Element returns error.
+func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.BigEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid goldilocks.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
+}
+
+func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.BigEndian.PutUint64((*b)[0:8], e[0])
+}
+
+func (bigEndian) String() string { return "BigEndian" }
+
+// LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
+var LittleEndian littleEndian
+
+type littleEndian struct{}
+
+func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid goldilocks.Element encoding")
+	}
+
+	z.ToMont()
+	return z, nil
+}
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.FromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+}
+
+func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
