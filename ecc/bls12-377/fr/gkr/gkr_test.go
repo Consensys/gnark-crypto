@@ -525,6 +525,7 @@ func init() {
 	gates["identity"] = IdentityGate{}
 	gates["mul"] = mulGate{}
 	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -708,4 +709,14 @@ func (g mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
 
 func (g mulGate) Degree() int {
 	return 2
+}
+
+type _select int
+
+func (g _select) Evaluate(in ...small_rational.SmallRational) small_rational.SmallRational {
+	return in[g]
+}
+
+func (g _select) Degree() int {
+	return 1
 }
