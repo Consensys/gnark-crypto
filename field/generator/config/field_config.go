@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package field provides Golang code generation for efficient field arithmetic operations.
-package field
+// Package config provides Golang code generation for efficient field arithmetic operations.
+package config
 
 import (
 	"errors"
@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
+	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
 )
 
 var (
