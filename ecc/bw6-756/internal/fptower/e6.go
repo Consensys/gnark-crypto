@@ -67,7 +67,6 @@ func (z *E6) SetOne() *E6 {
 	return z
 }
 
-
 // Add set z=x+y in E6 and return z
 func (z *E6) Add(x, y *E6) *E6 {
 	z.B0.Add(&x.B0, &y.B0)
