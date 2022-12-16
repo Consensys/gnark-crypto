@@ -1313,7 +1313,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	res := make([]Element, count)
 	for i := 0; i < count; i++ {
@@ -1322,7 +1322,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	}
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return res, nil
 }
