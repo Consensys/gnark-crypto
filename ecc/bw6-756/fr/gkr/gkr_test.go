@@ -713,7 +713,7 @@ func (g mulGate) Degree() int {
 
 type _select int
 
-func (g _select) Evaluate(in ...small_rational.SmallRational) small_rational.SmallRational {
+func (g _select) Evaluate(in ...fr.Element) fr.Element {
 	return in[g]
 }
 
