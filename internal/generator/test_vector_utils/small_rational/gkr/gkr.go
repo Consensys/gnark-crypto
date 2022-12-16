@@ -108,16 +108,23 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []small_rational.S
 		gateEvaluation = e.manager.assignment[e.wire].Evaluate(r, e.manager.memPool)
 	} else {
 		inputEvaluations := make([]small_rational.SmallRational, len(e.wire.Inputs))
-		firstIndexes := make(map[*Wire]int, len(inputEvaluationsNoRedundancy))
-		for inI, in := range e.wire.Inputs {
-			firstIndex, found := firstIndexes[in]
-			if !found {
-				firstIndex = inI
-				firstIndexes[in] = inI
+		indexesInProof := make(map[*Wire]int, len(inputEvaluationsNoRedundancy))
 
-				e.manager.add(in, r, inputEvaluationsNoRedundancy[inI])
+		proofI := 0
+		for inI, in := range e.wire.Inputs {
+			indexInProof, found := indexesInProof[in]
+			if !found {
+				indexInProof = proofI
+				indexesInProof[in] = indexInProof
+
+				// defer verification, store new claim
+				e.manager.add(in, r, inputEvaluationsNoRedundancy[indexInProof])
+				proofI++
 			}
-			inputEvaluations[inI] = inputEvaluationsNoRedundancy[firstIndex]
+			inputEvaluations[inI] = inputEvaluationsNoRedundancy[indexInProof]
+		}
+		if proofI != len(inputEvaluationsNoRedundancy) {
+			return fmt.Errorf("%d input wire evaluations given, %d expected", len(inputEvaluationsNoRedundancy), proofI)
 		}
 		gateEvaluation = e.wire.Gate.Evaluate(inputEvaluations...)
 	}
