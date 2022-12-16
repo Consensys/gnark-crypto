@@ -68,9 +68,9 @@ func (z *{{.ElementName}}) Text(base int) string {
 		if zz.FitsOnOneWord() {
 			return strconv.FormatUint(zz[0], base)
 		} 
-		vv := bigIntPool.Get().(*big.Int)
+		vv := field.BigIntPool.Get()
 		r := zz.ToBigInt(vv).Text(base)
-		bigIntPool.Put(vv)
+		field.BigIntPool.Put(vv)
 		return r
 	{{- end}}
 }
@@ -126,14 +126,14 @@ func (z *{{.ElementName}}) SetBytes(e []byte) *{{.ElementName}} {
 	}
 	{{- end}}
 	// get a big int from our pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 	vv.SetBytes(e)
 
 	// set big int
 	z.SetBigInt(vv)
 
 	// put temporary object back in pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z
 }
@@ -156,7 +156,7 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	// copy input + modular reduction
 	vv.Set(v)
@@ -166,7 +166,7 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	z.setBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return z
 }
 
@@ -210,7 +210,7 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 // If the number is invalid this method leaves z unchanged and returns nil, error.
 func (z *{{.ElementName}}) SetString(number string) (*{{.ElementName}}, error) {
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		return nil, errors.New("{{.ElementName}}.SetString failed -> can't parse number into a big.Int " + number)
@@ -219,7 +219,7 @@ func (z *{{.ElementName}}) SetString(number string) (*{{.ElementName}}, error) {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z, nil
 }
@@ -260,7 +260,7 @@ func (z *{{.ElementName}}) UnmarshalJSON(data []byte) error {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(s, 0); !ok {
 		return errors.New("can't parse into a big.Int: " + s)
@@ -269,7 +269,7 @@ func (z *{{.ElementName}}) UnmarshalJSON(data []byte) error {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return nil
 }
 

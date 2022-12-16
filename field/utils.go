@@ -4,8 +4,29 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+	"sync"
 )
 
+// BigIntPool is a shared *big.Int memory pool
+var BigIntPool bigIntPool
+
+var _bigIntPool = sync.Pool{
+	New: func() interface{} {
+		return new(big.Int)
+	},
+}
+
+type bigIntPool struct{}
+
+func (bigIntPool) Get() *big.Int {
+	return _bigIntPool.Get().(*big.Int)
+}
+
+func (bigIntPool) Put(v *big.Int) {
+	_bigIntPool.Put(v)
+}
+
+// BigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
 func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	words := aInt.Bits()

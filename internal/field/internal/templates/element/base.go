@@ -9,7 +9,6 @@ import (
 	"io"
 	"crypto/rand"
 	"encoding/binary"
-	"sync"
 	"strconv"
 	"errors"
 	"reflect"
@@ -65,12 +64,6 @@ func Modulus() *big.Int {
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
 const qInvNeg uint64 = {{index .QInverse 0}}
-
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
 
 func init() {
 	_modulus.SetString("{{.ModulusHex}}", 16)
