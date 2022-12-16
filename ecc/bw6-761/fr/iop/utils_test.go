@@ -232,6 +232,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Unlocked {
 			t.Fatal("expected status is Unlocked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
@@ -254,6 +255,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Unlocked {
 			t.Fatal("expected status is Unlocked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
@@ -364,6 +366,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Locked {
 			t.Fatal("expected status is Locked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
@@ -386,6 +389,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Unlocked {
 			t.Fatal("expected status is Unlocked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
@@ -452,6 +456,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Unlocked {
 			t.Fatal("expected status is Unlocked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
@@ -474,6 +479,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Status != Unlocked {
 			t.Fatal("expected status is Unlocked")
 		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
