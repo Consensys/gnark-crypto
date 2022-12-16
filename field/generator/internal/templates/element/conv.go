@@ -60,8 +60,7 @@ func (z *{{.ElementName}}) Text(base int) string {
 				return "-" + strconv.FormatUint(zzNeg[0], base)
 			}
 		}
-		zz := *z
-		zz.fromMont()
+		zz := z.Bits()
 		return strconv.FormatUint(zz[0], base)
 	{{- else }}
 		if base == 10 {

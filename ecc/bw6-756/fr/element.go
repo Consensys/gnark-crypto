@@ -262,9 +262,7 @@ func (z *Element) IsUint64() bool {
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *Element) Uint64() uint64 {
-	zz := *z
-	zz.fromMont()
-	return zz[0]
+	return z.Bits()[0]
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -280,10 +278,8 @@ func (z *Element) FitsOnOneWord() bool {
 //	 0 if z == x
 //	+1 if z >  x
 func (z *Element) Cmp(x *Element) int {
-	_z := *z
-	_x := *x
-	_z.fromMont()
-	_x.fromMont()
+	_z := z.Bits()
+	_x := x.Bits()
 	if _z[5] > _x[5] {
 		return 1
 	} else if _z[5] < _x[5] {
@@ -324,8 +320,7 @@ func (z *Element) LexicographicallyLargest() bool {
 	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
 
-	_z := *z
-	_z.fromMont()
+	_z := z.Bits()
 
 	var b uint64
 	_, b = bits.Sub64(_z[0], 5522628103504920577, 0)
