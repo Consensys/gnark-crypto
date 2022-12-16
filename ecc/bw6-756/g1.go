@@ -1005,10 +1005,17 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	c := uint64(bestC) - 1 // window size
 	nbChunks := int(computeNbChunks(c))
 
+	// last window may be slightly larger than c; in which case we need to compute one
+	// extra element in the baseTable
+	maxC := lastC(c)
+	if c > maxC {
+		maxC = c
+	}
+
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]G1Jac, (1 << (c - 1)))
+	baseTable := make([]G1Jac, (1 << (maxC - 1)))
 	baseTable[0].FromAffine(base)
 	for i := 1; i < len(baseTable); i++ {
 		baseTable[i] = baseTable[i-1]
