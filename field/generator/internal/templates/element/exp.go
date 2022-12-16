@@ -15,8 +15,8 @@ func (z *{{.ElementName}}) Exp(x {{.ElementName}}, k *big.Int) *{{.ElementName}}
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
+		e = field.BigIntPool.Get()
+		defer field.BigIntPool.Put(e)
 		e.Neg(k)
 	}
 

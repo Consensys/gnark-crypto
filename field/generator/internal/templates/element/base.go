@@ -3,13 +3,12 @@ package element
 const Base = `
 
 import (
-	"github.com/consensys/gnark-crypto/internal/hashutils"
+	"github.com/consensys/gnark-crypto/field"
 	"math/big"
 	"math/bits"
 	"io"
 	"crypto/rand"
 	"encoding/binary"
-	"sync"
 	"strconv"
 	"errors"
 	"reflect"
@@ -65,12 +64,6 @@ func Modulus() *big.Int {
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
 const qInvNeg uint64 = {{index .QInverse 0}}
-
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
 
 func init() {
 	_modulus.SetString("{{.ModulusHex}}", 16)
@@ -636,13 +629,13 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	res := make([]{{.ElementName}}, count)
 	for i := 0; i < count; i++ {
@@ -651,7 +644,7 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	}
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return res, nil
 }

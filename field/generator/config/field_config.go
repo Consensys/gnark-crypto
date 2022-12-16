@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package field provides Golang code generation for efficient field arithmetic operations.
-package field
+// Package config provides Golang code generation for efficient field arithmetic operations.
+package config
 
 import (
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
-	"math/bits"
 	"strconv"
 	"strings"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
+	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
 )
 
 var (
@@ -373,31 +372,6 @@ func (f *FieldConfig) halve(res *big.Int, x *big.Int) {
 		z.Add(x, f.ModulusBig)
 	}
 	res.Rsh(&z, 1)
-}
-
-func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
-
-	words := aInt.Bits()
-
-	const steps = 64 / bits.UintSize
-	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
-	for i := 0; i < len(a)*steps; i++ {
-
-		var wI big.Word
-
-		if i < len(words) {
-			wI = words[i]
-		}
-
-		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
-		aI &= filter
-
-		if uint64(wI) != aI {
-			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
-		}
-	}
-
-	return nil
 }
 
 func (f *FieldConfig) Mul(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {

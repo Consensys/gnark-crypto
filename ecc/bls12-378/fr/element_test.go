@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand"
 
 	"testing"

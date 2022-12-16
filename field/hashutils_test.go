@@ -1,4 +1,4 @@
-package hashutils
+package field
 
 import (
 	"bytes"

@@ -1,4 +1,4 @@
-package field
+package config
 
 import (
 	"crypto/rand"
@@ -7,6 +7,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter/gen"
 
 	"github.com/leanovate/gopter"
@@ -45,7 +46,7 @@ func TestIntToMont(t *testing.T) {
 			i.Lsh(i, 64*uint(f.NbWords))
 			*i = f.ToMont(*i)
 
-			err := BigIntMatchUint64Slice(i, f.RSquare)
+			err := field.BigIntMatchUint64Slice(i, f.RSquare)
 			return err == nil, err
 		}, genF),
 	)
@@ -73,7 +74,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
 			}
 
-			err := BigIntMatchUint64Slice(&i, ints)
+			err := field.BigIntMatchUint64Slice(&i, ints)
 			return err == nil, err
 		}, genF, genUint8SliceSlice(1)))
 
