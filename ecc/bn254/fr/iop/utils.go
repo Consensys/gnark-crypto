@@ -74,35 +74,35 @@ func copyPoly(p Polynomial) Polynomial {
 	var r Polynomial
 	r.Coefficients = make([]fr.Element, size)
 	copy(r.Coefficients, p.Coefficients)
-	r.Info = p.Info
+	r = p
 	return r
 }
 
 // return an ID corresponding to the polynomial extra data
 func getShapeID(p Polynomial) int {
-	return int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
+	return int(p.Basis)*4 + int(p.Layout)*2 + int(p.Status)
 }
 
 //----------------------------------------------------
 // toLagrange
 
 // the numeration corresponds to the following formatting:
-// num = int(p.Info.Basis)*4 + int(p.Info.Layout)*2 + int(p.Info.Status)
+// num = int(p.Basis)*4 + int(p.Layout)*2 + int(p.Status)
 
 // CANONICAL REGULAR LOCKED
 func toLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Lagrange
-	_p.Info.Layout = BitReverse
-	_p.Info.Status = Unlocked
+	_p.Basis = Lagrange
+	_p.Layout = BitReverse
+	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF)
 	return &_p
 }
 
 // CANONICAL REGULAR UNLOCKED
 func toLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Lagrange
-	p.Info.Layout = BitReverse
+	p.Basis = Lagrange
+	p.Layout = BitReverse
 	d.FFT(p.Coefficients, fft.DIF)
 	return p
 }
@@ -110,17 +110,17 @@ func toLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 // CANONICAL BITREVERSE LOCKED
 func toLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Lagrange
-	_p.Info.Layout = Regular
-	_p.Info.Status = Unlocked
+	_p.Basis = Lagrange
+	_p.Layout = Regular
+	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIT)
 	return &_p
 }
 
 // CANONICAL BITREVERSE UNLOCKED
 func toLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Lagrange
-	p.Info.Layout = Regular
+	p.Basis = Lagrange
+	p.Layout = Regular
 	d.FFT(p.Coefficients, fft.DIT)
 	return p
 }
@@ -148,9 +148,9 @@ func toLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE_COSET REGULAR LOCKED
 func toLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Lagrange
-	_p.Info.Layout = Regular
-	_p.Info.Status = Unlocked
+	_p.Basis = Lagrange
+	_p.Layout = Regular
+	_p.Status = Unlocked
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
 	d.FFT(_p.Coefficients, fft.DIT)
 	return &_p
@@ -158,7 +158,7 @@ func toLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func toLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Lagrange
+	p.Basis = Lagrange
 	d.FFTInverse(p.Coefficients, fft.DIF, true)
 	d.FFT(p.Coefficients, fft.DIT)
 	return p
@@ -167,7 +167,9 @@ func toLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE_COSET BITREVERSE LOCKED
 func toLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Lagrange
+	_p.Basis = Lagrange
+	_p.Layout = BitReverse
+	_p.Status = Unlocked
 	d.FFTInverse(_p.Coefficients, fft.DIT, true)
 	d.FFT(_p.Coefficients, fft.DIF)
 	return &_p
@@ -175,7 +177,9 @@ func toLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func toLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Lagrange
+	p.Basis = Lagrange
+	p.Layout = BitReverse
+	p.Status = Unlocked
 	d.FFTInverse(p.Coefficients, fft.DIT, true)
 	d.FFT(p.Coefficients, fft.DIF)
 	return p
@@ -229,9 +233,9 @@ func toCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE REGULAR LOCKED
 func toCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Canonical
-	_p.Info.Layout = BitReverse
-	_p.Info.Status = Unlocked
+	_p.Basis = Canonical
+	_p.Layout = BitReverse
+	_p.Status = Unlocked
 	d.FFTInverse(_p.Coefficients, fft.DIF)
 	return &_p
 }
@@ -239,17 +243,17 @@ func toCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE REGULAR UNLOCKED
 func toCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIF)
-	p.Info.Basis = Canonical
-	p.Info.Layout = BitReverse
+	p.Basis = Canonical
+	p.Layout = BitReverse
 	return p
 }
 
 // LAGRANGE BITREVERSE LOCKED
 func toCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Canonical
-	_p.Info.Layout = Regular
-	_p.Info.Status = Unlocked
+	_p.Basis = Canonical
+	_p.Layout = Regular
+	_p.Status = Unlocked
 	d.FFTInverse(_p.Coefficients, fft.DIT)
 	return &_p
 }
@@ -257,25 +261,25 @@ func toCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE BITREVERSE UNLOCKED
 func toCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIT)
-	p.Info.Basis = Canonical
-	p.Info.Layout = Regular
+	p.Basis = Canonical
+	p.Layout = Regular
 	return p
 }
 
 // LAGRANGE_COSET REGULAR LOCKED
 func toCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Canonical
-	_p.Info.Layout = BitReverse
-	_p.Info.Status = Unlocked
+	_p.Basis = Canonical
+	_p.Layout = BitReverse
+	_p.Status = Unlocked
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
 	return &_p
 }
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func toCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Canonical
-	p.Info.Layout = BitReverse
+	p.Basis = Canonical
+	p.Layout = BitReverse
 	d.FFTInverse(p.Coefficients, fft.DIF, true)
 	return p
 }
@@ -283,16 +287,16 @@ func toCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
 // LAGRANGE_COSET BITREVERSE LOCKED
 func toCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := copyPoly(*p)
-	_p.Info.Basis = Canonical
-	_p.Info.Layout = Regular
+	_p.Basis = Canonical
+	_p.Layout = Regular
 	d.FFTInverse(_p.Coefficients, fft.DIT, true)
 	return &_p
 }
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func toCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
-	p.Info.Basis = Canonical
-	p.Info.Layout = Regular
+	p.Basis = Canonical
+	p.Layout = Regular
 	d.FFTInverse(p.Coefficients, fft.DIT, true)
 	return p
 }
