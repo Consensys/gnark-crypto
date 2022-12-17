@@ -332,6 +332,29 @@ func NewMessageCounterGenerator(startState, step int) func() hash.Hash {
 	}
 }
 
+type ListHash []small_rational.SmallRational
+
+func (h *ListHash) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
+
+func (h *ListHash) Sum(b []byte) []byte {
+	res := (*h)[0].Bytes()
+	*h = (*h)[1:]
+	return res[:]
+}
+
+func (h *ListHash) Reset() {
+}
+
+func (h *ListHash) Size() int {
+	return small_rational.Bytes
+}
+
+func (h *ListHash) BlockSize() int {
+	return small_rational.Bytes
+}
+
 func SliceToElementSlice[T any](slice []T) ([]small_rational.SmallRational, error) {
 	elementSlice := make([]small_rational.SmallRational, len(slice))
 	for i, v := range slice {
