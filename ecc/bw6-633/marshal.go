@@ -655,9 +655,6 @@ func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
-
 	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
 	// if p.Y ">" -p.Y
@@ -666,18 +663,7 @@ func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	tmp = p.X
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[72:80], tmp[0])
-	binary.BigEndian.PutUint64(res[64:72], tmp[1])
-	binary.BigEndian.PutUint64(res[56:64], tmp[2])
-	binary.BigEndian.PutUint64(res[48:56], tmp[3])
-	binary.BigEndian.PutUint64(res[40:48], tmp[4])
-	binary.BigEndian.PutUint64(res[32:40], tmp[5])
-	binary.BigEndian.PutUint64(res[24:32], tmp[6])
-	binary.BigEndian.PutUint64(res[16:24], tmp[7])
-	binary.BigEndian.PutUint64(res[8:16], tmp[8])
-	binary.BigEndian.PutUint64(res[0:8], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
 
 	res[0] |= msbMask
 
@@ -696,37 +682,12 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
-
 	// not compressed
 	// we store the Y coordinate
-	tmp = p.Y
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[152:160], tmp[0])
-	binary.BigEndian.PutUint64(res[144:152], tmp[1])
-	binary.BigEndian.PutUint64(res[136:144], tmp[2])
-	binary.BigEndian.PutUint64(res[128:136], tmp[3])
-	binary.BigEndian.PutUint64(res[120:128], tmp[4])
-	binary.BigEndian.PutUint64(res[112:120], tmp[5])
-	binary.BigEndian.PutUint64(res[104:112], tmp[6])
-	binary.BigEndian.PutUint64(res[96:104], tmp[7])
-	binary.BigEndian.PutUint64(res[88:96], tmp[8])
-	binary.BigEndian.PutUint64(res[80:88], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[80:80+fp.Bytes]), p.Y)
 
 	// we store X  and mask the most significant word with our metadata mask
-	tmp = p.X
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[72:80], tmp[0])
-	binary.BigEndian.PutUint64(res[64:72], tmp[1])
-	binary.BigEndian.PutUint64(res[56:64], tmp[2])
-	binary.BigEndian.PutUint64(res[48:56], tmp[3])
-	binary.BigEndian.PutUint64(res[40:48], tmp[4])
-	binary.BigEndian.PutUint64(res[32:40], tmp[5])
-	binary.BigEndian.PutUint64(res[24:32], tmp[6])
-	binary.BigEndian.PutUint64(res[16:24], tmp[7])
-	binary.BigEndian.PutUint64(res[8:16], tmp[8])
-	binary.BigEndian.PutUint64(res[0:8], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
 
 	res[0] |= mUncompressed
 
@@ -941,9 +902,6 @@ func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
-
 	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
 	// if p.Y ">" -p.Y
@@ -952,18 +910,7 @@ func (p *G2Affine) Bytes() (res [SizeOfG2AffineCompressed]byte) {
 	}
 
 	// we store X  and mask the most significant word with our metadata mask
-	tmp = p.X
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[72:80], tmp[0])
-	binary.BigEndian.PutUint64(res[64:72], tmp[1])
-	binary.BigEndian.PutUint64(res[56:64], tmp[2])
-	binary.BigEndian.PutUint64(res[48:56], tmp[3])
-	binary.BigEndian.PutUint64(res[40:48], tmp[4])
-	binary.BigEndian.PutUint64(res[32:40], tmp[5])
-	binary.BigEndian.PutUint64(res[24:32], tmp[6])
-	binary.BigEndian.PutUint64(res[16:24], tmp[7])
-	binary.BigEndian.PutUint64(res[8:16], tmp[8])
-	binary.BigEndian.PutUint64(res[0:8], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
 
 	res[0] |= msbMask
 
@@ -982,37 +929,12 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
-
 	// not compressed
 	// we store the Y coordinate
-	tmp = p.Y
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[152:160], tmp[0])
-	binary.BigEndian.PutUint64(res[144:152], tmp[1])
-	binary.BigEndian.PutUint64(res[136:144], tmp[2])
-	binary.BigEndian.PutUint64(res[128:136], tmp[3])
-	binary.BigEndian.PutUint64(res[120:128], tmp[4])
-	binary.BigEndian.PutUint64(res[112:120], tmp[5])
-	binary.BigEndian.PutUint64(res[104:112], tmp[6])
-	binary.BigEndian.PutUint64(res[96:104], tmp[7])
-	binary.BigEndian.PutUint64(res[88:96], tmp[8])
-	binary.BigEndian.PutUint64(res[80:88], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[80:80+fp.Bytes]), p.Y)
 
 	// we store X  and mask the most significant word with our metadata mask
-	tmp = p.X
-	tmp.FromMont()
-	binary.BigEndian.PutUint64(res[72:80], tmp[0])
-	binary.BigEndian.PutUint64(res[64:72], tmp[1])
-	binary.BigEndian.PutUint64(res[56:64], tmp[2])
-	binary.BigEndian.PutUint64(res[48:56], tmp[3])
-	binary.BigEndian.PutUint64(res[40:48], tmp[4])
-	binary.BigEndian.PutUint64(res[32:40], tmp[5])
-	binary.BigEndian.PutUint64(res[24:32], tmp[6])
-	binary.BigEndian.PutUint64(res[16:24], tmp[7])
-	binary.BigEndian.PutUint64(res[8:16], tmp[8])
-	binary.BigEndian.PutUint64(res[0:8], tmp[9])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
 
 	res[0] |= mUncompressed
 

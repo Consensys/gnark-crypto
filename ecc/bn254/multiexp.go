@@ -135,7 +135,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 
 func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
-	digits, chunkStats := partitionScalars(scalars, c, config.ScalarsMont, config.NbTasks)
+	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
 
 	nbChunks := computeNbChunks(c)
 
@@ -394,7 +394,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 
 func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G2Jac {
 	// partition the scalars
-	digits, chunkStats := partitionScalars(scalars, c, config.ScalarsMont, config.NbTasks)
+	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
 
 	nbChunks := computeNbChunks(c)
 
@@ -585,8 +585,7 @@ type chunkStat struct {
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
-// scalarsMont indicates wheter the provided scalars are in montgomery form
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, []chunkStat) {
+func partitionScalars(scalars []fr.Element, c uint64, nbTasks int) ([]uint16, []chunkStat) {
 	// number of c-bit radixes in a scalar
 	nbChunks := computeNbChunks(c)
 
@@ -615,14 +614,11 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	parallel.Execute(len(scalars), func(start, end int) {
 		for i := start; i < end; i++ {
-			scalar := scalars[i]
-			if scalarsMont {
-				scalar.FromMont()
-			}
-			if scalar.IsZero() {
+			if scalars[i].IsZero() {
 				// everything is 0, no need to process this scalar
 				continue
 			}
+			scalar := scalars[i].Bits()
 
 			var carry int
 

@@ -76,8 +76,8 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 	table[14].Set(&table[11]).Add(&table[14], &table[2])
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	k1 = k1.SetBigInt(&k[0]).Bits()
+	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// loop starts from len(k1)/2 due to the bounds
 	// fr.Limbs == Order.limbs
@@ -166,8 +166,8 @@ func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointE
 	table[14].Set(&table[11]).Add(&table[14], &table[2])
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	k1 = k1.SetBigInt(&k[0]).Bits()
+	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// loop starts from len(k1)/2 due to the bounds
 	// fr.Limbs == Order.limbs
