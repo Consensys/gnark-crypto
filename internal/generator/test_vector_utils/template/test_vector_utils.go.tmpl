@@ -357,11 +357,11 @@ func (h *ListHash) Reset() {
 }
 
 func (h *ListHash) Size() int {
-	return small_rational.Bytes
+	return {{.FieldPackageName}}.Bytes
 }
 
 func (h *ListHash) BlockSize() int {
-return small_rational.Bytes
+return {{.FieldPackageName}}.Bytes
 }
 
 {{- if eq .ElementType "fr.Element"}}

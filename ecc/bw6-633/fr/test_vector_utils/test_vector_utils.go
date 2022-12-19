@@ -303,11 +303,11 @@ func (h *ListHash) Reset() {
 }
 
 func (h *ListHash) Size() int {
-	return small_rational.Bytes
+	return fr.Bytes
 }
 
 func (h *ListHash) BlockSize() int {
-	return small_rational.Bytes
+	return fr.Bytes
 }
 func SetElement(z *fr.Element, value interface{}) (*fr.Element, error) {
 
