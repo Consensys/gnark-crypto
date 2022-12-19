@@ -15,8 +15,9 @@
 package fptower
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 )
 
 // E2 is a degree two finite field extension of fp.Element
@@ -126,20 +127,6 @@ func (z *E2) Neg(x *E2) *E2 {
 // String implements Stringer interface for fancy printing
 func (z *E2) String() string {
 	return (z.A0.String() + "+" + z.A1.String() + "*u")
-}
-
-// ToMont converts to mont form
-func (z *E2) ToMont() *E2 {
-	z.A0.ToMont()
-	z.A1.ToMont()
-	return z
-}
-
-// FromMont converts from mont form
-func (z *E2) FromMont() *E2 {
-	z.A0.FromMont()
-	z.A1.FromMont()
-	return z
 }
 
 // MulByElement multiplies an element in E2 by an element in fp

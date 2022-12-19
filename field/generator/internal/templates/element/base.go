@@ -3,13 +3,12 @@ package element
 const Base = `
 
 import (
-	"github.com/consensys/gnark-crypto/internal/hashutils"
+	"github.com/consensys/gnark-crypto/field"
 	"math/big"
 	"math/bits"
 	"io"
 	"crypto/rand"
 	"encoding/binary"
-	"sync"
 	"strconv"
 	"errors"
 	"reflect"
@@ -33,7 +32,7 @@ type {{.ElementName}} [{{.NbWords}}]uint64
 const (
 	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
 	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
-	Bytes = Limbs * 8 		// number of bytes needed to represent a {{.ElementName}}
+	Bytes = {{.NbBytes}} 	// number of bytes needed to represent a {{.ElementName}}
 )
 
 
@@ -66,12 +65,6 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg uint64 = {{index .QInverse 0}}
 
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
-
 func init() {
 	_modulus.SetString("{{.ModulusHex}}", 16)
 }
@@ -91,7 +84,7 @@ func New{{.ElementName}}(v uint64) {{.ElementName}} {
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = {{.ElementName}}{v}
-	return z.Mul(z, &rSquare) // z.ToMont()
+	return z.Mul(z, &rSquare) // z.toMont()
 }
 
 // SetInt64 sets z to v and returns z
@@ -243,16 +236,14 @@ func (z *{{.ElementName}}) IsUint64() bool {
 		return true
 	{{- else}}
 		zz := *z
-		zz.FromMont()
+		zz.fromMont()
 		return zz.FitsOnOneWord()
 	{{- end}}
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *{{.ElementName}}) Uint64() uint64 {
-	zz := *z
-	zz.FromMont()
-	return zz[0]
+	return z.Bits()[0]
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -273,10 +264,8 @@ func (z *{{.ElementName}}) FitsOnOneWord() bool {
 //   +1 if z >  x
 //
 func (z *{{.ElementName}}) Cmp(x *{{.ElementName}}) int {
-	_z := *z
-	_x := *x
-	_z.FromMont()
-	_x.FromMont()
+	_z := z.Bits()
+	_x := x.Bits()
 	{{- range $i := reverse $.NbWordsIndexesFull}}
 	if _z[{{$i}}] > _x[{{$i}}] {
 		return 1
@@ -294,8 +283,7 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
 
-	_z := *z
-	_z.FromMont()
+	_z := z.Bits()
 
 	var b uint64
 	_, b = bits.Sub64(_z[0], {{index .QMinusOneHalvedP 0}}, 0)
@@ -403,9 +391,9 @@ func (z *{{.ElementName}}) Halve()  {
 
 
 
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
+// fromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
-func (z *{{.ElementName}}) FromMont() *{{.ElementName}} {
+func (z *{{.ElementName}}) fromMont() *{{.ElementName}} {
 	fromMont(z)
 	return z
 }
@@ -636,15 +624,23 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := hashutils.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
 
+	// get temporary big int from the pool
+	vv := field.BigIntPool.Get()
+
 	res := make([]{{.ElementName}}, count)
 	for i := 0; i < count; i++ {
-		res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
 	}
+
+	// release object into pool
+	field.BigIntPool.Put(vv)
+
 	return res, nil
 }
 

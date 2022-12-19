@@ -2,18 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr"
-	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
-	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"sync"
-
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field"
-	"github.com/consensys/gnark-crypto/internal/field/generator"
+	"github.com/consensys/gnark-crypto/field/generator"
+	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
@@ -21,12 +12,20 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
+	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
 )
 
 const (

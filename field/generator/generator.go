@@ -10,19 +10,19 @@ import (
 	"text/template"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field"
-	"github.com/consensys/gnark-crypto/internal/field/asm/amd64"
-	"github.com/consensys/gnark-crypto/internal/field/internal/addchain"
-	"github.com/consensys/gnark-crypto/internal/field/internal/templates/element"
+	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
+	"github.com/consensys/gnark-crypto/field/generator/internal/templates/element"
 )
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
 //
 // Example usage
 //
-//	fp, _ = field.NewField("fp", "Element", fpModulus")
+//	fp, _ = config.NewField("fp", "Element", fpModulus")
 //	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
-func GenerateFF(F *field.FieldConfig, outputDir string) error {
+func GenerateFF(F *config.FieldConfig, outputDir string) error {
 	// source file templates
 	sourceFiles := []string{
 		element.Base,

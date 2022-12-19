@@ -119,8 +119,7 @@ func mapToCurve2(u *fptower.E2) G2Affine {
 // The sign of an element is not obviously related to that of its Montgomery form
 func g2Sgn0(z *fptower.E2) uint64 {
 
-	nonMont := *z
-	nonMont.FromMont()
+	nonMont := z.Bits()
 
 	sign := uint64(0) // 1. sign = 0
 	zero := uint64(1) // 2. zero = 1

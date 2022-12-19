@@ -37,7 +37,7 @@ func Test{{.ElementName}}InversionCorrectionFactorFormula(t *testing.T) {
 		inversionCorrectionFactorWord{{$i}},
 		{{- end}}
 	}
-	inversionCorrectionFactor.ToBigInt(&refFactorInt)
+	inversionCorrectionFactor.toBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
 		t.Error("mismatch")
@@ -439,11 +439,11 @@ func randomizeUpdateFactors() (int64, int64) {
 func testLinearComb(t *testing.T, x *{{.ElementName}}, xC int64, y *{{.ElementName}}, yC int64) {
 
 	var p1 big.Int
-	x.ToBigInt(&p1)
+	x.toBigInt(&p1)
 	p1.Mul(&p1, big.NewInt(xC))
 
 	var p2 big.Int
-	y.ToBigInt(&p2)
+	y.toBigInt(&p2)
 	p2.Mul(&p2, big.NewInt(yC))
 
 	p1.Add(&p1, &p2)
@@ -479,7 +479,7 @@ func montReduce(res *big.Int, x *big.Int) {
 }
 
 func (z *{{.ElementName}}) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
-	z.ToBigInt(i)
+	z.toBigInt(i)
 	var upperWord big.Int
 	upperWord.SetUint64(xHi)
 	upperWord.Lsh(&upperWord, Limbs*64)
@@ -497,7 +497,7 @@ func (z *{{.ElementName}}) toVeryBigIntSigned(i *big.Int, xHi uint64) {
 
 func assertMulProduct(t *testing.T, x *{{.ElementName}}, c int64, result *{{.ElementName}}, resultHi uint64) big.Int {
 	var xInt big.Int
-	x.ToBigInt(&xInt)
+	x.toBigInt(&xInt)
 
 	xInt.Mul(&xInt, big.NewInt(c))
 
@@ -508,7 +508,7 @@ func assertMulProduct(t *testing.T, x *{{.ElementName}}, c int64, result *{{.Ele
 func approximateRef(x *{{.ElementName}}) uint64 {
 
 	var asInt big.Int
-	x.ToBigInt(&asInt)
+	x.toBigInt(&asInt)
 	n := x.BitLen()
 
 	if n <= 64 {
