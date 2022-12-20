@@ -79,7 +79,7 @@ func Test{{.ElementName}}InversionCorrectionFactor(t *testing.T) {
 
 	if !oneInv.Equal(&one) {
 		var i big.Int
-		oneInv.ToBigIntRegular(&i)	// no montgomery
+		oneInv.BigInt(&i)	// no montgomery
 		i.ModInverse(&i, Modulus())
 		var fac {{.ElementName}}
 		fac.setBigInt(&i)	// back to montgomery
