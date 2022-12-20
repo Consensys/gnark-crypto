@@ -83,7 +83,15 @@ func (z *{{.ElementName}}) Text(base int) string {
 	{{- end}}
 }
 
+// BigInt sets and return z as a *big.Int
+func (z {{.ElementName}}) BigInt(res *big.Int) *big.Int {
+	z.fromMont()
+	return z.toBigInt(res)
+}
+
 // ToBigIntRegular returns z as a big.Int in regular form
+// 
+// Deprecated: use BigInt(*big.Int) instead
 func (z {{.ElementName}}) ToBigIntRegular(res *big.Int) *big.Int {
 	z.fromMont()
 	return z.toBigInt(res)

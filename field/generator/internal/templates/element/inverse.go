@@ -94,7 +94,7 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 // note: allocates a big.Int (math/big)
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	var _xNonMont big.Int
-	x.ToBigIntRegular(&_xNonMont)
+	x.BigInt(&_xNonMont)
 	_xNonMont.ModInverse(&_xNonMont, Modulus())
 	z.SetBigInt(&_xNonMont)
 	return z

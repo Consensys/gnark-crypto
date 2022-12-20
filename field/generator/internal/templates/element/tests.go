@@ -797,7 +797,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 				{{- end }}
 
 
-				if c.ToBigIntRegular(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				} 
 			}
@@ -810,7 +810,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int 
-				r.ToBigIntRegular(&rb) 
+				r.BigInt(&rb) 
 
 				var c {{.all.ElementName}}
 				{{- if eq .Op "Div"}}
@@ -835,7 +835,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 					}
 				{{end}}
 
-				if c.ToBigIntRegular(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				} 
 			}
@@ -881,11 +881,11 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 	
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int 
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c {{.all.ElementName}}
 				
@@ -913,7 +913,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 				{{end}}
 				
 
-				if c.ToBigIntRegular(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("{{.Op}} failed special test values")
 				} 
 			}
@@ -977,7 +977,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{- end }}
 
 
-			return c.ToBigIntRegular(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1012,7 +1012,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 	
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a)
 
@@ -1039,7 +1039,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{end}}
 			
 
-			if c.ToBigIntRegular(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("{{.Op}} failed special test values")
 			} 
 		}
@@ -1348,7 +1348,7 @@ func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
 
 			d.Exp(&a.bigint, &nb, Modulus())
 
-			return c.ToBigIntRegular(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA, genA,
 	))
@@ -1592,7 +1592,7 @@ func gen() gopter.Gen {
 			}
 		}
 
-		g.element.ToBigIntRegular(&g.bigint)
+		g.element.BigInt(&g.bigint)
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
 		return genResult
 	}

@@ -952,7 +952,15 @@ func (z *Element) Text(base int) string {
 	return r
 }
 
+// BigInt sets and return z as a *big.Int
+func (z Element) BigInt(res *big.Int) *big.Int {
+	z.fromMont()
+	return z.toBigInt(res)
+}
+
 // ToBigIntRegular returns z as a big.Int in regular form
+//
+// Deprecated: use BigInt(*big.Int) instead
 func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
 	z.fromMont()
 	return z.toBigInt(res)
