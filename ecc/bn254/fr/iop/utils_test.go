@@ -166,19 +166,36 @@ func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
 	return &r
 }
 
-var fromLagrange [12]modifier = [12]modifier{
-	fromLagrange0,
-	fromLagrange1,
-	fromLagrange2,
-	fromLagrange3,
-	fromLagrange4,
-	fromLagrange5,
-	fromLagrange6,
-	fromLagrange7,
-	fromLagrange8,
-	fromLagrange9,
-	fromLagrange10,
-	fromLagrange11,
+func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
+	id := getShapeID(*p)
+	switch id{
+	case 0:
+		return fromLagrange0(p, d)
+	case 1:
+		return fromLagrange1(p, d)
+	case 2:
+		return fromLagrange2(p, d)
+	case 3:
+		return fromLagrange3(p, d)
+	case 4:
+		return fromLagrange4(p, d)
+	case 5:
+		return fromLagrange5(p, d)
+	case 6:
+		return fromLagrange6(p, d)
+	case 7:
+		return fromLagrange7(p, d)
+	case 8:
+		return fromLagrange8(p, d)
+	case 9:
+		return fromLagrange9(p, d)
+	case 10:
+		return fromLagrange10(p, d)
+	case 11:
+		return fromLagrange11(p, d)
+	default:
+		panic("unknown id")
+	}
 }
 
 func getCopy(l []Polynomial) []Polynomial {
@@ -217,9 +234,9 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 	// CANONICAL REGULAR LOCKED
 	{
-		_p := fromLagrange0(&p, domain)
+		_p := fromLagrange(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange0(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -242,7 +259,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange1(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange1(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -265,7 +282,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange2(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange2(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -287,7 +304,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange3(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange3(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -309,7 +326,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange4(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange4(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -331,7 +348,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange5(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange5(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -353,7 +370,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange6(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange6(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -376,7 +393,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange7(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange7(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -399,7 +416,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange8(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange8(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -421,7 +438,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange9(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange9(_p, domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -443,7 +460,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange10(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange10(_p, domain)
+		q := _p.ToLagrange( domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -466,7 +483,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange11(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toLagrange11(_p, domain)
+		q := _p.ToLagrange( domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -624,7 +641,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical0(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical0(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -645,7 +662,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL REGULAR UNLOCKED
 	{
 		_p := fromCanonical1(&p, domain)
-		q := toCanonical1(_p, domain)
+		q := _p.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -664,7 +681,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical2(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical1(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -685,7 +702,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL BITREVERSE UNLOCKED
 	{
 		_p := fromCanonical3(&p, domain)
-		q := toCanonical3(_p, domain)
+		q := _p.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -704,7 +721,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical4(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical4(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -726,7 +743,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE REGULAR UNLOCKED
 	{
 		_p := fromCanonical5(&p, domain)
-		q := toCanonical5(_p, domain)
+		q := _p.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -746,7 +763,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical6(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical6(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -768,7 +785,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical7(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical7(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -790,7 +807,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical8(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical8(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -813,7 +830,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical9(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical9(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -836,7 +853,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical10(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical10(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -858,7 +875,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical11(&p, domain)
 		// backup := copyPoly(*_p)
-		q := toCanonical11(_p, domain)
+		q := _p.ToCanonical(domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }

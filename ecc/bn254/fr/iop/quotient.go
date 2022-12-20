@@ -60,7 +60,7 @@ func ComputeQuotient(entries []*Polynomial, h MultivariatePolynomial, expectedFo
 	nbPolynomials := len(entries)
 	_entries := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_entries[i] = toCanonical(entries[i], domains[0])
+		_entries[i] = entries[i].ToCanonical(domains[0])
 		if _entries[i].Layout == BitReverse {
 			fft.BitReverse(_entries[i].Coefficients)
 			_entries[i].Layout = Regular
