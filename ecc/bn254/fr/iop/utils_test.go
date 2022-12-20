@@ -168,7 +168,7 @@ func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
 
 func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
 	id := getShapeID(*p)
-	switch id{
+	switch id {
 	case 0:
 		return fromLagrange0(p, d)
 	case 1:
@@ -460,7 +460,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange10(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange( domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -483,7 +483,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange11(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange( domain)
+		q := _p.ToLagrange(domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }

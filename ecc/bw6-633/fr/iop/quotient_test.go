@@ -109,15 +109,15 @@ func TestQuotient(t *testing.T) {
 	c.SetRandom()
 	fc := make([]*Polynomial, nbEntries)
 	domain := fft.NewDomain(uint64(sizeSystem))
-	fc[0] = toCanonical(entries[0], domain)
+	fc[0] = entries[0].ToCanonical(domain)
 	fft.BitReverse(fc[0].Coefficients)
 	fc[0].Layout = Regular
 
-	fc[1] = toCanonical(entries[1], domain)
+	fc[1] = entries[1].ToCanonical(domain)
 	fft.BitReverse(fc[1].Coefficients)
 	fc[1].Layout = Regular
 
-	fc[2] = toCanonical(entries[2], domain)
+	fc[2] = entries[2].ToCanonical(domain)
 	fft.BitReverse(fc[2].Coefficients)
 	fc[2].Layout = Regular
 

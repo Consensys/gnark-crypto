@@ -25,7 +25,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
 )
 
-// ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
+// / ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
 func ComputeQuotient(entries []*Polynomial, h MultivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
 
 	var quotientLagrangeCosetBitReverse Polynomial
@@ -60,7 +60,7 @@ func ComputeQuotient(entries []*Polynomial, h MultivariatePolynomial, expectedFo
 	nbPolynomials := len(entries)
 	_entries := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_entries[i] = toCanonical(entries[i], domains[0])
+		_entries[i] = entries[i].ToCanonical(domains[0])
 		if _entries[i].Layout == BitReverse {
 			fft.BitReverse(_entries[i].Coefficients)
 			_entries[i].Layout = Regular

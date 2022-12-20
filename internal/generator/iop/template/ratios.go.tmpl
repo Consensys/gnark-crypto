@@ -55,8 +55,8 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	_numerator := make([]*Polynomial, nbPolynomials)
 	_denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_numerator[i] = toLagrange(numerator[i], domain)
-		_denominator[i] = toLagrange(denominator[i], domain)
+		_numerator[i] = numerator[i].ToLagrange(domain)
+		_denominator[i] = denominator[i].ToLagrange(domain)
 	}
 
 	// build the ratio (careful with the indices of
@@ -159,8 +159,8 @@ func BuildRatioSpecificPermutation(
 	_numerator := make([]*Polynomial, nbPolynomials)
 	_denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_numerator[i] = toLagrange(numerator[i], domain)
-		_denominator[i] = toLagrange(denominator[i], domain)
+		_numerator[i] = numerator[i].ToLagrange(domain)
+		_denominator[i] = denominator[i].ToLagrange(domain)
 	}
 
 	// get the support for the permutation
