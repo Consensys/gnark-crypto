@@ -291,18 +291,6 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 	return domain, nil
 }
 
-func BuildRatioShuffledVectorsWithPermutation(
-	numerator, denominator []*Polynomial,
-	beta, gamma fr.Element,
-	permutation []int64,
-	expectedForm Form,
-	domain *fft.Domain) (Polynomial, error) {
-
-	var a Polynomial
-	return a, nil
-
-}
-
 // getSupportIdentityPermutation returns the support on which the permutation acts.
 // Concrectly it's X evaluated on
 // [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
