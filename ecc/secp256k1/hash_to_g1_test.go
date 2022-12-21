@@ -26,7 +26,7 @@ import (
 
 func TestHashToFpG1(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), encodeToG1Vector.dst, 1)
+		elems, err := fp.Hash([]byte(c.msg), encodeToG1Vector.dst, 1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -34,7 +34,7 @@ func TestHashToFpG1(t *testing.T) {
 	}
 
 	for _, c := range hashToG1Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), hashToG1Vector.dst, 2*1)
+		elems, err := fp.Hash([]byte(c.msg), hashToG1Vector.dst, 2*1)
 		if err != nil {
 			t.Error(err)
 		}

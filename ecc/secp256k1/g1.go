@@ -469,8 +469,8 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	k1 = k1.SetBigInt(&k[0]).Bits()
+	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
 	maxBit := k1.BitLen()
