@@ -774,3 +774,54 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
 }
+
+{{- if eq .Name "secp256k1"}}
+const (
+       nbFuzzShort = 10
+       nbFuzz      = 100
+
+      )
+
+// define Gopters generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+      return func(genParams *gopter.GenParameters) *gopter.GenResult {
+           var s big.Int
+           var b [fp.Bytes]byte
+           _, err := rand.Read(b[:])
+           if err != nil {
+               panic(err)
+           }
+           s.SetBytes(b[:])
+           genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+           return genResult
+    }
+}
+{{- end}}
