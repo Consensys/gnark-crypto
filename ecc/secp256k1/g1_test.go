@@ -28,11 +28,6 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-const (
-	nbFuzzShort = 10
-	nbFuzz      = 100
-)
-
 func TestG1AffineEndomorphism(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -343,7 +338,7 @@ func TestG1AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G1Jac
-			g.mulGLV(&g1Gen, r)
+			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
@@ -560,6 +555,11 @@ func fuzzg1JacExtended(p *g1JacExtended, f fp.Element) g1JacExtended {
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
 }
+
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
 // define Gopters generators
 

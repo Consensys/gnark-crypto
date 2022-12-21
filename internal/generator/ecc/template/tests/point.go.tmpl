@@ -13,7 +13,9 @@
 
 
 import (
+    {{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 	"fmt"
+	{{- end}}
 	"math/big"
 	"testing"
 	"math/rand"
@@ -496,6 +498,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 }
 {{end}}
 
+{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -545,6 +548,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+{{- end}}
 
 // ------------------------------------------------------------
 // benches
@@ -558,6 +562,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 	}
 
 }
+{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 	{{$c := 16}}
@@ -612,6 +617,7 @@ func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 		})
 	}
 }
+{{- end}}
 
 func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 
@@ -774,3 +780,54 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
 }
+
+{{- if or (eq .Name "secp256k1") (eq .Name "secq256k1") }}
+const (
+       nbFuzzShort = 10
+       nbFuzz      = 100
+
+      )
+
+// define Gopters generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+      return func(genParams *gopter.GenParameters) *gopter.GenResult {
+           var s big.Int
+           var b [fp.Bytes]byte
+           _, err := rand.Read(b[:])
+           if err != nil {
+               panic(err)
+           }
+           s.SetBytes(b[:])
+           genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+           return genResult
+    }
+}
+{{- end}}

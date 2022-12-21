@@ -7,7 +7,9 @@
 
 import (
 	"math/big"
+    {{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 	"runtime"
+	{{- end}}
 
 	{{- if .GLV}}
 	"github.com/consensys/gnark-crypto/ecc"
@@ -414,10 +416,10 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{- if eq .Name "bn254" }}
+{{- if or (eq .Name "bn254") (eq .Name "secp256k1") (eq .Name "secq256k1") }}
 	{{- if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-        // BN curves are of prime order i.e. E(𝔽p) is the full group
+        // the curve is of prime order i.e. E(𝔽p) is the full group
         // so we just check that the point is on the curve.
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
 
@@ -1513,6 +1515,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 {{- end}}
 
 
+{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
@@ -1526,7 +1529,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 	for c := 2; c <= 16; c++  {
 		cost := uint64(1 << (c-1)) // pre compute the table
 		nbChunks := computeNbChunks(uint64(c))
-		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add 
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
 		if cost < min {
 			min = cost
 			bestC = c
@@ -1674,3 +1677,4 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 		(*R)[j].Set(&rr)
 	}
 }
+{{- end}}
