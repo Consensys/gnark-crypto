@@ -16,9 +16,9 @@ import (
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
-// 
+//
 // {{.ElementName}} are assumed to be in Montgomery form in all methods.
-// 
+//
 // Modulus q =
 //
 // 	q[base10] = {{.Modulus}}
@@ -296,7 +296,7 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 
 // SetRandom sets z to a uniform random value in [0, q).
 //
-// This might error only if reading from crypto/rand.Reader errors, 
+// This might error only if reading from crypto/rand.Reader errors,
 // in which case, value of z is undefined.
 func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	// this code is generated for all modulus
@@ -373,7 +373,7 @@ func (z *{{.ElementName}}) Halve()  {
 
 	{{- if not .NoCarry}}
 		if carry != 0 {
-			// when we added q, the result was larger than our avaible limbs
+			// when we added q, the result was larger than our available limbs
 			// when we shift right, we need to set the highest bit
 			z[{{.NbWordsLastIndex}}] |= (1 << 63)
 		}
@@ -381,7 +381,7 @@ func (z *{{.ElementName}}) Halve()  {
 }
 
 {{ define "add_q" }}
-	// {{$.V1}} = {{$.V1}} + q 
+	// {{$.V1}} = {{$.V1}} + q
 	{{- range $i := $.all.NbWordsIndexesFull }}
 		{{- $carryIn := ne $i 0}}
 		{{- $carryOut := or (ne $i $.all.NbWordsLastIndex) (and (eq $i $.all.NbWordsLastIndex) (not $.all.NoCarry))}}
@@ -438,7 +438,7 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
 	if x[0] & (1 << 63) == (1 << 63) {
 		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
-		z[0] = (x[0] << 1) - q 
+		z[0] = (x[0] << 1) - q
 	} else {
 		// highest bit is not set, but x + x can still be >= q
 		z[0] = (x[0] << 1)
