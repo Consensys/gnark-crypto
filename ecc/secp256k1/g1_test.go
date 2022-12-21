@@ -462,8 +462,8 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkBatchAddG1Affine(b *testing.B) {
 
-	var P, R pG1AffineC16
-	var RR ppG1AffineC16
+	var P, R pG1AffineC15
+	var RR ppG1AffineC15
 	ridx := make([]int, len(P))
 
 	// TODO P == R may produce skewed benches
@@ -483,7 +483,7 @@ func BenchmarkBatchAddG1Affine(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		batchAddG1Affine[pG1AffineC16, ppG1AffineC16, cG1AffineC16](&RR, &P, len(P))
+		batchAddG1Affine[pG1AffineC15, ppG1AffineC15, cG1AffineC15](&RR, &P, len(P))
 	}
 }
 

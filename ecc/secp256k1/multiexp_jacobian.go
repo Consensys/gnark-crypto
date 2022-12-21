@@ -75,7 +75,6 @@ type bucketg1JacExtendedC12 [2048]g1JacExtended
 type bucketg1JacExtendedC13 [4096]g1JacExtended
 type bucketg1JacExtendedC14 [8192]g1JacExtended
 type bucketg1JacExtendedC15 [16384]g1JacExtended
-type bucketg1JacExtendedC16 [32768]g1JacExtended
 
 type ibg1JacExtended interface {
 	bucketg1JacExtendedC2 |
@@ -91,6 +90,5 @@ type ibg1JacExtended interface {
 		bucketg1JacExtendedC12 |
 		bucketg1JacExtendedC13 |
 		bucketg1JacExtendedC14 |
-		bucketg1JacExtendedC15 |
-		bucketg1JacExtendedC16
+		bucketg1JacExtendedC15
 }

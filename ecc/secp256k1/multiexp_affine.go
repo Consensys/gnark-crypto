@@ -237,7 +237,6 @@ type bucketG1AffineC12 [2048]G1Affine
 type bucketG1AffineC13 [4096]G1Affine
 type bucketG1AffineC14 [8192]G1Affine
 type bucketG1AffineC15 [16384]G1Affine
-type bucketG1AffineC16 [32768]G1Affine
 
 // buckets: array of G1Affine points of size 1 << (c-1)
 type ibG1Affine interface {
@@ -246,8 +245,7 @@ type ibG1Affine interface {
 		bucketG1AffineC12 |
 		bucketG1AffineC13 |
 		bucketG1AffineC14 |
-		bucketG1AffineC15 |
-		bucketG1AffineC16
+		bucketG1AffineC15
 }
 
 // array of coordinates fp.Element
@@ -257,8 +255,7 @@ type cG1Affine interface {
 		cG1AffineC12 |
 		cG1AffineC13 |
 		cG1AffineC14 |
-		cG1AffineC15 |
-		cG1AffineC16
+		cG1AffineC15
 }
 
 // buckets: array of G1Affine points (for the batch addition)
@@ -268,8 +265,7 @@ type pG1Affine interface {
 		pG1AffineC12 |
 		pG1AffineC13 |
 		pG1AffineC14 |
-		pG1AffineC15 |
-		pG1AffineC16
+		pG1AffineC15
 }
 
 // buckets: array of *G1Affine points (for the batch addition)
@@ -279,8 +275,7 @@ type ppG1Affine interface {
 		ppG1AffineC12 |
 		ppG1AffineC13 |
 		ppG1AffineC14 |
-		ppG1AffineC15 |
-		ppG1AffineC16
+		ppG1AffineC15
 }
 
 // buckets: array of G1Affine queue operations (for the batch addition)
@@ -290,8 +285,7 @@ type qOpsG1Affine interface {
 		qG1AffineC12 |
 		qG1AffineC13 |
 		qG1AffineC14 |
-		qG1AffineC15 |
-		qG1AffineC16
+		qG1AffineC15
 }
 
 // batch size 80 when c = 10
@@ -330,12 +324,6 @@ type pG1AffineC15 [500]G1Affine
 type ppG1AffineC15 [500]*G1Affine
 type qG1AffineC15 [500]batchOpG1Affine
 
-// batch size 640 when c = 16
-type cG1AffineC16 [640]fp.Element
-type pG1AffineC16 [640]G1Affine
-type ppG1AffineC16 [640]*G1Affine
-type qG1AffineC16 [640]batchOpG1Affine
-
 type bitSetC2 [2]bool
 type bitSetC3 [4]bool
 type bitSetC4 [8]bool
@@ -350,7 +338,6 @@ type bitSetC12 [2048]bool
 type bitSetC13 [4096]bool
 type bitSetC14 [8192]bool
 type bitSetC15 [16384]bool
-type bitSetC16 [32768]bool
 
 type bitSet interface {
 	bitSetC2 |
@@ -366,6 +353,5 @@ type bitSet interface {
 		bitSetC12 |
 		bitSetC13 |
 		bitSetC14 |
-		bitSetC15 |
-		bitSetC16
+		bitSetC15
 }

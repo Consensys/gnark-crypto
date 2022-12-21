@@ -73,14 +73,14 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G1] Multi exponentation (c=16) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G1] Multi exponentation (c=15) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
 			for i := 0; i < 13; i++ {
 				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
 			}
 
-			var r16, splitted1, splitted2 G1Jac
+			var r15, splitted1, splitted2 G1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples * 13]fr.Element
@@ -90,10 +90,10 @@ func TestMultiExpG1(t *testing.T) {
 					Mul(&sampleScalars[i-1], &mixer)
 			}
 
-			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
+			r15.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
-			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+			return r15.Equal(&splitted1) && r15.Equal(&splitted2)
 		},
 		genScalar,
 	))
@@ -285,12 +285,12 @@ func TestCrossMultiExpG1(t *testing.T) {
 
 }
 
-// _innerMsmG1Reference always do ext jacobian with c == 16
+// _innerMsmG1Reference always do ext jacobian with c == 16, but here 15 as Fr modulus is full
 func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
-	digits, _ := partitionScalars(scalars, 16, config.NbTasks)
+	digits, _ := partitionScalars(scalars, 15, config.NbTasks)
 
-	nbChunks := computeNbChunks(16)
+	nbChunks := computeNbChunks(15)
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -305,11 +305,11 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC16]
-		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n])
+		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC15]
+		go processChunk(uint64(j), chChunks[j], 15, points, digits[j*n:(j+1)*n])
 	}
 
-	return msmReduceChunkG1Affine(p, int(16), chChunks[:])
+	return msmReduceChunkG1Affine(p, int(15), chChunks[:])
 }
 
 func BenchmarkMultiExpG1(b *testing.B) {
