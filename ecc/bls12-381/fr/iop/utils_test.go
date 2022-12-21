@@ -41,129 +41,129 @@ type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
 // CANONICAL REGULAR LOCKED
 func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Canonical
 	r.Layout = Regular
 	r.Status = Locked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 // CANONICAL REGULAR UNLOCKED
 func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Canonical
 	r.Layout = Regular
 	r.Status = Unlocked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 // CANONICAL BITREVERSE LOCKED
 func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Canonical
 	r.Layout = BitReverse
 	r.Status = Locked
 	d.FFTInverse(r.Coefficients, fft.DIF)
-	return &r
+	return r
 }
 
 // CANONICAL BITREVERSE UNLOCKED
 func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Canonical
 	r.Layout = BitReverse
 	r.Status = Unlocked
 	d.FFTInverse(r.Coefficients, fft.DIF)
-	return &r
+	return r
 }
 
 // LAGRANGE REGULAR LOCKED
 func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Lagrange
 	r.Layout = Regular
 	r.Status = Locked
-	return &r
+	return r
 }
 
 // LAGRANGE REGULAR UNLOCKED
 func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Lagrange
 	r.Layout = Regular
 	r.Status = Unlocked
 
-	return &r
+	return r
 }
 
 // LAGRANGE BITREVERSE LOCKED
 func fromLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
 	r.Status = Locked
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 // LAGRANGE BITREVERSE UNLOCKED
 func fromLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
 	r.Status = Unlocked
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 // LAGRANGE_COSET REGULAR LOCKED
 func fromLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	r.Status = Locked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	d.FFT(r.Coefficients, fft.DIT, true)
-	return &r
+	return r
 }
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func fromLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	r.Status = Unlocked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	d.FFT(r.Coefficients, fft.DIT, true)
-	return &r
+	return r
 }
 
 // LAGRANGE_COSET BITREVERSE LOCKED
 func fromLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	r.Status = Locked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	d.FFT(r.Coefficients, fft.DIT, true)
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := copyPoly(*p)
+	r := p.GetCopy()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	r.Status = Unlocked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	d.FFT(r.Coefficients, fft.DIT, true)
 	fft.BitReverse(r.Coefficients)
-	return &r
+	return r
 }
 
 func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
@@ -506,122 +506,122 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 // CANONICAL REGULAR LOCKED
 func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	_p.Status = Locked
-	return &_p
+	return _p
 }
 
 // CANONICAL REGULAR UNLOCKED
 func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	_p.Status = Unlocked
-	return &_p
+	return _p
 }
 
 // CANONICAL BITREVERSE LOCKED
 func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	_p.Status = Locked
-	return &_p
+	return _p
 }
 
 // CANONICAL BITREVERSE UNLOCKED
 func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
-	return &_p
+	return _p
 }
 
 // LAGRANGE REGULAR LOCKED
 func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	_p.Status = Locked
 	d.FFT(_p.Coefficients, fft.DIF)
 	fft.BitReverse(_p.Coefficients)
-	return &_p
+	return _p
 }
 
 // LAGRANGE REGULAR UNLOCKED
 func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF)
 	fft.BitReverse(_p.Coefficients)
-	return &_p
+	return _p
 }
 
 // LAGRANGE BITREVERSE LOCKED
 func fromCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	_p.Status = Locked
 	d.FFT(_p.Coefficients, fft.DIF)
-	return &_p
+	return _p
 }
 
 // LAGRANGE BITREVERSE UNLOCKED
 func fromCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF)
-	return &_p
+	return _p
 }
 
 // LAGRANGE_COSET REGULAR LOCKED
 func fromCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	_p.Status = Locked
 	d.FFT(_p.Coefficients, fft.DIF, true)
 	fft.BitReverse(_p.Coefficients)
-	return &_p
+	return _p
 }
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func fromCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF, true)
 	fft.BitReverse(_p.Coefficients)
-	return &_p
+	return _p
 }
 
 // LAGRANGE_COSET BITREVERSE LOCKED
 func fromCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF, true)
-	return &_p
+	return _p
 }
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func fromCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := copyPoly(*p)
+	_p := p.GetCopy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF, true)
-	return &_p
+	return _p
 }
 
 func TestPutInCanonicalForm(t *testing.T) {
