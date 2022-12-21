@@ -17,12 +17,11 @@
 package secp256k1
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
 )
 
 // G1Affine point in affine coordinates
@@ -379,7 +378,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// secp256k1 curve is of prime order i.e. E(𝔽p) is the full group
+// the curve is of prime order i.e. E(𝔽p) is the full group
 // so we just check that the point is on the curve.
 func (p *G1Jac) IsInSubGroup() bool {
 
@@ -606,6 +605,8 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 
 // double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// since we consider any point on Z=0 as the point at infinity
+// this doubling formula works for infinity points as well
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	var U, V, W, S, XX, M fp.Element
 
