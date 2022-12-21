@@ -10,7 +10,7 @@ import (
 	"math/bits"
 	"fmt"
 	{{if .UsingP20Inverse}} 
-	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand" 
 	{{end}}
 	"testing"
@@ -174,17 +174,10 @@ func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
 	benchRes{{.ElementName}}.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		benchRes{{.ElementName}}.FromMont()
+		benchRes{{.ElementName}}.fromMont()
 	}
 }
 
-func Benchmark{{toTitle .ElementName}}ToMont(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchRes{{.ElementName}}.ToMont()
-	}
-}
 func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 	benchRes{{.ElementName}}.SetRandom()
 	b.ResetTimer()
@@ -654,7 +647,7 @@ func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
 
 	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
-			return a.element.FromMont().BitLen() ==  a.bigint.BitLen()
+			return a.element.fromMont().BitLen() ==  a.bigint.BitLen()
 		},
 		genA,
 	))
@@ -804,7 +797,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 				{{- end }}
 
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				} 
 			}
@@ -817,7 +810,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int 
-				r.ToBigIntRegular(&rb) 
+				r.BigInt(&rb) 
 
 				var c {{.all.ElementName}}
 				{{- if eq .Op "Div"}}
@@ -842,7 +835,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 					}
 				{{end}}
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				} 
 			}
@@ -888,11 +881,11 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 	
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int 
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c {{.all.ElementName}}
 				
@@ -920,7 +913,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 				{{end}}
 				
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("{{.Op}} failed special test values")
 				} 
 			}
@@ -984,7 +977,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{- end }}
 
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1019,7 +1012,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 	
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a)
 
@@ -1046,7 +1039,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{end}}
 			
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("{{.Op}} failed special test values")
 			} 
 		}
@@ -1355,7 +1348,7 @@ func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
 
 			d.Exp(&a.bigint, &nb, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA, genA,
 	))
@@ -1492,17 +1485,17 @@ func Test{{toTitle .ElementName}}FromMont(t *testing.T) {
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.FromMont()
+			c.fromMont()
 			_fromMontGeneric(&d)
 			return c.Equal(&d)
 		},
 		genA,
 	))
 
-	properties.Property("x.FromMont().ToMont() == x", prop.ForAll(
+	properties.Property("x.fromMont().toMont() == x", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
-			c.FromMont().ToMont()
+			c.fromMont().toMont()
 			return c.Equal(&a.element)
 		},
 		genA,
@@ -1599,7 +1592,7 @@ func gen() gopter.Gen {
 			}
 		}
 
-		g.element.ToBigIntRegular(&g.bigint)
+		g.element.BigInt(&g.bigint)
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
 		return genResult
 	}

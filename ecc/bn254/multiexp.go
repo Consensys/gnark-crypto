@@ -135,7 +135,7 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 
 func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
-	digits, chunkStats := partitionScalars(scalars, c, config.ScalarsMont, config.NbTasks)
+	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
 
 	nbChunks := computeNbChunks(c)
 
@@ -394,7 +394,7 @@ func (p *G2Jac) MultiExp(points []G2Affine, scalars []fr.Element, config ecc.Mul
 
 func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G2Jac {
 	// partition the scalars
-	digits, chunkStats := partitionScalars(scalars, c, config.ScalarsMont, config.NbTasks)
+	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
 
 	nbChunks := computeNbChunks(c)
 
@@ -575,16 +575,9 @@ type chunkStat struct {
 	// relative weight of work compared to other chunks. 100.0 -> nominal weight.
 	weight float32
 
-	// // average absolute deviation. this is meant to give a sense of statistical
-	// // dispertion of the scalars[chunk] in the buckets that are hit; (nonZeroBuckets)
-	// deviation int
-
 	// percentage of bucket filled in the window;
 	ppBucketFilled float32
 	nbBucketFilled int
-
-	// // average ops per non-zero buckets
-	// averageOpsPerBucket int
 }
 
 // partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
@@ -592,8 +585,7 @@ type chunkStat struct {
 // 2^{c} to the current digit, making it negative.
 // negative digits can be processed in a later step as adding -G into the bucket instead of G
 // (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
-// scalarsMont indicates wheter the provided scalars are in montgomery form
-func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]uint16, []chunkStat) {
+func partitionScalars(scalars []fr.Element, c uint64, nbTasks int) ([]uint16, []chunkStat) {
 	// number of c-bit radixes in a scalar
 	nbChunks := computeNbChunks(c)
 
@@ -622,14 +614,11 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 
 	parallel.Execute(len(scalars), func(start, end int) {
 		for i := start; i < end; i++ {
-			scalar := scalars[i]
-			if scalarsMont {
-				scalar.FromMont()
-			}
-			if scalar.IsZero() {
+			if scalars[i].IsZero() {
 				// everything is 0, no need to process this scalar
 				continue
 			}
+			scalar := scalars[i].Bits()
 
 			var carry int
 
@@ -738,129 +727,4 @@ func partitionScalars(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks 
 	}
 
 	return digits, chunkStats
-}
-
-// partitionScalars  compute, for each scalars over c-bit wide windows, nbChunk digits
-// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-// 2^{c} to the current digit, making it negative.
-// negative digits can be processed in a later step as adding -G into the bucket instead of G
-// (computing -G is cheap, and this saves us half of the buckets in the MultiExp or BatchScalarMultiplication)
-// scalarsMont indicates wheter the provided scalars are in montgomery form
-// returns smallValues, which represent the number of scalars which meets the following condition
-// 0 < scalar < 2^c (in other words, scalars where only the c-least significant bits are non zero)
-func partitionScalarsOld(scalars []fr.Element, c uint64, scalarsMont bool, nbTasks int) ([]fr.Element, int) {
-	toReturn := make([]fr.Element, len(scalars))
-
-	// number of c-bit radixes in a scalar
-	nbChunks := fr.Limbs * 64 / c
-	if (fr.Limbs*64)%c != 0 {
-		nbChunks++
-	}
-
-	mask := uint64((1 << c) - 1)      // low c bits are 1
-	msbWindow := uint64(1 << (c - 1)) // msb of the c-bit window
-	max := int(1 << (c - 1))          // max value we want for our digits
-	cDivides64 := (64 % c) == 0       // if c doesn't divide 64, we may need to select over multiple words
-
-	// compute offset and word selector / shift to select the right bits of our windows
-	selectors := make([]selector, nbChunks)
-	for chunk := uint64(0); chunk < nbChunks; chunk++ {
-		jc := uint64(chunk * c)
-		d := selector{}
-		d.index = jc / 64
-		d.shift = jc - (d.index * 64)
-		d.mask = mask << d.shift
-		d.multiWordSelect = !cDivides64 && d.shift > (64-c) && d.index < (fr.Limbs-1)
-		if d.multiWordSelect {
-			nbBitsHigh := d.shift - uint64(64-c)
-			d.maskHigh = (1 << nbBitsHigh) - 1
-			d.shiftHigh = (c - nbBitsHigh)
-		}
-		selectors[chunk] = d
-	}
-
-	// for each chunk, we could track the number of non-zeros points we will need to process
-	// this way, if a chunk has more work to do than others, we can spawn off more go routines
-	// (at the cost of more buckets allocated)
-	// a simplified approach is to track the small values where only the first word is set
-	// if this number represent a significant number of points, then we will split first chunk
-	// processing in the msm in 2, to ensure all go routines finish at ~same time
-	// /!\ nbTasks is enough as parallel.Execute is not going to spawn more than nbTasks go routine
-	// if it does, though, this will deadlocK.
-	chSmallValues := make(chan int, nbTasks)
-
-	parallel.Execute(len(scalars), func(start, end int) {
-		smallValues := 0
-		for i := start; i < end; i++ {
-			var carry int
-
-			scalar := scalars[i]
-			if scalarsMont {
-				scalar.FromMont()
-			}
-			if scalar.FitsOnOneWord() {
-				// everything is 0, no need to process this scalar
-				if scalar[0] == 0 {
-					continue
-				}
-				// low c-bits are 1 in mask
-				if scalar[0]&mask == scalar[0] {
-					smallValues++
-				}
-			}
-
-			// for each chunk in the scalar, compute the current digit, and an eventual carry
-			for chunk := uint64(0); chunk < nbChunks; chunk++ {
-				s := selectors[chunk]
-
-				// init with carry if any
-				digit := carry
-				carry = 0
-
-				// digit = value of the c-bit window
-				digit += int((scalar[s.index] & s.mask) >> s.shift)
-
-				if s.multiWordSelect {
-					// we are selecting bits over 2 words
-					digit += int(scalar[s.index+1]&s.maskHigh) << s.shiftHigh
-				}
-
-				// if digit is zero, no impact on result
-				if digit == 0 {
-					continue
-				}
-
-				// if the digit is larger than 2^{c-1}, then, we borrow 2^c from the next window and substract
-				// 2^{c} to the current digit, making it negative.
-				if digit >= max {
-					digit -= (1 << c)
-					carry = 1
-				}
-
-				var bits uint64
-				if digit >= 0 {
-					bits = uint64(digit)
-				} else {
-					bits = uint64(-digit-1) | msbWindow
-				}
-
-				toReturn[i][s.index] |= (bits << s.shift)
-				if s.multiWordSelect {
-					toReturn[i][s.index+1] |= (bits >> s.shiftHigh)
-				}
-
-			}
-		}
-
-		chSmallValues <- smallValues
-
-	}, nbTasks)
-
-	// aggregate small values
-	close(chSmallValues)
-	smallValues := 0
-	for o := range chSmallValues {
-		smallValues += o
-	}
-	return toReturn, smallValues
 }

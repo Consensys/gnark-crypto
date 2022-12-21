@@ -1,4 +1,4 @@
-package field
+package config
 
 import "math/big"
 

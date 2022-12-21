@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard/amd64"
-	gamd64 "github.com/consensys/gnark-crypto/internal/field/asm/amd64"
+	gamd64 "github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 )
 
 func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN254() {

@@ -84,9 +84,6 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	for i := 1; i < len(alphas); i++ {
 		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
-	for i := 0; i < len(alphas); i++ {
-		alphas[i].FromMont()
-	}
 	g1s := bw6761.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
@@ -125,7 +122,7 @@ func Commit(p []fr.Element, srs *SRS, nbTasks ...int) (Digest, error) {
 
 	var res bw6761.G1Affine
 
-	config := ecc.MultiExpConfig{ScalarsMont: true}
+	config := ecc.MultiExpConfig{}
 	if len(nbTasks) > 0 {
 		config.NbTasks = nbTasks[0]
 	}
@@ -395,7 +392,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	for i := 0; i < len(randomNumbers); i++ {
 		quotients[i].Set(&proofs[i].H)
 	}
-	config := ecc.MultiExpConfig{ScalarsMont: true}
+	config := ecc.MultiExpConfig{}
 	_, err := foldedQuotients.MultiExp(quotients, randomNumbers, config)
 	if err != nil {
 		return nil
@@ -478,7 +475,7 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 
 	// fold the digests ∑ᵢ[cᵢ]([fᵢ(α)]G₁)
 	var foldedDigests Digest
-	_, err := foldedDigests.MultiExp(di, ci, ecc.MultiExpConfig{ScalarsMont: true})
+	_, err := foldedDigests.MultiExp(di, ci, ecc.MultiExpConfig{})
 	if err != nil {
 		return foldedDigests, foldedEvaluations, err
 	}

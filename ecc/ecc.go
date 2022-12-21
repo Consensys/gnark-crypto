@@ -112,6 +112,5 @@ func modulus(c *config.Curve, scalarField bool) *big.Int {
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
 type MultiExpConfig struct {
-	NbTasks     int  // go routines to be used in the multiexp. can be larger than num cpus.
-	ScalarsMont bool // indicates if the scalars are in montgommery form. Default to false.
+	NbTasks int // go routines to be used in the multiexp. can be larger than num cpus.
 }

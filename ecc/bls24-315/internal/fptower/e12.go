@@ -79,22 +79,6 @@ func (z *E12) IsOne() bool {
 	return z.C0.IsOne() && z.C1.IsZero() && z.C2.IsZero()
 }
 
-// ToMont converts to Mont form
-func (z *E12) ToMont() *E12 {
-	z.C0.ToMont()
-	z.C1.ToMont()
-	z.C2.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E12) FromMont() *E12 {
-	z.C0.FromMont()
-	z.C1.FromMont()
-	z.C2.FromMont()
-	return z
-}
-
 // Add adds two elements of E12
 func (z *E12) Add(x, y *E12) *E12 {
 	z.C0.Add(&x.C0, &y.C0)

@@ -85,20 +85,6 @@ func (z *E4) SetOne() *E4 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E4) ToMont() *E4 {
-	z.B0.ToMont()
-	z.B1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E4) FromMont() *E4 {
-	z.B0.FromMont()
-	z.B1.FromMont()
-	return z
-}
-
 // MulByElement multiplies an element in E4 by an element in fp
 func (z *E4) MulByElement(x *E4, y *fp.Element) *E4 {
 	var yCopy fp.Element

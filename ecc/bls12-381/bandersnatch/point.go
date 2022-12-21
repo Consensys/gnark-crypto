@@ -48,7 +48,7 @@ const (
 	mUnmask             = 0x7f
 
 	// size in byte of a compressed point (point.Y --> fr.Element)
-	sizePointCompressed = fr.Limbs * 8
+	sizePointCompressed = fr.Bytes
 )
 
 // Bytes returns the compressed point as a byte array

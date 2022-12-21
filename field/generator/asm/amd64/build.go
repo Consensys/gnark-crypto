@@ -23,17 +23,17 @@ import (
 	"github.com/consensys/bavard"
 
 	"github.com/consensys/bavard/amd64"
-	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
 const SmallModulus = 6
 
-func NewFFAmd64(w io.Writer, F *field.FieldConfig) *FFAmd64 {
+func NewFFAmd64(w io.Writer, F *config.FieldConfig) *FFAmd64 {
 	return &FFAmd64{F, amd64.NewAmd64(w), 0, 0}
 }
 
 type FFAmd64 struct {
-	*field.FieldConfig
+	*config.FieldConfig
 	*amd64.Amd64
 	nbElementsOnStack int
 	maxOnStack        int
@@ -137,7 +137,7 @@ func (f *FFAmd64) qInv0() string {
 
 // Generate generates assembly code for the base field provided to goff
 // see internal/templates/ops*
-func Generate(w io.Writer, F *field.FieldConfig) error {
+func Generate(w io.Writer, F *config.FieldConfig) error {
 	f := NewFFAmd64(w, F)
 	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
@@ -161,7 +161,7 @@ func Generate(w io.Writer, F *field.FieldConfig) error {
 	return nil
 }
 
-func GenerateMul(w io.Writer, F *field.FieldConfig) error {
+func GenerateMul(w io.Writer, F *config.FieldConfig) error {
 	f := NewFFAmd64(w, F)
 	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
@@ -179,7 +179,7 @@ func GenerateMul(w io.Writer, F *field.FieldConfig) error {
 	return nil
 }
 
-func GenerateMulADX(w io.Writer, F *field.FieldConfig) error {
+func GenerateMulADX(w io.Writer, F *config.FieldConfig) error {
 	f := NewFFAmd64(w, F)
 	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
