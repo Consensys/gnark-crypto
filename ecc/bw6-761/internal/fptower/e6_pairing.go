@@ -1,6 +1,7 @@
 package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
+import "fmt"
 
 func (z *E6) nSquare(n int) {
 	for i := 0; i < n; i++ {
@@ -10,6 +11,7 @@ func (z *E6) nSquare(n int) {
 
 func (z *E6) nSquareCompressed(n int) {
 	for i := 0; i < n; i++ {
+		fmt.Println("o i:", i)
 		z.CyclotomicSquareCompressed(z)
 	}
 }
