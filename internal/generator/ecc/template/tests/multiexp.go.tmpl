@@ -86,8 +86,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
@@ -128,8 +127,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 
@@ -165,8 +163,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePointsZero[i-1].setInfinity()
 			}
 
@@ -221,8 +218,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			for i := 1; i <= 30; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 				samplePoints[i-1].FromJacobian(&g)
 				g.AddAssign(&{{ toLower .PointName}}Gen)
 			}
@@ -315,7 +311,7 @@ func TestCrossMultiExp{{ $.UPointName }}(t *testing.T) {
 // _innerMsm{{ $.UPointName }}Reference always do ext jacobian with c == 16
 func _innerMsm{{ $.UPointName }}Reference(p *{{ $.TJacobian }}, points []{{ $.TAffine }}, scalars []fr.Element, config ecc.MultiExpConfig) *{{ $.TJacobian }} {
 	// partition the scalars
-	digits, _ := partitionScalars(scalars, 16, config.ScalarsMont, config.NbTasks)
+	digits, _ := partitionScalars(scalars, 16,  config.NbTasks)
 
 	nbChunks := computeNbChunks(16)
 

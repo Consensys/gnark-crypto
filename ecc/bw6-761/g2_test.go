@@ -326,7 +326,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.mulGLV(&g2Gen, r)
+			g.ScalarMultiplication(&g2Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
@@ -446,8 +446,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
@@ -460,7 +459,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G2Jac
 				var expected G2Affine
 				var b big.Int
-				expectedJac.mulGLV(&g2Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g2Gen, sampleScalars[i].ToBigIntRegular(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -526,8 +525,7 @@ func BenchmarkG2AffineBatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {

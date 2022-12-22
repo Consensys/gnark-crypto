@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
+
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/field"
-	"github.com/consensys/gnark-crypto/internal/field/generator"
+	"github.com/consensys/gnark-crypto/field/generator"
+	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"

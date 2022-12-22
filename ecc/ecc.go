@@ -48,11 +48,12 @@ const (
 	BW6_761
 	BW6_633
 	BW6_756
+	SECP256K1
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317, SECP256K1}
 }
 
 func (id ID) String() string {
@@ -94,6 +95,8 @@ func (id ID) config() *config.Curve {
 		return &config.BLS24_317
 	case BW6_756:
 		return &config.BW6_756
+	case SECP256K1:
+		return &config.SECP256K1
 	default:
 		panic("unimplemented ecc ID")
 	}
@@ -109,6 +112,5 @@ func modulus(c *config.Curve, scalarField bool) *big.Int {
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
 type MultiExpConfig struct {
-	NbTasks     int  // go routines to be used in the multiexp. can be larger than num cpus.
-	ScalarsMont bool // indicates if the scalars are in montgommery form. Default to false.
+	NbTasks int // go routines to be used in the multiexp. can be larger than num cpus.
 }

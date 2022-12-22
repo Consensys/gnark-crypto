@@ -9,6 +9,7 @@ import (
 func TestG1IsogenyVectors(t *testing.T) {
 	t.Parallel()
 
+	// TODO @gbotrel fix me test vectors shouldn't set words directly
 	p := G1Affine{
 		fp.Element{
 			3660217524291093078, 10096673235325531916, 228883846699980880, 13273309082988818590, 5645112663858216297, 1475745906155504807,
@@ -17,8 +18,8 @@ func TestG1IsogenyVectors(t *testing.T) {
 			7179819451626801451, 8122998708501415251, 10493900036512999567, 8666325578439571587, 1547096619901497872, 644447436619416978,
 		},
 	}
-	p.X.ToMont()
-	p.Y.ToMont()
+	toMont(&p.X)
+	toMont(&p.Y)
 
 	ref := G1Affine{
 		fp.Element{
@@ -29,8 +30,8 @@ func TestG1IsogenyVectors(t *testing.T) {
 		},
 	}
 
-	ref.X.ToMont()
-	ref.Y.ToMont()
+	toMont(&ref.X)
+	toMont(&ref.Y)
 
 	g1Isogeny(&p)
 
@@ -219,4 +220,19 @@ func init() {
 			},
 		},
 	}
+}
+
+var rSquare = fp.Element{
+	17644856173732828998,
+	754043588434789617,
+	10224657059481499349,
+	7488229067341005760,
+	11130996698012816685,
+	1267921511277847466,
+}
+
+// toMont converts z to Montgomery form
+// sets and returns z = z * r²
+func toMont(z *fp.Element) {
+	z.Mul(z, &rSquare)
 }
