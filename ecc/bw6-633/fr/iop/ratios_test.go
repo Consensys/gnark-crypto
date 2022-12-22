@@ -178,6 +178,31 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 
 }
 
+// sizePolynomial*nbPolynomial must be divisible by 2.
+// The function generates a list of nbPolynomials (P_i) of size n=sizePolynomials
+// such that [P₁ ∥ .. ∥ P₂ ] is invariant under the permutation
+// σ defined by:
+// σ = (12)(34)..(2n-1 2n)
+// so σ is a product of cycles length 2.
+func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]*Polynomial, []int) {
+	res := make([]*Polynomial, nbPolynomials)
+	form := Form{Layout: Regular, Basis: Lagrange, Status: Locked}
+	for i := 0; i < nbPolynomials; i++ {
+		tmp := make([]fr.Element, sizePolynomials)
+		res[i] = &Polynomial{Coefficients: tmp, Form: form}
+		for j := 0; j < sizePolynomials/2; j++ {
+			res[i].Coefficients[2*j].SetRandom()
+			res[i].Coefficients[2*j+1].Set(&res[i].Coefficients[2*j])
+		}
+	}
+	permutation := make([]int, nbPolynomials*sizePolynomials)
+	for i := 0; i < nbPolynomials*sizePolynomials/2; i++ {
+		permutation[2*i] = 2*i + 1
+		permutation[2*i+1] = 2 * i
+	}
+	return res, permutation
+}
+
 func TestBuildRatioSpecificPermutation(t *testing.T) {
 
 	// generate random vectors, interpreted in Lagrange form,
@@ -185,7 +210,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// passes.
 	sizePolynomials := 8
 	nbPolynomials := 4
-	numerator, denominator, sigma := getPermutedPolynomials(sizePolynomials, nbPolynomials)
+	entries, sigma := getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials)
 
 	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
@@ -193,7 +218,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	var beta, gamma fr.Element
 	beta.SetRandom()
 	gamma.SetRandom()
-	ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+	ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
 	if err != nil {
 		t.Fatal()
 	}
@@ -205,12 +230,12 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	d.SetOne()
 	for i := 0; i < nbPolynomials; i++ {
 		a.Mul(&beta, &suppID[(i+1)*sizePolynomials-1]).
-			Add(&a, &numerator[i].Coefficients[sizePolynomials-1]).
+			Add(&a, &entries[i].Coefficients[sizePolynomials-1]).
 			Add(&a, &gamma)
 		b.Mul(&b, &a)
 
 		c.Mul(&beta, &suppID[sigma[(i+1)*sizePolynomials-1]]).
-			Add(&c, &denominator[i].Coefficients[sizePolynomials-1]).
+			Add(&c, &entries[i].Coefficients[sizePolynomials-1]).
 			Add(&c, &gamma)
 		d.Mul(&d, &c)
 	}
@@ -225,14 +250,12 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// check that the ratio is correct when the inputs are
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
-		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Layout = BitReverse
-		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Layout = BitReverse
+		fft.BitReverse(entries[i].Coefficients)
+		entries[i].Layout = BitReverse
 	}
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -245,16 +268,13 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
-		domain.FFTInverse(numerator[i].Coefficients, fft.DIT)
-		numerator[i].Basis = Canonical
-		numerator[i].Layout = Regular
-		domain.FFTInverse(denominator[i].Coefficients, fft.DIT)
-		denominator[i].Basis = Canonical
-		denominator[i].Layout = Regular
+		domain.FFTInverse(entries[i].Coefficients, fft.DIT)
+		entries[i].Basis = Canonical
+		entries[i].Layout = Regular
 	}
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,15 +287,13 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
-		fft.BitReverse(numerator[i].Coefficients)
-		numerator[i].Layout = BitReverse
-		fft.BitReverse(denominator[i].Coefficients)
-		denominator[i].Layout = BitReverse
+		fft.BitReverse(entries[i].Coefficients)
+		entries[i].Layout = BitReverse
 	}
 
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(numerator, denominator, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}
