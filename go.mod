@@ -1,4 +1,4 @@
-module github.com/ConsenSys/gnark-crypto
+module github.com/PatStiles/gnark-crypto
 
 go 1.17
 
