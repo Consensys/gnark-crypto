@@ -40,11 +40,11 @@ func getPermutation(n, g int) []int {
 	return res
 }
 
-func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, []*Polynomial, []int) {
+func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]Polynomial, []Polynomial, []int) {
 
-	numerator := make([]*Polynomial, nbPolynomials)
+	numerator := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = new(Polynomial)
+		// numerator[i] = new(Polynomial)
 		numerator[i].Coefficients = randomVector(sizePolynomials)
 		numerator[i].Basis = Lagrange
 		numerator[i].Layout = Regular
@@ -56,9 +56,9 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 
 	// the denominator is the permuted version of the numerators
 	// concatenated
-	denominator := make([]*Polynomial, nbPolynomials)
+	denominator := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		denominator[i] = new(Polynomial)
+		// denominator[i] = new(Polynomial)
 		denominator[i].Coefficients = make([]fr.Element, sizePolynomials)
 		denominator[i].Basis = Lagrange
 		denominator[i].Layout = Regular
@@ -184,12 +184,14 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 // σ defined by:
 // σ = (12)(34)..(2n-1 2n)
 // so σ is a product of cycles length 2.
-func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]*Polynomial, []int) {
-	res := make([]*Polynomial, nbPolynomials)
+func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]Polynomial, []int) {
+	res := make([]Polynomial, nbPolynomials)
 	form := Form{Layout: Regular, Basis: Lagrange, Status: Locked}
 	for i := 0; i < nbPolynomials; i++ {
-		tmp := make([]fr.Element, sizePolynomials)
-		res[i] = &Polynomial{Coefficients: tmp, Form: form}
+		// tmp := make([]fr.Element, sizePolynomials)
+		// res[i] = &Polynomial{Coefficients: tmp, Form: form}
+		res[i].Form = form
+		res[i].Coefficients = make([]fr.Element, sizePolynomials)
 		for j := 0; j < sizePolynomials/2; j++ {
 			res[i].Coefficients[2*j].SetRandom()
 			res[i].Coefficients[2*j+1].Set(&res[i].Coefficients[2*j])

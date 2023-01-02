@@ -17,8 +17,8 @@ func computex3(x []fr.Element) fr.Element {
 
 }
 
-func allocatePol(size int, form Form) *Polynomial {
-	f := new(Polynomial)
+func allocatePol(size int, form Form) Polynomial {
+	var f Polynomial
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
@@ -53,7 +53,7 @@ func TestQuotient(t *testing.T) {
 	// create an instance (f_i) where h holds
 	sizeSystem := 8
 	form := Form{Basis: Lagrange, Status: Locked, Layout: Regular}
-	entries := make([]*Polynomial, 3)
+	entries := make([]Polynomial, 3)
 	entries[0] = allocatePol(sizeSystem, form)
 	entries[1] = allocatePol(sizeSystem, form)
 	entries[2] = allocatePol(sizeSystem, form)

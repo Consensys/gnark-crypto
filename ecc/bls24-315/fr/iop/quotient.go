@@ -25,8 +25,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
 )
 
-// / ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
-func ComputeQuotient(entries []*Polynomial, h MultivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
+// ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
+func ComputeQuotient(entries []Polynomial, h MultivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
 
 	var quotientLagrangeCosetBitReverse Polynomial
 
