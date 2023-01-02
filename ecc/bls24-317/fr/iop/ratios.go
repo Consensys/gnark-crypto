@@ -69,7 +69,9 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 
 	// put every polynomials in Lagrange form. Also make sure
 	// that we don't modify the slices numerator and denominator, but
-	// only their entries.
+	// only their entries. If the polynomials are unlocked, the
+	// entries of the slices numerator and denominator will be
+	// modified.
 	_numerator := make([]*Polynomial, nbPolynomials)
 	_denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
