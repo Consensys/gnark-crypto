@@ -20,13 +20,13 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/field"
 	"io"
 	"math/big"
 	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // Element represents a field element stored on 12 words (uint64)
@@ -44,9 +44,9 @@ import (
 type Element [12]uint64
 
 const (
-	Limbs = 12        // number of 64 bits words needed to represent a Element
-	Bits  = 761       // number of bits needed to represent a Element
-	Bytes = Limbs * 8 // number of bytes needed to represent a Element
+	Limbs = 12  // number of 64 bits words needed to represent a Element
+	Bits  = 761 // number of bits needed to represent a Element
+	Bytes = 96  // number of bytes needed to represent a Element
 )
 
 // Field modulus q
@@ -94,12 +94,6 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg uint64 = 744663313386281181
 
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
-
 func init() {
 	_modulus.SetString("122e824fb83ce0ad187c94004faff3eb926186a81d14688528275ef8087be41707ba638e584e91903cebaff25b423048689c8ed12f9fd9071dcd3dc73ebff2e98a116c25667a8f8160cf8aeeaf0a437e6913e6870000082f49d00000000008b", 16)
 }
@@ -120,7 +114,7 @@ func NewElement(v uint64) Element {
 func (z *Element) SetUint64(v uint64) *Element {
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = Element{v}
-	return z.Mul(z, &rSquare) // z.ToMont()
+	return z.Mul(z, &rSquare) // z.toMont()
 }
 
 // SetInt64 sets z to v and returns z
@@ -292,15 +286,13 @@ func (z *Element) IsOne() bool {
 // IsUint64 reports whether z can be represented as an uint64.
 func (z *Element) IsUint64() bool {
 	zz := *z
-	zz.FromMont()
+	zz.fromMont()
 	return zz.FitsOnOneWord()
 }
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *Element) Uint64() uint64 {
-	zz := *z
-	zz.FromMont()
-	return zz[0]
+	return z.Bits()[0]
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -316,10 +308,8 @@ func (z *Element) FitsOnOneWord() bool {
 //	 0 if z == x
 //	+1 if z >  x
 func (z *Element) Cmp(x *Element) int {
-	_z := *z
-	_x := *x
-	_z.FromMont()
-	_x.FromMont()
+	_z := z.Bits()
+	_x := x.Bits()
 	if _z[11] > _x[11] {
 		return 1
 	} else if _z[11] < _x[11] {
@@ -390,8 +380,7 @@ func (z *Element) LexicographicallyLargest() bool {
 	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
 
-	_z := *z
-	_z.FromMont()
+	_z := z.Bits()
 
 	var b uint64
 	_, b = bits.Sub64(_z[0], 8813122258298994758, 0)
@@ -514,67 +503,9 @@ func (z *Element) Halve() {
 
 }
 
-// Mul z = x * y (mod q)
-//
-// x and y must be strictly inferior to q
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	//
-	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	//
-	// for i=0 to N-1
-	// 		(A,t[0]) := t[0] + x[0]*y[i]
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(A,t[j])  := t[j] + x[j]*y[i] + A
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		t[N-1] = C + A
-	//
-	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit
-	// of the modulus is zero (and not all of the remaining bits are set).
-	mul(z, x, y)
-	return z
-}
-
-// Square z = x * x (mod q)
-//
-// x must be strictly inferior to q
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-	mul(z, x, x)
-	return z
-}
-
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
+// fromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
-func (z *Element) FromMont() *Element {
+func (z *Element) fromMont() *Element {
 	fromMont(z)
 	return z
 }
@@ -725,359 +656,529 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	var t [12]uint64
-	var c [3]uint64
-	{
-		// round 0
-		v := x[0]
-		c[1], c[0] = bits.Mul64(v, y[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd1(v, y[1], c[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd1(v, y[2], c[1])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd1(v, y[3], c[1])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd1(v, y[4], c[1])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd1(v, y[5], c[1])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd1(v, y[6], c[1])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd1(v, y[7], c[1])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd1(v, y[8], c[1])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd1(v, y[9], c[1])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd1(v, y[10], c[1])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd1(v, y[11], c[1])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
+
+	var t [13]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+	C, t[1] = madd1(y[0], x[1], C)
+	C, t[2] = madd1(y[0], x[2], C)
+	C, t[3] = madd1(y[0], x[3], C)
+	C, t[4] = madd1(y[0], x[4], C)
+	C, t[5] = madd1(y[0], x[5], C)
+	C, t[6] = madd1(y[0], x[6], C)
+	C, t[7] = madd1(y[0], x[7], C)
+	C, t[8] = madd1(y[0], x[8], C)
+	C, t[9] = madd1(y[0], x[9], C)
+	C, t[10] = madd1(y[0], x[10], C)
+	C, t[11] = madd1(y[0], x[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[1], x[0], t[0])
+	C, t[1] = madd2(y[1], x[1], t[1], C)
+	C, t[2] = madd2(y[1], x[2], t[2], C)
+	C, t[3] = madd2(y[1], x[3], t[3], C)
+	C, t[4] = madd2(y[1], x[4], t[4], C)
+	C, t[5] = madd2(y[1], x[5], t[5], C)
+	C, t[6] = madd2(y[1], x[6], t[6], C)
+	C, t[7] = madd2(y[1], x[7], t[7], C)
+	C, t[8] = madd2(y[1], x[8], t[8], C)
+	C, t[9] = madd2(y[1], x[9], t[9], C)
+	C, t[10] = madd2(y[1], x[10], t[10], C)
+	C, t[11] = madd2(y[1], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[2], x[0], t[0])
+	C, t[1] = madd2(y[2], x[1], t[1], C)
+	C, t[2] = madd2(y[2], x[2], t[2], C)
+	C, t[3] = madd2(y[2], x[3], t[3], C)
+	C, t[4] = madd2(y[2], x[4], t[4], C)
+	C, t[5] = madd2(y[2], x[5], t[5], C)
+	C, t[6] = madd2(y[2], x[6], t[6], C)
+	C, t[7] = madd2(y[2], x[7], t[7], C)
+	C, t[8] = madd2(y[2], x[8], t[8], C)
+	C, t[9] = madd2(y[2], x[9], t[9], C)
+	C, t[10] = madd2(y[2], x[10], t[10], C)
+	C, t[11] = madd2(y[2], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[3], x[0], t[0])
+	C, t[1] = madd2(y[3], x[1], t[1], C)
+	C, t[2] = madd2(y[3], x[2], t[2], C)
+	C, t[3] = madd2(y[3], x[3], t[3], C)
+	C, t[4] = madd2(y[3], x[4], t[4], C)
+	C, t[5] = madd2(y[3], x[5], t[5], C)
+	C, t[6] = madd2(y[3], x[6], t[6], C)
+	C, t[7] = madd2(y[3], x[7], t[7], C)
+	C, t[8] = madd2(y[3], x[8], t[8], C)
+	C, t[9] = madd2(y[3], x[9], t[9], C)
+	C, t[10] = madd2(y[3], x[10], t[10], C)
+	C, t[11] = madd2(y[3], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[4], x[0], t[0])
+	C, t[1] = madd2(y[4], x[1], t[1], C)
+	C, t[2] = madd2(y[4], x[2], t[2], C)
+	C, t[3] = madd2(y[4], x[3], t[3], C)
+	C, t[4] = madd2(y[4], x[4], t[4], C)
+	C, t[5] = madd2(y[4], x[5], t[5], C)
+	C, t[6] = madd2(y[4], x[6], t[6], C)
+	C, t[7] = madd2(y[4], x[7], t[7], C)
+	C, t[8] = madd2(y[4], x[8], t[8], C)
+	C, t[9] = madd2(y[4], x[9], t[9], C)
+	C, t[10] = madd2(y[4], x[10], t[10], C)
+	C, t[11] = madd2(y[4], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[5], x[0], t[0])
+	C, t[1] = madd2(y[5], x[1], t[1], C)
+	C, t[2] = madd2(y[5], x[2], t[2], C)
+	C, t[3] = madd2(y[5], x[3], t[3], C)
+	C, t[4] = madd2(y[5], x[4], t[4], C)
+	C, t[5] = madd2(y[5], x[5], t[5], C)
+	C, t[6] = madd2(y[5], x[6], t[6], C)
+	C, t[7] = madd2(y[5], x[7], t[7], C)
+	C, t[8] = madd2(y[5], x[8], t[8], C)
+	C, t[9] = madd2(y[5], x[9], t[9], C)
+	C, t[10] = madd2(y[5], x[10], t[10], C)
+	C, t[11] = madd2(y[5], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[6], x[0], t[0])
+	C, t[1] = madd2(y[6], x[1], t[1], C)
+	C, t[2] = madd2(y[6], x[2], t[2], C)
+	C, t[3] = madd2(y[6], x[3], t[3], C)
+	C, t[4] = madd2(y[6], x[4], t[4], C)
+	C, t[5] = madd2(y[6], x[5], t[5], C)
+	C, t[6] = madd2(y[6], x[6], t[6], C)
+	C, t[7] = madd2(y[6], x[7], t[7], C)
+	C, t[8] = madd2(y[6], x[8], t[8], C)
+	C, t[9] = madd2(y[6], x[9], t[9], C)
+	C, t[10] = madd2(y[6], x[10], t[10], C)
+	C, t[11] = madd2(y[6], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[7], x[0], t[0])
+	C, t[1] = madd2(y[7], x[1], t[1], C)
+	C, t[2] = madd2(y[7], x[2], t[2], C)
+	C, t[3] = madd2(y[7], x[3], t[3], C)
+	C, t[4] = madd2(y[7], x[4], t[4], C)
+	C, t[5] = madd2(y[7], x[5], t[5], C)
+	C, t[6] = madd2(y[7], x[6], t[6], C)
+	C, t[7] = madd2(y[7], x[7], t[7], C)
+	C, t[8] = madd2(y[7], x[8], t[8], C)
+	C, t[9] = madd2(y[7], x[9], t[9], C)
+	C, t[10] = madd2(y[7], x[10], t[10], C)
+	C, t[11] = madd2(y[7], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[8], x[0], t[0])
+	C, t[1] = madd2(y[8], x[1], t[1], C)
+	C, t[2] = madd2(y[8], x[2], t[2], C)
+	C, t[3] = madd2(y[8], x[3], t[3], C)
+	C, t[4] = madd2(y[8], x[4], t[4], C)
+	C, t[5] = madd2(y[8], x[5], t[5], C)
+	C, t[6] = madd2(y[8], x[6], t[6], C)
+	C, t[7] = madd2(y[8], x[7], t[7], C)
+	C, t[8] = madd2(y[8], x[8], t[8], C)
+	C, t[9] = madd2(y[8], x[9], t[9], C)
+	C, t[10] = madd2(y[8], x[10], t[10], C)
+	C, t[11] = madd2(y[8], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[9], x[0], t[0])
+	C, t[1] = madd2(y[9], x[1], t[1], C)
+	C, t[2] = madd2(y[9], x[2], t[2], C)
+	C, t[3] = madd2(y[9], x[3], t[3], C)
+	C, t[4] = madd2(y[9], x[4], t[4], C)
+	C, t[5] = madd2(y[9], x[5], t[5], C)
+	C, t[6] = madd2(y[9], x[6], t[6], C)
+	C, t[7] = madd2(y[9], x[7], t[7], C)
+	C, t[8] = madd2(y[9], x[8], t[8], C)
+	C, t[9] = madd2(y[9], x[9], t[9], C)
+	C, t[10] = madd2(y[9], x[10], t[10], C)
+	C, t[11] = madd2(y[9], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[10], x[0], t[0])
+	C, t[1] = madd2(y[10], x[1], t[1], C)
+	C, t[2] = madd2(y[10], x[2], t[2], C)
+	C, t[3] = madd2(y[10], x[3], t[3], C)
+	C, t[4] = madd2(y[10], x[4], t[4], C)
+	C, t[5] = madd2(y[10], x[5], t[5], C)
+	C, t[6] = madd2(y[10], x[6], t[6], C)
+	C, t[7] = madd2(y[10], x[7], t[7], C)
+	C, t[8] = madd2(y[10], x[8], t[8], C)
+	C, t[9] = madd2(y[10], x[9], t[9], C)
+	C, t[10] = madd2(y[10], x[10], t[10], C)
+	C, t[11] = madd2(y[10], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = madd1(y[11], x[0], t[0])
+	C, t[1] = madd2(y[11], x[1], t[1], C)
+	C, t[2] = madd2(y[11], x[2], t[2], C)
+	C, t[3] = madd2(y[11], x[3], t[3], C)
+	C, t[4] = madd2(y[11], x[4], t[4], C)
+	C, t[5] = madd2(y[11], x[5], t[5], C)
+	C, t[6] = madd2(y[11], x[6], t[6], C)
+	C, t[7] = madd2(y[11], x[7], t[7], C)
+	C, t[8] = madd2(y[11], x[8], t[8], C)
+	C, t[9] = madd2(y[11], x[9], t[9], C)
+	C, t[10] = madd2(y[11], x[10], t[10], C)
+	C, t[11] = madd2(y[11], x[11], t[11], C)
+
+	t[12], D = bits.Add64(t[12], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+	C, t[0] = madd2(m, q1, t[1], C)
+	C, t[1] = madd2(m, q2, t[2], C)
+	C, t[2] = madd2(m, q3, t[3], C)
+	C, t[3] = madd2(m, q4, t[4], C)
+	C, t[4] = madd2(m, q5, t[5], C)
+	C, t[5] = madd2(m, q6, t[6], C)
+	C, t[6] = madd2(m, q7, t[7], C)
+	C, t[7] = madd2(m, q8, t[8], C)
+	C, t[8] = madd2(m, q9, t[9], C)
+	C, t[9] = madd2(m, q10, t[10], C)
+	C, t[10] = madd2(m, q11, t[11], C)
+
+	t[11], C = bits.Add64(t[12], C, 0)
+	t[12], _ = bits.Add64(0, D, C)
+
+	if t[12] != 0 {
+		// we need to reduce, we have a result on 13 words
+		var b uint64
+		z[0], b = bits.Sub64(t[0], q0, 0)
+		z[1], b = bits.Sub64(t[1], q1, b)
+		z[2], b = bits.Sub64(t[2], q2, b)
+		z[3], b = bits.Sub64(t[3], q3, b)
+		z[4], b = bits.Sub64(t[4], q4, b)
+		z[5], b = bits.Sub64(t[5], q5, b)
+		z[6], b = bits.Sub64(t[6], q6, b)
+		z[7], b = bits.Sub64(t[7], q7, b)
+		z[8], b = bits.Sub64(t[8], q8, b)
+		z[9], b = bits.Sub64(t[9], q9, b)
+		z[10], b = bits.Sub64(t[10], q10, b)
+		z[11], _ = bits.Sub64(t[11], q11, b)
+		return
 	}
-	{
-		// round 1
-		v := x[1]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 2
-		v := x[2]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 3
-		v := x[3]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 4
-		v := x[4]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 5
-		v := x[5]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 6
-		v := x[6]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 7
-		v := x[7]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 8
-		v := x[8]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 9
-		v := x[9]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 10
-		v := x[10]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], t[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], t[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], t[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], t[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], t[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], t[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], t[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], t[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], t[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], t[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		t[11], t[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
-	{
-		// round 11
-		v := x[11]
-		c[1], c[0] = madd1(v, y[0], t[0])
-		m := c[0] * qInvNeg
-		c[2] = madd0(m, q0, c[0])
-		c[1], c[0] = madd2(v, y[1], c[1], t[1])
-		c[2], z[0] = madd2(m, q1, c[2], c[0])
-		c[1], c[0] = madd2(v, y[2], c[1], t[2])
-		c[2], z[1] = madd2(m, q2, c[2], c[0])
-		c[1], c[0] = madd2(v, y[3], c[1], t[3])
-		c[2], z[2] = madd2(m, q3, c[2], c[0])
-		c[1], c[0] = madd2(v, y[4], c[1], t[4])
-		c[2], z[3] = madd2(m, q4, c[2], c[0])
-		c[1], c[0] = madd2(v, y[5], c[1], t[5])
-		c[2], z[4] = madd2(m, q5, c[2], c[0])
-		c[1], c[0] = madd2(v, y[6], c[1], t[6])
-		c[2], z[5] = madd2(m, q6, c[2], c[0])
-		c[1], c[0] = madd2(v, y[7], c[1], t[7])
-		c[2], z[6] = madd2(m, q7, c[2], c[0])
-		c[1], c[0] = madd2(v, y[8], c[1], t[8])
-		c[2], z[7] = madd2(m, q8, c[2], c[0])
-		c[1], c[0] = madd2(v, y[9], c[1], t[9])
-		c[2], z[8] = madd2(m, q9, c[2], c[0])
-		c[1], c[0] = madd2(v, y[10], c[1], t[10])
-		c[2], z[9] = madd2(m, q10, c[2], c[0])
-		c[1], c[0] = madd2(v, y[11], c[1], t[11])
-		z[11], z[10] = madd3(m, q11, c[0], c[2], c[1])
-	}
+
+	// copy t into z
+	z[0] = t[0]
+	z[1] = t[1]
+	z[2] = t[2]
+	z[3] = t[3]
+	z[4] = t[4]
+	z[5] = t[5]
+	z[6] = t[6]
+	z[7] = t[7]
+	z[8] = t[8]
+	z[9] = t[9]
+	z[10] = t[10]
+	z[11] = t[11]
 
 	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
@@ -1095,7 +1196,6 @@ func _mulGeneric(z, x, y *Element) {
 		z[10], b = bits.Sub64(z[10], q10, b)
 		z[11], _ = bits.Sub64(z[11], q11, b)
 	}
-
 }
 
 func _fromMontGeneric(z *Element) {
@@ -1423,6 +1523,35 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// get temporary big int from the pool
+	vv := field.BigIntPool.Get()
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
+	}
+
+	// release object into pool
+	field.BigIntPool.Put(vv)
+
+	return res, nil
+}
+
 // Exp z = xᵏ (mod q)
 func (z *Element) Exp(x Element, k *big.Int) *Element {
 	if k.IsUint64() && k.Uint64() == 0 {
@@ -1437,8 +1566,8 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
+		e = field.BigIntPool.Get()
+		defer field.BigIntPool.Put(e)
 		e.Neg(k)
 	}
 
@@ -1472,21 +1601,35 @@ var rSquare = Element{
 	48736111365249031,
 }
 
-// ToMont converts z to Montgomery form
+// toMont converts z to Montgomery form
 // sets and returns z = z * r²
-func (z *Element) ToMont() *Element {
+func (z *Element) toMont() *Element {
 	return z.Mul(z, &rSquare)
-}
-
-// ToRegular returns z in regular form (doesn't mutate z)
-func (z Element) ToRegular() Element {
-	return *z.FromMont()
 }
 
 // String returns the decimal representation of z as generated by
 // z.Text(10).
 func (z *Element) String() string {
 	return z.Text(10)
+}
+
+// toBigInt returns z as a big.Int in Montgomery form
+func (z *Element) toBigInt(res *big.Int) *big.Int {
+	var b [Bytes]byte
+	binary.BigEndian.PutUint64(b[88:96], z[0])
+	binary.BigEndian.PutUint64(b[80:88], z[1])
+	binary.BigEndian.PutUint64(b[72:80], z[2])
+	binary.BigEndian.PutUint64(b[64:72], z[3])
+	binary.BigEndian.PutUint64(b[56:64], z[4])
+	binary.BigEndian.PutUint64(b[48:56], z[5])
+	binary.BigEndian.PutUint64(b[40:48], z[6])
+	binary.BigEndian.PutUint64(b[32:40], z[7])
+	binary.BigEndian.PutUint64(b[24:32], z[8])
+	binary.BigEndian.PutUint64(b[16:24], z[9])
+	binary.BigEndian.PutUint64(b[8:16], z[10])
+	binary.BigEndian.PutUint64(b[0:8], z[11])
+
+	return res.SetBytes(b[:])
 }
 
 // Text returns the string representation of z in the given base.
@@ -1507,63 +1650,49 @@ func (z *Element) Text(base int) string {
 	if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
-		zzNeg.FromMont()
+		zzNeg.fromMont()
 		if zzNeg.FitsOnOneWord() && zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
 	zz := *z
-	zz.FromMont()
+	zz.fromMont()
 	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	}
-	vv := bigIntPool.Get().(*big.Int)
-	r := zz.ToBigInt(vv).Text(base)
-	bigIntPool.Put(vv)
+	vv := field.BigIntPool.Get()
+	r := zz.toBigInt(vv).Text(base)
+	field.BigIntPool.Put(vv)
 	return r
 }
 
-// ToBigInt returns z as a big.Int in Montgomery form
-func (z *Element) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs * 8]byte
-	binary.BigEndian.PutUint64(b[88:96], z[0])
-	binary.BigEndian.PutUint64(b[80:88], z[1])
-	binary.BigEndian.PutUint64(b[72:80], z[2])
-	binary.BigEndian.PutUint64(b[64:72], z[3])
-	binary.BigEndian.PutUint64(b[56:64], z[4])
-	binary.BigEndian.PutUint64(b[48:56], z[5])
-	binary.BigEndian.PutUint64(b[40:48], z[6])
-	binary.BigEndian.PutUint64(b[32:40], z[7])
-	binary.BigEndian.PutUint64(b[24:32], z[8])
-	binary.BigEndian.PutUint64(b[16:24], z[9])
-	binary.BigEndian.PutUint64(b[8:16], z[10])
-	binary.BigEndian.PutUint64(b[0:8], z[11])
-
-	return res.SetBytes(b[:])
+// BigInt sets and return z as a *big.Int
+func (z *Element) BigInt(res *big.Int) *big.Int {
+	_z := *z
+	_z.fromMont()
+	return _z.toBigInt(res)
 }
 
 // ToBigIntRegular returns z as a big.Int in regular form
+//
+// Deprecated: use BigInt(*big.Int) instead
 func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
-	z.FromMont()
-	return z.ToBigInt(res)
+	z.fromMont()
+	return z.toBigInt(res)
+}
+
+// Bits provides access to z by returning its value as a little-endian [12]uint64 array.
+// Bits is intended to support implementation of missing low-level Element
+// functionality outside this package; it should be avoided otherwise.
+func (z *Element) Bits() [12]uint64 {
+	_z := *z
+	fromMont(&_z)
+	return _z
 }
 
 // Bytes returns the value of z as a big-endian byte array
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[88:96], _z[0])
-	binary.BigEndian.PutUint64(res[80:88], _z[1])
-	binary.BigEndian.PutUint64(res[72:80], _z[2])
-	binary.BigEndian.PutUint64(res[64:72], _z[3])
-	binary.BigEndian.PutUint64(res[56:64], _z[4])
-	binary.BigEndian.PutUint64(res[48:56], _z[5])
-	binary.BigEndian.PutUint64(res[40:48], _z[6])
-	binary.BigEndian.PutUint64(res[32:40], _z[7])
-	binary.BigEndian.PutUint64(res[24:32], _z[8])
-	binary.BigEndian.PutUint64(res[16:24], _z[9])
-	binary.BigEndian.PutUint64(res[8:16], _z[10])
-	binary.BigEndian.PutUint64(res[0:8], _z[11])
-
+func (z *Element) Bytes() (res [Bytes]byte) {
+	BigEndian.PutElement(&res, *z)
 	return
 }
 
@@ -1576,17 +1705,42 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
+	if len(e) == Bytes {
+		// fast path
+		v, err := BigEndian.Element((*[Bytes]byte)(e))
+		if err == nil {
+			*z = v
+			return z
+		}
+	}
+
+	// slow path.
 	// get a big int from our pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 	vv.SetBytes(e)
 
 	// set big int
 	z.SetBigInt(vv)
 
 	// put temporary object back in pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z
+}
+
+// SetBytesCanonical interprets e as the bytes of a big-endian 96-byte integer.
+// If e is not a 96-byte slice or encodes a value higher than q,
+// SetBytesCanonical returns an error.
+func (z *Element) SetBytesCanonical(e []byte) error {
+	if len(e) != Bytes {
+		return errors.New("invalid fp.Element encoding")
+	}
+	v, err := BigEndian.Element((*[Bytes]byte)(e))
+	if err != nil {
+		return err
+	}
+	*z = v
+	return nil
 }
 
 // SetBigInt sets z to v and returns z
@@ -1606,17 +1760,16 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	// copy input + modular reduction
-	vv.Set(v)
 	vv.Mod(v, &_modulus)
 
 	// set big int byte value
 	z.setBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return z
 }
 
@@ -1638,7 +1791,7 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 		}
 	}
 
-	return z.ToMont()
+	return z.toMont()
 }
 
 // SetString creates a big.Int with number and calls SetBigInt on z
@@ -1660,7 +1813,7 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // If the number is invalid this method leaves z unchanged and returns nil, error.
 func (z *Element) SetString(number string) (*Element, error) {
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		return nil, errors.New("Element.SetString failed -> can't parse number into a big.Int " + number)
@@ -1669,7 +1822,7 @@ func (z *Element) SetString(number string) (*Element, error) {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z, nil
 }
@@ -1709,7 +1862,7 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(s, 0); !ok {
 		return errors.New("can't parse into a big.Int: " + s)
@@ -1718,9 +1871,110 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return nil
 }
+
+// A ByteOrder specifies how to convert byte slices into a Element
+type ByteOrder interface {
+	Element(*[Bytes]byte) (Element, error)
+	PutElement(*[Bytes]byte, Element)
+	String() string
+}
+
+// BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
+var BigEndian bigEndian
+
+type bigEndian struct{}
+
+// Element interpret b is a big-endian 96-byte slice.
+// If b encodes a value higher than q, Element returns error.
+func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.BigEndian.Uint64((*b)[88:96])
+	z[1] = binary.BigEndian.Uint64((*b)[80:88])
+	z[2] = binary.BigEndian.Uint64((*b)[72:80])
+	z[3] = binary.BigEndian.Uint64((*b)[64:72])
+	z[4] = binary.BigEndian.Uint64((*b)[56:64])
+	z[5] = binary.BigEndian.Uint64((*b)[48:56])
+	z[6] = binary.BigEndian.Uint64((*b)[40:48])
+	z[7] = binary.BigEndian.Uint64((*b)[32:40])
+	z[8] = binary.BigEndian.Uint64((*b)[24:32])
+	z[9] = binary.BigEndian.Uint64((*b)[16:24])
+	z[10] = binary.BigEndian.Uint64((*b)[8:16])
+	z[11] = binary.BigEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid fp.Element encoding")
+	}
+
+	z.toMont()
+	return z, nil
+}
+
+func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.fromMont()
+	binary.BigEndian.PutUint64((*b)[88:96], e[0])
+	binary.BigEndian.PutUint64((*b)[80:88], e[1])
+	binary.BigEndian.PutUint64((*b)[72:80], e[2])
+	binary.BigEndian.PutUint64((*b)[64:72], e[3])
+	binary.BigEndian.PutUint64((*b)[56:64], e[4])
+	binary.BigEndian.PutUint64((*b)[48:56], e[5])
+	binary.BigEndian.PutUint64((*b)[40:48], e[6])
+	binary.BigEndian.PutUint64((*b)[32:40], e[7])
+	binary.BigEndian.PutUint64((*b)[24:32], e[8])
+	binary.BigEndian.PutUint64((*b)[16:24], e[9])
+	binary.BigEndian.PutUint64((*b)[8:16], e[10])
+	binary.BigEndian.PutUint64((*b)[0:8], e[11])
+}
+
+func (bigEndian) String() string { return "BigEndian" }
+
+// LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
+var LittleEndian littleEndian
+
+type littleEndian struct{}
+
+func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
+	z[1] = binary.LittleEndian.Uint64((*b)[8:16])
+	z[2] = binary.LittleEndian.Uint64((*b)[16:24])
+	z[3] = binary.LittleEndian.Uint64((*b)[24:32])
+	z[4] = binary.LittleEndian.Uint64((*b)[32:40])
+	z[5] = binary.LittleEndian.Uint64((*b)[40:48])
+	z[6] = binary.LittleEndian.Uint64((*b)[48:56])
+	z[7] = binary.LittleEndian.Uint64((*b)[56:64])
+	z[8] = binary.LittleEndian.Uint64((*b)[64:72])
+	z[9] = binary.LittleEndian.Uint64((*b)[72:80])
+	z[10] = binary.LittleEndian.Uint64((*b)[80:88])
+	z[11] = binary.LittleEndian.Uint64((*b)[88:96])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid fp.Element encoding")
+	}
+
+	z.toMont()
+	return z, nil
+}
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.fromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+	binary.LittleEndian.PutUint64((*b)[8:16], e[1])
+	binary.LittleEndian.PutUint64((*b)[16:24], e[2])
+	binary.LittleEndian.PutUint64((*b)[24:32], e[3])
+	binary.LittleEndian.PutUint64((*b)[32:40], e[4])
+	binary.LittleEndian.PutUint64((*b)[40:48], e[5])
+	binary.LittleEndian.PutUint64((*b)[48:56], e[6])
+	binary.LittleEndian.PutUint64((*b)[56:64], e[7])
+	binary.LittleEndian.PutUint64((*b)[64:72], e[8])
+	binary.LittleEndian.PutUint64((*b)[72:80], e[9])
+	binary.LittleEndian.PutUint64((*b)[80:88], e[10])
+	binary.LittleEndian.PutUint64((*b)[88:96], e[11])
+}
+
+func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
@@ -1937,7 +2191,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		// we would multiply by pSq up to 13times;
 		// on x86, the assembly routine outperforms generic code for mul by word
 		// on arm64, we may loose up to ~5% for 6 limbs
-		mul(&v, &v, &a)
+		v.Mul(&v, &a)
 	}
 
 	u.Set(x) // for correctness check
@@ -1960,17 +2214,28 @@ func (z *Element) Inverse(x *Element) *Element {
 	// correctness check
 	v.Mul(&u, z)
 	if !v.IsOne() && !u.IsZero() {
-		return z.inverseExp(&u)
+		return z.inverseExp(u)
 	}
 
 	return z
 }
 
 // inverseExp computes z = x⁻¹ (mod q) = x**(q-2) (mod q)
-func (z *Element) inverseExp(x *Element) *Element {
-	qMinusTwo := Modulus()
-	qMinusTwo.Sub(qMinusTwo, big.NewInt(2))
-	return z.Exp(*x, qMinusTwo)
+func (z *Element) inverseExp(x Element) *Element {
+	// e == q-2
+	e := Modulus()
+	e.Sub(e, big.NewInt(2))
+
+	z.Set(&x)
+
+	for i := e.BitLen() - 2; i >= 0; i-- {
+		z.Square(z)
+		if e.Bit(i) == 1 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
 }
 
 // approximate a big number x into a single 64 bit word using its uppermost and lowermost bits

@@ -100,7 +100,7 @@ func MapToG2(t fptower.E2) G2Affine {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-2.2.2
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
-	_t, err := hashToFp(msg, dst, 2)
+	_t, err := fp.Hash(msg, dst, 2)
 	if err != nil {
 		return res, err
 	}
@@ -115,7 +115,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-3
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	var res G2Affine
-	u, err := hashToFp(msg, dst, 4)
+	u, err := fp.Hash(msg, dst, 4)
 	if err != nil {
 		return res, err
 	}

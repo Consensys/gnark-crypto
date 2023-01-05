@@ -1,0 +1,95 @@
+import (
+    "crypto/rand"
+    "fmt"
+    "github.com/consensys/gnark-crypto/ecc"
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+    "math/big"
+)
+
+// Key for proof and verification
+type Key struct {
+    g             {{.CurvePackage}}.G2Affine // TODO @tabaie: does this really have to be randomized?
+    gRootSigmaNeg {{.CurvePackage}}.G2Affine //gRootSigmaNeg = g^{-1/σ}
+    basis         []{{.CurvePackage}}.G1Affine
+    basisExpSigma []{{.CurvePackage}}.G1Affine
+}
+
+func randomOnG2() ({{.CurvePackage}}.G2Affine, error) { // TODO: Add to G2.go?
+    gBytes := make([]byte, fr.Bytes)
+    if _, err := rand.Read(gBytes); err != nil {
+        return {{.CurvePackage}}.G2Affine{}, err
+    }
+    return {{.CurvePackage}}.HashToG2(gBytes, []byte("random on g2"))
+}
+
+func Setup(basis []{{.CurvePackage}}.G1Affine) (Key, error) {
+    var (
+        k   Key
+        err error
+    )
+
+    if k.g, err = randomOnG2(); err != nil {
+        return k, err
+    }
+
+    var modMinusOne big.Int
+    modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
+    var sigma *big.Int
+    if sigma, err = rand.Int(rand.Reader, &modMinusOne); err != nil {
+        return k, err
+    }
+    sigma.Add(sigma, big.NewInt(1))
+
+    var sigmaInvNeg big.Int
+    sigmaInvNeg.ModInverse(sigma, fr.Modulus())
+    sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
+    k.gRootSigmaNeg.ScalarMultiplication(&k.g, &sigmaInvNeg)
+
+    k.basisExpSigma = make([]{{.CurvePackage}}.G1Affine, len(basis))
+    for i := range basis {
+        k.basisExpSigma[i].ScalarMultiplication(&basis[i], sigma)
+    }
+
+    k.basis = basis
+    return k, err
+}
+
+func (k *Key) Commit(values []fr.Element) (commitment {{.CurvePackage}}.G1Affine, knowledgeProof {{.CurvePackage}}.G1Affine, err error) {
+
+    if len(values) != len(k.basis) {
+        err = fmt.Errorf("unexpected number of values")
+        return
+    }
+
+    // TODO @gbotrel this will spawn more than one task, see
+    // https://github.com/ConsenSys/gnark-crypto/issues/269 
+    config := ecc.MultiExpConfig{
+        NbTasks:     1, // TODO Experiment
+    }
+
+    if _, err = commitment.MultiExp(k.basis, values, config); err != nil {
+        return
+    }
+
+    _, err = knowledgeProof.MultiExp(k.basisExpSigma, values, config)
+
+    return
+}
+
+// VerifyKnowledgeProof checks if the proof of knowledge is valid
+func (k *Key) VerifyKnowledgeProof(commitment {{.CurvePackage}}.G1Affine, knowledgeProof {{.CurvePackage}}.G1Affine) error {
+
+    if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
+        return fmt.Errorf("subgroup check failed")
+    }
+
+    product, err := {{.CurvePackage}}.Pair([]{{.CurvePackage}}.G1Affine{commitment, knowledgeProof}, []{{.CurvePackage}}.G2Affine{k.g, k.gRootSigmaNeg})
+    if err != nil {
+        return err
+    }
+    if product.IsOne() {
+        return nil
+    }
+    return fmt.Errorf("proof rejected")
+}

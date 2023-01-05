@@ -19,6 +19,7 @@ package bw6633
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
@@ -338,7 +339,7 @@ func TestG1AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G1Jac
-			g.mulGLV(&g1Gen, r)
+			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
@@ -458,8 +459,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
@@ -472,7 +472,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].ToBigIntRegular(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -499,6 +499,33 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 }
 
+func BenchmarkBatchAddG1Affine(b *testing.B) {
+
+	var P, R pG1AffineC16
+	var RR ppG1AffineC16
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBasesG1(P[:])
+	fillBenchBasesG1(R[:])
+
+	for i := 0; i < len(ridx); i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAddG1Affine[pG1AffineC16, ppG1AffineC16, cG1AffineC16](&RR, &P, len(P))
+	}
+}
+
 func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -511,8 +538,7 @@ func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {

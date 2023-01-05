@@ -85,20 +85,6 @@ func (z *E4) SetOne() *E4 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E4) ToMont() *E4 {
-	z.B0.ToMont()
-	z.B1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E4) FromMont() *E4 {
-	z.B0.FromMont()
-	z.B1.FromMont()
-	return z
-}
-
 // MulByElement multiplies an element in E4 by an element in fp
 func (z *E4) MulByElement(x *E4, y *fp.Element) *E4 {
 	var yCopy fp.Element
@@ -150,6 +136,10 @@ func (z *E4) SetRandom() (*E4, error) {
 // IsZero returns true if the element is zero, fasle otherwise
 func (z *E4) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
+}
+
+func (z *E4) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero()
 }
 
 // MulByNonResidue mul x by (0,1)

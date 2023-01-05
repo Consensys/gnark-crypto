@@ -67,20 +67,6 @@ func (z *E6) SetOne() *E6 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E6) ToMont() *E6 {
-	z.B0.ToMont()
-	z.B1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E6) FromMont() *E6 {
-	z.B0.FromMont()
-	z.B1.FromMont()
-	return z
-}
-
 // Add set z=x+y in E6 and return z
 func (z *E6) Add(x, y *E6) *E6 {
 	z.B0.Add(&x.B0, &y.B0)
@@ -116,6 +102,10 @@ func (z *E6) SetRandom() (*E6, error) {
 // IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
+}
+
+func (z *E6) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero()
 }
 
 // Mul set z=x*y in E6 and return z
@@ -255,7 +245,7 @@ func (z *E6) DecompressKarabina(x *E6) *E6 {
 		t[1].Sub(&t[0], &x.B0.A2).
 			Double(&t[1]).
 			Add(&t[1], &t[0])
-			// t0 = E * g5^2 + t1
+		// t0 = E * g5^2 + t1
 		t[2].Square(&x.B1.A2)
 		t[0].MulByNonResidue(&t[2]).
 			Add(&t[0], &t[1])
@@ -528,8 +518,8 @@ func (z *E6) ExpGLV(x E6, k *big.Int) *E6 {
 	table[14].Mul(&table[11], &table[2])
 
 	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
-	s1.SetBigInt(&s[0]).FromMont()
-	s2.SetBigInt(&s[1]).FromMont()
+	s1 = s1.SetBigInt(&s[0]).Bits()
+	s2 = s2.SetBigInt(&s[1]).Bits()
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := len(s1) / 2; i >= 0; i-- {

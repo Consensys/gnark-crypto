@@ -83,27 +83,15 @@ func (z *E3) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero() && z.A2.IsZero()
 }
 
+func (z *E3) IsOne() bool {
+	return z.A0.IsOne() && z.A1.IsZero() && z.A2.IsZero()
+}
+
 // Neg negates the E3 number
 func (z *E3) Neg(x *E3) *E3 {
 	z.A0.Neg(&x.A0)
 	z.A1.Neg(&x.A1)
 	z.A2.Neg(&x.A2)
-	return z
-}
-
-// ToMont converts to Mont form
-func (z *E3) ToMont() *E3 {
-	z.A0.ToMont()
-	z.A1.ToMont()
-	z.A2.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E3) FromMont() *E3 {
-	z.A0.FromMont()
-	z.A1.FromMont()
-	z.A2.FromMont()
 	return z
 }
 

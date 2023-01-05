@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"math/rand"
 
 	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -370,7 +371,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 			r := fr.Modulus()
 			var g {{ $TJacobian }}
-			g.mulGLV(&{{.PointName}}Gen, r)
+			g.ScalarMultiplication(&{{.PointName}}Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg {{ $TJacobian }}
@@ -518,8 +519,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:])
@@ -532,7 +532,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 				var expectedJac {{ $TJacobian }}
 				var expected {{ $TAffine }}
 				var b big.Int
-				expectedJac.mulGLV(&{{.PointName}}Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&{{.PointName}}Gen, sampleScalars[i].ToBigIntRegular(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -559,6 +559,33 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
+func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
+	{{$c := 16}}
+	var P, R p{{$TAffine}}C{{$c}}
+	var RR pp{{$TAffine}}C{{$c}}
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBases{{ toUpper $.PointName }}(P[:])
+	fillBenchBases{{ toUpper $.PointName }}(R[:])
+
+	for i:=0; i < len(ridx);i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAdd{{ $TAffine }}[p{{$TAffine}}C{{$c}}, pp{{$TAffine}}C{{$c}}, c{{$TAffine}}C{{$c}}](&RR, &P, len(P))
+	}
+}
+
 func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -571,8 +598,7 @@ func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {
