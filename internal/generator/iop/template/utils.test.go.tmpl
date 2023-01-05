@@ -180,16 +180,6 @@ func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
 	}
 }
 
-func getCopy(l []Polynomial) []Polynomial {
-	r := make([]Polynomial, len(l))
-	for i := 0; i < len(l); i++ {
-		r[i].Coefficients = make([]fr.Element, len(l[i].Coefficients))
-		copy(r[i].Coefficients, l[i].Coefficients)
-		r[i] = l[i]
-	}
-	return r
-}
-
 func cmpCoefficents(p, q []fr.Element) bool {
 	if len(p) != len(q) {
 		return false
