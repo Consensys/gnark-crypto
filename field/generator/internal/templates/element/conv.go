@@ -181,7 +181,6 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 	vv := field.BigIntPool.Get()
 
 	// copy input + modular reduction
-	vv.Set(v)
 	vv.Mod(v, &_modulus)
 
 	// set big int byte value
