@@ -17,7 +17,6 @@
 package fptower
 
 import (
-	"encoding/binary"
 	"errors"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
@@ -68,20 +67,6 @@ func (z *E12) SetOne() *E12 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E12) ToMont() *E12 {
-	z.C0.ToMont()
-	z.C1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E12) FromMont() *E12 {
-	z.C0.FromMont()
-	z.C1.FromMont()
-	return z
-}
-
 // Add set z=x+y in E12 and return z
 func (z *E12) Add(x, y *E12) *E12 {
 	z.C0.Add(&x.C0, &y.C0)
@@ -117,6 +102,10 @@ func (z *E12) SetRandom() (*E12, error) {
 // IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E12) IsZero() bool {
 	return z.C0.IsZero() && z.C1.IsZero()
+}
+
+func (z *E12) IsOne() bool {
+	return z.C0.IsOne() && z.C1.IsZero()
 }
 
 // Mul set z=x*y in E12 and return z
@@ -226,9 +215,12 @@ func (z *E12) CyclotomicSquareCompressed(x *E12) *E12 {
 
 // DecompressKarabina Karabina's cyclotomic square result
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
@@ -289,9 +281,12 @@ func (z *E12) DecompressKarabina(x *E12) *E12 {
 
 // BatchDecompressKarabina multiple Karabina's cyclotomic square results
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
@@ -602,8 +597,8 @@ func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	table[14].Mul(&table[11], &table[2])
 
 	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
-	s1.SetBigInt(&s[0]).FromMont()
-	s2.SetBigInt(&s[1]).FromMont()
+	s1 = s1.SetBigInt(&s[0]).Bits()
+	s2 = s2.SetBigInt(&s[1]).Bits()
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := len(s1) / 2; i >= 0; i-- {
@@ -652,69 +647,20 @@ func (z *E12) Unmarshal(buf []byte) error {
 
 // Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte array.
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) Bytes() (r [SizeOfGT]byte) {
-	_z := *z
-	_z.FromMont()
-	binary.BigEndian.PutUint64(r[376:384], _z.C0.B0.A0[0])
-	binary.BigEndian.PutUint64(r[368:376], _z.C0.B0.A0[1])
-	binary.BigEndian.PutUint64(r[360:368], _z.C0.B0.A0[2])
-	binary.BigEndian.PutUint64(r[352:360], _z.C0.B0.A0[3])
-
-	binary.BigEndian.PutUint64(r[344:352], _z.C0.B0.A1[0])
-	binary.BigEndian.PutUint64(r[336:344], _z.C0.B0.A1[1])
-	binary.BigEndian.PutUint64(r[328:336], _z.C0.B0.A1[2])
-	binary.BigEndian.PutUint64(r[320:328], _z.C0.B0.A1[3])
-
-	binary.BigEndian.PutUint64(r[312:320], _z.C0.B1.A0[0])
-	binary.BigEndian.PutUint64(r[304:312], _z.C0.B1.A0[1])
-	binary.BigEndian.PutUint64(r[296:304], _z.C0.B1.A0[2])
-	binary.BigEndian.PutUint64(r[288:296], _z.C0.B1.A0[3])
-
-	binary.BigEndian.PutUint64(r[280:288], _z.C0.B1.A1[0])
-	binary.BigEndian.PutUint64(r[272:280], _z.C0.B1.A1[1])
-	binary.BigEndian.PutUint64(r[264:272], _z.C0.B1.A1[2])
-	binary.BigEndian.PutUint64(r[256:264], _z.C0.B1.A1[3])
-
-	binary.BigEndian.PutUint64(r[248:256], _z.C0.B2.A0[0])
-	binary.BigEndian.PutUint64(r[240:248], _z.C0.B2.A0[1])
-	binary.BigEndian.PutUint64(r[232:240], _z.C0.B2.A0[2])
-	binary.BigEndian.PutUint64(r[224:232], _z.C0.B2.A0[3])
-
-	binary.BigEndian.PutUint64(r[216:224], _z.C0.B2.A1[0])
-	binary.BigEndian.PutUint64(r[208:216], _z.C0.B2.A1[1])
-	binary.BigEndian.PutUint64(r[200:208], _z.C0.B2.A1[2])
-	binary.BigEndian.PutUint64(r[192:200], _z.C0.B2.A1[3])
-
-	binary.BigEndian.PutUint64(r[184:192], _z.C1.B0.A0[0])
-	binary.BigEndian.PutUint64(r[176:184], _z.C1.B0.A0[1])
-	binary.BigEndian.PutUint64(r[168:176], _z.C1.B0.A0[2])
-	binary.BigEndian.PutUint64(r[160:168], _z.C1.B0.A0[3])
-
-	binary.BigEndian.PutUint64(r[152:160], _z.C1.B0.A1[0])
-	binary.BigEndian.PutUint64(r[144:152], _z.C1.B0.A1[1])
-	binary.BigEndian.PutUint64(r[136:144], _z.C1.B0.A1[2])
-	binary.BigEndian.PutUint64(r[128:136], _z.C1.B0.A1[3])
-
-	binary.BigEndian.PutUint64(r[120:128], _z.C1.B1.A0[0])
-	binary.BigEndian.PutUint64(r[112:120], _z.C1.B1.A0[1])
-	binary.BigEndian.PutUint64(r[104:112], _z.C1.B1.A0[2])
-	binary.BigEndian.PutUint64(r[96:104], _z.C1.B1.A0[3])
-
-	binary.BigEndian.PutUint64(r[88:96], _z.C1.B1.A1[0])
-	binary.BigEndian.PutUint64(r[80:88], _z.C1.B1.A1[1])
-	binary.BigEndian.PutUint64(r[72:80], _z.C1.B1.A1[2])
-	binary.BigEndian.PutUint64(r[64:72], _z.C1.B1.A1[3])
-
-	binary.BigEndian.PutUint64(r[56:64], _z.C1.B2.A0[0])
-	binary.BigEndian.PutUint64(r[48:56], _z.C1.B2.A0[1])
-	binary.BigEndian.PutUint64(r[40:48], _z.C1.B2.A0[2])
-	binary.BigEndian.PutUint64(r[32:40], _z.C1.B2.A0[3])
-
-	binary.BigEndian.PutUint64(r[24:32], _z.C1.B2.A1[0])
-	binary.BigEndian.PutUint64(r[16:24], _z.C1.B2.A1[1])
-	binary.BigEndian.PutUint64(r[8:16], _z.C1.B2.A1[2])
-	binary.BigEndian.PutUint64(r[0:8], _z.C1.B2.A1[3])
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[352:352+fp.Bytes]), z.C0.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[320:320+fp.Bytes]), z.C0.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[288:288+fp.Bytes]), z.C0.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[256:256+fp.Bytes]), z.C0.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[224:224+fp.Bytes]), z.C0.B2.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[192:192+fp.Bytes]), z.C0.B2.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[160:160+fp.Bytes]), z.C1.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[128:128+fp.Bytes]), z.C1.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[96:96+fp.Bytes]), z.C1.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[64:64+fp.Bytes]), z.C1.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[32:32+fp.Bytes]), z.C1.B2.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(r[0:0+fp.Bytes]), z.C1.B2.A1)
 
 	return
 }
@@ -722,34 +668,47 @@ func (z *E12) Bytes() (r [SizeOfGT]byte) {
 // SetBytes interprets e as the bytes of a big-endian GT
 // sets z to that value (in Montgomery form), and returns z.
 // size(e) == 32 * 12
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
 	}
-	z.C0.B0.A0.SetBytes(e[352 : 352+fp.Bytes])
-
-	z.C0.B0.A1.SetBytes(e[320 : 320+fp.Bytes])
-
-	z.C0.B1.A0.SetBytes(e[288 : 288+fp.Bytes])
-
-	z.C0.B1.A1.SetBytes(e[256 : 256+fp.Bytes])
-
-	z.C0.B2.A0.SetBytes(e[224 : 224+fp.Bytes])
-
-	z.C0.B2.A1.SetBytes(e[192 : 192+fp.Bytes])
-
-	z.C1.B0.A0.SetBytes(e[160 : 160+fp.Bytes])
-
-	z.C1.B0.A1.SetBytes(e[128 : 128+fp.Bytes])
-
-	z.C1.B1.A0.SetBytes(e[96 : 96+fp.Bytes])
-
-	z.C1.B1.A1.SetBytes(e[64 : 64+fp.Bytes])
-
-	z.C1.B2.A0.SetBytes(e[32 : 32+fp.Bytes])
-
-	z.C1.B2.A1.SetBytes(e[0 : 0+fp.Bytes])
+	if err := z.C0.B0.A0.SetBytesCanonical(e[352 : 352+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C0.B0.A1.SetBytesCanonical(e[320 : 320+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C0.B1.A0.SetBytesCanonical(e[288 : 288+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C0.B1.A1.SetBytesCanonical(e[256 : 256+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C0.B2.A0.SetBytesCanonical(e[224 : 224+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C0.B2.A1.SetBytesCanonical(e[192 : 192+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B0.A0.SetBytesCanonical(e[160 : 160+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B0.A1.SetBytesCanonical(e[128 : 128+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B1.A0.SetBytesCanonical(e[96 : 96+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B1.A1.SetBytesCanonical(e[64 : 64+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B2.A0.SetBytesCanonical(e[32 : 32+fp.Bytes]); err != nil {
+		return err
+	}
+	if err := z.C1.B2.A1.SetBytesCanonical(e[0 : 0+fp.Bytes]); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -16,23 +16,28 @@
 // Ethereum pre-compiles as altbn128.
 //
 // bn254: A Barreto--Naerig curve with
-// 		seed x₀=4965661367192848881
-// 		𝔽r: r=21888242871839275222246405745257275088548364400416034343698204186575808495617 (36x₀⁴+36x₀³+18x₀²+6x₀+1)
-// 		𝔽p: p=21888242871839275222246405745257275088696311157297823662689037894645226208583 (36x₀⁴+36x₀³+24x₀²+6x₀+1)
-// 		(E/𝔽p): Y²=X³+3
-// 		(Eₜ/𝔽p²): Y² = X³+3/(u+9) (D-type twist)
-// 		r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
+//
+//	seed x₀=4965661367192848881
+//	𝔽r: r=21888242871839275222246405745257275088548364400416034343698204186575808495617 (36x₀⁴+36x₀³+18x₀²+6x₀+1)
+//	𝔽p: p=21888242871839275222246405745257275088696311157297823662689037894645226208583 (36x₀⁴+36x₀³+24x₀²+6x₀+1)
+//	(E/𝔽p): Y²=X³+3
+//	(Eₜ/𝔽p²): Y² = X³+3/(u+9) (D-type twist)
+//	r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p²)
+//
 // Extension fields tower:
-//     𝔽p²[u] = 𝔽p/u²+1
-//     𝔽p⁶[v] = 𝔽p²/v³-9-u
-//     𝔽p¹²[w] = 𝔽p⁶/w²-v
+//
+//	𝔽p²[u] = 𝔽p/u²+1
+//	𝔽p⁶[v] = 𝔽p²/v³-9-u
+//	𝔽p¹²[w] = 𝔽p⁶/w²-v
+//
 // optimal Ate loop size:
-//		6x₀+2
+//
+//	6x₀+2
 //
 // Security: estimated 103-bit level following [https://eprint.iacr.org/2019/885.pdf]
 // (r is 254 bits and p¹² is 3044 bits)
 //
-// Warning
+// # Warning
 //
 // This code has been partially audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 package bn254
@@ -94,9 +99,6 @@ var endo struct {
 // seed x₀ of the curve
 var xGen big.Int
 
-// trace - 1 = 6x₀²
-var fixedCoeff big.Int
-
 func init() {
 
 	bCurveCoeff.SetUint64(3)
@@ -141,9 +143,6 @@ func init() {
 	ecc.NafDecomposition(optimaAteLoop, loopCounter[:])
 
 	xGen.SetString("4965661367192848881", 10)
-
-	// 6x₀²
-	fixedCoeff.SetString("147946756881789318990833708069417712966", 10)
 
 }
 

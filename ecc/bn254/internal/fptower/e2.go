@@ -31,12 +31,20 @@ func (z *E2) Equal(x *E2) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1)
 }
 
+// Bits
+// TODO @gbotrel fixme this shouldn't return a E2
+func (z *E2) Bits() E2 {
+	r := E2{}
+	r.A0 = z.A0.Bits()
+	r.A1 = z.A1.Bits()
+	return r
+}
+
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *E2) Cmp(x *E2) int {
 	if a1 := z.A1.Cmp(&x.A1); a1 != 0 {
 		return a1
@@ -98,6 +106,10 @@ func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
 }
 
+func (z *E2) IsOne() bool {
+	return z.A0.IsOne() && z.A1.IsZero()
+}
+
 // Add adds two elements of E2
 func (z *E2) Add(x, y *E2) *E2 {
 	addE2(z, x, y)
@@ -125,20 +137,6 @@ func (z *E2) Neg(x *E2) *E2 {
 // String implements Stringer interface for fancy printing
 func (z *E2) String() string {
 	return z.A0.String() + "+" + z.A1.String() + "*u"
-}
-
-// ToMont converts to mont form
-func (z *E2) ToMont() *E2 {
-	z.A0.ToMont()
-	z.A1.ToMont()
-	return z
-}
-
-// FromMont converts from mont form
-func (z *E2) FromMont() *E2 {
-	z.A0.FromMont()
-	z.A1.FromMont()
-	return z
 }
 
 // MulByElement multiplies an element in E2 by an element in fp

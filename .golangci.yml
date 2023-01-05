@@ -11,6 +11,7 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    # - errcheck
 
 run:
   issues-exit-code: 1

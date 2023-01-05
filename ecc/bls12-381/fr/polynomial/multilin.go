@@ -18,6 +18,7 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"math/bits"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
@@ -46,44 +47,62 @@ func (m *MultiLin) Fold(r fr.Element) {
 	*m = (*m)[:mid]
 }
 
+func (m MultiLin) Sum() fr.Element {
+	s := m[0]
+	for i := 1; i < len(m); i++ {
+		s.Add(&s, &m[i])
+	}
+	return s
+}
+
+func _clone(m MultiLin, p *Pool) MultiLin {
+	if p == nil {
+		return m.Clone()
+	} else {
+		return p.Clone(m)
+	}
+}
+
+func _dump(m MultiLin, p *Pool) {
+	if p != nil {
+		p.Dump(m)
+	}
+}
+
 // Evaluate extrapolate the value of the multilinear polynomial corresponding to m
 // on the given coordinates
-func (m MultiLin) Evaluate(coordinates []fr.Element) fr.Element {
+func (m MultiLin) Evaluate(coordinates []fr.Element, p *Pool) fr.Element {
 	// Folding is a mutating operation
-	bkCopy := m.Clone()
+	bkCopy := _clone(m, p)
 
 	// Evaluate step by step through repeated folding (i.e. evaluation at the first remaining variable)
 	for _, r := range coordinates {
 		bkCopy.Fold(r)
 	}
 
-	return bkCopy[0]
+	result := bkCopy[0]
+
+	_dump(bkCopy, p)
+	return result
 }
 
-// Clone creates a deep copy of a book-keeping table.
+// Clone creates a deep copy of a bookkeeping table.
 // Both multilinear interpolation and sumcheck require folding an underlying
 // array, but folding changes the array. To do both one requires a deep copy
-// of the book-keeping table.
+// of the bookkeeping table.
 func (m MultiLin) Clone() MultiLin {
-	tableDeepCopy := Make(len(m))
-	copy(tableDeepCopy, m)
-	return tableDeepCopy
+	res := make(MultiLin, len(m))
+	copy(res, m)
+	return res
 }
 
 // Add two bookKeepingTables
 func (m *MultiLin) Add(left, right MultiLin) {
 	size := len(left)
 	// Check that left and right have the same size
-	if len(right) != size {
-		panic("Left and right do not have the right size")
+	if len(right) != size || len(*m) != size {
+		panic("left, right and destination must have the right size")
 	}
-	// Reallocate the table if necessary
-	if cap(*m) < size {
-		*m = make([]fr.Element, size)
-	}
-
-	// Resize the destination table
-	*m = (*m)[:size]
 
 	// Add elementwise
 	for i := 0; i < size; i++ {
@@ -93,15 +112,17 @@ func (m *MultiLin) Add(left, right MultiLin) {
 
 // EvalEq computes Eq(q₁, ... , qₙ, h₁, ... , hₙ) = Π₁ⁿ Eq(qᵢ, hᵢ)
 // where Eq(x,y) = xy + (1-x)(1-y) = 1 - x - y + xy + xy interpolates
-//      _________________
-//      |       |       |
-//      |   0   |   1   |
-//      |_______|_______|
-//  y   |       |       |
-//      |   1   |   0   |
-//      |_______|_______|
 //
-//              x
+//	    _________________
+//	    |       |       |
+//	    |   0   |   1   |
+//	    |_______|_______|
+//	y   |       |       |
+//	    |   1   |   0   |
+//	    |_______|_______|
+//
+//	            x
+//
 // In other words the polynomial evaluated here is the multilinear extrapolation of
 // one that evaluates to q' == h' for vectors q', h' of binary values
 func EvalEq(q, h []fr.Element) fr.Element {
@@ -128,10 +149,7 @@ func (m *MultiLin) Eq(q []fr.Element) {
 	n := len(q)
 
 	if len(*m) != 1<<n {
-		n := Make(1 << n)
-		n[0].Set(&(*m)[0])
-		//TODO: Dump m?
-		*m = n
+		panic("destination must have size 2 raised to the size of source")
 	}
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
@@ -144,6 +162,10 @@ func (m *MultiLin) Eq(q []fr.Element) {
 			(*m)[j0].Sub(&(*m)[j0], &(*m)[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 		}
 	}
+}
+
+func (m MultiLin) NumVars() int {
+	return bits.TrailingZeros(uint(len(m)))
 }
 
 func init() {
@@ -191,7 +213,7 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	for l := uint8(0); l < domainSize; l++ {
 
 		// TODO: Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
-		d := uint8(0) //n is the current degree of res
+		d := uint8(0) //d is the current degree of res
 		for i := uint8(0); i < domainSize; i++ {
 			if i == l {
 				continue
@@ -231,7 +253,6 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 // InterpolateOnRange performs the interpolation of the given list of elements
 // On the range [0, 1,..., len(values) - 1]
-// TODO: Am I crazy or is this EXTRApolation and not INTERpolation
 func InterpolateOnRange(values []fr.Element) Polynomial {
 	nEvals := len(values)
 	lagrange := getLagrangeBasis(nEvals)

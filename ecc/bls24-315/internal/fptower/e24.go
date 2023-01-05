@@ -66,20 +66,6 @@ func (z *E24) SetOne() *E24 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E24) ToMont() *E24 {
-	z.D0.ToMont()
-	z.D1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E24) FromMont() *E24 {
-	z.D0.FromMont()
-	z.D1.FromMont()
-	return z
-}
-
 // Add set z=x+y in E24 and return z
 func (z *E24) Add(x, y *E24) *E24 {
 	z.D0.Add(&x.D0, &y.D0)
@@ -115,6 +101,10 @@ func (z *E24) SetRandom() (*E24, error) {
 // IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E24) IsZero() bool {
 	return z.D0.IsZero() && z.D1.IsZero()
+}
+
+func (z *E24) IsOne() bool {
+	return z.D0.IsOne() && z.D1.IsZero()
 }
 
 // Mul set z=x*y in E24 and return z
@@ -224,9 +214,12 @@ func (z *E24) CyclotomicSquareCompressed(x *E24) *E24 {
 
 // DecompressKarabina Karabina's cyclotomic square result
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
@@ -251,7 +244,7 @@ func (z *E24) DecompressKarabina(x *E24) *E24 {
 		t[1].Sub(&t[0], &x.D0.C2).
 			Double(&t[1]).
 			Add(&t[1], &t[0])
-			// t0 = E * g5^2 + t1
+		// t0 = E * g5^2 + t1
 		t[2].Square(&x.D1.C2)
 		t[0].MulByNonResidue(&t[2]).
 			Add(&t[0], &t[1])
@@ -287,9 +280,12 @@ func (z *E24) DecompressKarabina(x *E24) *E24 {
 
 // BatchDecompressKarabina multiple Karabina's cyclotomic square results
 // if g3 != 0
-//   g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
+//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//
 // if g3 == 0
-//   g4 = 2g1g5/g2
+//
+//	g4 = 2g1g5/g2
 //
 // if g3=g2=0 then g4=g5=g1=0 and g0=1 (x=1)
 // Theorem 3.1 is well-defined for all x in Gϕₙ\{1}
@@ -325,7 +321,7 @@ func BatchDecompressKarabina(x []E24) []E24 {
 			t1[i].Sub(&t0[i], &x[i].D0.C2).
 				Double(&t1[i]).
 				Add(&t1[i], &t0[i])
-				// t0 = E * g5^2 + t1
+			// t0 = E * g5^2 + t1
 			t2[i].Square(&x[i].D1.C2)
 			t0[i].MulByNonResidue(&t2[i]).
 				Add(&t0[i], &t1[i])
@@ -600,8 +596,8 @@ func (z *E24) ExpGLV(x E24, k *big.Int) *E24 {
 	table[14].Mul(&table[11], &table[2])
 
 	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
-	s1.SetBigInt(&s[0]).FromMont()
-	s2.SetBigInt(&s[1]).FromMont()
+	s1 = s1.SetBigInt(&s[0]).Bits()
+	s2 = s2.SetBigInt(&s[1]).Bits()
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := len(s1)/2 + 1; i >= 0; i-- {

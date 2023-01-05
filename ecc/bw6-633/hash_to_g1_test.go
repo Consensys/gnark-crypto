@@ -62,7 +62,7 @@ func TestG1SqrtRatio(t *testing.T) {
 
 func TestHashToFpG1(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), encodeToG1Vector.dst, 1)
+		elems, err := fp.Hash([]byte(c.msg), encodeToG1Vector.dst, 1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -70,7 +70,7 @@ func TestHashToFpG1(t *testing.T) {
 	}
 
 	for _, c := range hashToG1Vector.cases {
-		elems, err := hashToFp([]byte(c.msg), hashToG1Vector.dst, 2*1)
+		elems, err := fp.Hash([]byte(c.msg), hashToG1Vector.dst, 2*1)
 		if err != nil {
 			t.Error(err)
 		}
@@ -220,7 +220,7 @@ func BenchmarkHashToG1(b *testing.B) {
 	}
 }
 
-//TODO: Crude. Do something clever in Jacobian
+// TODO: Crude. Do something clever in Jacobian
 func isOnE1Prime(p G1Affine) bool {
 
 	var A, B fp.Element
@@ -247,7 +247,7 @@ func isOnE1Prime(p G1Affine) bool {
 	return LHS.Equal(&RHS)
 }
 
-//Only works on simple extensions (two-story towers)
+// Only works on simple extensions (two-story towers)
 func g1CoordSetString(z *fp.Element, s string) {
 	z.SetString(s)
 }

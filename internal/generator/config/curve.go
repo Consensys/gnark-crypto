@@ -3,7 +3,7 @@ package config
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/internal/field"
+	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -15,8 +15,8 @@ type Curve struct {
 	FpModulus    string
 	FrModulus    string
 
-	Fp           *field.FieldConfig
-	Fr           *field.FieldConfig
+	Fp           *config.FieldConfig
+	Fr           *config.FieldConfig
 	FpUnusedBits int
 
 	FpInfo, FrInfo Field
@@ -68,7 +68,7 @@ var TwistedEdwardsCurves []TwistedEdwardsCurve
 
 func defaultCRange() []int {
 	// default range for C values in the multiExp
-	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21}
+	return []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 }
 
 func addCurve(c *Curve) {
@@ -90,7 +90,13 @@ func newFieldInfo(modulus string) Field {
 	}
 
 	F.Bits = bModulus.BitLen()
-	F.Bytes = len(bModulus.Bits()) * 8
+	F.Bytes = (F.Bits + 7) / 8
 	F.Modulus = func() *big.Int { return new(big.Int).Set(&bModulus) }
 	return F
+}
+
+type FieldDependency struct {
+	FieldPackagePath string
+	ElementType      string
+	FieldPackageName string
 }

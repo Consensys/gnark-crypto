@@ -32,10 +32,9 @@ func (z *E4) Equal(x *E4) bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *E4) Cmp(x *E4) int {
 	if a1 := z.B1.Cmp(&x.B1); a1 != 0 {
 		return a1
@@ -83,20 +82,6 @@ func (z *E4) SetZero() *E4 {
 func (z *E4) SetOne() *E4 {
 	*z = E4{}
 	z.B0.A0.SetOne()
-	return z
-}
-
-// ToMont converts to Mont form
-func (z *E4) ToMont() *E4 {
-	z.B0.ToMont()
-	z.B1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E4) FromMont() *E4 {
-	z.B0.FromMont()
-	z.B1.FromMont()
 	return z
 }
 
@@ -151,6 +136,10 @@ func (z *E4) SetRandom() (*E4, error) {
 // IsZero returns true if the element is zero, fasle otherwise
 func (z *E4) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
+}
+
+func (z *E4) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero()
 }
 
 // MulByNonResidue mul x by (0,1)

@@ -20,13 +20,13 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"github.com/consensys/gnark-crypto/field"
 	"io"
 	"math/big"
 	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // Element represents a field element stored on 1 words (uint64)
@@ -35,18 +35,18 @@ import (
 //
 // Modulus q =
 //
-// 	q[base10] = 18446744069414584321
-// 	q[base16] = 0xffffffff00000001
+//	q[base10] = 18446744069414584321
+//	q[base16] = 0xffffffff00000001
 //
-// Warning
+// # Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
 type Element [1]uint64
 
 const (
-	Limbs = 1         // number of 64 bits words needed to represent a Element
-	Bits  = 64        // number of bits needed to represent a Element
-	Bytes = Limbs * 8 // number of bytes needed to represent a Element
+	Limbs = 1  // number of 64 bits words needed to represent a Element
+	Bits  = 64 // number of bits needed to represent a Element
+	Bytes = 8  // number of bytes needed to represent a Element
 )
 
 // Field modulus q
@@ -63,8 +63,8 @@ var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
-// 	q[base10] = 18446744069414584321
-// 	q[base16] = 0xffffffff00000001
+//	q[base10] = 18446744069414584321
+//	q[base16] = 0xffffffff00000001
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
@@ -73,12 +73,6 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg uint64 = 18446744069414584319
 
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
-
 func init() {
 	_modulus.SetString("ffffffff00000001", 16)
 }
@@ -86,8 +80,9 @@ func init() {
 // NewElement returns a new Element from a uint64 value
 //
 // it is equivalent to
-// 		var v Element
-// 		v.SetUint64(...)
+//
+//	var v Element
+//	v.SetUint64(...)
 func NewElement(v uint64) Element {
 	z := Element{v}
 	z.Mul(&z, &rSquare)
@@ -98,7 +93,7 @@ func NewElement(v uint64) Element {
 func (z *Element) SetUint64(v uint64) *Element {
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = Element{v}
-	return z.Mul(z, &rSquare) // z.ToMont()
+	return z.Mul(z, &rSquare) // z.toMont()
 }
 
 // SetInt64 sets z to v and returns z
@@ -125,14 +120,15 @@ func (z *Element) Set(x *Element) *Element {
 // SetInterface converts provided interface into Element
 // returns an error if provided type is not supported
 // supported types:
-//  Element
-//  *Element
-//  uint64
-//  int
-//  string (see SetString for valid formats)
-//  *big.Int
-//  big.Int
-//  []byte
+//
+//	Element
+//	*Element
+//	uint64
+//	int
+//	string (see SetString for valid formats)
+//	*big.Int
+//	big.Int
+//	[]byte
 func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set goldilocks.Element with <nil>")
@@ -240,9 +236,7 @@ func (z *Element) IsUint64() bool {
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *Element) Uint64() uint64 {
-	zz := *z
-	zz.FromMont()
-	return zz[0]
+	return z.Bits()[0]
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -254,15 +248,12 @@ func (z *Element) FitsOnOneWord() bool {
 
 // Cmp compares (lexicographic order) z and x and returns:
 //
-//   -1 if z <  x
-//    0 if z == x
-//   +1 if z >  x
-//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
 func (z *Element) Cmp(x *Element) int {
-	_z := *z
-	_x := *x
-	_z.FromMont()
-	_x.FromMont()
+	_z := z.Bits()
+	_x := x.Bits()
 	if _z[0] > _x[0] {
 		return 1
 	} else if _z[0] < _x[0] {
@@ -278,8 +269,7 @@ func (z *Element) LexicographicallyLargest() bool {
 	// we check if the element is larger than (q-1) / 2
 	// if z - (((q -1) / 2) + 1) have no underflow, then z > (q-1) / 2
 
-	_z := *z
-	_z.FromMont()
+	_z := z.Bits()
 
 	var b uint64
 	_, b = bits.Sub64(_z[0], 9223372034707292161, 0)
@@ -357,81 +347,16 @@ func (z *Element) Halve() {
 	z[0] >>= 1
 
 	if carry != 0 {
-		// when we added q, the result was larger than our avaible limbs
+		// when we added q, the result was larger than our available limbs
 		// when we shift right, we need to set the highest bit
 		z[0] |= (1 << 63)
 	}
 
 }
 
-// Mul z = x * y (mod q)
-func (z *Element) Mul(x, y *Element) *Element {
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-
-	var r uint64
-	hi, lo := bits.Mul64(x[0], y[0])
-	m := lo * qInvNeg
-	hi2, lo2 := bits.Mul64(m, q)
-	_, carry := bits.Add64(lo2, lo, 0)
-	r, carry = bits.Add64(hi2, hi, carry)
-
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
-	}
-	z[0] = r
-
-	return z
-}
-
-// Square z = x * x (mod q)
-func (z *Element) Square(x *Element) *Element {
-	// see Mul for algorithm documentation
-
-	var r uint64
-	hi, lo := bits.Mul64(x[0], x[0])
-	m := lo * qInvNeg
-	hi2, lo2 := bits.Mul64(m, q)
-	_, carry := bits.Add64(lo2, lo, 0)
-	r, carry = bits.Add64(hi2, hi, carry)
-
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
-	}
-	z[0] = r
-
-	return z
-}
-
-// FromMont converts z in place (i.e. mutates) from Montgomery to regular representation
+// fromMont converts z in place (i.e. mutates) from Montgomery to regular representation
 // sets and returns z = z * 1
-func (z *Element) FromMont() *Element {
+func (z *Element) fromMont() *Element {
 	fromMont(z)
 	return z
 }
@@ -490,22 +415,71 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+// _mulGeneric is unoptimized textbook CIOS
+// it is a fallback solution on x86 when ADX instruction set is not available
+// and is used for testing purposes.
 func _mulGeneric(z, x, y *Element) {
-	// see Mul for algorithm documentation
 
-	var r uint64
-	hi, lo := bits.Mul64(x[0], y[0])
-	m := lo * qInvNeg
-	hi2, lo2 := bits.Mul64(m, q)
-	_, carry := bits.Add64(lo2, lo, 0)
-	r, carry = bits.Add64(hi2, hi, carry)
+	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
+	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+	//
+	// The algorithm:
+	//
+	// for i=0 to N-1
+	// 		C := 0
+	// 		for j=0 to N-1
+	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
+	// 		(t[N+1],t[N]) := t[N] + C
+	//
+	// 		C := 0
+	// 		m := t[0]*q'[0] mod D
+	// 		(C,_) := t[0] + m*q[0]
+	// 		for j=1 to N-1
+	// 			(C,t[j-1]) := t[j] + m*q[j] + C
+	//
+	// 		(C,t[N-1]) := t[N] + C
+	// 		t[N] := t[N+1] + C
+	//
+	// → N is the number of machine words needed to store the modulus q
+	// → D is the word size. For example, on a 64-bit architecture D is 2	64
+	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
+	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
+	// → t is a temporary array of size N+2
+	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
 
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
+	var t [2]uint64
+	var D uint64
+	var m, C uint64
+	// -----------------------------------
+	// First loop
+
+	C, t[0] = bits.Mul64(y[0], x[0])
+
+	t[1], D = bits.Add64(t[1], C, 0)
+
+	// m = t[0]n'[0] mod W
+	m = t[0] * qInvNeg
+
+	// -----------------------------------
+	// Second loop
+	C = madd0(m, q0, t[0])
+
+	t[0], C = bits.Add64(t[1], C, 0)
+	t[1], _ = bits.Add64(0, D, C)
+
+	if t[1] != 0 {
+		// we need to reduce, we have a result on 2 words
+		z[0], _ = bits.Sub64(t[0], q0, 0)
+		return
 	}
-	z[0] = r
 
+	// copy t into z
+	z[0] = t[0]
+
+	// if z ⩾ q → z -= q
+	if !z.smallerThanModulus() {
+		z[0] -= q
+	}
 }
 
 func _fromMontGeneric(z *Element) {
@@ -519,7 +493,7 @@ func _fromMontGeneric(z *Element) {
 		z[0] = C
 	}
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
@@ -527,7 +501,7 @@ func _fromMontGeneric(z *Element) {
 
 func _reduceGeneric(z *Element) {
 
-	// if z >= q → z -= q
+	// if z ⩾ q → z -= q
 	if !z.smallerThanModulus() {
 		z[0] -= q
 	}
@@ -578,6 +552,35 @@ func (z *Element) BitLen() int {
 	return bits.Len64(z[0])
 }
 
+// Hash msg to count prime field elements.
+// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
+func Hash(msg, dst []byte, count int) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// get temporary big int from the pool
+	vv := field.BigIntPool.Get()
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
+	}
+
+	// release object into pool
+	field.BigIntPool.Put(vv)
+
+	return res, nil
+}
+
 // Exp z = xᵏ (mod q)
 func (z *Element) Exp(x Element, k *big.Int) *Element {
 	if k.IsUint64() && k.Uint64() == 0 {
@@ -592,8 +595,8 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
+		e = field.BigIntPool.Get()
+		defer field.BigIntPool.Put(e)
 		e.Neg(k)
 	}
 
@@ -616,21 +619,24 @@ var rSquare = Element{
 	18446744065119617025,
 }
 
-// ToMont converts z to Montgomery form
+// toMont converts z to Montgomery form
 // sets and returns z = z * r²
-func (z *Element) ToMont() *Element {
+func (z *Element) toMont() *Element {
 	return z.Mul(z, &rSquare)
-}
-
-// ToRegular returns z in regular form (doesn't mutate z)
-func (z Element) ToRegular() Element {
-	return *z.FromMont()
 }
 
 // String returns the decimal representation of z as generated by
 // z.Text(10).
 func (z *Element) String() string {
 	return z.Text(10)
+}
+
+// toBigInt returns z as a big.Int in Montgomery form
+func (z *Element) toBigInt(res *big.Int) *big.Int {
+	var b [Bytes]byte
+	binary.BigEndian.PutUint64(b[0:8], z[0])
+
+	return res.SetBytes(b[:])
 }
 
 // Text returns the string representation of z in the given base.
@@ -651,35 +657,42 @@ func (z *Element) Text(base int) string {
 	if base == 10 {
 		var zzNeg Element
 		zzNeg.Neg(z)
-		zzNeg.FromMont()
+		zzNeg.fromMont()
 		if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
 			return "-" + strconv.FormatUint(zzNeg[0], base)
 		}
 	}
-	zz := *z
-	zz.FromMont()
+	zz := z.Bits()
 	return strconv.FormatUint(zz[0], base)
 }
 
-// ToBigInt returns z as a big.Int in Montgomery form
-func (z *Element) ToBigInt(res *big.Int) *big.Int {
-	var b [Limbs * 8]byte
-	binary.BigEndian.PutUint64(b[0:8], z[0])
-
-	return res.SetBytes(b[:])
+// BigInt sets and return z as a *big.Int
+func (z *Element) BigInt(res *big.Int) *big.Int {
+	_z := *z
+	_z.fromMont()
+	return _z.toBigInt(res)
 }
 
 // ToBigIntRegular returns z as a big.Int in regular form
+//
+// Deprecated: use BigInt(*big.Int) instead
 func (z Element) ToBigIntRegular(res *big.Int) *big.Int {
-	z.FromMont()
-	return z.ToBigInt(res)
+	z.fromMont()
+	return z.toBigInt(res)
+}
+
+// Bits provides access to z by returning its value as a little-endian [1]uint64 array.
+// Bits is intended to support implementation of missing low-level Element
+// functionality outside this package; it should be avoided otherwise.
+func (z *Element) Bits() [1]uint64 {
+	_z := *z
+	fromMont(&_z)
+	return _z
 }
 
 // Bytes returns the value of z as a big-endian byte array
-func (z *Element) Bytes() (res [Limbs * 8]byte) {
-	_z := z.ToRegular()
-	binary.BigEndian.PutUint64(res[0:8], _z[0])
-
+func (z *Element) Bytes() (res [Bytes]byte) {
+	BigEndian.PutElement(&res, *z)
 	return
 }
 
@@ -692,22 +705,42 @@ func (z *Element) Marshal() []byte {
 // SetBytes interprets e as the bytes of a big-endian unsigned integer,
 // sets z to that value, and returns z.
 func (z *Element) SetBytes(e []byte) *Element {
-	if len(e) == 8 {
+	if len(e) == Bytes {
 		// fast path
-		z[0] = binary.BigEndian.Uint64(e)
-		return z.ToMont()
+		v, err := BigEndian.Element((*[Bytes]byte)(e))
+		if err == nil {
+			*z = v
+			return z
+		}
 	}
+
+	// slow path.
 	// get a big int from our pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 	vv.SetBytes(e)
 
 	// set big int
 	z.SetBigInt(vv)
 
 	// put temporary object back in pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z
+}
+
+// SetBytesCanonical interprets e as the bytes of a big-endian 8-byte integer.
+// If e is not a 8-byte slice or encodes a value higher than q,
+// SetBytesCanonical returns an error.
+func (z *Element) SetBytesCanonical(e []byte) error {
+	if len(e) != Bytes {
+		return errors.New("invalid goldilocks.Element encoding")
+	}
+	v, err := BigEndian.Element((*[Bytes]byte)(e))
+	if err != nil {
+		return err
+	}
+	*z = v
+	return nil
 }
 
 // SetBigInt sets z to v and returns z
@@ -727,17 +760,16 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	// copy input + modular reduction
-	vv.Set(v)
 	vv.Mod(v, &_modulus)
 
 	// set big int byte value
 	z.setBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return z
 }
 
@@ -759,20 +791,20 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 		}
 	}
 
-	return z.ToMont()
+	return z.toMont()
 }
 
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ''0b'' or ''0B'' selects base 2, ''0'', ''0o'' or ''0O'' selects base 8,
-// and ''0x'' or ''0X'' selects base 16. Otherwise, the selected base is 10
+// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
+// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ''_'' may appear between a base
+// An underscore character ”_” may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
@@ -781,7 +813,7 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // If the number is invalid this method leaves z unchanged and returns nil, error.
 func (z *Element) SetString(number string) (*Element, error) {
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		return nil, errors.New("Element.SetString failed -> can't parse number into a big.Int " + number)
@@ -790,7 +822,7 @@ func (z *Element) SetString(number string) (*Element, error) {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 
 	return z, nil
 }
@@ -830,7 +862,7 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	}
 
 	// get temporary big int from the pool
-	vv := bigIntPool.Get().(*big.Int)
+	vv := field.BigIntPool.Get()
 
 	if _, ok := vv.SetString(s, 0); !ok {
 		return errors.New("can't parse into a big.Int: " + s)
@@ -839,9 +871,66 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	bigIntPool.Put(vv)
+	field.BigIntPool.Put(vv)
 	return nil
 }
+
+// A ByteOrder specifies how to convert byte slices into a Element
+type ByteOrder interface {
+	Element(*[Bytes]byte) (Element, error)
+	PutElement(*[Bytes]byte, Element)
+	String() string
+}
+
+// BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
+var BigEndian bigEndian
+
+type bigEndian struct{}
+
+// Element interpret b is a big-endian 8-byte slice.
+// If b encodes a value higher than q, Element returns error.
+func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.BigEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid goldilocks.Element encoding")
+	}
+
+	z.toMont()
+	return z, nil
+}
+
+func (bigEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.fromMont()
+	binary.BigEndian.PutUint64((*b)[0:8], e[0])
+}
+
+func (bigEndian) String() string { return "BigEndian" }
+
+// LittleEndian is the little-endian implementation of ByteOrder and AppendByteOrder.
+var LittleEndian littleEndian
+
+type littleEndian struct{}
+
+func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
+	var z Element
+	z[0] = binary.LittleEndian.Uint64((*b)[0:8])
+
+	if !z.smallerThanModulus() {
+		return Element{}, errors.New("invalid goldilocks.Element encoding")
+	}
+
+	z.toMont()
+	return z, nil
+}
+
+func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
+	e.fromMont()
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+}
+
+func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
@@ -875,7 +964,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
 
-	// b = x^s = w * w * x = y * x
+	// b = xˢ = w * w * x = y * x
 	b.Mul(&w, &y)
 
 	// g = nonResidue ^ s
@@ -885,7 +974,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	r := uint64(32)
 
 	// compute legendre symbol
-	// t = x^((q-1)/2) = r-1 squaring of x^s
+	// t = x^((q-1)/2) = r-1 squaring of xˢ
 	t = b
 	for i := uint64(0); i < r-1; i++ {
 		t.Square(&t)
@@ -938,7 +1027,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var r, s, u, v uint64
 	u = q
-	s = 18446744065119617025 // s = r^2
+	s = 18446744065119617025 // s = r²
 	r = 0
 	v = x[0]
 
