@@ -18,36 +18,29 @@ package mimc
 
 import (
 	"math/big"
-	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-func TestDecompose(t *testing.T) {
+// Decompose interpret rawBytes as a bigInt x in big endian,
+// and returns the digits of x (from LSB to MSB) when x is written
+// in basis modulo.
+func Decompose(rawBytes []byte) []fr.Element {
 
-	// create 10 random digits in basis r
-	nbDigits := 10
-	a := make([]fr.Element, nbDigits)
-	for i := 0; i < nbDigits; i++ {
-		a[i].SetRandom()
+	rawBigInt := big.NewInt(0).SetBytes(rawBytes)
+	modulo := fr.Modulus()
+
+	// maximum number of chunks that a function
+	maxNbChunks := len(rawBytes) / fr.Bytes
+
+	res := make([]fr.Element, 0, maxNbChunks)
+	var tmp fr.Element
+	t := new(big.Int)
+	for rawBigInt.Sign() != 0 {
+		rawBigInt.DivMod(rawBigInt, modulo, t)
+		tmp.SetBigInt(t)
+		res = append(res, tmp)
 	}
 
-	// create a big int whose digits in basis r are a
-	m := fr.Modulus()
-	var b, tmp big.Int
-	for i := nbDigits - 1; i >= 0; i-- {
-		b.Mul(&b, m)
-		a[i].ToBigIntRegular(&tmp)
-		b.Add(&b, &tmp)
-	}
-
-	// query the decomposition and compare to a
-	bb := b.Bytes()
-	d := decompose(bb)
-	for i := 0; i < nbDigits; i++ {
-		if !d[i].Equal(&a[i]) {
-			t.Fatal("error decomposition")
-		}
-	}
-
+	return res
 }

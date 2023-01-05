@@ -17,6 +17,7 @@
 package mimc
 
 import (
+	"errors"
 	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
@@ -91,41 +92,45 @@ func (d *digest) BlockSize() int {
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
-// It never returns an error.
+//
+// Each []byte block of size BlockSize represents a big endian fr.Element.
+//
+// If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
+// larger than fr.Modulus, this function returns an error.
+//
+// To hash arbitrary data ([]byte not representing canonical field elements) use Decompose
+// function in this package.
 func (d *digest) Write(p []byte) (n int, err error) {
 	n = len(p)
+	if n%BlockSize != 0 {
+		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+	}
+
+	// ensure each block represents a field element in canonical reduced form
+	for i := 0; i < n; i += BlockSize {
+		if _, err = fr.BigEndian.Element((*[BlockSize]byte)(p[i : i+BlockSize])); err != nil {
+			return 0, err
+		}
+	}
+
 	d.data = append(d.data, p...)
 	return
 }
 
-// Hash hash using Miyaguchi–Preneel:
+// Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
 func (d *digest) checksum() fr.Element {
+	// Write guarantees len(data) % BlockSize == 0
 
-	var x fr.Element
-
-	// if data size is not multiple of BlockSizes we padd:
-	// .. || 0xaf8 -> .. || 0x0000...0af8
-	if len(d.data)%BlockSize != 0 {
-		q := len(d.data) / BlockSize
-		r := len(d.data) % BlockSize
-		sliceq := make([]byte, q*BlockSize)
-		copy(sliceq, d.data)
-		slicer := make([]byte, r)
-		copy(slicer, d.data[q*BlockSize:])
-		sliceremainder := make([]byte, BlockSize-r)
-		d.data = append(sliceq, sliceremainder...)
-		d.data = append(d.data, slicer...)
-	}
-
+	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
 	if len(d.data) == 0 {
-		d.data = make([]byte, 32)
+		d.data = make([]byte, BlockSize)
 	}
 
-	chunks := decompose(d.data)
-	for i := 0; i < len(chunks); i++ {
-		r := d.encrypt(chunks[i])
+	for i := 0; i < len(d.data); i += BlockSize {
+		x, _ := fr.BigEndian.Element((*[BlockSize]byte)(d.data[i : i+BlockSize]))
+		r := d.encrypt(x)
 		d.h.Add(&r, &d.h).Add(&d.h, &x)
 	}
 

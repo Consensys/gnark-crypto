@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
 func TestDecompose(t *testing.T) {
@@ -43,7 +43,7 @@ func TestDecompose(t *testing.T) {
 
 	// query the decomposition and compare to a
 	bb := b.Bytes()
-	d := decompose(bb)
+	d := Decompose(bb)
 	for i := 0; i < nbDigits; i++ {
 		if !d[i].Equal(&a[i]) {
 			t.Fatal("error decomposition")

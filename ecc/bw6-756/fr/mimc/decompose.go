@@ -19,13 +19,13 @@ package mimc
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
-// decompose interpret rawBytes as a bigInt x in big endian,
+// Decompose interpret rawBytes as a bigInt x in big endian,
 // and returns the digits of x (from LSB to MSB) when x is written
 // in basis modulo.
-func decompose(rawBytes []byte) []fr.Element {
+func Decompose(rawBytes []byte) []fr.Element {
 
 	rawBigInt := big.NewInt(0).SetBytes(rawBytes)
 	modulo := fr.Modulus()
@@ -35,12 +35,11 @@ func decompose(rawBytes []byte) []fr.Element {
 
 	res := make([]fr.Element, 0, maxNbChunks)
 	var tmp fr.Element
-	var zero big.Int
-
-	for rawBigInt.Cmp(&zero) > 0 {
-		tmp.SetBigInt(rawBigInt) // tmp <- rawBitInt [r]
+	t := new(big.Int)
+	for rawBigInt.Sign() != 0 {
+		rawBigInt.DivMod(rawBigInt, modulo, t)
+		tmp.SetBigInt(t)
 		res = append(res, tmp)
-		rawBigInt.Div(rawBigInt, modulo)
 	}
 
 	return res
