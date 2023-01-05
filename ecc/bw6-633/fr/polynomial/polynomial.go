@@ -20,12 +20,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
-
-	"math/big"
 	"strings"
 )
 
-// Polynomial represented by coefficients bn254 fr field.
+// Polynomial represented by coefficients in the field.
 type Polynomial []fr.Element
 
 // Degree returns the degree of the polynomial, which is the length of Data.
@@ -130,6 +128,18 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 	return p
 }
 
+// Sub subtracts p2 from p1
+// TODO make interface more consistent with Add
+func (p *Polynomial) Sub(p1, p2 Polynomial) *Polynomial {
+	if len(p1) != len(p2) || len(p2) != len(*p) {
+		return nil
+	}
+	for i := 0; i < len(*p); i++ {
+		(*p)[i].Sub(&p1[i], &p2[i])
+	}
+	return p
+}
+
 // Equal checks equality between two polynomials
 func (p *Polynomial) Equal(p1 Polynomial) bool {
 	if (*p == nil) != (p1 == nil) {
@@ -149,16 +159,10 @@ func (p *Polynomial) Equal(p1 Polynomial) bool {
 	return true
 }
 
-func signedBigInt(v *fr.Element) big.Int {
-	var i big.Int
-	v.ToBigIntRegular(&i)
-	var iDouble big.Int
-	iDouble.Lsh(&i, 1)
-	if iDouble.Cmp(fr.Modulus()) > 0 {
-		i.Sub(fr.Modulus(), &i)
-		i.Neg(&i)
+func (p Polynomial) SetZero() {
+	for i := 0; i < len(p); i++ {
+		p[i].SetZero()
 	}
-	return i
 }
 
 func (p Polynomial) Text(base int) string {
@@ -171,12 +175,13 @@ func (p Polynomial) Text(base int) string {
 			continue
 		}
 
-		i := signedBigInt(&p[d])
+		pD := p[d]
+		pDText := pD.Text(base)
 
 		initialLen := builder.Len()
 
-		if i.Sign() < 1 {
-			i.Neg(&i)
+		if pDText[0] == '-' {
+			pDText = pDText[1:]
 			if first {
 				builder.WriteString("-")
 			} else {
@@ -188,13 +193,8 @@ func (p Polynomial) Text(base int) string {
 
 		first = false
 
-		asInt64 := int64(0)
-		if i.IsInt64() {
-			asInt64 = i.Int64()
-		}
-
-		if asInt64 != 1 || d == 0 {
-			builder.WriteString(i.Text(base))
+		if !pD.IsOne() || d == 0 {
+			builder.WriteString(pDText)
 		}
 
 		if builder.Len()-initialLen > 10 {

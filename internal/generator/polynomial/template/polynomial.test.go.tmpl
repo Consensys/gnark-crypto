@@ -1,8 +1,8 @@
 import (
 	"math/big"
 	"testing"
-
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	"github.com/stretchr/testify/assert"
+	"{{.FieldPackagePath}}"
 )
 
 func TestPolynomialEval(t *testing.T) {
@@ -14,11 +14,11 @@ func TestPolynomialEval(t *testing.T) {
 	}
 
 	// random value
-	var point fr.Element
+	var point {{.ElementType}}
 	point.SetRandom()
 
 	// compute manually f(val)
-	var expectedEval, one, den fr.Element
+	var expectedEval, one, den {{.ElementType}}
 	var expo big.Int
 	one.SetOne()
 	expo.SetUint64(20)
@@ -45,14 +45,14 @@ func TestPolynomialAddConstantInPlace(t *testing.T) {
 	}
 
 	// constant to add
-	var c fr.Element
+	var c {{.ElementType}}
 	c.SetRandom()
 
 	// add constant
 	f.AddConstantInPlace(&c)
 
 	// check
-	var expectedCoeffs, one fr.Element
+	var expectedCoeffs, one {{.ElementType}}
 	one.SetOne()
 	expectedCoeffs.Add(&one, &c)
 	for i := 0; i < 20; i++ {
@@ -71,14 +71,14 @@ func TestPolynomialSubConstantInPlace(t *testing.T) {
 	}
 
 	// constant to sub
-	var c fr.Element
+	var c {{.ElementType}}
 	c.SetRandom()
 
 	// sub constant
 	f.SubConstantInPlace(&c)
 
 	// check
-	var expectedCoeffs, one fr.Element
+	var expectedCoeffs, one {{.ElementType}}
 	one.SetOne()
 	expectedCoeffs.Sub(&one, &c)
 	for i := 0; i < 20; i++ {
@@ -97,7 +97,7 @@ func TestPolynomialScaleInPlace(t *testing.T) {
 	}
 
 	// constant to scale by
-	var c fr.Element
+	var c {{.ElementType}}
 	c.SetRandom()
 
 	// scale by constant
@@ -129,7 +129,7 @@ func TestPolynomialAdd(t *testing.T) {
 	}
 
 	// expected result
-	var one, two fr.Element
+	var one, two {{.ElementType}}
 	one.SetOne()
 	two.Double(&one)
 	expectedSum := make(Polynomial, 20)
@@ -187,4 +187,14 @@ func TestPolynomialAdd(t *testing.T) {
 	if !_f2.Equal(f2Backup) {
 		t.Fatal("side effect, _f2 should not have been modified")
 	}
+}
+
+func TestPolynomialText(t *testing.T) {
+	var one, negTwo {{.ElementType}}
+	one.SetOne()
+	negTwo.SetInt64(-2)
+
+	p := Polynomial{one, negTwo, one}
+
+	assert.Equal(t, "X² - 2X + 1", p.Text(10))
 }
