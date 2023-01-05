@@ -2,6 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
+
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
 	field "github.com/consensys/gnark-crypto/field/generator/config"
@@ -22,10 +27,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"sync"
 )
 
 const (
@@ -90,6 +91,18 @@ func main() {
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
+			// generate eddsa on companion curves
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+
+			// generate G1, G2, multiExp, ...
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
+			// generate pairing tests
+			assertNoError(pairing.Generate(conf, curveDir, bgen))
+
+			if conf.Equal(config.SECP256K1) {
+				return // TODO @yelhousni
+			}
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 
@@ -105,15 +118,6 @@ func main() {
 				FieldDependency:             frInfo,
 				RandomizeMissingHashEntries: false,
 			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
-
-			// generate eddsa on companion curves
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
 
 		}(conf)
 
