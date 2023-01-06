@@ -73,14 +73,14 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G1] Multi exponentation (c=15) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G1] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
 			for i := 0; i < 13; i++ {
 				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
 			}
 
-			var r15, splitted1, splitted2 G1Jac
+			var rmax, splitted1, splitted2 G1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples * 13]fr.Element
@@ -90,10 +90,10 @@ func TestMultiExpG1(t *testing.T) {
 					Mul(&sampleScalars[i-1], &mixer)
 			}
 
-			r15.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
+			rmax.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
-			return r15.Equal(&splitted1) && r15.Equal(&splitted2)
+			return rmax.Equal(&splitted1) && rmax.Equal(&splitted2)
 		},
 		genScalar,
 	))
@@ -102,7 +102,7 @@ func TestMultiExpG1(t *testing.T) {
 	cRange := []uint64{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
-		cRange = []uint64{5, 15}
+		cRange = []uint64{5, 14}
 	}
 
 	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
@@ -262,7 +262,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 	cRange := []uint64{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
-		cRange = []uint64{5, 15}
+		cRange = []uint64{5, 14}
 	}
 
 	results := make([]G1Jac, len(cRange))
@@ -285,7 +285,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 
 }
 
-// _innerMsmG1Reference always do ext jacobian with c == 16, but here 15 as Fr modulus is full
+// _innerMsmG1Reference always do ext jacobian with c == 15
 func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
 	digits, _ := partitionScalars(scalars, 15, config.NbTasks)

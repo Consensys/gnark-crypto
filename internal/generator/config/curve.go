@@ -21,6 +21,7 @@ type Curve struct {
 
 	FpInfo, FrInfo Field
 	G1             Point
+	G2Exist        bool
 	G2             Point
 
 	HashE1 HashSuite

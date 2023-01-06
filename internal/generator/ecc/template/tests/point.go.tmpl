@@ -10,7 +10,10 @@
 	{{$fuzzer = "GenE4()"}}
 {{- end}}
 
-
+{{$c := 16}}
+{{if eq .Name "secp256k1"}}
+    {{$c = 15}}
+{{end}}
 
 import (
 	"fmt"
@@ -560,7 +563,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 }
 
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
-	{{$c := 16}}
+
 	var P, R p{{$TAffine}}C{{$c}}
 	var RR pp{{$TAffine}}C{{$c}}
 	ridx := make([]int, len(P))
