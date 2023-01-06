@@ -184,7 +184,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 // σ defined by:
 // σ = (12)(34)..(2n-1 2n)
 // so σ is a product of cycles length 2.
-func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]Polynomial, []int) {
+func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]Polynomial, []int64) {
 	res := make([]Polynomial, nbPolynomials)
 	form := Form{Layout: Regular, Basis: Lagrange, Status: Locked}
 	for i := 0; i < nbPolynomials; i++ {
@@ -197,15 +197,15 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 			res[i].Coefficients[2*j+1].Set(&res[i].Coefficients[2*j])
 		}
 	}
-	permutation := make([]int, nbPolynomials*sizePolynomials)
-	for i := 0; i < nbPolynomials*sizePolynomials/2; i++ {
+	permutation := make([]int64, nbPolynomials*sizePolynomials)
+	for i := int64(0); i < int64(nbPolynomials*sizePolynomials/2); i++ {
 		permutation[2*i] = 2*i + 1
 		permutation[2*i+1] = 2 * i
 	}
 	return res, permutation
 }
 
-func TestBuildRatioSpecificPermutation(t *testing.T) {
+func TestBuildRatioCopyConstraint(t *testing.T) {
 
 	// generate random vectors, interpreted in Lagrange form,
 	// regular layout. It is enough for this test if TestPutInLagrangeForm
@@ -220,7 +220,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	var beta, gamma fr.Element
 	beta.SetRandom()
 	gamma.SetRandom()
-	ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
+	ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
 	if err != nil {
 		t.Fatal()
 	}
@@ -257,7 +257,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	}
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -276,7 +276,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 	}
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -295,7 +295,7 @@ func TestBuildRatioSpecificPermutation(t *testing.T) {
 
 	{
 		var err error
-		_ratio, err := BuildRatioSpecificPermutation(entries, sigma, beta, gamma, expectedForm, domain)
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
 		if err != nil {
 			t.Fatal(err)
 		}

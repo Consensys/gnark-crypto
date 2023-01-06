@@ -116,16 +116,16 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 	return res, nil
 }
 
-// BuildRatioSpecificPermutation builds the accumulating ratio polynomial to prove that
+// BuildRatioCopyConstraint builds the accumulating ratio polynomial to prove that
 // [P₁ ∥ .. ∥ P_{n—1}] is invariant by the permutation \sigma.
 // Namely it returns the polynomial Z whose evaluation on the j-th root of unity is
 // Z(ω^j) = Π_{i<j}(Π_{k<n}(P_k(ω^i)+β*u^k+γ))/(P_k(ω^i)+σ(kn+i)+γ)))
 // * entries list of polynomials whose evaluation are invariant under \sigma
 // * beta, gamma challenges
 // * expectedForm expected form of the resulting polynomial
-func BuildRatioSpecificPermutation(
+func BuildRatioCopyConstraint(
 	entries []Polynomial,
-	permutation []int,
+	permutation []int64,
 	beta, gamma fr.Element,
 	expectedForm Form,
 	domain *fft.Domain) (Polynomial, error) {
