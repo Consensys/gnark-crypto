@@ -65,9 +65,6 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
-
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
 
@@ -88,6 +85,13 @@ func main() {
 
 			// generate G1, G2, multiExp, ...
 			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
+			if conf.Equal(config.SECP256K1) {
+				return // TODO @yelhousni
+			}
+
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(conf, filepath.Join(curveDir, "fr", "polynomial"), bgen))
 
 			// generate pairing tests
 			assertNoError(pairing.Generate(conf, curveDir, bgen))
