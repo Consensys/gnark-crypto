@@ -14,7 +14,7 @@ func (p *Polynomial) Degree() uint64 {
 }
 
 // Eval evaluates p at v
-// returns a {{.ElementType}} 
+// returns a {{.ElementType}}
 func (p *Polynomial) Eval(v *{{.ElementType}}) {{.ElementType}} {
 
 	res := (*p)[len(*p) - 1]
@@ -83,14 +83,14 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 	bigger := p1
 	smaller := p2
 	if len(bigger) < len(smaller) {
-		bigger, smaller = smaller, bigger 
+		bigger, smaller = smaller, bigger
 	}
 
 	if len(*p) == len(bigger) && (&(*p)[0] == &bigger[0]) {
 		for i:=0; i < len(smaller); i++ {
 			(*p)[i].Add(&(*p)[i], &smaller[i])
 		}
-		return p 
+		return p
 	}
 
 	if len(*p) == len(smaller) && (&(*p)[0] == &smaller[0]) {
@@ -98,7 +98,7 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 			(*p)[i].Add(&(*p)[i], &bigger[i])
 		}
 		*p = append(*p, bigger[len(smaller):]...)
-		return p 
+		return p
 	}
 
 	res := make(Polynomial, len(bigger))
@@ -124,7 +124,7 @@ func (p *Polynomial) Sub(p1, p2 Polynomial) *Polynomial {
 
 // Equal checks equality between two polynomials
 func (p *Polynomial) Equal(p1 Polynomial) bool {
-    if (*p == nil) != (p1 == nil) { 
+    if (*p == nil) != (p1 == nil) {
         return false
     }
 

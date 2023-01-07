@@ -8,6 +8,8 @@
 * BW6-633 (EC supporting pairing on BLS24-315 field of definition)
 * BLS12-378 (GT-strong SNARK-friendly)
 * BW6-756 (EC supporting pairing on BLS12-378 field of definition)
+* secp256k1 (SEC curve used in Bitcoin and Ethereum ECDSA)
+* secq256k1 (EC forming a 2-cycle with secp256k1)
 
 ### Twisted edwards curves
 
