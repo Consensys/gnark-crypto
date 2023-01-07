@@ -21,7 +21,7 @@ import (
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
 var (
-	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript")
+	errChallengeNotFound            = errors.New("challenge not recorded in the transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
@@ -36,7 +36,7 @@ type Transcript struct {
 }
 
 type challenge struct {
-	position   int    // position of the challenge in the transcript. order matters.
+	position   int    // position of the challenge in the Transcript. order matters.
 	bindings   []byte // bindings stores the variables a challenge is binded to.
 	value      []byte // value stores the computed challenge
 	isComputed bool

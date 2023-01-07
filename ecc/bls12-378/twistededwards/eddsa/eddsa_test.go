@@ -37,8 +37,10 @@ func Example() {
 	privateKey, _ := GenerateKey(crand.Reader)
 	publicKey := privateKey.PublicKey
 
-	// note that the message is on 4 bytes
-	msg := []byte{0xde, 0xad, 0xf0, 0x0d}
+	// generate a message (the size must be a multiple of the size of Fr)
+	var _msg fr.Element
+	_msg.SetRandom()
+	msg := _msg.Marshal()
 
 	// sign the message
 	signature, _ := privateKey.Sign(msg, hFunc)
