@@ -7,9 +7,7 @@
 
 import (
 	"math/big"
-    {{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 	"runtime"
-	{{- end}}
 
 	{{- if .GLV}}
 	"github.com/consensys/gnark-crypto/ecc"
@@ -1515,7 +1513,6 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 {{- end}}
 
 
-{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base by all scalars
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
@@ -1677,4 +1674,3 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 		(*R)[j].Set(&rr)
 	}
 }
-{{- end}}
