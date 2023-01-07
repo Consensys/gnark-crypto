@@ -10,12 +10,13 @@
 	{{$fuzzer = "GenE4()"}}
 {{- end}}
 
-
+{{$c := 16}}
+{{- if or (eq .Name "secp256k1") (eq .Name "secq256k1")}}
+    {{$c = 15}}
+{{end}}
 
 import (
-    {{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 	"fmt"
-	{{- end}}
 	"math/big"
 	"testing"
 	"math/rand"
@@ -498,7 +499,6 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 }
 {{end}}
 
-{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
@@ -548,7 +548,6 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
-{{- end}}
 
 // ------------------------------------------------------------
 // benches
@@ -562,10 +561,9 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 	}
 
 }
-{{- if and (ne .Name "secp256k1") (ne .Name "secq256k1") }}
 
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
-	{{$c := 16}}
+
 	var P, R p{{$TAffine}}C{{$c}}
 	var RR pp{{$TAffine}}C{{$c}}
 	ridx := make([]int, len(P))
@@ -617,7 +615,6 @@ func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 		})
 	}
 }
-{{- end}}
 
 func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 
@@ -781,7 +778,7 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	return res
 }
 
-{{- if or (eq .Name "secp256k1") (eq .Name "secq256k1") }}
+{{- if or (eq .Name "secp256k1") (eq .Name "secq256k1")}}
 const (
        nbFuzzShort = 10
        nbFuzz      = 100

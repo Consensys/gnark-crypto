@@ -54,28 +54,12 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
-	if conf.Equal(config.SECP256K1) || conf.Equal(config.SECQ256K1) {
-		return nil
-	}
-
-	// G2
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
-		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
-	}
-	g2 := pconf{conf, conf.G2}
-	if err := bgen.Generate(g2, packageName, "./ecc/template", entries...); err != nil {
-		return err
-	}
-
 	// MSM
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "multiexp.go"), Templates: []string{"multiexp.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_affine.go"), Templates: []string{"multiexp_affine.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_jacobian.go"), Templates: []string{"multiexp_jacobian.go.tmpl"}},
 		{File: filepath.Join(baseDir, "multiexp_test.go"), Templates: []string{"tests/multiexp.go.tmpl"}},
-		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
-		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
 	}
 	conf.Package = packageName
 	funcs := make(template.FuncMap)
@@ -176,7 +160,33 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	}
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
-	return bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...)
+	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", bavardOpts, entries...); err != nil {
+		return err
+	}
+
+	// No G2 for secp256k1 and secq256k1
+	if conf.Equal(config.SECP256K1) || conf.Equal(config.SECQ256K1) {
+		return nil
+	}
+
+	// marshal
+	entries = []bavard.Entry{
+		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
+		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
+	}
+
+	marshal := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
+	if err := bgen.GenerateWithOptions(conf, packageName, "./ecc/template", marshal, entries...); err != nil {
+		return err
+	}
+
+	// G2
+	entries = []bavard.Entry{
+		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
+		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
+	}
+	g2 := pconf{conf, conf.G2}
+	return bgen.Generate(g2, packageName, "./ecc/template", entries...)
 }
 
 type pconf struct {

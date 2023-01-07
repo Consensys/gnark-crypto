@@ -65,7 +65,7 @@ go generate ./...
 
 ## Benchmarks
 
-[Benchmarking pairing-friendly elliptic curves libraries](https://hackmd.io/@gnark/eccbench) 
+[Benchmarking pairing-friendly elliptic curves libraries](https://hackmd.io/@gnark/eccbench)
 
 >The libraries are implemented in different languages and some use more assembly code than others. Besides the different algorithmic and software optimizations used across, it should be noted also that some libraries target constant-time implementation for some operations making it de facto slower. However, it can be clear that consensys/gnark-crypto is one of the fastest pairing-friendly elliptic curve libraries to be used in zkp projects with different curves.
 
@@ -75,19 +75,20 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gnark-crypto-v0.6.1,
+@software{gnark-crypto-v0.9.0,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
                   Arya Tabaie and
+                  Gus Gutoski and
                   Ivo Kubjas},
-  title        = {ConsenSys/gnark-crypto: v0.6.1},
-  month        = feb,
-  year         = 2022,
+  title        = {ConsenSys/gnark-crypto: v0.9.0},
+  month        = jan,
+  year         = 2023,
   publisher    = {Zenodo},
-  version      = {v0.6.1},
-  doi          = {10.5281/zenodo.6092968},
-  url          = {https://doi.org/10.5281/zenodo.6092968}
+  version      = {v0.9.0},
+  doi          = {10.5281/zenodo.5815453},
+  url          = {https://doi.org/10.5281/zenodo.5815453}
 }
 ```
 

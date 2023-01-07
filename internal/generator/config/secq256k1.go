@@ -12,7 +12,7 @@ var SECQ256K1 = Curve{
 		PointName:        "g1",
 		GLV:              true,
 		CofactorCleaning: false,
-		CRange:           defaultCRange(),
+		CRange:           []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 	},
 	HashE1: &HashSuiteSvdw{
 		z:  []string{"1"},
