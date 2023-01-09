@@ -230,6 +230,12 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	nbPolynomials := 4
 	entries, sigma := getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials)
 
+	// save the originals for further tests with polynomials in different forms
+	backupEntries := make([]Polynomial, nbPolynomials)
+	for i := 0; i < nbPolynomials; i++ {
+		backupEntries[i] = *entries[i].Copy()
+	}
+
 	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
@@ -268,6 +274,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// check that the ratio is correct when the inputs are
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
+		entries[i] = *backupEntries[i].Copy()
 		fft.BitReverse(entries[i].Coefficients)
 		entries[i].Layout = BitReverse
 	}
@@ -285,39 +292,43 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular
-	// for i := 0; i < nbPolynomials; i++ {
-	// 	domain.FFTInverse(entries[i].Coefficients, fft.DIT)
-	// 	entries[i].Basis = Canonical
-	// 	entries[i].Layout = Regular
-	// }
-	// {
-	// 	var err error
-	// 	_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
-	// 	if !checkCoeffs {
-	// 		t.Fatal("coefficients of ratio are not consistent")
-	// 	}
-	// }
+	for i := 0; i < nbPolynomials; i++ {
+		entries[i] = *backupEntries[i].Copy()
+		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
+		fft.BitReverse(entries[i].Coefficients)
+		entries[i].Layout = Regular
+		entries[i].Basis = Canonical
+	}
+	{
+		var err error
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal("coefficients of ratio are not consistent")
+		}
+	}
 
 	// check that the ratio is correct when the inputs are in
 	// canonical form, bit reverse
-	// for i := 0; i < nbPolynomials; i++ {
-	// 	fft.BitReverse(entries[i].Coefficients)
-	// 	entries[i].Layout = BitReverse
-	// }
+	for i := 0; i < nbPolynomials; i++ {
+		entries[i] = *backupEntries[i].Copy()
+		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
+		entries[i].Layout = BitReverse
+		entries[i].Basis = Canonical
+	}
 
-	// {
-	// 	var err error
-	// 	_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
-	// 	if !checkCoeffs {
-	// 		t.Fatal("coefficients of ratio are not consistent")
-	// 	}
-	// }
+	{
+		var err error
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal("coefficients of ratio are not consistent")
+		}
+	}
 }

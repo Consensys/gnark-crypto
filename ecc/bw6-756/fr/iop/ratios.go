@@ -168,9 +168,8 @@ func BuildRatioCopyConstraint(
 
 	// put every polynomials in Lagrange form. Also make sure
 	// that we don't modify the slice entries
-	_entries := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_entries[i].ToLagrange(&entries[i], domain)
+		entries[i].ToLagrange(&entries[i], domain)
 	}
 
 	// get the support for the permutation
@@ -196,19 +195,19 @@ func BuildRatioCopyConstraint(
 
 			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 				Add(&a, &gamma)
-			if _entries[j].Layout == BitReverse {
-				a.Add(&a, &_entries[j].Coefficients[iRev])
+			if entries[j].Layout == BitReverse {
+				a.Add(&a, &entries[j].Coefficients[iRev])
 			} else {
-				a.Add(&a, &_entries[j].Coefficients[i])
+				a.Add(&a, &entries[j].Coefficients[i])
 			}
 			b.Mul(&a, &b)
 
 			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 				Add(&c, &gamma)
-			if _entries[j].Layout == BitReverse {
-				c.Add(&c, &_entries[j].Coefficients[iRev])
+			if entries[j].Layout == BitReverse {
+				c.Add(&c, &entries[j].Coefficients[iRev])
 			} else {
-				c.Add(&c, &_entries[j].Coefficients[i])
+				c.Add(&c, &entries[j].Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}
