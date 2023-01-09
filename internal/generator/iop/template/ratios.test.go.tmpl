@@ -65,6 +65,14 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	nbPolynomials := 4
 	numerator, denominator, _ := getPermutedPolynomials(sizePolynomials, nbPolynomials)
 
+	// save the originals for further tests with polynomials in different forms
+	backupNumerator := make([]Polynomial, nbPolynomials)
+	backupDenominator := make([]Polynomial, nbPolynomials)
+	for i := 0; i < nbPolynomials; i++ {
+		backupNumerator[i] = *numerator[i].Copy()
+		backupDenominator[i] = *denominator[i].Copy()
+	}
+
 	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
@@ -96,8 +104,11 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// check that the ratio is correct when the inputs are
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
+		numerator[i] = *backupNumerator[i].Copy()
 		fft.BitReverse(numerator[i].Coefficients)
 		numerator[i].Layout = BitReverse
+
+		denominator[i] = *backupDenominator[i].Copy()
 		fft.BitReverse(denominator[i].Coefficients)
 		denominator[i].Layout = BitReverse
 	}
@@ -116,12 +127,15 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
-		domain.FFTInverse(numerator[i].Coefficients, fft.DIT)
+		numerator[i] = *backupNumerator[i].Copy()
+		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
+		fft.BitReverse(numerator[i].Coefficients)
 		numerator[i].Basis = Canonical
-		numerator[i].Layout = Regular
-		domain.FFTInverse(denominator[i].Coefficients, fft.DIT)
+
+		denominator[i] = *backupDenominator[i].Copy()
+		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
+		fft.BitReverse(denominator[i].Coefficients)
 		denominator[i].Basis = Canonical
-		denominator[i].Layout = Regular
 	}
 	{
 		var err error
@@ -135,25 +149,30 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 		}
 	}
 
-	// // check that the ratio is correct when the inputs are in
-	// // canonical form, bit reverse
-	// for i := 0; i < nbPolynomials; i++ {
-	// 	fft.BitReverse(numerator[i].Coefficients)
-	// 	numerator[i].Layout = BitReverse
-	// 	fft.BitReverse(denominator[i].Coefficients)
-	// 	denominator[i].Layout = BitReverse
-	// }
-	// {
-	// 	var err error
-	// 	_ratio, err := BuildRatioShuffledVectors(numerator, denominator, beta, expectedForm, domain)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
-	// 	if !checkCoeffs {
-	// 		t.Fatal("coefficients of ratio are not consistent")
-	// 	}
-	// }
+	// check that the ratio is correct when the inputs are in
+	// canonical form, bit reverse
+	for i := 0; i < nbPolynomials; i++ {
+		numerator[i] = *backupNumerator[i].Copy()
+		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
+		numerator[i].Layout = BitReverse
+		numerator[i].Basis = Canonical
+
+		denominator[i] = *backupDenominator[i].Copy()
+		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
+		denominator[i].Layout = BitReverse
+		denominator[i].Basis = Canonical
+	}
+	{
+		var err error
+		_ratio, err := BuildRatioShuffledVectors(numerator, denominator, beta, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal("coefficients of ratio are not consistent")
+		}
+	}
 
 }
 
@@ -230,21 +249,21 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 
 	// check that the ratio is correct when the inputs are
 	// bit reversed
-	// for i := 0; i < nbPolynomials; i++ {
-	// 	fft.BitReverse(entries[i].Coefficients)
-	// 	entries[i].Layout = BitReverse
-	// }
-	// {
-	// 	var err error
-	// 	_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
-	// 	if !checkCoeffs {
-	// 		t.Fatal(err)
-	// 	}
-	// }
+	for i := 0; i < nbPolynomials; i++ {
+		fft.BitReverse(entries[i].Coefficients)
+		entries[i].Layout = BitReverse
+	}
+	{
+		var err error
+		_ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		if !checkCoeffs {
+			t.Fatal(err)
+		}
+	}
 
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular

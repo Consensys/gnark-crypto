@@ -54,11 +54,13 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 	// only their entries. If the polynomials are unlocked, the
 	// entries of the slices numerator and denominator will be
 	// modified.
-	_numerator := make([]Polynomial, nbPolynomials)
-	_denominator := make([]Polynomial, nbPolynomials)
+	// _numerator := make([]Polynomial, nbPolynomials)
+	// _denominator := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_numerator[i].ToLagrange(&numerator[i], domain)
-		_denominator[i].ToLagrange(&denominator[i], domain)
+		// _numerator[i].ToLagrange(&numerator[i], domain)
+		// _denominator[i].ToLagrange(&denominator[i], domain)
+		numerator[i].ToLagrange(&numerator[i], domain)
+		denominator[i].ToLagrange(&denominator[i], domain)
 	}
 
 	// build the ratio (careful with the indices of
@@ -79,17 +81,17 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 
 		for j := 0; j < nbPolynomials; j++ {
 
-			if _numerator[j].Layout == BitReverse {
-				a.Sub(&beta, &_numerator[j].Coefficients[iRev])
+			if numerator[j].Layout == BitReverse {
+				a.Sub(&beta, &numerator[j].Coefficients[iRev])
 			} else {
-				a.Sub(&beta, &_numerator[j].Coefficients[i])
+				a.Sub(&beta, &numerator[j].Coefficients[i])
 			}
 			b.Mul(&b, &a)
 
-			if _denominator[j].Layout == BitReverse {
-				c.Sub(&beta, &_denominator[j].Coefficients[iRev])
+			if denominator[j].Layout == BitReverse {
+				c.Sub(&beta, &denominator[j].Coefficients[iRev])
 			} else {
-				c.Sub(&beta, &_denominator[j].Coefficients[i])
+				c.Sub(&beta, &denominator[j].Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}
