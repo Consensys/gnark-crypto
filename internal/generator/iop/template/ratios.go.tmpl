@@ -57,8 +57,8 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 	_numerator := make([]Polynomial, nbPolynomials)
 	_denominator := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_numerator[i] = *(numerator[i].ToLagrange(domain))
-		_denominator[i] = *(denominator[i].ToLagrange(domain))
+		_numerator[i].ToLagrange(&numerator[i], domain)
+		_denominator[i].ToLagrange(&denominator[i], domain)
 	}
 
 	// build the ratio (careful with the indices of
@@ -151,7 +151,7 @@ func BuildRatioCopyConstraint(
 	// that we don't modify the slice entries
 	_entries := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		_entries[i] = *(entries[i].ToLagrange(domain))
+		_entries[i].ToLagrange(&entries[i], domain)
 	}
 
 	// get the support for the permutation

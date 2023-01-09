@@ -41,7 +41,7 @@ type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
 // CANONICAL REGULAR LOCKED
 func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Canonical
 	r.Layout = Regular
 	r.Status = Locked
@@ -52,7 +52,7 @@ func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL REGULAR UNLOCKED
 func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Canonical
 	r.Layout = Regular
 	r.Status = Unlocked
@@ -63,7 +63,7 @@ func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE LOCKED
 func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Canonical
 	r.Layout = BitReverse
 	r.Status = Locked
@@ -73,7 +73,7 @@ func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE UNLOCKED
 func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Canonical
 	r.Layout = BitReverse
 	r.Status = Unlocked
@@ -83,7 +83,7 @@ func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR LOCKED
 func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Lagrange
 	r.Layout = Regular
 	r.Status = Locked
@@ -92,7 +92,7 @@ func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR UNLOCKED
 func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Lagrange
 	r.Layout = Regular
 	r.Status = Unlocked
@@ -102,7 +102,7 @@ func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE LOCKED
 func fromLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
 	r.Status = Locked
@@ -112,7 +112,7 @@ func fromLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE UNLOCKED
 func fromLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
 	r.Status = Unlocked
@@ -122,7 +122,7 @@ func fromLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR LOCKED
 func fromLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	r.Status = Locked
@@ -133,7 +133,7 @@ func fromLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func fromLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	r.Status = Unlocked
@@ -144,7 +144,7 @@ func fromLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE LOCKED
 func fromLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	r.Status = Locked
@@ -156,7 +156,7 @@ func fromLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.GetCopy()
+	r := p.Copy()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	r.Status = Unlocked
@@ -226,7 +226,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -249,7 +250,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange1(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -272,7 +274,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange2(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -294,7 +297,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange3(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -316,7 +320,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange4(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -338,7 +343,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange5(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -360,7 +366,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange6(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -383,7 +390,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange7(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -406,7 +414,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange8(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -428,7 +437,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange9(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -450,7 +460,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange10(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -473,7 +484,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	{
 		_p := fromLagrange11(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToLagrange(domain)
+		var q Polynomial
+		q.ToLagrange(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -496,7 +508,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 // CANONICAL REGULAR LOCKED
 func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	_p.Status = Locked
@@ -505,7 +517,7 @@ func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL REGULAR UNLOCKED
 func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	_p.Status = Unlocked
@@ -514,7 +526,7 @@ func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE LOCKED
 func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	_p.Status = Locked
@@ -523,7 +535,7 @@ func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE UNLOCKED
 func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
@@ -532,7 +544,7 @@ func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR LOCKED
 func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	_p.Status = Locked
@@ -543,7 +555,7 @@ func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR UNLOCKED
 func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	_p.Status = Unlocked
@@ -554,7 +566,7 @@ func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE LOCKED
 func fromCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	_p.Status = Locked
@@ -564,7 +576,7 @@ func fromCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE UNLOCKED
 func fromCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
@@ -574,7 +586,7 @@ func fromCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR LOCKED
 func fromCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	_p.Status = Locked
@@ -585,7 +597,7 @@ func fromCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR UNLOCKED
 func fromCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	_p.Status = Unlocked
@@ -596,7 +608,7 @@ func fromCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE LOCKED
 func fromCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
@@ -606,7 +618,7 @@ func fromCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE UNLOCKED
 func fromCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.GetCopy()
+	_p := p.Copy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	_p.Status = Unlocked
@@ -631,7 +643,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical0(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -652,7 +665,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL REGULAR UNLOCKED
 	{
 		_p := fromCanonical1(&p, domain)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -671,7 +685,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical2(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(_p, backup) {
 		// 	t.Fatal("locked polynomial should not be modified")
 		// }
@@ -692,7 +707,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL BITREVERSE UNLOCKED
 	{
 		_p := fromCanonical3(&p, domain)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -710,11 +726,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE REGULAR LOCKED
 	{
 		_p := fromCanonical4(&p, domain)
-		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -733,7 +746,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE REGULAR UNLOCKED
 	{
 		_p := fromCanonical5(&p, domain)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -753,7 +767,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical6(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -775,7 +790,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical7(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -797,7 +813,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical8(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -820,7 +837,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical9(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -843,7 +861,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical10(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }
@@ -865,7 +884,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	{
 		_p := fromCanonical11(&p, domain)
 		// backup := copyPoly(*_p)
-		q := _p.ToCanonical(domain)
+		var q Polynomial
+		q.ToCanonical(_p, domain)
 		// if !reflect.DeepEqual(backup, *_p){
 		// 	t.Fatal("")
 		// }

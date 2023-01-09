@@ -89,24 +89,24 @@ func TestQuotient(t *testing.T) {
 	// at a random point
 	var c fr.Element
 	c.SetRandom()
-	fc := make([]*Polynomial, nbEntries)
+	fc := make([]Polynomial, nbEntries)
 	domain := fft.NewDomain(uint64(sizeSystem))
-	fc[0] = entries[0].ToCanonical(domain)
+	fc[0].ToCanonical(&entries[0], domain)
 	fft.BitReverse(fc[0].Coefficients)
 	fc[0].Layout = Regular
 
-	fc[1] = entries[1].ToCanonical(domain)
+	fc[1].ToCanonical(&entries[1], domain)
 	fft.BitReverse(fc[1].Coefficients)
 	fc[1].Layout = Regular
 
-	fc[2] = entries[2].ToCanonical(domain)
+	fc[2].ToCanonical(&entries[2],domain)
 	fft.BitReverse(fc[2].Coefficients)
 	fc[2].Layout = Regular
 
 	x := []fr.Element{
-		evalCanonical(*fc[0], c),
-		evalCanonical(*fc[1], c),
-		evalCanonical(*fc[2], c),
+		evalCanonical(fc[0], c),
+		evalCanonical(fc[1], c),
+		evalCanonical(fc[2], c),
 	}
 	l := h.Evaluate(x)
 	var xnminusone fr.Element
