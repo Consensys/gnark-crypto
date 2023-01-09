@@ -108,7 +108,6 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 
 	res.Basis = expectedForm.Basis
 	res.Layout = expectedForm.Layout
-	res.Status = expectedForm.Status
 
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
@@ -217,7 +216,6 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
-	p.Status = expectedForm.Status
 
 	if expectedForm.Basis == Canonical {
 		domain.FFTInverse(p.Coefficients, fft.DIF)

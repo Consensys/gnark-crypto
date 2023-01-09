@@ -40,7 +40,6 @@ func allocatePol(size int, form Form) Polynomial {
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	f.Status = form.Status
 	return f
 }
 
@@ -70,7 +69,7 @@ func TestQuotient(t *testing.T) {
 
 	// create an instance (f_i) where h holds
 	sizeSystem := 8
-	form := Form{Basis: Lagrange, Status: Locked, Layout: Regular}
+	form := Form{Basis: Lagrange, Layout: Regular}
 	entries := make([]Polynomial, 3)
 	entries[0] = allocatePol(sizeSystem, form)
 	entries[1] = allocatePol(sizeSystem, form)
@@ -96,7 +95,7 @@ func TestQuotient(t *testing.T) {
 	}
 
 	// compute the quotient q
-	expectedForm := Form{Basis: Canonical, Status: Unlocked, Layout: Regular}
+	expectedForm := Form{Basis: Canonical, Layout: Regular}
 	domains := [2]*fft.Domain{nil, nil}
 	quotient, err := ComputeQuotient(entries, h, expectedForm, domains)
 	if err != nil {

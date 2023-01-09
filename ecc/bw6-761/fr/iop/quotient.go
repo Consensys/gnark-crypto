@@ -71,7 +71,6 @@ func ComputeQuotient(entries []Polynomial, h MultivariatePolynomial, expectedFor
 	entriesLagrangeBigDomain := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
 		entriesLagrangeBigDomain[i].Basis = LagrangeCoset
-		entriesLagrangeBigDomain[i].Status = Unlocked
 		entriesLagrangeBigDomain[i].Coefficients = make([]fr.Element, sizeBig)
 		copy(entriesLagrangeBigDomain[i].Coefficients, _entries[i].Coefficients)
 		entriesLagrangeBigDomain[i].Layout = BitReverse
@@ -152,7 +151,6 @@ func putInExpectedFormFromLagrangeCosetBitReversed(p *Polynomial, domain *fft.Do
 
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
-	p.Status = expectedForm.Status
 
 	if expectedForm.Basis == Canonical {
 		domain.FFTInverse(p.Coefficients, fft.DIT, true)

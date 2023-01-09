@@ -39,127 +39,57 @@ func randomVector(size int) []fr.Element {
 // only.
 type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
-// CANONICAL REGULAR LOCKED
+// CANONICAL REGULAR
 func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
 	r.Basis = Canonical
 	r.Layout = Regular
-	r.Status = Locked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	fft.BitReverse(r.Coefficients)
 	return r
 }
 
-// CANONICAL REGULAR UNLOCKED
+// CANONICAL BITREVERSE
 func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
 	r.Basis = Canonical
-	r.Layout = Regular
-	r.Status = Unlocked
+	r.Layout = BitReverse
 	d.FFTInverse(r.Coefficients, fft.DIF)
-	fft.BitReverse(r.Coefficients)
 	return r
 }
 
-// CANONICAL BITREVERSE LOCKED
+// LAGRANGE REGULAR
 func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
-	r.Basis = Canonical
-	r.Layout = BitReverse
-	r.Status = Locked
-	d.FFTInverse(r.Coefficients, fft.DIF)
+	r.Basis = Lagrange
+	r.Layout = Regular
 	return r
 }
 
-// CANONICAL BITREVERSE UNLOCKED
+// LAGRANGE BITREVERSE
 func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
-	r.Basis = Canonical
+	r.Basis = Lagrange
 	r.Layout = BitReverse
-	r.Status = Unlocked
-	d.FFTInverse(r.Coefficients, fft.DIF)
+	fft.BitReverse(r.Coefficients)
 	return r
 }
 
-// LAGRANGE REGULAR LOCKED
+// LAGRANGE_COSET REGULAR
 func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
-	r.Basis = Lagrange
+	r.Basis = LagrangeCoset
 	r.Layout = Regular
-	r.Status = Locked
+	d.FFTInverse(r.Coefficients, fft.DIF)
+	d.FFT(r.Coefficients, fft.DIT, true)
 	return r
 }
 
-// LAGRANGE REGULAR UNLOCKED
+// LAGRANGE_COSET BITREVERSE
 func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 	r := p.Copy()
-	r.Basis = Lagrange
-	r.Layout = Regular
-	r.Status = Unlocked
-
-	return r
-}
-
-// LAGRANGE BITREVERSE LOCKED
-func fromLagrange6(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
-	r.Basis = Lagrange
-	r.Layout = BitReverse
-	r.Status = Locked
-	fft.BitReverse(r.Coefficients)
-	return r
-}
-
-// LAGRANGE BITREVERSE UNLOCKED
-func fromLagrange7(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
-	r.Basis = Lagrange
-	r.Layout = BitReverse
-	r.Status = Unlocked
-	fft.BitReverse(r.Coefficients)
-	return r
-}
-
-// LAGRANGE_COSET REGULAR LOCKED
-func fromLagrange8(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
-	r.Basis = LagrangeCoset
-	r.Layout = Regular
-	r.Status = Locked
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	d.FFT(r.Coefficients, fft.DIT, true)
-	return r
-}
-
-// LAGRANGE_COSET REGULAR UNLOCKED
-func fromLagrange9(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
-	r.Basis = LagrangeCoset
-	r.Layout = Regular
-	r.Status = Unlocked
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	d.FFT(r.Coefficients, fft.DIT, true)
-	return r
-}
-
-// LAGRANGE_COSET BITREVERSE LOCKED
-func fromLagrange10(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
-	r.Status = Locked
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	d.FFT(r.Coefficients, fft.DIT, true)
-	fft.BitReverse(r.Coefficients)
-	return r
-}
-
-// LAGRANGE_COSET BITREVERSE UNLOCKED
-func fromLagrange11(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
-	r.Basis = LagrangeCoset
-	r.Layout = BitReverse
-	r.Status = Unlocked
 	d.FFTInverse(r.Coefficients, fft.DIF)
 	d.FFT(r.Coefficients, fft.DIT, true)
 	fft.BitReverse(r.Coefficients)
@@ -181,18 +111,6 @@ func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
 		return fromLagrange4(p, d)
 	case 5:
 		return fromLagrange5(p, d)
-	case 6:
-		return fromLagrange6(p, d)
-	case 7:
-		return fromLagrange7(p, d)
-	case 8:
-		return fromLagrange8(p, d)
-	case 9:
-		return fromLagrange9(p, d)
-	case 10:
-		return fromLagrange10(p, d)
-	case 11:
-		return fromLagrange11(p, d)
 	default:
 		panic("unknown id")
 	}
@@ -220,9 +138,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	p.Coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
-	p.Status = Locked
 
-	// CANONICAL REGULAR LOCKED
+	// CANONICAL REGULAR
 	{
 		_p := fromLagrange(&p, domain)
 		// backup := copyPoly(*_p)
@@ -237,16 +154,13 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is BitReverse")
 		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
 		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// CANONICAL REGULAR UNLOCKED
+	// CANONICAL BITREVERSE
 	{
 		_p := fromLagrange1(&p, domain)
 		// backup := copyPoly(*_p)
@@ -258,19 +172,15 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is BitReverse")
+		if q.Layout != Regular {
+			t.Fatal("epxected layout is Regular")
 		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
-		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// CANONICAL BITREVERSE LOCKED
+	// LAGRANGE REGULAR
 	{
 		_p := fromLagrange2(&p, domain)
 		// backup := copyPoly(*_p)
@@ -285,15 +195,12 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is Regular")
 		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// CANONICAL BITREVERSE UNLOCKED
+	// LAGRANGE BITREVERSE
 	{
 		_p := fromLagrange3(&p, domain)
 		// backup := copyPoly(*_p)
@@ -305,18 +212,16 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is Regular")
+		if q.Layout != BitReverse {
+			t.Fatal("epxected layout is BitReverse")
 		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// LAGRANGE REGULAR LOCKED
+	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromLagrange4(&p, domain)
 		// backup := copyPoly(*_p)
@@ -331,15 +236,12 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is Regular")
 		}
-		if q.Status != Locked {
-			t.Fatal("expected status is Locked")
-		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// LAGRANGE REGULAR UNLOCKED
+	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromLagrange5(&p, domain)
 		// backup := copyPoly(*_p)
@@ -351,152 +253,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is Regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is UnLocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE BITREVERSE LOCKED
-	{
-		_p := fromLagrange6(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is BitReverse")
-		}
-		if q.Status != Locked {
-			t.Fatal("expected status is Locked")
-		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE BITREVERSE UNLOCKED
-	{
-		_p := fromLagrange7(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is BitReverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET REGULAR LOCKED
-	{
-		_p := fromLagrange8(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is Regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET REGULAR UNLOCKED
-	{
-		_p := fromLagrange9(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is Regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET BITREVERSE LOCKED
-	{
-		_p := fromLagrange10(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is BitRervese")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
-		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET BITREVERSE UNLOCKED
-	{
-		_p := fromLagrange11(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
-		if q.Basis != Lagrange {
-			t.Fatal("expected basis is Lagrange")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is BitRervese")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is Unlocked")
 		}
 		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
@@ -506,122 +264,56 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 }
 
-// CANONICAL REGULAR LOCKED
+// CANONICAL REGULAR
 func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
 	_p.Basis = Canonical
 	_p.Layout = Regular
-	_p.Status = Locked
 	return _p
 }
 
-// CANONICAL REGULAR UNLOCKED
+// CANONICAL BITREVERSE
 func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
 	_p.Basis = Canonical
-	_p.Layout = Regular
-	_p.Status = Unlocked
+	_p.Layout = BitReverse
 	return _p
 }
 
-// CANONICAL BITREVERSE LOCKED
+// LAGRANGE REGULAR
 func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
-	_p.Basis = Canonical
-	_p.Layout = BitReverse
-	_p.Status = Locked
+	_p.Basis = Lagrange
+	_p.Layout = Regular
+	d.FFT(_p.Coefficients, fft.DIF)
+	fft.BitReverse(_p.Coefficients)
 	return _p
 }
 
-// CANONICAL BITREVERSE UNLOCKED
+// LAGRANGE BITREVERSE
 func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
-	_p.Basis = Canonical
+	_p.Basis = Lagrange
 	_p.Layout = BitReverse
-	_p.Status = Unlocked
+	d.FFT(_p.Coefficients, fft.DIF)
 	return _p
 }
 
-// LAGRANGE REGULAR LOCKED
+// LAGRANGE_COSET REGULAR
 func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
-	_p.Basis = Lagrange
+	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
-	_p.Status = Locked
-	d.FFT(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients, fft.DIF, true)
 	fft.BitReverse(_p.Coefficients)
 	return _p
 }
 
-// LAGRANGE REGULAR UNLOCKED
+// LAGRANGE_COSET BITREVERSE
 func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Copy()
-	_p.Basis = Lagrange
-	_p.Layout = Regular
-	_p.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIF)
-	fft.BitReverse(_p.Coefficients)
-	return _p
-}
-
-// LAGRANGE BITREVERSE LOCKED
-func fromCanonical6(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
-	_p.Basis = Lagrange
-	_p.Layout = BitReverse
-	_p.Status = Locked
-	d.FFT(_p.Coefficients, fft.DIF)
-	return _p
-}
-
-// LAGRANGE BITREVERSE UNLOCKED
-func fromCanonical7(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
-	_p.Basis = Lagrange
-	_p.Layout = BitReverse
-	_p.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIF)
-	return _p
-}
-
-// LAGRANGE_COSET REGULAR LOCKED
-func fromCanonical8(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
-	_p.Basis = LagrangeCoset
-	_p.Layout = Regular
-	_p.Status = Locked
-	d.FFT(_p.Coefficients, fft.DIF, true)
-	fft.BitReverse(_p.Coefficients)
-	return _p
-}
-
-// LAGRANGE_COSET REGULAR UNLOCKED
-func fromCanonical9(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
-	_p.Basis = LagrangeCoset
-	_p.Layout = Regular
-	_p.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIF, true)
-	fft.BitReverse(_p.Coefficients)
-	return _p
-}
-
-// LAGRANGE_COSET BITREVERSE LOCKED
-func fromCanonical10(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
-	_p.Status = Unlocked
-	d.FFT(_p.Coefficients, fft.DIF, true)
-	return _p
-}
-
-// LAGRANGE_COSET BITREVERSE UNLOCKED
-func fromCanonical11(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
-	_p.Basis = LagrangeCoset
-	_p.Layout = BitReverse
-	_p.Status = Unlocked
 	d.FFT(_p.Coefficients, fft.DIF, true)
 	return _p
 }
@@ -637,9 +329,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	p.Coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
-	p.Status = Locked
 
-	// CANONICAL REGULAR LOCKED
+	// CANONICAL REGULAR
 	{
 		_p := fromCanonical0(&p, domain)
 		// backup := copyPoly(*_p)
@@ -654,36 +345,14 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is regular")
 		}
-		if q.Status != Locked {
-			t.Fatal("expected status is locked")
-		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// CANONICAL REGULAR UNLOCKED
+	// CANONICAL BITREVERSE
 	{
 		_p := fromCanonical1(&p, domain)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is locked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// CANONICAL BITREVERSE LOCKED
-	{
-		_p := fromCanonical2(&p, domain)
 		// backup := copyPoly(*_p)
 		var q Polynomial
 		q.ToCanonical(_p, domain)
@@ -696,17 +365,14 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is bitReverse")
 		}
-		if q.Status != Locked {
-			t.Fatal("expected status is locked")
-		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// CANONICAL BITREVERSE UNLOCKED
+	// LAGRANGE REGULAR
 	{
-		_p := fromCanonical3(&p, domain)
+		_p := fromCanonical2(&p, domain)
 		var q Polynomial
 		q.ToCanonical(_p, domain)
 		if q.Basis != Canonical {
@@ -714,28 +380,6 @@ func TestPutInCanonicalForm(t *testing.T) {
 		}
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is bitReverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unLocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE REGULAR LOCKED
-	{
-		_p := fromCanonical4(&p, domain)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is bitReverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
 		}
 		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(p.Coefficients, q.Coefficients) {
@@ -743,29 +387,9 @@ func TestPutInCanonicalForm(t *testing.T) {
 		}
 	}
 
-	// LAGRANGE REGULAR UNLOCKED
+	// LAGRANGE BITREVERSE
 	{
-		_p := fromCanonical5(&p, domain)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is bitReverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
-		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE BITREVERSE LOCKED
-	{
-		_p := fromCanonical6(&p, domain)
+		_p := fromCanonical3(&p, domain)
 		// backup := copyPoly(*_p)
 		var q Polynomial
 		q.ToCanonical(_p, domain)
@@ -778,40 +402,14 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is regular")
 		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
-		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
 
-	// LAGRANGE BITREVERSE UNLOCKED
+	// LAGRANGE_COSET REGULAR
 	{
-		_p := fromCanonical7(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET REGULAR LOCKED
-	{
-		_p := fromCanonical8(&p, domain)
+		_p := fromCanonical4(&p, domain)
 		// backup := copyPoly(*_p)
 		var q Polynomial
 		q.ToCanonical(_p, domain)
@@ -823,9 +421,6 @@ func TestPutInCanonicalForm(t *testing.T) {
 		}
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is bitreverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
 		}
 		// fft.BitReverse(q.Coefficients)
 		// if !cmpCoefficents(q.Coefficients, p.Coefficients) {
@@ -833,33 +428,9 @@ func TestPutInCanonicalForm(t *testing.T) {
 		// }
 	}
 
-	// LAGRANGE_COSET REGULAR UNLOCKED
+	// LAGRANGE_COSET BITREVERSE
 	{
-		_p := fromCanonical9(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != BitReverse {
-			t.Fatal("epxected layout is bitreverse")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
-		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET BITREVERSE LOCKED
-	{
-		_p := fromCanonical10(&p, domain)
+		_p := fromCanonical5(&p, domain)
 		// backup := copyPoly(*_p)
 		var q Polynomial
 		q.ToCanonical(_p, domain)
@@ -871,32 +442,6 @@ func TestPutInCanonicalForm(t *testing.T) {
 		}
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
-		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-			t.Fatal("wrong coefficients")
-		}
-	}
-
-	// LAGRANGE_COSET BITREVERSE UNLOCKED
-	{
-		_p := fromCanonical11(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
-		if q.Basis != Canonical {
-			t.Fatal("expected basis is canonical")
-		}
-		if q.Layout != Regular {
-			t.Fatal("epxected layout is regular")
-		}
-		if q.Status != Unlocked {
-			t.Fatal("expected status is unlocked")
 		}
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")

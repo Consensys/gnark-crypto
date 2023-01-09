@@ -160,6 +160,7 @@ func (p *Polynomial) toCanonical0(d *fft.Domain) *Polynomial {
 func (p *Polynomial) toCanonical1(d *fft.Domain) *Polynomial {
 	return p
 }
+
 // LAGRANGE REGULAR
 func (p *Polynomial) toCanonical2(d *fft.Domain) *Polynomial {
 	p.Basis = Canonical
@@ -167,7 +168,6 @@ func (p *Polynomial) toCanonical2(d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIF)
 	return p
 }
-
 
 // LAGRANGE BITREVERSE
 func (p *Polynomial) toCanonical3(d *fft.Domain) *Polynomial {
@@ -177,7 +177,6 @@ func (p *Polynomial) toCanonical3(d *fft.Domain) *Polynomial {
 	return p
 }
 
-
 // LAGRANGE_COSET REGULAR
 func (p *Polynomial) toCanonical4(d *fft.Domain) *Polynomial {
 	p.Basis = Canonical
@@ -185,7 +184,6 @@ func (p *Polynomial) toCanonical4(d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIF, true)
 	return p
 }
-
 
 // LAGRANGE_COSET BITREVERSE
 func (p *Polynomial) toCanonical5(d *fft.Domain) *Polynomial {

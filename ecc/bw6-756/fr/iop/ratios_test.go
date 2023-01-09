@@ -48,7 +48,6 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]Polynomial, [
 		numerator[i].Coefficients = randomVector(sizePolynomials)
 		numerator[i].Basis = Lagrange
 		numerator[i].Layout = Regular
-		numerator[i].Status = Locked
 	}
 
 	// get permutation
@@ -62,7 +61,6 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]Polynomial, [
 		denominator[i].Coefficients = make([]fr.Element, sizePolynomials)
 		denominator[i].Basis = Lagrange
 		denominator[i].Layout = Regular
-		denominator[i].Status = Locked
 	}
 	for i := 0; i < len(sigma); i++ {
 		id := int(sigma[i] / sizePolynomials)
@@ -86,7 +84,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	numerator, denominator, _ := getPermutedPolynomials(sizePolynomials, nbPolynomials)
 
 	// build the ratio polynomial
-	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
+	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
 	var beta fr.Element
 	beta.SetRandom()
@@ -185,7 +183,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 // so σ is a product of cycles length 2.
 func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]Polynomial, []int64) {
 	res := make([]Polynomial, nbPolynomials)
-	form := Form{Layout: Regular, Basis: Lagrange, Status: Locked}
+	form := Form{Layout: Regular, Basis: Lagrange}
 	for i := 0; i < nbPolynomials; i++ {
 		// tmp := make([]fr.Element, sizePolynomials)
 		// res[i] = &Polynomial{Coefficients: tmp, Form: form}
@@ -214,7 +212,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	entries, sigma := getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials)
 
 	// build the ratio polynomial
-	expectedForm := Form{Basis: Lagrange, Layout: Regular, Status: Unlocked}
+	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
 	var beta, gamma fr.Element
 	beta.SetRandom()
