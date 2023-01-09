@@ -129,20 +129,6 @@ func (z *E2) String() string {
 	return (z.A0.String() + "+" + z.A1.String() + "*u")
 }
 
-// ToMont converts to mont form
-func (z *E2) ToMont() *E2 {
-	z.A0.ToMont()
-	z.A1.ToMont()
-	return z
-}
-
-// FromMont converts from mont form
-func (z *E2) FromMont() *E2 {
-	z.A0.FromMont()
-	z.A1.FromMont()
-	return z
-}
-
 // MulByElement multiplies an element in E2 by an element in fp
 func (z *E2) MulByElement(x *E2, y *fp.Element) *E2 {
 	var yCopy fp.Element

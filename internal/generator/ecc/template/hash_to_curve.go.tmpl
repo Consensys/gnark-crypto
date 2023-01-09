@@ -28,8 +28,8 @@ import(
 // The sign of an element is not obviously related to that of its Montgomery form
 func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
 
-    nonMont := *z
-    nonMont.FromMont()
+    nonMont := z.Bits()
+    
 	{{if eq $TowerDegree 1}}    // m == 1
         return nonMont[0]%2
 	{{else}}

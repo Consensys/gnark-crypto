@@ -103,8 +103,8 @@ func mapToCurve1(u *fp.Element) G1Affine {
 // The sign of an element is not obviously related to that of its Montgomery form
 func g1Sgn0(z *fp.Element) uint64 {
 
-	nonMont := *z
-	nonMont.FromMont()
+	nonMont := z.Bits()
+
 	// m == 1
 	return nonMont[0] % 2
 

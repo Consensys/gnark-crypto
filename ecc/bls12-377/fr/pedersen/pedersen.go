@@ -80,9 +80,10 @@ func (k *Key) Commit(values []fr.Element) (commitment bls12377.G1Affine, knowled
 		return
 	}
 
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
 	config := ecc.MultiExpConfig{
-		NbTasks:     1, // TODO Experiment
-		ScalarsMont: true,
+		NbTasks: 1, // TODO Experiment
 	}
 
 	if _, err = commitment.MultiExp(k.basis, values, config); err != nil {
