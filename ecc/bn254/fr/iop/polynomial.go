@@ -74,6 +74,15 @@ func getShapeID(p Polynomial) int {
 	return int(p.Basis)*2 + int(p.Layout)
 }
 
+type Shift int64
+
+// WrappedPolynomial wrapps a polynomial so that it is
+// interpreted as P'(X)=P(\omega^{s}X)
+type WrappedPolynomial struct {
+	P *Polynomial
+	S *Shift
+}
+
 //----------------------------------------------------
 // toLagrange
 
