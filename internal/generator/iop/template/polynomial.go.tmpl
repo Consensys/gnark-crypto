@@ -202,6 +202,48 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 //-----------------------------------------------------
+// toLagrangeCoset
+
+// /!\ those functions are for internal use only. It is assumed
+// that the polynomial is in canonical basis and regular layout.
+// Usually those functions are used to evaluate a polynomial of
+// degree n on a coset of size k*n to compute quotients by X^n-1
+// (hence the evaluation on the coset, to avoid the zeroes of X^n-1
+// when dividing).
+
+// toLagrangeCoset sets p to q in Lagrange coset, possibly resized to
+// fit the size of the domain d.
+func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial{
+
+	if p!=q {
+		*p = *q.Copy()
+	}
+
+	// When using a WrappedPolynomial, it's possible that q has already
+	// been expressed in LagrangeCoset, BitReverse layout. In that case
+	// we do nothing and return p directly.
+	if p.Basis==LagrangeCoset && p.Layout == BitReverse{
+		return p
+	}
+
+	// resizing if needed.
+	if len(p.Coefficients)<int(d.Cardinality){
+		z := make([]fr.Element, int(d.Cardinality)-len(p.Coefficients))
+		p.Coefficients = append(p.Coefficients, z...)
+	}
+
+	// computing the transform, without any checks: since this function
+	// is used internally only, it is assumed that the expected form
+	// provided by the caller is correct, that is it is in Canonical basis,
+	// Regular layout.
+	d.FFT(p.Coefficients, fft.DIF)
+	p.Basis = LagrangeCoset
+	p.Layout = BitReverse
+
+	return p
+}
+
+//-----------------------------------------------------
 // multivariate polynomials
 
 // errors related to the polynomials.
