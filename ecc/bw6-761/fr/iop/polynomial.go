@@ -74,6 +74,29 @@ func getShapeID(p Polynomial) int {
 	return int(p.Basis)*2 + int(p.Layout)
 }
 
+// WrappedPolynomial wrapps a polynomial so that it is
+// interpreted as P'(X)=P(\omega^{s}X)
+type WrappedPolynomial struct {
+	*Polynomial
+	Shift int
+}
+
+//----------------------------------------------------
+// ToRegular
+
+func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
+
+	if p != q {
+		*p = *q.Copy()
+	}
+	if p.Layout == Regular {
+		return p
+	}
+	fft.BitReverse(p.Coefficients)
+	p.Layout = Regular
+	return p
+}
+
 //----------------------------------------------------
 // toLagrange
 
@@ -252,7 +275,7 @@ func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 	// is used internally only, it is assumed that the expected form
 	// provided by the caller is correct, that is it is in Canonical basis,
 	// Regular layout.
-	d.FFT(p.Coefficients, fft.DIF)
+	d.FFT(p.Coefficients, fft.DIF, true)
 	p.Basis = LagrangeCoset
 	p.Layout = BitReverse
 

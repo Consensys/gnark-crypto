@@ -56,6 +56,29 @@ func getShapeID(p Polynomial) int {
 	return int(p.Basis)*2 + int(p.Layout)
 }
 
+// WrappedPolynomial wrapps a polynomial so that it is
+// interpreted as P'(X)=P(\omega^{s}X)
+type WrappedPolynomial struct {
+	*Polynomial
+	Shift int
+}
+
+//----------------------------------------------------
+// ToRegular
+
+func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
+
+	if p != q {
+		*p = *q.Copy()
+	}
+	if p.Layout == Regular {
+		return p
+	}
+	fft.BitReverse(p.Coefficients)
+	p.Layout = Regular
+	return p
+}
+
 //----------------------------------------------------
 // toLagrange
 
@@ -142,6 +165,7 @@ func (p *Polynomial) toCanonical0(d *fft.Domain) *Polynomial {
 func (p *Polynomial) toCanonical1(d *fft.Domain) *Polynomial {
 	return p
 }
+
 // LAGRANGE REGULAR
 func (p *Polynomial) toCanonical2(d *fft.Domain) *Polynomial {
 	p.Basis = Canonical
@@ -149,7 +173,6 @@ func (p *Polynomial) toCanonical2(d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIF)
 	return p
 }
-
 
 // LAGRANGE BITREVERSE
 func (p *Polynomial) toCanonical3(d *fft.Domain) *Polynomial {
@@ -159,7 +182,6 @@ func (p *Polynomial) toCanonical3(d *fft.Domain) *Polynomial {
 	return p
 }
 
-
 // LAGRANGE_COSET REGULAR
 func (p *Polynomial) toCanonical4(d *fft.Domain) *Polynomial {
 	p.Basis = Canonical
@@ -167,7 +189,6 @@ func (p *Polynomial) toCanonical4(d *fft.Domain) *Polynomial {
 	d.FFTInverse(p.Coefficients, fft.DIF, true)
 	return p
 }
-
 
 // LAGRANGE_COSET BITREVERSE
 func (p *Polynomial) toCanonical5(d *fft.Domain) *Polynomial {
@@ -213,21 +234,21 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 
 // toLagrangeCoset sets p to q in Lagrange coset, possibly resized to
 // fit the size of the domain d.
-func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial{
+func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 
-	if p!=q {
+	if p != q {
 		*p = *q.Copy()
 	}
 
 	// When using a WrappedPolynomial, it's possible that q has already
 	// been expressed in LagrangeCoset, BitReverse layout. In that case
 	// we do nothing and return p directly.
-	if p.Basis==LagrangeCoset && p.Layout == BitReverse{
+	if p.Basis == LagrangeCoset && p.Layout == BitReverse {
 		return p
 	}
 
 	// resizing if needed.
-	if len(p.Coefficients)<int(d.Cardinality){
+	if len(p.Coefficients) < int(d.Cardinality) {
 		z := make([]fr.Element, int(d.Cardinality)-len(p.Coefficients))
 		p.Coefficients = append(p.Coefficients, z...)
 	}
@@ -236,7 +257,7 @@ func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial{
 	// is used internally only, it is assumed that the expected form
 	// provided by the caller is correct, that is it is in Canonical basis,
 	// Regular layout.
-	d.FFT(p.Coefficients, fft.DIF)
+	d.FFT(p.Coefficients, fft.DIF, true)
 	p.Basis = LagrangeCoset
 	p.Layout = BitReverse
 

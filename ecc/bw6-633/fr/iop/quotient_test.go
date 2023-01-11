@@ -35,12 +35,12 @@ func computex3(x []fr.Element) fr.Element {
 
 }
 
-func allocatePol(size int, form Form) Polynomial {
+func buildPoly(size int, form Form) WrappedPolynomial {
 	var f Polynomial
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	return f
+	return WrappedPolynomial{Polynomial: &f, Shift: 0}
 }
 
 func evalCanonical(p Polynomial, x fr.Element) fr.Element {
@@ -58,7 +58,7 @@ func TestQuotient(t *testing.T) {
 	// create the multivariate polynomial h
 	// h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 	nbEntries := 3
-	//h := make(MultivariatePolynomial, nbEntries)
+
 	var h MultivariatePolynomial
 	var one, minusOne fr.Element
 	one.SetOne()
@@ -69,11 +69,14 @@ func TestQuotient(t *testing.T) {
 
 	// create an instance (f_i) where h holds
 	sizeSystem := 8
+
 	form := Form{Basis: Lagrange, Layout: Regular}
-	entries := make([]Polynomial, 3)
-	entries[0] = allocatePol(sizeSystem, form)
-	entries[1] = allocatePol(sizeSystem, form)
-	entries[2] = allocatePol(sizeSystem, form)
+
+	entries := make([]WrappedPolynomial, nbEntries)
+	entries[0] = buildPoly(sizeSystem, form)
+	entries[1] = buildPoly(sizeSystem, form)
+	entries[2] = buildPoly(sizeSystem, form)
+
 	for i := 0; i < sizeSystem; i++ {
 
 		entries[0].Coefficients[i].SetRandom()
@@ -94,6 +97,9 @@ func TestQuotient(t *testing.T) {
 		}
 	}
 
+	printVector(entries[0].Coefficients)
+	fmt.Println("--")
+
 	// compute the quotient q
 	expectedForm := Form{Basis: Canonical, Layout: Regular}
 	domains := [2]*fft.Domain{nil, nil}
@@ -106,24 +112,23 @@ func TestQuotient(t *testing.T) {
 	// at a random point
 	var c fr.Element
 	c.SetRandom()
-	fc := make([]Polynomial, nbEntries)
-	domain := fft.NewDomain(uint64(sizeSystem))
-	fc[0].ToCanonical(&entries[0], domain)
-	fft.BitReverse(fc[0].Coefficients)
-	fc[0].Layout = Regular
 
-	fc[1].ToCanonical(&entries[1], domain)
-	fft.BitReverse(fc[1].Coefficients)
-	fc[1].Layout = Regular
+	nbElmtsExtended := ecc.NextPowerOfTwo(h.Degree() * uint64(sizeSystem))
+	domainExtended, _ := buildDomain(int(nbElmtsExtended), domains[1])
 
-	fc[2].ToCanonical(&entries[2], domain)
-	fft.BitReverse(fc[2].Coefficients)
-	fc[2].Layout = Regular
+	entries[0].ToCanonical(entries[0].Polynomial, domainExtended)
+	printVector(entries[0].Coefficients)
+
+	entries[1].ToCanonical(entries[1].Polynomial, domainExtended)
+	entries[1].ToRegular(entries[1].Polynomial)
+
+	entries[2].ToCanonical(entries[2].Polynomial, domainExtended)
+	entries[2].ToRegular(entries[2].Polynomial)
 
 	x := []fr.Element{
-		evalCanonical(fc[0], c),
-		evalCanonical(fc[1], c),
-		evalCanonical(fc[2], c),
+		evalCanonical(*entries[0].Polynomial, c),
+		evalCanonical(*entries[1].Polynomial, c),
+		evalCanonical(*entries[2].Polynomial, c),
 	}
 	l := h.Evaluate(x)
 	var xnminusone fr.Element
