@@ -19,6 +19,7 @@ package iop
 import (
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 )
@@ -97,9 +98,6 @@ func TestQuotient(t *testing.T) {
 		}
 	}
 
-	printVector(entries[0].Coefficients)
-	fmt.Println("--")
-
 	// compute the quotient q
 	expectedForm := Form{Basis: Canonical, Layout: Regular}
 	domains := [2]*fft.Domain{nil, nil}
@@ -117,7 +115,6 @@ func TestQuotient(t *testing.T) {
 	domainExtended, _ := buildDomain(int(nbElmtsExtended), domains[1])
 
 	entries[0].ToCanonical(entries[0].Polynomial, domainExtended)
-	printVector(entries[0].Coefficients)
 
 	entries[1].ToCanonical(entries[1].Polynomial, domainExtended)
 	entries[1].ToRegular(entries[1].Polynomial)
