@@ -16,7 +16,6 @@ package iop
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -77,7 +76,7 @@ func getShapeID(p Polynomial) int {
 // interpreted as P'(X)=P(\omega^{s}X)
 type WrappedPolynomial struct {
 	*Polynomial
-	S int
+	Shift int
 }
 
 //----------------------------------------------------
@@ -209,7 +208,6 @@ func (p *Polynomial) toCanonical4(d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE
 func (p *Polynomial) toCanonical5(d *fft.Domain) *Polynomial {
-	fmt.Printf("toCanonical5\n")
 	p.Basis = Canonical
 	p.Layout = Regular
 	d.FFTInverse(p.Coefficients, fft.DIT, true)
@@ -275,7 +273,7 @@ func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 	// is used internally only, it is assumed that the expected form
 	// provided by the caller is correct, that is it is in Canonical basis,
 	// Regular layout.
-	d.FFT(p.Coefficients, fft.DIF)
+	d.FFT(p.Coefficients, fft.DIF, true)
 	p.Basis = LagrangeCoset
 	p.Layout = BitReverse
 

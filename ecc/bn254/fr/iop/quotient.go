@@ -59,22 +59,15 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, expe
 	// layout.
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i].ToCanonical(entries[i].Polynomial, domains[0])
-		if entries[i].Layout == BitReverse {
-			fft.BitReverse(entries[i].Coefficients)
-			entries[i].Layout = Regular
-		}
+		entries[i].ToRegular(entries[i].Polynomial)
 	}
 
 	// compute h(f₁,..,fₙ) on a coset
 	// entriesLagrangeBigDomain := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
 
-		// entriesLagrangeBigDomain[i].Basis = LagrangeCoset
-		// entriesLagrangeBigDomain[i].Coefficients = make([]fr.Element, sizeBig)
-		// copy(entriesLagrangeBigDomain[i].Coefficients, _entries[i].Coefficients)
-		// entriesLagrangeBigDomain[i].Layout = BitReverse
-		// domains[1].FFT(entriesLagrangeBigDomain[i].Coefficients, fft.DIF, true)
 		entries[i].toLagrangeCoset(entries[i].Polynomial, domains[1])
+
 	}
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
@@ -101,11 +94,10 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, expe
 		for j := 0; j < nbEntries; j++ {
 
 			// take in account the fact that the polynomial mght be shifted...
-			iRev := bits.Reverse64(uint64((i+rho*entries[j].S))%domains[1].Cardinality) >> nn
+			iRev := bits.Reverse64(uint64((i+rho*entries[j].Shift))%domains[1].Cardinality) >> nn
 
 			// set the variable. The polynomials in entriesLagrangeBigDomain
 			// are in bit reverse.
-			//x[j].Set(&entriesLagrangeBigDomain[j].Coefficients[iRev])
 			x[j].Set(&entries[j].Coefficients[iRev])
 
 		}

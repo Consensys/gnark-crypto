@@ -40,7 +40,7 @@ func buildPoly(size int, form Form) WrappedPolynomial {
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	return WrappedPolynomial{Polynomial: &f, S: 0}
+	return WrappedPolynomial{Polynomial: &f, Shift: 0}
 }
 
 func evalCanonical(p Polynomial, x fr.Element) fr.Element {
@@ -117,16 +117,13 @@ func TestQuotient(t *testing.T) {
 	domainExtended, _ := buildDomain(int(nbElmtsExtended), domains[1])
 
 	entries[0].ToCanonical(entries[0].Polynomial, domainExtended)
-	entries[0].ToRegular(entries[0].Polynomial)
 	printVector(entries[0].Coefficients)
 
-	// entries[1].ToCanonical(entries[1].Polynomial, domainExtended)
-	// entries[1].ToRegular(entries[1].Polynomial)
+	entries[1].ToCanonical(entries[1].Polynomial, domainExtended)
+	entries[1].ToRegular(entries[1].Polynomial)
 
-	// entries[2].ToCanonical(entries[2].Polynomial, domainExtended)
-	// entries[2].ToRegular(entries[2].Polynomial)
-
-	fmt.Println("CHECKPOINT 2")
+	entries[2].ToCanonical(entries[2].Polynomial, domainExtended)
+	entries[2].ToRegular(entries[2].Polynomial)
 
 	x := []fr.Element{
 		evalCanonical(*entries[0].Polynomial, c),
