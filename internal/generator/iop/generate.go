@@ -23,7 +23,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "quotient_test.go"), Templates: []string{"quotient.test.go.tmpl"}},
 
 		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
-		{File: filepath.Join(baseDir, "utils_test.go"), Templates: []string{"utils.test.go.tmpl"}},
 	}
 	return bgen.Generate(conf, conf.Package, "./iop/template/", entries...)
 
