@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
-func TestEvaluate(t *testing.T) {
+func TestEvaluateSinglePoint(t *testing.T) {
 
 	// monomial
 	{
@@ -70,7 +70,7 @@ func TestEvaluate(t *testing.T) {
 		var res fr.Element
 		res.SetUint64(136)
 
-		r := p.Evaluate(x)
+		r := p.EvaluateSinglePoint(x)
 		if !r.Equal(&res) {
 			t.Fatal("evaluation multivariate polynomial failed")
 		}

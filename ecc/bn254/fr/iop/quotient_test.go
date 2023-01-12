@@ -92,7 +92,7 @@ func TestQuotient(t *testing.T) {
 			entries[1].Coefficients[i],
 			entries[2].Coefficients[i],
 		}
-		tmp = h.Evaluate(x)
+		tmp = h.EvaluateSinglePoint(x)
 		if !tmp.IsZero() {
 			t.Fatal("system does not vanish on x^n-1")
 		}
@@ -127,7 +127,7 @@ func TestQuotient(t *testing.T) {
 		evalCanonical(*entries[1].Polynomial, c),
 		evalCanonical(*entries[2].Polynomial, c),
 	}
-	l := h.Evaluate(x)
+	l := h.EvaluateSinglePoint(x)
 	var xnminusone fr.Element
 	xnminusone.Set(&c).
 		Square(&xnminusone).

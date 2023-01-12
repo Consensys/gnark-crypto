@@ -362,11 +362,11 @@ func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
 
 }
 
-// evaluate a multivariate polynomial in x
+// EvaluateSinglePoint a multivariate polynomial in x
 // /!\ It is assumed that the multivariate polynomial has been
 // built correctly, that is the sizes of the slices in exponents
 // are the same /!\
-func (m *MultivariatePolynomial) Evaluate(x []fr.Element) fr.Element {
+func (m *MultivariatePolynomial) EvaluateSinglePoint(x []fr.Element) fr.Element {
 
 	var res fr.Element
 

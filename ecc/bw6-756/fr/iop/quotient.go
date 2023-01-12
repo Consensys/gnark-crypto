@@ -105,7 +105,7 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, expe
 		}
 
 		// evaluate h on x
-		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.Evaluate(x)
+		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.EvaluateSinglePoint(x)
 
 		// divide by x^n-1 evaluated on the correct point.
 		quotientLagrangeCosetBitReverse.Coefficients[iRev].
