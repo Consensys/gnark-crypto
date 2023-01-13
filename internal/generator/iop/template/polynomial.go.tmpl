@@ -324,15 +324,15 @@ func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 // errors related to the polynomials.
 var ErrInconsistentNumberOfVariable = errors.New("the number of variables is not consistent")
 
-// monomial represents a monomial encoded as
+// Monomial represents a Monomial encoded as
 // coeff*X₁^{i₁}*..*X_n^{i_n} if exponents = [i₁,..iₙ]
-type monomial struct {
+type Monomial struct {
 	coeff     fr.Element
 	exponents []int
 }
 
 // it is supposed that the number of variables matches
-func (m monomial) evaluate(x []fr.Element) fr.Element {
+func (m Monomial) evaluate(x []fr.Element) fr.Element {
 
 	var res, tmp fr.Element
 
@@ -354,9 +354,9 @@ func (m monomial) evaluate(x []fr.Element) fr.Element {
 
 }
 
-// reprensents a multivariate polynomial as a list of monomial,
-// the multivariate polynomial being the sum of the monomials.
-type MultivariatePolynomial []monomial
+// reprensents a multivariate polynomial as a list of Monomial,
+// the multivariate polynomial being the sum of the Monomials.
+type MultivariatePolynomial []Monomial
 
 // degree returns the total degree
 func (m *MultivariatePolynomial) Degree() uint64 {
@@ -373,16 +373,16 @@ func (m *MultivariatePolynomial) Degree() uint64 {
 	return uint64(r)
 }
 
-// AddMonomial adds a monomial to m. If m is empty, the monomial is
+// AddMonomial adds a Monomial to m. If m is empty, the Monomial is
 // added no matter what. But if m is already populated, an error is
 // returned if len(e)\neq size of the previous list of exponents. This
 // ensure that the number of variables is given by the size of any of
-// the slices of exponent in any monomial.
+// the slices of exponent in any Monomial.
 func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
 
-	// if m is empty, we add the first monomial.
+	// if m is empty, we add the first Monomial.
 	if len(*m) == 0 {
-		r := monomial{c, e}
+		r := Monomial{c, e}
 		*m = append(*m, r)
 		return nil
 	}
@@ -392,7 +392,7 @@ func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
 	if len((*m)[0].exponents) != len(e) {
 		return ErrInconsistentNumberOfVariable
 	}
-	r := monomial{c, e}
+	r := Monomial{c, e}
 	*m = append(*m, r)
 	return nil
 

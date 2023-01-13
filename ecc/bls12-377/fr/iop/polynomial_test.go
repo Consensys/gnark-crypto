@@ -25,9 +25,9 @@ import (
 
 func TestEvaluateSinglePoint(t *testing.T) {
 
-	// monomial
+	// Monomial
 	{
-		var m monomial
+		var m Monomial
 		m.coeff.SetInt64(3)
 		m.exponents = make([]int, 3)
 		m.exponents[0] = 1
@@ -45,7 +45,7 @@ func TestEvaluateSinglePoint(t *testing.T) {
 		r := m.evaluate(x)
 
 		if !r.Equal(&res) {
-			t.Fatal("evaluation monomial failed")
+			t.Fatal("evaluation Monomial failed")
 		}
 	}
 
