@@ -53,6 +53,7 @@ func TestEvaluateSinglePoint(t *testing.T) {
 	{
 		var p MultivariatePolynomial
 		p.M = make([]Monomial, 3)
+		p.C.SetUint64(11)
 
 		p.M[0].coeff.SetUint64(1)
 		p.M[0].exponents = []int{1, 1, 1}
@@ -69,7 +70,7 @@ func TestEvaluateSinglePoint(t *testing.T) {
 		x[2].SetUint64(2)
 
 		var res fr.Element
-		res.SetUint64(136)
+		res.SetUint64(147)
 
 		r := p.EvaluateSinglePoint(x)
 		if !r.Equal(&res) {

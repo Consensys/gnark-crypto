@@ -431,6 +431,7 @@ func (m *MultivariatePolynomial) EvaluateSinglePoint(x []fr.Element) fr.Element 
 		tmp := m.M[i].evaluate(x)
 		res.Add(&res, &tmp)
 	}
+	res.Add(&res, &m.C)
 	return res
 }
 
@@ -476,6 +477,7 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 			}
 
 			res.Coefficients[i] = m.EvaluateSinglePoint(v)
+			res.Coefficients[i].Add(&res.Coefficients[i], &m.C)
 		}
 
 	} else {
@@ -496,6 +498,7 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 			// evaluate h on x
 			iRev := bits.Reverse64(uint64(i)) >> nn
 			res.Coefficients[iRev] = m.EvaluateSinglePoint(v)
+			res.Coefficients[iRev].Add(&res.Coefficients[iRev], &m.C)
 		}
 
 	}
