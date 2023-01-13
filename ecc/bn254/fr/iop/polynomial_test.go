@@ -478,10 +478,10 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("epxected layout is bitreverse")
 		}
-		// fft.BitReverse(q.Coefficients)
-		// if !cmpCoefficents(q.Coefficients, p.Coefficients) {
-		// 	t.Fatal("wrong coefficients")
-		// }
+		fft.BitReverse(q.Coefficients)
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
 	}
 
 	// LAGRANGE_COSET BITREVERSE
@@ -499,6 +499,176 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("epxected layout is regular")
 		}
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+}
+
+// CANONICAL REGULAR
+func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = Canonical
+	_p.Layout = Regular
+	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	fft.BitReverse(_p.Coefficients)
+	return _p
+}
+
+// CANONICAL BITREVERSE
+func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = Canonical
+	_p.Layout = BitReverse
+	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	return _p
+}
+
+// LAGRANGE REGULAR
+func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = Lagrange
+	_p.Layout = Regular
+	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIT)
+	return _p
+}
+
+// LAGRANGE BITREVERSE
+func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = Lagrange
+	_p.Layout = BitReverse
+	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients, fft.DIT)
+	fft.BitReverse(_p.Coefficients)
+	return _p
+}
+
+// LAGRANGE_COSET REGULAR
+func fromLagrangeCoset4(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = LagrangeCoset
+	_p.Layout = Regular
+	return _p
+}
+
+// LAGRANGE_COSET BITREVERSE
+func fromLagrangeCoset5(p *Polynomial, d *fft.Domain) *Polynomial {
+	_p := p.Copy()
+	_p.Basis = LagrangeCoset
+	_p.Layout = BitReverse
+	fft.BitReverse(p.Coefficients)
+	return _p
+}
+
+func TestPutInLagrangeCosetForm(t *testing.T) {
+
+	size := 64
+	domain := fft.NewDomain(uint64(size))
+
+	// reference vector in canonical-regular form
+	c := randomVector(size)
+	var p Polynomial
+	p.Coefficients = c
+	p.Basis = LagrangeCoset
+	p.Layout = Regular
+
+	// CANONICAL REGULAR
+	{
+		_p := fromLagrangeCoset0(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != BitReverse {
+			t.Fatal("epxected layout is bit reverse")
+		}
+		fft.BitReverse(q.Coefficients)
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+	// CANONICAL BITREVERSE
+	{
+		_p := fromLagrangeCoset1(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != Regular {
+			t.Fatal("epxected layout is regular")
+		}
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+	// LAGRANGE REGULAR
+	{
+		_p := fromLagrangeCoset2(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != Regular {
+			t.Fatal("epxected layout is regular")
+		}
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+	// LAGRANGE BITREVERSE
+	{
+		_p := fromLagrangeCoset3(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != BitReverse {
+			t.Fatal("epxected layout is bit reverse")
+		}
+		fft.BitReverse(q.Coefficients)
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+	// LAGRANGE_COSET REGULAR
+	{
+		_p := fromLagrangeCoset4(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != Regular {
+			t.Fatal("epxected layout is regular")
+		}
+		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+			t.Fatal("wrong coefficients")
+		}
+	}
+
+	// LAGRANGE_COSET BITREVERSE
+	{
+		_p := fromLagrangeCoset5(&p, domain)
+		var q Polynomial
+		q.ToLagrangeCoset(_p, domain)
+		if q.Basis != LagrangeCoset {
+			t.Fatal("expected basis is lagrange coset")
+		}
+		if q.Layout != BitReverse {
+			t.Fatal("epxected layout is bit reverse")
+		}
+		fft.BitReverse(q.Coefficients)
 		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
 			t.Fatal("wrong coefficients")
 		}

@@ -26,10 +26,12 @@ import (
 
 // errors related to the computation of the quotient and the ratios.
 var (
-	ErrInconsistantSize           = errors.New("the sizes of the polynomial must be the same as the size of the domain")
+	ErrMustBeLagrangeCoset        = errors.New("the basis must be LagrangeCoset")
+	ErrInconsistentFormat         = errors.New("the format of the polynomials must be the same")
+	ErrInconsistentSize           = errors.New("the sizes of the polynomial must be the same as the size of the domain")
 	ErrNumberPolynomials          = errors.New("the number of polynomials in the denominator and the numerator must be the same")
 	ErrSizeNotPowerOfTwo          = errors.New("the size of the polynomials must be a power of two")
-	ErrInconsistantSizeDomain     = errors.New("the size of the domain must be consistant with the size of the polynomials")
+	ErrInconsistentSizeDomain     = errors.New("the size of the domain must be consistent with the size of the polynomials")
 	ErrIncorrectNumberOfVariables = errors.New("the number of variables is incorrect")
 )
 
@@ -54,7 +56,7 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 	}
 	nbPolynomials := len(numerator)
 
-	// check that the sizes are consistant
+	// check that the sizes are consistent
 	err := checkSize(numerator, denominator)
 	if err != nil {
 		return res, err
@@ -153,7 +155,7 @@ func BuildRatioCopyConstraint(
 
 	nbPolynomials := len(entries)
 
-	// check that the sizes are consistant
+	// check that the sizes are consistent
 	err := checkSize(entries)
 	if err != nil {
 		return res, err
@@ -269,7 +271,7 @@ func checkSize(pols ...[]Polynomial) error {
 	for i := 0; i < m; i++ {
 		for j := 0; j < len(pols); j++ {
 			if len(pols[i][j].Coefficients) != n {
-				return ErrInconsistantSize
+				return ErrInconsistentSize
 			}
 		}
 	}
@@ -293,7 +295,7 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 
 	// in case domain was not nil, it must match the size of the polynomials.
 	if domain.Cardinality != uint64(n) {
-		return nil, ErrInconsistantSizeDomain
+		return nil, ErrInconsistentSizeDomain
 	}
 
 	return domain, nil

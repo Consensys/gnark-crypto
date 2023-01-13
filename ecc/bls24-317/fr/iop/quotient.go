@@ -25,51 +25,44 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
 )
 
-// ComputeQuotient returns h(f₁,..,fₙ)/Xⁿ-1 where n=len(f_i).
-func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, expectedForm Form, domains [2]*fft.Domain) (Polynomial, error) {
+// ComputeQuotient computes h(entries)/X^n-1
+// * entries polynomials to on which h is evaluated, they must be in LagrangeCoset basis
+// with the same layout
+// * h multivariate polynomial
+// * domains domains used for performing ffts
+func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, domains [2]*fft.Domain) (Polynomial, error) {
 
-	var quotientLagrangeCosetBitReverse Polynomial
+	var quotientLagrangeCoset Polynomial
 
-	// check that the sizes are consistant
+	// check that the sizes are consistent
 	nbPolynomials := len(entries)
 	n := len(entries[0].Coefficients)
 	for i := 0; i < nbPolynomials; i++ {
 		if len(entries[i].Coefficients) != n {
-			return quotientLagrangeCosetBitReverse, ErrInconsistantSize
+			return quotientLagrangeCoset, ErrInconsistentSize
 		}
-
 	}
 
-	// create the domains for the individual polynomials + for the quotient
-	var err error
-	nbElmts := len(entries[0].Coefficients)
-	domains[0], err = buildDomain(nbElmts, domains[0])
-	if err != nil {
-		return quotientLagrangeCosetBitReverse, err
-	}
-	nbElmtsExtended := ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality)
-	domains[1], err = buildDomain(int(nbElmtsExtended), domains[1])
-	if err != nil {
-		return quotientLagrangeCosetBitReverse, err
+	// check that the sizes are correct: the size of each polynomial
+	// in entries must be domains[0].Size*h.Degree
+	expectedSize := ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality)
+	if expectedSize != uint64(n) {
+		return quotientLagrangeCoset, ErrInconsistentSize
 	}
 
-	// Note: we will need to interpret the obtained polynomials in
-	// canonical form but of degree the size of the big domain. So
-	// we will padd the obtained polynomials with zeroes, but this
-	// works only if the obtained polynomials are in regular form.
-	// So we call bitReverse here if the polynomials are in bit reverse
-	// layout.
+	// check that the format are consistent
+	expectedForm := entries[0].Form
 	for i := 0; i < nbPolynomials; i++ {
-		entries[i].ToCanonical(entries[i].Polynomial, domains[0])
-		entries[i].ToRegular(entries[i].Polynomial)
+		if entries[i].Form != expectedForm {
+			return quotientLagrangeCoset, ErrInconsistentFormat
+		}
 	}
 
-	// compute h(f₁,..,fₙ) on a coset
-	// entriesLagrangeBigDomain := make([]Polynomial, nbPolynomials)
+	// check that the basis is LagrangeCoset
 	for i := 0; i < nbPolynomials; i++ {
-
-		entries[i].toLagrangeCoset(entries[i].Polynomial, domains[1])
-
+		if entries[i].Basis != LagrangeCoset {
+			return quotientLagrangeCoset, ErrMustBeLagrangeCoset
+		}
 	}
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
@@ -83,40 +76,65 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, expe
 	nbEntries := len(entries)
 	x := make([]fr.Element, nbEntries)
 
-	quotientLagrangeCosetBitReverse.Coefficients = make([]fr.Element, nbElmtsExtended)
+	nbElmtsExtended := int(domains[1].Cardinality)
 
-	rho := int(domains[1].Cardinality / domains[0].Cardinality)
+	quotientLagrangeCoset.Coefficients = make([]fr.Element, nbElmtsExtended)
 
-	nn := uint64(64 - bits.TrailingZeros(uint(nbElmtsExtended)))
-	// TODO use one goroutines per monomials here
-	for i := 0; i < int(nbElmtsExtended); i++ {
+	if expectedForm.Layout == Regular {
 
-		iRev := bits.Reverse64(uint64(i)) >> nn
+		for i := 0; i < int(nbElmtsExtended); i++ {
 
-		for j := 0; j < nbEntries; j++ {
+			for j := 0; j < nbEntries; j++ {
 
-			// take in account the fact that the polynomial mght be shifted...
-			iRev := bits.Reverse64(uint64((i+rho*entries[j].Shift))%domains[1].Cardinality) >> nn
+				x[j].Set(&entries[j].Coefficients[(i+entries[j].Shift)%nbElmtsExtended])
 
-			// set the variable. The polynomials in entriesLagrangeBigDomain
-			// are in bit reverse.
-			x[j].Set(&entries[j].Coefficients[iRev])
+			}
 
+			quotientLagrangeCoset.Coefficients[i] = h.EvaluateSinglePoint(x)
+
+			// divide by x^n-1 evaluated on the correct point.
+			quotientLagrangeCoset.Coefficients[i].
+				Mul(&quotientLagrangeCoset.Coefficients[i], &xnMinusOneInverseLagrangeCoset[i%ratio])
 		}
 
-		// evaluate h on x
-		quotientLagrangeCosetBitReverse.Coefficients[iRev] = h.EvaluateSinglePoint(x)
+		// at this point, the result is in LagrangeCoset, regular.
+		// We put it in canonical form.
+		quotientLagrangeCoset.Form = Form{LagrangeCoset, Regular}
+		quotientLagrangeCoset.ToCanonical(&quotientLagrangeCoset, domains[1])
 
-		// divide by x^n-1 evaluated on the correct point.
-		quotientLagrangeCosetBitReverse.Coefficients[iRev].
-			Mul(&quotientLagrangeCosetBitReverse.Coefficients[iRev], &xnMinusOneInverseLagrangeCoset[i%ratio])
+	} else {
+
+		nn := uint64(64 - bits.TrailingZeros(uint(nbElmtsExtended)))
+
+		for i := 0; i < int(nbElmtsExtended); i++ {
+
+			for j := 0; j < nbEntries; j++ {
+
+				// take in account the fact that the polynomial mght be shifted...
+				iRev := bits.Reverse64(uint64((i+entries[j].Shift))%domains[1].Cardinality) >> nn
+
+				// set the variable. The polynomials in entriesLagrangeBigDomain
+				// are in bit reverse.
+				x[j].Set(&entries[j].Coefficients[iRev])
+
+			}
+
+			// evaluate h on x
+			iRev := bits.Reverse64(uint64(i)) >> nn
+			quotientLagrangeCoset.Coefficients[iRev] = h.EvaluateSinglePoint(x)
+
+			// divide by x^n-1 evaluated on the correct point.
+			quotientLagrangeCoset.Coefficients[iRev].
+				Mul(&quotientLagrangeCoset.Coefficients[iRev], &xnMinusOneInverseLagrangeCoset[i%ratio])
+		}
+
+		// at this point, the result is in LagrangeCoset, bit reversed.
+		// We put it in canonical form.
+		quotientLagrangeCoset.Form = Form{LagrangeCoset, BitReverse}
+		quotientLagrangeCoset.ToCanonical(&quotientLagrangeCoset, domains[1])
 	}
 
-	// at this stage the result is in Lagrange, bitreversed format.
-	// We put it in the expected format.
-	putInExpectedFormFromLagrangeCosetBitReversed(&quotientLagrangeCosetBitReverse, domains[1], expectedForm)
-
-	return quotientLagrangeCosetBitReverse, nil
+	return quotientLagrangeCoset, nil
 }
 
 // evaluateXnMinusOneDomainBigCoset evalutes Xᵐ-1 on DomainBig coset
@@ -145,32 +163,4 @@ func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []fr.Element {
 	res = fr.BatchInvert(res)
 
 	return res
-}
-
-func putInExpectedFormFromLagrangeCosetBitReversed(p *Polynomial, domain *fft.Domain, expectedForm Form) {
-
-	p.Basis = expectedForm.Basis
-	p.Layout = expectedForm.Layout
-
-	if expectedForm.Basis == Canonical {
-		domain.FFTInverse(p.Coefficients, fft.DIT, true)
-		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(p.Coefficients)
-		}
-		return
-	}
-
-	if expectedForm.Basis == Lagrange {
-		domain.FFTInverse(p.Coefficients, fft.DIT, true)
-		domain.FFT(p.Coefficients, fft.DIF)
-		if expectedForm.Layout == Regular {
-			fft.BitReverse(p.Coefficients)
-		}
-		return
-	}
-
-	if expectedForm.Layout == Regular {
-		fft.BitReverse(p.Coefficients)
-	}
-
 }

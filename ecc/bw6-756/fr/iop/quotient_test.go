@@ -24,6 +24,26 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/fft"
 )
 
+// func printLayout(f Form) {
+
+// 	if f.Basis == Canonical {
+// 		fmt.Printf("CANONICAL")
+// 	} else if f.Basis == LagrangeCoset {
+// 		fmt.Printf("LAGRANGE_COSET")
+// 	} else {
+// 		fmt.Printf("LAGRANGE")
+// 	}
+// 	fmt.Println("")
+
+// 	if f.Layout == Regular {
+// 		fmt.Printf("REGULAR")
+// 	} else {
+// 		fmt.Printf("BIT REVERSED")
+// 	}
+// 	fmt.Println("")
+
+// }
+
 // computes x₃ in h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 // from x₁ and x₂.
 func computex3(x []fr.Element) fr.Element {
@@ -98,12 +118,51 @@ func TestQuotient(t *testing.T) {
 		}
 	}
 
-	// compute the quotient q
-	expectedForm := Form{Basis: Canonical, Layout: Regular}
-	domains := [2]*fft.Domain{nil, nil}
-	quotient, err := ComputeQuotient(entries, h, expectedForm, domains)
+	// compute the quotient where the entries are in Regular layout
+	var domains [2]*fft.Domain
+	domains[0] = fft.NewDomain(uint64(sizeSystem))
+	domains[1] = fft.NewDomain(ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality))
+
+	entries[0].ToCanonical(entries[0].Polynomial, domains[0]).
+		ToRegular(entries[0].Polynomial).
+		ToLagrangeCoset(entries[0].Polynomial, domains[1]).
+		ToRegular(entries[0].Polynomial)
+
+	entries[1].ToCanonical(entries[1].Polynomial, domains[0]).
+		ToRegular(entries[1].Polynomial).
+		ToLagrangeCoset(entries[1].Polynomial, domains[1]).
+		ToRegular(entries[1].Polynomial)
+
+	entries[2].ToCanonical(entries[2].Polynomial, domains[0]).
+		ToRegular(entries[2].Polynomial).
+		ToLagrangeCoset(entries[2].Polynomial, domains[1]).
+		ToRegular(entries[2].Polynomial)
+
+	quotientA, err := ComputeQuotient(entries, h, domains)
 	if err != nil {
 		t.Fatal(err)
+	}
+	quotientA.ToRegular(&quotientA)
+
+	// compute the quotient where the entries are in BitReverse layout
+	entries[0].ToBitreverse(entries[0].Polynomial)
+	entries[1].ToBitreverse(entries[1].Polynomial)
+	entries[2].ToBitreverse(entries[2].Polynomial)
+
+	quotientB, err := ComputeQuotient(entries, h, domains)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check that the two results are the same
+	quotientB.ToRegular(&quotientB)
+	if quotientB.Form != quotientA.Form {
+		t.Fatal("quotient is inconsistent when entries are in bitRerverse and Regular")
+	}
+	for i := 0; i < int(domains[1].Cardinality); i++ {
+		if !quotientA.Coefficients[i].Equal(&quotientB.Coefficients[i]) {
+			t.Fatal("quotient is inconsistent when entries are in bitRerverse and Regular")
+		}
 	}
 
 	// checks that h(f_i) = (x^n-1)*q by evaluating the relation
@@ -111,15 +170,13 @@ func TestQuotient(t *testing.T) {
 	var c fr.Element
 	c.SetRandom()
 
-	nbElmtsExtended := ecc.NextPowerOfTwo(h.Degree() * uint64(sizeSystem))
-	domainExtended, _ := buildDomain(int(nbElmtsExtended), domains[1])
+	entries[0].ToCanonical(entries[0].Polynomial, domains[1])
+	entries[0].ToRegular(entries[0].Polynomial)
 
-	entries[0].ToCanonical(entries[0].Polynomial, domainExtended)
-
-	entries[1].ToCanonical(entries[1].Polynomial, domainExtended)
+	entries[1].ToCanonical(entries[1].Polynomial, domains[1])
 	entries[1].ToRegular(entries[1].Polynomial)
 
-	entries[2].ToCanonical(entries[2].Polynomial, domainExtended)
+	entries[2].ToCanonical(entries[2].Polynomial, domains[1])
 	entries[2].ToRegular(entries[2].Polynomial)
 
 	x := []fr.Element{
@@ -134,7 +191,7 @@ func TestQuotient(t *testing.T) {
 		Square(&xnminusone).
 		Square(&xnminusone).
 		Sub(&xnminusone, &one)
-	r := evalCanonical(quotient, c)
+	r := evalCanonical(quotientA, c)
 	r.Mul(&r, &xnminusone)
 
 	if !r.Equal(&l) {

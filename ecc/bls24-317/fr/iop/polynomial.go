@@ -19,6 +19,7 @@ package iop
 import (
 	"errors"
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
@@ -98,6 +99,22 @@ func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
 }
 
 //----------------------------------------------------
+// ToBitreverse
+
+func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
+
+	if p != q {
+		*p = *q.Copy()
+	}
+	if p.Layout == BitReverse {
+		return p
+	}
+	fft.BitReverse(p.Coefficients)
+	p.Layout = BitReverse
+	return p
+}
+
+//----------------------------------------------------
 // toLagrange
 
 // the numeration corresponds to the following formatting:
@@ -153,6 +170,7 @@ func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
 	if q != p {
 		*p = *q.Copy()
 	}
+	resize(p, d.Cardinality)
 	switch id {
 	case 0:
 		return p.toLagrange0(d)
@@ -222,6 +240,7 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 	if q != p {
 		*p = *q.Copy()
 	}
+	resize(p, d.Cardinality)
 	switch id {
 	case 0:
 		return p.toCanonical0(d)
@@ -241,52 +260,87 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 //-----------------------------------------------------
-// toLagrangeCoset
+// ToLagrangeCoset
 
-// /!\ those functions are for internal use only. It is assumed
-// that the polynomial is in canonical basis and regular layout.
-// Usually those functions are used to evaluate a polynomial of
-// degree n on a coset of size k*n to compute quotients by X^n-1
-// (hence the evaluation on the coset, to avoid the zeroes of X^n-1
-// when dividing).
+func resize(p *Polynomial, newSize uint64) {
+	z := make([]fr.Element, int(newSize)-len(p.Coefficients))
+	p.Coefficients = append(p.Coefficients, z...)
+}
 
-// toLagrangeCoset sets p to q in Lagrange coset, possibly resized to
-// fit the size of the domain d.
-func (p *Polynomial) toLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
-
-	if p != q {
-		*p = *q.Copy()
-	}
-
-	// When using a WrappedPolynomial, it's possible that q has already
-	// been expressed in LagrangeCoset, BitReverse layout. In that case
-	// we do nothing and return p directly.
-	if p.Basis == LagrangeCoset && p.Layout == BitReverse {
-		return p
-	}
-
-	// resizing if needed.
-	if len(p.Coefficients) < int(d.Cardinality) {
-		z := make([]fr.Element, int(d.Cardinality)-len(p.Coefficients))
-		p.Coefficients = append(p.Coefficients, z...)
-	}
-
-	// computing the transform, without any checks: since this function
-	// is used internally only, it is assumed that the expected form
-	// provided by the caller is correct, that is it is in Canonical basis,
-	// Regular layout.
-	d.FFT(p.Coefficients, fft.DIF, true)
+// CANONICAL REGULAR
+func (p *Polynomial) toLagrangeCoset0(d *fft.Domain) *Polynomial {
 	p.Basis = LagrangeCoset
 	p.Layout = BitReverse
-
+	d.FFT(p.Coefficients, fft.DIF, true)
 	return p
+}
+
+// CANONICAL BITREVERSE
+func (p *Polynomial) toLagrangeCoset1(d *fft.Domain) *Polynomial {
+	p.Basis = LagrangeCoset
+	p.Layout = Regular
+	d.FFT(p.Coefficients, fft.DIT, true)
+	return p
+}
+
+// LAGRANGE REGULAR
+func (p *Polynomial) toLagrangeCoset2(d *fft.Domain) *Polynomial {
+	p.Basis = LagrangeCoset
+	p.Layout = Regular
+	d.FFTInverse(p.Coefficients, fft.DIF)
+	d.FFT(p.Coefficients, fft.DIT, true)
+	return p
+}
+
+// LAGRANGE BITREVERSE
+func (p *Polynomial) toLagrangeCoset3(d *fft.Domain) *Polynomial {
+	p.Basis = LagrangeCoset
+	p.Layout = BitReverse
+	d.FFTInverse(p.Coefficients, fft.DIT)
+	d.FFT(p.Coefficients, fft.DIF, true)
+	return p
+}
+
+// LAGRANGE_COSET REGULAR
+func (p *Polynomial) toLagrangeCoset4(d *fft.Domain) *Polynomial {
+	return p
+}
+
+// LAGRANGE_COSET BITREVERSE
+func (p *Polynomial) toLagrangeCoset5(d *fft.Domain) *Polynomial {
+	return p
+}
+
+// ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
+func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
+	id := getShapeID(*q)
+	if q != p {
+		*p = *q.Copy()
+	}
+	resize(p, d.Cardinality)
+	switch id {
+	case 0:
+		return p.toLagrangeCoset0(d)
+	case 1:
+		return p.toLagrangeCoset1(d)
+	case 2:
+		return p.toLagrangeCoset2(d)
+	case 3:
+		return p.toLagrangeCoset3(d)
+	case 4:
+		return p.toLagrangeCoset4(d)
+	case 5:
+		return p.toLagrangeCoset5(d)
+	default:
+		panic("unknown ID")
+	}
 }
 
 //-----------------------------------------------------
 // multivariate polynomials
 
 // errors related to the polynomials.
-var ErrInconsistantNumberOfVariable = errors.New("the number of variables is not consistant")
+var ErrInconsistentNumberOfVariable = errors.New("the number of variables is not consistent")
 
 // monomial represents a monomial encoded as
 // coeff*X₁^{i₁}*..*X_n^{i_n} if exponents = [i₁,..iₙ]
@@ -354,7 +408,7 @@ func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
 	// at this stage all of exponennt in m are supposed to be of
 	// the same size.
 	if len((*m)[0].exponents) != len(e) {
-		return ErrInconsistantNumberOfVariable
+		return ErrInconsistentNumberOfVariable
 	}
 	r := monomial{c, e}
 	*m = append(*m, r)
@@ -375,4 +429,74 @@ func (m *MultivariatePolynomial) EvaluateSinglePoint(x []fr.Element) fr.Element 
 		res.Add(&res, &tmp)
 	}
 	return res
+}
+
+// EvaluatePolynomials evaluate h on x, interpreted as vectors.
+// No transformations are made on the polynomials, it is assumed
+// that they are all in the same format (e.g. all in LagrangeCoset,
+// BitReverse).
+func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Polynomial, error) {
+
+	var res Polynomial
+
+	// check that the sizes are consistent
+	nbPolynomials := len(x)
+	nbElmts := len(x[0].Coefficients)
+	for i := 0; i < nbPolynomials; i++ {
+		if len(x[i].Coefficients) != nbElmts {
+			return res, ErrInconsistentSize
+		}
+	}
+
+	// check that the format are consistent
+	expectedForm := x[0].Form
+	for i := 0; i < nbPolynomials; i++ {
+		if x[i].Form != expectedForm {
+			return res, ErrInconsistentFormat
+		}
+	}
+
+	res.Coefficients = make([]fr.Element, nbElmts)
+	res.Form = expectedForm
+
+	// two separate loops so the if is not inside the for loop
+	if expectedForm.Layout == Regular {
+
+		v := make([]fr.Element, nbPolynomials)
+
+		for i := 0; i < nbElmts; i++ {
+
+			for j := 0; j < nbPolynomials; j++ {
+
+				v[j].Set(&x[j].Coefficients[(i+x[j].Shift)%nbElmts])
+
+			}
+
+			res.Coefficients[i] = m.EvaluateSinglePoint(v)
+		}
+
+	} else {
+
+		v := make([]fr.Element, nbPolynomials)
+		nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
+
+		for i := 0; i < nbElmts; i++ {
+
+			for j := 0; j < nbPolynomials; j++ {
+
+				// take in account the fact that the polynomial mght be shifted...
+				iRev := bits.Reverse64(uint64((i+x[j].Shift))%uint64(nbElmts)) >> nn
+				v[j].Set(&x[j].Coefficients[iRev])
+
+			}
+
+			// evaluate h on x
+			iRev := bits.Reverse64(uint64(i)) >> nn
+			res.Coefficients[iRev] = m.EvaluateSinglePoint(v)
+		}
+
+	}
+
+	return res, nil
+
 }
