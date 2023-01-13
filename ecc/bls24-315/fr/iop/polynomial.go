@@ -374,15 +374,18 @@ func (m Monomial) evaluate(x []fr.Element) fr.Element {
 
 // reprensents a multivariate polynomial as a list of Monomial,
 // the multivariate polynomial being the sum of the Monomials.
-type MultivariatePolynomial []Monomial
+type MultivariatePolynomial struct {
+	M []Monomial
+	C fr.Element
+}
 
 // degree returns the total degree
 func (m *MultivariatePolynomial) Degree() uint64 {
 	r := 0
-	for i := 0; i < len(*m); i++ {
+	for i := 0; i < len(m.M); i++ {
 		t := 0
-		for j := 0; j < len((*m)[i].exponents); j++ {
-			t += (*m)[i].exponents[j]
+		for j := 0; j < len(m.M[i].exponents); j++ {
+			t += m.M[i].exponents[j]
 		}
 		if t > r {
 			r = t
@@ -399,19 +402,19 @@ func (m *MultivariatePolynomial) Degree() uint64 {
 func (m *MultivariatePolynomial) AddMonomial(c fr.Element, e []int) error {
 
 	// if m is empty, we add the first Monomial.
-	if len(*m) == 0 {
+	if len(m.M) == 0 {
 		r := Monomial{c, e}
-		*m = append(*m, r)
+		m.M = append(m.M, r)
 		return nil
 	}
 
 	// at this stage all of exponennt in m are supposed to be of
 	// the same size.
-	if len((*m)[0].exponents) != len(e) {
+	if len(m.M[0].exponents) != len(e) {
 		return ErrInconsistentNumberOfVariable
 	}
 	r := Monomial{c, e}
-	*m = append(*m, r)
+	m.M = append(m.M, r)
 	return nil
 
 }
@@ -424,8 +427,8 @@ func (m *MultivariatePolynomial) EvaluateSinglePoint(x []fr.Element) fr.Element 
 
 	var res fr.Element
 
-	for i := 0; i < len(*m); i++ {
-		tmp := (*m)[i].evaluate(x)
+	for i := 0; i < len(m.M); i++ {
+		tmp := m.M[i].evaluate(x)
 		res.Add(&res, &tmp)
 	}
 	return res

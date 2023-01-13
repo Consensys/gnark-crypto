@@ -51,16 +51,17 @@ func TestEvaluateSinglePoint(t *testing.T) {
 
 	// multivariate polynomial
 	{
-		p := make(MultivariatePolynomial, 3)
+		var p MultivariatePolynomial
+		p.M = make([]Monomial, 3)
 
-		p[0].coeff.SetUint64(1)
-		p[0].exponents = []int{1, 1, 1}
+		p.M[0].coeff.SetUint64(1)
+		p.M[0].exponents = []int{1, 1, 1}
 
-		p[1].coeff.SetUint64(2)
-		p[1].exponents = []int{2, 2, 2}
+		p.M[1].coeff.SetUint64(2)
+		p.M[1].exponents = []int{2, 2, 2}
 
-		p[2].coeff.SetUint64(0)
-		p[2].exponents = []int{3, 2, 1}
+		p.M[2].coeff.SetUint64(0)
+		p.M[2].exponents = []int{3, 2, 1}
 
 		x := make([]fr.Element, 3)
 		x[0].SetUint64(2)
