@@ -117,5 +117,5 @@ func (m Hash) Size() int {
 }
 
 type ArithmeticHash interface {
-	Decompose(rawBytes []byte) [][]byte
+	WriteString(rawBytes []byte) error
 }

@@ -184,3 +184,15 @@ func initConstants() {
 		_, _ = hash.Write(rnd)
 	}
 }
+
+// WriteString writes a string that doesn't necessarily consist of field elements
+func (d *digest) WriteString(rawBytes []byte) error {
+	asElems := Decompose(rawBytes)
+	for i := range asElems {
+		b := asElems[i].Bytes()
+		if _, err := d.Write(b[:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}

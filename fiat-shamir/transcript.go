@@ -102,8 +102,14 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	if err := t.writeString([]byte(challengeID)); err != nil {
-		return nil, err
+	if aHash, ok := t.h.(gcHash.ArithmeticHash); ok {
+		if err := aHash.WriteString([]byte(challengeID)); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err := t.h.Write([]byte(challengeID)); err != nil {
+			return nil, err
+		}
 	}
 
 	// write the previous challenge if it's not the first challenge
@@ -133,22 +139,4 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
 	return res, nil
 
-}
-
-func (t *Transcript) writeString(bytes []byte) error {
-
-	if aHash, ok := t.h.(gcHash.ArithmeticHash); ok {
-		blocks := aHash.Decompose(bytes)
-		for _, block := range blocks {
-			if _, err := t.h.Write(block); err != nil {
-				return err
-			}
-		}
-	} else {
-		// no padding needed
-		_, err := t.h.Write(bytes)
-		return err
-	}
-
-	return nil
 }
