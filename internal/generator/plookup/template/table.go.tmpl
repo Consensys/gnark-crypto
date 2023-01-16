@@ -189,7 +189,7 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	comf.Set(&proof.fs[nbRows-1])
 	comt.Set(&proof.ts[nbRows-1])
 	var blambda big.Int
-	lambda.ToBigIntRegular(&blambda)
+	lambda.BigInt(&blambda)
 	for i := nbRows - 2; i >= 0; i-- {
 		comf.ScalarMultiplication(&comf, &blambda).
 			Add(&comf, &proof.fs[i])
