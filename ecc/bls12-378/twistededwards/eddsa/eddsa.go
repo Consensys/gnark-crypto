@@ -25,6 +25,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/twistededwards"
+	gcHash "github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark-crypto/signature"
 	"golang.org/x/crypto/blake2b"
 )
@@ -156,7 +157,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
 	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
-		_, err := arithHFunc.WriteString(dataToHash[:])
+		err := arithHFunc.WriteString(dataToHash[:])
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +219,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
 	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
-		_, err := arithHFunc.WriteString(dataToHash[:])
+		err := arithHFunc.WriteString(dataToHash[:])
 		if err != nil {
 			return false, err
 		}
@@ -236,7 +237,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
+	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMultiplication(&curveParams.Base, &bs).
 		ScalarMultiplication(&lhs, &bCofactor)
