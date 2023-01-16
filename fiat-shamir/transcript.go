@@ -16,7 +16,7 @@ package fiatshamir
 
 import (
 	"errors"
-	"fmt"
+	gcHash "github.com/consensys/gnark-crypto/hash"
 	"hash"
 )
 
@@ -102,13 +102,7 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	bName := make([]byte, t.h.BlockSize())
-	if len(challengeID) < len(bName) { // strict inequality because don't even want to have to deal with modular reduction in case of arithmetic hashes TODO: Replace with strict
-		copy(bName[len(bName)-len(challengeID):], challengeID)
-	} else {
-		return nil, fmt.Errorf("challenge name too large")
-	}
-	if _, err := t.h.Write(bName); err != nil {
+	if err := t.writeString([]byte(challengeID)); err != nil {
 		return nil, err
 	}
 
@@ -139,4 +133,22 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
 	return res, nil
 
+}
+
+func (t *Transcript) writeString(bytes []byte) error {
+
+	if aHash, ok := t.h.(gcHash.ArithmeticHash); ok {
+		blocks := aHash.Decompose(bytes)
+		for _, block := range blocks {
+			if _, err := t.h.Write(block); err != nil {
+				return err
+			}
+		}
+	} else {
+		// no padding needed
+		_, err := t.h.Write(bytes)
+		return err
+	}
+
+	return nil
 }

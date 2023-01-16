@@ -115,3 +115,7 @@ func (m Hash) String() string {
 func (m Hash) Size() int {
 	return int(digestSize[m])
 }
+
+type ArithmeticHash interface {
+	Decompose(rawBytes []byte) [][]byte
+}

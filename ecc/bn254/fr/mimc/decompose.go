@@ -17,9 +17,8 @@
 package mimc
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"math/big"
 )
 
 // Decompose interpret rawBytes as a bigInt x in big endian,
@@ -42,5 +41,15 @@ func Decompose(rawBytes []byte) []fr.Element {
 		res = append(res, tmp)
 	}
 
+	return res
+}
+
+func (d *digest) Decompose(rawBytes []byte) [][]byte {
+	asElems := Decompose(rawBytes)
+	res := make([][]byte, len(asElems))
+	for i := range res {
+		b := asElems[i].Bytes()
+		res[i] = b[:]
+	}
 	return res
 }
