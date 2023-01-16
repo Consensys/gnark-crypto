@@ -2,10 +2,10 @@ package ecdsa
 
 import (
 	"crypto/rand"
-	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
+	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -19,14 +19,17 @@ func TestECDSA(t *testing.T) {
 	properties.Property("[SECP256K1] test the signing and verification", prop.ForAll(
 		func() bool {
 
+			var pp params
 			_, g := secp256k1.Generators()
-			dsa := NewParams(g)
-			privKey, _ := dsa.GenerateKey(rand.Reader)
+			pp.Base.Set(&g)
+			pp.Order = fr.Modulus()
 
-			hashval := big.NewInt(int64(40))
-			sig, _ := dsa.Sign(hashval, &privKey.D, rand.Reader)
+			privKey, _ := pp.GenerateKey(rand.Reader)
 
-			return dsa.Verify(hashval, sig, privKey.PublicKey.A)
+			hash := []byte("testing ECDSA")
+			sig, _ := pp.Sign(hash, *privKey, rand.Reader)
+
+			return pp.Verify(hash, sig, privKey.PublicKey.A)
 		},
 	))
 
