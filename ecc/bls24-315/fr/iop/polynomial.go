@@ -78,7 +78,7 @@ func getShapeID(p Polynomial) int {
 // WrappedPolynomial wrapps a polynomial so that it is
 // interpreted as P'(X)=P(\omega^{s}X)
 type WrappedPolynomial struct {
-	*Polynomial
+	P     *Polynomial
 	Shift int
 }
 
@@ -445,17 +445,17 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 
 	// check that the sizes are consistent
 	nbPolynomials := len(x)
-	nbElmts := len(x[0].Coefficients)
+	nbElmts := len(x[0].P.Coefficients)
 	for i := 0; i < nbPolynomials; i++ {
-		if len(x[i].Coefficients) != nbElmts {
+		if len(x[i].P.Coefficients) != nbElmts {
 			return res, ErrInconsistentSize
 		}
 	}
 
 	// check that the format are consistent
-	expectedForm := x[0].Form
+	expectedForm := x[0].P.Form
 	for i := 0; i < nbPolynomials; i++ {
-		if x[i].Form != expectedForm {
+		if x[i].P.Form != expectedForm {
 			return res, ErrInconsistentFormat
 		}
 	}
@@ -472,7 +472,7 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 
 			for j := 0; j < nbPolynomials; j++ {
 
-				v[j].Set(&x[j].Coefficients[(i+x[j].Shift)%nbElmts])
+				v[j].Set(&x[j].P.Coefficients[(i+x[j].Shift)%nbElmts])
 
 			}
 
@@ -491,7 +491,7 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 
 				// take in account the fact that the polynomial mght be shifted...
 				iRev := bits.Reverse64(uint64((i+x[j].Shift))%uint64(nbElmts)) >> nn
-				v[j].Set(&x[j].Coefficients[iRev])
+				v[j].Set(&x[j].P.Coefficients[iRev])
 
 			}
 

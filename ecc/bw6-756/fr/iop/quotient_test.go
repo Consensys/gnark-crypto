@@ -61,7 +61,7 @@ func buildPoly(size int, form Form) WrappedPolynomial {
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	return WrappedPolynomial{Polynomial: &f, Shift: 0}
+	return WrappedPolynomial{P: &f, Shift: 0}
 }
 
 func evalCanonical(p Polynomial, x fr.Element) fr.Element {
@@ -100,17 +100,17 @@ func TestQuotient(t *testing.T) {
 
 	for i := 0; i < sizeSystem; i++ {
 
-		entries[0].Coefficients[i].SetRandom()
-		entries[1].Coefficients[i].SetRandom()
+		entries[0].P.Coefficients[i].SetRandom()
+		entries[1].P.Coefficients[i].SetRandom()
 		tmp := computex3(
-			[]fr.Element{entries[0].Coefficients[i],
-				entries[1].Coefficients[i]})
-		entries[2].Coefficients[i].Set(&tmp)
+			[]fr.Element{entries[0].P.Coefficients[i],
+				entries[1].P.Coefficients[i]})
+		entries[2].P.Coefficients[i].Set(&tmp)
 
 		x := []fr.Element{
-			entries[0].Coefficients[i],
-			entries[1].Coefficients[i],
-			entries[2].Coefficients[i],
+			entries[0].P.Coefficients[i],
+			entries[1].P.Coefficients[i],
+			entries[2].P.Coefficients[i],
 		}
 		tmp = h.EvaluateSinglePoint(x)
 		if !tmp.IsZero() {
@@ -123,20 +123,20 @@ func TestQuotient(t *testing.T) {
 	domains[0] = fft.NewDomain(uint64(sizeSystem))
 	domains[1] = fft.NewDomain(ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality))
 
-	entries[0].ToCanonical(entries[0].Polynomial, domains[0]).
-		ToRegular(entries[0].Polynomial).
-		ToLagrangeCoset(entries[0].Polynomial, domains[1]).
-		ToRegular(entries[0].Polynomial)
+	entries[0].P.ToCanonical(entries[0].P, domains[0]).
+		ToRegular(entries[0].P).
+		ToLagrangeCoset(entries[0].P, domains[1]).
+		ToRegular(entries[0].P)
 
-	entries[1].ToCanonical(entries[1].Polynomial, domains[0]).
-		ToRegular(entries[1].Polynomial).
-		ToLagrangeCoset(entries[1].Polynomial, domains[1]).
-		ToRegular(entries[1].Polynomial)
+	entries[1].P.ToCanonical(entries[1].P, domains[0]).
+		ToRegular(entries[1].P).
+		ToLagrangeCoset(entries[1].P, domains[1]).
+		ToRegular(entries[1].P)
 
-	entries[2].ToCanonical(entries[2].Polynomial, domains[0]).
-		ToRegular(entries[2].Polynomial).
-		ToLagrangeCoset(entries[2].Polynomial, domains[1]).
-		ToRegular(entries[2].Polynomial)
+	entries[2].P.ToCanonical(entries[2].P, domains[0]).
+		ToRegular(entries[2].P).
+		ToLagrangeCoset(entries[2].P, domains[1]).
+		ToRegular(entries[2].P)
 
 	quotientA, err := ComputeQuotient(entries, h, domains)
 	if err != nil {
@@ -146,8 +146,8 @@ func TestQuotient(t *testing.T) {
 
 	// compute the quotient where some entries are in BitReverse layout
 	// (only the 2 first entries)
-	entries[0].ToBitreverse(entries[0].Polynomial)
-	entries[1].ToBitreverse(entries[1].Polynomial)
+	entries[0].P.ToBitreverse(entries[0].P)
+	entries[1].P.ToBitreverse(entries[1].P)
 
 	quotientB, err := ComputeQuotient(entries, h, domains)
 	if err != nil {
@@ -170,19 +170,19 @@ func TestQuotient(t *testing.T) {
 	var c fr.Element
 	c.SetRandom()
 
-	entries[0].ToCanonical(entries[0].Polynomial, domains[1])
-	entries[0].ToRegular(entries[0].Polynomial)
+	entries[0].P.ToCanonical(entries[0].P, domains[1])
+	entries[0].P.ToRegular(entries[0].P)
 
-	entries[1].ToCanonical(entries[1].Polynomial, domains[1])
-	entries[1].ToRegular(entries[1].Polynomial)
+	entries[1].P.ToCanonical(entries[1].P, domains[1])
+	entries[1].P.ToRegular(entries[1].P)
 
-	entries[2].ToCanonical(entries[2].Polynomial, domains[1])
-	entries[2].ToRegular(entries[2].Polynomial)
+	entries[2].P.ToCanonical(entries[2].P, domains[1])
+	entries[2].P.ToRegular(entries[2].P)
 
 	x := []fr.Element{
-		evalCanonical(*entries[0].Polynomial, c),
-		evalCanonical(*entries[1].Polynomial, c),
-		evalCanonical(*entries[2].Polynomial, c),
+		evalCanonical(*entries[0].P, c),
+		evalCanonical(*entries[1].P, c),
+		evalCanonical(*entries[2].P, c),
 	}
 	l := h.EvaluateSinglePoint(x)
 	var xnminusone fr.Element

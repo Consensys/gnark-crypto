@@ -19,9 +19,9 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 
 	// check that the sizes are consistent
 	nbPolynomials := len(entries)
-	n := len(entries[0].Coefficients)
+	n := len(entries[0].P.Coefficients)
 	for i := 0; i < nbPolynomials; i++ {
-		if len(entries[i].Coefficients) != n {
+		if len(entries[i].P.Coefficients) != n {
 			return quotientLagrangeCoset, ErrInconsistentSize
 		}
 	}
@@ -35,7 +35,7 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 
 	// check that the format are consistent
 	for i := 0; i < nbPolynomials; i++ {
-		if entries[i].Basis != LagrangeCoset {
+		if entries[i].P.Basis != LagrangeCoset {
 			return quotientLagrangeCoset, ErrInconsistentFormat
 		}
 	}
@@ -61,16 +61,16 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 
 		for j := 0; j < nbEntries; j++ {
 
-			if entries[j].Layout == Regular {
+			if entries[j].P.Layout == Regular {
 
 				// take in account the fact that the polynomial might be shifted...
-				x[j].Set(&entries[j].Coefficients[uint64((i+entries[j].Shift))%domains[1].Cardinality])
+				x[j].Set(&entries[j].P.Coefficients[uint64((i+entries[j].Shift))%domains[1].Cardinality])
 
 			} else {
 
 				// take in account the fact that the polynomial might be shifted...
 				iRev := bits.Reverse64(uint64((i+entries[j].Shift))%domains[1].Cardinality) >> nn
-				x[j].Set(&entries[j].Coefficients[iRev])
+				x[j].Set(&entries[j].P.Coefficients[iRev])
 			}
 
 		}
