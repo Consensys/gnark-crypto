@@ -272,7 +272,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 			func(a fp.Element) bool {
 				var start, end {{ $.TAffine }}
 				var ab big.Int
-				a.ToBigIntRegular(&ab)
+				a.BigInt(&ab)
 				start.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &ab)
 
 				buf := start.RawBytes()
@@ -292,7 +292,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 			func(a fp.Element) bool {
 				var start, end {{ $.TAffine }}
 				var ab big.Int
-				a.ToBigIntRegular(&ab)
+				a.BigInt(&ab)
 				start.ScalarMultiplication(&{{ toLower .PointName }}GenAff, &ab)
 
 				buf := start.Bytes()

@@ -262,7 +262,7 @@ func TestG1AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G1Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.RawBytes()
@@ -282,7 +282,7 @@ func TestG1AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G1Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.Bytes()
@@ -355,7 +355,7 @@ func TestG2AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G2Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.RawBytes()
@@ -375,7 +375,7 @@ func TestG2AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G2Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.Bytes()
