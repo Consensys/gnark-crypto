@@ -164,9 +164,16 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	copy(dataToHash[3*sizeFr:], resAY[:])
 	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
-	_, err := hFunc.Write(dataToHash[:])
-	if err != nil {
-		return nil, err
+	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
+		_, err := arithHFunc.WriteString(dataToHash[:])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var hramInt big.Int
@@ -219,8 +226,16 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	copy(dataToHash[3*sizeFr:], sigAY[:])
 	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
-	if _, err := hFunc.Write(dataToHash[:]); err != nil {
-		return false, err
+	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
+		_, err := arithHFunc.WriteString(dataToHash[:])
+		if err != nil {
+			return false, err
+		}
+	} else {
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return false, err
+		}
 	}
 
 	var hramInt big.Int
