@@ -144,10 +144,10 @@ func TestQuotient(t *testing.T) {
 	}
 	quotientA.ToRegular(&quotientA)
 
-	// compute the quotient where the entries are in BitReverse layout
+	// compute the quotient where some entries are in BitReverse layout
+	// (only the 2 first entries)
 	entries[0].ToBitreverse(entries[0].Polynomial)
 	entries[1].ToBitreverse(entries[1].Polynomial)
-	entries[2].ToBitreverse(entries[2].Polynomial)
 
 	quotientB, err := ComputeQuotient(entries, h, domains)
 	if err != nil {
