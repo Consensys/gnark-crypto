@@ -1,0 +1,83 @@
+%%%% IACR Transactions TEMPLATE %%%%
+% This file shows how to use the iacrtrans class to write a paper.
+% Written by Gaetan Leurent gaetan.leurent@inria.fr (2020)
+% Public Domain (CC0)
+
+
+%%%% 1. DOCUMENTCLASS %%%%
+\documentclass[journal=tosc,submission]{iacrtrans}
+%%%% NOTES:
+% - Change "journal=tosc" to "journal=tches" if needed
+% - Change "submission" to "final" for final version
+% - Add "spthm" for LNCS-like theorems
+
+
+%%%% 2. PACKAGES %%%%
+\usepackage{lipsum} % Example package -- can be removed
+
+
+%%%% 3. AUTHOR, INSTITUTE %%%%
+\author{Jane Doe\inst{1,2} \and John Doe\inst{1}}
+\institute{
+  Institute A, City, Country, \email{jane@institute}
+  \and
+  Institute B, City, Country, \email{john@institute}
+}
+%%%% NOTES:
+% - We need a city name for indexation purpose, even if it is redundant
+%   (eg: University of Atlantis, Atlantis, Atlantis)
+% - \inst{} can be omitted if there is a single institute,
+%   or exactly one institute per author
+
+
+%%%% 4. TITLE %%%%
+\title{My New Paper}
+%%%% NOTES:
+% - If the title is too long, or includes special macro, please
+%   provide a "running title" as optional argument: \title[Short]{Long}
+% - You can provide an optional subtitle with \subtitle.
+
+\begin{document}
+
+\maketitle
+
+
+%%%% 5. KEYWORDS %%%%
+\keywords{Something \and Something else}
+
+
+%%%% 6. ABSTRACT %%%%
+\begin{abstract}
+  In this paper we prove that the One-Time-Pad has perfect security.
+
+  \lipsum[8]
+\end{abstract}
+
+
+%%%% 7. PAPER CONTENT %%%%
+\section{Introduction}
+
+Widely used primitives like the AES~\cite{AES} do not have perfect
+security, and can be analysed with linear
+cryptanalysis~\cite{EC:Matsui93}, differential
+cryptanalysis~\cite{JC:BihSha91}, or differential power
+analysis~\cite{C:KocJafJun99}.  We show that the One-Time-Pad is
+unconditionally secure in \autoref{sec:main}.
+
+\lipsum[9]
+
+\section{Main Result}
+\label{sec:main}
+
+\lipsum
+
+
+%%%% 8. BILBIOGRAPHY %%%%
+\bibliographystyle{alpha}
+\bibliography{abbrev3,crypto,biblio}
+%%%% NOTES
+% - Download abbrev3.bib and crypto.bib from https://cryptobib.di.ens.fr/
+% - Use bilbio.bib for additional references not in the cryptobib database.
+%   If possible, take them from DBLP.
+
+\end{document}

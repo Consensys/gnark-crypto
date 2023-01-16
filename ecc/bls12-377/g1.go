@@ -17,12 +17,13 @@
 package bls12377
 
 import (
+	"math/big"
+	"runtime"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -40,6 +41,16 @@ type g1JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
+// g1EdExtended point in extended coordinates on a twisted Edwards curve (x=X/Z, y=Y/Z, x*y=T/Z)
+type g1EdExtended struct {
+	X, Y, Z, T fp.Element
+}
+
+// g1EdCustom point in custom affine coordinates on a twisted Edwards curve (y-x=X, y+x=Y, 2d*x*y=T)
+type g1EdCustom struct {
+	X, Y, T fp.Element
+}
+
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -49,11 +60,11 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// setInfinity sets p to O
-func (p *G1Affine) setInfinity() *G1Affine {
-	p.X.SetZero()
-	p.Y.SetZero()
-	return p
+// IsZero returns true if p=0 false otherwise
+func (p *G1Affine) IsZero() bool {
+	var one fp.Element
+	one.SetOne()
+	return p.X.IsZero() && p.Y.Equal(&one)
 }
 
 // ScalarMultiplication computes and returns p = a ⋅ s
@@ -100,7 +111,7 @@ func (p *G1Affine) Equal(a *G1Affine) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
 }
 
-// Neg computes -G
+// Neg sets p to -a
 func (p *G1Affine) Neg(a *G1Affine) *G1Affine {
 	p.X = a.X
 	p.Y.Neg(&a.Y)
@@ -387,7 +398,6 @@ func (p *G1Jac) IsOnCurve() bool {
 func (p *G1Jac) IsInSubGroup() bool {
 
 	var res G1Jac
-
 	res.phi(p).
 		ScalarMultiplication(&res, &xGen).
 		ScalarMultiplication(&res, &xGen).
@@ -479,8 +489,8 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1 = k1.SetBigInt(&k[0]).Bits()
-	k2 = k2.SetBigInt(&k[1]).Bits()
+	k1.SetBigInt(&k[0]).FromMont()
+	k2.SetBigInt(&k[1]).FromMont()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
 	maxBit := k1.BitLen()
@@ -590,15 +600,15 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 		return p
 	}
 
-	var A, B, U1, U2, S1, S2 fp.Element
+	var A, B, X1ZZ2, X2ZZ1, Y1ZZZ2, Y2ZZZ1 fp.Element
 
 	// p2: q, p1: p
-	U2.Mul(&q.X, &p.ZZ)
-	U1.Mul(&p.X, &q.ZZ)
-	A.Sub(&U2, &U1)
-	S2.Mul(&q.Y, &p.ZZZ)
-	S1.Mul(&p.Y, &q.ZZZ)
-	B.Sub(&S2, &S1)
+	X2ZZ1.Mul(&q.X, &p.ZZ)
+	X1ZZ2.Mul(&p.X, &q.ZZ)
+	A.Sub(&X2ZZ1, &X1ZZ2)
+	Y2ZZZ1.Mul(&q.Y, &p.ZZZ)
+	Y1ZZZ2.Mul(&p.Y, &q.ZZZ)
+	B.Sub(&Y2ZZZ1, &Y1ZZZ2)
 
 	if A.IsZero() {
 		if B.IsZero() {
@@ -610,7 +620,11 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 		return p
 	}
 
-	var P, R, PP, PPP, Q, V fp.Element
+	var U1, U2, S1, S2, P, R, PP, PPP, Q, V fp.Element
+	U1.Mul(&p.X, &q.ZZ)
+	U2.Mul(&q.X, &p.ZZ)
+	S1.Mul(&p.Y, &q.ZZZ)
+	S2.Mul(&q.Y, &p.ZZZ)
 	P.Sub(&U2, &U1)
 	R.Sub(&S2, &S1)
 	PP.Square(&P)
@@ -635,8 +649,6 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 
 // double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// since we consider any point on Z=0 as the point at infinity
-// this doubling formula works for infinity points as well
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	var U, V, W, S, XX, M fp.Element
 
@@ -879,72 +891,95 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)
 	bestC := 0
-	for c := 2; c <= 16; c++ {
-		cost := uint64(1 << (c - 1)) // pre compute the table
-		nbChunks := computeNbChunks(uint64(c))
-		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
+	for c := 2; c < 18; c++ {
+		cost := uint64(1 << (c - 1))
+		nbChunks := uint64(fr.Limbs * 64 / c)
+		if (fr.Limbs*64)%c != 0 {
+			nbChunks++
+		}
+		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
 		if cost < min {
 			min = cost
 			bestC = c
 		}
 	}
 	c := uint64(bestC) // window size
-	nbChunks := int(computeNbChunks(c))
-
-	// last window may be slightly larger than c; in which case we need to compute one
-	// extra element in the baseTable
-	maxC := lastC(c)
-	if c > maxC {
-		maxC = c
+	nbChunks := int(fr.Limbs * 64 / c)
+	if (fr.Limbs*64)%c != 0 {
+		nbChunks++
 	}
+	mask := uint64((1 << c) - 1) // low c bits are 1
+	msbWindow := uint64(1 << (c - 1))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]G1Jac, (1 << (maxC - 1)))
-	baseTable[0].FromAffine(base)
+	baseTable := make([]G1Jac, (1 << (c - 1)))
+	baseTable[0].Set(&g1Infinity)
+	baseTable[0].AddMixed(base)
 	for i := 1; i < len(baseTable); i++ {
 		baseTable[i] = baseTable[i-1]
 		baseTable[i].AddMixed(base)
+	}
+
+	pScalars, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
+
+	// compute offset and word selector / shift to select the right bits of our windows
+	selectors := make([]selector, nbChunks)
+	for chunk := 0; chunk < nbChunks; chunk++ {
+		jc := uint64(uint64(chunk) * c)
+		d := selector{}
+		d.index = jc / 64
+		d.shift = jc - (d.index * 64)
+		d.mask = mask << d.shift
+		d.multiWordSelect = (64%c) != 0 && d.shift > (64-c) && d.index < (fr.Limbs-1)
+		if d.multiWordSelect {
+			nbBitsHigh := d.shift - uint64(64-c)
+			d.maskHigh = (1 << nbBitsHigh) - 1
+			d.shiftHigh = (c - nbBitsHigh)
+		}
+		selectors[chunk] = d
 	}
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := BatchJacobianToAffineG1(baseTable)
 	toReturn := make([]G1Jac, len(scalars))
 
-	// partition the scalars into digits
-	digits, _ := partitionScalars(scalars, c, runtime.NumCPU())
-
 	// for each digit, take value in the base table, double it c time, voilà.
-	parallel.Execute(len(scalars), func(start, end int) {
+	parallel.Execute(len(pScalars), func(start, end int) {
 		var p G1Jac
 		for i := start; i < end; i++ {
 			p.Set(&g1Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+				s := selectors[chunk]
 				if chunk != nbChunks-1 {
 					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
-				offset := chunk * len(scalars)
-				digit := digits[i+offset]
 
-				if digit == 0 {
+				bits := (pScalars[i][s.index] & s.mask) >> s.shift
+				if s.multiWordSelect {
+					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
+				}
+
+				if bits == 0 {
 					continue
 				}
 
 				// if msbWindow bit is set, we need to substract
-				if digit&1 == 0 {
+				if bits&msbWindow == 0 {
 					// add
-					p.AddMixed(&baseTableAff[(digit>>1)-1])
+					p.AddMixed(&baseTableAff[bits-1])
 				} else {
 					// sub
-					t := baseTableAff[digit>>1]
+					t := baseTableAff[bits & ^msbWindow]
 					t.Neg(&t)
 					p.AddMixed(&t)
 				}
@@ -959,53 +994,374 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	return toReturnAff
 }
 
-// batch add affine coordinates
-// using batch inversion
-// special cases (doubling, infinity) must be filtered out before this call
-func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
-	var lambda, lambdain TC
+// -------------------------------------------------------------------------------------------------
+// Extended coordinates on twisted Edwards
 
-	// add part
-	for j := 0; j < batchSize; j++ {
-		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
-	}
+// FromAffine sets p = a, p in twisted Edwards (extended), a in Short Weierstrass (affine)
+func (p *g1EdExtended) FromAffineSW(a *G1Affine) *g1EdExtended {
 
-	// invert denominator using montgomery batch invert technique
-	{
-		var accumulator fp.Element
-		lambda[0].SetOne()
-		accumulator.Set(&lambdain[0])
+	var d1, d2, one fp.Element
+	one.SetOne()
 
-		for i := 1; i < batchSize; i++ {
-			lambda[i] = accumulator
-			accumulator.Mul(&accumulator, &lambdain[i])
+	d1.Mul(&a.Y, &invSqrtMinusA)
+	d2.Add(&a.X, &one).
+		Add(&d2, &sqrtThree)
+
+	inv := fp.BatchInvert([]fp.Element{d1, d2})
+
+	p.X.Add(&a.X, &one).
+		Mul(&p.X, &inv[0])
+	p.Y.Add(&a.X, &one).
+		Sub(&p.Y, &sqrtThree).
+		Mul(&p.Y, &inv[1])
+
+	p.Z.SetOne()
+
+	p.T.Mul(&p.X, &p.Y)
+
+	return p
+}
+
+// BatchFromAffineSW converts a_i from affine short Weierstrass to extended twisted Edwards
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchFromAffineSW(a []G1Affine) []g1EdExtended {
+
+	p := make([]g1EdExtended, len(a))
+	d := make([]fp.Element, 2*len(a))
+
+	var one fp.Element
+	one.SetOne()
+
+	parallel.Execute(len(a), func(start, end int) {
+		for i := start; i < end; i++ {
+			d[i].Mul(&a[i].Y, &invSqrtMinusA)
+			d[i+len(a)].Add(&a[i].X, &one).
+				Add(&d[i+len(a)], &sqrtThree)
 		}
+	})
 
-		accumulator.Inverse(&accumulator)
+	inv := fp.BatchInvert(d)
 
-		for i := batchSize - 1; i > 0; i-- {
-			lambda[i].Mul(&lambda[i], &accumulator)
-			accumulator.Mul(&accumulator, &lambdain[i])
+	parallel.Execute(len(a), func(start, end int) {
+		for i := start; i < end; i++ {
+			p[i].X.Add(&a[i].X, &one).
+				Mul(&p[i].X, &inv[i])
+			p[i].Y.Add(&a[i].X, &one).
+				Sub(&p[i].Y, &sqrtThree).
+				Mul(&p[i].Y, &inv[i+len(a)])
+
+			p[i].Z.SetOne()
+
+			p[i].T.Mul(&p[i].X, &p[i].Y)
 		}
-		lambda[0].Set(&accumulator)
+	})
+
+	return p
+}
+
+// BatchFromAffineSWC converts a_i from affine short Weierstrass to custom twisted Edwards
+// performing a single field inversion (Montgomery batch inversion trick).
+func BatchFromAffineSWC(a []G1Affine) []g1EdCustom {
+
+	p := make([]g1EdCustom, len(a))
+	d := make([]fp.Element, 2*len(a))
+
+	var one fp.Element
+	one.SetOne()
+
+	parallel.Execute(len(a), func(start, end int) {
+		for i := start; i < end; i++ {
+			d[i].Mul(&a[i].Y, &invSqrtMinusA)
+			d[i+len(a)].Add(&a[i].X, &one).
+				Add(&d[i+len(a)], &sqrtThree)
+		}
+	})
+
+	inv := fp.BatchInvert(d)
+
+	parallel.Execute(len(a), func(start, end int) {
+		var x, y, t fp.Element
+		for i := start; i < end; i++ {
+			x.Add(&a[i].X, &one).
+				Mul(&x, &inv[i])
+			y.Add(&a[i].X, &one).
+				Sub(&y, &sqrtThree).
+				Mul(&y, &inv[i+len(a)])
+
+			t.Mul(&x, &y).Mul(&t, &dCurveCoeffDouble)
+			p[i].X.Sub(&y, &x)
+			p[i].Y.Add(&y, &x)
+			p[i].T = t
+		}
+	})
+
+	return p
+}
+
+// FromEdExtended converts a point in twisted Edwards from extended (Z=1) to custom coordinates
+func (p *g1EdCustom) FromExtendedEd(q *g1EdExtended) *g1EdCustom {
+	p.X.Sub(&q.Y, &q.X)               // x = y - x
+	p.Y.Add(&q.Y, &q.X)               // x = y + x
+	p.T.Mul(&q.T, &dCurveCoeffDouble) // t = t * (2d)
+
+	return p
+}
+
+// FromEdExtended converts a point in twisted Edwards (extended) to short Weierstrass (affine)
+func (a *G1Affine) FromExtendedEd(p *g1EdExtended) *G1Affine {
+
+	if p.Z.IsZero() {
+		a.X.SetZero()
+		a.Y.SetZero()
+		return a
 	}
 
-	var d fp.Element
-	var rr G1Affine
+	var x, y, one, n, d1, d2, d3 fp.Element
+	one.SetOne()
 
-	// add part
-	for j := 0; j < batchSize; j++ {
-		// computa lambda
-		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
-		lambda[j].Mul(&lambda[j], &d)
+	d1.Set(&p.Z)
+	d2.Sub(&p.Z, &p.Y)
+	d3.Mul(&p.X, &invSqrtMinusA)
+	inv := fp.BatchInvert([]fp.Element{d1, d2, d3})
+	inv[1].Mul(&inv[1], &p.Z)
+	inv[2].Mul(&inv[2], &p.Z)
 
-		// compute X, Y
-		rr.X.Square(&lambda[j])
-		rr.X.Sub(&rr.X, &(*R)[j].X)
-		rr.X.Sub(&rr.X, &(*P)[j].X)
-		d.Sub(&(*R)[j].X, &rr.X)
-		rr.Y.Mul(&lambda[j], &d)
-		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
-		(*R)[j].Set(&rr)
+	x.Mul(&d2, &inv[0])
+	y.Mul(&p.Y, &inv[0])
+
+	if x.IsZero() && y.IsOne() {
+		a.X.SetZero()
+		a.Y.SetZero()
+		return a
 	}
+
+	if x.IsZero() && y.Neg(&y).IsOne() {
+		a.X.SetString("86221475337656364670217577898297844512131170918304886846628087555573489449446940924989629379857786708146773819392") // -1/3
+		a.Y.SetZero()
+		return a
+	}
+
+	n.Add(&one, &y).
+		Mul(&n, &inv[1]).
+		Mul(&n, &sqrtThree)
+
+	a.X.Sub(&n, &one)
+
+	a.Y.Mul(&n, &inv[2])
+
+	return a
+}
+
+// Set sets p to q and return it
+func (p *g1EdExtended) Set(q *g1EdExtended) *g1EdExtended {
+	p.X.Set(&q.X)
+	p.Y.Set(&q.Y)
+	p.T.Set(&q.T)
+	p.Z.Set(&q.Z)
+	return p
+}
+
+// setInfinity sets p to O (0:1:1:0)
+func (p *g1EdExtended) setInfinity() *g1EdExtended {
+	p.X.SetZero()
+	p.Y.SetOne()
+	p.Z.SetOne()
+	p.T.SetZero()
+	return p
+}
+
+// IsInfinity returns true if p=0 false otherwise
+func (p *g1EdExtended) IsInfinity() bool {
+	return p.X.IsZero() && p.Y.Equal(&p.Z)
+}
+
+// Equal returns true if p=q false otherwise
+// If one point is on the affine chart Z=0 it returns false
+func (p *g1EdExtended) Equal(q *g1EdExtended) bool {
+	if p.Z.IsZero() || q.Z.IsZero() {
+		return false
+	}
+	var pAffine, qAffine G1Affine
+	pAffine.FromExtendedEd(p)
+	qAffine.FromExtendedEd(q)
+	return pAffine.Equal(&qAffine)
+}
+
+// Neg set p to -q
+func (p *g1EdExtended) Neg(q *g1EdExtended) *g1EdExtended {
+	p.Set(q)
+	p.X.Neg(&p.X)
+	p.T.Neg(&p.T)
+	return p
+}
+
+// UnifiedMixedAdd adds any two points (p+q) in twisted Edwards extended coordinates when q.Z=1
+// adapted from (re-madd):
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-3
+func (p *g1EdExtended) UnifiedMixedAdd(q *g1EdCustom) {
+	if p.IsInfinity() {
+		A := q.X
+		B := q.Y
+
+		fp.Butterfly(&B, &A)
+
+		p.X.Double(&A)
+		p.Y.Double(&B)
+		p.T.Mul(&A, &B)
+		p.Z = four
+		return
+	}
+
+	var C, D fp.Element
+	A := p.X
+	B := p.Y
+
+	C.Mul(&p.T, &q.T)
+	D.Double(&p.Z)
+
+	fp.Butterfly(&D, &C)
+
+	fp.Butterfly(&B, &A)
+
+	A.Mul(&A, &q.X)
+	B.Mul(&B, &q.Y)
+
+	fp.Butterfly(&B, &A)
+
+	p.X.Mul(&A, &C)
+	p.Y.Mul(&D, &B)
+	p.T.Mul(&A, &B)
+	p.Z.Mul(&C, &D)
+
+}
+
+// UnifiedMixedSub subtracts any two points (p-q) in twisted Edwards extended coordinates when q.Z=1
+// adapted from (re-madd):
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-madd-2008-hwcd-3
+func (p *g1EdExtended) UnifiedMixedSub(q *g1EdCustom) {
+	if p.IsInfinity() {
+		A := q.Y
+		B := q.X
+
+		fp.Butterfly(&B, &A)
+
+		p.X.Double(&A)
+		p.Y.Double(&B)
+		p.T.Mul(&A, &B)
+		p.Z = four
+		return
+	}
+
+	var C, D fp.Element
+	A := p.X
+	B := p.Y
+
+	C.Mul(&p.T, &q.T).
+		Neg(&C)
+	D.Double(&p.Z)
+
+	fp.Butterfly(&D, &C)
+
+	fp.Butterfly(&B, &A)
+
+	A.Mul(&A, &q.Y)
+	B.Mul(&B, &q.X)
+
+	fp.Butterfly(&B, &A)
+
+	p.X.Mul(&A, &C)
+	p.Y.Mul(&D, &B)
+	p.T.Mul(&A, &B)
+	p.Z.Mul(&C, &D)
+
+}
+
+// UnifiedAdd adds any two points (p+q) in twisted Edwards extended coordinates
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
+func (p *g1EdExtended) UnifiedAdd(q *g1EdExtended) {
+
+	var A, B, C, D, E, F, G, H, tmp fp.Element
+
+	tmp.Sub(&q.Y, &q.X)
+	A.Sub(&p.Y, &p.X).
+		Mul(&A, &tmp)
+	tmp.Add(&p.Y, &p.X)
+	B.Add(&q.Y, &q.X).
+		Mul(&B, &tmp)
+	C.Mul(&p.T, &q.T).
+		Mul(&C, &dCurveCoeffDouble)
+	D.Mul(&p.Z, &q.Z).
+		Double(&D)
+
+	H = B
+	E = A
+	fp.Butterfly(&H, &E)
+	G = D
+	F = C
+	fp.Butterfly(&G, &F)
+
+	p.X.Mul(&E, &F)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&E, &H)
+	p.Z.Mul(&F, &G)
+
+}
+
+// UnifiedReAdd adds any two points (p+q) in twisted Edwards extended coordinates
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
+func (p *g1EdExtended) UnifiedReAdd(q1, q2 *g1EdExtended, aux *fp.Element) {
+
+	var A, B, C, D, E, F, G, H, tmp fp.Element
+
+	tmp.Sub(&q2.Y, &q2.X)
+	A.Sub(&q1.Y, &q1.X).
+		Mul(&A, &tmp)
+	tmp.Add(&q1.Y, &q1.X)
+	B.Add(&q2.Y, &q2.X).
+		Mul(&B, &tmp)
+	C.Mul(&q1.T, aux)
+	D.Mul(&q1.Z, &q2.Z).
+		Double(&D)
+
+	H = B
+	E = A
+	fp.Butterfly(&H, &E)
+	G = D
+	F = C
+	fp.Butterfly(&G, &F)
+
+	p.X.Mul(&E, &F)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&E, &H)
+	p.Z.Mul(&F, &G)
+
+}
+
+// DedicatedDouble doubles a point in twisted Edwards extended coordinates
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
+func (p *g1EdExtended) DedicatedDouble(q *g1EdExtended) {
+
+	var A, B, C, D, E, F, G, H fp.Element
+
+	A.Square(&q.X)
+	B.Square(&q.Y)
+	C.Square(&q.Z).
+		Double(&C)
+	D.Neg(&A)
+	E.Add(&q.X, &q.Y).
+		Square(&E).
+		Sub(&E, &A).
+		Sub(&E, &B)
+
+	G = D
+	H = B
+	fp.Butterfly(&G, &H)
+
+	F.Sub(&G, &C)
+
+	p.X.Mul(&E, &F)
+	p.Y.Mul(&G, &H)
+	p.T.Mul(&H, &E)
+	p.Z.Mul(&F, &G)
+
 }

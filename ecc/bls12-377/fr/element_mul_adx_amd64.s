@@ -1,4 +1,4 @@
-// +build !amd64_adx
+// +build amd64_adx
 
 // Copyright 2020 ConsenSys Software Inc.
 //
@@ -43,7 +43,7 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	CMOVQCS rb3, ra3;        \
 
 // mul(res, x, y *Element)
-TEXT ·mul(SB), $24-24
+TEXT ·mul(SB), NOSPLIT, $0-24
 
 	// the algorithm is described in the Element.Mul declaration (.go)
 	// however, to benefit from the ADCX and ADOX carry chains
@@ -57,9 +57,6 @@ TEXT ·mul(SB), $24-24
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C + A
 
-	NO_LOCAL_POINTERS
-	CMPB ·supportAdx(SB), $1
-	JNE  l1
 	MOVQ x+8(FP), SI
 
 	// x[0] -> DI
@@ -322,18 +319,7 @@ TEXT ·mul(SB), $24-24
 	MOVQ BX, 24(AX)
 	RET
 
-l1:
-	MOVQ res+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ x+8(FP), AX
-	MOVQ AX, 8(SP)
-	MOVQ y+16(FP), AX
-	MOVQ AX, 16(SP)
-	CALL ·_mulGeneric(SB)
-	RET
-
-TEXT ·fromMont(SB), $8-8
-	NO_LOCAL_POINTERS
+TEXT ·fromMont(SB), NOSPLIT, $0-8
 
 	// the algorithm is described here
 	// https://hackmd.io/@gnark/modular_multiplication
@@ -346,8 +332,6 @@ TEXT ·fromMont(SB), $8-8
 	// 		for j=1 to N-1
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
-	CMPB ·supportAdx(SB), $1
-	JNE  l2
 	MOVQ res+0(FP), DX
 	MOVQ 0(DX), R14
 	MOVQ 8(DX), R13
@@ -478,10 +462,4 @@ TEXT ·fromMont(SB), $8-8
 	MOVQ R13, 8(AX)
 	MOVQ CX, 16(AX)
 	MOVQ BX, 24(AX)
-	RET
-
-l2:
-	MOVQ res+0(FP), AX
-	MOVQ AX, (SP)
-	CALL ·_fromMontGeneric(SB)
 	RET

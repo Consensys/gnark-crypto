@@ -1,0 +1,482 @@
+% IACR Transactions CLASS DOCUMENTATION
+% Written by Gaetan Leurent gaetan.leurent@inria.fr (2016-2018)
+%
+% To the extent possible under law, the author(s) have dedicated all
+% copyright and related and neighboring rights to this software to the
+% public domain worldwide. This software is distributed without any
+% warranty.
+%
+% You should have received a copy of the CC0 Public Domain Dedication
+% along with this software. If not, see
+% <http://creativecommons.org/publicdomain/zero/1.0/>.
+
+\documentclass{iacrtrans}
+\usepackage[utf8]{inputenc}
+
+\author{Gaëtan Leurent\inst{1} \and Friedrich Wiemer\inst{2}}
+\institute{Inria, Paris, France, \email{gaetan.leurent@inria.fr} \and
+           Ruhr-Universität Bochum, Bochum, Germany, \email{friedrich.wiemer@rub.de}}
+\title[\texttt{iacrtans} class documentation]{\publname}
+\subtitle{\LaTeX{} Class Documentation (v. 0.92)}
+
+\begin{document}
+
+\maketitle
+
+% use optional argument because the \LaTeX command breaks the PDF keywords
+\keywords[\publname, ToSC, TCHES, LaTeX]{\publname{} \and ToSC
+  \and TCHES \and \LaTeX}
+
+\begin{abstract}
+  This document is a quick introduction to the \LaTeX{} class for the
+  \publname{}.
+\end{abstract}
+
+\tableofcontents{}
+
+\section*{Introduction}
+
+The \texttt{iacrtans} \LaTeX{} class is used by the new ``IACR
+Transactions'' journals ToSC (IACR Transactions on Symmetric Cryptology)
+and TCHES (IACR Transactions on Cryptographic Hardware and Embedded
+Systems).  The class is based on standard \LaTeX{} classes and packages
+(mainly the \texttt{article} class with \texttt{amsmath}), and should be
+similar in use to the \texttt{llncs} class used for Springer's
+proceedings.
+
+The class is still in development and feedback and comments are welcome.
+The latest version can be found on the Github page of the project:
+\url{https://github.com/Cryptosaurus/iacrtrans}, feel free to open
+tickets for issues or to submit pull requests.
+
+\section{\textcolor{red!70!black}{FAQ}: Frequently Asked Questions}
+
+\subsection{Converting \texttt{llncs} papers to \texttt{iacrtrans} for submission}
+
+If you have a paper typeset with the \texttt{llncs} class, conversion
+should be relatively easy.  The following steps should be sufficient
+in most cases (for the submission version):
+\begin{enumerate}
+\item Replace \verb+\documentclass{llncs}+ with\\
+    \verb+\documentclass[journal=XXX,submission,spthm]{iacrtrans}+,
+    where \verb+XXX+ is either \verb+tosc+, or \verb+tches+;
+\item Replace \verb+\bibliographystyle{splncs03}+ with
+  \verb+\bibliographystyle{alpha}+;
+\item Add a \verb+\keywords{}+ command before the abstract, with
+  keywords separated by \verb+\and+;
+\item Remove commands that might override the class style, such as
+  \verb+\pagestyle{...}+ or \verb+\thispagestyle{...}+,
+  change of margins (\emph{e.\,g.}  with the \texttt{geometry} package),
+  change of fonts, \ldots
+\item See also \autoref{sec:biblio} for information about how to
+  typeset the bibliography.
+\end{enumerate}
+
+\subsection{Template file}
+
+There is a \texttt{template.tex} file included with this class, to use
+as a starting point for writing a paper.  The \LaTeX{} source of this
+documentation can also be used as a more advanced example, but please
+make sure to remove any unnecessary code.
+
+\subsection{Preparing the final version}
+
+Before submitting your final version, please make sure that it compiles
+properly with the \texttt{[final]} option (see the next subsection in
+case of issues), and check that the author names and affiliation are
+correct.  In particular, each affiliation MUST be of the form
+$\langle\text{institue}\rangle, \langle\text{city}\rangle,
+\langle\text{country}\rangle$.
+
+\subsection{Compilation issues}
+
+If your document doesn't compile with the \texttt{iacrtrans} class,
+you can try adding the \texttt{[nohyperref]} option.  This will
+disable some code in the class that is known to be fragile, in
+particular the generation of metadata.  If this fixes your compilation
+problems, please try to define a clean version of \texttt{author}, \texttt{institute},
+\texttt{title} and/or \texttt{keywords} as optional arguments to
+these commands (in particular, remove \LaTeX{} macros, and write
+everything on a single line), and see if you document now compiles
+without the \texttt{[nohyperref]} option.
+
+\subsection{Line number issues}
+
+In submission mode, the class adds line numbers to help reviewers refer
+to specific elements.  Unfortunately, the code that does this is rather
+fragile, and some constructions break the line numbering.  In
+particular, old-style equations with \verb+$$...$$+ are known to cause
+issues, please use \verb+\[...\]+ instead\footnote{For more background
+  on \texttt{\$\$...\$\$} and \texttt{\textbackslash[...\textbackslash]},
+  see \url{https://tex.stackexchange.com/questions/503/why-is-preferable-to}}.
+
+If you find other cases where line numbering is broken, please open a
+ticket on github, and we will try to find a solution when possible.
+As a quick workaround, you can wrap the offending environment with
+\verb+\begin{linenomath}+ / \verb+\end{linenomath}+ (this will do
+nothing in preprint or final mode when line numbers are deactivated).
+
+\section{Main Commands}
+
+\subsection{Title page}
+
+The following commands are used to input informations for the title page.
+
+\paragraph{\texttt{\textbackslash title}} to define the title.
+
+A shorter running title can be given as optional argument.
+
+\paragraph{\texttt{\textbackslash subtitle}} to give an optional
+subtitle.
+
+\paragraph{\texttt{\textbackslash author}} to define the author list.
+
+Author names must be delimited by \verb+\and+ macros.  If there is one
+different affiliation for each author, authors and affiliations will be
+numbered automatically.  Otherwise, each author name must be followed by
+\verb+\inst{...}+ with the corresponding affiliation(s).
+
+A shorter list of authors for the running head can be given as
+optional argument.
+
+\paragraph{\texttt{\textbackslash institute}} to give author's affiliation(s).
+
+If there are several affiliations, they must be separated by
+\verb+\and+ macros, and will be numbered automatically.
+
+\paragraph{\texttt{\textbackslash keywords}} to give a list of
+keywords.
+
+Individual keywords should be separated by the \verb+\and+ macro.
+
+If there are fragile commands in the keywords, use the optional argument
+to give a text-only version of the keywords; this will be used for the
+PDF metadata.
+
+\paragraph{\texttt{\textbackslash email}} should be used inside the
+\verb+\institute+ argument to typeset author's email address(es).  An
+optional argument can be given for the hyperlink, if different from the
+displayed email.  For instance, you can group emails as follows:\\
+\verb+\email[alice@foo.com,bob@bob.com]{{alice,bob}@foo.com}+
+
+\paragraph{\texttt{\textbackslash thanks}}
+can be used inside the \verb+\title+,
+\verb+\author+ or \verb+\institute+ argument to generate a footnote with additional
+information, if needed.
+
+\paragraph{\texttt{\textbackslash maketitle}} is used to actually
+typeset the title.
+
+\paragraph{The \texttt{abstract} environment} should be used to typeset the abstract.
+
+Note that the keywords should be given before starting the abstract environment.
+
+
+\subsection{Theorems}
+
+The \texttt{iacrtrans} class uses the \AmS{} packages to typeset
+math.  In particular, it loads the \texttt{amsthm} package, and
+predefines the following environments:
+\begin{center}
+  \ttfamily
+\begin{tabular}{l@{\hspace{1cm}}l@{\hspace{1cm}}l}
+theorem     & definition & remark \\
+proposition & example    & note   \\
+problem     & exercise   & case   \\
+lemma       & property   &        \\
+conjecture  & question   &        \\
+corollary   & solution   &        \\
+claim       &            &        \\
+\end{tabular}
+\end{center}
+
+Note that the \texttt{proof} environment automatically adds a QED
+symbol at the end of the proof (unless you give option
+\texttt{[spthm]} to the \texttt{iacrtrans} class).  If the QED symbol
+is typeset at a wrong position, you can force its position with
+\verb+\qedhere+.
+
+\section{Class options}
+\label{sec:options}
+
+\subsection{Publication type}
+
+The class supports four publication types, selected with the
+following class options:
+\begin{description}
+\item[\texttt{[final]}] for final papers
+\item[\texttt{[preprint]}] for preprints (without copyright info, default)
+\item[\texttt{[submission]}] for submissions (anonymous, with line numbers)
+\item[\texttt{[draft]}] is similar to preprint, but activates draft
+  mode for the underlying \texttt{article} class (which shows overfull hboxes), and other packages
+  (\emph{e.\,g.} \texttt{graphicx}, \texttt{hyperref}).
+\end{description}
+Some types supports further options:
+\begin{description}
+\item[\texttt{[journal=XXX]}] must be used for submissions and
+  final papers; allowed values are \texttt{tosc} and \texttt{tches},
+  to set the \texttt{publname} macro accordingly to the right journal
+\item[\texttt{[notanonymous]}] can be used in submission mode, when the
+  call for paper requires non-anonymous submissions.
+\end{description}
+
+\subsection{Other Options}
+
+\paragraph{\texttt{[spthm]}}
+provides theorem environments that emulates
+\texttt{llncs} class's \texttt{sptheorem}:
+\begin{itemize}
+\item A \texttt{\textbackslash spnewtheorem} wrapper is provided
+  around \AmS{} \texttt{\textbackslash newtheorem}.  Note that the
+  styling options are ignored; you should use standard
+  \texttt{amsthm} commands for fine control.
+\item The \AmS{} \texttt{proof} environment will not automatically add a
+  QED symbol at the end of the proof.
+\end{itemize}
+
+\paragraph{\texttt{[floatrow]}}
+uses the \texttt{floatrow} package to customize floats rather than the
+plain \texttt{float} package.  In particular, this allows to typeset
+floats side by side as shown in this example:
+\begin{verbatim}
+\documentclass[floatrow]{iacrtrans}
+\usepackage[demo]{graphicx}
+\begin{document}
+
+\begin{figure}
+  \begin{floatrow}
+    \ffigbox{\includegraphics[width=0.4\textwidth]{1.png}}
+    {\caption{This is caption 1.}}
+    \ffigbox{\includegraphics[width=0.4\textwidth]{2.png}}
+    {\caption{This is caption 2.}}
+  \end{floatrow}
+\end{figure}
+
+\end{document}
+\end{verbatim}
+
+The row will be divided equally according to the number of figures, but
+you can ask each figure to take its natural space instead with
+\verb+\ffigbox[\FBwidth]+.  For more advanced use, see the
+\texttt{floatrow} documentation.
+
+\paragraph{\texttt{[xcolor=$\langle\text{\emph{list of options}}\rangle$]}}
+passes $\langle\text{\emph{list of options}}\rangle$ to the
+\texttt{xcolor} package.  Since \texttt{xcolor} is loaded by the class,
+you have to use this mechanism to pass options at load time; for instance
+use \texttt{xcolor=svgnames} to load SVG color names.
+
+
+\paragraph{\texttt{[hyperref=$\langle\text{\emph{list of options}}\rangle$]}}
+passes $\langle\text{\emph{list of options}}\rangle$ to the
+\texttt{hyperref} package.  Alternatively, you can load
+\texttt{hyperref} yourself with the required options and the class will
+detect that it already loaded.
+
+\paragraph{\texttt{[nohyperref]}}
+disables the automatic loading of
+\texttt{hyperref}.  Use this is if your document fails to compile with
+\texttt{hyperref} for some reason.
+
+The \texttt{iacrtrans} class automatically loads \texttt{hyperref}
+after all other packages.  If you need some packages to be loaded
+\emph{after} \texttt{hyperref}, you should load \texttt{hyperref}
+explicitly at the correct position, but not use the \texttt{[nohyperref]} option.
+
+% \paragraph{\texttt{[metada]}}
+% activates the automatic creation of PDF metadata.  This is
+% enabled automatically byin the \texttt{final} version, but it has been disabled by default
+% with other because the required sting manipulations are not very robust, and can
+% result in weird errors.  If you get errors with this option, you
+% should try to define a clean version of \texttt{author},
+% \texttt{title} and/or \texttt{keywords} as optionnal arguments to
+% these commands.
+
+\paragraph{\texttt{[nolastpage]}}
+disables the automatic loading the \texttt{lastpage} package in
+\texttt{[final]} mode.  When this option is enabled, the last page
+number must be set explicitly with
+\texttt{\textbackslash{}setlastpage}.
+
+
+\section{Typesetting the Bibliography}
+\label{sec:biblio}
+
+% Borrowed from btxdoc.tex
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+Having good bibliographic references is very important for the
+visibility of the journal.  Since we don't have a commercial editor,
+authors need to make sure themselves that references are standardized
+and clean.  We strongly encourage authors to use \BibTeX{} for the
+bibliograpy, using bibliographic data
+from \url{http://www.dblp.org} or \url{https://cryptobib.di.ens.fr/}.
+
+We are still working on a good solution for the bibliography, and we
+expect to have more specific instructions when producing the final
+version of the papers, including a dedicated \BibTeX{} style.
+
+
+\section{Further instructions}
+
+\paragraph{\LaTeX{} distribution, and worklow.}  \LaTeX{}
+distributions are available on a variaty of platforms.  In particular,
+we recommand the \href{https://www.tug.org/texlive/}{TeX Live}
+distribution, which is updated regularly, include a large number of
+packages, and is available on many platforms.
+\begin{description}
+\item[Linux:] A LaTeX installation is included in most Linux
+  distributions.  Alternatively,
+  \href{https://www.tug.org/texlive/}{TeX Live} can be installed
+  easily without root access.
+\item[Windows:] There are also good \LaTeX{} distributions for Windows,
+  such as \href{http://www.miktex.org/}{MikTeX} and
+  \href{https://www.tug.org/texlive/}{TeX Live}.
+\item[MacOSX:] On MacOSX, TeX Live is available inside
+  \href{http://www.tug.org/mactex/}{MacTeX}.
+\end{description}
+
+
+We recommand the use of \texttt{pdflatex} because it generally
+supports more features than \texttt{latex} and \texttt{dvips}
+(\texttt{xelatex} and \texttt{lualatex} are also missing some advanced
+features from \texttt{pdflatex}).
+
+\paragraph{Internal references.}
+
+We recommend the use of \verb+\autoref+ from \texttt{hyperref}
+(automatically loaded by the class).  For instance,
+\verb+\autoref{sec:options}+ links to \autoref{sec:options}.
+
+\paragraph{Pictures.}
+
+We recommend the use of the \texttt{tikz} package to render pictures.
+
+In particular, a large variety of crypto pictures made with
+\texttt{tikz} is available at \url{http://www.iacr.org/authors/tikz/}.
+
+\paragraph{External pictures.}  The \texttt{graphicx} is loaded by the
+class, and is recommended for external figures.
+
+If possible, external figures should be in a vector format: you can
+use PDF files when compiling with \texttt{pdflatex}, and EPS files
+when compiling with \texttt{latex}, and \texttt{dvips}.  Note that the
+\verb+\includegraphics+ command will automatically select a file with
+the right extension, so if you write \verb+\includegraphics{figure}+
+and have two files \texttt{figure.pdf} and \texttt{figure.eps}, it
+should work with both workflow.
+
+\paragraph{Floats.}
+
+Figure captions should be below the figures, and table captions above
+the tables.  The \texttt{float} package loaded by the class should
+take care of this automatically.  If want to have several figures side
+by side, see the \texttt{[floatrow]} option.
+
+\paragraph{Tables.}
+
+We recommend the \texttt{booktabs} package to typeset tables.
+
+\paragraph{Algorithms.}
+
+We recommend the \texttt{algorithm}, \texttt{algorithmcx} packages for
+algorithms (in particular, \texttt{algpseudocode} for pseudo-code).
+
+
+\section{For the Editor}
+
+The following commands should be used by the editor to prepare the final
+version:
+
+\begin{itemize}
+\item \texttt{\textbackslash{}setfirstpage} to set the first page number.
+\item \texttt{\textbackslash{}setlastpage} to set the last page number (optional).
+\item \texttt{\textbackslash{}setvolume} to set the volume number.
+\item \texttt{\textbackslash{}setnumber} to set the edition number.
+\item \texttt{\textbackslash{}setDOI} to set the DOI\@.
+\item \texttt{\textbackslash{}setPublished} to set the publication date.
+\item \texttt{\textbackslash{}setAccepted} to set the notification date.
+\item \texttt{\textbackslash{}setRevised} to set the re-submission date for paper that went though major revision.
+\item \texttt{\textbackslash{}setReceived} to set the submission date.
+\end{itemize}
+
+There is a special \texttt{settings.tosc.tex} file, that sets default values for these commands
+and which can be included in the beginning of the main tex file.
+
+\section{Further information}
+
+More general information can be found in the following documents:
+\begin{itemize}
+\item General \LaTeX{} documentation, such as the
+  \href{http://mirrors.ctan.org/info/lshort/english/lshort.pdf}{(not
+    so) short introduction to \LaTeXe};
+% \item The \texttt{article} class
+%   \href{http://mirrors.ctan.org/macros/latex/doc/clsguide.pdf}{documentation};
+\item The \AmS-\LaTeX{}
+  \href{http://mirrors.ctan.org/macros/latex/required/amslatex/math/amsldoc.pdf}{documentation}
+  and \texttt{amsthm} \href{ftp://ftp.ams.org/pub/tex/doc/amscls/amsthdoc.pdf}{documentation};
+\item Documentation of the \LaTeX{} packages used in the class (see below).
+\end{itemize}
+
+\subsection{Packages used}
+
+The class is based on the standard \texttt{article} class, and loads
+the following packages:
+\begin{itemize}
+\item \texttt{geometry}, \texttt{sectsty}, \texttt{fancyhdr},
+  \texttt{float}, \texttt{microtype}, \texttt{fontenc}, \texttt{lmodern}
+\item \texttt{amsmath}, \texttt{amssymb}, \texttt{amsthm}, \texttt{mathtools}
+\item \texttt{graphicx}
+\item \texttt{xkeyval}, \texttt{afterpage}
+\item \texttt{hyperref}, \texttt{hyperxmp}, \texttt{etoolbox}, \texttt{xcolor} (unless
+  the \texttt{[nohyperref]} option is used)
+\item \texttt{lineno} (in \texttt{[submission]} mode)
+\item \texttt{lastpage} (in \texttt{[final]} mode, unless disabled with \texttt{[nolastpage]})
+\item \texttt{floatrow,caption} (with option \texttt{[floatrow]})
+\end{itemize}
+
+\section*{Thanks}
+
+We would like to thank people who helped design and improve the class:
+Anne Canteaut,
+Jérémy Jean,
+Marc Joye,
+Bart Preneel,
+Christian Rechberger,
+Tyge Tiessen,
+Jonas Wloka.
+
+\section*{Changes}
+
+\begin{description}
+\item[v 0.21] First public version
+\item[v 0.22] Added documentations.
+              Minor tweaks in the class.
+\item[v 0.23] More documentation.
+              Removed some extra line-numbers with AMS environments in submission mode.
+              Make \verb+autoref+ capitalize sections.
+              Table caption are now above tables.
+              Rewritten running authors and running title.
+              Added PDF info (title, author, keyword).
+              Optional argument for \verb+\email+.
+              Added \texttt{floatrow} option.
+\item[v 0.24] Added CC licence text, and added XMP metadata.
+              Fixed some metadata transformations.
+\item[v 0.26] Added ISSN number and fixed a few bugs with spthm (thanks
+  to Marc Joye).
+\item[v 0.27] Added paragraph \emph{Helping the editor} in the documentation,
+              added \texttt{settings.tosc.tex}.
+\item[v 0.90] Moved to github, various fixes.
+              Added \texttt{journal} class option to switch between TCHES and ToSC.
+              Changed default mode to \texttt{preprint}.
+\item[v 0.91] Adding publication in the final version.
+              Added new class options: \texttt{notanonymous},
+              \texttt{xcolor=xxx}, \texttt{hyperref=xxx},
+              \texttt{nolastpage}.
+\item[v 0.92] Fixed hyperxmp issues.
+              Added template for authors.
+\end{description}
+
+
+\end{document}

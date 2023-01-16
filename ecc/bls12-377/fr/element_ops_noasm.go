@@ -1,3 +1,6 @@
+//go:build !amd64
+// +build !amd64
+
 // Copyright 2020 ConsenSys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,23 +19,30 @@
 
 package fr
 
-//go:noescape
-func MulBy3(x *Element)
+// MulBy3 x *= 3 (mod q)
+func MulBy3(x *Element) {
+	_x := *x
+	x.Double(x).Add(x, &_x)
+}
 
-//go:noescape
-func MulBy5(x *Element)
+// MulBy5 x *= 5 (mod q)
+func MulBy5(x *Element) {
+	_x := *x
+	x.Double(x).Double(x).Add(x, &_x)
+}
 
-//go:noescape
-func MulBy13(x *Element)
+// MulBy13 x *= 13 (mod q)
+func MulBy13(x *Element) {
+	var y = Element{
+		18434640649710993230,
+		12067750152132099910,
+		14024878721438555919,
+		347766975729306096,
+	}
+	x.Mul(x, &y)
+}
 
-//go:noescape
-func mul(res, x, y *Element)
-
-//go:noescape
-func fromMont(res *Element)
-
-//go:noescape
-func reduce(res *Element)
+// TODO @gbotrel arm64 is defined in asm, butn ot all target will work, need to update build tags
 
 // Butterfly sets
 //
@@ -41,3 +51,11 @@ func reduce(res *Element)
 //
 //go:noescape
 func Butterfly(a, b *Element)
+
+func fromMont(z *Element) {
+	_fromMontGeneric(z)
+}
+
+func reduce(z *Element) {
+	_reduceGeneric(z)
+}

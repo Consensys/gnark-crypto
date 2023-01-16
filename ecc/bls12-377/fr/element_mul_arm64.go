@@ -1,6 +1,3 @@
-//go:build !amd64 || purego
-// +build !amd64 purego
-
 // Copyright 2020 ConsenSys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,50 +16,13 @@
 
 package fr
 
-import "math/bits"
-
-// MulBy3 x *= 3 (mod q)
-func MulBy3(x *Element) {
-	_x := *x
-	x.Double(x).Add(x, &_x)
-}
-
-// MulBy5 x *= 5 (mod q)
-func MulBy5(x *Element) {
-	_x := *x
-	x.Double(x).Double(x).Add(x, &_x)
-}
-
-// MulBy13 x *= 13 (mod q)
-func MulBy13(x *Element) {
-	var y = Element{
-		18434640649710993230,
-		12067750152132099910,
-		14024878721438555919,
-		347766975729306096,
-	}
-	x.Mul(x, &y)
-}
-
-// Butterfly sets
-//
-//	a = a + b (mod q)
-//	b = a - b (mod q)
-func Butterfly(a, b *Element) {
-	_butterflyGeneric(a, b)
-}
-
-func fromMont(z *Element) {
-	_fromMontGeneric(z)
-}
-
-func reduce(z *Element) {
-	_reduceGeneric(z)
-}
+import (
+	"math/bits"
+)
 
 // Mul z = x * y (mod q)
 //
-// x and y must be less than q
+// x and y must be strictly inferior to q
 func (z *Element) Mul(x, y *Element) *Element {
 
 	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
@@ -93,7 +53,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
 	//
 	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	// (also described in https://eprint.iacr.org/2022/1400.pdf annex)
 	//
 	// for i=0 to N-1
 	// 		(A,t[0]) := t[0] + x[0]*y[i]
@@ -110,13 +69,18 @@ func (z *Element) Mul(x, y *Element) *Element {
 
 	var t0, t1, t2, t3 uint64
 	var u0, u1, u2, u3 uint64
+	var v0, v1, v2, v3 uint64
+	v0 = y[0]
+	v1 = y[1]
+	v2 = y[2]
+	v3 = y[3]
 	{
 		var c0, c1, c2 uint64
 		v := x[0]
-		u0, t0 = bits.Mul64(v, y[0])
-		u1, t1 = bits.Mul64(v, y[1])
-		u2, t2 = bits.Mul64(v, y[2])
-		u3, t3 = bits.Mul64(v, y[3])
+		u0, t0 = bits.Mul64(v, v0)
+		u1, t1 = bits.Mul64(v, v1)
+		u2, t2 = bits.Mul64(v, v2)
+		u3, t3 = bits.Mul64(v, v3)
 		t1, c0 = bits.Add64(u0, t1, 0)
 		t2, c0 = bits.Add64(u1, t2, c0)
 		t3, c0 = bits.Add64(u2, t3, c0)
@@ -145,13 +109,13 @@ func (z *Element) Mul(x, y *Element) *Element {
 	{
 		var c0, c1, c2 uint64
 		v := x[1]
-		u0, c1 = bits.Mul64(v, y[0])
+		u0, c1 = bits.Mul64(v, v0)
 		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, y[1])
+		u1, c1 = bits.Mul64(v, v1)
 		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, y[2])
+		u2, c1 = bits.Mul64(v, v2)
 		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, y[3])
+		u3, c1 = bits.Mul64(v, v3)
 		t3, c0 = bits.Add64(c1, t3, c0)
 
 		c2, _ = bits.Add64(0, 0, c0)
@@ -183,13 +147,13 @@ func (z *Element) Mul(x, y *Element) *Element {
 	{
 		var c0, c1, c2 uint64
 		v := x[2]
-		u0, c1 = bits.Mul64(v, y[0])
+		u0, c1 = bits.Mul64(v, v0)
 		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, y[1])
+		u1, c1 = bits.Mul64(v, v1)
 		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, y[2])
+		u2, c1 = bits.Mul64(v, v2)
 		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, y[3])
+		u3, c1 = bits.Mul64(v, v3)
 		t3, c0 = bits.Add64(c1, t3, c0)
 
 		c2, _ = bits.Add64(0, 0, c0)
@@ -221,13 +185,13 @@ func (z *Element) Mul(x, y *Element) *Element {
 	{
 		var c0, c1, c2 uint64
 		v := x[3]
-		u0, c1 = bits.Mul64(v, y[0])
+		u0, c1 = bits.Mul64(v, v0)
 		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, y[1])
+		u1, c1 = bits.Mul64(v, v1)
 		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, y[2])
+		u2, c1 = bits.Mul64(v, v2)
 		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, y[3])
+		u3, c1 = bits.Mul64(v, v3)
 		t3, c0 = bits.Add64(c1, t3, c0)
 
 		c2, _ = bits.Add64(0, 0, c0)
@@ -274,73 +238,58 @@ func (z *Element) Mul(x, y *Element) *Element {
 
 // Square z = x * x (mod q)
 //
-// x must be less than q
+// x must be strictly inferior to q
 func (z *Element) Square(x *Element) *Element {
 	// see Mul for algorithm documentation
 
 	var t0, t1, t2, t3 uint64
 	var u0, u1, u2, u3 uint64
+	var lo0, lo1, lo2, lo3 uint64
+
+	// note that if hi, _ = bits.Mul64() didn't generate
+	// UMULH and MUL, (but just UMULH) we could use same pattern
+	// as in mulRaw and reduce the stack space of this function (no need for lo..)
 	{
-		var c0, c1, c2 uint64
-		v := x[0]
-		u0, t0 = bits.Mul64(v, x[0])
-		u1, t1 = bits.Mul64(v, x[1])
-		u2, t2 = bits.Mul64(v, x[2])
-		u3, t3 = bits.Mul64(v, x[3])
-		t1, c0 = bits.Add64(u0, t1, 0)
-		t2, c0 = bits.Add64(u1, t2, c0)
-		t3, c0 = bits.Add64(u2, t3, c0)
-		c2, _ = bits.Add64(u3, 0, c0)
 
-		m := qInvNeg * t0
+		var c0, c2 uint64
 
-		u0, c1 = bits.Mul64(m, q0)
-		_, c0 = bits.Add64(t0, c1, 0)
-		u1, c1 = bits.Mul64(m, q1)
-		t0, c0 = bits.Add64(t1, c1, c0)
-		u2, c1 = bits.Mul64(m, q2)
-		t1, c0 = bits.Add64(t2, c1, c0)
-		u3, c1 = bits.Mul64(m, q3)
+		// for j=i+1 to N-1
+		//     p,C,t[j] = 2*a[j]*a[i] + t[j] + (p,C)
+		// A = C
+		u0, lo1 = bits.Mul64(x[0], x[0])
+		u1, t1 = bits.Mul64(x[1], x[0])
+		u2, t2 = bits.Mul64(x[2], x[0])
+		u3, t3 = bits.Mul64(x[3], x[0])
 
-		t2, c0 = bits.Add64(0, c1, c0)
-		u3, _ = bits.Add64(u3, 0, c0)
-		t0, c0 = bits.Add64(u0, t0, 0)
-		t1, c0 = bits.Add64(u1, t1, c0)
-		t2, c0 = bits.Add64(u2, t2, c0)
+		// propagate lo, from t[j] to end, twice.
+		t1, c0 = bits.Add64(t1, t1, 0)
+		t2, c0 = bits.Add64(t2, t2, c0)
+		t3, c0 = bits.Add64(t3, t3, c0)
 		c2, _ = bits.Add64(c2, 0, c0)
-		t2, c0 = bits.Add64(t3, t2, 0)
-		t3, _ = bits.Add64(u3, c2, c0)
 
-	}
-	{
-		var c0, c1, c2 uint64
-		v := x[1]
-		u0, c1 = bits.Mul64(v, x[0])
-		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, x[1])
-		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, x[2])
-		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, x[3])
-		t3, c0 = bits.Add64(c1, t3, c0)
+		t0, c0 = bits.Add64(lo1, t0, 0)
 
-		c2, _ = bits.Add64(0, 0, c0)
-		t1, c0 = bits.Add64(u0, t1, 0)
+		// propagate u0 + hi
+		t1, c0 = bits.Add64(u0, t1, c0)
 		t2, c0 = bits.Add64(u1, t2, c0)
 		t3, c0 = bits.Add64(u2, t3, c0)
 		c2, _ = bits.Add64(u3, c2, c0)
 
+		// hi again
+		t2, c0 = bits.Add64(u1, t2, 0)
+		t3, c0 = bits.Add64(u2, t3, c0)
+		c2, _ = bits.Add64(c2, u3, c0)
+
+		// this part is unchanged.
 		m := qInvNeg * t0
-
-		u0, c1 = bits.Mul64(m, q0)
-		_, c0 = bits.Add64(t0, c1, 0)
-		u1, c1 = bits.Mul64(m, q1)
-		t0, c0 = bits.Add64(t1, c1, c0)
-		u2, c1 = bits.Mul64(m, q2)
-		t1, c0 = bits.Add64(t2, c1, c0)
-		u3, c1 = bits.Mul64(m, q3)
-
-		t2, c0 = bits.Add64(0, c1, c0)
+		u0, lo0 = bits.Mul64(m, q0)
+		u1, lo1 = bits.Mul64(m, q1)
+		u2, lo2 = bits.Mul64(m, q2)
+		u3, lo3 = bits.Mul64(m, q3)
+		_, c0 = bits.Add64(t0, lo0, 0)
+		t0, c0 = bits.Add64(t1, lo1, c0)
+		t1, c0 = bits.Add64(t2, lo2, c0)
+		t2, c0 = bits.Add64(0, lo3, c0)
 		u3, _ = bits.Add64(u3, 0, c0)
 		t0, c0 = bits.Add64(u0, t0, 0)
 		t1, c0 = bits.Add64(u1, t1, c0)
@@ -348,37 +297,47 @@ func (z *Element) Square(x *Element) *Element {
 		c2, _ = bits.Add64(c2, 0, c0)
 		t2, c0 = bits.Add64(t3, t2, 0)
 		t3, _ = bits.Add64(u3, c2, c0)
-
 	}
 	{
-		var c0, c1, c2 uint64
-		v := x[2]
-		u0, c1 = bits.Mul64(v, x[0])
-		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, x[1])
-		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, x[2])
-		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, x[3])
-		t3, c0 = bits.Add64(c1, t3, c0)
 
-		c2, _ = bits.Add64(0, 0, c0)
-		t1, c0 = bits.Add64(u0, t1, 0)
+		var c0, c2 uint64
+
+		// for j=i+1 to N-1
+		//     p,C,t[j] = 2*a[j]*a[i] + t[j] + (p,C)
+		// A = C
+		u1, lo1 = bits.Mul64(x[1], x[1])
+		u2, lo2 = bits.Mul64(x[2], x[1])
+		u3, lo3 = bits.Mul64(x[3], x[1])
+
+		// propagate lo, from t[j] to end, twice.
+		lo2, c0 = bits.Add64(lo2, lo2, 0)
+		lo3, c0 = bits.Add64(lo3, lo3, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(lo2, t2, 0)
+		t3, c0 = bits.Add64(lo3, t3, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+
+		t1, c0 = bits.Add64(lo1, t1, 0)
+
+		// propagate u1 + hi
 		t2, c0 = bits.Add64(u1, t2, c0)
 		t3, c0 = bits.Add64(u2, t3, c0)
 		c2, _ = bits.Add64(u3, c2, c0)
 
+		// hi again
+		t3, c0 = bits.Add64(u2, t3, 0)
+		c2, _ = bits.Add64(c2, u3, c0)
+
+		// this part is unchanged.
 		m := qInvNeg * t0
-
-		u0, c1 = bits.Mul64(m, q0)
-		_, c0 = bits.Add64(t0, c1, 0)
-		u1, c1 = bits.Mul64(m, q1)
-		t0, c0 = bits.Add64(t1, c1, c0)
-		u2, c1 = bits.Mul64(m, q2)
-		t1, c0 = bits.Add64(t2, c1, c0)
-		u3, c1 = bits.Mul64(m, q3)
-
-		t2, c0 = bits.Add64(0, c1, c0)
+		u0, lo0 = bits.Mul64(m, q0)
+		u1, lo1 = bits.Mul64(m, q1)
+		u2, lo2 = bits.Mul64(m, q2)
+		u3, lo3 = bits.Mul64(m, q3)
+		_, c0 = bits.Add64(t0, lo0, 0)
+		t0, c0 = bits.Add64(t1, lo1, c0)
+		t1, c0 = bits.Add64(t2, lo2, c0)
+		t2, c0 = bits.Add64(0, lo3, c0)
 		u3, _ = bits.Add64(u3, 0, c0)
 		t0, c0 = bits.Add64(u0, t0, 0)
 		t1, c0 = bits.Add64(u1, t1, c0)
@@ -386,37 +345,42 @@ func (z *Element) Square(x *Element) *Element {
 		c2, _ = bits.Add64(c2, 0, c0)
 		t2, c0 = bits.Add64(t3, t2, 0)
 		t3, _ = bits.Add64(u3, c2, c0)
-
 	}
 	{
-		var c0, c1, c2 uint64
-		v := x[3]
-		u0, c1 = bits.Mul64(v, x[0])
-		t0, c0 = bits.Add64(c1, t0, 0)
-		u1, c1 = bits.Mul64(v, x[1])
-		t1, c0 = bits.Add64(c1, t1, c0)
-		u2, c1 = bits.Mul64(v, x[2])
-		t2, c0 = bits.Add64(c1, t2, c0)
-		u3, c1 = bits.Mul64(v, x[3])
-		t3, c0 = bits.Add64(c1, t3, c0)
 
-		c2, _ = bits.Add64(0, 0, c0)
-		t1, c0 = bits.Add64(u0, t1, 0)
-		t2, c0 = bits.Add64(u1, t2, c0)
+		var c0, c2 uint64
+
+		// for j=i+1 to N-1
+		//     p,C,t[j] = 2*a[j]*a[i] + t[j] + (p,C)
+		// A = C
+		u2, lo2 = bits.Mul64(x[2], x[2])
+		u3, lo3 = bits.Mul64(x[3], x[2])
+
+		// propagate lo, from t[j] to end, twice.
+		lo3, c0 = bits.Add64(lo3, lo3, 0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t3, c0 = bits.Add64(lo3, t3, 0)
+		c2, _ = bits.Add64(c2, 0, c0)
+
+		t2, c0 = bits.Add64(lo2, t2, 0)
+
+		// propagate u2 + hi
 		t3, c0 = bits.Add64(u2, t3, c0)
 		c2, _ = bits.Add64(u3, c2, c0)
 
+		// hi again
+		c2, _ = bits.Add64(c2, u3, 0)
+
+		// this part is unchanged.
 		m := qInvNeg * t0
-
-		u0, c1 = bits.Mul64(m, q0)
-		_, c0 = bits.Add64(t0, c1, 0)
-		u1, c1 = bits.Mul64(m, q1)
-		t0, c0 = bits.Add64(t1, c1, c0)
-		u2, c1 = bits.Mul64(m, q2)
-		t1, c0 = bits.Add64(t2, c1, c0)
-		u3, c1 = bits.Mul64(m, q3)
-
-		t2, c0 = bits.Add64(0, c1, c0)
+		u0, lo0 = bits.Mul64(m, q0)
+		u1, lo1 = bits.Mul64(m, q1)
+		u2, lo2 = bits.Mul64(m, q2)
+		u3, lo3 = bits.Mul64(m, q3)
+		_, c0 = bits.Add64(t0, lo0, 0)
+		t0, c0 = bits.Add64(t1, lo1, c0)
+		t1, c0 = bits.Add64(t2, lo2, c0)
+		t2, c0 = bits.Add64(0, lo3, c0)
 		u3, _ = bits.Add64(u3, 0, c0)
 		t0, c0 = bits.Add64(u0, t0, 0)
 		t1, c0 = bits.Add64(u1, t1, c0)
@@ -424,7 +388,42 @@ func (z *Element) Square(x *Element) *Element {
 		c2, _ = bits.Add64(c2, 0, c0)
 		t2, c0 = bits.Add64(t3, t2, 0)
 		t3, _ = bits.Add64(u3, c2, c0)
+	}
+	{
 
+		var c0, c2 uint64
+
+		// for j=i+1 to N-1
+		//     p,C,t[j] = 2*a[j]*a[i] + t[j] + (p,C)
+		// A = C
+		u3, lo3 = bits.Mul64(x[3], x[3])
+
+		// propagate lo, from t[j] to end, twice.
+
+		t3, c0 = bits.Add64(lo3, t3, 0)
+
+		// propagate u3 + hi
+		c2, _ = bits.Add64(u3, c2, c0)
+
+		// hi again
+
+		// this part is unchanged.
+		m := qInvNeg * t0
+		u0, lo0 = bits.Mul64(m, q0)
+		u1, lo1 = bits.Mul64(m, q1)
+		u2, lo2 = bits.Mul64(m, q2)
+		u3, lo3 = bits.Mul64(m, q3)
+		_, c0 = bits.Add64(t0, lo0, 0)
+		t0, c0 = bits.Add64(t1, lo1, c0)
+		t1, c0 = bits.Add64(t2, lo2, c0)
+		t2, c0 = bits.Add64(0, lo3, c0)
+		u3, _ = bits.Add64(u3, 0, c0)
+		t0, c0 = bits.Add64(u0, t0, 0)
+		t1, c0 = bits.Add64(u1, t1, c0)
+		t2, c0 = bits.Add64(u2, t2, c0)
+		c2, _ = bits.Add64(c2, 0, c0)
+		t2, c0 = bits.Add64(t3, t2, 0)
+		t3, _ = bits.Add64(u3, c2, c0)
 	}
 	z[0] = t0
 	z[1] = t1

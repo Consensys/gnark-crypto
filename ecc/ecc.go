@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bls24-317, bw6-633, bls12-378, bw6-756, secp256k1 and stark-curve elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bls24-317, bw6-633, bls12-378 and bw6-756 elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -48,13 +48,11 @@ const (
 	BW6_761
 	BW6_633
 	BW6_756
-	STARK_CURVE
-	SECP256K1
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317, STARK_CURVE, SECP256K1}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317}
 }
 
 func (id ID) String() string {
@@ -96,10 +94,6 @@ func (id ID) config() *config.Curve {
 		return &config.BLS24_317
 	case BW6_756:
 		return &config.BW6_756
-	case STARK_CURVE:
-		return &config.STARK_CURVE
-	case SECP256K1:
-		return &config.SECP256K1
 	default:
 		panic("unimplemented ecc ID")
 	}
@@ -115,5 +109,6 @@ func modulus(c *config.Curve, scalarField bool) *big.Int {
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
 type MultiExpConfig struct {
-	NbTasks int // go routines to be used in the multiexp. can be larger than num cpus.
+	NbTasks     int  // go routines to be used in the multiexp. can be larger than num cpus.
+	ScalarsMont bool // indicates if the scalars are in montgommery form. Default to false.
 }
