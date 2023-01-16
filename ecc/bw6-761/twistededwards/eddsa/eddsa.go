@@ -157,13 +157,12 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	resRY := res.R.Y.Bytes()
 	resAX := privKey.PublicKey.A.X.Bytes()
 	resAY := privKey.PublicKey.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
+	sizeDataToHash := 4 * sizeFr
 	dataToHash := make([]byte, sizeDataToHash)
 	copy(dataToHash[:], resRX[:])
 	copy(dataToHash[sizeFr:], resRY[:])
 	copy(dataToHash[2*sizeFr:], resAX[:])
 	copy(dataToHash[3*sizeFr:], resAY[:])
-	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
 	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
 		err := arithHFunc.WriteString(dataToHash[:])
@@ -175,6 +174,9 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if _, err := hFunc.Write(message); err != nil {
+		return nil, err
 	}
 
 	var hramInt big.Int
@@ -219,13 +221,12 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	sigRY := sig.R.Y.Bytes()
 	sigAX := pub.A.X.Bytes()
 	sigAY := pub.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
+	sizeDataToHash := 4 * sizeFr
 	dataToHash := make([]byte, sizeDataToHash)
 	copy(dataToHash[:], sigRX[:])
 	copy(dataToHash[sizeFr:], sigRY[:])
 	copy(dataToHash[2*sizeFr:], sigAX[:])
 	copy(dataToHash[3*sizeFr:], sigAY[:])
-	copy(dataToHash[4*sizeFr:], message)
 	hFunc.Reset()
 	if arithHFunc, ok := hFunc.(gcHash.ArithmeticHash); ok {
 		err := arithHFunc.WriteString(dataToHash[:])
@@ -237,6 +238,9 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 		if err != nil {
 			return false, err
 		}
+	}
+	if _, err := hFunc.Write(message); err != nil {
+		return false, err
 	}
 
 	var hramInt big.Int
