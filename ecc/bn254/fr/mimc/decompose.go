@@ -17,8 +17,9 @@
 package mimc
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 // Decompose interpret rawBytes as a bigInt x in big endian,

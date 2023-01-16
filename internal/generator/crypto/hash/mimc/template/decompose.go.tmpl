@@ -26,3 +26,13 @@ func Decompose(rawBytes []byte) []fr.Element {
 
 	return res
 }
+
+func (d *digest) Decompose(rawBytes []byte) [][]byte {
+	asElems := Decompose(rawBytes)
+	res := make([][]byte, len(asElems))
+	for i := range res {
+		b := asElems[i].Bytes()
+		res[i] = b[:]
+	}
+	return res
+}
