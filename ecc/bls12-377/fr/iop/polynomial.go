@@ -76,10 +76,15 @@ func getShapeID(p Polynomial) int {
 }
 
 // WrappedPolynomial wrapps a polynomial so that it is
-// interpreted as P'(X)=P(\omega^{s}X)
+// interpreted as P'(X)=P(\omega^{s}X).
+// Size is the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.Size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
 type WrappedPolynomial struct {
 	P     *Polynomial
 	Shift int
+	Size  int
 }
 
 //----------------------------------------------------
@@ -112,6 +117,21 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 	fft.BitReverse(p.Coefficients)
 	p.Layout = BitReverse
 	return p
+}
+
+//----------------------------------------------------
+// Wrapp a polynomial
+
+// WrappMe returned a WrappedPolynomial from p.
+// * shift integer meaning that the result should be interpreted as p(\omega^shift X)
+// * size optional parameter telling the size of p (as a vector). If not provided,
+// len(p) is the default size.
+func (p *Polynomial) WrappMe(shift int, size ...int) *WrappedPolynomial {
+	res := WrappedPolynomial{P: p, Shift: shift, Size: len(p.Coefficients)}
+	if len(size) > 0 {
+		res.Size = size[0]
+	}
+	return &res
 }
 
 //----------------------------------------------------
@@ -189,6 +209,14 @@ func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
 	}
 }
 
+// ToLagrange Sets wp to wq, in ToLagrange form and returns it.
+func (wp *WrappedPolynomial) ToLagrange(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToLagrange(wq.P, d)
+	wp.Shift = wq.Shift
+	wp.Size = wq.Size
+	return wp
+}
+
 //----------------------------------------------------
 // toCanonical
 
@@ -257,6 +285,14 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 	default:
 		panic("unknown ID")
 	}
+}
+
+// ToCanonical Sets wp to wq, in canonical form and returns it.
+func (wp *WrappedPolynomial) ToCanonical(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToCanonical(wq.P, d)
+	wp.Shift = wq.Shift
+	wp.Size = wq.Size
+	return wp
 }
 
 //-----------------------------------------------------
@@ -334,6 +370,14 @@ func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 	default:
 		panic("unknown ID")
 	}
+}
+
+// ToLagrangeCoset Sets wp to wq, in LagrangeCoset form and returns it.
+func (wp *WrappedPolynomial) ToLagrangeCoset(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToLagrangeCoset(wq.P, d)
+	wp.Shift = wq.Shift
+	wp.Size = wq.Size
+	return wp
 }
 
 //-----------------------------------------------------
@@ -436,9 +480,9 @@ func (m *MultivariatePolynomial) EvaluateSinglePoint(x []fr.Element) fr.Element 
 }
 
 // EvaluatePolynomials evaluate h on x, interpreted as vectors.
-// No transformations are made on the polynomials, it is assumed
-// that they are all in the same format (e.g. all in LagrangeCoset,
-// BitReverse).
+// No transformations are made on the polynomials.
+// The basis of the returned polynomial is the same as x[0]'s, and
+// the layout is Regular.
 func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Polynomial, error) {
 
 	var res Polynomial
@@ -452,56 +496,41 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 		}
 	}
 
-	// check that the format are consistent
-	expectedForm := x[0].P.Form
+	// compute \rho for all polynomials
+	rho := make([]int, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		if x[i].P.Form != expectedForm {
-			return res, ErrInconsistentFormat
-		}
+		rho[i] = len(x[i].P.Coefficients) / x[i].Size
 	}
 
 	res.Coefficients = make([]fr.Element, nbElmts)
-	res.Form = expectedForm
 
-	// two separate loops so the if is not inside the for loop
-	if expectedForm.Layout == Regular {
+	v := make([]fr.Element, nbPolynomials)
+	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
 
-		v := make([]fr.Element, nbPolynomials)
+	for i := 0; i < nbElmts; i++ {
 
-		for i := 0; i < nbElmts; i++ {
+		for j := 0; j < nbPolynomials; j++ {
 
-			for j := 0; j < nbPolynomials; j++ {
+			if x[j].P.Form.Layout == Regular {
 
-				v[j].Set(&x[j].P.Coefficients[(i+x[j].Shift)%nbElmts])
+				v[j].Set(&x[j].P.Coefficients[(i+x[j].Shift*rho[j])%nbElmts])
 
-			}
-
-			res.Coefficients[i] = m.EvaluateSinglePoint(v)
-			res.Coefficients[i].Add(&res.Coefficients[i], &m.C)
-		}
-
-	} else {
-
-		v := make([]fr.Element, nbPolynomials)
-		nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
-
-		for i := 0; i < nbElmts; i++ {
-
-			for j := 0; j < nbPolynomials; j++ {
+			} else {
 
 				// take in account the fact that the polynomial mght be shifted...
-				iRev := bits.Reverse64(uint64((i+x[j].Shift))%uint64(nbElmts)) >> nn
+				iRev := bits.Reverse64(uint64((i+x[j].Shift*rho[j]))%uint64(nbElmts)) >> nn
 				v[j].Set(&x[j].P.Coefficients[iRev])
-
 			}
 
-			// evaluate h on x
-			iRev := bits.Reverse64(uint64(i)) >> nn
-			res.Coefficients[iRev] = m.EvaluateSinglePoint(v)
-			res.Coefficients[iRev].Add(&res.Coefficients[iRev], &m.C)
 		}
 
+		// evaluate h on x
+		res.Coefficients[i] = m.EvaluateSinglePoint(v)
+		res.Coefficients[i].Add(&res.Coefficients[i], &m.C)
+
 	}
+	res.Form.Basis = x[0].P.Form.Basis
+	res.Form.Layout = Regular
 
 	return res, nil
 

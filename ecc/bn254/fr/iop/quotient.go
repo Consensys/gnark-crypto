@@ -60,13 +60,13 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
-	
+
 	// compute \rho for all polynomials
 	rho := make([]int, nbPolynomials)
-	for i:=0; i<nbPolynomials; i++{
-		rho[i] = len(entries[i].P.Coefficients)/entries[i].Size
+	for i := 0; i < nbPolynomials; i++ {
+		rho[i] = len(entries[i].P.Coefficients) / entries[i].Size
 	}
-	ratio := int(domains[1].Cardinality/domains[0].Cardinality)
+	ratio := int(domains[1].Cardinality / domains[0].Cardinality)
 
 	// compute the division. We take care of the indices of the
 	// polnyomials which are bit reversed.

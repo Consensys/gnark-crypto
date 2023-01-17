@@ -61,7 +61,7 @@ func buildPoly(size int, form Form) WrappedPolynomial {
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	return WrappedPolynomial{P: &f, Shift: 0}
+	return WrappedPolynomial{P: &f, Shift: 0, Size: size}
 }
 
 func evalCanonical(p Polynomial, x fr.Element) fr.Element {
