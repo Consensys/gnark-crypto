@@ -120,13 +120,13 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 }
 
 //----------------------------------------------------
-// Wrapp a polynomial
+// Wrap a polynomial
 
-// WrappMe returned a WrappedPolynomial from p.
+// WrapMe returned a WrappedPolynomial from p.
 // * shift integer meaning that the result should be interpreted as p(\omega^shift X)
 // * size optional parameter telling the size of p (as a vector). If not provided,
 // len(p) is the default size.
-func (p *Polynomial) WrappMe(shift int, size ...int) *WrappedPolynomial {
+func (p *Polynomial) WrapMe(shift int, size ...int) *WrappedPolynomial {
 	res := WrappedPolynomial{P: p, Shift: shift, Size: len(p.Coefficients)}
 	if len(size) > 0 {
 		res.Size = size[0]
