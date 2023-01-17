@@ -536,7 +536,6 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 
 		// evaluate h on x
 		res.Coefficients[i] = m.EvaluateSinglePoint(v)
-		res.Coefficients[i].Add(&res.Coefficients[i], &m.C)
 
 	}
 	res.Form.Basis = x[0].P.Form.Basis
