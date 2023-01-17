@@ -27,9 +27,9 @@ func TestECDSA(t *testing.T) {
 			privKey, _ := pp.GenerateKey(rand.Reader)
 
 			hash := []byte("testing ECDSA")
-			sig, _ := pp.Sign(hash, *privKey, rand.Reader)
+			signature, _ := pp.Sign(hash, *privKey, rand.Reader)
 
-			return pp.Verify(hash, sig, privKey.PublicKey.A)
+			return pp.Verify(hash, signature, privKey.PublicKey.Q)
 		},
 	))
 

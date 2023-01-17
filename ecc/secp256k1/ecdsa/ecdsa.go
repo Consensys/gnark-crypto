@@ -1,7 +1,14 @@
+/*
+ecdsa package implements the Elliptic Curve Digital Signature (ECDSA) scheme.
+The implementation is adapted from https://pkg.go.dev/crypto/ecdsa.
+Documentation:
+- Wikipedia: https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+- FIPS 186-4: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-4.pdf
+- SEC 1, v-2: https://www.secg.org/sec1-v2.pdf
+*/
 package ecdsa
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha512"
@@ -14,13 +21,19 @@ import (
 
 // PublicKey represents an ECDSA public key
 type PublicKey struct {
-	A secp256k1.G1Affine
+	Q secp256k1.G1Affine
 }
 
 // PrivateKey represents an ECDSA private key
 type PrivateKey struct {
 	PublicKey
 	Secret big.Int
+}
+
+// Signature represents an ECDSA signature
+type Signature struct {
+	r big.Int
+	s big.Int
 }
 
 // params are the ECDSA public parameters
@@ -33,16 +46,15 @@ var one = new(big.Int).SetInt64(1)
 
 // randFieldElement returns a random element of the order of the given
 // curve using the procedure given in FIPS 186-4, Appendix B.5.1.
-func randFieldElement(rand io.Reader) (k big.Int, err error) {
+func (pp params) randFieldElement(rand io.Reader) (k big.Int, err error) {
 	b := make([]byte, fr.Bits/8+8)
 	_, err = io.ReadFull(rand, b)
 	if err != nil {
 		return
-
 	}
 
 	k = *new(big.Int).SetBytes(b)
-	n := new(big.Int).Sub(fr.Modulus(), one)
+	n := new(big.Int).Sub(pp.Order, one)
 	k.Mod(&k, n)
 	k.Add(&k, one)
 	return
@@ -51,16 +63,16 @@ func randFieldElement(rand io.Reader) (k big.Int, err error) {
 // GenerateKey generates a public and private key pair.
 func (pp params) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 
-	k, err := randFieldElement(rand)
+	k, err := pp.randFieldElement(rand)
 	if err != nil {
 		return nil, err
 
 	}
 
-	priv := new(PrivateKey)
-	priv.Secret = k
-	priv.PublicKey.A.ScalarMultiplication(&pp.Base, &k)
-	return priv, nil
+	privateKey := new(PrivateKey)
+	privateKey.Secret = k
+	privateKey.PublicKey.Q.ScalarMultiplication(&pp.Base, &k)
+	return privateKey, nil
 }
 
 // hashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
@@ -69,14 +81,12 @@ func (pp params) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 func hashToInt(hash []byte) big.Int {
 	if len(hash) > fr.Bytes {
 		hash = hash[:fr.Bytes]
-
 	}
 
 	ret := new(big.Int).SetBytes(hash)
 	excess := len(hash)*8 - fr.Bits
 	if excess > 0 {
 		ret.Rsh(ret, uint(excess))
-
 	}
 	return *ret
 }
@@ -87,10 +97,8 @@ type zr struct{}
 func (zr) Read(dst []byte) (n int, err error) {
 	for i := range dst {
 		dst[i] = 0
-
 	}
 	return len(dst), nil
-
 }
 
 var zeroReader = zr{}
@@ -99,10 +107,10 @@ const (
 	aesIV = "gnark-crypto IV." // must be 16 chars (equal block size)
 )
 
-func nonce(rand io.Reader, priv *PrivateKey, hash []byte) (csprng *cipher.StreamReader, err error) {
+func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.StreamReader, err error) {
 	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
 	//
-	//    SHA2-512(priv.D || entropy || hash)[:32]
+	//    SHA2-512(privateKey.Secret ∥ entropy ∥ hash)[:32]
 	//
 	// The CSPRNG key is indifferentiable from a random oracle as shown in
 	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
@@ -121,10 +129,10 @@ func nonce(rand io.Reader, priv *PrivateKey, hash []byte) (csprng *cipher.Stream
 
 	// Initialize an SHA-512 hash context; digest...
 	md := sha512.New()
-	md.Write(priv.Secret.Bytes()) // the private key,
-	md.Write(entropy)             // the entropy,
-	md.Write(hash)                // and the input hash;
-	key := md.Sum(nil)[:32]       // and compute ChopMD-256(SHA-512),
+	md.Write(privateKey.Secret.Bytes()) // the private key,
+	md.Write(entropy)                   // the entropy,
+	md.Write(hash)                      // and the input hash;
+	key := md.Sum(nil)[:32]             // and compute ChopMD-256(SHA-512),
 	// which is an indifferentiable MAC.
 
 	// Create an AES-CTR instance to use as a CSPRNG.
@@ -141,51 +149,78 @@ func nonce(rand io.Reader, priv *PrivateKey, hash []byte) (csprng *cipher.Stream
 }
 
 // Sign performs the ECDSA signature
-func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) ([2]*big.Int, error) {
-	csprng, err := nonce(rand, &privateKey, hash)
-	if err != nil {
-		return [2]*big.Int{}, err
+//
+// k ← 𝔽r (random)
+// R = k ⋅ Base
+// r = x_R (mod Order)
+// s = k⁻¹ . (m + sk ⋅ r)
+// signature = {s, r}
+//
+// SEC 1, Version 2.0, Section 4.1.3
+func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signature, err error) {
+	var kInv big.Int
+	for {
+		for {
+			csprng, err := nonce(rand, &privateKey, hash)
+			if err != nil {
+				return Signature{}, err
+			}
+			k, err := pp.randFieldElement(csprng)
+			if err != nil {
+				return Signature{}, err
+			}
+
+			var R secp256k1.G1Affine
+			R.ScalarMultiplication(&pp.Base, &k)
+			kInv.ModInverse(&k, pp.Order)
+
+			R.X.BigInt(&signature.r)
+			if signature.r.Sign() != 0 {
+				break
+			}
+		}
+		signature.s.Mul(&signature.r, &privateKey.Secret)
+		m := hashToInt(hash)
+		signature.s.Add(&m, &signature.s).
+			Mul(&kInv, &signature.s).
+			Mod(&signature.s, pp.Order) // pp.Order != 0
+		if signature.s.Sign() != 0 {
+			break
+		}
 	}
-	k, err := randFieldElement(csprng)
-	if err != nil {
-		return [2]*big.Int{}, err
-	}
 
-	kCopy := new(big.Int).SetBytes(k.Bytes())
-	var p secp256k1.G1Affine
-	p.ScalarMultiplication(&pp.Base, kCopy)
-	inv := new(big.Int).ModInverse(&k, pp.Order)
-
-	privateKeyCopy := new(big.Int).SetBytes(privateKey.Secret.Bytes())
-	var _x big.Int
-	xPrivateKey := new(big.Int).Mul(p.X.BigInt(&_x), privateKeyCopy)
-
-	e := hashToInt(hash)
-	sum := new(big.Int).Add(&e, xPrivateKey)
-
-	a := new(big.Int).Mul(inv, sum)
-	r2 := new(big.Int).Mod(a, pp.Order)
-	return [2]*big.Int{&_x, r2}, nil
+	return signature, err
 }
 
 // Verify validates the ECDSA signature
-func (pp params) Verify(hash []byte, sig [2]*big.Int, publicKey secp256k1.G1Affine) bool {
-	w := new(big.Int).ModInverse(sig[1], pp.Order)
-	wCopy := new(big.Int).SetBytes(w.Bytes())
+//
+// R ?= s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ r ⋅ publiKey
+//
+// SEC 1, Version 2.0, Section 4.1.4
+func (pp params) Verify(hash []byte, signature Signature, publicKey secp256k1.G1Affine) bool {
+
+	if signature.r.Sign() <= 0 || signature.s.Sign() <= 0 {
+		return false
+	}
+	if signature.r.Cmp(pp.Order) >= 0 || signature.s.Cmp(pp.Order) >= 0 {
+		return false
+	}
+
+	sInv := new(big.Int).ModInverse(&signature.s, pp.Order)
 	e := hashToInt(hash)
-	u1raw := new(big.Int).Mul(&e, wCopy)
-	u1 := new(big.Int).Mod(u1raw, pp.Order)
-	wCopy = new(big.Int).SetBytes(w.Bytes())
-	u2raw := new(big.Int).Mul(sig[0], wCopy)
-	u2 := new(big.Int).Mod(u2raw, pp.Order)
+	u1 := new(big.Int).Mul(&e, sInv)
+	u1.Mod(u1, pp.Order)
+	u2 := new(big.Int).Mul(&signature.r, sInv)
+	u2.Mod(u2, pp.Order)
 
-	var gU1, publicKeyU2, p secp256k1.G1Affine
-	gU1.ScalarMultiplication(&pp.Base, u1)
-	publicKeyU2.ScalarMultiplication(&publicKey, u2)
+	var U1, U2 secp256k1.G1Affine
+	U1.ScalarMultiplication(&pp.Base, u1)
+	U2.ScalarMultiplication(&publicKey, u2).
+		Add(&U2, &U1)
 
-	p.Add(&gU1, &publicKeyU2)
+	var xU2 big.Int
+	U2.X.BigInt(&xU2)
+	x := new(big.Int).Mod(&xU2, pp.Order)
 
-	var _x big.Int
-	pXmodN := new(big.Int).Mod(p.X.BigInt(&_x), pp.Order)
-	return bytes.Equal(pXmodN.Bytes(), sig[0].Bytes())
+	return x.Cmp(&signature.r) == 0
 }
