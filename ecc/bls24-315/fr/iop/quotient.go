@@ -82,12 +82,12 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 			if entries[j].P.Layout == Regular {
 
 				// take in account the fact that the polynomial might be shifted...
-				x[j].Set(&entries[j].P.Coefficients[uint64((i+entries[j].Shift))%domains[1].Cardinality])
+				x[j].Set(&entries[j].P.Coefficients[uint64((i+entries[j].Shift*ratio))%domains[1].Cardinality])
 
 			} else {
 
 				// take in account the fact that the polynomial might be shifted...
-				iRev := bits.Reverse64(uint64((i+entries[j].Shift))%domains[1].Cardinality) >> nn
+				iRev := bits.Reverse64(uint64((i+entries[j].Shift*ratio))%domains[1].Cardinality) >> nn
 				x[j].Set(&entries[j].P.Coefficients[iRev])
 			}
 
