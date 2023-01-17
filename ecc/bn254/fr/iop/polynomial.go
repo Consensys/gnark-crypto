@@ -118,6 +118,21 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 }
 
 //----------------------------------------------------
+// Wrapp a polynomial
+
+// WrappMe returned a WrappedPolynomial from p.
+// * shift integer meaning that the result should be interpreted as p(\omega^shift X)
+// * size optional parameter telling the size of p (as a vector). If not provided,
+// len(p) is the default size.
+func (p *Polynomial) WrappMe(shift int, size ...int) *WrappedPolynomial {
+	res := WrappedPolynomial{P: p, Shift: shift, Size: len(p.Coefficients)}
+	if len(size) > 0 {
+		res.Size = size[0]
+	}
+	return &res
+}
+
+//----------------------------------------------------
 // toLagrange
 
 // the numeration corresponds to the following formatting:
@@ -479,6 +494,12 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 		}
 	}
 
+	// compute \rho for all polynomials
+	rho := make([]int, nbPolynomials)
+	for i := 0; i < nbPolynomials; i++ {
+		rho[i] = len(x[i].P.Coefficients) / x[i].Size
+	}
+
 	res.Coefficients = make([]fr.Element, nbElmts)
 
 	v := make([]fr.Element, nbPolynomials)
@@ -488,16 +509,14 @@ func (m *MultivariatePolynomial) EvaluatePolynomials(x []WrappedPolynomial) (Pol
 
 		for j := 0; j < nbPolynomials; j++ {
 
-			rho := int(len(x[j].P.Coefficients) / x[j].Size)
-
 			if x[j].P.Form.Layout == Regular {
 
-				v[j].Set(&x[j].P.Coefficients[(i+x[j].Shift*rho)%nbElmts])
+				v[j].Set(&x[j].P.Coefficients[(i+x[j].Shift*rho[j])%nbElmts])
 
 			} else {
 
 				// take in account the fact that the polynomial mght be shifted...
-				iRev := bits.Reverse64(uint64((i+x[j].Shift*rho))%uint64(nbElmts)) >> nn
+				iRev := bits.Reverse64(uint64((i+x[j].Shift*rho[j]))%uint64(nbElmts)) >> nn
 				v[j].Set(&x[j].P.Coefficients[iRev])
 			}
 

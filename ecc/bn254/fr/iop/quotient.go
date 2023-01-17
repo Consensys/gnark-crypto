@@ -60,7 +60,13 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
-	ratio := int(domains[1].Cardinality / domains[0].Cardinality)
+	
+	// compute \rho for all polynomials
+	rho := make([]int, nbPolynomials)
+	for i:=0; i<nbPolynomials; i++{
+		rho[i] = len(entries[i].P.Coefficients)/entries[i].Size
+	}
+	ratio := int(domains[1].Cardinality/domains[0].Cardinality)
 
 	// compute the division. We take care of the indices of the
 	// polnyomials which are bit reversed.
@@ -70,7 +76,6 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 	x := make([]fr.Element, nbEntries)
 
 	nbElmtsExtended := int(domains[1].Cardinality)
-
 	quotientLagrangeCoset.Coefficients = make([]fr.Element, nbElmtsExtended)
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmtsExtended)))
@@ -82,12 +87,12 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 			if entries[j].P.Layout == Regular {
 
 				// take in account the fact that the polynomial might be shifted...
-				x[j].Set(&entries[j].P.Coefficients[uint64((i+entries[j].Shift*ratio))%domains[1].Cardinality])
+				x[j].Set(&entries[j].P.Coefficients[uint64((i+entries[j].Shift*rho[j]))%domains[1].Cardinality])
 
 			} else {
 
 				// take in account the fact that the polynomial might be shifted...
-				iRev := bits.Reverse64(uint64((i+entries[j].Shift*ratio))%domains[1].Cardinality) >> nn
+				iRev := bits.Reverse64(uint64((i+entries[j].Shift*rho[j]))%domains[1].Cardinality) >> nn
 				x[j].Set(&entries[j].P.Coefficients[iRev])
 			}
 
