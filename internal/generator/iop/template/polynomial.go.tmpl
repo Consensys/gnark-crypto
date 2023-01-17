@@ -85,6 +85,11 @@ func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
 	return p
 }
 
+func (wp *WrappedPolynomial) ToRegular(wq *WrappedPolynomial) *WrappedPolynomial{
+	wp.P.ToRegular(wp.P)
+	return wp
+}
+
 //----------------------------------------------------
 // ToBitreverse
 
@@ -99,6 +104,12 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 	fft.BitReverse(p.Coefficients)
 	p.Layout = BitReverse
 	return p
+}
+
+
+func (wp *WrappedPolynomial) ToBitreverse(wq *WrappedPolynomial) *WrappedPolynomial{
+	wp.P.ToBitreverse(wp.P)
+	return wp
 }
 
 //----------------------------------------------------
