@@ -51,3 +51,37 @@ func TestECDSA(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+// ------------------------------------------------------------
+// benches
+
+func BenchmarkSignECDSA(b *testing.B) {
+	var pp params
+	_, _, g, _ := bw6761.Generators()
+	pp.Base.Set(&g)
+	pp.Order = fr.Modulus()
+
+	privKey, _ := pp.GenerateKey(rand.Reader)
+
+	hash := []byte("benchmarking ECDSA sign()")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pp.Sign(hash, *privKey, rand.Reader)
+	}
+}
+
+func BenchmarkVerifyECDSA(b *testing.B) {
+	var pp params
+	_, _, g, _ := bw6761.Generators()
+	pp.Base.Set(&g)
+	pp.Order = fr.Modulus()
+
+	privKey, _ := pp.GenerateKey(rand.Reader)
+
+	hash := []byte("benchmarking ECDSA sign()")
+	signature, _ := pp.Sign(hash, *privKey, rand.Reader)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pp.Verify(hash, signature, privKey.PublicKey.Q)
+	}
+}

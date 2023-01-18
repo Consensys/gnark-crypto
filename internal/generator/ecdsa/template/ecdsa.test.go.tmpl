@@ -37,3 +37,45 @@ func TestECDSA(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+// ------------------------------------------------------------
+// benches
+
+func BenchmarkSignECDSA(b *testing.B) {
+	var pp params
+    {{- if or (eq .Name "secp256k1") (eq .Name "stark-curve")}}
+        _, g := {{ .CurvePackage }}.Generators()
+    {{- else}}
+        _, _, g, _ := {{ .CurvePackage }}.Generators()
+    {{- end}}
+	pp.Base.Set(&g)
+	pp.Order = fr.Modulus()
+
+	privKey, _ := pp.GenerateKey(rand.Reader)
+
+	hash := []byte("benchmarking ECDSA sign()")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pp.Sign(hash, *privKey, rand.Reader)
+	}
+}
+
+func BenchmarkVerifyECDSA(b *testing.B) {
+	var pp params
+    {{- if or (eq .Name "secp256k1") (eq .Name "stark-curve")}}
+        _, g := {{ .CurvePackage }}.Generators()
+    {{- else}}
+        _, _, g, _ := {{ .CurvePackage }}.Generators()
+    {{- end}}
+	pp.Base.Set(&g)
+	pp.Order = fr.Modulus()
+
+	privKey, _ := pp.GenerateKey(rand.Reader)
+
+	hash := []byte("benchmarking ECDSA sign()")
+	signature, _ := pp.Sign(hash, *privKey, rand.Reader)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pp.Verify(hash, signature, privKey.PublicKey.Q)
+	}
+}
