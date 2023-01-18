@@ -59,7 +59,12 @@ type Polynomial struct {
 	Form
 }
 
-// return a copy of p
+// NewPolynomial creates a new polynomial. The slice coeff NOT copied
+// but directly assigned to the new polynomial.
+func NewPolynomial(coeffs []fr.Element, form Form) *Polynomial {
+	return &Polynomial{Coefficients: coeffs, Form: form}
+}
+
 // return a copy of p
 func (p *Polynomial) Copy() *Polynomial {
 	size := len(p.Coefficients)
