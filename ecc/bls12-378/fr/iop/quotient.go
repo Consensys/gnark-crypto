@@ -44,13 +44,6 @@ func ComputeQuotient(entries []WrappedPolynomial, h MultivariatePolynomial, doma
 		}
 	}
 
-	// check that the sizes are correct: the size of each polynomial
-	// in entries must be domains[0].Size*h.Degree
-	expectedSize := ecc.NextPowerOfTwo(h.Degree() * domains[0].Cardinality)
-	if expectedSize != uint64(n) || expectedSize != domains[1].Cardinality {
-		return quotientLagrangeCoset, ErrInconsistentSize
-	}
-
 	// check that the format are consistent
 	for i := 0; i < nbPolynomials; i++ {
 		if entries[i].P.Basis != LagrangeCoset {
