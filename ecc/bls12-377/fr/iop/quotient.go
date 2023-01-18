@@ -20,7 +20,6 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 )
