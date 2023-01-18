@@ -221,14 +221,21 @@ func (pp params) Verify(hash []byte, signature Signature, publicKey bls24317.G1A
 	u2 := new(big.Int).Mul(&signature.r, sInv)
 	u2.Mod(u2, pp.Order)
 
-	var U1, U2 bls24317.G1Affine
-	U1.ScalarMultiplication(&pp.Base, u1)
-	U2.ScalarMultiplication(&publicKey, u2).
-		Add(&U2, &U1)
+	var U1, U2 bls24317.G1Jac
+	U1.ScalarMultiplicationAffine(&pp.Base, u1)
+	U2.ScalarMultiplicationAffine(&publicKey, u2).
+		AddAssign(&U1)
 
-	var xU2 big.Int
+	// signature.r * Z^2
+	U2.Z.Square(&U2.Z).
+		Mul(&U2.Z, U2.Y.SetBigInt(&signature.r))
+
+	var xU2, rzz big.Int
 	U2.X.BigInt(&xU2)
+	U2.Z.BigInt(&rzz)
 	x := new(big.Int).Mod(&xU2, pp.Order)
+	r := new(big.Int).Mod(&rzz, pp.Order)
 
-	return x.Cmp(&signature.r) == 0
+	return x.Cmp(r) == 0
+
 }
