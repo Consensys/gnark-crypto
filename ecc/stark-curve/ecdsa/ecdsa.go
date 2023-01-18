@@ -226,16 +226,14 @@ func (pp params) Verify(hash []byte, signature Signature, publicKey starkcurve.G
 	U2.ScalarMultiplicationAffine(&publicKey, u2).
 		AddAssign(&U1)
 
-	// signature.r * Z^2
+	var z big.Int
 	U2.Z.Square(&U2.Z).
-		Mul(&U2.Z, U2.Y.SetBigInt(&signature.r))
+		Inverse(&U2.Z).
+		Mul(&U2.Z, &U2.X).
+		BigInt(&z)
 
-	var xU2, rzz big.Int
-	U2.X.BigInt(&xU2)
-	U2.Z.BigInt(&rzz)
-	x := new(big.Int).Mod(&xU2, pp.Order)
-	r := new(big.Int).Mod(&rzz, pp.Order)
+	z.Mod(&z, pp.Order)
 
-	return x.Cmp(r) == 0
+	return z.Cmp(&signature.r) == 0
 
 }
