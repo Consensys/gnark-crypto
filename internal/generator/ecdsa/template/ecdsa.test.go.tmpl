@@ -1,0 +1,39 @@
+import (
+	"crypto/rand"
+	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+func TestECDSA(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{ toUpper .Name }}] test the signing and verification", prop.ForAll(
+		func() bool {
+
+			var pp params
+            {{- if or (eq .Name "secp256k1") (eq .Name "stark-curve")}}
+                _, g := {{ .CurvePackage }}.Generators()
+            {{- else}}
+                _, _, g, _ := {{ .CurvePackage }}.Generators()
+            {{- end}}
+			pp.Base.Set(&g)
+			pp.Order = fr.Modulus()
+
+			privKey, _ := pp.GenerateKey(rand.Reader)
+
+			hash := []byte("testing ECDSA")
+			signature, _ := pp.Sign(hash, *privKey, rand.Reader)
+
+			return pp.Verify(hash, signature, privKey.PublicKey.Q)
+		},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}

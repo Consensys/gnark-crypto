@@ -23,13 +23,13 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // PublicKey represents an ECDSA public key
 type PublicKey struct {
-	Q secp256k1.G1Affine
+	Q bw6633.G1Affine
 }
 
 // PrivateKey represents an ECDSA private key
@@ -45,7 +45,7 @@ type Signature struct {
 
 // params are the ECDSA public parameters
 type params struct {
-	Base  secp256k1.G1Affine
+	Base  bw6633.G1Affine
 	Order *big.Int
 }
 
@@ -177,7 +177,7 @@ func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signa
 				return Signature{}, err
 			}
 
-			var R secp256k1.G1Affine
+			var R bw6633.G1Affine
 			R.ScalarMultiplication(&pp.Base, &k)
 			kInv.ModInverse(&k, pp.Order)
 
@@ -205,7 +205,7 @@ func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signa
 // R ?= s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ r ⋅ publiKey
 //
 // SEC 1, Version 2.0, Section 4.1.4
-func (pp params) Verify(hash []byte, signature Signature, publicKey secp256k1.G1Affine) bool {
+func (pp params) Verify(hash []byte, signature Signature, publicKey bw6633.G1Affine) bool {
 
 	if signature.r.Sign() <= 0 || signature.s.Sign() <= 0 {
 		return false
@@ -221,7 +221,7 @@ func (pp params) Verify(hash []byte, signature Signature, publicKey secp256k1.G1
 	u2 := new(big.Int).Mul(&signature.r, sInv)
 	u2.Mod(u2, pp.Order)
 
-	var U1, U2 secp256k1.G1Affine
+	var U1, U2 bw6633.G1Affine
 	U1.ScalarMultiplication(&pp.Base, u1)
 	U2.ScalarMultiplication(&publicKey, u2).
 		Add(&U2, &U1)

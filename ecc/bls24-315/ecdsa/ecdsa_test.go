@@ -20,8 +20,8 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -32,11 +32,11 @@ func TestECDSA(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[SECP256K1] test the signing and verification", prop.ForAll(
+	properties.Property("[BLS24-315] test the signing and verification", prop.ForAll(
 		func() bool {
 
 			var pp params
-			_, g := secp256k1.Generators()
+			_, _, g, _ := bls24315.Generators()
 			pp.Base.Set(&g)
 			pp.Order = fr.Modulus()
 
