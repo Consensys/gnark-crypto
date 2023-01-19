@@ -53,7 +53,7 @@ func main() {
 			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, true)
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
@@ -65,6 +65,10 @@ func main() {
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
 				FieldPackageName: "fr",
 				ElementType:      "fr.Element",
+			}
+
+			if conf.Equal(config.STARK_CURVE) {
+				return // TODO @yelhousni
 			}
 
 			// generate G1, G2, multiExp, ...
