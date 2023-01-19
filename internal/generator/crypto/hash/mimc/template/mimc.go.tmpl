@@ -36,7 +36,7 @@ func GetConstants() []big.Int {
 	once.Do(initConstants) // init constants
 	res := make([]big.Int, mimcNbRounds)
 	for i := 0; i < mimcNbRounds; i++ {
-		mimcConstants[i].ToBigIntRegular(&res[i])
+		mimcConstants[i].BigInt(&res[i])
 	}
 	return res
 }

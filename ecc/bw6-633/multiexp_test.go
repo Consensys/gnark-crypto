@@ -112,7 +112,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -147,7 +147,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -220,7 +220,7 @@ func TestMultiExpG1(t *testing.T) {
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Affine
 			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			finalBigScalar.BigInt(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
@@ -526,7 +526,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -561,7 +561,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -634,7 +634,7 @@ func TestMultiExpG2(t *testing.T) {
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G2Affine
 			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			finalBigScalar.BigInt(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)

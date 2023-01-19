@@ -119,7 +119,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar,mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&{{ toLower $.PointName }}Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -155,7 +155,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&{{ toLower $.PointName }}Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -230,7 +230,7 @@ func TestMultiExp{{$.UPointName}}(t *testing.T) {
 			var finalBigScalarBi big.Int
 			var op1ScalarMul {{ $.TAffine }}
 			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			finalBigScalar.BigInt(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&{{ toLower .PointName}}GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
