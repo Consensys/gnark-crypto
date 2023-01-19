@@ -89,10 +89,6 @@ func NewDomain(m uint64) *Domain {
 		rootOfUnity.SetString("16532287748948254263922689505213135976137839535221842169193829039521719560631")
        const maxOrderRoot uint64 = 60
         domain.FrMultiplicativeGen.SetUint64(7)
-	{{else if eq .Name "secp256k1"}}
-		rootOfUnity.SetString("78074008874160198520644763525212887401909906723592317393988542598630163514319")
-       const maxOrderRoot uint64 = 6
-        domain.FrMultiplicativeGen.SetUint64(7)
 	{{end}}
 
 	domain.FrMultiplicativeGenInv.Inverse(&domain.FrMultiplicativeGen)
