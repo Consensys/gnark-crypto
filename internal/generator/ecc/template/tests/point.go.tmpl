@@ -436,6 +436,35 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
             },
             genScalar,
         ))
+
+	{{- if eq .PointName "g1"}}
+        properties.Property("[{{ toUpper .Name }}] JointScalarMultiplication and [a]P+[b]Q should output the same result", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+
+			var g1, g2 {{ $TAffine }}
+			g1.Set(&{{.PointName}}GenAff)
+			g2.Set(&{{.PointName}}GenAff)
+
+			var _s1, _s2 big.Int
+			s1.BigInt(&_s1)
+			s2.BigInt(&_s2)
+
+			var p1, p2 G1Jac
+			p1.ScalarMultiplication(&{{.PointName}}Gen, &_s1)
+			p2.ScalarMultiplication(&{{.PointName}}Gen, &_s2).
+				AddAssign(&p1)
+
+			p1.JointScalarMultiplicationAffine(&g1, &g2, &_s1, &_s2)
+
+			return p1.Equal(&p2)
+
+		},
+		genScalar,
+		genScalar,
+	))
+    {{end}}
+
+
     {{end}}
 
 

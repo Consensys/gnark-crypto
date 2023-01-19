@@ -221,15 +221,13 @@ func (pp params) Verify(hash []byte, signature Signature, publicKey bls12377.G1A
 	u2 := new(big.Int).Mul(&signature.r, sInv)
 	u2.Mod(u2, pp.Order)
 
-	var U1, U2 bls12377.G1Jac
-	U1.ScalarMultiplicationAffine(&pp.Base, u1)
-	U2.ScalarMultiplicationAffine(&publicKey, u2).
-		AddAssign(&U1)
+	var U bls12377.G1Jac
+	U.JointScalarMultiplicationAffine(&pp.Base, &publicKey, u1, u2)
 
 	var z big.Int
-	U2.Z.Square(&U2.Z).
-		Inverse(&U2.Z).
-		Mul(&U2.Z, &U2.X).
+	U.Z.Square(&U.Z).
+		Inverse(&U.Z).
+		Mul(&U.Z, &U.X).
 		BigInt(&z)
 
 	z.Mod(&z, pp.Order)
