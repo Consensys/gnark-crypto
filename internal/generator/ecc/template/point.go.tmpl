@@ -1134,16 +1134,19 @@ func (p *{{$TJacobian}}) JointScalarMultiplicationAffine(a1, a2 *G1Affine, s1, s
 
 	var table [15]{{$TJacobian}}
 
+	var k1, k2 big.Int
 	if s1.Sign() == -1 {
-		s1.Neg(s1)
+		k1.Neg(s1)
 		table[0].Neg(&p1)
 	} else {
+		k1.Set(s1)
 		table[0].Set(&p1)
 	}
 	if s2.Sign() == -1 {
-		s2.Neg(s2)
+		k2.Neg(s2)
 		table[3].Neg(&p2)
 	} else {
+		k2.Set(s2)
 		table[3].Set(&p2)
 	}
 
@@ -1163,12 +1166,12 @@ func (p *{{$TJacobian}}) JointScalarMultiplicationAffine(a1, a2 *G1Affine, s1, s
 	table[14].Set(&table[11]).AddAssign(&table[2])
 
 	var s [2]fr.Element
-	s[0] = s[0].SetBigInt(s1).Bits()
-	s[1] = s[1].SetBigInt(s2).Bits()
+	s[0] = s[0].SetBigInt(&k1).Bits()
+	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := s1.BitLen()
-	if s2.BitLen() > maxBit {
-		maxBit = s2.BitLen()
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
 	}
 	hiWordIndex := (maxBit - 1) / 64
 
