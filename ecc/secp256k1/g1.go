@@ -73,6 +73,14 @@ func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
+// ScalarMultiplication computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
+	var _p G1Jac
+	_p.mulGLV(&g1Gen, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
 // Add adds two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G1Affine) Add(a, b *G1Affine) *G1Affine {
@@ -498,13 +506,14 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 	return p
 }
 
-// JointScalarMultiplication computes [a]P+[b]Q using Straus-Shamir technique
-func (p *G1Jac) JointScalarMultiplicationAffine(a1, a2 *G1Affine, s1, s2 *big.Int) *G1Jac {
+// JointScalarMultiplication computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator
+func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
 
 	var res, p1, p2 G1Jac
 	res.Set(&g1Infinity)
-	p1.FromAffine(a1)
-	p2.FromAffine(a2)
+	p1.Set(&g1Gen)
+	p2.FromAffine(a)
 
 	var table [15]G1Jac
 

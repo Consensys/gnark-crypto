@@ -20,8 +20,6 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -35,17 +33,12 @@ func TestECDSA(t *testing.T) {
 	properties.Property("[BLS12-381] test the signing and verification", prop.ForAll(
 		func() bool {
 
-			var pp Params
-			_, _, g, _ := bls12381.Generators()
-			pp.Base.Set(&g)
-			pp.Order = fr.Modulus()
-
-			privKey, _ := pp.GenerateKey(rand.Reader)
+			privKey, _ := GenerateKey(rand.Reader)
 
 			hash := []byte("testing ECDSA")
-			signature, _ := pp.Sign(hash, *privKey, rand.Reader)
+			signature, _ := Sign(hash, *privKey, rand.Reader)
 
-			return pp.Verify(hash, signature, privKey.PublicKey.Q)
+			return Verify(hash, signature, privKey.PublicKey.Q)
 		},
 	))
 
@@ -56,32 +49,24 @@ func TestECDSA(t *testing.T) {
 // benches
 
 func BenchmarkSignECDSA(b *testing.B) {
-	var pp Params
-	_, _, g, _ := bls12381.Generators()
-	pp.Base.Set(&g)
-	pp.Order = fr.Modulus()
 
-	privKey, _ := pp.GenerateKey(rand.Reader)
+	privKey, _ := GenerateKey(rand.Reader)
 
 	hash := []byte("benchmarking ECDSA sign()")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pp.Sign(hash, *privKey, rand.Reader)
+		Sign(hash, *privKey, rand.Reader)
 	}
 }
 
 func BenchmarkVerifyECDSA(b *testing.B) {
-	var pp Params
-	_, _, g, _ := bls12381.Generators()
-	pp.Base.Set(&g)
-	pp.Order = fr.Modulus()
 
-	privKey, _ := pp.GenerateKey(rand.Reader)
+	privKey, _ := GenerateKey(rand.Reader)
 
 	hash := []byte("benchmarking ECDSA sign()")
-	signature, _ := pp.Sign(hash, *privKey, rand.Reader)
+	signature, _ := Sign(hash, *privKey, rand.Reader)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pp.Verify(hash, signature, privKey.PublicKey.Q)
+		Verify(hash, signature, privKey.PublicKey.Q)
 	}
 }

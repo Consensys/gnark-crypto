@@ -72,6 +72,14 @@ func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
+// ScalarMultiplication computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
+	var _p G1Jac
+	_p.mulWindowed(&g1Gen, s)
+	p.FromJacobian(&_p)
+	return p
+}
+
 // Add adds two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G1Affine) Add(a, b *G1Affine) *G1Affine {
@@ -422,26 +430,30 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 
 }
 
-// JointScalarMultiplication computes [a]P+[b]Q using Straus-Shamir technique
-func (p *G1Jac) JointScalarMultiplicationAffine(a1, a2 *G1Affine, s1, s2 *big.Int) *G1Jac {
+// JointScalarMultiplication computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator
+func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
 
 	var res, p1, p2 G1Jac
 	res.Set(&g1Infinity)
-	p1.FromAffine(a1)
-	p2.FromAffine(a2)
+	p1.Set(&g1Gen)
+	p2.FromAffine(a)
 
 	var table [15]G1Jac
 
+	var k1, k2 big.Int
 	if s1.Sign() == -1 {
-		s1.Neg(s1)
+		k1.Neg(s1)
 		table[0].Neg(&p1)
 	} else {
+		k1.Set(s1)
 		table[0].Set(&p1)
 	}
 	if s2.Sign() == -1 {
-		s2.Neg(s2)
+		k2.Neg(s2)
 		table[3].Neg(&p2)
 	} else {
+		k2.Set(s2)
 		table[3].Set(&p2)
 	}
 
@@ -461,12 +473,12 @@ func (p *G1Jac) JointScalarMultiplicationAffine(a1, a2 *G1Affine, s1, s2 *big.In
 	table[14].Set(&table[11]).AddAssign(&table[2])
 
 	var s [2]fr.Element
-	s[0] = s[0].SetBigInt(s1).Bits()
-	s[1] = s[1].SetBigInt(s2).Bits()
+	s[0] = s[0].SetBigInt(&k1).Bits()
+	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := s1.BitLen()
-	if s2.BitLen() > maxBit {
-		maxBit = s2.BitLen()
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
 	}
 	hiWordIndex := (maxBit - 1) / 64
 
