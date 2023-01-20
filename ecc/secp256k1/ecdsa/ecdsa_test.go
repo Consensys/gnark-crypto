@@ -35,7 +35,7 @@ func TestECDSA(t *testing.T) {
 	properties.Property("[SECP256K1] test the signing and verification", prop.ForAll(
 		func() bool {
 
-			var pp params
+			var pp Params
 			_, g := secp256k1.Generators()
 			pp.Base.Set(&g)
 			pp.Order = fr.Modulus()
@@ -56,7 +56,7 @@ func TestECDSA(t *testing.T) {
 // benches
 
 func BenchmarkSignECDSA(b *testing.B) {
-	var pp params
+	var pp Params
 	_, g := secp256k1.Generators()
 	pp.Base.Set(&g)
 	pp.Order = fr.Modulus()
@@ -71,7 +71,7 @@ func BenchmarkSignECDSA(b *testing.B) {
 }
 
 func BenchmarkVerifyECDSA(b *testing.B) {
-	var pp params
+	var pp Params
 	_, g := secp256k1.Generators()
 	pp.Base.Set(&g)
 	pp.Order = fr.Modulus()

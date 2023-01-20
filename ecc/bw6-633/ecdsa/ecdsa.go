@@ -40,11 +40,11 @@ type PrivateKey struct {
 
 // Signature represents an ECDSA signature
 type Signature struct {
-	r, s big.Int
+	R, S big.Int
 }
 
-// params are the ECDSA public parameters
-type params struct {
+// Params are the ECDSA public parameters
+type Params struct {
 	Base  bw6633.G1Affine
 	Order *big.Int
 }
@@ -53,7 +53,7 @@ var one = new(big.Int).SetInt64(1)
 
 // randFieldElement returns a random element of the order of the given
 // curve using the procedure given in FIPS 186-4, Appendix B.5.1.
-func (pp params) randFieldElement(rand io.Reader) (k big.Int, err error) {
+func (pp Params) randFieldElement(rand io.Reader) (k big.Int, err error) {
 	b := make([]byte, fr.Bits/8+8)
 	_, err = io.ReadFull(rand, b)
 	if err != nil {
@@ -68,7 +68,7 @@ func (pp params) randFieldElement(rand io.Reader) (k big.Int, err error) {
 }
 
 // GenerateKey generates a public and private key pair.
-func (pp params) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+func (pp Params) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 
 	k, err := pp.randFieldElement(rand)
 	if err != nil {
@@ -164,7 +164,7 @@ func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.
 // signature = {s, r}
 //
 // SEC 1, Version 2.0, Section 4.1.3
-func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signature, err error) {
+func (pp Params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signature, err error) {
 	var kInv big.Int
 	for {
 		for {
@@ -181,18 +181,18 @@ func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signa
 			R.ScalarMultiplication(&pp.Base, &k)
 			kInv.ModInverse(&k, pp.Order)
 
-			R.X.BigInt(&signature.r)
-			signature.r.Mod(&signature.r, pp.Order)
-			if signature.r.Sign() != 0 {
+			R.X.BigInt(&signature.R)
+			signature.R.Mod(&signature.R, pp.Order)
+			if signature.R.Sign() != 0 {
 				break
 			}
 		}
-		signature.s.Mul(&signature.r, &privateKey.Secret)
+		signature.S.Mul(&signature.R, &privateKey.Secret)
 		m := hashToInt(hash)
-		signature.s.Add(&m, &signature.s).
-			Mul(&kInv, &signature.s).
-			Mod(&signature.s, pp.Order) // pp.Order != 0
-		if signature.s.Sign() != 0 {
+		signature.S.Add(&m, &signature.S).
+			Mul(&kInv, &signature.S).
+			Mod(&signature.S, pp.Order) // pp.Order != 0
+		if signature.S.Sign() != 0 {
 			break
 		}
 	}
@@ -205,20 +205,20 @@ func (pp params) Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signa
 // R ?= s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ r ⋅ publiKey
 //
 // SEC 1, Version 2.0, Section 4.1.4
-func (pp params) Verify(hash []byte, signature Signature, publicKey bw6633.G1Affine) bool {
+func (pp Params) Verify(hash []byte, signature Signature, publicKey bw6633.G1Affine) bool {
 
-	if signature.r.Sign() <= 0 || signature.s.Sign() <= 0 {
+	if signature.R.Sign() <= 0 || signature.S.Sign() <= 0 {
 		return false
 	}
-	if signature.r.Cmp(pp.Order) >= 0 || signature.s.Cmp(pp.Order) >= 0 {
+	if signature.R.Cmp(pp.Order) >= 0 || signature.S.Cmp(pp.Order) >= 0 {
 		return false
 	}
 
-	sInv := new(big.Int).ModInverse(&signature.s, pp.Order)
+	sInv := new(big.Int).ModInverse(&signature.S, pp.Order)
 	e := hashToInt(hash)
 	u1 := new(big.Int).Mul(&e, sInv)
 	u1.Mod(u1, pp.Order)
-	u2 := new(big.Int).Mul(&signature.r, sInv)
+	u2 := new(big.Int).Mul(&signature.R, sInv)
 	u2.Mod(u2, pp.Order)
 
 	var U bw6633.G1Jac
@@ -232,6 +232,6 @@ func (pp params) Verify(hash []byte, signature Signature, publicKey bw6633.G1Aff
 
 	z.Mod(&z, pp.Order)
 
-	return z.Cmp(&signature.r) == 0
+	return z.Cmp(&signature.R) == 0
 
 }
