@@ -46,7 +46,7 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
-func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
 
 	var res Polynomial
 
@@ -79,8 +79,8 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 	for i := 0; i < nbPolynomials; i++ {
 		// _numerator[i].ToLagrange(&numerator[i], domain)
 		// _denominator[i].ToLagrange(&denominator[i], domain)
-		numerator[i].ToLagrange(&numerator[i], domain)
-		denominator[i].ToLagrange(&denominator[i], domain)
+		numerator[i].ToLagrange(numerator[i], domain)
+		denominator[i].ToLagrange(denominator[i], domain)
 	}
 
 	// build the ratio (careful with the indices of
@@ -145,7 +145,7 @@ func BuildRatioShuffledVectors(numerator, denominator []Polynomial, beta fr.Elem
 // * beta, gamma challenges
 // * expectedForm expected form of the resulting polynomial
 func BuildRatioCopyConstraint(
-	entries []Polynomial,
+	entries []*Polynomial,
 	permutation []int64,
 	beta, gamma fr.Element,
 	expectedForm Form,
@@ -171,7 +171,7 @@ func BuildRatioCopyConstraint(
 	// put every polynomials in Lagrange form. Also make sure
 	// that we don't modify the slice entries
 	for i := 0; i < nbPolynomials; i++ {
-		entries[i].ToLagrange(&entries[i], domain)
+		entries[i].ToLagrange(entries[i], domain)
 	}
 
 	// get the support for the permutation
@@ -263,7 +263,7 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 
 // check that the polynomials are of the same size.
 // It assumes that pols contains slices of the same size.
-func checkSize(pols ...[]Polynomial) error {
+func checkSize(pols ...[]*Polynomial) error {
 
 	// check sizes between one another
 	m := len(pols)
