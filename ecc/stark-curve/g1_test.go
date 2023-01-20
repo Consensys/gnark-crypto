@@ -350,7 +350,7 @@ func TestG1AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&g1Gen, &scalar)
 			op2.mulWindowed(&g1Gen, &blindedScalar)

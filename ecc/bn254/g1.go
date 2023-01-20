@@ -387,7 +387,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// BN curves are of prime order i.e. E(𝔽p) is the full group
+// the curve is of prime order i.e. E(𝔽p) is the full group
 // so we just check that the point is on the curve.
 func (p *G1Jac) IsInSubGroup() bool {
 

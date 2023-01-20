@@ -17,12 +17,12 @@
 package secp256k1
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -73,7 +73,7 @@ func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// ScalarMultiplication computes and returns p = g ⋅ s where g is the prime subgroup generator
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.mulGLV(&g1Gen, s)
@@ -387,7 +387,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-// secp256k1 curve is of prime order i.e. E(𝔽p) is the full group
+// the curve is of prime order i.e. E(𝔽p) is the full group
 // so we just check that the point is on the curve.
 func (p *G1Jac) IsInSubGroup() bool {
 
@@ -506,7 +506,7 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 	return p
 }
 
-// JointScalarMultiplication computes [s1]g+[s2]a using Straus-Shamir technique
+// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
 // where g is the prime subgroup generator
 func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
 
@@ -685,6 +685,8 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 
 // double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// since we consider any point on Z=0 as the point at infinity
+// this doubling formula works for infinity points as well
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	var U, V, W, S, XX, M fp.Element
 
@@ -921,4 +923,139 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 	})
 
 	return result
+}
+
+// BatchScalarMultiplicationG1 multiplies the same base by all scalars
+// and return resulting points in affine coordinates
+// uses a simple windowed-NAF like exponentiation algorithm
+func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+	// approximate cost in group ops is
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+
+	nbPoints := uint64(len(scalars))
+	min := ^uint64(0)
+	bestC := 0
+	for c := 2; c <= 16; c++ {
+		cost := uint64(1 << (c - 1)) // pre compute the table
+		nbChunks := computeNbChunks(uint64(c))
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
+		if cost < min {
+			min = cost
+			bestC = c
+		}
+	}
+	c := uint64(bestC) // window size
+	nbChunks := int(computeNbChunks(c))
+
+	// last window may be slightly larger than c; in which case we need to compute one
+	// extra element in the baseTable
+	maxC := lastC(c)
+	if c > maxC {
+		maxC = c
+	}
+
+	// precompute all powers of base for our window
+	// note here that if performance is critical, we can implement as in the msmX methods
+	// this allocation to be on the stack
+	baseTable := make([]G1Jac, (1 << (maxC - 1)))
+	baseTable[0].FromAffine(base)
+	for i := 1; i < len(baseTable); i++ {
+		baseTable[i] = baseTable[i-1]
+		baseTable[i].AddMixed(base)
+	}
+	// convert our base exp table into affine to use AddMixed
+	baseTableAff := BatchJacobianToAffineG1(baseTable)
+	toReturn := make([]G1Jac, len(scalars))
+
+	// partition the scalars into digits
+	digits, _ := partitionScalars(scalars, c, runtime.NumCPU())
+
+	// for each digit, take value in the base table, double it c time, voilà.
+	parallel.Execute(len(scalars), func(start, end int) {
+		var p G1Jac
+		for i := start; i < end; i++ {
+			p.Set(&g1Infinity)
+			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+				if chunk != nbChunks-1 {
+					for j := uint64(0); j < c; j++ {
+						p.DoubleAssign()
+					}
+				}
+				offset := chunk * len(scalars)
+				digit := digits[i+offset]
+
+				if digit == 0 {
+					continue
+				}
+
+				// if msbWindow bit is set, we need to substract
+				if digit&1 == 0 {
+					// add
+					p.AddMixed(&baseTableAff[(digit>>1)-1])
+				} else {
+					// sub
+					t := baseTableAff[digit>>1]
+					t.Neg(&t)
+					p.AddMixed(&t)
+				}
+			}
+
+			// set our result point
+			toReturn[i] = p
+
+		}
+	})
+	toReturnAff := BatchJacobianToAffineG1(toReturn)
+	return toReturnAff
+}
+
+// batch add affine coordinates
+// using batch inversion
+// special cases (doubling, infinity) must be filtered out before this call
+func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
+	var lambda, lambdain TC
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
+	}
+
+	// invert denominator using montgomery batch invert technique
+	{
+		var accumulator fp.Element
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
+
+		for i := 1; i < batchSize; i++ {
+			lambda[i] = accumulator
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+
+		accumulator.Inverse(&accumulator)
+
+		for i := batchSize - 1; i > 0; i-- {
+			lambda[i].Mul(&lambda[i], &accumulator)
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+		lambda[0].Set(&accumulator)
+	}
+
+	var d fp.Element
+	var rr G1Affine
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		// computa lambda
+		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &d)
+
+		// compute X, Y
+		rr.X.Square(&lambda[j])
+		rr.X.Sub(&rr.X, &(*R)[j].X)
+		rr.X.Sub(&rr.X, &(*P)[j].X)
+		d.Sub(&(*R)[j].X, &rr.X)
+		rr.Y.Mul(&lambda[j], &d)
+		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
+		(*R)[j].Set(&rr)
+	}
 }

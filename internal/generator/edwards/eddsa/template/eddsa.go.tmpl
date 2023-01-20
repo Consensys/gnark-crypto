@@ -238,7 +238,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
+	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMultiplication(&curveParams.Base, &bs).
 		ScalarMultiplication(&lhs, &bCofactor)

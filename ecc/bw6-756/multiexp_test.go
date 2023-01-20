@@ -73,14 +73,14 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G1] Multi exponentation (c=16) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G1] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
 			for i := 0; i < 13; i++ {
 				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
 			}
 
-			var r16, splitted1, splitted2 G1Jac
+			var rmax, splitted1, splitted2 G1Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples * 13]fr.Element
@@ -90,10 +90,10 @@ func TestMultiExpG1(t *testing.T) {
 					Mul(&sampleScalars[i-1], &mixer)
 			}
 
-			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
+			rmax.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
-			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+			return rmax.Equal(&splitted1) && rmax.Equal(&splitted2)
 		},
 		genScalar,
 	))
@@ -102,7 +102,7 @@ func TestMultiExpG1(t *testing.T) {
 	cRange := []uint64{3, 4, 5, 8, 11, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
-		cRange = []uint64{5, 16}
+		cRange = []uint64{5, 14}
 	}
 
 	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
@@ -112,7 +112,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -147,7 +147,7 @@ func TestMultiExpG1(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g1Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -220,7 +220,7 @@ func TestMultiExpG1(t *testing.T) {
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G1Affine
 			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			finalBigScalar.BigInt(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g1GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
@@ -262,7 +262,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 	cRange := []uint64{3, 4, 5, 8, 11, 16}
 	if testing.Short() {
 		// test only "odd" and "even" (ie windows size divide word size vs not)
-		cRange = []uint64{5, 16}
+		cRange = []uint64{5, 14}
 	}
 
 	results := make([]G1Jac, len(cRange))
@@ -489,14 +489,14 @@ func TestMultiExpG2(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G2] Multi exponentation (c=16) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G2] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G2Affine
 			for i := 0; i < 13; i++ {
 				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
 			}
 
-			var r16, splitted1, splitted2 G2Jac
+			var rmax, splitted1, splitted2 G2Jac
 
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples * 13]fr.Element
@@ -506,10 +506,10 @@ func TestMultiExpG2(t *testing.T) {
 					Mul(&sampleScalars[i-1], &mixer)
 			}
 
-			r16.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
+			rmax.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{})
 			splitted1.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 128})
 			splitted2.MultiExp(samplePointsLarge[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: 51})
-			return r16.Equal(&splitted1) && r16.Equal(&splitted2)
+			return rmax.Equal(&splitted1) && rmax.Equal(&splitted2)
 		},
 		genScalar,
 	))
@@ -517,7 +517,7 @@ func TestMultiExpG2(t *testing.T) {
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.
 	// test only "odd" and "even" (ie windows size divide word size vs not)
-	cRange := []uint64{5, 16}
+	cRange := []uint64{5, 14}
 
 	properties.Property(fmt.Sprintf("[G2] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
@@ -526,7 +526,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -561,7 +561,7 @@ func TestMultiExpG2(t *testing.T) {
 
 			// compute expected result with double and add
 			var finalScalar, mixerBigInt big.Int
-			finalScalar.Mul(&scalar, mixer.ToBigIntRegular(&mixerBigInt))
+			finalScalar.Mul(&scalar, mixer.BigInt(&mixerBigInt))
 			expected.ScalarMultiplication(&g2Gen, &finalScalar)
 
 			// mixer ensures that all the words of a fpElement are set
@@ -634,7 +634,7 @@ func TestMultiExpG2(t *testing.T) {
 			var finalBigScalarBi big.Int
 			var op1ScalarMul G2Affine
 			finalBigScalar.SetUint64(9455).Mul(&finalBigScalar, &mixer)
-			finalBigScalar.ToBigIntRegular(&finalBigScalarBi)
+			finalBigScalar.BigInt(&finalBigScalarBi)
 			op1ScalarMul.ScalarMultiplication(&g2GenAff, &finalBigScalarBi)
 
 			return op1ScalarMul.Equal(&op1MultiExp)
@@ -675,7 +675,7 @@ func TestCrossMultiExpG2(t *testing.T) {
 	// cRange is generated from template and contains the available parameters for the multiexp window size
 	// for g2, CI suffers with large c size since it needs to allocate a lot of memory for the buckets.
 	// test only "odd" and "even" (ie windows size divide word size vs not)
-	cRange := []uint64{5, 16}
+	cRange := []uint64{5, 14}
 
 	results := make([]G2Jac, len(cRange))
 	for i, c := range cRange {
