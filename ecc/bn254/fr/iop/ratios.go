@@ -26,6 +26,7 @@ import (
 
 // errors related to the computation of the quotient and the ratios.
 var (
+	ErrMustBeCanonical        = errors.New("the basis must be Canonical")
 	ErrMustBeLagrangeCoset        = errors.New("the basis must be LagrangeCoset")
 	ErrInconsistentFormat         = errors.New("the format of the polynomials must be the same")
 	ErrInconsistentSize           = errors.New("the sizes of the polynomial must be the same as the size of the domain")
