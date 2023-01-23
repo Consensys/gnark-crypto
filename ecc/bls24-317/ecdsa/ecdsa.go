@@ -20,27 +20,44 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha512"
+	"crypto/subtle"
+	"errors"
+	"hash"
 	"io"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/signature"
 )
+
+var errInvalidSig = errors.New("invalid signature")
+
+const (
+	sizeFr         = fr.Bytes
+	sizeFp         = fp.Bytes
+	sizePublicKey  = sizeFp
+	sizePrivateKey = sizeFr + sizePublicKey
+	sizeSignature  = 2 * sizeFr
+)
+
+var order = fr.Modulus()
 
 // PublicKey represents an ECDSA public key
 type PublicKey struct {
-	Q bls24317.G1Affine
+	A bls24317.G1Affine
 }
 
 // PrivateKey represents an ECDSA private key
 type PrivateKey struct {
-	PublicKey
-	Secret *big.Int
+	PublicKey PublicKey
+	scalar    [sizeFr]byte // secret scalar, in big Endian
 }
 
 // Signature represents an ECDSA signature
 type Signature struct {
-	R, S *big.Int
+	R, S [sizeFr]byte
 }
 
 var one = new(big.Int).SetInt64(1)
@@ -55,7 +72,7 @@ func randFieldElement(rand io.Reader) (k *big.Int, err error) {
 	}
 
 	k = new(big.Int).SetBytes(b)
-	n := new(big.Int).Sub(fr.Modulus(), one)
+	n := new(big.Int).Sub(order, one)
 	k.Mod(k, n)
 	k.Add(k, one)
 	return
@@ -72,8 +89,8 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	_, _, g, _ := bls24317.Generators()
 
 	privateKey := new(PrivateKey)
-	privateKey.Secret = k
-	privateKey.PublicKey.Q.ScalarMultiplication(&g, k)
+	k.FillBytes(privateKey.scalar[:sizeFr])
+	privateKey.PublicKey.A.ScalarMultiplication(&g, k)
 	return privateKey, nil
 }
 
@@ -81,12 +98,11 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 // we use the left-most bits of the hash to match the bit-length of the order of
 // the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
 func hashToInt(hash []byte) *big.Int {
-	if len(hash) > fr.Bytes {
-		hash = hash[:fr.Bytes]
+	if len(hash) > sizeFr {
+		hash = hash[:sizeFr]
 	}
-
 	ret := new(big.Int).SetBytes(hash)
-	excess := len(hash)*8 - fr.Bits
+	excess := len(hash)*8 - sizeFr
 	if excess > 0 {
 		ret.Rsh(ret, uint(excess))
 	}
@@ -112,7 +128,7 @@ const (
 func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.StreamReader, err error) {
 	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
 	//
-	//    SHA2-512(privateKey.Secret ∥ entropy ∥ hash)[:32]
+	//    SHA2-512(privateKey.scalar ∥ entropy ∥ hash)[:32]
 	//
 	// The CSPRNG key is indifferentiable from a random oracle as shown in
 	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
@@ -131,10 +147,10 @@ func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.
 
 	// Initialize an SHA-512 hash context; digest...
 	md := sha512.New()
-	md.Write(privateKey.Secret.Bytes()) // the private key,
-	md.Write(entropy)                   // the entropy,
-	md.Write(hash)                      // and the input hash;
-	key := md.Sum(nil)[:32]             // and compute ChopMD-256(SHA-512),
+	md.Write(privateKey.scalar[:sizeFr]) // the private key,
+	md.Write(entropy)                    // the entropy,
+	md.Write(hash)                       // and the input hash;
+	key := md.Sum(nil)[:32]              // and compute ChopMD-256(SHA-512),
 	// which is an indifferentiable MAC.
 
 	// Create an AES-CTR instance to use as a CSPRNG.
@@ -150,6 +166,24 @@ func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.
 	return csprng, err
 }
 
+// Equal compares 2 public keys
+func (pub *PublicKey) Equal(x signature.PublicKey) bool {
+	xx, ok := x.(*PublicKey)
+	if !ok {
+		return false
+	}
+	bpk := pub.Bytes()
+	bxx := xx.Bytes()
+	return subtle.ConstantTimeCompare(bpk, bxx) == 1
+}
+
+// Public returns the public key associated to the private key.
+func (privKey *PrivateKey) Public() signature.PublicKey {
+	var pub PublicKey
+	pub.A.Set(&privKey.PublicKey.A)
+	return &pub
+}
+
 // Sign performs the ECDSA signature
 //
 // k ← 𝔽r (random)
@@ -159,18 +193,18 @@ func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.
 // signature = {s, r}
 //
 // SEC 1, Version 2.0, Section 4.1.3
-func Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signature, err error) {
-	order := fr.Modulus()
-	r, s, kInv := new(big.Int), new(big.Int), new(big.Int)
+func (privKey *PrivateKey) Sign(message []byte, rand io.Reader) ([]byte, error) {
+	scalar, r, s, kInv := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
+	scalar.SetBytes(privKey.scalar[:sizeFr])
 	for {
 		for {
-			csprng, err := nonce(rand, &privateKey, hash)
+			csprng, err := nonce(rand, privKey, message)
 			if err != nil {
-				return Signature{}, err
+				return nil, err
 			}
 			k, err := randFieldElement(csprng)
 			if err != nil {
-				return Signature{}, err
+				return nil, err
 			}
 
 			var P bls24317.G1Affine
@@ -183,8 +217,8 @@ func Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signatu
 				break
 			}
 		}
-		s.Mul(r, privateKey.Secret)
-		m := hashToInt(hash)
+		s.Mul(r, scalar)
+		m := hashToInt(message)
 		s.Add(m, s).
 			Mul(kInv, s).
 			Mod(s, order) // order != 0
@@ -193,9 +227,11 @@ func Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signatu
 		}
 	}
 
-	signature.R, signature.S = r, s
+	var sig Signature
+	r.FillBytes(sig.R[:sizeFr])
+	s.FillBytes(sig.S[:sizeFr])
 
-	return signature, err
+	return sig.Bytes(), nil
 }
 
 // Verify validates the ECDSA signature
@@ -203,25 +239,27 @@ func Sign(hash []byte, privateKey PrivateKey, rand io.Reader) (signature Signatu
 // R ?= (s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ R ⋅ publiKey)_x
 //
 // SEC 1, Version 2.0, Section 4.1.4
-func Verify(hash []byte, signature Signature, publicKey bls24317.G1Affine) bool {
+func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 
-	order := fr.Modulus()
-
-	if signature.R.Sign() <= 0 || signature.S.Sign() <= 0 {
-		return false
-	}
-	if signature.R.Cmp(order) >= 0 || signature.S.Cmp(order) >= 0 {
-		return false
+	// Deserialize the signature
+	var sig Signature
+	if _, err := sig.SetBytes(sigBin); err != nil {
+		return false, err
 	}
 
-	sInv := new(big.Int).ModInverse(signature.S, order)
-	e := hashToInt(hash)
+	r, s := new(big.Int), new(big.Int)
+	r.SetBytes(sig.R[:sizeFr])
+	s.SetBytes(sig.S[:sizeFr])
+
+	sInv := new(big.Int).ModInverse(s, order)
+	e := hashToInt(message)
+
 	u1 := new(big.Int).Mul(e, sInv)
 	u1.Mod(u1, order)
-	u2 := new(big.Int).Mul(signature.R, sInv)
+	u2 := new(big.Int).Mul(r, sInv)
 	u2.Mod(u2, order)
 	var U bls24317.G1Jac
-	U.JointScalarMultiplicationBase(&publicKey, u1, u2)
+	U.JointScalarMultiplicationBase(&publicKey.A, u1, u2)
 
 	var z big.Int
 	U.Z.Square(&U.Z).
@@ -231,6 +269,6 @@ func Verify(hash []byte, signature Signature, publicKey bls24317.G1Affine) bool 
 
 	z.Mod(&z, order)
 
-	return z.Cmp(signature.R) == 0
+	return z.Cmp(r) == 0, nil
 
 }

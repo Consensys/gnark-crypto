@@ -18,61 +18,47 @@ package ecdsa
 
 import (
 	"crypto/rand"
-	"crypto/sha512"
+	"crypto/subtle"
 	"testing"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestECDSA(t *testing.T) {
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
 
+func TestSerialization(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BLS12-381] test the signing and verification", prop.ForAll(
+	properties.Property("[BLS12-381] ECDSA serialization: SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func() bool {
-
 			privKey, _ := GenerateKey(rand.Reader)
-			publicKey := privKey.PublicKey
 
-			msg := []byte("testing ECDSA")
-			sig, _ := privKey.Sign(msg, rand.Reader)
+			var end PrivateKey
+			buf := privKey.Bytes()
+			n, err := end.SetBytes(buf[:])
+			if err != nil {
+				return false
+			}
+			if n != sizePrivateKey {
+				return false
+			}
 
-			md := sha512.New()
-			flag, _ := publicKey.Verify(sig, msg, md)
+			return end.PublicKey.Equal(&privKey.PublicKey) && subtle.ConstantTimeCompare(end.scalar[:], privKey.scalar[:]) == 1
 
-			return flag
 		},
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
-// ------------------------------------------------------------
-// benches
-
-func BenchmarkSignECDSA(b *testing.B) {
-
-	privKey, _ := GenerateKey(rand.Reader)
-
-	msg := []byte("benchmarking ECDSA sign()")
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		privKey.Sign(msg, rand.Reader)
-	}
-}
-
-func BenchmarkVerifyECDSA(b *testing.B) {
-
-	privKey, _ := GenerateKey(rand.Reader)
-	msg := []byte("benchmarking ECDSA sign()")
-	sig, _ := privKey.Sign(msg, rand.Reader)
-	md := sha512.New()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		privKey.PublicKey.Verify(sig, msg, md)
-	}
 }
