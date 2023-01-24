@@ -30,7 +30,7 @@ import (
 // compressed representation store x with a parity bit to recompute y
 func (pk *PublicKey) Bytes() []byte {
 	var res [sizePublicKey]byte
-	pkBin := pk.A.RawBytes()
+	pkBin := pk.A.Bytes()
 	subtle.ConstantTimeCopy(1, res[:sizePublicKey], pkBin[:])
 	return res[:]
 }
@@ -58,7 +58,7 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 // scalar is in big endian, of size sizeFr.
 func (privKey *PrivateKey) Bytes() []byte {
 	var res [sizePrivateKey]byte
-	pubkBin := privKey.PublicKey.A.RawBytes()
+	pubkBin := privKey.PublicKey.A.Bytes()
 	subtle.ConstantTimeCopy(1, res[:sizePublicKey], pubkBin[:])
 	subtle.ConstantTimeCopy(1, res[sizePublicKey:sizePrivateKey], privKey.scalar[:])
 	return res[:]

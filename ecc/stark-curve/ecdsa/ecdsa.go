@@ -38,7 +38,7 @@ var errInvalidSig = errors.New("invalid signature")
 const (
 	sizeFr         = fr.Bytes
 	sizeFp         = fp.Bytes
-	sizePublicKey  = 2 * sizeFp
+	sizePublicKey  = sizeFp
 	sizePrivateKey = sizeFr + sizePublicKey
 	sizeSignature  = 2 * sizeFr
 )
