@@ -31,6 +31,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestNoGateTwoInstances(t *testing.T) {
@@ -419,22 +420,36 @@ func proofEquals(expected Proof, seen Proof) error {
 	return nil
 }
 
-func BenchmarkGkrMimc(b *testing.B) {
-	const N = 1 << 19
+func benchmarkGkrMiMC(b *testing.B, nbInstances, mimcDepth int) {
 	fmt.Println("creating circuit structure")
-	c := mimcCircuit(91)
+	c := mimcCircuit(mimcDepth)
 
-	in0 := make([]fr.Element, N)
-	in1 := make([]fr.Element, N)
+	in0 := make([]fr.Element, nbInstances)
+	in1 := make([]fr.Element, nbInstances)
 	setRandom(in0)
 	setRandom(in1)
 
 	fmt.Println("evaluating circuit")
+	start := time.Now().UnixMicro()
 	assignment := WireAssignment{&c[0]: in0, &c[1]: in1}.Complete(c)
+	solved := time.Now().UnixMicro() - start
+	fmt.Println("solved in", solved, "μs")
 
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
-	Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
+	start = time.Now().UnixMicro()
+	_, err := Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
+	proved := time.Now().UnixMicro() - start
+	fmt.Println("proved in", proved, "μs")
+	assert.NoError(b, err)
+}
+
+func BenchmarkGkrMimc19(b *testing.B) {
+	benchmarkGkrMiMC(b, 1<<19, 91)
+}
+
+func BenchmarkGkrMimc17(b *testing.B) {
+	benchmarkGkrMiMC(b, 1<<17, 91)
 }
 
 func TestTopSortTrivial(t *testing.T) {

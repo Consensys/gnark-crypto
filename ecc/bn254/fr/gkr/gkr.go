@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"math/big"
 	"strconv"
 	"sync"
 )
@@ -771,4 +772,27 @@ func (a WireAssignment) NumVars() int {
 		return aW.NumVars()
 	}
 	panic("empty assignment")
+}
+
+// SerializeToBigInts flattens a proof object into the given slice of big.Ints
+// useful in gnark hints. TODO: Change propagation: Once this is merged, it will duplicate some code in std/gkr/bn254Prover.go. Remove that in favor of this
+func (p Proof) SerializeToBigInts(outs []*big.Int) {
+	offset := 0
+	for i := range p {
+		for _, poly := range p[i].PartialSumPolys {
+			frToBigInts(outs[offset:], poly)
+			offset += len(poly)
+		}
+		if p[i].FinalEvalProof != nil {
+			finalEvalProof := p[i].FinalEvalProof.([]fr.Element)
+			frToBigInts(outs[offset:], finalEvalProof)
+			offset += len(finalEvalProof)
+		}
+	}
+}
+
+func frToBigInts(dst []*big.Int, src []fr.Element) {
+	for i := range src {
+		src[i].BigInt(dst[i])
+	}
 }
