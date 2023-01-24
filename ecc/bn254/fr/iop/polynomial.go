@@ -97,16 +97,19 @@ type WrappedPolynomial struct {
 // where deg Q = blindingOrder and Q is random, and n is the
 // size of q. Sets the result to p and returns it.
 //
-// * bo blinding order,  it's the degree of Q, where the blinding is Q(X)*(XSize-1)
+// * bo blinding order,  it's the degree of Q, where the blinding is Q(X)*(X^{n}-1)
+// where n is the size of wp.
 //
-// WARNING:
-// pre condition degree(cp) ⩽ rou + bo
-// pre condition cap(cp) ⩾ int(totalDegree + 1)
+// wq must be in canonical, regular layout.
 func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) (*WrappedPolynomial, error) {
 
 	// check that q is in canonical basis
 	if wq.P.Basis != Canonical {
 		return wq, ErrMustBeCanonical
+	}
+
+	if wq.P.Layout != Regular {
+		return wq, ErrMustBeRegular
 	}
 
 	// take care of who is modified
@@ -116,46 +119,25 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) (*W
 		wp.Size = wq.Size
 	}
 
-	if wp.P.Form.Layout == Regular {
+	// we add Q*(x^{n}-1) so the new size is deg(Q)+n+1
+	// where n is the size of wq.
+	newSize := wp.Size + blindingOrder + 1
 
-		// we add Q*(x^{n}-1) so the new size is deg(Q)+n+1
-		// where n is the size of wq.
-		newSize := wp.Size + blindingOrder + 1
-
-		// Resize wp. The size of wq might has already been increased
-		// (e.g. whent the polynomial is evaluated on a larger domain),
-		// if that's the case we don't resize the polynomial.
-		if newSize-len(wp.P.Coefficients) > 0 {
-			z := make([]fr.Element, newSize-wp.Size)
-			wp.P.Coefficients = append(wp.P.Coefficients, z...)
-		}
-	} else {
-		newSize := 2 * wp.Size
-		if newSize-len(wp.P.Coefficients) > 0 {
-			z := make([]fr.Element, newSize-len(wp.P.Coefficients))
-			wp.P.Coefficients = append(wp.P.Coefficients, z...)
-		}
+	// Resize wp. The size of wq might has already been increased
+	// (e.g. whent the polynomial is evaluated on a larger domain),
+	// if that's the case we don't resize the polynomial.
+	if newSize-len(wp.P.Coefficients) > 0 {
+		z := make([]fr.Element, newSize-wp.Size)
+		wp.P.Coefficients = append(wp.P.Coefficients, z...)
 	}
 
 	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
 	var r fr.Element
-	if wq.P.Layout == Regular {
-		for i := 0; i <= blindingOrder; i++ {
-			r.SetRandom()
-			wp.P.Coefficients[i].Sub(&wp.P.Coefficients[i], &r)
-			wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
-		}
-	} else {
-		// it is assumed that the size is a power of 2 here... Which should be the
-		// case if any fft business is used
-		nn := uint64(64 - bits.TrailingZeros(uint(2*wp.Size)))
-		for i := 0; i <= blindingOrder; i++ {
-			r.SetRandom()
-			iRev := bits.Reverse64(uint64(i)) >> nn
-			iiRev := bits.Reverse64(uint64(i+wp.Size)) >> nn
-			wp.P.Coefficients[iRev].Sub(&wp.P.Coefficients[iRev], &r)
-			wp.P.Coefficients[iiRev].Add(&wp.P.Coefficients[iiRev], &r)
-		}
+
+	for i := 0; i <= blindingOrder; i++ {
+		r.SetRandom()
+		wp.P.Coefficients[i].Sub(&wp.P.Coefficients[i], &r)
+		wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
 	}
 
 	return wp, nil
@@ -237,7 +219,7 @@ func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
 
 func (wp *WrappedPolynomial) ToRegular(wq *WrappedPolynomial) *WrappedPolynomial {
 	if wp != wq {
-		wp = wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
 	}
 	wp.P.ToRegular(wp.P)
 	return wp
@@ -261,7 +243,7 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 
 func (wp *WrappedPolynomial) ToBitreverse(wq *WrappedPolynomial) *WrappedPolynomial {
 	if wp != wq {
-		wp = wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
 	}
 	wp.P.ToBitreverse(wp.P)
 	return wp
@@ -360,7 +342,7 @@ func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToLagrange Sets wp to wq, in ToLagrange form and returns it.
 func (wp *WrappedPolynomial) ToLagrange(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		wp = wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
 	}
 	wp.P.ToLagrange(wp.P, d)
 	return wp
@@ -439,7 +421,7 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToCanonical Sets wp to wq, in canonical form and returns it.
 func (wp *WrappedPolynomial) ToCanonical(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		wp = wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
 	}
 	wp.P.ToCanonical(wp.P, d)
 	return wp
@@ -525,7 +507,7 @@ func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToLagrangeCoset Sets wp to wq, in LagrangeCoset form and returns it.
 func (wp *WrappedPolynomial) ToLagrangeCoset(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		wp = wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
 	}
 	wp.P.ToLagrangeCoset(wp.P, d)
 	return wp

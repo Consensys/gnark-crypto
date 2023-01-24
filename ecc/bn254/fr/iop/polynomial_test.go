@@ -138,74 +138,59 @@ func randomVector(size int) []fr.Element {
 	return r
 }
 
-// func TestBlinding(t *testing.T) {
+func TestBlinding(t *testing.T) {
 
-// 	size := 8
-// 	d := fft.NewDomain(uint64(8))
+	size := 8
+	d := fft.NewDomain(uint64(8))
+	blindingOrder := 2
 
-// 	// generate a random polynomial in Lagrange form for the moment
-// 	// to check that an error is raised when the polynomial is not
-// 	// in canonical form.
-// 	var p Polynomial
-// 	p.Coefficients = randomVector(size)
-// 	p.Basis = Lagrange
-// 	p.Layout = Regular
-// 	wp := p.WrapMe(0)
+	// generate a random polynomial in Lagrange form for the moment
+	// to check that an error is raised when the polynomial is not
+	// in canonical form.
+	var p Polynomial
+	p.Coefficients = randomVector(size)
+	p.Basis = Lagrange
+	p.Layout = Regular
+	wp := p.WrapMe(0)
 
-// 	// checks that an error is thrown when the basis is not canonical
-// 	_, err := wp.Blind(wp, 2)
-// 	if err == nil {
-// 		t.Fatal("should have returned an error, basis is not canonical")
-// 	}
+	// checks that an error is thrown when the basis is not canonical
+	_, err := wp.Blind(wp, blindingOrder)
+	if err == nil {
+		t.Fatal("should have returned an error, basis is not canonical")
+	}
 
-// 	// checks the blinding is correct: the evaluation of the blinded polynomial
-// 	// should be the same as the original on d's domain
-// 	var wt, wtReversed WrappedPolynomial
-// 	wp.P.Basis = Canonical
-// 	blindingOrder := 2
-// 	_, err = wt.Blind(wp, blindingOrder)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	printVector(wp.P.Coefficients)
-// 	wtReversed.ToBitreverse(wp)
-// 	printVector(wp.P.Coefficients)
-// 	_, err = wtReversed.Blind(&wtReversed, blindingOrder)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	if len(wt.P.Coefficients) != blindingOrder+size+1 {
-// 		t.Fatal("size of blinded polynomial is incorrect")
-// 	}
-// 	fmt.Printf("%d\n", len(wtReversed.P.Coefficients))
-// 	if len(wtReversed.P.Coefficients) != blindingOrder+size+1 {
-// 		t.Fatal("size of blinded polynomial is incorrect")
-// 	}
-// 	x := make([]fr.Element, size)
-// 	x[0].SetOne()
-// 	for i := 1; i < size; i++ {
-// 		x[i].Mul(&x[i-1], &d.Generator)
-// 	}
-// 	var a, b, c fr.Element
-// 	for i := 0; i < size; i++ {
-// 		a, err = wt.Evaluate(x[i])
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		b, err = wp.Evaluate(x[i])
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		c, err = wtReversed.Evaluate(x[i])
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		if a != b || a != c {
-// 			t.Fatal("polynomial and its blinded version should be equal on V(X^{n}-1)")
-// 		}
-// 	}
+	// checks the blinding is correct: the evaluation of the blinded polynomial
+	// should be the same as the original on d's domain
+	var wt WrappedPolynomial
+	wp.P.Basis = Canonical
+	_, err = wt.Blind(wp, blindingOrder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wt.P.Coefficients) != blindingOrder+size+1 {
+		t.Fatal("size of blinded polynomial is incorrect")
+	}
+	x := make([]fr.Element, size)
+	x[0].SetOne()
+	for i := 1; i < size; i++ {
+		x[i].Mul(&x[i-1], &d.Generator)
+	}
+	var a, b fr.Element
+	for i := 0; i < size; i++ {
+		a, err = wt.Evaluate(x[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err = wp.Evaluate(x[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a != b {
+			t.Fatal("polynomial and its blinded version should be equal on V(X^{n}-1)")
+		}
+	}
 
-// }
+}
 
 // list of functions to turn a polynomial in Lagrange-regular form
 // to all different forms in ordered using this encoding:
