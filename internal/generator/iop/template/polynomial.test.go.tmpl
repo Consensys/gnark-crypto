@@ -34,9 +34,7 @@ func TestEvaluation(t *testing.T) {
 	}
 
 	// bit reversed layout
-	printVector(wp.P.Coefficients)
 	wp.ToBitreverse(wp)
-	printVector(wp.P.Coefficients)
 	wps.ToBitreverse(wps)
 	a, err = wp.Evaluate(d.Generator)
 	if err != nil {
