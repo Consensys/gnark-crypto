@@ -29,6 +29,8 @@ import (
 	ecdsa_bw6633 "github.com/consensys/gnark-crypto/ecc/bw6-633/ecdsa"
 	ecdsa_bw6756 "github.com/consensys/gnark-crypto/ecc/bw6-756/ecdsa"
 	ecdsa_bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761/ecdsa"
+	ecdsa_secp256k1 "github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
+	ecdsa_starkcurve "github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/consensys/gnark-crypto/signature"
 )
 

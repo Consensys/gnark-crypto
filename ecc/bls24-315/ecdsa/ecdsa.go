@@ -19,6 +19,7 @@ package ecdsa
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
 	"errors"
@@ -125,7 +126,7 @@ const (
 	aesIV = "gnark-crypto IV." // must be 16 chars (equal block size)
 )
 
-func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.StreamReader, err error) {
+func nonce(privateKey *PrivateKey, hash []byte) (csprng *cipher.StreamReader, err error) {
 	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
 	//
 	//    SHA2-512(privateKey.scalar ∥ entropy ∥ hash)[:32]
@@ -139,7 +140,7 @@ func nonce(rand io.Reader, privateKey *PrivateKey, hash []byte) (csprng *cipher.
 
 	// Get 256 bits of entropy from rand.
 	entropy := make([]byte, 32)
-	_, err = io.ReadFull(rand, entropy)
+	_, err = io.ReadFull(rand.Reader, entropy)
 	if err != nil {
 		return
 
@@ -190,15 +191,15 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 // P = k ⋅ g1Gen
 // r = x_P (mod order)
 // s = k⁻¹ . (m + sk ⋅ r)
-// signature = {s, r}
+// signature = {r, s}
 //
 // SEC 1, Version 2.0, Section 4.1.3
-func (privKey *PrivateKey) Sign(message []byte, rand io.Reader) ([]byte, error) {
+func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 	scalar, r, s, kInv := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
 	for {
 		for {
-			csprng, err := nonce(rand, privKey, message)
+			csprng, err := nonce(privKey, message)
 			if err != nil {
 				return nil, err
 			}
@@ -218,7 +219,18 @@ func (privKey *PrivateKey) Sign(message []byte, rand io.Reader) ([]byte, error) 
 			}
 		}
 		s.Mul(r, scalar)
-		m := hashToInt(message)
+
+		// compute the hash of the message as an integer
+		dataToHash := make([]byte, len(message))
+		copy(dataToHash[:], message[:])
+		hFunc.Reset()
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return nil, err
+		}
+		hramBin := hFunc.Sum(nil)
+		m := hashToInt(hramBin)
+
 		s.Add(m, s).
 			Mul(kInv, s).
 			Mod(s, order) // order != 0
@@ -252,9 +264,19 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 	s.SetBytes(sig.S[:sizeFr])
 
 	sInv := new(big.Int).ModInverse(s, order)
-	e := hashToInt(message)
 
-	u1 := new(big.Int).Mul(e, sInv)
+	// compute the hash of the message as an integer
+	dataToHash := make([]byte, len(message))
+	copy(dataToHash[:], message[:])
+	hFunc.Reset()
+	_, err := hFunc.Write(dataToHash[:])
+	if err != nil {
+		return false, err
+	}
+	hramBin := hFunc.Sum(nil)
+	m := hashToInt(hramBin)
+
+	u1 := new(big.Int).Mul(m, sInv)
 	u1.Mod(u1, order)
 	u2 := new(big.Int).Mul(r, sInv)
 	u2.Mod(u2, order)

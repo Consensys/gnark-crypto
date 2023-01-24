@@ -38,9 +38,8 @@ func TestECDSA(t *testing.T) {
 			publicKey := privKey.PublicKey
 
 			msg := []byte("testing ECDSA")
-			sig, _ := privKey.Sign(msg, rand.Reader)
-
 			md := sha512.New()
+			sig, _ := privKey.Sign(msg, md)
 			flag, _ := publicKey.Verify(sig, msg, md)
 
 			return flag
@@ -58,9 +57,10 @@ func BenchmarkSignECDSA(b *testing.B) {
 	privKey, _ := GenerateKey(rand.Reader)
 
 	msg := []byte("benchmarking ECDSA sign()")
+	md := sha512.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		privKey.Sign(msg, rand.Reader)
+		privKey.Sign(msg, md)
 	}
 }
 
@@ -68,8 +68,8 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 
 	privKey, _ := GenerateKey(rand.Reader)
 	msg := []byte("benchmarking ECDSA sign()")
-	sig, _ := privKey.Sign(msg, rand.Reader)
 	md := sha512.New()
+	sig, _ := privKey.Sign(msg, md)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
