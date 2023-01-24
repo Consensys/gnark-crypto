@@ -36,14 +36,8 @@ func TestEvaluation(t *testing.T) {
 	ref.ToLagrange(ref, d).ToRegular(ref)
 
 	// regular layout
-	a, err := wp.Evaluate(d.Generator)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := wps.Evaluate(d.Generator)
-	if err != nil {
-		t.Fatal(err)
-	}
+	a := wp.Evaluate(d.Generator)
+	b := wps.Evaluate(d.Generator)
 	if !a.Equal(&ref.P.Coefficients[1]) {
 		t.Fatal("error evaluation")
 	}
@@ -54,14 +48,8 @@ func TestEvaluation(t *testing.T) {
 	// bit reversed layout
 	wp.ToBitreverse(wp)
 	wps.ToBitreverse(wps)
-	a, err = wp.Evaluate(d.Generator)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err = wps.Evaluate(d.Generator)
-	if err != nil {
-		t.Fatal(err)
-	}
+	a = wp.Evaluate(d.Generator)
+	b = wps.Evaluate(d.Generator)
 	if !a.Equal(&ref.P.Coefficients[1]) {
 		t.Fatal("error evaluation")
 	}
@@ -177,14 +165,8 @@ func TestBlinding(t *testing.T) {
 	}
 	var a, b fr.Element
 	for i := 0; i < size; i++ {
-		a, err = wt.Evaluate(x[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		b, err = wp.Evaluate(x[i])
-		if err != nil {
-			t.Fatal(err)
-		}
+		a = wt.Evaluate(x[i])
+		b = wp.Evaluate(x[i])
 		if a != b {
 			t.Fatal("polynomial and its blinded version should be equal on V(X^{n}-1)")
 		}

@@ -130,13 +130,14 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) (*W
 //----------------------------------------------------
 // Evaluation
 
-// Evaluate evaluates p at x, throwing an error if the polynomial
-// is not in canonical basis.
-func (p *Polynomial) Evaluate(x fr.Element) (fr.Element, error) {
+// Evaluate evaluates p at x.
+// The code panics if the function is not in canonical form.
+// TODO should we throw an error if the basis is not canonical ?
+func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
 	if p.Basis != Canonical {
-		return r, ErrMustBeCanonical
+		panic("p must be in canonical basis")
 	}
 
 	if p.Layout == Regular {
@@ -151,11 +152,11 @@ func (p *Polynomial) Evaluate(x fr.Element) (fr.Element, error) {
 		}
 	}
 
-	return r, nil
+	return r
 
 }
 
-func (wp *WrappedPolynomial) Evaluate(x fr.Element) (fr.Element, error) {
+func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 
 	if wp.Shift == 0 {
 		return wp.P.Evaluate(x)
