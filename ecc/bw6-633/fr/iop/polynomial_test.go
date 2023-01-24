@@ -23,6 +23,56 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/fft"
 )
 
+func TestEvaluation(t *testing.T) {
+
+	size := 8
+	shift := 2
+	d := fft.NewDomain(uint64(size))
+	c := randomVector(size)
+	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
+	wp := p.WrapMe(0)
+	wps := p.WrapMe(shift)
+	ref := wp.Copy()
+	ref.ToLagrange(ref, d).ToRegular(ref)
+
+	// regular layout
+	a, err := wp.Evaluate(d.Generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := wps.Evaluate(d.Generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !a.Equal(&ref.P.Coefficients[1]) {
+		t.Fatal("error evaluation")
+	}
+	if !b.Equal(&ref.P.Coefficients[1+shift]) {
+		t.Fatal("error evaluation shifted")
+	}
+
+	// bit reversed layout
+	printVector(wp.P.Coefficients)
+	wp.ToBitreverse(wp)
+	printVector(wp.P.Coefficients)
+	wps.ToBitreverse(wps)
+	a, err = wp.Evaluate(d.Generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = wps.Evaluate(d.Generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !a.Equal(&ref.P.Coefficients[1]) {
+		t.Fatal("error evaluation")
+	}
+	if !b.Equal(&ref.P.Coefficients[1+shift]) {
+		t.Fatal("error evaluation shifted")
+	}
+
+}
+
 func TestEvaluateSinglePoint(t *testing.T) {
 
 	// Monomial
@@ -88,6 +138,60 @@ func randomVector(size int) []fr.Element {
 		r[i].SetRandom()
 	}
 	return r
+}
+
+func TestBlinding(t *testing.T) {
+
+	size := 8
+	d := fft.NewDomain(uint64(8))
+	blindingOrder := 2
+
+	// generate a random polynomial in Lagrange form for the moment
+	// to check that an error is raised when the polynomial is not
+	// in canonical form.
+	var p Polynomial
+	p.Coefficients = randomVector(size)
+	p.Basis = Lagrange
+	p.Layout = Regular
+	wp := p.WrapMe(0)
+
+	// checks that an error is thrown when the basis is not canonical
+	_, err := wp.Blind(wp, blindingOrder)
+	if err == nil {
+		t.Fatal("should have returned an error, basis is not canonical")
+	}
+
+	// checks the blinding is correct: the evaluation of the blinded polynomial
+	// should be the same as the original on d's domain
+	var wt WrappedPolynomial
+	wp.P.Basis = Canonical
+	_, err = wt.Blind(wp, blindingOrder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wt.P.Coefficients) != blindingOrder+size+1 {
+		t.Fatal("size of blinded polynomial is incorrect")
+	}
+	x := make([]fr.Element, size)
+	x[0].SetOne()
+	for i := 1; i < size; i++ {
+		x[i].Mul(&x[i-1], &d.Generator)
+	}
+	var a, b fr.Element
+	for i := 0; i < size; i++ {
+		a, err = wt.Evaluate(x[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err = wp.Evaluate(x[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a != b {
+			t.Fatal("polynomial and its blinded version should be equal on V(X^{n}-1)")
+		}
+	}
+
 }
 
 // list of functions to turn a polynomial in Lagrange-regular form
