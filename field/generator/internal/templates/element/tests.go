@@ -1524,24 +1524,23 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	{{- if eq $.NbWords 1}}
-	// since our modulus is on 1 word, we may need to adjust "42" and "8000" values;
+	{{- $noNeg := and (eq $.NbWords 1) (ltu64 (index $.Q 0) 1000000)}}
+	// we may need to adjust "42" and "8000" values for some moduli; see Text() method for more details.
 	formatValue := func(v int64) string {
-		const maxUint16 = 65535
-		var a, aNeg big.Int 
+		var a big.Int 
 		a.SetInt64(v)
 		a.Mod(&a, Modulus())
+		{{- if not $noNeg}}
+		const maxUint16 = 65535
+		var aNeg big.Int 
 		aNeg.Neg(&a).Mod(&aNeg, Modulus())
-		fmt.Println("aNeg", aNeg.Text(10))
 		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
 			return "-"+aNeg.Text(10)
 		}
+		{{- end}}
 		return a.Text(10)
-	} 
-	expected := fmt.Sprintf("{\"A\":-1,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(42), formatValue(8000))
-	{{- else}}
-	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
-	{{- end}}
+	}
+	expected := fmt.Sprintf("{\"A\":%s,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(-1), formatValue(42), formatValue(8000))
 	assert.Equal(expected, string(encoded))
 
 	// decode valid

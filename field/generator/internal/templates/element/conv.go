@@ -36,12 +36,15 @@ func (z *{{.ElementName}}) toBigInt(res *big.Int) *big.Int {
        return res.SetBytes(b[:])
 }
 
+{{- $noNeg := and (eq $.NbWords 1) (ltu64 (index $.Q 0) 1000000)}}
 // Text returns the string representation of z in the given base.
 // Base must be between 2 and 36, inclusive. The result uses the
 // lower-case letters 'a' to 'z' for digit values 10 to 35.
 // No prefix (such as "0x") is added to the string. If z is a nil
 // pointer it returns "<nil>".
+{{- if not $noNeg}}
 // If base == 10 and -z fits in a uint16 prefix "-" is added to the string.
+{{- end}}
 func (z *{{.ElementName}}) Text(base int) string {
 	if base < 2 || base > 36 {
 		panic("invalid base")
@@ -52,6 +55,7 @@ func (z *{{.ElementName}}) Text(base int) string {
 
 	const maxUint16 = 65535
 	{{- if eq $.NbWords 1}}
+		{{- if not $noNeg}}
 		if base == 10 {
 			var zzNeg {{.ElementName}}
 			zzNeg.Neg(z)
@@ -60,6 +64,7 @@ func (z *{{.ElementName}}) Text(base int) string {
 				return "-" + strconv.FormatUint(zzNeg[0], base)
 			}
 		}
+		{{- end}}
 		zz := z.Bits()
 		return strconv.FormatUint(zz[0], base)
 	{{- else }}
