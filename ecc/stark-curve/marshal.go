@@ -670,8 +670,11 @@ func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
 	var YSquared, Y fp.Element
 
+	// y^2=x^3+x+b
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
-	YSquared.Add(&YSquared, &bCurveCoeff)
+	YSquared.Add(&YSquared, &p.X).
+		Add(&YSquared, &bCurveCoeff)
+
 	if Y.Sqrt(&YSquared) == nil {
 		return errors.New("invalid compressed coordinate: square root doesn't exist")
 	}
