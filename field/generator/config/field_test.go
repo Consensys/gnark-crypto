@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"math/bits"
 	mrand "math/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/field"
 	"github.com/leanovate/gopter/gen"
 
 	"github.com/leanovate/gopter"
@@ -46,7 +46,7 @@ func TestIntToMont(t *testing.T) {
 			i.Lsh(i, 64*uint(f.NbWords))
 			*i = f.ToMont(*i)
 
-			err := field.BigIntMatchUint64Slice(i, f.RSquare)
+			err := bigIntMatchUint64Slice(i, f.RSquare)
 			return err == nil, err
 		}, genF),
 	)
@@ -74,7 +74,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
 			}
 
-			err := field.BigIntMatchUint64Slice(&i, ints)
+			err := bigIntMatchUint64Slice(&i, ints)
 			return err == nil, err
 		}, genF, genUint8SliceSlice(1)))
 
@@ -227,4 +227,30 @@ func genField(t *testing.T) gopter.Gen {
 		genResult := gopter.NewGenResult(field, gopter.NoShrinker)
 		return genResult
 	}
+}
+
+// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
 }

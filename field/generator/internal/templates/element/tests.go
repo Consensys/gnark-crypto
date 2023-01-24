@@ -10,7 +10,6 @@ import (
 	"math/bits"
 	"fmt"
 	{{if .UsingP20Inverse}} 
-	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand" 
 	{{end}}
 	"testing"
@@ -1651,7 +1650,7 @@ func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 
 	slice := append(z[:], aHi)
 
-	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+	return bigIntMatchUint64Slice(&aIntMod, slice)
 }
 
 //TODO: Phase out in favor of property based testing
@@ -1661,6 +1660,35 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 		t.Error(err)
 	}
 }
+
+
+// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
+}
 {{- end}}
+
+
 
 `

@@ -433,7 +433,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].ToBigIntRegular(&b))
+				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
