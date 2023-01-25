@@ -151,27 +151,31 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		return nil, errNotOnCurve
 	}
 
-	// compute H(R, A, M), all parameters in data are in Montgomery form
-	resRX := res.R.X.Bytes()
-	resRY := res.R.Y.Bytes()
-	resAX := privKey.PublicKey.A.X.Bytes()
-	resAY := privKey.PublicKey.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], resRX[:])
-	copy(dataToHash[sizeFr:], resRY[:])
-	copy(dataToHash[2*sizeFr:], resAX[:])
-	copy(dataToHash[3*sizeFr:], resAY[:])
-	copy(dataToHash[4*sizeFr:], message)
-	hFunc.Reset()
-	_, err := hFunc.Write(dataToHash[:])
-	if err != nil {
-		return nil, err
-	}
-
 	var hramInt big.Int
-	hramBin := hFunc.Sum(nil)
-	hramInt.SetBytes(hramBin)
+	if hFunc != nil {
+		// compute H(R, A, M), all parameters in data are in Montgomery form
+		resRX := res.R.X.Bytes()
+		resRY := res.R.Y.Bytes()
+		resAX := privKey.PublicKey.A.X.Bytes()
+		resAY := privKey.PublicKey.A.Y.Bytes()
+		sizeDataToHash := 4*sizeFr + len(message)
+		dataToHash := make([]byte, sizeDataToHash)
+		copy(dataToHash[:], resRX[:])
+		copy(dataToHash[sizeFr:], resRY[:])
+		copy(dataToHash[2*sizeFr:], resAX[:])
+		copy(dataToHash[3*sizeFr:], resAY[:])
+		copy(dataToHash[4*sizeFr:], message)
+		hFunc.Reset()
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return nil, err
+		}
+
+		hramBin := hFunc.Sum(nil)
+		hramInt.SetBytes(hramBin)
+	} else {
+		hramInt.SetBytes(message)
+	}
 
 	// Compute s = randScalarInt + H(R,A,M)*S
 	// going with big int to do ops mod curve order
@@ -206,26 +210,30 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 		return false, err
 	}
 
-	// compute H(R, A, M), all parameters in data are in Montgomery form
-	sigRX := sig.R.X.Bytes()
-	sigRY := sig.R.Y.Bytes()
-	sigAX := pub.A.X.Bytes()
-	sigAY := pub.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], sigRX[:])
-	copy(dataToHash[sizeFr:], sigRY[:])
-	copy(dataToHash[2*sizeFr:], sigAX[:])
-	copy(dataToHash[3*sizeFr:], sigAY[:])
-	copy(dataToHash[4*sizeFr:], message)
-	hFunc.Reset()
-	if _, err := hFunc.Write(dataToHash[:]); err != nil {
-		return false, err
-	}
-
 	var hramInt big.Int
-	hramBin := hFunc.Sum(nil)
-	hramInt.SetBytes(hramBin)
+	if hFunc != nil {
+		// compute H(R, A, M), all parameters in data are in Montgomery form
+		sigRX := sig.R.X.Bytes()
+		sigRY := sig.R.Y.Bytes()
+		sigAX := pub.A.X.Bytes()
+		sigAY := pub.A.Y.Bytes()
+		sizeDataToHash := 4*sizeFr + len(message)
+		dataToHash := make([]byte, sizeDataToHash)
+		copy(dataToHash[:], sigRX[:])
+		copy(dataToHash[sizeFr:], sigRY[:])
+		copy(dataToHash[2*sizeFr:], sigAX[:])
+		copy(dataToHash[3*sizeFr:], sigAY[:])
+		copy(dataToHash[4*sizeFr:], message)
+		hFunc.Reset()
+		if _, err := hFunc.Write(dataToHash[:]); err != nil {
+			return false, err
+		}
+
+		hramBin := hFunc.Sum(nil)
+		hramInt.SetBytes(hramBin)
+	} else {
+		hramInt.SetBytes(message)
+	}
 
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
