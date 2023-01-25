@@ -191,12 +191,25 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 	return wp.P.Evaluate(x)
 }
 
-// Copy returns a copy of wp
+// Copy returns a copy of wp. The underlying polynomial is copied, that
+// it it's a new pointer to a newly alloacted polynomial. In particular
+// the slice representing the coefficients of the polynomial is reallocated
+// and its content is copied from wp's coefficients.
 func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
 	var res WrappedPolynomial
 	res.P = wp.P.Copy()
 	res.Shift = wp.Shift
 	res.Size = wp.Size
+	return &res
+}
+
+// WrapMe same as Copy, but the underlying polynomial is a pointer to
+// wp's polynomial.
+func (wp *WrappedPolynomial) WrapMe(shift int) *WrappedPolynomial {
+	var res WrappedPolynomial
+	res.P = wp.P
+	res.Shift = shift
+	res.Size = wp.Shift
 	return &res
 }
 
