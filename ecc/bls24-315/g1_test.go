@@ -394,6 +394,23 @@ func TestG1AffineOps(t *testing.T) {
 		genScalar,
 	))
 
+	properties.Property("[BLS24-315] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+
+			var op1, op2, temp G1Jac
+
+			op1.JointScalarMultiplicationBase(&g1GenAff, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			temp.ScalarMultiplication(&g1Gen, s2.BigInt(new(big.Int)))
+			op2.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
+				AddAssign(&temp)
+
+			return op1.Equal(&op2)
+
+		},
+		genScalar,
+		genScalar,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

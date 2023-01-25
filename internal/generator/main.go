@@ -13,6 +13,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
+	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
@@ -66,6 +67,9 @@ func main() {
 				FieldPackageName: "fr",
 				ElementType:      "fr.Element",
 			}
+
+			// generate ecdsa
+			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
 
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
