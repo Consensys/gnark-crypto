@@ -207,22 +207,26 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	var P bls12377.G1Affine
 	P.ScalarMultiplicationBase(k)
 
-	// compute H(R, M), all parameters in data are in Montgomery form
-	PX := P.X.Bytes()
-	PY := P.Y.Bytes()
-	sizeDataToHash := 2*sizeFp + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], PX[:])
-	copy(dataToHash[sizeFp:], PY[:])
-	copy(dataToHash[2*sizeFp:], message)
-	hFunc.Reset()
-	_, err = hFunc.Write(dataToHash[:])
-	if err != nil {
-		return nil, err
-	}
+	if hFunc != nil {
+		// compute H(R, M), all parameters in data are in Montgomery form
+		PX := P.X.Bytes()
+		PY := P.Y.Bytes()
+		sizeDataToHash := 2*sizeFp + len(message)
+		dataToHash := make([]byte, sizeDataToHash)
+		copy(dataToHash[:], PX[:])
+		copy(dataToHash[sizeFp:], PY[:])
+		copy(dataToHash[2*sizeFp:], message)
+		hFunc.Reset()
+		_, err = hFunc.Write(dataToHash[:])
+		if err != nil {
+			return nil, err
+		}
 
-	hramBin := hFunc.Sum(nil)
-	r = HashToInt(hramBin)
+		hramBin := hFunc.Sum(nil)
+		r = HashToInt(hramBin)
+	} else {
+		r = HashToInt(message)
+	}
 
 	s.Mul(scalar, r)
 	s.Sub(k, s).
@@ -256,22 +260,26 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 	var _P bls12377.G1Affine
 	_P.FromJacobian(&P)
 
-	// compute H(R, M), all parameters in data are in Montgomery form
-	PX := _P.X.Bytes()
-	PY := _P.Y.Bytes()
-	sizeDataToHash := 2*sizeFp + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], PX[:])
-	copy(dataToHash[sizeFp:], PY[:])
-	copy(dataToHash[2*sizeFp:], message)
-	hFunc.Reset()
-	_, err := hFunc.Write(dataToHash[:])
-	if err != nil {
-		return false, err
-	}
+	if hFunc != nil {
+		// compute H(R, M), all parameters in data are in Montgomery form
+		PX := _P.X.Bytes()
+		PY := _P.Y.Bytes()
+		sizeDataToHash := 2*sizeFp + len(message)
+		dataToHash := make([]byte, sizeDataToHash)
+		copy(dataToHash[:], PX[:])
+		copy(dataToHash[sizeFp:], PY[:])
+		copy(dataToHash[2*sizeFp:], message)
+		hFunc.Reset()
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return false, err
+		}
 
-	hramBin := hFunc.Sum(nil)
-	e = HashToInt(hramBin)
+		hramBin := hFunc.Sum(nil)
+		e = HashToInt(hramBin)
+	} else {
+		e = HashToInt(message)
+	}
 
 	return e.Cmp(r) == 0, nil
 
