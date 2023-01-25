@@ -1,0 +1,60 @@
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+func TestSchnorr(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{ toUpper .Name }}] test the signing and verification", prop.ForAll(
+		func() bool {
+
+            privKey, _ := GenerateKey(rand.Reader)
+			publicKey := privKey.PublicKey
+
+			msg := []byte("testing Schnorr")
+			hFunc := sha256.New()
+			sig, _ := privKey.Sign(msg, hFunc)
+			flag, _ := publicKey.Verify(sig, msg, hFunc)
+
+			return flag
+		},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+// ------------------------------------------------------------
+// benches
+
+func BenchmarkSignSchnorr(b *testing.B) {
+
+	privKey, _ := GenerateKey(rand.Reader)
+
+	msg := []byte("benchmarking Schnorr sign()")
+	hFunc := sha256.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		privKey.Sign(msg, hFunc)
+	}
+}
+
+func BenchmarkVerifySchnorr(b *testing.B) {
+
+	privKey, _ := GenerateKey(rand.Reader)
+	msg := []byte("benchmarking Schnorr sign()")
+	hFunc := sha256.New()
+	sig, _ := privKey.Sign(msg, hFunc)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		privKey.PublicKey.Verify(sig, msg, hFunc)
+	}
+}
