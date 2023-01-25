@@ -209,7 +209,7 @@ func (wp *WrappedPolynomial) WrapMe(shift int) *WrappedPolynomial {
 	var res WrappedPolynomial
 	res.P = wp.P
 	res.Shift = shift
-	res.Size = wp.Shift
+	res.Size = wp.Size
 	return &res
 }
 
