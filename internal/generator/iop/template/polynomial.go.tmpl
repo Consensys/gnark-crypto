@@ -82,7 +82,8 @@ type WrappedPolynomial struct {
 // size of q. Sets the result to p and returns it.
 //
 // * bo blinding order,  it's the degree of Q, where the blinding is Q(X)*(X^{n}-1)
-// where n is the size of wp.
+// where n is the size of wp. The size of wp is modified since the underlying
+// polynomial is of bigger degree now. The new size is wp.Size+1+blindingOrder.
 //
 // /!\ The code panics if wq is not in canonical, regular layout
 func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *WrappedPolynomial {
@@ -106,19 +107,21 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 	// Resize wp. The size of wq might has already been increased
 	// (e.g. whent the polynomial is evaluated on a larger domain),
 	// if that's the case we don't resize the polynomial.
-	if newSize-len(wp.P.Coefficients) > 0 {
-		z := make([]fr.Element, newSize-wp.Size)
+	offset := newSize-len(wp.P.Coefficients)
+	if offset > 0 {
+		z := make([]fr.Element, offset)
 		wp.P.Coefficients = append(wp.P.Coefficients, z...)
 	}
-
+	
 	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
 	var r fr.Element
-
+	
 	for i := 0; i <= blindingOrder; i++ {
 		r.SetRandom()
 		wp.P.Coefficients[i].Sub(&wp.P.Coefficients[i], &r)
 		wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
 	}
+	wp.Size = newSize
 
 	return wp
 }
