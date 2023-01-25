@@ -22,9 +22,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
+	"runtime"
 	"strconv"
-	"sync"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
@@ -193,9 +194,16 @@ func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomia
 	return
 }
 
+type computeGjData struct {
+}
+
+type computeGjJob struct {
+	start, end, d int
+}
+
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
-// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = g_{j-1}(r_{j-1}). By convention, g_0 is a constant polynomial equal to the claimed sum.
+// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
@@ -208,63 +216,74 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
 	}
 
+	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
 
-	parallel := len(EVal) >= 1024 //TODO: Experiment with threshold
+	const jobSize = 1 // for testing reasons. TODO Make configurable and default to 1024 or something
+	nbJobsPerD := int(utils.DivCeiling(uint(len(EVal)), jobSize))
+	nbWorkers := utils.Min(nbJobsPerD*degGJ, runtime.NumCPU())
 
-	var gateInput [][]fr.Element
+	jobs := make(chan computeGjJob, nbJobsPerD)
+	results := make(chan fr.Element, nbJobsPerD)
 
-	if parallel {
-		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors)),
-			c.manager.memPool.Make(len(c.inputPreprocessors))}
-	} else {
-		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors))}
-	}
+	// create workers
+	for workerIndex := 0; workerIndex < nbWorkers; workerIndex++ {
+		go func() {
+			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+			for j := range jobs {
+				notLastIteration := j.d+1 < degGJ
+				var res fr.Element
+				for i := j.start; i < j.end; i++ {
+					for inputI := range puVal {
+						gateInput[inputI].Set(&puVal[inputI][i])
+						if notLastIteration {
+							puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
+						}
+					}
 
-	var wg sync.WaitGroup
+					// gJAtDI = gJ(d, i...)
+					gJAtDI := c.wire.Gate.Evaluate(gateInput...)
+					gJAtDI.Mul(&gJAtDI, &EVal[i])
 
-	for d := 0; d < degGJ; d++ {
+					res.Add(&res, &gJAtDI)
 
-		notLastIteration := d+1 < degGJ
-
-		sumOverI := func(res *fr.Element, gateInput []fr.Element, start, end int) {
-			for i := start; i < end; i++ {
-
-				for inputI := range puVal {
-					gateInput[inputI].Set(&puVal[inputI][i])
 					if notLastIteration {
-						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
+						EVal[i].Add(&EVal[i], &EStep[i])
 					}
 				}
-
-				// gJAtDI = gJ(d, i...)
-				gJAtDI := c.wire.Gate.Evaluate(gateInput...)
-				gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-				res.Add(res, &gJAtDI)
-
-				if notLastIteration {
-					EVal[i].Add(&EVal[i], &EStep[i])
-				}
+				results <- res
 			}
-			wg.Done()
+			c.manager.memPool.Dump(gateInput)
+		}()
+	}
+
+	// dispatch and receive jobs
+	var job computeGjJob
+	for ; job.d < degGJ; job.d++ {
+
+		job.start = 0
+		for i := 0; i < nbJobsPerD; i++ {
+			job.end = utils.Min(job.start+jobSize, len(EVal))
+			jobs <- job
+			job.start = job.end
 		}
 
-		if parallel {
-			var firstHalf, secondHalf fr.Element
-			wg.Add(2)
-			go sumOverI(&secondHalf, gateInput[1], len(EVal)/2, len(EVal))
-			go sumOverI(&firstHalf, gateInput[0], 0, len(EVal)/2)
-			wg.Wait()
-			gJ[d].Add(&firstHalf, &secondHalf)
-		} else {
-			wg.Add(1) // formalities
-			sumOverI(&gJ[d], gateInput[0], 0, len(EVal))
+		// here THE PIPELINE STALLS while we combine the results
+		// the workers assume this design decision too.
+		// when working on (d₀,i₀) we must be sure that (d < d₀, i₀) have all been worked on
+		// otherwise we'd get corrupt values for EVal[i]
+		resultsReceived := 0
+		for res := range results {
+			gJ[job.d].Add(&gJ[job.d], &res)
+			if resultsReceived++; resultsReceived == nbJobsPerD {
+				break // TODO: Better way of doing this? Want to read exactly nbJobsPerD entries from channels
+			}
 		}
 	}
 
-	c.manager.memPool.Dump(gateInput...)
+	close(jobs) // do we need to close results too?
+
 	c.manager.memPool.Dump(EVal, EStep)
 
 	for inputI := range puVal {
@@ -714,7 +733,7 @@ func statusList(c Circuit) []int {
 // topologicalSort sorts the wires in order of dependence. Such that for any wire, any one it depends on
 // occurs before it. It tries to stick to the input order as much as possible. An already sorted list will remain unchanged.
 // It also sets the nbOutput flags, and a dummy IdentityGate for input wires.
-// Worst-case inefficient O(n^2), but that probably won't matter since the circuits are small.
+// Worst-case inefficient O(n²), but that probably won't matter since the circuits are small.
 // Furthermore, it is efficient with already-close-to-sorted lists, which are the expected input
 func topologicalSort(c Circuit) []*Wire {
 	var data topSortData
