@@ -22,10 +22,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
 	"strconv"
+	"sync"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
@@ -194,13 +195,6 @@ func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomia
 	return
 }
 
-type computeGjData struct {
-}
-
-type computeGjJob struct {
-	start, end, d int
-}
-
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
 // The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
@@ -219,73 +213,45 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
+	results := safeStack{slice: make([]fr.Element, 0, runtime.NumCPU())} //assuming parallel.Execute spins off at most NumCpu many goroutines
 
-	const jobSize = 1 // for testing reasons. TODO Make configurable and default to 1024 or something
-	nbJobsPerD := int(utils.DivCeiling(uint(len(EVal)), jobSize))
-	nbWorkers := utils.Min(nbJobsPerD*degGJ, runtime.NumCPU())
+	for d := 0; d < degGJ; d++ {
+		notLastIteration := d+1 < degGJ
+		res := &gJ[d]
 
-	jobs := make(chan computeGjJob, nbJobsPerD)
-	results := make(chan fr.Element, nbJobsPerD)
+		parallel.Execute(len(EVal), func(start, end int) {
 
-	gateInputs := make([][]fr.Element, nbWorkers)
-	// create workers
-	for workerIndex := 0; workerIndex < nbWorkers; workerIndex++ {
-		gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
-		gateInputs[workerIndex] = gateInput // remember to discard later
-		go func() {
-			for j := range jobs {
-				notLastIteration := j.d+1 < degGJ
-				var res fr.Element
-				for i := j.start; i < j.end; i++ {
-					for inputI := range puVal {
-						gateInput[inputI].Set(&puVal[inputI][i])
-						if notLastIteration {
-							puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
-						}
-					}
-
-					// gJAtDI = gJ(d, i...)
-					gJAtDI := c.wire.Gate.Evaluate(gateInput...)
-					gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-					res.Add(&res, &gJAtDI)
-
+			var jobRes, iterationRes fr.Element
+			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+			for i := start; i < end; i++ {
+				for inputI := range puVal {
+					gateInput[inputI].Set(&puVal[inputI][i])
 					if notLastIteration {
-						EVal[i].Add(&EVal[i], &EStep[i])
+						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
 					}
 				}
-				results <- res
+
+				// gJAtDI = gJ(d, i...)
+				iterationRes = c.wire.Gate.Evaluate(gateInput...)
+				iterationRes.Mul(&iterationRes, &EVal[i])
+				jobRes.Add(&jobRes, &iterationRes)
+
+				if notLastIteration {
+					EVal[i].Add(&EVal[i], &EStep[i])
+				}
 			}
-		}()
+
+			results.push(jobRes)
+			c.manager.memPool.Dump(gateInput)
+		})
+
+		for i := range results.slice {
+			res.Add(res, &results.slice[i])
+		}
+		results.slice = results.slice[:]
+
 	}
 
-	// dispatch and receive jobs
-	var job computeGjJob
-	for ; job.d < degGJ; job.d++ {
-
-		job.start = 0
-		for i := 0; i < nbJobsPerD; i++ {
-			job.end = utils.Min(job.start+jobSize, len(EVal))
-			jobs <- job
-			job.start = job.end
-		}
-
-		// here THE PIPELINE STALLS while we combine the results
-		// the workers assume this design decision too.
-		// when working on (d₀,i₀) we must be sure that (d < d₀, i₀) have all been worked on
-		// otherwise we'd get corrupt values for EVal[i]
-		resultsReceived := 0
-		for res := range results {
-			gJ[job.d].Add(&gJ[job.d], &res)
-			if resultsReceived++; resultsReceived == nbJobsPerD {
-				break // TODO: Better way of doing this? Want to read exactly nbJobsPerD entries from channels
-			}
-		}
-	}
-
-	close(jobs) // do we need to close results too?
-
-	c.manager.memPool.Dump(gateInputs...)
 	c.manager.memPool.Dump(EVal, EStep)
 
 	for inputI := range puVal {
@@ -816,4 +782,15 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	for i := range src {
 		src[i].BigInt(dst[i])
 	}
+}
+
+type safeStack struct {
+	writeLock sync.Mutex
+	slice     []fr.Element
+}
+
+func (s *safeStack) push(x fr.Element) {
+	s.writeLock.Lock()
+	s.slice = append(s.slice, x)
+	s.writeLock.Unlock()
 }
