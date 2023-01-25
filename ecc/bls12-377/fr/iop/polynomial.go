@@ -102,16 +102,12 @@ type WrappedPolynomial struct {
 // * bo blinding order,  it's the degree of Q, where the blinding is Q(X)*(X^{n}-1)
 // where n is the size of wp.
 //
-// wq must be in canonical, regular layout.
-func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) (*WrappedPolynomial, error) {
+// /!\ The code panics if wq is not in canonical, regular layout
+func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *WrappedPolynomial {
 
 	// check that q is in canonical basis
-	if wq.P.Basis != Canonical {
-		return wq, ErrMustBeCanonical
-	}
-
-	if wq.P.Layout != Regular {
-		return wq, ErrMustBeRegular
+	if wq.P.Basis != Canonical || wq.P.Layout != Regular {
+		panic("the input must be in canonical basis, regular layout")
 	}
 
 	// take care of who is modified
@@ -142,7 +138,7 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) (*W
 		wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
 	}
 
-	return wp, nil
+	return wp
 }
 
 //----------------------------------------------------

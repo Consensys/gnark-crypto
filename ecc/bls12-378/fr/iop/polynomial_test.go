@@ -141,20 +141,11 @@ func TestBlinding(t *testing.T) {
 	p.Layout = Regular
 	wp := p.WrapMe(0)
 
-	// checks that an error is thrown when the basis is not canonical
-	_, err := wp.Blind(wp, blindingOrder)
-	if err == nil {
-		t.Fatal("should have returned an error, basis is not canonical")
-	}
-
 	// checks the blinding is correct: the evaluation of the blinded polynomial
 	// should be the same as the original on d's domain
 	var wt WrappedPolynomial
 	wp.P.Basis = Canonical
-	_, err = wt.Blind(wp, blindingOrder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	wt.Blind(wp, blindingOrder)
 	if len(wt.P.Coefficients) != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
