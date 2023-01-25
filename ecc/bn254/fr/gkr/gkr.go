@@ -227,10 +227,12 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	jobs := make(chan computeGjJob, nbJobsPerD)
 	results := make(chan fr.Element, nbJobsPerD)
 
+	gateInputs := make([][]fr.Element, nbWorkers)
 	// create workers
 	for workerIndex := 0; workerIndex < nbWorkers; workerIndex++ {
+		gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+		gateInputs[workerIndex] = gateInput // remember to discard later
 		go func() {
-			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
 			for j := range jobs {
 				notLastIteration := j.d+1 < degGJ
 				var res fr.Element
@@ -254,7 +256,6 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 				}
 				results <- res
 			}
-			c.manager.memPool.Dump(gateInput)
 		}()
 	}
 
@@ -284,6 +285,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 	close(jobs) // do we need to close results too?
 
+	c.manager.memPool.Dump(gateInputs...)
 	c.manager.memPool.Dump(EVal, EStep)
 
 	for inputI := range puVal {
