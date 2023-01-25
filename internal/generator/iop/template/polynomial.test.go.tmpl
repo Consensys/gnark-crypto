@@ -131,8 +131,11 @@ func TestBlinding(t *testing.T) {
 	if len(wt.P.Coefficients) != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
-	if wt.Size!=size+blindingOrder+1{
+	if wt.BlindedSize != size+blindingOrder+1 {
 		t.Fatal("Size field of blinded polynomial is incorrect")
+	}
+	if wt.Size!=size {
+		t.Fatal("the size should not have been modified")
 	}
 	x := make([]fr.Element, size)
 	x[0].SetOne()

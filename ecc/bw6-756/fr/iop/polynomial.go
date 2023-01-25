@@ -86,10 +86,13 @@ func getShapeID(p Polynomial) int {
 // For instance if len(P)=32 but P.Size=8, it means that P has been
 // extended (e.g. it is evaluated on a larger set) but P is a polynomial
 // of degree 7.
+// BlindedSize is the size of the polynomial when it is blinded. By
+// default BlindedSize=Size, until the polynomial is blinded.
 type WrappedPolynomial struct {
-	P     *Polynomial
-	Shift int
-	Size  int
+	P           *Polynomial
+	Shift       int
+	Size        int
+	BlindedSize int
 }
 
 //----------------------------------------------------
@@ -139,7 +142,7 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 		wp.P.Coefficients[i].Sub(&wp.P.Coefficients[i], &r)
 		wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
 	}
-	wp.Size = newSize
+	wp.BlindedSize = newSize
 
 	return wp
 }
@@ -213,6 +216,7 @@ func (wp *WrappedPolynomial) WrapMe(shift int) *WrappedPolynomial {
 	res.P = wp.P
 	res.Shift = shift
 	res.Size = wp.Size
+	res.BlindedSize = wp.Size
 	return &res
 }
 
