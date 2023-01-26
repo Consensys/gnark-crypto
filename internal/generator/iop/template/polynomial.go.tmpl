@@ -258,7 +258,12 @@ func (wp *WrappedPolynomial) ToBitreverse(wq *WrappedPolynomial) *WrappedPolynom
 // * size optional parameter telling the size of p (as a vector). If not provided,
 // len(p) is the default size.
 func (p *Polynomial) WrapMe(shift int, size ...int) *WrappedPolynomial {
-	res := WrappedPolynomial{P: p, Shift: shift, Size: len(p.Coefficients)}
+	res := WrappedPolynomial{
+		P: p, 
+		Shift: shift,
+		Size: len(p.Coefficients),
+		BlindedSize: len(p.Coefficients),
+	}
 	if len(size) > 0 {
 		res.Size = size[0]
 	}
