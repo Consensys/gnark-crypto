@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/signature/bls"
 	"github.com/consensys/gnark-crypto/internal/generator/signature/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/signature/schnorr"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
@@ -70,10 +71,10 @@ func main() {
 			}
 
 			// generate ecdsa signature
-			assertNoError(ecdsa.Generate(conf, filepath.Join(curveDir, "signature"), bgen))
+			assertNoError(ecdsa.Generate(conf, filepath.Join(curveDir, "signatures"), bgen))
 
 			// generate schnorr signature
-			assertNoError(schnorr.Generate(conf, filepath.Join(curveDir, "signature"), bgen))
+			assertNoError(schnorr.Generate(conf, filepath.Join(curveDir, "signatures"), bgen))
 
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
@@ -85,6 +86,9 @@ func main() {
 			if conf.Equal(config.SECP256K1) {
 				return
 			}
+
+			// generate bls signature
+			assertNoError(bls.Generate(conf, filepath.Join(curveDir, "signatures"), bgen))
 
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
