@@ -41,7 +41,7 @@ func TestSerialization(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[STARK-CURVE] ECDSA serialization: SetBytes(Bytes()) should stay the same", prop.ForAll(
+	properties.Property("[STARK-CURVE] Schnorr serialization: SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func() bool {
 			privKey, _ := GenerateKey(rand.Reader)
 

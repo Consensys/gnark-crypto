@@ -46,6 +46,20 @@ func TestSchnorr(t *testing.T) {
 		},
 	))
 
+	properties.Property("[BLS12-378] test the signing and verification (pre-hashed)", prop.ForAll(
+		func() bool {
+
+			privKey, _ := GenerateKey(rand.Reader)
+			publicKey := privKey.PublicKey
+
+			msg := []byte("testing Schnorr")
+			sig, _ := privKey.Sign(msg, nil)
+			flag, _ := publicKey.Verify(sig, msg, nil)
+
+			return flag
+		},
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -57,10 +71,9 @@ func BenchmarkSignSchnorr(b *testing.B) {
 	privKey, _ := GenerateKey(rand.Reader)
 
 	msg := []byte("benchmarking Schnorr sign()")
-	hFunc := sha256.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		privKey.Sign(msg, hFunc)
+		privKey.Sign(msg, nil)
 	}
 }
 
@@ -68,11 +81,10 @@ func BenchmarkVerifySchnorr(b *testing.B) {
 
 	privKey, _ := GenerateKey(rand.Reader)
 	msg := []byte("benchmarking Schnorr sign()")
-	hFunc := sha256.New()
-	sig, _ := privKey.Sign(msg, hFunc)
+	sig, _ := privKey.Sign(msg, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		privKey.PublicKey.Verify(sig, msg, hFunc)
+		privKey.PublicKey.Verify(sig, msg, nil)
 	}
 }

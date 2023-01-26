@@ -41,7 +41,7 @@ func TestSerialization(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BW6-633] ECDSA serialization: SetBytes(Bytes()) should stay the same", prop.ForAll(
+	properties.Property("[BW6-633] Schnorr serialization: SetBytes(Bytes()) should stay the same", prop.ForAll(
 		func() bool {
 			privKey, _ := GenerateKey(rand.Reader)
 
