@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
-	"errors"
 	"hash"
 	"io"
 	"math/big"
@@ -32,8 +31,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/signature"
 )
-
-var errInvalidSig = errors.New("invalid signature")
 
 const (
 	sizeFr         = fr.Bytes

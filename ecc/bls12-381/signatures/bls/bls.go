@@ -33,7 +33,7 @@ import (
 	"github.com/consensys/gnark-crypto/signature"
 )
 
-var errInvalidSig = errors.New("invalid signature")
+var errHashNotNil = errors.New("hFunc not nil. Hashing the message is done in HashToG2.")
 
 const (
 	sizeFr         = fr.Bytes
@@ -190,10 +190,14 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 // H(m) ← m (hash to G₂)
 // S = sk ⋅ H(m) ∈ G₂
 // signature = S
-//
-// hFunc should always be nil.
-// Hashing the message first with hFunc is not needed, as it is included in HashToG2.
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
+
+	// hFunc should always be nil.
+	// Hashing the message first with hFunc is not needed, as it is included in HashToG2.
+	if hFunc != nil {
+		return nil, errHashNotNil
+	}
+
 	// Hash the message into G2
 	dst := []byte("0x01")
 	H, err := bls12381.HashToG2(message, dst)
@@ -214,6 +218,12 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 //
 // e(G1, sig.S) ?= e(pk, G2)
 func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
+
+	// hFunc should always be nil.
+	// Hashing the message first with hFunc is not needed, as it is included in HashToG2.
+	if hFunc != nil {
+		return false, errHashNotNil
+	}
 
 	// Deserialize the signature
 	var sig Signature
