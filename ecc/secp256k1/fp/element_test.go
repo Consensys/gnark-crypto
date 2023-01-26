@@ -2185,7 +2185,20 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	// we may need to adjust "42" and "8000" values for some moduli; see Text() method for more details.
+	formatValue := func(v int64) string {
+		var a big.Int
+		a.SetInt64(v)
+		a.Mod(&a, Modulus())
+		const maxUint16 = 65535
+		var aNeg big.Int
+		aNeg.Neg(&a).Mod(&aNeg, Modulus())
+		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
+			return "-" + aNeg.Text(10)
+		}
+		return a.Text(10)
+	}
+	expected := fmt.Sprintf("{\"A\":%s,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(-1), formatValue(42), formatValue(8000))
 	assert.Equal(expected, string(encoded))
 
 	// decode valid
