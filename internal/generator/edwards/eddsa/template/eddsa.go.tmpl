@@ -161,27 +161,21 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	}
 
 	// compute H(R, A, M), all parameters in data are in Montgomery form
-	resRX := res.R.X.Bytes()
-	resRY := res.R.Y.Bytes()
-	resAX := privKey.PublicKey.A.X.Bytes()
-	resAY := privKey.PublicKey.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], resRX[:])
-	copy(dataToHash[sizeFr:], resRY[:])
-	copy(dataToHash[2*sizeFr:], resAX[:])
-	copy(dataToHash[3*sizeFr:], resAY[:])
 	hFunc.Reset()
-	if hToFieldFunc, ok := hFunc.(gcHash.ToField); ok {
-		hToFieldFunc.WriteString(dataToHash[:])
-	} else {
-		_, err := hFunc.Write(dataToHash[:])
-		if err != nil {
+
+	toWrite := [][sizeFr]byte{res.R.X.Bytes(), res.R.Y.Bytes(), privKey.PublicKey.A.X.Bytes(), privKey.PublicKey.A.Y.Bytes()}
+	for i := range toWrite {
+		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
 			return nil, err
 		}
 	}
-	if _, err := hFunc.Write(message); err != nil {
-		return nil, err
+
+	if hToFieldFunc, ok := hFunc.(gcHash.ToField); ok {
+		hToFieldFunc.WriteString(message)
+	} else {
+		if _, err := hFunc.Write(message); err != nil {
+			return nil, err
+		}
 	}
 
 	var hramInt big.Int
@@ -222,27 +216,22 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	}
 
 	// compute H(R, A, M), all parameters in data are in Montgomery form
-	sigRX := sig.R.X.Bytes()
-	sigRY := sig.R.Y.Bytes()
-	sigAX := pub.A.X.Bytes()
-	sigAY := pub.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], sigRX[:])
-	copy(dataToHash[sizeFr:], sigRY[:])
-	copy(dataToHash[2*sizeFr:], sigAX[:])
-	copy(dataToHash[3*sizeFr:], sigAY[:])
+
 	hFunc.Reset()
-	if hToFieldFunc, ok := hFunc.(gcHash.ToField); ok {
-		hToFieldFunc.WriteString(dataToHash[:])
-	} else {
-		_, err := hFunc.Write(dataToHash[:])
-		if err != nil {
+
+	toWrite := [][sizeFr]byte{sig.R.X.Bytes(), sig.R.Y.Bytes(), pub.A.X.Bytes(), pub.A.Y.Bytes()}
+	for i := range toWrite {
+		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
 			return false, err
 		}
 	}
-	if _, err := hFunc.Write(message); err != nil {
-		return false, err
+
+	if hToFieldFunc, ok := hFunc.(gcHash.ToField); ok {
+		hToFieldFunc.WriteString(message)
+	} else {
+		if _, err := hFunc.Write(message); err != nil {
+			return false, err
+		}
 	}
 
 	var hramInt big.Int
