@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fp"
+	utils "github.com/consensys/gnark-crypto/ecc/{{ .Name }}/signature"
 	"github.com/consensys/gnark-crypto/signature"
 )
 
@@ -81,21 +82,6 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	k.FillBytes(privateKey.scalar[:sizeFr])
 	privateKey.PublicKey.A.ScalarMultiplication(&g, k)
 	return privateKey, nil
-}
-
-// HashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
-// we use the left-most bits of the hash to match the bit-length of the order of
-// the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
-func HashToInt(hash []byte) *big.Int {
-	if len(hash) > sizeFr {
-		hash = hash[:sizeFr]
-    }
-	ret := new(big.Int).SetBytes(hash)
-	excess := len(hash)*8 - sizeFr
-	if excess > 0 {
-		ret.Rsh(ret, uint(excess))
-	}
-	return ret
 }
 
 type zr struct{}
@@ -219,9 +205,9 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 				return nil, err
 			}
 			hramBin := hFunc.Sum(nil)
-			m = HashToInt(hramBin)
+			m = utils.HashToInt(hramBin)
 		} else {
-			m = HashToInt(message)
+			m = utils.HashToInt(message)
  		}
 
 		s.Add(m, s).
@@ -269,9 +255,9 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 			return false, err
 		}
 		hramBin := hFunc.Sum(nil)
-		m = HashToInt(hramBin)
+		m = utils.HashToInt(hramBin)
 	} else {
-		m = HashToInt(message)
+		m = utils.HashToInt(message)
  	}
 
 	u1 := new(big.Int).Mul(m, sInv)
