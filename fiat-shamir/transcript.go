@@ -102,10 +102,8 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	if aHash, ok := t.h.(gcHash.ArithmeticHash); ok {
-		if err := aHash.WriteString([]byte(challengeID)); err != nil {
-			return nil, err
-		}
+	if hashToField, ok := t.h.(gcHash.ToField); ok {
+		hashToField.WriteString([]byte(challengeID))
 	} else {
 		if _, err := t.h.Write([]byte(challengeID)); err != nil {
 			return nil, err
