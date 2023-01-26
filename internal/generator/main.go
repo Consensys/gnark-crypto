@@ -53,13 +53,17 @@ func main() {
 			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, true)
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
+
+			if conf.Equal(config.STARK_CURVE) {
+				return // TODO @yelhousni
+			}
 
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
