@@ -1,6 +1,3 @@
-// Thread-safe version of polynomials pool
-// TODO Discard if proved unnecessary
-
 // Copyright 2020 ConsenSys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

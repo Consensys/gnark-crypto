@@ -22,6 +22,9 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 	"strconv"
 	"sync"
 )
@@ -194,7 +197,7 @@ func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomia
 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
-// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = g_{j-1}(r_{j-1}). By convention, g_0 is a constant polynomial equal to the claimed sum.
+// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
@@ -207,27 +210,19 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
 	}
 
+	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]small_rational.SmallRational, degGJ)
-
-	parallel := len(EVal) >= 1024 //TODO: Experiment with threshold
-
-	var gateInput [][]small_rational.SmallRational
-
-	if parallel {
-		gateInput = [][]small_rational.SmallRational{c.manager.memPool.Make(len(c.inputPreprocessors)),
-			c.manager.memPool.Make(len(c.inputPreprocessors))}
-	} else {
-		gateInput = [][]small_rational.SmallRational{c.manager.memPool.Make(len(c.inputPreprocessors))}
-	}
-
-	var wg sync.WaitGroup
+	results := safeStack{slice: make([]small_rational.SmallRational, 0, runtime.NumCPU())} //assuming parallel.Execute spins off at most NumCpu many goroutines
 
 	for d := 0; d < degGJ; d++ {
 
 		notLastIteration := d+1 < degGJ
 
-		sumOverI := func(res *small_rational.SmallRational, gateInput []small_rational.SmallRational, start, end int) {
+		parallel.Execute(len(EVal), func(start, end int) {
+			var jobRes, gJAtDI small_rational.SmallRational
+			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+
 			for i := start; i < end; i++ {
 
 				for inputI := range puVal {
@@ -238,32 +233,28 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 				}
 
 				// gJAtDI = gJ(d, i...)
-				gJAtDI := c.wire.Gate.Evaluate(gateInput...)
+				gJAtDI = c.wire.Gate.Evaluate(gateInput...)
 				gJAtDI.Mul(&gJAtDI, &EVal[i])
 
-				res.Add(res, &gJAtDI)
+				jobRes.Add(&jobRes, &gJAtDI)
 
 				if notLastIteration {
 					EVal[i].Add(&EVal[i], &EStep[i])
 				}
 			}
-			wg.Done()
+
+			results.push(jobRes)
+			c.manager.memPool.Dump(gateInput)
+		})
+
+		for i := range results.slice {
+			gJ[d].Add(&gJ[d], &results.slice[i])
 		}
 
-		if parallel {
-			var firstHalf, secondHalf small_rational.SmallRational
-			wg.Add(2)
-			go sumOverI(&secondHalf, gateInput[1], len(EVal)/2, len(EVal))
-			go sumOverI(&firstHalf, gateInput[0], 0, len(EVal)/2)
-			wg.Wait()
-			gJ[d].Add(&firstHalf, &secondHalf)
-		} else {
-			wg.Add(1) // formalities
-			sumOverI(&gJ[d], gateInput[0], 0, len(EVal))
-		}
+		results.slice = results.slice[:0]
+
 	}
 
-	c.manager.memPool.Dump(gateInput...)
 	c.manager.memPool.Dump(EVal, EStep)
 
 	for inputI := range puVal {
@@ -771,4 +762,38 @@ func (a WireAssignment) NumVars() int {
 		return aW.NumVars()
 	}
 	panic("empty assignment")
+}
+
+// SerializeToBigInts flattens a proof object into the given slice of big.Ints
+// useful in gnark hints. TODO: Change propagation: Once this is merged, it will duplicate some code in std/gkr/bn254Prover.go. Remove that in favor of this
+func (p Proof) SerializeToBigInts(outs []*big.Int) {
+	offset := 0
+	for i := range p {
+		for _, poly := range p[i].PartialSumPolys {
+			frToBigInts(outs[offset:], poly)
+			offset += len(poly)
+		}
+		if p[i].FinalEvalProof != nil {
+			finalEvalProof := p[i].FinalEvalProof.([]small_rational.SmallRational)
+			frToBigInts(outs[offset:], finalEvalProof)
+			offset += len(finalEvalProof)
+		}
+	}
+}
+
+func frToBigInts(dst []*big.Int, src []small_rational.SmallRational) {
+	for i := range src {
+		src[i].BigInt(dst[i])
+	}
+}
+
+type safeStack struct {
+	writeLock sync.Mutex
+	slice     []small_rational.SmallRational
+}
+
+func (s *safeStack) push(x small_rational.SmallRational) {
+	s.writeLock.Lock()
+	s.slice = append(s.slice, x)
+	s.writeLock.Unlock()
 }

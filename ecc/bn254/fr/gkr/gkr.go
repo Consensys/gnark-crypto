@@ -216,14 +216,15 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	results := safeStack{slice: make([]fr.Element, 0, runtime.NumCPU())} //assuming parallel.Execute spins off at most NumCpu many goroutines
 
 	for d := 0; d < degGJ; d++ {
+
 		notLastIteration := d+1 < degGJ
-		res := &gJ[d]
 
 		parallel.Execute(len(EVal), func(start, end int) {
-
-			var jobRes, iterationRes fr.Element
+			var jobRes, gJAtDI fr.Element
 			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
+
 			for i := start; i < end; i++ {
+
 				for inputI := range puVal {
 					gateInput[inputI].Set(&puVal[inputI][i])
 					if notLastIteration {
@@ -232,9 +233,10 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 				}
 
 				// gJAtDI = gJ(d, i...)
-				iterationRes = c.wire.Gate.Evaluate(gateInput...)
-				iterationRes.Mul(&iterationRes, &EVal[i])
-				jobRes.Add(&jobRes, &iterationRes)
+				gJAtDI = c.wire.Gate.Evaluate(gateInput...)
+				gJAtDI.Mul(&gJAtDI, &EVal[i])
+
+				jobRes.Add(&jobRes, &gJAtDI)
 
 				if notLastIteration {
 					EVal[i].Add(&EVal[i], &EStep[i])
@@ -246,9 +248,10 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		})
 
 		for i := range results.slice {
-			res.Add(res, &results.slice[i])
+			gJ[d].Add(&gJ[d], &results.slice[i])
 		}
-		results.slice = results.slice[:]
+
+		results.slice = results.slice[:0]
 
 	}
 
@@ -701,7 +704,7 @@ func statusList(c Circuit) []int {
 // topologicalSort sorts the wires in order of dependence. Such that for any wire, any one it depends on
 // occurs before it. It tries to stick to the input order as much as possible. An already sorted list will remain unchanged.
 // It also sets the nbOutput flags, and a dummy IdentityGate for input wires.
-// Worst-case inefficient O(n²), but that probably won't matter since the circuits are small.
+// Worst-case inefficient O(n^2), but that probably won't matter since the circuits are small.
 // Furthermore, it is efficient with already-close-to-sorted lists, which are the expected input
 func topologicalSort(c Circuit) []*Wire {
 	var data topSortData
