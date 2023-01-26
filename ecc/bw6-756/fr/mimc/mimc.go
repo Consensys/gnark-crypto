@@ -17,7 +17,6 @@
 package mimc
 
 import (
-	"errors"
 	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
@@ -42,7 +41,7 @@ var (
 // along with the params of the mimc function
 type digest struct {
 	h    fr.Element
-	data []byte // data to hash
+	data []fr.Element // data to hash
 }
 
 // GetConstants exposed to be used in gnark
@@ -92,29 +91,14 @@ func (d *digest) BlockSize() int {
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
-//
-// Each []byte block of size BlockSize represents a big endian fr.Element.
-//
-// If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
-// larger than fr.Modulus, this function returns an error.
-//
-// To hash arbitrary data ([]byte not representing canonical field elements) use Decompose
-// function in this package.
-func (d *digest) Write(p []byte) (n int, err error) {
-	n = len(p)
-	if n%BlockSize != 0 {
-		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+// p represents a big endian fr.Element. For non-field-elements strings use WriteString
+func (d *digest) Write(p []byte) (int, error) {
+	if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p)); err == nil {
+		d.data = append(d.data, elem)
+		return BlockSize, nil
+	} else {
+		return 0, err
 	}
-
-	// ensure each block represents a field element in canonical reduced form
-	for i := 0; i < n; i += BlockSize {
-		if _, err = fr.BigEndian.Element((*[BlockSize]byte)(p[i : i+BlockSize])); err != nil {
-			return 0, err
-		}
-	}
-
-	d.data = append(d.data, p...)
-	return
 }
 
 // Hash hash using Miyaguchi-Preneel:
@@ -124,14 +108,14 @@ func (d *digest) checksum() fr.Element {
 	// Write guarantees len(data) % BlockSize == 0
 
 	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
-	if len(d.data) == 0 {
+	// TODO: @Tabaie, @Thomas Piellard Now sure what to make of this
+	/*if len(d.data) == 0 {
 		d.data = make([]byte, BlockSize)
-	}
+	}*/
 
-	for i := 0; i < len(d.data); i += BlockSize {
-		x, _ := fr.BigEndian.Element((*[BlockSize]byte)(d.data[i : i+BlockSize]))
-		r := d.encrypt(x)
-		d.h.Add(&r, &d.h).Add(&d.h, &x)
+	for i := range d.data {
+		r := d.encrypt(d.data[i])
+		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
 
 	return d.h
@@ -184,13 +168,10 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *digest) WriteString(rawBytes []byte) error {
-	asElems := Decompose(rawBytes)
-	for i := range asElems {
-		b := asElems[i].Bytes()
-		if _, err := d.Write(b[:]); err != nil {
-			return err
-		}
+func (d *digest) WriteString(rawBytes []byte) {
+	if elems, err := fr.Hash(rawBytes, []byte("bn254_mimc_sha256"), 1); err != nil {
+		panic(err)
+	} else {
+		d.data = append(d.data, elems[0])
 	}
-	return nil
 }

@@ -164,7 +164,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	copy(dataToHash[2*sizeFr:], resAX[:])
 	copy(dataToHash[3*sizeFr:], resAY[:])
 	hFunc.Reset()
-	if arithHFunc, ok := hFunc.(gcHash.HashToField); ok {
+	if arithHFunc, ok := hFunc.(gcHash.ToField); ok {
 		err := arithHFunc.WriteString(dataToHash[:])
 		if err != nil {
 			return nil, err
@@ -228,7 +228,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	copy(dataToHash[2*sizeFr:], sigAX[:])
 	copy(dataToHash[3*sizeFr:], sigAY[:])
 	hFunc.Reset()
-	if arithHFunc, ok := hFunc.(gcHash.HashToField); ok {
+	if arithHFunc, ok := hFunc.(gcHash.ToField); ok {
 		err := arithHFunc.WriteString(dataToHash[:])
 		if err != nil {
 			return false, err
