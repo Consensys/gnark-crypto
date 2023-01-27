@@ -203,7 +203,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		}
 		s.Mul(r, scalar)
 
-		m := new(big.Int)
+		var m *big.Int
 		if hFunc != nil {
 			// compute the hash of the message as an integer
 			dataToHash := make([]byte, len(message))
@@ -253,7 +253,7 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 
 	sInv := new(big.Int).ModInverse(s, order)
 
-	m := new(big.Int)
+	var m *big.Int
 	if hFunc != nil {
 		// compute the hash of the message as an integer
 		dataToHash := make([]byte, len(message))
