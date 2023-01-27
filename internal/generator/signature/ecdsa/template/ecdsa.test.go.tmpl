@@ -1,0 +1,72 @@
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+func TestECDSA(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[{{ toUpper .Name }}] test the signing and verification", prop.ForAll(
+		func() bool {
+
+            privKey, _ := GenerateKey(rand.Reader)
+			publicKey := privKey.PublicKey
+
+			msg := []byte("testing ECDSA")
+			hFunc := sha256.New()
+			sig, _ := privKey.Sign(msg, hFunc)
+			flag, _ := publicKey.Verify(sig, msg, hFunc)
+
+			return flag
+		},
+	))
+
+	properties.Property("[{{ toUpper .Name }}] test the signing and verification (pre-hashed)", prop.ForAll(
+		func() bool {
+
+			privKey, _ := GenerateKey(rand.Reader)
+			publicKey := privKey.PublicKey
+
+			msg := []byte("testing ECDSA")
+			sig, _ := privKey.Sign(msg, nil)
+			flag, _ := publicKey.Verify(sig, msg, nil)
+
+			return flag
+		},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+// ------------------------------------------------------------
+// benches
+
+func BenchmarkSignECDSA(b *testing.B) {
+
+	privKey, _ := GenerateKey(rand.Reader)
+
+	msg := []byte("benchmarking ECDSA sign()")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		privKey.Sign(msg, nil)
+	}
+}
+
+func BenchmarkVerifyECDSA(b *testing.B) {
+
+	privKey, _ := GenerateKey(rand.Reader)
+	msg := []byte("benchmarking ECDSA sign()")
+	sig, _ := privKey.Sign(msg, nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		privKey.PublicKey.Verify(sig, msg, nil)
+	}
+}
