@@ -22,11 +22,6 @@ func worker(jobs <-chan job) {
 	}
 }
 
-/*type Work struct {
-	NbIterations int
-	Task Task
-}*/
-
 type WorkerPool struct {
 	jobs      chan job
 	nbWorkers int
@@ -80,6 +75,8 @@ func (p *WorkerPool) Dispatch(nbIterations int, minJobSize int, tasks ...Task) *
 		if firstTaskEnd == nbIterations { // if we've exhausted the current task
 			tasks = tasks[1:]
 			firstTaskStart = 0
+		} else {
+			firstTaskStart = firstTaskEnd
 		}
 	}
 

@@ -63,6 +63,16 @@ func (w Wire) noProof() bool {
 	return w.IsInput() && w.NbClaims() == 1
 }
 
+func (c Circuit) maxGateDegree() int {
+	res := 1
+	for i := range c {
+		if !c[i].IsInput() {
+			res = utils.Max(res, c[i].Gate.Degree())
+		}
+	}
+	return res
+}
+
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
 type WireAssignment map[*Wire]polynomial.MultiLin
 
@@ -204,7 +214,7 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 		}
 	}
 
-	w.Dispatch(nbOuter, 1, collectInitialLayer).Wait()
+	w.Dispatch(nbOuter, 1024, collectInitialLayer).Wait()
 
 	multiply := func(start, end int) {
 		for d := 1; d < D; d++ {
@@ -267,7 +277,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		tasks[d] = computeGjdPartial(d)
 	}
 
-	c.manager.workerPool.Dispatch(nbInstances, 1, tasks...).Wait()
+	c.manager.workerPool.Dispatch(nbInstances, 1024, tasks...).Wait()
 	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
@@ -419,7 +429,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	}
 
 	if o.pool == nil {
-		pool := polynomial.NewPool(1<<11, nbInstances)
+		pool := polynomial.NewPool(1<<11, nbInstances, nbInstances*(c.maxGateDegree()+1))
 		o.pool = &pool
 	}
 

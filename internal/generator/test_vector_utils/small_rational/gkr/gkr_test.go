@@ -36,6 +36,38 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]small_rational.SmallR
 	assert.NotNil(t, err, "bad proof accepted")
 }
 
+func TestSingleMulGate(t *testing.T) {
+	testManyInstances(t, 2, testSingleMulGate)
+}
+
+func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]small_rational.SmallRational)) {
+	fullAssignments := make([][]small_rational.SmallRational, numInput)
+	maxSize := 1 << 2
+
+	t.Log("Entered test orchestrator, assigning and randomizing inputs")
+
+	for i := range fullAssignments {
+		fullAssignments[i] = make([]small_rational.SmallRational, maxSize)
+		setRandom(fullAssignments[i])
+	}
+
+	inputAssignments := make([][]small_rational.SmallRational, numInput)
+	for numEvals := maxSize; numEvals <= maxSize; numEvals *= 2 {
+		for i, fullAssignment := range fullAssignments {
+			inputAssignments[i] = fullAssignment[:numEvals]
+		}
+
+		t.Log("Selected inputs for test")
+		test(t, inputAssignments...)
+	}
+}
+
+func setRandom(slice []small_rational.SmallRational) {
+	for i := range slice {
+		slice[i].SetUint64(uint64(i))
+	}
+}
+
 type mulGate struct{}
 
 func (g mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
