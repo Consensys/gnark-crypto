@@ -22,7 +22,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
 	"strconv"
@@ -211,7 +210,7 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 			for i := start; i < end; i++ {
 				offset := nbInner * i
 				for j := 0; j < nbInner; j++ {
-					res[i][offset+j].Add(&res[i-1][offset+j], &step[offset+j])
+					res[d][offset+j].Add(&res[d-1][offset+j], &step[offset+j])
 				}
 			}
 		}
@@ -223,36 +222,9 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 	return res
 }
 
-// computeValAndStepNTransposed does the same as computeValAndStep except for many inputs and transposes the results
-// the Polynomial output type is a mere convenience, so that the Add method can be used
-func computeValAndStepNTransposed(s []polynomial.MultiLin, p *polynomial.Pool) (val, step polynomial.Polynomial) {
-	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
-	nbOuter := len(s[0]) / 2
-	size := nbInner * nbOuter
-
-	val = p.Make(size)
-	step = p.Make(size)
-
-	for i := 0; i < nbOuter; i++ {
-		offset := nbInner * i
-		for j := 0; j < nbInner; j++ {
-			val[offset+j].Set(&s[j][nbOuter+i])
-			step[offset+j].Sub(&s[j][nbOuter+i], &s[j][i])
-		}
-	}
-
-	return
-}
-
-// computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
-func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomial.MultiLin, step polynomial.MultiLin) {
-	val = p.Clone(m[len(m)/2:])
-	step = p.Clone(m[:len(m)/2])
-
-	valAsPoly, stepAsPoly := polynomial.Polynomial(val), polynomial.Polynomial(step)
-
-	stepAsPoly.Sub(valAsPoly, stepAsPoly)
-	return
+type computeGjResult struct {
+	sum fr.Element
+	d   int
 }
 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
@@ -260,44 +232,50 @@ func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomia
 // The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
-	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	EVal, EStep := computeValAndStep(c.eq, c.manager.memPool)
-
-	puVal, puStep := computeValAndStepNTransposed(c.inputPreprocessors, c.manager.memPool)
+	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
+	nbInstances := len(c.eq) / 2
 	nbGateIn := len(c.inputPreprocessors)
 
-	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
-	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
-	gJ = make([]fr.Element, degGJ)
-	gJAtD := c.manager.memPool.Make(len(EVal))
+	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
+	operandsPreExtrapolation := make([]polynomial.MultiLin, nbGateIn+1)
+	operandsPreExtrapolation[0] = c.eq
+	copy(operandsPreExtrapolation[1:], c.inputPreprocessors)
+	operands := collateExtrapolate(operandsPreExtrapolation, degGJ, &c.manager.workerPool, c.manager.memPool)
 
-	for d := 0; d < degGJ; d++ {
-
-		parallel.Execute(len(EVal), func(start, end int) {
+	results := make(chan computeGjResult, 100) // TODO Experiment with capacity
+	computeGjdPartial := func(d int) utils.Task {
+		return func(start, end int) {
+			var res computeGjResult
+			res.d = d
+			opsStart := start * (nbGateIn + 1)
 			for i := start; i < end; i++ {
-				inputStart := i * nbGateIn
-				gateInput := puVal[inputStart : inputStart+nbGateIn]
-				gJAtD[i] = c.wire.Gate.Evaluate(gateInput...)
-				gJAtD[i].Mul(&gJAtD[i], &EVal[i])
+				opsEnd := opsStart + nbGateIn + 1
+
+				summand := c.wire.Gate.Evaluate(operands[d][opsStart+1 : opsEnd]...)
+				summand.Mul(&summand, &operands[d][opsStart])
+				res.sum.Add(&res.sum, &summand)
+
+				opsStart = opsEnd
 			}
-		})
-
-		if d+1 < degGJ {
-			puVal.Add(puVal, puStep)
-			EVal.Add(EVal, EStep)
-			//addWorkSize := len(puVal) + len(EVal)
-			//jobSize := utils.DivCeiling()
-
+			results <- res
 		}
-
-		for i := range gJAtD {
-			gJ[d].Add(&gJ[d], &gJAtD[i])
-		}
-
 	}
 
-	c.manager.memPool.Dump(gJAtD)
-	c.manager.memPool.Dump(EVal, EStep, puVal, puStep)
+	tasks := make([]utils.Task, degGJ)
+	for d := range tasks {
+		tasks[d] = computeGjdPartial(d)
+	}
+
+	c.manager.workerPool.Dispatch(nbInstances, 1, tasks...).Wait()
+	close(results)
+
+	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
+	gJ = make([]fr.Element, degGJ)
+	for res := range results {
+		gJ[res.d].Add(&gJ[res.d], &res.sum)
+	}
+
+	c.manager.memPool.Dump(operands...)
 
 	return
 }
