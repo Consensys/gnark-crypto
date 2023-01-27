@@ -182,45 +182,6 @@ func TestEddsaSHA256(t *testing.T) {
 
 }
 
-func TestEddsaPreHashed(t *testing.T) {
-
-	src := rand.NewSource(0)
-	r := rand.New(src)
-
-	// create eddsa obj and sign a message
-	// create eddsa obj and sign a message
-
-	privKey, err := GenerateKey(r)
-	pubKey := privKey.PublicKey
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	signature, err := privKey.Sign([]byte("message"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// verifies correct msg
-	res, err := pubKey.Verify(signature, []byte("message"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !res {
-		t.Fatal("Verifiy correct signature should return true")
-	}
-
-	// verifies wrong msg
-	res, err = pubKey.Verify(signature, []byte("wrong_message"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res {
-		t.Fatal("Verfiy wrong signature should be false")
-	}
-
-}
-
 // benchmarks
 
 func BenchmarkVerify(b *testing.B) {
