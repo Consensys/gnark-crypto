@@ -22,9 +22,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
-	"runtime"
 	"strconv"
 	"sync"
 )
@@ -184,15 +183,49 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
-// computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
-func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomial.MultiLin, step polynomial.MultiLin) {
-	val = p.Clone(m[len(m)/2:])
-	step = p.Clone(m[:len(m)/2])
+func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *polynomial.Pool) [][]fr.Element {
+	res := make([][]fr.Element, D)
+	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
+	nbOuter := len(s[0]) / 2
+	size := nbInner * nbOuter
 
-	valAsPoly, stepAsPoly := polynomial.Polynomial(val), polynomial.Polynomial(step)
+	for d := range res {
+		res[d] = p.Make(size)
+	}
 
-	stepAsPoly.Sub(valAsPoly, stepAsPoly)
-	return
+	step := p.Make(size)
+	collectInitialLayer := func(start, end int) {
+		for i := start; i < end; i++ {
+			offset := nbInner * i
+			for j := 0; j < nbInner; j++ {
+				res[0][offset+j].Set(&s[j][nbOuter+i])
+				step[offset+j].Sub(&s[j][nbOuter+i], &s[j][i])
+			}
+		}
+	}
+
+	w.Dispatch(nbOuter, 1, collectInitialLayer).Wait()
+
+	multiply := func(start, end int) {
+		for d := 1; d < D; d++ {
+			for i := start; i < end; i++ {
+				offset := nbInner * i
+				for j := 0; j < nbInner; j++ {
+					res[d][offset+j].Add(&res[d-1][offset+j], &step[offset+j])
+				}
+			}
+		}
+	}
+
+	w.Dispatch(nbOuter, 1, multiply).Wait() // TODO: Increase minimum job size
+
+	p.Dump(step)
+	return res
+}
+
+type computeGjResult struct {
+	sum fr.Element
+	d   int
 }
 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
@@ -200,66 +233,50 @@ func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomia
 // The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
 func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
+	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
+	nbInstances := len(c.eq) / 2
+	nbGateIn := len(c.inputPreprocessors)
+
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	EVal, EStep := computeValAndStep(c.eq, c.manager.memPool)
+	operandsPreExtrapolation := make([]polynomial.MultiLin, nbGateIn+1)
+	operandsPreExtrapolation[0] = c.eq
+	copy(operandsPreExtrapolation[1:], c.inputPreprocessors)
+	operands := collateExtrapolate(operandsPreExtrapolation, degGJ, &c.manager.workerPool, c.manager.memPool)
 
-	puVal := make([]polynomial.MultiLin, len(c.inputPreprocessors))  //TODO: Make a two-dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
-	puStep := make([]polynomial.MultiLin, len(c.inputPreprocessors)) //TODO, ctd: the greater degGJ, the more this would matter
+	results := make(chan computeGjResult, 100) // TODO Experiment with capacity
+	computeGjdPartial := func(d int) utils.Task {
+		return func(start, end int) {
+			var res computeGjResult
+			res.d = d
+			opsStart := start * (nbGateIn + 1)
+			for i := start; i < end; i++ {
+				opsEnd := opsStart + nbGateIn + 1
 
-	for i, puI := range c.inputPreprocessors {
-		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
+				summand := c.wire.Gate.Evaluate(operands[d][opsStart+1 : opsEnd]...)
+				summand.Mul(&summand, &operands[d][opsStart])
+				res.sum.Add(&res.sum, &summand)
+
+				opsStart = opsEnd
+			}
+			results <- res
+		}
 	}
+
+	tasks := make([]utils.Task, degGJ)
+	for d := range tasks {
+		tasks[d] = computeGjdPartial(d)
+	}
+
+	c.manager.workerPool.Dispatch(nbInstances, 1, tasks...).Wait()
+	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
-	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
-	results := safeStack{slice: make([]fr.Element, 0, runtime.NumCPU())} //assuming parallel.Execute spins off at most NumCpu many goroutines
-
-	for d := 0; d < degGJ; d++ {
-
-		notLastIteration := d+1 < degGJ
-
-		parallel.Execute(len(EVal), func(start, end int) {
-			var jobRes, gJAtDI fr.Element
-			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
-
-			for i := start; i < end; i++ {
-
-				for inputI := range puVal {
-					gateInput[inputI].Set(&puVal[inputI][i])
-					if notLastIteration {
-						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
-					}
-				}
-
-				// gJAtDI = gJ(d, i...)
-				gJAtDI = c.wire.Gate.Evaluate(gateInput...)
-				gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-				jobRes.Add(&jobRes, &gJAtDI)
-
-				if notLastIteration {
-					EVal[i].Add(&EVal[i], &EStep[i])
-				}
-			}
-
-			results.push(jobRes)
-			c.manager.memPool.Dump(gateInput)
-		})
-
-		for i := range results.slice {
-			gJ[d].Add(&gJ[d], &results.slice[i])
-		}
-
-		results.slice = results.slice[:0]
-
+	for res := range results {
+		gJ[res.d].Add(&gJ[res.d], &res.sum)
 	}
 
-	c.manager.memPool.Dump(EVal, EStep)
-
-	for inputI := range puVal {
-		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
-	}
+	c.manager.memPool.Dump(operands...)
 
 	return
 }
@@ -308,12 +325,14 @@ type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
 	memPool    *polynomial.Pool
+	workerPool utils.WorkerPool
 }
 
 func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
 	claims.memPool = pool
+	claims.workerPool = utils.NewWorkerPool()
 
 	for i := range c {
 		wire := &c[i]
@@ -438,13 +457,6 @@ func ProofSize(c Circuit, logNbInstances int) int {
 	return nbUniqueInputs + nbPartialEvalPolys*logNbInstances
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string {
 
 	// Pre-compute the size TODO: Consider not doing this and just grow the list by appending
@@ -460,7 +472,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		size += logNbInstances // full run of sumcheck on logNbInstances variables
 	}
 
-	nums := make([]string, max(len(sorted), logNbInstances))
+	nums := make([]string, utils.Max(len(sorted), logNbInstances))
 	for i := range nums {
 		nums[i] = strconv.Itoa(i)
 	}
