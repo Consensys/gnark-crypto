@@ -25,9 +25,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
-	"runtime"
 	"strconv"
-	"sync"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
@@ -185,6 +183,67 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
+func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *polynomial.Pool) [][]fr.Element {
+	res := make([][]fr.Element, D)
+	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
+	nbOuter := len(s[0]) / 2
+	size := nbInner * nbOuter
+
+	for d := range res {
+		res[d] = p.Make(size)
+	}
+
+	step := p.Make(size)
+	collectInitialLayer := func(start, end int) {
+		for i := start; i < end; i++ {
+			offset := nbInner * i
+			for j := 0; j < nbInner; j++ {
+				res[0][offset+j].Set(&s[j][nbOuter+i])
+				step[offset+j].Sub(&s[j][nbOuter+i], &s[j][i])
+			}
+		}
+	}
+
+	w.Dispatch(nbOuter, 1, collectInitialLayer).Wait()
+
+	multiply := func(start, end int) {
+		for d := 1; d < D; d++ {
+			for i := start; i < end; i++ {
+				offset := nbInner * i
+				for j := 0; j < nbInner; j++ {
+					res[i][offset+j].Add(&res[i-1][offset+j], &step[offset+j])
+				}
+			}
+		}
+	}
+
+	w.Dispatch(nbOuter, 1, multiply).Wait() // TODO: Increase minimum job size
+
+	p.Dump(step)
+	return res
+}
+
+// computeValAndStepNTransposed does the same as computeValAndStep except for many inputs and transposes the results
+// the Polynomial output type is a mere convenience, so that the Add method can be used
+func computeValAndStepNTransposed(s []polynomial.MultiLin, p *polynomial.Pool) (val, step polynomial.Polynomial) {
+	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
+	nbOuter := len(s[0]) / 2
+	size := nbInner * nbOuter
+
+	val = p.Make(size)
+	step = p.Make(size)
+
+	for i := 0; i < nbOuter; i++ {
+		offset := nbInner * i
+		for j := 0; j < nbInner; j++ {
+			val[offset+j].Set(&s[j][nbOuter+i])
+			step[offset+j].Sub(&s[j][nbOuter+i], &s[j][i])
+		}
+	}
+
+	return
+}
+
 // computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
 func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomial.MultiLin, step polynomial.MultiLin) {
 	val = p.Clone(m[len(m)/2:])
@@ -204,63 +263,41 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
 	EVal, EStep := computeValAndStep(c.eq, c.manager.memPool)
 
-	puVal := make([]polynomial.MultiLin, len(c.inputPreprocessors))  //TODO: Make a two-dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
-	puStep := make([]polynomial.MultiLin, len(c.inputPreprocessors)) //TODO, ctd: the greater degGJ, the more this would matter
-
-	for i, puI := range c.inputPreprocessors {
-		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
-	}
+	puVal, puStep := computeValAndStepNTransposed(c.inputPreprocessors, c.manager.memPool)
+	nbGateIn := len(c.inputPreprocessors)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
 	gJ = make([]fr.Element, degGJ)
-	results := safeStack{slice: make([]fr.Element, 0, runtime.NumCPU())} //assuming parallel.Execute spins off at most NumCpu many goroutines
+	gJAtD := c.manager.memPool.Make(len(EVal))
 
 	for d := 0; d < degGJ; d++ {
 
-		notLastIteration := d+1 < degGJ
-
 		parallel.Execute(len(EVal), func(start, end int) {
-			var jobRes, gJAtDI fr.Element
-			gateInput := c.manager.memPool.Make(len(c.inputPreprocessors))
-
 			for i := start; i < end; i++ {
-
-				for inputI := range puVal {
-					gateInput[inputI].Set(&puVal[inputI][i])
-					if notLastIteration {
-						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
-					}
-				}
-
-				// gJAtDI = gJ(d, i...)
-				gJAtDI = c.wire.Gate.Evaluate(gateInput...)
-				gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-				jobRes.Add(&jobRes, &gJAtDI)
-
-				if notLastIteration {
-					EVal[i].Add(&EVal[i], &EStep[i])
-				}
+				inputStart := i * nbGateIn
+				gateInput := puVal[inputStart : inputStart+nbGateIn]
+				gJAtD[i] = c.wire.Gate.Evaluate(gateInput...)
+				gJAtD[i].Mul(&gJAtD[i], &EVal[i])
 			}
-
-			results.push(jobRes)
-			c.manager.memPool.Dump(gateInput)
 		})
 
-		for i := range results.slice {
-			gJ[d].Add(&gJ[d], &results.slice[i])
+		if d+1 < degGJ {
+			puVal.Add(puVal, puStep)
+			EVal.Add(EVal, EStep)
+			//addWorkSize := len(puVal) + len(EVal)
+			//jobSize := utils.DivCeiling()
+
 		}
 
-		results.slice = results.slice[:0]
+		for i := range gJAtD {
+			gJ[d].Add(&gJ[d], &gJAtD[i])
+		}
 
 	}
 
-	c.manager.memPool.Dump(EVal, EStep)
-
-	for inputI := range puVal {
-		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
-	}
+	c.manager.memPool.Dump(gJAtD)
+	c.manager.memPool.Dump(EVal, EStep, puVal, puStep)
 
 	return
 }
@@ -781,15 +818,4 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	for i := range src {
 		src[i].BigInt(dst[i])
 	}
-}
-
-type safeStack struct {
-	writeLock sync.Mutex
-	slice     []fr.Element
-}
-
-func (s *safeStack) push(x fr.Element) {
-	s.writeLock.Lock()
-	s.slice = append(s.slice, x)
-	s.writeLock.Unlock()
 }
