@@ -13,7 +13,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
-	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
@@ -25,6 +24,8 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/signature/ecdsa"
+	"github.com/consensys/gnark-crypto/internal/generator/signature/schnorr"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
@@ -68,8 +69,11 @@ func main() {
 				ElementType:      "fr.Element",
 			}
 
-			// generate ecdsa
-			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
+			// generate ecdsa signature
+			assertNoError(ecdsa.Generate(conf, filepath.Join(curveDir, "signature"), bgen))
+
+			// generate schnorr signature
+			assertNoError(schnorr.Generate(conf, filepath.Join(curveDir, "signature"), bgen))
 
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
