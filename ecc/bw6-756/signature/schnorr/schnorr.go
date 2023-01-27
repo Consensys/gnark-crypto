@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
+	"errors"
 	"hash"
 	"io"
 	"math/big"
@@ -32,6 +33,8 @@ import (
 	utils "github.com/consensys/gnark-crypto/ecc/bw6-756/signature"
 	"github.com/consensys/gnark-crypto/signature"
 )
+
+var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir.")
 
 const (
 	sizeFr         = fr.Bytes
@@ -176,6 +179,13 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 // s = k - x ⋅ r
 // signature = {r, s}
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
+
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return nil, errHashNeeded
+	}
+
 	scalar, r, s := new(big.Int), new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
 	csprng, err := nonce(privKey, message)
@@ -190,26 +200,22 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	var P bw6756.G1Affine
 	P.ScalarMultiplicationBase(k)
 
-	if hFunc != nil {
-		// compute H(R, M), all parameters in data are in Montgomery form
-		PX := P.X.Bytes()
-		PY := P.Y.Bytes()
-		sizeDataToHash := 2*sizeFp + len(message)
-		dataToHash := make([]byte, sizeDataToHash)
-		copy(dataToHash[:], PX[:])
-		copy(dataToHash[sizeFp:], PY[:])
-		copy(dataToHash[2*sizeFp:], message)
-		hFunc.Reset()
-		_, err = hFunc.Write(dataToHash[:])
-		if err != nil {
-			return nil, err
-		}
-
-		hramBin := hFunc.Sum(nil)
-		r = utils.HashToInt(hramBin)
-	} else {
-		r = utils.HashToInt(message)
+	// compute H(R, M), all parameters in data are in Montgomery form
+	PX := P.X.Bytes()
+	PY := P.Y.Bytes()
+	sizeDataToHash := 2*sizeFp + len(message)
+	dataToHash := make([]byte, sizeDataToHash)
+	copy(dataToHash[:], PX[:])
+	copy(dataToHash[sizeFp:], PY[:])
+	copy(dataToHash[2*sizeFp:], message)
+	hFunc.Reset()
+	_, err = hFunc.Write(dataToHash[:])
+	if err != nil {
+		return nil, err
 	}
+
+	hramBin := hFunc.Sum(nil)
+	r = utils.HashToInt(hramBin)
 
 	s.Mul(scalar, r)
 	s.Sub(k, s).
@@ -228,6 +234,12 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 // H ( R || m ) ?= r
 func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return false, errHashNeeded
+	}
+
 	// Deserialize the signature
 	var sig Signature
 	if _, err := sig.SetBytes(sigBin); err != nil {
@@ -243,26 +255,22 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 	var _P bw6756.G1Affine
 	_P.FromJacobian(&P)
 
-	if hFunc != nil {
-		// compute H(R, M), all parameters in data are in Montgomery form
-		PX := _P.X.Bytes()
-		PY := _P.Y.Bytes()
-		sizeDataToHash := 2*sizeFp + len(message)
-		dataToHash := make([]byte, sizeDataToHash)
-		copy(dataToHash[:], PX[:])
-		copy(dataToHash[sizeFp:], PY[:])
-		copy(dataToHash[2*sizeFp:], message)
-		hFunc.Reset()
-		_, err := hFunc.Write(dataToHash[:])
-		if err != nil {
-			return false, err
-		}
-
-		hramBin := hFunc.Sum(nil)
-		e = utils.HashToInt(hramBin)
-	} else {
-		e = utils.HashToInt(message)
+	// compute H(R, M), all parameters in data are in Montgomery form
+	PX := _P.X.Bytes()
+	PY := _P.Y.Bytes()
+	sizeDataToHash := 2*sizeFp + len(message)
+	dataToHash := make([]byte, sizeDataToHash)
+	copy(dataToHash[:], PX[:])
+	copy(dataToHash[sizeFp:], PY[:])
+	copy(dataToHash[2*sizeFp:], message)
+	hFunc.Reset()
+	_, err := hFunc.Write(dataToHash[:])
+	if err != nil {
+		return false, err
 	}
+
+	hramBin := hFunc.Sum(nil)
+	e = utils.HashToInt(hramBin)
 
 	return e.Cmp(r) == 0, nil
 
