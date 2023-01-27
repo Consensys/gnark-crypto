@@ -227,7 +227,7 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 		}
 	}
 
-	w.Dispatch(nbOuter, 1, multiply).Wait() // TODO: Increase minimum job size
+	w.Dispatch(nbOuter, 1024, multiply).Wait() // TODO: Increase minimum job size
 
 	p.Dump(step)
 	return res
@@ -277,7 +277,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		tasks[d] = computeGjdPartial(d)
 	}
 
-	c.manager.workerPool.Dispatch(nbInstances, 1024, tasks...).Wait()
+	c.manager.workerPool.Dispatch(nbInstances, 1, tasks...).Wait()
 	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though

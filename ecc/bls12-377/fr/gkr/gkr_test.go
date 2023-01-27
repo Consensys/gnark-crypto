@@ -31,6 +31,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestNoGateTwoInstances(t *testing.T) {

@@ -47,6 +47,16 @@ func (w Wire) noProof() bool {
 	return w.IsInput() && w.NbClaims() == 1
 }
 
+func (c Circuit) maxGateDegree() int {
+	res := 1
+	for i := range c {
+		if !c[i].IsInput() {
+			res = utils.Max(res, c[i].Gate.Degree())
+		}
+	}
+	return res
+}
+
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
 type WireAssignment map[*Wire]polynomial.MultiLin
 
@@ -188,7 +198,7 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 		}
 	}
 
-	w.Dispatch(nbOuter, 1, collectInitialLayer).Wait()
+	w.Dispatch(nbOuter, 1024, collectInitialLayer).Wait()
 
 	multiply := func(start, end int) {
 		for d := 1; d < D; d++ {
@@ -201,7 +211,7 @@ func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *
 		}
 	}
 
-	w.Dispatch(nbOuter, 1, multiply).Wait() // TODO: Increase minimum job size
+	w.Dispatch(nbOuter, 1024, multiply).Wait() // TODO: Increase minimum job size
 
 	p.Dump(step)
 	return res
@@ -403,7 +413,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	}
 
 	if o.pool == nil {
-		pool := polynomial.NewPool(1<<11, nbInstances)
+		pool := polynomial.NewPool(1<<11, nbInstances, nbInstances*(c.maxGateDegree()+1))
 		o.pool = &pool
 	}
 

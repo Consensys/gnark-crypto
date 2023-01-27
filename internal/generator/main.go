@@ -142,6 +142,24 @@ func main() {
 	}()
 	wg.Wait()
 
+	// format the whole directory
+
+	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
+
+	cmd = exec.Command("asmfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
+
+	//mathfmt doesn't accept directories. TODO: PR pending
+	/*cmd = exec.Command("mathfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())*/
+
 	wg.Add(2)
 	go func() {
 		// generate test vectors for sumcheck
@@ -161,23 +179,6 @@ func main() {
 		wg.Done()
 	}()
 
-	// format the whole directory
-
-	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
-
-	cmd = exec.Command("asmfmt", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
-
-	//mathfmt doesn't accept directories. TODO: PR pending
-	/*cmd = exec.Command("mathfmt", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())*/
 	wg.Wait()
 }
 
