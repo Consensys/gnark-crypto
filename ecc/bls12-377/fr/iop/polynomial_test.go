@@ -126,6 +126,53 @@ func randomVector(size int) []fr.Element {
 	return r
 }
 
+func TestGetCoeff(t *testing.T) {
+
+	size := 8
+	v := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		v[i].SetUint64(uint64(i))
+	}
+	p := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
+	wp := p.WrapMe(0)
+	wsp := p.WrapMe(1)
+
+	var aa, bb fr.Element
+
+	// regular layout
+	for i := 0; i < size; i++ {
+
+		a := wp.GetCoeff(i)
+		b := wsp.GetCoeff(i)
+		aa.SetUint64(uint64(i))
+		bb.SetUint64(uint64((i + 1) % size))
+		if !a.Equal(&aa) {
+			t.Fatal("error GetCoeff")
+		}
+		if !b.Equal(&bb) {
+			t.Fatal("error GetCoeff")
+		}
+	}
+
+	// bit reverse + bitReverse and shifted
+	wp.ToBitreverse(wp)
+	wsp.ToBitreverse(wsp)
+	for i := 0; i < size; i++ {
+
+		a := wp.GetCoeff(i)
+		b := wsp.GetCoeff(i)
+		aa.SetUint64(uint64(i))
+		bb.SetUint64(uint64((i + 1) % size))
+		if !a.Equal(&aa) {
+			t.Fatal("error GetCoeff")
+		}
+		if !b.Equal(&bb) {
+			t.Fatal("error GetCoeff")
+		}
+	}
+
+}
+
 func TestBlinding(t *testing.T) {
 
 	size := 8

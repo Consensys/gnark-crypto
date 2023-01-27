@@ -64,6 +64,14 @@ func buildPoly(size int, form Form) WrappedPolynomial {
 	return WrappedPolynomial{P: &f, Shift: 0, Size: size}
 }
 
+func _buildPoly(size int, form Form) *WrappedPolynomial {
+	var f Polynomial
+	f.Coefficients = make([]fr.Element, size)
+	f.Basis = form.Basis
+	f.Layout = form.Layout
+	return &WrappedPolynomial{P: &f, Shift: 0, Size: size}
+}
+
 func evalCanonical(p Polynomial, x fr.Element) fr.Element {
 
 	var res fr.Element
@@ -72,6 +80,107 @@ func evalCanonical(p Polynomial, x fr.Element) fr.Element {
 		res.Add(&res, &p.Coefficients[i])
 	}
 	return res
+}
+
+func TestDivideByXMinusOne(t *testing.T) {
+
+	f := func(x ...fr.Element) fr.Element {
+		var a, b fr.Element
+		a.Square(&x[0]).Mul(&a, &x[1]).Add(&a, &x[2])
+		b.Square(&x[0]).Mul(&b, &x[0])
+		a.Sub(&a, &b)
+		return a
+	}
+
+	// create the multivariate polynomial h
+	// h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
+	nbEntries := 3
+
+	// create an instance (f_i) where h holds
+	sizeSystem := 8
+
+	form := Form{Basis: Lagrange, Layout: Regular}
+
+	entries := make([]*WrappedPolynomial, nbEntries)
+	entries[0] = _buildPoly(sizeSystem, form)
+	entries[1] = _buildPoly(sizeSystem, form)
+	entries[2] = _buildPoly(sizeSystem, form)
+
+	for i := 0; i < sizeSystem; i++ {
+
+		entries[0].P.Coefficients[i].SetRandom()
+		entries[1].P.Coefficients[i].SetRandom()
+		tmp := computex3(
+			[]fr.Element{entries[0].P.Coefficients[i],
+				entries[1].P.Coefficients[i]})
+		entries[2].P.Coefficients[i].Set(&tmp)
+
+		x := []fr.Element{
+			entries[0].GetCoeff(i),
+			entries[1].GetCoeff(i),
+			entries[2].GetCoeff(i),
+		}
+		a := f(x...)
+		if !a.IsZero() {
+			t.Fatal("system does not vanish on x^n-1")
+		}
+	}
+
+	// compute the quotient where the entries are in Regular layout
+	var domains [2]*fft.Domain
+	domains[0] = fft.NewDomain(uint64(sizeSystem))
+	domains[1] = fft.NewDomain(ecc.NextPowerOfTwo(uint64(3 * sizeSystem)))
+
+	entries[0].ToCanonical(entries[0], domains[0]).
+		ToRegular(entries[0]).
+		ToLagrangeCoset(entries[0], domains[1]).
+		ToRegular(entries[0])
+
+	entries[1].ToCanonical(entries[1], domains[0]).
+		ToRegular(entries[1]).
+		ToLagrangeCoset(entries[1], domains[1]).
+		ToRegular(entries[1])
+
+	entries[2].ToCanonical(entries[2], domains[0]).
+		ToRegular(entries[2]).
+		ToLagrangeCoset(entries[2], domains[1]).
+		ToRegular(entries[2])
+
+	expectedForm := Form{Layout: BitReverse, Basis: LagrangeCoset}
+	h, err := Evaluate(f, expectedForm, entries...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q, err := DivideByXMinusOne(h, domains)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// evaluate the quotient at a random point and check that
+	// the relation holds.
+	var x fr.Element
+	x.SetRandom()
+	qx := q.Evaluate(x)
+	entries[0].ToCanonical(entries[0], domains[1])
+	entries[1].ToCanonical(entries[1], domains[1])
+	entries[2].ToCanonical(entries[2], domains[1])
+	ax := entries[0].Evaluate(x)
+	bx := entries[1].Evaluate(x)
+	cx := entries[2].Evaluate(x)
+	hx := f(ax, bx, cx)
+
+	var xnminusone, one fr.Element
+	one.SetOne()
+	xnminusone.Set(&x).
+		Square(&xnminusone).
+		Square(&xnminusone).
+		Square(&xnminusone).
+		Sub(&xnminusone, &one)
+	qx.Mul(&qx, &xnminusone)
+	if !qx.Equal(&hx) {
+		t.Fatal("error computing quotient")
+	}
 }
 
 func TestQuotient(t *testing.T) {

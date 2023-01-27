@@ -24,6 +24,45 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
 )
 
+// DivideByXMinusOne
+// The input must be in LagrangeCoset.
+// The result is in Canonical Regular.
+func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPolynomial, error) {
+
+	// check that the basis is LagrangeCoset
+	if a.P.Basis != LagrangeCoset {
+		return nil, ErrMustBeLagrangeCoset
+	}
+
+	// prepare the evaluations of x^n-1 on the big domain's coset
+	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
+
+	rho := len(a.P.Coefficients) / a.Size
+
+	nbElmts := len(a.P.Coefficients)
+
+	var p Polynomial
+	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
+	p.Coefficients = make([]fr.Element, len(a.P.Coefficients))
+	res := p.WrapMe(0)
+	res.Size = a.Size
+	res.BlindedSize = a.BlindedSize
+
+	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
+	for i := 0; i < len(a.P.Coefficients); i++ {
+
+		iRev := bits.Reverse64(uint64(i)) >> nn
+		c := a.GetCoeff(i)
+		res.P.Coefficients[iRev].
+			Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
+	}
+
+	res.ToCanonical(res, domains[1])
+
+	return res, nil
+
+}
+
 // ComputeQuotient computes h(entries)/X^n-1
 // * entries polynomials to on which h is evaluated, they must be in LagrangeCoset basis
 // with the same layout

@@ -152,7 +152,6 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 
 // Evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
-// TODO should we throw an error if the basis is not canonical ?
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
@@ -176,6 +175,8 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
 }
 
+// Evaluate evaluates p at x.
+// The code panics if the function is not in canonical form.
 func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 
 	if wp.Shift == 0 {
@@ -218,6 +219,21 @@ func (wp *WrappedPolynomial) WrapMe(shift int) *WrappedPolynomial {
 	res.Size = wp.Size
 	res.BlindedSize = wp.Size
 	return &res
+}
+
+// GetCoeff returns the i-th entry of wp, taking the layout in account.
+func (wp *WrappedPolynomial) GetCoeff(i int) fr.Element {
+
+	n := len(wp.P.Coefficients)
+	rho := n / wp.Size
+	if wp.P.Form.Layout == Regular {
+		return wp.P.Coefficients[(i+rho*wp.Shift)%n]
+	} else {
+		nn := uint64(64 - bits.TrailingZeros(uint(n)))
+		iRev := bits.Reverse64(uint64((i+rho*wp.Shift)%n)) >> nn
+		return wp.P.Coefficients[iRev]
+	}
+
 }
 
 //----------------------------------------------------
