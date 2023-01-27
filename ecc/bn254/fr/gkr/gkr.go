@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
 	"runtime"
 	"strconv"
@@ -308,12 +309,14 @@ type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
 	memPool    *polynomial.Pool
+	workerPool utils.WorkerPool
 }
 
 func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
 	claims.memPool = pool
+	claims.workerPool = utils.NewWorkerPool()
 
 	for i := range c {
 		wire := &c[i]
@@ -438,13 +441,6 @@ func ProofSize(c Circuit, logNbInstances int) int {
 	return nbUniqueInputs + nbPartialEvalPolys*logNbInstances
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string {
 
 	// Pre-compute the size TODO: Consider not doing this and just grow the list by appending
@@ -460,7 +456,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		size += logNbInstances // full run of sumcheck on logNbInstances variables
 	}
 
-	nums := make([]string, max(len(sorted), logNbInstances))
+	nums := make([]string, utils.Max(len(sorted), logNbInstances))
 	for i := range nums {
 		nums[i] = strconv.Itoa(i)
 	}
