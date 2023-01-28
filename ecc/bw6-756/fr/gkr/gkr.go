@@ -423,6 +423,20 @@ func WithWorkers(workers *utils.WorkerPool) Option {
 	}
 }
 
+// MemoryRequirements returns an increasing vector of memory allocation sizes required for proving a GKR statement
+func (c Circuit) MemoryRequirements(nbInstances int) []int {
+	res := []int{256, nbInstances, nbInstances * (c.maxGateDegree() + 1)}
+
+	if res[0] > res[1] { // make sure it's sorted
+		res[0], res[1] = res[1], res[0]
+		if res[1] > res[2] {
+			res[1], res[2] = res[2], res[1]
+		}
+	}
+
+	return res
+}
+
 func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.Settings, options ...Option) (settings, error) {
 	var o settings
 	var err error
@@ -437,7 +451,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	}
 
 	if o.pool == nil {
-		pool := polynomial.NewPool(1<<11, nbInstances, nbInstances*(c.maxGateDegree()+1))
+		pool := polynomial.NewPool(c.MemoryRequirements(nbInstances)...)
 		o.pool = &pool
 	}
 
