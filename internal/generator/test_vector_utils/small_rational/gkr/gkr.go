@@ -252,7 +252,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 	operandsPreExtrapolation := make([]polynomial.MultiLin, nbGateIn+1)
 	operandsPreExtrapolation[0] = c.eq
 	copy(operandsPreExtrapolation[1:], c.inputPreprocessors)
-	operands := collateExtrapolate(operandsPreExtrapolation, degGJ, &c.manager.workerPool, c.manager.memPool)
+	operands := collateExtrapolate(operandsPreExtrapolation, degGJ, c.manager.workers, c.manager.memPool)
 
 	results := make(chan computeGjResult, 100) // TODO Experiment with capacity
 	computeGjdPartial := func(d int) utils.Task {
@@ -278,7 +278,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		tasks[d] = computeGjdPartial(d)
 	}
 
-	c.manager.workerPool.Dispatch(nbInstances, 1, tasks...).Wait()
+	c.manager.workers.Dispatch(nbInstances, 1, tasks...).Wait()
 	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
@@ -336,14 +336,14 @@ type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
 	memPool    *polynomial.Pool
-	workerPool utils.WorkerPool
+	workers    *utils.WorkerPool
 }
 
-func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
+func newClaimsManager(c Circuit, assignment WireAssignment, o settings) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
-	claims.memPool = pool
-	claims.workerPool = utils.NewWorkerPool()
+	claims.memPool = o.pool
+	claims.workers = o.workers
 
 	for i := range c {
 		wire := &c[i]
@@ -400,6 +400,7 @@ type settings struct {
 	transcript       *fiatshamir.Transcript
 	transcriptPrefix string
 	nbVars           int
+	workers          *utils.WorkerPool
 }
 
 type Option func(*settings)
@@ -413,6 +414,12 @@ func WithPool(pool *polynomial.Pool) Option {
 func WithSortedCircuit(sorted []*Wire) Option {
 	return func(options *settings) {
 		options.sorted = sorted
+	}
+}
+
+func WithWorkers(workers *utils.WorkerPool) Option {
+	return func(options *settings) {
+		options.workers = workers
 	}
 }
 
@@ -432,6 +439,11 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	if o.pool == nil {
 		pool := polynomial.NewPool(1<<11, nbInstances, nbInstances*(c.maxGateDegree()+1))
 		o.pool = &pool
+	}
+
+	if o.workers == nil {
+		workers := utils.NewWorkerPool()
+		o.workers = &workers
 	}
 
 	if o.sorted == nil {
@@ -544,7 +556,7 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 		return nil, err
 	}
 
-	claims := newClaimsManager(c, assignment, o.pool)
+	claims := newClaimsManager(c, assignment, o)
 
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
@@ -599,7 +611,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 		return err
 	}
 
-	claims := newClaimsManager(c, assignment, o.pool)
+	claims := newClaimsManager(c, assignment, o)
 
 	var firstChallenge []small_rational.SmallRational
 	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(o.nbVars, o.transcriptPrefix))
