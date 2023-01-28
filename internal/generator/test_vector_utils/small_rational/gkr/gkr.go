@@ -751,12 +751,25 @@ func TopologicalSort(c Circuit) []*Wire {
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
 	sortedWires := TopologicalSort(c)
+	nbInstances := a.NumInstances()
+	maxNbIns := 0
 
-	parallel.Execute(a.NumInstances(), func(start, end int) {
+	for _, w := range sortedWires {
+		maxNbIns = utils.Max(maxNbIns, len(w.Inputs))
+		if a[w] == nil {
+			a[w] = make([]small_rational.SmallRational, nbInstances)
+		}
+	}
+
+	parallel.Execute(nbInstances, func(start, end int) {
+		ins := make([]small_rational.SmallRational, maxNbIns)
 		for i := start; i < end; i++ {
 			for _, w := range sortedWires {
 				if !w.IsInput() {
-
+					for inI, in := range w.Inputs {
+						ins[inI] = a[in][i]
+					}
+					a[w][i] = w.Gate.Evaluate(ins[:len(w.Inputs)]...)
 				}
 			}
 		}

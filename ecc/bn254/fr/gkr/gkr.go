@@ -752,15 +752,17 @@ func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
 	sortedWires := topologicalSort(c)
 	nbInstances := a.NumInstances()
+	maxNbIns := 0
 
 	for _, w := range sortedWires {
+		maxNbIns = utils.Max(maxNbIns, len(w.Inputs))
 		if a[w] == nil {
 			a[w] = make([]fr.Element, nbInstances)
 		}
 	}
 
 	parallel.Execute(nbInstances, func(start, end int) {
-		ins := make([]fr.Element, c.maxGateDegree())
+		ins := make([]fr.Element, maxNbIns)
 		for i := start; i < end; i++ {
 			for _, w := range sortedWires {
 				if !w.IsInput() {

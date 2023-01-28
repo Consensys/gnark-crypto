@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
 	"strconv"
@@ -750,25 +751,30 @@ func topologicalSort(c Circuit) []*Wire {
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
 	sortedWires := topologicalSort(c)
-
-	numEvaluations := 0
+	nbInstances := a.NumInstances()
+	maxNbIns := 0
 
 	for _, w := range sortedWires {
-		if !w.IsInput() {
-			if numEvaluations == 0 {
-				numEvaluations = len(a[w.Inputs[0]])
-			}
-			evals := make([]fr.Element, numEvaluations)
-			ins := make([]fr.Element, len(w.Inputs))
-			for k := 0; k < numEvaluations; k++ {
-				for inI, in := range w.Inputs {
-					ins[inI] = a[in][k]
-				}
-				evals[k] = w.Gate.Evaluate(ins...)
-			}
-			a[w] = evals
+		maxNbIns = utils.Max(maxNbIns, len(w.Inputs))
+		if a[w] == nil {
+			a[w] = make([]fr.Element, nbInstances)
 		}
 	}
+
+	parallel.Execute(nbInstances, func(start, end int) {
+		ins := make([]fr.Element, maxNbIns)
+		for i := start; i < end; i++ {
+			for _, w := range sortedWires {
+				if !w.IsInput() {
+					for inI, in := range w.Inputs {
+						ins[inI] = a[in][i]
+					}
+					a[w][i] = w.Gate.Evaluate(ins[:len(w.Inputs)]...)
+				}
+			}
+		}
+	})
+
 	return a
 }
 
