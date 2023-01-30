@@ -116,16 +116,17 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 	if x, err := fr.Hash(message, []byte("string:"), 1); err == nil {
-		xBytes := x[0].Bytes()
-		return privKey.SignFr(xBytes, hFunc)
+		var i big.Int
+		x[0].BigInt(&i)
+		return privKey.SignNum(i, hFunc)
 	} else {
 		return nil, err
 	}
 }
 
-// SignFr sign a field element
+// SignNum sign a field element
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
-func (privKey *PrivateKey) SignFr(message [sizeFr]byte, hFunc hash.Hash) ([]byte, error) {
+func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, error) {
 
 	curveParams := twistededwards.GetEdwardsCurve()
 
@@ -136,10 +137,14 @@ func (privKey *PrivateKey) SignFr(message [sizeFr]byte, hFunc hash.Hash) ([]byte
 	// blindingFactorBigInt = h(randomness_source||message)[:sizeFr]
 	var blindingFactorBigInt big.Int
 
+	var messageBytesCanonical [sizeFr]byte
+	messageBytes := message.Bytes()
+	copy(messageBytesCanonical[sizeFr-len(messageBytes):], messageBytes) // little endian zero extend
+
 	// randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
-	randSrc := make([]byte, 32+len(message))
+	randSrc := make([]byte, 32+len(messageBytes))
 	copy(randSrc, privKey.randSrc[:])
-	copy(randSrc[32:], message[:])
+	copy(randSrc[32:], messageBytes)
 
 	// randBytes = H(randSrc)
 	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // TODO ensures that the hash used to build the key and the one used here is the same
@@ -154,7 +159,7 @@ func (privKey *PrivateKey) SignFr(message [sizeFr]byte, hFunc hash.Hash) ([]byte
 	// compute H(R, A, M), all parameters in data are in Montgomery form
 	hFunc.Reset()
 
-	toWrite := [][sizeFr]byte{res.R.X.Bytes(), res.R.Y.Bytes(), privKey.PublicKey.A.X.Bytes(), privKey.PublicKey.A.Y.Bytes(), message}
+	toWrite := [][sizeFr]byte{res.R.X.Bytes(), res.R.Y.Bytes(), privKey.PublicKey.A.X.Bytes(), privKey.PublicKey.A.Y.Bytes(), messageBytesCanonical}
 	for i := range toWrite {
 		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
 			return nil, err
@@ -184,15 +189,16 @@ func (privKey *PrivateKey) SignFr(message [sizeFr]byte, hFunc hash.Hash) ([]byte
 
 func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 	if x, err := fr.Hash(message, []byte("string:"), 1); err == nil {
-		xBytes := x[0].Bytes()
-		return pub.VerifyFr(sigBin, xBytes, hFunc)
+		var i big.Int
+		x[0].BigInt(&i)
+		return pub.VerifyNum(sigBin, i, hFunc)
 	} else {
 		return false, err
 	}
 }
 
 // Verify verifies an eddsa signature
-func (pub *PublicKey) VerifyFr(sigBin []byte, message [sizeFr]byte, hFunc hash.Hash) (bool, error) {
+func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash) (bool, error) {
 
 	curveParams := twistededwards.GetEdwardsCurve()
 
@@ -211,7 +217,11 @@ func (pub *PublicKey) VerifyFr(sigBin []byte, message [sizeFr]byte, hFunc hash.H
 
 	hFunc.Reset()
 
-	toWrite := [][sizeFr]byte{sig.R.X.Bytes(), sig.R.Y.Bytes(), pub.A.X.Bytes(), pub.A.Y.Bytes(), message}
+	var messageBytesCanonical [sizeFr]byte
+	messageBytes := message.Bytes()
+	copy(messageBytesCanonical[sizeFr-len(messageBytes):], messageBytes) // little endian zero extend
+
+	toWrite := [][sizeFr]byte{sig.R.X.Bytes(), sig.R.Y.Bytes(), pub.A.X.Bytes(), pub.A.Y.Bytes(), messageBytesCanonical}
 	for i := range toWrite {
 		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
 			return false, err
