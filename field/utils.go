@@ -26,7 +26,7 @@ func (bigIntPool) Put(v *big.Int) {
 	_bigIntPool.Put(v)
 }
 
-// BigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+// BigIntMatchUint64Slice is a test helper to match big.Int words against a uint64 slice
 func BigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	words := aInt.Bits()
