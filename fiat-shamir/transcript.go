@@ -37,9 +37,9 @@ type Transcript struct {
 }
 
 type challenge struct {
-	position   int    // position of the challenge in the Transcript. order matters.
-	bindings   []byte // bindings stores the variables a challenge is binded to.
-	value      []byte // value stores the computed challenge
+	position   int      // position of the challenge in the Transcript. order matters.
+	bindings   [][]byte // bindings stores the variables a challenge is binded to.
+	value      []byte   // value stores the computed challenge
 	isComputed bool
 }
 
@@ -74,7 +74,10 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 	if challenge.isComputed {
 		return errChallengeAlreadyComputed
 	}
-	challenge.bindings = append(challenge.bindings, bValue...)
+
+	bCopy := make([]byte, len(bValue))
+	copy(bCopy, bValue)
+	challenge.bindings = append(challenge.bindings, bCopy)
 	t.challenges[challengeID] = challenge
 
 	return nil
@@ -121,8 +124,10 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	}
 
 	// write the binded values in the order they were added
-	if _, err := t.h.Write(challenge.bindings); err != nil {
-		return nil, err
+	for _, b := range challenge.bindings {
+		if _, err := t.h.Write(b); err != nil {
+			return nil, err
+		}
 	}
 
 	// compute the hash of the accumulated values
