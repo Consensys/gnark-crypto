@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	mimcNbRounds = 91
+	mimcNbRounds = 111
 	seed         = "seed"   // seed to derive the constants
 	BlockSize    = fr.Bytes // BlockSize size that mimc consumes
 )
