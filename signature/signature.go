@@ -58,7 +58,7 @@ type Signer interface {
 	// Sign signs a message. If hFunc is not provided, implementation may consider the message
 	// to be pre-hashed, else, will use hFunc to hash the message.
 	// Returns Signature or error
-	Sign(message []byte) ([]byte, error)
+	Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 
 	SignNum(message big.Int, hFunc hash.Hash) ([]byte, error)
 

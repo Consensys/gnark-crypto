@@ -197,7 +197,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	}
 }
 
-// Verify verifies an eddsa signature
+// VerifyNum verifies an eddsa signature
 func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash) (bool, error) {
 
 	curveParams := twistededwards.GetEdwardsCurve()
@@ -220,8 +220,8 @@ func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash)
 	var messageBytesCanonical [sizeFr]byte
 	messageBytes := message.Bytes()
 	copy(messageBytesCanonical[sizeFr-len(messageBytes):], messageBytes) // little endian zero extend
-
 	toWrite := [][sizeFr]byte{sig.R.X.Bytes(), sig.R.Y.Bytes(), pub.A.X.Bytes(), pub.A.Y.Bytes(), messageBytesCanonical}
+
 	for i := range toWrite {
 		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
 			return false, err
