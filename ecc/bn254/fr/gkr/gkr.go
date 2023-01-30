@@ -294,10 +294,14 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 // Next first folds the "preprocessing" and "eq" polynomials then compute the new g_j
 func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
-	c.eq.Fold(element)
+	tasks := make([]utils.Task, len(c.inputPreprocessors)+1)
 	for i := 0; i < len(c.inputPreprocessors); i++ {
-		c.inputPreprocessors[i].Fold(element)
+		tasks[i] = c.inputPreprocessors[i].FoldParallel(element)
 	}
+	tasks[len(c.inputPreprocessors)] = c.eq.FoldParallel(element)
+
+	c.manager.workers.Dispatch(len(c.eq), 1, tasks...).Wait()
+
 	return c.computeGJ()
 }
 
