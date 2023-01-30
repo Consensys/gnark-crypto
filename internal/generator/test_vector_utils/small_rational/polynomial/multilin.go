@@ -18,6 +18,7 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/utils"
 	"math/bits"
 )
 
@@ -45,6 +46,22 @@ func (m *MultiLin) Fold(r small_rational.SmallRational) {
 	}
 
 	*m = (*m)[:mid]
+}
+
+func (m *MultiLin) FoldParallel(r small_rational.SmallRational) utils.Task {
+	mid := len(*m) / 2
+	bottom, top := (*m)[:mid], (*m)[mid:]
+
+	*m = bottom
+
+	return func(start, end int) {
+		for i := start; i < end; i++ {
+			// table[i] ← table[i] + r (table[i + mid] - table[i])
+			top[i].Sub(&top[i], &bottom[i])
+			top[i].Mul(&top[i], &r)
+			bottom[i].Add(&bottom[i], &top[i])
+		}
+	}
 }
 
 func (m MultiLin) Sum() small_rational.SmallRational {

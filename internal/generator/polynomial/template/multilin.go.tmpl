@@ -1,8 +1,8 @@
 import (
     "{{.FieldPackagePath}}"
 	"math/bits"
+	"github.com/consensys/gnark-crypto/utils"
 )
-
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
 // The variables are X₁ through Xₙ where n = log(len(.))
@@ -28,6 +28,22 @@ func (m *MultiLin) Fold(r {{.ElementType}}) {
 	}
 
 	*m = (*m)[:mid]
+}
+
+func (m *MultiLin) FoldParallel(r {{.ElementType}}) utils.Task {
+	mid := len(*m) / 2
+	bottom, top := (*m)[:mid], (*m)[mid:]
+
+	*m = bottom
+
+	return func(start, end int) {
+		for i := start; i < end; i++ {
+			// table[i] ← table[i] + r (table[i + mid] - table[i])
+			top[i].Sub(&top[i], &bottom[i])
+			top[i].Mul(&top[i], &r)
+			bottom[i].Add(&bottom[i], &top[i])
+		}
+	}
 }
 
 func (m MultiLin) Sum() {{.ElementType}} {

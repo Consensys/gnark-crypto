@@ -6,6 +6,7 @@ import (
 	"{{.FieldPackagePath}}/sumcheck"
 	"{{.FieldPackagePath}}/test_vector_utils"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/assert"
 	"fmt"
 	"os"
@@ -98,10 +99,14 @@ func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	wire := &circuit[0]
 
 	assignment := WireAssignment{&circuit[0]: []{{.ElementType}}{two, three}}
+	var o settings
 	pool := polynomial.NewPool(256, 1<<11)
+	workers := utils.NewWorkerPool()
+	o.pool = &pool
+	o.workers = &workers
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment, &pool)
+		manager := newClaimsManager(circuit, assignment, o)
 		manager.add(wire, []{{.ElementType}}{three}, five)
 		manager.add(wire, []{{.ElementType}}{four}, six)
 		return &manager

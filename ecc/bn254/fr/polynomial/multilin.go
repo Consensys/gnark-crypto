@@ -64,10 +64,10 @@ func (m *MultiLin) FoldParallel(r fr.Element) utils.Task {
 	}
 }
 
-func (m *MultiLin) Sum() fr.Element {
-	s := (*m)[0]
-	for i := 1; i < len(*m); i++ {
-		s.Add(&s, &(*m)[i])
+func (m MultiLin) Sum() fr.Element {
+	s := m[0]
+	for i := 1; i < len(m); i++ {
+		s.Add(&s, &m[i])
 	}
 	return s
 }

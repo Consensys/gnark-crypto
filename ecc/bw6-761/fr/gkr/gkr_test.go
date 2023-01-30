@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/sumcheck"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/test_vector_utils"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -108,10 +109,14 @@ func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	wire := &circuit[0]
 
 	assignment := WireAssignment{&circuit[0]: []fr.Element{two, three}}
+	var o settings
 	pool := polynomial.NewPool(256, 1<<11)
+	workers := utils.NewWorkerPool()
+	o.pool = &pool
+	o.workers = &workers
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment, &pool)
+		manager := newClaimsManager(circuit, assignment, o)
 		manager.add(wire, []fr.Element{three}, five)
 		manager.add(wire, []fr.Element{four}, six)
 		return &manager

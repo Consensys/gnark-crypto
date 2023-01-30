@@ -195,6 +195,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 }
 
 func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *polynomial.Pool) [][]fr.Element {
+	// Perf-TODO: Collate once at claim "combination" time and not again. then, even folding can be done in one operation every time "next" is called
 	res := make([][]fr.Element, D)
 	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
 	nbOuter := len(s[0]) / 2
@@ -273,12 +274,13 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		}
 	}
 
+	// Perf-TODO: On the first iteration, gJ[0] = g_j(1) = sum of the second half of assignments
 	tasks := make([]utils.Task, degGJ)
 	for d := range tasks {
 		tasks[d] = computeGjdPartial(d)
 	}
 
-	c.manager.workers.Dispatch(nbInstances, 1, tasks...).Wait()
+	c.manager.workers.Dispatch(nbInstances, 64, tasks...).Wait()
 	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
@@ -294,10 +296,14 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 
 // Next first folds the "preprocessing" and "eq" polynomials then compute the new g_j
 func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
-	c.eq.Fold(element)
+	tasks := make([]utils.Task, len(c.inputPreprocessors)+1)
 	for i := 0; i < len(c.inputPreprocessors); i++ {
-		c.inputPreprocessors[i].Fold(element)
+		tasks[i] = c.inputPreprocessors[i].FoldParallel(element)
 	}
+	tasks[len(c.inputPreprocessors)] = c.eq.FoldParallel(element)
+
+	c.manager.workers.Dispatch(len(c.eq), 1024, tasks...).Wait()
+
 	return c.computeGJ()
 }
 

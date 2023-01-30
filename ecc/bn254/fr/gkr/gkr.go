@@ -195,6 +195,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 }
 
 func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *polynomial.Pool) [][]fr.Element {
+	// Perf-TODO: Collate once at claim "combination" time and not again. then, even folding can be done in one operation every time "next" is called
 	res := make([][]fr.Element, D)
 	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
 	nbOuter := len(s[0]) / 2
@@ -273,6 +274,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		}
 	}
 
+	// Perf-TODO: On the first iteration, gJ[0] = g_j(1) = sum of the second half of assignments
 	tasks := make([]utils.Task, degGJ)
 	for d := range tasks {
 		tasks[d] = computeGjdPartial(d)

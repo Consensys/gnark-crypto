@@ -18,6 +18,7 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/utils"
 	"math/bits"
 )
 
@@ -45,6 +46,22 @@ func (m *MultiLin) Fold(r fr.Element) {
 	}
 
 	*m = (*m)[:mid]
+}
+
+func (m *MultiLin) FoldParallel(r fr.Element) utils.Task {
+	mid := len(*m) / 2
+	bottom, top := (*m)[:mid], (*m)[mid:]
+
+	*m = bottom
+
+	return func(start, end int) {
+		for i := start; i < end; i++ {
+			// table[i] ← table[i] + r (table[i + mid] - table[i])
+			top[i].Sub(&top[i], &bottom[i])
+			top[i].Mul(&top[i], &r)
+			bottom[i].Add(&bottom[i], &top[i])
+		}
+	}
 }
 
 func (m MultiLin) Sum() fr.Element {
