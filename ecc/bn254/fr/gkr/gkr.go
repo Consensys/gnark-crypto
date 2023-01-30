@@ -278,7 +278,7 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
 		tasks[d] = computeGjdPartial(d)
 	}
 
-	c.manager.workers.Dispatch(nbInstances, 1, tasks...).Wait()
+	c.manager.workers.Dispatch(nbInstances, 64, tasks...).Wait()
 	close(results)
 
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
@@ -300,7 +300,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Poly
 	}
 	tasks[len(c.inputPreprocessors)] = c.eq.FoldParallel(element)
 
-	c.manager.workers.Dispatch(len(c.eq), 1, tasks...).Wait()
+	c.manager.workers.Dispatch(len(c.eq), 1024, tasks...).Wait()
 
 	return c.computeGJ()
 }
