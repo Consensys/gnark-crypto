@@ -41,6 +41,6 @@ func main() {
 
 	bytes, err = json.MarshalIndent(tests, "", "\t")
 	assertNoError(err)
-	err = os.WriteFile("./vectors.json", bytes, 438) // OS_ALL_RW
+	err = os.WriteFile("./vectors.json", bytes, 0)
 	assertNoError(err)
 }
