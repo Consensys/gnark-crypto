@@ -13,8 +13,10 @@ import (
 const (
 {{ if eq .Name "bn254" }}
 	mimcNbRounds = 110
-{{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377")}}
+{{- else if eq .Name "bls12-381"}}
 	mimcNbRounds = 111
+{{- else if eq .Name "bls12-377"}}
+	mimcNbRounds = 62
 {{- else if or (eq .Name "bls12-378") (eq .Name "bls24-315")}}
 	mimcNbRounds = 109
 {{- else if eq .Name "bls24-317"}}
@@ -144,8 +146,14 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	for i:=0; i < mimcNbRounds; i++ {
-		// m = (m+k+c)^**-1
-		m.Add(&m, &d.h).Add(&m, &mimcConstants[i]).Inverse(&m)
+		// m = (m+k+c)^**17
+		var tmp fr.Element
+		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
+		m.Square(&tmp).
+			Square(&m).
+			Square(&m).
+			Square(&m).
+			Mul(&m, &tmp)
 	}
 	m.Add(&m, &d.h)
 	return m
