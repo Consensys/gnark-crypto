@@ -11,7 +11,21 @@ import (
 
 
 const (
+{{ if eq .Name "bn254" }}
+	mimcNbRounds = 110
+{{- else if eq .Name "bls12-381"}}
+	mimcNbRounds = 111
+{{- else if eq .Name "bls12-377"}}
+	mimcNbRounds = 62
+{{- else if or (eq .Name "bls12-378") (eq .Name "bls24-315")}}
+	mimcNbRounds = 109
+{{- else if eq .Name "bls24-317"}}
 	mimcNbRounds = 91
+{{- else if eq .Name "bw6-633"}}
+	mimcNbRounds = 136
+{{- else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
+	mimcNbRounds = 163
+{{- end}}
 	seed = "seed" 		 // seed to derive the constants
 	BlockSize = fr.Bytes // BlockSize size that mimc consumes
 )
@@ -80,10 +94,10 @@ func (d *digest) BlockSize() int {
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
 //
 // Each []byte block of size BlockSize represents a big endian fr.Element.
-// 
+//
 // If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
 // larger than fr.Modulus, this function returns an error.
-// 
+//
 // To hash arbitrary data ([]byte not representing canonical field elements) use Decompose
 // function in this package.
 func (d *digest) Write(p []byte) (n int, err error) {
@@ -107,10 +121,10 @@ func (d *digest) Write(p []byte) (n int, err error) {
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
 func (d *digest) checksum() fr.Element {
-	// Write guarantees len(data) % BlockSize == 0 
-	
+	// Write guarantees len(data) % BlockSize == 0
+
 	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
-	if len(d.data) == 0 { 
+	if len(d.data) == 0 {
 		d.data = make([]byte, BlockSize)
 	}
 
@@ -132,8 +146,14 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	for i:=0; i < mimcNbRounds; i++ {
-		// m = (m+k+c)^**-1
-		m.Add(&m, &d.h).Add(&m, &mimcConstants[i]).Inverse(&m)
+		// m = (m+k+c)^**17
+		var tmp fr.Element
+		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
+		m.Square(&tmp).
+			Square(&m).
+			Square(&m).
+			Square(&m).
+			Mul(&m, &tmp)
 	}
 	m.Add(&m, &d.h)
 	return m
@@ -147,13 +167,12 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^7
-		var tmp fr.Element
-		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
-		m.Square(&tmp).
-			Square(&m).
-			Mul(&m, &tmp).
-			Mul(&m, &tmp).
-			Mul(&m, &tmp)
+		var tmp1, tmp2 fr.Element
+		tmp1.Add(&m, &d.h).Add(&tmp1, &mimcConstants[i])
+		tmp2.Square(&tmp1)
+		m.Square(&tmp2).
+			Mul(&m, &tmp1).
+			Mul(&m, &tmp1)
 	}
 	m.Add(&m, &d.h)
 	return m
