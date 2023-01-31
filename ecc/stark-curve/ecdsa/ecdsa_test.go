@@ -18,7 +18,7 @@ package ecdsa
 
 import (
 	"crypto/rand"
-	"crypto/sha512"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -38,9 +38,23 @@ func TestECDSA(t *testing.T) {
 			publicKey := privKey.PublicKey
 
 			msg := []byte("testing ECDSA")
-			md := sha512.New()
-			sig, _ := privKey.Sign(msg, md)
-			flag, _ := publicKey.Verify(sig, msg, md)
+			hFunc := sha256.New()
+			sig, _ := privKey.Sign(msg, hFunc)
+			flag, _ := publicKey.Verify(sig, msg, hFunc)
+
+			return flag
+		},
+	))
+
+	properties.Property("[STARK-CURVE] test the signing and verification (pre-hashed)", prop.ForAll(
+		func() bool {
+
+			privKey, _ := GenerateKey(rand.Reader)
+			publicKey := privKey.PublicKey
+
+			msg := []byte("testing ECDSA")
+			sig, _ := privKey.Sign(msg, nil)
+			flag, _ := publicKey.Verify(sig, msg, nil)
 
 			return flag
 		},
@@ -57,10 +71,9 @@ func BenchmarkSignECDSA(b *testing.B) {
 	privKey, _ := GenerateKey(rand.Reader)
 
 	msg := []byte("benchmarking ECDSA sign()")
-	md := sha512.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		privKey.Sign(msg, md)
+		privKey.Sign(msg, nil)
 	}
 }
 
@@ -68,11 +81,10 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 
 	privKey, _ := GenerateKey(rand.Reader)
 	msg := []byte("benchmarking ECDSA sign()")
-	md := sha512.New()
-	sig, _ := privKey.Sign(msg, md)
+	sig, _ := privKey.Sign(msg, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		privKey.PublicKey.Verify(sig, msg, md)
+		privKey.PublicKey.Verify(sig, msg, nil)
 	}
 }

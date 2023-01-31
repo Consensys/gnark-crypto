@@ -220,16 +220,21 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		}
 		s.Mul(r, scalar)
 
-		// compute the hash of the message as an integer
-		dataToHash := make([]byte, len(message))
-		copy(dataToHash[:], message[:])
-		hFunc.Reset()
-		_, err := hFunc.Write(dataToHash[:])
-		if err != nil {
-			return nil, err
+		var m *big.Int
+		if hFunc != nil {
+			// compute the hash of the message as an integer
+			dataToHash := make([]byte, len(message))
+			copy(dataToHash[:], message[:])
+			hFunc.Reset()
+			_, err := hFunc.Write(dataToHash[:])
+			if err != nil {
+				return nil, err
+			}
+			hramBin := hFunc.Sum(nil)
+			m = HashToInt(hramBin)
+		} else {
+			m = HashToInt(message)
 		}
-		hramBin := hFunc.Sum(nil)
-		m := HashToInt(hramBin)
 
 		s.Add(m, s).
 			Mul(kInv, s).
@@ -265,16 +270,21 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 
 	sInv := new(big.Int).ModInverse(s, order)
 
-	// compute the hash of the message as an integer
-	dataToHash := make([]byte, len(message))
-	copy(dataToHash[:], message[:])
-	hFunc.Reset()
-	_, err := hFunc.Write(dataToHash[:])
-	if err != nil {
-		return false, err
+	var m *big.Int
+	if hFunc != nil {
+		// compute the hash of the message as an integer
+		dataToHash := make([]byte, len(message))
+		copy(dataToHash[:], message[:])
+		hFunc.Reset()
+		_, err := hFunc.Write(dataToHash[:])
+		if err != nil {
+			return false, err
+		}
+		hramBin := hFunc.Sum(nil)
+		m = HashToInt(hramBin)
+	} else {
+		m = HashToInt(message)
 	}
-	hramBin := hFunc.Sum(nil)
-	m := HashToInt(hramBin)
 
 	u1 := new(big.Int).Mul(m, sInv)
 	u1.Mod(u1, order)
