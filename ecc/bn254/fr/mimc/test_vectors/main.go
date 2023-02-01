@@ -32,13 +32,6 @@ func main() {
 
 	for i := range tests {
 
-		tests[i].In = make([]string, 1+i/2)
-		for j := 0; j < 1+i/2; j++ {
-			var x fr.Element
-			x.SetRandom()
-			tests[i].In[j] = "0x" + x.Text(16)
-		}
-
 		hsh.Reset()
 		var x fr.Element
 		for j := range tests[i].In {
