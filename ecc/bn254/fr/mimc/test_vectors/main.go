@@ -9,8 +9,8 @@ import (
 )
 
 type numericalMiMCTestCase struct {
-	In  string `json:"in"`
-	Out string `json:"out"`
+	In  []string `json:"in"`
+	Out string   `json:"out"`
 }
 
 func assertNoError(err error) {
@@ -28,13 +28,30 @@ func main() {
 	assertNoError(err)
 	assertNoError(json.Unmarshal(bytes, &tests))
 
+	hsh := mimc.NewMiMC()
+
 	for i := range tests {
+
+		tests[i].In = make([]string, 1+i/2)
+		for j := 0; j < 1+i/2; j++ {
+			var x fr.Element
+			x.SetRandom()
+			tests[i].In[j] = "0x" + x.Text(16)
+		}
+
+		hsh.Reset()
 		var x fr.Element
-		_, err = x.SetString(tests[i].In)
-		assertNoError(err)
-		b := x.Bytes()
-		bytes, err = mimc.Sum(b[:])
-		assertNoError(err)
+		for j := range tests[i].In {
+			_, err = x.SetString(tests[i].In[j])
+			assertNoError(err)
+
+			b := x.Bytes()
+			_, err = hsh.Write(b[:])
+			assertNoError(err)
+		}
+
+		bytes = hsh.Sum(nil)
+
 		x.SetBytes(bytes)
 		tests[i].Out = "0x" + x.Text(16)
 	}
