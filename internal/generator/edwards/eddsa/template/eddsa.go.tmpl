@@ -132,19 +132,10 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 	return &pub
 }
 
-func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
-	if x, err := fr.Hash(message, []byte("string:"), 1); err == nil {
-		var i big.Int
-		x[0].BigInt(&i)
-		return privKey.SignNum(i, hFunc)
-	} else {
-		return nil, err
-	}
-}
-
-// SignNum sign a field element
+// Sign sign a sequence of field elements
+// For arbitrary strings use fr.Hash first
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
-func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, error) {
+func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 
 	// hFunc cannot be nil.
 	// We need a hash function for the Fiat-Shamir.
@@ -161,14 +152,10 @@ func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, er
 	// blindingFactorBigInt = h(randomness_source||message)[:sizeFr]
 	var blindingFactorBigInt big.Int
 
-	var messageBytesCanonical [sizeFr]byte
-	messageBytes := message.Bytes()
-	copy(messageBytesCanonical[sizeFr-len(messageBytes):], messageBytes) // little endian zero extend
-
 // randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
-	randSrc := make([]byte, 32+len(messageBytes))
+	randSrc := make([]byte, 32+len(message))
 	copy(randSrc, privKey.randSrc[:])
-	copy(randSrc[32:], messageBytes)
+	copy(randSrc[32:], message)
 
 	// randBytes = H(randSrc)
 	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // TODO ensures that the hash used to build the key and the one used here is the same
@@ -183,9 +170,13 @@ func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, er
 	// compute H(R, A, M), all parameters in data are in Montgomery form
 	hFunc.Reset()
 
-	toWrite := [][sizeFr]byte{res.R.X.Bytes(), res.R.Y.Bytes(), privKey.PublicKey.A.X.Bytes(), privKey.PublicKey.A.Y.Bytes(), messageBytesCanonical}
-	for i := range toWrite {
-		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
+	resRX := res.R.X.Bytes()
+ 	resRY := res.R.Y.Bytes()
+ 	resAX := privKey.PublicKey.A.X.Bytes()
+ 	resAY := privKey.PublicKey.A.Y.Bytes()
+	toWrite := [][]byte{resRX[:], resRY[:], resAX[:], resAY[:], message}
+	for _, bytes := range toWrite {
+		if _, err := hFunc.Write(bytes); err != nil {
 			return nil, err
 		}
 	}
@@ -211,18 +202,8 @@ func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, er
 	return res.Bytes(), nil
 }
 
+// Verify verifies an eddsa signature
 func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
-	if x, err := fr.Hash(message, []byte("string:"), 1); err == nil {
-		var i big.Int
-		x[0].BigInt(&i)
-		return pub.VerifyNum(sigBin, i, hFunc)
-	} else {
-		return false, err
-	}
-}
-
-// VerifyNum verifies an eddsa signature
-func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash) (bool, error) {
 
 	// hFunc cannot be nil.
 	// We need a hash function for the Fiat-Shamir.
@@ -247,13 +228,14 @@ func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash)
 
 	hFunc.Reset()
 
-	var messageBytesCanonical [sizeFr]byte
-	messageBytes := message.Bytes()
-	copy(messageBytesCanonical[sizeFr-len(messageBytes):], messageBytes) // little endian zero extend
-	toWrite := [][sizeFr]byte{sig.R.X.Bytes(), sig.R.Y.Bytes(), pub.A.X.Bytes(), pub.A.Y.Bytes(), messageBytesCanonical}
+	sigRX := sig.R.X.Bytes()
+ 	sigRY := sig.R.Y.Bytes()
+ 	sigAX := pub.A.X.Bytes()
+ 	sigAY := pub.A.Y.Bytes()
 
-	for i := range toWrite {
-		if _, err := hFunc.Write(toWrite[i][:]); err != nil {
+	toWrite := [][]byte{sigRX[:], sigRY[:], sigAX[:], sigAY[:], message}
+	for _, bytes := range toWrite {
+		if _, err := hFunc.Write(bytes); err != nil {
 			return false, err
 		}
 	}
