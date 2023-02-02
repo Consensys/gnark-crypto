@@ -30,6 +30,7 @@ import (
 )
 
 var errNotOnCurve = errors.New("point not on curve")
+var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir.")
 
 const (
 	sizeFr         = fr.Bytes
@@ -128,6 +129,12 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
 func (privKey *PrivateKey) SignNum(message big.Int, hFunc hash.Hash) ([]byte, error) {
 
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return nil, errHashNeeded
+	}
+
 	curveParams := twistededwards.GetEdwardsCurve()
 
 	var res Signature
@@ -199,6 +206,12 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 
 // VerifyNum verifies an eddsa signature
 func (pub *PublicKey) VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash) (bool, error) {
+
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return false, errHashNeeded
+	}
 
 	curveParams := twistededwards.GetEdwardsCurve()
 

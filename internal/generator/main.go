@@ -13,6 +13,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
+	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
@@ -61,12 +62,34 @@ func main() {
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
 
+			frInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
+
+			// generate ecdsa
+			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
+
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
 			}
 
+			// generate G1, G2, multiExp, ...
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
+			if conf.Equal(config.SECP256K1) {
+				return
+			}
+
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
+
+			// generate pairing tests
+			assertNoError(pairing.Generate(conf, curveDir, bgen))
+
+			// generate fri on fr
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
@@ -86,27 +109,9 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
-			frInfo := config.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
-			// generate eddsa on companion curves
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
-
-			if conf.Equal(config.SECP256K1) {
-				return // TODO @yelhousni
-			}
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 

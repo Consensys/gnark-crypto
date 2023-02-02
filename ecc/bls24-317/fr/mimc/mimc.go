@@ -129,13 +129,12 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^7
-		var tmp fr.Element
-		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
-		m.Square(&tmp).
-			Square(&m).
-			Mul(&m, &tmp).
-			Mul(&m, &tmp).
-			Mul(&m, &tmp)
+		var tmp1, tmp2 fr.Element
+		tmp1.Add(&m, &d.h).Add(&tmp1, &mimcConstants[i])
+		tmp2.Square(&tmp1)
+		m.Square(&tmp2).
+			Mul(&m, &tmp1).
+			Mul(&m, &tmp1)
 	}
 	m.Add(&m, &d.h)
 	return m

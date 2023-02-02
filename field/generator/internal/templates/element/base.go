@@ -3,7 +3,6 @@ package element
 const Base = `
 
 import (
-	"github.com/consensys/gnark-crypto/field"
 	"math/big"
 	"math/bits"
 	"io"
@@ -13,6 +12,9 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+
+	"github.com/consensys/gnark-crypto/field/hash"
+	"github.com/consensys/gnark-crypto/field/pool"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
@@ -624,13 +626,13 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := hash.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// get temporary big int from the pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 
 	res := make([]{{.ElementName}}, count)
 	for i := 0; i < count; i++ {
@@ -639,7 +641,7 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	}
 
 	// release object into pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 
 	return res, nil
 }

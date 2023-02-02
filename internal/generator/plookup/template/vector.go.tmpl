@@ -17,23 +17,6 @@ var (
 	ErrGenerator           = errors.New("wrong generator")
 )
 
-type Table []fr.Element
-
-// Len is the number of elements in the collection.
-func (t Table) Len() int {
-	return len(t)
-}
-
-// Less reports whether the element with
-// index i should sort before the element with index j.
-func (t Table) Less(i, j int) bool {
-	return t[i].Cmp(&t[j]) == -1
-}
-
-// Swap swaps the elements with indexes i and j.
-func (t Table) Swap(i, j int) {
-	t[i], t[j] = t[j], t[i]
-}
 
 // Proof Plookup proof, containing opening proofs
 type ProofLookupVector struct {
@@ -353,7 +336,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
 //
-func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
+func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) {
 
 	// res
 	var proof ProofLookupVector
@@ -394,7 +377,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	for i := len(t); i < sizeDomainSmall; i++ {
 		lt[i] = t[len(t)-1]
 	}
-	sort.Sort(Table(lt))
+	sort.Sort(fr.Vector(lt))
 	copy(ct, lt)
 	copy(cf, lf)
 	domainSmall.FFTInverse(ct, fft.DIF)
@@ -411,7 +394,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t Table) (ProofLookupVector, error) {
 	}
 
 	// write f sorted by t
-	lfSortedByt := make(Table, 2*domainSmall.Cardinality-1)
+	lfSortedByt := make(fr.Vector, 2*domainSmall.Cardinality-1)
 	copy(lfSortedByt, lt)
 	copy(lfSortedByt[domainSmall.Cardinality:], lf)
 	sort.Sort(lfSortedByt)
