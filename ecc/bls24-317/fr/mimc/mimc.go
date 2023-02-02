@@ -18,6 +18,7 @@ package mimc
 
 import (
 	"errors"
+	"fmt"
 	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
@@ -117,6 +118,14 @@ func (d *digest) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// For debugging TODO Remove
+func prefix(s string) string {
+	if len(s) < 5 {
+		return s
+	}
+	return s[:5]
+}
+
 // Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
@@ -129,10 +138,15 @@ func (d *digest) checksum() fr.Element {
 		d.data = make([]byte, BlockSize)
 	}*/
 
+	fmt.Print("hashing ") // TODO For debugging remove
+
 	for i := range d.data {
+		fmt.Print(prefix(d.data[i].Text(10)), ",")
 		r := d.encrypt(d.data[i])
 		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
+
+	fmt.Println(" =>", prefix(d.h.Text(10)))
 
 	return d.h
 }

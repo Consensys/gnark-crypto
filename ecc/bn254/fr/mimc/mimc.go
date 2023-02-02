@@ -118,6 +118,7 @@ func (d *digest) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// For debugging TODO Remove
 func prefix(s string) string {
 	if len(s) < 5 {
 		return s
@@ -137,7 +138,7 @@ func (d *digest) checksum() fr.Element {
 		d.data = make([]byte, BlockSize)
 	}*/
 
-	fmt.Print("hashing ")
+	fmt.Print("hashing ") // TODO For debugging remove
 
 	for i := range d.data {
 		fmt.Print(prefix(d.data[i].Text(10)), ",")
