@@ -91,13 +91,14 @@ func (d *digest) BlockSize() int {
 	return BlockSize
 }
 
+// Write (via the embedded io.Writer interface) adds more data to the running hash.
+//
 // Each []byte block of size BlockSize represents a big endian fr.Element.
 //
 // If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
 // larger than fr.Modulus, this function returns an error.
 //
 // To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
-
 func (d *digest) Write(p []byte) (int, error) {
 
 	var start int
