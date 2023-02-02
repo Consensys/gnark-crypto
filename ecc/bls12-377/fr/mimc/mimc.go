@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"golang.org/x/crypto/sha3"
@@ -106,7 +107,6 @@ func (d *digest) Write(p []byte) (int, error) {
 	for start = 0; start < len(p); start += BlockSize {
 		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
 			d.data = append(d.data, elem)
-			return BlockSize, nil
 		} else {
 			return 0, err
 		}
@@ -141,7 +141,7 @@ func (d *digest) checksum() fr.Element {
 	fmt.Print("hashing ") // TODO For debugging remove
 
 	for i := range d.data {
-		fmt.Print(prefix(d.data[i].Text(10)), ",")
+		fmt.Println(prefix(d.data[i].Text(10)), ":")
 		r := d.encrypt(d.data[i])
 		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
@@ -157,6 +157,8 @@ func (d *digest) checksum() fr.Element {
 func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
+	var sbb strings.Builder
+
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^**17
 		var tmp fr.Element
@@ -166,7 +168,11 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 			Square(&m).
 			Square(&m).
 			Mul(&m, &tmp)
+
+		sbb.Write([]byte(m.String()))
+		sbb.WriteByte(' ')
 	}
+	fmt.Println(sbb.String())
 	m.Add(&m, &d.h)
 	return m
 }
