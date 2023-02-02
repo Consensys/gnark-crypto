@@ -30,7 +30,7 @@ import (
 )
 
 var errNotOnCurve = errors.New("point not on curve")
-var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir.")
+var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir")
 
 const (
 	sizeFr         = fr.Bytes
