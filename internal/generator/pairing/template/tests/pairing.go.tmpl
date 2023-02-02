@@ -364,18 +364,19 @@ func BenchmarkMultiPair(b *testing.B) {
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
 
-	n := 10
-	P := make([]G1Affine, n)
-	Q := make([]G2Affine, n)
+	const pow = 10
 
-	for i := 2; i <= n; i++ {
-		for j := 0; j < i; j++ {
+	for i := 4; i <= pow; i++ {
+		using := 1 << i
+		P := make([]G1Affine, using)
+		Q := make([]G2Affine, using)
+		for j := 0; j < using; j++ {
 			P[j].Set(&g1GenAff)
 			Q[j].Set(&g2GenAff)
 		}
-		b.Run(fmt.Sprintf("%d pairs", i), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d pairs", using), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for k := 0; k < b.N; k++ {
 				Pair(P, Q)
 			}
 		})

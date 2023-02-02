@@ -577,20 +577,11 @@ func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 	scalar.Add(&scalar, r)
 
-	var doubleAndAdd G1Jac
-
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.mulWindowed(&g1Gen, &scalar)
-		}
-	})
-
-	var glv G1Jac
+	var point G1Jac
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			glv.mulGLV(&g1Gen, &scalar)
+			point.ScalarMultiplication(&g1Gen, &scalar)
 		}
 	})
 

@@ -645,24 +645,13 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
 	scalar.Add(&scalar, r)
 
-	var doubleAndAdd {{ $TJacobian }}
-
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.mulWindowed(&{{.PointName}}Gen, &scalar)
-		}
-	})
-
-    {{if .GLV}}
-	var glv {{ $TJacobian }}
+	var point {{ $TJacobian }}
 	b.Run("GLV", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
-			glv.mulGLV(&{{.PointName}}Gen, &scalar)
+			point.ScalarMultiplication(&{{.PointName}}Gen, &scalar)
 		}
 	})
-    {{end}}
 
 }
 
