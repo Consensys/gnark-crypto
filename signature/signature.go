@@ -19,7 +19,6 @@ package signature
 
 import (
 	"hash"
-	"math/big"
 )
 
 // PublicKey public key interface.
@@ -30,8 +29,6 @@ type PublicKey interface {
 	// If hFunc is not provided, implementation may consider the message
 	// to be pre-hashed, else, will use hFunc to hash the message.
 	Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error)
-
-	VerifyNum(sigBin []byte, message big.Int, hFunc hash.Hash) (bool, error)
 
 	// SetBytes sets p from binary representation in buf.
 	// buf represents a public key as x||y where x, y are
@@ -59,8 +56,6 @@ type Signer interface {
 	// to be pre-hashed, else, will use hFunc to hash the message.
 	// Returns Signature or error
 	Sign(message []byte, hFunc hash.Hash) ([]byte, error)
-
-	SignNum(message big.Int, hFunc hash.Hash) ([]byte, error)
 
 	// Bytes returns the binary representation of pk,
 	// as byte array publicKey||scalar||randSrc
