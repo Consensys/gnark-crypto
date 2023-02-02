@@ -1,4 +1,5 @@
 import (
+	"errors"
 	"hash"
 
 	"math/big"
@@ -99,9 +100,9 @@ func (d *digest) BlockSize() int {
 
 func (d *digest) Write(p []byte) (int, error) {
 
-	var end int
-	for end = BlockSize; end < len(p); end += BlockSize {
-		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[end-BlockSize:end])); err == nil {
+	var start int
+	for start = 0; start < len(p); start += BlockSize {
+		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start:start+BlockSize])); err == nil {
 			d.data = append(d.data, elem)
 			return BlockSize, nil
 		} else {
@@ -109,11 +110,10 @@ func (d *digest) Write(p []byte) (int, error) {
 		}
 	}
 
-	var err error
-	if end != len(p) {
-		err = errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+	if start != len(p) {
+		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
 	}
-	return end, error
+	return len(p), nil
 }
 
 // Hash hash using Miyaguchi-Preneel:

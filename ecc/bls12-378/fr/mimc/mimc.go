@@ -17,6 +17,7 @@
 package mimc
 
 import (
+	"errors"
 	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
@@ -90,15 +91,29 @@ func (d *digest) BlockSize() int {
 	return BlockSize
 }
 
-// Write (via the embedded io.Writer interface) adds more data to the running hash.
-// p represents a big endian fr.Element. For non-field-elements strings use WriteString
+// Each []byte block of size BlockSize represents a big endian fr.Element.
+//
+// If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
+// larger than fr.Modulus, this function returns an error.
+//
+// To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
+
 func (d *digest) Write(p []byte) (int, error) {
-	if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p)); err == nil {
-		d.data = append(d.data, elem)
-		return BlockSize, nil
-	} else {
-		return 0, err
+
+	var start int
+	for start = 0; start < len(p); start += BlockSize {
+		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
+			d.data = append(d.data, elem)
+			return BlockSize, nil
+		} else {
+			return 0, err
+		}
 	}
+
+	if start != len(p) {
+		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+	}
+	return len(p), nil
 }
 
 // Hash hash using Miyaguchi-Preneel:
