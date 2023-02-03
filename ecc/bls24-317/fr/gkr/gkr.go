@@ -194,115 +194,94 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
-func collateExtrapolate(s []polynomial.MultiLin, D int, w *utils.WorkerPool, p *polynomial.Pool) [][]fr.Element {
-	// Perf-TODO: Collate once at claim "combination" time and not again. then, even folding can be done in one operation every time "next" is called
-	res := make([][]fr.Element, D)
-	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
-	nbOuter := len(s[0]) / 2
-	size := nbInner * nbOuter
-
-	for d := range res {
-		res[d] = p.Make(size)
-	}
-
-	step := p.Make(size)
-	collectInitialLayer := func(start, end int) {
-		for i := start; i < end; i++ {
-			offset := nbInner * i
-			for j := 0; j < nbInner; j++ {
-				res[0][offset+j].Set(&s[j][nbOuter+i])
-				step[offset+j].Sub(&s[j][nbOuter+i], &s[j][i])
-			}
-		}
-	}
-
-	w.Dispatch(nbOuter, 1024, collectInitialLayer).Wait()
-
-	multiply := func(start, end int) {
-		for d := 1; d < D; d++ {
-			for i := start; i < end; i++ {
-				offset := nbInner * i
-				for j := 0; j < nbInner; j++ {
-					res[d][offset+j].Add(&res[d-1][offset+j], &step[offset+j])
-				}
-			}
-		}
-	}
-
-	w.Dispatch(nbOuter, 1024, multiply).Wait() // TODO: Increase minimum job size
-
-	p.Dump(step)
-	return res
-}
-
-type computeGjResult struct {
-	sum fr.Element
-	d   int
-}
-
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
 // The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
-func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
+func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
 
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
-	nbInstances := len(c.eq) / 2
 	nbGateIn := len(c.inputPreprocessors)
 
 	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	operandsPreExtrapolation := make([]polynomial.MultiLin, nbGateIn+1)
-	operandsPreExtrapolation[0] = c.eq
-	copy(operandsPreExtrapolation[1:], c.inputPreprocessors)
-	operands := collateExtrapolate(operandsPreExtrapolation, degGJ, c.manager.workers, c.manager.memPool)
+	s := make([]polynomial.MultiLin, nbGateIn+1)
+	s[0] = c.eq
+	copy(s[1:], c.inputPreprocessors)
 
-	results := make(chan computeGjResult, 100) // TODO Experiment with capacity
-	computeGjdPartial := func(d int) utils.Task {
-		return func(start, end int) {
-			var res computeGjResult
-			res.d = d
-			opsStart := start * (nbGateIn + 1)
-			for i := start; i < end; i++ {
-				opsEnd := opsStart + nbGateIn + 1
+	// Perf-TODO: Collate once at claim "combination" time and not again. then, even folding can be done in one operation every time "next" is called
+	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
+	nbOuter := len(s[0]) / 2
 
-				summand := c.wire.Gate.Evaluate(operands[d][opsStart+1 : opsEnd]...)
-				summand.Mul(&summand, &operands[d][opsStart])
-				res.sum.Add(&res.sum, &summand)
+	gJ := make([]fr.Element, degGJ)
+	var mu sync.Mutex
+	computeAll := func(start, end int) {
+		var step fr.Element
 
-				opsStart = opsEnd
+		res := make([]fr.Element, degGJ)
+		operands := make([]fr.Element, degGJ*nbInner)
+
+		for i := start; i < end; i++ {
+
+			block := nbOuter + i
+			for j := 0; j < nbInner; j++ {
+				step.Set(&s[j][i])
+				operands[j].Set(&s[j][block])
+				step.Sub(&operands[j], &step)
+				for d := 1; d < degGJ; d++ {
+					operands[d*nbInner+j].Add(&operands[(d-1)*nbInner+j], &step)
+				}
 			}
-			results <- res
+
+			_s := 0
+			_e := nbInner
+			for d := 0; d < degGJ; d++ {
+				summand := c.wire.Gate.Evaluate(operands[_s+1 : _e]...)
+				summand.Mul(&summand, &operands[_s])
+				res[d].Add(&res[d], &summand)
+				_s, _e = _e, _e+nbInner
+			}
 		}
+		mu.Lock()
+		for i := 0; i < len(gJ); i++ {
+			gJ[i].Add(&gJ[i], &res[i])
+		}
+		mu.Unlock()
 	}
 
-	// Perf-TODO: On the first iteration, gJ[0] = g_j(1) = sum of the second half of assignments
-	tasks := make([]utils.Task, degGJ)
-	for d := range tasks {
-		tasks[d] = computeGjdPartial(d)
+	const minBlockSize = 64
+
+	if nbOuter < minBlockSize {
+		// no parallelization
+		computeAll(0, nbOuter)
+	} else {
+		c.manager.workers.Submit(nbOuter, computeAll, minBlockSize).Wait()
 	}
 
-	c.manager.workers.Dispatch(nbInstances, 64, tasks...).Wait()
-	close(results)
-
+	// c.manager.workers.Dispatch(nbOuter, runtime.NumCPU(), computeAll).Wait()
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
-	gJ = make([]fr.Element, degGJ)
-	for res := range results {
-		gJ[res.d].Add(&gJ[res.d], &res.sum)
-	}
 
-	c.manager.memPool.Dump(operands...)
-
-	return
+	return gJ
 }
 
 // Next first folds the "preprocessing" and "eq" polynomials then compute the new g_j
 func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
-	tasks := make([]utils.Task, len(c.inputPreprocessors)+1)
-	for i := 0; i < len(c.inputPreprocessors); i++ {
-		tasks[i] = c.inputPreprocessors[i].FoldParallel(element)
+	const minBlockSize = 512
+	n := len(c.eq) / 2
+	if n < minBlockSize {
+		// no parallelization
+		for i := 0; i < len(c.inputPreprocessors); i++ {
+			c.inputPreprocessors[i].Fold(element)
+		}
+		c.eq.Fold(element)
+	} else {
+		wgs := make([]*sync.WaitGroup, len(c.inputPreprocessors))
+		for i := 0; i < len(c.inputPreprocessors); i++ {
+			wgs[i] = c.manager.workers.Submit(n, c.inputPreprocessors[i].FoldParallel(element), minBlockSize)
+		}
+		c.manager.workers.Submit(n, c.eq.FoldParallel(element), minBlockSize).Wait()
+		for _, wg := range wgs {
+			wg.Wait()
+		}
 	}
-	tasks[len(c.inputPreprocessors)] = c.eq.FoldParallel(element)
-
-	c.manager.workers.Dispatch(len(c.eq), 1024, tasks...).Wait()
 
 	return c.computeGJ()
 }
@@ -462,8 +441,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	}
 
 	if o.workers == nil {
-		workers := utils.NewWorkerPool()
-		o.workers = &workers
+		o.workers = utils.NewWorkerPool()
 	}
 
 	if o.sorted == nil {
@@ -575,6 +553,7 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	if err != nil {
 		return nil, err
 	}
+	defer o.workers.Stop()
 
 	claims := newClaimsManager(c, assignment, o)
 
@@ -630,6 +609,7 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	if err != nil {
 		return err
 	}
+	defer o.workers.Stop()
 
 	claims := newClaimsManager(c, assignment, o)
 
