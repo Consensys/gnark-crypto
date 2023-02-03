@@ -72,16 +72,14 @@ func Pedersen(a *fp.Element, b *fp.Element) *fp.Element {
 }
 
 func processElement(a *fp.Element, p1 *starkcurve.G1Jac, p2 *starkcurve.G1Jac) *starkcurve.G1Jac {
-	var bigInt big.Int
-	var aBytes [32]byte
-	a.BigInt(&bigInt).FillBytes(aBytes[:])
+	var lowPart, highPart big.Int
+	aBytes := a.Bytes()
 
-	highPart := bigInt.SetUint64(uint64(aBytes[0])) // The top nibble (bits 249-252)
-	lowPart := aBytes[1:]                           // Zero-out the top nibble (bits 249-252)
+	highPart.SetUint64(uint64(aBytes[0])) // The top nibble (bits 249-252)
+	lowPart.SetBytes(aBytes[1:32])
 
-	m := new(starkcurve.G1Jac).ScalarMultiplication(p2, highPart)
+	var sum starkcurve.G1Jac
+	sum.JointScalarMultiplication(p1, p2, &lowPart, &highPart)
 
-	var n starkcurve.G1Jac
-	n.ScalarMultiplication(p1, bigInt.SetBytes(lowPart))
-	return m.AddAssign(&n)
+	return &sum
 }
