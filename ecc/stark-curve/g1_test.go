@@ -364,14 +364,19 @@ func TestG1AffineOps(t *testing.T) {
 	properties.Property("[STARK-CURVE] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
 		func(s1, s2 fr.Element) bool {
 
-			var op1, op2, temp G1Jac
+			var op1, op2, op3, temp G1Jac
+			var a G1Affine
 
-			op1.JointScalarMultiplicationBase(&g1GenAff, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
-			temp.ScalarMultiplication(&g1Gen, s2.BigInt(new(big.Int)))
-			op2.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
+			temp.Double(&g1Gen)
+			a.FromJacobian(&temp)
+
+			op1.JointScalarMultiplicationBase(&a, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			op2.JointScalarMultiplication(&g1Gen, &temp, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			temp.ScalarMultiplication(&temp, s2.BigInt(new(big.Int)))
+			op3.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
 				AddAssign(&temp)
 
-			return op1.Equal(&op2)
+			return op1.Equal(&op2) && op2.Equal(&op3)
 
 		},
 		genScalar,
