@@ -45,9 +45,12 @@ zkalc_benchmarks () {
 }
 
 
+if test "$#" -ne 1; then
+    echo "Usage: zkalc.sh <EC directory>"
+    echo "For example: 'bash zkalc.sh bls12-381')"
+    exit
+fi
+
 pushd ecc
-zkalc_benchmarks secp256k1
-zkalc_benchmarks bn254
-zkalc_benchmarks bls12-381
-zkalc_benchmarks bls12-377
+zkalc_benchmarks $1
 popd
