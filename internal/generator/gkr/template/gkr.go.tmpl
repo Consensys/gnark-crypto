@@ -161,10 +161,12 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff {{.ElementType}
 	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
-		newEq.Eq(c.evaluationPoints[k])
 
-		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
-		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
+		c.innerWork(polynomial.Polynomial(c.eq), newEq,c.evaluationPoints[k])
+
+		// newEq.Eq(c.evaluationPoints[k])
+		// eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
+		// eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+1 < claimsNum {
 			aI.Mul(&aI, &combinationCoeff)
@@ -176,6 +178,50 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff {{.ElementType}
 	// from this point on the claim is a rather simple one: g = E(h) × R_v (P_u0(h), ...) where E and the P_u are multilinear and R_v is of low-degree
 
 	return c.computeGJ()
+}
+
+
+// TODO @Tabaie find a better home for this / cleanup
+func (c *eqTimesGateEvalSumcheckClaims) innerWork(e polynomial.Polynomial, m polynomial.MultiLin, q []{{.ElementType}}) {
+	n := len(q)
+
+	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
+	var wgs []*sync.WaitGroup
+	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
+		const threshold = 1 << 6
+		k := 1 << i
+		if k < threshold {
+			for j := 0; j < k; j++ {
+				j0 := j << (n - i)    // bᵢ₊₁ = 0
+				j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
+
+				m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+				m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
+			}
+		} else {
+			wgs = append(wgs, c.manager.workers.Submit(k, func(start, end int) {
+				for j := start; j < end; j++ {
+					j0 := j << (n - i)    // bᵢ₊₁ = 0
+					j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
+
+					m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+					m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
+				}
+			}, 1024))
+		}
+
+	}
+	for _, wg := range wgs {
+		wg.Wait()
+	}
+	c.manager.workers.Submit(len(e), func(start, end int) {
+		for i := start; i < end; i++ {
+			e[i].Add(&e[i], &m[i])
+		}
+	}, 512).Wait()
+
+	// e.Add(e, polynomial.Polynomial(m))
 }
 
 
@@ -241,7 +287,6 @@ func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
 		c.manager.workers.Submit(nbOuter, computeAll, minBlockSize).Wait()
 	}
 
-	// c.manager.workers.Dispatch(nbOuter, runtime.NumCPU(), computeAll).Wait()
 	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
 
 	return gJ
