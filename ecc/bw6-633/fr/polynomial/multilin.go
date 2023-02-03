@@ -34,15 +34,17 @@ func (m *MultiLin) Fold(r fr.Element) {
 
 	bottom, top := (*m)[:mid], (*m)[mid:]
 
+	var t fr.Element // no need to update the top part
+
 	// updating bookkeeping table
 	// knowing that the polynomial f ∈ (k[X₂, ..., Xₙ])[X₁] is linear, we would get f(r) = f(0) + r(f(1) - f(0))
 	// the following loop computes the evaluations of f(r) accordingly:
 	//		f(r, b₂, ..., bₙ) = f(0, b₂, ..., bₙ) + r(f(1, b₂, ..., bₙ) - f(0, b₂, ..., bₙ))
 	for i := 0; i < mid; i++ {
 		// table[i] ← table[i] + r (table[i + mid] - table[i])
-		top[i].Sub(&top[i], &bottom[i])
-		top[i].Mul(&top[i], &r)
-		bottom[i].Add(&bottom[i], &top[i])
+		t.Sub(&top[i], &bottom[i])
+		t.Mul(&t, &r)
+		bottom[i].Add(&bottom[i], &t)
 	}
 
 	*m = (*m)[:mid]
@@ -55,11 +57,12 @@ func (m *MultiLin) FoldParallel(r fr.Element) utils.Task {
 	*m = bottom
 
 	return func(start, end int) {
+		var t fr.Element // no need to update the top part
 		for i := start; i < end; i++ {
 			// table[i] ← table[i] + r (table[i + mid] - table[i])
-			top[i].Sub(&top[i], &bottom[i])
-			top[i].Mul(&top[i], &r)
-			bottom[i].Add(&bottom[i], &top[i])
+			t.Sub(&top[i], &bottom[i])
+			t.Mul(&t, &r)
+			bottom[i].Add(&bottom[i], &t)
 		}
 	}
 }
