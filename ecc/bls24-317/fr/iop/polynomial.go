@@ -211,17 +211,6 @@ func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
 	return &res
 }
 
-// WrapMe same as Copy, but the underlying polynomial is a pointer to
-// wp's polynomial.
-func (wp *WrappedPolynomial) WrapMe(shift int) *WrappedPolynomial {
-	var res WrappedPolynomial
-	res.P = wp.P
-	res.Shift = shift
-	res.Size = wp.Size
-	res.BlindedSize = wp.Size
-	return &res
-}
-
 // GetCoeff returns the i-th entry of wp, taking the layout in account.
 func (wp *WrappedPolynomial) GetCoeff(i int) fr.Element {
 
@@ -274,21 +263,23 @@ func (wp *WrappedPolynomial) ToBitReverse() *WrappedPolynomial {
 //----------------------------------------------------
 // Wrap a polynomial
 
-// WrapMe returned a WrappedPolynomial from p.
-// * shift integer meaning that the result should be interpreted as p(\omega^shift X)
-// * size optional parameter telling the size of p (as a vector). If not provided,
-// len(p) is the default size.
-func (p *Polynomial) WrapMe(shift int, size ...int) *WrappedPolynomial {
-	res := WrappedPolynomial{
+// NewWrappedPolynomial returned a WrappedPolynomial from p.
+// ! Warning this does not do a deep copy of p, and modifications on the wrapped
+// ! polynomial will modify the underlying coefficients of p.
+func NewWrappedPolynomial(p *Polynomial) *WrappedPolynomial {
+	return &WrappedPolynomial{
 		P:           p,
-		Shift:       shift,
 		Size:        len(p.Coefficients),
 		BlindedSize: len(p.Coefficients),
 	}
-	if len(size) > 0 {
-		res.Size = size[0]
-	}
-	return &res
+}
+
+// TODO @gbotrel rename to Shift
+// ShiftMe the wrapped polynomial; it doesn't modify the underlying data structure,
+// but flag the WrappedPolynomial such that it will be interpreted as p(\omega^shift X)
+func (wp *WrappedPolynomial) ShiftMe(shift int) *WrappedPolynomial {
+	wp.Shift = shift
+	return wp
 }
 
 //----------------------------------------------------

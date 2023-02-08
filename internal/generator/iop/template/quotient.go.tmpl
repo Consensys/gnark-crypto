@@ -26,7 +26,7 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 	var p Polynomial
 	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
 	p.Coefficients = make([]fr.Element, len(a.P.Coefficients))
-	res := p.WrapMe(0)
+	res := NewWrappedPolynomial(&p)
 	res.Size = a.Size
 	res.BlindedSize = a.BlindedSize
 

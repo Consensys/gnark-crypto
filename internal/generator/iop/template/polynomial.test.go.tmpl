@@ -12,8 +12,8 @@ func TestEvaluation(t *testing.T) {
 	d := fft.NewDomain(uint64(size))
 	c := randomVector(size)
 	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
-	wp := p.WrapMe(0)
-	wps := p.WrapMe(shift)
+	wp := NewWrappedPolynomial(p)
+	wps := NewWrappedPolynomial(p).ShiftMe(shift)
 	ref := wp.Copy()
 	ref.ToLagrange(d).ToRegular()
 
@@ -58,8 +58,8 @@ func TestGetCoeff(t *testing.T) {
 		v[i].SetUint64(uint64(i))
 	}
 	p := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
-	wp := p.WrapMe(0)
-	wsp := p.WrapMe(1)
+	wp := NewWrappedPolynomial(p)
+	wsp := NewWrappedPolynomial(p).ShiftMe(1)
 
 	var aa, bb fr.Element
 
@@ -110,7 +110,7 @@ func TestBlinding(t *testing.T) {
 	p.Coefficients = randomVector(size)
 	p.Basis = Lagrange
 	p.Layout = Regular
-	wp := p.WrapMe(0)
+	wp := NewWrappedPolynomial(&p)
 
 	// checks the blinding is correct: the evaluation of the blinded polynomial
 	// should be the same as the original on d's domain
