@@ -20,13 +20,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/kzg"
 )
 
 func TestLookupVector(t *testing.T) {
 
-	lookupVector := make(Table, 8)
-	fvector := make(Table, 7)
+	lookupVector := make(fr.Vector, 8)
+	fvector := make(fr.Vector, 7)
 	for i := 0; i < 8; i++ {
 		lookupVector[i].SetUint64(uint64(2 * i))
 	}
@@ -76,11 +77,11 @@ func TestLookupTable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lookupTable := make([]Table, 3)
-	fTable := make([]Table, 3)
+	lookupTable := make([]fr.Vector, 3)
+	fTable := make([]fr.Vector, 3)
 	for i := 0; i < 3; i++ {
-		lookupTable[i] = make(Table, 8)
-		fTable[i] = make(Table, 7)
+		lookupTable[i] = make(fr.Vector, 8)
+		fTable[i] = make(fr.Vector, 7)
 		for j := 0; j < 8; j++ {
 			lookupTable[i][j].SetUint64(uint64(2*i + j))
 		}
@@ -124,8 +125,8 @@ func BenchmarkPlookup(b *testing.B) {
 	polySize := 1 << 14
 
 	srs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
-	a := make(Table, polySize)
-	c := make(Table, polySize)
+	a := make(fr.Vector, polySize)
+	c := make(fr.Vector, polySize)
 
 	for i := 0; i < 1<<14; i++ {
 		a[i].SetUint64(uint64(i))

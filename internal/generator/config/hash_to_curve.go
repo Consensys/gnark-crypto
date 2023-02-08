@@ -179,7 +179,7 @@ type IsogenyInfo struct {
 
 type RationalPolynomialInfo struct {
 	Num []field.Element
-	Den []field.Element //Denominator is monic. The leading coefficient (1) is omitted.
+	Den []field.Element //denominator is monic. The leading coefficient (1) is omitted.
 }
 
 type HashSuiteInfo struct {

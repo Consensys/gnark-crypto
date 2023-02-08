@@ -30,6 +30,7 @@ import (
 )
 
 var errNotOnCurve = errors.New("point not on curve")
+var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir.")
 
 const (
 	sizeFr         = fr.Bytes
@@ -127,6 +128,12 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return nil, errHashNeeded
+	}
+
 	curveParams := twistededwards.GetEdwardsCurve()
 
 	var res Signature
@@ -193,6 +200,12 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 // Verify verifies an eddsa signature
 func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 
+	// hFunc cannot be nil.
+	// We need a hash function for the Fiat-Shamir.
+	if hFunc == nil {
+		return false, errHashNeeded
+	}
+
 	curveParams := twistededwards.GetEdwardsCurve()
 
 	// verify that pubKey and R are on the curve
@@ -230,7 +243,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
 	var bCofactor, bs big.Int
-	curveParams.Cofactor.ToBigIntRegular(&bCofactor)
+	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
 	lhs.ScalarMultiplication(&curveParams.Base, &bs).
 		ScalarMultiplication(&lhs, &bCofactor)

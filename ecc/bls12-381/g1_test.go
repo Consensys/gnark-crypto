@@ -346,7 +346,7 @@ func TestG1AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&g1Gen, &scalar)
 			op2.mulWindowed(&g1Gen, &blindedScalar)
@@ -369,7 +369,7 @@ func TestG1AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.ScalarMultiplication(&g1Gen, &scalar)
 			op2.ScalarMultiplication(&g1Gen, &blindedScalar)
@@ -385,12 +385,29 @@ func TestG1AffineOps(t *testing.T) {
 
 			var r big.Int
 			var op1, op2 G1Jac
-			s.ToBigIntRegular(&r)
+			s.BigInt(&r)
 			op1.mulWindowed(&g1Gen, &r)
 			op2.mulGLV(&g1Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
 
 		},
+		genScalar,
+	))
+
+	properties.Property("[BLS12-381] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+
+			var op1, op2, temp G1Jac
+
+			op1.JointScalarMultiplicationBase(&g1GenAff, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			temp.ScalarMultiplication(&g1Gen, s2.BigInt(new(big.Int)))
+			op2.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
+				AddAssign(&temp)
+
+			return op1.Equal(&op2)
+
+		},
+		genScalar,
 		genScalar,
 	))
 
@@ -472,7 +489,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].ToBigIntRegular(&b))
+				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false

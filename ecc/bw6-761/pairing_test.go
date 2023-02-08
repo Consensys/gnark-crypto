@@ -75,7 +75,7 @@ func TestPairing(t *testing.T) {
 			k := new(big.Int).SetUint64(6)
 
 			e.Exp(e, k)
-			e.ToBigIntRegular(&_e)
+			e.BigInt(&_e)
 			ne.Neg(&_e)
 
 			var b, c, d GT
@@ -118,8 +118,8 @@ func TestPairing(t *testing.T) {
 
 			var abigint, bbigint, ab big.Int
 
-			a.ToBigIntRegular(&abigint)
-			b.ToBigIntRegular(&bbigint)
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
 			ab.Mul(&abigint, &bbigint)
 
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
@@ -184,8 +184,8 @@ func TestMillerLoop(t *testing.T) {
 
 			var abigint, bbigint big.Int
 
-			a.ToBigIntRegular(&abigint)
-			b.ToBigIntRegular(&bbigint)
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
 
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
@@ -227,8 +227,8 @@ func TestMillerLoop(t *testing.T) {
 
 			one.SetOne()
 
-			a.ToBigIntRegular(&abigint)
-			b.ToBigIntRegular(&bbigint)
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
 
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
@@ -265,8 +265,8 @@ func TestMillerLoop(t *testing.T) {
 
 			var abigint, bbigint big.Int
 
-			a.ToBigIntRegular(&abigint)
-			b.ToBigIntRegular(&bbigint)
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
 
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
@@ -394,7 +394,7 @@ func BenchmarkExpGT(b *testing.B) {
 
 	e.Exp(e, k)
 	var _e big.Int
-	e.ToBigIntRegular(&_e)
+	e.BigInt(&_e)
 
 	b.Run("Naive windowed Exp", func(b *testing.B) {
 		b.ResetTimer()
