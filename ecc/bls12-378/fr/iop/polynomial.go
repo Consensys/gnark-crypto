@@ -24,10 +24,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
 )
 
-//-----------------------------------------------------
-// univariate polynomials
-
-// Enum to tell in which basis a polynomial is represented.
+// Basis indicates the basis in which a polynomial is represented.
 type Basis int64
 
 const (
@@ -36,8 +33,7 @@ const (
 	LagrangeCoset
 )
 
-// Enum to tell if a polynomial is in bit reverse form or
-// in the regular form.
+// Layout indicates if a polynomial has a BitReverse or a Regular layout
 type Layout int64
 
 const (
@@ -50,6 +46,17 @@ type Form struct {
 	Basis  Basis
 	Layout Layout
 }
+
+// enum of the possible Form values for type-safe switches
+// in this package
+var (
+	canonicalRegular        = Form{Canonical, Regular}
+	canonicalBitReverse     = Form{Canonical, BitReverse}
+	lagrangeRegular         = Form{Lagrange, Regular}
+	lagrangeBitReverse      = Form{Lagrange, BitReverse}
+	lagrangeCosetRegular    = Form{LagrangeCoset, Regular}
+	lagrangeCosetBitReverse = Form{LagrangeCoset, BitReverse}
+)
 
 // Polynomial represents a polynomial, the vector of coefficients
 // along with the basis and the layout.
@@ -74,12 +81,7 @@ func (p *Polynomial) Copy() *Polynomial {
 	return &r
 }
 
-// return an ID corresponding to the polynomial extra data
-func getShapeID(p Polynomial) int {
-	return int(p.Basis)*2 + int(p.Layout)
-}
-
-// WrappedPolynomial wrapps a polynomial so that it is
+// WrappedPolynomial wraps a polynomial so that it is
 // interpreted as P'(X)=P(\omega^{s}X).
 // Size is the real size of the polynomial (seen as a vector).
 // For instance if len(P)=32 but P.Size=8, it means that P has been
@@ -125,7 +127,7 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 	newSize := wp.Size + blindingOrder + 1
 
 	// Resize wp. The size of wq might has already been increased
-	// (e.g. whent the polynomial is evaluated on a larger domain),
+	// (e.g. when the polynomial is evaluated on a larger domain),
 	// if that's the case we don't resize the polynomial.
 	offset := newSize - len(wp.P.Coefficients)
 	if offset > 0 {
@@ -198,7 +200,7 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 }
 
 // Copy returns a copy of wp. The underlying polynomial is copied, that
-// it it's a new pointer to a newly alloacted polynomial. In particular
+// it it's a new pointer to a newly allocated polynomial. In particular
 // the slice representing the coefficients of the polynomial is reallocated
 // and its content is copied from wp's coefficients.
 func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
@@ -253,16 +255,16 @@ func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
 
 func (wp *WrappedPolynomial) ToRegular(wq *WrappedPolynomial) *WrappedPolynomial {
 	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
 	}
 	wp.P.ToRegular(wp.P)
 	return wp
 }
 
 //----------------------------------------------------
-// ToBitreverse
+// ToBitReverse
 
-func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
+func (p *Polynomial) ToBitReverse(q *Polynomial) *Polynomial {
 
 	if p != q {
 		*p = *q.Copy()
@@ -275,11 +277,11 @@ func (p *Polynomial) ToBitreverse(q *Polynomial) *Polynomial {
 	return p
 }
 
-func (wp *WrappedPolynomial) ToBitreverse(wq *WrappedPolynomial) *WrappedPolynomial {
+func (wp *WrappedPolynomial) ToBitReverse(wq *WrappedPolynomial) *WrappedPolynomial {
 	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
 	}
-	wp.P.ToBitreverse(wp.P)
+	wp.P.ToBitReverse(wp.P)
 	return wp
 }
 
@@ -325,16 +327,6 @@ func (p *Polynomial) toLagrange1(d *fft.Domain) *Polynomial {
 	return p
 }
 
-// LAGRANGE REGULAR
-func (p *Polynomial) toLagrange2(d *fft.Domain) *Polynomial {
-	return p
-}
-
-// LAGRANGE BITREVERSE
-func (p *Polynomial) toLagrange3(d *fft.Domain) *Polynomial {
-	return p
-}
-
 // LAGRANGE_COSET REGULAR
 func (p *Polynomial) toLagrange4(d *fft.Domain) *Polynomial {
 	p.Basis = Lagrange
@@ -355,23 +347,21 @@ func (p *Polynomial) toLagrange5(d *fft.Domain) *Polynomial {
 
 // Set p to q in Lagrange form and returns it.
 func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := getShapeID(*q)
+	id := q.Form
 	if q != p {
 		*p = *q.Copy()
 	}
 	resize(p, d.Cardinality)
 	switch id {
-	case 0:
+	case canonicalRegular:
 		return p.toLagrange0(d)
-	case 1:
+	case canonicalBitReverse:
 		return p.toLagrange1(d)
-	case 2:
-		return p.toLagrange2(d)
-	case 3:
-		return p.toLagrange3(d)
-	case 4:
+	case lagrangeRegular, lagrangeBitReverse:
+		return p
+	case lagrangeCosetRegular:
 		return p.toLagrange4(d)
-	case 5:
+	case lagrangeCosetBitReverse:
 		return p.toLagrange5(d)
 	default:
 		panic("unknown ID")
@@ -381,7 +371,7 @@ func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToLagrange Sets wp to wq, in ToLagrange form and returns it.
 func (wp *WrappedPolynomial) ToLagrange(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
 	}
 	wp.P.ToLagrange(wp.P, d)
 	return wp
@@ -389,16 +379,6 @@ func (wp *WrappedPolynomial) ToLagrange(wq *WrappedPolynomial, d *fft.Domain) *W
 
 //----------------------------------------------------
 // toCanonical
-
-// CANONICAL REGULAR
-func (p *Polynomial) toCanonical0(d *fft.Domain) *Polynomial {
-	return p
-}
-
-// CANONICAL BITREVERSE
-func (p *Polynomial) toCanonical1(d *fft.Domain) *Polynomial {
-	return p
-}
 
 // LAGRANGE REGULAR
 func (p *Polynomial) toCanonical2(d *fft.Domain) *Polynomial {
@@ -434,23 +414,21 @@ func (p *Polynomial) toCanonical5(d *fft.Domain) *Polynomial {
 
 // ToCanonical Sets p to q, in canonical form and returns it.
 func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := getShapeID(*q)
+	id := q.Form
 	if q != p {
 		*p = *q.Copy()
 	}
 	resize(p, d.Cardinality)
 	switch id {
-	case 0:
-		return p.toCanonical0(d)
-	case 1:
-		return p.toCanonical1(d)
-	case 2:
+	case canonicalRegular, canonicalBitReverse:
+		return p
+	case lagrangeRegular:
 		return p.toCanonical2(d)
-	case 3:
+	case lagrangeBitReverse:
 		return p.toCanonical3(d)
-	case 4:
+	case lagrangeCosetRegular:
 		return p.toCanonical4(d)
-	case 5:
+	case lagrangeCosetBitReverse:
 		return p.toCanonical5(d)
 	default:
 		panic("unknown ID")
@@ -460,7 +438,7 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToCanonical Sets wp to wq, in canonical form and returns it.
 func (wp *WrappedPolynomial) ToCanonical(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
 	}
 	wp.P.ToCanonical(wp.P, d)
 	return wp
@@ -508,36 +486,24 @@ func (p *Polynomial) toLagrangeCoset3(d *fft.Domain) *Polynomial {
 	return p
 }
 
-// LAGRANGE_COSET REGULAR
-func (p *Polynomial) toLagrangeCoset4(d *fft.Domain) *Polynomial {
-	return p
-}
-
-// LAGRANGE_COSET BITREVERSE
-func (p *Polynomial) toLagrangeCoset5(d *fft.Domain) *Polynomial {
-	return p
-}
-
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
 func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := getShapeID(*q)
+	id := q.Form
 	if q != p {
 		*p = *q.Copy()
 	}
 	resize(p, d.Cardinality)
 	switch id {
-	case 0:
+	case canonicalRegular:
 		return p.toLagrangeCoset0(d)
-	case 1:
+	case canonicalBitReverse:
 		return p.toLagrangeCoset1(d)
-	case 2:
+	case lagrangeRegular:
 		return p.toLagrangeCoset2(d)
-	case 3:
+	case lagrangeBitReverse:
 		return p.toLagrangeCoset3(d)
-	case 4:
-		return p.toLagrangeCoset4(d)
-	case 5:
-		return p.toLagrangeCoset5(d)
+	case lagrangeCosetRegular, lagrangeCosetBitReverse:
+		return p
 	default:
 		panic("unknown ID")
 	}
@@ -546,7 +512,7 @@ func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 // ToLagrangeCoset Sets wp to wq, in LagrangeCoset form and returns it.
 func (wp *WrappedPolynomial) ToLagrangeCoset(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
 	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a danlging pointer...
+		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
 	}
 	wp.P.ToLagrangeCoset(wp.P, d)
 	return wp
