@@ -132,9 +132,9 @@ func TestBlinding(t *testing.T) {
 
 	// checks the blinding is correct: the evaluation of the blinded polynomial
 	// should be the same as the original on d's domain
-	var wt WrappedPolynomial
 	wp.Basis = Canonical
-	wt.Blind(wp, blindingOrder)
+	wt := wp.Clone()
+	wt.Blind(blindingOrder)
 	if len(wt.Coefficients) != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
