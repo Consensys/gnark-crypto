@@ -14,13 +14,13 @@ type Expression func(x ...fr.Element) fr.Element
 // The BlindedSize field of the result is the same as Size.
 // The Shift field of the result is 0.
 func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomial, error) {
-
+	// TODO check len of x 
 	var res WrappedPolynomial
 
 	// check that the sizes are consistent
-	n := len(x[0].P.Coefficients)
+	n := len(x[0].Coefficients)
 	for i := 1; i < len(x); i++ {
-		if n != len(x[i].P.Coefficients) {
+		if n != len(x[i].Coefficients) {
 			return res, ErrInconsistentSize
 		}
 	}
@@ -47,7 +47,8 @@ func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomi
 		}
 	}
 
-	res.P = NewPolynomial(r, form)
+	// TODO @gbotrel use NewWrappedPoly
+	res.Polynomial = NewPolynomial(r, form)
 	res.Size = x[0].Size
 	res.BlindedSize = x[0].Size
 	res.Shift = 0

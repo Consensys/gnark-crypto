@@ -30,30 +30,30 @@ import (
 func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPolynomial, error) {
 
 	// check that the basis is LagrangeCoset
-	if a.P.Basis != LagrangeCoset {
+	if a.Basis != LagrangeCoset {
 		return nil, ErrMustBeLagrangeCoset
 	}
 
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
 
-	rho := len(a.P.Coefficients) / a.Size
+	rho := len(a.Coefficients) / a.Size
 
-	nbElmts := len(a.P.Coefficients)
+	nbElmts := len(a.Coefficients)
 
 	var p Polynomial
 	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
-	p.Coefficients = make([]fr.Element, len(a.P.Coefficients))
+	p.Coefficients = make([]fr.Element, len(a.Coefficients))
 	res := NewWrappedPolynomial(&p)
 	res.Size = a.Size
 	res.BlindedSize = a.BlindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
-	for i := 0; i < len(a.P.Coefficients); i++ {
+	for i := 0; i < len(a.Coefficients); i++ {
 
 		iRev := bits.Reverse64(uint64(i)) >> nn
 		c := a.GetCoeff(i)
-		res.P.Coefficients[iRev].
+		res.Coefficients[iRev].
 			Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
 	}
 

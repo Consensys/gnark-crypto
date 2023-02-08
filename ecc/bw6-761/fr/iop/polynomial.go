@@ -90,10 +90,29 @@ func (p *Polynomial) Copy() *Polynomial {
 // BlindedSize is the size of the polynomial when it is blinded. By
 // default BlindedSize=Size, until the polynomial is blinded.
 type WrappedPolynomial struct {
-	P           *Polynomial
+	*Polynomial
 	Shift       int
 	Size        int
 	BlindedSize int
+}
+
+// NewWrappedPolynomial returned a WrappedPolynomial from p.
+// ! Warning this does not do a deep copy of p, and modifications on the wrapped
+// ! polynomial will modify the underlying coefficients of p.
+func NewWrappedPolynomial(p *Polynomial) *WrappedPolynomial {
+	return &WrappedPolynomial{
+		Polynomial:  p,
+		Size:        len(p.Coefficients),
+		BlindedSize: len(p.Coefficients),
+	}
+}
+
+// TODO @gbotrel rename to Shift
+// ShiftMe the wrapped polynomial; it doesn't modify the underlying data structure,
+// but flag the WrappedPolynomial such that it will be interpreted as p(\omega^shift X)
+func (wp *WrappedPolynomial) ShiftMe(shift int) *WrappedPolynomial {
+	wp.Shift = shift
+	return wp
 }
 
 //----------------------------------------------------
@@ -111,13 +130,13 @@ type WrappedPolynomial struct {
 func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *WrappedPolynomial {
 
 	// check that q is in canonical basis
-	if wq.P.Basis != Canonical || wq.P.Layout != Regular {
+	if wq.Polynomial.Basis != Canonical || wq.Polynomial.Layout != Regular {
 		panic("the input must be in canonical basis, regular layout")
 	}
 
 	// take care of who is modified
 	if wp != wq {
-		wp.P = wq.P.Copy()
+		wp.Polynomial = wq.Polynomial.Copy()
 		wp.Shift = wq.Shift
 		wp.Size = wq.Size
 	}
@@ -129,10 +148,10 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 	// Resize wp. The size of wq might has already been increased
 	// (e.g. when the polynomial is evaluated on a larger domain),
 	// if that's the case we don't resize the polynomial.
-	offset := newSize - len(wp.P.Coefficients)
+	offset := newSize - len(wp.Polynomial.Coefficients)
 	if offset > 0 {
 		z := make([]fr.Element, offset)
-		wp.P.Coefficients = append(wp.P.Coefficients, z...)
+		wp.Polynomial.Coefficients = append(wp.Polynomial.Coefficients, z...)
 	}
 
 	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
@@ -140,8 +159,8 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 
 	for i := 0; i <= blindingOrder; i++ {
 		r.SetRandom()
-		wp.P.Coefficients[i].Sub(&wp.P.Coefficients[i], &r)
-		wp.P.Coefficients[i+wp.Size].Add(&wp.P.Coefficients[i+wp.Size], &r)
+		wp.Polynomial.Coefficients[i].Sub(&wp.Polynomial.Coefficients[i], &r)
+		wp.Polynomial.Coefficients[i+wp.Size].Add(&wp.Polynomial.Coefficients[i+wp.Size], &r)
 	}
 	wp.BlindedSize = newSize
 
@@ -181,7 +200,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 
 	if wp.Shift == 0 {
-		return wp.P.Evaluate(x)
+		return wp.Polynomial.Evaluate(x)
 	}
 
 	// TODO find a way to retrieve the root properly instead of re generating the fft domain
@@ -190,13 +209,13 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 	if wp.Shift <= 5 {
 		g = smallExp(d.Generator, wp.Shift)
 		x.Mul(&x, &g)
-		return wp.P.Evaluate(x)
+		return wp.Polynomial.Evaluate(x)
 	}
 
 	bs := big.NewInt(int64(wp.Shift))
 	g = *g.Exp(g, bs)
 	x.Mul(&x, &g)
-	return wp.P.Evaluate(x)
+	return wp.Polynomial.Evaluate(x)
 }
 
 // Copy returns a copy of wp. The underlying polynomial is copied, that
@@ -205,7 +224,7 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 // and its content is copied from wp's coefficients.
 func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
 	var res WrappedPolynomial
-	res.P = wp.P.Copy()
+	res.Polynomial = wp.Polynomial.Copy()
 	res.Shift = wp.Shift
 	res.Size = wp.Size
 	return &res
@@ -214,14 +233,14 @@ func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
 // GetCoeff returns the i-th entry of wp, taking the layout in account.
 func (wp *WrappedPolynomial) GetCoeff(i int) fr.Element {
 
-	n := len(wp.P.Coefficients)
+	n := len(wp.Polynomial.Coefficients)
 	rho := n / wp.Size
-	if wp.P.Form.Layout == Regular {
-		return wp.P.Coefficients[(i+rho*wp.Shift)%n]
+	if wp.Polynomial.Form.Layout == Regular {
+		return wp.Polynomial.Coefficients[(i+rho*wp.Shift)%n]
 	} else {
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
 		iRev := bits.Reverse64(uint64((i+rho*wp.Shift)%n)) >> nn
-		return wp.P.Coefficients[iRev]
+		return wp.Polynomial.Coefficients[iRev]
 	}
 
 }
@@ -238,11 +257,6 @@ func (p *Polynomial) ToRegular() *Polynomial {
 	return p
 }
 
-func (wp *WrappedPolynomial) ToRegular() *WrappedPolynomial {
-	wp.P.ToRegular()
-	return wp
-}
-
 //----------------------------------------------------
 // ToBitReverse
 
@@ -253,33 +267,6 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 	fft.BitReverse(p.Coefficients)
 	p.Layout = BitReverse
 	return p
-}
-
-func (wp *WrappedPolynomial) ToBitReverse() *WrappedPolynomial {
-	wp.P.ToBitReverse()
-	return wp
-}
-
-//----------------------------------------------------
-// Wrap a polynomial
-
-// NewWrappedPolynomial returned a WrappedPolynomial from p.
-// ! Warning this does not do a deep copy of p, and modifications on the wrapped
-// ! polynomial will modify the underlying coefficients of p.
-func NewWrappedPolynomial(p *Polynomial) *WrappedPolynomial {
-	return &WrappedPolynomial{
-		P:           p,
-		Size:        len(p.Coefficients),
-		BlindedSize: len(p.Coefficients),
-	}
-}
-
-// TODO @gbotrel rename to Shift
-// ShiftMe the wrapped polynomial; it doesn't modify the underlying data structure,
-// but flag the WrappedPolynomial such that it will be interpreted as p(\omega^shift X)
-func (wp *WrappedPolynomial) ShiftMe(shift int) *WrappedPolynomial {
-	wp.Shift = shift
-	return wp
 }
 
 //----------------------------------------------------
@@ -342,12 +329,6 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	}
 }
 
-// ToLagrange Sets wp to wq, in ToLagrange form and returns it.
-func (wp *WrappedPolynomial) ToLagrange(d *fft.Domain) *WrappedPolynomial {
-	wp.P.ToLagrange(d)
-	return wp
-}
-
 //----------------------------------------------------
 // toCanonical
 
@@ -401,12 +382,6 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	default:
 		panic("unknown ID")
 	}
-}
-
-// ToCanonical Sets wp to wq, in canonical form and returns it.
-func (wp *WrappedPolynomial) ToCanonical(d *fft.Domain) *WrappedPolynomial {
-	wp.P.ToCanonical(d)
-	return wp
 }
 
 //-----------------------------------------------------
@@ -469,10 +444,4 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	default:
 		panic("unknown ID")
 	}
-}
-
-// ToLagrangeCoset Sets wp to wq, in LagrangeCoset form and returns it.
-func (wp *WrappedPolynomial) ToLagrangeCoset(d *fft.Domain) *WrappedPolynomial {
-	wp.P.ToLagrangeCoset(d)
-	return wp
 }

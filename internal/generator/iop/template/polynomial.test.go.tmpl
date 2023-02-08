@@ -20,10 +20,10 @@ func TestEvaluation(t *testing.T) {
 	// regular layout
 	a := wp.Evaluate(d.Generator)
 	b := wps.Evaluate(d.Generator)
-	if !a.Equal(&ref.P.Coefficients[1]) {
+	if !a.Equal(&ref.Coefficients[1]) {
 		t.Fatal("error evaluation")
 	}
-	if !b.Equal(&ref.P.Coefficients[1+shift]) {
+	if !b.Equal(&ref.Coefficients[1+shift]) {
 		t.Fatal("error evaluation shifted")
 	}
 
@@ -32,10 +32,10 @@ func TestEvaluation(t *testing.T) {
 	wps.ToBitReverse()
 	a = wp.Evaluate(d.Generator)
 	b = wps.Evaluate(d.Generator)
-	if !a.Equal(&ref.P.Coefficients[1]) {
+	if !a.Equal(&ref.Coefficients[1]) {
 		t.Fatal("error evaluation")
 	}
-	if !b.Equal(&ref.P.Coefficients[1+shift]) {
+	if !b.Equal(&ref.Coefficients[1+shift]) {
 		t.Fatal("error evaluation shifted")
 	}
 
@@ -115,9 +115,9 @@ func TestBlinding(t *testing.T) {
 	// checks the blinding is correct: the evaluation of the blinded polynomial
 	// should be the same as the original on d's domain
 	var wt WrappedPolynomial
-	wp.P.Basis = Canonical
+	wp.Basis = Canonical
 	wt.Blind(wp, blindingOrder)
-	if len(wt.P.Coefficients) != blindingOrder+size+1 {
+	if len(wt.Coefficients) != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
 	if wt.BlindedSize != size+blindingOrder+1 {

@@ -68,13 +68,13 @@ func TestEvaluate(t *testing.T) {
 
 	// compare with the expected result
 	for i := 0; i < size; i++ {
-		if !rr.P.Coefficients[i].Equal(&r[i]) {
+		if !rr.Coefficients[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
-		if !rrb.P.Coefficients[i].Equal(&r[i]) {
+		if !rrb.Coefficients[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
-		if !rrc.P.Coefficients[i].Equal(&r[i]) {
+		if !rrc.Coefficients[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
 

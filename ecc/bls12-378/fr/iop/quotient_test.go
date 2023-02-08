@@ -41,7 +41,7 @@ func buildPoly(size int, form Form) *WrappedPolynomial {
 	f.Coefficients = make([]fr.Element, size)
 	f.Basis = form.Basis
 	f.Layout = form.Layout
-	return &WrappedPolynomial{P: &f, Shift: 0, Size: size}
+	return &WrappedPolynomial{Polynomial: &f, Shift: 0, Size: size}
 }
 
 func TestDivideByXMinusOne(t *testing.T) {
@@ -70,12 +70,12 @@ func TestDivideByXMinusOne(t *testing.T) {
 
 	for i := 0; i < sizeSystem; i++ {
 
-		entries[0].P.Coefficients[i].SetRandom()
-		entries[1].P.Coefficients[i].SetRandom()
+		entries[0].Coefficients[i].SetRandom()
+		entries[1].Coefficients[i].SetRandom()
 		tmp := computex3(
-			[]fr.Element{entries[0].P.Coefficients[i],
-				entries[1].P.Coefficients[i]})
-		entries[2].P.Coefficients[i].Set(&tmp)
+			[]fr.Element{entries[0].Coefficients[i],
+				entries[1].Coefficients[i]})
+		entries[2].Coefficients[i].Set(&tmp)
 
 		x := []fr.Element{
 			entries[0].GetCoeff(i),
