@@ -87,8 +87,8 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	backupNumerator := make([]*Polynomial, nbPolynomials)
 	backupDenominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		backupNumerator[i] = numerator[i].Copy()
-		backupDenominator[i] = denominator[i].Copy()
+		backupNumerator[i] = numerator[i].Clone()
+		backupDenominator[i] = denominator[i].Clone()
 	}
 
 	// build the ratio polynomial
@@ -122,11 +122,11 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// check that the ratio is correct when the inputs are
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = backupNumerator[i].Copy()
+		numerator[i] = backupNumerator[i].Clone()
 		fft.BitReverse(numerator[i].Coefficients)
 		numerator[i].Layout = BitReverse
 
-		denominator[i] = backupDenominator[i].Copy()
+		denominator[i] = backupDenominator[i].Clone()
 		fft.BitReverse(denominator[i].Coefficients)
 		denominator[i].Layout = BitReverse
 	}
@@ -145,12 +145,12 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = backupNumerator[i].Copy()
+		numerator[i] = backupNumerator[i].Clone()
 		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
 		fft.BitReverse(numerator[i].Coefficients)
 		numerator[i].Basis = Canonical
 
-		denominator[i] = backupDenominator[i].Copy()
+		denominator[i] = backupDenominator[i].Clone()
 		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
 		fft.BitReverse(denominator[i].Coefficients)
 		denominator[i].Basis = Canonical
@@ -170,12 +170,12 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = backupNumerator[i].Copy()
+		numerator[i] = backupNumerator[i].Clone()
 		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
 		numerator[i].Layout = BitReverse
 		numerator[i].Basis = Canonical
 
-		denominator[i] = backupDenominator[i].Copy()
+		denominator[i] = backupDenominator[i].Clone()
 		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
 		denominator[i].Layout = BitReverse
 		denominator[i].Basis = Canonical
@@ -232,7 +232,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// save the originals for further tests with polynomials in different forms
 	backupEntries := make([]Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		backupEntries[i] = *entries[i].Copy()
+		backupEntries[i] = *entries[i].Clone()
 	}
 
 	// build the ratio polynomial
@@ -273,7 +273,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// check that the ratio is correct when the inputs are
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
-		entries[i] = backupEntries[i].Copy()
+		entries[i] = backupEntries[i].Clone()
 		fft.BitReverse(entries[i].Coefficients)
 		entries[i].Layout = BitReverse
 	}
@@ -292,7 +292,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
-		entries[i] = backupEntries[i].Copy()
+		entries[i] = backupEntries[i].Clone()
 		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
 		fft.BitReverse(entries[i].Coefficients)
 		entries[i].Layout = Regular
@@ -313,7 +313,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// check that the ratio is correct when the inputs are in
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
-		entries[i] = backupEntries[i].Copy()
+		entries[i] = backupEntries[i].Clone()
 		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
 		entries[i].Layout = BitReverse
 		entries[i].Basis = Canonical

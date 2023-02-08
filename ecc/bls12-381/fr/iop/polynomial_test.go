@@ -32,7 +32,7 @@ func TestEvaluation(t *testing.T) {
 	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
 	wp := NewWrappedPolynomial(p)
 	wps := NewWrappedPolynomial(p).ShiftMe(shift)
-	ref := wp.Copy()
+	ref := wp.Clone()
 	ref.ToLagrange(d).ToRegular()
 
 	// regular layout
@@ -169,7 +169,7 @@ type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
 
 // CANONICAL REGULAR
 func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = Regular
 	d.FFTInverse(r.Coefficients, fft.DIF)
@@ -179,7 +179,7 @@ func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE
 func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = BitReverse
 	d.FFTInverse(r.Coefficients, fft.DIF)
@@ -188,7 +188,7 @@ func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR
 func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = Lagrange
 	r.Layout = Regular
 	return r
@@ -196,7 +196,7 @@ func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE
 func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
 	fft.BitReverse(r.Coefficients)
@@ -205,7 +205,7 @@ func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR
 func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	d.FFTInverse(r.Coefficients, fft.DIF)
@@ -215,7 +215,7 @@ func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE
 func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
-	r := p.Copy()
+	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	d.FFTInverse(r.Coefficients, fft.DIF)
@@ -270,7 +270,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromLagrange(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
@@ -287,7 +287,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromLagrange1(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
@@ -303,7 +303,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromLagrange2(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 
 		if q.Basis != Lagrange {
@@ -320,7 +320,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromLagrange3(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
@@ -337,7 +337,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromLagrange4(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
@@ -353,7 +353,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromLagrange5(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
@@ -371,7 +371,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 // CANONICAL REGULAR
 func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	return _p
@@ -379,7 +379,7 @@ func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE
 func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	return _p
@@ -387,7 +387,7 @@ func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR
 func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	d.FFT(_p.Coefficients, fft.DIF)
@@ -397,7 +397,7 @@ func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE
 func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	d.FFT(_p.Coefficients, fft.DIF)
@@ -406,7 +406,7 @@ func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR
 func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	d.FFT(_p.Coefficients, fft.DIF, true)
@@ -416,7 +416,7 @@ func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE
 func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	d.FFT(_p.Coefficients, fft.DIF, true)
@@ -438,7 +438,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromCanonical0(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -454,7 +454,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromCanonical1(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -470,7 +470,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromCanonical2(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -487,7 +487,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromCanonical3(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -503,7 +503,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromCanonical4(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -520,7 +520,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromCanonical5(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
@@ -537,7 +537,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 
 // CANONICAL REGULAR
 func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
@@ -547,7 +547,7 @@ func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // CANONICAL BITREVERSE
 func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
@@ -556,7 +556,7 @@ func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE REGULAR
 func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
@@ -566,7 +566,7 @@ func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE BITREVERSE
 func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
 	d.FFTInverse(_p.Coefficients, fft.DIF, true)
@@ -577,7 +577,7 @@ func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET REGULAR
 func fromLagrangeCoset4(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
 	return _p
@@ -585,7 +585,7 @@ func fromLagrangeCoset4(p *Polynomial, d *fft.Domain) *Polynomial {
 
 // LAGRANGE_COSET BITREVERSE
 func fromLagrangeCoset5(p *Polynomial, d *fft.Domain) *Polynomial {
-	_p := p.Copy()
+	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
 	fft.BitReverse(p.Coefficients)
@@ -607,7 +607,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromLagrangeCoset0(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
@@ -624,7 +624,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromLagrangeCoset1(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
@@ -640,7 +640,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromLagrangeCoset2(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
@@ -656,7 +656,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromLagrangeCoset3(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
@@ -673,7 +673,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromLagrangeCoset4(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
@@ -689,7 +689,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromLagrangeCoset5(&p, domain)
-		q := _p.Copy()
+		q := _p.Clone()
 		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")

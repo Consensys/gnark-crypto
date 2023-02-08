@@ -71,14 +71,14 @@ func NewPolynomial(coeffs []fr.Element, form Form) *Polynomial {
 	return &Polynomial{Coefficients: coeffs, Form: form}
 }
 
-// return a copy of p
-func (p *Polynomial) Copy() *Polynomial {
-	size := len(p.Coefficients)
-	var r Polynomial
-	r.Coefficients = make([]fr.Element, size)
+// Clone returns a deep copy of the underlying data structure.
+func (p *Polynomial) Clone() *Polynomial {
+	r := &Polynomial{
+		Coefficients: make([]fr.Element, len(p.Coefficients)),
+		Form:         p.Form,
+	}
 	copy(r.Coefficients, p.Coefficients)
-	r.Form = p.Form
-	return &r
+	return r
 }
 
 // WrappedPolynomial wraps a polynomial so that it is
@@ -134,9 +134,10 @@ func (wp *WrappedPolynomial) Blind(wq *WrappedPolynomial, blindingOrder int) *Wr
 		panic("the input must be in canonical basis, regular layout")
 	}
 
-	// take care of who is modified
+	// ensure we don't mutate input
+	// TODO @gbotrel this is inconsistent with other APIs
 	if wp != wq {
-		wp.Polynomial = wq.Polynomial.Copy()
+		wp.Polynomial = wq.Polynomial.Clone()
 		wp.Shift = wq.Shift
 		wp.Size = wq.Size
 	}
@@ -218,15 +219,20 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 	return wp.Polynomial.Evaluate(x)
 }
 
-// Copy returns a copy of wp. The underlying polynomial is copied, that
-// it it's a new pointer to a newly allocated polynomial. In particular
-// the slice representing the coefficients of the polynomial is reallocated
-// and its content is copied from wp's coefficients.
-func (wp *WrappedPolynomial) Copy() *WrappedPolynomial {
+// Clone returns a deep copy of wp. The underlying polynomial is cloned;
+// see also ShallowClone to perform a ShallowClone on the underlying polynomial.
+func (wp *WrappedPolynomial) Clone() *WrappedPolynomial {
 	var res WrappedPolynomial
-	res.Polynomial = wp.Polynomial.Copy()
+	res.Polynomial = wp.Polynomial.Clone()
 	res.Shift = wp.Shift
 	res.Size = wp.Size
+	return &res
+}
+
+// ShallowClone returns a shallow copy of wp. The underlying polynomial coefficient
+// is NOT cloned and both objects will point to the same data structure.
+func (wp *WrappedPolynomial) ShallowClone() *WrappedPolynomial {
+	res := *wp
 	return &res
 }
 
