@@ -57,7 +57,7 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 			Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
 	}
 
-	res.ToCanonical(res, domains[1])
+	res.ToCanonical(domains[1])
 
 	return res, nil
 

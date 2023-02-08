@@ -53,14 +53,14 @@ func TestEvaluate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wu.ToBitReverse(wu)
+	wu.ToBitReverse()
 	rrb, err := Evaluate(f, form, wu, wv, ww)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wv.ToBitReverse(wv)
-	ww.ToBitReverse(ww)
+	wv.ToBitReverse()
+	ww.ToBitReverse()
 	rrc, err := Evaluate(f, form, wu, wv, ww)
 	if err != nil {
 		t.Fatal(err)

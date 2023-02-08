@@ -24,26 +24,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/fft"
 )
 
-// func printLayout(f Form) {
-
-// 	if f.Basis == Canonical {
-// 		fmt.Printf("CANONICAL")
-// 	} else if f.Basis == LagrangeCoset {
-// 		fmt.Printf("LAGRANGE_COSET")
-// 	} else {
-// 		fmt.Printf("LAGRANGE")
-// 	}
-// 	fmt.Println("")
-
-// 	if f.Layout == Regular {
-// 		fmt.Printf("REGULAR")
-// 	} else {
-// 		fmt.Printf("BIT REVERSED")
-// 	}
-// 	fmt.Println("")
-
-// }
-
 // computes x₃ in h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 // from x₁ and x₂.
 func computex3(x []fr.Element) fr.Element {
@@ -113,20 +93,20 @@ func TestDivideByXMinusOne(t *testing.T) {
 	domains[0] = fft.NewDomain(uint64(sizeSystem))
 	domains[1] = fft.NewDomain(ecc.NextPowerOfTwo(uint64(3 * sizeSystem)))
 
-	entries[0].ToCanonical(entries[0], domains[0]).
-		ToRegular(entries[0]).
-		ToLagrangeCoset(entries[0], domains[1]).
-		ToRegular(entries[0])
+	entries[0].ToCanonical(domains[0]).
+		ToRegular().
+		ToLagrangeCoset(domains[1]).
+		ToRegular()
 
-	entries[1].ToCanonical(entries[1], domains[0]).
-		ToRegular(entries[1]).
-		ToLagrangeCoset(entries[1], domains[1]).
-		ToRegular(entries[1])
+	entries[1].ToCanonical(domains[0]).
+		ToRegular().
+		ToLagrangeCoset(domains[1]).
+		ToRegular()
 
-	entries[2].ToCanonical(entries[2], domains[0]).
-		ToRegular(entries[2]).
-		ToLagrangeCoset(entries[2], domains[1]).
-		ToRegular(entries[2])
+	entries[2].ToCanonical(domains[0]).
+		ToRegular().
+		ToLagrangeCoset(domains[1]).
+		ToRegular()
 
 	expectedForm := Form{Layout: BitReverse, Basis: LagrangeCoset}
 	h, err := Evaluate(f, expectedForm, entries...)
@@ -144,9 +124,9 @@ func TestDivideByXMinusOne(t *testing.T) {
 	var x fr.Element
 	x.SetRandom()
 	qx := q.Evaluate(x)
-	entries[0].ToCanonical(entries[0], domains[1])
-	entries[1].ToCanonical(entries[1], domains[1])
-	entries[2].ToCanonical(entries[2], domains[1])
+	entries[0].ToCanonical(domains[1])
+	entries[1].ToCanonical(domains[1])
+	entries[2].ToCanonical(domains[1])
 	ax := entries[0].Evaluate(x)
 	bx := entries[1].Evaluate(x)
 	cx := entries[2].Evaluate(x)

@@ -33,7 +33,7 @@ func TestEvaluation(t *testing.T) {
 	wp := p.WrapMe(0)
 	wps := p.WrapMe(shift)
 	ref := wp.Copy()
-	ref.ToLagrange(ref, d).ToRegular(ref)
+	ref.ToLagrange(d).ToRegular()
 
 	// regular layout
 	a := wp.Evaluate(d.Generator)
@@ -46,8 +46,8 @@ func TestEvaluation(t *testing.T) {
 	}
 
 	// bit reversed layout
-	wp.ToBitReverse(wp)
-	wps.ToBitReverse(wps)
+	wp.ToBitReverse()
+	wps.ToBitReverse()
 	a = wp.Evaluate(d.Generator)
 	b = wps.Evaluate(d.Generator)
 	if !a.Equal(&ref.P.Coefficients[1]) {
@@ -97,8 +97,8 @@ func TestGetCoeff(t *testing.T) {
 	}
 
 	// bit reverse + bitReverse and shifted
-	wp.ToBitReverse(wp)
-	wsp.ToBitReverse(wsp)
+	wp.ToBitReverse()
+	wsp.ToBitReverse()
 	for i := 0; i < size; i++ {
 
 		a := wp.GetCoeff(i)
@@ -270,12 +270,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromLagrange(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -291,12 +287,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromLagrange1(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -311,12 +303,9 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromLagrange2(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
+
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -331,12 +320,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromLagrange3(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -352,12 +337,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromLagrange4(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -372,12 +353,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromLagrange5(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToLagrange(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToLagrange(domain)
 		if q.Basis != Lagrange {
 			t.Fatal("expected basis is Lagrange")
 		}
@@ -461,12 +438,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromCanonical0(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -481,12 +454,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromCanonical1(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(_p, backup) {
-		// 	t.Fatal("locked polynomial should not be modified")
-		// }
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -501,8 +470,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromCanonical2(&p, domain)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -518,12 +487,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromCanonical3(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -538,12 +503,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromCanonical4(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -559,12 +520,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromCanonical5(&p, domain)
-		// backup := copyPoly(*_p)
-		var q Polynomial
-		q.ToCanonical(_p, domain)
-		// if !reflect.DeepEqual(backup, *_p){
-		// 	t.Fatal("")
-		// }
+		q := _p.Copy()
+		q.ToCanonical(domain)
 		if q.Basis != Canonical {
 			t.Fatal("expected basis is canonical")
 		}
@@ -650,8 +607,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// CANONICAL REGULAR
 	{
 		_p := fromLagrangeCoset0(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}
@@ -667,8 +624,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// CANONICAL BITREVERSE
 	{
 		_p := fromLagrangeCoset1(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}
@@ -683,8 +640,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE REGULAR
 	{
 		_p := fromLagrangeCoset2(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}
@@ -699,8 +656,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE BITREVERSE
 	{
 		_p := fromLagrangeCoset3(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}
@@ -716,8 +673,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE_COSET REGULAR
 	{
 		_p := fromLagrangeCoset4(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}
@@ -732,8 +689,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// LAGRANGE_COSET BITREVERSE
 	{
 		_p := fromLagrangeCoset5(&p, domain)
-		var q Polynomial
-		q.ToLagrangeCoset(_p, domain)
+		q := _p.Copy()
+		q.ToLagrangeCoset(domain)
 		if q.Basis != LagrangeCoset {
 			t.Fatal("expected basis is lagrange coset")
 		}

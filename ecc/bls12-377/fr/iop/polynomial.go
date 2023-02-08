@@ -240,11 +240,7 @@ func (wp *WrappedPolynomial) GetCoeff(i int) fr.Element {
 //----------------------------------------------------
 // ToRegular
 
-func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
-
-	if p != q {
-		*p = *q.Copy()
-	}
+func (p *Polynomial) ToRegular() *Polynomial {
 	if p.Layout == Regular {
 		return p
 	}
@@ -253,22 +249,15 @@ func (p *Polynomial) ToRegular(q *Polynomial) *Polynomial {
 	return p
 }
 
-func (wp *WrappedPolynomial) ToRegular(wq *WrappedPolynomial) *WrappedPolynomial {
-	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
-	}
-	wp.P.ToRegular(wp.P)
+func (wp *WrappedPolynomial) ToRegular() *WrappedPolynomial {
+	wp.P.ToRegular()
 	return wp
 }
 
 //----------------------------------------------------
 // ToBitReverse
 
-func (p *Polynomial) ToBitReverse(q *Polynomial) *Polynomial {
-
-	if p != q {
-		*p = *q.Copy()
-	}
+func (p *Polynomial) ToBitReverse() *Polynomial {
 	if p.Layout == BitReverse {
 		return p
 	}
@@ -277,11 +266,8 @@ func (p *Polynomial) ToBitReverse(q *Polynomial) *Polynomial {
 	return p
 }
 
-func (wp *WrappedPolynomial) ToBitReverse(wq *WrappedPolynomial) *WrappedPolynomial {
-	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
-	}
-	wp.P.ToBitReverse(wp.P)
+func (wp *WrappedPolynomial) ToBitReverse() *WrappedPolynomial {
+	wp.P.ToBitReverse()
 	return wp
 }
 
@@ -346,11 +332,8 @@ func (p *Polynomial) toLagrange5(d *fft.Domain) *Polynomial {
 }
 
 // Set p to q in Lagrange form and returns it.
-func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := q.Form
-	if q != p {
-		*p = *q.Copy()
-	}
+func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
+	id := p.Form
 	resize(p, d.Cardinality)
 	switch id {
 	case canonicalRegular:
@@ -369,11 +352,8 @@ func (p *Polynomial) ToLagrange(q *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // ToLagrange Sets wp to wq, in ToLagrange form and returns it.
-func (wp *WrappedPolynomial) ToLagrange(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
-	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
-	}
-	wp.P.ToLagrange(wp.P, d)
+func (wp *WrappedPolynomial) ToLagrange(d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToLagrange(d)
 	return wp
 }
 
@@ -413,11 +393,8 @@ func (p *Polynomial) toCanonical5(d *fft.Domain) *Polynomial {
 }
 
 // ToCanonical Sets p to q, in canonical form and returns it.
-func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := q.Form
-	if q != p {
-		*p = *q.Copy()
-	}
+func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
+	id := p.Form
 	resize(p, d.Cardinality)
 	switch id {
 	case canonicalRegular, canonicalBitReverse:
@@ -436,11 +413,8 @@ func (p *Polynomial) ToCanonical(q *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // ToCanonical Sets wp to wq, in canonical form and returns it.
-func (wp *WrappedPolynomial) ToCanonical(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
-	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
-	}
-	wp.P.ToCanonical(wp.P, d)
+func (wp *WrappedPolynomial) ToCanonical(d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToCanonical(d)
 	return wp
 }
 
@@ -487,11 +461,8 @@ func (p *Polynomial) toLagrangeCoset3(d *fft.Domain) *Polynomial {
 }
 
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
-func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
-	id := q.Form
-	if q != p {
-		*p = *q.Copy()
-	}
+func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
+	id := p.Form
 	resize(p, d.Cardinality)
 	switch id {
 	case canonicalRegular:
@@ -510,10 +481,7 @@ func (p *Polynomial) ToLagrangeCoset(q *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // ToLagrangeCoset Sets wp to wq, in LagrangeCoset form and returns it.
-func (wp *WrappedPolynomial) ToLagrangeCoset(wq *WrappedPolynomial, d *fft.Domain) *WrappedPolynomial {
-	if wp != wq {
-		*wp = *wq.Copy() // --> former content of wp is now a dangling pointer...
-	}
-	wp.P.ToLagrangeCoset(wp.P, d)
+func (wp *WrappedPolynomial) ToLagrangeCoset(d *fft.Domain) *WrappedPolynomial {
+	wp.P.ToLagrangeCoset(d)
 	return wp
 }
