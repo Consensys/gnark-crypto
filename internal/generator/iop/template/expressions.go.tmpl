@@ -1,0 +1,56 @@
+import (
+	"math/bits"
+
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+)
+
+// Expression represents a multivariate polynomial.
+type Expression func(x ...fr.Element) fr.Element
+
+// Evaluate evaluates f on each entry of x. The returned value is
+// the vector of evaluations of e on x.
+// The form of the result is form.
+// The Size field of the result is the same as the one of x[0].
+// The blindedSize field of the result is the same as Size.
+// The Shift field of the result is 0.
+func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomial, error) {
+	// TODO check len of x 
+	var res WrappedPolynomial
+
+	// check that the sizes are consistent
+	n := len(x[0].Coefficients)
+	for i := 1; i < len(x); i++ {
+		if n != len(x[i].Coefficients) {
+			return res, ErrInconsistentSize
+		}
+	}
+
+	r := make([]fr.Element, n)
+	nbVariables := len(x)
+	vx := make([]fr.Element, nbVariables)
+
+	if form.Layout == Regular {
+		for i := 0; i < n; i++ {
+			for j := 0; j < nbVariables; j++ {
+				vx[j] = x[j].GetCoeff(i)
+			}
+			r[i] = f(vx...)
+		}
+	} else {
+		nn := uint64(64 - bits.TrailingZeros(uint(n)))
+		for i := 0; i < n; i++ {
+			for j := 0; j < nbVariables; j++ {
+				vx[j] = x[j].GetCoeff(i)
+			}
+			iRev := bits.Reverse64(uint64(i)) >> nn
+			r[iRev] = f(vx...)
+		}
+	}
+
+	res.Polynomial = NewPolynomial(r, form)
+	res.size = x[0].size
+	res.blindedSize = x[0].size
+	res.shift = 0
+
+	return res, nil
+}
