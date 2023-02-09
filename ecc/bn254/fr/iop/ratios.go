@@ -191,30 +191,29 @@ func BuildRatioCopyConstraint(
 
 		iRev := bits.Reverse64(uint64(i)) >> nn
 
-		for j := 0; j < nbPolynomials; j++ {
+		for j, p := range entries {
 
 			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 				Add(&a, &gamma)
-			if entries[j].Layout == BitReverse {
-				a.Add(&a, &entries[j].Coefficients[iRev])
+			if p.Layout == BitReverse {
+				a.Add(&a, &p.Coefficients[iRev])
 			} else {
-				a.Add(&a, &entries[j].Coefficients[i])
+				a.Add(&a, &p.Coefficients[i])
 			}
 			b.Mul(&a, &b)
 
 			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 				Add(&c, &gamma)
-			if entries[j].Layout == BitReverse {
-				c.Add(&c, &entries[j].Coefficients[iRev])
+			if p.Layout == BitReverse {
+				c.Add(&c, &p.Coefficients[iRev])
 			} else {
-				c.Add(&c, &entries[j].Coefficients[i])
+				c.Add(&c, &p.Coefficients[i])
 			}
 			d.Mul(&d, &c)
 		}
 
 		// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
 		// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
-
 		res.Coefficients[i+1].Mul(&res.Coefficients[i], &b)
 		t[i+1].Mul(&t[i], &d)
 	}

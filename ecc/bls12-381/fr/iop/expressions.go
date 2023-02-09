@@ -17,9 +17,10 @@
 package iop
 
 import (
-	"math/bits"
-
+	"errors"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/bits"
 )
 
 // Expression represents a multivariate polynomial.
@@ -32,38 +33,42 @@ type Expression func(x ...fr.Element) fr.Element
 // The blindedSize field of the result is the same as Size.
 // The Shift field of the result is 0.
 func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomial, error) {
-	// TODO check len of x
 	var res WrappedPolynomial
+
+	if len(x) == 0 {
+		return res, errors.New("need at lest one input")
+	}
 
 	// check that the sizes are consistent
 	n := len(x[0].Coefficients)
-	for i := 1; i < len(x); i++ {
+	m := len(x)
+	for i := 1; i < m; i++ {
 		if n != len(x[i].Coefficients) {
 			return res, ErrInconsistentSize
 		}
 	}
 
+	// result coefficients
 	r := make([]fr.Element, n)
-	nbVariables := len(x)
-	vx := make([]fr.Element, nbVariables)
-
-	if form.Layout == Regular {
-		for i := 0; i < n; i++ {
-			for j := 0; j < nbVariables; j++ {
-				vx[j] = x[j].GetCoeff(i)
-			}
-			r[i] = f(vx...)
-		}
-	} else {
+	idx := func(i int) int {
+		return i
+	}
+	if form.Layout != Regular {
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
-		for i := 0; i < n; i++ {
-			for j := 0; j < nbVariables; j++ {
-				vx[j] = x[j].GetCoeff(i)
-			}
-			iRev := bits.Reverse64(uint64(i)) >> nn
-			r[iRev] = f(vx...)
+		idx = func(i int) int {
+			return int(bits.Reverse64(uint64(i)) >> nn)
 		}
 	}
+
+	parallel.Execute(n, func(start, end int) {
+		vx := make([]fr.Element, m)
+		for i := start; i < end; i++ {
+			for j := 0; j < m; j++ {
+				vx[j] = x[j].GetCoeff(i)
+			}
+			r[idx(i)] = f(vx...)
+		}
+	})
 
 	res.Polynomial = NewPolynomial(r, form)
 	res.size = x[0].size
