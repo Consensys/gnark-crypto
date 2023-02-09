@@ -18,9 +18,7 @@ package mimc
 
 import (
 	"errors"
-	"fmt"
 	"hash"
-	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"golang.org/x/crypto/sha3"
@@ -118,14 +116,6 @@ func (d *digest) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// For debugging TODO Remove
-func prefix(s string) string {
-	if len(s) < 5 {
-		return s
-	}
-	return s[:5]
-}
-
 // Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
@@ -138,15 +128,10 @@ func (d *digest) checksum() fr.Element {
 		d.data = make([]byte, BlockSize)
 	}*/
 
-	fmt.Print("hashing ") // TODO For debugging remove
-
 	for i := range d.data {
-		fmt.Println(prefix(d.data[i].Text(10)), ":")
 		r := d.encrypt(d.data[i])
 		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
-
-	fmt.Println(" =>", prefix(d.h.Text(10)))
 
 	return d.h
 }
@@ -157,7 +142,6 @@ func (d *digest) checksum() fr.Element {
 func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
-	var sbb strings.Builder
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^7
 		var tmp1, tmp2 fr.Element
@@ -166,11 +150,7 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 		m.Square(&tmp2).
 			Mul(&m, &tmp2).
 			Mul(&m, &tmp1)
-
-		sbb.Write([]byte(m.String()))
-		sbb.WriteByte(' ')
 	}
-	fmt.Println(sbb.String())
 
 	m.Add(&m, &d.h)
 	return m
