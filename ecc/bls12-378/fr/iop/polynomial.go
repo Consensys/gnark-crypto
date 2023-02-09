@@ -73,9 +73,13 @@ func NewPolynomial(coeffs []fr.Element, form Form) *Polynomial {
 }
 
 // Clone returns a deep copy of the underlying data structure.
-func (p *Polynomial) Clone() *Polynomial {
+func (p *Polynomial) Clone(capacity ...int) *Polynomial {
+	c := len(p.Coefficients)
+	if len(capacity) == 1 && capacity[0] > c {
+		c = capacity[0]
+	}
 	r := &Polynomial{
-		Coefficients: make([]fr.Element, len(p.Coefficients)),
+		Coefficients: make([]fr.Element, len(p.Coefficients), c),
 		Form:         p.Form,
 	}
 	copy(r.Coefficients, p.Coefficients)
@@ -187,6 +191,8 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 
 func resize(p *Polynomial, newSize uint64) {
 	z := make([]fr.Element, int(newSize)-len(p.Coefficients))
+	// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
+	// some will mutate the original polynomial, some will not.
 	p.Coefficients = append(p.Coefficients, z...)
 }
 
@@ -283,6 +289,8 @@ func (wp *WrappedPolynomial) Blind(blindingOrder int) *WrappedPolynomial {
 	offset := newSize - len(wp.Coefficients)
 	if offset > 0 {
 		z := make([]fr.Element, offset)
+		// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
+		// some will mutate the original polynomial, some will not.
 		wp.Coefficients = append(wp.Coefficients, z...)
 	}
 
@@ -324,9 +332,10 @@ func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
 
 // Clone returns a deep copy of wp. The underlying polynomial is cloned;
 // see also ShallowClone to perform a ShallowClone on the underlying polynomial.
-func (wp *WrappedPolynomial) Clone() *WrappedPolynomial {
+// If capacity is provided, the new coefficient slice capacity will be set accordingly.
+func (wp *WrappedPolynomial) Clone(capacity ...int) *WrappedPolynomial {
 	res := wp.ShallowClone()
-	res.Polynomial = wp.Polynomial.Clone()
+	res.Polynomial = wp.Polynomial.Clone(capacity...)
 	return res
 }
 
