@@ -252,6 +252,12 @@ func (wp *WrappedPolynomial) Shift(shift int) *WrappedPolynomial {
 	return wp
 }
 
+// BlindedSize returns the the size of the polynomial when it is blinded. By
+// default blindedSize=Size, until the polynomial is blinded.
+func (wp *WrappedPolynomial) BlindedSize() int {
+	return wp.blindedSize
+}
+
 // Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
 // where deg Q = blindingOrder and Q is random, and n is the
 // size of q. Sets the result to p and returns it.

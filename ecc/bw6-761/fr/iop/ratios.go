@@ -300,7 +300,7 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 }
 
 // getSupportIdentityPermutation returns the support on which the permutation acts.
-// Concrectly it's X evaluated on
+// Concretely it's X evaluated on
 // [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
 // nbCopies is the number of cosets of the roots of unity that are needed, including the set of
 // roots of unity itself.

@@ -45,7 +45,7 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 
 }
 
-// evaluateXnMinusOneDomainBigCoset evalutes Xᵐ-1 on DomainBig coset
+// evaluateXnMinusOneDomainBigCoset evaluates Xᵐ-1 on DomainBig coset
 func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []fr.Element {
 
 	ratio := domains[1].Cardinality / domains[0].Cardinality
