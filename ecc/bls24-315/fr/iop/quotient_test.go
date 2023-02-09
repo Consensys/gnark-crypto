@@ -37,11 +37,7 @@ func computex3(x []fr.Element) fr.Element {
 }
 
 func buildPoly(size int, form Form) *WrappedPolynomial {
-	var f Polynomial
-	f.Coefficients = make([]fr.Element, size)
-	f.Basis = form.Basis
-	f.Layout = form.Layout
-	return &WrappedPolynomial{Polynomial: &f, Shift: 0, Size: size}
+	return NewWrappedPolynomial(NewPolynomial(make([]fr.Element, size), form))
 }
 
 func TestDivideByXMinusOne(t *testing.T) {

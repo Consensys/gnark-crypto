@@ -31,7 +31,7 @@ func TestEvaluation(t *testing.T) {
 	c := randomVector(size)
 	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
 	wp := NewWrappedPolynomial(p)
-	wps := NewWrappedPolynomial(p).ShiftMe(shift)
+	wps := NewWrappedPolynomial(p).Shift(shift)
 	ref := wp.Clone()
 	ref.ToLagrange(d).ToRegular()
 
@@ -77,7 +77,7 @@ func TestGetCoeff(t *testing.T) {
 	}
 	p := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
 	wp := NewWrappedPolynomial(p)
-	wsp := NewWrappedPolynomial(p).ShiftMe(1)
+	wsp := NewWrappedPolynomial(p).Shift(1)
 
 	var aa, bb fr.Element
 
@@ -138,10 +138,10 @@ func TestBlinding(t *testing.T) {
 	if len(wt.Coefficients) != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
-	if wt.BlindedSize != size+blindingOrder+1 {
+	if wt.blindedSize != size+blindingOrder+1 {
 		t.Fatal("Size field of blinded polynomial is incorrect")
 	}
-	if wt.Size != size {
+	if wt.size != size {
 		t.Fatal("the size should not have been modified")
 	}
 	x := make([]fr.Element, size)

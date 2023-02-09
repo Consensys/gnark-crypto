@@ -29,7 +29,7 @@ type Expression func(x ...fr.Element) fr.Element
 // the vector of evaluations of e on x.
 // The form of the result is form.
 // The Size field of the result is the same as the one of x[0].
-// The BlindedSize field of the result is the same as Size.
+// The blindedSize field of the result is the same as Size.
 // The Shift field of the result is 0.
 func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomial, error) {
 	// TODO check len of x
@@ -65,11 +65,10 @@ func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomi
 		}
 	}
 
-	// TODO @gbotrel use NewWrappedPoly
 	res.Polynomial = NewPolynomial(r, form)
-	res.Size = x[0].Size
-	res.BlindedSize = x[0].Size
-	res.Shift = 0
+	res.size = x[0].size
+	res.blindedSize = x[0].size
+	res.shift = 0
 
 	return res, nil
 }

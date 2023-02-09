@@ -19,7 +19,7 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
 
-	rho := len(a.Coefficients) / a.Size
+	rho := len(a.Coefficients) / a.size
 
 	nbElmts := len(a.Coefficients)
 
@@ -27,8 +27,8 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
 	p.Coefficients = make([]fr.Element, len(a.Coefficients))
 	res := NewWrappedPolynomial(&p)
-	res.Size = a.Size
-	res.BlindedSize = a.BlindedSize
+	res.size = a.size
+	res.blindedSize = a.blindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
 	for i := 0; i < len(a.Coefficients); i++ {
