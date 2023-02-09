@@ -178,7 +178,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff small_rational.
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
 
-		c.innerWork(polynomial.Polynomial(c.eq), newEq, c.evaluationPoints[k])
+		c.innerWork(c.eq, newEq, c.evaluationPoints[k])
 
 		// newEq.Eq(c.evaluationPoints[k])
 		// eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
@@ -196,8 +196,9 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff small_rational.
 	return c.computeGJ()
 }
 
+// innerWork sets m to an eq table at q and at the same time adds it to e
 // TODO @Tabaie find a better home for this / cleanup
-func (c *eqTimesGateEvalSumcheckClaims) innerWork(e polynomial.Polynomial, m polynomial.MultiLin, q []small_rational.SmallRational) {
+func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []small_rational.SmallRational) {
 	n := len(q)
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
