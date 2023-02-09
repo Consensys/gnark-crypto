@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
@@ -127,6 +128,9 @@ func main() {
 				FieldDependency:             frInfo,
 				RandomizeMissingHashEntries: false,
 			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
+			// generate iop functions
+			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 		}(conf)
 
