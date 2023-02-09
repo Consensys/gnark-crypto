@@ -20,6 +20,8 @@ import (
 	"math/big"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/internal/parallel"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
 )
@@ -49,13 +51,14 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 	res.blindedSize = a.blindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
-	for i := 0; i < len(a.Coefficients); i++ {
-
-		iRev := bits.Reverse64(uint64(i)) >> nn
-		c := a.GetCoeff(i)
-		res.Coefficients[iRev].
-			Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
-	}
+	parallel.Execute(len(a.Coefficients), func(start, end int) {
+		for i := start; i < end; i++ {
+			iRev := bits.Reverse64(uint64(i)) >> nn
+			c := a.GetCoeff(i)
+			res.Coefficients[iRev].
+				Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
+		}
+	})
 
 	res.ToCanonical(domains[1])
 
@@ -76,15 +79,13 @@ func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []fr.Element {
 	var t fr.Element
 	t.Exp(domains[1].Generator, big.NewInt(int64(domains[0].Cardinality)))
 
+	one := fr.One()
+
 	for i := 1; i < int(ratio); i++ {
 		res[i].Mul(&res[i-1], &t)
+		res[i-1].Sub(&res[i-1], &one)
 	}
-
-	var one fr.Element
-	one.SetOne()
-	for i := 0; i < int(ratio); i++ {
-		res[i].Sub(&res[i], &one)
-	}
+	res[len(res)-1].Sub(&res[len(res)-1], &one)
 
 	res = fr.BatchInvert(res)
 

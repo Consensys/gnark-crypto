@@ -189,26 +189,23 @@ func BuildRatioCopyConstraint(
 		b.SetOne()
 		d.SetOne()
 
-		iRev := bits.Reverse64(uint64(i)) >> nn
+		iRev := int(bits.Reverse64(uint64(i)) >> nn)
 
 		for j, p := range entries {
+			idx := i
+			if p.Layout == BitReverse {
+				idx = iRev
+			}
 
 			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
-				Add(&a, &gamma)
-			if p.Layout == BitReverse {
-				a.Add(&a, &p.Coefficients[iRev])
-			} else {
-				a.Add(&a, &p.Coefficients[i])
-			}
-			b.Mul(&a, &b)
+				Add(&a, &gamma).
+				Add(&a, &p.Coefficients[idx])
+
+			b.Mul(&b, &a)
 
 			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
-				Add(&c, &gamma)
-			if p.Layout == BitReverse {
-				c.Add(&c, &p.Coefficients[iRev])
-			} else {
-				c.Add(&c, &p.Coefficients[i])
-			}
+				Add(&c, &gamma).
+				Add(&c, &p.Coefficients[idx])
 			d.Mul(&d, &c)
 		}
 
