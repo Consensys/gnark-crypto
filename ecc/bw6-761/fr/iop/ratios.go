@@ -20,6 +20,8 @@ import (
 	"errors"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/internal/parallel"
+
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 )
@@ -181,42 +183,44 @@ func BuildRatioCopyConstraint(
 	t := make([]fr.Element, n)
 	res.Coefficients[0].SetOne()
 	t[0].SetOne()
-	var a, b, c, d fr.Element
 
-	nn := uint64(64 - bits.TrailingZeros(uint(n)))
-	for i := 0; i < n-1; i++ {
+	parallel.Execute(n-1, func(start, end int) {
+		var a, b, c, d fr.Element
+		nn := uint64(64 - bits.TrailingZeros(uint(n)))
+		for i := start; i < end; i++ {
+			b.SetOne()
+			d.SetOne()
 
-		b.SetOne()
-		d.SetOne()
+			iRev := int(bits.Reverse64(uint64(i)) >> nn)
 
-		iRev := bits.Reverse64(uint64(i)) >> nn
+			for j, p := range entries {
+				idx := i
+				if p.Layout == BitReverse {
+					idx = iRev
+				}
 
-		for j := 0; j < nbPolynomials; j++ {
+				a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
+					Add(&a, &gamma).
+					Add(&a, &p.Coefficients[idx])
 
-			a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
-				Add(&a, &gamma)
-			if entries[j].Layout == BitReverse {
-				a.Add(&a, &entries[j].Coefficients[iRev])
-			} else {
-				a.Add(&a, &entries[j].Coefficients[i])
+				b.Mul(&b, &a)
+
+				c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
+					Add(&c, &gamma).
+					Add(&c, &p.Coefficients[idx])
+				d.Mul(&d, &c)
 			}
-			b.Mul(&a, &b)
 
-			c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
-				Add(&c, &gamma)
-			if entries[j].Layout == BitReverse {
-				c.Add(&c, &entries[j].Coefficients[iRev])
-			} else {
-				c.Add(&c, &entries[j].Coefficients[i])
-			}
-			d.Mul(&d, &c)
+			// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
+			// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
+			res.Coefficients[i+1].Set(&b)
+			t[i+1].Set(&d)
 		}
+	})
 
-		// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
-		// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
-
-		res.Coefficients[i+1].Mul(&res.Coefficients[i], &b)
-		t[i+1].Mul(&t[i], &d)
+	for i := 0; i < n-1; i++ {
+		res.Coefficients[i+1].Mul(&res.Coefficients[i+1], &res.Coefficients[i])
+		t[i+1].Mul(&t[i+1], &t[i])
 	}
 
 	t = fr.BatchInvert(t)
