@@ -196,7 +196,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
-// innerWork sets m to an eq table at q and at the same time adds it to e
+// innerWork sets m to an eq table at q and then adds it to e
 // TODO @Tabaie find a better home for this / cleanup
 func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []fr.Element) {
 	n := len(q)
