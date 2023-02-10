@@ -126,7 +126,7 @@ func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
 
 type TestCase struct {
 	Circuit         {{$Circuit}}
-	Hash            *test_vector_utils.ElementMap
+	Hash            hash.Hash
 	Proof           {{$Proof}}
 	FullAssignment  {{$WireAssignment}}
 	InOutAssignment {{$WireAssignment}}
