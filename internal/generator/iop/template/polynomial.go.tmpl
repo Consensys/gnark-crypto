@@ -1,6 +1,8 @@
 import (
 	"math/big"
 	"math/bits"
+	"io"
+	"encoding/binary"
 
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
@@ -351,4 +353,68 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 
 	p.Basis = LagrangeCoset
 	return p
+}
+
+
+
+// WriteTo implements io.WriterTo 
+func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
+	// encode coefficients 
+	n, err := p.polynomial.coefficients.WriteTo(w)
+	if err != nil {
+		return n, err 
+	}
+
+	// encode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
+	var data = []uint32{
+		uint32(p.Basis),
+		uint32(p.Layout),
+		uint32(p.shift),
+		uint32(p.size),
+		uint32(p.blindedSize),
+	}
+	for _, v := range data {
+		err = binary.Write(w, binary.BigEndian, v)
+		if err != nil {
+			return n, err
+		}
+		n += 4
+	}
+	return n, nil
+}
+
+// ReadFrom implements io.ReaderFrom
+func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
+	// decode coefficients
+	if p.polynomial == nil {
+		p.polynomial = new(polynomial)
+	}
+	if p.polynomial.coefficients == nil {
+		v := make(fr.Vector, 0)
+		p.polynomial.coefficients = &v
+	}
+	n, err := p.polynomial.coefficients.ReadFrom(r)
+	if err != nil {
+		return n, err 
+	}
+
+	// decode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
+	var data [5]uint32
+	var buf [4]byte
+	for i := range data {
+		read, err := io.ReadFull(r, buf[:4])
+		n += int64(read)
+		if err != nil {
+			return n, err
+		}
+		data[i] = binary.BigEndian.Uint32(buf[:4])
+	}
+
+	p.Basis = Basis(data[0])
+	p.Layout = Layout(data[1])
+	p.shift = int(data[2])
+	p.size = int(data[3])
+	p.blindedSize = int(data[4])
+
+    return n, nil 
 }

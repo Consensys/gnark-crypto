@@ -21,6 +21,11 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
+
+	"github.com/stretchr/testify/require"
+
+	"bytes"
+	"reflect"
 )
 
 func TestEvaluation(t *testing.T) {
@@ -111,6 +116,38 @@ func TestGetCoeff(t *testing.T) {
 		}
 	}
 
+}
+
+func TestRoundTrip(t *testing.T) {
+	assert := require.New(t)
+	var buf bytes.Buffer
+
+	size := 8
+	d := fft.NewDomain(uint64(8))
+	blindingOrder := 2
+
+	p := NewPolynomial(randomVector(size), Form{Basis: Lagrange, Layout: Regular}).ToCanonical(d).ToRegular()
+	p.Blind(blindingOrder)
+
+	// serialize
+	written, err := p.WriteTo(&buf)
+	assert.NoError(err)
+
+	// deserialize
+	var reconstructed Polynomial
+	read, err := reconstructed.ReadFrom(&buf)
+	assert.NoError(err)
+
+	assert.Equal(read, written, "number of bytes written != number of bytes read")
+
+	// compare
+	assert.Equal(p.Basis, reconstructed.Basis)
+	assert.Equal(p.Layout, reconstructed.Layout)
+	assert.Equal(p.shift, reconstructed.shift)
+	assert.Equal(p.size, reconstructed.size)
+	assert.Equal(p.blindedSize, reconstructed.blindedSize)
+	c1, c2 := p.Coefficients(), reconstructed.Coefficients()
+	assert.True(reflect.DeepEqual(c1, c2))
 }
 
 func TestBlinding(t *testing.T) {
