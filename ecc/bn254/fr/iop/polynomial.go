@@ -124,8 +124,6 @@ func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
 	offset := newSize - p.coefficients.Len()
 	if offset > 0 {
 		z := make(fr.Vector, offset)
-		// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
-		// some will mutate the original polynomial, some will not.
 		(*p.coefficients) = append((*p.coefficients), z...)
 	}
 
@@ -147,7 +145,7 @@ func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
 	if p.shift == 0 {
-		return p.polynomial.Evaluate(x)
+		return p.polynomial.evaluate(x)
 	}
 
 	// TODO find a way to retrieve the root properly instead of re generating the fft domain
@@ -156,13 +154,13 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	if p.shift <= 5 {
 		g = smallExp(d.Generator, p.shift)
 		x.Mul(&x, &g)
-		return p.polynomial.Evaluate(x)
+		return p.polynomial.evaluate(x)
 	}
 
 	bs := big.NewInt(int64(p.shift))
 	g = *g.Exp(g, bs)
 	x.Mul(&x, &g)
-	return p.polynomial.Evaluate(x)
+	return p.polynomial.evaluate(x)
 }
 
 // Clone returns a deep copy of p. The underlying polynomial is cloned;
@@ -229,9 +227,9 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 	return r
 }
 
-// Evaluate evaluates p at x.
+// evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
-func (p *polynomial) Evaluate(x fr.Element) fr.Element {
+func (p *polynomial) evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
 	if p.Basis != Canonical {
@@ -334,8 +332,6 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 
 func resize(p *polynomial, newSize uint64) {
 	z := make(fr.Vector, int(newSize)-p.coefficients.Len())
-	// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
-	// some will mutate the original polynomial, some will not.
 	(*p.coefficients) = append((*p.coefficients), z...)
 }
 
