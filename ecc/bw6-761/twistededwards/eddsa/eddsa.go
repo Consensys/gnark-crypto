@@ -30,7 +30,7 @@ import (
 )
 
 var errNotOnCurve = errors.New("point not on curve")
-var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir.")
+var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir")
 
 const (
 	sizeFr         = fr.Bytes
@@ -124,7 +124,8 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 	return &pub
 }
 
-// Sign sign a message
+// Sign sign a sequence of field elements
+// For arbitrary strings use fr.Hash first
 // Pure Eddsa version (see https://tools.ietf.org/html/rfc8032#page-8)
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 
@@ -159,21 +160,17 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	}
 
 	// compute H(R, A, M), all parameters in data are in Montgomery form
+	hFunc.Reset()
+
 	resRX := res.R.X.Bytes()
 	resRY := res.R.Y.Bytes()
 	resAX := privKey.PublicKey.A.X.Bytes()
 	resAY := privKey.PublicKey.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], resRX[:])
-	copy(dataToHash[sizeFr:], resRY[:])
-	copy(dataToHash[2*sizeFr:], resAX[:])
-	copy(dataToHash[3*sizeFr:], resAY[:])
-	copy(dataToHash[4*sizeFr:], message)
-	hFunc.Reset()
-	_, err := hFunc.Write(dataToHash[:])
-	if err != nil {
-		return nil, err
+	toWrite := [][]byte{resRX[:], resRY[:], resAX[:], resAY[:], message}
+	for _, bytes := range toWrite {
+		if _, err := hFunc.Write(bytes); err != nil {
+			return nil, err
+		}
 	}
 
 	var hramInt big.Int
@@ -220,20 +217,19 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	}
 
 	// compute H(R, A, M), all parameters in data are in Montgomery form
+
+	hFunc.Reset()
+
 	sigRX := sig.R.X.Bytes()
 	sigRY := sig.R.Y.Bytes()
 	sigAX := pub.A.X.Bytes()
 	sigAY := pub.A.Y.Bytes()
-	sizeDataToHash := 4*sizeFr + len(message)
-	dataToHash := make([]byte, sizeDataToHash)
-	copy(dataToHash[:], sigRX[:])
-	copy(dataToHash[sizeFr:], sigRY[:])
-	copy(dataToHash[2*sizeFr:], sigAX[:])
-	copy(dataToHash[3*sizeFr:], sigAY[:])
-	copy(dataToHash[4*sizeFr:], message)
-	hFunc.Reset()
-	if _, err := hFunc.Write(dataToHash[:]); err != nil {
-		return false, err
+
+	toWrite := [][]byte{sigRX[:], sigRY[:], sigAX[:], sigAY[:], message}
+	for _, bytes := range toWrite {
+		if _, err := hFunc.Write(bytes); err != nil {
+			return false, err
+		}
 	}
 
 	var hramInt big.Int
