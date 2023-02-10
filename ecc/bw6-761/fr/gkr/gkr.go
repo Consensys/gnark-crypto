@@ -871,14 +871,3 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 		src[i].BigInt(dst[i])
 	}
 }
-
-type safeStack struct {
-	writeLock sync.Mutex
-	slice     []fr.Element
-}
-
-func (s *safeStack) push(x fr.Element) {
-	s.writeLock.Lock()
-	s.slice = append(s.slice, x)
-	s.writeLock.Unlock()
-}
