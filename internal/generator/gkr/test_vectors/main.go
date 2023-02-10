@@ -32,12 +32,7 @@ import (
 )
 
 func main() {
-	if err := func() error {
-		if err := GenerateVectors(); err != nil {
-			return err
-		}
-		return test_vector_utils.SaveUsedHashEntries()
-	}(); err != nil {
+	if err := GenerateVectors(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}

@@ -38,7 +38,7 @@ func HashFromDescription(d HashDescription) (hash.Hash, error) {
 	if _type, ok := d["type"]; ok {
 		switch _type {
 		case "const":
-			startState := int64(d["val"].(int))
+			startState := int64(d["val"].(float64))
 			return &MessageCounter{startState: startState, step: 0, state: startState}, nil
 		default:
 			return nil, fmt.Errorf("unknown fake hash type \"%s\"", _type)
