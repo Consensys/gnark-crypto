@@ -170,7 +170,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 // If capacity is provided, the new coefficient slice capacity will be set accordingly.
 func (p *Polynomial) Clone(capacity ...int) *Polynomial {
 	res := p.ShallowClone()
-	res.polynomial = p.polynomial.Clone(capacity...)
+	res.polynomial = p.polynomial.clone(capacity...)
 	return res
 }
 
@@ -214,8 +214,8 @@ func newPolynomial(coeffs *[]fr.Element, form Form) *polynomial {
 	return &polynomial{coefficients: (*fr.Vector)(coeffs), Form: form}
 }
 
-// Clone returns a deep copy of the underlying data structure.
-func (p *polynomial) Clone(capacity ...int) *polynomial {
+// clone returns a deep copy of the underlying data structure.
+func (p *polynomial) clone(capacity ...int) *polynomial {
 	c := p.coefficients.Len()
 	if len(capacity) == 1 && capacity[0] > c {
 		c = capacity[0]
@@ -256,7 +256,7 @@ func (p *polynomial) Evaluate(x fr.Element) fr.Element {
 
 // ToRegular changes the layout of p to Regular.
 // Leaves p unchanged if p's layout was already Regular.
-func (p *polynomial) ToRegular() *polynomial {
+func (p *Polynomial) ToRegular() *Polynomial {
 	if p.Layout == Regular {
 		return p
 	}
@@ -267,7 +267,7 @@ func (p *polynomial) ToRegular() *polynomial {
 
 // ToBitReverse changes the layout of p to BitReverse.
 // Leaves p unchanged if p's layout was already BitReverse.
-func (p *polynomial) ToBitReverse() *polynomial {
+func (p *Polynomial) ToBitReverse() *Polynomial {
 	if p.Layout == BitReverse {
 		return p
 	}
@@ -278,9 +278,9 @@ func (p *polynomial) ToBitReverse() *polynomial {
 
 // ToLagrange converts p to Lagrange form.
 // Leaves p unchanged if p was already in Lagrange form.
-func (p *polynomial) ToLagrange(d *fft.Domain) *polynomial {
+func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	resize(p.polynomial, d.Cardinality)
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
@@ -307,9 +307,9 @@ func (p *polynomial) ToLagrange(d *fft.Domain) *polynomial {
 
 // ToCanonical converts p to canonical form.
 // Leaves p unchanged if p was already in Canonical form.
-func (p *polynomial) ToCanonical(d *fft.Domain) *polynomial {
+func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	resize(p.polynomial, d.Cardinality)
 	switch id {
 	case canonicalRegular, canonicalBitReverse:
 		return p
@@ -340,9 +340,9 @@ func resize(p *polynomial, newSize uint64) {
 }
 
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
-func (p *polynomial) ToLagrangeCoset(d *fft.Domain) *polynomial {
+func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	resize(p.polynomial, d.Cardinality)
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
