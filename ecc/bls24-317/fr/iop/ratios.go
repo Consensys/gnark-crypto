@@ -50,27 +50,25 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
-func BuildRatioShuffledVectors(numerator, denominator []*polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (polynomial, error) {
-
-	var res polynomial
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
 
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
-		return res, ErrNumberPolynomials
+		return nil, ErrNumberPolynomials
 	}
 	nbPolynomials := len(numerator)
 
 	// check that the sizes are consistent
 	err := checkSize(numerator, denominator)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// create the domain + some checks on the sizes of the polynomials
 	n := numerator[0].coefficients.Len()
 	domain, err = buildDomain(n, domain)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// put every polynomials in Lagrange form. Also make sure
@@ -85,7 +83,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*polynomial, beta fr.Ele
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	coeffs := make(fr.Vector, n)
+	coeffs := make([]fr.Element, n)
 	t := make([]fr.Element, n)
 	coeffs[0].SetOne()
 	t[0].SetOne()
@@ -128,12 +126,10 @@ func BuildRatioShuffledVectors(numerator, denominator []*polynomial, beta fr.Ele
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res.coefficients = &coeffs
-	res.Basis = expectedForm.Basis
-	res.Layout = expectedForm.Layout
+	res := NewPolynomial(&coeffs, expectedForm)
 
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
 
 	return res, nil
 }
@@ -146,27 +142,25 @@ func BuildRatioShuffledVectors(numerator, denominator []*polynomial, beta fr.Ele
 // * beta, gamma challenges
 // * expectedForm expected form of the resulting polynomial
 func BuildRatioCopyConstraint(
-	entries []*polynomial,
+	entries []*Polynomial,
 	permutation []int64,
 	beta, gamma fr.Element,
 	expectedForm Form,
-	domain *fft.Domain) (polynomial, error) {
-
-	var res polynomial
+	domain *fft.Domain) (*Polynomial, error) {
 
 	nbPolynomials := len(entries)
 
 	// check that the sizes are consistent
 	err := checkSize(entries)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// create the domain + some checks on the sizes of the polynomials
 	n := entries[0].coefficients.Len()
 	domain, err = buildDomain(n, domain)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// put every polynomials in Lagrange form. Also make sure
@@ -180,7 +174,7 @@ func BuildRatioCopyConstraint(
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	coeffs := make(fr.Vector, n)
+	coeffs := make([]fr.Element, n)
 	t := make([]fr.Element, n)
 	coeffs[0].SetOne()
 	t[0].SetOne()
@@ -228,17 +222,17 @@ func BuildRatioCopyConstraint(
 	for i := 1; i < n; i++ {
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
-	res.coefficients = &coeffs
 
+	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
 
 	return res, nil
 
 }
 
-func putInExpectedFormFromLagrangeRegular(p *polynomial, domain *fft.Domain, expectedForm Form) {
-
+func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
+	// TODO @gbotrel call the other methods
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
 
@@ -267,7 +261,7 @@ func putInExpectedFormFromLagrangeRegular(p *polynomial, domain *fft.Domain, exp
 
 // check that the polynomials are of the same size.
 // It assumes that pols contains slices of the same size.
-func checkSize(pols ...[]*polynomial) error {
+func checkSize(pols ...[]*Polynomial) error {
 
 	// check sizes between one another
 	m := len(pols)
