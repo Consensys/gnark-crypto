@@ -39,20 +39,21 @@ func DivideByXMinusOne(a Polynomial, domains [2]*fft.Domain) (*Polynomial, error
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
 
-	rho := len(a.Coefficients) / a.size
+	rho := a.coefficients.Len() / a.size
 
-	nbElmts := len(a.Coefficients)
+	nbElmts := a.coefficients.Len()
 
-	res := NewPolynomial(make([]fr.Element, len(a.Coefficients)), Form{Layout: BitReverse, Basis: LagrangeCoset})
+	coeffs := make(fr.Vector, a.coefficients.Len())
+	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 	res.blindedSize = a.blindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
-	parallel.Execute(len(a.Coefficients), func(start, end int) {
+	parallel.Execute(a.coefficients.Len(), func(start, end int) {
 		for i := start; i < end; i++ {
 			iRev := bits.Reverse64(uint64(i)) >> nn
 			c := a.GetCoeff(i)
-			res.Coefficients[iRev].
+			(*res.coefficients)[iRev].
 				Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
 		}
 	})

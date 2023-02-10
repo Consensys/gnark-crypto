@@ -19,7 +19,8 @@ func computex3(x []fr.Element) fr.Element {
 }
 
 func buildPoly(size int, form Form) *Polynomial {
-	return NewPolynomial(make([]fr.Element, size), form)
+	v := make(fr.Vector, size)
+	return NewPolynomial(&v, form)
 }
 
 
@@ -49,12 +50,12 @@ func TestDivideByXMinusOne(t *testing.T) {
 
 	for i := 0; i < sizeSystem; i++ {
 
-		entries[0].Coefficients[i].SetRandom()
-		entries[1].Coefficients[i].SetRandom()
+		entries[0].Coefficients()[i].SetRandom()
+		entries[1].Coefficients()[i].SetRandom()
 		tmp := computex3(
-			[]fr.Element{entries[0].Coefficients[i],
-				entries[1].Coefficients[i]})
-		entries[2].Coefficients[i].Set(&tmp)
+			[]fr.Element{entries[0].Coefficients()[i],
+				entries[1].Coefficients()[i]})
+		entries[2].Coefficients()[i].Set(&tmp)
 
 		x := []fr.Element{
 			entries[0].GetCoeff(i),

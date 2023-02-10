@@ -37,10 +37,10 @@ func TestEvaluation(t *testing.T) {
 	// regular layout
 	a := wp.Evaluate(d.Generator)
 	b := wps.Evaluate(d.Generator)
-	if !a.Equal(&ref.Coefficients[1]) {
+	if !a.Equal(&ref.Coefficients()[1]) {
 		t.Fatal("error evaluation")
 	}
-	if !b.Equal(&ref.Coefficients[1+shift]) {
+	if !b.Equal(&ref.Coefficients()[1+shift]) {
 		t.Fatal("error evaluation shifted")
 	}
 
@@ -49,32 +49,32 @@ func TestEvaluation(t *testing.T) {
 	wps.ToBitReverse()
 	a = wp.Evaluate(d.Generator)
 	b = wps.Evaluate(d.Generator)
-	if !a.Equal(&ref.Coefficients[1]) {
+	if !a.Equal(&ref.Coefficients()[1]) {
 		t.Fatal("error evaluation")
 	}
-	if !b.Equal(&ref.Coefficients[1+shift]) {
+	if !b.Equal(&ref.Coefficients()[1+shift]) {
 		t.Fatal("error evaluation shifted")
 	}
 
 }
 
-func randomVector(size int) []fr.Element {
+func randomVector(size int) *fr.Vector {
 
-	r := make([]fr.Element, size)
+	r := make(fr.Vector, size)
 	for i := 0; i < size; i++ {
 		r[i].SetRandom()
 	}
-	return r
+	return &r
 }
 
 func TestGetCoeff(t *testing.T) {
 
 	size := 8
-	v := make([]fr.Element, size)
+	v := make(fr.Vector, size)
 	for i := 0; i < size; i++ {
 		v[i].SetUint64(uint64(i))
 	}
-	wp := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
+	wp := NewPolynomial(&v, Form{Layout: Regular, Basis: Canonical})
 	wsp := wp.ShallowClone().Shift(1)
 
 	var aa, bb fr.Element
@@ -129,7 +129,7 @@ func TestBlinding(t *testing.T) {
 	wp.Basis = Canonical
 	wt := wp.Clone()
 	wt.Blind(blindingOrder)
-	if len(wt.Coefficients) != blindingOrder+size+1 {
+	if wt.coefficients.Len() != blindingOrder+size+1 {
 		t.Fatal("size of blinded polynomial is incorrect")
 	}
 	if wt.blindedSize != size+blindingOrder+1 {
@@ -166,8 +166,8 @@ func fromLagrange0(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = Regular
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	fft.BitReverse(r.Coefficients)
+	d.FFTInverse(r.Coefficients(), fft.DIF)
+	fft.BitReverse(r.Coefficients())
 	return r
 }
 
@@ -176,7 +176,7 @@ func fromLagrange1(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = BitReverse
-	d.FFTInverse(r.Coefficients, fft.DIF)
+	d.FFTInverse(r.Coefficients(), fft.DIF)
 	return r
 }
 
@@ -193,7 +193,7 @@ func fromLagrange3(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
-	fft.BitReverse(r.Coefficients)
+	fft.BitReverse(r.Coefficients())
 	return r
 }
 
@@ -202,8 +202,8 @@ func fromLagrange4(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	d.FFT(r.Coefficients, fft.DIT, true)
+	d.FFTInverse(r.Coefficients(), fft.DIF)
+	d.FFT(r.Coefficients(), fft.DIT, true)
 	return r
 }
 
@@ -212,9 +212,9 @@ func fromLagrange5(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
-	d.FFTInverse(r.Coefficients, fft.DIF)
-	d.FFT(r.Coefficients, fft.DIT, true)
-	fft.BitReverse(r.Coefficients)
+	d.FFTInverse(r.Coefficients(), fft.DIF)
+	d.FFT(r.Coefficients(), fft.DIT, true)
+	fft.BitReverse(r.Coefficients())
 	return r
 }
 
@@ -238,15 +238,16 @@ func fromLagrange(p *polynomial, d *fft.Domain) *polynomial {
 	}
 }
 
-func cmpCoefficents(p, q []fr.Element) bool {
-	if len(p) != len(q) {
+func cmpCoefficents(p, q *fr.Vector) bool {
+	if p.Len() != q.Len() {
 		return false
 	}
-	res := true
-	for i := 0; i < len(p); i++ {
-		res = res && (p[i].Equal(&q[i]))
+	for i := 0; i < p.Len(); i++ {
+		if !((*p)[i].Equal(&(*q)[i])) {
+			return false
+		}
 	}
-	return res
+	return true
 }
 
 func TestPutInLagrangeForm(t *testing.T) {
@@ -257,7 +258,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// reference vector in Lagrange-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.Coefficients = c
+	p.coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
 
@@ -272,8 +273,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is BitReverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -289,7 +290,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is Regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -306,7 +307,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is Regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -322,8 +323,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is BitReverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -339,7 +340,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is Regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -355,8 +356,8 @@ func TestPutInLagrangeForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is BitReverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -384,8 +385,8 @@ func fromCanonical2(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
-	d.FFT(_p.Coefficients, fft.DIF)
-	fft.BitReverse(_p.Coefficients)
+	d.FFT(_p.Coefficients(), fft.DIF)
+	fft.BitReverse(_p.Coefficients())
 	return _p
 }
 
@@ -394,7 +395,7 @@ func fromCanonical3(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
-	d.FFT(_p.Coefficients, fft.DIF)
+	d.FFT(_p.Coefficients(), fft.DIF)
 	return _p
 }
 
@@ -403,8 +404,8 @@ func fromCanonical4(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
-	d.FFT(_p.Coefficients, fft.DIF, true)
-	fft.BitReverse(_p.Coefficients)
+	d.FFT(_p.Coefficients(), fft.DIF, true)
+	fft.BitReverse(_p.Coefficients())
 	return _p
 }
 
@@ -413,7 +414,7 @@ func fromCanonical5(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
-	d.FFT(_p.Coefficients, fft.DIF, true)
+	d.FFT(_p.Coefficients(), fft.DIF, true)
 	return _p
 }
 
@@ -425,7 +426,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// reference vector in canonical-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.Coefficients = c
+	p.coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
 
@@ -440,7 +441,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -456,7 +457,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is bitReverse")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -472,8 +473,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is bitReverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(p.Coefficients, q.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(p.coefficients, q.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -489,7 +490,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -505,8 +506,8 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is BitReverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -522,7 +523,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -534,8 +535,8 @@ func fromLagrangeCoset0(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
-	fft.BitReverse(_p.Coefficients)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	fft.BitReverse(_p.Coefficients())
 	return _p
 }
 
@@ -544,7 +545,7 @@ func fromLagrangeCoset1(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
 	return _p
 }
 
@@ -553,8 +554,8 @@ func fromLagrangeCoset2(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
-	d.FFT(_p.Coefficients, fft.DIT)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFT(_p.Coefficients(), fft.DIT)
 	return _p
 }
 
@@ -563,9 +564,9 @@ func fromLagrangeCoset3(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
-	d.FFTInverse(_p.Coefficients, fft.DIF, true)
-	d.FFT(_p.Coefficients, fft.DIT)
-	fft.BitReverse(_p.Coefficients)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFT(_p.Coefficients(), fft.DIT)
+	fft.BitReverse(_p.Coefficients())
 	return _p
 }
 
@@ -582,7 +583,7 @@ func fromLagrangeCoset5(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
-	fft.BitReverse(p.Coefficients)
+	fft.BitReverse(p.Coefficients())
 	return _p
 }
 
@@ -594,7 +595,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// reference vector in canonical-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.Coefficients = c
+	p.coefficients = c
 	p.Basis = LagrangeCoset
 	p.Layout = Regular
 
@@ -609,8 +610,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is bit reverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -626,7 +627,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -642,7 +643,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -658,8 +659,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is bit reverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -675,7 +676,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != Regular {
 			t.Fatal("expected layout is regular")
 		}
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}
@@ -691,8 +692,8 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 		if q.Layout != BitReverse {
 			t.Fatal("expected layout is bit reverse")
 		}
-		fft.BitReverse(q.Coefficients)
-		if !cmpCoefficents(q.Coefficients, p.Coefficients) {
+		fft.BitReverse(q.Coefficients())
+		if !cmpCoefficents(q.coefficients, p.coefficients) {
 			t.Fatal("wrong coefficients")
 		}
 	}

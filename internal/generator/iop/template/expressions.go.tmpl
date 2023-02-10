@@ -22,16 +22,16 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (Polynomial, error) {
 	}
 
 	// check that the sizes are consistent
-	n := len(x[0].Coefficients)
+	n := x[0].coefficients.Len()
 	m := len(x)
 	for i := 1; i < m; i++ {
-		if n != len(x[i].Coefficients) {
+		if n != x[i].coefficients.Len() {
 			return res, ErrInconsistentSize
 		}
 	}
 
 	// result coefficients
-	r := make([]fr.Element, n)
+	r := make(fr.Vector, n)
 	idx := func(i int) int {
 		return i
 	}
@@ -54,7 +54,7 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (Polynomial, error) {
 
 
 
-	res.polynomial = newPolynomial(r, form)
+	res.polynomial = newPolynomial(&r, form)
 	res.size = x[0].size
 	res.blindedSize = x[0].size
 	res.shift = 0

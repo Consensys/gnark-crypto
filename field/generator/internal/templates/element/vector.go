@@ -36,7 +36,6 @@ func (vector *Vector) UnmarshalBinary(data []byte) error {
     return err 
 }
 
-
 // WriteTo implements io.WriterTo and writes a vector of big endian encoded {{.ElementName}}.
 // Length of the vector is encoded as a uint32 on the first 4 bytes.
 func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
