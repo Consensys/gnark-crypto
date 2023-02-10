@@ -25,12 +25,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/sumcheck"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/test_vector_utils"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestNoGateTwoInstances(t *testing.T) {
@@ -107,10 +109,14 @@ func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	wire := &circuit[0]
 
 	assignment := WireAssignment{&circuit[0]: []fr.Element{two, three}}
+	var o settings
 	pool := polynomial.NewPool(256, 1<<11)
+	workers := utils.NewWorkerPool()
+	o.pool = &pool
+	o.workers = workers
 
 	claimsManagerGen := func() *claimsManager {
-		manager := newClaimsManager(circuit, assignment, &pool)
+		manager := newClaimsManager(circuit, assignment, o)
 		manager.add(wire, []fr.Element{three}, five)
 		manager.add(wire, []fr.Element{four}, six)
 		return &manager
@@ -419,22 +425,36 @@ func proofEquals(expected Proof, seen Proof) error {
 	return nil
 }
 
-func BenchmarkGkrMimc(b *testing.B) {
-	const N = 1 << 19
+func benchmarkGkrMiMC(b *testing.B, nbInstances, mimcDepth int) {
 	fmt.Println("creating circuit structure")
-	c := mimcCircuit(91)
+	c := mimcCircuit(mimcDepth)
 
-	in0 := make([]fr.Element, N)
-	in1 := make([]fr.Element, N)
+	in0 := make([]fr.Element, nbInstances)
+	in1 := make([]fr.Element, nbInstances)
 	setRandom(in0)
 	setRandom(in1)
 
 	fmt.Println("evaluating circuit")
+	start := time.Now().UnixMicro()
 	assignment := WireAssignment{&c[0]: in0, &c[1]: in1}.Complete(c)
+	solved := time.Now().UnixMicro() - start
+	fmt.Println("solved in", solved, "μs")
 
 	//b.ResetTimer()
 	fmt.Println("constructing proof")
-	Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
+	start = time.Now().UnixMicro()
+	_, err := Prove(c, assignment, fiatshamir.WithHash(mimc.NewMiMC()))
+	proved := time.Now().UnixMicro() - start
+	fmt.Println("proved in", proved, "μs")
+	assert.NoError(b, err)
+}
+
+func BenchmarkGkrMimc19(b *testing.B) {
+	benchmarkGkrMiMC(b, 1<<19, 91)
+}
+
+func BenchmarkGkrMimc17(b *testing.B) {
+	benchmarkGkrMiMC(b, 1<<17, 91)
 }
 
 func TestTopSortTrivial(t *testing.T) {
