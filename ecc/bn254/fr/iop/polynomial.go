@@ -121,11 +121,7 @@ func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
 	// Resize p. The size of wq might has already been increased
 	// (e.g. when the polynomial is evaluated on a larger domain),
 	// if that's the case we don't resize the polynomial.
-	offset := newSize - p.coefficients.Len()
-	if offset > 0 {
-		z := make(fr.Vector, offset)
-		(*p.coefficients) = append((*p.coefficients), z...)
-	}
+	p.grow(newSize)
 
 	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
 	var r fr.Element
@@ -278,7 +274,7 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 // Leaves p unchanged if p was already in Lagrange form.
 func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p.polynomial, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
@@ -307,7 +303,7 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 // Leaves p unchanged if p was already in Canonical form.
 func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p.polynomial, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular, canonicalBitReverse:
 		return p
@@ -330,15 +326,17 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	return p
 }
 
-func resize(p *polynomial, newSize uint64) {
-	z := make(fr.Vector, int(newSize)-p.coefficients.Len())
-	(*p.coefficients) = append((*p.coefficients), z...)
+func (p *polynomial) grow(newSize int) {
+	offset := newSize - p.coefficients.Len()
+	if offset > 0 {
+		(*p.coefficients) = append((*p.coefficients), make(fr.Vector, offset)...)
+	}
 }
 
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
 func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p.polynomial, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
