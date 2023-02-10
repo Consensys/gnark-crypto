@@ -69,7 +69,6 @@ func NewPool(maxN ...int) (pool Pool) {
 
 	sort.Ints(maxN)
 	pool = Pool{
-		//inUse:    make(map[*{{.ElementType}}]inUseData),
 		subPools: make([]sizedPool, len(maxN)),
 	}
 

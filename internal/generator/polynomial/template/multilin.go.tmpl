@@ -41,7 +41,7 @@ func (m *MultiLin) FoldParallel(r {{.ElementType}}) utils.Task {
 	return func(start, end int) {
 		var t {{.ElementType}} // no need to update the top part
 		for i := start; i < end; i++ {
-			// table[i] ← table[i] + r (table[i + mid] - table[i])
+			// table[i] ← table[i]  + r (table[i + mid] - table[i])
 			t.Sub(&top[i], &bottom[i])
 			t.Mul(&t, &r)
 			bottom[i].Add(&bottom[i], &t)

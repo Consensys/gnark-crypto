@@ -9,13 +9,15 @@
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-	{{- if ne .G1.CoordType .G2.CoordType}}
+	{{- if and (ne .G1.CoordType .G2.CoordType) (ne .Name "secp256k1") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{- end}}
 )
 
 {{ template "multiexp" dict "CoordType" .G1.CoordType "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{- if ne .Name "secp256k1"}}
 {{ template "multiexp" dict "CoordType" .G2.CoordType "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+{{- end}}
 
 
 {{define "multiexp" }}
@@ -28,7 +30,7 @@ type batchOp{{ $.TAffine }} struct {
 // processChunk{{ $.UPointName }}BatchAffine process a chunk of the scalars during the msm
 // using affine coordinates for the buckets. To amortize the cost of the inverse in the affine addition
 // we use a batch affine addition.
-// 
+//
 // this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
 func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B ib{{ $.TAffine }}, BS bitSet, TP p{{ $.TAffine }}, TPP pp{{ $.TAffine }}, TQ qOps{{ $.TAffine }}, TC c{{ $.TAffine}}](
@@ -44,15 +46,15 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 	// each time the batch is full, we execute it, and tentatively put the points (if not conflict)
 	// from the top of the queue into the next batch.
 	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
-	// {{ $.TJacobianExtended }} coordinates. 
+	// {{ $.TJacobianExtended }} coordinates.
 	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
 	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
-	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to 
+	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
 	// non-batch-affine version.
-	
+
 	// note that we have 2 sets of buckets
 	// 1 in {{ $.TAffine }} used with the batch affine additions
-	// 1 in {{ $.TJacobianExtended }} used in case the queue of conflicting points 
+	// 1 in {{ $.TJacobianExtended }} used in case the queue of conflicting points
 	var buckets B
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
@@ -64,14 +66,14 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 	var (
 		bucketIds BS // bitSet to signify presence of a bucket in current batch
 		cptAdd int // count the number of bucket + point added to current batch
-		R TPP // bucket references 
+		R TPP // bucket references
 		P TP // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
 		queue TQ // queue of points that conflict the current batch
 		qID int // current position in queue
 	)
-	
+
 	batchSize := len(P)
-	
+
 	isFull := func() bool {	return cptAdd == batchSize}
 
 	executeAndReset := func ()  {
@@ -128,7 +130,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 				if isAdd {
 					bucketsJE[bucketID].addMixed(PP)
 				} else {
-					BK.setInfinity()	
+					BK.setInfinity()
 				}
 				return
 			}
@@ -139,7 +141,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 			}
 			return
 		}
-		
+
 		bucketIds[bucketID] = true
 		R[cptAdd] = BK
 		if isAdd {
@@ -162,7 +164,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 			if bucketIds[queue[i].bucketID] {
 				return
 			}
-			addFromQueue(queue[i]) 
+			addFromQueue(queue[i])
 			// len(queue) < batchSize so no need to check for full batch.
 			qID--
 		}
@@ -186,7 +188,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 			// put it in queue
 			queue[qID].bucketID = bucketID
 			if isAdd {
-				queue[qID].point.Set(&points[i])	
+				queue[qID].point.Set(&points[i])
 			} else {
 				queue[qID].point.Neg(&points[i])
 			}

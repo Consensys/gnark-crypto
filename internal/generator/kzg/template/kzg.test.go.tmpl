@@ -109,7 +109,7 @@ func TestCommit(t *testing.T) {
 	x.SetString("42")
 	fx := eval(f, x)
 	var fxbi big.Int
-	fx.ToBigIntRegular(&fxbi)
+	fx.BigInt(&fxbi)
 	var manualCommit {{ .CurvePackage }}.G1Affine
 	manualCommit.Set(&testSRS.G1[0])
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)

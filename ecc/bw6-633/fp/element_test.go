@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/field"
 	mrand "math/rand"
 
 	"testing"
@@ -2200,7 +2199,20 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	// we may need to adjust "42" and "8000" values for some moduli; see Text() method for more details.
+	formatValue := func(v int64) string {
+		var a big.Int
+		a.SetInt64(v)
+		a.Mod(&a, Modulus())
+		const maxUint16 = 65535
+		var aNeg big.Int
+		aNeg.Neg(&a).Mod(&aNeg, Modulus())
+		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
+			return "-" + aNeg.Text(10)
+		}
+		return a.Text(10)
+	}
+	expected := fmt.Sprintf("{\"A\":%s,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(-1), formatValue(42), formatValue(8000))
 	assert.Equal(expected, string(encoded))
 
 	// decode valid
@@ -2341,7 +2353,7 @@ func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 
 	slice := append(z[:], aHi)
 
-	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+	return bigIntMatchUint64Slice(&aIntMod, slice)
 }
 
 // TODO: Phase out in favor of property based testing
@@ -2350,6 +2362,32 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
+}
+
+// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
 }
 
 func TestElementInversionApproximation(t *testing.T) {

@@ -49,9 +49,11 @@ func GenerateFF(F *config.FieldConfig, outputDir string) error {
 	eName := strings.ToLower(F.ElementName)
 
 	pathSrc := filepath.Join(outputDir, eName+".go")
+	pathSrcVector := filepath.Join(outputDir, "vector.go")
 	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
 	pathSrcArith := filepath.Join(outputDir, "arith.go")
 	pathTest := filepath.Join(outputDir, eName+"_test.go")
+	pathTestVector := filepath.Join(outputDir, "vector_test.go")
 
 	// remove old format generated files
 	oldFiles := []string{"_mul.go", "_mul_amd64.go",
@@ -80,6 +82,9 @@ func GenerateFF(F *config.FieldConfig, outputDir string) error {
 	}
 
 	funcs["shorten"] = shorten
+	funcs["ltu64"] = func(a, b uint64) bool {
+		return a < b
+	}
 
 	bavardOpts := []func(*bavard.Bavard) error{
 		bavard.Apache2("ConsenSys Software Inc.", 2020),
@@ -92,6 +97,12 @@ func GenerateFF(F *config.FieldConfig, outputDir string) error {
 	if err := bavard.GenerateFromString(pathSrc, sourceFiles, F, bavardOpts...); err != nil {
 		return err
 	}
+
+	// generate vector
+	if err := bavard.GenerateFromString(pathSrcVector, []string{element.Vector}, F, bavardOpts...); err != nil {
+		return err
+	}
+
 	// generate arithmetics source file
 	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
 		return err
@@ -106,6 +117,10 @@ func GenerateFF(F *config.FieldConfig, outputDir string) error {
 
 	// generate test file
 	if err := bavard.GenerateFromString(pathTest, testFiles, F, bavardOpts...); err != nil {
+		return err
+	}
+
+	if err := bavard.GenerateFromString(pathTestVector, []string{element.TestVector}, F, bavardOpts...); err != nil {
 		return err
 	}
 

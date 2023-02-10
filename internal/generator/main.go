@@ -2,17 +2,24 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
+
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
 	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
+	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
@@ -22,10 +29,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"sync"
 )
 
 const (
@@ -52,7 +55,7 @@ func main() {
 			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, true)
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
@@ -60,8 +63,28 @@ func main() {
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
 
+			// generate ecdsa
+			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
+
+			if conf.Equal(config.STARK_CURVE) {
+				return // TODO @yelhousni
+			}
+
+			// generate G1, G2, multiExp, ...
+			assertNoError(ecc.Generate(conf, curveDir, bgen))
+
+			if conf.Equal(config.SECP256K1) {
+				return
+			}
+
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
+
+			// generate pairing tests
+			assertNoError(pairing.Generate(conf, curveDir, bgen))
+
+			// generate fri on fr
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
@@ -109,11 +132,24 @@ func main() {
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
+			// generate sumcheck on fr
+			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
 
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
+			// generate gkr on fr
+			assertNoError(gkr.Generate(gkr.Config{
+				FieldDependency:         frInfo,
+				GenerateTests:           true,
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
+			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
+
+			// generate test vector utils on fr
+			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
+				FieldDependency:             frInfo,
+				RandomizeMissingHashEntries: false,
+			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
+			// generate iop functions
+			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 		}(conf)
 
@@ -161,6 +197,7 @@ func main() {
 	assertNoError(cmd.Run())*/
 
 	wg.Add(2)
+
 	go func() {
 		// generate test vectors for sumcheck
 		cmd := exec.Command("go", "run", "./sumcheck/test_vectors")
