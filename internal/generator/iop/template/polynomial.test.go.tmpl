@@ -40,9 +40,9 @@ func TestEvaluation(t *testing.T) {
 
 }
 
-func randomVector(size int) *fr.Vector {
+func randomVector(size int) *[]fr.Element {
 
-	r := make(fr.Vector, size)
+	r := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		r[i].SetRandom()
 	}
@@ -52,7 +52,7 @@ func randomVector(size int) *fr.Vector {
 func TestGetCoeff(t *testing.T) {
 
 	size := 8
-	v := make(fr.Vector, size)
+	v := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		v[i].SetUint64(uint64(i))
 	}
@@ -240,7 +240,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 	// reference vector in Lagrange-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.coefficients = c
+	p.coefficients = (*fr.Vector)(c)
 	p.Basis = Canonical
 	p.Layout = Regular
 
@@ -408,7 +408,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 	// reference vector in canonical-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.coefficients = c
+	p.coefficients = (*fr.Vector)(c)
 	p.Basis = Canonical
 	p.Layout = Regular
 
@@ -577,7 +577,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 	// reference vector in canonical-regular form
 	c := randomVector(size)
 	var p polynomial
-	p.coefficients = c
+	p.coefficients = (*fr.Vector)(c)
 	p.Basis = LagrangeCoset
 	p.Layout = Regular
 

@@ -31,9 +31,9 @@ func TestEvaluate(t *testing.T) {
 	}
 
 	size := 64
-	u := make(fr.Vector, size)
-	v := make(fr.Vector, size)
-	w := make(fr.Vector, size)
+	u := make([]fr.Element, size)
+	v := make([]fr.Element, size)
+	w := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		u[i].SetUint64(uint64(i))
 		v[i].SetUint64(uint64(i + 1))

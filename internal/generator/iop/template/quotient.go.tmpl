@@ -25,7 +25,7 @@ func DivideByXMinusOne(a Polynomial, domains [2]*fft.Domain) (*Polynomial, error
 
 	nbElmts := a.coefficients.Len()
 
-	coeffs := make(fr.Vector, a.coefficients.Len())
+	coeffs := make([]fr.Element, a.coefficients.Len())
 	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 	res.blindedSize = a.blindedSize

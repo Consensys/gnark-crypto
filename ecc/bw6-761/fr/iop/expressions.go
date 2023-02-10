@@ -49,7 +49,7 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (Polynomial, error) {
 	}
 
 	// result coefficients
-	r := make(fr.Vector, n)
+	r := make([]fr.Element, n)
 	idx := func(i int) int {
 		return i
 	}

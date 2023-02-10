@@ -27,7 +27,7 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*polynomial, 
 	numerator := make([]*polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = new(polynomial)
-		numerator[i].coefficients = randomVector(sizePolynomials)
+		numerator[i].coefficients = (*fr.Vector)(randomVector(sizePolynomials))
 		numerator[i].Basis = Lagrange
 		numerator[i].Layout = Regular
 	}

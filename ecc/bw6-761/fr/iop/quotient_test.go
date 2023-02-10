@@ -37,7 +37,7 @@ func computex3(x []fr.Element) fr.Element {
 }
 
 func buildPoly(size int, form Form) *Polynomial {
-	v := make(fr.Vector, size)
+	v := make([]fr.Element, size)
 	return NewPolynomial(&v, form)
 }
 

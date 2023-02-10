@@ -78,11 +78,11 @@ type Polynomial struct {
 // A Polynomial can be seen as a "shared pointer" on a list of coefficients.
 // It is the responsibility of the user to call the Clone method if the coefficients
 // shouldn't be mutated.
-func NewPolynomial(coeffs *fr.Vector, form Form) *Polynomial {
+func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 	return &Polynomial{
 		polynomial:  newPolynomial(coeffs, form),
-		size:        coeffs.Len(),
-		blindedSize: coeffs.Len(),
+		size:        len(*coeffs),
+		blindedSize: len(*coeffs),
 	}
 }
 
@@ -204,15 +204,14 @@ type polynomial struct {
 }
 
 // Coefficients returns a slice on the underlying data structure.
-// TODO @gbotrel check indirection cost
 func (p *polynomial) Coefficients() []fr.Element {
 	return (*p.coefficients)
 }
 
 // newPolynomial creates a new polynomial. The slice coeff NOT copied
 // but directly assigned to the new polynomial.
-func newPolynomial(coeffs *fr.Vector, form Form) *polynomial {
-	return &polynomial{coefficients: coeffs, Form: form}
+func newPolynomial(coeffs *[]fr.Element, form Form) *polynomial {
+	return &polynomial{coefficients: (*fr.Vector)(coeffs), Form: form}
 }
 
 // Clone returns a deep copy of the underlying data structure.
