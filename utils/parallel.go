@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"runtime"
 	"sync"
 )
@@ -16,93 +15,50 @@ type job struct {
 	done       *sync.WaitGroup
 }
 
-func worker(jobs <-chan job) {
-	for j := range jobs {
-		j.task(j.start, j.end)
-		j.done.Done()
-	}
-}
-
 type WorkerPool struct {
-	jobs      chan job
+	chJobs    chan job
 	nbWorkers int
 }
 
-func NewWorkerPool() (p WorkerPool) {
-	p.nbWorkers = runtime.NumCPU()
-	p.jobs = make(chan job, 8*p.nbWorkers)
+func NewWorkerPool() *WorkerPool {
+	p := &WorkerPool{}
+	p.nbWorkers = runtime.NumCPU() + 2
+	p.chJobs = make(chan job, 40*p.nbWorkers)
 	for i := 0; i < p.nbWorkers; i++ {
-		go worker(p.jobs)
+		go func() {
+			for j := range p.chJobs {
+				j.task(j.start, j.end)
+				j.done.Done()
+			}
+		}()
 	}
-	return
+	return p
 }
 
-const log = false
+// Stop (but does not wait) the pool. It frees the worker.
+func (wp *WorkerPool) Stop() {
+	close(wp.chJobs)
+}
 
-// Dispatch schedules the execution of independent tasks of equal length and difficulty
-// the preference is to run each task on a single worker
-func (p *WorkerPool) Dispatch(nbIterations int, minJobSize int, tasks ...Task) *sync.WaitGroup {
+func (wp *WorkerPool) Submit(n int, work func(int, int), minBlock int) *sync.WaitGroup {
+	var wg sync.WaitGroup
 
-	if log {
-		fmt.Println("****** DISPATCH ******")
-		callers := make([]uintptr, 1)
-		runtime.Callers(2, callers)
-		frame, _ := runtime.CallersFrames(callers).Next()
-		fmt.Println("\t", frame.Function)
-	}
-
-	nbAvailableWorkers := p.nbWorkers - len(p.jobs) // TODO Try setting nbAvailableWorkers to p.nbWorkers and see if that's better
-
-	if log {
-		fmt.Printf("\tnbIterations = %d, nbTasks = %d, nbAvailableWorkers = %d\n", nbIterations, len(tasks), nbAvailableWorkers)
-	}
-
-	var done sync.WaitGroup
-	for len(tasks) >= nbAvailableWorkers { // spread them evenly. INCORRECTLY assumes the currently outstanding tasks take the same amount of time
-		done.Add(nbAvailableWorkers)
-		for workerI := 0; workerI < nbAvailableWorkers; workerI++ {
-			j := job{
-				start: 0,
-				end:   nbIterations,
-				task:  tasks[workerI],
-				done:  &done,
-			}
-			if log {
-				fmt.Println(j)
-			}
-			p.jobs <- j
+	// we have an interval [0,n)
+	// that we split in minBlock sizes.
+	for start := 0; start < n; start += minBlock {
+		start := start
+		end := start + minBlock
+		if end > n {
+			end = n
 		}
-		tasks = tasks[nbAvailableWorkers:]
-		nbAvailableWorkers = p.nbWorkers
-	}
-
-	// the remainders get broken up
-	nbRemainingIterations := nbIterations * len(tasks)
-	jobLength := Max(minJobSize, // TODO: Experiment with other minimum job size enforcement methods
-		int(DivCeiling(uint(nbRemainingIterations), uint(nbAvailableWorkers))),
-	)
-	firstTaskStart := 0
-	for nbRemainingIterations > 0 {
-		firstTaskEnd := Min(nbIterations, firstTaskStart+jobLength)
-		done.Add(1)
-		j := job{
-			start: firstTaskStart,
-			end:   firstTaskEnd,
-			task:  tasks[0],
-			done:  &done,
-		}
-		if log {
-			fmt.Println(j)
-		}
-		p.jobs <- j
-		nbRemainingIterations += firstTaskStart - firstTaskEnd
-		if firstTaskEnd == nbIterations { // if we've exhausted the current task
-			tasks = tasks[1:]
-			firstTaskStart = 0
-		} else {
-			firstTaskStart = firstTaskEnd
+		wg.Add(1)
+		wp.chJobs <- job{
+			task:  work,
+			start: start,
+			end:   end,
+			done:  &wg,
 		}
 	}
 
-	return &done
+	return &wg
 }
