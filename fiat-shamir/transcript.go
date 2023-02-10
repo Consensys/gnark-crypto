@@ -16,7 +16,6 @@ package fiatshamir
 
 import (
 	"errors"
-	gcHash "github.com/consensys/gnark-crypto/hash"
 	"hash"
 )
 
@@ -105,8 +104,10 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	if hashToField, ok := t.h.(gcHash.ToField); ok {
-		hashToField.WriteString([]byte(challengeID))
+	if hashToField, ok := t.h.(interface {
+		WriteString(rawBytes []byte)
+	}); ok {
+		hashToField.WriteString([]byte(challengeID)) // TODO: Replace with a function returning field identifier, whence we can find the correct hash to field function. Better than confusingly embedding hash to field into another hash
 	} else {
 		if _, err := t.h.Write([]byte(challengeID)); err != nil {
 			return nil, err
