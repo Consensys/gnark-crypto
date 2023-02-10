@@ -32,9 +32,9 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
-func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
+func BuildRatioShuffledVectors(numerator, denominator []*polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (polynomial, error) {
 
-	var res Polynomial
+	var res polynomial
 
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
@@ -127,13 +127,13 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 // * beta, gamma challenges
 // * expectedForm expected form of the resulting polynomial
 func BuildRatioCopyConstraint(
-	entries []*Polynomial,
+	entries []*polynomial,
 	permutation []int64,
 	beta, gamma fr.Element,
 	expectedForm Form,
-	domain *fft.Domain) (Polynomial, error) {
+	domain *fft.Domain) (polynomial, error) {
 
-	var res Polynomial
+	var res polynomial
 
 	nbPolynomials := len(entries)
 
@@ -218,7 +218,7 @@ func BuildRatioCopyConstraint(
 
 }
 
-func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
+func putInExpectedFormFromLagrangeRegular(p *polynomial, domain *fft.Domain, expectedForm Form) {
 
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
@@ -248,7 +248,7 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 
 // check that the polynomials are of the same size.
 // It assumes that pols contains slices of the same size.
-func checkSize(pols ...[]*Polynomial) error {
+func checkSize(pols ...[]*polynomial) error {
 
 	// check sizes between one another
 	m := len(pols)

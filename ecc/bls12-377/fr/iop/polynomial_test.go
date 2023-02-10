@@ -29,9 +29,8 @@ func TestEvaluation(t *testing.T) {
 	shift := 2
 	d := fft.NewDomain(uint64(size))
 	c := randomVector(size)
-	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
-	wp := NewWrappedPolynomial(p)
-	wps := NewWrappedPolynomial(p).Shift(shift)
+	wp := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
+	wps := wp.ShallowClone().Shift(shift)
 	ref := wp.Clone()
 	ref.ToLagrange(d).ToRegular()
 
@@ -75,9 +74,8 @@ func TestGetCoeff(t *testing.T) {
 	for i := 0; i < size; i++ {
 		v[i].SetUint64(uint64(i))
 	}
-	p := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
-	wp := NewWrappedPolynomial(p)
-	wsp := NewWrappedPolynomial(p).Shift(1)
+	wp := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
+	wsp := wp.ShallowClone().Shift(1)
 
 	var aa, bb fr.Element
 
@@ -124,11 +122,7 @@ func TestBlinding(t *testing.T) {
 	// generate a random polynomial in Lagrange form for the moment
 	// to check that an error is raised when the polynomial is not
 	// in canonical form.
-	var p Polynomial
-	p.Coefficients = randomVector(size)
-	p.Basis = Lagrange
-	p.Layout = Regular
-	wp := NewWrappedPolynomial(&p)
+	wp := NewPolynomial(randomVector(size), Form{Basis: Lagrange, Layout: Regular})
 
 	// checks the blinding is correct: the evaluation of the blinded polynomial
 	// should be the same as the original on d's domain
@@ -165,10 +159,10 @@ func TestBlinding(t *testing.T) {
 // int(p.Basis)*4 + int(p.Layout)*2 + int(p.Status)
 // p is in Lagrange/Regular here. This function is for testing purpose
 // only.
-type TransfoTest func(p Polynomial, d *fft.Domain) Polynomial
+type TransfoTest func(p polynomial, d *fft.Domain) polynomial
 
 // CANONICAL REGULAR
-func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange0(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = Regular
@@ -178,7 +172,7 @@ func fromLagrange0(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // CANONICAL BITREVERSE
-func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange1(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Canonical
 	r.Layout = BitReverse
@@ -187,7 +181,7 @@ func fromLagrange1(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE REGULAR
-func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange2(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Lagrange
 	r.Layout = Regular
@@ -195,7 +189,7 @@ func fromLagrange2(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE BITREVERSE
-func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange3(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = Lagrange
 	r.Layout = BitReverse
@@ -204,7 +198,7 @@ func fromLagrange3(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET REGULAR
-func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange4(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
@@ -214,7 +208,7 @@ func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET BITREVERSE
-func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange5(p *polynomial, d *fft.Domain) *polynomial {
 	r := p.Clone()
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
@@ -224,7 +218,7 @@ func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 	return r
 }
 
-func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrange(p *polynomial, d *fft.Domain) *polynomial {
 	id := p.Form
 	switch id {
 	case canonicalRegular:
@@ -262,7 +256,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 
 	// reference vector in Lagrange-regular form
 	c := randomVector(size)
-	var p Polynomial
+	var p polynomial
 	p.Coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
@@ -370,7 +364,7 @@ func TestPutInLagrangeForm(t *testing.T) {
 }
 
 // CANONICAL REGULAR
-func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical0(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
@@ -378,7 +372,7 @@ func fromCanonical0(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // CANONICAL BITREVERSE
-func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical1(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
@@ -386,7 +380,7 @@ func fromCanonical1(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE REGULAR
-func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical2(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
@@ -396,7 +390,7 @@ func fromCanonical2(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE BITREVERSE
-func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical3(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
@@ -405,7 +399,7 @@ func fromCanonical3(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET REGULAR
-func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical4(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
@@ -415,7 +409,7 @@ func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET BITREVERSE
-func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromCanonical5(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
@@ -430,7 +424,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 
 	// reference vector in canonical-regular form
 	c := randomVector(size)
-	var p Polynomial
+	var p polynomial
 	p.Coefficients = c
 	p.Basis = Canonical
 	p.Layout = Regular
@@ -536,7 +530,7 @@ func TestPutInCanonicalForm(t *testing.T) {
 }
 
 // CANONICAL REGULAR
-func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset0(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
@@ -546,7 +540,7 @@ func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // CANONICAL BITREVERSE
-func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset1(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
@@ -555,7 +549,7 @@ func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE REGULAR
-func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset2(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
@@ -565,7 +559,7 @@ func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE BITREVERSE
-func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset3(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
@@ -576,7 +570,7 @@ func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET REGULAR
-func fromLagrangeCoset4(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset4(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
@@ -584,7 +578,7 @@ func fromLagrangeCoset4(p *Polynomial, d *fft.Domain) *Polynomial {
 }
 
 // LAGRANGE_COSET BITREVERSE
-func fromLagrangeCoset5(p *Polynomial, d *fft.Domain) *Polynomial {
+func fromLagrangeCoset5(p *polynomial, d *fft.Domain) *polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
@@ -599,7 +593,7 @@ func TestPutInLagrangeCosetForm(t *testing.T) {
 
 	// reference vector in canonical-regular form
 	c := randomVector(size)
-	var p Polynomial
+	var p polynomial
 	p.Coefficients = c
 	p.Basis = LagrangeCoset
 	p.Layout = Regular

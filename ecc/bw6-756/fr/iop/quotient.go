@@ -29,7 +29,7 @@ import (
 // DivideByXMinusOne
 // The input must be in LagrangeCoset.
 // The result is in Canonical Regular.
-func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPolynomial, error) {
+func DivideByXMinusOne(a Polynomial, domains [2]*fft.Domain) (*Polynomial, error) {
 
 	// check that the basis is LagrangeCoset
 	if a.Basis != LagrangeCoset {
@@ -43,10 +43,7 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 
 	nbElmts := len(a.Coefficients)
 
-	var p Polynomial
-	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
-	p.Coefficients = make([]fr.Element, len(a.Coefficients))
-	res := NewWrappedPolynomial(&p)
+	res := NewPolynomial(make([]fr.Element, len(a.Coefficients)), Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 	res.blindedSize = a.blindedSize
 

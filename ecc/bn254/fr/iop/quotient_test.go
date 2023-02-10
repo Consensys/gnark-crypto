@@ -36,8 +36,8 @@ func computex3(x []fr.Element) fr.Element {
 
 }
 
-func buildPoly(size int, form Form) *WrappedPolynomial {
-	return NewWrappedPolynomial(NewPolynomial(make([]fr.Element, size), form))
+func buildPoly(size int, form Form) *Polynomial {
+	return NewPolynomial(make([]fr.Element, size), form)
 }
 
 func TestDivideByXMinusOne(t *testing.T) {
@@ -59,7 +59,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 
 	form := Form{Basis: Lagrange, Layout: Regular}
 
-	entries := make([]*WrappedPolynomial, nbEntries)
+	entries := make([]*Polynomial, nbEntries)
 	entries[0] = buildPoly(sizeSystem, form)
 	entries[1] = buildPoly(sizeSystem, form)
 	entries[2] = buildPoly(sizeSystem, form)
