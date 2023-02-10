@@ -217,7 +217,6 @@ func BuildRatioCopyConstraint(
 }
 
 func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
-	// TODO @gbotrel call the other methods
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
 

@@ -29,7 +29,7 @@ import (
 // DivideByXMinusOne
 // The input must be in LagrangeCoset.
 // The result is in Canonical Regular.
-func DivideByXMinusOne(a Polynomial, domains [2]*fft.Domain) (*Polynomial, error) {
+func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, error) {
 
 	// check that the basis is LagrangeCoset
 	if a.Basis != LagrangeCoset {
