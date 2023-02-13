@@ -102,5 +102,51 @@ func BenchmarkSis(b *testing.B) {
 
 		})
 	}
+}
 
+func BenchmarkSisSparse(b *testing.B) {
+
+	numFieldInput := 1 << 10
+
+	// Assign the input with random bytes but als
+	inputs := make([]byte, numFieldInput*fr.Bytes)
+	nNonZero := numFieldInput / 8
+	if _, err := rand.Read(inputs[numFieldInput-nNonZero:]); err != nil {
+		panic(err)
+	}
+
+	for _, param := range params128Bits {
+
+		instance, err := sis.NewRSis(0, param.logTwoDegree, param.logTwoBound, numFieldInput*fr.Bits/param.logTwoBound)
+		if err != nil {
+			panic(err)
+		}
+
+		benchName := fmt.Sprintf("ring-sis/nb-input=%v-log-2-bound=%v-log-2-degree=%v", numFieldInput, param.logTwoBound, param.logTwoDegree)
+
+		b.Run(benchName, func(b *testing.B) {
+
+			// We introduce a custom metric which is the time per field element
+			// Since the benchmark object allows to report extra metra but does
+			// not allow accessing them. We measure the time ourself.
+
+			startTime := time.Now()
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = instance.Sum(inputs)
+			}
+			b.StopTimer()
+
+			totalDuration := time.Since(startTime)
+			nsPerField := totalDuration.Nanoseconds() / int64(b.N) / int64(numFieldInput)
+
+			b.ReportMetric(float64(nsPerField), "ns/field")
+
+			theoritical := estimateSisTheory(param)
+
+			b.ReportMetric(float64(theoritical), "ns/field(theory)")
+
+		})
+	}
 }
