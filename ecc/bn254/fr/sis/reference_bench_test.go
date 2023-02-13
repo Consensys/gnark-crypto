@@ -23,6 +23,38 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 32, logTwoDegree: 8},
 }
 
+const (
+	LATENCY_MUL_FIELD_NS int = 15
+	LATENCY_ADD_FIELD_NS int = 3
+)
+
+// Estimate the theoritical performances that are achievable using ring-SIS
+// operations. The time is obtained by counting the number of additions and
+// multiplications occuring in the computation. This does not account for the
+// possibilies to use SIMD instructions or for cache-locality issues. Thus, it
+// does not represents a maximum even though it returns a good idea of what is
+// achievable . This returns performances in term of ns/field. This also does not
+// account for the time taken for "limb-splitting" the input.
+func estimateSisTheory(p sisParams) int {
+
+	// Since the FFT occurs over a coset, we need to multiply all the coefficients
+	// of the input by some coset factors (for an entire polynomial)
+	timeCosetShift := (1 << p.logTwoDegree) * LATENCY_MUL_FIELD_NS
+
+	// The two additions are from the butterfly, and the multiplication represents
+	// the one by the twiddle. (for an entire polynomial)
+	timeFFT := (1 << p.logTwoDegree) * p.logTwoDegree * (2*LATENCY_ADD_FIELD_NS + LATENCY_MUL_FIELD_NS)
+
+	// Time taken to multiply by the key and accumulate (for an entire polynomial)
+	timeMulAddKey := (1 << p.logTwoDegree) * (LATENCY_MUL_FIELD_NS + LATENCY_ADD_FIELD_NS)
+
+	// Total computation time for an entire polynomial
+	totalTimePoly := timeCosetShift + timeFFT + timeMulAddKey
+
+	// Convert this into a time per input field
+	return totalTimePoly * fr.Bits / p.logTwoBound / (1 << p.logTwoDegree)
+}
+
 func BenchmarkSis(b *testing.B) {
 
 	numFieldInput := 1 << 10
@@ -63,6 +95,11 @@ func BenchmarkSis(b *testing.B) {
 			nsPerField := totalDuration.Nanoseconds() / int64(b.N) / int64(numFieldInput)
 
 			b.ReportMetric(float64(nsPerField), "ns/field")
+
+			theoritical := estimateSisTheory(param)
+
+			b.ReportMetric(float64(theoritical), "ns/field(theory)")
+
 		})
 	}
 
