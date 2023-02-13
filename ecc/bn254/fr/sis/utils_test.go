@@ -184,7 +184,7 @@ func TestNaiveMulMod(t *testing.T) {
 	_r := referenceMulMod(d, p, q)
 
 	// mulMod
-	r := naiveMulMod(p, q)
+	r := NaiveMulMod(p, q)
 
 	// compare...
 	if len(r) != len(_r) {
@@ -378,7 +378,7 @@ func BenchmarkMulMod(b *testing.B) {
 	b.Run("naive mulMod", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			naiveMulMod(p, q)
+			NaiveMulMod(p, q)
 		}
 	})
 
