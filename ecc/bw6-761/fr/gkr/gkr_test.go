@@ -27,6 +27,7 @@ import (
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/assert"
+	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -363,7 +364,7 @@ func generateTestProver(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
+		proof, err := Prove(testCase.Circuit, testCase.FullAssignment, fiatshamir.WithHash(testCase.Hash))
 		assert.NoError(t, err)
 		assert.NoError(t, proofEquals(testCase.Proof, proof))
 	}
@@ -373,11 +374,11 @@ func generateTestVerifier(path string) func(t *testing.T) {
 	return func(t *testing.T) {
 		testCase, err := newTestCase(path)
 		assert.NoError(t, err)
-		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, testCase.transcriptSetting())
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(testCase.Hash))
 		assert.NoError(t, err, "proof rejected")
 		testCase, err = newTestCase(path)
 		assert.NoError(t, err)
-		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: testCase.Hash}, []byte{1}))
+		err = Verify(testCase.Circuit, testCase.InOutAssignment, testCase.Proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(2, 0)))
 		assert.NotNil(t, err, "bad proof accepted")
 	}
 }
@@ -609,18 +610,18 @@ func unmarshalProof(printable PrintableProof) (Proof, error) {
 
 type TestCase struct {
 	Circuit         Circuit
-	Hash            *test_vector_utils.ElementMap
+	Hash            hash.Hash
 	Proof           Proof
 	FullAssignment  WireAssignment
 	InOutAssignment WireAssignment
 }
 
 type TestCaseInfo struct {
-	Hash    string          `json:"hash"`
-	Circuit string          `json:"circuit"`
-	Input   [][]interface{} `json:"input"`
-	Output  [][]interface{} `json:"output"`
-	Proof   PrintableProof  `json:"proof"`
+	Hash    test_vector_utils.HashDescription `json:"hash"`
+	Circuit string                            `json:"circuit"`
+	Input   [][]interface{}                   `json:"input"`
+	Output  [][]interface{}                   `json:"output"`
+	Proof   PrintableProof                    `json:"proof"`
 }
 
 var testCases = make(map[string]*TestCase)
@@ -646,8 +647,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.ElementMap
-			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash hash.Hash
+			if _hash, err = test_vector_utils.HashFromDescription(info.Hash); err != nil {
 				return nil, err
 			}
 			var proof Proof
@@ -714,10 +715,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
 }
 
 type mulGate struct{}
