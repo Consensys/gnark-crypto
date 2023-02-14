@@ -44,9 +44,9 @@ func TestEvaluate(t *testing.T) {
 		r[i].SetUint64(uint64(3 * (i + 1)))
 	}
 	form := Form{Layout: Regular, Basis: Canonical}
-	wu := NewWrappedPolynomial(NewPolynomial(u, form))
-	wv := NewWrappedPolynomial(NewPolynomial(v, form))
-	ww := NewWrappedPolynomial(NewPolynomial(w, form))
+	wu := NewPolynomial(&u, form)
+	wv := NewPolynomial(&v, form)
+	ww := NewPolynomial(&w, form)
 
 	rr, err := Evaluate(f, form, wu, wv, ww)
 	if err != nil {
@@ -68,13 +68,13 @@ func TestEvaluate(t *testing.T) {
 
 	// compare with the expected result
 	for i := 0; i < size; i++ {
-		if !rr.Coefficients[i].Equal(&r[i]) {
+		if !rr.Coefficients()[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
-		if !rrb.Coefficients[i].Equal(&r[i]) {
+		if !rrb.Coefficients()[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
-		if !rrc.Coefficients[i].Equal(&r[i]) {
+		if !rrc.Coefficients()[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}
 

@@ -20,49 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 )
 
-// func printVector(v []fr.Element) {
-// 	fmt.Printf("[")
-// 	for i := 0; i < len(v); i++ {
-// 		fmt.Printf("Fr(%s), ", v[i].String())
-// 	}
-// 	fmt.Printf("]\n")
-// }
-
-// func printPolynomials(p []*Polynomial) {
-// 	fmt.Printf("[\n")
-// 	for i := 0; i < len(p); i++ {
-// 		printVector(p[i].Coefficients)
-// 		fmt.Printf(",\n")
-// 	}
-// 	fmt.Printf("]\n")
-// }
-
-// func printLayout(f Form) {
-
-// 	if f.Basis == Canonical {
-// 		fmt.Printf("CANONICAL")
-// 	} else if f.Basis == LagrangeCoset {
-// 		fmt.Printf("LAGRANGE_COSET")
-// 	} else {
-// 		fmt.Printf("LAGRANGE")
-// 	}
-// 	fmt.Println("")
-
-// 	if f.Layout == Regular {
-// 		fmt.Printf("REGULAR")
-// 	} else {
-// 		fmt.Printf("BIT REVERSED")
-// 	}
-// 	fmt.Println("")
-
-// 	if f.Status == Locked {
-// 		fmt.Printf("LOCKED")
-// 	} else {
-// 		fmt.Printf("UNLOCKED")
-// 	}
-// 	fmt.Println("")
-// }
-
 //----------------------------------------------------
 // exp functions until 5
 

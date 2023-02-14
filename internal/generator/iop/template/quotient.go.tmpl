@@ -11,7 +11,7 @@ import (
 // DivideByXMinusOne
 // The input must be in LagrangeCoset.
 // The result is in Canonical Regular.
-func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPolynomial, error) {
+func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, error) {
 
 	// check that the basis is LagrangeCoset
 	if a.Basis != LagrangeCoset {
@@ -21,23 +21,21 @@ func DivideByXMinusOne(a WrappedPolynomial, domains [2]*fft.Domain) (*WrappedPol
 	// prepare the evaluations of x^n-1 on the big domain's coset
 	xnMinusOneInverseLagrangeCoset := evaluateXnMinusOneDomainBigCoset(domains)
 
-	rho := len(a.Coefficients) / a.size
+	rho := a.coefficients.Len() / a.size
 
-	nbElmts := len(a.Coefficients)
+	nbElmts := a.coefficients.Len()
 
-	var p Polynomial
-	p.Form = Form{Layout: BitReverse, Basis: LagrangeCoset}
-	p.Coefficients = make([]fr.Element, len(a.Coefficients))
-	res := NewWrappedPolynomial(&p)
+	coeffs := make([]fr.Element, a.coefficients.Len())
+	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 	res.blindedSize = a.blindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
-	parallel.Execute(len(a.Coefficients), func(start, end int){
+	parallel.Execute(a.coefficients.Len(), func(start, end int){
 		for i := start; i < end; i++ {
 			iRev := bits.Reverse64(uint64(i)) >> nn
 			c := a.GetCoeff(i)
-			res.Coefficients[iRev].
+			(*res.coefficients)[iRev].
 				Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
 		}
 	})

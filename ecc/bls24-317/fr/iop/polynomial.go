@@ -17,6 +17,8 @@
 package iop
 
 import (
+	"encoding/binary"
+	"io"
 	"math/big"
 	"math/bits"
 
@@ -59,36 +61,173 @@ var (
 	lagrangeCosetBitReverse = Form{LagrangeCoset, BitReverse}
 )
 
-// Polynomial represents a polynomial, the vector of coefficients
-// along with the basis and the layout.
+// Polynomial wraps a polynomial so that it is
+// interpreted as P'(X)=P(\omega^{shift}X).
+// Size is the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.Size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
+// blindedSize is the size of the polynomial when it is blinded. By
+// default blindedSize=Size, until the polynomial is blinded.
 type Polynomial struct {
-	Coefficients []fr.Element
-	Form
+	*polynomial
+	shift       int
+	size        int
+	blindedSize int
 }
 
-// NewPolynomial creates a new polynomial. The slice coeff NOT copied
-// but directly assigned to the new polynomial.
-func NewPolynomial(coeffs []fr.Element, form Form) *Polynomial {
-	return &Polynomial{Coefficients: coeffs, Form: form}
+// NewPolynomial returned a Polynomial from the provided coefficients in the given form.
+// A Polynomial can be seen as a "shared pointer" on a list of coefficients.
+// It is the responsibility of the user to call the Clone method if the coefficients
+// shouldn't be mutated.
+func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
+	return &Polynomial{
+		polynomial:  newPolynomial(coeffs, form),
+		size:        len(*coeffs),
+		blindedSize: len(*coeffs),
+	}
 }
 
-// Clone returns a deep copy of the underlying data structure.
-func (p *Polynomial) Clone(capacity ...int) *Polynomial {
-	c := len(p.Coefficients)
-	if len(capacity) == 1 && capacity[0] > c {
-		c = capacity[0]
+// Shift the wrapped polynomial; it doesn't modify the underlying data structure,
+// but flag the Polynomial such that it will be interpreted as p(\omega^shift X)
+func (p *Polynomial) Shift(shift int) *Polynomial {
+	p.shift = shift
+	return p
+}
+
+// BlindedSize returns the the size of the polynomial when it is blinded. By
+// default blindedSize=Size, until the polynomial is blinded.
+func (p *Polynomial) BlindedSize() int {
+	return p.blindedSize
+}
+
+// Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
+// where deg Q = blindingOrder and Q is random, and n is the
+// size of q. Sets the result to p and returns it.
+//
+// blindingOrder is the degree of Q, where the blinding is Q(X)*(X^{n}-1)
+// where n is the size of p. The size of p is modified since the underlying
+// polynomial is of bigger degree now. The new size is p.Size+1+blindingOrder.
+//
+// /!\ The code panics if wq is not in canonical, regular layout
+func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
+	// check that p is in canonical basis
+	if p.Form != canonicalRegular {
+		panic("the input must be in canonical basis, regular layout")
 	}
-	r := &Polynomial{
-		Coefficients: make([]fr.Element, len(p.Coefficients), c),
-		Form:         p.Form,
+
+	// we add Q*(x^{n}-1) so the new size is deg(Q)+n+1
+	// where n is the size of wq.
+	newSize := p.size + blindingOrder + 1
+
+	// Resize p. The size of wq might has already been increased
+	// (e.g. when the polynomial is evaluated on a larger domain),
+	// if that's the case we don't resize the polynomial.
+	p.grow(newSize)
+
+	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
+	var r fr.Element
+
+	for i := 0; i <= blindingOrder; i++ {
+		r.SetRandom()
+		(*p.coefficients)[i].Sub(&(*p.coefficients)[i], &r)
+		(*p.coefficients)[i+p.size].Add(&(*p.coefficients)[i+p.size], &r)
 	}
-	copy(r.Coefficients, p.Coefficients)
-	return r
+	p.blindedSize = newSize
+
+	return p
 }
 
 // Evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
+
+	if p.shift == 0 {
+		return p.polynomial.evaluate(x)
+	}
+
+	// TODO find a way to retrieve the root properly instead of re generating the fft domain
+	d := fft.NewDomain(uint64(p.size))
+	var g fr.Element
+	if p.shift <= 5 {
+		g = smallExp(d.Generator, p.shift)
+		x.Mul(&x, &g)
+		return p.polynomial.evaluate(x)
+	}
+
+	bs := big.NewInt(int64(p.shift))
+	g = *g.Exp(g, bs)
+	x.Mul(&x, &g)
+	return p.polynomial.evaluate(x)
+}
+
+// Clone returns a deep copy of p. The underlying polynomial is cloned;
+// see also ShallowClone to perform a ShallowClone on the underlying polynomial.
+// If capacity is provided, the new coefficient slice capacity will be set accordingly.
+func (p *Polynomial) Clone(capacity ...int) *Polynomial {
+	res := p.ShallowClone()
+	res.polynomial = p.polynomial.clone(capacity...)
+	return res
+}
+
+// ShallowClone returns a shallow copy of p. The underlying polynomial coefficient
+// is NOT cloned and both objects will point to the same coefficient vector.
+func (p *Polynomial) ShallowClone() *Polynomial {
+	res := *p
+	return &res
+}
+
+// GetCoeff returns the i-th entry of p, taking the layout in account.
+func (p *Polynomial) GetCoeff(i int) fr.Element {
+
+	n := p.coefficients.Len()
+	rho := n / p.size
+	if p.polynomial.Form.Layout == Regular {
+		return (*p.coefficients)[(i+rho*p.shift)%n]
+	} else {
+		nn := uint64(64 - bits.TrailingZeros(uint(n)))
+		iRev := bits.Reverse64(uint64((i+rho*p.shift)%n)) >> nn
+		return (*p.coefficients)[iRev]
+	}
+
+}
+
+// polynomial represents a polynomial, the vector of coefficients
+// along with the basis and the layout.
+type polynomial struct {
+	coefficients *fr.Vector
+	Form
+}
+
+// Coefficients returns a slice on the underlying data structure.
+func (p *polynomial) Coefficients() []fr.Element {
+	return (*p.coefficients)
+}
+
+// newPolynomial creates a new polynomial. The slice coeff NOT copied
+// but directly assigned to the new polynomial.
+func newPolynomial(coeffs *[]fr.Element, form Form) *polynomial {
+	return &polynomial{coefficients: (*fr.Vector)(coeffs), Form: form}
+}
+
+// clone returns a deep copy of the underlying data structure.
+func (p *polynomial) clone(capacity ...int) *polynomial {
+	c := p.coefficients.Len()
+	if len(capacity) == 1 && capacity[0] > c {
+		c = capacity[0]
+	}
+	newCoeffs := make(fr.Vector, p.coefficients.Len(), c)
+	r := &polynomial{
+		coefficients: &newCoeffs,
+		Form:         p.Form,
+	}
+	copy((*r.coefficients), (*p.coefficients))
+	return r
+}
+
+// evaluate evaluates p at x.
+// The code panics if the function is not in canonical form.
+func (p *polynomial) evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
 	if p.Basis != Canonical {
@@ -96,14 +235,14 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	}
 
 	if p.Layout == Regular {
-		for i := len(p.Coefficients) - 1; i >= 0; i-- {
-			r.Mul(&r, &x).Add(&r, &p.Coefficients[i])
+		for i := p.coefficients.Len() - 1; i >= 0; i-- {
+			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
 		}
 	} else {
-		nn := uint64(64 - bits.TrailingZeros(uint(len(p.Coefficients))))
-		for i := len(p.Coefficients) - 1; i >= 0; i-- {
+		nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
+		for i := p.coefficients.Len() - 1; i >= 0; i-- {
 			iRev := bits.Reverse64(uint64(i)) >> nn
-			r.Mul(&r, &x).Add(&r, &p.Coefficients[iRev])
+			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
 		}
 	}
 
@@ -117,7 +256,7 @@ func (p *Polynomial) ToRegular() *Polynomial {
 	if p.Layout == Regular {
 		return p
 	}
-	fft.BitReverse(p.Coefficients)
+	fft.BitReverse((*p.coefficients))
 	p.Layout = Regular
 	return p
 }
@@ -128,7 +267,7 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 	if p.Layout == BitReverse {
 		return p
 	}
-	fft.BitReverse(p.Coefficients)
+	fft.BitReverse((*p.coefficients))
 	p.Layout = BitReverse
 	return p
 }
@@ -137,24 +276,24 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 // Leaves p unchanged if p was already in Lagrange form.
 func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT(p.Coefficients, fft.DIF)
+		d.FFT((*p.coefficients), fft.DIF)
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT(p.Coefficients, fft.DIT)
+		d.FFT((*p.coefficients), fft.DIT)
 	case lagrangeRegular, lagrangeBitReverse:
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
-		d.FFTInverse(p.Coefficients, fft.DIF, true)
-		d.FFT(p.Coefficients, fft.DIT)
+		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIT)
 	case lagrangeCosetBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse(p.Coefficients, fft.DIT, true)
-		d.FFT(p.Coefficients, fft.DIF)
+		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIF)
 	default:
 		panic("unknown ID")
 	}
@@ -166,22 +305,22 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 // Leaves p unchanged if p was already in Canonical form.
 func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular, canonicalBitReverse:
 		return p
 	case lagrangeRegular:
 		p.Layout = BitReverse
-		d.FFTInverse(p.Coefficients, fft.DIF)
+		d.FFTInverse((*p.coefficients), fft.DIF)
 	case lagrangeBitReverse:
 		p.Layout = Regular
-		d.FFTInverse(p.Coefficients, fft.DIT)
+		d.FFTInverse((*p.coefficients), fft.DIT)
 	case lagrangeCosetRegular:
 		p.Layout = BitReverse
-		d.FFTInverse(p.Coefficients, fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIF, true)
 	case lagrangeCosetBitReverse:
 		p.Layout = Regular
-		d.FFTInverse(p.Coefficients, fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIT, true)
 	default:
 		panic("unknown ID")
 	}
@@ -189,32 +328,32 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	return p
 }
 
-func resize(p *Polynomial, newSize uint64) {
-	z := make([]fr.Element, int(newSize)-len(p.Coefficients))
-	// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
-	// some will mutate the original polynomial, some will not.
-	p.Coefficients = append(p.Coefficients, z...)
+func (p *polynomial) grow(newSize int) {
+	offset := newSize - p.coefficients.Len()
+	if offset > 0 {
+		(*p.coefficients) = append((*p.coefficients), make(fr.Vector, offset)...)
+	}
 }
 
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
 func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	id := p.Form
-	resize(p, d.Cardinality)
+	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT(p.Coefficients, fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIF, true)
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT(p.Coefficients, fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIT, true)
 	case lagrangeRegular:
 		p.Layout = Regular
-		d.FFTInverse(p.Coefficients, fft.DIF)
-		d.FFT(p.Coefficients, fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIF)
+		d.FFT((*p.coefficients), fft.DIT, true)
 	case lagrangeBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse(p.Coefficients, fft.DIT)
-		d.FFT(p.Coefficients, fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIT)
+		d.FFT((*p.coefficients), fft.DIF, true)
 	case lagrangeCosetRegular, lagrangeCosetBitReverse:
 		return p
 	default:
@@ -225,138 +364,64 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	return p
 }
 
-// WrappedPolynomial wraps a polynomial so that it is
-// interpreted as P'(X)=P(\omega^{s}X).
-// Size is the real size of the polynomial (seen as a vector).
-// For instance if len(P)=32 but P.Size=8, it means that P has been
-// extended (e.g. it is evaluated on a larger set) but P is a polynomial
-// of degree 7.
-// blindedSize is the size of the polynomial when it is blinded. By
-// default blindedSize=Size, until the polynomial is blinded.
-type WrappedPolynomial struct {
-	*Polynomial
-	shift       int
-	size        int
-	blindedSize int
-}
-
-// NewWrappedPolynomial returned a WrappedPolynomial from p.
-// ! Warning this does not do a deep copy of p, and modifications on the wrapped
-// polynomial will modify the underlying coefficients of p.
-func NewWrappedPolynomial(p *Polynomial) *WrappedPolynomial {
-	return &WrappedPolynomial{
-		Polynomial:  p,
-		size:        len(p.Coefficients),
-		blindedSize: len(p.Coefficients),
-	}
-}
-
-// Shift the wrapped polynomial; it doesn't modify the underlying data structure,
-// but flag the WrappedPolynomial such that it will be interpreted as p(\omega^shift X)
-func (wp *WrappedPolynomial) Shift(shift int) *WrappedPolynomial {
-	wp.shift = shift
-	return wp
-}
-
-// BlindedSize returns the the size of the polynomial when it is blinded. By
-// default blindedSize=Size, until the polynomial is blinded.
-func (wp *WrappedPolynomial) BlindedSize() int {
-	return wp.blindedSize
-}
-
-// Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
-// where deg Q = blindingOrder and Q is random, and n is the
-// size of q. Sets the result to p and returns it.
-//
-// blindingOrder is the degree of Q, where the blinding is Q(X)*(X^{n}-1)
-// where n is the size of wp. The size of wp is modified since the underlying
-// polynomial is of bigger degree now. The new size is wp.Size+1+blindingOrder.
-//
-// /!\ The code panics if wq is not in canonical, regular layout
-func (wp *WrappedPolynomial) Blind(blindingOrder int) *WrappedPolynomial {
-	// check that wp is in canonical basis
-	if wp.Form != canonicalRegular {
-		panic("the input must be in canonical basis, regular layout")
+// WriteTo implements io.WriterTo
+func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
+	// encode coefficients
+	n, err := p.polynomial.coefficients.WriteTo(w)
+	if err != nil {
+		return n, err
 	}
 
-	// we add Q*(x^{n}-1) so the new size is deg(Q)+n+1
-	// where n is the size of wq.
-	newSize := wp.size + blindingOrder + 1
-
-	// Resize wp. The size of wq might has already been increased
-	// (e.g. when the polynomial is evaluated on a larger domain),
-	// if that's the case we don't resize the polynomial.
-	offset := newSize - len(wp.Coefficients)
-	if offset > 0 {
-		z := make([]fr.Element, offset)
-		// TODO @gbotrel that's a dangerous thing; subsequent methods behavior diverge:
-		// some will mutate the original polynomial, some will not.
-		wp.Coefficients = append(wp.Coefficients, z...)
+	// encode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
+	var data = []uint32{
+		uint32(p.Basis),
+		uint32(p.Layout),
+		uint32(p.shift),
+		uint32(p.size),
+		uint32(p.blindedSize),
 	}
-
-	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
-	var r fr.Element
-
-	for i := 0; i <= blindingOrder; i++ {
-		r.SetRandom()
-		wp.Coefficients[i].Sub(&wp.Coefficients[i], &r)
-		wp.Coefficients[i+wp.size].Add(&wp.Coefficients[i+wp.size], &r)
+	for _, v := range data {
+		err = binary.Write(w, binary.BigEndian, v)
+		if err != nil {
+			return n, err
+		}
+		n += 4
 	}
-	wp.blindedSize = newSize
-
-	return wp
+	return n, nil
 }
 
-// Evaluate evaluates p at x.
-// The code panics if the function is not in canonical form.
-func (wp *WrappedPolynomial) Evaluate(x fr.Element) fr.Element {
-
-	if wp.shift == 0 {
-		return wp.Polynomial.Evaluate(x)
+// ReadFrom implements io.ReaderFrom
+func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
+	// decode coefficients
+	if p.polynomial == nil {
+		p.polynomial = new(polynomial)
+	}
+	if p.polynomial.coefficients == nil {
+		v := make(fr.Vector, 0)
+		p.polynomial.coefficients = &v
+	}
+	n, err := p.polynomial.coefficients.ReadFrom(r)
+	if err != nil {
+		return n, err
 	}
 
-	// TODO find a way to retrieve the root properly instead of re generating the fft domain
-	d := fft.NewDomain(uint64(wp.size))
-	var g fr.Element
-	if wp.shift <= 5 {
-		g = smallExp(d.Generator, wp.shift)
-		x.Mul(&x, &g)
-		return wp.Polynomial.Evaluate(x)
+	// decode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
+	var data [5]uint32
+	var buf [4]byte
+	for i := range data {
+		read, err := io.ReadFull(r, buf[:4])
+		n += int64(read)
+		if err != nil {
+			return n, err
+		}
+		data[i] = binary.BigEndian.Uint32(buf[:4])
 	}
 
-	bs := big.NewInt(int64(wp.shift))
-	g = *g.Exp(g, bs)
-	x.Mul(&x, &g)
-	return wp.Polynomial.Evaluate(x)
-}
+	p.Basis = Basis(data[0])
+	p.Layout = Layout(data[1])
+	p.shift = int(data[2])
+	p.size = int(data[3])
+	p.blindedSize = int(data[4])
 
-// Clone returns a deep copy of wp. The underlying polynomial is cloned;
-// see also ShallowClone to perform a ShallowClone on the underlying polynomial.
-// If capacity is provided, the new coefficient slice capacity will be set accordingly.
-func (wp *WrappedPolynomial) Clone(capacity ...int) *WrappedPolynomial {
-	res := wp.ShallowClone()
-	res.Polynomial = wp.Polynomial.Clone(capacity...)
-	return res
-}
-
-// ShallowClone returns a shallow copy of wp. The underlying polynomial coefficient
-// is NOT cloned and both objects will point to the same coefficient vector.
-func (wp *WrappedPolynomial) ShallowClone() *WrappedPolynomial {
-	res := *wp
-	return &res
-}
-
-// GetCoeff returns the i-th entry of wp, taking the layout in account.
-func (wp *WrappedPolynomial) GetCoeff(i int) fr.Element {
-
-	n := len(wp.Coefficients)
-	rho := n / wp.size
-	if wp.Polynomial.Form.Layout == Regular {
-		return wp.Coefficients[(i+rho*wp.shift)%n]
-	} else {
-		nn := uint64(64 - bits.TrailingZeros(uint(n)))
-		iRev := bits.Reverse64(uint64((i+rho*wp.shift)%n)) >> nn
-		return wp.Coefficients[iRev]
-	}
-
+	return n, nil
 }
