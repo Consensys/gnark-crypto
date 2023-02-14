@@ -16,7 +16,7 @@ type Expression func(x ...fr.Element) fr.Element
 // The Shift field of the result is 0.
 func Evaluate(f Expression, form Form, x ...*Polynomial) (*Polynomial, error) {
 	if len(x) == 0 {
-		return nil, errors.New("need at lest one input")
+		return nil, errors.New("need at lest one input") 
 	}
 
 	// check that the sizes are consistent
@@ -38,7 +38,7 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (*Polynomial, error) {
 		idx = func(i int) int {
 			return int(bits.Reverse64(uint64(i)) >> nn)
 		}
-	}
+	} 
 
 	parallel.Execute(n, func(start, end int) {
 		vx := make([]fr.Element, m)
@@ -50,7 +50,8 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (*Polynomial, error) {
 		}
 	})
 
-	res := NewPolynomial(r, form)
+
+	res := NewPolynomial(&r, form)
 	res.size = x[0].size
 	res.blindedSize = x[0].size
 	res.shift = 0

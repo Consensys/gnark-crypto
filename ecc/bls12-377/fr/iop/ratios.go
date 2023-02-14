@@ -126,7 +126,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res := NewPolynomial(coeffs, expectedForm)
+	res := NewPolynomial(&coeffs, expectedForm)
 
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedForm(*res, domain, expectedForm)
@@ -223,7 +223,7 @@ func BuildRatioCopyConstraint(
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res := NewPolynomial(coeffs, expectedForm)
+	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedForm(*res, domain, expectedForm)
 
