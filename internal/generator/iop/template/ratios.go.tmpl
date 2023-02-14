@@ -112,7 +112,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	res := NewPolynomial(&coeffs, expectedForm)
 
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
+	putInExpectedForm(*res, domain, expectedForm)
 
 	return res, nil
 }
@@ -210,35 +210,26 @@ func BuildRatioCopyConstraint(
 
 	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
+	putInExpectedForm(*res, domain, expectedForm)
 
 	return res, nil
 
 }
 
-func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
-	p.Basis = expectedForm.Basis
-	p.Layout = expectedForm.Layout
+func putInExpectedForm(p Polynomial, domain *fft.Domain, expectedForm Form) {
 
 	if expectedForm.Basis == Canonical {
-		domain.FFTInverse(p.Coefficients(), fft.DIF)
-		if expectedForm.Layout == Regular {
-			fft.BitReverse(p.Coefficients())
-		}
-		return
+		p.ToCanonical(domain)
+	} else if expectedForm.Basis == Lagrange {
+		p.ToLagrange(domain)
+	} else {
+		p.ToLagrangeCoset(domain)
 	}
 
-	if expectedForm.Basis == LagrangeCoset {
-		domain.FFTInverse(p.Coefficients(), fft.DIF)
-		domain.FFT(p.Coefficients(), fft.DIT, true)
-		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(p.Coefficients())
-		}
-		return
-	}
-
-	if expectedForm.Layout == BitReverse {
-		fft.BitReverse(p.Coefficients())
+	if expectedForm.Layout == Regular {
+		p.ToRegular()
+	} else {
+		p.ToBitReverse()
 	}
 
 }

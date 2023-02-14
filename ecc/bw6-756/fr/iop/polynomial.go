@@ -62,7 +62,7 @@ var (
 )
 
 // Polynomial wraps a polynomial so that it is
-// interpreted as P'(X)=P(\omega^{s}X).
+// interpreted as P'(X)=P(\omega^{shift}X).
 // Size is the real size of the polynomial (seen as a vector).
 // For instance if len(P)=32 but P.Size=8, it means that P has been
 // extended (e.g. it is evaluated on a larger set) but P is a polynomial
