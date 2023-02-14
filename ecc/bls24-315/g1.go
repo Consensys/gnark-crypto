@@ -17,13 +17,12 @@
 package bls24315
 
 import (
-	"math/big"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
+	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -71,6 +70,14 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
+	return p
+}
+
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
+	var _p G1Jac
+	_p.mulGLV(&g1Gen, s)
+	p.FromJacobian(&_p)
 	return p
 }
 
@@ -380,6 +387,7 @@ func (p *G1Jac) IsOnCurve() bool {
 }
 
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+
 // Z[r,0]+Z[-lambdaG1Affine, 1] is the kernel
 // of (u,v)->u+lambdaG1Affinev mod r. Expressing r, lambdaG1Affine as
 // polynomials in x, a short vector of this Zmodule is
@@ -481,8 +489,8 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1.SetBigInt(&k[0]).FromMont()
-	k2.SetBigInt(&k[1]).FromMont()
+	k1 = k1.SetBigInt(&k[0]).Bits()
+	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
 	maxBit := k1.BitLen()
@@ -524,6 +532,77 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res G1Jac
 	res.ScalarMultiplication(a, &xGen).AddAssign(a)
+	p.Set(&res)
+	return p
+
+}
+
+// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator
+func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
+
+	var res, p1, p2 G1Jac
+	res.Set(&g1Infinity)
+	p1.Set(&g1Gen)
+	p2.FromAffine(a)
+
+	var table [15]G1Jac
+
+	var k1, k2 big.Int
+	if s1.Sign() == -1 {
+		k1.Neg(s1)
+		table[0].Neg(&p1)
+	} else {
+		k1.Set(s1)
+		table[0].Set(&p1)
+	}
+	if s2.Sign() == -1 {
+		k2.Neg(s2)
+		table[3].Neg(&p2)
+	} else {
+		k2.Set(s2)
+		table[3].Set(&p2)
+	}
+
+	// precompute table (2 bits sliding window)
+	table[1].Double(&table[0])
+	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[4].Set(&table[3]).AddAssign(&table[0])
+	table[5].Set(&table[3]).AddAssign(&table[1])
+	table[6].Set(&table[3]).AddAssign(&table[2])
+	table[7].Double(&table[3])
+	table[8].Set(&table[7]).AddAssign(&table[0])
+	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[10].Set(&table[7]).AddAssign(&table[2])
+	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[12].Set(&table[11]).AddAssign(&table[0])
+	table[13].Set(&table[11]).AddAssign(&table[1])
+	table[14].Set(&table[11]).AddAssign(&table[2])
+
+	var s [2]fr.Element
+	s[0] = s[0].SetBigInt(&k1).Bits()
+	s[1] = s[1].SetBigInt(&k2).Bits()
+
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
+	for i := hiWordIndex; i >= 0; i-- {
+		mask := uint64(3) << 62
+		for j := 0; j < 32; j++ {
+			res.Double(&res).Double(&res)
+			b1 := (s[0][i] & mask) >> (62 - 2*j)
+			b2 := (s[1][i] & mask) >> (62 - 2*j)
+			if b1|b2 != 0 {
+				s := (b2<<2 | b1)
+				res.AddAssign(&table[s-1])
+			}
+			mask = mask >> 2
+		}
+	}
+
 	p.Set(&res)
 	return p
 
@@ -637,6 +716,8 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 
 // double point in Jacobian extended coordinates
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// since we consider any point on Z=0 as the point at infinity
+// this doubling formula works for infinity points as well
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	var U, V, W, S, XX, M fp.Element
 
@@ -879,95 +960,72 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 // and return resulting points in affine coordinates
 // uses a simple windowed-NAF like exponentiation algorithm
 func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
-
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
 
 	nbPoints := uint64(len(scalars))
 	min := ^uint64(0)
 	bestC := 0
-	for c := 2; c < 18; c++ {
-		cost := uint64(1 << (c - 1))
-		nbChunks := uint64(fr.Limbs * 64 / c)
-		if (fr.Limbs*64)%c != 0 {
-			nbChunks++
-		}
-		cost += nbPoints * ((fr.Limbs * 64) + nbChunks)
+	for c := 2; c <= 16; c++ {
+		cost := uint64(1 << (c - 1)) // pre compute the table
+		nbChunks := computeNbChunks(uint64(c))
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
 		if cost < min {
 			min = cost
 			bestC = c
 		}
 	}
 	c := uint64(bestC) // window size
-	nbChunks := int(fr.Limbs * 64 / c)
-	if (fr.Limbs*64)%c != 0 {
-		nbChunks++
+	nbChunks := int(computeNbChunks(c))
+
+	// last window may be slightly larger than c; in which case we need to compute one
+	// extra element in the baseTable
+	maxC := lastC(c)
+	if c > maxC {
+		maxC = c
 	}
-	mask := uint64((1 << c) - 1) // low c bits are 1
-	msbWindow := uint64(1 << (c - 1))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
 	// this allocation to be on the stack
-	baseTable := make([]G1Jac, (1 << (c - 1)))
-	baseTable[0].Set(&g1Infinity)
-	baseTable[0].AddMixed(base)
+	baseTable := make([]G1Jac, (1 << (maxC - 1)))
+	baseTable[0].FromAffine(base)
 	for i := 1; i < len(baseTable); i++ {
 		baseTable[i] = baseTable[i-1]
 		baseTable[i].AddMixed(base)
-	}
-
-	pScalars, _ := partitionScalars(scalars, c, false, runtime.NumCPU())
-
-	// compute offset and word selector / shift to select the right bits of our windows
-	selectors := make([]selector, nbChunks)
-	for chunk := 0; chunk < nbChunks; chunk++ {
-		jc := uint64(uint64(chunk) * c)
-		d := selector{}
-		d.index = jc / 64
-		d.shift = jc - (d.index * 64)
-		d.mask = mask << d.shift
-		d.multiWordSelect = (64%c) != 0 && d.shift > (64-c) && d.index < (fr.Limbs-1)
-		if d.multiWordSelect {
-			nbBitsHigh := d.shift - uint64(64-c)
-			d.maskHigh = (1 << nbBitsHigh) - 1
-			d.shiftHigh = (c - nbBitsHigh)
-		}
-		selectors[chunk] = d
 	}
 	// convert our base exp table into affine to use AddMixed
 	baseTableAff := BatchJacobianToAffineG1(baseTable)
 	toReturn := make([]G1Jac, len(scalars))
 
+	// partition the scalars into digits
+	digits, _ := partitionScalars(scalars, c, runtime.NumCPU())
+
 	// for each digit, take value in the base table, double it c time, voilà.
-	parallel.Execute(len(pScalars), func(start, end int) {
+	parallel.Execute(len(scalars), func(start, end int) {
 		var p G1Jac
 		for i := start; i < end; i++ {
 			p.Set(&g1Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
-				s := selectors[chunk]
 				if chunk != nbChunks-1 {
 					for j := uint64(0); j < c; j++ {
 						p.DoubleAssign()
 					}
 				}
+				offset := chunk * len(scalars)
+				digit := digits[i+offset]
 
-				bits := (pScalars[i][s.index] & s.mask) >> s.shift
-				if s.multiWordSelect {
-					bits += (pScalars[i][s.index+1] & s.maskHigh) << s.shiftHigh
-				}
-
-				if bits == 0 {
+				if digit == 0 {
 					continue
 				}
 
 				// if msbWindow bit is set, we need to substract
-				if bits&msbWindow == 0 {
+				if digit&1 == 0 {
 					// add
-					p.AddMixed(&baseTableAff[bits-1])
+					p.AddMixed(&baseTableAff[(digit>>1)-1])
 				} else {
 					// sub
-					t := baseTableAff[bits & ^msbWindow]
+					t := baseTableAff[digit>>1]
 					t.Neg(&t)
 					p.AddMixed(&t)
 				}
@@ -980,4 +1038,55 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 	})
 	toReturnAff := BatchJacobianToAffineG1(toReturn)
 	return toReturnAff
+}
+
+// batch add affine coordinates
+// using batch inversion
+// special cases (doubling, infinity) must be filtered out before this call
+func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
+	var lambda, lambdain TC
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
+	}
+
+	// invert denominator using montgomery batch invert technique
+	{
+		var accumulator fp.Element
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
+
+		for i := 1; i < batchSize; i++ {
+			lambda[i] = accumulator
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+
+		accumulator.Inverse(&accumulator)
+
+		for i := batchSize - 1; i > 0; i-- {
+			lambda[i].Mul(&lambda[i], &accumulator)
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+		lambda[0].Set(&accumulator)
+	}
+
+	var d fp.Element
+	var rr G1Affine
+
+	// add part
+	for j := 0; j < batchSize; j++ {
+		// computa lambda
+		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &d)
+
+		// compute X, Y
+		rr.X.Square(&lambda[j])
+		rr.X.Sub(&rr.X, &(*R)[j].X)
+		rr.X.Sub(&rr.X, &(*P)[j].X)
+		d.Sub(&(*R)[j].X, &rr.X)
+		rr.Y.Mul(&lambda[j], &d)
+		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
+		(*R)[j].Set(&rr)
+	}
 }

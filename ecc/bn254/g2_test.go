@@ -19,6 +19,7 @@ package bn254
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
@@ -338,14 +339,14 @@ func TestG2AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.mulGLV(&g2Gen, r)
+			g.ScalarMultiplication(&g2Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&g2Gen, &scalar)
 			op2.mulWindowed(&g2Gen, &blindedScalar)
@@ -376,7 +377,7 @@ func TestG2AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.ScalarMultiplication(&g2Gen, &scalar)
 			op2.ScalarMultiplication(&g2Gen, &blindedScalar)
@@ -392,7 +393,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			var r big.Int
 			var op1, op2 G2Jac
-			s.ToBigIntRegular(&r)
+			s.BigInt(&r)
 			op1.mulWindowed(&g2Gen, &r)
 			op2.mulGLV(&g2Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g2Infinity)
@@ -463,8 +464,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
@@ -477,7 +477,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G2Jac
 				var expected G2Affine
 				var b big.Int
-				expectedJac.mulGLV(&g2Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g2Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -504,6 +504,33 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 }
 
+func BenchmarkBatchAddG2Affine(b *testing.B) {
+
+	var P, R pG2AffineC16
+	var RR ppG2AffineC16
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBasesG2(P[:])
+	fillBenchBasesG2(R[:])
+
+	for i := 0; i < len(ridx); i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAddG2Affine[pG2AffineC16, ppG2AffineC16, cG2AffineC16](&RR, &P, len(P))
+	}
+}
+
 func BenchmarkG2AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -516,8 +543,7 @@ func BenchmarkG2AffineBatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {

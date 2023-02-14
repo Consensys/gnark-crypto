@@ -117,9 +117,8 @@ func g2SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	tv2.Square(&y1)                            // 13. tv2 = y1²
 	tv2.Mul(&tv2, v)                           // 14. tv2 = tv2 * v
 	isQNr := tv2.NotEqual(u)                   // 15. isQR = tv2 == u
-	var y2 fp.Element
 	// c3 = sqrt(Z / c2)
-	y2 = fp.Element{16212120288951005687, 11690167560162600414, 9845362566212292170, 5006379754746321817, 3559960229467473872, 1378556217976105943, 4841104984578141598, 15436992508257808297, 6778583767067406308, 4544728946065242}
+	y2 := fp.Element{16212120288951005687, 11690167560162600414, 9845362566212292170, 5006379754746321817, 3559960229467473872, 1378556217976105943, 4841104984578141598, 15436992508257808297, 6778583767067406308, 4544728946065242}
 	y2.Mul(&y1, &y2)  // 16. y2 = y1 * c3
 	tv1.Mul(&y2, &c2) // 17. tv1 = y2 * c2
 	tv2.Square(&tv1)  // 18. tv2 = tv1²
@@ -237,8 +236,8 @@ func g2EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *f
 // The sign of an element is not obviously related to that of its Montgomery form
 func g2Sgn0(z *fp.Element) uint64 {
 
-	nonMont := *z
-	nonMont.FromMont()
+	nonMont := z.Bits()
+
 	// m == 1
 	return nonMont[0] % 2
 
@@ -260,7 +259,7 @@ func MapToG2(u fp.Element) G2Affine {
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
-	u, err := hashToFp(msg, dst, 1)
+	u, err := fp.Hash(msg, dst, 1)
 	if err != nil {
 		return res, err
 	}
@@ -278,7 +277,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
-	u, err := hashToFp(msg, dst, 2*1)
+	u, err := fp.Hash(msg, dst, 2*1)
 	if err != nil {
 		return G2Affine{}, err
 	}

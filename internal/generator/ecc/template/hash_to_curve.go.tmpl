@@ -14,9 +14,6 @@ import(
     {{- if not (eq $TowerDegree 1) }}
         "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
     {{- end}}
-    {{- if $IsG1}}
-        "github.com/consensys/gnark-crypto/ecc"
-    {{- end}}
 
 {{if eq $.MappingAlgorithm "SSWU"}}
     {{template "sswu" .}}
@@ -25,37 +22,14 @@ import(
     {{template "svdw" .}}
 {{end}}
 
-{{if $IsG1}}
-// hashToFp hashes msg to count prime field elements.
-// https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#section-5.2
-func hashToFp(msg, dst []byte, count int) ([]fp.Element, error) {
-    // 128 bits of security
-    // L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
-    const Bytes = 1 + (fp.Bits - 1 ) / 8
-    const L = 16 + Bytes
-
-    lenInBytes := count * L
-    pseudoRandomBytes, err := ecc.ExpandMsgXmd(msg, dst, lenInBytes)
-    if err != nil {
-        return nil, err
-    }
-
-    res := make([]fp.Element, count)
-    for i := 0; i < count; i++ {
-        res[i].SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
-    }
-    return res, nil
-}
-{{end}}
-
 // {{$CurveName}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
 // The sign of an element is not obviously related to that of its Montgomery form
 func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
 
-    nonMont := *z
-    nonMont.FromMont()
+    nonMont := z.Bits()
+    
 	{{if eq $TowerDegree 1}}    // m == 1
         return nonMont[0]%2
 	{{else}}
@@ -105,7 +79,7 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
-	u, err := hashToFp(msg, dst, {{$TowerDegree}})
+	u, err := fp.Hash(msg, dst, {{$TowerDegree}})
 	if err != nil {
 		return res, err
 	}
@@ -133,7 +107,7 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
-	u, err := hashToFp(msg, dst, 2 * {{$TowerDegree}})
+	u, err := fp.Hash(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {
 		return {{$AffineType}}{}, err
 	}

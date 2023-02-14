@@ -19,6 +19,7 @@ package bw6633
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
@@ -338,14 +339,14 @@ func TestG1AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G1Jac
-			g.mulGLV(&g1Gen, r)
+			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&g1Gen, &scalar)
 			op2.mulWindowed(&g1Gen, &blindedScalar)
@@ -368,7 +369,7 @@ func TestG1AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&g1Gen, &rminusone)
 			gneg.Neg(&g1Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.ScalarMultiplication(&g1Gen, &scalar)
 			op2.ScalarMultiplication(&g1Gen, &blindedScalar)
@@ -384,12 +385,29 @@ func TestG1AffineOps(t *testing.T) {
 
 			var r big.Int
 			var op1, op2 G1Jac
-			s.ToBigIntRegular(&r)
+			s.BigInt(&r)
 			op1.mulWindowed(&g1Gen, &r)
 			op2.mulGLV(&g1Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g1Infinity)
 
 		},
+		genScalar,
+	))
+
+	properties.Property("[BW6-633] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+
+			var op1, op2, temp G1Jac
+
+			op1.JointScalarMultiplicationBase(&g1GenAff, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			temp.ScalarMultiplication(&g1Gen, s2.BigInt(new(big.Int)))
+			op2.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
+				AddAssign(&temp)
+
+			return op1.Equal(&op2)
+
+		},
+		genScalar,
 		genScalar,
 	))
 
@@ -458,8 +476,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
@@ -472,7 +489,7 @@ func TestG1AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
-				expectedJac.mulGLV(&g1Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&g1Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -499,6 +516,33 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 }
 
+func BenchmarkBatchAddG1Affine(b *testing.B) {
+
+	var P, R pG1AffineC16
+	var RR ppG1AffineC16
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBasesG1(P[:])
+	fillBenchBasesG1(R[:])
+
+	for i := 0; i < len(ridx); i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAddG1Affine[pG1AffineC16, ppG1AffineC16, cG1AffineC16](&RR, &P, len(P))
+	}
+}
+
 func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -511,8 +555,7 @@ func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {

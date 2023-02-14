@@ -10,12 +10,16 @@
 	{{$fuzzer = "GenE4()"}}
 {{- end}}
 
-
+{{$c := 16}}
+{{if eq .Name "secp256k1"}}
+    {{$c = 15}}
+{{end}}
 
 import (
 	"fmt"
 	"math/big"
 	"testing"
+	"math/rand"
 
 	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -370,14 +374,14 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 			r := fr.Modulus()
 			var g {{ $TJacobian }}
-			g.mulGLV(&{{.PointName}}Gen, r)
+			g.ScalarMultiplication(&{{.PointName}}Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg {{ $TJacobian }}
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&{{.PointName}}Gen, &rminusone)
 			gneg.Neg(&{{.PointName}}Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&{{.PointName}}Gen, &scalar)
 			op2.mulWindowed(&{{.PointName}}Gen, &blindedScalar)
@@ -411,7 +415,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 				rminusone.SetUint64(1).Sub(r, &rminusone)
 				op3.ScalarMultiplication(&{{.PointName}}Gen, &rminusone)
 				gneg.Neg(&{{.PointName}}Gen)
-				s.ToBigIntRegular(&scalar)
+				s.BigInt(&scalar)
 				blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 				op1.ScalarMultiplication(&{{.PointName}}Gen, &scalar)
 				op2.ScalarMultiplication(&{{.PointName}}Gen, &blindedScalar)
@@ -427,7 +431,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
                 var r big.Int
                 var op1, op2 {{ $TJacobian }}
-                s.ToBigIntRegular(&r)
+                s.BigInt(&r)
                 op1.mulWindowed(&{{.PointName}}Gen, &r)
                 op2.mulGLV(&{{.PointName}}Gen, &r)
                 return op1.Equal(&op2) && !op1.Equal(&{{.PointName}}Infinity)
@@ -435,8 +439,30 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
             },
             genScalar,
         ))
+
+
     {{end}}
 
+    {{- if eq .PointName "g1" }}
+	properties.Property("[{{ toUpper .Name }}] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+
+			var op1, op2, temp {{ $TJacobian }}
+
+			op1.JointScalarMultiplicationBase(&g1GenAff, s1.BigInt(new(big.Int)), s2.BigInt(new(big.Int)))
+			temp.ScalarMultiplication(&g1Gen, s2.BigInt(new(big.Int)))
+			op2.ScalarMultiplication(&g1Gen, s1.BigInt(new(big.Int))).
+				AddAssign(&temp)
+
+			return op1.Equal(&op2)
+
+		},
+		genScalar,
+		genScalar,
+	))
+
+
+    {{- end }}
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
@@ -518,8 +544,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer).
-					FromMont()
+					Mul(&sampleScalars[i-1], &mixer)
 			}
 
 			result := BatchScalarMultiplication{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:])
@@ -532,7 +557,7 @@ func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
 				var expectedJac {{ $TJacobian }}
 				var expected {{ $TAffine }}
 				var b big.Int
-				expectedJac.mulGLV(&{{.PointName}}Gen, sampleScalars[i].ToBigInt(&b))
+				expectedJac.ScalarMultiplication(&{{.PointName}}Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
@@ -559,6 +584,33 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
+func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
+
+	var P, R p{{$TAffine}}C{{$c}}
+	var RR pp{{$TAffine}}C{{$c}}
+	ridx := make([]int, len(P))
+
+	// TODO P == R may produce skewed benches
+	fillBenchBases{{ toUpper $.PointName }}(P[:])
+	fillBenchBases{{ toUpper $.PointName }}(R[:])
+
+	for i:=0; i < len(ridx);i++ {
+		ridx[i] = i
+	}
+
+	// random permute
+	rand.Shuffle(len(ridx), func(i, j int) { ridx[i], ridx[j] = ridx[j], ridx[i] })
+
+	for i, ri := range ridx {
+		RR[i] = &R[ri]
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batchAdd{{ $TAffine }}[p{{$TAffine}}C{{$c}}, pp{{$TAffine}}C{{$c}}, c{{$TAffine}}C{{$c}}](&RR, &P, len(P))
+	}
+}
+
 func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 	// ensure every words of the scalars are filled
 	var mixer fr.Element
@@ -571,8 +623,7 @@ func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 
 	for i := 1; i <= nbSamples; i++ {
 		sampleScalars[i-1].SetUint64(uint64(i)).
-			Mul(&sampleScalars[i-1], &mixer).
-			FromMont()
+			Mul(&sampleScalars[i-1], &mixer)
 	}
 
 	for i := 5; i <= pow; i++ {
@@ -748,3 +799,54 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
 }
+
+{{- if eq .Name "secp256k1"}}
+const (
+       nbFuzzShort = 10
+       nbFuzz      = 100
+
+      )
+
+// define Gopters generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+
+		if _, err := elmt.SetRandom(); err != nil {
+			panic(err)
+		}
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+      return func(genParams *gopter.GenParameters) *gopter.GenResult {
+           var s big.Int
+           var b [fp.Bytes]byte
+           _, err := rand.Read(b[:])
+           if err != nil {
+               panic(err)
+           }
+           s.SetBytes(b[:])
+           genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+           return genResult
+    }
+}
+{{- end}}

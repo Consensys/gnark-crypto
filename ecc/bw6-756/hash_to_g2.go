@@ -333,8 +333,8 @@ func g2EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *f
 // The sign of an element is not obviously related to that of its Montgomery form
 func g2Sgn0(z *fp.Element) uint64 {
 
-	nonMont := *z
-	nonMont.FromMont()
+	nonMont := z.Bits()
+
 	// m == 1
 	return nonMont[0] % 2
 
@@ -356,7 +356,7 @@ func MapToG2(u fp.Element) G2Affine {
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
-	u, err := hashToFp(msg, dst, 1)
+	u, err := fp.Hash(msg, dst, 1)
 	if err != nil {
 		return res, err
 	}
@@ -374,7 +374,7 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
-	u, err := hashToFp(msg, dst, 2*1)
+	u, err := fp.Hash(msg, dst, 2*1)
 	if err != nil {
 		return G2Affine{}, err
 	}

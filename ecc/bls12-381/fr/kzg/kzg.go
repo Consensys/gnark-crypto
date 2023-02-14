@@ -84,9 +84,6 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	for i := 1; i < len(alphas); i++ {
 		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
-	for i := 0; i < len(alphas); i++ {
-		alphas[i].FromMont()
-	}
 	g1s := bls12381.BatchScalarMultiplicationG1(&gen1Aff, alphas)
 	copy(srs.G1[1:], g1s)
 
@@ -125,7 +122,7 @@ func Commit(p []fr.Element, srs *SRS, nbTasks ...int) (Digest, error) {
 
 	var res bls12381.G1Affine
 
-	config := ecc.MultiExpConfig{ScalarsMont: true}
+	config := ecc.MultiExpConfig{}
 	if len(nbTasks) > 0 {
 		config.NbTasks = nbTasks[0]
 	}
@@ -171,7 +168,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	// [f(a)]G₁
 	var claimedValueG1Aff bls12381.G1Jac
 	var claimedValueBigInt big.Int
-	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
+	proof.ClaimedValue.BigInt(&claimedValueBigInt)
 	claimedValueG1Aff.ScalarMultiplicationAffine(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
@@ -186,7 +183,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	// [α-a]G₂
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12381.G2Jac
 	var pointBigInt big.Int
-	point.ToBigIntRegular(&pointBigInt)
+	point.BigInt(&pointBigInt)
 	genG2Jac.FromAffine(&srs.G2[0])
 	alphaG2Jac.FromAffine(&srs.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
@@ -395,7 +392,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	for i := 0; i < len(randomNumbers); i++ {
 		quotients[i].Set(&proofs[i].H)
 	}
-	config := ecc.MultiExpConfig{ScalarsMont: true}
+	config := ecc.MultiExpConfig{}
 	_, err := foldedQuotients.MultiExp(quotients, randomNumbers, config)
 	if err != nil {
 		return nil
@@ -417,7 +414,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// compute commitment to folded Eval  [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	var foldedEvalsCommit bls12381.G1Affine
 	var foldedEvalsBigInt big.Int
-	foldedEvals.ToBigIntRegular(&foldedEvalsBigInt)
+	foldedEvals.BigInt(&foldedEvalsBigInt)
 	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
@@ -478,7 +475,7 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 
 	// fold the digests ∑ᵢ[cᵢ]([fᵢ(α)]G₁)
 	var foldedDigests Digest
-	_, err := foldedDigests.MultiExp(di, ci, ecc.MultiExpConfig{ScalarsMont: true})
+	_, err := foldedDigests.MultiExp(di, ci, ecc.MultiExpConfig{})
 	if err != nil {
 		return foldedDigests, foldedEvaluations, err
 	}

@@ -8,6 +8,7 @@
 * BW6-633 (EC supporting pairing on BLS24-315 field of definition)
 * BLS12-378 (GT-strong SNARK-friendly)
 * BW6-756 (EC supporting pairing on BLS12-378 field of definition)
+* STARK (STARK curve for ECDSA)
 
 ### Twisted edwards curves
 

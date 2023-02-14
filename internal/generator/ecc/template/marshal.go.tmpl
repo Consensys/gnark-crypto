@@ -92,9 +92,16 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
 	// in particular, careful attention must be given to usage of Bytes() method on Elements and Points
-	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memallocs 
+	// that return an array (not a slice) of bytes. Using this is beneficial to minimize memory allocations
 	// in very large (de)serialization upstream in gnark.
-	// (but detrimental to code lisibility here)
+	// (but detrimental to code readability here)
+
+	var read64 int64
+	if vf, ok := v.(io.ReaderFrom); ok {
+		read64, err = vf.ReadFrom(dec.r)
+		dec.n+=read64
+		return
+	}
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
@@ -106,7 +113,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fr.Bytes])
+		err = t.SetBytesCanonical(buf[:fr.Bytes])
 		return
 	case *fp.Element:
 		read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
@@ -114,46 +121,16 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		t.SetBytes(buf[:fp.Bytes])
+		err = t.SetBytesCanonical(buf[:fp.Bytes])
 		return
 	case *[]fr.Element:
-		var sliceLen uint32
-		sliceLen, err = dec.readUint32()
-		if err != nil {
-			return
-		}
-		if len(*t) != int(sliceLen) {
-			*t = make([]fr.Element, sliceLen)
-		}
-
-		for i := 0; i < len(*t); i++ {
-			read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-			(*t)[i].SetBytes(buf[:fr.Bytes])
-		}
+		read64, err = (*fr.Vector)(t).ReadFrom(dec.r)
+		dec.n+=read64
 		return
 	case *[]fp.Element:
-		var sliceLen uint32
-		sliceLen, err = dec.readUint32()
-		if err != nil {
-			return
-		}
-		if len(*t) != int(sliceLen) {
-			*t = make([]fp.Element, sliceLen)
-		}
-
-		for i := 0; i < len(*t); i++ {
-			read, err = io.ReadFull(dec.r, buf[:fp.Bytes])
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-			(*t)[i].SetBytes(buf[:fp.Bytes])
-		}
-		return 
+		read64, err = (*fp.Vector)(t).ReadFrom(dec.r)
+		dec.n+=read64
+		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
@@ -227,7 +204,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool 
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return 
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -282,7 +263,11 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 					return
 				}
 			} else {
-				compressed[i] = !((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]))
+				var r bool
+				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+					return
+				}
+				compressed[i] = !r
 			}
 		}
 		var nbErrs uint64
@@ -407,7 +392,15 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
 
+	var written64 int64 
+	if vw, ok := v.(io.WriterTo); ok {
+		written64, err = vw.WriteTo(enc.w)
+		enc.n += written64
+		return 
+	}
+
 	var written int
+
 	switch t := v.(type) {
 	case *fr.Element:
 		buf := t.Bytes()
@@ -428,42 +421,23 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
+		return
+	case fr.Vector:
+		written64, err = t.WriteTo(enc.w)
+		enc.n += written64
+		return 
+	case fp.Vector:
+		written64, err = t.WriteTo(enc.w)
+		enc.n += written64
 		return 
 	case []fr.Element:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-		var buf [fr.Bytes]byte
-		for i := 0; i < len(t); i++ {
-			buf = t[i].Bytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
+		written64, err = (*fr.Vector)(&t).WriteTo(enc.w)
+		enc.n += written64
+		return 
 	case []fp.Element:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-		var buf [fp.Bytes]byte
-		for i := 0; i < len(t); i++ {
-			buf = t[i].Bytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
-
+		written64, err = (*fp.Vector)(&t).WriteTo(enc.w)
+		enc.n += written64
+		return 
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -580,8 +554,6 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
 
 	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
@@ -629,8 +601,6 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 		return
 	}
 
-	// tmp is used to convert from montgomery representation to regular
-	var tmp fp.Element
 
 	// not compressed
 	// we store the Y coordinate
@@ -731,25 +701,53 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		// read X and Y coordinates
 		{{- if eq $.CoordType "fptower.E2"}}
 			// p.X.A1 | p.X.A0
-			p.X.A1.SetBytes(buf[:fp.Bytes])
-			p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+			if err := p.X.A1.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+				return 0, err
+			}
+			if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+				return 0, err
+			}
 			// p.Y.A1 | p.Y.A0
-			p.Y.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
-			p.Y.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+			if err := p.Y.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+				return 0, err
+			}
 		{{- else if eq $.CoordType "fptower.E4"}}	
 			// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-			p.X.B1.A1.SetBytes(buf[fp.Bytes*0:fp.Bytes*1])
-			p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
-			p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
-			p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+			if err := p.X.B1.A1.SetBytesCanonical(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
+				return 0, err
+			}
+			if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+				return 0, err
+			}
+			if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+				return 0, err
+			}
+			if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+				return 0, err
+			}
 			// p.Y.B1.A1 | p.Y.B1.A0 | p.Y.B0.A1 | p.Y.B0.A0
-			p.Y.B1.A1.SetBytes(buf[fp.Bytes*4:fp.Bytes*5])
-			p.Y.B1.A0.SetBytes(buf[fp.Bytes*5:fp.Bytes*6])
-			p.Y.B0.A1.SetBytes(buf[fp.Bytes*6:fp.Bytes*7])
-			p.Y.B0.A0.SetBytes(buf[fp.Bytes*7:fp.Bytes*8])
+			if err := p.Y.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+				return 0, err
+			}
 		{{- else}}
-			p.X.SetBytes(buf[:fp.Bytes])
-			p.Y.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+			if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+				return 0, err
+			}
 		{{- end}}
 
 		// subgroup check 
@@ -772,16 +770,30 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
-		p.X.A1.SetBytes(bufX[:fp.Bytes])
-		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+		if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
 	{{- else if eq $.CoordType "fptower.E4"}}
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-		p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1])
-		p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
-		p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
-		p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+		if err := p.X.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return 0, err
+		}
 	{{- else}}
-		p.X.SetBytes(bufX[:fp.Bytes])
+		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+			return 0, err
+		}
 	{{- end}}
 
 
@@ -883,7 +895,7 @@ func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error  {
 // assumes buf[:8] mask is set to compressed
 // returns true if point is infinity and need no further processing
 // it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)  {
+func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error)  {
 
 	// read the most significant byte
 	mData := buf[0] & mMask
@@ -892,7 +904,7 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 		p.X.SetZero()
 		p.Y.SetZero()
 		isInfinity = true
-		return
+		return isInfinity, nil
 	}
 
 	// we need to copy the input buffer (to keep this method thread safe)
@@ -903,28 +915,42 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 	// read X coordinate
 	{{- if eq $.CoordType "fptower.E2"}}
 		// p.X.A1 | p.X.A0
-		p.X.A1.SetBytes(bufX[:fp.Bytes])
-		p.X.A0.SetBytes(buf[fp.Bytes:fp.Bytes*2])
+		if err := p.X.A1.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+			return false, err
+		}
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			return false, err
+		}
 		
 		// store mData in p.Y.A0[0]
 		p.Y.A0[0] = uint64(mData)
 	{{- else if eq $.CoordType "fptower.E4"}}
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
-		p.X.B1.A1.SetBytes(bufX[fp.Bytes*0:fp.Bytes*1])
-		p.X.B1.A0.SetBytes(buf[fp.Bytes*1:fp.Bytes*2])
-		p.X.B0.A1.SetBytes(buf[fp.Bytes*2:fp.Bytes*3])
-		p.X.B0.A0.SetBytes(buf[fp.Bytes*3:fp.Bytes*4])
+		if err := p.X.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			return false, err
+		}
+		if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			return false, err
+		}
+		if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return false, err
+		}
+		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return false, err
+		}
 		
 		// store mData in p.Y.B0.A0[0]
 		p.Y.B0.A0[0] = uint64(mData)
 	{{- else}}
-		p.X.SetBytes(bufX[:fp.Bytes])
+		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
+			return false, err
+		}
 		// store mData in p.Y[0]
 		p.Y[0] = uint64(mData)
 	{{- end}}
 
 	// recomputing Y will be done asynchronously
-	return
+	return isInfinity, nil
 }
 
 
@@ -934,15 +960,6 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool)
 
 
 
-{{define "putFp"}}
-	tmp = {{$.From}}
-	tmp.FromMont() 
-	{{- range $i := reverse .all.Fp.NbWordsIndexesFull}}
-			{{- $j := mul $i 8}}
-			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Fp.NbWords 1}}
-			{{- $k := sub $k $i}}
-			{{- $jj := add $j 8}}
-			binary.BigEndian.PutUint64(res[{{$j}}:{{$jj}}], tmp[{{$k}}])
-	{{- end}}
-{{end}}
+{{- define "putFp"}}
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)( res[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]), {{$.From}})
+{{- end}}

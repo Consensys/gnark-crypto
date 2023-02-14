@@ -1,6 +1,5 @@
 import (
 	"math/big"
-	"encoding/binary"
 	"errors"
     "sync"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -50,20 +49,6 @@ func (z *E12) SetOne() *E12 {
 	return z
 }
 
-// ToMont converts to Mont form
-func (z *E12) ToMont() *E12 {
-	z.C0.ToMont()
-	z.C1.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E12) FromMont() *E12 {
-	z.C0.FromMont()
-	z.C1.FromMont()
-	return z
-}
-
 // Add set z=x+y in E12 and return z
 func (z *E12) Add(x, y *E12) *E12 {
 	z.C0.Add(&x.C0, &y.C0)
@@ -99,6 +84,10 @@ func (z *E12) SetRandom() (*E12, error) {
 // IsZero returns true if the two elements are equal, fasle otherwise
 func (z *E12) IsZero() bool {
 	return z.C0.IsZero() && z.C1.IsZero()
+}
+
+func (z *E12) IsOne() bool {
+	return z.C0.IsOne() && z.C1.IsZero()
 }
 
 // Mul set z=x*y in E12 and return z
@@ -585,8 +574,8 @@ func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	table[14].Mul(&table[11], &table[2])
 
 	// bounds on the lattice base vectors guarantee that s1, s2 are len(r)/2 bits long max
-	s1.SetBigInt(&s[0]).FromMont()
-	s2.SetBigInt(&s[1]).FromMont()
+	s1 = s1.SetBigInt(&s[0]).Bits()
+	s2 = s2.SetBigInt(&s[1]).Bits()
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := len(s1) / 2; i >= 0; i-- {
@@ -638,46 +627,43 @@ func (z *E12) Unmarshal(buf []byte) error {
 
 // Bytes returns the regular (non montgomery) value
 // of z as a big-endian byte array.
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) Bytes() (r [SizeOfGT]byte) {
-	_z := *z
-	_z.FromMont()
-
 	{{- $offset := mul $sizeOfFp 11}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B0.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B0.A0"}}
 
 	{{- $offset := mul $sizeOfFp 10}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B0.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B0.A1"}}
 
 	{{- $offset := mul $sizeOfFp 9}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B1.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B1.A0"}}
 
 	{{- $offset := mul $sizeOfFp 8}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B1.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B1.A1"}}
 
 	{{- $offset := mul $sizeOfFp 7}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B2.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B2.A0"}}
 
 	{{- $offset := mul $sizeOfFp 6}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C0.B2.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C0.B2.A1"}}
 
 	{{- $offset := mul $sizeOfFp 5}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B0.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B0.A0"}}
 
 	{{- $offset := mul $sizeOfFp 4}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B0.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B0.A1"}}
 
 	{{- $offset := mul $sizeOfFp 3}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B1.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B1.A0"}}
 
 	{{- $offset := mul $sizeOfFp 2}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B1.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B1.A1"}}
 
 	{{- $offset := mul $sizeOfFp 1}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B2.A0"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B2.A0"}}
 
 	{{- $offset := mul $sizeOfFp 0}}
-	{{- template "putFp" dict "all" . "OffSet" $offset "From" "_z.C1.B2.A1"}}
+	{{- template "putFp" dict "all" . "OffSet" $offset "From" "z.C1.B2.A1"}}
 
 	return
 }
@@ -686,7 +672,7 @@ func (z *E12) Bytes() (r [SizeOfGT]byte) {
 // SetBytes interprets e as the bytes of a big-endian GT
 // sets z to that value (in Montgomery form), and returns z.
 // size(e) == {{ $sizeOfFp }} * 12
-// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
+// z.C1.B2.A1 | z.C1.B2.A0 | z.C1.B1.A1 | ...
 func (z *E12) SetBytes(e []byte) error {
 	if len(e) != SizeOfGT {
 		return errors.New("invalid buffer size")
@@ -761,20 +747,15 @@ func (z *E12) IsInSubGroup() bool {
     return a.Equal(&b)
 }
 
-{{define "putFp"}}
-	{{- range $i := reverse .all.Curve.Fp.NbWordsIndexesFull}}
-			{{- $j := mul $i 8}}
-			{{- $j := add $j $.OffSet}}
-			{{- $k := sub $.all.Curve.Fp.NbWords 1}}
-			{{- $k := sub $k $i}}
-			{{- $jj := add $j 8}}
-			binary.BigEndian.PutUint64(r[{{$j}}:{{$jj}}], {{$.From}}[{{$k}}])
-	{{- end}}
-{{end}}
+{{- define "putFp"}}
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)( r[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]), {{$.From}})
+{{- end}}
 
-{{define "readFp"}}
-	{{$.To}}.SetBytes(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes])
-{{end}}
+{{- define "readFp"}}
+	if err := {{$.To}}.SetBytesCanonical(e[{{$.OffSet}}:{{$.OffSet}} + fp.Bytes]); err != nil {
+		return err
+	}
+{{- end}}
 
 // CompressTorus GT/E12 element to half its size
 // z must be in the cyclotomic subgroup

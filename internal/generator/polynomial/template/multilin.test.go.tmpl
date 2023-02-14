@@ -1,5 +1,5 @@
 import (
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"{{.FieldPackagePath}}"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -13,14 +13,14 @@ func TestFoldBilinear(t *testing.T) {
 	for i := 0; i < 100; i++ {
 
 		// f = c₀ + c₁ X₁ + c₂ X₂ + c₃ X₁ X₂
-		var coefficients [4]fr.Element
+		var coefficients [4]{{.ElementType}}
 		for i := 0; i < 4; i++ {
 			if _, err := coefficients[i].SetRandom(); err != nil {
 				t.Error(err)
 			}
 		}
 
-		var r fr.Element
+		var r {{.ElementType}}
 		if _, err := r.SetRandom(); err != nil {
 			t.Error(err)
 		}
@@ -37,7 +37,7 @@ func TestFoldBilinear(t *testing.T) {
 		m.Fold(r)
 
 		// interpolate at {r}×{0,1}:
-		var expected0, expected1 fr.Element
+		var expected0, expected1 {{.ElementType}}
 		expected0.
 			Mul(&r, &coefficients[1]).
 			Add(&expected0, &coefficients[0])
@@ -60,7 +60,7 @@ func TestPrecomputeLagrange(t *testing.T) {
 
 		for l := uint8(0); l < domainSize; l++ {
 			for i := uint8(0); i < domainSize; i++ {
-				var I fr.Element
+				var I {{.ElementType}}
 				I.SetUint64(uint64(i))
 				y := polys[l].Eval(&I)
 
@@ -91,7 +91,7 @@ func TestPrecomputeLagrange(t *testing.T) {
 // TODO: Benchmark folding? Algorithms is pretty straightforward; unless we want to measure how well memory management is working
 
 func TestFoldedEqTable(t *testing.T) {
-	q := make([]fr.Element, 2)
+	q := make([]{{.ElementType}}, 2)
 	q[0].SetInt64(2)
 	q[1].SetInt64(3)
 
@@ -99,10 +99,10 @@ func TestFoldedEqTable(t *testing.T) {
 	m[0].SetOne()
 	m.Eq(q)
 
-	eq := make([]fr.Element, 4)
-	p := make([]fr.Element, 2)
+	eq := make([]{{.ElementType}}, 4)
+	p := make([]{{.ElementType}}, 2)
 
-	var one fr.Element
+	var one {{.ElementType}}
 	one.SetOne()
 
 	for p0 := 0; p0 < 2; p0++ {

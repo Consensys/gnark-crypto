@@ -63,25 +63,13 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero() && z.B2.IsZero()
 }
 
-// ToMont converts to Mont form
-func (z *E6) ToMont() *E6 {
-	z.B0.ToMont()
-	z.B1.ToMont()
-	z.B2.ToMont()
-	return z
-}
-
-// FromMont converts from Mont form
-func (z *E6) FromMont() *E6 {
-	z.B0.FromMont()
-	z.B1.FromMont()
-	z.B2.FromMont()
-	return z
+func (z *E6) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero() && z.B2.IsZero()
 }
 
 // Add adds two elements of E6

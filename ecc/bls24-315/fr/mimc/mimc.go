@@ -17,6 +17,7 @@
 package mimc
 
 import (
+	"errors"
 	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
@@ -26,7 +27,7 @@ import (
 )
 
 const (
-	mimcNbRounds = 91
+	mimcNbRounds = 109
 	seed         = "seed"   // seed to derive the constants
 	BlockSize    = fr.Bytes // BlockSize size that mimc consumes
 )
@@ -41,7 +42,7 @@ var (
 // along with the params of the mimc function
 type digest struct {
 	h    fr.Element
-	data []byte // data to hash
+	data []fr.Element // data to hash
 }
 
 // GetConstants exposed to be used in gnark
@@ -49,7 +50,7 @@ func GetConstants() []big.Int {
 	once.Do(initConstants) // init constants
 	res := make([]big.Int, mimcNbRounds)
 	for i := 0; i < mimcNbRounds; i++ {
-		mimcConstants[i].ToBigIntRegular(&res[i])
+		mimcConstants[i].BigInt(&res[i])
 	}
 	return res
 }
@@ -91,46 +92,45 @@ func (d *digest) BlockSize() int {
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
-// It never returns an error.
-func (d *digest) Write(p []byte) (n int, err error) {
-	n = len(p)
-	d.data = append(d.data, p...)
-	return
+//
+// Each []byte block of size BlockSize represents a big endian fr.Element.
+//
+// If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
+// larger than fr.Modulus, this function returns an error.
+//
+// To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
+func (d *digest) Write(p []byte) (int, error) {
+
+	var start int
+	for start = 0; start < len(p); start += BlockSize {
+		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
+			d.data = append(d.data, elem)
+		} else {
+			return 0, err
+		}
+	}
+
+	if start != len(p) {
+		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+	}
+	return len(p), nil
 }
 
-// Hash hash using Miyaguchi–Preneel:
+// Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
 func (d *digest) checksum() fr.Element {
+	// Write guarantees len(data) % BlockSize == 0
 
-	var buffer [BlockSize]byte
-	var x fr.Element
+	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
+	// TODO: @Tabaie, @Thomas Piellard Now sure what to make of this
+	/*if len(d.data) == 0 {
+		d.data = make([]byte, BlockSize)
+	}*/
 
-	// if data size is not multiple of BlockSizes we padd:
-	// .. || 0xaf8 -> .. || 0x0000...0af8
-	if len(d.data)%BlockSize != 0 {
-		q := len(d.data) / BlockSize
-		r := len(d.data) % BlockSize
-		sliceq := make([]byte, q*BlockSize)
-		copy(sliceq, d.data)
-		slicer := make([]byte, r)
-		copy(slicer, d.data[q*BlockSize:])
-		sliceremainder := make([]byte, BlockSize-r)
-		d.data = append(sliceq, sliceremainder...)
-		d.data = append(d.data, slicer...)
-	}
-
-	if len(d.data) == 0 {
-		d.data = make([]byte, 32)
-	}
-
-	nbChunks := len(d.data) / BlockSize
-
-	for i := 0; i < nbChunks; i++ {
-		copy(buffer[:], d.data[i*BlockSize:(i+1)*BlockSize])
-		x.SetBytes(buffer[:])
-		r := d.encrypt(x)
-		d.h.Add(&r, &d.h).Add(&d.h, &x)
+	for i := range d.data {
+		r := d.encrypt(d.data[i])
+		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
 
 	return d.h
@@ -179,5 +179,14 @@ func initConstants() {
 		mimcConstants[i].SetBytes(rnd)
 		hash.Reset()
 		_, _ = hash.Write(rnd)
+	}
+}
+
+// WriteString writes a string that doesn't necessarily consist of field elements
+func (d *digest) WriteString(rawBytes []byte) {
+	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
+		panic(err)
+	} else {
+		d.data = append(d.data, elems[0])
 	}
 }

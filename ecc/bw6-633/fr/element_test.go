@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/internal/field"
 	mrand "math/rand"
 
 	"testing"
@@ -182,17 +181,10 @@ func BenchmarkElementFromMont(b *testing.B) {
 	benchResElement.SetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		benchResElement.FromMont()
+		benchResElement.fromMont()
 	}
 }
 
-func BenchmarkElementToMont(b *testing.B) {
-	benchResElement.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.ToMont()
-	}
-}
 func BenchmarkElementSquare(b *testing.B) {
 	benchResElement.SetRandom()
 	b.ResetTimer()
@@ -640,7 +632,7 @@ func TestElementBitLen(t *testing.T) {
 
 	properties.Property("BitLen should output same result than big.Int.BitLen", prop.ForAll(
 		func(a testPairElement) bool {
-			return a.element.FromMont().BitLen() == a.bigint.BitLen()
+			return a.element.fromMont().BitLen() == a.bigint.BitLen()
 		},
 		genA,
 	))
@@ -755,7 +747,7 @@ func TestElementAdd(t *testing.T) {
 				var d, e big.Int
 				d.Add(&a.bigint, &b.bigint).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -768,13 +760,13 @@ func TestElementAdd(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int
-				r.ToBigIntRegular(&rb)
+				r.BigInt(&rb)
 
 				var c Element
 				c.Add(&a.element, &r)
 				d.Add(&a.bigint, &rb).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -803,17 +795,17 @@ func TestElementAdd(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c Element
 				c.Add(&a, &b)
 				d.Add(&aBig, &bBig).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Add failed special test values")
 				}
 			}
@@ -864,7 +856,7 @@ func TestElementSub(t *testing.T) {
 				var d, e big.Int
 				d.Sub(&a.bigint, &b.bigint).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -877,13 +869,13 @@ func TestElementSub(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int
-				r.ToBigIntRegular(&rb)
+				r.BigInt(&rb)
 
 				var c Element
 				c.Sub(&a.element, &r)
 				d.Sub(&a.bigint, &rb).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -912,17 +904,17 @@ func TestElementSub(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c Element
 				c.Sub(&a, &b)
 				d.Sub(&aBig, &bBig).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Sub failed special test values")
 				}
 			}
@@ -973,7 +965,7 @@ func TestElementMul(t *testing.T) {
 				var d, e big.Int
 				d.Mul(&a.bigint, &b.bigint).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -986,7 +978,7 @@ func TestElementMul(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int
-				r.ToBigIntRegular(&rb)
+				r.BigInt(&rb)
 
 				var c Element
 				c.Mul(&a.element, &r)
@@ -1000,7 +992,7 @@ func TestElementMul(t *testing.T) {
 					return false
 				}
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -1040,11 +1032,11 @@ func TestElementMul(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c Element
 				c.Mul(&a, &b)
@@ -1057,7 +1049,7 @@ func TestElementMul(t *testing.T) {
 					t.Fatal("Mul failed special test values: asm and generic impl don't match")
 				}
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Mul failed special test values")
 				}
 			}
@@ -1109,7 +1101,7 @@ func TestElementDiv(t *testing.T) {
 				d.ModInverse(&b.bigint, Modulus())
 				d.Mul(&d, &a.bigint).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -1122,14 +1114,14 @@ func TestElementDiv(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int
-				r.ToBigIntRegular(&rb)
+				r.BigInt(&rb)
 
 				var c Element
 				c.Div(&a.element, &r)
 				d.ModInverse(&rb, Modulus())
 				d.Mul(&d, &a.bigint).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -1158,18 +1150,18 @@ func TestElementDiv(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c Element
 				c.Div(&a, &b)
 				d.ModInverse(&bBig, Modulus())
 				d.Mul(&d, &aBig).Mod(&d, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Div failed special test values")
 				}
 			}
@@ -1220,7 +1212,7 @@ func TestElementExp(t *testing.T) {
 				var d, e big.Int
 				d.Exp(&a.bigint, &b.bigint, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -1233,13 +1225,13 @@ func TestElementExp(t *testing.T) {
 
 			for _, r := range testValues {
 				var d, e, rb big.Int
-				r.ToBigIntRegular(&rb)
+				r.BigInt(&rb)
 
 				var c Element
 				c.Exp(a.element, &rb)
 				d.Exp(&a.bigint, &rb, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
 				}
 			}
@@ -1268,17 +1260,17 @@ func TestElementExp(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			for _, b := range testValues {
 
 				var bBig, d, e big.Int
-				b.ToBigIntRegular(&bBig)
+				b.BigInt(&bBig)
 
 				var c Element
 				c.Exp(a, &bBig)
 				d.Exp(&aBig, &bBig, Modulus())
 
-				if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("Exp failed special test values")
 				}
 			}
@@ -1323,7 +1315,7 @@ func TestElementSquare(t *testing.T) {
 			var d, e big.Int
 			d.Mul(&a.bigint, &a.bigint).Mod(&d, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1344,14 +1336,14 @@ func TestElementSquare(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c Element
 			c.Square(&a)
 
 			var d, e big.Int
 			d.Mul(&aBig, &aBig).Mod(&d, Modulus())
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Square failed special test values")
 			}
 		}
@@ -1395,7 +1387,7 @@ func TestElementInverse(t *testing.T) {
 			var d, e big.Int
 			d.ModInverse(&a.bigint, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1416,14 +1408,14 @@ func TestElementInverse(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c Element
 			c.Inverse(&a)
 
 			var d, e big.Int
 			d.ModInverse(&aBig, Modulus())
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Inverse failed special test values")
 			}
 		}
@@ -1467,7 +1459,7 @@ func TestElementSqrt(t *testing.T) {
 			var d, e big.Int
 			d.ModSqrt(&a.bigint, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1488,14 +1480,14 @@ func TestElementSqrt(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c Element
 			c.Sqrt(&a)
 
 			var d, e big.Int
 			d.ModSqrt(&aBig, Modulus())
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Sqrt failed special test values")
 			}
 		}
@@ -1539,7 +1531,7 @@ func TestElementDouble(t *testing.T) {
 			var d, e big.Int
 			d.Lsh(&a.bigint, 1).Mod(&d, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1560,14 +1552,14 @@ func TestElementDouble(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c Element
 			c.Double(&a)
 
 			var d, e big.Int
 			d.Lsh(&aBig, 1).Mod(&d, Modulus())
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Double failed special test values")
 			}
 		}
@@ -1611,7 +1603,7 @@ func TestElementNeg(t *testing.T) {
 			var d, e big.Int
 			d.Neg(&a.bigint).Mod(&d, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
 	))
@@ -1632,14 +1624,14 @@ func TestElementNeg(t *testing.T) {
 
 		for _, a := range testValues {
 			var aBig big.Int
-			a.ToBigIntRegular(&aBig)
+			a.BigInt(&aBig)
 			var c Element
 			c.Neg(&a)
 
 			var d, e big.Int
 			d.Neg(&aBig).Mod(&d, Modulus())
 
-			if c.FromMont().ToBigInt(&e).Cmp(&d) != 0 {
+			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Neg failed special test values")
 			}
 		}
@@ -2027,7 +2019,7 @@ func TestElementNegativeExp(t *testing.T) {
 
 			d.Exp(&a.bigint, &nb, Modulus())
 
-			return c.FromMont().ToBigInt(&e).Cmp(&d) == 0
+			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA, genA,
 	))
@@ -2160,17 +2152,17 @@ func TestElementFromMont(t *testing.T) {
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.FromMont()
+			c.fromMont()
 			_fromMontGeneric(&d)
 			return c.Equal(&d)
 		},
 		genA,
 	))
 
-	properties.Property("x.FromMont().ToMont() == x", prop.ForAll(
+	properties.Property("x.fromMont().toMont() == x", prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
-			c.FromMont().ToMont()
+			c.fromMont().toMont()
 			return c.Equal(&a.element)
 		},
 		genA,
@@ -2197,7 +2189,20 @@ func TestElementJSON(t *testing.T) {
 
 	encoded, err := json.Marshal(&s)
 	assert.NoError(err)
-	const expected = "{\"A\":-1,\"B\":[0,0,42],\"C\":null,\"D\":8000}"
+	// we may need to adjust "42" and "8000" values for some moduli; see Text() method for more details.
+	formatValue := func(v int64) string {
+		var a big.Int
+		a.SetInt64(v)
+		a.Mod(&a, Modulus())
+		const maxUint16 = 65535
+		var aNeg big.Int
+		aNeg.Neg(&a).Mod(&aNeg, Modulus())
+		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
+			return "-" + aNeg.Text(10)
+		}
+		return a.Text(10)
+	}
+	expected := fmt.Sprintf("{\"A\":%s,\"B\":[0,0,%s],\"C\":null,\"D\":%s}", formatValue(-1), formatValue(42), formatValue(8000))
 	assert.Equal(expected, string(encoded))
 
 	// decode valid
@@ -2251,7 +2256,7 @@ func gen() gopter.Gen {
 			}
 		}
 
-		g.element.ToBigIntRegular(&g.bigint)
+		g.element.BigInt(&g.bigint)
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
 		return genResult
 	}
@@ -2313,7 +2318,7 @@ func (z *Element) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 
 	slice := append(z[:], aHi)
 
-	return field.BigIntMatchUint64Slice(&aIntMod, slice)
+	return bigIntMatchUint64Slice(&aIntMod, slice)
 }
 
 // TODO: Phase out in favor of property based testing
@@ -2322,6 +2327,32 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	if err := z.matchVeryBigInt(aHi, aInt); err != nil {
 		t.Error(err)
 	}
+}
+
+// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
+
+	words := aInt.Bits()
+
+	const steps = 64 / bits.UintSize
+	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
+	for i := 0; i < len(a)*steps; i++ {
+
+		var wI big.Word
+
+		if i < len(words) {
+			wI = words[i]
+		}
+
+		aI := a[i/steps] >> ((i * bits.UintSize) % 64)
+		aI &= filter
+
+		if uint64(wI) != aI {
+			return fmt.Errorf("bignum mismatch: disagreement on word %d: %x ≠ %x; %d ≠ %d", i, uint64(wI), aI, uint64(wI), aI)
+		}
+	}
+
+	return nil
 }
 
 func TestElementInversionApproximation(t *testing.T) {
@@ -2359,7 +2390,7 @@ func TestElementInversionCorrectionFactorFormula(t *testing.T) {
 		inversionCorrectionFactorWord3,
 		inversionCorrectionFactorWord4,
 	}
-	inversionCorrectionFactor.ToBigInt(&refFactorInt)
+	inversionCorrectionFactor.toBigInt(&refFactorInt)
 
 	if refFactorInt.Cmp(factorInt) != 0 {
 		t.Error("mismatch")
@@ -2401,7 +2432,7 @@ func TestElementInversionCorrectionFactor(t *testing.T) {
 
 	if !oneInv.Equal(&one) {
 		var i big.Int
-		oneInv.ToBigIntRegular(&i) // no montgomery
+		oneInv.BigInt(&i) // no montgomery
 		i.ModInverse(&i, Modulus())
 		var fac Element
 		fac.setBigInt(&i) // back to montgomery
@@ -2761,11 +2792,11 @@ func randomizeUpdateFactors() (int64, int64) {
 func testLinearComb(t *testing.T, x *Element, xC int64, y *Element, yC int64) {
 
 	var p1 big.Int
-	x.ToBigInt(&p1)
+	x.toBigInt(&p1)
 	p1.Mul(&p1, big.NewInt(xC))
 
 	var p2 big.Int
-	y.ToBigInt(&p2)
+	y.toBigInt(&p2)
 	p2.Mul(&p2, big.NewInt(yC))
 
 	p1.Add(&p1, &p2)
@@ -2802,7 +2833,7 @@ func montReduce(res *big.Int, x *big.Int) {
 }
 
 func (z *Element) toVeryBigIntUnsigned(i *big.Int, xHi uint64) {
-	z.ToBigInt(i)
+	z.toBigInt(i)
 	var upperWord big.Int
 	upperWord.SetUint64(xHi)
 	upperWord.Lsh(&upperWord, Limbs*64)
@@ -2820,7 +2851,7 @@ func (z *Element) toVeryBigIntSigned(i *big.Int, xHi uint64) {
 
 func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, resultHi uint64) big.Int {
 	var xInt big.Int
-	x.ToBigInt(&xInt)
+	x.toBigInt(&xInt)
 
 	xInt.Mul(&xInt, big.NewInt(c))
 
@@ -2831,7 +2862,7 @@ func assertMulProduct(t *testing.T, x *Element, c int64, result *Element, result
 func approximateRef(x *Element) uint64 {
 
 	var asInt big.Int
-	x.ToBigInt(&asInt)
+	x.toBigInt(&asInt)
 	n := x.BitLen()
 
 	if n <= 64 {
