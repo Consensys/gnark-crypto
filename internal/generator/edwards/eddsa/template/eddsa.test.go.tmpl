@@ -28,7 +28,7 @@ func Example() {
 	// sign the message
 	signature, _ := privateKey.Sign(msg, hFunc)
 
-	// verifies signature 
+	// verifies signature
 	isValid, _ := publicKey.Verify(signature, msg, hFunc)
 	if !isValid {
 		fmt.Println("1. invalid signature")
@@ -190,4 +190,3 @@ func BenchmarkVerify(b *testing.B) {
 		pubKey.Verify(signature, msgBin[:], hFunc)
 	}
 }
-

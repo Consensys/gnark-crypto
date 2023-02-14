@@ -10,15 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"hash"
 )
 
 func main() {
-	if err := func() error {
-		if err := GenerateVectors(); err != nil {
-		    return err
-        }
-		return test_vector_utils.SaveUsedHashEntries()
-	}(); err != nil {
+	if err := GenerateVectors(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
@@ -58,8 +54,10 @@ func run(absPath string) error {
          return err
     }
 
+    transcriptSetting := fiatshamir.WithHash(testCase.Hash)
+
 	var proof gkr.Proof
-    proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
+    proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, transcriptSetting)
     if err != nil {
 		return err
     }
@@ -81,7 +79,7 @@ func run(absPath string) error {
 		return err
     }
 
-	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
+    err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, transcriptSetting)
 	if err != nil {
         return err
     }
@@ -91,7 +89,7 @@ func run(absPath string) error {
         return err
     }
 
-    err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting([]byte{0, 1}))
+    err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(2, 0)))
     if err == nil {
 	    return fmt.Errorf("bad proof accepted")
     }

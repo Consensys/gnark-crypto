@@ -20,13 +20,15 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"github.com/consensys/gnark-crypto/field"
 	"io"
 	"math/big"
 	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/consensys/gnark-crypto/field/hash"
+	"github.com/consensys/gnark-crypto/field/pool"
 )
 
 // Element represents a field element stored on 5 words (uint64)
@@ -215,17 +217,6 @@ func (z *Element) Div(x, y *Element) *Element {
 	yInv.Inverse(y)
 	z.Mul(x, &yInv)
 	return z
-}
-
-// Bit returns the i'th bit, with lsb == bit 0.
-//
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
-func (z *Element) Bit(i uint64) uint64 {
-	j := i / 64
-	if j >= 5 {
-		return 0
-	}
-	return uint64(z[j] >> (i % 64) & 1)
 }
 
 // Equal returns z == x; constant-time
@@ -832,13 +823,13 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	const L = 16 + Bytes
 
 	lenInBytes := count * L
-	pseudoRandomBytes, err := field.ExpandMsgXmd(msg, dst, lenInBytes)
+	pseudoRandomBytes, err := hash.ExpandMsgXmd(msg, dst, lenInBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// get temporary big int from the pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 
 	res := make([]Element, count)
 	for i := 0; i < count; i++ {
@@ -847,7 +838,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	}
 
 	// release object into pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 
 	return res, nil
 }
@@ -866,8 +857,8 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 
 		// we negate k in a temp big.Int since
 		// Int.Bit(_) of k and -k is different
-		e = field.BigIntPool.Get()
-		defer field.BigIntPool.Put(e)
+		e = pool.BigInt.Get()
+		defer pool.BigInt.Put(e)
 		e.Neg(k)
 	}
 
@@ -946,9 +937,9 @@ func (z *Element) Text(base int) string {
 	if zz.FitsOnOneWord() {
 		return strconv.FormatUint(zz[0], base)
 	}
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 	r := zz.toBigInt(vv).Text(base)
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 	return r
 }
 
@@ -1002,14 +993,14 @@ func (z *Element) SetBytes(e []byte) *Element {
 
 	// slow path.
 	// get a big int from our pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 	vv.SetBytes(e)
 
 	// set big int
 	z.SetBigInt(vv)
 
 	// put temporary object back in pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 
 	return z
 }
@@ -1046,7 +1037,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	}
 
 	// get temporary big int from the pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 
 	// copy input + modular reduction
 	vv.Mod(v, &_modulus)
@@ -1055,7 +1046,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 	z.setBigInt(vv)
 
 	// release object into pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 	return z
 }
 
@@ -1099,7 +1090,7 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // If the number is invalid this method leaves z unchanged and returns nil, error.
 func (z *Element) SetString(number string) (*Element, error) {
 	// get temporary big int from the pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		return nil, errors.New("Element.SetString failed -> can't parse number into a big.Int " + number)
@@ -1108,7 +1099,7 @@ func (z *Element) SetString(number string) (*Element, error) {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 
 	return z, nil
 }
@@ -1148,7 +1139,7 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	}
 
 	// get temporary big int from the pool
-	vv := field.BigIntPool.Get()
+	vv := pool.BigInt.Get()
 
 	if _, ok := vv.SetString(s, 0); !ok {
 		return errors.New("can't parse into a big.Int: " + s)
@@ -1157,7 +1148,7 @@ func (z *Element) UnmarshalJSON(data []byte) error {
 	z.SetBigInt(vv)
 
 	// release object into pool
-	field.BigIntPool.Put(vv)
+	pool.BigInt.Put(vv)
 	return nil
 }
 

@@ -126,7 +126,7 @@ func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
 
 type TestCase struct {
 	Circuit         {{$Circuit}}
-	Hash            *test_vector_utils.ElementMap
+	Hash            hash.Hash
 	Proof           {{$Proof}}
 	FullAssignment  {{$WireAssignment}}
 	InOutAssignment {{$WireAssignment}}
@@ -134,11 +134,11 @@ type TestCase struct {
 }
 
 type TestCaseInfo struct {
-	Hash    string          `json:"hash"`
-	Circuit string          `json:"circuit"`
-	Input   [][]interface{} `json:"input"`
-	Output  [][]interface{} `json:"output"`
-	Proof   PrintableProof  `json:"proof"`
+	Hash    test_vector_utils.HashDescription `json:"hash"`
+	Circuit string                            `json:"circuit"`
+	Input   [][]interface{}                   `json:"input"`
+	Output  [][]interface{}                   `json:"output"`
+	Proof   PrintableProof                    `json:"proof"`
 }
 
 var testCases = make(map[string]*TestCase)
@@ -164,8 +164,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.ElementMap
-			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash hash.Hash
+			if _hash, err = test_vector_utils.HashFromDescription(info.Hash); err != nil {
 				return nil, err
 			}
 			var proof {{$Proof}}
@@ -239,10 +239,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
 }
 
 type mulGate struct{}

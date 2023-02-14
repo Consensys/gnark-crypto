@@ -168,7 +168,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	// [f(a)]G₁
 	var claimedValueG1Aff bw6761.G1Jac
 	var claimedValueBigInt big.Int
-	proof.ClaimedValue.ToBigIntRegular(&claimedValueBigInt)
+	proof.ClaimedValue.BigInt(&claimedValueBigInt)
 	claimedValueG1Aff.ScalarMultiplicationAffine(&srs.G1[0], &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
@@ -183,7 +183,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	// [α-a]G₂
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bw6761.G2Jac
 	var pointBigInt big.Int
-	point.ToBigIntRegular(&pointBigInt)
+	point.BigInt(&pointBigInt)
 	genG2Jac.FromAffine(&srs.G2[0])
 	alphaG2Jac.FromAffine(&srs.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
@@ -414,7 +414,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// compute commitment to folded Eval  [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	var foldedEvalsCommit bw6761.G1Affine
 	var foldedEvalsBigInt big.Int
-	foldedEvals.ToBigIntRegular(&foldedEvalsBigInt)
+	foldedEvals.BigInt(&foldedEvalsBigInt)
 	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁

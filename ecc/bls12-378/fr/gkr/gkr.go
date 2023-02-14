@@ -22,6 +22,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
+	"math/big"
 	"strconv"
 	"sync"
 )
@@ -59,6 +62,16 @@ func (w Wire) NbClaims() int {
 
 func (w Wire) noProof() bool {
 	return w.IsInput() && w.NbClaims() == 1
+}
+
+func (c Circuit) maxGateDegree() int {
+	res := 1
+	for i := range c {
+		if !c[i].IsInput() {
+			res = utils.Max(res, c[i].Gate.Degree())
+		}
+	}
+	return res
 }
 
 // WireAssignment is assignment of values to the same wire across many instances of the circuit
@@ -164,10 +177,12 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	for k := 1; k < claimsNum; k++ { //TODO: parallelizable?
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
-		newEq.Eq(c.evaluationPoints[k])
 
-		eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
-		eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
+		c.innerWork(c.eq, newEq, c.evaluationPoints[k])
+
+		// newEq.Eq(c.evaluationPoints[k])
+		// eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
+		// eqAsPoly.Add(eqAsPoly, polynomial.Polynomial(newEq))
 
 		if k+1 < claimsNum {
 			aI.Mul(&aI, &combinationCoeff)
@@ -181,104 +196,138 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
-// computeValAndStep returns val : i ↦ m(1, i...) and step : i ↦ m(1, i...) - m(0, i...)
-func computeValAndStep(m polynomial.MultiLin, p *polynomial.Pool) (val polynomial.MultiLin, step polynomial.MultiLin) {
-	val = p.Clone(m[len(m)/2:])
-	step = p.Clone(m[:len(m)/2])
+// innerWork sets m to an eq table at q and then adds it to e
+// TODO @Tabaie find a better home for this / cleanup
+func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []fr.Element) {
+	n := len(q)
 
-	valAsPoly, stepAsPoly := polynomial.Polynomial(val), polynomial.Polynomial(step)
+	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
+	var wgs []*sync.WaitGroup
+	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
+		const threshold = 1 << 6
+		k := 1 << i
+		if k < threshold {
+			for j := 0; j < k; j++ {
+				j0 := j << (n - i)    // bᵢ₊₁ = 0
+				j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
 
-	stepAsPoly.Sub(valAsPoly, stepAsPoly)
-	return
+				m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+				m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
+			}
+		} else {
+			wgs = append(wgs, c.manager.workers.Submit(k, func(start, end int) {
+				for j := start; j < end; j++ {
+					j0 := j << (n - i)    // bᵢ₊₁ = 0
+					j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
+
+					m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+					m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
+				}
+			}, 1024))
+		}
+
+	}
+	for _, wg := range wgs {
+		wg.Wait()
+	}
+	c.manager.workers.Submit(len(e), func(start, end int) {
+		for i := start; i < end; i++ {
+			e[i].Add(&e[i], &m[i])
+		}
+	}, 512).Wait()
+
+	// e.Add(e, polynomial.Polynomial(m))
 }
 
 // computeGJ: gⱼ = ∑_{0≤i<2ⁿ⁻ʲ} g(r₁, r₂, ..., rⱼ₋₁, Xⱼ, i...) = ∑_{0≤i<2ⁿ⁻ʲ} E(r₁, ..., X_j, i...) R_v( P_u0(r₁, ..., X_j, i...), ... ) where  E = ∑ eq_k
 // the polynomial is represented by the evaluations g_j(1), g_j(2), ..., g_j(deg(g_j)).
-// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = g_{j-1}(r_{j-1}). By convention, g_0 is a constant polynomial equal to the claimed sum.
-func (c *eqTimesGateEvalSumcheckClaims) computeGJ() (gJ polynomial.Polynomial) {
-
-	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
-	EVal, EStep := computeValAndStep(c.eq, c.manager.memPool)
-
-	puVal := make([]polynomial.MultiLin, len(c.inputPreprocessors))  //TODO: Make a two-dimensional array struct, and index it i-first rather than inputI first: would result in scanning memory access in the "d" loop and obviate the gateInput variable
-	puStep := make([]polynomial.MultiLin, len(c.inputPreprocessors)) //TODO, ctd: the greater degGJ, the more this would matter
-
-	for i, puI := range c.inputPreprocessors {
-		puVal[i], puStep[i] = computeValAndStep(puI, c.manager.memPool)
-	}
+// The value g_j(0) is inferred from the equation g_j(0) + g_j(1) = gⱼ₋₁(rⱼ₋₁). By convention, g₀ is a constant polynomial equal to the claimed sum.
+func (c *eqTimesGateEvalSumcheckClaims) computeGJ() polynomial.Polynomial {
 
 	degGJ := 1 + c.wire.Gate.Degree() // guaranteed to be no smaller than the actual deg(g_j)
-	gJ = make([]fr.Element, degGJ)
+	nbGateIn := len(c.inputPreprocessors)
 
-	parallel := len(EVal) >= 1024 //TODO: Experiment with threshold
+	// Let f ∈ { E(r₁, ..., X_j, d...) } ∪ {P_ul(r₁, ..., X_j, d...) }. It is linear in X_j, so f(m) = m×(f(1) - f(0)) + f(0), and f(0), f(1) are easily computed from the bookkeeping tables
+	s := make([]polynomial.MultiLin, nbGateIn+1)
+	s[0] = c.eq
+	copy(s[1:], c.inputPreprocessors)
 
-	var gateInput [][]fr.Element
+	// Perf-TODO: Collate once at claim "combination" time and not again. then, even folding can be done in one operation every time "next" is called
+	nbInner := len(s) // wrt output, which has high nbOuter and low nbInner
+	nbOuter := len(s[0]) / 2
 
-	if parallel {
-		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors)),
-			c.manager.memPool.Make(len(c.inputPreprocessors))}
-	} else {
-		gateInput = [][]fr.Element{c.manager.memPool.Make(len(c.inputPreprocessors))}
-	}
+	gJ := make([]fr.Element, degGJ)
+	var mu sync.Mutex
+	computeAll := func(start, end int) {
+		var step fr.Element
 
-	var wg sync.WaitGroup
+		res := make([]fr.Element, degGJ)
+		operands := make([]fr.Element, degGJ*nbInner)
 
-	for d := 0; d < degGJ; d++ {
+		for i := start; i < end; i++ {
 
-		notLastIteration := d+1 < degGJ
-
-		sumOverI := func(res *fr.Element, gateInput []fr.Element, start, end int) {
-			for i := start; i < end; i++ {
-
-				for inputI := range puVal {
-					gateInput[inputI].Set(&puVal[inputI][i])
-					if notLastIteration {
-						puVal[inputI][i].Add(&puVal[inputI][i], &puStep[inputI][i])
-					}
-				}
-
-				// gJAtDI = gJ(d, i...)
-				gJAtDI := c.wire.Gate.Evaluate(gateInput...)
-				gJAtDI.Mul(&gJAtDI, &EVal[i])
-
-				res.Add(res, &gJAtDI)
-
-				if notLastIteration {
-					EVal[i].Add(&EVal[i], &EStep[i])
+			block := nbOuter + i
+			for j := 0; j < nbInner; j++ {
+				step.Set(&s[j][i])
+				operands[j].Set(&s[j][block])
+				step.Sub(&operands[j], &step)
+				for d := 1; d < degGJ; d++ {
+					operands[d*nbInner+j].Add(&operands[(d-1)*nbInner+j], &step)
 				}
 			}
-			wg.Done()
-		}
 
-		if parallel {
-			var firstHalf, secondHalf fr.Element
-			wg.Add(2)
-			go sumOverI(&secondHalf, gateInput[1], len(EVal)/2, len(EVal))
-			go sumOverI(&firstHalf, gateInput[0], 0, len(EVal)/2)
-			wg.Wait()
-			gJ[d].Add(&firstHalf, &secondHalf)
-		} else {
-			wg.Add(1) // formalities
-			sumOverI(&gJ[d], gateInput[0], 0, len(EVal))
+			_s := 0
+			_e := nbInner
+			for d := 0; d < degGJ; d++ {
+				summand := c.wire.Gate.Evaluate(operands[_s+1 : _e]...)
+				summand.Mul(&summand, &operands[_s])
+				res[d].Add(&res[d], &summand)
+				_s, _e = _e, _e+nbInner
+			}
 		}
+		mu.Lock()
+		for i := 0; i < len(gJ); i++ {
+			gJ[i].Add(&gJ[i], &res[i])
+		}
+		mu.Unlock()
 	}
 
-	c.manager.memPool.Dump(gateInput...)
-	c.manager.memPool.Dump(EVal, EStep)
+	const minBlockSize = 64
 
-	for inputI := range puVal {
-		c.manager.memPool.Dump(puVal[inputI], puStep[inputI])
+	if nbOuter < minBlockSize {
+		// no parallelization
+		computeAll(0, nbOuter)
+	} else {
+		c.manager.workers.Submit(nbOuter, computeAll, minBlockSize).Wait()
 	}
 
-	return
+	// Perf-TODO: Separate functions Gate.TotalDegree and Gate.Degree(i) so that we get to use possibly smaller values for degGJ. Won't help with MiMC though
+
+	return gJ
 }
 
 // Next first folds the "preprocessing" and "eq" polynomials then compute the new g_j
 func (c *eqTimesGateEvalSumcheckClaims) Next(element fr.Element) polynomial.Polynomial {
-	c.eq.Fold(element)
-	for i := 0; i < len(c.inputPreprocessors); i++ {
-		c.inputPreprocessors[i].Fold(element)
+	const minBlockSize = 512
+	n := len(c.eq) / 2
+	if n < minBlockSize {
+		// no parallelization
+		for i := 0; i < len(c.inputPreprocessors); i++ {
+			c.inputPreprocessors[i].Fold(element)
+		}
+		c.eq.Fold(element)
+	} else {
+		wgs := make([]*sync.WaitGroup, len(c.inputPreprocessors))
+		for i := 0; i < len(c.inputPreprocessors); i++ {
+			wgs[i] = c.manager.workers.Submit(n, c.inputPreprocessors[i].FoldParallel(element), minBlockSize)
+		}
+		c.manager.workers.Submit(n, c.eq.FoldParallel(element), minBlockSize).Wait()
+		for _, wg := range wgs {
+			wg.Wait()
+		}
 	}
+
 	return c.computeGJ()
 }
 
@@ -317,12 +366,14 @@ type claimsManager struct {
 	claimsMap  map[*Wire]*eqTimesGateEvalSumcheckLazyClaims
 	assignment WireAssignment
 	memPool    *polynomial.Pool
+	workers    *utils.WorkerPool
 }
 
-func newClaimsManager(c Circuit, assignment WireAssignment, pool *polynomial.Pool) (claims claimsManager) {
+func newClaimsManager(c Circuit, assignment WireAssignment, o settings) (claims claimsManager) {
 	claims.assignment = assignment
 	claims.claimsMap = make(map[*Wire]*eqTimesGateEvalSumcheckLazyClaims, len(c))
-	claims.memPool = pool
+	claims.memPool = o.pool
+	claims.workers = o.workers
 
 	for i := range c {
 		wire := &c[i]
@@ -379,6 +430,7 @@ type settings struct {
 	transcript       *fiatshamir.Transcript
 	transcriptPrefix string
 	nbVars           int
+	workers          *utils.WorkerPool
 }
 
 type Option func(*settings)
@@ -395,6 +447,26 @@ func WithSortedCircuit(sorted []*Wire) Option {
 	}
 }
 
+func WithWorkers(workers *utils.WorkerPool) Option {
+	return func(options *settings) {
+		options.workers = workers
+	}
+}
+
+// MemoryRequirements returns an increasing vector of memory allocation sizes required for proving a GKR statement
+func (c Circuit) MemoryRequirements(nbInstances int) []int {
+	res := []int{256, nbInstances, nbInstances * (c.maxGateDegree() + 1)}
+
+	if res[0] > res[1] { // make sure it's sorted
+		res[0], res[1] = res[1], res[0]
+		if res[1] > res[2] {
+			res[1], res[2] = res[2], res[1]
+		}
+	}
+
+	return res
+}
+
 func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.Settings, options ...Option) (settings, error) {
 	var o settings
 	var err error
@@ -409,8 +481,12 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	}
 
 	if o.pool == nil {
-		pool := polynomial.NewPool(1<<11, nbInstances)
+		pool := polynomial.NewPool(c.MemoryRequirements(nbInstances)...)
 		o.pool = &pool
+	}
+
+	if o.workers == nil {
+		o.workers = utils.NewWorkerPool()
 	}
 
 	if o.sorted == nil {
@@ -447,13 +523,6 @@ func ProofSize(c Circuit, logNbInstances int) int {
 	return nbUniqueInputs + nbPartialEvalPolys*logNbInstances
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string {
 
 	// Pre-compute the size TODO: Consider not doing this and just grow the list by appending
@@ -469,7 +538,7 @@ func ChallengeNames(sorted []*Wire, logNbInstances int, prefix string) []string 
 		size += logNbInstances // full run of sumcheck on logNbInstances variables
 	}
 
-	nums := make([]string, max(len(sorted), logNbInstances))
+	nums := make([]string, utils.Max(len(sorted), logNbInstances))
 	for i := range nums {
 		nums[i] = strconv.Itoa(i)
 	}
@@ -529,8 +598,9 @@ func Prove(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	if err != nil {
 		return nil, err
 	}
+	defer o.workers.Stop()
 
-	claims := newClaimsManager(c, assignment, o.pool)
+	claims := newClaimsManager(c, assignment, o)
 
 	proof := make(Proof, len(c))
 	// firstChallenge called rho in the paper
@@ -584,8 +654,9 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	if err != nil {
 		return err
 	}
+	defer o.workers.Stop()
 
-	claims := newClaimsManager(c, assignment, o.pool)
+	claims := newClaimsManager(c, assignment, o)
 
 	var firstChallenge []fr.Element
 	firstChallenge, err = getChallenges(o.transcript, getFirstChallengeNames(o.nbVars, o.transcriptPrefix))
@@ -737,25 +808,30 @@ func topologicalSort(c Circuit) []*Wire {
 func (a WireAssignment) Complete(c Circuit) WireAssignment {
 
 	sortedWires := topologicalSort(c)
-
-	numEvaluations := 0
+	nbInstances := a.NumInstances()
+	maxNbIns := 0
 
 	for _, w := range sortedWires {
-		if !w.IsInput() {
-			if numEvaluations == 0 {
-				numEvaluations = len(a[w.Inputs[0]])
-			}
-			evals := make([]fr.Element, numEvaluations)
-			ins := make([]fr.Element, len(w.Inputs))
-			for k := 0; k < numEvaluations; k++ {
-				for inI, in := range w.Inputs {
-					ins[inI] = a[in][k]
-				}
-				evals[k] = w.Gate.Evaluate(ins...)
-			}
-			a[w] = evals
+		maxNbIns = utils.Max(maxNbIns, len(w.Inputs))
+		if a[w] == nil {
+			a[w] = make([]fr.Element, nbInstances)
 		}
 	}
+
+	parallel.Execute(nbInstances, func(start, end int) {
+		ins := make([]fr.Element, maxNbIns)
+		for i := start; i < end; i++ {
+			for _, w := range sortedWires {
+				if !w.IsInput() {
+					for inI, in := range w.Inputs {
+						ins[inI] = a[in][i]
+					}
+					a[w][i] = w.Gate.Evaluate(ins[:len(w.Inputs)]...)
+				}
+			}
+		}
+	})
+
 	return a
 }
 
@@ -771,4 +847,27 @@ func (a WireAssignment) NumVars() int {
 		return aW.NumVars()
 	}
 	panic("empty assignment")
+}
+
+// SerializeToBigInts flattens a proof object into the given slice of big.Ints
+// useful in gnark hints. TODO: Change propagation: Once this is merged, it will duplicate some code in std/gkr/bn254Prover.go. Remove that in favor of this
+func (p Proof) SerializeToBigInts(outs []*big.Int) {
+	offset := 0
+	for i := range p {
+		for _, poly := range p[i].PartialSumPolys {
+			frToBigInts(outs[offset:], poly)
+			offset += len(poly)
+		}
+		if p[i].FinalEvalProof != nil {
+			finalEvalProof := p[i].FinalEvalProof.([]fr.Element)
+			frToBigInts(outs[offset:], finalEvalProof)
+			offset += len(finalEvalProof)
+		}
+	}
+}
+
+func frToBigInts(dst []*big.Int, src []fr.Element) {
+	for i := range src {
+		src[i].BigInt(dst[i])
+	}
 }
