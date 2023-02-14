@@ -63,13 +63,13 @@ func TestEvaluation(t *testing.T) {
 
 }
 
-func randomVector(size int) *[]fr.Element {
+func randomVector(size int) []fr.Element {
 
 	r := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		r[i].SetRandom()
 	}
-	return &r
+	return r
 }
 
 func TestGetCoeff(t *testing.T) {
@@ -79,7 +79,7 @@ func TestGetCoeff(t *testing.T) {
 	for i := 0; i < size; i++ {
 		v[i].SetUint64(uint64(i))
 	}
-	wp := NewPolynomial(&v, Form{Layout: Regular, Basis: Canonical})
+	wp := NewPolynomial(v, Form{Layout: Regular, Basis: Canonical})
 	wsp := wp.ShallowClone().Shift(1)
 
 	var aa, bb fr.Element
@@ -275,12 +275,12 @@ func fromLagrange(p *Polynomial, d *fft.Domain) *Polynomial {
 	}
 }
 
-func cmpCoefficents(p, q *fr.Vector) bool {
+func cmpCoefficents(p, q fr.Vector) bool {
 	if p.Len() != q.Len() {
 		return false
 	}
 	for i := 0; i < p.Len(); i++ {
-		if !((*p)[i].Equal(&(*q)[i])) {
+		if !p[i].Equal(&q[i]) {
 			return false
 		}
 	}

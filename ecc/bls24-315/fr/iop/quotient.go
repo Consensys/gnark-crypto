@@ -44,7 +44,7 @@ func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, erro
 	nbElmts := a.coefficients.Len()
 
 	coeffs := make([]fr.Element, a.coefficients.Len())
-	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
+	res := NewPolynomial(coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 	res.blindedSize = a.blindedSize
 
@@ -53,7 +53,7 @@ func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, erro
 		for i := start; i < end; i++ {
 			iRev := bits.Reverse64(uint64(i)) >> nn
 			c := a.GetCoeff(i)
-			(*res.coefficients)[iRev].
+			res.coefficients[iRev].
 				Mul(&c, &xnMinusOneInverseLagrangeCoset[i%rho])
 		}
 	})

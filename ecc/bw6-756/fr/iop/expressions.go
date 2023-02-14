@@ -68,7 +68,7 @@ func Evaluate(f Expression, form Form, x ...*Polynomial) (*Polynomial, error) {
 		}
 	})
 
-	res := NewPolynomial(&r, form)
+	res := NewPolynomial(r, form)
 	res.size = x[0].size
 	res.blindedSize = x[0].size
 	res.shift = 0

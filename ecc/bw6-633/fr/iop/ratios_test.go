@@ -199,7 +199,7 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 	form := Form{Layout: Regular, Basis: Lagrange}
 	for i := 0; i < nbPolynomials; i++ {
 		v := make([]fr.Element, sizePolynomials)
-		res[i] = NewPolynomial(&v, form)
+		res[i] = NewPolynomial(v, form)
 		for j := 0; j < sizePolynomials/2; j++ {
 			res[i].Coefficients()[2*j].SetRandom()
 			res[i].Coefficients()[2*j+1].Set(&res[i].Coefficients()[2*j])

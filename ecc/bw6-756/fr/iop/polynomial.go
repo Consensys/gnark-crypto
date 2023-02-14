@@ -80,11 +80,11 @@ type Polynomial struct {
 // A Polynomial can be seen as a "shared pointer" on a list of coefficients.
 // It is the responsibility of the user to call the Clone method if the coefficients
 // shouldn't be mutated.
-func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
+func NewPolynomial(coeffs []fr.Element, form Form) *Polynomial {
 	return &Polynomial{
 		polynomial:  newPolynomial(coeffs, form),
-		size:        len(*coeffs),
-		blindedSize: len(*coeffs),
+		size:        len(coeffs),
+		blindedSize: len(coeffs),
 	}
 }
 
@@ -130,8 +130,8 @@ func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
 
 	for i := 0; i <= blindingOrder; i++ {
 		r.SetRandom()
-		(*p.coefficients)[i].Sub(&(*p.coefficients)[i], &r)
-		(*p.coefficients)[i+p.size].Add(&(*p.coefficients)[i+p.size], &r)
+		p.coefficients[i].Sub(&p.coefficients[i], &r)
+		p.coefficients[i+p.size].Add(&p.coefficients[i+p.size], &r)
 	}
 	p.blindedSize = newSize
 
@@ -183,11 +183,11 @@ func (p *Polynomial) GetCoeff(i int) fr.Element {
 	n := p.coefficients.Len()
 	rho := n / p.size
 	if p.polynomial.Form.Layout == Regular {
-		return (*p.coefficients)[(i+rho*p.shift)%n]
+		return p.coefficients[(i+rho*p.shift)%n]
 	} else {
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
 		iRev := bits.Reverse64(uint64((i+rho*p.shift)%n)) >> nn
-		return (*p.coefficients)[iRev]
+		return p.coefficients[iRev]
 	}
 
 }
@@ -195,19 +195,19 @@ func (p *Polynomial) GetCoeff(i int) fr.Element {
 // polynomial represents a polynomial, the vector of coefficients
 // along with the basis and the layout.
 type polynomial struct {
-	coefficients *fr.Vector
+	coefficients fr.Vector
 	Form
 }
 
 // Coefficients returns a slice on the underlying data structure.
 func (p *polynomial) Coefficients() []fr.Element {
-	return (*p.coefficients)
+	return p.coefficients
 }
 
 // newPolynomial creates a new polynomial. The slice coeff NOT copied
 // but directly assigned to the new polynomial.
-func newPolynomial(coeffs *[]fr.Element, form Form) *polynomial {
-	return &polynomial{coefficients: (*fr.Vector)(coeffs), Form: form}
+func newPolynomial(coeffs []fr.Element, form Form) *polynomial {
+	return &polynomial{coefficients: fr.Vector(coeffs), Form: form}
 }
 
 // clone returns a deep copy of the underlying data structure.
@@ -218,10 +218,10 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 	}
 	newCoeffs := make(fr.Vector, p.coefficients.Len(), c)
 	r := &polynomial{
-		coefficients: &newCoeffs,
+		coefficients: newCoeffs,
 		Form:         p.Form,
 	}
-	copy((*r.coefficients), (*p.coefficients))
+	copy(r.coefficients, p.coefficients)
 	return r
 }
 
@@ -236,13 +236,13 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 
 	if p.Layout == Regular {
 		for i := p.coefficients.Len() - 1; i >= 0; i-- {
-			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
+			r.Mul(&r, &x).Add(&r, &p.coefficients[i])
 		}
 	} else {
 		nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
 		for i := p.coefficients.Len() - 1; i >= 0; i-- {
 			iRev := bits.Reverse64(uint64(i)) >> nn
-			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
+			r.Mul(&r, &x).Add(&r, &p.coefficients[iRev])
 		}
 	}
 
@@ -256,7 +256,7 @@ func (p *Polynomial) ToRegular() *Polynomial {
 	if p.Layout == Regular {
 		return p
 	}
-	fft.BitReverse((*p.coefficients))
+	fft.BitReverse(p.coefficients)
 	p.Layout = Regular
 	return p
 }
@@ -267,7 +267,7 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 	if p.Layout == BitReverse {
 		return p
 	}
-	fft.BitReverse((*p.coefficients))
+	fft.BitReverse(p.coefficients)
 	p.Layout = BitReverse
 	return p
 }
@@ -280,20 +280,20 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT((*p.coefficients), fft.DIF)
+		d.FFT((p.coefficients), fft.DIF)
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT((*p.coefficients), fft.DIT)
+		d.FFT((p.coefficients), fft.DIT)
 	case lagrangeRegular, lagrangeBitReverse:
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
-		d.FFT((*p.coefficients), fft.DIT)
+		d.FFTInverse((p.coefficients), fft.DIF, true)
+		d.FFT((p.coefficients), fft.DIT)
 	case lagrangeCosetBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
-		d.FFT((*p.coefficients), fft.DIF)
+		d.FFTInverse((p.coefficients), fft.DIT, true)
+		d.FFT((p.coefficients), fft.DIF)
 	default:
 		panic("unknown ID")
 	}
@@ -311,16 +311,16 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 		return p
 	case lagrangeRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF)
+		d.FFTInverse(p.coefficients, fft.DIF)
 	case lagrangeBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT)
+		d.FFTInverse(p.coefficients, fft.DIT)
 	case lagrangeCosetRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFTInverse(p.coefficients, fft.DIF, true)
 	case lagrangeCosetBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFTInverse(p.coefficients, fft.DIT, true)
 	default:
 		panic("unknown ID")
 	}
@@ -331,7 +331,7 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 func (p *polynomial) grow(newSize int) {
 	offset := newSize - p.coefficients.Len()
 	if offset > 0 {
-		(*p.coefficients) = append((*p.coefficients), make(fr.Vector, offset)...)
+		p.coefficients = append(p.coefficients, make(fr.Vector, offset)...)
 	}
 }
 
@@ -342,18 +342,18 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFT(p.coefficients, fft.DIF, true)
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFT(p.coefficients, fft.DIT, true)
 	case lagrangeRegular:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIF)
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFTInverse(p.coefficients, fft.DIF)
+		d.FFT(p.coefficients, fft.DIT, true)
 	case lagrangeBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIT)
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFTInverse(p.coefficients, fft.DIT)
+		d.FFT(p.coefficients, fft.DIF, true)
 	case lagrangeCosetRegular, lagrangeCosetBitReverse:
 		return p
 	default:
@@ -397,8 +397,7 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 		p.polynomial = new(polynomial)
 	}
 	if p.polynomial.coefficients == nil {
-		v := make(fr.Vector, 0)
-		p.polynomial.coefficients = &v
+		p.polynomial.coefficients = make(fr.Vector, 0)
 	}
 	n, err := p.polynomial.coefficients.ReadFrom(r)
 	if err != nil {

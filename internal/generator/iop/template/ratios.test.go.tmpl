@@ -26,7 +26,7 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 
 	numerator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis:Lagrange, Layout:Regular})
+		numerator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis: Lagrange, Layout: Regular})
 	}
 
 	// get permutation
@@ -36,7 +36,7 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 	// concatenated
 	denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		denominator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis:Lagrange, Layout:Regular})
+		denominator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis: Lagrange, Layout: Regular})
 	}
 	for i := 0; i < len(sigma); i++ {
 		id := int(sigma[i] / sizePolynomials)
@@ -181,7 +181,7 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 	form := Form{Layout: Regular, Basis: Lagrange}
 	for i := 0; i < nbPolynomials; i++ {
 		v := make([]fr.Element, sizePolynomials)
-		res[i] = NewPolynomial(&v, form)
+		res[i] = NewPolynomial(v, form)
 		for j := 0; j < sizePolynomials/2; j++ {
 			res[i].Coefficients()[2*j].SetRandom()
 			res[i].Coefficients()[2*j+1].Set(&res[i].Coefficients()[2*j])

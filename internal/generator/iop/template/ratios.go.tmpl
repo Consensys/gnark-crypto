@@ -34,7 +34,6 @@ var (
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
 func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
 
-
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
 		return nil, ErrNumberPolynomials
@@ -109,7 +108,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res := NewPolynomial(&coeffs, expectedForm)
+	res := NewPolynomial(coeffs, expectedForm)
 
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedForm(*res, domain, expectedForm)
@@ -130,7 +129,6 @@ func BuildRatioCopyConstraint(
 	beta, gamma fr.Element,
 	expectedForm Form,
 	domain *fft.Domain) (*Polynomial, error) {
-
 
 	nbPolynomials := len(entries)
 
@@ -163,40 +161,39 @@ func BuildRatioCopyConstraint(
 	coeffs[0].SetOne()
 	t[0].SetOne()
 
-	parallel.Execute(n-1, func(start, end int){
+	parallel.Execute(n-1, func(start, end int) {
 		var a, b, c, d fr.Element
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
 		for i := start; i < end; i++ {
 			b.SetOne()
 			d.SetOne()
-	
+
 			iRev := int(bits.Reverse64(uint64(i)) >> nn)
-	
+
 			for j, p := range entries {
 				idx := i
 				if p.Layout == BitReverse {
 					idx = iRev
 				}
-	
+
 				a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 					Add(&a, &gamma).
 					Add(&a, &p.Coefficients()[idx])
-	
+
 				b.Mul(&b, &a)
-	
+
 				c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 					Add(&c, &gamma).
 					Add(&c, &p.Coefficients()[idx])
 				d.Mul(&d, &c)
 			}
-	
+
 			// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
 			// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
 			coeffs[i+1].Set(&b)
 			t[i+1].Set(&d)
 		}
 	})
-	
 
 	for i := 0; i < n-1; i++ {
 		coeffs[i+1].Mul(&coeffs[i+1], &coeffs[i])
@@ -208,7 +205,7 @@ func BuildRatioCopyConstraint(
 		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res := NewPolynomial(&coeffs, expectedForm)
+	res := NewPolynomial(coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
 	putInExpectedForm(*res, domain, expectedForm)
 
