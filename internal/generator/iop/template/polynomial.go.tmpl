@@ -279,11 +279,11 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.WithCoset())
 		d.FFT((*p.coefficients), fft.DIT)
 	case lagrangeCosetBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.WithCoset())
 		d.FFT((*p.coefficients), fft.DIF)
 	default:
 		panic("unknown ID")
@@ -308,10 +308,10 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 		d.FFTInverse((*p.coefficients), fft.DIT)
 	case lagrangeCosetRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.WithCoset())
 	case lagrangeCosetBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.WithCoset())
 	default:
 		panic("unknown ID")
 	}
@@ -333,18 +333,18 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIF, fft.WithCoset())
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIT, fft.WithCoset())
 	case lagrangeRegular:
 		p.Layout = Regular
 		d.FFTInverse((*p.coefficients), fft.DIF)
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIT, fft.WithCoset())
 	case lagrangeBitReverse:
 		p.Layout = BitReverse
 		d.FFTInverse((*p.coefficients), fft.DIT)
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIF, fft.WithCoset())
 	case lagrangeCosetRegular, lagrangeCosetBitReverse:
 		return p
 	default:

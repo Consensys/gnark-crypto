@@ -39,6 +39,15 @@ func MulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) [
 
 }
 
+// MulMod + accumulate in res.
+func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) {
+	var t fr.Element
+	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
+		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
+		res[i].Add(&res[i], &t)
+	}
+}
+
 // naiveMul computes the naive multiplication between polynomials
 // of the same size. The polynomials (inputs and outputs) are in
 // canonical form.

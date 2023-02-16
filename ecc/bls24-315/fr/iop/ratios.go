@@ -245,7 +245,7 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 
 	if expectedForm.Basis == LagrangeCoset {
 		domain.FFTInverse(p.Coefficients(), fft.DIF)
-		domain.FFT(p.Coefficients(), fft.DIT, true)
+		domain.FFT(p.Coefficients(), fft.DIT, fft.WithCoset())
 		if expectedForm.Layout == BitReverse {
 			fft.BitReverse(p.Coefficients())
 		}

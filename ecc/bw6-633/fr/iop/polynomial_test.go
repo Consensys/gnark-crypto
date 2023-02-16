@@ -240,7 +240,7 @@ func fromLagrange4(p *Polynomial, d *fft.Domain) *Polynomial {
 	r.Basis = LagrangeCoset
 	r.Layout = Regular
 	d.FFTInverse(r.Coefficients(), fft.DIF)
-	d.FFT(r.Coefficients(), fft.DIT, true)
+	d.FFT(r.Coefficients(), fft.DIT, fft.WithCoset())
 	return r
 }
 
@@ -250,7 +250,7 @@ func fromLagrange5(p *Polynomial, d *fft.Domain) *Polynomial {
 	r.Basis = LagrangeCoset
 	r.Layout = BitReverse
 	d.FFTInverse(r.Coefficients(), fft.DIF)
-	d.FFT(r.Coefficients(), fft.DIT, true)
+	d.FFT(r.Coefficients(), fft.DIT, fft.WithCoset())
 	fft.BitReverse(r.Coefficients())
 	return r
 }
@@ -438,7 +438,7 @@ func fromCanonical4(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = Regular
-	d.FFT(_p.Coefficients(), fft.DIF, true)
+	d.FFT(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	fft.BitReverse(_p.Coefficients())
 	return _p
 }
@@ -448,7 +448,7 @@ func fromCanonical5(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = LagrangeCoset
 	_p.Layout = BitReverse
-	d.FFT(_p.Coefficients(), fft.DIF, true)
+	d.FFT(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	return _p
 }
 
@@ -566,7 +566,7 @@ func fromLagrangeCoset0(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = Regular
-	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	fft.BitReverse(_p.Coefficients())
 	return _p
 }
@@ -576,7 +576,7 @@ func fromLagrangeCoset1(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = Canonical
 	_p.Layout = BitReverse
-	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	return _p
 }
 
@@ -585,7 +585,7 @@ func fromLagrangeCoset2(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = Regular
-	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	d.FFT(_p.Coefficients(), fft.DIT)
 	return _p
 }
@@ -595,7 +595,7 @@ func fromLagrangeCoset3(p *Polynomial, d *fft.Domain) *Polynomial {
 	_p := p.Clone()
 	_p.Basis = Lagrange
 	_p.Layout = BitReverse
-	d.FFTInverse(_p.Coefficients(), fft.DIF, true)
+	d.FFTInverse(_p.Coefficients(), fft.DIF, fft.WithCoset())
 	d.FFT(_p.Coefficients(), fft.DIT)
 	fft.BitReverse(_p.Coefficients())
 	return _p

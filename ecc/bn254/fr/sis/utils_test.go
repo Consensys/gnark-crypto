@@ -43,10 +43,10 @@ func TestMulMod(t *testing.T) {
 	domain := fft.NewDomain(uint64(size), shift)
 
 	// mul mod
-	domain.FFT(p, fft.DIF, true)
-	domain.FFT(q, fft.DIF, true)
+	domain.FFT(p, fft.DIF, fft.WithCoset())
+	domain.FFT(q, fft.DIF, fft.WithCoset())
 	r := MulMod(p, q)
-	domain.FFTInverse(r, fft.DIT, true)
+	domain.FFTInverse(r, fft.DIT, fft.WithCoset())
 
 	// expected result
 	expectedr := make([]fr.Element, 4)
@@ -120,10 +120,10 @@ func referenceMulMod(d *fft.Domain, p, q []fr.Element) []fr.Element {
 	_q := make([]fr.Element, size)
 	copy(_p, p)
 	copy(_q, q)
-	d.FFT(_p, fft.DIF, true)
-	d.FFT(_q, fft.DIF, true)
+	d.FFT(_p, fft.DIF, fft.WithCoset())
+	d.FFT(_q, fft.DIF, fft.WithCoset())
 	_r := MulMod(_p, _q)
-	d.FFTInverse(_r, fft.DIT, true)
+	d.FFTInverse(_r, fft.DIT, fft.WithCoset())
 
 	return _r
 
@@ -188,7 +188,7 @@ func TestNaiveMulMod(t *testing.T) {
 
 	// compare...
 	if len(r) != len(_r) {
-		t.Fatal("lengths are inconsistant")
+		t.Fatal("lengths are inconsistent")
 	}
 	for i := 0; i < len(r); i++ {
 		if !r[i].Equal(&_r[i]) {

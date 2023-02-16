@@ -54,7 +54,8 @@ type RSis struct {
 	Domain *fft.Domain
 
 	// d, the degree of X^{d}+1
-	Degree int
+	Degree    int
+	sumResult fr.Vector // buffer of len(Degree)
 }
 
 func genRandom(seed, i, j int64) fr.Element {
@@ -109,7 +110,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 		res.AfftCosetBitreversed[i] = make([]fr.Element, degree)
 		for j := 0; j < degree; j++ {
 			copy(res.AfftCosetBitreversed[i], res.A[i])
-			res.Domain.FFT(res.AfftCosetBitreversed[i], fft.DIF, true)
+			res.Domain.FFT(res.AfftCosetBitreversed[i], fft.DIF, fft.WithCoset())
 		}
 	}
 
@@ -118,6 +119,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 
 	// degree
 	res.Degree = degree
+	res.sumResult = make(fr.Vector, degree)
 
 	return &res, nil
 }
@@ -149,7 +151,7 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func()
 		afftCosetBitreversed[i] = make([]fr.Element, degree)
 		for j := 0; j < degree; j++ {
 			copy(afftCosetBitreversed[i], a[i])
-			domain.FFT(afftCosetBitreversed[i], fft.DIF, true)
+			domain.FFT(afftCosetBitreversed[i], fft.DIF, fft.WithCoset())
 		}
 	}
 
@@ -164,6 +166,7 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func()
 			Degree:               degree,
 			Domain:               domain,
 			NbBytesToSum:         nbBytesToSum,
+			sumResult:            make(fr.Vector, degree),
 		}
 	}, nil
 
@@ -179,15 +182,14 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // b is interpreted as a sequence of coefficients of size r.Bound bits long.
 // Each coefficient is interpreted in big endian.
 // Ex: b = [0xa4, ...] and r.Bound = 4, means that b is decomposed as [10, 4, ...]
-// The function returns the hash of the polynomial as a a sequence []fr.Elements, interepreted as []bytes,
+// The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
 
 	// if NbBytesToSums is not reached, the buffer is padded with zeroes.
-	sizeBuffer := r.buffer.Len()
-	if sizeBuffer < r.NbBytesToSum {
-		toPadd := make([]byte, r.NbBytesToSum-sizeBuffer)
-		_, err := r.buffer.Write(toPadd)
+	if n := r.buffer.Len(); n < r.NbBytesToSum {
+		padding := make([]byte, r.NbBytesToSum-n)
+		_, err := r.buffer.Write(padding)
 		if err != nil {
 			panic(err)
 		}
@@ -195,16 +197,12 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	totalNbBits := r.NbBytesToSum * 8
-	mBits := make([]byte, totalNbBits)
-	var tmp [1]byte
-	for i := 0; i < r.NbBytesToSum; i++ {
-		_, err := r.buffer.Read(tmp[:])
-		if err != nil {
-			panic(err)
-		}
+	nbBits := r.NbBytesToSum * 8
+	bits := make([]byte, nbBits)
+	bufBytes := r.buffer.Bytes()
+	for i, b := range bufBytes {
 		for j := 0; j < 8; j++ {
-			mBits[i*8+j] = (tmp[0] >> (7 - j)) & 1
+			bits[i*8+j] = (b >> (7 - j)) & 1
 		}
 	}
 
@@ -214,70 +212,42 @@ func (r *RSis) Sum(b []byte) []byte {
 	nbBitsPerCoefficients := r.LogTwoBound
 	offset := nbBitsPerCoefficients % 8
 	sizeM := r.Degree * len(r.A)
-	buf := make([]byte, nbBytesPerCoefficients+1)
+	if nbBytesPerCoefficients+1 >= fr.Bytes {
+		panic("sanity check failed.")
+	}
+	var buf [fr.Bytes]byte
+	bOffset := fr.Bytes - (nbBytesPerCoefficients + 1) // 0 pad on the left.
 	m := make([]fr.Element, sizeM)
-	for i := 0; i < totalNbBits/nbBitsPerCoefficients; i++ {
+	for i := 0; i < nbBits/nbBitsPerCoefficients; i++ {
+
 		for j := 0; j < offset; j++ {
-			buf[0] += (mBits[i*nbBitsPerCoefficients+j]) << (offset - 1 - j)
+			buf[bOffset] += (bits[i*nbBitsPerCoefficients+j]) << (offset - 1 - j)
 		}
 		for j := 0; j < nbBytesPerCoefficients; j++ {
 			for k := 0; k < 8; k++ {
-				buf[j+1] += (mBits[i*nbBitsPerCoefficients+offset+8*j+k]) << (7 - k)
+				buf[j+1+bOffset] += (bits[i*nbBitsPerCoefficients+offset+8*j+k]) << (7 - k)
 			}
 		}
-		m[i].SetBytes(buf)
-		for j := 0; j < nbBytesPerCoefficients+1; j++ {
+		_ = m[i].SetBytesCanonical(buf[:]) // we ignore err here due to sanity check above.
+		for j := bOffset; j < fr.Bytes; j++ {
 			buf[j] = 0
 		}
 	}
 
 	// we can hash now.
-	res := make([]fr.Element, r.Degree)
+	res := r.sumResult
+	for i := 0; i < len(res); i++ {
+		res[i].SetZero()
+	}
 
 	// method 1: fft
-	if r.Degree > 3 { // we keep this track to have a complete code...
+	if r.Degree > 3 {
 		for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-			r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, true)
-			t := MulMod(r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
-			for j := 0; j < len(res); j++ {
-				res[j].Add(&res[j], &t[j])
-			}
+			r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
+			mulModAcc(res, r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
 		}
-		r.Domain.FFTInverse(res, fft.DIT, true) // -> automagically reduces mod Xᵈ+1
+		r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
 	} else if r.Degree == 2 { // method 2: naive mulMod+reductions
-		// nbCPUs := runtime.NumCPU()
-		// _res := make([][2]fr.Element, nbCPUs)
-		// chDone := make(chan int, nbCPUs-1)
-		// sizePerTask := int(len(r.A) / nbCPUs)
-		// for i := 0; i < nbCPUs-1; i++ {
-		// 	start := i * sizePerTask
-		// 	end := (i + 1) * sizePerTask
-		// 	go func(start, end, i int) {
-		// 		for j := start; j < end; j++ {
-		// 			t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
-		// 			_res[i][0].Add(&t[0], &_res[i][0])
-		// 			_res[i][1].Add(&t[1], &_res[i][1])
-		// 		}
-		// 		chDone <- i
-		// 	}(start, end, i)
-		// }
-		// start := (nbCPUs - 1) * sizePerTask
-		// end := len(r.A)
-		// for j := start; j < end; j++ {
-		// 	t := naiveMulMod2(m[j*r.Degree:(j+1)*r.Degree], r.A[j])
-		// 	_res[nbCPUs-1][0].Add(&t[0], &_res[nbCPUs-1][0])
-		// 	_res[nbCPUs-1][1].Add(&t[1], &_res[nbCPUs-1][1])
-		// }
-
-		// for i := 0; i < nbCPUs-1; i++ {
-		// 	done := <-chDone
-		// 	res[0].Add(&res[0], &_res[done][0])
-		// 	res[1].Add(&res[1], &_res[done][1])
-		// }
-		// close(chDone)
-		// res[0].Add(&res[0], &_res[nbCPUs-1][0])
-		// res[1].Add(&res[1], &_res[nbCPUs-1][1])
-
 		for i := 0; i < len(r.A); i++ {
 			t := naiveMulMod2(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
 			res[0].Add(&t[0], &res[0])
@@ -305,14 +275,12 @@ func (r *RSis) Sum(b []byte) []byte {
 	// bound := 1 << r.LogTwoBound
 	// res = mulModBucketsMethod(r.A, q, bound, r.Degree)
 
-	sizeFrElmt := len(res[0].Bytes())
-	resBytes := make([]byte, sizeFrElmt*r.Degree)
-	for i := 0; i < r.Degree; i++ {
-		b := res[i].Bytes()
-		copy(resBytes[i*sizeFrElmt:(i+1)*sizeFrElmt], b[:])
+	resBytes, err := res.MarshalBinary()
+	if err != nil {
+		panic(err)
 	}
 
-	return append(b, resBytes...)
+	return append(b, resBytes[4:]...) // first 4 bytes are uint32(len(res))
 }
 
 // Reset resets the Hash to its initial state.

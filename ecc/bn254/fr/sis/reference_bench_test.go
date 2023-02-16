@@ -19,13 +19,13 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 4, logTwoDegree: 4},
 	{logTwoBound: 6, logTwoDegree: 5},
 	{logTwoBound: 10, logTwoDegree: 6},
-	{logTwoBound: 16, logTwoDegree: 7},
-	{logTwoBound: 32, logTwoDegree: 8},
+	// {logTwoBound: 16, logTwoDegree: 7},
+	// {logTwoBound: 32, logTwoDegree: 8},
 }
 
 const (
-	LATENCY_MUL_FIELD_NS int = 15
-	LATENCY_ADD_FIELD_NS int = 3
+	LATENCY_MUL_FIELD_NS int = 18
+	LATENCY_ADD_FIELD_NS int = 4
 )
 
 // Estimate the theoretical performances that are achievable using ring-SIS
@@ -106,11 +106,12 @@ func BenchmarkSISRef(b *testing.B) {
 
 func BenchmarkSISSparseRef(b *testing.B) {
 
-	numFieldInput := 1 << 10
+	const numFieldInput = 1 << 10
+	const nNonZero = numFieldInput / 8
 
 	// Assign the input with random bytes but als
 	inputs := make([]byte, numFieldInput*fr.Bytes)
-	nNonZero := numFieldInput / 8
+
 	if _, err := rand.Read(inputs[numFieldInput-nNonZero:]); err != nil {
 		panic(err)
 	}
