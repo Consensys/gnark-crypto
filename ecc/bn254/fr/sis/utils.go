@@ -153,7 +153,7 @@ func selectIndex(p []fr.Element, choices []fr.Element, nbBitsBound int) int {
 // and set bucket[p_i] = i.
 // The a_i are small (3 bits max) and bounded by bound, and n is small.
 // nbBuckets number of possible buckets (it's bound**degree where degree is the
-/// degree of the polynomials at play)
+// / degree of the polynomials at play)
 // bound is a power of 2.
 func fillBuckets(pols [][]fr.Element, nbBuckets int, bound int) [][]int {
 

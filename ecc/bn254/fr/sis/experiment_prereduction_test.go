@@ -93,7 +93,7 @@ func HashLimbExpanded(key []ExpandedKeyEntry, inputFields []fr.Element) Expanded
 	for i := 0; i < len(inputFields); i++ {
 
 		xRegular := inputFields[i]
-		xRegular.ToRegular()
+		xRegular = xRegular.Bits()
 
 		var xLimb uint64
 
