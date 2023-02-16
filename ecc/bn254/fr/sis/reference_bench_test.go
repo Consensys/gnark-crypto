@@ -28,10 +28,10 @@ const (
 	LATENCY_ADD_FIELD_NS int = 3
 )
 
-// Estimate the theoritical performances that are achievable using ring-SIS
+// Estimate the theoretical performances that are achievable using ring-SIS
 // operations. The time is obtained by counting the number of additions and
-// multiplications occuring in the computation. This does not account for the
-// possibilies to use SIMD instructions or for cache-locality issues. Thus, it
+// multiplications occurring in the computation. This does not account for the
+// possibilities to use SIMD instructions or for cache-locality issues. Thus, it
 // does not represents a maximum even though it returns a good idea of what is
 // achievable . This returns performances in term of ns/field. This also does not
 // account for the time taken for "limb-splitting" the input.
@@ -55,9 +55,9 @@ func estimateSisTheory(p sisParams) int {
 	return totalTimePoly * fr.Bits / p.logTwoBound / (1 << p.logTwoDegree)
 }
 
-func BenchmarkSis(b *testing.B) {
+func BenchmarkSISRef(b *testing.B) {
 
-	numFieldInput := 1 << 10
+	const numFieldInput = 1 << 10
 
 	// Assign the input with random bytes. In practice, theses bytes encodes
 	// a string of field element. It would be more meaningful to take a slice
@@ -80,7 +80,7 @@ func BenchmarkSis(b *testing.B) {
 		b.Run(benchName, func(b *testing.B) {
 
 			// We introduce a custom metric which is the time per field element
-			// Since the benchmark object allows to report extra metra but does
+			// Since the benchmark object allows to report extra meta but does
 			// not allow accessing them. We measure the time ourself.
 
 			startTime := time.Now()
@@ -104,7 +104,7 @@ func BenchmarkSis(b *testing.B) {
 	}
 }
 
-func BenchmarkSisSparse(b *testing.B) {
+func BenchmarkSISSparseRef(b *testing.B) {
 
 	numFieldInput := 1 << 10
 
@@ -127,7 +127,7 @@ func BenchmarkSisSparse(b *testing.B) {
 		b.Run(benchName, func(b *testing.B) {
 
 			// We introduce a custom metric which is the time per field element
-			// Since the benchmark object allows to report extra metra but does
+			// Since the benchmark object allows to report extra meta but does
 			// not allow accessing them. We measure the time ourself.
 
 			startTime := time.Now()
