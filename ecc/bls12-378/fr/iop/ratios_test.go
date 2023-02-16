@@ -44,10 +44,7 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 
 	numerator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		numerator[i] = new(Polynomial)
-		numerator[i].Coefficients = randomVector(sizePolynomials)
-		numerator[i].Basis = Lagrange
-		numerator[i].Layout = Regular
+		numerator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis: Lagrange, Layout: Regular})
 	}
 
 	// get permutation
@@ -57,17 +54,14 @@ func getPermutedPolynomials(sizePolynomials, nbPolynomials int) ([]*Polynomial, 
 	// concatenated
 	denominator := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		denominator[i] = new(Polynomial)
-		denominator[i].Coefficients = make([]fr.Element, sizePolynomials)
-		denominator[i].Basis = Lagrange
-		denominator[i].Layout = Regular
+		denominator[i] = NewPolynomial(randomVector(sizePolynomials), Form{Basis: Lagrange, Layout: Regular})
 	}
 	for i := 0; i < len(sigma); i++ {
 		id := int(sigma[i] / sizePolynomials)
 		od := sigma[i] % sizePolynomials
 		in := int(i / sizePolynomials)
 		on := i % sizePolynomials
-		denominator[in].Coefficients[on].Set(&numerator[id].Coefficients[od])
+		denominator[in].Coefficients()[on].Set(&numerator[id].Coefficients()[od])
 	}
 
 	return numerator, denominator, sigma
@@ -106,12 +100,12 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	b.SetOne()
 	d.SetOne()
 	for i := 0; i < nbPolynomials; i++ {
-		a.Sub(&beta, &numerator[i].Coefficients[sizePolynomials-1])
+		a.Sub(&beta, &numerator[i].Coefficients()[sizePolynomials-1])
 		b.Mul(&a, &b)
-		c.Sub(&beta, &denominator[i].Coefficients[sizePolynomials-1])
+		c.Sub(&beta, &denominator[i].Coefficients()[sizePolynomials-1])
 		d.Mul(&c, &d)
 	}
-	a.Mul(&b, &ratio.Coefficients[sizePolynomials-1]).
+	a.Mul(&b, &ratio.Coefficients()[sizePolynomials-1]).
 		Div(&a, &d)
 	var one fr.Element
 	one.SetOne()
@@ -123,11 +117,11 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = backupNumerator[i].Clone()
-		fft.BitReverse(numerator[i].Coefficients)
+		fft.BitReverse(numerator[i].Coefficients())
 		numerator[i].Layout = BitReverse
 
 		denominator[i] = backupDenominator[i].Clone()
-		fft.BitReverse(denominator[i].Coefficients)
+		fft.BitReverse(denominator[i].Coefficients())
 		denominator[i].Layout = BitReverse
 	}
 	{
@@ -136,7 +130,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal(err)
 		}
@@ -146,13 +140,13 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = backupNumerator[i].Clone()
-		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
-		fft.BitReverse(numerator[i].Coefficients)
+		domain.FFTInverse(numerator[i].Coefficients(), fft.DIF)
+		fft.BitReverse(numerator[i].Coefficients())
 		numerator[i].Basis = Canonical
 
 		denominator[i] = backupDenominator[i].Clone()
-		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
-		fft.BitReverse(denominator[i].Coefficients)
+		domain.FFTInverse(denominator[i].Coefficients(), fft.DIF)
+		fft.BitReverse(denominator[i].Coefficients())
 		denominator[i].Basis = Canonical
 	}
 	{
@@ -161,7 +155,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal("coefficients of ratio are not consistent")
 		}
@@ -171,12 +165,12 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = backupNumerator[i].Clone()
-		domain.FFTInverse(numerator[i].Coefficients, fft.DIF)
+		domain.FFTInverse(numerator[i].Coefficients(), fft.DIF)
 		numerator[i].Layout = BitReverse
 		numerator[i].Basis = Canonical
 
 		denominator[i] = backupDenominator[i].Clone()
-		domain.FFTInverse(denominator[i].Coefficients, fft.DIF)
+		domain.FFTInverse(denominator[i].Coefficients(), fft.DIF)
 		denominator[i].Layout = BitReverse
 		denominator[i].Basis = Canonical
 	}
@@ -186,7 +180,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal("coefficients of ratio are not consistent")
 		}
@@ -204,12 +198,11 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 	res := make([]*Polynomial, nbPolynomials)
 	form := Form{Layout: Regular, Basis: Lagrange}
 	for i := 0; i < nbPolynomials; i++ {
-		res[i] = new(Polynomial)
-		res[i].Form = form
-		res[i].Coefficients = make([]fr.Element, sizePolynomials)
+		v := make([]fr.Element, sizePolynomials)
+		res[i] = NewPolynomial(&v, form)
 		for j := 0; j < sizePolynomials/2; j++ {
-			res[i].Coefficients[2*j].SetRandom()
-			res[i].Coefficients[2*j+1].Set(&res[i].Coefficients[2*j])
+			res[i].Coefficients()[2*j].SetRandom()
+			res[i].Coefficients()[2*j+1].Set(&res[i].Coefficients()[2*j])
 		}
 	}
 	permutation := make([]int64, nbPolynomials*sizePolynomials)
@@ -230,9 +223,9 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	entries, sigma := getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials)
 
 	// save the originals for further tests with polynomials in different forms
-	backupEntries := make([]Polynomial, nbPolynomials)
+	backupEntries := make([]*Polynomial, nbPolynomials)
 	for i := 0; i < nbPolynomials; i++ {
-		backupEntries[i] = *entries[i].Clone()
+		backupEntries[i] = entries[i].Clone()
 	}
 
 	// build the ratio polynomial
@@ -253,16 +246,16 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	d.SetOne()
 	for i := 0; i < nbPolynomials; i++ {
 		a.Mul(&beta, &suppID[(i+1)*sizePolynomials-1]).
-			Add(&a, &entries[i].Coefficients[sizePolynomials-1]).
+			Add(&a, &entries[i].Coefficients()[sizePolynomials-1]).
 			Add(&a, &gamma)
 		b.Mul(&b, &a)
 
 		c.Mul(&beta, &suppID[sigma[(i+1)*sizePolynomials-1]]).
-			Add(&c, &entries[i].Coefficients[sizePolynomials-1]).
+			Add(&c, &entries[i].Coefficients()[sizePolynomials-1]).
 			Add(&c, &gamma)
 		d.Mul(&d, &c)
 	}
-	a.Mul(&b, &ratio.Coefficients[sizePolynomials-1]).
+	a.Mul(&b, &ratio.Coefficients()[sizePolynomials-1]).
 		Div(&a, &d)
 	var one fr.Element
 	one.SetOne()
@@ -274,7 +267,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i] = backupEntries[i].Clone()
-		fft.BitReverse(entries[i].Coefficients)
+		fft.BitReverse(entries[i].Coefficients())
 		entries[i].Layout = BitReverse
 	}
 	{
@@ -283,7 +276,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal(err)
 		}
@@ -293,8 +286,8 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// canonical form, regular
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i] = backupEntries[i].Clone()
-		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
-		fft.BitReverse(entries[i].Coefficients)
+		domain.FFTInverse(entries[i].Coefficients(), fft.DIF)
+		fft.BitReverse(entries[i].Coefficients())
 		entries[i].Layout = Regular
 		entries[i].Basis = Canonical
 	}
@@ -304,7 +297,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal("coefficients of ratio are not consistent")
 		}
@@ -314,7 +307,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// canonical form, bit reverse
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i] = backupEntries[i].Clone()
-		domain.FFTInverse(entries[i].Coefficients, fft.DIF)
+		domain.FFTInverse(entries[i].Coefficients(), fft.DIF)
 		entries[i].Layout = BitReverse
 		entries[i].Basis = Canonical
 	}
@@ -325,7 +318,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkCoeffs := cmpCoefficents(_ratio.Coefficients, ratio.Coefficients)
+		checkCoeffs := cmpCoefficents(_ratio.coefficients, ratio.coefficients)
 		if !checkCoeffs {
 			t.Fatal("coefficients of ratio are not consistent")
 		}

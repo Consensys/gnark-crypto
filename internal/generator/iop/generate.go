@@ -27,6 +27,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 	}
+
 	return bgen.Generate(conf, conf.Package, "./iop/template/", entries...)
 
 }

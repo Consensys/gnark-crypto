@@ -32,19 +32,17 @@ type Expression func(x ...fr.Element) fr.Element
 // The Size field of the result is the same as the one of x[0].
 // The blindedSize field of the result is the same as Size.
 // The Shift field of the result is 0.
-func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomial, error) {
-	var res WrappedPolynomial
-
+func Evaluate(f Expression, form Form, x ...*Polynomial) (*Polynomial, error) {
 	if len(x) == 0 {
-		return res, errors.New("need at lest one input")
+		return nil, errors.New("need at lest one input")
 	}
 
 	// check that the sizes are consistent
-	n := len(x[0].Coefficients)
+	n := x[0].coefficients.Len()
 	m := len(x)
 	for i := 1; i < m; i++ {
-		if n != len(x[i].Coefficients) {
-			return res, ErrInconsistentSize
+		if n != x[i].coefficients.Len() {
+			return nil, ErrInconsistentSize
 		}
 	}
 
@@ -70,7 +68,7 @@ func Evaluate(f Expression, form Form, x ...*WrappedPolynomial) (WrappedPolynomi
 		}
 	})
 
-	res.Polynomial = NewPolynomial(r, form)
+	res := NewPolynomial(&r, form)
 	res.size = x[0].size
 	res.blindedSize = x[0].size
 	res.shift = 0

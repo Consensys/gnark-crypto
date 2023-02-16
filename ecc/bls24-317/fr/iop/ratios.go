@@ -50,27 +50,25 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
-func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (Polynomial, error) {
-
-	var res Polynomial
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
 
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
-		return res, ErrNumberPolynomials
+		return nil, ErrNumberPolynomials
 	}
 	nbPolynomials := len(numerator)
 
 	// check that the sizes are consistent
 	err := checkSize(numerator, denominator)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// create the domain + some checks on the sizes of the polynomials
-	n := len(numerator[0].Coefficients)
+	n := numerator[0].coefficients.Len()
 	domain, err = buildDomain(n, domain)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// put every polynomials in Lagrange form. Also make sure
@@ -85,9 +83,9 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	res.Coefficients = make([]fr.Element, n)
+	coeffs := make([]fr.Element, n)
 	t := make([]fr.Element, n)
-	res.Coefficients[0].SetOne()
+	coeffs[0].SetOne()
 	t[0].SetOne()
 	var a, b, c, d fr.Element
 
@@ -102,37 +100,36 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 		for j := 0; j < nbPolynomials; j++ {
 
 			if numerator[j].Layout == BitReverse {
-				a.Sub(&beta, &numerator[j].Coefficients[iRev])
+				a.Sub(&beta, &numerator[j].Coefficients()[iRev])
 			} else {
-				a.Sub(&beta, &numerator[j].Coefficients[i])
+				a.Sub(&beta, &numerator[j].Coefficients()[i])
 			}
 			b.Mul(&b, &a)
 
 			if denominator[j].Layout == BitReverse {
-				c.Sub(&beta, &denominator[j].Coefficients[iRev])
+				c.Sub(&beta, &denominator[j].Coefficients()[iRev])
 			} else {
-				c.Sub(&beta, &denominator[j].Coefficients[i])
+				c.Sub(&beta, &denominator[j].Coefficients()[i])
 			}
 			d.Mul(&d, &c)
 		}
 		// b = Πₖ (β-Pₖ(ωⁱ⁻¹))
 		// d = Πₖ (β-Qₖ(ωⁱ⁻¹))
 
-		res.Coefficients[i+1].Mul(&res.Coefficients[i], &b)
+		coeffs[i+1].Mul(&coeffs[i], &b)
 		t[i+1].Mul(&t[i], &d)
 
 	}
 
 	t = fr.BatchInvert(t)
 	for i := 1; i < n; i++ {
-		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
+		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
-	res.Basis = expectedForm.Basis
-	res.Layout = expectedForm.Layout
+	res := NewPolynomial(&coeffs, expectedForm)
 
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
 
 	return res, nil
 }
@@ -149,23 +146,21 @@ func BuildRatioCopyConstraint(
 	permutation []int64,
 	beta, gamma fr.Element,
 	expectedForm Form,
-	domain *fft.Domain) (Polynomial, error) {
-
-	var res Polynomial
+	domain *fft.Domain) (*Polynomial, error) {
 
 	nbPolynomials := len(entries)
 
 	// check that the sizes are consistent
 	err := checkSize(entries)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// create the domain + some checks on the sizes of the polynomials
-	n := len(entries[0].Coefficients)
+	n := entries[0].coefficients.Len()
 	domain, err = buildDomain(n, domain)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	// put every polynomials in Lagrange form. Also make sure
@@ -179,9 +174,9 @@ func BuildRatioCopyConstraint(
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	res.Coefficients = make([]fr.Element, n)
+	coeffs := make([]fr.Element, n)
 	t := make([]fr.Element, n)
-	res.Coefficients[0].SetOne()
+	coeffs[0].SetOne()
 	t[0].SetOne()
 
 	parallel.Execute(n-1, func(start, end int) {
@@ -201,64 +196,64 @@ func BuildRatioCopyConstraint(
 
 				a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 					Add(&a, &gamma).
-					Add(&a, &p.Coefficients[idx])
+					Add(&a, &p.Coefficients()[idx])
 
 				b.Mul(&b, &a)
 
 				c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 					Add(&c, &gamma).
-					Add(&c, &p.Coefficients[idx])
+					Add(&c, &p.Coefficients()[idx])
 				d.Mul(&d, &c)
 			}
 
 			// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
 			// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
-			res.Coefficients[i+1].Set(&b)
+			coeffs[i+1].Set(&b)
 			t[i+1].Set(&d)
 		}
 	})
 
 	for i := 0; i < n-1; i++ {
-		res.Coefficients[i+1].Mul(&res.Coefficients[i+1], &res.Coefficients[i])
+		coeffs[i+1].Mul(&coeffs[i+1], &coeffs[i])
 		t[i+1].Mul(&t[i+1], &t[i])
 	}
 
 	t = fr.BatchInvert(t)
 	for i := 1; i < n; i++ {
-		res.Coefficients[i].Mul(&res.Coefficients[i], &t[i])
+		coeffs[i].Mul(&coeffs[i], &t[i])
 	}
 
+	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
-	putInExpectedFormFromLagrangeRegular(&res, domain, expectedForm)
+	putInExpectedFormFromLagrangeRegular(res, domain, expectedForm)
 
 	return res, nil
 
 }
 
 func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, expectedForm Form) {
-
 	p.Basis = expectedForm.Basis
 	p.Layout = expectedForm.Layout
 
 	if expectedForm.Basis == Canonical {
-		domain.FFTInverse(p.Coefficients, fft.DIF)
+		domain.FFTInverse(p.Coefficients(), fft.DIF)
 		if expectedForm.Layout == Regular {
-			fft.BitReverse(p.Coefficients)
+			fft.BitReverse(p.Coefficients())
 		}
 		return
 	}
 
 	if expectedForm.Basis == LagrangeCoset {
-		domain.FFTInverse(p.Coefficients, fft.DIF)
-		domain.FFT(p.Coefficients, fft.DIT, true)
+		domain.FFTInverse(p.Coefficients(), fft.DIF)
+		domain.FFT(p.Coefficients(), fft.DIT, true)
 		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(p.Coefficients)
+			fft.BitReverse(p.Coefficients())
 		}
 		return
 	}
 
 	if expectedForm.Layout == BitReverse {
-		fft.BitReverse(p.Coefficients)
+		fft.BitReverse(p.Coefficients())
 	}
 
 }
@@ -269,10 +264,10 @@ func checkSize(pols ...[]*Polynomial) error {
 
 	// check sizes between one another
 	m := len(pols)
-	n := len(pols[0][0].Coefficients)
+	n := pols[0][0].coefficients.Len()
 	for i := 0; i < m; i++ {
 		for j := 0; j < len(pols); j++ {
-			if len(pols[i][j].Coefficients) != n {
+			if pols[i][j].coefficients.Len() != n {
 				return ErrInconsistentSize
 			}
 		}
