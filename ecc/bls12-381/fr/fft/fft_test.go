@@ -52,7 +52,7 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFT(pol, DIF, false)
+			domainWithPrecompute.FFT(pol, DIF)
 			BitReverse(pol)
 
 			sample := domainWithPrecompute.Generator
@@ -79,7 +79,7 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFT(pol, DIF, true)
+			domainWithPrecompute.FFT(pol, DIF, WithCoset())
 			BitReverse(pol)
 
 			sample := domainWithPrecompute.Generator
@@ -108,7 +108,7 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domainWithPrecompute.FFT(pol, DIT, false)
+			domainWithPrecompute.FFT(pol, DIT)
 
 			sample := domainWithPrecompute.Generator
 			sample.Exp(sample, big.NewInt(int64(ithpower)))
@@ -134,8 +134,8 @@ func TestFFT(t *testing.T) {
 			copy(backupPol, pol)
 
 			BitReverse(pol)
-			domainWithPrecompute.FFT(pol, DIT, false)
-			domainWithPrecompute.FFTInverse(pol, DIF, false)
+			domainWithPrecompute.FFT(pol, DIT)
+			domainWithPrecompute.FFTInverse(pol, DIF)
 			BitReverse(pol)
 
 			check := true
@@ -163,8 +163,8 @@ func TestFFT(t *testing.T) {
 			for i := 1; i <= nbCosets; i++ {
 
 				BitReverse(pol)
-				domainWithPrecompute.FFT(pol, DIT, true)
-				domainWithPrecompute.FFTInverse(pol, DIF, true)
+				domainWithPrecompute.FFT(pol, DIT, WithCoset())
+				domainWithPrecompute.FFTInverse(pol, DIF, WithCoset())
 				BitReverse(pol)
 
 				for i := 0; i < len(pol); i++ {
@@ -188,8 +188,8 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFTInverse(pol, DIF, false)
-			domainWithPrecompute.FFT(pol, DIT, false)
+			domainWithPrecompute.FFTInverse(pol, DIF)
+			domainWithPrecompute.FFT(pol, DIT)
 
 			check := true
 			for i := 0; i < len(pol); i++ {
@@ -211,8 +211,8 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFTInverse(pol, DIF, true)
-			domainWithPrecompute.FFT(pol, DIT, true)
+			domainWithPrecompute.FFTInverse(pol, DIF, WithCoset())
+			domainWithPrecompute.FFT(pol, DIT, WithCoset())
 
 			check := true
 			for i := 0; i < len(pol); i++ {
@@ -265,14 +265,14 @@ func BenchmarkFFT(b *testing.B) {
 			domain := NewDomain(uint64(sizeDomain))
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				domain.FFT(pol[:sizeDomain], DIT, false)
+				domain.FFT(pol[:sizeDomain], DIT)
 			}
 		})
 		b.Run("fft 2**"+strconv.Itoa(i)+"bits (coset)", func(b *testing.B) {
 			domain := NewDomain(uint64(sizeDomain))
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				domain.FFT(pol[:sizeDomain], DIT, true)
+				domain.FFT(pol[:sizeDomain], DIT, WithCoset())
 			}
 		})
 	}
@@ -292,7 +292,7 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		domain.FFT(pol, DIT, true)
+		domain.FFT(pol, DIT, WithCoset())
 	}
 }
 
@@ -309,7 +309,7 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		domain.FFT(pol, DIF, false)
+		domain.FFT(pol, DIF)
 	}
 }
 
