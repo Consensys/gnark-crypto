@@ -197,11 +197,23 @@ func TestFFT(t *testing.T) {
 			domainWithPrecompute.FFTInverse(pol, DIF, WithCoset())
 			domainWithPrecompute.FFT(pol, DIT, WithCoset())
 
-			check := true
 			for i := 0; i < len(pol); i++ {
-				check = check && (pol[i] == backupPol[i])
+				if !(pol[i].Equal(&backupPol[i])) {
+					return false
+				}
 			}
-			return check
+
+			// compute with nbTasks == 1
+			domainWithPrecompute.FFTInverse(pol, DIF, WithCoset(), WithNbTasks(1))
+			domainWithPrecompute.FFT(pol, DIT, WithCoset(), WithNbTasks(1))
+
+			for i := 0; i < len(pol); i++ {
+				if !(pol[i].Equal(&backupPol[i])) {
+					return false
+				}
+			}
+
+			return true
 		},
 	))
 
