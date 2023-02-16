@@ -21,6 +21,7 @@ import (
 	"hash"
 	"math/big"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"golang.org/x/crypto/blake2b"
@@ -54,8 +55,7 @@ type RSis struct {
 	Domain *fft.Domain
 
 	// d, the degree of X^{d}+1
-	Degree    int
-	sumResult fr.Vector // buffer of len(Degree)
+	Degree int
 }
 
 func genRandom(seed, i, j int64) fr.Element {
@@ -119,7 +119,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 
 	// degree
 	res.Degree = degree
-	res.sumResult = make(fr.Vector, degree)
 
 	return &res, nil
 }
@@ -166,7 +165,6 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func()
 			Degree:               degree,
 			Domain:               domain,
 			NbBytesToSum:         nbBytesToSum,
-			sumResult:            make(fr.Vector, degree),
 		}
 	}, nil
 
@@ -185,66 +183,80 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
-
-	// if NbBytesToSums is not reached, the buffer is padded with zeroes.
-	if n := r.buffer.Len(); n < r.NbBytesToSum {
-		padding := make([]byte, r.NbBytesToSum-n)
-		_, err := r.buffer.Write(padding)
-		if err != nil {
-			panic(err)
-		}
-	}
+	// r.buffer.Len() can be < r.NbBytesToSum, in which case the bits will be 0 (implicit)
+	// TODO @gbotrel what if we have len(b) > r.NbBytesToSum ?? that is, more than r.Degree * len(r.A) elements?
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	nbBits := r.NbBytesToSum * 8
-	bits := make([]byte, nbBits)
 	bufBytes := r.buffer.Bytes()
-	for i, b := range bufBytes {
-		for j := 0; j < 8; j++ {
-			bits[i*8+j] = (b >> (7 - j)) & 1
+	nbBitsWritten := len(bufBytes) * 8
+	bitAt := func(i int) uint8 {
+		k := i / 8
+		if k >= len(bufBytes) {
+			return 0
 		}
+		b := bufBytes[k]
+		j := i % 8
+		return b >> (7 - j) & 1
 	}
 
 	// now we can construct m. The input to hash consists of the polynomials
 	// m[k*r.Degree:(k+1)*r.Degree]
-	nbBytesPerCoefficients := (r.LogTwoBound - (r.LogTwoBound % 8)) / 8
-	nbBitsPerCoefficients := r.LogTwoBound
-	offset := nbBitsPerCoefficients % 8
+	nbFullBytesPerCoeff := (r.LogTwoBound - (r.LogTwoBound % 8)) / 8
+	nbBitsPerCoeff := r.LogTwoBound
+	firstByteSize := nbBitsPerCoeff % 8
 	sizeM := r.Degree * len(r.A)
-	if nbBytesPerCoefficients+1 >= fr.Bytes {
+
+	// each coeff is nbFullBytes + the first byte which can be < 8.
+	if nbFullBytesPerCoeff+1 >= fr.Bytes {
 		panic("sanity check failed.")
 	}
-	var buf [fr.Bytes]byte
-	bOffset := fr.Bytes - (nbBytesPerCoefficients + 1) // 0 pad on the left.
-	m := make([]fr.Element, sizeM)
-	for i := 0; i < nbBits/nbBitsPerCoefficients; i++ {
 
-		for j := 0; j < offset; j++ {
-			buf[bOffset] += (bits[i*nbBitsPerCoefficients+j]) << (offset - 1 - j)
+	var buf, zero [fr.Bytes]byte
+
+	m := make([]fr.Element, sizeM)
+	notZero := bitset.New(uint(len(r.A)))
+
+	for i := 0; i < len(m); i++ {
+		start := i * nbBitsPerCoeff
+		if start >= nbBitsWritten {
+			// we can stop, the rest of m[] is zeroes.
+			break
 		}
-		for j := 0; j < nbBytesPerCoefficients; j++ {
+		// if nbBitsPerCoeff % 8 != 0, the first byte is smaller.
+		for j := 0; j < firstByteSize; j++ {
+			buf[0] |= (bitAt(start + j)) << (firstByteSize - 1 - j)
+		}
+
+		// remaining bytes
+		for j := 0; j < nbFullBytesPerCoeff; j++ {
 			for k := 0; k < 8; k++ {
-				buf[j+1+bOffset] += (bits[i*nbBitsPerCoefficients+offset+8*j+k]) << (7 - k)
+				// TODO @gbotrel it seems here we are shifting right and left, we could simplify with
+				// a bit mask.
+				buf[j+1] |= (bitAt(start + firstByteSize + 8*j + k)) << (7 - k)
 			}
 		}
-		_ = m[i].SetBytesCanonical(buf[:]) // we ignore err here due to sanity check above.
-		for j := bOffset; j < fr.Bytes; j++ {
-			buf[j] = 0
+		if buf == zero {
+			continue
 		}
+		notZero.Set(uint(i / r.Degree))
+		m[i], _ = fr.LittleEndian.Element(&buf) // we ignore err here due to sanity check above.
+		buf = zero
 	}
 
 	// we can hash now.
-	res := r.sumResult
-	for i := 0; i < len(res); i++ {
-		res[i].SetZero()
-	}
+	res := make(fr.Vector, r.Degree)
 
 	// method 1: fft
 	if r.Degree > 3 {
 		for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-			r.Domain.FFT(m[i*r.Degree:(i+1)*r.Degree], fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
-			mulModAcc(res, r.AfftCosetBitreversed[i], m[i*r.Degree:(i+1)*r.Degree])
+			if !notZero.Test(uint(i)) {
+				// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+				continue
+			}
+			k := m[i*r.Degree : (i+1)*r.Degree]
+			r.Domain.FFT(k, fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
+			mulModAcc(res, r.AfftCosetBitreversed[i], k)
 		}
 		r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
 	} else if r.Degree == 2 { // method 2: naive mulMod+reductions
@@ -260,6 +272,9 @@ func (r *RSis) Sum(b []byte) []byte {
 	// method 3: naive mul THEN naive reduction at the end
 	// _res := make([]fr.Element, 2*r.Degree)
 	// for i := 0; i < len(r.A); i++ {
+	// 	if !notZero.Test(uint(i)) {
+	// 		continue
+	// 	}
 	// 	t := naiveMul(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
 	// 	for j := 0; j < 2*r.Degree; j++ {
 	// 		_res[j].Add(&t[j], &_res[j])
