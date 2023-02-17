@@ -103,8 +103,7 @@ func BenchmarkSIS(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sis.Sum(nil)
-		sis.Reset()
+		_ = sis.Sum(nil)
 	}
 
 }

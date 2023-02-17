@@ -83,11 +83,12 @@ func BenchmarkSISRef(b *testing.B) {
 			// Since the benchmark object allows to report extra meta but does
 			// not allow accessing them. We measure the time ourself.
 
+			instance.Write(inputs)
 			startTime := time.Now()
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_ = instance.Sum(inputs)
+				_ = instance.Sum(nil)
 			}
 			b.StopTimer()
 
@@ -131,11 +132,12 @@ func BenchmarkSISSparseRef(b *testing.B) {
 			// Since the benchmark object allows to report extra meta but does
 			// not allow accessing them. We measure the time ourself.
 
+			instance.Write(inputs)
 			startTime := time.Now()
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_ = instance.Sum(inputs)
+				_ = instance.Sum(nil)
 			}
 			b.StopTimer()
 
