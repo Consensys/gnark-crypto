@@ -17,7 +17,7 @@ type sisParams struct {
 var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 2, logTwoDegree: 3},
 	{logTwoBound: 4, logTwoDegree: 4},
-	{logTwoBound: 6, logTwoDegree: 5},
+	// {logTwoBound: 6, logTwoDegree: 5},
 	// {logTwoBound: 10, logTwoDegree: 6},
 	// {logTwoBound: 16, logTwoDegree: 7},
 	// {logTwoBound: 32, logTwoDegree: 8},
@@ -57,7 +57,7 @@ func estimateSisTheory(p sisParams) int {
 
 func BenchmarkSISRef(b *testing.B) {
 
-	const numFieldInput = 1 << 10
+	const numFieldInput = 1 << 14
 
 	// Assign the input with random bytes. In practice, theses bytes encodes
 	// a string of field element. It would be more meaningful to take a slice
@@ -65,19 +65,18 @@ func BenchmarkSISRef(b *testing.B) {
 	// accounted for in the benchmark.
 	inputs := make([]byte, numFieldInput*fr.Bytes)
 	if _, err := rand.Read(inputs); err != nil {
-		panic(err)
+		b.Fatal(err)
 	}
 
 	for _, param := range params128Bits {
 
-		instance, err := sis.NewRSis(0, param.logTwoDegree, param.logTwoBound, numFieldInput*fr.Bits/param.logTwoBound)
-		if err != nil {
-			panic(err)
-		}
-
 		benchName := fmt.Sprintf("ring-sis/nb-input=%v-log-2-bound=%v-log-2-degree=%v", numFieldInput, param.logTwoBound, param.logTwoDegree)
 
 		b.Run(benchName, func(b *testing.B) {
+			instance, err := sis.NewRSis(0, param.logTwoDegree, param.logTwoBound, numFieldInput*fr.Bits/param.logTwoBound)
+			if err != nil {
+				b.Fatal(err)
+			}
 
 			// We introduce a custom metric which is the time per field element
 			// Since the benchmark object allows to report extra meta but does
@@ -85,7 +84,6 @@ func BenchmarkSISRef(b *testing.B) {
 
 			instance.Write(inputs)
 			startTime := time.Now()
-
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = instance.Sum(nil)
@@ -107,27 +105,25 @@ func BenchmarkSISRef(b *testing.B) {
 
 func BenchmarkSISSparseRef(b *testing.B) {
 
-	const numFieldInput = 1 << 10
+	const numFieldInput = 1 << 14
 	const nNonZero = numFieldInput / 8
 
 	// Assign the input with random bytes but als
 	inputs := make([]byte, numFieldInput*fr.Bytes)
 
 	if _, err := rand.Read(inputs[numFieldInput-nNonZero:]); err != nil {
-		panic(err)
+		b.Fatal(err)
 	}
 
 	for _, param := range params128Bits {
 
-		instance, err := sis.NewRSis(0, param.logTwoDegree, param.logTwoBound, numFieldInput*fr.Bits/param.logTwoBound)
-		if err != nil {
-			panic(err)
-		}
-
 		benchName := fmt.Sprintf("ring-sis/nb-input=%v-log-2-bound=%v-log-2-degree=%v", numFieldInput, param.logTwoBound, param.logTwoDegree)
 
 		b.Run(benchName, func(b *testing.B) {
-
+			instance, err := sis.NewRSis(0, param.logTwoDegree, param.logTwoBound, numFieldInput*fr.Bits/param.logTwoBound)
+			if err != nil {
+				b.Fatal(err)
+			}
 			// We introduce a custom metric which is the time per field element
 			// Since the benchmark object allows to report extra meta but does
 			// not allow accessing them. We measure the time ourself.

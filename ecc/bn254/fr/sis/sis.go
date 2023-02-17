@@ -24,6 +24,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -56,23 +57,10 @@ type RSis struct {
 
 	// d, the degree of X^{d}+1
 	Degree int
-}
 
-func genRandom(seed, i, j int64) fr.Element {
-
-	var buf bytes.Buffer
-	buf.WriteString("SIS")
-	binary.Write(&buf, binary.BigEndian, seed)
-	binary.Write(&buf, binary.BigEndian, i)
-	binary.Write(&buf, binary.BigEndian, j)
-
-	slice := buf.Bytes()
-	digest := blake2b.Sum256(slice)
-
-	var res fr.Element
-	res.SetBytes(digest[:])
-
-	return res
+	// allocate memory once per instance (used in Sum())
+	bufM, bufRes fr.Vector
+	bufMValues   *bitset.BitSet
 }
 
 // NewRSis creates an instance of RSis.
@@ -97,21 +85,23 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 	// filling A
 	degree := 1 << logTwoDegree
 	res.A = make([][]fr.Element, keySize)
-	for i := 0; i < keySize; i++ {
-		res.A[i] = make([]fr.Element, degree)
-		for j := 0; j < degree; j++ {
-			res.A[i][j] = genRandom(seed, int64(i), int64(j))
+	res.AfftCosetBitreversed = make([][]fr.Element, keySize)
+
+	parallel.Execute(keySize, func(start, end int) {
+		var buf bytes.Buffer
+		for i := start; i < end; i++ {
+			res.A[i] = make([]fr.Element, degree)
+			res.AfftCosetBitreversed[i] = make([]fr.Element, degree)
+			for j := 0; j < degree; j++ {
+				res.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
+				res.AfftCosetBitreversed[i][j] = res.A[i][j]
+			}
 		}
-	}
+	})
 
 	// filling AfftCosetBitreversed
-	res.AfftCosetBitreversed = make([][]fr.Element, keySize)
 	for i := 0; i < keySize; i++ {
-		res.AfftCosetBitreversed[i] = make([]fr.Element, degree)
-		for j := 0; j < degree; j++ {
-			copy(res.AfftCosetBitreversed[i], res.A[i])
-			res.Domain.FFT(res.AfftCosetBitreversed[i], fft.DIF, fft.WithCoset())
-		}
+		res.Domain.FFT(res.AfftCosetBitreversed[i], fft.DIF, fft.WithCoset())
 	}
 
 	// computing the maximal size in bytes of a vector to hash
@@ -119,6 +109,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 
 	// degree
 	res.Degree = degree
+
+	res.bufM = make(fr.Vector, degree*len(res.A))
+	res.bufRes = make(fr.Vector, res.Degree)
+	res.bufMValues = bitset.New(uint(len(res.A)))
 
 	return &res, nil
 }
@@ -138,9 +132,10 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func()
 	degree := 1 << logTwoDegree
 	a := make([][]fr.Element, keySize)
 	for i := 0; i < keySize; i++ {
+		var buf bytes.Buffer
 		a[i] = make([]fr.Element, degree)
 		for j := 0; j < degree; j++ {
-			a[i][j] = genRandom(seed, int64(i), int64(j))
+			a[i][j] = genRandom(seed, int64(i), int64(j), &buf)
 		}
 	}
 
@@ -165,6 +160,9 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func()
 			Degree:               degree,
 			Domain:               domain,
 			NbBytesToSum:         nbBytesToSum,
+			bufM:                 make(fr.Vector, degree*len(a)),
+			bufRes:               make(fr.Vector, degree),
+			bufMValues:           bitset.New(uint(len(a))),
 		}
 	}, nil
 
@@ -183,12 +181,27 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
-	// r.buffer.Len() can be < r.NbBytesToSum, in which case the bits will be 0 (implicit)
-	// TODO @gbotrel what if we have len(b) > r.NbBytesToSum ?? that is, more than r.Degree * len(r.A) elements?
+	bufBytes := r.buffer.Bytes()
+	if len(bufBytes) > r.NbBytesToSum {
+		panic("buffer too large")
+	}
+	if r.LogTwoBound > 64 {
+		panic("r.LogTwoBound too large")
+	}
+
+	// clear the buffer of the instance.
+	defer func() {
+		r.bufMValues.ClearAll()
+		for i := 0; i < len(r.bufM); i++ {
+			r.bufM[i].SetZero()
+		}
+		for i := 0; i < len(r.bufRes); i++ {
+			r.bufRes[i].SetZero()
+		}
+	}()
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	bufBytes := r.buffer.Bytes()
 	nbBitsWritten := len(bufBytes) * 8
 	bitAt := func(i int) uint8 {
 		k := i / 8
@@ -202,77 +215,47 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// now we can construct m. The input to hash consists of the polynomials
 	// m[k*r.Degree:(k+1)*r.Degree]
-	nbFullBytesPerCoeff := (r.LogTwoBound - (r.LogTwoBound % 8)) / 8
-	nbBitsPerCoeff := r.LogTwoBound
-	firstByteSize := nbBitsPerCoeff % 8
-	sizeM := r.Degree * len(r.A)
+	m := r.bufM
 
-	// each coeff is nbFullBytes + the first byte which can be < 8.
-	if nbFullBytesPerCoeff+1 >= fr.Bytes {
-		panic("sanity check failed.")
-	}
+	// mark blocks m[i*r.Degree : (i+1)*r.Degree] != [0...0]
+	mValues := r.bufMValues
 
-	var buf, zero [fr.Bytes]byte
-
-	m := make([]fr.Element, sizeM)
-	notZero := bitset.New(uint(len(r.A)))
-
-	for i := 0; i < len(m); i++ {
-		start := i * nbBitsPerCoeff
-		if start >= nbBitsWritten {
-			// we can stop, the rest of m[] is zeroes.
-			break
+	// we process the input buffer by blocks of r.LogTwoBound bits
+	// each of these block (<< 64bits) are interpreted as a coefficient
+	mPos := 0
+	for i := 0; i < nbBitsWritten; mPos++ {
+		for j := 0; j < r.LogTwoBound; j++ {
+			// r.LogTwoBound < 64; we just use the first word of our element here,
+			// and set the bits from LSB to MSB.
+			m[mPos][0] |= uint64(bitAt(i) << j)
+			i++
 		}
-		// if nbBitsPerCoeff % 8 != 0, the first byte is smaller.
-		for j := 0; j < firstByteSize; j++ {
-			buf[0] |= (bitAt(start + j)) << (firstByteSize - 1 - j)
-		}
-
-		// remaining bytes
-		for j := 0; j < nbFullBytesPerCoeff; j++ {
-			for k := 0; k < 8; k++ {
-				// TODO @gbotrel it seems here we are shifting right and left, we could simplify with
-				// a bit mask.
-				buf[j+1] |= (bitAt(start + firstByteSize + 8*j + k)) << (7 - k)
-			}
-		}
-		if buf == zero {
+		if m[mPos][0] == 0 {
 			continue
 		}
-		notZero.Set(uint(i / r.Degree))
-		m[i], _ = fr.LittleEndian.Element(&buf) // we ignore err here due to sanity check above.
-		buf = zero
+		mValues.Set(uint(mPos / r.Degree))
 	}
 
 	// we can hash now.
-	res := make(fr.Vector, r.Degree)
+	res := r.bufRes
 
 	// method 1: fft
-	if r.Degree > 3 {
-		for i := 0; i < len(r.AfftCosetBitreversed); i++ {
-			if !notZero.Test(uint(i)) {
-				// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-				continue
-			}
-			k := m[i*r.Degree : (i+1)*r.Degree]
-			r.Domain.FFT(k, fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
-			mulModAcc(res, r.AfftCosetBitreversed[i], k)
+	for i := 0; i < len(r.AfftCosetBitreversed); i++ {
+		if !mValues.Test(uint(i)) {
+			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+			// we can skip this, FFT(0) = 0
+			continue
 		}
-		r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-	} else if r.Degree == 2 { // method 2: naive mulMod+reductions
-		for i := 0; i < len(r.A); i++ {
-			t := naiveMulMod2(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
-			res[0].Add(&t[0], &res[0])
-			res[1].Add(&t[1], &res[1])
-		}
-	} else {
-		panic("SIS must be > 1")
+		k := m[i*r.Degree : (i+1)*r.Degree]
+		r.Domain.FFT(k, fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
+		mulModAcc(res, r.AfftCosetBitreversed[i], k)
 	}
+	r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
 
-	// method 3: naive mul THEN naive reduction at the end
+	// method 2: naive mul THEN naive reduction at the end
 	// _res := make([]fr.Element, 2*r.Degree)
 	// for i := 0; i < len(r.A); i++ {
-	// 	if !notZero.Test(uint(i)) {
+	// 	if !mValues.Test(uint(i)) {
 	// 		continue
 	// 	}
 	// 	t := naiveMul(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
@@ -282,7 +265,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	// }
 	// res = naiveReduction(_res, r.Degree)
 
-	// method 4: buckets
+	// // method 3: buckets
 	// q := make([][]fr.Element, len(r.A))
 	// for i := 0; i < len(r.A); i++ { // -> useless conversion, could do it earlier
 	// 	q[i] = m[i*r.Degree : (i+1)*r.Degree]
@@ -319,4 +302,20 @@ func (r *RSis) Size() int {
 // are a multiple of the block size.
 func (r *RSis) BlockSize() int {
 	return 0
+}
+
+func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
+
+	buf.Reset()
+	buf.WriteString("SIS")
+	binary.Write(buf, binary.BigEndian, seed)
+	binary.Write(buf, binary.BigEndian, i)
+	binary.Write(buf, binary.BigEndian, j)
+
+	digest := blake2b.Sum256(buf.Bytes())
+
+	var res fr.Element
+	res.SetBytes(digest[:])
+
+	return res
 }

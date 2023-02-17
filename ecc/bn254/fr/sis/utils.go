@@ -61,6 +61,7 @@ func naiveMul(p, q []fr.Element) []fr.Element {
 	var tmp fr.Element
 	for i := 0; i < len(q); i++ {
 		for j := 0; j < len(p); j++ {
+			// note that p[j] here is on 1 word.
 			tmp.Mul(&q[i], &p[j])
 			res[i+j].Add(&res[i+j], &tmp)
 		}
