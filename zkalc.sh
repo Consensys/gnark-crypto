@@ -13,6 +13,15 @@ zkalc_benchmarks () {
 
     popd
 
+    if [ -d fr/fft ]
+    then
+        pushd fr/fft
+
+        go test -run none -bench BenchmarkFFT
+
+        popd
+    fi
+
     go test -run none -bench 'BenchmarkG1JacAdd\b'
     go test -run none -bench 'BenchmarkG1JacScalarMultiplication\b'
     go test -run none -bench 'BenchmarkMultiExpG1\b'
