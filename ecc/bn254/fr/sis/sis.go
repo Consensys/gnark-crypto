@@ -40,9 +40,9 @@ type RSis struct {
 
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
-	// AFftBitreversed the evaluation form of the polynomials in A on the coset √(g) * <g>
-	A                    [][]fr.Element
-	AfftCosetBitreversed [][]fr.Element
+	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
+	A  [][]fr.Element
+	Ag [][]fr.Element
 
 	// LogTwoBound (Inifinty norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -85,24 +85,26 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 	// filling A
 	degree := 1 << logTwoDegree
 	res.A = make([][]fr.Element, keySize)
-	res.AfftCosetBitreversed = make([][]fr.Element, keySize)
+	res.Ag = make([][]fr.Element, keySize)
+
+	a := make([]fr.Element, keySize*degree)
+	ag := make([]fr.Element, keySize*degree)
 
 	parallel.Execute(keySize, func(start, end int) {
 		var buf bytes.Buffer
 		for i := start; i < end; i++ {
-			res.A[i] = make([]fr.Element, degree)
-			res.AfftCosetBitreversed[i] = make([]fr.Element, degree)
+			rstart, rend := i*degree, (i+1)*degree
+			res.A[i] = a[rstart:rend:rend]
+			res.Ag[i] = ag[rstart:rend:rend]
 			for j := 0; j < degree; j++ {
 				res.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
-				res.AfftCosetBitreversed[i][j] = res.A[i][j]
 			}
+
+			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
+			copy(res.Ag[i], res.A[i])
+			res.Domain.FFT(res.Ag[i], fft.DIF, fft.WithCoset())
 		}
 	})
-
-	// filling AfftCosetBitreversed
-	for i := 0; i < keySize; i++ {
-		res.Domain.FFT(res.AfftCosetBitreversed[i], fft.DIF, fft.WithCoset())
-	}
 
 	// computing the maximal size in bytes of a vector to hash
 	res.NbBytesToSum = res.LogTwoBound * degree * len(res.A) / 8
@@ -121,49 +123,12 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, err
 // as `NewRingSIS` and outputs a function which returns fresh hasher
 // everytime it is called
 func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func() hash.Hash, error) {
-	// domains (shift is √{gen} )
-	var shift fr.Element
-	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
-	e := int64(1 << (28 - (logTwoDegree + 1)))
-	shift.Exp(shift, big.NewInt(e))
-	domain := fft.NewDomain(uint64(1<<logTwoDegree), shift)
-
-	// filling A
-	degree := 1 << logTwoDegree
-	a := make([][]fr.Element, keySize)
-	for i := 0; i < keySize; i++ {
-		var buf bytes.Buffer
-		a[i] = make([]fr.Element, degree)
-		for j := 0; j < degree; j++ {
-			a[i][j] = genRandom(seed, int64(i), int64(j), &buf)
-		}
-	}
-
-	// filling AfftCosetBitreversed
-	afftCosetBitreversed := make([][]fr.Element, keySize)
-	for i := 0; i < keySize; i++ {
-		afftCosetBitreversed[i] = make([]fr.Element, degree)
-		for j := 0; j < degree; j++ {
-			copy(afftCosetBitreversed[i], a[i])
-			domain.FFT(afftCosetBitreversed[i], fft.DIF, fft.WithCoset())
-		}
-	}
-
-	// computing the maximal size in bytes of a vector to hash
-	nbBytesToSum := logTwoBound * degree * len(a) / 8
-
 	return func() hash.Hash {
-		return &RSis{
-			A:                    a,
-			AfftCosetBitreversed: afftCosetBitreversed,
-			LogTwoBound:          logTwoBound,
-			Degree:               degree,
-			Domain:               domain,
-			NbBytesToSum:         nbBytesToSum,
-			bufM:                 make(fr.Vector, degree*len(a)),
-			bufRes:               make(fr.Vector, degree),
-			bufMValues:           bitset.New(uint(len(a))),
+		h, err := NewRSis(seed, logTwoDegree, logTwoBound, keySize)
+		if err != nil {
+			panic(err)
 		}
+		return h
 	}, nil
 
 }
@@ -175,9 +140,7 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-// b is interpreted as a sequence of coefficients of size r.Bound bits long.
-// Each coefficient is interpreted in big endian.
-// Ex: b = [0xa4, ...] and r.Bound = 4, means that b is decomposed as [10, 4, ...]
+// The instance buffer is interpreted as a sequence of coefficients of size r.Bound bits long.
 // The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
@@ -240,7 +203,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	res := r.bufRes
 
 	// method 1: fft
-	for i := 0; i < len(r.AfftCosetBitreversed); i++ {
+	for i := 0; i < len(r.Ag); i++ {
 		if !mValues.Test(uint(i)) {
 			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
 			// we can skip this, FFT(0) = 0
@@ -248,7 +211,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		}
 		k := m[i*r.Degree : (i+1)*r.Degree]
 		r.Domain.FFT(k, fft.DIF, fft.WithCoset(), fft.WithNbTasks(1))
-		mulModAcc(res, r.AfftCosetBitreversed[i], k)
+		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
 

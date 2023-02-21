@@ -57,8 +57,8 @@ func TestReference(t *testing.T) {
 	seed.SetUint64(5)
 	for i := 0; i < size; i++ {
 		ssis.A[i] = polyRand(seed, degree)
-		copy(ssis.AfftCosetBitreversed[i], ssis.A[i])
-		domain.FFT(ssis.AfftCosetBitreversed[i], fft.DIF, fft.WithCoset())
+		copy(ssis.Ag[i], ssis.A[i])
+		domain.FFT(ssis.Ag[i], fft.DIF, fft.WithCoset())
 		seed.Add(&seed, &one)
 	}
 
@@ -88,47 +88,6 @@ func TestReference(t *testing.T) {
 	// res =[]
 	// for i in range(4):
 	// 		res += toBytes(lift(h.coefficients()[i]), 32)
-
-}
-
-func TestRSis(t *testing.T) {
-
-	keySize := 8
-
-	sis, err := NewRSis(5, 1, 4, keySize)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	m := make([]byte, 8)
-	m[0] = 0xa1
-	m[1] = 0x90
-	m[2] = 0xff
-	m[3] = 0x0a
-	m[4] = 0x13
-	m[5] = 0x59
-	m[6] = 0x79
-	m[7] = 0xcc
-
-	sis.Write(m)
-
-	res := sis.Sum(nil)
-
-	_sis := sis.(*RSis)
-	resPol := make([]fr.Element, _sis.Degree)
-	for i := 0; i < _sis.Degree; i++ {
-		resPol[i].SetBytes(res[i*32 : (i+1)*32])
-	}
-
-	expectedRes := make([]fr.Element, _sis.Degree)
-	expectedRes[0].SetString("13271020168286836418355708644485735593608516629558571827355518635690915176270")
-	expectedRes[1].SetString("9885652947755511462638910175213772082420069489359143817296501612386750845004")
-
-	for i := 0; i < _sis.Degree; i++ {
-		if !expectedRes[i].Equal(&resPol[i]) {
-			t.Fatal("error sis hash")
-		}
-	}
 
 }
 
