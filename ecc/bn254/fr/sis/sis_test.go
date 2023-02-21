@@ -16,6 +16,7 @@ package sis
 
 import (
 	"fmt"
+	"math/bits"
 	"testing"
 	"time"
 
@@ -25,6 +26,9 @@ import (
 )
 
 func TestReference(t *testing.T) {
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
 	assert := require.New(t)
 
 	const (

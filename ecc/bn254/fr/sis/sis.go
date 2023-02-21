@@ -20,6 +20,7 @@ import (
 	"errors"
 	"hash"
 	"math/big"
+	"math/bits"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -74,6 +75,9 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (ha
 
 	if logTwoBound > 64 {
 		return nil, errors.New("logTwoBound too large")
+	}
+	if bits.UintSize == 32 {
+		return nil, errors.New("unsupported architecture; need 64bit target")
 	}
 
 	degree := 1 << logTwoDegree
