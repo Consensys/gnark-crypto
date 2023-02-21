@@ -137,3 +137,45 @@ func BenchmarkSIS(b *testing.B) {
 	}
 
 }
+
+func TestMulMod(t *testing.T) {
+
+	size := 4
+
+	p := make([]fr.Element, size)
+	p[0].SetString("2389")
+	p[1].SetString("987192")
+	p[2].SetString("623")
+	p[3].SetString("91")
+
+	q := make([]fr.Element, size)
+	q[0].SetString("76755")
+	q[1].SetString("232893720")
+	q[2].SetString("989273")
+	q[3].SetString("675273")
+
+	// creation of the domain
+	var shift fr.Element
+	shift.SetString("19540430494807482326159819597004422086093766032135589407132600596362845576832")
+	domain := fft.NewDomain(uint64(size), shift)
+
+	// mul mod
+	domain.FFT(p, fft.DIF, fft.WithCoset())
+	domain.FFT(q, fft.DIF, fft.WithCoset())
+	r := mulMod(p, q)
+	domain.FFTInverse(r, fft.DIT, fft.WithCoset())
+
+	// expected result
+	expectedr := make([]fr.Element, 4)
+	expectedr[0].SetString("21888242871839275222246405745257275088548364400416034343698204185887558114297")
+	expectedr[1].SetString("631644300118")
+	expectedr[2].SetString("229913166975959")
+	expectedr[3].SetString("1123315390878")
+
+	for i := 0; i < 4; i++ {
+		if !expectedr[i].Equal(&r[i]) {
+			t.Fatal("product failed")
+		}
+	}
+
+}

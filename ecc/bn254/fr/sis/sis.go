@@ -144,15 +144,15 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
-	bufBytes := r.buffer.Bytes()
-	if len(bufBytes) > r.NbBytesToSum {
+	buf := r.buffer.Bytes()
+	if len(buf) > r.NbBytesToSum {
 		panic("buffer too large")
 	}
 	if r.LogTwoBound > 64 {
 		panic("r.LogTwoBound too large")
 	}
 
-	// clear the buffer of the instance.
+	// clear the buffers of the instance.
 	defer func() {
 		r.bufMValues.ClearAll()
 		for i := 0; i < len(r.bufM); i++ {
@@ -165,13 +165,13 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	nbBitsWritten := len(bufBytes) * 8
+	nbBits := len(buf) * 8
 	bitAt := func(i int) uint8 {
 		k := i / 8
-		if k >= len(bufBytes) {
+		if k >= len(buf) {
 			return 0
 		}
-		b := bufBytes[k]
+		b := buf[k]
 		j := i % 8
 		return b >> (7 - j) & 1
 	}
@@ -186,7 +186,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	// we process the input buffer by blocks of r.LogTwoBound bits
 	// each of these block (<< 64bits) are interpreted as a coefficient
 	mPos := 0
-	for i := 0; i < nbBitsWritten; mPos++ {
+	for i := 0; i < nbBits; mPos++ {
 		for j := 0; j < r.LogTwoBound; j++ {
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
@@ -214,27 +214,6 @@ func (r *RSis) Sum(b []byte) []byte {
 		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.WithCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-	// method 2: naive mul THEN naive reduction at the end
-	// _res := make([]fr.Element, 2*r.Degree)
-	// for i := 0; i < len(r.A); i++ {
-	// 	if !mValues.Test(uint(i)) {
-	// 		continue
-	// 	}
-	// 	t := naiveMul(m[i*r.Degree:(i+1)*r.Degree], r.A[i])
-	// 	for j := 0; j < 2*r.Degree; j++ {
-	// 		_res[j].Add(&t[j], &_res[j])
-	// 	}
-	// }
-	// res = naiveReduction(_res, r.Degree)
-
-	// // method 3: buckets
-	// q := make([][]fr.Element, len(r.A))
-	// for i := 0; i < len(r.A); i++ { // -> useless conversion, could do it earlier
-	// 	q[i] = m[i*r.Degree : (i+1)*r.Degree]
-	// }
-	// bound := 1 << r.LogTwoBound
-	// res = mulModBucketsMethod(r.A, q, bound, r.Degree)
 
 	resBytes, err := res.MarshalBinary()
 	if err != nil {
@@ -281,4 +260,32 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 	res.SetBytes(digest[:])
 
 	return res
+}
+
+// mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
+// Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
+// and that they are in evaluation form on √(g) * <g>
+// The result is not FFTinversed. The fft inverse is done once every
+// multiplications are done.
+func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
+
+	res := make([]fr.Element, len(pLagrangeCosetBitReversed))
+	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
+		res[i].Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
+	}
+
+	// NOT fft inv for now, wait until every part of the keys have been multiplied
+	// r.Domain.FFTInverse(res, fft.DIT, true)
+
+	return res
+
+}
+
+// mulMod + accumulate in res.
+func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) {
+	var t fr.Element
+	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
+		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
+		res[i].Add(&res[i], &t)
+	}
 }
