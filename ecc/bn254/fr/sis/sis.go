@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2023 ConsenSys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,17 +46,18 @@ type RSis struct {
 
 	// LogTwoBound (Inifinty norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
-	// cd https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
+	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
-
-	// maximal number of bytes to sum
-	NbBytesToSum int
 
 	// domain for the polynomial multiplication
 	Domain *fft.Domain
 
 	// d, the degree of X^{d}+1
 	Degree int
+
+	// in bytes, represents the maximum number of bytes the .Write(...) will handle;
+	// ( maximum number of bytes to sum )
+	capacity int
 
 	// allocate memory once per instance (used in Sum())
 	bufM, bufRes fr.Vector
@@ -66,71 +67,74 @@ type RSis struct {
 // NewRSis creates an instance of RSis.
 // seed: seed for the randomness for generating A.
 // logTwoDegree: if d := logTwoDegree, the ring will be ℤ_{p}[X]/Xᵈ-1, where X^{2ᵈ} is the 2ᵈ⁺¹-th cyclotomic polynomial
-// b: the bound of the vector to hash (using the infinity norm).
-// keySize: number of polynomials in A.
-func NewRSis(seed int64, logTwoDegree, logTwoBound, keySize int) (hash.Hash, error) {
+// logTwoBound: the bound of the vector to hash (using the infinity norm).
+// maxNbElementsToHash: maximum number of field elements the instance handles
+// used to derived n, the number of polynomials in A, and max size of instance's internal buffer.
+func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (hash.Hash, error) {
 
-	var res RSis
+	if logTwoBound > 64 {
+		return nil, errors.New("logTwoBound too large")
+	}
+
+	degree := 1 << logTwoDegree
+	capacity := maxNbElementsToHash * fr.Bytes
+
+	// n: number of polynomials in A
+	// len(m) == degree * n
+	// with each element in m being logTwoBounds bits from the instance buffer.
+	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
+	// capacity == [degree * n * logTwoBound] / 8
+	// n == (capacity*8)/(degree*logTwoBound)
+
+	n := capacity * 8 / logTwoBound // number of coefficients
+	if n%degree == 0 {
+		n /= degree
+	} else {
+		n /= degree // number of polynomials
+		n++
+	}
 
 	// domains (shift is √{gen} )
 	var shift fr.Element
 	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
 	e := int64(1 << (28 - (logTwoDegree + 1)))
 	shift.Exp(shift, big.NewInt(e))
-	res.Domain = fft.NewDomain(uint64(1<<logTwoDegree), shift)
 
-	// bound
-	res.LogTwoBound = logTwoBound
+	r := &RSis{
+		LogTwoBound: logTwoBound,
+		capacity:    capacity,
+		Degree:      degree,
+		Domain:      fft.NewDomain(uint64(degree), shift),
+		A:           make([][]fr.Element, n),
+		Ag:          make([][]fr.Element, n),
+		bufM:        make(fr.Vector, degree*n),
+		bufRes:      make(fr.Vector, degree),
+		bufMValues:  bitset.New(uint(n)),
+	}
 
 	// filling A
-	degree := 1 << logTwoDegree
-	res.A = make([][]fr.Element, keySize)
-	res.Ag = make([][]fr.Element, keySize)
+	a := make([]fr.Element, n*r.Degree)
+	ag := make([]fr.Element, n*r.Degree)
 
-	a := make([]fr.Element, keySize*degree)
-	ag := make([]fr.Element, keySize*degree)
-
-	parallel.Execute(keySize, func(start, end int) {
+	parallel.Execute(n, func(start, end int) {
 		var buf bytes.Buffer
 		for i := start; i < end; i++ {
-			rstart, rend := i*degree, (i+1)*degree
-			res.A[i] = a[rstart:rend:rend]
-			res.Ag[i] = ag[rstart:rend:rend]
-			for j := 0; j < degree; j++ {
-				res.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
+			rstart, rend := i*r.Degree, (i+1)*r.Degree
+			r.A[i] = a[rstart:rend:rend]
+			r.Ag[i] = ag[rstart:rend:rend]
+			for j := 0; j < r.Degree; j++ {
+				r.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
 			}
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
-			copy(res.Ag[i], res.A[i])
-			res.Domain.FFT(res.Ag[i], fft.DIF, fft.WithCoset())
+			copy(r.Ag[i], r.A[i])
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.WithCoset())
 		}
 	})
+	// TODO @gbotrel add nbtasks here; whiile in tests it's more convenient to paralellize
+	// in tensor-commitment we may not want to do that.
 
-	// computing the maximal size in bytes of a vector to hash
-	res.NbBytesToSum = res.LogTwoBound * degree * len(res.A) / 8
-
-	// degree
-	res.Degree = degree
-
-	res.bufM = make(fr.Vector, degree*len(res.A))
-	res.bufRes = make(fr.Vector, res.Degree)
-	res.bufMValues = bitset.New(uint(len(res.A)))
-
-	return &res, nil
-}
-
-// Construct a hasher generator. It takes as input the same parameters
-// as `NewRingSIS` and outputs a function which returns fresh hasher
-// everytime it is called
-func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, keySize int) (func() hash.Hash, error) {
-	return func() hash.Hash {
-		h, err := NewRSis(seed, logTwoDegree, logTwoBound, keySize)
-		if err != nil {
-			panic(err)
-		}
-		return h
-	}, nil
-
+	return r, nil
 }
 
 func (r *RSis) Write(p []byte) (n int, err error) {
@@ -145,11 +149,8 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
 	buf := r.buffer.Bytes()
-	if len(buf) > r.NbBytesToSum {
+	if len(buf) > r.capacity {
 		panic("buffer too large")
-	}
-	if r.LogTwoBound > 64 {
-		panic("r.LogTwoBound too large")
 	}
 
 	// clear the buffers of the instance.
@@ -244,6 +245,20 @@ func (r *RSis) Size() int {
 // are a multiple of the block size.
 func (r *RSis) BlockSize() int {
 	return 0
+}
+
+// Construct a hasher generator. It takes as input the same parameters
+// as `NewRingSIS` and outputs a function which returns fresh hasher
+// everytime it is called
+func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (func() hash.Hash, error) {
+	return func() hash.Hash {
+		h, err := NewRSis(seed, logTwoDegree, logTwoBound, maxNbElementsToHash)
+		if err != nil {
+			panic(err)
+		}
+		return h
+	}, nil
+
 }
 
 func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
