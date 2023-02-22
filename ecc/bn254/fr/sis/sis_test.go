@@ -51,7 +51,7 @@ func TestReference(t *testing.T) {
 	for i := 0; i < len(ssis.A); i++ {
 		ssis.A[i] = polyRand(seed, degree)
 		copy(ssis.Ag[i], ssis.A[i])
-		domain.FFT(ssis.Ag[i], fft.DIF, fft.WithCoset())
+		domain.FFT(ssis.Ag[i], fft.DIF, fft.OnCoset())
 		seed.Add(&seed, &one)
 	}
 
@@ -101,10 +101,10 @@ func TestMulMod(t *testing.T) {
 	domain := fft.NewDomain(uint64(size), shift)
 
 	// mul mod
-	domain.FFT(p, fft.DIF, fft.WithCoset())
-	domain.FFT(q, fft.DIF, fft.WithCoset())
+	domain.FFT(p, fft.DIF, fft.OnCoset())
+	domain.FFT(q, fft.DIF, fft.OnCoset())
 	r := mulMod(p, q)
-	domain.FFTInverse(r, fft.DIT, fft.WithCoset())
+	domain.FFTInverse(r, fft.DIT, fft.OnCoset())
 
 	// expected result
 	expectedr := make([]fr.Element, 4)
