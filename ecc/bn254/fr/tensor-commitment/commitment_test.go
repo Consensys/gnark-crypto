@@ -49,14 +49,6 @@ func DummyHashMaker() hash.Hash {
 	return &res
 }
 
-func getRandomVector(size int) []fr.Element {
-	a := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
-		a[i].SetRandom()
-	}
-	return a
-}
-
 func TestAppend(t *testing.T) {
 
 	// tensor commitment
