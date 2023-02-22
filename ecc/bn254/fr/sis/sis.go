@@ -18,9 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"hash"
-	"io"
 	"math/big"
 	"math/bits"
 
@@ -143,32 +141,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// in tensor-commitment we may not want to do that.
 
 	return r, nil
-}
-
-// Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
-// and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
-//
-// It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
-// ! note @gbotrel: this is a place holder, may not make sense
-func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
-	if len(v) > r.maxNbElementsToHash {
-		return nil, fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
-	}
-
-	r.Reset()
-	for _, e := range v {
-		r.Write(e.Marshal())
-	}
-	sum := r.Sum(nil)
-	var rlen [4]byte
-	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/fr.Bytes))
-	reader := io.MultiReader(bytes.NewReader(rlen[:]), bytes.NewReader(sum))
-	var result fr.Vector
-	_, err := result.ReadFrom(reader)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func (r *RSis) Write(p []byte) (n int, err error) {
@@ -338,86 +310,3 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 		res[i].Add(&res[i], &t)
 	}
 }
-
-// Hash version without mem copy
-// // Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
-// // and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
-// //
-// // It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
-// func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
-// 	if len(v) > r.maxNbElementsToHash {
-// 		return nil, fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
-// 	}
-
-// 	// clear the buffers of the instance.
-// 	defer func() {
-// 		r.bufMValues.ClearAll()
-// 		for i := 0; i < len(r.bufM); i++ {
-// 			r.bufM[i].SetZero()
-// 		}
-// 	}()
-
-// 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
-// 	// as a list of polynomials, whose coefficients are less than r.B bits long.
-
-// 	bitAt := func(v []fr.Element, i int) uint8 {
-// 		// v --> slice of bits
-// 		// return bit at position i
-// 		const n = fr.Bytes * 8 // nb bits per element
-// 		nbBits := len(v) * n
-
-// 		if i >= nbBits {
-// 			return 0
-// 		}
-
-// 		eIndex := i / n
-// 		i %= n
-
-// 		// we want bit i of v[eIndex]
-// 		j := i / 64
-// 		return uint8(v[eIndex][j] >> (i % 64) & 1)
-
-// 	}
-
-// 	// now we can construct m. The input to hash consists of the polynomials
-// 	// m[k*r.Degree:(k+1)*r.Degree]
-// 	m := r.bufM
-
-// 	// mark blocks m[i*r.Degree : (i+1)*r.Degree] != [0...0]
-// 	mValues := r.bufMValues
-
-// 	// we process the input buffer by blocks of r.LogTwoBound bits
-// 	// each of these block (<< 64bits) are interpreted as a coefficient
-// 	mPos := 0
-// 	nbBits := len(v) * fr.Bytes * 8
-// 	for i := 0; i < nbBits; mPos++ {
-// 		for j := 0; j < r.LogTwoBound; j++ {
-// 			// r.LogTwoBound < 64; we just use the first word of our element here,
-// 			// and set the bits from LSB to MSB.
-// 			m[mPos][0] |= uint64(bitAt(v, i) << j)
-// 			i++
-// 		}
-// 		if m[mPos][0] == 0 {
-// 			continue
-// 		}
-// 		mValues.Set(uint(mPos / r.Degree))
-// 	}
-
-// 	// we can hash now.
-// 	res := make(fr.Vector, r.Degree)
-
-// 	// method 1: fft
-// 	for i := 0; i < len(r.Ag); i++ {
-// 		if !mValues.Test(uint(i)) {
-// 			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-// 			// we can skip this, FFT(0) = 0
-// 			continue
-// 		}
-// 		k := m[i*r.Degree : (i+1)*r.Degree]
-// 		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-// 		mulModAcc(res, r.Ag[i], k)
-// 	}
-// 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-// 	return res, nil
-// }
