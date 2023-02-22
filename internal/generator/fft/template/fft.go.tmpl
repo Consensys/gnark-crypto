@@ -1,6 +1,5 @@
 import (
 	"math/bits"
-	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -22,24 +21,18 @@ const butterflyThreshold = 16
 // FFT computes (recursively) the discrete Fourier transform of a and stores the result in a
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
-// if coset if set, the FFT(a) returns the evaluation of a on a coset.
-func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset ...bool) {
+func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option) {
 
-	numCPU := uint64(runtime.NumCPU())
-
-	_coset := false
-	if len(coset) > 0 {
-		_coset = coset[0]
-	}
+	opt := options(opts...)
 
 	// if coset != 0, scale by coset table
-	if _coset {
+	if opt.coset {
 		scale := func(cosetTable []fr.Element) {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
 					a[i].Mul(&a[i], &cosetTable[i])
 				}
-			})
+			}, opt.nbTasks)
 		}
 		if decimation == DIT {
 			scale(domain.CosetTableReversed)
@@ -51,16 +44,16 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset ...bool) 
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
-	if numCPU <= 1 {
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
 		maxSplits = -1
 	}
 
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.Twiddles, 0, maxSplits, nil)
+		difFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.Twiddles, 0, maxSplits, nil)
+		ditFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
@@ -71,37 +64,31 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, coset ...bool) 
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
-func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ...bool) {
-
-	numCPU := uint64(runtime.NumCPU())
-
-	_coset := false
-	if len(coset) > 0 {
-		_coset = coset[0]
-	}
+func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...Option) {
+	opt := options(opts...)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
-	if numCPU <= 1 {
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
 		maxSplits = -1
 	}
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.TwiddlesInv, 0, maxSplits, nil)
+		difFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.TwiddlesInv, 0, maxSplits, nil)
+		ditFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
 
 	// scale by CardinalityInv
-	if !_coset {
+	if !opt.coset {
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
-		})
+		}, opt.nbTasks)
 		return
 	}
 
@@ -111,7 +98,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ..
 				a[i].Mul(&a[i], &cosetTable[i]).
 					Mul(&a[i], &domain.CardinalityInv)
 			}
-		})
+		}, opt.nbTasks)
 	}
 	if decimation == DIT {
 		scale(domain.CosetTableInv)
@@ -123,7 +110,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, coset ..
 
 }
 
-func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
+func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -141,7 +128,7 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	// but we have only numCPU / stage cpus available
 	if (m > butterflyThreshold) && (stage < maxSplits) {
 		// 1 << stage == estimated used CPUs
-		numCPU := runtime.NumCPU() / (1 << (stage))
+		numCPU := nbTasks / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
 			for i := start; i < end; i++ {
 				fr.Butterfly(&a[i], &a[i+m])
@@ -164,17 +151,17 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	nextStage := stage + 1
 	if stage < maxSplits {
 		chDone := make(chan struct{}, 1)
-		go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone)
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
+		go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
+		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
-		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil)
+		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
 	}
 
 }
 
-func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
+func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -192,12 +179,12 @@ func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	if stage < maxSplits {
 		// that's the only time we fire go routines
 		chDone := make(chan struct{}, 1)
-		go ditFFT(a[m:], twiddles, nextStage, maxSplits, chDone)
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
+		go ditFFT(a[m:], twiddles, nextStage, maxSplits, chDone, nbTasks)
+		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil)
-		ditFFT(a[m:n], twiddles, nextStage, maxSplits, nil)
+		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
+		ditFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
 
 	}
 
@@ -205,7 +192,7 @@ func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	// but we have only numCPU / stage cpus available
 	if (m > butterflyThreshold) && (stage < maxSplits) {
 		// 1 << stage == estimated used CPUs
-		numCPU := runtime.NumCPU() / (1 << (stage))
+		numCPU := nbTasks / (1 << (stage))
 		parallel.Execute(m, func(start, end int) {
 			for k := start; k < end; k++ {
 				a[k+m].Mul(&a[k+m], &twiddles[stage][k])

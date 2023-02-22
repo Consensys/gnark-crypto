@@ -340,7 +340,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 			Mul(&res[_i], &numLn[i%2])
 	}
 
-	domainBig.FFTInverse(res, fft.DIT, true)
+	domainBig.FFTInverse(res, fft.DIT, fft.OnCoset())
 
 	return res
 }
@@ -476,11 +476,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	copy(_lh2, ch2)
 	copy(_lt, ct)
 	copy(_lf, cf)
-	domainBig.FFT(_lz, fft.DIF, true)
-	domainBig.FFT(_lh1, fft.DIF, true)
-	domainBig.FFT(_lh2, fft.DIF, true)
-	domainBig.FFT(_lt, fft.DIF, true)
-	domainBig.FFT(_lf, fft.DIF, true)
+	domainBig.FFT(_lz, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lh1, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lh2, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lt, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lf, fft.DIF, fft.OnCoset())
 
 	// compute h
 	lh := evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainBig)

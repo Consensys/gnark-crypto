@@ -191,15 +191,15 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 	lz := make([]fr.Element, s)
 	copy(lz, cz)
-	d.FFT(lz, fft.DIF, true)
+	d.FFT(lz, fft.DIF, fft.OnCoset())
 
 	// compute the first part of the numerator
 	lt1 := make([]fr.Element, s)
 	lt2 := make([]fr.Element, s)
 	copy(lt1, ct1)
 	copy(lt2, ct2)
-	d.FFT(lt1, fft.DIF, true)
-	d.FFT(lt2, fft.DIF, true)
+	d.FFT(lt1, fft.DIF, fft.OnCoset())
+	d.FFT(lt2, fft.DIF, fft.OnCoset())
 	lsNumFirstPart := evaluateFirstPartNumReverse(lt1, lt2, lz, epsilon)
 
 	// compute second part of the numerator
@@ -222,7 +222,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// get the quotient and commit it
-	d.FFTInverse(lsNum, fft.DIT, true)
+	d.FFTInverse(lsNum, fft.DIT, fft.OnCoset())
 	proof.q, err = kzg.Commit(lsNum, srs)
 	if err != nil {
 		return proof, err
