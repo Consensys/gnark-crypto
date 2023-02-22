@@ -28,8 +28,8 @@ type fftConfig struct {
 	nbTasks int
 }
 
-// WithCoset if provided, FFT(a) returns the evaluation of a on a coset.
-func WithCoset() Option {
+// OnCoset if provided, FFT(a) returns the evaluation of a on a coset.
+func OnCoset() Option {
 	return func(opt *fftConfig) {
 		opt.coset = true
 	}

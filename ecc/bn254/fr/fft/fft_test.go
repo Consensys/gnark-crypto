@@ -79,7 +79,7 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFT(pol, DIF, WithCoset())
+			domainWithPrecompute.FFT(pol, DIF, OnCoset())
 			BitReverse(pol)
 
 			sample := domainWithPrecompute.Generator
@@ -163,8 +163,8 @@ func TestFFT(t *testing.T) {
 			for i := 1; i <= nbCosets; i++ {
 
 				BitReverse(pol)
-				domainWithPrecompute.FFT(pol, DIT, WithCoset())
-				domainWithPrecompute.FFTInverse(pol, DIF, WithCoset())
+				domainWithPrecompute.FFT(pol, DIT, OnCoset())
+				domainWithPrecompute.FFTInverse(pol, DIF, OnCoset())
 				BitReverse(pol)
 
 				for i := 0; i < len(pol); i++ {
@@ -211,8 +211,8 @@ func TestFFT(t *testing.T) {
 			}
 			copy(backupPol, pol)
 
-			domainWithPrecompute.FFTInverse(pol, DIF, WithCoset())
-			domainWithPrecompute.FFT(pol, DIT, WithCoset())
+			domainWithPrecompute.FFTInverse(pol, DIF, OnCoset())
+			domainWithPrecompute.FFT(pol, DIT, OnCoset())
 
 			for i := 0; i < len(pol); i++ {
 				if !(pol[i].Equal(&backupPol[i])) {
@@ -221,8 +221,8 @@ func TestFFT(t *testing.T) {
 			}
 
 			// compute with nbTasks == 1
-			domainWithPrecompute.FFTInverse(pol, DIF, WithCoset(), WithNbTasks(1))
-			domainWithPrecompute.FFT(pol, DIT, WithCoset(), WithNbTasks(1))
+			domainWithPrecompute.FFTInverse(pol, DIF, OnCoset(), WithNbTasks(1))
+			domainWithPrecompute.FFT(pol, DIT, OnCoset(), WithNbTasks(1))
 
 			for i := 0; i < len(pol); i++ {
 				if !(pol[i].Equal(&backupPol[i])) {
@@ -284,7 +284,7 @@ func BenchmarkFFT(b *testing.B) {
 			domain := NewDomain(uint64(sizeDomain))
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				domain.FFT(pol[:sizeDomain], DIT, WithCoset())
+				domain.FFT(pol[:sizeDomain], DIT, OnCoset())
 			}
 		})
 	}
@@ -304,7 +304,7 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		domain.FFT(pol, DIT, WithCoset())
+		domain.FFT(pol, DIT, OnCoset())
 	}
 }
 
