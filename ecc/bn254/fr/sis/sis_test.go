@@ -25,6 +25,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type sisParams struct {
+	logTwoBound, logTwoDegree int
+}
+
+var params128Bits []sisParams = []sisParams{
+	{logTwoBound: 2, logTwoDegree: 3},
+	{logTwoBound: 4, logTwoDegree: 4},
+	{logTwoBound: 6, logTwoDegree: 5},
+	{logTwoBound: 10, logTwoDegree: 6},
+	{logTwoBound: 16, logTwoDegree: 7},
+	{logTwoBound: 32, logTwoDegree: 8},
+}
+
 func TestReference(t *testing.T) {
 	if bits.UintSize == 32 {
 		t.Skip("skipping this test in 32bit.")
@@ -36,24 +49,10 @@ func TestReference(t *testing.T) {
 		degree      = 4
 	)
 
-	var shift fr.Element
-	shift.SetString("19540430494807482326159819597004422086093766032135589407132600596362845576832")
-	domain := fft.NewDomain(uint64(degree), shift)
-
 	sis, err := NewRSis(5, 2, logTwoBound, 1)
 	assert.NoError(err)
 	ssis := sis.(*RSis)
-
-	// generate the key deterministically
-	var seed, one fr.Element
-	one.SetOne()
-	seed.SetUint64(5)
-	for i := 0; i < len(ssis.A); i++ {
-		ssis.A[i] = polyRand(seed, degree)
-		copy(ssis.Ag[i], ssis.A[i])
-		domain.FFT(ssis.Ag[i], fft.DIF, fft.OnCoset())
-		seed.Add(&seed, &one)
-	}
+	makeKeyDeterminitic(t, ssis)
 
 	// message to hash
 	var m fr.Element
@@ -121,31 +120,29 @@ func TestMulMod(t *testing.T) {
 
 }
 
-func pRand(seed *fr.Element) *fr.Element {
-	var a fr.Element
-	return a.Square(seed)
-}
+func makeKeyDeterminitic(t *testing.T, ssis *RSis) {
+	t.Helper()
+	// generate the key deterministically, the same way
+	// we do in sage to generate the test vectors.
 
-func polyRand(seed fr.Element, deg int) []fr.Element {
-	res := make([]fr.Element, deg)
-	for i := 0; i < deg; i++ {
-		res[i].Set(pRand(&seed))
-		seed.Set(&res[i])
+	polyRand := func(seed fr.Element, deg int) []fr.Element {
+		res := make([]fr.Element, deg)
+		for i := 0; i < deg; i++ {
+			res[i].Square(&seed)
+			seed.Set(&res[i])
+		}
+		return res
 	}
-	return res
-}
 
-type sisParams struct {
-	logTwoBound, logTwoDegree int
-}
-
-var params128Bits []sisParams = []sisParams{
-	{logTwoBound: 2, logTwoDegree: 3},
-	{logTwoBound: 4, logTwoDegree: 4},
-	{logTwoBound: 6, logTwoDegree: 5},
-	{logTwoBound: 10, logTwoDegree: 6},
-	{logTwoBound: 16, logTwoDegree: 7},
-	{logTwoBound: 32, logTwoDegree: 8},
+	var seed, one fr.Element
+	one.SetOne()
+	seed.SetUint64(5)
+	for i := 0; i < len(ssis.A); i++ {
+		ssis.A[i] = polyRand(seed, ssis.Degree)
+		copy(ssis.Ag[i], ssis.A[i])
+		ssis.Domain.FFT(ssis.Ag[i], fft.DIF, fft.OnCoset())
+		seed.Add(&seed, &one)
+	}
 }
 
 const (

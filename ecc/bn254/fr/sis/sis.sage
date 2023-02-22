@@ -1,4 +1,5 @@
 r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+frByteSize = 32
 Fr = GF(r)
 Fr.<x> = Fr[]
 
@@ -94,20 +95,34 @@ def polyRand(seed, n):
     return buildPoly(a)
 
 
+
 # SIS
 class Sis:
-    def __init__(self, seed, size, degree, logTwoBound):
+    def __init__(self, seed, logTwoDegree, logTwoBound, maxNbElementsToHash):
         """
             Args:
-                size: size of the key
-                degree: degree of the polynomials
+                seed
+                logTwoDegree: 
                 logTwoBound: bound of SIS
+                maxNbElementsToHash
         """
+        capacity = maxNbElementsToHash * frByteSize
+        degree = 1 << logTwoDegree
+        
+        n = capacity * 8 / logTwoBound # number of coefficients
+        if n%degree == 0: # check how sage / python rounds the int div.
+            n = n / degree
+        else:
+            n = n / degree
+            n = n + 1
+
+        n = int(n)
+        
         self.logTwoBound = logTwoBound
         self.degree = degree
-        self.size = size
-        self.key = size * [0]
-        for i in range(size):
+        self.size = n
+        self.key = n * [0]
+        for i in range(n):
             self.key[i] = polyRand(seed, self.degree)
             seed+=1
 
@@ -134,7 +149,15 @@ class Sis:
 
 # c1 = 19540430494807482326159819597004422086093766032135589407132600596362845576832
 # e1 = Fr(c1)
-h1 = Sis(5, 16, 4,4)
+h1 = Sis(5, 2, 4,1)
 m = Fr(21888242871839275222246405745257275088548364400416034343698204186575808495614)
-mb = toBytes(m, 32)
-print(h1.hash(mb))
+rz = IntegerRing()
+mb = toBytes(rz(m), 32)
+hr = h1.hash(mb)
+coeffs = hr.coefficients()
+for v in coeffs:
+        bb = toBytes(rz(v), 32)
+        for b in bb:
+            print(hex(b))
+
+# print(hr.coefficients())
