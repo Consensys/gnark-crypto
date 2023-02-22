@@ -59,6 +59,7 @@ func TestReference(t *testing.T) {
 	}
 	assert := require.New(t)
 
+	// read the test case file
 	var testCases TestCases
 	data, err := ioutil.ReadFile("test_cases.json")
 	assert.NoError(err, "reading test cases failed")
@@ -69,11 +70,16 @@ func TestReference(t *testing.T) {
 		// create the SIS instance
 		sis, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, testCase.Params.MaxNbElementsToHash)
 		assert.NoError(err)
+
+		// key generation same than in sage
 		makeKeyDeterminitic(t, sis, testCase.Params.Seed)
 
 		for i, in := range testCases.Inputs {
 			sis.Reset()
-			got := sis.Hash(in)
+
+			// hash test case entry input and compare with expected (computed by sage)
+			got, err := sis.Hash(in)
+			assert.NoError(err)
 			if len(testCase.Expected[i]) == 0 {
 				for _, e := range got {
 					assert.True(e.IsZero(), "mismatch between reference test and computed value")
@@ -88,7 +94,8 @@ func TestReference(t *testing.T) {
 				assert.NoError(err)
 				makeKeyDeterminitic(t, sis2, testCase.Params.Seed)
 
-				got2 := sis2.Hash(in)
+				got2, err := sis2.Hash(in)
+				assert.NoError(err)
 				if len(testCase.Expected[i]) == 0 {
 					for _, e := range got2 {
 						assert.True(e.IsZero(), "mismatch between reference test and computed value")
@@ -216,25 +223,20 @@ func BenchmarkSIS(b *testing.B) {
 	for i := 0; i < len(inputs); i++ {
 		inputs[i].SetRandom()
 	}
-	bInputs, err := inputs.MarshalBinary()
-	if err != nil {
-		b.Fatal(err)
-	}
-	bInputs = bInputs[4:] // ignore first 4 bytes that encode len.
 
 	for _, param := range params128Bits {
 		for n := 1 << 10; n <= nbInputs; n <<= 1 {
-			in := bInputs[:n*fr.Bytes]
+			in := inputs[:n]
 			benchmarkSIS(b, in, false, param.logTwoBound, param.logTwoDegree, estimateSisTheory(param))
 		}
 
 	}
 }
 
-func benchmarkSIS(b *testing.B, input []byte, sparse bool, logTwoBound, logTwoDegree int, theoritical float64) {
+func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoritical float64) {
 	b.Helper()
 
-	n := len(input) / fr.Bytes
+	n := len(input)
 
 	benchName := "ring-sis/"
 	if sparse {
@@ -252,12 +254,13 @@ func benchmarkSIS(b *testing.B, input []byte, sparse bool, logTwoBound, logTwoDe
 		// Since the benchmark object allows to report extra meta but does
 		// not allow accessing them. We measure the time ourself.
 
-		instance.Write(input)
-
 		startTime := time.Now()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = instance.Sum(nil)
+			_, err = instance.Hash(input)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 		b.StopTimer()
 

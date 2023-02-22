@@ -367,8 +367,8 @@ func TestAppendSis(t *testing.T) {
 
 	logTwoDegree := 1
 	logTwoBound := 4
-	keySize := 256
-	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, keySize)
+	// keySize := 256
+	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,8 +434,7 @@ func TestCommitmentSis(t *testing.T) {
 
 	logTwoDegree := 1
 	logTwoBound := 4
-	keySize := 256
-	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, keySize)
+	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,21 +511,16 @@ func TestCommitmentSis(t *testing.T) {
 func BenchmarkTensorCommitment(b *testing.B) {
 
 	// prepare the tensor commitment
-	sizeFr := 256
 	logTwoDegree := 4
 	logTwoBound := 4
 	rho := 4
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 6; i++ {
 
 		nbColumns := (1 << (3 + i))
 		nbRows := nbColumns
 
-		// (sqrtSizePoly * sizeFr) = nbBitsToHash
-		// nbBitsToHash / (logTwoBound * degree) = nb coeffs to pack
-		sizeKey := (nbColumns * sizeFr) / (logTwoBound * (1 << logTwoDegree))
-
-		h, _ := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, sizeKey)
+		h, _ := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, nbRows)
 		params, _ := NewTCParams(rho, nbColumns, nbRows, h)
 		tc := NewTensorCommitment(params)
 
