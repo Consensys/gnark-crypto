@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"hash"
+	"io"
 	"math/big"
 	"math/bits"
 
@@ -71,7 +72,7 @@ type RSis struct {
 // logTwoBound: the bound of the vector to hash (using the infinity norm).
 // maxNbElementsToHash: maximum number of field elements the instance handles
 // used to derived n, the number of polynomials in A, and max size of instance's internal buffer.
-func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (hash.Hash, error) {
+func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*RSis, error) {
 
 	if logTwoBound > 64 {
 		return nil, errors.New("logTwoBound too large")
@@ -139,6 +140,27 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (ha
 	// in tensor-commitment we may not want to do that.
 
 	return r, nil
+}
+
+// Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
+// and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
+//
+// It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
+func (r *RSis) Hash(v []fr.Element) []fr.Element {
+	// v1; just call existing functions
+	for _, e := range v {
+		r.Write(e.Marshal())
+	}
+	sum := r.Sum(nil)
+	var rlen [4]byte
+	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/fr.Bytes))
+	reader := io.MultiReader(bytes.NewReader(rlen[:]), bytes.NewReader(sum))
+	var result fr.Vector
+	_, err := result.ReadFrom(reader)
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
 
 func (r *RSis) Write(p []byte) (n int, err error) {

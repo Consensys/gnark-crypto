@@ -15,7 +15,9 @@
 package sis
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/bits"
 	"testing"
 	"time"
@@ -38,43 +40,66 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 32, logTwoDegree: 8},
 }
 
+type TestCases struct {
+	Inputs  [][]fr.Element `json:"inputs"`
+	Entries []struct {
+		Params struct {
+			Seed                int64 `json:"seed"`
+			LogTwoDegree        int   `json:"logTwoDegree"`
+			LogTwoBound         int   `json:"logTwoBound"`
+			MaxNbElementsToHash int   `json:"maxNbElementsToHash"`
+		} `json:"params"`
+		Expected [][]fr.Element `json:"expected"`
+	} `json:"entries"`
+}
+
 func TestReference(t *testing.T) {
 	if bits.UintSize == 32 {
 		t.Skip("skipping this test in 32bit.")
 	}
 	assert := require.New(t)
 
-	const (
-		logTwoBound = 4
-		degree      = 4
-	)
+	var testCases TestCases
+	data, err := ioutil.ReadFile("test_cases.json")
+	assert.NoError(err, "reading test cases failed")
+	err = json.Unmarshal(data, &testCases)
+	assert.NoError(err, "reading test cases failed")
 
-	sis, err := NewRSis(5, 2, logTwoBound, 1)
-	assert.NoError(err)
-	ssis := sis.(*RSis)
-	makeKeyDeterminitic(t, ssis)
+	for _, testCase := range testCases.Entries {
+		// create the SIS instance
+		sis, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, testCase.Params.MaxNbElementsToHash)
+		assert.NoError(err)
+		makeKeyDeterminitic(t, sis, testCase.Params.Seed)
 
-	// message to hash
-	var m fr.Element
-	m.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495614")
-	_, err = ssis.Write(m.Marshal())
-	assert.NoError(err)
+		for i, in := range testCases.Inputs {
+			sis.Reset()
+			got := sis.Hash(in)
+			if len(testCase.Expected[i]) == 0 {
+				for _, e := range got {
+					assert.True(e.IsZero(), "mismatch between reference test and computed value")
+				}
+			} else {
+				assert.EqualValues(testCase.Expected[i], got, "mismatch between reference test and computed value")
+			}
 
-	got := ssis.Sum(nil)
+			// ensure max nb elements to hash has no incidence on result.
+			if len(in) < testCase.Params.MaxNbElementsToHash {
+				sis2, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, len(in))
+				assert.NoError(err)
+				makeKeyDeterminitic(t, sis2, testCase.Params.Seed)
 
-	// compare expected against computed
-	expected := []byte{0x17, 0xcd, 0xe4, 0x27, 0xaa, 0x1, 0x3e, 0xd1, 0xc5, 0x4d, 0x1, 0xef, 0xa4, 0x6b, 0x6, 0xfc, 0xc4, 0xbe, 0x86, 0x91, 0xfc, 0xd7, 0x4a, 0xcf, 0x33, 0x8d, 0xc0, 0x80, 0xa1, 0x86, 0x7, 0x3b, 0xd, 0x50, 0x3d, 0x4, 0xa9, 0x88, 0xd5, 0xd3, 0x1c, 0x85, 0xe9, 0xea, 0x22, 0x6f, 0xc0, 0xac, 0x8c, 0xa4, 0xc4, 0x5f, 0x3b, 0x65, 0xac, 0xfc, 0xd8, 0x53, 0xf1, 0xf8, 0xf5, 0xe2, 0x6f, 0x9d, 0x23, 0xb9, 0x8b, 0x41, 0xb3, 0xab, 0xbd, 0x38, 0x28, 0xd8, 0xe6, 0x54, 0xee, 0x5f, 0x17, 0x43, 0xf9, 0x9b, 0x51, 0x2d, 0xfb, 0xeb, 0xc8, 0x60, 0x6c, 0x9a, 0x2d, 0xaa, 0x1c, 0xc0, 0x49, 0xa8, 0x12, 0xad, 0xc0, 0x9, 0x27, 0x9a, 0x90, 0xea, 0x95, 0x68, 0x57, 0x3f, 0x3a, 0x3d, 0xc1, 0x19, 0x63, 0xcb, 0xcc, 0x35, 0xd3, 0x18, 0xa5, 0x7c, 0x18, 0x71, 0xf7, 0xec, 0xd1, 0x2, 0xab, 0xa5}
-	assert.EqualValues(expected, got, "hash does not match expected result")
+				got2 := sis2.Hash(in)
+				if len(testCase.Expected[i]) == 0 {
+					for _, e := range got2 {
+						assert.True(e.IsZero(), "mismatch between reference test and computed value")
+					}
+				} else {
+					assert.EqualValues(got, got2, "max nb elements to hash change SIS result")
+				}
+			}
 
-	// [ Sage comparison ]
-	// m = Fr(21888242871839275222246405745257275088548364400416034343698204186575808495614)
-	// mb = toBytes(m)
-	// mb = toBytes(m, 32)
-	// sis = Sis(5, 16, 4,4)
-	// h = sis.sum(mc)
-	// res =[]
-	// for i in range(4):
-	// 		res += toBytes(lift(h.coefficients()[i]), 32)
+		}
+	}
 
 }
 
@@ -120,7 +145,7 @@ func TestMulMod(t *testing.T) {
 
 }
 
-func makeKeyDeterminitic(t *testing.T, ssis *RSis) {
+func makeKeyDeterminitic(t *testing.T, sis *RSis, _seed int64) {
 	t.Helper()
 	// generate the key deterministically, the same way
 	// we do in sage to generate the test vectors.
@@ -136,11 +161,11 @@ func makeKeyDeterminitic(t *testing.T, ssis *RSis) {
 
 	var seed, one fr.Element
 	one.SetOne()
-	seed.SetUint64(5)
-	for i := 0; i < len(ssis.A); i++ {
-		ssis.A[i] = polyRand(seed, ssis.Degree)
-		copy(ssis.Ag[i], ssis.A[i])
-		ssis.Domain.FFT(ssis.Ag[i], fft.DIF, fft.OnCoset())
+	seed.SetInt64(_seed)
+	for i := 0; i < len(sis.A); i++ {
+		sis.A[i] = polyRand(seed, sis.Degree)
+		copy(sis.Ag[i], sis.A[i])
+		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
 		seed.Add(&seed, &one)
 	}
 }
