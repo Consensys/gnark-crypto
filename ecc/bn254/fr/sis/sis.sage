@@ -49,7 +49,7 @@ def toBytes(m, s):
     res = s*[0]
     mask = 255
     for i in range(s):
-        res[s-1-i] = m & mask
+        res[s-1-i] = m & 255
         m = m>>8
     return res
 
@@ -132,3 +132,9 @@ class Sis:
         res = res % modulo
         return res
 
+# c1 = 19540430494807482326159819597004422086093766032135589407132600596362845576832
+# e1 = Fr(c1)
+h1 = Sis(5, 16, 4,4)
+m = Fr(21888242871839275222246405745257275088548364400416034343698204186575808495614)
+mb = toBytes(m, 32)
+print(h1.hash(mb))
