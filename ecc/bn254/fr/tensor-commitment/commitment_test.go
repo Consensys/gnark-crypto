@@ -17,11 +17,13 @@ package tensorcommitment
 import (
 	"hash"
 	"math/big"
+	"math/bits"
 	"strconv"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sis"
+	"github.com/stretchr/testify/require"
 )
 
 type DummyHash uint
@@ -50,15 +52,21 @@ func DummyHashMaker() hash.Hash {
 }
 
 func TestAppend(t *testing.T) {
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
+
+	assert := require.New(t)
 
 	// tensor commitment
-	rho := 4
-	nbRows := 10
-	nbColumns := 16
+	const (
+		rho       = 4
+		nbRows    = 10
+		nbColumns = 16
+	)
 	params, err := NewTCParams(rho, nbColumns, nbRows, DummyHashMaker)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
+
 	tc := NewTensorCommitment(params)
 
 	{
@@ -68,15 +76,11 @@ func TestAppend(t *testing.T) {
 			p[i].SetRandom()
 		}
 		_, err := tc.Append(p)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(err)
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.State[i][0].Equal(&p[i]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][0].Equal(&p[i]), "a column is not filled correctly")
 		}
 
 	}
@@ -89,15 +93,11 @@ func TestAppend(t *testing.T) {
 			p[i].SetRandom()
 		}
 		_, err := tc.Append(p)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(err)
 
 		// check if p corresponds to the second column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.State[i][1].Equal(&p[i]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][1].Equal(&p[i]), "a column is not filled correctly")
 		}
 	}
 
@@ -110,20 +110,14 @@ func TestAppend(t *testing.T) {
 			p[i].SetRandom()
 		}
 		_, err := tc.Append(p)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(err)
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.State[i][2].Equal(&p[i]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][2].Equal(&p[i]), "a column is not filled correctly")
 		}
 		for i := 0; i < offset; i++ {
-			if !tc.State[i][3].Equal(&p[i+nbRows]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][3].Equal(&p[i+nbRows]), "a column is not filled correctly")
 		}
 	}
 
@@ -136,20 +130,14 @@ func TestAppend(t *testing.T) {
 			p[i].SetRandom()
 		}
 		_, err := tc.Append(p)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(err)
 
 		// check if p corresponds to the first column of the state
 		for i := 0; i < nbRows; i++ {
-			if !tc.State[i][4].Equal(&p[i]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][4].Equal(&p[i]), "a column is not filled correctly")
 		}
 		for i := 0; i < offset; i++ {
-			if !tc.State[i][5].Equal(&p[i+nbRows]) {
-				t.Fatal("a column is not filled correctly")
-			}
+			assert.True(tc.State[i][5].Equal(&p[i+nbRows]), "a column is not filled correctly")
 		}
 	}
 
@@ -418,7 +406,9 @@ func TestAppendSis(t *testing.T) {
 
 // Test the verification of a correct proof using SIS as hash
 func TestCommitmentSis(t *testing.T) {
-
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
 	var rho, nbColumns, nbRows int
 	rho = 4
 	nbColumns = 8
