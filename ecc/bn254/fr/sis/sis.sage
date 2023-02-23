@@ -6,6 +6,7 @@ import json
 # BN254 Fr
 r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 frByteSize = 32
+gfr = GF(r)
 Fr = GF(r)
 Fr.<x> = Fr[]
 rz = IntegerRing()
@@ -26,9 +27,9 @@ def buildPoly(a):
         a[0]+a[1]*X + .. + a[n]*X**n
     """
 
-    res = 0
+    res = Fr(0)
     for i, v in enumerate(a):
-        res += v*x**i
+        res += Fr(v)*x**i
     return res
 
 
@@ -98,7 +99,7 @@ def polyRand(seed, n):
         seed: seed for the pseudo random gen
         n: degree of the polynomial
     """
-
+    seed = gfr(seed)
     a = n*[0]
     for i in range(n):
         a[i] = seed**2
@@ -193,11 +194,11 @@ params = [
     SISParams(5, 2, 3, 10),
     SISParams(5, 4, 3, 10),
     SISParams(5, 4, 4, 10),
-    # SISParams(5, 5, 4, 10), --> too slow.
-    # SISParams(5, 6, 5, 10),
-    # SISParams(5, 10, 6, 10),
-    # SISParams(5, 16, 7, 10),
-    # SISParams(5, 32, 8, 10),
+    SISParams(5, 5, 4, 10),
+    SISParams(5, 6, 5, 10),
+    SISParams(5, 10, 6, 10),
+    SISParams(5, 11, 7, 10),
+    SISParams(5, 12, 7, 10),
 ]
 
 inputs = [
@@ -213,7 +214,6 @@ inputs = [
 ]
 
 # sprinkle some random elements
-gfr = GF(r)
 for i in range(10):
     line = []
     for j in range(i):
