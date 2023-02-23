@@ -15,6 +15,7 @@
 package tensorcommitment
 
 import (
+	"bytes"
 	"errors"
 	"hash"
 	"math/big"
@@ -422,17 +423,6 @@ func evalAtPower(p []fr.Element, x fr.Element, n int) fr.Element {
 
 }
 
-func cmpBytes(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	t := true
-	for i := 0; i < len(a); i++ {
-		t = t && (a[i] == b[i])
-	}
-	return t
-}
-
 // Verify a proof that digest is the hash of a  polynomial given a proof
 // proof: contains the linear combination of the non-encoded rows + the
 // digest: hash of the polynomial
@@ -457,7 +447,7 @@ func Verify(proof Proof, digest Digest, l []fr.Element, h hash.Hash) error {
 			h.Write(proof.Columns[i][j].Marshal())
 		}
 		s := h.Sum(nil)
-		if !cmpBytes(s, digest[proof.EntryList[i]]) {
+		if !bytes.Equal(s, digest[proof.EntryList[i]]) {
 			return ErrProofFailedHash
 		}
 

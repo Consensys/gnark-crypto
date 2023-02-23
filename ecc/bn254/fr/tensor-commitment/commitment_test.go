@@ -15,6 +15,7 @@
 package tensorcommitment
 
 import (
+	"bytes"
 	"hash"
 	"math/big"
 	"math/bits"
@@ -339,24 +340,26 @@ func TestOpeningDummyHash(t *testing.T) {
 
 // Check the commitments are correctly formed when appending a polynomial
 func TestAppendSis(t *testing.T) {
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
+	const (
+		rho          = 4
+		nbColumns    = 8
+		nbRows       = 8
+		logTwoDegree = 1
+		logTwoBound  = 4
+	)
 
-	var rho, nbColumns, nbRows int
-	rho = 4
-	nbColumns = 8
-	nbRows = 8
+	assert := require.New(t)
 
-	logTwoDegree := 1
-	logTwoBound := 4
 	// keySize := 256
 	hMaker, err := sis.NewRingSISMaker(5, logTwoDegree, logTwoBound, 8)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
 	params, err := NewTCParams(rho, nbColumns, nbRows, hMaker)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
+
 	tc := NewTensorCommitment(params)
 
 	// random polynomial (that does not fill the full matrix)
@@ -367,13 +370,9 @@ func TestAppendSis(t *testing.T) {
 	}
 
 	s, err := tc.Append(p)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
-	if len(s) != nbColumns {
-		t.Fatalf("Expected %v columns, but got %v\n", nbColumns, len(s))
-	}
+	assert.Equal(nbColumns, len(s))
 
 	// check the hashes of the columns
 	h := hMaker()
@@ -383,9 +382,7 @@ func TestAppendSis(t *testing.T) {
 			h.Write(p[i*nbRows+j].Marshal())
 		}
 		_s := h.Sum(nil)
-		if !cmpBytes(_s, s[i]) {
-			t.Fatalf("error hash column when appending a polynomial for column %v", i)
-		}
+		assert.True(bytes.Equal(_s, s[i]), "error hash column when appending a polynomial for column", i)
 	}
 
 	// last column
@@ -398,10 +395,7 @@ func TestAppendSis(t *testing.T) {
 		h.Write(tmp.Marshal())
 	}
 	_s := h.Sum(nil)
-	if !cmpBytes(_s, s[nbColumns-1]) {
-		t.Fatal("error hash column when appending a polynomial")
-	}
-
+	assert.True(bytes.Equal(_s, s[nbColumns-1]), "error hash column when appending a polynomial")
 }
 
 // Test the verification of a correct proof using SIS as hash
