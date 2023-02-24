@@ -172,6 +172,8 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
+	// Say buf=[0xbe,0x0f]. As a stream of bits it is interpreted like this:
+	// 10111110 00001111. BitAt(0)=1 (=leftmost bit), bitAt(1)=0 (=second leftmost bit), etc.
 	nbBits := len(buf) * 8
 	bitAt := func(i int) uint8 {
 		k := i / 8
