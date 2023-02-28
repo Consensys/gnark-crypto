@@ -145,3 +145,8 @@ func Generators() (g1Jac G1Jac, g2Jac G2Jac, g1Aff G1Affine, g2Aff G2Affine) {
 	g2Jac = g2Gen
 	return
 }
+
+// CurveCoefficients returns the a, b coefficients of the curve equation.
+func CurveCoefficients() (a, b fp.Element) {
+	return a, bCurveCoeff
+}
