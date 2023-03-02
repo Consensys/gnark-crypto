@@ -18,10 +18,11 @@ package ecdsa
 
 import (
 	"crypto/subtle"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"io"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/secp256k1"
+	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 )
 
 // Bytes returns the binary representation of the public key

@@ -62,6 +62,31 @@ func TestECDSA(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+func TestRecoverPublicKey(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+	properties.Property("[STARK-CURVE] test public key recover", prop.ForAll(
+		func() bool {
+			sk, err := GenerateKey(rand.Reader)
+			if err != nil {
+				return false
+			}
+			pk := sk.PublicKey
+			msg := []byte("test")
+			v, r, s, err := sk.SignForRecover(msg, nil)
+			if err != nil {
+				return false
+			}
+			var recovered PublicKey
+			if err = recovered.RecoverFrom(msg, v, r, s); err != nil {
+				return false
+			}
+			return pk.Equal(&recovered)
+		},
+	))
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 // ------------------------------------------------------------
 // benches
@@ -86,5 +111,22 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		privKey.PublicKey.Verify(sig, msg, nil)
+	}
+}
+func BenchmarkRecoverPublicKey(b *testing.B) {
+	sk, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	msg := []byte("bench")
+	v, r, s, err := sk.SignForRecover(msg, sha256.New())
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		var recovered PublicKey
+		if err = recovered.RecoverFrom(msg, v, r, s); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

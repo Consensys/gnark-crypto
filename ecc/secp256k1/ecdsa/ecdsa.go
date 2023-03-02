@@ -119,7 +119,6 @@ func RecoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
 		return nil, errors.New("r is negative")
 	}
 	x := new(big.Int).Set(r)
-
 	// if x is r or r+N
 	xChoice := (v & 2) >> 1
 	// if y is y or -y
@@ -242,6 +241,8 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 //
 // SEC 1, Version 2.0, Section 4.1.3
 func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v uint, r, s *big.Int, err error) {
+	halfp := new(big.Int).Sub(fp.Modulus(), big.NewInt(1))
+	halfp.Div(halfp, big.NewInt(2))
 	r, s = new(big.Int), new(big.Int)
 
 	scalar, kInv := new(big.Int), new(big.Int)
@@ -264,8 +265,10 @@ func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v ui
 			P.X.BigInt(r)
 			// set how many times we overflow the scalar field
 			v |= (uint(new(big.Int).Div(r, order).Uint64())) << 1
-			// set if high bit is 1 or 0
-			v |= P.Y.BigInt(new(big.Int)).Bit(fp.Modulus().BitLen() - 1)
+			// set if y is small or big
+			if P.Y.BigInt(new(big.Int)).Cmp(halfp) >= 0 {
+				v |= 1
+			}
 
 			r.Mod(r, order)
 			if r.Sign() != 0 {
