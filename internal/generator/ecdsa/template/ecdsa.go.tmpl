@@ -113,7 +113,7 @@ func RecoverP(v uint, r *big.Int) (*{{ .CurvePackage }}.G1Affine, error) {
 	    return nil, errors.New("r is negative")
 	}
 	x := new(big.Int).Set(r)
-	{{/* actually we want use a mask which corresponds to maximum cofactor of the curve. But this is when
+	{{- /* actually we want use a mask which corresponds to maximum cofactor of the curve. But this is when
 	we generalize the implementation over arbitrary curve.*/}}
 	// if x is r or r+N
 	xChoice := (v & 2) >> 1
