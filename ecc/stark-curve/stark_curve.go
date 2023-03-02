@@ -36,6 +36,9 @@ import (
 // ID stark_curve ID
 const ID = ecc.STARK_CURVE
 
+// aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
+var aCurveCoeff fp.Element
+
 // bCurveCoeff b coeff of the curve Y²=X³+x+b
 var bCurveCoeff fp.Element
 
@@ -48,7 +51,7 @@ var g1GenAff G1Affine
 var g1Infinity G1Jac
 
 func init() {
-
+	aCurveCoeff.SetUint64(1)
 	bCurveCoeff.SetString("3141592653589793238462643383279502884197169399375105820974944592307816406665")
 
 	g1Gen.X.SetString("874739451078007766457464989774322083649278607533249481151382481072868806602")
@@ -72,5 +75,5 @@ func Generators() (g1Jac G1Jac, g1Aff G1Affine) {
 
 // CurveCoefficients returns the a, b coefficients of the curve equation.
 func CurveCoefficients() (a, b fp.Element) {
-	return a, bCurveCoeff
+	return aCurveCoeff, bCurveCoeff
 }
