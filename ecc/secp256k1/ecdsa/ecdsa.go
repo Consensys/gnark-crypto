@@ -33,10 +33,6 @@ import (
 	"github.com/consensys/gnark-crypto/signature"
 )
 
-var (
-	errNoSqrt = errors.New("no square root")
-)
-
 const (
 	sizeFr         = fr.Bytes
 	sizeFp         = fp.Bytes
@@ -116,9 +112,16 @@ func HashToInt(hash []byte) *big.Int {
 // It uses the recovery information v and part of the decomposed signature r. It
 // is used internally for recovering the public key.
 func RecoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
+	if r.Cmp(fr.Modulus()) >= 0 {
+		return nil, errors.New("r is larger than modulus")
+	}
+	if r.Cmp(big.NewInt(0)) <= 0 {
+		return nil, errors.New("r is negative")
+	}
 	x := new(big.Int).Set(r)
+
 	// if x is r or r+N
-	xChoice := (v & 15) >> 1
+	xChoice := (v & 2) >> 1
 	// if y is y or -y
 	yChoice := v & 1
 	// decompose limbs into big.Int value
@@ -136,7 +139,7 @@ func RecoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
 	y.Mod(y, fp.Modulus())
 	// y = sqrt(y^2)
 	if y.ModSqrt(y, fp.Modulus()) == nil {
-		return nil, errNoSqrt
+		return nil, errors.New("no square root")
 	}
 	// y2 is -y
 	y2 := new(big.Int).Sub(fp.Modulus(), y)
