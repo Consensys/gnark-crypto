@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
-	{{- if eq .Name "secp256k1" }}
+	{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
 	"errors"
 	{{- end }}
 	"hash"
@@ -101,7 +101,7 @@ func HashToInt(hash []byte) *big.Int {
 	return ret
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
 // RecoverP recovers the value P (prover commitment) when creating a signature.
 // It uses the recovery information v and part of the decomposed signature r. It
 // is used internally for recovering the public key.
@@ -228,7 +228,7 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 	return &pub
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
 // SignForRecover performs the ECDSA signature and returns public key recovery information
 //
 // k ← 𝔽r (random)

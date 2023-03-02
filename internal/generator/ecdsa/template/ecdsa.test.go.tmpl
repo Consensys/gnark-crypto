@@ -45,7 +45,7 @@ func TestECDSA(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
 func TestRecoverPublicKey(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -99,7 +99,7 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 	}
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
 func BenchmarkRecoverPublicKey(b *testing.B) {
 	sk, err := GenerateKey(rand.Reader)
 	if err != nil {
