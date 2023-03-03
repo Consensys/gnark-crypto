@@ -216,7 +216,7 @@ func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
 // DecompressKarabina Karabina's cyclotomic square result
 // if g3 != 0
 //
-//	g4 = (E * g5^2 + 3 * g1^2 - 2 * g2)/4g3
+//	g4 = (E * g5² + 3 * g1² - 2 * g2)/4g3
 //
 // if g3 == 0
 //
@@ -239,13 +239,13 @@ func (z *E6) DecompressKarabina(x *E6) *E6 {
 
 		// g3 != 0
 	} else {
-		// t0 = g1^2
+		// t0 = g1²
 		t[0].Square(&x.B0.A1)
-		// t1 = 3 * g1^2 - 2 * g2
+		// t1 = 3 * g1² - 2 * g2
 		t[1].Sub(&t[0], &x.B0.A2).
 			Double(&t[1]).
 			Add(&t[1], &t[0])
-		// t0 = E * g5^2 + t1
+		// t0 = E * g5² + t1
 		t[2].Square(&x.B1.A2)
 		t[0].MulByNonResidue(&t[2]).
 			Add(&t[0], &t[1])
@@ -614,12 +614,58 @@ func (z *E6) SetBytes(e []byte) error {
 }
 
 // IsInSubGroup ensures GT/E6 is in correct sugroup
-// TODO: optimize
 func (z *E6) IsInSubGroup() bool {
-	var one, _z E6
-	one.SetOne()
-	_z.Exp(*z, fr.Modulus())
-	return _z.Equal(&one)
+	var tmp, a, _a, b E6
+	var t [6]E6
+
+	// check z^(Phi_k(p)) == 1
+	a.Frobenius(z)
+	b.Frobenius(&a).Mul(&b, z)
+
+	if !a.Equal(&b) {
+		return false
+	}
+
+	// check z^(p+1-t) == 1
+	_a.Frobenius(z)
+	a.CyclotomicSquare(&_a).Mul(&a, &_a) // z^(3p)
+
+	// t(x)-1 = (-x⁶ + 5x⁵ - 9x⁴ + 7x³ - 4x + 5)/3
+	t[0].CyclotomicSquare(z).
+		CyclotomicSquare(&t[0]) // z^4
+	t[1].Mul(&t[0], z) //z^5*
+	t[2].Expt(&t[0]).
+		Conjugate(&t[2]) // z^(-4u)*
+	tmp.CyclotomicSquare(&t[2]).
+		Expt(&tmp).
+		Expt(&tmp) // z^(-8u^3)
+	t[4].Expt(z).
+		Expt(&t[4]).
+		Expt(&t[4]) // z^(u^3)
+	t[3].Mul(&t[4], &tmp).
+		Conjugate(&t[3]) // z^(7u^3)*
+	t[4].Conjugate(&t[4]).
+		Mul(&t[4], &tmp).
+		Expt(&t[4]) // z^(-9u^4)*
+	t[5].Expt(&tmp).
+		Conjugate(&t[5]).
+		Mul(&t[5], &t[4]).
+		Expt(&t[5]) // z^(-u^5)
+	t[0].Expt(&t[5]) // z^(-u^6)*
+	tmp.Expt(&t[4])  // z^(-9u^5)
+	t[5].CyclotomicSquare(&t[5]).
+		CyclotomicSquare(&t[5]).
+		Conjugate(&t[5]).
+		Mul(&t[5], &tmp).
+		Conjugate(&t[5]) // z^(5u^5)*
+
+	b.Mul(&t[1], &t[2]).
+		Mul(&b, &t[3]).
+		Mul(&b, &t[4]).
+		Mul(&b, &t[5]).
+		Mul(&b, &t[0]) // z^(3(t-1))
+
+	return a.Equal(&b)
 }
 
 // CompressTorus GT/E6 element to half its size
