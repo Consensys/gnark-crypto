@@ -33,8 +33,6 @@ import (
 	"github.com/consensys/gnark-crypto/signature"
 )
 
-var errInvalidSig = errors.New("invalid signature")
-
 const (
 	sizeFr         = fr.Bytes
 	sizeFp         = fp.Bytes
@@ -108,6 +106,54 @@ func HashToInt(hash []byte) *big.Int {
 		ret.Rsh(ret, uint(excess))
 	}
 	return ret
+}
+
+// RecoverP recovers the value P (prover commitment) when creating a signature.
+// It uses the recovery information v and part of the decomposed signature r. It
+// is used internally for recovering the public key.
+func RecoverP(v uint, r *big.Int) (*starkcurve.G1Affine, error) {
+	if r.Cmp(fr.Modulus()) >= 0 {
+		return nil, errors.New("r is larger than modulus")
+	}
+	if r.Cmp(big.NewInt(0)) <= 0 {
+		return nil, errors.New("r is negative")
+	}
+	x := new(big.Int).Set(r)
+	// if x is r or r+N
+	xChoice := (v & 2) >> 1
+	// if y is y or -y
+	yChoice := v & 1
+	// decompose limbs into big.Int value
+	// conditional +n based on xChoice
+	kn := big.NewInt(int64(xChoice))
+	kn.Mul(kn, fr.Modulus())
+	x.Add(x, kn)
+	// y^2 = x^3+ax+b
+	a, b := starkcurve.CurveCoefficients()
+	y := new(big.Int).Exp(x, big.NewInt(3), fp.Modulus())
+	if !a.IsZero() {
+		y.Add(y, new(big.Int).Mul(a.BigInt(new(big.Int)), x))
+	}
+	y.Add(y, b.BigInt(new(big.Int)))
+	y.Mod(y, fp.Modulus())
+	// y = sqrt(y^2)
+	if y.ModSqrt(y, fp.Modulus()) == nil {
+		return nil, errors.New("no square root")
+	}
+	// y2 is -y
+	y2 := new(big.Int).Sub(fp.Modulus(), y)
+	// if yChoice == 0, return min(y, y2), else max(y, y2)
+	if (y.Cmp(y2) < 0) == (yChoice == 0) {
+		return &starkcurve.G1Affine{
+			X: *new(fp.Element).SetBigInt(x),
+			Y: *new(fp.Element).SetBigInt(y),
+		}, nil
+	} else {
+		return &starkcurve.G1Affine{
+			X: *new(fp.Element).SetBigInt(x),
+			Y: *new(fp.Element).SetBigInt(y2),
+		}, nil
+	}
 }
 
 type zr struct{}
@@ -185,27 +231,31 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 	return &pub
 }
 
-// Sign performs the ECDSA signature
+// SignForRecover performs the ECDSA signature and returns public key recovery information
 //
 // k ← 𝔽r (random)
 // P = k ⋅ g1Gen
 // r = x_P (mod order)
 // s = k⁻¹ . (m + sk ⋅ r)
-// signature = {r, s}
+// v = (div(x_P, order)<<1) || y_P[-1]
 //
 // SEC 1, Version 2.0, Section 4.1.3
-func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
-	scalar, r, s, kInv := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
+func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v uint, r, s *big.Int, err error) {
+	halfp := new(big.Int).Sub(fp.Modulus(), big.NewInt(1))
+	halfp.Div(halfp, big.NewInt(2))
+	r, s = new(big.Int), new(big.Int)
+
+	scalar, kInv := new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
 	for {
 		for {
 			csprng, err := nonce(privKey, message)
 			if err != nil {
-				return nil, err
+				return 0, nil, nil, err
 			}
 			k, err := randFieldElement(csprng)
 			if err != nil {
-				return nil, err
+				return 0, nil, nil, err
 			}
 
 			var P starkcurve.G1Affine
@@ -213,6 +263,13 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 			kInv.ModInverse(k, order)
 
 			P.X.BigInt(r)
+			// set how many times we overflow the scalar field
+			v |= (uint(new(big.Int).Div(r, order).Uint64())) << 1
+			// set if y is small or big
+			if P.Y.BigInt(new(big.Int)).Cmp(halfp) >= 0 {
+				v |= 1
+			}
+
 			r.Mod(r, order)
 			if r.Sign() != 0 {
 				break
@@ -228,7 +285,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 			hFunc.Reset()
 			_, err := hFunc.Write(dataToHash[:])
 			if err != nil {
-				return nil, err
+				return 0, nil, nil, err
 			}
 			hramBin := hFunc.Sum(nil)
 			m = HashToInt(hramBin)
@@ -244,6 +301,23 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		}
 	}
 
+	return v, r, s, nil
+}
+
+// Sign performs the ECDSA signature
+//
+// k ← 𝔽r (random)
+// P = k ⋅ g1Gen
+// r = x_P (mod order)
+// s = k⁻¹ . (m + sk ⋅ r)
+// signature = {r, s}
+//
+// SEC 1, Version 2.0, Section 4.1.3
+func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
+	_, r, s, err := privKey.SignForRecover(message, hFunc)
+	if err != nil {
+		return nil, err
+	}
 	var sig Signature
 	r.FillBytes(sig.R[:sizeFr])
 	s.FillBytes(sig.S[:sizeFr])
