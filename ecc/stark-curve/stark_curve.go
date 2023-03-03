@@ -38,8 +38,6 @@ const ID = ecc.STARK_CURVE
 
 // aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
 var aCurveCoeff fp.Element
-
-// bCurveCoeff b coeff of the curve Y²=X³+x+b
 var bCurveCoeff fp.Element
 
 // generator of the r-torsion group

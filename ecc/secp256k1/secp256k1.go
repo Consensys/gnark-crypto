@@ -41,8 +41,6 @@ const ID = ecc.SECP256K1
 
 // aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
 var aCurveCoeff fp.Element
-
-// bCurveCoeff b coeff of the curve Y²=X³+b
 var bCurveCoeff fp.Element
 
 // generator of the r-torsion group

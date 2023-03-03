@@ -42,8 +42,6 @@ const ID = ecc.BLS12_378
 
 // aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
 var aCurveCoeff fp.Element
-
-// bCurveCoeff b coeff of the curve Y²=X³+b
 var bCurveCoeff fp.Element
 
 // bTwistCurveCoeff b coeff of the twist (defined over 𝔽p²) curve
