@@ -88,6 +88,19 @@ func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 	}
 }
 
+// NewPolynomial returned a Polynomial from the provided vector in the given form.
+// A Polynomial can be seen as a "shared pointer" on a list of coefficients.
+// It is the responsibility of the user to call the Clone method if the coefficients
+// shouldn't be mutated.
+func NewPolynomialFromVector(v fr.Vector, form Form) *Polynomial {
+	_v := []fr.Element(v)
+	return &Polynomial{
+		polynomial:  newPolynomial(&_v, form),
+		size:        v.Len(),
+		blindedSize: v.Len(),
+	}
+}
+
 // Shift the wrapped polynomial; it doesn't modify the underlying data structure,
 // but flag the Polynomial such that it will be interpreted as p(\omega^shift X)
 func (p *Polynomial) Shift(shift int) *Polynomial {
