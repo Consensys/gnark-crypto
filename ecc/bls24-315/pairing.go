@@ -149,7 +149,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	// len(loopCounter) - 2
 	for k := 0; k < n; k++ {
-		qProj[k].DoubleStep(&l)
+		qProj[k].doubleStep(&l)
 		// line evaluation
 		l.r0.MulByElement(&l.r0, &p[k].Y)
 		l.r1.MulByElement(&l.r1, &p[k].X)
@@ -161,21 +161,21 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
-			qProj[k].DoubleStep(&l)
+			qProj[k].doubleStep(&l)
 			// line evaluation
 			l.r0.MulByElement(&l.r0, &p[k].Y)
 			l.r1.MulByElement(&l.r1, &p[k].X)
 			result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			if loopCounter[i] == 1 {
-				qProj[k].AddMixedStep(&l, &q[k])
+				qProj[k].addMixedStep(&l, &q[k])
 				// line evaluation
 				l.r0.MulByElement(&l.r0, &p[k].Y)
 				l.r1.MulByElement(&l.r1, &p[k].X)
 				result.MulBy034(&l.r0, &l.r1, &l.r2)
 
 			} else if loopCounter[i] == -1 {
-				qProj[k].AddMixedStep(&l, &qNeg[k])
+				qProj[k].addMixedStep(&l, &qNeg[k])
 				// line evaluation
 				l.r0.MulByElement(&l.r0, &p[k].Y)
 				l.r1.MulByElement(&l.r1, &p[k].X)
@@ -189,9 +189,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	return result, nil
 }
 
-// DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
+// doubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
+func (p *g2Proj) doubleStep(evaluations *lineEvaluation) {
 
 	// get some Element from our pool
 	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E4
@@ -230,9 +230,9 @@ func (p *g2Proj) DoubleStep(evaluations *lineEvaluation) {
 	evaluations.r2.Set(&I)
 }
 
-// AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
+// addMixedStep point addition in Mixed Homogenous projective and Affine coordinates
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) AddMixedStep(evaluations *lineEvaluation, a *G2Affine) {
+func (p *g2Proj) addMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 
 	// get some Element from our pool
 	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fptower.E4
