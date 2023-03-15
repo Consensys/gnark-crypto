@@ -153,7 +153,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.Mul(&result, &lines)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	for i := len(loopCounter) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
@@ -176,6 +176,17 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				result.Mul(&result, &lines)
 			}
 		}
+	}
+
+	// i = 0
+	result.Square(&result)
+	for k := 0; k < n; k++ {
+		qProj[k].tangentLine(&l1)
+		// line eval
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		l1.r2.MulByElement(&l1.r2, &p[k].Y)
+
+		result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 	}
 
 	// negative x₀
@@ -261,4 +272,29 @@ func (p *g2Proj) addMixedStep(l *lineEvaluation, a *G2Affine) {
 	l.r0.Set(&J)
 	l.r1.Neg(&O)
 	l.r2.Set(&L)
+}
+
+// tangentLine
+func (p *g2Proj) tangentLine(l *lineEvaluation) {
+
+	// get some Element from our pool
+	var t1, B, C, D, E, H, I, J fptower.E2
+	B.Square(&p.y)
+	C.Square(&p.z)
+	D.Double(&C).
+		Add(&D, &C)
+	E.MulBybTwistCurveCoeff(&D)
+	H.Add(&p.y, &p.z).
+		Square(&H)
+	t1.Add(&B, &C)
+	H.Sub(&H, &t1)
+	I.Sub(&E, &B)
+	J.Square(&p.x)
+
+	// Line evaluation
+	l.r0.Set(&I)
+	l.r1.Double(&J).
+		Add(&l.r1, &J)
+	l.r2.Neg(&H)
+
 }
