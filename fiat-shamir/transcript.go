@@ -21,7 +21,7 @@ import (
 
 // errChallengeNotFound is returned when a wrong challenge name is provided.
 var (
-	errChallengeNotFound            = errors.New("challenge not recorded in the Transcript")
+	errChallengeNotFound            = errors.New("challenge not recorded in the transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
@@ -36,9 +36,9 @@ type Transcript struct {
 }
 
 type challenge struct {
-	position   int    // position of the challenge in the transcript. order matters.
-	bindings   []byte // bindings stores the variables a challenge is binded to.
-	value      []byte // value stores the computed challenge
+	position   int      // position of the challenge in the Transcript. order matters.
+	bindings   [][]byte // bindings stores the variables a challenge is binded to.
+	value      []byte   // value stores the computed challenge
 	isComputed bool
 }
 
@@ -73,7 +73,10 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 	if challenge.isComputed {
 		return errChallengeAlreadyComputed
 	}
-	challenge.bindings = append(challenge.bindings, bValue...)
+
+	bCopy := make([]byte, len(bValue))
+	copy(bCopy, bValue)
+	challenge.bindings = append(challenge.bindings, bCopy)
 	t.challenges[challengeID] = challenge
 
 	return nil
@@ -83,7 +86,7 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 // ComputeChallenge computes the challenge corresponding to the given name.
 // The challenge is:
 // * H(name || previous_challenge || binded_values...) if the challenge is not the first one
-// * H(name || binded_values... ) if it's is the first challenge
+// * H(name || binded_values... ) if it is the first challenge
 func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
 	challenge, ok := t.challenges[challengeID]
@@ -101,9 +104,14 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	defer t.h.Reset()
 
 	// write the challenge name, the purpose is to have a domain separator
-	bName := []byte(challengeID)
-	if _, err := t.h.Write(bName); err != nil {
-		return nil, err
+	if hashToField, ok := t.h.(interface {
+		WriteString(rawBytes []byte)
+	}); ok {
+		hashToField.WriteString([]byte(challengeID)) // TODO: Replace with a function returning field identifier, whence we can find the correct hash to field function. Better than confusingly embedding hash to field into another hash
+	} else {
+		if _, err := t.h.Write([]byte(challengeID)); err != nil {
+			return nil, err
+		}
 	}
 
 	// write the previous challenge if it's not the first challenge
@@ -117,8 +125,10 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	}
 
 	// write the binded values in the order they were added
-	if _, err := t.h.Write(challenge.bindings); err != nil {
-		return nil, err
+	for _, b := range challenge.bindings {
+		if _, err := t.h.Write(b); err != nil {
+			return nil, err
+		}
 	}
 
 	// compute the hash of the accumulated values

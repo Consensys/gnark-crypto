@@ -59,8 +59,8 @@ type ProofLookupTables struct {
 // For instance, if t is the truth table of the XOR function, t will be populated such
 // that t[:][i] contains the i-th entry of the truth table, so t[0][i] XOR t[1][i] = t[2][i].
 //
-// The Table in f and t are supposed to be of the same size constant size.
-func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
+// The fr.Vector in f and t are supposed to be of the same size constant size.
+func ProveLookupTables(srs *kzg.SRS, f, t []fr.Vector) (ProofLookupTables, error) {
 
 	// res
 	proof := ProofLookupTables{}
@@ -149,8 +149,8 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	if err != nil {
 		return proof, err
 	}
-	foldedf := make(Table, nbColumns)
-	foldedt := make(Table, nbColumns)
+	foldedf := make(fr.Vector, nbColumns)
+	foldedt := make(fr.Vector, nbColumns)
 	for i := 0; i < int(nbColumns); i++ {
 		for j := nbRows - 1; j >= 0; j-- {
 			foldedf[i].Mul(&foldedf[i], &lambda).
@@ -161,7 +161,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []Table) (ProofLookupTables, error) {
 	}
 
 	// generate a proof of permutation of the foldedt and sort(foldedt)
-	foldedtSorted := make(Table, nbColumns)
+	foldedtSorted := make(fr.Vector, nbColumns)
 	copy(foldedtSorted, foldedt)
 	sort.Sort(foldedtSorted)
 	proof.permutationProof, err = permutation.Prove(srs, foldedt, foldedtSorted)
@@ -207,7 +207,7 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	comf.Set(&proof.fs[nbRows-1])
 	comt.Set(&proof.ts[nbRows-1])
 	var blambda big.Int
-	lambda.ToBigIntRegular(&blambda)
+	lambda.BigInt(&blambda)
 	for i := nbRows - 2; i >= 0; i-- {
 		comf.ScalarMultiplication(&comf, &blambda).
 			Add(&comf, &proof.fs[i])

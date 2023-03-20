@@ -17,114 +17,187 @@
 package polynomial
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"reflect"
+	"runtime"
+	"sort"
 	"sync"
 	"unsafe"
 )
 
 // Memory management for polynomials
-// Copied verbatim from gkr repo
+// WARNING: This is not thread safe TODO: Make sure that is not a problem
+// TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
 
-// Sets a maximum for the array size we keep in pool
-const maxNForLargePool int = 1 << 24
-const maxNForSmallPool int = 256
+type sizedPool struct {
+	maxN  int
+	pool  sync.Pool
+	stats poolStats
+}
 
-// Aliases because it is annoying to use arrays in all the places
-type largeArr = [maxNForLargePool]fr.Element
-type smallArr = [maxNForSmallPool]fr.Element
+type inUseData struct {
+	allocatedFor []uintptr
+	pool         *sizedPool
+}
 
-var rC = sync.Map{}
+type Pool struct {
+	//lock     sync.Mutex
+	inUse    sync.Map
+	subPools []sizedPool
+}
 
-var (
-	largePool = sync.Pool{
-		New: func() interface{} {
-			var res largeArr
-			return &res
-		},
+func (p *sizedPool) get(n int) *fr.Element {
+	p.stats.maake(n)
+	return p.pool.Get().(*fr.Element)
+}
+
+func (p *sizedPool) put(ptr *fr.Element) {
+	p.stats.dump()
+	p.pool.Put(ptr)
+}
+
+func NewPool(maxN ...int) (pool Pool) {
+
+	sort.Ints(maxN)
+	pool = Pool{
+		subPools: make([]sizedPool, len(maxN)),
 	}
-	smallPool = sync.Pool{
-		New: func() interface{} {
-			var res smallArr
-			return &res
-		},
-	}
-)
 
-// ClearPool Clears the pool completely, shields against memory leaks
-// Eg: if we forgot to dump a polynomial at some point, this will ensure the value get dumped eventually
-// Returns how many polynomials were cleared that way
-func ClearPool() int {
-	res := 0
-	rC.Range(func(k, _ interface{}) bool {
-		switch ptr := k.(type) {
-		case *largeArr:
-			largePool.Put(ptr)
-		case *smallArr:
-			smallPool.Put(ptr)
-		default:
-			panic(fmt.Sprintf("tried to clear %v", reflect.TypeOf(ptr)))
+	for i := range pool.subPools {
+		subPool := &pool.subPools[i]
+		subPool.maxN = maxN[i]
+		subPool.pool = sync.Pool{
+			New: func() interface{} {
+				subPool.stats.Allocated++
+				return getDataPointer(make([]fr.Element, 0, subPool.maxN))
+			},
 		}
-		res++
-		return true
-	})
-	return res
+	}
+	return
 }
 
-// CountPool Returns the number of elements in the pool without mutating it
-func CountPool() int {
-	res := 0
-	rC.Range(func(_, _ interface{}) bool {
-		res++
-		return true
-	})
-	return res
+func (p *Pool) findCorrespondingPool(n int) *sizedPool {
+	poolI := 0
+	for poolI < len(p.subPools) && n > p.subPools[poolI].maxN {
+		poolI++
+	}
+	return &p.subPools[poolI] // out of bounds error here would mean that n is too large
 }
 
-// Make tries to find a reusable polynomial or allocates a new one
-func Make(n int) []fr.Element {
-	if n > maxNForLargePool {
-		panic(fmt.Sprintf("been provided with size of %v but the maximum is %v", n, maxNForLargePool))
-	}
-
-	if n <= maxNForSmallPool {
-		ptr := smallPool.Get().(*smallArr)
-		rC.Store(ptr, struct{}{}) // registers the pointer being used
-		return (*ptr)[:n]
-	}
-
-	ptr := largePool.Get().(*largeArr)
-	rC.Store(ptr, struct{}{}) // remember we allocated the pointer is being used
-	return (*ptr)[:n]
+func (p *Pool) Make(n int) []fr.Element {
+	pool := p.findCorrespondingPool(n)
+	ptr := pool.get(n)
+	p.addInUse(ptr, pool)
+	return unsafe.Slice(ptr, n)
 }
 
 // Dump dumps a set of polynomials into the pool
-// Returns the number of deallocated polys
-func Dump(arrs ...[]fr.Element) int {
-	cnt := 0
-	for _, arr := range arrs {
-		ptr := ptr(arr)
-		pool := &smallPool
-		if len(arr) > maxNForSmallPool {
-			pool = &largePool
-		}
-		// If the rC did not register, then
-		// either the array was allocated somewhere else which can be ignored
-		// otherwise a double put which MUST be ignored
-		if _, ok := rC.Load(ptr); ok {
-			pool.Put(ptr)
-			// And deregisters the ptr
-			rC.Delete(ptr)
-			cnt++
+func (p *Pool) Dump(slices ...[]fr.Element) {
+	for _, slice := range slices {
+		ptr := getDataPointer(slice)
+		if metadata, ok := p.inUse.Load(ptr); ok {
+			p.inUse.Delete(ptr)
+			metadata.(inUseData).pool.put(ptr)
+		} else {
+			panic("attempting to dump a slice not created by the pool")
 		}
 	}
-	return cnt
 }
 
-func ptr(m []fr.Element) unsafe.Pointer {
-	if cap(m) != maxNForSmallPool && cap(m) != maxNForLargePool {
-		panic(fmt.Sprintf("can't cast to large or small array, the put array's is %v it should have capacity %v or %v", cap(m), maxNForLargePool, maxNForSmallPool))
+func (p *Pool) addInUse(ptr *fr.Element, pool *sizedPool) {
+	pcs := make([]uintptr, 2)
+	n := runtime.Callers(3, pcs)
+
+	if prevPcs, ok := p.inUse.Load(ptr); ok { // TODO: remove if unnecessary for security
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.(inUseData).allocatedFor)))
 	}
-	return unsafe.Pointer(&m[0])
+	p.inUse.Store(ptr, inUseData{
+		allocatedFor: pcs[:n],
+		pool:         pool,
+	})
+}
+
+func printFrame(frame runtime.Frame) {
+	fmt.Printf("\t%s line %d, function %s\n", frame.File, frame.Line, frame.Function)
+}
+
+func (p *Pool) printInUse() {
+	fmt.Println("slices never dumped allocated at:")
+	p.inUse.Range(func(_, pcs any) bool {
+		fmt.Println("-------------------------")
+
+		var frame runtime.Frame
+		frames := runtime.CallersFrames(pcs.(inUseData).allocatedFor)
+		more := true
+		for more {
+			frame, more = frames.Next()
+			printFrame(frame)
+		}
+		return true
+	})
+}
+
+type poolStats struct {
+	Used          int
+	Allocated     int
+	ReuseRate     float64
+	InUse         int
+	GreatestNUsed int
+	SmallestNUsed int
+}
+
+type poolsStats struct {
+	SubPools []poolStats
+	InUse    int
+}
+
+func (s *poolStats) maake(n int) {
+	s.Used++
+	s.InUse++
+	if n > s.GreatestNUsed {
+		s.GreatestNUsed = n
+	}
+	if s.SmallestNUsed == 0 || s.SmallestNUsed > n {
+		s.SmallestNUsed = n
+	}
+}
+
+func (s *poolStats) dump() {
+	s.InUse--
+}
+
+func (s *poolStats) finalize() {
+	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
+}
+
+func getDataPointer(slice []fr.Element) *fr.Element {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	return (*fr.Element)(unsafe.Pointer(header.Data))
+}
+
+func (p *Pool) PrintPoolStats() {
+	InUse := 0
+	subStats := make([]poolStats, len(p.subPools))
+	for i := range p.subPools {
+		subPool := &p.subPools[i]
+		subPool.stats.finalize()
+		subStats[i] = subPool.stats
+		InUse += subPool.stats.InUse
+	}
+
+	poolsStats := poolsStats{
+		SubPools: subStats,
+		InUse:    InUse,
+	}
+	serialized, _ := json.MarshalIndent(poolsStats, "", "  ")
+	fmt.Println(string(serialized))
+	p.printInUse()
+}
+
+func (p *Pool) Clone(slice []fr.Element) []fr.Element {
+	res := p.Make(len(slice))
+	copy(res, slice)
+	return res
 }

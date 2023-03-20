@@ -360,7 +360,7 @@ func TestE6Ops(t *testing.T) {
 			var _e big.Int
 			k := new(big.Int).SetUint64(6)
 			e.Exp(e, k)
-			e.ToBigIntRegular(&_e)
+			e.BigInt(&_e)
 
 			c.Exp(*a, &_e)
 			d.CyclotomicExp(*a, &_e)

@@ -84,7 +84,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	// https://eprint.iacr.org/2020/875.pdf
 	// 3(p⁸ - p⁴ +1)/r = (x₀-1)² * (x₀+p) * (x₀²+p²) * (x₀⁴+p⁴-1) + 3
 	t[0].CyclotomicSquare(&result)
-	t[1].Expt(&result)
+	t[1].ExptHalf(&t[0])
 	t[2].InverseUnitary(&result)
 	t[1].Mul(&t[1], &t[2])
 	t[2].Expt(&t[1])
@@ -98,10 +98,14 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	t[2].Expt(&t[0])
 	t[0].FrobeniusSquare(&t[1])
 	t[2].Mul(&t[0], &t[2])
-	t[1].Expt(&t[2])
-	t[1].Expt(&t[1])
-	t[1].Expt(&t[1])
-	t[1].Expt(&t[1])
+	t[1].ExptHalf(&t[2])
+	t[1].ExptHalf(&t[1])
+	t[1].ExptHalf(&t[1])
+	t[1].ExptHalf(&t[1])
+	for s := 0; s < 4; s++ {
+		t[1].CyclotomicSquareCompressed(&t[1])
+	}
+	t[1].DecompressKarabina(&t[1])
 	t[0].FrobeniusQuad(&t[2])
 	t[0].Mul(&t[0], &t[1])
 	t[2].InverseUnitary(&t[2])

@@ -156,9 +156,8 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     tv2.Square(&y1) // 13. tv2 = y1²
     tv2.Mul(&tv2, v)    // 14. tv2 = tv2 * v
     isQNr := tv2.NotEqual(u)    // 15. isQR = tv2 == u
-    var y2 {{$CoordType}}
     // c3 = sqrt(Z / c2)
-	y2 = {{$CoordType}} {{asElement (index .PrecomputedParams 2)}}
+	y2 := {{$CoordType}} {{asElement (index .PrecomputedParams 2)}}
 	y2.Mul(&y1, &y2)    // 16. y2 = y1 * c3
     tv1.Mul(&y2, &c2)   // 17. tv1 = y2 * c2
     tv2.Square(&tv1)    // 18. tv2 = tv1²

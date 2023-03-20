@@ -21,6 +21,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -50,6 +51,7 @@ func TestEncoder(t *testing.T) {
 	var inH []G2Affine
 	var inI []fp.Element
 	var inJ []fr.Element
+	var inK fr.Vector
 
 	// set values of inputs
 	inA = rand.Uint64()
@@ -64,12 +66,14 @@ func TestEncoder(t *testing.T) {
 	inI = make([]fp.Element, 3)
 	inI[2] = inD.X
 	inJ = make([]fr.Element, 0)
+	inK = make(fr.Vector, 42)
+	inK[41].SetUint64(42)
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -93,8 +97,9 @@ func TestEncoder(t *testing.T) {
 		var outH []G2Affine
 		var outI []fp.Element
 		var outJ []fr.Element
+		var outK fr.Vector
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -130,6 +135,9 @@ func TestEncoder(t *testing.T) {
 			if !inI[i].Equal(&outI[i]) {
 				t.Fatal("decode(encode(slice(elements))) failed")
 			}
+		}
+		if !reflect.DeepEqual(inK, outK) {
+			t.Fatal("decode(encode(vector)) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
@@ -262,7 +270,7 @@ func TestG1AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G1Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.RawBytes()
@@ -282,7 +290,7 @@ func TestG1AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G1Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g1GenAff, &ab)
 
 			buf := start.Bytes()
@@ -355,7 +363,7 @@ func TestG2AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G2Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.RawBytes()
@@ -375,7 +383,7 @@ func TestG2AffineSerialization(t *testing.T) {
 		func(a fp.Element) bool {
 			var start, end G2Affine
 			var ab big.Int
-			a.ToBigIntRegular(&ab)
+			a.BigInt(&ab)
 			start.ScalarMultiplication(&g2GenAff, &ab)
 
 			buf := start.Bytes()

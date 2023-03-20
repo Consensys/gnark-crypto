@@ -77,7 +77,10 @@ func sum(h hash.Hash, data ...[]byte) []byte {
 
 	for _, d := range data {
 		// the Hash interface specifies that Write never returns an error
-		_, _ = h.Write(d)
+		_, err := h.Write(d)
+		if err != nil {
+			panic(err)
+		}
 	}
 	return h.Sum(nil)
 }

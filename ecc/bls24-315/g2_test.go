@@ -347,7 +347,7 @@ func TestG2AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.mulWindowed(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.mulWindowed(&g2Gen, &scalar)
 			op2.mulWindowed(&g2Gen, &blindedScalar)
@@ -378,7 +378,7 @@ func TestG2AffineOps(t *testing.T) {
 			rminusone.SetUint64(1).Sub(r, &rminusone)
 			op3.ScalarMultiplication(&g2Gen, &rminusone)
 			gneg.Neg(&g2Gen)
-			s.ToBigIntRegular(&scalar)
+			s.BigInt(&scalar)
 			blindedScalar.Mul(&scalar, r).Add(&blindedScalar, &scalar)
 			op1.ScalarMultiplication(&g2Gen, &scalar)
 			op2.ScalarMultiplication(&g2Gen, &blindedScalar)
@@ -394,7 +394,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			var r big.Int
 			var op1, op2 G2Jac
-			s.ToBigIntRegular(&r)
+			s.BigInt(&r)
 			op1.mulWindowed(&g2Gen, &r)
 			op2.mulGLV(&g2Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g2Infinity)
@@ -478,7 +478,7 @@ func TestG2AffineBatchScalarMultiplication(t *testing.T) {
 				var expectedJac G2Jac
 				var expected G2Affine
 				var b big.Int
-				expectedJac.ScalarMultiplication(&g2Gen, sampleScalars[i].ToBigIntRegular(&b))
+				expectedJac.ScalarMultiplication(&g2Gen, sampleScalars[i].BigInt(&b))
 				expected.FromJacobian(&expectedJac)
 				if !result[i].Equal(&expected) {
 					return false
