@@ -86,6 +86,15 @@ var endo struct {
 // seed x₀ of the curve
 var xGen big.Int
 
+// 𝔽p²
+type E2 = fptower.E2
+
+// 𝔽p⁶
+type E6 = fptower.E6
+
+// 𝔽p¹²
+type E12 = fptower.E12
+
 func init() {
 	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(4)
