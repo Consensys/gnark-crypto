@@ -18,7 +18,6 @@ package fptower
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 
@@ -145,7 +144,6 @@ func (z *E6) CyclotomicSquareCompressed(x *E6) *E6 {
 
 	var t [7]fp.Element
 
-	fmt.Println(x.B0.A1.String())
 	// t0 = g1²
 	t[0].Square(&x.B0.A1)
 	// t1 = g5²
