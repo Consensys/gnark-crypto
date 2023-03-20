@@ -30,6 +30,7 @@
 package bw6761
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -77,6 +78,12 @@ var glvBasis ecc.Lattice
 
 // seed x₀ of the curve
 var xGen big.Int
+
+// 𝔽p3
+type E3 = fptower.E3
+
+// 𝔽p6
+type E6 = fptower.E6
 
 func init() {
 	aCurveCoeff.SetUint64(0)
