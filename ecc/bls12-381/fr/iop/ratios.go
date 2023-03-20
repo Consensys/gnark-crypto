@@ -219,9 +219,11 @@ func BuildRatioCopyConstraint(
 	}
 
 	t = fr.BatchInvert(t)
-	for i := 1; i < n; i++ {
-		coeffs[i].Mul(&coeffs[i], &t[i])
-	}
+	parallel.Execute(n-1, func(start, end int) {
+		for i := start; i < end; i++ {
+			coeffs[i+1].Mul(&coeffs[i+1], &t[i+1])
+		}
+	})
 
 	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
@@ -308,15 +310,21 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 	res := make([]fr.Element, uint64(nbCopies)*domain.Cardinality)
 	sizePoly := int(domain.Cardinality)
 
-	res[0].SetOne()
-	for i := 0; i < sizePoly-1; i++ {
+	// len(domain.Twiddle) == sizePoly / 2
+	copy(res, domain.Twiddles[0])
+	// remaining ones.
+	for i := (sizePoly / 2) - 1; i < sizePoly-1; i++ {
 		res[i+1].Mul(&res[i], &domain.Generator)
 	}
 	for i := 1; i < nbCopies; i++ {
-		copy(res[i*sizePoly:], res[(i-1)*sizePoly:i*int(domain.Cardinality)])
-		for j := 0; j < sizePoly; j++ {
-			res[i*sizePoly+j].Mul(&res[i*sizePoly+j], &domain.FrMultiplicativeGen)
-		}
+		// TODO @gbotrel maybe use same logic as FFT precompute exp table here.
+		parallel.Execute(sizePoly, func(start, end int) {
+			// hint the compiler to keep that hot variable on the stack.
+			gen := domain.FrMultiplicativeGen
+			for j := start; j < end; j++ {
+				res[i*sizePoly+j].Mul(&res[(i-1)*sizePoly+j], &gen)
+			}
+		})
 	}
 
 	return res
