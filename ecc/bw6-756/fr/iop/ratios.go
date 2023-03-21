@@ -19,6 +19,8 @@ package iop
 import (
 	"errors"
 	"math/bits"
+	"runtime"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
@@ -213,17 +215,37 @@ func BuildRatioCopyConstraint(
 		}
 	})
 
-	for i := 0; i < n-1; i++ {
-		coeffs[i+1].Mul(&coeffs[i+1], &coeffs[i])
-		t[i+1].Mul(&t[i+1], &t[i])
+	chCoeffs := make(chan struct{}, 1)
+	go func() {
+		for i := 2; i < n; i++ {
+			// ignoring coeffs[0]
+			coeffs[i].Mul(&coeffs[i], &coeffs[i-1])
+		}
+		close(chCoeffs)
+	}()
+
+	for i := 2; i < n; i++ {
+		// ignoring t[0]
+		t[i].Mul(&t[i], &t[i-1])
+	}
+	<-chCoeffs
+
+	// rough ratio inverse to mul; see if it makes sense to parallelize the batch inverse.
+	const ratioInvMul = 1000 / 17
+	nbTasks := runtime.NumCPU()
+	if ratio := n / ratioInvMul; ratio < nbTasks {
+		nbTasks = ratio
 	}
 
-	t = fr.BatchInvert(t)
 	parallel.Execute(n-1, func(start, end int) {
+		// ignoring t[0] and coeff[0]
+		start++
+		end++
+		tInv := fr.BatchInvert(t[start:end])
 		for i := start; i < end; i++ {
-			coeffs[i+1].Mul(&coeffs[i+1], &t[i+1])
+			coeffs[i].Mul(&coeffs[i], &tInv[i-start])
 		}
-	})
+	}, nbTasks)
 
 	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
@@ -316,16 +338,25 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 	for i := (sizePoly / 2) - 1; i < sizePoly-1; i++ {
 		res[i+1].Mul(&res[i], &domain.Generator)
 	}
-	for i := 1; i < nbCopies; i++ {
-		// TODO @gbotrel maybe use same logic as FFT precompute exp table here.
-		parallel.Execute(sizePoly, func(start, end int) {
-			// hint the compiler to keep that hot variable on the stack.
-			gen := domain.FrMultiplicativeGen
-			for j := start; j < end; j++ {
-				res[i*sizePoly+j].Mul(&res[(i-1)*sizePoly+j], &gen)
-			}
-		})
+	if nbCopies <= 1 {
+		return res
 	}
+	var wg sync.WaitGroup
+	wg.Add(nbCopies - 1)
+	for i := 1; i < nbCopies; i++ {
+		i := i
+		go func() {
+			parallel.Execute(sizePoly, func(start, end int) {
+				coset := domain.CosetTable[i]
+				for j := start; j < end; j++ {
+					res[i*sizePoly+j].Mul(&res[j], &coset)
+				}
+			}, (runtime.NumCPU()/(nbCopies-1))+1)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 
 	return res
 }
