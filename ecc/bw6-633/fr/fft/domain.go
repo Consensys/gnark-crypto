@@ -96,6 +96,8 @@ func NewDomain(m uint64, shift ...fr.Element) *Domain {
 	return domain
 }
 
+// Generator returns a generator for Z/2^(log(m))Z
+// or an error if m is too big (required root of unity doesn't exist)
 func Generator(m uint64) (fr.Element, error) {
 	x := ecc.NextPowerOfTwo(m)
 
