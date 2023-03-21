@@ -18,6 +18,7 @@ package iop
 
 import (
 	"errors"
+	"math/big"
 	"math/bits"
 	"runtime"
 	"sync"
@@ -347,9 +348,20 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 		// TODO with a very small domain cardinality and lots of poly, this could fail.
 		// in practice now we call with nbCopies = 3;
 		i := i
+
+		var coset fr.Element
+		if i == 1 {
+			coset = domain.FrMultiplicativeGen
+		} else {
+			if len(domain.CosetTable) > i {
+				coset = domain.CosetTable[i]
+			} else {
+				coset.Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i)))
+			}
+		}
+
 		go func() {
 			parallel.Execute(sizePoly, func(start, end int) {
-				coset := domain.CosetTable[i]
 				for j := start; j < end; j++ {
 					res[i*sizePoly+j].Mul(&res[j], &coset)
 				}
