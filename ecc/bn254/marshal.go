@@ -19,14 +19,12 @@ package bn254
 import (
 	"encoding/binary"
 	"errors"
-	"io"
-	"reflect"
-	"sync/atomic"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"io"
+	"reflect"
 )
 
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
@@ -39,6 +37,7 @@ const (
 	mCompressedSmallest byte = 0b10 << 6
 	mCompressedLargest  byte = 0b11 << 6
 	mCompressedInfinity byte = 0b01 << 6
+	bufSz               int  = 0b01 << 22
 )
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
@@ -168,55 +167,33 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if len(*t) != int(sliceLen) {
 			*t = make([]G1Affine, sliceLen)
 		}
-		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
-
-			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
+		remain := int(sliceLen)
+		offset := 0
+		var bufAll [SizeOfG1AffineUncompressed * bufSz]byte
+		for {
+			if remain == 0 {
+				break
+			}
+			toRead := bufSz
+			if toRead > remain {
+				toRead = remain
+			}
+			remain -= toRead
+			nbBytes := SizeOfG1AffineUncompressed * toRead
+			read, err = io.ReadFull(dec.r, bufAll[:nbBytes])
 			dec.n += int64(read)
 			if err != nil {
-				return
+				return err
 			}
-			nbBytes := SizeOfG1AffineCompressed
-			// most significant byte contains metadata
-			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG1AffineUncompressed
-				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
-				dec.n += int64(read)
+			for i := 0; i < toRead; i++ {
+				_, err = (*t)[i+offset].setBytes(bufAll[i*SizeOfG1AffineUncompressed:(i+1)*SizeOfG1AffineUncompressed], false)
 				if err != nil {
-					return
-				}
-				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
-				if err != nil {
-					return
-				}
-			} else {
-				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
-					return
-				}
-				compressed[i] = !r
-			}
-		}
-		var nbErrs uint64
-		parallel.Execute(len(compressed), func(start, end int) {
-			for i := start; i < end; i++ {
-				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				} else if dec.subGroupCheck {
-					if !(*t)[i].IsInSubGroup() {
-						atomic.AddUint64(&nbErrs, 1)
-					}
+					return err
 				}
 			}
-		})
-		if nbErrs != 0 {
-			return errors.New("point decompression failed")
-		}
+			offset += toRead
 
+		}
 		return nil
 	case *[]G2Affine:
 		var sliceLen uint32
@@ -227,55 +204,34 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if len(*t) != int(sliceLen) {
 			*t = make([]G2Affine, sliceLen)
 		}
-		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
+		remain := int(sliceLen)
+		offset := 0
+		var bufAll [SizeOfG2AffineUncompressed * bufSz]byte
+		for {
+			if remain == 0 {
+				break
+			}
 
-			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
+			toRead := bufSz
+			if toRead > remain {
+				toRead = remain
+			}
+			remain -= toRead
+			nbBytes := SizeOfG2AffineUncompressed * toRead
+			read, err = io.ReadFull(dec.r, bufAll[:nbBytes])
 			dec.n += int64(read)
 			if err != nil {
-				return
+				return err
 			}
-			nbBytes := SizeOfG2AffineCompressed
-			// most significant byte contains metadata
-			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG2AffineUncompressed
-				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
-				dec.n += int64(read)
+			for i := 0; i < toRead; i++ {
+				_, err = (*t)[i+offset].setBytes(bufAll[i*SizeOfG2AffineUncompressed:(i+1)*SizeOfG2AffineUncompressed], false)
 				if err != nil {
-					return
-				}
-				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
-				if err != nil {
-					return
-				}
-			} else {
-				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
-					return
-				}
-				compressed[i] = !r
-			}
-		}
-		var nbErrs uint64
-		parallel.Execute(len(compressed), func(start, end int) {
-			for i := start; i < end; i++ {
-				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				} else if dec.subGroupCheck {
-					if !(*t)[i].IsInSubGroup() {
-						atomic.AddUint64(&nbErrs, 1)
-					}
+					return err
 				}
 			}
-		})
-		if nbErrs != 0 {
-			return errors.New("point decompression failed")
-		}
+			offset += toRead
 
+		}
 		return nil
 	default:
 		n := binary.Size(t)
@@ -522,17 +478,38 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
+
 		enc.n += 4
+		remain := len(t)
+		var bufs [bufSz][SizeOfG1AffineUncompressed]byte
 
-		var buf [SizeOfG1AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
+		offset := 0
+		for {
+			if remain == 0 {
+				break
+			}
+			toWrite := bufSz
+			if toWrite > remain {
+				toWrite = remain
+			}
+			remain -= toWrite
+			parallel.Execute(toWrite, func(start, end int) {
+				for i := start; i < end; i++ {
+					bufs[i] = t[i+offset].RawBytes()
+				}
+			})
+			var bufAll []byte
+			for i, _ := range bufs {
+				if i < toWrite {
+					bufAll = append(bufAll, bufs[i][:]...)
+				}
+			}
+			written, err = enc.w.Write(bufAll)
 			enc.n += int64(written)
 			if err != nil {
 				return
 			}
+			offset += toWrite
 		}
 		return nil
 	case []G2Affine:
@@ -542,16 +519,36 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 			return
 		}
 		enc.n += 4
+		remain := len(t)
+		var bufs [bufSz][SizeOfG2AffineUncompressed]byte
 
-		var buf [SizeOfG2AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
+		offset := 0
+		for {
+			if remain == 0 {
+				break
+			}
+			toWrite := bufSz
+			if toWrite > remain {
+				toWrite = remain
+			}
+			remain -= toWrite
+			parallel.Execute(toWrite, func(start, end int) {
+				for i := start; i < end; i++ {
+					bufs[i] = t[i+offset].RawBytes()
+				}
+			})
+			var bufAll []byte
+			for i, _ := range bufs {
+				if i < toWrite {
+					bufAll = append(bufAll, bufs[i][:]...)
+				}
+			}
+			written, err = enc.w.Write(bufAll)
 			enc.n += int64(written)
 			if err != nil {
 				return
 			}
+			offset += toWrite
 		}
 		return nil
 	default:
