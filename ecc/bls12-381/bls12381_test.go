@@ -13,6 +13,7 @@ import (
 var (
 	testDir                = "testing/bls"
 	deserializationG1Tests = filepath.Join(testDir, "deserialization_G1/*")
+	deserializationG2Tests = filepath.Join(testDir, "deserialization_G2/*")
 )
 
 func TestDeserializationG1(t *testing.T) {
@@ -33,9 +34,42 @@ func TestDeserializationG1(t *testing.T) {
 			err = yaml.NewDecoder(testFile).Decode(&test)
 			require.NoError(t, testFile.Close())
 			require.NoError(t, err)
-			//fmt.Println(testFile)
 			testCaseValid := test.IsValidPredicate != nil
 			byts, err := hex.DecodeString(test.Input.PubKeyHexStr)
+			if err != nil && testCaseValid {
+				panic(err)
+			}
+
+			var point G1Affine
+			_, err = point.SetBytes(byts[:])
+			if err == nil && !testCaseValid {
+				panic("err should not be nil")
+			}
+
+		})
+	}
+}
+
+func TestDeserializationG2(t *testing.T) {
+
+	type Test struct {
+		Input struct {
+			SignatureHexStr string `yaml:"signature"`
+		}
+		IsValidPredicate *bool `yaml:"output"`
+	}
+	tests, err := filepath.Glob(deserializationG2Tests)
+	require.NoError(t, err)
+	for _, testPath := range tests {
+		t.Run(testPath, func(t *testing.T) {
+			testFile, err := os.Open(testPath)
+			require.NoError(t, err)
+			test := Test{}
+			err = yaml.NewDecoder(testFile).Decode(&test)
+			require.NoError(t, testFile.Close())
+			require.NoError(t, err)
+			testCaseValid := test.IsValidPredicate != nil
+			byts, err := hex.DecodeString(test.Input.SignatureHexStr)
 			if err != nil && testCaseValid {
 				panic(err)
 			}
