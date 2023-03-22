@@ -50,6 +50,8 @@ const (
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
 
+var ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+
 // Encoder writes bls24-315 object values to an output stream
 type Encoder struct {
 	w   io.Writer
@@ -365,6 +367,19 @@ func NoSubgroupChecks() func(*Decoder) {
 	}
 }
 
+// isZeroed checks that the provided bytes are at 0
+func isZeroed(firstByte byte, buf []byte) bool {
+	if firstByte != 0 {
+		return false
+	}
+	for _, b := range buf {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (enc *Encoder) encode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -674,13 +689,19 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 		}
 	}
 
-	// if infinity is encoded in the metadata, we don't need to read the buffer
+	// infinity encoded, we still check that the buffer is full of zeroes.
 	if mData == mCompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineCompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG1AffineCompressed, nil
 	}
 	if mData == mUncompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineUncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG1AffineUncompressed, nil
@@ -796,9 +817,12 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 	mData := buf[0] & mMask
 
 	if mData == mCompressedInfinity {
+		isInfinity = true
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineCompressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
-		isInfinity = true
 		return isInfinity, nil
 	}
 
@@ -933,13 +957,19 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 		}
 	}
 
-	// if infinity is encoded in the metadata, we don't need to read the buffer
+	// infinity encoded, we still check that the buffer is full of zeroes.
 	if mData == mCompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineCompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG2AffineCompressed, nil
 	}
 	if mData == mUncompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineUncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG2AffineUncompressed, nil
@@ -1087,9 +1117,12 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 	mData := buf[0] & mMask
 
 	if mData == mCompressedInfinity {
+		isInfinity = true
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineCompressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
-		isInfinity = true
 		return isInfinity, nil
 	}
 
