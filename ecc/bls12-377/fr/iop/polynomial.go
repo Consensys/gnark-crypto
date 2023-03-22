@@ -146,11 +146,13 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 		return p.polynomial.evaluate(x)
 	}
 
-	// TODO find a way to retrieve the root properly instead of re generating the fft domain
-	d := fft.NewDomain(uint64(p.size))
 	var g fr.Element
 	if p.shift <= 5 {
-		g = smallExp(d.Generator, p.shift)
+		gen, err := fft.Generator(uint64(p.size))
+		if err != nil {
+			panic(err)
+		}
+		g = smallExp(gen, p.shift)
 		x.Mul(&x, &g)
 		return p.polynomial.evaluate(x)
 	}

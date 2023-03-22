@@ -26,6 +26,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/fiat-shamir"
+
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 var (
@@ -275,14 +277,21 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	// gamma n in parallel, before reducing into foldedPolynomials
 	foldedPolynomials := make([]fr.Element, largestPoly)
 	copy(foldedPolynomials, polynomials[0])
-	acc := gamma
-	var pj fr.Element
+	gammas := make([]fr.Element, len(polynomials))
+	gammas[0] = gamma
 	for i := 1; i < len(polynomials); i++ {
-		for j := 0; j < len(polynomials[i]); j++ {
-			pj.Mul(&polynomials[i][j], &acc)
-			foldedPolynomials[j].Add(&foldedPolynomials[j], &pj)
-		}
-		acc.Mul(&acc, &gamma)
+		gammas[i].Mul(&gammas[i-1], &gamma)
+	}
+
+	for i := 1; i < len(polynomials); i++ {
+		i := i
+		parallel.Execute(len(polynomials[i]), func(start, end int) {
+			var pj fr.Element
+			for j := start; j < end; j++ {
+				pj.Mul(&polynomials[i][j], &gammas[i-1])
+				foldedPolynomials[j].Add(&foldedPolynomials[j], &pj)
+			}
+		})
 	}
 
 	// compute H

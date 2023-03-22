@@ -15,6 +15,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/hash"
 	"github.com/consensys/gnark-crypto/field/pool"
+	"github.com/bits-and-blooms/bitset"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
@@ -564,12 +565,12 @@ func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
 		return res
 	}
 
-	zeroes := make([]bool, len(a))
+	zeroes := bitset.New(uint(len(a)))
 	accumulator := One()
 
 	for i:=0; i < len(a); i++ {
 		if a[i].IsZero() {
-			zeroes[i] = true
+			zeroes.Set(uint(i))
 			continue
 		}
 		res[i] = accumulator
@@ -579,7 +580,7 @@ func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
 	accumulator.Inverse(&accumulator)
 
 	for i := len(a) - 1; i >= 0; i-- {
-		if zeroes[i] {
+		if zeroes.Test(uint(i)) {
 			continue
 		}
 		res[i].Mul(&res[i], &accumulator)
