@@ -136,7 +136,6 @@ func Generator(m uint64) (fr.Element, error) {
 		return fr.Element{}, fmt.Errorf("m (%d) is too big: the required root of unity does not exist", m)
 	}
 
-	// Generator = FinerGenerator^2 has order x
 	expo := uint64(1 << (maxOrderRoot - logx))
 	var generator fr.Element
 	generator.Exp(rootOfUnity, big.NewInt(int64(expo))) // order x

@@ -330,8 +330,6 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 	var wg sync.WaitGroup
 	wg.Add(nbCopies - 1)
 	for i := 1; i < nbCopies; i++ {
-		// TODO with a very small domain cardinality and lots of poly, this could fail. 
-		// in practice now we call with nbCopies = 3; 
 		i := i
 
 		var coset fr.Element
