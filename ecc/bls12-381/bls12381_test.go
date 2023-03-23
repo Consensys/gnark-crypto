@@ -45,7 +45,9 @@ func TestDeserializationG1(t *testing.T) {
 			if err == nil && !testCaseValid {
 				panic("err should not be nil")
 			}
-
+			if err != nil && testCaseValid {
+				panic("err should be nil")
+			}
 		})
 	}
 }
@@ -74,12 +76,14 @@ func TestDeserializationG2(t *testing.T) {
 				panic(err)
 			}
 
-			var point G1Affine
+			var point G2Affine
 			_, err = point.SetBytes(byts[:])
 			if err == nil && !testCaseValid {
 				panic("err should not be nil")
 			}
-
+			if err != nil && testCaseValid {
+				panic("err should be nil")
+			}
 		})
 	}
 }
