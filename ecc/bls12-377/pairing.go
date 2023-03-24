@@ -146,7 +146,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy034(&l.r0, &l.r1, &l.r2)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	for i := len(loopCounter) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
@@ -169,6 +169,22 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l.r1.MulByElement(&l.r1, &p[k].X)
 			result.MulBy034(&l.r0, &l.r1, &l.r2)
 		}
+	}
+
+	// i = 0
+	result.Square(&result)
+	for k := 0; k < n; k++ {
+		qProj[k].doubleStep(&l)
+		// line eval
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
+
+		qProj[k].lineCompute(&l, &q[k])
+		// line eval
+		l.r0.MulByElement(&l.r0, &p[k].Y)
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		result.MulBy034(&l.r0, &l.r1, &l.r2)
 	}
 
 	return result, nil
@@ -242,6 +258,26 @@ func (p *g2Proj) addMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 		Sub(&p.y, &t1)
 	p.z.Mul(&E, &p.z)
 
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
+
+	// Line evaluation
+	evaluations.r0.Set(&L)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&J)
+}
+
+// lineCompute computes the line through p in Homogenous projective coordinates
+// and a in affine coordinates. It does not compute the resulting point p+a.
+func (p *g2Proj) lineCompute(evaluations *lineEvaluation, a *G2Affine) {
+
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, t2, J fptower.E2
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
 	t2.Mul(&L, &a.Y)
 	J.Mul(&a.X, &O).
 		Sub(&J, &t2)

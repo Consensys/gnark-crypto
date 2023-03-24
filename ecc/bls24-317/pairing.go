@@ -160,7 +160,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy014(&l.r0, &l.r1, &l.r2)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	for i := len(loopCounter) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
@@ -186,6 +186,16 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				result.MulBy014(&l.r0, &l.r1, &l.r2)
 			}
 		}
+	}
+
+	// i = 0
+	result.Square(&result)
+	for k := 0; k < n; k++ {
+		qProj[k].tangentLine(&l)
+		// line evaluation
+		l.r1.MulByElement(&l.r1, &p[k].X)
+		l.r2.MulByElement(&l.r2, &p[k].Y)
+		result.MulBy014(&l.r0, &l.r1, &l.r2)
 	}
 
 	return result, nil
@@ -267,4 +277,29 @@ func (p *g2Proj) addMixedStep(evaluations *lineEvaluation, a *G2Affine) {
 	evaluations.r0.Set(&J)
 	evaluations.r1.Neg(&O)
 	evaluations.r2.Set(&L)
+}
+
+// tangentCompute computes the tangent through [2]p in Homogenous projective coordinates.
+// It does not compute the resulting point [2]p.
+func (p *g2Proj) tangentLine(l *lineEvaluation) {
+
+	// get some Element from our pool
+	var t1, B, C, D, E, H, I, J fptower.E4
+	B.Square(&p.y)
+	C.Square(&p.z)
+	D.Double(&C).
+		Add(&D, &C)
+	E.MulBybTwistCurveCoeff(&D)
+	H.Add(&p.y, &p.z).
+		Square(&H)
+	t1.Add(&B, &C)
+	H.Sub(&H, &t1)
+	I.Sub(&E, &B)
+	J.Square(&p.x)
+
+	// Line evaluation
+	l.r0.Set(&I)
+	l.r1.Double(&J).
+		Add(&l.r1, &J)
+	l.r2.Neg(&H)
 }
