@@ -201,7 +201,11 @@ func genField(t *testing.T) gopter.Gen {
 		genField := func() *FieldConfig {
 
 			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
-			bitLen := nbWords*64 - 1 - mrand.Intn(64)                 //#nosec G404 -- This is a false positive
+			bitLen := nbWords*64 - mrand.Intn(64)                     //#nosec G404 -- This is a false positive
+
+			if bitLen < 2 {
+				bitLen = 2
+			}
 
 			modulus, err := rand.Prime(rand.Reader, bitLen)
 			if err != nil {
