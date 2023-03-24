@@ -172,7 +172,23 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	// i = len(loopCounter) - 3
+	result.Square(&result)
+	for k := 0; k < n; k++ {
+		qProj[k].lineCompute(&l2, &qNeg[k])
+		// line evaluation
+		l2.r0.MulByElement(&l2.r0, &p[k].Y)
+		l2.r1.MulByElement(&l2.r1, &p[k].X)
+
+		qProj[k].addMixedStep(&l1, &q[k])
+		// line evaluation
+		l1.r0.MulByElement(&l1.r0, &p[k].Y)
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+		result.MulBy01234(&prodLines)
+	}
+
+	for i := len(loopCounter) - 4; i >= 0; i-- {
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
