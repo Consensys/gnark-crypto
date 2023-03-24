@@ -68,52 +68,45 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		result.Mul(&result, e)
 	}
 
-	var t [4]GT
+	var t [5]GT
 
 	// Easy part
 	// (p⁶-1)(p²+1)
 	t[0].Conjugate(&result)
 	result.Inverse(&result)
 	t[0].Mul(&t[0], &result)
-	result.FrobeniusSquare(&t[0]).
-		Mul(&result, &t[0])
+	result.FrobeniusSquare(&t[0]).Mul(&result, &t[0])
 
-		// Hard part (up to permutation)
-		// 2x₀(6x₀²+3x₀+1)(p⁴-p²+1)/r
+	// Hard part (up to permutation)
+	// 2x₀(6x₀²+3x₀+1)(p⁴-p²+1)/r
 	// Duquesne and Ghammam
 	// https://eprint.iacr.org/2015/192.pdf
-	// Fuentes et al. variant (alg. 10)
+	// Fuentes et al. (alg. 6)
 	t[0].Expt(&result).
 		Conjugate(&t[0])
 	t[0].CyclotomicSquare(&t[0])
-	t[2].Expt(&t[0]).
-		Conjugate(&t[2])
-	t[1].CyclotomicSquare(&t[2])
-	t[2].Mul(&t[2], &t[1])
-	t[2].Mul(&t[2], &result)
-	t[1].Expt(&t[2]).
-		CyclotomicSquare(&t[1]).
-		Mul(&t[1], &t[2]).
-		Conjugate(&t[1])
-	t[3].Conjugate(&t[1])
 	t[1].CyclotomicSquare(&t[0])
-	t[1].Mul(&t[1], &result)
-	t[1].Conjugate(&t[1])
-	t[1].Mul(&t[1], &t[3])
-	t[0].Mul(&t[0], &t[1])
-	t[2].Mul(&t[2], &t[1])
-	t[3].FrobeniusSquare(&t[1])
+	t[1].Mul(&t[0], &t[1])
+	t[2].Expt(&t[1])
+	t[2].Conjugate(&t[2])
+	t[3].Conjugate(&t[1])
+	t[1].Mul(&t[2], &t[3])
+	t[3].CyclotomicSquare(&t[2])
+	t[4].Expt(&t[3])
+	t[4].Mul(&t[1], &t[4])
+	t[3].Mul(&t[0], &t[4])
+	t[0].Mul(&t[2], &t[4])
+	t[0].Mul(&result, &t[0])
+	t[2].Frobenius(&t[3])
+	t[0].Mul(&t[2], &t[0])
+	t[2].FrobeniusSquare(&t[4])
+	t[0].Mul(&t[2], &t[0])
+	t[2].Conjugate(&result)
 	t[2].Mul(&t[2], &t[3])
-	t[3].Conjugate(&result)
-	t[3].Mul(&t[3], &t[0])
-	t[1].FrobeniusCube(&t[3])
-	t[2].Mul(&t[2], &t[1])
-	t[1].Frobenius(&t[0])
-	t[1].Mul(&t[1], &t[2])
+	t[2].FrobeniusCube(&t[2])
+	t[0].Mul(&t[2], &t[0])
 
-	result.Set(&t[1])
-
-	return result
+	return t[0]
 }
 
 // MillerLoop computes the multi-Miller loop
