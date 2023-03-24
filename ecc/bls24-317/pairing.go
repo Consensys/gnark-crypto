@@ -147,21 +147,37 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var result GT
-	var l lineEvaluation
+	var l1, l2 lineEvaluation
+	var prodLines [5]fptower.E4
 
 	// i == len(loopCounter) - 2
-	qProj[0].doubleStep(&l)
+	// k = 0
+	qProj[0].doubleStep(&l1)
 	// line evaluation
-	result.D0.C0.Set(&l.r0)
-	result.D0.C1.MulByElement(&l.r1, &p[0].X)
-	result.D1.C1.MulByElement(&l.r2, &p[0].Y)
+	result.D0.C0.Set(&l1.r0)
+	result.D0.C1.MulByElement(&l1.r1, &p[0].X)
+	result.D1.C1.MulByElement(&l1.r2, &p[0].Y)
 
-	for k := 1; k < n; k++ {
-		qProj[k].doubleStep(&l)
+	if n >= 2 {
+		// k = 1
+		qProj[1].doubleStep(&l1)
 		// line evaluation
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		l.r2.MulByElement(&l.r2, &p[k].Y)
-		result.MulBy014(&l.r0, &l.r1, &l.r2)
+		l1.r1.MulByElement(&l1.r1, &p[1].X)
+		l1.r2.MulByElement(&l1.r2, &p[1].Y)
+		prodLines = fptower.Mul014By014(&l1.r0, &l1.r1, &l1.r2, &result.D0.C0, &result.D0.C1, &result.D1.C1)
+		result.D0.C0 = prodLines[0]
+		result.D0.C1 = prodLines[1]
+		result.D0.C2 = prodLines[2]
+		result.D1.C1 = prodLines[3]
+		result.D1.C2 = prodLines[4]
+	}
+
+	for k := 2; k < n; k++ {
+		qProj[k].doubleStep(&l1)
+		// line evaluation
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		l1.r2.MulByElement(&l1.r2, &p[k].Y)
+		result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 	}
 
 	for i := len(loopCounter) - 3; i >= 1; i-- {
@@ -169,25 +185,31 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
-			qProj[k].doubleStep(&l)
+			qProj[k].doubleStep(&l1)
 			// line evaluation
-			l.r1.MulByElement(&l.r1, &p[k].X)
-			l.r2.MulByElement(&l.r2, &p[k].Y)
-			result.MulBy014(&l.r0, &l.r1, &l.r2)
+			l1.r1.MulByElement(&l1.r1, &p[k].X)
+			l1.r2.MulByElement(&l1.r2, &p[k].Y)
 
 			if loopCounter[i] == 1 {
-				qProj[k].addMixedStep(&l, &q[k])
+				qProj[k].addMixedStep(&l2, &q[k])
 				// line evaluation
-				l.r1.MulByElement(&l.r1, &p[k].X)
-				l.r2.MulByElement(&l.r2, &p[k].Y)
-				result.MulBy014(&l.r0, &l.r1, &l.r2)
-
+				l2.r1.MulByElement(&l2.r1, &p[k].X)
+				l2.r2.MulByElement(&l2.r2, &p[k].Y)
+				// ℓ × ℓ
+				prodLines = fptower.Mul014By014(&l2.r0, &l2.r1, &l2.r2, &l1.r0, &l1.r1, &l1.r2)
+				// (ℓ × ℓ) × result
+				result.MulBy01245(&prodLines)
 			} else if loopCounter[i] == -1 {
-				qProj[k].addMixedStep(&l, &qNeg[k])
+				qProj[k].addMixedStep(&l2, &qNeg[k])
 				// line evaluation
-				l.r1.MulByElement(&l.r1, &p[k].X)
-				l.r2.MulByElement(&l.r2, &p[k].Y)
-				result.MulBy014(&l.r0, &l.r1, &l.r2)
+				l2.r1.MulByElement(&l2.r1, &p[k].X)
+				l2.r2.MulByElement(&l2.r2, &p[k].Y)
+				// ℓ × ℓ
+				prodLines = fptower.Mul014By014(&l2.r0, &l2.r1, &l2.r2, &l1.r0, &l1.r1, &l1.r2)
+				// (ℓ × ℓ) × result
+				result.MulBy01245(&prodLines)
+			} else {
+				result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 			}
 		}
 	}
@@ -195,11 +217,11 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// i = 0
 	result.Square(&result)
 	for k := 0; k < n; k++ {
-		qProj[k].tangentLine(&l)
+		qProj[k].tangentLine(&l1)
 		// line evaluation
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		l.r2.MulByElement(&l.r2, &p[k].Y)
-		result.MulBy014(&l.r0, &l.r1, &l.r2)
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		l1.r2.MulByElement(&l1.r2, &p[k].Y)
+		result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 	}
 
 	return result, nil
