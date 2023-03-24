@@ -153,7 +153,7 @@ func (z *E12) MulBy034(c0, c3, c4 *E2) *E12 {
 }
 
 // Mul034By034 multiplication of sparse element (c0,0,0,c3,c4,0) by sparse element (d0,0,0,d3,d4,0)
-func Mul034By034(d0, d3, d4, c0, c3, c4 *E2) *[5]E2 {
+func Mul034By034(d0, d3, d4, c0, c3, c4 *E2) [5]E2 {
 	var z00, tmp, x0, x3, x4, x04, x03, x34 E2
 	x0.Mul(c0, d0)
 	x3.Mul(c3, d3)
@@ -177,7 +177,7 @@ func Mul034By034(d0, d3, d4, c0, c3, c4 *E2) *[5]E2 {
 	z00.MulByNonResidue(&x4).
 		Add(&z00, &x0)
 
-	return &[5]E2{z00, x3, x34, x03, x04}
+	return [5]E2{z00, x3, x34, x03, x04}
 }
 
 // MulBy01234 multiplies z by an E12 sparse element of the form (x0, x1, x2, x3, x4, 0)

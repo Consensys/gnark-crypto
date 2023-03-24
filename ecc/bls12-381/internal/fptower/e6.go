@@ -180,6 +180,34 @@ func (z *E6) MulBy1(c1 *E2) *E6 {
 	return z
 }
 
+// MulBy12 multiplication by sparse element (0,b1,b2)
+func (x *E6) MulBy12(b1, b2 *E2) *E6 {
+	var t1, t2, c0, tmp, c1, c2 E2
+	t1.Mul(&x.B1, b1)
+	t2.Mul(&x.B2, b2)
+	c0.Add(&x.B1, &x.B2)
+	tmp.Add(b1, b2)
+	c0.Mul(&c0, &tmp)
+	c0.Sub(&c0, &t1)
+	c0.Sub(&c0, &t2)
+	c0.MulByNonResidue(&c0)
+	c1.Add(&x.B0, &x.B1)
+	c1.Mul(&c1, b1)
+	c1.Sub(&c1, &t1)
+	tmp.MulByNonResidue(&t2)
+	c1.Add(&c1, &tmp)
+	tmp.Add(&x.B0, &x.B2)
+	c2.Mul(b2, &tmp)
+	c2.Sub(&c2, &t2)
+	c2.Add(&c2, &t1)
+
+	x.B0 = c0
+	x.B1 = c1
+	x.B2 = c2
+
+	return x
+}
+
 // Mul sets z to the E6 product of x,y, returns z
 func (z *E6) Mul(x, y *E6) *E6 {
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf

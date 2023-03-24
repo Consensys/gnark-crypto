@@ -156,7 +156,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		// line evaluation
 		l1.r0.MulByElement(&l1.r0, &p[1].Y)
 		l1.r1.MulByElement(&l1.r1, &p[1].X)
-		prodLines = *fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &result.C0.B0, &result.C1.B0, &result.C1.B1)
+		prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &result.C0.B0, &result.C1.B0, &result.C1.B1)
 		result.C0.B0 = prodLines[0]
 		result.C0.B1 = prodLines[1]
 		result.C0.B2 = prodLines[2]
@@ -187,7 +187,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				// line evaluation
 				l2.r0.MulByElement(&l2.r0, &p[k].Y)
 				l2.r1.MulByElement(&l2.r1, &p[k].X)
-				prodLines = *fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+				prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
 				result.MulBy01234(&prodLines)
 
 			} else if loopCounter[i] == -1 {
@@ -195,7 +195,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				// line evaluation
 				l2.r0.MulByElement(&l2.r0, &p[k].Y)
 				l2.r1.MulByElement(&l2.r1, &p[k].X)
-				prodLines = *fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+				prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
 				result.MulBy01234(&prodLines)
 			} else {
 				result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
@@ -220,7 +220,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		qProj[k].lineCompute(&l1, &Q2)
 		l1.r0.MulByElement(&l1.r0, &p[k].Y)
 		l1.r1.MulByElement(&l1.r1, &p[k].X)
-		prodLines = *fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+		prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
 		result.MulBy01234(&prodLines)
 	}
 
