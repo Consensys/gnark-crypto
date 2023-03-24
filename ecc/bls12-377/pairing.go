@@ -133,21 +133,22 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var result GT
-	var l lineEvaluation
+	var l1, l2 lineEvaluation
+	var prodLines [5]E2
 
 	// i == len(loopCounter) - 2
-	qProj[0].doubleStep(&l)
+	qProj[0].doubleStep(&l1)
 	// line eval
-	result.C0.B0.MulByElement(&l.r0, &p[0].Y)
-	result.C1.B0.MulByElement(&l.r1, &p[0].X)
-	result.C1.B1.Set(&l.r2)
+	result.C0.B0.MulByElement(&l1.r0, &p[0].Y)
+	result.C1.B0.MulByElement(&l1.r1, &p[0].X)
+	result.C1.B1.Set(&l1.r2)
 
 	for k := 1; k < n; k++ {
-		qProj[k].doubleStep(&l)
+		qProj[k].doubleStep(&l1)
 		// line eval
-		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		result.MulBy034(&l.r0, &l.r1, &l.r2)
+		l1.r0.MulByElement(&l1.r0, &p[k].Y)
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
+		result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
 	}
 
 	for i := len(loopCounter) - 3; i >= 1; i-- {
@@ -155,40 +156,40 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
-			qProj[k].doubleStep(&l)
+			qProj[k].doubleStep(&l1)
 			// line eval
-			l.r0.MulByElement(&l.r0, &p[k].Y)
-			l.r1.MulByElement(&l.r1, &p[k].X)
-			result.MulBy034(&l.r0, &l.r1, &l.r2)
+			l1.r0.MulByElement(&l1.r0, &p[k].Y)
+			l1.r1.MulByElement(&l1.r1, &p[k].X)
+
+			if loopCounter[i] == 0 {
+				result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
+			} else {
+				qProj[k].addMixedStep(&l2, &q[k])
+				// line eval
+				l2.r0.MulByElement(&l2.r0, &p[k].Y)
+				l2.r1.MulByElement(&l2.r1, &p[k].X)
+				prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+				result.MulBy01234(&prodLines)
+			}
 		}
 
-		if loopCounter[i] == 0 {
-			continue
-		}
-
-		for k := 0; k < n; k++ {
-			qProj[k].addMixedStep(&l, &q[k])
-			// line eval
-			l.r0.MulByElement(&l.r0, &p[k].Y)
-			l.r1.MulByElement(&l.r1, &p[k].X)
-			result.MulBy034(&l.r0, &l.r1, &l.r2)
-		}
 	}
 
 	// i = 0
 	result.Square(&result)
 	for k := 0; k < n; k++ {
-		qProj[k].doubleStep(&l)
+		qProj[k].doubleStep(&l1)
 		// line eval
-		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		result.MulBy034(&l.r0, &l.r1, &l.r2)
+		l1.r0.MulByElement(&l1.r0, &p[k].Y)
+		l1.r1.MulByElement(&l1.r1, &p[k].X)
 
-		qProj[k].lineCompute(&l, &q[k])
+		qProj[k].lineCompute(&l2, &q[k])
 		// line eval
-		l.r0.MulByElement(&l.r0, &p[k].Y)
-		l.r1.MulByElement(&l.r1, &p[k].X)
-		result.MulBy034(&l.r0, &l.r1, &l.r2)
+		l2.r0.MulByElement(&l2.r0, &p[k].Y)
+		l2.r1.MulByElement(&l2.r1, &p[k].X)
+
+		prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+		result.MulBy01234(&prodLines)
 	}
 
 	return result, nil
