@@ -94,8 +94,8 @@ func (z *E6) MulBy034(c0, c3, c4 *fp.Element) *E6 {
 }
 
 // Mul034By034 multiplication of sparse element (c0,0,0,c3,c4,0) by sparse element (d0,0,0,d3,d4,0)
-func (z *E6) Mul034By034(d0, d3, d4, c0, c3, c4 *fp.Element) *E6 {
-	var tmp, x0, x3, x4, x04, x03, x34 fp.Element
+func Mul034By034(d0, d3, d4, c0, c3, c4 *fp.Element) [5]fp.Element {
+	var z00, tmp, x0, x3, x4, x04, x03, x34 fp.Element
 	x0.Mul(c0, d0)
 	x3.Mul(c3, d3)
 	x4.Mul(c4, d4)
@@ -115,13 +115,30 @@ func (z *E6) Mul034By034(d0, d3, d4, c0, c3, c4 *fp.Element) *E6 {
 		Sub(&x34, &x3).
 		Sub(&x34, &x4)
 
-	z.B0.A0.MulByNonResidue(&x4).
-		Add(&z.B0.A0, &x0)
-	z.B0.A1.Set(&x3)
-	z.B0.A2.Set(&x34)
-	z.B1.A0.Set(&x03)
-	z.B1.A1.Set(&x04)
-	z.B1.A2.SetZero()
+	z00.MulByNonResidue(&x4).
+		Add(&z00, &x0)
+
+	return [5]fp.Element{z00, x3, x34, x03, x04}
+}
+
+// MulBy01234 multiplies z by an E12 sparse element of the form (x0, x1, x2, x3, x4, 0)
+func (z *E6) MulBy01234(x *[5]fp.Element) *E6 {
+	var c1, a, b, c, z0, z1 E3
+	c0 := &E3{A0: x[0], A1: x[1], A2: x[2]}
+	c1.A0 = x[3]
+	c1.A1 = x[4]
+	a.Add(&z.B0, &z.B1)
+	b.Add(c0, &c1)
+	a.Mul(&a, &b)
+	b.Mul(&z.B0, c0)
+	c.Set(&z.B1).MulBy01(&x[3], &x[4])
+	z1.Sub(&a, &b)
+	z1.Sub(&z1, &c)
+	z0.MulByNonResidue(&c)
+	z0.Add(&z0, &b)
+
+	z.B0 = z0
+	z.B1 = z1
 
 	return z
 }
