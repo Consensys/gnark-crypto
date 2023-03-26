@@ -132,22 +132,25 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var result GT
+	result.SetOne()
 	var l1, l2 lineEvaluation
 	var prodLines [5]E2
 
 	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
-	// i = 62, separately to avoid an E12 Square
-	// (Square(res) = 1² = 1)
-	// loopCounter[62] = 0
-	// k = 0, separately to avoid MulBy014 (res × ℓ)
-	// (assign line to res)
+	if n >= 1 {
+		// i = 62, separately to avoid an E12 Square
+		// (Square(res) = 1² = 1)
+		// loopCounter[62] = 0
+		// k = 0, separately to avoid MulBy014 (res × ℓ)
+		// (assign line to res)
 
-	// qProj[0] ← 2qProj[0] and l1 the tangent ℓ passing 2qProj[0]
-	qProj[0].doubleStep(&l1)
-	// line evaluation at P[0] (assign)
-	result.C0.B0.Set(&l1.r0)
-	result.C0.B1.MulByElement(&l1.r1, &p[0].X)
-	result.C1.B1.MulByElement(&l1.r2, &p[0].Y)
+		// qProj[0] ← 2qProj[0] and l1 the tangent ℓ passing 2qProj[0]
+		qProj[0].doubleStep(&l1)
+		// line evaluation at P[0] (assign)
+		result.C0.B0.Set(&l1.r0)
+		result.C0.B1.MulByElement(&l1.r1, &p[0].X)
+		result.C1.B1.MulByElement(&l1.r2, &p[0].Y)
+	}
 
 	if n >= 2 {
 		// k = 1, separately to avoid MulBy014 (res × ℓ)

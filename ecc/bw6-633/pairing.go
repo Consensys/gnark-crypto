@@ -229,23 +229,26 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	// f_{a0+λ*a1,P}(Q)
 	var result GT
+	result.SetOne()
 	var l, l0 lineEvaluation
 	var prodLines [5]fp.Element
 
 	var j int8
 
-	// i = len(loopCounter0) - 2, separately to avoid an E12 Square
-	// (Square(res) = 1² = 1)
-	// j = 0
-	// k = 0, separately to avoid MulBy034 (res × ℓ)
-	// (assign line to res)
+	if n >= 1 {
+		// i = len(loopCounter0) - 2, separately to avoid an E12 Square
+		// (Square(res) = 1² = 1)
+		// j = 0
+		// k = 0, separately to avoid MulBy034 (res × ℓ)
+		// (assign line to res)
 
-	// pProj0[0] ← 2pProj0[0] and l0 the tangent ℓ passing 2pProj0[0]
-	pProj0[0].doubleStep(&l0)
-	// line evaluation at Q[0] (assign)
-	result.B1.A0.Mul(&l0.r1, &q[0].X)
-	result.B0.A0.Mul(&l0.r0, &q[0].Y)
-	result.B1.A1.Set(&l0.r2)
+		// pProj0[0] ← 2pProj0[0] and l0 the tangent ℓ passing 2pProj0[0]
+		pProj0[0].doubleStep(&l0)
+		// line evaluation at Q[0] (assign)
+		result.B1.A0.Mul(&l0.r1, &q[0].X)
+		result.B0.A0.Mul(&l0.r0, &q[0].Y)
+		result.B1.A1.Set(&l0.r2)
+	}
 
 	// k = 1
 	if n >= 2 {
