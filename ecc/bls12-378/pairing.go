@@ -103,7 +103,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop computes the multi-Miller loop
-// ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
+// ∏ᵢ MillerLoop(Pᵢ, Qᵢ) = ∏ᵢ { fᵢ_{x,Qᵢ}(Pᵢ) }
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// check input size match
 	n := len(P)
@@ -135,20 +135,30 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	var l1, l2 lineEvaluation
 	var prodLines [5]E2
 
-	// i == len(loopCounter) - 2
-	// k = 0
+	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
+	// i = 62, separately to avoid an E12 Square
+	// (Square(res) = 1² = 1)
+	// loopCounter[62] = 0
+	// k = 0, separately to avoid MulBy014 (res × ℓ)
+	// (assign line to res)
+
+	// qProj[0] ← 2qProj[0] and l1 the tangent ℓ passing 2qProj[0]
 	qProj[0].doubleStep(&l1)
-	// line eval
+	// line evaluation at P[0] (assign)
 	result.C0.B0.Set(&l1.r0)
 	result.C0.B1.MulByElement(&l1.r1, &p[0].X)
 	result.C1.B1.MulByElement(&l1.r2, &p[0].Y)
 
 	if n >= 2 {
-		// k = 1
+		// k = 1, separately to avoid MulBy014 (res × ℓ)
+		// (res is also a line at this point, so we use Mul014By014 ℓ × ℓ)
+
+		// qProj[1] ← 2qProj[1] and l1 the tangent ℓ passing 2qProj[1]
 		qProj[1].doubleStep(&l1)
-		// line eval
+		// line evaluation at P[1]
 		l1.r1.MulByElement(&l1.r1, &p[1].X)
 		l1.r2.MulByElement(&l1.r2, &p[1].Y)
+		// ℓ × res
 		prodLines = fptower.Mul014By014(&l1.r0, &l1.r1, &l1.r2, &result.C0.B0, &result.C0.B1, &result.C1.B1)
 		result.C0.B0 = prodLines[0]
 		result.C0.B1 = prodLines[1]
@@ -157,29 +167,38 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.C1.B2 = prodLines[4]
 	}
 
+	// k >= 2
 	for k := 2; k < n; k++ {
+		// qProj[k] ← 2qProj[k] and l1 the tangent ℓ passing 2qProj[k]
 		qProj[k].doubleStep(&l1)
-		// line eval
+		// line evaluation at P[k]
 		l1.r1.MulByElement(&l1.r1, &p[k].X)
 		l1.r2.MulByElement(&l1.r2, &p[k].Y)
+		// ℓ × res
 		result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 	}
 
+	// i <= 61
 	for i := len(loopCounter) - 3; i >= 1; i-- {
+		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
 		for k := 0; k < n; k++ {
+			// qProj[k] ← 2qProj[k] and l1 the tangent ℓ passing 2qProj[k]
 			qProj[k].doubleStep(&l1)
-			// line eval
+			// line evaluation at P[k]
 			l1.r1.MulByElement(&l1.r1, &p[k].X)
 			l1.r2.MulByElement(&l1.r2, &p[k].Y)
 
 			if loopCounter[i] == 0 {
+				// ℓ × res
 				result.MulBy014(&l1.r0, &l1.r1, &l1.r2)
 			} else {
+				// qProj[k] ← qProj[k]+Q[k] and
+				// l2 the line ℓ passing qProj[k] and Q[k]
 				qProj[k].addMixedStep(&l2, &q[k])
-				// line eval
+				// line evaluation at P[k]
 				l2.r1.MulByElement(&l2.r1, &p[k].X)
 				l2.r2.MulByElement(&l2.r2, &p[k].Y)
 				// ℓ × ℓ
@@ -190,16 +209,19 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		}
 	}
 
-	// i = 0
+	// i = 0, separately to avoid a point addition
+	// loopCounter[0] = 1
 	result.Square(&result)
 	for k := 0; k < n; k++ {
+		// qProj[k] ← 2qProj[k] and l1 the tangent ℓ passing 2qProj[k]
 		qProj[k].doubleStep(&l1)
-		// line eval
+		// line evaluation at P[k]
 		l1.r1.MulByElement(&l1.r1, &p[k].X)
 		l1.r2.MulByElement(&l1.r2, &p[k].Y)
 
+		// l2 the line passing qProj[k] and Q
 		qProj[k].lineCompute(&l2, &q[k])
-		// line eval
+		// line evaluation at P[k]
 		l2.r1.MulByElement(&l2.r1, &p[k].X)
 		l2.r2.MulByElement(&l2.r2, &p[k].Y)
 		// ℓ × ℓ
