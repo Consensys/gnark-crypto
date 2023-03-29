@@ -1,4 +1,3 @@
-// Copyright 2020 ConsenSys AG
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -152,7 +151,10 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 }
 
 // MillerLoop Optimal Tate alternative (or twisted ate or Eta revisited)
-// computes the multi-Miller loop ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
+// computes the multi-Miller loop
+// ∏ᵢ MillerLoop(Pᵢ, Qᵢ) =
+// ∏ᵢ { fᵢ_{x₀+1+λ(x₀³-x₀²-x₀),Pᵢ}(Qᵢ) }
+//
 // Alg.2 in https://eprint.iacr.org/2021/1359.pdf
 // Eq. (6) in https://hackmd.io/@gnark/BW6-761-changes
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
@@ -190,117 +192,222 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 		// l_{p0,p1}(q)
 		pProj01[k].Set(&pProj1[k])
-		pProj01[k].AddMixedStep(&l01[k], &p0[k])
+		pProj01[k].addMixedStep(&l01[k], &p0[k])
 		l01[k].r1.Mul(&l01[k].r1, &q[k].X)
 		l01[k].r0.Mul(&l01[k].r0, &q[k].Y)
 
 		// l_{p0,-p1}(q)
 		pProj10[k].Neg(&pProj1[k])
-		pProj10[k].AddMixedStep(&l10[k], &p0[k])
+		pProj10[k].addMixedStep(&l10[k], &p0[k])
 		l10[k].r1.Mul(&l10[k].r1, &q[k].X)
 		l10[k].r0.Mul(&l10[k].r0, &q[k].Y)
 	}
 	p01 := BatchProjectiveToAffineG1(pProj01)
 	p10 := BatchProjectiveToAffineG1(pProj10)
 
-	// f_{a0+\lambda*a1,P}(Q)
-	var result, ss GT
+	// f_{a0+λ*a1,P}(Q)
+	var result GT
 	result.SetOne()
 	var l, l0 lineEvaluation
+	var prodLines [5]fp.Element
 
 	var j int8
 
-	// i = len(loopCounter) - 2
-	for k := 0; k < n; k++ {
-		pProj1[k].DoubleStep(&l0)
+	if n >= 1 {
+		// i = len(loopCounter0) - 2, separately to avoid an E12 Square
+		// (Square(res) = 1² = 1)
+		// j = 0
+		// k = 0, separately to avoid MulBy034 (res × ℓ)
+		// (assign line to res)
+
+		// pProj1[0] ← 2pProj1[0] and l0 the tangent ℓ passing 2pProj1[0]
+		pProj1[0].doubleStep(&l0)
+		// line evaluation at Q[0] (assign)
+		result.B1.A0.Mul(&l0.r1, &q[0].X)
+		result.B0.A0.Mul(&l0.r0, &q[0].Y)
+		result.B1.A1.Set(&l0.r2)
+	}
+
+	// k = 1
+	if n >= 2 {
+		// pProj1[1] ← 2pProj1[1] and l0 the tangent ℓ passing 2pProj1[1]
+		pProj1[1].doubleStep(&l0)
+		// line evaluation at Q[0]
+		l0.r1.Mul(&l0.r1, &q[1].X)
+		l0.r0.Mul(&l0.r0, &q[1].Y)
+		// ℓ × res
+		prodLines = fptower.Mul034By034(&l0.r0, &l0.r1, &l0.r2, &result.B0.A0, &result.B1.A0, &result.B1.A1)
+		result.B0.A0 = prodLines[0]
+		result.B0.A1 = prodLines[1]
+		result.B0.A2 = prodLines[2]
+		result.B1.A0 = prodLines[3]
+		result.B1.A1 = prodLines[4]
+	}
+
+	// k >= 2
+	for k := 2; k < n; k++ {
+		// pProj1[1] ← 2pProj1[1] and l0 the tangent ℓ passing 2pProj1[1]
+		pProj1[k].doubleStep(&l0)
+		// line evaluation at Q[k]
 		l0.r1.Mul(&l0.r1, &q[k].X)
 		l0.r0.Mul(&l0.r0, &q[k].Y)
+		// ℓ × res
 		result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
 	}
 
 	var tmp G1Affine
-	for i := len(loopCounter0) - 3; i >= 0; i-- {
+	for i := len(loopCounter0) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
+		// mutualize the square among n Miller loops
 		result.Square(&result)
 
 		j = loopCounter1[i]*3 + loopCounter0[i]
 
 		for k := 0; k < n; k++ {
-			pProj1[k].DoubleStep(&l0)
+			// pProj1[1] ← 2pProj1[1] and l0 the tangent ℓ passing 2pProj1[1]
+			pProj1[k].doubleStep(&l0)
+			// line evaluation at Q[k]
 			l0.r1.Mul(&l0.r1, &q[k].X)
 			l0.r0.Mul(&l0.r0, &q[k].Y)
 
 			switch j {
 			case -4:
 				tmp.Neg(&p01[k])
-				pProj1[k].AddMixedStep(&l, &tmp)
+				// pProj1[k] ← pProj1[k]-p01[k] and
+				// l the line ℓ passing pProj1[k] and -p01[k]
+				pProj1[k].addMixedStep(&l, &tmp)
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2).
-					Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
+				// ℓ × res
+				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case -3:
 				tmp.Neg(&p1[k])
-				pProj1[k].AddMixedStep(&l, &tmp)
+				// pProj1[k] ← pProj1[k]-p1[k] and
+				// l the line ℓ passing pProj1[k] and -p1[k]
+				pProj1[k].addMixedStep(&l, &tmp)
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				result.Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case -2:
-				pProj1[k].AddMixedStep(&l, &p10[k])
+				// pProj1[k] ← pProj1[k]+p10[k] and
+				// l the line ℓ passing pProj1[k] and p10[k]
+				pProj1[k].addMixedStep(&l, &p10[k])
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2).
-					Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
+				// ℓ × res
+				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case -1:
 				tmp.Neg(&p0[k])
-				pProj1[k].AddMixedStep(&l, &tmp)
+				// pProj1[k] ← pProj1[k]-p0[k] and
+				// l the line ℓ passing pProj1[k] and -p0[k]
+				pProj1[k].addMixedStep(&l, &tmp)
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				result.Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case 0:
+				// ℓ × res
 				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
 			case 1:
-				pProj1[k].AddMixedStep(&l, &p0[k])
+				// pProj1[k] ← pProj1[k]+p0[k] and
+				// l the line ℓ passing pProj1[k] and p0[k]
+				pProj1[k].addMixedStep(&l, &p0[k])
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				result.Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case 2:
 				tmp.Neg(&p10[k])
-				pProj1[k].AddMixedStep(&l, &tmp)
+				// pProj1[k] ← pProj1[k]-p10[k] and
+				// l the line ℓ passing pProj1[k] and -p10[k]
+				pProj1[k].addMixedStep(&l, &tmp)
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2).
-					Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
+				// ℓ × res
+				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case 3:
-				pProj1[k].AddMixedStep(&l, &p1[k])
+				// pProj1[k] ← pProj1[k]+p1[k] and
+				// l the line ℓ passing pProj1[k] and p1[k]
+				pProj1[k].addMixedStep(&l, &p1[k])
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				result.Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			case 4:
-				pProj1[k].AddMixedStep(&l, &p01[k])
+				// pProj1[k] ← pProj1[k]+p01[k] and
+				// l the line ℓ passing pProj1[k] and p01[k]
+				pProj1[k].addMixedStep(&l, &p01[k])
+				// line evaluation at Q[k]
 				l.r1.Mul(&l.r1, &q[k].X)
 				l.r0.Mul(&l.r0, &q[k].Y)
-				ss.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2).
-					Mul(&result, &ss)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
+				// ℓ × res
+				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
 			default:
 				return GT{}, errors.New("invalid loopCounter")
 			}
 		}
 	}
 
+	// i = 0, separately to avoid a point addition
+	// j = -3
+	result.Square(&result)
+	for k := 0; k < n; k++ {
+		// pProj1[k] ← 2pProj1[k] and l0 the tangent ℓ passing 2pProj1[k]
+		pProj1[k].doubleStep(&l0)
+		// line evaluation at Q[k]
+		l0.r1.Mul(&l0.r1, &q[k].X)
+		l0.r0.Mul(&l0.r0, &q[k].Y)
+
+		tmp.Neg(&p1[k])
+		// l the line passing pProj1[k] and -p1
+		pProj1[k].lineCompute(&l, &tmp)
+		// line evaluation at Q[k]
+		l.r1.Mul(&l.r1, &q[k].X)
+		l.r0.Mul(&l.r0, &q[k].Y)
+		// ℓ × ℓ
+		prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
+		// (ℓ × ℓ) × res
+		result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
+	}
+
 	return result, nil
 }
 
-// DoubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
+// doubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g1Proj) DoubleStep(evaluations *lineEvaluation) {
+func (p *g1Proj) doubleStep(evaluations *lineEvaluation) {
 
 	// get some Element from our pool
 	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fp.Element
@@ -342,9 +449,9 @@ func (p *g1Proj) DoubleStep(evaluations *lineEvaluation) {
 	evaluations.r2.Set(&I)
 }
 
-// AddMixedStep point addition in Mixed Homogenous projective and Affine coordinates
+// addMixedStep point addition in Mixed Homogenous projective and Affine coordinates
 // https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g1Proj) AddMixedStep(evaluations *lineEvaluation, a *G1Affine) {
+func (p *g1Proj) addMixedStep(evaluations *lineEvaluation, a *G1Affine) {
 
 	// get some Element from our pool
 	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fp.Element
@@ -369,6 +476,26 @@ func (p *g1Proj) AddMixedStep(evaluations *lineEvaluation, a *G1Affine) {
 		Sub(&p.y, &t1)
 	p.z.Mul(&E, &p.z)
 
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
+
+	// Line evaluation
+	evaluations.r0.Set(&L)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&J)
+}
+
+// lineCompute computes the line through p in Homogenous projective coordinates
+// and a in affine coordinates. It does not compute the resulting point p+a.
+func (p *g1Proj) lineCompute(evaluations *lineEvaluation, a *G1Affine) {
+
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, t2, J fp.Element
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
 	t2.Mul(&L, &a.Y)
 	J.Mul(&a.X, &O).
 		Sub(&J, &t2)
