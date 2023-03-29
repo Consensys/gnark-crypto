@@ -1,6 +1,12 @@
 import (
 	"crypto/subtle"
 	"io"
+	{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	{{- end }}
 )
 
 // Bytes returns the binary representation of the public key
@@ -37,6 +43,30 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	n += sizeFp
 	return n, nil
 }
+
+{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
+// RecoverFrom recovers the public key from the message msg, recovery
+// information v and decompose signature {r,s}. If recovery succeeded, the
+// methods sets the current public key to the recovered value. Otherwise returns
+// error and leaves current public key unchanged.
+func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
+	P, err := RecoverP(v, r)
+	if err != nil {
+		return err
+	}
+	z := HashToInt(msg)
+	rinv := new(big.Int).ModInverse(r, fr.Modulus())
+	u1 := new(big.Int).Mul(z, rinv)
+	u1.Neg(u1)
+	u1.Mod(u1, fr.Modulus())
+	u2 := new(big.Int).Mul(s, rinv)
+	u2.Mod(u2, fr.Modulus())
+	var Q {{ .CurvePackage }}.G1Jac
+	Q.JointScalarMultiplicationBase(P, u1, u2)
+	pk.A.FromJacobian(&Q)
+	return nil
+}
+{{- end }}
 
 // Bytes returns the binary representation of pk,
 // as byte array publicKey||scalar

@@ -393,10 +393,7 @@ func (p *G1Jac) IsOnCurve() bool {
 // IsInSubGroup returns true if p is on the r-torsion, false otherwise.
 func (p *G1Jac) IsInSubGroup() bool {
 
-	var res G1Jac
-	res.ScalarMultiplication(&res, fr.Modulus())
-
-	return res.IsOnCurve() && res.Z.IsZero()
+	return p.IsOnCurve()
 
 }
 

@@ -39,7 +39,8 @@ import (
 // ID secp256k1 ID
 const ID = ecc.SECP256K1
 
-// bCurveCoeff b coeff of the curve Y²=X³+b
+// aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
+var aCurveCoeff fp.Element
 var bCurveCoeff fp.Element
 
 // generator of the r-torsion group
@@ -63,7 +64,7 @@ var lambdaGLV big.Int
 var glvBasis ecc.Lattice
 
 func init() {
-
+	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(7)
 
 	g1Gen.X.SetString("55066263022277343669578718895168534326250603453777594175500187360389116729240")
@@ -88,4 +89,9 @@ func Generators() (g1Jac G1Jac, g1Aff G1Affine) {
 	g1Aff = g1GenAff
 	g1Jac = g1Gen
 	return
+}
+
+// CurveCoefficients returns the a, b coefficients of the curve equation.
+func CurveCoefficients() (a, b fp.Element) {
+	return aCurveCoeff, bCurveCoeff
 }

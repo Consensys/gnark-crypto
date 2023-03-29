@@ -54,6 +54,7 @@ const (
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
 
+var ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
 
 // Encoder writes {{.Name}} object values to an output stream
 type Encoder struct {
@@ -377,6 +378,19 @@ func NoSubgroupChecks() func(*Decoder)  {
 	}
 }
 
+// isZeroed checks that the provided bytes are at 0
+func isZeroed(firstByte byte, buf []byte) bool {
+	if firstByte != 0 {
+		return false
+	}
+	for _, b := range buf {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 {{template "encode" dict "Raw" ""}}
 {{template "encode" dict "Raw" "Raw"}}
 
@@ -564,7 +578,7 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	{{- if eq $.CoordType "fptower.E2"}}
-		// p.X.A1 | p.X.A0
+		// p.X.A1 | p.X.A0
 		{{- $offset := $.sizeOfFp}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
@@ -681,8 +695,11 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		}
 	} 
 
-	// if infinity is encoded in the metadata, we don't need to read the buffer
+	// infinity encoded, we still check that the buffer is full of zeroes.
 	if (mData == mCompressedInfinity) {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOf{{ $.TAffine }}Compressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOf{{ $.TAffine }}Compressed, nil
@@ -690,6 +707,9 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 
 	{{- if ge .all.FpUnusedBits 3}} 
 	if (mData == mUncompressedInfinity) {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOf{{ $.TAffine }}Uncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOf{{ $.TAffine }}Uncompressed, nil
@@ -901,9 +921,12 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 	mData := buf[0] & mMask
 	
 	if (mData == mCompressedInfinity) {
+		isInfinity = true
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOf{{ $.TAffine }}Compressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
-		isInfinity = true
 		return isInfinity, nil
 	}
 
