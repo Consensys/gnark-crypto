@@ -59,8 +59,10 @@ func PedersenArray(elems ...*fp.Element) *fp.Element {
 func Pedersen(a *fp.Element, b *fp.Element) *fp.Element {
 
 	result := new(starkcurve.G1Jac).Set(&shiftPoint)
-	result.AddAssign(processElement(a, &p0, &p1))
-	result.AddAssign(processElement(b, &p2, &p3))
+
+	var point starkcurve.G1Jac
+	result.AddAssign(processElement(a, &p0, &p1, &point))
+	result.AddAssign(processElement(b, &p2, &p3, &point))
 
 	// recover the affine x coordinate
 	var x fp.Element
@@ -71,7 +73,7 @@ func Pedersen(a *fp.Element, b *fp.Element) *fp.Element {
 	return &x
 }
 
-func processElement(a *fp.Element, p1 *starkcurve.G1Jac, p2 *starkcurve.G1Jac) *starkcurve.G1Jac {
+func processElement(a *fp.Element, p1 *starkcurve.G1Jac, p2 *starkcurve.G1Jac, res *starkcurve.G1Jac) *starkcurve.G1Jac {
 	var bigInt big.Int
 	var aBytes [32]byte
 	a.BigInt(&bigInt).FillBytes(aBytes[:])
@@ -79,9 +81,9 @@ func processElement(a *fp.Element, p1 *starkcurve.G1Jac, p2 *starkcurve.G1Jac) *
 	highPart := bigInt.SetUint64(uint64(aBytes[0])) // The top nibble (bits 249-252)
 	lowPart := aBytes[1:]                           // Zero-out the top nibble (bits 249-252)
 
-	m := new(starkcurve.G1Jac).ScalarMultiplication(p2, highPart)
+	res.ScalarMultiplication(p2, highPart)
 
 	var n starkcurve.G1Jac
 	n.ScalarMultiplication(p1, bigInt.SetBytes(lowPart))
-	return m.AddAssign(&n)
+	return res.AddAssign(&n)
 }
