@@ -312,3 +312,13 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 		res[i].Add(&res[i], &t)
 	}
 }
+
+// Returns a clone of the RSis parameters with a fresh and empty buffer
+// Does not mutate the current instance. The keys and the public parameters
+// of the SIS instance are not deep-copied. It is useful when we want to hash in
+// parallel. Otherwise, we would have to generate an entire RSis for each thread.
+func (r *RSis) CopyWithFreshBuffer() RSis {
+	res := *r
+	res.buffer = bytes.Buffer{}
+	return res
+}
