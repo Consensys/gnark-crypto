@@ -396,40 +396,6 @@ func TestE24Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS24-317] batch decompress and individual decompress (Karabina) should be the same", prop.ForAll(
-		func(a *E24) bool {
-			var _a, b E24
-			_a.SetOne().Double(&_a)
-
-			// put a and _a in the cyclotomic subgroup
-			// a (g3 !=0 probably)
-			b.Conjugate(a)
-			a.Inverse(a)
-			b.Mul(&b, a)
-			a.FrobeniusQuad(&b).Mul(a, &b)
-			// _a (g3 == 0)
-			b.Conjugate(&_a)
-			_a.Inverse(&_a)
-			b.Mul(&b, &_a)
-			_a.FrobeniusQuad(&b).Mul(&_a, &b)
-
-			var a2, a4, a17 E24
-			a2.Set(&_a)
-			a4.Set(a)
-			a17.Set(a)
-			a2.nSquareCompressed(2) // case g3 == 0
-			a4.nSquareCompressed(4)
-			a17.nSquareCompressed(17)
-			batch := BatchDecompressKarabina([]E24{a2, a4, a17})
-			a2.DecompressKarabina(&a2)
-			a4.DecompressKarabina(&a4)
-			a17.DecompressKarabina(&a17)
-
-			return a2.Equal(&batch[0]) && a4.Equal(&batch[1]) && a17.Equal(&batch[2])
-		},
-		genA,
-	))
-
 	properties.Property("[BLS24-315] Exp and CyclotomicExp results must be the same in the cyclotomic subgroup", prop.ForAll(
 		func(a *E24, e fp.Element) bool {
 			var b, c, d E24

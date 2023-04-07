@@ -77,11 +77,13 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	result.FrobeniusSquare(&t[0]).
 		Mul(&result, &t[0])
 
-	var one GT
-	one.SetOne()
-	if result.Equal(&one) {
-		return result
-	}
+		/*
+			var one GT
+			one.SetOne()
+			if result.Equal(&one) {
+				return result
+			}
+		*/
 
 	// Hard part (up to permutation)
 	// Daiki Hayashida, Kenichiro Hayasaka and Tadanori Teruya
