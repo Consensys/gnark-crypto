@@ -80,7 +80,7 @@ func serializationRoundtrip(o serializable) func(*testing.T) {
 
 		// reconstruct the object
 		_o := reflect.New(reflect.TypeOf(o).Elem()).Interface().(serializable)
-		_, err = _o.(serializable).ReadFrom(&buf)
+		_, err = _o.ReadFrom(&buf)
 		assert.NoError(t, err)
 
 		// compare
