@@ -24,13 +24,13 @@ func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 
 // WriteTo writes binary encoding of the VerifyingKey
 func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
-	// encode the SRS
+	// encode the VerifyingKey
 	enc := {{ .CurvePackage }}.NewEncoder(w)
 
 	toEncode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		&srs.G1,
+		&vk.G2[0],
+		&vk.G2[1],
+		&vk.G1,
 	}
 
 	for _, v := range toEncode {
@@ -44,7 +44,7 @@ func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
 
 // ReadFrom decodes ProvingKey data from reader.
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
-	// decode the SRS
+	// decode the ProvingKey
 	dec := {{ .CurvePackage }}.NewDecoder(r)
 
 	toDecode := []interface{}{
@@ -62,7 +62,7 @@ func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 
 // ReadFrom decodes VerifyingKey data from reader.
 func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
-	// decode the SRS
+	// decode the VerifyingKey
 	dec := {{ .CurvePackage }}.NewDecoder(r)
 
 	toDecode := []interface{}{

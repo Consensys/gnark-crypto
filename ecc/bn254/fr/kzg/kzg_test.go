@@ -83,14 +83,14 @@ func TestDividePolyByXminusA(t *testing.T) {
 func TestSerializationSRS(t *testing.T) {
 
 	// create a SRS
-	pk, vk, err := NewSRS(64, new(big.Int).SetInt64(42))
+	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// serialize them...
+	// serialize it...
 	var buf bytes.Buffer
-	_, err = pk.WriteTo(&buf)
+	_, err = srs.WriteTo(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}
