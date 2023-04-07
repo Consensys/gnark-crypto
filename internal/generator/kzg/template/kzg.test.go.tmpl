@@ -62,33 +62,36 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 }
 
+
+// TODO @Tabaie not curve dependent. move to neutral territory?
+type serializable interface {
+	io.ReaderFrom
+	io.WriterTo
+}
+
+func serializationRoundtrip(o serializable) func(*testing.T) {
+	return func(t *testing.T) {
+		// serialize it...
+		var buf bytes.Buffer
+		_, err := o.WriteTo(&buf)
+		assert.NoError(t, err)
+
+		// reconstruct the object
+		_o := reflect.New(reflect.TypeOf(o).Elem()).Pointer()
+		//_, err = _o.(serializable).ReadFrom(&buf)
+		assert.NoError(t, err)
+
+		// compare
+		assert.Equal(t, o, _o)
+	}
+}
+
 func TestSerializationSRS(t *testing.T) {
-
 	// create a SRS
-	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// serialize it...
-	var buf bytes.Buffer
-	_, err = srs.WriteTo(&buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// reconstruct the SRS
-	var _srs SRS
-	_, err = _srs.ReadFrom(&buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// compare
-	if !reflect.DeepEqual(srs, &_srs) {
-		t.Fatal("scheme serialization failed")
-	}
-
+	pk, vk, err := NewSRS(64, new(big.Int).SetInt64(42))
+	assert.NoError(t, err)
+	t.Run("proving key serialization roundtrip", serializationRoundtrip(&pk))
+	t.Run("verifying key serialization roundtrip", serializationRoundtrip(&vk))
 }
 
 func TestCommit(t *testing.T) {
@@ -100,7 +103,7 @@ func TestCommit(t *testing.T) {
 	}
 
 	// commit using the method from KZG
-	_kzgCommit, err := Commit(f, testSRS)
+	_kzgCommit, err := Commit(f, pk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +117,7 @@ func TestCommit(t *testing.T) {
 	var fxbi big.Int
 	fx.BigInt(&fxbi)
 	var manualCommit {{ .CurvePackage }}.G1Affine
-	manualCommit.Set(&testSRS.G1[0])
+	manualCommit.Set(&vk.G1)
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
 	// compare both results
@@ -130,7 +133,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	f := randomPolynomial(60)
 
 	// commit the polynomial
-	digest, err := Commit(f, testSRS)
+	digest, err := Commit(f, pk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +141,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// compute opening proof at a random point
 	var point fr.Element
 	point.SetString("4321")
-	proof, err := Open(f, point, testSRS)
+	proof, err := Open(f, point, pk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +153,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify correct proof
-	err = Verify(&digest, &proof, point, testSRS)
+	err = Verify(&digest, &proof, point, vk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +161,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	{
 		// verify wrong proof
 		proof.ClaimedValue.Double(&proof.ClaimedValue)
-		err = Verify(&digest, &proof, point, testSRS)
+		err = Verify(&digest, &proof, point, vk)
 		if err == nil {
 			t.Fatal("verifying wrong proof should have failed")
 		}
@@ -168,7 +171,7 @@ func TestVerifySinglePoint(t *testing.T) {
 		// see https://cryptosubtlety.medium.com/00-8d4adcf4d255
 		proof.H.X.SetZero()
 		proof.H.Y.SetZero()
-		err = Verify(&digest, &proof, point, testSRS)
+		err = Verify(&digest, &proof, point, vk)
 		if err == nil {
 			t.Fatal("verifying wrong proof should have failed")
 		}
@@ -188,7 +191,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	// commit the polynomials
 	digests := make([]Digest, len(f))
 	for i := range f {
-		digests[i], _ = Commit(f[i], testSRS)
+		digests[i], _ = Commit(f[i], pk)
 
 	}
 
@@ -248,7 +251,7 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 	// commit the polynomials
 	digests := make([]Digest, 10)
 	for i := 0; i < 10; i++ {
-		digests[i], _ = Commit(f[i], testSRS)
+		digests[i], _ = Commit(f[i], pk)
 	}
 
 	// pick a hash function

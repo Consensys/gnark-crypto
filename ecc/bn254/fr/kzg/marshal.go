@@ -154,7 +154,6 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 // ReadFrom decodes BatchOpeningProof data from reader.
 func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bn254.NewDecoder(r)
-
 	toDecode := []interface{}{
 		&proof.H,
 		&proof.ClaimedValues,
