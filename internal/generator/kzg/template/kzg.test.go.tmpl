@@ -10,12 +10,15 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 )
 
-// testSRS re-used accross tests of the KZG scheme
-var testSRS *SRS
+// Test SRS re-used across tests of the KZG scheme
+var (
+	pk ProvingKey
+	vk VerifyingKey
+)
 
 func init() {
 	const srsSize = 230
-	testSRS, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
+	pk, vk, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
 }
 
 func TestDividePolyByXminusA(t *testing.T) {

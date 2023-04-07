@@ -68,22 +68,23 @@ func eval(p []fr.Element, point fr.Element) fr.Element {
 // In production, a SRS generated through MPC should be used.
 //
 // implements io.ReaderFrom and io.WriterTo
-func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
+func NewSRS(size uint64, bAlpha *big.Int) (pk ProvingKey, vk VerifyingKey, err error) {
 
 	if size < 2 {
-		return nil, ErrMinSRSSize
+		err = ErrMinSRSSize
+		return
 	}
 
-	var srs SRS
-	srs.G1 = make([]bls24317.G1Affine, size)
+	pk.G1 = make([]bls24317.G1Affine, size)
 
 	var alpha fr.Element
 	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := bls24317.Generators()
-	srs.G1[0] = gen1Aff
-	srs.G2[0] = gen2Aff
-	srs.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	pk.G1[0] = gen1Aff
+	vk.G1 = gen1Aff
+	vk.G2[0] = gen2Aff
+	vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -91,9 +92,9 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
 	g1s := bls24317.BatchScalarMultiplicationG1(&gen1Aff, alphas)
-	copy(srs.G1[1:], g1s)
+	copy(pk.G1[1:], g1s)
 
-	return &srs, nil
+	return
 }
 
 // OpeningProof KZG proof for opening at a single point.
