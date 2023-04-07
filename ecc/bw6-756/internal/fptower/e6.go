@@ -609,7 +609,6 @@ func (z *E6) SetBytes(e []byte) error {
 	z.B0.A1.SetBytes(e[offset : offset+fp.Bytes])
 	offset += fp.Bytes
 	z.B0.A0.SetBytes(e[offset : offset+fp.Bytes])
-	offset += fp.Bytes
 
 	return nil
 }

@@ -744,7 +744,6 @@ func (z *E24) Bytes() (r [SizeOfGT]byte) {
 
 	buf = z.D1.C2.B1.A1.Bytes()
 	copy(r[offset:offset+sizeOfFp], buf[:])
-	offset += sizeOfFp
 
 	return
 }
@@ -803,7 +802,6 @@ func (z *E24) SetBytes(e []byte) error {
 	z.D1.C2.B1.A0.SetBytes(e[offset : offset+sizeOfFp])
 	offset += sizeOfFp
 	z.D1.C2.B1.A1.SetBytes(e[offset : offset+sizeOfFp])
-	offset += sizeOfFp
 
 	return nil
 }
