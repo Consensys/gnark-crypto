@@ -30,7 +30,7 @@ type ProvingKey struct {
 
 type VerifyingKey struct {
 	G2 [2]{{ .CurvePackage }}.G2Affine // [G₂, [α]G₂ ]
-	G1 bn254.G1Affine
+	G1 {{ .CurvePackage }}.G1Affine
 }
 
 // eval returns p(point) where p is interpreted as a polynomial

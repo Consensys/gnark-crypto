@@ -48,7 +48,7 @@ type ProvingKey struct {
 
 type VerifyingKey struct {
 	G2 [2]bls12381.G2Affine // [G₂, [α]G₂ ]
-	G1 bn254.G1Affine
+	G1 bls12381.G1Affine
 }
 
 // eval returns p(point) where p is interpreted as a polynomial
