@@ -209,15 +209,17 @@ func (z *E12) DecompressKarabina(x *E12) *E12 {
     var one E2
     one.SetOne()
 
-	// g3 == 0
-	if x.C1.B2.IsZero() {
+	if x.C1.B2.IsZero() /* g3 == 0 */ {
 		t[0].Mul(&x.C0.B1, &x.C1.B2).
 			Double(&t[0])
 		// t1 = g2
 		t[1].Set(&x.C0.B2)
 
-		// g3 != 0
-	} else {
+		if t[1].IsZero() /* g2 == g3 == 0 */ {
+			return z.SetOne()
+		}
+	} else /* g3 != 0 */ {
+
 		// t0 = g1^2
 		t[0].Square(&x.C0.B1)
 		// t1 = 3 * g1^2 - 2 * g2

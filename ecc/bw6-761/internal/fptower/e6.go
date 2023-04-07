@@ -230,15 +230,18 @@ func (z *E6) DecompressKarabina(x *E6) *E6 {
 	var one fp.Element
 	one.SetOne()
 
-	// g3 == 0
-	if x.B1.A0.IsZero() {
+	if x.B1.A0.IsZero() /* g3 == 0 */ {
 		t[0].Mul(&x.B0.A1, &x.B1.A2).
 			Double(&t[0])
 		// t1 = g2
 		t[1].Set(&x.B0.A2)
 
 		// g3 != 0
-	} else {
+
+		if t[1].IsZero() /* g2 == g3 == 0 */ {
+			return z.SetOne()
+		}
+	} else /* g3 != 0 */ {
 		// t0 = g1^2
 		t[0].Square(&x.B0.A1)
 		// t1 = 3 * g1^2 - 2 * g2
