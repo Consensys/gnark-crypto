@@ -381,13 +381,13 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 	var a, b, c, res G2Jac
 	a.ScalarMultiplication(p, &xGen)
-	b.psi(&a)
+	b.Psi(&a)
 	a.AddAssign(p)
-	res.psi(&b)
+	res.Psi(&b)
 	c.Set(&res).
 		AddAssign(&b).
 		AddAssign(&a)
-	res.psi(&res).
+	res.Psi(&res).
 		Double(&res).
 		SubAssign(&c)
 
@@ -425,7 +425,7 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 }
 
 // ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
-func (p *G2Jac) psi(a *G2Jac) *G2Jac {
+func (p *G2Jac) Psi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
 	p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
@@ -435,7 +435,7 @@ func (p *G2Jac) psi(a *G2Jac) *G2Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G2Jac) phi(a *G2Jac) *G2Jac {
+func (p *G2Jac) Phi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.MulByElement(&p.X, &thirdRootOneG2)
 	return p
@@ -453,7 +453,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].phi(a)
+	table[3].Phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
@@ -532,12 +532,12 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
-		psi(&points[1])
+		Psi(&points[1])
 
-	points[2].psi(&points[0]).
-		psi(&points[2])
+	points[2].Psi(&points[0]).
+		Psi(&points[2])
 
-	points[3].psi(a).psi(&points[3]).psi(&points[3])
+	points[3].Psi(a).Psi(&points[3]).Psi(&points[3])
 
 	var res G2Jac
 	res.Set(&g2Infinity)

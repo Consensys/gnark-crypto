@@ -43,12 +43,12 @@ import (
 
         properties := gopter.NewProperties(parameters)
 
-        properties.Property("[{{ toUpper .Name }}] check that phi(P) = lambdaGLV * P", prop.ForAll(
+        properties.Property("[{{ toUpper .Name }}] check that Phi(P) = lambdaGLV * P", prop.ForAll(
             func(a {{ .CoordType}}) bool {
                 var p, res1, res2 {{ $TJacobian }}
                 g := MapTo{{ toUpper .PointName}}(a)
                 p.FromAffine(&g)
-                res1.phi(&p)
+                res1.Phi(&p)
                 res2.mulWindowed(&p, &lambdaGLV)
 
                 return p.IsInSubGroup() && res1.Equal(&res2)
@@ -56,13 +56,13 @@ import (
             {{$fuzzer}},
         ))
 
-        properties.Property("[{{ toUpper .Name }}] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
+        properties.Property("[{{ toUpper .Name }}] check that Phi^2(P) + Phi(P) + P = 0", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                 var p, res, tmp {{ $TJacobian }}
                 g := MapTo{{ toUpper .PointName}}(a)
                 p.FromAffine(&g)
-                tmp.phi(&p)
-                res.phi(&tmp).
+                tmp.Phi(&p)
+                res.Phi(&tmp).
                     AddAssign(&tmp).
                     AddAssign(&p)
 
@@ -73,18 +73,18 @@ import (
 
         {{if eq .PointName "g2" }}
         {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633") (ne .Name "bw6-756") }}
-            properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
+            properties.Property("[{{ toUpper .Name }}] check that Psi^2(P) = -Phi(P)", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                     var p, res1, res2 {{ $TJacobian }}
                     g := MapTo{{ toUpper .PointName}}(a)
                     p.FromAffine(&g)
                     {{- if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
-                        res1.psi(&p).psi(&res1).psi(&res1).psi(&res1).Neg(&res1)
+                        res1.Psi(&p).Psi(&res1).Psi(&res1).Psi(&res1).Neg(&res1)
                     {{- else}}
-                        res1.psi(&p).psi(&res1).Neg(&res1)
+                        res1.Psi(&p).Psi(&res1).Neg(&res1)
                     {{- end}}
                     {{- if eq .Name "bn254"}}
-                        res2.phi(&p)
+                        res2.Phi(&p)
                     {{- else}}
                         res2.Set(&p)
                         res2.X.MulByElement(&res2.X, &thirdRootOneG1)
@@ -393,10 +393,10 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 	))
 
 	{{ if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
-		properties.Property("[{{ toUpper .Name }}] psi should map points from E' to itself", prop.ForAll(
+		properties.Property("[{{ toUpper .Name }}] Psi should map points from E' to itself", prop.ForAll(
 			func() bool {
 				var a {{ $TJacobian }}
-				a.psi(&{{ toLower .PointName }}Gen)
+				a.Psi(&{{ toLower .PointName }}Gen)
 				return a.IsOnCurve() && !a.Equal(&g2Gen)
 			},
 		))

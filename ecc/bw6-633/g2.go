@@ -382,7 +382,7 @@ func (p *G2Jac) IsInSubGroup() bool {
 		ScalarMultiplication(&u4P, &xGen)
 	u5P.ScalarMultiplication(&u4P, &xGen)
 	q.Set(p).SubAssign(&uP)
-	r.phi(&q).SubAssign(&uP).
+	r.Phi(&q).SubAssign(&uP).
 		AddAssign(&u4P).
 		AddAssign(&u5P)
 
@@ -421,7 +421,7 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G2Jac) phi(a *G2Jac) *G2Jac {
+func (p *G2Jac) Phi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.Mul(&p.X, &thirdRootOneG2)
 	return p
@@ -439,7 +439,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].phi(a)
+	table[3].Phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
@@ -540,7 +540,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	tmp.ScalarMultiplication(a, &d3)
 	L1.AddAssign(&tmp)
 
-	p.phi(&L1).AddAssign(&L0)
+	p.Phi(&L1).AddAssign(&L0)
 
 	return p
 

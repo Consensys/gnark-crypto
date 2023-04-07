@@ -427,7 +427,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G1Jac) phi(a *G1Jac) *G1Jac {
+func (p *G1Jac) Phi(a *G1Jac) *G1Jac {
 	p.Set(a)
 	p.X.Mul(&p.X, &thirdRootOneG1)
 	return p
@@ -445,7 +445,7 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].phi(a)
+	table[3].Phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
