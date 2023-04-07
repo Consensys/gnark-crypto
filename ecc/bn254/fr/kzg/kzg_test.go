@@ -68,7 +68,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
-		t.Fatal("inconsistant size of quotient")
+		t.Fatal("inconsistent size of quotient")
 	}
 
 	hRandPoint := eval(h, randPoint)

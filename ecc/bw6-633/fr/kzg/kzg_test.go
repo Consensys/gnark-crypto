@@ -68,7 +68,7 @@ func TestDividePolyByXminusA(t *testing.T) {
 	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
-		t.Fatal("inconsistant size of quotient")
+		t.Fatal("inconsistent size of quotient")
 	}
 
 	hRandPoint := eval(h, randPoint)
@@ -96,8 +96,8 @@ func serializationRoundtrip(o serializable) func(*testing.T) {
 		assert.NoError(t, err)
 
 		// reconstruct the object
-		_o := reflect.New(reflect.TypeOf(o).Elem()).Pointer()
-		//_, err = _o.(serializable).ReadFrom(&buf)
+		_o := reflect.New(reflect.TypeOf(o).Elem()).Interface().(serializable)
+		_, err = _o.(serializable).ReadFrom(&buf)
 		assert.NoError(t, err)
 
 		// compare
@@ -109,8 +109,8 @@ func TestSerializationSRS(t *testing.T) {
 	// create a SRS
 	pk, vk, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
-	t.Run("proving key serialization roundtrip", serializationRoundtrip(&pk))
-	t.Run("verifying key serialization roundtrip", serializationRoundtrip(&vk))
+	t.Run("proving key round-trip", serializationRoundtrip(&pk))
+	t.Run("verifying key round-trip", serializationRoundtrip(&vk))
 }
 
 func TestCommit(t *testing.T) {
