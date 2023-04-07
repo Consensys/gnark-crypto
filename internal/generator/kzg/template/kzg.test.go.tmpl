@@ -178,13 +178,13 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// create polynomials
 	f := make([][]fr.Element, 10)
-	for i := 0; i < 10; i++ {
+	for i := range f {
 		f[i] = randomPolynomial(size)
 	}
 
 	// commit the polynomials
-	digests := make([]Digest, 10)
-	for i := 0; i < 10; i++ {
+	digests := make([]Digest, len(f))
+	for i := range f {
 		digests[i], _ = Commit(f[i], testSRS)
 
 	}
@@ -201,10 +201,10 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 	}
 
 	// verify the claimed values
-	for i := 0; i < 10; i++ {
+	for i := range f {
 		expectedClaim := eval(f[i], point)
 		if !expectedClaim.Equal(&proof.ClaimedValues[i]) {
-			t.Fatal("inconsistant claimed values")
+			t.Fatal("inconsistent claimed values")
 		}
 	}
 
@@ -232,7 +232,6 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 			t.Fatal("verifying wrong proof should have failed")
 		}
 	}
-
 }
 
 func TestBatchVerifyMultiPoints(t *testing.T) {

@@ -252,8 +252,11 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 		}(i)
 	}
 
+	// wait for polynomial evaluations to be completed (res.ClaimedValues)
+	wg.Wait()
+
 	// derive the challenge γ, binded to the point and the commitments
-	gamma, err := deriveGamma(point, digests, hf)
+	gamma, err := deriveGamma(point, digests, res.ClaimedValues, hf)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -262,8 +265,6 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	var foldedEvaluations fr.Element
 	chSumGammai := make(chan struct{}, 1)
 	go func() {
-		// wait for polynomial evaluations to be completed (res.ClaimedValues)
-		wg.Wait()
 		foldedEvaluations = res.ClaimedValues[nbDigests-1]
 		for i := nbDigests - 2; i >= 0; i-- {
 			foldedEvaluations.Mul(&foldedEvaluations, &gamma).
@@ -323,7 +324,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 	}
 
 	// derive the challenge γ, binded to the point and the commitments
-	gamma, err := deriveGamma(point, digests, hf)
+	gamma, err := deriveGamma(point, digests, batchOpeningProof.ClaimedValues, hf)
 	if err != nil {
 		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
@@ -332,7 +333,10 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 	// gammai = [1,γ,γ²,..,γⁿ⁻¹]
 	gammai := make([]fr.Element, nbDigests)
 	gammai[0].SetOne()
-	for i := 1; i < nbDigests; i++ {
+	if nbDigests > 1 {
+		gammai[1] = gamma
+	}
+	for i := 2; i < nbDigests; i++ {
 		gammai[i].Mul(&gammai[i-1], &gamma)
 	}
 
@@ -361,7 +365,7 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 		return err
 	}
 
-	// verify the foldedProof againts the foldedDigest
+	// verify the foldedProof against the foldedDigest
 	err = Verify(&foldedDigest, &foldedProof, point, srs)
 	return err
 
@@ -495,15 +499,20 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 }
 
 // deriveGamma derives a challenge using Fiat Shamir to fold proofs.
-func deriveGamma(point fr.Element, digests []Digest, hf hash.Hash) (fr.Element, error) {
+func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element, hf hash.Hash) (fr.Element, error) {
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(hf, "gamma")
 	if err := fs.Bind("gamma", point.Marshal()); err != nil {
 		return fr.Element{}, err
 	}
-	for i := 0; i < len(digests); i++ {
+	for i := range digests {
 		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
+			return fr.Element{}, err
+		}
+	}
+	for i := range claimedValues {
+		if err := fs.Bind("gamma", claimedValues[i].Marshal()); err != nil {
 			return fr.Element{}, err
 		}
 	}
