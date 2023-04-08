@@ -33,6 +33,12 @@ type VerifyingKey struct {
 	G1 {{ .CurvePackage }}.G1Affine
 }
 
+type SRS struct {
+	Pk ProvingKey
+	Vk VerifyingKey
+}
+
+// TODO @Tabaie get rid of this and use the polynomial package
 // eval returns p(point) where p is interpreted as a polynomial
 // ∑_{i<len(p)}p[i]Xⁱ
 func eval(p []fr.Element, point fr.Element) fr.Element {
@@ -50,23 +56,23 @@ func eval(p []fr.Element, point fr.Element) fr.Element {
 // In production, a SRS generated through MPC should be used.
 //
 // implements io.ReaderFrom and io.WriterTo
-func NewSRS(size uint64, bAlpha *big.Int)  (pk ProvingKey, vk VerifyingKey, err error) {
+func NewSRS(size uint64, bAlpha *big.Int)  (srs SRS, err error) {
 
 	if size < 2 {
 		err = ErrMinSRSSize
 		return
 	}
 
-	pk.G1 = make([]{{ .CurvePackage }}.G1Affine, size)
+	srs.Pk.G1 = make([]{{ .CurvePackage }}.G1Affine, size)
 
 	var alpha fr.Element
 	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := {{ .CurvePackage }}.Generators()
-	pk.G1[0] = gen1Aff
-	vk.G1 = gen1Aff
-	vk.G2[0] = gen2Aff
-	vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	srs.Pk.G1[0] = gen1Aff
+	srs.Vk.G1 = gen1Aff
+	srs.Vk.G2[0] = gen2Aff
+	srs.Vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -74,7 +80,7 @@ func NewSRS(size uint64, bAlpha *big.Int)  (pk ProvingKey, vk VerifyingKey, err 
 		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
 	g1s := {{ .CurvePackage }}.BatchScalarMultiplicationG1(&gen1Aff, alphas)
-	copy(pk.G1[1:], g1s)
+	copy(srs.Pk.G1[1:], g1s)
 
 	return
 }
