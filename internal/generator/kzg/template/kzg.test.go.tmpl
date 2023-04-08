@@ -13,7 +13,7 @@ import (
 )
 
 // Test SRS re-used across tests of the KZG scheme
-var testSrs SRS
+var testSrs *SRS
 
 func init() {
 	const srsSize = 230
@@ -91,7 +91,7 @@ func TestSerializationSRS(t *testing.T) {
 	assert.NoError(t, err)
 	t.Run("proving key round-trip", serializationRoundtrip(&srs.Pk))
 	t.Run("verifying key round-trip", serializationRoundtrip(&srs.Vk))
-	t.Run("whole SRS round-trip", serializationRoundtrip(&srs))
+	t.Run("whole SRS round-trip", serializationRoundtrip(srs))
 }
 
 func TestCommit(t *testing.T) {
