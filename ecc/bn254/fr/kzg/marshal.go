@@ -59,6 +59,26 @@ func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
 	return enc.BytesWritten(), nil
 }
 
+// WriteTo writes binary encoding of the entire SRS
+func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
+	// encode the VerifyingKey
+	enc := bn254.NewEncoder(w)
+
+	toEncode := []interface{}{
+		&srs.Vk.G2[0],
+		&srs.Vk.G2[1],
+		srs.Pk.G1,
+	}
+
+	for _, v := range toEncode {
+		if err := enc.Encode(v); err != nil {
+			return enc.BytesWritten(), err
+		}
+	}
+
+	return enc.BytesWritten(), nil
+}
+
 // ReadFrom decodes ProvingKey data from reader.
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the ProvingKey
@@ -93,6 +113,28 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 			return dec.BytesRead(), err
 		}
 	}
+
+	return dec.BytesRead(), nil
+}
+
+// ReadFrom decodes SRS data from reader.
+func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
+	// decode the VerifyingKey
+	dec := bn254.NewDecoder(r)
+
+	toDecode := []interface{}{
+		&srs.Vk.G2[0],
+		&srs.Vk.G2[1],
+		&srs.Pk.G1,
+	}
+
+	for _, v := range toDecode {
+		if err := dec.Decode(v); err != nil {
+			return dec.BytesRead(), err
+		}
+	}
+
+	srs.Vk.G1 = srs.Pk.G1[0]
 
 	return dec.BytesRead(), nil
 }
