@@ -28,7 +28,7 @@ import (
 
 func TestProof(t *testing.T) {
 
-	pk, vk, err := kzg.NewSRS(64, big.NewInt(13))
+	kzgSrs, err := kzg.NewSRS(64, big.NewInt(13))
 	assert.NoError(t, err)
 
 	a := make([]fr.Element, 8)
@@ -43,12 +43,12 @@ func TestProof(t *testing.T) {
 
 	// correct proof
 	{
-		proof, err := Prove(pk, a, b)
+		proof, err := Prove(kzgSrs.Pk, a, b)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Verify(vk, proof)
+		err = Verify(kzgSrs.Vk, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,12 +57,12 @@ func TestProof(t *testing.T) {
 	// wrong proof
 	{
 		a[0].SetRandom()
-		proof, err := Prove(pk, a, b)
+		proof, err := Prove(kzgSrs.Pk, a, b)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Verify(vk, proof)
+		err = Verify(kzgSrs.Vk, proof)
 		if err == nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func BenchmarkProver(b *testing.B) {
 	srsSize := 1 << 15
 	polySize := 1 << 14
 
-	pk, _, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
+	kzgSrs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
 	a := make([]fr.Element, polySize)
 	c := make([]fr.Element, polySize)
 
@@ -88,7 +88,7 @@ func BenchmarkProver(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Prove(pk, a, c)
+		Prove(kzgSrs.Pk, a, c)
 	}
 
 }
