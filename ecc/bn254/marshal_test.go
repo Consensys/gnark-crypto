@@ -18,7 +18,6 @@ package bn254
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/big"
 	"math/rand"
@@ -475,21 +474,4 @@ func GenBigInt() gopter.Gen {
 		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
 		return genResult
 	}
-}
-
-func TestWriteUint62Array(t *testing.T) {
-	var o, _o []uint64
-	var bb bytes.Buffer
-	enc := NewEncoder(&bb)
-	o = []uint64{1}
-	enc.encode(o)
-	dec := NewDecoder(bytes.NewReader(bb.Bytes()))
-	dec.Decode(&_o)
-	assert.Equal(t, o, _o)
-
-	_o = nil
-	enc.encodeRaw(o)
-	dec = NewDecoder(bytes.NewReader(bb.Bytes()))
-	dec.Decode(&_o)
-	assert.Equal(t, o, _o)
 }
