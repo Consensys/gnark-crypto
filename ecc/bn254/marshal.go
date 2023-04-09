@@ -97,6 +97,24 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	var read int
 
 	switch t := v.(type) {
+	case *[]uint64:
+		buf64 := buf[:64/8]
+		read, err = io.ReadFull(dec.r, buf64)
+		dec.n += int64(read)
+		if err != nil {
+			return
+		}
+		length := binary.LittleEndian.Uint64(buf64)
+		*t = make([]uint64, length)
+		for i := range *t {
+			read, err = io.ReadFull(dec.r, buf64)
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+			(*t)[i] = binary.LittleEndian.Uint64(buf64)
+		}
+		return
 	case *fr.Element:
 		read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
 		dec.n += int64(read)
@@ -374,6 +392,25 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
+func (enc *Encoder) writeUint64Slice(t []uint64) error {
+	buff := make([]byte, 64/8)
+	binary.LittleEndian.PutUint64(buff, uint64(len(t)))
+	written, err := enc.w.Write(buff)
+	enc.n += int64(written)
+	if err != nil {
+		return err
+	}
+	for i := range t {
+		binary.LittleEndian.PutUint64(buff, t[i])
+		written, err = enc.w.Write(buff)
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (enc *Encoder) encode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -392,6 +429,8 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
+	case []uint64:
+		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -495,6 +534,8 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
+	case []uint64:
+		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -592,7 +633,7 @@ func (p *G1Affine) Marshal() []byte {
 	return b[:]
 }
 
-// Unmarshal is an allias to SetBytes()
+// Unmarshal is an alias to SetBytes()
 func (p *G1Affine) Unmarshal(buf []byte) error {
 	_, err := p.SetBytes(buf)
 	return err
