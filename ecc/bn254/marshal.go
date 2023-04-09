@@ -392,8 +392,6 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
-	written, err := enc.w.Write(buff)
-	enc.n += int64(written)
 func (enc *Encoder) encode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
