@@ -41,11 +41,15 @@ func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 
 // WriteRawTo writes binary encoding of Proof to w without point compression
 func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
-	return vk.writeTo(w, curve.RawEncoding())
+	return vk.writeTo(w, bls12378.RawEncoding())
 }
 
 // WriteTo writes binary encoding of the VerifyingKey
-func (vk *VerifyingKey) WriteTo(w io.Writer, options ...func(*bls12378.Encoder)) (int64, error) {
+func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
+	return vk.writeTo(w)
+}
+
+func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls12378.Encoder)) (int64, error) {
 	// encode the VerifyingKey
 	enc := bls12378.NewEncoder(w, options...)
 
