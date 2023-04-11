@@ -379,17 +379,17 @@ func (p *G2Jac) IsOnCurve() bool {
 // is the infinity.
 func (p *G2Jac) IsInSubGroup() bool {
 
-	var res, phip G2Jac
-	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
-		SubAssign(&phip).
+	var res, Phip G2Jac
+	Phip.Phi(p)
+	res.ScalarMultiplication(&Phip, &xGen).
+		SubAssign(&Phip).
 		ScalarMultiplication(&res, &xGen).
 		ScalarMultiplication(&res, &xGen).
-		AddAssign(&phip)
+		AddAssign(&Phip)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+	Phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
 
-	return phip.IsOnCurve() && phip.Z.IsZero()
+	return Phip.IsOnCurve() && Phip.Z.IsZero()
 
 }
 
@@ -425,7 +425,7 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G2Jac) phi(a *G2Jac) *G2Jac {
+func (p *G2Jac) Phi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.Mul(&p.X, &thirdRootOneG2)
 	return p
@@ -443,7 +443,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].phi(a)
+	table[3].Phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
@@ -533,7 +533,7 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 	L1.Set(&u3P).
 		SubAssign(&tmp)
 
-	p.phi(&L0).
+	p.Phi(&L0).
 		AddAssign(&L1)
 
 	return p

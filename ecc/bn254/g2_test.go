@@ -40,12 +40,12 @@ func TestG2AffineEndomorphism(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BN254] check that phi(P) = lambdaGLV * P", prop.ForAll(
+	properties.Property("[BN254] check that Phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res1, res2 G2Jac
 			g := MapToG2(a)
 			p.FromAffine(&g)
-			res1.phi(&p)
+			res1.Phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
 
 			return p.IsInSubGroup() && res1.Equal(&res2)
@@ -53,13 +53,13 @@ func TestG2AffineEndomorphism(t *testing.T) {
 		GenE2(),
 	))
 
-	properties.Property("[BN254] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
+	properties.Property("[BN254] check that Phi^2(P) + Phi(P) + P = 0", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res, tmp G2Jac
 			g := MapToG2(a)
 			p.FromAffine(&g)
-			tmp.phi(&p)
-			res.phi(&tmp).
+			tmp.Phi(&p)
+			res.Phi(&tmp).
 				AddAssign(&tmp).
 				AddAssign(&p)
 
@@ -68,13 +68,13 @@ func TestG2AffineEndomorphism(t *testing.T) {
 		GenE2(),
 	))
 
-	properties.Property("[BN254] check that psi^2(P) = -phi(P)", prop.ForAll(
+	properties.Property("[BN254] check that Psi^2(P) = -Phi(P)", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res1, res2 G2Jac
 			g := MapToG2(a)
 			p.FromAffine(&g)
-			res1.psi(&p).psi(&res1).Neg(&res1)
-			res2.phi(&p)
+			res1.Psi(&p).Psi(&res1).Neg(&res1)
+			res2.Phi(&p)
 
 			return p.IsInSubGroup() && res1.Equal(&res2)
 		},
@@ -357,10 +357,10 @@ func TestG2AffineOps(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("[BN254] psi should map points from E' to itself", prop.ForAll(
+	properties.Property("[BN254] Psi should map points from E' to itself", prop.ForAll(
 		func() bool {
 			var a G2Jac
-			a.psi(&g2Gen)
+			a.Psi(&g2Gen)
 			return a.IsOnCurve() && !a.Equal(&g2Gen)
 		},
 	))
