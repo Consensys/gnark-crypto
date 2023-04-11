@@ -32,6 +32,7 @@ import (
 
 var (
 	ErrInvalidNbDigests              = errors.New("number of digests is not the same as the number of polynomials")
+	ErrZeroNbDigests                 = errors.New("number of digests is zero")
 	ErrInvalidPolynomialSize         = errors.New("invalid polynomial size (larger than SRS or == 0)")
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
@@ -382,6 +383,11 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// check consistancy nb proogs vs nb digests
 	if len(digests) != len(proofs) || len(digests) != len(points) {
 		return ErrInvalidNbDigests
+	}
+
+	// len(digests) should be nonzero because of randomNumbers
+	if len(digests) == 0 {
+		return ErrZeroNbDigests
 	}
 
 	// if only one digest, call Verify
