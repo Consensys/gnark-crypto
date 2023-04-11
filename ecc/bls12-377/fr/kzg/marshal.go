@@ -25,17 +25,9 @@ import (
 func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 	// encode the ProvingKey
 	enc := bls12377.NewEncoder(w)
-
-	toEncode := []interface{}{
-		pk.G1,
+	if err := enc.Encode(pk.G1); err != nil {
+		return enc.BytesWritten(), err
 	}
-
-	for _, v := range toEncode {
-		if err := enc.Encode(v); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
-
 	return enc.BytesWritten(), nil
 }
 
