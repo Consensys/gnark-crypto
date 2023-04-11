@@ -31,7 +31,7 @@ func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 	return enc.BytesWritten(), nil
 }
 
-// WriteRawTo writes binary encoding of Proof to w without point compression
+// WriteRawTo writes binary encoding of VerifyingKey to w without point compression
 func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
 	return vk.writeTo(w, bw6633.RawEncoding())
 }
@@ -62,39 +62,23 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bw6633.Encoder)) (
 
 // WriteTo writes binary encoding of the entire SRS
 func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
-	// encode the VerifyingKey
-	enc := bw6633.NewEncoder(w)
-
-	toEncode := []interface{}{
-		&srs.Vk.G2[0],
-		&srs.Vk.G2[1],
-		srs.Pk.G1,
+	// encode the SRS
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.WriteTo(w); err != nil {
+		return pn, err
 	}
-
-	for _, v := range toEncode {
-		if err := enc.Encode(v); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
-
-	return enc.BytesWritten(), nil
+	vn, err = srs.Vk.WriteTo(w)
+	return pn + vn, err
 }
 
 // ReadFrom decodes ProvingKey data from reader.
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the ProvingKey
 	dec := bw6633.NewDecoder(r)
-
-	toDecode := []interface{}{
-		&pk.G1,
+	if err := dec.Decode(&pk.G1); err != nil {
+		return dec.BytesRead(), err
 	}
-
-	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err
-		}
-	}
-
 	return dec.BytesRead(), nil
 }
 
@@ -121,23 +105,13 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 // ReadFrom decodes SRS data from reader.
 func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	// decode the VerifyingKey
-	dec := bw6633.NewDecoder(r)
-
-	toDecode := []interface{}{
-		&srs.Vk.G2[0],
-		&srs.Vk.G2[1],
-		&srs.Pk.G1,
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.ReadFrom(r); err != nil {
+		return pn, err
 	}
-
-	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err
-		}
-	}
-
-	srs.Vk.G1 = srs.Pk.G1[0]
-
-	return dec.BytesRead(), nil
+	vn, err = srs.Vk.ReadFrom(r)
+	return pn + vn, err
 }
 
 // WriteTo writes binary encoding of a OpeningProof
