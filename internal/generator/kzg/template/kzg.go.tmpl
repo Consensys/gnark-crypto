@@ -398,9 +398,8 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 		quotients[i].Set(&proofs[i].H)
 	}
 	config := ecc.MultiExpConfig{}
-	_, err := foldedQuotients.MultiExp(quotients, randomNumbers, config)
-	if err != nil {
-		return nil
+	if _, err := foldedQuotients.MultiExp(quotients, randomNumbers, config); err != nil {
+		return err
 	}
 
 	// fold digests and evals
