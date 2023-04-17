@@ -40,12 +40,12 @@ func TestG1AffineEndomorphism(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[SECP256K1] check that Phi(P) = lambdaGLV * P", prop.ForAll(
+	properties.Property("[SECP256K1] check that phi(P) = lambdaGLV * P", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res1, res2 G1Jac
 			g := MapToG1(a)
 			p.FromAffine(&g)
-			res1.Phi(&p)
+			res1.phi(&p)
 			res2.mulWindowed(&p, &lambdaGLV)
 
 			return p.IsInSubGroup() && res1.Equal(&res2)
@@ -53,13 +53,13 @@ func TestG1AffineEndomorphism(t *testing.T) {
 		GenFp(),
 	))
 
-	properties.Property("[SECP256K1] check that Phi^2(P) + Phi(P) + P = 0", prop.ForAll(
+	properties.Property("[SECP256K1] check that phi^2(P) + phi(P) + P = 0", prop.ForAll(
 		func(a fp.Element) bool {
 			var p, res, tmp G1Jac
 			g := MapToG1(a)
 			p.FromAffine(&g)
-			tmp.Phi(&p)
-			res.Phi(&tmp).
+			tmp.phi(&p)
+			res.phi(&tmp).
 				AddAssign(&tmp).
 				AddAssign(&p)
 

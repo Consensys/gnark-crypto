@@ -732,7 +732,7 @@ func (z *E24) SetBytes(e []byte) error {
 func (z *E24) IsInSubGroup() bool {
 	var a, b E24
 
-	// check z^(Phi_k(p)) == 1
+	// check z^(phi_k(p)) == 1
 	a.FrobeniusQuad(z)
 	b.FrobeniusQuad(&a).Mul(&b, z)
 
