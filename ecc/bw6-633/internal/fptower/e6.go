@@ -696,7 +696,7 @@ func (z *E6) IsInSubGroup() bool {
 	var tmp, a, _a, b E6
 	var t [13]E6
 
-	// check z^(Phi_k(p)) == 1
+	// check z^(phi_k(p)) == 1
 	a.Frobenius(z)
 	b.Frobenius(&a).Mul(&b, z)
 

@@ -81,6 +81,16 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	return p
 }
 
+// Double doubles a point in affine coordinates.
+// This should rarely be used as it is very inefficient compared to Jacobian
+func (p *G2Affine) Double(a *G2Affine) *G2Affine {
+	var p1 G2Jac
+	p1.FromAffine(a)
+	p1.Double(&p1)
+	p.FromJacobian(&p1)
+	return p
+}
+
 // Sub subs two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
@@ -381,7 +391,7 @@ func (p *G2Jac) IsOnCurve() bool {
 // ψ(p) = [x₀]P
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
-	tmp.Psi(p)
+	tmp.psi(p)
 	res.ScalarMultiplication(p, &xGen).
 		AddAssign(&tmp)
 
@@ -420,7 +430,7 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 }
 
 // ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
-func (p *G2Jac) Psi(a *G2Jac) *G2Jac {
+func (p *G2Jac) psi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.Frobenius(&p.X).Mul(&p.X, &endo.u)
 	p.Y.Frobenius(&p.Y).Mul(&p.Y, &endo.v)
@@ -430,7 +440,7 @@ func (p *G2Jac) Psi(a *G2Jac) *G2Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G2Jac) Phi(a *G2Jac) *G2Jac {
+func (p *G2Jac) phi(a *G2Jac) *G2Jac {
 	p.Set(a)
 	p.X.MulByElement(&p.X, &thirdRootOneG2)
 	return p
@@ -448,7 +458,7 @@ func (p *G2Jac) mulGLV(a *G2Jac, s *big.Int) *G2Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].Phi(a)
+	table[3].phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
@@ -533,25 +543,25 @@ func (p *G2Jac) ClearCofactor(a *G2Jac) *G2Jac {
 		SubAssign(a)
 
 	t.Set(&xxxg).
-		Psi(&t).
+		psi(&t).
 		AddAssign(&res)
 
 	res.Set(&xxg).
-		Psi(&res).
-		Psi(&res).
+		psi(&res).
+		psi(&res).
 		AddAssign(&t)
 
 	t.Set(&xg).
-		Psi(&t).
-		Psi(&t).
-		Psi(&t).
+		psi(&t).
+		psi(&t).
+		psi(&t).
 		AddAssign(&res)
 
 	res.Double(a).
-		Psi(&res).
-		Psi(&res).
-		Psi(&res).
-		Psi(&res).
+		psi(&res).
+		psi(&res).
+		psi(&res).
+		psi(&res).
 		AddAssign(&t)
 
 	p.Set(&res)

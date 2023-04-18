@@ -92,6 +92,16 @@ func (p *G1Affine) Add(a, b *G1Affine) *G1Affine {
 	return p
 }
 
+// Double doubles a point in affine coordinates.
+// This should rarely be used as it is very inefficient compared to Jacobian
+func (p *G1Affine) Double(a *G1Affine) *G1Affine {
+	var p1 G1Jac
+	p1.FromAffine(a)
+	p1.Double(&p1)
+	p.FromJacobian(&p1)
+	return p
+}
+
 // Sub subs two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G1Affine) Sub(a, b *G1Affine) *G1Affine {
@@ -396,7 +406,7 @@ func (p *G1Jac) IsOnCurve() bool {
 func (p *G1Jac) IsInSubGroup() bool {
 
 	var res G1Jac
-	res.Phi(p).
+	res.phi(p).
 		ScalarMultiplication(&res, &xGen).
 		ScalarMultiplication(&res, &xGen).
 		ScalarMultiplication(&res, &xGen).
@@ -439,7 +449,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 
 // ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
 // where w is a third root of unity in 𝔽p
-func (p *G1Jac) Phi(a *G1Jac) *G1Jac {
+func (p *G1Jac) phi(a *G1Jac) *G1Jac {
 	p.Set(a)
 	p.X.Mul(&p.X, &thirdRootOneG1)
 	return p
@@ -457,7 +467,7 @@ func (p *G1Jac) mulGLV(a *G1Jac, s *big.Int) *G1Jac {
 
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
 	table[0].Set(a)
-	table[3].Phi(a)
+	table[3].phi(a)
 
 	// split the scalar, modifies ±a, ϕ(a) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
