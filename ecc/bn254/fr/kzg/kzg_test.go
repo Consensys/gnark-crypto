@@ -17,17 +17,16 @@
 package kzg
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
-	"io"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -79,36 +78,13 @@ func TestDividePolyByXminusA(t *testing.T) {
 	}
 }
 
-// TODO @Tabaie not curve dependent. move to neutral territory?
-type serializable interface {
-	io.ReaderFrom
-	io.WriterTo
-}
-
-func serializationRoundtrip(o serializable) func(*testing.T) {
-	return func(t *testing.T) {
-		// serialize it...
-		var buf bytes.Buffer
-		_, err := o.WriteTo(&buf)
-		assert.NoError(t, err)
-
-		// reconstruct the object
-		_o := reflect.New(reflect.TypeOf(o).Elem()).Interface().(serializable)
-		_, err = _o.ReadFrom(&buf)
-		assert.NoError(t, err)
-
-		// compare
-		assert.Equal(t, o, _o)
-	}
-}
-
 func TestSerializationSRS(t *testing.T) {
 	// create a SRS
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
-	t.Run("proving key round-trip", serializationRoundtrip(&srs.Pk))
-	t.Run("verifying key round-trip", serializationRoundtrip(&srs.Vk))
-	t.Run("whole SRS round-trip", serializationRoundtrip(srs))
+	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
+	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
+	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
 }
 
 func TestCommit(t *testing.T) {
