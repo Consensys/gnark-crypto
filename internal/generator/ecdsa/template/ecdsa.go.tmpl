@@ -136,20 +136,14 @@ func RecoverP(v uint, r *big.Int) (*{{ .CurvePackage }}.G1Affine, error) {
 	if y.ModSqrt(y, fp.Modulus()) == nil {
 		return nil, errors.New("no square root")
 	}
-	// y2 is -y
-	y2 := new(big.Int).Sub(fp.Modulus(), y)
-	// if yChoice == 0, return min(y, y2), else max(y, y2)
-	if (y.Cmp(y2) < 0) == (yChoice == 0) {
-		return &{{ .CurvePackage }}.G1Affine{
-			X: *new(fp.Element).SetBigInt(x),
-			Y: *new(fp.Element).SetBigInt(y),
-		}, nil
-	} else {
-		return &{{ .CurvePackage }}.G1Affine{
-			X: *new(fp.Element).SetBigInt(x),
-			Y: *new(fp.Element).SetBigInt(y2),
-		}, nil
+	// check that y has same oddity as defined by v
+	if y.Bit(0) != yChoice {
+		y = y.Sub(fp.Modulus(), y)
 	}
+	return &{{ .CurvePackage }}.G1Affine{
+		X: *new(fp.Element).SetBigInt(x),
+		Y: *new(fp.Element).SetBigInt(y),
+	}, nil
 }
 {{- end}}
 
