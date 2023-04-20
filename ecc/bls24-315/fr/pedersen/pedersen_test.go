@@ -17,10 +17,10 @@
 package pedersen
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls24-315"
+	curve "github.com/consensys/gnark-crypto/ecc/bls24-315"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
 	"testing"
 )
 
@@ -44,37 +44,43 @@ func randomFrSlice(t *testing.T, size int) []interface{} {
 	return res
 }
 
-func randomOnG1() (bls24315.G1Affine, error) { // TODO: Add to G1.go?
-	gBytes := make([]byte, fr.Bytes)
-	if _, err := rand.Read(gBytes); err != nil {
-		return bls24315.G1Affine{}, err
+func randomOnG1() (curve.G1Affine, error) { // TODO: Add to G1.go?
+	if gBytes, err := randomFrSizedBytes(); err != nil {
+		return curve.G1Affine{}, err
+	} else {
+		return curve.HashToG1(gBytes, []byte("random on g1"))
 	}
-	return bls24315.HashToG1(gBytes, []byte("random on g2"))
+}
+
+func randomG1Slice(t *testing.T, size int) []curve.G1Affine {
+	res := make([]curve.G1Affine, size)
+	for i := range res {
+		var err error
+		res[i], err = randomOnG1()
+		assert.NoError(t, err)
+	}
+	return res
 }
 
 func testCommit(t *testing.T, values ...interface{}) {
 
-	basis := make([]bls24315.G1Affine, len(values))
-	for i := range basis {
-		var err error
-		basis[i], err = randomOnG1()
-		assert.NoError(t, err)
-	}
+	basis := randomG1Slice(t, len(values))
 
 	var (
-		key             Key
+		pk              ProvingKey
+		vk              VerifyingKey
 		err             error
-		commitment, pok bls24315.G1Affine
+		commitment, pok curve.G1Affine
 	)
 
-	key, err = Setup(basis)
+	pk, vk, err = Setup(basis)
 	assert.NoError(t, err)
-	commitment, pok, err = key.Commit(interfaceSliceToFrSlice(t, values...))
+	commitment, pok, err = pk.Commit(interfaceSliceToFrSlice(t, values...))
 	assert.NoError(t, err)
-	assert.NoError(t, key.VerifyKnowledgeProof(commitment, pok))
+	assert.NoError(t, vk.Verify(commitment, pok))
 
 	pok.Neg(&pok)
-	assert.NotNil(t, key.VerifyKnowledgeProof(commitment, pok))
+	assert.NotNil(t, vk.Verify(commitment, pok))
 }
 
 func TestCommitToOne(t *testing.T) {
@@ -87,4 +93,22 @@ func TestCommitSingle(t *testing.T) {
 
 func TestCommitFiveElements(t *testing.T) {
 	testCommit(t, randomFrSlice(t, 5)...)
+}
+
+func TestMarshal(t *testing.T) {
+	var pk ProvingKey
+	pk.basisExpSigma = randomG1Slice(t, 5)
+	pk.basis = randomG1Slice(t, 5)
+
+	var (
+		vk  VerifyingKey
+		err error
+	)
+	vk.g, err = randomOnG2()
+	assert.NoError(t, err)
+	vk.gRootSigmaNeg, err = randomOnG2()
+	assert.NoError(t, err)
+
+	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", utils.SerializationRoundTrip(&pk))
+	t.Run("VerifyingKey -> Bytes -> VerifyingKey must remain identical.", utils.SerializationRoundTrip(&vk))
 }
