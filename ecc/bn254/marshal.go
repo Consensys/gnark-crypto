@@ -104,7 +104,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		length := binary.LittleEndian.Uint64(buf64)
+		length := binary.BigEndian.Uint64(buf64)
 		*t = make([]uint64, length)
 		for i := range *t {
 			read, err = io.ReadFull(dec.r, buf64)
@@ -112,7 +112,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return
 			}
-			(*t)[i] = binary.LittleEndian.Uint64(buf64)
+			(*t)[i] = binary.BigEndian.Uint64(buf64)
 		}
 		return
 	case *fr.Element:
@@ -604,14 +604,14 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 func (enc *Encoder) writeUint64Slice(t []uint64) error {
 	buff := make([]byte, 64/8)
-	binary.LittleEndian.PutUint64(buff, uint64(len(t)))
+	binary.BigEndian.PutUint64(buff, uint64(len(t)))
 	written, err := enc.w.Write(buff)
 	enc.n += int64(written)
 	if err != nil {
 		return err
 	}
 	for i := range t {
-		binary.LittleEndian.PutUint64(buff, t[i])
+		binary.BigEndian.PutUint64(buff, t[i])
 		written, err = enc.w.Write(buff)
 		enc.n += int64(written)
 		if err != nil {
