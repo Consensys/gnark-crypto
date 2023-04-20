@@ -45,10 +45,11 @@ func randomFrSlice(t *testing.T, size int) []interface{} {
 }
 
 func randomOnG1() (curve.G1Affine, error) { // TODO: Add to G1.go?
-	if gBytes, err := randomFrSizedBytes(); err == nil {
-		return curve.HashToG1(gBytes, []byte("random on g1"))
-	} else {
+	if gBytes, err := randomFrSizedBytes(); err != nil {
 		return curve.G1Affine{}, err
+	} else {
+
+		return curve.HashToG1(gBytes, []byte("random on g1"))
 	}
 }
 

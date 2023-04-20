@@ -44,10 +44,10 @@ func randomFrSizedBytes() ([]byte, error) {
 }
 
 func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
-	if gBytes, err := randomFrSizedBytes(); err == nil {
-		return curve.HashToG2(gBytes, []byte("random on g2"))
-	} else {
+	if gBytes, err := randomFrSizedBytes(); err != nil {
 		return curve.G2Affine{}, err
+	} else {
+		return curve.HashToG2(gBytes, []byte("random on g2"))
 	}
 }
 
@@ -122,45 +122,28 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 
 func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 	enc := curve.NewEncoder(w)
-	//l := len(pk.basis)
-	if err := enc.Encode(uint32(len(pk.basis))); err != nil {
+
+	if err := enc.Encode(pk.basis); err != nil {
 		return enc.BytesWritten(), err
 	}
 
-	for i := range pk.basis {
-		if err := enc.Encode(&pk.basis[i]); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
+	err := enc.Encode(pk.basisExpSigma)
 
-	for i := range pk.basisExpSigma {
-		if err := enc.Encode(&pk.basisExpSigma[i]); err != nil {
-			return enc.BytesWritten(), err
-		}
-	}
-
-	return enc.BytesWritten(), nil
+	return enc.BytesWritten(), err
 }
 
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	dec := curve.NewDecoder(r)
-	var l uint32
-	if err := dec.Decode(&l); err != nil {
+
+	if err := dec.Decode(&pk.basis); err != nil {
 		return dec.BytesRead(), err
 	}
-	pk.basis = make([]curve.G1Affine, l)
-	pk.basisExpSigma = make([]curve.G1Affine, l)
-
-	for i := range pk.basis {
-		if err := dec.Decode(&pk.basis[i]); err != nil {
-			return dec.BytesRead(), err
-		}
+	if err := dec.Decode(&pk.basisExpSigma); err != nil {
+		return dec.BytesRead(), err
 	}
 
-	for i := range pk.basisExpSigma {
-		if err := dec.Decode(&pk.basisExpSigma[i]); err != nil {
-			return dec.BytesRead(), err
-		}
+	if cL, pL := len(pk.basis), len(pk.basisExpSigma); cL != pL {
+		return dec.BytesRead(), fmt.Errorf("commitment basis size (%d) doesn't match proof basis size (%d)", cL, pL)
 	}
 
 	return dec.BytesRead(), nil
