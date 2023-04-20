@@ -20,62 +20,68 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761"
+	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"io"
 	"math/big"
 )
 
-// Key for proof and verification
-type Key struct {
-	g             bw6761.G2Affine // TODO @tabaie: does this really have to be randomized?
-	gRootSigmaNeg bw6761.G2Affine //gRootSigmaNeg = g^{-1/σ}
-	basis         []bw6761.G1Affine
-	basisExpSigma []bw6761.G1Affine
+// ProvingKey for committing and proofs of knowledge
+type ProvingKey struct {
+	basis         []curve.G1Affine
+	basisExpSigma []curve.G1Affine
 }
 
-func randomOnG2() (bw6761.G2Affine, error) { // TODO: Add to G2.go?
-	gBytes := make([]byte, fr.Bytes)
-	if _, err := rand.Read(gBytes); err != nil {
-		return bw6761.G2Affine{}, err
+type VerifyingKey struct {
+	g             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
+	gRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
+}
+
+func randomFrSizedBytes() ([]byte, error) {
+	res := make([]byte, fr.Bytes)
+	_, err := rand.Read(res)
+	return res, err
+}
+
+func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
+	if gBytes, err := randomFrSizedBytes(); err == nil {
+		return curve.HashToG2(gBytes, []byte("random on g2"))
+	} else {
+		return curve.G2Affine{}, err
 	}
-	return bw6761.HashToG2(gBytes, []byte("random on g2"))
 }
 
-func Setup(basis []bw6761.G1Affine) (Key, error) {
-	var (
-		k   Key
-		err error
-	)
+func Setup(basis []curve.G1Affine) (pk ProvingKey, vk VerifyingKey, err error) {
 
-	if k.g, err = randomOnG2(); err != nil {
-		return k, err
+	if vk.g, err = randomOnG2(); err != nil {
+		return
 	}
 
 	var modMinusOne big.Int
 	modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
 	var sigma *big.Int
 	if sigma, err = rand.Int(rand.Reader, &modMinusOne); err != nil {
-		return k, err
+		return
 	}
 	sigma.Add(sigma, big.NewInt(1))
 
 	var sigmaInvNeg big.Int
 	sigmaInvNeg.ModInverse(sigma, fr.Modulus())
 	sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
-	k.gRootSigmaNeg.ScalarMultiplication(&k.g, &sigmaInvNeg)
+	vk.gRootSigmaNeg.ScalarMultiplication(&vk.g, &sigmaInvNeg)
 
-	k.basisExpSigma = make([]bw6761.G1Affine, len(basis))
+	pk.basisExpSigma = make([]curve.G1Affine, len(basis))
 	for i := range basis {
-		k.basisExpSigma[i].ScalarMultiplication(&basis[i], sigma)
+		pk.basisExpSigma[i].ScalarMultiplication(&basis[i], sigma)
 	}
 
-	k.basis = basis
-	return k, err
+	pk.basis = basis
+	return
 }
 
-func (k *Key) Commit(values []fr.Element) (commitment bw6761.G1Affine, knowledgeProof bw6761.G1Affine, err error) {
+func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, knowledgeProof curve.G1Affine, err error) {
 
-	if len(values) != len(k.basis) {
+	if len(values) != len(pk.basis) {
 		err = fmt.Errorf("unexpected number of values")
 		return
 	}
@@ -86,23 +92,23 @@ func (k *Key) Commit(values []fr.Element) (commitment bw6761.G1Affine, knowledge
 		NbTasks: 1, // TODO Experiment
 	}
 
-	if _, err = commitment.MultiExp(k.basis, values, config); err != nil {
+	if _, err = commitment.MultiExp(pk.basis, values, config); err != nil {
 		return
 	}
 
-	_, err = knowledgeProof.MultiExp(k.basisExpSigma, values, config)
+	_, err = knowledgeProof.MultiExp(pk.basisExpSigma, values, config)
 
 	return
 }
 
-// VerifyKnowledgeProof checks if the proof of knowledge is valid
-func (k *Key) VerifyKnowledgeProof(commitment bw6761.G1Affine, knowledgeProof bw6761.G1Affine) error {
+// Verify checks if the proof of knowledge is valid
+func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G1Affine) error {
 
 	if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
 		return fmt.Errorf("subgroup check failed")
 	}
 
-	product, err := bw6761.Pair([]bw6761.G1Affine{commitment, knowledgeProof}, []bw6761.G2Affine{k.g, k.gRootSigmaNeg})
+	product, err := curve.Pair([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.g, vk.gRootSigmaNeg})
 	if err != nil {
 		return err
 	}
@@ -110,4 +116,74 @@ func (k *Key) VerifyKnowledgeProof(commitment bw6761.G1Affine, knowledgeProof bw
 		return nil
 	}
 	return fmt.Errorf("proof rejected")
+}
+
+// Marshal
+
+func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
+	enc := curve.NewEncoder(w)
+	//l := len(pk.basis)
+	if err := enc.Encode(uint32(len(pk.basis))); err != nil {
+		return enc.BytesWritten(), err
+	}
+
+	for i := range pk.basis {
+		if err := enc.Encode(&pk.basis[i]); err != nil {
+			return enc.BytesWritten(), err
+		}
+	}
+
+	for i := range pk.basisExpSigma {
+		if err := enc.Encode(&pk.basisExpSigma[i]); err != nil {
+			return enc.BytesWritten(), err
+		}
+	}
+
+	return enc.BytesWritten(), nil
+}
+
+func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
+	dec := curve.NewDecoder(r)
+	var l uint32
+	if err := dec.Decode(&l); err != nil {
+		return dec.BytesRead(), err
+	}
+	pk.basis = make([]curve.G1Affine, l)
+	pk.basisExpSigma = make([]curve.G1Affine, l)
+
+	for i := range pk.basis {
+		if err := dec.Decode(&pk.basis[i]); err != nil {
+			return dec.BytesRead(), err
+		}
+	}
+
+	for i := range pk.basisExpSigma {
+		if err := dec.Decode(&pk.basisExpSigma[i]); err != nil {
+			return dec.BytesRead(), err
+		}
+	}
+
+	return dec.BytesRead(), nil
+}
+
+func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
+	enc := curve.NewEncoder(w)
+	var err error
+
+	if err = enc.Encode(&vk.g); err != nil {
+		return enc.BytesWritten(), err
+	}
+	err = enc.Encode(&vk.gRootSigmaNeg)
+	return enc.BytesWritten(), err
+}
+
+func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
+	dec := curve.NewDecoder(r)
+	var err error
+
+	if err = dec.Decode(&vk.g); err != nil {
+		return dec.BytesRead(), err
+	}
+	err = dec.Decode(&vk.gRootSigmaNeg)
+	return dec.BytesRead(), err
 }
