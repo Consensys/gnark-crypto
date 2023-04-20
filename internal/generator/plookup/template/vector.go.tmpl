@@ -336,7 +336,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
 //
-func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) {
+func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, error) {
 
 	// res
 	var proof ProofLookupVector
@@ -384,11 +384,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	domainSmall.FFTInverse(cf, fft.DIF)
 	fft.BitReverse(ct)
 	fft.BitReverse(cf)
-	proof.t, err = kzg.Commit(ct, srs)
+	proof.t, err = kzg.Commit(ct, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.f, err = kzg.Commit(cf, srs)
+	proof.f, err = kzg.Commit(cf, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -414,11 +414,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	fft.BitReverse(ch1)
 	fft.BitReverse(ch2)
 
-	proof.h1, err = kzg.Commit(ch1, srs)
+	proof.h1, err = kzg.Commit(ch1, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.h2, err = kzg.Commit(ch2, srs)
+	proof.h2, err = kzg.Commit(ch2, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -439,7 +439,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	copy(cz, lz)
 	domainSmall.FFTInverse(cz, fft.DIF)
 	fft.BitReverse(cz)
-	proof.z, err = kzg.Commit(cz, srs)
+	proof.z, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -483,7 +483,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		return proof, err
 	}
 	ch := computeQuotientCanonical(alpha, lh, lh0, lhn, lh1h2, domainBig)
-	proof.h, err = kzg.Commit(ch, srs)
+	proof.h, err = kzg.Commit(ch, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -512,7 +512,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		},
 		nu,
 		hFunc,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -534,7 +534,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		},
 		nu,
 		hFunc,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -544,7 +544,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 }
 
 // VerifyLookupVector verifies that a ProofLookupVector proof is correct
-func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
+func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 
 	// hash function that is used for Fiat Shamir
 	hFunc := sha256.New()
@@ -586,7 +586,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		&proof.BatchedProof,
 		nu,
 		hFunc,
-		srs,
+		vk,
 	)
 	if err != nil {
 		return err
@@ -605,7 +605,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		&proof.BatchedProofShifted,
 		shiftedNu,
 		hFunc,
-		srs,
+		vk,
 	)
 	if err != nil {
 		return err

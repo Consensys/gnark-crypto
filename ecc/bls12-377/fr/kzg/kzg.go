@@ -42,12 +42,24 @@ var (
 // Digest commitment of a polynomial.
 type Digest = bls12377.G1Affine
 
-// SRS stores the result of the MPC
-type SRS struct {
-	G1 []bls12377.G1Affine  // [G₁ [α]G₁ , [α²]G₁, ... ]
-	G2 [2]bls12377.G2Affine // [G₂, [α]G₂ ]
+// ProvingKey used to create or open commitments
+type ProvingKey struct {
+	G1 []bls12377.G1Affine // [G₁ [α]G₁ , [α²]G₁, ... ]
 }
 
+// VerifyingKey used to verify opening proofs
+type VerifyingKey struct {
+	G2 [2]bls12377.G2Affine // [G₂, [α]G₂ ]
+	G1 bls12377.G1Affine
+}
+
+// SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
+type SRS struct {
+	Pk ProvingKey
+	Vk VerifyingKey
+}
+
+// TODO @Tabaie get rid of this and use the polynomial package
 // eval returns p(point) where p is interpreted as a polynomial
 // ∑_{i<len(p)}p[i]Xⁱ
 func eval(p []fr.Element, point fr.Element) fr.Element {
@@ -70,17 +82,17 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	if size < 2 {
 		return nil, ErrMinSRSSize
 	}
-
 	var srs SRS
-	srs.G1 = make([]bls12377.G1Affine, size)
+	srs.Pk.G1 = make([]bls12377.G1Affine, size)
 
 	var alpha fr.Element
 	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := bls12377.Generators()
-	srs.G1[0] = gen1Aff
-	srs.G2[0] = gen2Aff
-	srs.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	srs.Pk.G1[0] = gen1Aff
+	srs.Vk.G1 = gen1Aff
+	srs.Vk.G2[0] = gen2Aff
+	srs.Vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -88,7 +100,7 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 		alphas[i].Mul(&alphas[i-1], &alpha)
 	}
 	g1s := bls12377.BatchScalarMultiplicationG1(&gen1Aff, alphas)
-	copy(srs.G1[1:], g1s)
+	copy(srs.Pk.G1[1:], g1s)
 
 	return &srs, nil
 }
@@ -117,9 +129,9 @@ type BatchOpeningProof struct {
 
 // Commit commits to a polynomial using a multi exponentiation with the SRS.
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
-func Commit(p []fr.Element, srs *SRS, nbTasks ...int) (Digest, error) {
+func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 
-	if len(p) == 0 || len(p) > len(srs.G1) {
+	if len(p) == 0 || len(p) > len(pk.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
 
@@ -129,7 +141,7 @@ func Commit(p []fr.Element, srs *SRS, nbTasks ...int) (Digest, error) {
 	if len(nbTasks) > 0 {
 		config.NbTasks = nbTasks[0]
 	}
-	if _, err := res.MultiExp(srs.G1[:len(p)], p, config); err != nil {
+	if _, err := res.MultiExp(pk.G1[:len(p)], p, config); err != nil {
 		return Digest{}, err
 	}
 
@@ -138,8 +150,8 @@ func Commit(p []fr.Element, srs *SRS, nbTasks ...int) (Digest, error) {
 
 // Open computes an opening proof of polynomial p at given point.
 // fft.Domain Cardinality must be larger than p.Degree()
-func Open(p []fr.Element, point fr.Element, srs *SRS) (OpeningProof, error) {
-	if len(p) == 0 || len(p) > len(srs.G1) {
+func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error) {
+	if len(p) == 0 || len(p) > len(pk.G1) {
 		return OpeningProof{}, ErrInvalidPolynomialSize
 	}
 
@@ -156,7 +168,7 @@ func Open(p []fr.Element, point fr.Element, srs *SRS) (OpeningProof, error) {
 	_p = nil // h re-use this memory
 
 	// commit to H
-	hCommit, err := Commit(h, srs)
+	hCommit, err := Commit(h, pk)
 	if err != nil {
 		return OpeningProof{}, err
 	}
@@ -166,13 +178,13 @@ func Open(p []fr.Element, point fr.Element, srs *SRS) (OpeningProof, error) {
 }
 
 // Verify verifies a KZG opening proof at a single point
-func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS) error {
+func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk VerifyingKey) error {
 
 	// [f(a)]G₁
 	var claimedValueG1Aff bls12377.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.BigInt(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplicationAffine(&srs.G1[0], &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationAffine(&vk.G1, &claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
 	var fminusfaG1Jac bls12377.G1Jac
@@ -187,8 +199,8 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls12377.G2Jac
 	var pointBigInt big.Int
 	point.BigInt(&pointBigInt)
-	genG2Jac.FromAffine(&srs.G2[0])
-	alphaG2Jac.FromAffine(&srs.G2[1])
+	genG2Jac.FromAffine(&vk.G2[0])
+	alphaG2Jac.FromAffine(&vk.G2[1])
 	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
 		Neg(&alphaMinusaG2Jac).
 		AddAssign(&alphaG2Jac)
@@ -204,7 +216,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 	// e([f(α) - f(a)]G₁, G₂).e([-H(α)]G₁, [α-a]G₂) ==? 1
 	check, err := bls12377.PairingCheck(
 		[]bls12377.G1Affine{fminusfaG1Aff, negH},
-		[]bls12377.G2Affine{srs.G2[0], xminusaG2Aff},
+		[]bls12377.G2Affine{vk.G2[0], xminusaG2Aff},
 	)
 	if err != nil {
 		return err
@@ -216,12 +228,12 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, srs *SRS)
 }
 
 // BatchOpenSinglePoint creates a batch opening proof at point of a list of polynomials.
-// It's an interactive protocol, made non interactive using Fiat Shamir.
+// It's an interactive protocol, made non-interactive using Fiat Shamir.
 //
 // * point is the point at which the polynomials are opened.
 // * digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // * polynomials is the list of polynomials to open, they are supposed to be of the same size.
-func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr.Element, hf hash.Hash, srs *SRS) (BatchOpeningProof, error) {
+func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr.Element, hf hash.Hash, pk ProvingKey) (BatchOpeningProof, error) {
 
 	// check for invalid sizes
 	nbDigests := len(digests)
@@ -232,7 +244,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	// TODO ensure the polynomials are of the same size
 	largestPoly := -1
 	for _, p := range polynomials {
-		if len(p) == 0 || len(p) > len(srs.G1) {
+		if len(p) == 0 || len(p) > len(pk.G1) {
 			return BatchOpeningProof{}, ErrInvalidPolynomialSize
 		}
 		if len(p) > largestPoly {
@@ -301,7 +313,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	h := dividePolyByXminusA(foldedPolynomials, foldedEvaluations, point)
 	foldedPolynomials = nil // same memory as h
 
-	res.H, err = Commit(h, srs)
+	res.H, err = Commit(h, pk)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -319,7 +331,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 
 	nbDigests := len(digests)
 
-	// check consistancy between numbers of claims vs number of digests
+	// check consistency between numbers of claims vs number of digests
 	if nbDigests != len(batchOpeningProof.ClaimedValues) {
 		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
@@ -358,7 +370,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 //
 // * digests list of digests on which opening proof is done
 // * batchOpeningProof proof of correct opening on the digests
-func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, srs *SRS) error {
+func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, vk VerifyingKey) error {
 
 	// fold the proof
 	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof, point, hf)
@@ -367,7 +379,7 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 	}
 
 	// verify the foldedProof against the foldedDigest
-	err = Verify(&foldedDigest, &foldedProof, point, srs)
+	err = Verify(&foldedDigest, &foldedProof, point, vk)
 	return err
 
 }
@@ -378,9 +390,9 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // * digests list of committed polynomials
 // * proofs list of opening proofs, one for each digest
 // * points the list of points at which the opening are done
-func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr.Element, srs *SRS) error {
+func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr.Element, vk VerifyingKey) error {
 
-	// check consistancy nb proogs vs nb digests
+	// check consistency nb proogs vs nb digests
 	if len(digests) != len(proofs) || len(digests) != len(points) {
 		return ErrInvalidNbDigests
 	}
@@ -392,7 +404,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 
 	// if only one digest, call Verify
 	if len(digests) == 1 {
-		return Verify(&digests[0], &proofs[0], points[0], srs)
+		return Verify(&digests[0], &proofs[0], points[0], vk)
 	}
 
 	// sample random numbers λᵢ for sampling
@@ -412,9 +424,8 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 		quotients[i].Set(&proofs[i].H)
 	}
 	config := ecc.MultiExpConfig{}
-	_, err := foldedQuotients.MultiExp(quotients, randomNumbers, config)
-	if err != nil {
-		return nil
+	if _, err := foldedQuotients.MultiExp(quotients, randomNumbers, config); err != nil {
+		return err
 	}
 
 	// fold digests and evals
@@ -434,7 +445,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit bls12377.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.BigInt(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMultiplication(&srs.G1[0], &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplication(&vk.G1, &foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)
@@ -461,7 +472,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
 	check, err := bls12377.PairingCheck(
 		[]bls12377.G1Affine{foldedDigests, foldedQuotients},
-		[]bls12377.G2Affine{srs.G2[0], srs.G2[1]},
+		[]bls12377.G2Affine{vk.G2[0], vk.G2[1]},
 	)
 	if err != nil {
 		return err
@@ -482,7 +493,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 // * Returns ∑ᵢcᵢdᵢ, ∑ᵢcᵢf(aᵢ)
 func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, error) {
 
-	// length inconsistancy between digests and evaluations should have been done before calling this function
+	// length inconsistency between digests and evaluations should have been done before calling this function
 	nbDigests := len(di)
 
 	// fold the claimed values ∑ᵢcᵢf(aᵢ)
