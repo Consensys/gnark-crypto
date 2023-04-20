@@ -21,15 +21,34 @@ import (
 	"io"
 )
 
-// WriteTo writes binary encoding of the SRS
-func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
-	// encode the SRS
+// WriteTo writes binary encoding of the ProvingKey
+func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
+	// encode the ProvingKey
 	enc := bls12381.NewEncoder(w)
+	if err := enc.Encode(pk.G1); err != nil {
+		return enc.BytesWritten(), err
+	}
+	return enc.BytesWritten(), nil
+}
+
+// WriteRawTo writes binary encoding of VerifyingKey to w without point compression
+func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return vk.writeTo(w, bls12381.RawEncoding())
+}
+
+// WriteTo writes binary encoding of the VerifyingKey
+func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
+	return vk.writeTo(w)
+}
+
+func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls12381.Encoder)) (int64, error) {
+	// encode the VerifyingKey
+	enc := bls12381.NewEncoder(w, options...)
 
 	toEncode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		srs.G1,
+		&vk.G2[0],
+		&vk.G2[1],
+		&vk.G1,
 	}
 
 	for _, v := range toEncode {
@@ -41,15 +60,37 @@ func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 	return enc.BytesWritten(), nil
 }
 
-// ReadFrom decodes SRS data from reader.
-func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
-	// decode the SRS
+// WriteTo writes binary encoding of the entire SRS
+func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
+	// encode the SRS
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.WriteTo(w); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.WriteTo(w)
+	return pn + vn, err
+}
+
+// ReadFrom decodes ProvingKey data from reader.
+func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
+	// decode the ProvingKey
+	dec := bls12381.NewDecoder(r)
+	if err := dec.Decode(&pk.G1); err != nil {
+		return dec.BytesRead(), err
+	}
+	return dec.BytesRead(), nil
+}
+
+// ReadFrom decodes VerifyingKey data from reader.
+func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
+	// decode the VerifyingKey
 	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
-		&srs.G2[0],
-		&srs.G2[1],
-		&srs.G1,
+		&vk.G2[0],
+		&vk.G2[1],
+		&vk.G1,
 	}
 
 	for _, v := range toDecode {
@@ -59,6 +100,18 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	return dec.BytesRead(), nil
+}
+
+// ReadFrom decodes SRS data from reader.
+func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
+	// decode the VerifyingKey
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.ReadFrom(r); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.ReadFrom(r)
+	return pn + vn, err
 }
 
 // WriteTo writes binary encoding of a OpeningProof
@@ -118,7 +171,6 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 // ReadFrom decodes BatchOpeningProof data from reader.
 func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls12381.NewDecoder(r)
-
 	toDecode := []interface{}{
 		&proof.H,
 		&proof.ClaimedValues,
