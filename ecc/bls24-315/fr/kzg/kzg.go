@@ -41,16 +41,18 @@ var (
 // Digest commitment of a polynomial.
 type Digest = bls24315.G1Affine
 
-// Proving and Verifying keys together constitute the SRS (result of the MPC)
+// ProvingKey used to create or open commitments
 type ProvingKey struct {
 	G1 []bls24315.G1Affine // [G₁ [α]G₁ , [α²]G₁, ... ]
 }
 
+// VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
 	G2 [2]bls24315.G2Affine // [G₂, [α]G₂ ]
 	G1 bls24315.G1Affine
 }
 
+// SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
 type SRS struct {
 	Pk ProvingKey
 	Vk VerifyingKey
@@ -328,7 +330,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 
 	nbDigests := len(digests)
 
-	// check consistancy between numbers of claims vs number of digests
+	// check consistency between numbers of claims vs number of digests
 	if nbDigests != len(batchOpeningProof.ClaimedValues) {
 		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
@@ -389,7 +391,7 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // * points the list of points at which the opening are done
 func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr.Element, vk VerifyingKey) error {
 
-	// check consistancy nb proogs vs nb digests
+	// check consistency nb proogs vs nb digests
 	if len(digests) != len(proofs) || len(digests) != len(points) {
 		return ErrInvalidNbDigests
 	}
@@ -485,7 +487,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 // * Returns ∑ᵢcᵢdᵢ, ∑ᵢcᵢf(aᵢ)
 func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, error) {
 
-	// length inconsistancy between digests and evaluations should have been done before calling this function
+	// length inconsistency between digests and evaluations should have been done before calling this function
 	nbDigests := len(di)
 
 	// fold the claimed values ∑ᵢcᵢf(aᵢ)
