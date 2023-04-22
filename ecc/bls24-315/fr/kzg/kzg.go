@@ -195,28 +195,19 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	var negH bls24315.G1Affine
 	negH.Neg(&proof.H)
 
-	// [α-a]G₂
-	var alphaMinusaG2Jac, genG2Jac, alphaG2Jac bls24315.G2Jac
+	// [f(α) - f(a) + a*H(α)]G₁
+	var totalG1 bls24315.G1Jac
 	var pointBigInt big.Int
 	point.BigInt(&pointBigInt)
-	genG2Jac.FromAffine(&vk.G2[0])
-	alphaG2Jac.FromAffine(&vk.G2[1])
-	alphaMinusaG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt).
-		Neg(&alphaMinusaG2Jac).
-		AddAssign(&alphaG2Jac)
+	totalG1.ScalarMultiplicationAffine(&proof.H, &pointBigInt)
+	totalG1.AddAssign(&fminusfaG1Jac)
+	var totalG1Aff bls24315.G1Affine
+	totalG1Aff.FromJacobian(&totalG1)
 
-	// [α-a]G₂
-	var xminusaG2Aff bls24315.G2Affine
-	xminusaG2Aff.FromJacobian(&alphaMinusaG2Jac)
-
-	// [f(α) - f(a)]G₁
-	var fminusfaG1Aff bls24315.G1Affine
-	fminusfaG1Aff.FromJacobian(&fminusfaG1Jac)
-
-	// e([f(α) - f(a)]G₁, G₂).e([-H(α)]G₁, [α-a]G₂) ==? 1
+	// e([f(α)-f(a)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
 	check, err := bls24315.PairingCheck(
-		[]bls24315.G1Affine{fminusfaG1Aff, negH},
-		[]bls24315.G2Affine{vk.G2[0], xminusaG2Aff},
+		[]bls24315.G1Affine{totalG1Aff, negH},
+		[]bls24315.G2Affine{vk.G2[0], vk.G2[1]},
 	)
 	if err != nil {
 		return err
