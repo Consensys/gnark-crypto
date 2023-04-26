@@ -99,7 +99,7 @@ func TestMapToCurve{{$CurveIndex}}(t *testing.T) {
 	properties.Property("[{{$CurveTitle}}] mapping output must be on curve", prop.ForAll(
 		func(a {{$CoordType}}) bool {
 
-			g := mapToCurve{{$CurveIndex}}(&a)
+			g := MapToCurve{{$CurveIndex}}(&a)
 
 			{{if $isogenyNeeded}}
 				if !isOnE{{$CurveIndex}}Prime(g) {
@@ -126,18 +126,18 @@ func TestMapToCurve{{$CurveIndex}}(t *testing.T) {
 	for _, c := range encodeTo{{$CurveTitle}}Vector.cases {
 		var u {{$CoordType}}
 		{{$CurveName}}CoordSetString(&u, c.u)
-		q := mapToCurve{{$CurveIndex}}(&u)
+		q := MapToCurve{{$CurveIndex}}(&u)
 		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
 	for _, c := range hashTo{{$CurveTitle}}Vector.cases {
 		var u {{$CoordType}}
 		{{$CurveName}}CoordSetString(&u, c.u0)
-		q := mapToCurve{{$CurveIndex}}(&u)
+		q := MapToCurve{{$CurveIndex}}(&u)
 		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		{{$CurveName}}CoordSetString(&u, c.u1)
-		q = mapToCurve{{$CurveIndex}}(&u)
+		q = MapToCurve{{$CurveIndex}}(&u)
 		{{$runIsogeny}}{{$CurveName}}TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }

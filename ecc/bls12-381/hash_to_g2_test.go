@@ -95,7 +95,7 @@ func TestMapToCurve2(t *testing.T) {
 	properties.Property("[G2] mapping output must be on curve", prop.ForAll(
 		func(a fptower.E2) bool {
 
-			g := mapToCurve2(&a)
+			g := MapToCurve2(&a)
 
 			if !isOnE2Prime(g) {
 				t.Log("Mapping output not on E' curve")
@@ -118,7 +118,7 @@ func TestMapToCurve2(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u)
-		q := mapToCurve2(&u)
+		q := MapToCurve2(&u)
 		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
@@ -126,12 +126,12 @@ func TestMapToCurve2(t *testing.T) {
 	for _, c := range hashToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u0)
-		q := mapToCurve2(&u)
+		q := MapToCurve2(&u)
 		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g2CoordSetString(&u, c.u1)
-		q = mapToCurve2(&u)
+		q = MapToCurve2(&u)
 		g2Isogeny(&q)
 		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
