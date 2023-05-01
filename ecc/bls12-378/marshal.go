@@ -103,24 +103,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	var read int
 
 	switch t := v.(type) {
-	case *[]uint64:
-		buf64 := buf[:64/8]
-		read, err = io.ReadFull(dec.r, buf64)
-		dec.n += int64(read)
-		if err != nil {
-			return
-		}
-		length := binary.BigEndian.Uint64(buf64)
-		*t = make([]uint64, length)
-		for i := range *t {
-			read, err = io.ReadFull(dec.r, buf64)
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-			(*t)[i] = binary.BigEndian.Uint64(buf64)
-		}
-		return
 	case *fr.Element:
 		read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
 		dec.n += int64(read)
@@ -219,7 +201,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				}
 			} else {
 				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
 					return
 				}
 				compressed[i] = !r
@@ -278,7 +260,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				}
 			} else {
 				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
 					return
 				}
 				compressed[i] = !r
@@ -304,6 +286,26 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 		return nil
 	default:
+
+		if rv.Kind() == reflect.Pointer && rv.Type().Elem().Kind() == reflect.Slice {
+			var sliceLen uint32
+			sliceLen, err = dec.readUint32()
+			if err != nil {
+				return
+			}
+			vRef := rv.Elem()
+			if vRef.Len() != int(sliceLen) {
+				newSlice := reflect.MakeSlice(vRef.Type(), int(sliceLen), int(sliceLen))
+				vRef.Set(newSlice)
+			}
+			for i := 0; i < int(sliceLen); i++ {
+				if err = dec.Decode(vRef.Index(i).Addr().Interface()); err != nil {
+					return
+				}
+			}
+			return
+		}
+
 		n := binary.Size(t)
 		if n == -1 {
 			return errors.New("bls12-378 encoder: unsupported type")
@@ -364,6 +366,21 @@ func (enc *Encoder) Encode(v interface{}) (err error) {
 	return enc.encode(v)
 }
 
+// encodeSlice takes a slice and encodes first its length, then its elements
+func (enc *Encoder) encodeSlice(vr reflect.Value) error {
+	l := vr.Len()
+	if err := binary.Write(enc.w, binary.BigEndian, uint32(l)); err != nil {
+		return err
+	}
+	enc.n += 32 / 8
+	for i := 0; i < l; i++ {
+		if err := enc.Encode(vr.Index(i).Interface()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // BytesWritten return total bytes written on writer
 func (enc *Encoder) BytesWritten() int64 {
 	return enc.n
@@ -416,8 +433,6 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
-	case []uint64:
-		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -493,6 +508,11 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		return nil
 	default:
+
+		if rv.Kind() == reflect.Slice {
+			return enc.encodeSlice(rv)
+		}
+
 		n := binary.Size(t)
 		if n == -1 {
 			return errors.New("<no value> encoder: unsupported type")
@@ -521,8 +541,6 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
-	case []uint64:
-		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -598,6 +616,11 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		return nil
 	default:
+
+		if rv.Kind() == reflect.Slice {
+			return enc.encodeSlice(rv)
+		}
+
 		n := binary.Size(t)
 		if n == -1 {
 			return errors.New("<no value> encoder: unsupported type")
@@ -606,25 +629,6 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		enc.n += int64(n)
 		return
 	}
-}
-
-func (enc *Encoder) writeUint64Slice(t []uint64) error {
-	buff := make([]byte, 64/8)
-	binary.BigEndian.PutUint64(buff, uint64(len(t)))
-	written, err := enc.w.Write(buff)
-	enc.n += int64(written)
-	if err != nil {
-		return err
-	}
-	for i := range t {
-		binary.BigEndian.PutUint64(buff, t[i])
-		written, err = enc.w.Write(buff)
-		enc.n += int64(written)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed

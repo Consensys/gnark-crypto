@@ -26,6 +26,7 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
@@ -484,4 +485,17 @@ func GenBigInt() gopter.Gen {
 		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
 		return genResult
 	}
+}
+
+func TestSliceSerialization(t *testing.T) {
+	var oBack []uint16
+	o := []uint16{1, 2, 3, 4}
+
+	writer := bytes.NewBuffer(make([]byte, 0, 100))
+	assert.NoError(t, NewEncoder(writer).Encode(o))
+
+	reader := bytes.NewReader(writer.Bytes())
+	assert.NoError(t, NewDecoder(reader).Decode(&oBack))
+
+	assert.Equal(t, o, oBack)
 }

@@ -18,7 +18,6 @@ package bn254
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"math/big"
 	"math/rand"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"

@@ -195,7 +195,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				}
 			} else {
 				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
 					return
 				}
 				compressed[i] = !r
