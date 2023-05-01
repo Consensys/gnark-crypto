@@ -6,6 +6,7 @@ import json
 # BN254 Fr
 r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 frByteSize = 32
+countToDeath = int(5)
 gfr = GF(r)
 Fr = GF(r)
 Fr.<x> = Fr[]
@@ -78,16 +79,37 @@ def splitCoeffs(b, logTwoBound):
 
     Returns:
         an array of coeffs, each coeff being the i-th chunk of logTwoBounds bits of b.
+        The coeffs are formed as follow. The input byte string is implicitly parsed as
+        a slice of field elements of 32 bytes each in bigendian-natural form. the outputs
+        are in a little-endian form. That is, each chunk of size 256 / logTwoBounds of the
+        output can be seen as a polynomial, such that, when evaluated at 2 we get the original
+        field element.
     """
     nbBits = len(b)*8
     res = [] 
     i = 0
-    while i < nbBits:
+
+    if len(b) % frByteSize != 0:
+        exit("the length of b should divide the field size")
+
+    # The number of fields that we are parsing. In case we have that
+    # logTwoBound does not divide the number of bits to represent a
+    # field element, we do not merge them.
+    nbField = len(b) / 32
+    nbBitsInField = int(frByteSize * 8)
+    
+    for fieldID in range(nbField):
+        fieldStart = fieldID * 256
         e = 0
-        for j in range(logTwoBound):
-            e += bitAt(i, b) << j
-            i += 1
-        res.append(e)
+        for bitInField in range(nbBitsInField):
+            j = bitInField % logTwoBound
+            at = fieldStart + nbBitsInField - 1 - bitInField
+            e |= bitAt(at, b) << j 
+            # Switch to a new limb
+            if j == logTwoBound - 1 or bitInField == frByteSize * 8 - 1:
+                res.append(e)
+                e = 0
+
     # careful Montgomery constant...
     return [Fr(e)*rr**-1 for e in res]
 
