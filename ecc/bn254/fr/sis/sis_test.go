@@ -163,6 +163,12 @@ func TestMulMod(t *testing.T) {
 // field element by evaluating the polynomial whose the coeffiients are the
 // limbs.
 func TestLimbDecomposition(t *testing.T) {
+
+	// Skipping the test for 32 bits
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
+
 	sis, _ := NewRSis(0, 4, 4, 3)
 
 	testcases := []fr.Vector{
