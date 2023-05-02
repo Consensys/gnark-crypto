@@ -11,10 +11,10 @@
 {{if $IsG1}}{{$CurveIndex = "1"}}{{$B = "bCurveCoeff"}}{{end}}
 
 
-// mapToCurve{{$CurveIndex}} implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
+// MapToCurve{{$CurveIndex}} implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
 // No cofactor clearing or isogeny
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
-func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
+func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     var tv1, tv2, tv3, tv4 {{$CoordType}}
     var x1, x2, x3, gx1, gx2, gx, x, y {{$CoordType}}
     var one {{$CoordType}}

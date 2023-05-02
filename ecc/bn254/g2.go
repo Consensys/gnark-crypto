@@ -81,6 +81,16 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	return p
 }
 
+// Double doubles a point in affine coordinates.
+// This should rarely be used as it is very inefficient compared to Jacobian
+func (p *G2Affine) Double(a *G2Affine) *G2Affine {
+	var p1 G2Jac
+	p1.FromAffine(a)
+	p1.Double(&p1)
+	p.FromJacobian(&p1)
+	return p
+}
+
 // Sub subs two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {

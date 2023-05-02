@@ -61,7 +61,7 @@ func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
 
 // MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveName}}
 func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
-    res := mapToCurve{{$CurveIndex}}(&u)
+    res := MapToCurve{{$CurveIndex}}(&u)
     {{- if $isogenyNeeded }}
     //this is in an isogenous curve
         {{$CurveName}}Isogeny(&res)
@@ -85,9 +85,9 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	}
 
     {{if eq $TowerDegree 1}}
-    res = mapToCurve{{$CurveIndex}}(&u[0])
+    res = MapToCurve{{$CurveIndex}}(&u[0])
     {{else}}
-    res = mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+    res = MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
         {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
     {{end}} })
     {{end}}
@@ -113,13 +113,13 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	}
 
 	{{if eq $TowerDegree 1}}
-	Q0 := mapToCurve{{$CurveIndex}}(&u[0])
-	Q1 := mapToCurve{{$CurveIndex}}(&u[1])
+	Q0 := MapToCurve{{$CurveIndex}}(&u[0])
+	Q1 := MapToCurve{{$CurveIndex}}(&u[1])
 	{{else}}
-	Q0 := mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+	Q0 := MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
 		{{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
 		{{end}} })
-	Q1 := mapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+	Q1 := MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
         {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$TowerDegree}} + {{$i}}],
         {{end}} })
 	{{end}}
