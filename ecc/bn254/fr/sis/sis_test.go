@@ -69,7 +69,7 @@ func TestReference(t *testing.T) {
 	err = json.Unmarshal(data, &testCases)
 	assert.NoError(err, "reading test cases failed")
 
-	for _, testCase := range testCases.Entries {
+	for testCaseID, testCase := range testCases.Entries {
 		// create the SIS instance
 		sis, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, testCase.Params.MaxNbElementsToHash)
 		assert.NoError(err)
@@ -88,7 +88,11 @@ func TestReference(t *testing.T) {
 					assert.True(e.IsZero(), "mismatch between reference test and computed value")
 				}
 			} else {
-				assert.EqualValues(testCase.Expected[i], got, "mismatch between reference test and computed value")
+				assert.EqualValues(
+					testCase.Expected[i], got,
+					"mismatch between reference test and computed value (testcase %v - input n° %v)",
+					testCaseID, i,
+				)
 			}
 
 			// ensure max nb elements to hash has no incidence on result.
@@ -153,6 +157,73 @@ func TestMulMod(t *testing.T) {
 		}
 	}
 
+}
+
+// Test the fact that the limb decomposition allows obtaining the original
+// field element by evaluating the polynomial whose the coeffiients are the
+// limbs.
+func TestLimbDecomposition(t *testing.T) {
+
+	// Skipping the test for 32 bits
+	if bits.UintSize == 32 {
+		t.Skip("skipping this test in 32bit.")
+	}
+
+	sis, _ := NewRSis(0, 4, 4, 3)
+
+	testcases := []fr.Vector{
+		{fr.One()},
+		{fr.NewElement(2)},
+		{fr.NewElement(1 << 32), fr.NewElement(2), fr.NewElement(1)},
+	}
+
+	for _, testcase := range testcases {
+
+		// clean the sis hasher
+		sis.bufMValues.ClearAll()
+		for i := 0; i < len(sis.bufM); i++ {
+			sis.bufM[i].SetZero()
+		}
+		for i := 0; i < len(sis.bufRes); i++ {
+			sis.bufRes[i].SetZero()
+		}
+
+		buf := bytes.Buffer{}
+		for _, x := range testcase {
+			xBytes := x.Bytes()
+			buf.Write(xBytes[:])
+		}
+		limbDecomposeBytes(buf.Bytes(), sis.bufM, sis.LogTwoBound, sis.Degree, sis.bufMValues)
+
+		// Just to test, this does not return panic
+		dummyBuffer := make(fr.Vector, 192)
+		LimbDecomposeBytes(buf.Bytes(), dummyBuffer, sis.LogTwoBound)
+
+		// b is a field element representing the max norm bound
+		// used for limb splitting the input field elements.
+		b := fr.NewElement(1 << sis.LogTwoBound)
+		numLimbsPerField := fr.Bytes * 8 / sis.LogTwoBound
+
+		// Compute r (corresponds to the Montgommery constant)
+		var r fr.Element
+		r.SetString("6350874878119819312338956282401532410528162663560392320966563075034087161851")
+
+		// Attempt to recompose the entry #i in the test-case
+		for i := range testcase {
+			// allegedly corresponds to the limbs of the entry i
+			subRes := sis.bufM[i*numLimbsPerField : (i+1)*numLimbsPerField]
+
+			// performs a Horner evaluation of subres by b
+			var y fr.Element
+			for j := numLimbsPerField - 1; j >= 0; j-- {
+				y.Mul(&y, &b)
+				y.Add(&y, &subRes[j])
+			}
+
+			y.Mul(&y, &r)
+			require.Equal(t, testcase[i].String(), y.String(), "the subRes was %v", subRes)
+		}
+	}
 }
 
 func makeKeyDeterminitic(t *testing.T, sis *RSis, _seed int64) {
