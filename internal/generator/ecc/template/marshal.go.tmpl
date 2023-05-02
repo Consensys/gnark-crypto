@@ -25,19 +25,18 @@ import (
 // metadata needed for point (de)compression
 {{- if ge .FpUnusedBits 3}}
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
-//
-// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
-//
-// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
-//
-// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+// see https://datatracker.ietf.org/doc/draft-irtf-cfrg-pairing-friendly-curves/11/
+// Appendix C.  ZCash serialization format for BLS12_381
 const (
 	mMask                 byte = 0b111 << 5
-	mUncompressed         byte = 0b000 << 5
-	mUncompressedInfinity byte = 0b010 << 5
-	mCompressedSmallest   byte = 0b100 << 5
-	mCompressedLargest    byte = 0b101 << 5
-	mCompressedInfinity   byte = 0b110 << 5
+	mUncompressed          byte = 0b000 << 5
+	_ byte						= 0b001 << 5 // invalid
+	mUncompressedInfinity  byte	= 0b010 << 5
+	_ byte						= 0b011 << 5 // invalid
+	mCompressedSmallest    byte	= 0b100 << 5
+	mCompressedLargest     byte	= 0b101 << 5
+	mCompressedInfinity    byte = 0b110 << 5
+	_ byte 						= 0b111 << 5 // invalid
 )
 {{- else}}
 // we have less than 3 bits available on the msw, so we can't follow BLS12-381 style encoding.
@@ -54,7 +53,10 @@ const (
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
 
-var ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+var (
+	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+	ErrInvalidEncoding = errors.New("invalid point encoding")
+)
 
 // Encoder writes {{.Name}} object values to an output stream
 type Encoder struct {
@@ -158,6 +160,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG1AffineCompressed
+
+		{{ if ge .FpUnusedBits 3}}
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+		{{- end}}
+
 		// most significant byte contains metadata 
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG1AffineUncompressed
@@ -178,6 +189,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG2AffineCompressed
+
+		{{ if ge .FpUnusedBits 3}}
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+		{{- end}}
+
 		// most significant byte contains metadata 
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG2AffineUncompressed
@@ -209,6 +229,15 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG1AffineCompressed
+
+			{{ if ge .FpUnusedBits 3}}
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+			{{- end}}
+
 			// most significant byte contains metadata 
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
@@ -268,6 +297,16 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG2AffineCompressed
+
+
+			{{ if ge .FpUnusedBits 3}}
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+			{{- end}}
+
 			// most significant byte contains metadata 
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
@@ -326,8 +365,6 @@ func (dec *Decoder) BytesRead() int64 {
 	return dec.n
 }
 
-
-
 func (dec *Decoder) readUint32() (r uint32, err error) {
 	var read int
 	var buf [4]byte
@@ -340,6 +377,13 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 	return 
 }
 
+{{ if ge .FpUnusedBits 3}}
+// isMaskInvalid returns true if the mask is invalid
+func isMaskInvalid(msb byte) bool {
+	mData := msb & mMask
+	return ((mData == (0b111 << 5)) || (mData == (0b011 << 5)) || (mData == (0b001 << 5)))
+}
+{{- end}}
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
@@ -723,6 +767,13 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 
 	// most significant byte
 	mData := buf[0] & mMask
+
+	{{if ge .all.FpUnusedBits 3}}
+	// 111, 011, 001  --> invalid mask
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
+	{{- end}}
 	
 
 	// check buffer size

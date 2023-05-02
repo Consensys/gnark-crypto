@@ -32,25 +32,27 @@ import (
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
-//
-// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
-//
-// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
-//
-// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+// see https://datatracker.ietf.org/doc/draft-irtf-cfrg-pairing-friendly-curves/11/
+// Appendix C.  ZCash serialization format for BLS12_381
 const (
 	mMask                 byte = 0b111 << 5
 	mUncompressed         byte = 0b000 << 5
+	_                     byte = 0b001 << 5 // invalid
 	mUncompressedInfinity byte = 0b010 << 5
+	_                     byte = 0b011 << 5 // invalid
 	mCompressedSmallest   byte = 0b100 << 5
 	mCompressedLargest    byte = 0b101 << 5
 	mCompressedInfinity   byte = 0b110 << 5
+	_                     byte = 0b111 << 5 // invalid
 )
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
 
-var ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+var (
+	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+	ErrInvalidEncoding         = errors.New("invalid point encoding")
+)
 
 // Encoder writes bls12-381 object values to an output stream
 type Encoder struct {
@@ -153,6 +155,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG1AffineCompressed
+
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG1AffineUncompressed
@@ -173,6 +182,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG2AffineCompressed
+
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG2AffineUncompressed
@@ -204,6 +220,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG1AffineCompressed
+
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
@@ -263,6 +286,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG2AffineCompressed
+
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
@@ -331,6 +361,12 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 	}
 	r = binary.BigEndian.Uint32(buf[:4])
 	return
+}
+
+// isMaskInvalid returns true if the mask is invalid
+func isMaskInvalid(msb byte) bool {
+	mData := msb & mMask
+	return ((mData == (0b111 << 5)) || (mData == (0b011 << 5)) || (mData == (0b001 << 5)))
 }
 
 func isCompressed(msb byte) bool {
@@ -723,6 +759,11 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// most significant byte
 	mData := buf[0] & mMask
 
+	// 111, 011, 001  --> invalid mask
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
+
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
 		if len(buf) < SizeOfG1AffineUncompressed {
@@ -984,6 +1025,11 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 
 	// most significant byte
 	mData := buf[0] & mMask
+
+	// 111, 011, 001  --> invalid mask
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
 
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {

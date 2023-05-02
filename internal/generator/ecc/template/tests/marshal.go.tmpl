@@ -214,13 +214,37 @@ func TestIsCompressed(t *testing.T) {
 }
 
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
+{{- $FpUnusedBits := .FpUnusedBits}}
 
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "FpUnusedBits" $FpUnusedBits}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "FpUnusedBits" $FpUnusedBits}}
 
 
 {{define "marshalpoint"}}
 
+
+
+{{if ge $.FpUnusedBits 3}}
+func Test{{ $.TAffine }}InvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOf{{ $.TAffine }}Compressed]byte 
+	rand.Read(buf[:])
+
+	var p {{ $.TAffine }}
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+}
+{{- end}}
 
 
 func Test{{ $.TAffine }}Serialization(t *testing.T) {
@@ -315,8 +339,6 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 		},
 		GenFp(),
 	))
-
-
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }

@@ -44,7 +44,10 @@ const (
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
 
-var ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+var (
+	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+	ErrInvalidEncoding         = errors.New("invalid point encoding")
+)
 
 // Encoder writes bn254 object values to an output stream
 type Encoder struct {
@@ -147,6 +150,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG1AffineCompressed
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG1AffineUncompressed
@@ -167,6 +171,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG2AffineCompressed
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG2AffineUncompressed
@@ -198,6 +203,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG1AffineCompressed
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
@@ -257,6 +263,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG2AffineCompressed
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
