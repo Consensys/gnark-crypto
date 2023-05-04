@@ -17,12 +17,11 @@
 package starkcurve
 
 import (
-	"math/rand"
-	"testing"
-
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"math/rand"
+	"testing"
 )
 
 func TestHashToFpG1(t *testing.T) {
