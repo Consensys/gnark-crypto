@@ -17,12 +17,13 @@
 package bls12377
 
 import (
+	"math/big"
+	"runtime"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
 )
 
 // G1Affine point in affine coordinates
@@ -1027,7 +1028,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 					continue
 				}
 
-				// if msbWindow bit is set, we need to substract
+				// if msbWindow bit is set, we need to subtract
 				if digit&1 == 0 {
 					// add
 					p.AddMixed(&baseTableAff[(digit>>1)-1])

@@ -18,9 +18,10 @@ package kzg
 
 import (
 	"crypto/sha256"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378"
@@ -142,7 +143,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// verify the claimed valued
 	expected := eval(f, point)
 	if !proof.ClaimedValue.Equal(&expected) {
-		t.Fatal("inconsistant claimed value")
+		t.Fatal("inconsistent claimed value")
 	}
 
 	// verify correct proof

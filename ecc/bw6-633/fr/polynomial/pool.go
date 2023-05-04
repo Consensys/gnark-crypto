@@ -19,12 +19,13 @@ package polynomial
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"reflect"
 	"runtime"
 	"sort"
 	"sync"
 	"unsafe"
+
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // Memory management for polynomials
@@ -49,7 +50,7 @@ type Pool struct {
 }
 
 func (p *sizedPool) get(n int) *fr.Element {
-	p.stats.maake(n)
+	p.stats.make(n)
 	return p.pool.Get().(*fr.Element)
 }
 
@@ -153,7 +154,7 @@ type poolsStats struct {
 	InUse    int
 }
 
-func (s *poolStats) maake(n int) {
+func (s *poolStats) make(n int) {
 	s.Used++
 	s.InUse++
 	if n > s.GreatestNUsed {

@@ -46,7 +46,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
 	// g1JacExtended coordinates.
 	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
-	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediately
 	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
 	// non-batch-affine version.
 
@@ -237,31 +237,31 @@ type bucketG1AffineC16 [32768]G1Affine
 // buckets: array of G1Affine points of size 1 << (c-1)
 type ibG1Affine interface {
 	bucketG1AffineC11 |
-		bucketG1AffineC16
+	bucketG1AffineC16
 }
 
 // array of coordinates fp.Element
 type cG1Affine interface {
 	cG1AffineC11 |
-		cG1AffineC16
+	cG1AffineC16
 }
 
 // buckets: array of G1Affine points (for the batch addition)
 type pG1Affine interface {
 	pG1AffineC11 |
-		pG1AffineC16
+	pG1AffineC16
 }
 
 // buckets: array of *G1Affine points (for the batch addition)
 type ppG1Affine interface {
 	ppG1AffineC11 |
-		ppG1AffineC16
+	ppG1AffineC16
 }
 
 // buckets: array of G1Affine queue operations (for the batch addition)
 type qOpsG1Affine interface {
 	qG1AffineC11 |
-		qG1AffineC16
+	qG1AffineC16
 }
 
 // batch size 150 when c = 11
@@ -302,7 +302,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
 	// g2JacExtended coordinates.
 	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
-	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediately
 	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
 	// non-batch-affine version.
 
@@ -493,31 +493,31 @@ type bucketG2AffineC16 [32768]G2Affine
 // buckets: array of G2Affine points of size 1 << (c-1)
 type ibG2Affine interface {
 	bucketG2AffineC11 |
-		bucketG2AffineC16
+	bucketG2AffineC16
 }
 
 // array of coordinates fp.Element
 type cG2Affine interface {
 	cG2AffineC11 |
-		cG2AffineC16
+	cG2AffineC16
 }
 
 // buckets: array of G2Affine points (for the batch addition)
 type pG2Affine interface {
 	pG2AffineC11 |
-		pG2AffineC16
+	pG2AffineC16
 }
 
 // buckets: array of *G2Affine points (for the batch addition)
 type ppG2Affine interface {
 	ppG2AffineC11 |
-		ppG2AffineC16
+	ppG2AffineC16
 }
 
 // buckets: array of G2Affine queue operations (for the batch addition)
 type qOpsG2Affine interface {
 	qG2AffineC11 |
-		qG2AffineC16
+	qG2AffineC16
 }
 
 // batch size 150 when c = 11
@@ -541,9 +541,9 @@ type bitSetC16 [32768]bool
 
 type bitSet interface {
 	bitSetC3 |
-		bitSetC4 |
-		bitSetC5 |
-		bitSetC8 |
-		bitSetC11 |
-		bitSetC16
+	bitSetC4 |
+	bitSetC5 |
+	bitSetC8 |
+	bitSetC11 |
+	bitSetC16
 }

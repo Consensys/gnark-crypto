@@ -1661,7 +1661,7 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 }
 
 
-// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+// bigIntMatchUint64Slice is a test helper to match big.Int words against a uint64 slice
 func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	words := aInt.Bits()

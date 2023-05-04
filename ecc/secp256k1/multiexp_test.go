@@ -73,7 +73,7 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G1] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G1] Multi exponentiation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
 			for i := 0; i < 13; i++ {
@@ -105,7 +105,7 @@ func TestMultiExpG1(t *testing.T) {
 		cRange = []uint64{5, 14}
 	}
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var expected G1Jac
@@ -138,7 +138,7 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var samplePointsZero [nbSamples]G1Affine
@@ -174,7 +174,7 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -196,7 +196,7 @@ func TestMultiExpG1(t *testing.T) {
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("[G1] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
+	properties.Property("[G1] Multi exponentiation (<50points) should be consistent with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g G1Jac

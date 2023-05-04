@@ -17,10 +17,11 @@
 package polynomial
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPolynomialEval(t *testing.T) {
@@ -171,7 +172,7 @@ func TestPolynomialAdd(t *testing.T) {
 		t.Fatal("side effect, f2 should not have been modified")
 	}
 
-	// all operands are distincts
+	// all operands are distinct
 	_f1 := f1.Clone()
 	_f1.Add(f1, f2)
 	if !_f1.Equal(expectedSum) {

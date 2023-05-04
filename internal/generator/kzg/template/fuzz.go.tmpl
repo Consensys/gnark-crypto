@@ -19,7 +19,7 @@ func Fuzz(data []byte) int {
         size = 1 << 15
     }
     r := bytes.NewReader(data[1:])
-    var alpha, point fr.Element 
+    var alpha, point fr.Element
     alpha.SetRawBytes(r)
     point.SetRawBytes(r)
     s := NewScheme(size, alpha)
@@ -49,7 +49,7 @@ func Fuzz(data []byte) int {
 	for i := 0; i < len(f); i++ {
 		expectedClaim := f[i].Eval(&point)
 		if !expectedClaim.Equal(&proof.ClaimedValues[i]) {
-            panic("inconsistant claimed values")
+            panic("inconsistent claimed values")
 		}
 	}
 
@@ -64,4 +64,4 @@ func Fuzz(data []byte) int {
 }
 
 
-	
+

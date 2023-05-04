@@ -35,7 +35,7 @@ type E6 struct {
 	B0, B1 E3
 }
 
-// Equal returns true if z equals x, fasle otherwise
+// Equal returns true if z equals x, false otherwise
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1)
 }
@@ -97,7 +97,7 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
 }
@@ -613,7 +613,7 @@ func (z *E6) SetBytes(e []byte) error {
 	return nil
 }
 
-// IsInSubGroup ensures GT/E6 is in correct sugroup
+// IsInSubGroup ensures GT/E6 is in correct subgroup
 func (z *E6) IsInSubGroup() bool {
 	var tmp, a, _a, b E6
 	var t [6]E6
@@ -633,7 +633,7 @@ func (z *E6) IsInSubGroup() bool {
 	// t(x)-1 = (-x⁶ + 5x⁵ - 9x⁴ + 7x³ - 4x + 5)/3
 	t[0].CyclotomicSquare(z).
 		CyclotomicSquare(&t[0]) // z^4
-	t[1].Mul(&t[0], z) //z^5*
+	t[1].Mul(&t[0], z)          //z^5*
 	t[2].Expt(&t[0]).
 		Conjugate(&t[2]) // z^(-4u)*
 	tmp.CyclotomicSquare(&t[2]).
@@ -650,7 +650,7 @@ func (z *E6) IsInSubGroup() bool {
 	t[5].Expt(&tmp).
 		Conjugate(&t[5]).
 		Mul(&t[5], &t[4]).
-		Expt(&t[5]) // z^(-u^5)
+		Expt(&t[5])  // z^(-u^5)
 	t[0].Expt(&t[5]) // z^(-u^6)*
 	tmp.Expt(&t[4])  // z^(-9u^5)
 	t[5].CyclotomicSquare(&t[5]).

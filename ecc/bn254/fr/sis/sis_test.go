@@ -75,7 +75,7 @@ func TestReference(t *testing.T) {
 		assert.NoError(err)
 
 		// key generation same than in sage
-		makeKeyDeterminitic(t, sis, testCase.Params.Seed)
+		makeKeyDeterministic(t, sis, testCase.Params.Seed)
 
 		for i, in := range testCases.Inputs {
 			sis.Reset()
@@ -99,7 +99,7 @@ func TestReference(t *testing.T) {
 			if len(in) < testCase.Params.MaxNbElementsToHash {
 				sis2, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, len(in))
 				assert.NoError(err)
-				makeKeyDeterminitic(t, sis2, testCase.Params.Seed)
+				makeKeyDeterministic(t, sis2, testCase.Params.Seed)
 
 				got2, err := sis2.Hash(in)
 				assert.NoError(err)
@@ -226,7 +226,7 @@ func TestLimbDecomposition(t *testing.T) {
 	}
 }
 
-func makeKeyDeterminitic(t *testing.T, sis *RSis, _seed int64) {
+func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	t.Helper()
 	// generate the key deterministically, the same way
 	// we do in sage to generate the test vectors.
@@ -307,7 +307,7 @@ func BenchmarkSIS(b *testing.B) {
 	}
 }
 
-func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoritical float64) {
+func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoretical float64) {
 	b.Helper()
 
 	n := len(input)
@@ -343,7 +343,7 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 
 		b.ReportMetric(float64(nsPerField), "ns/field")
 
-		b.ReportMetric(theoritical, "ns/field(theory)")
+		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
 }

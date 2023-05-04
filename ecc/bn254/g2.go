@@ -17,12 +17,13 @@
 package bn254
 
 import (
+	"math/big"
+	"runtime"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
 )
 
 // G2Affine point in affine coordinates
@@ -949,7 +950,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 					continue
 				}
 
-				// if msbWindow bit is set, we need to substract
+				// if msbWindow bit is set, we need to subtract
 				if digit&1 == 0 {
 					// add
 					p.AddAssign(&baseTable[(digit>>1)-1])

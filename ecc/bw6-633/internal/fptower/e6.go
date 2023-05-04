@@ -35,7 +35,7 @@ type E6 struct {
 	B0, B1 E3
 }
 
-// Equal returns true if z equals x, fasle otherwise
+// Equal returns true if z equals x, false otherwise
 func (z *E6) Equal(x *E6) bool {
 	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1)
 }
@@ -98,7 +98,7 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()
 }
@@ -691,7 +691,7 @@ func (z *E6) SetBytes(e []byte) error {
 	return nil
 }
 
-// IsInSubGroup ensures GT/E6 is in correct sugroup
+// IsInSubGroup ensures GT/E6 is in correct subgroup
 func (z *E6) IsInSubGroup() bool {
 	var tmp, a, _a, b E6
 	var t [13]E6
@@ -732,7 +732,7 @@ func (z *E6) IsInSubGroup() bool {
 		Expt(&t[6]) // *z^(7u⁴)
 	t[7].CyclotomicSquare(&t[5]).
 		CyclotomicSquare(&t[7]) // z^(24u³)
-	tmp.Conjugate(&tmp) // z^(-u³)
+	tmp.Conjugate(&tmp)         // z^(-u³)
 	t[7].Mul(&t[7], &tmp).
 		Conjugate(&t[7]).
 		Expt(&t[7]).
