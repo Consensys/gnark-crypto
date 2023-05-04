@@ -33,7 +33,7 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 			continue
 		}
 
-		// if msbWindow bit is set, we need to substract
+		// if msbWindow bit is set, we need to subtract
 		if digit&1 == 0 {
 			// add
 			buckets[(digit>>1)-1].addMixed(&points[i])
@@ -94,7 +94,7 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 			continue
 		}
 
-		// if msbWindow bit is set, we need to substract
+		// if msbWindow bit is set, we need to subtract
 		if digit&1 == 0 {
 			// add
 			buckets[(digit>>1)-1].addMixed(&points[i])

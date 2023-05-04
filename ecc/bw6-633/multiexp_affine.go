@@ -46,7 +46,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
 	// g1JacExtended coordinates.
 	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
-	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediately
 	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
 	// non-batch-affine version.
 
@@ -302,7 +302,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	// if the queue is full, we "flush it"; we sequentially add the points to the buckets in
 	// g2JacExtended coordinates.
 	// The reasoning behind this is the following; batchSize is chosen such as, for a uniformly random
-	// input, the number of conflicts is going to be low, and the element added to the queue should be immediatly
+	// input, the number of conflicts is going to be low, and the element added to the queue should be immediately
 	// processed in the next batch. If it's not the case, then our inputs are not random; and we fallback to
 	// non-batch-affine version.
 

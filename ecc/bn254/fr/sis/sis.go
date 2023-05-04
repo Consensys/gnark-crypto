@@ -45,7 +45,7 @@ type RSis struct {
 	A  [][]fr.Element
 	Ag [][]fr.Element
 
-	// LogTwoBound (Inifinty norm) of the vector to hash. It means that each component in m
+	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
 	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
@@ -146,7 +146,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
 		}
 	})
-	// TODO @gbotrel add nbtasks here; whiile in tests it's more convenient to paralellize
+	// TODO @gbotrel add nbtasks here; while in tests it's more convenient to parallelize
 	// in tensor-commitment we may not want to do that.
 
 	return r, nil
@@ -253,7 +253,7 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 }
 
 // mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
-// Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
+// Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
 // and that they are in evaluation form on √(g) * <g>
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
@@ -303,7 +303,7 @@ func (r *RSis) cleanupBuffers() {
 
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is reprented with 64 bits and we
+// in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
 // character and and f being the least significant one) and our log norm bound is
 // 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
@@ -316,7 +316,7 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is reprented with 64 bits and we
+// in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
 // character and and f being the least significant one) and our log norm bound is
 // 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,

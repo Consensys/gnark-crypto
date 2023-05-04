@@ -1671,7 +1671,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 					continue
 				}
 
-				// if msbWindow bit is set, we need to substract
+				// if msbWindow bit is set, we need to subtract
 				if digit & 1 == 0 {
 					// add
 					{{- if eq .PointName "g1"}}

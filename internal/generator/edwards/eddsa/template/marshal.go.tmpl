@@ -4,9 +4,9 @@ import (
 )
 
 // Bytes returns the binary representation of the public key
-// follows https://tools.ietf.org/html/rfc8032#section-3.1 
+// follows https://tools.ietf.org/html/rfc8032#section-3.1
 // and returns a compressed representation of the point (x,y)
-// 
+//
 // x, y are the coordinates of the point
 // on the twisted Edwards as big endian integers.
 // compressed representation store x with a parity bit to recompute y
@@ -28,7 +28,7 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 		return n, io.ErrShortBuffer
 	}
 	if _, err := pk.A.SetBytes(buf[:sizeFr]); err != nil {
-		return 0, err 
+		return 0, err
 	}
 	n += sizeFr
 	if !pk.A.IsOnCurve() {
@@ -78,7 +78,7 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 // as a byte array of size 3*sizeFr x||y||s where
 // * x, y are the coordinates of a point on the twisted
 //	Edwards represented in big endian
-// * s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+// * s=r+h(r,a,m) mod l, the Hasse bound guarantees that
 //	s is smaller than sizeFr (in particular it is supposed
 // 	s is NOT blinded)
 func (sig *Signature) Bytes() []byte {
@@ -93,7 +93,7 @@ func (sig *Signature) Bytes() []byte {
 // buf is read interpreted as x||y||s where
 // * x,y are the coordinates of a point on the twisted
 //	Edwards represented in big endian
-// * s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+// * s=r+h(r,a,m) mod l, the Hasse bound guarantees that
 //	s is smaller than sizeFr (in particular it is supposed
 // 	s is NOT blinded)
 // It returns the number of bytes read from buf.
@@ -103,7 +103,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 		return n, io.ErrShortBuffer
 	}
 	if _, err := sig.R.SetBytes(buf[:sizeFr]); err != nil {
-		return 0, err 
+		return 0, err
 	}
 	n += sizeFr
 	if !sig.R.IsOnCurve() {

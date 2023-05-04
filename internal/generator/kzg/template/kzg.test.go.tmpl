@@ -124,7 +124,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// verify the claimed valued
 	expected := eval(f, point)
 	if !proof.ClaimedValue.Equal(&expected) {
-		t.Fatal("inconsistant claimed value")
+		t.Fatal("inconsistent claimed value")
 	}
 
 	// verify correct proof
