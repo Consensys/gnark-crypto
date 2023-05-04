@@ -18,10 +18,9 @@ package kzg
 
 import (
 	"crypto/sha256"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317"

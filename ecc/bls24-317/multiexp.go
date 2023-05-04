@@ -18,12 +18,11 @@ package bls24317
 
 import (
 	"errors"
-	"math"
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math"
+	"runtime"
 )
 
 // MultiExp implements section 4 of https://eprint.iacr.org/2012/549.pdf
