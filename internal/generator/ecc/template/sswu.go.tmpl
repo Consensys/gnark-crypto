@@ -291,9 +291,9 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 {{ end }}}
 
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
-// mapToCurve{{$CurveIndex}} implements the SSWU map
+// MapToCurve{{$CurveIndex}} implements the SSWU map
 // No cofactor clearing or isogeny
-func mapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
+func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     {{if $isogenyNeeded}}
         var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}

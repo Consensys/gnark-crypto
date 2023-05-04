@@ -216,6 +216,26 @@ func TestIsCompressed(t *testing.T) {
 
 }
 
+func TestG1AffineInvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOfG1AffineCompressed]byte
+	rand.Read(buf[:])
+
+	var p G1Affine
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+}
+
 func TestG1AffineSerialization(t *testing.T) {
 	t.Parallel()
 	// test round trip serialization of infinity
@@ -307,6 +327,26 @@ func TestG1AffineSerialization(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG2AffineInvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOfG2AffineCompressed]byte
+	rand.Read(buf[:])
+
+	var p G2Affine
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
 }
 
 func TestG2AffineSerialization(t *testing.T) {

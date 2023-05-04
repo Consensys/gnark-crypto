@@ -32,23 +32,27 @@ import (
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
-//
-// The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
-//
-// The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
-//
-// The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+// see https://datatracker.ietf.org/doc/draft-irtf-cfrg-pairing-friendly-curves/11/
+// Appendix C.  ZCash serialization format for BLS12_381
 const (
 	mMask                 byte = 0b111 << 5
 	mUncompressed         byte = 0b000 << 5
+	_                     byte = 0b001 << 5 // invalid
 	mUncompressedInfinity byte = 0b010 << 5
+	_                     byte = 0b011 << 5 // invalid
 	mCompressedSmallest   byte = 0b100 << 5
 	mCompressedLargest    byte = 0b101 << 5
 	mCompressedInfinity   byte = 0b110 << 5
+	_                     byte = 0b111 << 5 // invalid
 )
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
+
+var (
+	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
+	ErrInvalidEncoding         = errors.New("invalid point encoding")
+)
 
 // Encoder writes bls24-317 object values to an output stream
 type Encoder struct {
@@ -101,6 +105,24 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 	var read int
 
 	switch t := v.(type) {
+	case *[]uint64:
+		buf64 := buf[:64/8]
+		read, err = io.ReadFull(dec.r, buf64)
+		dec.n += int64(read)
+		if err != nil {
+			return
+		}
+		length := binary.BigEndian.Uint64(buf64)
+		*t = make([]uint64, length)
+		for i := range *t {
+			read, err = io.ReadFull(dec.r, buf64)
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+			(*t)[i] = binary.BigEndian.Uint64(buf64)
+		}
+		return
 	case *fr.Element:
 		read, err = io.ReadFull(dec.r, buf[:fr.Bytes])
 		dec.n += int64(read)
@@ -133,6 +155,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG1AffineCompressed
+
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG1AffineUncompressed
@@ -153,6 +182,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			return
 		}
 		nbBytes := SizeOfG2AffineCompressed
+
+		// 111, 011, 001  --> invalid mask
+		if isMaskInvalid(buf[0]) {
+			err = ErrInvalidEncoding
+			return
+		}
+
 		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG2AffineUncompressed
@@ -184,6 +220,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG1AffineCompressed
+
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
@@ -243,6 +286,13 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				return
 			}
 			nbBytes := SizeOfG2AffineCompressed
+
+			// 111, 011, 001  --> invalid mask
+			if isMaskInvalid(buf[0]) {
+				err = ErrInvalidEncoding
+				return
+			}
+
 			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
@@ -313,6 +363,12 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 	return
 }
 
+// isMaskInvalid returns true if the mask is invalid
+func isMaskInvalid(msb byte) bool {
+	mData := msb & mMask
+	return ((mData == (0b111 << 5)) || (mData == (0b011 << 5)) || (mData == (0b001 << 5)))
+}
+
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
 	return !((mData == mUncompressed) || (mData == mUncompressedInfinity))
@@ -365,6 +421,19 @@ func NoSubgroupChecks() func(*Decoder) {
 	}
 }
 
+// isZeroed checks that the provided bytes are at 0
+func isZeroed(firstByte byte, buf []byte) bool {
+	if firstByte != 0 {
+		return false
+	}
+	for _, b := range buf {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (enc *Encoder) encode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -383,6 +452,8 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
+	case []uint64:
+		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -486,6 +557,8 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	var written int
 
 	switch t := v.(type) {
+	case []uint64:
+		return enc.writeUint64Slice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -571,6 +644,25 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	}
 }
 
+func (enc *Encoder) writeUint64Slice(t []uint64) error {
+	buff := make([]byte, 64/8)
+	binary.BigEndian.PutUint64(buff, uint64(len(t)))
+	written, err := enc.w.Write(buff)
+	enc.n += int64(written)
+	if err != nil {
+		return err
+	}
+	for i := range t {
+		binary.BigEndian.PutUint64(buff, t[i])
+		written, err = enc.w.Write(buff)
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed
 const SizeOfG1AffineCompressed = 40
 
@@ -583,7 +675,7 @@ func (p *G1Affine) Marshal() []byte {
 	return b[:]
 }
 
-// Unmarshal is an allias to SetBytes()
+// Unmarshal is an alias to SetBytes()
 func (p *G1Affine) Unmarshal(buf []byte) error {
 	_, err := p.SetBytes(buf)
 	return err
@@ -667,6 +759,11 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// most significant byte
 	mData := buf[0] & mMask
 
+	// 111, 011, 001  --> invalid mask
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
+
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
 		if len(buf) < SizeOfG1AffineUncompressed {
@@ -674,13 +771,19 @@ func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 		}
 	}
 
-	// if infinity is encoded in the metadata, we don't need to read the buffer
+	// infinity encoded, we still check that the buffer is full of zeroes.
 	if mData == mCompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineCompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG1AffineCompressed, nil
 	}
 	if mData == mUncompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineUncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG1AffineUncompressed, nil
@@ -796,9 +899,12 @@ func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 	mData := buf[0] & mMask
 
 	if mData == mCompressedInfinity {
+		isInfinity = true
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG1AffineCompressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
-		isInfinity = true
 		return isInfinity, nil
 	}
 
@@ -830,7 +936,7 @@ func (p *G2Affine) Marshal() []byte {
 	return b[:]
 }
 
-// Unmarshal is an allias to SetBytes()
+// Unmarshal is an alias to SetBytes()
 func (p *G2Affine) Unmarshal(buf []byte) error {
 	_, err := p.SetBytes(buf)
 	return err
@@ -926,6 +1032,11 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	// most significant byte
 	mData := buf[0] & mMask
 
+	// 111, 011, 001  --> invalid mask
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
+
 	// check buffer size
 	if (mData == mUncompressed) || (mData == mUncompressedInfinity) {
 		if len(buf) < SizeOfG2AffineUncompressed {
@@ -933,13 +1044,19 @@ func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 		}
 	}
 
-	// if infinity is encoded in the metadata, we don't need to read the buffer
+	// infinity encoded, we still check that the buffer is full of zeroes.
 	if mData == mCompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineCompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG2AffineCompressed, nil
 	}
 	if mData == mUncompressedInfinity {
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineUncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
 		return SizeOfG2AffineUncompressed, nil
@@ -1087,9 +1204,12 @@ func (p *G2Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err er
 	mData := buf[0] & mMask
 
 	if mData == mCompressedInfinity {
+		isInfinity = true
+		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOfG2AffineCompressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
 		p.X.SetZero()
 		p.Y.SetZero()
-		isInfinity = true
 		return isInfinity, nil
 	}
 

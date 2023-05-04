@@ -133,11 +133,13 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 		return p.polynomial.evaluate(x)
 	}
 
-	// TODO find a way to retrieve the root properly instead of re generating the fft domain
-	d := fft.NewDomain(uint64(p.size))
 	var g fr.Element
 	if p.shift <= 5 {
-		g = smallExp(d.Generator, p.shift)
+		gen, err := fft.Generator(uint64(p.size))
+		if err != nil {
+			panic(err)
+		}
+		g = smallExp(gen, p.shift)
 		x.Mul(&x, &g)
 		return p.polynomial.evaluate(x)
 	}
@@ -279,11 +281,11 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset())
 		d.FFT((*p.coefficients), fft.DIT)
 	case lagrangeCosetBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset())
 		d.FFT((*p.coefficients), fft.DIF)
 	default:
 		panic("unknown ID")
@@ -308,10 +310,10 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 		d.FFTInverse((*p.coefficients), fft.DIT)
 	case lagrangeCosetRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF, true)
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset())
 	case lagrangeCosetBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT, true)
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset())
 	default:
 		panic("unknown ID")
 	}
@@ -333,18 +335,18 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIF, fft.OnCoset())
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIT, fft.OnCoset())
 	case lagrangeRegular:
 		p.Layout = Regular
 		d.FFTInverse((*p.coefficients), fft.DIF)
-		d.FFT((*p.coefficients), fft.DIT, true)
+		d.FFT((*p.coefficients), fft.DIT, fft.OnCoset())
 	case lagrangeBitReverse:
 		p.Layout = BitReverse
 		d.FFTInverse((*p.coefficients), fft.DIT)
-		d.FFT((*p.coefficients), fft.DIF, true)
+		d.FFT((*p.coefficients), fft.DIF, fft.OnCoset())
 	case lagrangeCosetRegular, lagrangeCosetBitReverse:
 		return p
 	default:

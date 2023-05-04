@@ -291,6 +291,34 @@ func (z *E12) Conjugate(x *E12) *E12 {
 	return z
 }
 
+// MulBy12 multiplication by sparse element (0,b1,b2)
+func (x *E12) MulBy12(b1, b2 *E4) *E12 {
+	var t1, t2, c0, tmp, c1, c2 E4
+	t1.Mul(&x.C1, b1)
+	t2.Mul(&x.C2, b2)
+	c0.Add(&x.C1, &x.C2)
+	tmp.Add(b1, b2)
+	c0.Mul(&c0, &tmp)
+	c0.Sub(&c0, &t1)
+	c0.Sub(&c0, &t2)
+	c0.MulByNonResidue(&c0)
+	c1.Add(&x.C0, &x.C1)
+	c1.Mul(&c1, b1)
+	c1.Sub(&c1, &t1)
+	tmp.MulByNonResidue(&t2)
+	c1.Add(&c1, &tmp)
+	tmp.Add(&x.C0, &x.C2)
+	c2.Mul(b2, &tmp)
+	c2.Sub(&c2, &t2)
+	c2.Add(&c2, &t1)
+
+	x.C0 = c0
+	x.C1 = c1
+	x.C2 = c2
+
+	return x
+}
+
 // MulBy01 multiplication by sparse element (c0,c1,0)
 func (z *E12) MulBy01(c0, c1 *E4) *E12 {
 

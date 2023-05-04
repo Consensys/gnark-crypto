@@ -18,7 +18,12 @@ package ecdsa
 
 import (
 	"crypto/subtle"
+	"errors"
 	"io"
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 // Bytes returns the binary representation of the public key
@@ -50,6 +55,34 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	}
 	n += sizeFp
 	return n, nil
+}
+
+// RecoverFrom recovers the public key from the message msg, recovery
+// information v and decompose signature {r,s}. If recovery succeeded, the
+// methods sets the current public key to the recovered value. Otherwise returns
+// error and leaves current public key unchanged.
+func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
+	if s.Cmp(fr.Modulus()) >= 0 {
+		return errors.New("s is larger than modulus")
+	}
+	if s.Cmp(big.NewInt(0)) <= 0 {
+		return errors.New("s is negative")
+	}
+	P, err := RecoverP(v, r)
+	if err != nil {
+		return err
+	}
+	z := HashToInt(msg)
+	rinv := new(big.Int).ModInverse(r, fr.Modulus())
+	u1 := new(big.Int).Mul(z, rinv)
+	u1.Neg(u1)
+	u1.Mod(u1, fr.Modulus())
+	u2 := new(big.Int).Mul(s, rinv)
+	u2.Mod(u2, fr.Modulus())
+	var Q bn254.G1Jac
+	Q.JointScalarMultiplicationBase(P, u1, u2)
+	pk.A.FromJacobian(&Q)
+	return nil
 }
 
 // Bytes returns the binary representation of pk,

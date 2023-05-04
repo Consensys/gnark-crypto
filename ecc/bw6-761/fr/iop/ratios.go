@@ -18,7 +18,10 @@ package iop
 
 import (
 	"errors"
+	"math/big"
 	"math/bits"
+	"runtime"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
@@ -213,15 +216,37 @@ func BuildRatioCopyConstraint(
 		}
 	})
 
-	for i := 0; i < n-1; i++ {
-		coeffs[i+1].Mul(&coeffs[i+1], &coeffs[i])
-		t[i+1].Mul(&t[i+1], &t[i])
+	chCoeffs := make(chan struct{}, 1)
+	go func() {
+		for i := 2; i < n; i++ {
+			// ignoring coeffs[0]
+			coeffs[i].Mul(&coeffs[i], &coeffs[i-1])
+		}
+		close(chCoeffs)
+	}()
+
+	for i := 2; i < n; i++ {
+		// ignoring t[0]
+		t[i].Mul(&t[i], &t[i-1])
+	}
+	<-chCoeffs
+
+	// rough ratio inverse to mul; see if it makes sense to parallelize the batch inverse.
+	const ratioInvMul = 1000 / 17
+	nbTasks := runtime.NumCPU()
+	if ratio := n / ratioInvMul; ratio < nbTasks {
+		nbTasks = ratio
 	}
 
-	t = fr.BatchInvert(t)
-	for i := 1; i < n; i++ {
-		coeffs[i].Mul(&coeffs[i], &t[i])
-	}
+	parallel.Execute(n-1, func(start, end int) {
+		// ignoring t[0] and coeff[0]
+		start++
+		end++
+		tInv := fr.BatchInvert(t[start:end])
+		for i := start; i < end; i++ {
+			coeffs[i].Mul(&coeffs[i], &tInv[i-start])
+		}
+	}, nbTasks)
 
 	res := NewPolynomial(&coeffs, expectedForm)
 	// at this stage the result is in Lagrange form, Regular layout
@@ -245,7 +270,7 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 
 	if expectedForm.Basis == LagrangeCoset {
 		domain.FFTInverse(p.Coefficients(), fft.DIF)
-		domain.FFT(p.Coefficients(), fft.DIT, true)
+		domain.FFT(p.Coefficients(), fft.DIT, fft.OnCoset())
 		if expectedForm.Layout == BitReverse {
 			fft.BitReverse(p.Coefficients())
 		}
@@ -308,16 +333,42 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 	res := make([]fr.Element, uint64(nbCopies)*domain.Cardinality)
 	sizePoly := int(domain.Cardinality)
 
-	res[0].SetOne()
-	for i := 0; i < sizePoly-1; i++ {
+	// len(domain.Twiddle) == sizePoly / 2
+	copy(res, domain.Twiddles[0])
+	// remaining ones.
+	for i := (sizePoly / 2) - 1; i < sizePoly-1; i++ {
 		res[i+1].Mul(&res[i], &domain.Generator)
 	}
-	for i := 1; i < nbCopies; i++ {
-		copy(res[i*sizePoly:], res[(i-1)*sizePoly:i*int(domain.Cardinality)])
-		for j := 0; j < sizePoly; j++ {
-			res[i*sizePoly+j].Mul(&res[i*sizePoly+j], &domain.FrMultiplicativeGen)
-		}
+	if nbCopies <= 1 {
+		return res
 	}
+	var wg sync.WaitGroup
+	wg.Add(nbCopies - 1)
+	for i := 1; i < nbCopies; i++ {
+		i := i
+
+		var coset fr.Element
+		if i == 1 {
+			coset = domain.FrMultiplicativeGen
+		} else {
+			if len(domain.CosetTable) > i {
+				coset = domain.CosetTable[i]
+			} else {
+				coset.Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i)))
+			}
+		}
+
+		go func() {
+			parallel.Execute(sizePoly, func(start, end int) {
+				for j := start; j < end; j++ {
+					res[i*sizePoly+j].Mul(&res[j], &coset)
+				}
+			}, (runtime.NumCPU()/(nbCopies-1))+1)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 
 	return res
 }
