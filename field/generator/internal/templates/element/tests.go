@@ -381,6 +381,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	copy(testValues, staticTestValues)
 
 	for _, s := range testValues {
+		s := s // prevent memory aliasing
 		expected := s
 		reduce(&s)
 		_reduceGeneric(&expected)
@@ -808,6 +809,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			copy(testValues, staticTestValues)
 
 			for _, r := range testValues {
+				r := r // prevent memory aliasing
 				var d, e, rb big.Int 
 				r.BigInt(&rb) 
 
@@ -879,10 +881,11 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		copy(testValues, staticTestValues)
 	
 		for _, a := range testValues {
+			a := a // prevent memory aliasing
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for _, b := range testValues {
-
+				b := b // prevent memory aliasing
 				var bBig, d, e big.Int 
 				b.BigInt(&bBig)
 
@@ -1010,6 +1013,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		copy(testValues, staticTestValues)
 	
 		for _, a := range testValues {
+			a := a // prevent memory aliasing
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c {{.all.ElementName}}

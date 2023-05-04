@@ -174,6 +174,7 @@ func (m *MultiLin) Eq(q []fr.Element) {
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
 	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+		qI := qI // prevent memory aliasing
 		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
 		for j := 0; j < (1 << i); j++ {
 			j0 := j << (n - i)                 // bᵢ₊₁ = 0

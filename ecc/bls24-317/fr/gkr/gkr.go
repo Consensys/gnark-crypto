@@ -204,6 +204,7 @@ func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
 	var wgs []*sync.WaitGroup
 	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+		qI := qI // prevent memory aliasing
 		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
 		const threshold = 1 << 6
 		k := 1 << i
