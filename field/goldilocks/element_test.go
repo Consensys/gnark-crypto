@@ -701,7 +701,8 @@ func TestElementAdd(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for _, val := range testValues {
+				r := val
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -736,7 +737,8 @@ func TestElementAdd(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for _, val := range testValues {
+			a := val
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for _, b := range testValues {

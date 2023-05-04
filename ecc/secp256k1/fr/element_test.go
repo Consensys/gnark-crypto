@@ -370,7 +370,8 @@ func TestElementReduce(t *testing.T) {
 	testValues := make([]Element, len(staticTestValues))
 	copy(testValues, staticTestValues)
 
-	for _, s := range testValues {
+	for _, val := range testValues {
+		s := val
 		expected := s
 		reduce(&s)
 		_reduceGeneric(&expected)
