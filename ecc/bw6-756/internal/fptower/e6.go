@@ -633,7 +633,7 @@ func (z *E6) IsInSubGroup() bool {
 	// t(x)-1 = (-x⁶ + 5x⁵ - 9x⁴ + 7x³ - 4x + 5)/3
 	t[0].CyclotomicSquare(z).
 		CyclotomicSquare(&t[0]) // z^4
-	t[1].Mul(&t[0], z)          //z^5*
+	t[1].Mul(&t[0], z) //z^5*
 	t[2].Expt(&t[0]).
 		Conjugate(&t[2]) // z^(-4u)*
 	tmp.CyclotomicSquare(&t[2]).
@@ -650,7 +650,7 @@ func (z *E6) IsInSubGroup() bool {
 	t[5].Expt(&tmp).
 		Conjugate(&t[5]).
 		Mul(&t[5], &t[4]).
-		Expt(&t[5])  // z^(-u^5)
+		Expt(&t[5]) // z^(-u^5)
 	t[0].Expt(&t[5]) // z^(-u^6)*
 	tmp.Expt(&t[4])  // z^(-9u^5)
 	t[5].CyclotomicSquare(&t[5]).

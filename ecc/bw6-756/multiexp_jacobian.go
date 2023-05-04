@@ -70,11 +70,11 @@ type bucketg1JacExtendedC16 [32768]g1JacExtended
 
 type ibg1JacExtended interface {
 	bucketg1JacExtendedC3 |
-	bucketg1JacExtendedC4 |
-	bucketg1JacExtendedC5 |
-	bucketg1JacExtendedC8 |
-	bucketg1JacExtendedC11 |
-	bucketg1JacExtendedC16
+		bucketg1JacExtendedC4 |
+		bucketg1JacExtendedC5 |
+		bucketg1JacExtendedC8 |
+		bucketg1JacExtendedC11 |
+		bucketg1JacExtendedC16
 }
 
 func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
@@ -131,9 +131,9 @@ type bucketg2JacExtendedC16 [32768]g2JacExtended
 
 type ibg2JacExtended interface {
 	bucketg2JacExtendedC3 |
-	bucketg2JacExtendedC4 |
-	bucketg2JacExtendedC5 |
-	bucketg2JacExtendedC8 |
-	bucketg2JacExtendedC11 |
-	bucketg2JacExtendedC16
+		bucketg2JacExtendedC4 |
+		bucketg2JacExtendedC5 |
+		bucketg2JacExtendedC8 |
+		bucketg2JacExtendedC11 |
+		bucketg2JacExtendedC16
 }

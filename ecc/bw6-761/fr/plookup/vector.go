@@ -651,8 +651,8 @@ func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 	// h = (xⁿ⁻¹-1)*z*(1+β)*(γ+f)*(γ(1+β) + t+ β*t(gX)) -
 	//		(xⁿ⁻¹-1)*z(gX)*(γ(1+β) + h₁ + β*h₁(gX))*(γ(1+β) + h₂ + β*h₂(gX) )
 	lhs.Sub(&nu, &g). // (ν-gⁿ⁻¹)
-		Mul(&lhs, &proof.BatchedProof.ClaimedValues[3]).
-		Mul(&lhs, &v)
+				Mul(&lhs, &proof.BatchedProof.ClaimedValues[3]).
+				Mul(&lhs, &v)
 	a.Add(&gamma, &proof.BatchedProof.ClaimedValues[4])
 	lhs.Mul(&lhs, &a)
 	a.Mul(&beta, &proof.BatchedProofShifted.ClaimedValues[2]).

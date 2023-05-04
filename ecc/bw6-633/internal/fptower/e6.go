@@ -732,7 +732,7 @@ func (z *E6) IsInSubGroup() bool {
 		Expt(&t[6]) // *z^(7u⁴)
 	t[7].CyclotomicSquare(&t[5]).
 		CyclotomicSquare(&t[7]) // z^(24u³)
-	tmp.Conjugate(&tmp)         // z^(-u³)
+	tmp.Conjugate(&tmp) // z^(-u³)
 	t[7].Mul(&t[7], &tmp).
 		Conjugate(&t[7]).
 		Expt(&t[7]).

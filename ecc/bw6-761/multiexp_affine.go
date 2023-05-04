@@ -237,31 +237,31 @@ type bucketG1AffineC16 [32768]G1Affine
 // buckets: array of G1Affine points of size 1 << (c-1)
 type ibG1Affine interface {
 	bucketG1AffineC10 |
-	bucketG1AffineC16
+		bucketG1AffineC16
 }
 
 // array of coordinates fp.Element
 type cG1Affine interface {
 	cG1AffineC10 |
-	cG1AffineC16
+		cG1AffineC16
 }
 
 // buckets: array of G1Affine points (for the batch addition)
 type pG1Affine interface {
 	pG1AffineC10 |
-	pG1AffineC16
+		pG1AffineC16
 }
 
 // buckets: array of *G1Affine points (for the batch addition)
 type ppG1Affine interface {
 	ppG1AffineC10 |
-	ppG1AffineC16
+		ppG1AffineC16
 }
 
 // buckets: array of G1Affine queue operations (for the batch addition)
 type qOpsG1Affine interface {
 	qG1AffineC10 |
-	qG1AffineC16
+		qG1AffineC16
 }
 
 // batch size 80 when c = 10
@@ -493,31 +493,31 @@ type bucketG2AffineC16 [32768]G2Affine
 // buckets: array of G2Affine points of size 1 << (c-1)
 type ibG2Affine interface {
 	bucketG2AffineC10 |
-	bucketG2AffineC16
+		bucketG2AffineC16
 }
 
 // array of coordinates fp.Element
 type cG2Affine interface {
 	cG2AffineC10 |
-	cG2AffineC16
+		cG2AffineC16
 }
 
 // buckets: array of G2Affine points (for the batch addition)
 type pG2Affine interface {
 	pG2AffineC10 |
-	pG2AffineC16
+		pG2AffineC16
 }
 
 // buckets: array of *G2Affine points (for the batch addition)
 type ppG2Affine interface {
 	ppG2AffineC10 |
-	ppG2AffineC16
+		ppG2AffineC16
 }
 
 // buckets: array of G2Affine queue operations (for the batch addition)
 type qOpsG2Affine interface {
 	qG2AffineC10 |
-	qG2AffineC16
+		qG2AffineC16
 }
 
 // batch size 80 when c = 10
@@ -542,10 +542,10 @@ type bitSetC16 [32768]bool
 
 type bitSet interface {
 	bitSetC2 |
-	bitSetC3 |
-	bitSetC4 |
-	bitSetC5 |
-	bitSetC8 |
-	bitSetC10 |
-	bitSetC16
+		bitSetC3 |
+		bitSetC4 |
+		bitSetC5 |
+		bitSetC8 |
+		bitSetC10 |
+		bitSetC16
 }
