@@ -384,8 +384,8 @@ func TestElementReduce(t *testing.T) {
 	testValues := make([]Element, len(staticTestValues))
 	copy(testValues, staticTestValues)
 
-	for _, s := range testValues {
-		s := s // prevent memory aliasing
+	for i := range testValues {
+		s := testValues[i]
 		expected := s
 		reduce(&s)
 		_reduceGeneric(&expected)
@@ -769,8 +769,8 @@ func TestElementAdd(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
-				r := r // prevent memory aliasing
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -805,12 +805,12 @@ func TestElementAdd(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-				b := b // prevent memory aliasing
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -880,8 +880,8 @@ func TestElementSub(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
-				r := r // prevent memory aliasing
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -916,12 +916,12 @@ func TestElementSub(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-				b := b // prevent memory aliasing
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -991,8 +991,8 @@ func TestElementMul(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
-				r := r // prevent memory aliasing
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1046,12 +1046,12 @@ func TestElementMul(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-				b := b // prevent memory aliasing
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1129,8 +1129,8 @@ func TestElementDiv(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
-				r := r // prevent memory aliasing
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1166,12 +1166,12 @@ func TestElementDiv(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-				b := b // prevent memory aliasing
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1242,8 +1242,8 @@ func TestElementExp(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
-				r := r // prevent memory aliasing
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1278,12 +1278,12 @@ func TestElementExp(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-				b := b // prevent memory aliasing
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1355,8 +1355,8 @@ func TestElementSquare(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1428,8 +1428,8 @@ func TestElementInverse(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1501,8 +1501,8 @@ func TestElementSqrt(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1574,8 +1574,8 @@ func TestElementDouble(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1647,8 +1647,8 @@ func TestElementNeg(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
-			a := a // prevent memory aliasing
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
