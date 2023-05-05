@@ -2410,7 +2410,7 @@ func TestElementInversionApproximation(t *testing.T) {
 		x.SetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
-		xZeros := mrand.Int() % Limbs
+		xZeros := mrand.Int() % Limbs //#nosec G404 weak rng is fine here
 		for j := 1; j < xZeros; j++ {
 			x[Limbs-j] = 0
 		}
@@ -2460,7 +2460,7 @@ func TestElementLinearComb(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 		y.SetRandom()
-		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63())
+		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
 	}
 }
 
@@ -2526,13 +2526,13 @@ func TestElementBigNumWMul(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
-		w := mrand.Int63()
+		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
 	}
 }
 
 func TestElementVeryBigIntConversion(t *testing.T) {
-	xHi := mrand.Uint64()
+	xHi := mrand.Uint64() //#nosec G404 weak rng is fine here
 	var x Element
 	x.SetRandom()
 	var xInt big.Int
@@ -2808,7 +2808,7 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 
 func randomizeUpdateFactor(absLimit uint32) int64 {
 	const maxSizeLikelihood = 10
-	maxSize := mrand.Intn(maxSizeLikelihood)
+	maxSize := mrand.Intn(maxSizeLikelihood) //#nosec G404 weak rng is fine here
 
 	absLimit64 := int64(absLimit)
 	var f int64
@@ -2818,7 +2818,7 @@ func randomizeUpdateFactor(absLimit uint32) int64 {
 	case 1:
 		f = -absLimit64
 	default:
-		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64
+		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64 //#nosec G404 weak rng is fine here
 	}
 
 	if f > 1<<31 {
@@ -2843,7 +2843,7 @@ func abs64T32(f int64) uint32 {
 
 func randomizeUpdateFactors() (int64, int64) {
 	var f [2]int64
-	b := mrand.Int() % 2
+	b := mrand.Int() % 2 //#nosec G404 weak rng is fine here
 
 	f[b] = randomizeUpdateFactor(1 << 31)
 
@@ -2852,7 +2852,7 @@ func randomizeUpdateFactors() (int64, int64) {
 
 	//Patching another edge case
 	if f[0]+f[1] == -1<<31 {
-		b = mrand.Int() % 2
+		b = mrand.Int() % 2 //#nosec G404 weak rng is fine here
 		f[b]++
 	}
 

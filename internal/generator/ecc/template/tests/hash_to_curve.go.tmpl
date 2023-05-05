@@ -38,9 +38,9 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 
 
 	properties := gopter.NewProperties(parameters)
-	
+
 	gen := {{$fuzzer}}
-	
+
 
 	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
 		func(u {{$CoordType}}, v {{$CoordType}}) bool {
@@ -205,7 +205,7 @@ func BenchmarkEncodeTo{{$CurveTitle}}(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := EncodeTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()
@@ -221,7 +221,7 @@ func BenchmarkHashTo{{$CurveTitle}}(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := HashTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()
@@ -293,7 +293,7 @@ func {{$CurveName}}CoordAt(slice []fp.Element, i int) {{$CoordType}} {
 
 func {{$CurveName}}TestMatchCoord(t *testing.T, coordName string, msg string, expectedStr string, seen {{$CoordType}}) {
 	var expected {{$CoordType}}
-	
+
 	{{$CurveName}}CoordSetString(&expected, expectedStr)
 
 	if !expected.Equal(&seen) {
