@@ -187,11 +187,11 @@ func (p *Pool) PrintPoolStats() {
 		InUse += subPool.stats.InUse
 	}
 
-	poolsStats := poolsStats{
+	stats := poolsStats{
 		SubPools: subStats,
 		InUse:    InUse,
 	}
-	serialized, _ := json.MarshalIndent(poolsStats, "", "  ")
+	serialized, _ := json.MarshalIndent(stats, "", "  ")
 	fmt.Println(string(serialized))
 	p.printInUse()
 }
