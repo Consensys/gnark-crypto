@@ -54,12 +54,12 @@ func TestEncoder(t *testing.T) {
 	var inK fr.Vector
 
 	// set values of inputs
-	inA = rand.Uint64()
+	inA = rand.Uint64() //#nosec G404 weak rng is fine here
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
@@ -466,7 +466,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

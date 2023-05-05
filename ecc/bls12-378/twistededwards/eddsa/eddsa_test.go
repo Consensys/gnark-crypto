@@ -59,7 +59,7 @@ func Example() {
 func TestSerialization(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src)
+	r := rand.New(src) //#nosec G404 weak rng is fine here
 
 	privKey1, err := GenerateKey(r)
 	if err != nil {
@@ -101,7 +101,7 @@ func TestSerialization(t *testing.T) {
 func TestEddsaMIMC(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src)
+	r := rand.New(src) //#nosec G404 weak rng is fine here
 
 	// create eddsa obj and sign a message
 	privKey, err := GenerateKey(r)
@@ -144,7 +144,7 @@ func TestEddsaMIMC(t *testing.T) {
 func TestEddsaSHA256(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src)
+	r := rand.New(src) //#nosec G404 weak rng is fine here
 
 	hFunc := sha256.New()
 
@@ -187,7 +187,7 @@ func TestEddsaSHA256(t *testing.T) {
 func BenchmarkVerify(b *testing.B) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src)
+	r := rand.New(src) //#nosec G404 weak rng is fine here
 
 	hFunc := hash.MIMC_BLS12_378.New()
 

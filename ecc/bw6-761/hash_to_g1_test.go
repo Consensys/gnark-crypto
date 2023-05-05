@@ -196,7 +196,7 @@ func BenchmarkEncodeToG1(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := EncodeToG1(bytes, dst); err != nil {
 			b.Fail()
@@ -212,7 +212,7 @@ func BenchmarkHashToG1(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := HashToG1(bytes, dst); err != nil {
 			b.Fail()

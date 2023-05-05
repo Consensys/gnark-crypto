@@ -54,12 +54,12 @@ func TestEncoder(t *testing.T) {
 	var inK fr.Vector
 
 	// set values of inputs
-	inA = rand.Uint64()
+	inA = rand.Uint64() //#nosec G404 weak rng is fine here
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
@@ -219,7 +219,7 @@ func TestIsCompressed(t *testing.T) {
 func TestG1AffineInvalidBitMask(t *testing.T) {
 	t.Parallel()
 	var buf [SizeOfG1AffineCompressed]byte
-	rand.Read(buf[:])
+	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
 
 	var p G1Affine
 	buf[0] = 0b111 << 5
@@ -332,7 +332,7 @@ func TestG1AffineSerialization(t *testing.T) {
 func TestG2AffineInvalidBitMask(t *testing.T) {
 	t.Parallel()
 	var buf [SizeOfG2AffineCompressed]byte
-	rand.Read(buf[:])
+	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
 
 	var p G2Affine
 	buf[0] = 0b111 << 5
@@ -496,7 +496,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}
