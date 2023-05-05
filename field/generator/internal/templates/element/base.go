@@ -218,7 +218,7 @@ func (z *{{.ElementName}}) IsOne() bool {
 	{{- if eq .NbWords 1}}
 	return z[0] == {{index $.One 0}}
 	{{- else}}
-	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
+	return ( {{- range $i := reverse .NbWordsIndexesNoZero -}}{{if ne (index $.One $i) 0}}z[{{$i}}] ^ {{index $.One $i}} | {{else}}z[{{$i}}] | {{end}}{{- end}}z[0] ^ {{index $.One 0}} ) == 0
 	{{- end}}
 }
 
