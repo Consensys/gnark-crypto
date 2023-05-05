@@ -156,7 +156,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			*t = make([][]fr.Element, sliceLen)
 		}
 		for i := range *t {
-			read64, err = (*fr.Vector)(&t[i]).ReadFrom(dec.r)
+			read64, err = (*fr.Vector)(&(*t)[i]).ReadFrom(dec.r)
 			dec.n += read64
 		}
 		return
