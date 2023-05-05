@@ -885,7 +885,6 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int 
 				b.BigInt(&bBig)

@@ -800,7 +800,6 @@ func TestElementAdd(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
@@ -912,7 +911,6 @@ func TestElementSub(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
@@ -1043,7 +1041,6 @@ func TestElementMul(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
@@ -1164,7 +1161,6 @@ func TestElementDiv(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
@@ -1277,7 +1273,6 @@ func TestElementExp(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
-
 				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
