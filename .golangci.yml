@@ -7,7 +7,7 @@ linters:
     - gosimple
     - govet
     - ineffassign
-    # - errcheck
+    - misspell
 
 run:
   issues-exit-code: 1
