@@ -473,6 +473,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))); err != nil {
 			return
 		}
+		enc.n += 4
 		for i := range t {
 			written64, err = (*fr.Vector)(&t[i]).WriteTo(enc.w)
 			enc.n += written64
@@ -588,6 +589,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))); err != nil {
 			return
 		}
+		enc.n += 4
 		for i := range t {
 			written64, err = (*fr.Vector)(&t[i]).WriteTo(enc.w)
 			enc.n += written64

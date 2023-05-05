@@ -143,7 +143,7 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(vector)) failed")
 		}
 		if !reflect.DeepEqual(inL, outL) {
-			t.Fatal("decode(encode(vector)) failed")
+			t.Fatal("decode(encode(slice²(elements))) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
