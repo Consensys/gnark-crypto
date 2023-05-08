@@ -36,7 +36,13 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	digits []uint16) {
+	digits []uint16,
+	sem chan struct{}) {
+
+	if sem != nil {
+		// if we are limited, wait for a token in the semaphore
+		<-sem
+	}
 
 	// the batch affine addition needs independent points; in other words, for a window of batchSize
 	// we want to hit independent bucketIDs when processing the digit. if there is a conflict (we're trying
@@ -223,6 +229,12 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 			runningSum.add(&bucketsJE[k])
 		}
 		total.add(&runningSum)
+	}
+
+	if sem != nil {
+		// release a token to the semaphore
+		// before sending to chRes
+		sem <- struct{}{}
 	}
 
 	chRes <- total

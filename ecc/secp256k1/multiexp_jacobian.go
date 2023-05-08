@@ -20,7 +20,13 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	chRes chan<- g1JacExtended,
 	c uint64,
 	points []G1Affine,
-	digits []uint16) {
+	digits []uint16,
+	sem chan struct{}) {
+
+	if sem != nil {
+		// if we are limited, wait for a token in the semaphore
+		<-sem
+	}
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
@@ -54,6 +60,12 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 			runningSum.add(&buckets[k])
 		}
 		total.add(&runningSum)
+	}
+
+	if sem != nil {
+		// release a token to the semaphore
+		// before sending to chRes
+		sem <- struct{}{}
 	}
 
 	chRes <- total
