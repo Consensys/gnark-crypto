@@ -386,6 +386,9 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 		for i:=0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
+		defer func() {
+			close(sem)
+		}()
 	}
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.

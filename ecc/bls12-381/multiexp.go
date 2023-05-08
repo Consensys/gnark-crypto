@@ -180,6 +180,9 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 		for i := 0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
+		defer func() {
+			close(sem)
+		}()
 	}
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
@@ -474,6 +477,9 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, co
 		for i := 0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
+		defer func() {
+			close(sem)
+		}()
 	}
 
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
