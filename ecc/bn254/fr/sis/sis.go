@@ -287,6 +287,9 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 func (r *RSis) CopyWithFreshBuffer() RSis {
 	res := *r
 	res.buffer = bytes.Buffer{}
+	res.bufM = make(fr.Vector, len(r.bufM))
+	res.bufMValues = bitset.New(r.bufMValues.Len())
+	res.bufRes = make(fr.Vector, len(r.bufRes))
 	return res
 }
 
