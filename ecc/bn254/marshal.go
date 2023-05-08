@@ -142,6 +142,19 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		read64, err = (*fp.Vector)(t).ReadFrom(dec.r)
 		dec.n += read64
 		return
+	case *[][]fr.Element:
+		var sliceLen uint32
+		if sliceLen, err = dec.readUint32(); err != nil {
+			return
+		}
+		if len(*t) != int(sliceLen) {
+			*t = make([][]fr.Element, sliceLen)
+		}
+		for i := range *t {
+			read64, err = (*fr.Vector)(&(*t)[i]).ReadFrom(dec.r)
+			dec.n += read64
+		}
+		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
@@ -455,6 +468,17 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		written64, err = (*fp.Vector)(&t).WriteTo(enc.w)
 		enc.n += written64
 		return
+	case [][]fr.Element:
+		// write slice length
+		if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))); err != nil {
+			return
+		}
+		enc.n += 4
+		for i := range t {
+			written64, err = (*fr.Vector)(&t[i]).WriteTo(enc.w)
+			enc.n += written64
+		}
+		return
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -559,6 +583,17 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	case []fp.Element:
 		written64, err = (*fp.Vector)(&t).WriteTo(enc.w)
 		enc.n += written64
+		return
+	case [][]fr.Element:
+		// write slice length
+		if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))); err != nil {
+			return
+		}
+		enc.n += 4
+		for i := range t {
+			written64, err = (*fr.Vector)(&t[i]).WriteTo(enc.w)
+			enc.n += written64
+		}
 		return
 	case []G1Affine:
 		// write slice length
