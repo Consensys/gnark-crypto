@@ -161,11 +161,10 @@ func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error)
 	}
 
 	// compute H
+	// h reuses memory from _p
 	_p := make([]fr.Element, len(p))
 	copy(_p, p)
 	h := dividePolyByXminusA(_p, res.ClaimedValue, point)
-
-	_p = nil // h re-use this memory
 
 	// commit to H
 	hCommit, err := Commit(h, pk)

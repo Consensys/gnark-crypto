@@ -42,8 +42,8 @@ func TestDividePolyByXminusA(t *testing.T) {
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
 	// compute f-f(a)/x-a
+	// h re-uses the memory of pol
 	h := dividePolyByXminusA(pol, evaluation, point)
-	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
 		t.Fatal("inconsistent size of quotient")
