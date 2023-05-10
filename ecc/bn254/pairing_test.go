@@ -49,8 +49,7 @@ func TestPairing(t *testing.T) {
 
 	properties.Property("[BN254] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
-			b := a
-			b = FinalExponentiation(&a)
+			b := FinalExponentiation(&a)
 			a = FinalExponentiation(&a)
 			return a.Equal(&b)
 		},
