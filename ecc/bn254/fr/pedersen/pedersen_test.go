@@ -88,7 +88,7 @@ func testCommit(t *testing.T, values ...interface{}) {
 	assert.NotNil(t, vk.Verify(commitment, pok))
 }
 
-func TestFoldCommitments(t *testing.T) {
+func TestFoldProofs(t *testing.T) {
 
 	values := [][]fr.Element{
 		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
@@ -104,19 +104,31 @@ func TestFoldCommitments(t *testing.T) {
 	pk, vk, err := Setup(bases...)
 	assert.NoError(t, err)
 
+	commitments := make([]curve.G1Affine, len(values))
+	for i := range values {
+		commitments[i], err = pk[i].Commit(values[i])
+	}
+
+	t.Run("folding with zeros", func(t *testing.T) {
+		pokFolded, err := BatchProve(pk[:2], [][]fr.Element{
+			values[0],
+			make([]fr.Element, len(values[1])),
+		}, []byte("test"))
+		assert.NoError(t, err)
+		var pok curve.G1Affine
+		pok, err = pk[0].ProveKnowledge(values[0])
+		assert.NoError(t, err)
+		assert.Equal(t, pok, pokFolded)
+	})
+
 	run := func(values [][]fr.Element) func(t *testing.T) {
 		return func(t *testing.T) {
 
-			commitments := make([]curve.G1Affine, len(values))
-			for i := range values {
-				commitments[i], err = pk[i].Commit(values[i])
-			}
-
-			var pok, foldedCommitment curve.G1Affine
-			pok, err = BatchProve(pk[:len(values)], values, []byte("test"))
+			var foldedCommitment curve.G1Affine
+			pok, err := BatchProve(pk[:len(values)], values, []byte("test"))
 			assert.NoError(t, err)
 
-			foldedCommitment, err = FoldCommitments(commitments, []byte("test"))
+			foldedCommitment, err = FoldCommitments(commitments[:len(values)], []byte("test"))
 			assert.NoError(t, err)
 			assert.NoError(t, vk.Verify(foldedCommitment, pok))
 
@@ -126,7 +138,7 @@ func TestFoldCommitments(t *testing.T) {
 	}
 
 	for i := range values {
-		t.Run(fmt.Sprintf("folding %d proofs", i+1), run(values[:i+1]))
+		t.Run(fmt.Sprintf("folding %d", i+1), run(values[:i+1]))
 	}
 }
 

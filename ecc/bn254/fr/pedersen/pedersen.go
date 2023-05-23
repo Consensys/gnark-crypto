@@ -166,13 +166,13 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 	scaledValues := make([]fr.Element, offset)
 	basis := make([]curve.G1Affine, offset)
 
-	copy(basis, pk[0].basis)
+	copy(basis, pk[0].basisExpSigma)
 	copy(scaledValues, values[0])
 
 	offset = len(values[0])
 	rI := r
 	for i := 1; i < len(pk); i++ {
-		copy(basis[offset:], pk[i].basis)
+		copy(basis[offset:], pk[i].basisExpSigma)
 		for j := range pk[i].basis {
 			scaledValues[offset].Mul(&values[i][j], &rI)
 			offset++
