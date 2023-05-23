@@ -98,25 +98,6 @@ func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, er
     return
 }
 
-func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
-    // incorporate user-provided seeds into the transcript
-    t := fiatshamir.NewTranscript(sha256.New(), "r")
-    for i := range fiatshamirSeeds {
-        if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
-            return
-        }
-    }
-
-    // obtain the challenge
-    var rBytes []byte
-
-    if rBytes, err = t.ComputeChallenge("r"); err != nil {
-        return
-    }
-    r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
-    return
-}
-
 // BatchProve generates a single proof of knowledge for multiple commitments for faster verification
 func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byte) (pok curve.G1Affine, err error) {
     if len(pk) != len(values) {
@@ -220,6 +201,24 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 	return nil
 }
 
+func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
+    // incorporate user-provided seeds into the transcript
+    t := fiatshamir.NewTranscript(sha256.New(), "r")
+    for i := range fiatshamirSeeds {
+        if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
+            return
+        }
+    }
+
+    // obtain the challenge
+    var rBytes []byte
+
+    if rBytes, err = t.ComputeChallenge("r"); err != nil {
+        return
+    }
+    r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
+    return
+}
 
 // Marshal
 
