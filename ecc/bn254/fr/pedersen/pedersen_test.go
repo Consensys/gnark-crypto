@@ -17,6 +17,7 @@
 package pedersen
 
 import (
+	"fmt"
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/utils"
@@ -67,20 +68,66 @@ func testCommit(t *testing.T, values ...interface{}) {
 	basis := randomG1Slice(t, len(values))
 
 	var (
-		pk              ProvingKey
+		pk              []ProvingKey
 		vk              VerifyingKey
 		err             error
 		commitment, pok curve.G1Affine
 	)
 
+	valuesFr := interfaceSliceToFrSlice(t, values...)
+
 	pk, vk, err = Setup(basis)
 	assert.NoError(t, err)
-	commitment, pok, err = pk.Commit(interfaceSliceToFrSlice(t, values...))
+	commitment, err = pk[0].Commit(valuesFr)
+	assert.NoError(t, err)
+	pok, err = pk[0].ProveKnowledge(valuesFr)
 	assert.NoError(t, err)
 	assert.NoError(t, vk.Verify(commitment, pok))
 
 	pok.Neg(&pok)
 	assert.NotNil(t, vk.Verify(commitment, pok))
+}
+
+func TestFoldCommitments(t *testing.T) {
+
+	values := [][]fr.Element{
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+	}
+
+	bases := make([][]curve.G1Affine, len(values))
+	for i := range bases {
+		bases[i] = randomG1Slice(t, len(values[i]))
+	}
+
+	pk, vk, err := Setup(bases...)
+	assert.NoError(t, err)
+
+	run := func(values [][]fr.Element) func(t *testing.T) {
+		return func(t *testing.T) {
+
+			commitments := make([]curve.G1Affine, len(values))
+			for i := range values {
+				commitments[i], err = pk[i].Commit(values[i])
+			}
+
+			var pok, foldedCommitment curve.G1Affine
+			pok, err = BatchProve(pk[:len(values)], values, []byte("test"))
+			assert.NoError(t, err)
+
+			foldedCommitment, err = FoldCommitments(commitments, []byte("test"))
+			assert.NoError(t, err)
+			assert.NoError(t, vk.Verify(foldedCommitment, pok))
+
+			pok.Neg(&pok)
+			assert.NotNil(t, vk.Verify(foldedCommitment, pok))
+		}
+	}
+
+	for i := range values {
+		t.Run(fmt.Sprintf("folding %d proofs", i+1), run(values[:i+1]))
+	}
 }
 
 func TestCommitToOne(t *testing.T) {
