@@ -73,7 +73,6 @@ func testCommit(t *testing.T, values ...interface{}) {
 		err             error
 		commitment, pok curve.G1Affine
 	)
-
 	valuesFr := interfaceSliceToFrSlice(t, values...)
 
 	pk, vk, err = Setup(basis)

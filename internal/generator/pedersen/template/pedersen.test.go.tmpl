@@ -1,4 +1,5 @@
 import (
+	"fmt"
 	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/utils"
@@ -49,20 +50,77 @@ func testCommit(t *testing.T, values ...interface{}) {
 	basis := randomG1Slice(t, len(values))
 
 	var (
-		pk              ProvingKey
+		pk              []ProvingKey
 		vk              VerifyingKey
 		err 			error
 		commitment, pok curve.G1Affine
 	)
+	valuesFr := interfaceSliceToFrSlice(t, values...)
 
 	pk, vk, err = Setup(basis)
 	assert.NoError(t, err)
-	commitment, pok, err = pk.Commit(interfaceSliceToFrSlice(t, values...))
+	commitment, err = pk[0].Commit(valuesFr)
+	assert.NoError(t, err)
+	pok, err = pk[0].ProveKnowledge(valuesFr)
 	assert.NoError(t, err)
 	assert.NoError(t, vk.Verify(commitment, pok))
 
 	pok.Neg(&pok)
 	assert.NotNil(t, vk.Verify(commitment, pok))
+}
+
+func TestFoldProofs(t *testing.T) {
+
+	values := [][]fr.Element{
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+	}
+
+	bases := make([][]curve.G1Affine, len(values))
+	for i := range bases {
+		bases[i] = randomG1Slice(t, len(values[i]))
+	}
+
+	pk, vk, err := Setup(bases...)
+	assert.NoError(t, err)
+
+	commitments := make([]curve.G1Affine, len(values))
+	for i := range values {
+		commitments[i], err = pk[i].Commit(values[i])
+	}
+
+	t.Run("folding with zeros", func(t *testing.T) {
+		pokFolded, err := BatchProve(pk[:2], [][]fr.Element{
+			values[0],
+			make([]fr.Element, len(values[1])),
+		}, []byte("test"))
+		assert.NoError(t, err)
+		var pok curve.G1Affine
+		pok, err = pk[0].ProveKnowledge(values[0])
+		assert.NoError(t, err)
+		assert.Equal(t, pok, pokFolded)
+	})
+
+	run := func(values [][]fr.Element) func(t *testing.T) {
+		return func(t *testing.T) {
+
+			var foldedCommitment curve.G1Affine
+			pok, err := BatchProve(pk[:len(values)], values, []byte("test"))
+			assert.NoError(t, err)
+
+			foldedCommitment, err = FoldCommitments(commitments[:len(values)], []byte("test"))
+			assert.NoError(t, err)
+			assert.NoError(t, vk.Verify(foldedCommitment, pok))
+
+			pok.Neg(&pok)
+			assert.NotNil(t, vk.Verify(foldedCommitment, pok))
+		}
+	}
+
+	for i := range values {
+		t.Run(fmt.Sprintf("folding %d", i+1), run(values[:i+1]))
+	}
 }
 
 func TestCommitToOne(t *testing.T) {

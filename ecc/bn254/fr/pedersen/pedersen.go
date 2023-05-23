@@ -78,10 +78,8 @@ func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err err
 		for j := range bases[i] {
 			pk[i].basisExpSigma[j].ScalarMultiplication(&bases[i][j], sigma)
 		}
-
 		pk[i].basis = bases[i]
 	}
-
 	return
 }
 
@@ -177,7 +175,6 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 			scaledValues[offset].Mul(&values[i][j], &rI)
 			offset++
 		}
-
 		if i+1 < len(pk) {
 			rI.Mul(&rI, &r)
 		}
