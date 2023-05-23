@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	copyrightHolder = "ConsenSys Software Inc."
+	copyrightHolder = "Consensys Software Inc."
 	copyrightYear   = 2020
 	baseDir         = "../../"
 )
