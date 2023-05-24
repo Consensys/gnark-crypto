@@ -153,7 +153,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
     return
 }
 
-// FoldCommitments amalgamates
+// FoldCommitments amalgamates multiple commitments into one, which can be verifier against a folded proof obtained from BatchProve
 func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (commitment curve.G1Affine, err error) {
 
 	if len(commitments) == 1 { // no need to fold
