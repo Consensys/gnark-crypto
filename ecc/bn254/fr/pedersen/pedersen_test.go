@@ -106,6 +106,7 @@ func TestFoldProofs(t *testing.T) {
 	commitments := make([]curve.G1Affine, len(values))
 	for i := range values {
 		commitments[i], err = pk[i].Commit(values[i])
+		assert.NoError(t, err)
 	}
 
 	t.Run("folding with zeros", func(t *testing.T) {
