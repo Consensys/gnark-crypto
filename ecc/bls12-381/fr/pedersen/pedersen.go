@@ -125,6 +125,8 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 
 	if len(pk) == 1 { // no need to fold
 		return pk[0].ProveKnowledge(values[0])
+	} else if len(pk) == 0 { // nothing to do at all
+		return
 	}
 
 	offset := 0
@@ -176,6 +178,8 @@ func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (c
 
 	if len(commitments) == 1 { // no need to fold
 		commitment = commitments[0]
+		return
+	} else if len(commitments) == 0 { // nothing to do at all
 		return
 	}
 

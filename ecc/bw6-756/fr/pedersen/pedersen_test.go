@@ -121,6 +121,16 @@ func TestFoldProofs(t *testing.T) {
 		assert.Equal(t, pok, pokFolded)
 	})
 
+	t.Run("run empty", func(t *testing.T) {
+		var foldedCommitment curve.G1Affine
+		pok, err := BatchProve([]ProvingKey{}, [][]fr.Element{}, []byte("test"))
+		assert.NoError(t, err)
+
+		foldedCommitment, err = FoldCommitments([]curve.G1Affine{}, []byte("test"))
+		assert.NoError(t, err)
+		assert.NoError(t, vk.Verify(foldedCommitment, pok))
+	})
+
 	run := func(values [][]fr.Element) func(t *testing.T) {
 		return func(t *testing.T) {
 
