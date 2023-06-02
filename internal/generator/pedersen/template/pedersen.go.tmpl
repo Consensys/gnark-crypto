@@ -226,9 +226,7 @@ func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
 
 // Marshal
 
-func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
-	enc := curve.NewEncoder(w)
-
+func (pk *ProvingKey) writeTo(enc *curve.Encoder) (int64, error) {
     if err := enc.Encode(pk.basis); err != nil {
         return enc.BytesWritten(), err
     }
@@ -236,6 +234,14 @@ func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
     err := enc.Encode(pk.basisExpSigma)
 
 	return enc.BytesWritten(), err
+}
+
+func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
+	return pk.writeTo(curve.NewEncoder(w))
+}
+
+func (pk *ProvingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return pk.writeTo(curve.NewEncoder(w, curve.RawEncoding()))
 }
 
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
@@ -256,7 +262,14 @@ func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
-	enc := curve.NewEncoder(w)
+	return vk.writeTo(curve.NewEncoder(w))
+}
+
+func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return vk.writeTo(curve.NewEncoder(w, curve.RawEncoding()))
+}
+
+func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	var err error
 
 	if err = enc.Encode(&vk.g); err != nil {
