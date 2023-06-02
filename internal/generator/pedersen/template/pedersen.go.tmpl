@@ -280,7 +280,15 @@ func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 }
 
 func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
-	dec := curve.NewDecoder(r)
+	return vk.readFrom(r)
+}
+
+func (vk *VerifyingKey) UnsafeReadFrom(r io.Reader) (int64, error) {
+	return vk.readFrom(r, curve.NoSubgroupChecks())
+}
+
+func (vk *VerifyingKey) readFrom(r io.Reader, decOptions ...func(*curve.Decoder)) (int64, error) {
+	dec := curve.NewDecoder(r, decOptions...)
 	var err error
 
 	if err = dec.Decode(&vk.g); err != nil {

@@ -43,6 +43,7 @@ func TestEncoder(t *testing.T) {
 	var inJ []fr.Element
 	var inK fr.Vector
 	var inL [][]fr.Element
+	var inM [][]uint64
 
 	// set values of inputs
 	inA = rand.Uint64() //#nosec G404 weak rng is fine here
@@ -60,13 +61,13 @@ func TestEncoder(t *testing.T) {
 	inK = make(fr.Vector, 42)
 	inK[41].SetUint64(42)
 	inL =[][]fr.Element {inJ, inK}
-
+	inM = [][]uint64{ {1, 2}, {4}, {} }
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -93,8 +94,9 @@ func TestEncoder(t *testing.T) {
 		var outJ []fr.Element
 		var outK fr.Vector
 		var outL [][]fr.Element
+		var outM [][]uint64
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -135,7 +137,10 @@ func TestEncoder(t *testing.T) {
 			t.Fatal("decode(encode(vector)) failed")
 		}
 		if !reflect.DeepEqual(inL, outL) {
-		t.Fatal("decode(encode(slice²(elements))) failed")
+			t.Fatal("decode(encode(slice²(elements))) failed")
+		}
+		if !reflect.DeepEqual(inM, outM) {
+			t.Fatal("decode(encode(slice²(uint64))) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
