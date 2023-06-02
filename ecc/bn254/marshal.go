@@ -669,20 +669,13 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	}
 }
 
-func (enc *Encoder) writeUint64Slice(t []uint64) error {
-	buff := make([]byte, 64/8)
-	binary.BigEndian.PutUint32(buff, uint32(len(t)))
-	written, err := enc.w.Write(buff)
-	enc.n += int64(written)
-	if err != nil {
-		return err
+func (enc *Encoder) writeUint64Slice(t []uint64) (err error) {
+	if err = enc.writeUint32(uint32(len(t))); err != nil {
+		return
 	}
 	for i := range t {
-		binary.BigEndian.PutUint64(buff, t[i])
-		written, err = enc.w.Write(buff)
-		enc.n += int64(written)
-		if err != nil {
-			return err
+		if err = enc.writeUint64(t[i]); err != nil {
+			return
 		}
 	}
 	return nil
