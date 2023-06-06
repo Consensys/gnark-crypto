@@ -306,7 +306,7 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC16]
-		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunkG1Affine(p, int(16), chChunks[:])
@@ -718,7 +718,7 @@ func _innerMsmG2Reference(p *G2Jac, points []G2Affine, scalars []fr.Element, con
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC16]
-		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunkG2Affine(p, int(16), chChunks[:])

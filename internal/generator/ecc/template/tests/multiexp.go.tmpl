@@ -333,7 +333,7 @@ func _innerMsm{{ $.UPointName }}Reference(p *{{ $.TJacobian }}, points []{{ $.TA
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := processChunk{{ $.UPointName }}Jacobian[bucket{{ $.TJacobianExtended }}C{{$.cmax}}]
-		go processChunk(uint64(j), chChunks[j], {{$.cmax}}, points, digits[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], {{$.cmax}}, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunk{{ $.TAffine }}(p, int({{$.cmax}}), chChunks[:])
