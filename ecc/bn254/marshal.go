@@ -213,7 +213,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		if len(*t) != int(sliceLen) {
+		if len(*t) != int(sliceLen) || *t == nil {
 			*t = make([]G1Affine, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
