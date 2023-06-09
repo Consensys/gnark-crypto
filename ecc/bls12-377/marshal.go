@@ -103,24 +103,36 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
+	var sliceLen uint32
 
 	switch t := v.(type) {
-	case *[]uint64:
-		buf64 := buf[:64/8]
-		read, err = io.ReadFull(dec.r, buf64)
-		dec.n += int64(read)
-		if err != nil {
+	case *[][]uint64:
+		if sliceLen, err = dec.readUint32(); err != nil {
 			return
 		}
-		length := binary.BigEndian.Uint64(buf64)
-		*t = make([]uint64, length)
+		*t = make([][]uint64, sliceLen)
+
 		for i := range *t {
-			read, err = io.ReadFull(dec.r, buf64)
-			dec.n += int64(read)
-			if err != nil {
+			if sliceLen, err = dec.readUint32(); err != nil {
 				return
 			}
-			(*t)[i] = binary.BigEndian.Uint64(buf64)
+			(*t)[i] = make([]uint64, sliceLen)
+			for j := range (*t)[i] {
+				if (*t)[i][j], err = dec.readUint64(); err != nil {
+					return
+				}
+			}
+		}
+		return
+	case *[]uint64:
+		if sliceLen, err = dec.readUint32(); err != nil {
+			return
+		}
+		*t = make([]uint64, sliceLen)
+		for i := range *t {
+			if (*t)[i], err = dec.readUint64(); err != nil {
+				return
+			}
 		}
 		return
 	case *fr.Element:
@@ -148,7 +160,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		dec.n += read64
 		return
 	case *[][]fr.Element:
-		var sliceLen uint32
 		if sliceLen, err = dec.readUint32(); err != nil {
 			return
 		}
@@ -215,7 +226,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
 		return
 	case *[]G1Affine:
-		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
@@ -255,7 +265,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				}
 			} else {
 				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
 					return
 				}
 				compressed[i] = !r
@@ -281,7 +291,6 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 
 		return nil
 	case *[]G2Affine:
-		var sliceLen uint32
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
@@ -321,7 +330,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 				}
 			} else {
 				var r bool
-				if r, err = ((*t)[i].unsafeSetCompressedBytes(buf[:nbBytes])); err != nil {
+				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
 					return
 				}
 				compressed[i] = !r
@@ -373,6 +382,18 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 		return
 	}
 	r = binary.BigEndian.Uint32(buf[:4])
+	return
+}
+
+func (dec *Decoder) readUint64() (r uint64, err error) {
+	var read int
+	var buf [8]byte
+	read, err = io.ReadFull(dec.r, buf[:])
+	dec.n += int64(read)
+	if err != nil {
+		return
+	}
+	r = binary.BigEndian.Uint64(buf[:])
 	return
 }
 
@@ -467,6 +488,8 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	switch t := v.(type) {
 	case []uint64:
 		return enc.writeUint64Slice(t)
+	case [][]uint64:
+		return enc.writeUint64SliceSlice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -583,6 +606,8 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	switch t := v.(type) {
 	case []uint64:
 		return enc.writeUint64Slice(t)
+	case [][]uint64:
+		return enc.writeUint64SliceSlice(t)
 	case *fr.Element:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -679,23 +704,49 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	}
 }
 
-func (enc *Encoder) writeUint64Slice(t []uint64) error {
-	buff := make([]byte, 64/8)
-	binary.BigEndian.PutUint64(buff, uint64(len(t)))
-	written, err := enc.w.Write(buff)
-	enc.n += int64(written)
-	if err != nil {
-		return err
+func (enc *Encoder) writeUint64Slice(t []uint64) (err error) {
+	if err = enc.writeUint32(uint32(len(t))); err != nil {
+		return
 	}
 	for i := range t {
-		binary.BigEndian.PutUint64(buff, t[i])
-		written, err = enc.w.Write(buff)
-		enc.n += int64(written)
-		if err != nil {
-			return err
+		if err = enc.writeUint64(t[i]); err != nil {
+			return
 		}
 	}
 	return nil
+}
+
+func (enc *Encoder) writeUint64SliceSlice(t [][]uint64) (err error) {
+	if err = enc.writeUint32(uint32(len(t))); err != nil {
+		return
+	}
+	for i := range t {
+		if err = enc.writeUint32(uint32(len(t[i]))); err != nil {
+			return
+		}
+		for j := range t[i] {
+			if err = enc.writeUint64(t[i][j]); err != nil {
+				return
+			}
+		}
+	}
+	return nil
+}
+
+func (enc *Encoder) writeUint64(a uint64) error {
+	var buff [64 / 8]byte
+	binary.BigEndian.PutUint64(buff[:], a)
+	written, err := enc.w.Write(buff[:])
+	enc.n += int64(written)
+	return err
+}
+
+func (enc *Encoder) writeUint32(a uint32) error {
+	var buff [32 / 8]byte
+	binary.BigEndian.PutUint32(buff[:], a)
+	written, err := enc.w.Write(buff[:])
+	enc.n += int64(written)
+	return err
 }
 
 // SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed

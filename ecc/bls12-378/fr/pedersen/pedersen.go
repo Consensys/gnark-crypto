@@ -18,10 +18,12 @@ package pedersen
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-378"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"io"
 	"math/big"
 )
@@ -51,7 +53,7 @@ func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
 	}
 }
 
-func Setup(basis []curve.G1Affine) (pk ProvingKey, vk VerifyingKey, err error) {
+func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err error) {
 
 	if vk.g, err = randomOnG2(); err != nil {
 		return
@@ -70,19 +72,20 @@ func Setup(basis []curve.G1Affine) (pk ProvingKey, vk VerifyingKey, err error) {
 	sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
 	vk.gRootSigmaNeg.ScalarMultiplication(&vk.g, &sigmaInvNeg)
 
-	pk.basisExpSigma = make([]curve.G1Affine, len(basis))
-	for i := range basis {
-		pk.basisExpSigma[i].ScalarMultiplication(&basis[i], sigma)
+	pk = make([]ProvingKey, len(bases))
+	for i := range bases {
+		pk[i].basisExpSigma = make([]curve.G1Affine, len(bases[i]))
+		for j := range bases[i] {
+			pk[i].basisExpSigma[j].ScalarMultiplication(&bases[i][j], sigma)
+		}
+		pk[i].basis = bases[i]
 	}
-
-	pk.basis = basis
 	return
 }
 
-func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, knowledgeProof curve.G1Affine, err error) {
-
+func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, err error) {
 	if len(values) != len(pk.basis) {
-		err = fmt.Errorf("unexpected number of values")
+		err = fmt.Errorf("must have as many values as basis elements")
 		return
 	}
 
@@ -92,12 +95,116 @@ func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, kn
 		NbTasks: 1, // TODO Experiment
 	}
 
-	if _, err = commitment.MultiExp(pk.basis, values, config); err != nil {
+	_, err = pok.MultiExp(pk.basisExpSigma, values, config)
+	return
+}
+
+func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, err error) {
+
+	if len(values) != len(pk.basis) {
+		err = fmt.Errorf("must have as many values as basis elements")
 		return
 	}
 
-	_, err = knowledgeProof.MultiExp(pk.basisExpSigma, values, config)
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1,
+	}
+	_, err = commitment.MultiExp(pk.basis, values, config)
 
+	return
+}
+
+// BatchProve generates a single proof of knowledge for multiple commitments for faster verification
+func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byte) (pok curve.G1Affine, err error) {
+	if len(pk) != len(values) {
+		err = fmt.Errorf("must have as many value vectors as bases")
+		return
+	}
+
+	if len(pk) == 1 { // no need to fold
+		return pk[0].ProveKnowledge(values[0])
+	} else if len(pk) == 0 { // nothing to do at all
+		return
+	}
+
+	offset := 0
+	for i := range pk {
+		if len(values[i]) != len(pk[i].basis) {
+			err = fmt.Errorf("must have as many values as basis elements")
+			return
+		}
+		offset += len(values[i])
+	}
+
+	var r fr.Element
+	if r, err = getChallenge(fiatshamirSeeds); err != nil {
+		return
+	}
+
+	// prepare one amalgamated MSM
+	scaledValues := make([]fr.Element, offset)
+	basis := make([]curve.G1Affine, offset)
+
+	copy(basis, pk[0].basisExpSigma)
+	copy(scaledValues, values[0])
+
+	offset = len(values[0])
+	rI := r
+	for i := 1; i < len(pk); i++ {
+		copy(basis[offset:], pk[i].basisExpSigma)
+		for j := range pk[i].basis {
+			scaledValues[offset].Mul(&values[i][j], &rI)
+			offset++
+		}
+		if i+1 < len(pk) {
+			rI.Mul(&rI, &r)
+		}
+	}
+
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1,
+	}
+
+	_, err = pok.MultiExp(basis, scaledValues, config)
+	return
+}
+
+// FoldCommitments amalgamates multiple commitments into one, which can be verifier against a folded proof obtained from BatchProve
+func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (commitment curve.G1Affine, err error) {
+
+	if len(commitments) == 1 { // no need to fold
+		commitment = commitments[0]
+		return
+	} else if len(commitments) == 0 { // nothing to do at all
+		return
+	}
+
+	r := make([]fr.Element, len(commitments))
+	r[0].SetOne()
+	if r[1], err = getChallenge(fiatshamirSeeds); err != nil {
+		return
+	}
+	for i := 2; i < len(commitments); i++ {
+		r[i].Mul(&r[i-1], &r[1])
+	}
+
+	for i := range commitments { // TODO @Tabaie Remove if MSM does subgroup check for you
+		if !commitments[i].IsInSubGroup() {
+			err = fmt.Errorf("subgroup check failed")
+			return
+		}
+	}
+
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1,
+	}
+	_, err = commitment.MultiExp(commitments, r, config)
 	return
 }
 
@@ -108,21 +215,36 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 		return fmt.Errorf("subgroup check failed")
 	}
 
-	product, err := curve.Pair([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.g, vk.gRootSigmaNeg})
-	if err != nil {
+	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.g, vk.gRootSigmaNeg}); err != nil {
 		return err
+	} else if !isOne {
+		return fmt.Errorf("proof rejected")
 	}
-	if product.IsOne() {
-		return nil
+	return nil
+}
+
+func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
+	// incorporate user-provided seeds into the transcript
+	t := fiatshamir.NewTranscript(sha256.New(), "r")
+	for i := range fiatshamirSeeds {
+		if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
+			return
+		}
 	}
-	return fmt.Errorf("proof rejected")
+
+	// obtain the challenge
+	var rBytes []byte
+
+	if rBytes, err = t.ComputeChallenge("r"); err != nil {
+		return
+	}
+	r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
+	return
 }
 
 // Marshal
 
-func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
-	enc := curve.NewEncoder(w)
-
+func (pk *ProvingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	if err := enc.Encode(pk.basis); err != nil {
 		return enc.BytesWritten(), err
 	}
@@ -130,6 +252,14 @@ func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
 	err := enc.Encode(pk.basisExpSigma)
 
 	return enc.BytesWritten(), err
+}
+
+func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
+	return pk.writeTo(curve.NewEncoder(w))
+}
+
+func (pk *ProvingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return pk.writeTo(curve.NewEncoder(w, curve.RawEncoding()))
 }
 
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
@@ -150,7 +280,14 @@ func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
-	enc := curve.NewEncoder(w)
+	return vk.writeTo(curve.NewEncoder(w))
+}
+
+func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return vk.writeTo(curve.NewEncoder(w, curve.RawEncoding()))
+}
+
+func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	var err error
 
 	if err = enc.Encode(&vk.g); err != nil {
@@ -161,7 +298,15 @@ func (vk *VerifyingKey) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
-	dec := curve.NewDecoder(r)
+	return vk.readFrom(r)
+}
+
+func (vk *VerifyingKey) UnsafeReadFrom(r io.Reader) (int64, error) {
+	return vk.readFrom(r, curve.NoSubgroupChecks())
+}
+
+func (vk *VerifyingKey) readFrom(r io.Reader, decOptions ...func(*curve.Decoder)) (int64, error) {
+	dec := curve.NewDecoder(r, decOptions...)
 	var err error
 
 	if err = dec.Decode(&vk.g); err != nil {
