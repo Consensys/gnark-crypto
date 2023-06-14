@@ -176,7 +176,8 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 	// (only if nbTasks < nbCPU)
 	var sem chan struct{}
 	if config.NbTasks < runtime.NumCPU() {
-		sem = make(chan struct{}, config.NbTasks*2) // *2 because if chunk is overweight we split it in two
+		// we add nbChunks because if chunk is overweight we split it in two
+		sem = make(chan struct{}, config.NbTasks+int(nbChunks))
 		for i := 0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
@@ -424,7 +425,8 @@ func _innerMsmG2(p *G2Jac, c uint64, points []G2Affine, scalars []fr.Element, co
 	// (only if nbTasks < nbCPU)
 	var sem chan struct{}
 	if config.NbTasks < runtime.NumCPU() {
-		sem = make(chan struct{}, config.NbTasks*2) // *2 because if chunk is overweight we split it in two
+		// we add nbChunks because if chunk is overweight we split it in two
+		sem = make(chan struct{}, config.NbTasks+int(nbChunks))
 		for i := 0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
