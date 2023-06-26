@@ -779,3 +779,41 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
+
+func BenchmarkNeg(b *testing.B) {
+	params := GetEdwardsCurve()
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+
+	b.Run("Affine", func(b *testing.B) {
+		var point PointAffine
+		point.ScalarMultiplication(&params.Base, &s)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			point.Neg(&point)
+		}
+	})
+	b.Run("Projective", func(b *testing.B) {
+		var baseProj PointProj
+		baseProj.FromAffine(&params.Base)
+		var point PointProj
+		point.ScalarMultiplication(&baseProj, &s)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			point.Neg(&point)
+		}
+	})
+	b.Run("Extended", func(b *testing.B) {
+		var baseProj PointExtended
+		baseProj.FromAffine(&params.Base)
+		var point PointExtended
+		point.ScalarMultiplication(&baseProj, &s)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			point.Neg(&point)
+		}
+	})
+}
