@@ -380,7 +380,7 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 func TestLimbDecompositionFastPath(t *testing.T) {
 	assert := require.New(t)
 
-	const size = fr.Bytes * 1
+	const size = fr.Bytes * 8
 	// Test the fast path of limbDecomposeBytes8_64
 	buf := make([]byte, size)
 	m := make([]fr.Element, size)
