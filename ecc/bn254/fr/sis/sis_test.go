@@ -22,9 +22,11 @@ import (
 	"io"
 	"io/ioutil"
 	"math/bits"
+	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/stretchr/testify/require"
@@ -39,6 +41,7 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 4, logTwoDegree: 4},
 	{logTwoBound: 6, logTwoDegree: 5},
 	{logTwoBound: 10, logTwoDegree: 6},
+	{logTwoBound: 8, logTwoDegree: 6},
 	{logTwoBound: 16, logTwoDegree: 7},
 	{logTwoBound: 32, logTwoDegree: 8},
 }
@@ -372,6 +375,51 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func TestLimbDecompositionFastPath(t *testing.T) {
+	assert := require.New(t)
+
+	const size = fr.Bytes * 1
+	// Test the fast path of limbDecomposeBytes8_64
+	buf := make([]byte, size)
+	m := make([]fr.Element, size)
+	mValues := bitset.New(size)
+	n := make([]fr.Element, size)
+	nValues := bitset.New(size)
+
+	// Generate a random buffer
+	rand.Seed(time.Now().UnixNano())
+	_, err := rand.Read(buf)
+	assert.NoError(err)
+
+	limbDecomposeBytes8_64(buf, m, mValues)
+	limbDecomposeBytes(buf, n, 8, 64, nValues)
+
+	for i := 0; i < size; i++ {
+		assert.Equal(mValues.Test(uint(i)), nValues.Test(uint(i)))
+		assert.True(m[i].Equal(&n[i]))
+	}
+
+}
+
+func TestUnrolledFFT(t *testing.T) {
+	assert := require.New(t)
+	domain := fft.NewDomain(64)
+
+	k1 := make([]fr.Element, 64)
+	for i := 0; i < 64; i++ {
+		k1[i].SetRandom()
+	}
+	k2 := make([]fr.Element, 64)
+	copy(k2, k1)
+
+	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	fftDIF64(k2, domain.CosetTable, domain.Twiddles)
+
+	for i := 0; i < 64; i++ {
+		assert.True(k1[i].Equal(&k2[i]))
+	}
 }
 
 // Hash version without mem copy

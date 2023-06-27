@@ -168,12 +168,20 @@ func (r *RSis) Sum(b []byte) []byte {
 		panic("buffer too large")
 	}
 
+	fastPath := r.LogTwoBound == 8 && r.Degree == 64
+
 	// clear the buffers of the instance.
 	defer r.cleanupBuffers()
 
 	m := r.bufM
 	mValues := r.bufMValues
-	limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+
+	if fastPath {
+		// fast path.
+		limbDecomposeBytes8_64(buf, m, mValues)
+	} else {
+		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+	}
 
 	// we can hash now.
 	res := r.bufRes
@@ -186,7 +194,7 @@ func (r *RSis) Sum(b []byte) []byte {
 			continue
 		}
 		k := m[i*r.Degree : (i+1)*r.Degree]
-		if len(k) == 64 {
+		if fastPath {
 			// fast path.
 			fftDIF64(k, r.Domain.CosetTable, r.Domain.Twiddles)
 		} else {
@@ -362,11 +370,12 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
+
 			m[mPos][0] |= uint64(bitAt(at) << j)
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] > 0 && mValues != nil {
+			if m[mPos][0] != 0 && mValues != nil {
 				mValues.Set(uint(mPos / degree))
 			}
 
@@ -375,5 +384,20 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			}
 		}
 		fieldStart += fr.Bytes * 8
+	}
+}
+
+// see limbDecomposeBytes; this function is optimized for the case where
+// logTwoBound == 8 and degree == 64
+func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
+	// with logTwoBound == 8, we can actually advance byte per byte.
+	const degree = 64
+	j := 0
+	for i := len(buf) - 1; i >= 0; i-- {
+		m[j][0] = uint64(buf[i])
+		if m[j][0] != 0 {
+			mValues.Set(uint(j / degree))
+		}
+		j++
 	}
 }
