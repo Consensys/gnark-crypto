@@ -186,7 +186,12 @@ func (r *RSis) Sum(b []byte) []byte {
 			continue
 		}
 		k := m[i*r.Degree : (i+1)*r.Degree]
-		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		if len(k) == 64 {
+			// fast path.
+			fftDIF64(k, r.Domain.CosetTable, r.Domain.Twiddles)
+		} else {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		}
 		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
