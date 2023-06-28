@@ -389,8 +389,8 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 		nValues := bitset.New(uint(size))
 
 		// Generate a random buffer
-		rand.Seed(time.Now().UnixNano())
-		_, err := rand.Read(buf)
+		rand.Seed(time.Now().UnixNano()) //#nosec G404 weak rng is fine here
+		_, err := rand.Read(buf)         //#nosec G404 weak rng is fine here
 		assert.NoError(err)
 
 		limbDecomposeBytes8_64(buf, m, mValues)
