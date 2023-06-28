@@ -179,6 +179,7 @@ func (r *RSis) Sum(b []byte) []byte {
 	if fastPath {
 		// fast path.
 		limbDecomposeBytes8_64(buf, m, mValues)
+		// limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
 	} else {
 		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
 	}
@@ -197,6 +198,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		if fastPath {
 			// fast path.
 			fftDIF64(k, r.Domain.CosetTable, r.Domain.Twiddles)
+			// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		} else {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
@@ -393,11 +395,14 @@ func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
 	// with logTwoBound == 8, we can actually advance byte per byte.
 	const degree = 64
 	j := 0
-	for i := len(buf) - 1; i >= 0; i-- {
-		m[j][0] = uint64(buf[i])
-		if m[j][0] != 0 {
-			mValues.Set(uint(j / degree))
+
+	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
+		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
+			m[j][0] = uint64(buf[i])
+			if m[j][0] != 0 {
+				mValues.Set(uint(j / degree))
+			}
+			j++
 		}
-		j++
 	}
 }

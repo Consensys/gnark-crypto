@@ -40,8 +40,8 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 2, logTwoDegree: 3},
 	{logTwoBound: 4, logTwoDegree: 4},
 	{logTwoBound: 6, logTwoDegree: 5},
-	{logTwoBound: 10, logTwoDegree: 6},
 	{logTwoBound: 8, logTwoDegree: 6},
+	{logTwoBound: 10, logTwoDegree: 6},
 	{logTwoBound: 16, logTwoDegree: 7},
 	{logTwoBound: 32, logTwoDegree: 8},
 }
@@ -380,25 +380,26 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 func TestLimbDecompositionFastPath(t *testing.T) {
 	assert := require.New(t)
 
-	const size = fr.Bytes * 8
-	// Test the fast path of limbDecomposeBytes8_64
-	buf := make([]byte, size)
-	m := make([]fr.Element, size)
-	mValues := bitset.New(size)
-	n := make([]fr.Element, size)
-	nValues := bitset.New(size)
+	for size := fr.Bytes; size < 5*fr.Bytes; size += fr.Bytes {
+		// Test the fast path of limbDecomposeBytes8_64
+		buf := make([]byte, size)
+		m := make([]fr.Element, size)
+		mValues := bitset.New(uint(size))
+		n := make([]fr.Element, size)
+		nValues := bitset.New(uint(size))
 
-	// Generate a random buffer
-	rand.Seed(time.Now().UnixNano())
-	_, err := rand.Read(buf)
-	assert.NoError(err)
+		// Generate a random buffer
+		rand.Seed(time.Now().UnixNano())
+		_, err := rand.Read(buf)
+		assert.NoError(err)
 
-	limbDecomposeBytes8_64(buf, m, mValues)
-	limbDecomposeBytes(buf, n, 8, 64, nValues)
+		limbDecomposeBytes8_64(buf, m, mValues)
+		limbDecomposeBytes(buf, n, 8, 64, nValues)
 
-	for i := 0; i < size; i++ {
-		assert.Equal(mValues.Test(uint(i)), nValues.Test(uint(i)))
-		assert.True(m[i].Equal(&n[i]))
+		for i := 0; i < size; i++ {
+			assert.Equal(mValues.Test(uint(i)), nValues.Test(uint(i)))
+			assert.True(m[i].Equal(&n[i]))
+		}
 	}
 
 }

@@ -218,6 +218,7 @@ params = [
     SISParams(5, 4, 4, 10),
     SISParams(5, 5, 4, 10),
     SISParams(5, 6, 5, 10),
+    # SISParams(5, 8, 6, 10),
     SISParams(5, 10, 6, 10),
     SISParams(5, 11, 7, 10),
     SISParams(5, 12, 7, 10),
