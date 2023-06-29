@@ -541,7 +541,7 @@ func (c CircuitInfo) toCircuit() (circuit Circuit) {
 
 func init() {
 	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	Gates["select-input-3"] = selectGate(2)
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -712,12 +712,23 @@ func newTestCase(path string) (*TestCase, error) {
 	return tCase, nil
 }
 
-type selectGate int
+type mulGate struct{}
 
-func (g selectGate) Evaluate(in ...fr.Element) fr.Element {
+func (g mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
+	result.Mul(&element[0], &element[1])
+	return
+}
+
+func (g mulGate) Degree() int {
+	return 2
+}
+
+type _select int
+
+func (g _select) Evaluate(in ...fr.Element) fr.Element {
 	return in[g]
 }
 
-func (g selectGate) Degree() int {
+func (g _select) Degree() int {
 	return 1
 }

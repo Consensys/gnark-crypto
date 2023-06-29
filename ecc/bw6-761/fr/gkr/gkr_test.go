@@ -207,7 +207,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   mulGate{},
+		Gate:   MulGate{},
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -337,7 +337,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   mulGate{},
+			Gate:   MulGate{},
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -529,7 +529,7 @@ func getCircuit(path string) (Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	circuit = make(Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Gate = Gates[c[i].Gate]
 		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -539,14 +539,9 @@ func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	return
 }
 
-var gates map[string]Gate
-
 func init() {
-	gates = make(map[string]Gate)
-	gates["identity"] = IdentityGate{}
-	gates["mul"] = mulGate{}
-	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	gates["select-input-3"] = _select(2)
+	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {

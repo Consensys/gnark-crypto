@@ -705,16 +705,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	return nil
 }
 
-type IdentityGate struct{}
-
-func (IdentityGate) Evaluate(input ...small_rational.SmallRational) small_rational.SmallRational {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 	res := make([][]int, len(c))
@@ -872,5 +862,49 @@ func frToBigInts(dst []*big.Int, src []small_rational.SmallRational) {
 	}
 }
 
-// CustomGates gates defined by name
-var CustomGates = make(map[string]Gate)
+// Gates defined by name
+var Gates = map[string]Gate{
+	"identity": IdentityGate{},
+	"mul":      MulGate{},
+}
+
+type IdentityGate struct{}
+
+func (IdentityGate) Evaluate(input ...small_rational.SmallRational) small_rational.SmallRational {
+	return input[0]
+}
+
+func (IdentityGate) Degree() int {
+	return 1
+}
+
+type MulGate struct{}
+
+func (g MulGate) Evaluate(x ...small_rational.SmallRational) (res small_rational.SmallRational) {
+	if len(x) != 2 {
+		panic("mul gate expects 2 elements")
+	}
+	res.Mul(&x[0], &x[1])
+	return
+}
+
+func (g MulGate) Degree() int {
+	return 2
+}
+
+type AddGate struct{}
+
+func (g AddGate) Evaluate(x ...small_rational.SmallRational) (res small_rational.SmallRational) {
+	if len(x) == 0 {
+		return
+	}
+	res = x[0]
+	for i := 1; i < len(x); i++ {
+		res.Add(&res, &x[i])
+	}
+	return
+}
+
+func (g AddGate) Degree() int {
+	return 1
+}
