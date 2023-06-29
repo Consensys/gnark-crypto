@@ -705,16 +705,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	return nil
 }
 
-type IdentityGate struct{}
-
-func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 	res := make([][]int, len(c))
@@ -870,4 +860,92 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	for i := range src {
 		src[i].BigInt(dst[i])
 	}
+}
+
+// Gates defined by name
+var Gates = map[string]Gate{
+	"identity": IdentityGate{},
+	"add":      AddGate{},
+	"sub":      SubGate{},
+	"neg":      NegGate{},
+	"mul":      MulGate(2),
+}
+
+type IdentityGate struct{}
+type AddGate struct{}
+type MulGate int
+type SubGate struct{}
+type NegGate struct{}
+
+func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
+	return input[0]
+}
+
+func (IdentityGate) Degree() int {
+	return 1
+}
+
+func (g AddGate) Evaluate(x ...fr.Element) (res fr.Element) {
+	switch len(x) {
+	case 0:
+	// set zero
+	case 1:
+		res.Set(&x[0])
+	case 2:
+		res.Add(&x[0], &x[1])
+		for i := 2; i < len(x); i++ {
+			res.Add(&res, &x[2])
+		}
+	}
+	return
+}
+
+func (g AddGate) Degree() int {
+	return 1
+}
+
+func (g MulGate) Evaluate(x ...fr.Element) (res fr.Element) {
+	if len(x) != int(g) {
+		panic("wrong input count")
+	}
+	switch len(x) {
+	case 0:
+		res.SetOne()
+	case 1:
+		res.Set(&x[0])
+	default:
+		res.Mul(&x[0], &x[1])
+		for i := 2; i < len(x); i++ {
+			res.Mul(&res, &x[2])
+		}
+	}
+	return
+}
+
+func (g MulGate) Degree() int {
+	return int(g)
+}
+
+func (g SubGate) Evaluate(element ...fr.Element) (diff fr.Element) {
+	if len(element) > 2 {
+		panic("not implemented") //TODO
+	}
+	diff.Sub(&element[0], &element[1])
+	return
+}
+
+func (g SubGate) Degree() int {
+	return 1
+}
+
+func (g NegGate) Evaluate(element ...fr.Element) (neg fr.Element) {
+	if len(element) != 1 {
+		panic("univariate gate")
+	}
+	neg.Neg(&element[0])
+	return
+}
+
+func (g NegGate) Degree() int {
+	return 1
 }

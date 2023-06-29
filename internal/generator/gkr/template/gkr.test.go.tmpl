@@ -197,7 +197,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   mulGate{},
+		Gate:   Gates["mul"],
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -327,7 +327,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]{{.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   mulGate{},
+			Gate:   Gates["mul"],
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
