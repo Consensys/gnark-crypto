@@ -871,3 +871,6 @@ func frToBigInts(dst []*big.Int, src []small_rational.SmallRational) {
 		src[i].BigInt(dst[i])
 	}
 }
+
+// CustomGates gates defined by name
+var CustomGates = make(map[string]Gate)
