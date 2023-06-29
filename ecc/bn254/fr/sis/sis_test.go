@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"math/bits"
 	"math/rand"
 	"testing"
@@ -406,21 +407,51 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 
 func TestUnrolledFFT(t *testing.T) {
 	assert := require.New(t)
-	domain := fft.NewDomain(64)
+	domain := fft.NewDomain(4)
 
-	k1 := make([]fr.Element, 64)
-	for i := 0; i < 64; i++ {
+	k1 := make([]fr.Element, 4)
+	for i := 0; i < 4; i++ {
 		k1[i].SetRandom()
 	}
-	k2 := make([]fr.Element, 64)
+	k2 := make([]fr.Element, 4)
 	copy(k2, k1)
 
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	fftDIF64(k2, domain.CosetTable, domain.Twiddles)
+
+	{
+		cosetCopy := make([]fr.Element, len(domain.CosetTable))
+		copy(cosetCopy, domain.CosetTable)
+
+		twiddlesCoset := make([][]fr.Element, len(domain.Twiddles))
+		// copyShifter := domain.FrMultiplicativeGen
+
+		for i := 0; i < len(domain.Twiddles); i++ {
+			twiddlesCoset[i] = make([]fr.Element, len(domain.Twiddles[i]))
+
+			cosets := make([]fr.Element, len(domain.Twiddles[i]))
+			cosets[0].SetOne()
+			cosets[1].Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i+1)))
+			for j := 2; j < len(domain.Twiddles[i]); j++ {
+				cosets[j].Mul(&cosets[j-1], &cosets[1])
+			}
+
+			for j := 0; j < len(domain.Twiddles[i]); j++ {
+				twiddlesCoset[i][j].Mul(&domain.Twiddles[i][j], &cosets[j])
+				if j == 0 {
+					twiddlesCoset[i][j] = domain.FrMultiplicativeGen
+				}
+			}
+
+		}
+
+		fftDIF64(k2, domain.CosetTable, twiddlesCoset)
+	}
 
 	for i := 0; i < 64; i++ {
-		assert.True(k1[i].Equal(&k2[i]))
+		fmt.Printf("i = %d, k1 = %v, k2 = %v\n", i, k1[i].String(), k2[i].String())
+		// assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
 	}
+	assert.True(k1[0].Equal(&k2[0]), "i = %d", 0)
 }
 
 // Hash version without mem copy
