@@ -354,17 +354,6 @@ func newTestCase(path string) (*TestCase, error) {
 	return tCase, nil
 }
 
-type mulGate struct{}
-
-func (g mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (g mulGate) Degree() int {
-	return 2
-}
-
 type _select int
 
 func (g _select) Evaluate(in ...small_rational.SmallRational) small_rational.SmallRational {
