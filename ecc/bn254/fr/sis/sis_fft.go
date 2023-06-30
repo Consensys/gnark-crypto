@@ -411,6 +411,8 @@ func fft64(a []fr.Element, twiddlesCoset []fr.Element) {
 	fr.Butterfly(&a[62], &a[63])
 }
 
+// precomputeTwiddlesCoset precomputes twiddlesCoset from twiddles and coset table
+// it then return all elements in the correct order for the unrolled FFT.
 func precomputeTwiddlesCoset(twiddles [][]fr.Element, shifter fr.Element) []fr.Element {
 	r := make([][]fr.Element, len(twiddles))
 	for i := 0; i < len(twiddles); i++ {
@@ -423,7 +425,7 @@ func precomputeTwiddlesCoset(twiddles [][]fr.Element, shifter fr.Element) []fr.E
 			r[i][j].Mul(&twiddles[i][j], &s)
 		}
 	}
-	toReturn := make([]fr.Element, 0)
+	toReturn := make([]fr.Element, 0, 63)
 
 	toReturn = append(toReturn, r[5][0])
 	toReturn = append(toReturn, r[4][0])
