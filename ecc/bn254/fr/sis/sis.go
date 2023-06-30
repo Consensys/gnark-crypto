@@ -51,7 +51,8 @@ type RSis struct {
 	LogTwoBound int
 
 	// domain for the polynomial multiplication
-	Domain *fft.Domain
+	Domain        *fft.Domain
+	twiddleCosets [][]fr.Element
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -126,6 +127,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
+	r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
 
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
@@ -146,8 +148,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
 		}
 	})
-	// TODO @gbotrel add nbtasks here; while in tests it's more convenient to parallelize
-	// in tensor-commitment we may not want to do that.
 
 	return r, nil
 }
@@ -179,7 +179,6 @@ func (r *RSis) Sum(b []byte) []byte {
 	if fastPath {
 		// fast path.
 		limbDecomposeBytes8_64(buf, m, mValues)
-		// limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
 	} else {
 		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
 	}
@@ -197,8 +196,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		k := m[i*r.Degree : (i+1)*r.Degree]
 		if fastPath {
 			// fast path.
-			fftDIF64(k, r.Domain.CosetTable, r.Domain.Twiddles)
-			// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+			fft64(k, r.twiddleCosets)
 		} else {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}

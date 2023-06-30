@@ -17,10 +17,9 @@
 package fft
 
 import (
-	"math/bits"
-
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
