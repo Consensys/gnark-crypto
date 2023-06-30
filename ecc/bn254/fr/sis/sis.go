@@ -51,7 +51,8 @@ type RSis struct {
 	LogTwoBound int
 
 	// domain for the polynomial multiplication
-	Domain *fft.Domain
+	Domain        *fft.Domain
+	twiddleCosets []fr.Element // see fft64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -126,6 +127,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
+	if r.LogTwoBound == 8 && r.Degree == 64 {
+		// TODO @gbotrel fixme, that's dirty.
+		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
+	}
 
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
@@ -146,8 +151,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
 		}
 	})
-	// TODO @gbotrel add nbtasks here; while in tests it's more convenient to parallelize
-	// in tensor-commitment we may not want to do that.
 
 	return r, nil
 }
@@ -168,12 +171,20 @@ func (r *RSis) Sum(b []byte) []byte {
 		panic("buffer too large")
 	}
 
+	fastPath := r.LogTwoBound == 8 && r.Degree == 64
+
 	// clear the buffers of the instance.
 	defer r.cleanupBuffers()
 
 	m := r.bufM
 	mValues := r.bufMValues
-	limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+
+	if fastPath {
+		// fast path.
+		limbDecomposeBytes8_64(buf, m, mValues)
+	} else {
+		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+	}
 
 	// we can hash now.
 	res := r.bufRes
@@ -186,7 +197,12 @@ func (r *RSis) Sum(b []byte) []byte {
 			continue
 		}
 		k := m[i*r.Degree : (i+1)*r.Degree]
-		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		if fastPath {
+			// fast path.
+			fft64(k, r.twiddleCosets)
+		} else {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		}
 		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
@@ -357,11 +373,12 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
+
 			m[mPos][0] |= uint64(bitAt(at) << j)
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] > 0 && mValues != nil {
+			if m[mPos][0] != 0 && mValues != nil {
 				mValues.Set(uint(mPos / degree))
 			}
 
@@ -370,5 +387,23 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			}
 		}
 		fieldStart += fr.Bytes * 8
+	}
+}
+
+// see limbDecomposeBytes; this function is optimized for the case where
+// logTwoBound == 8 and degree == 64
+func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
+	// with logTwoBound == 8, we can actually advance byte per byte.
+	const degree = 64
+	j := 0
+
+	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
+		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
+			m[j][0] = uint64(buf[i])
+			if m[j][0] != 0 {
+				mValues.Set(uint(j / degree))
+			}
+			j++
+		}
 	}
 }

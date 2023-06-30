@@ -1,6 +1,7 @@
 package fft
 
 import (
+	"math/bits"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -18,5 +19,24 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "fft.go"), Templates: []string{"fft.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "options.go"), Templates: []string{"options.go.tmpl", "imports.go.tmpl"}},
 	}
-	return bgen.Generate(conf, conf.Package, "./fft/template/", entries...)
+
+	funcs := make(map[string]interface{})
+	funcs["bitReverse"] = func(n, i int64) uint64 {
+		nn := uint64(64 - bits.TrailingZeros64(uint64(n)))
+		r := make([]uint64, n)
+		for i := 0; i < len(r); i++ {
+			r[i] = uint64(i)
+		}
+		for i := 0; i < len(r); i++ {
+			irev := bits.Reverse64(r[i]) >> nn
+			if irev > uint64(i) {
+				r[i], r[irev] = r[irev], r[i]
+			}
+		}
+		return r[i]
+	}
+
+	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
+
+	return bgen.GenerateWithOptions(conf, conf.Package, "./fft/template/", bavardOpts, entries...)
 }
