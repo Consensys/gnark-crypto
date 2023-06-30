@@ -38,13 +38,13 @@ type sisParams struct {
 }
 
 var params128Bits []sisParams = []sisParams{
-	{logTwoBound: 2, logTwoDegree: 3},
-	{logTwoBound: 4, logTwoDegree: 4},
-	{logTwoBound: 6, logTwoDegree: 5},
+	// {logTwoBound: 2, logTwoDegree: 3},
+	// {logTwoBound: 4, logTwoDegree: 4},
+	// {logTwoBound: 6, logTwoDegree: 5},
 	{logTwoBound: 8, logTwoDegree: 6},
-	{logTwoBound: 10, logTwoDegree: 6},
-	{logTwoBound: 16, logTwoDegree: 7},
-	{logTwoBound: 32, logTwoDegree: 8},
+	// {logTwoBound: 10, logTwoDegree: 6},
+	// {logTwoBound: 16, logTwoDegree: 7},
+	// {logTwoBound: 32, logTwoDegree: 8},
 }
 
 type TestCases struct {

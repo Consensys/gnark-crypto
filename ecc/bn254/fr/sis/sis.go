@@ -52,7 +52,7 @@ type RSis struct {
 
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
-	twiddleCosets [][]fr.Element
+	twiddleCosets []fr.Element // see fft64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -127,7 +127,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
-	r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
+	if r.LogTwoBound == 8 && r.Degree == 64 {
+		// TODO @gbotrel fixme, that's dirty.
+		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
+	}
 
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
