@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"math/bits"
 	"math/rand"
 	"testing"
@@ -406,52 +405,55 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 }
 
 func TestUnrolledFFT(t *testing.T) {
+	const size = 16
 	assert := require.New(t)
-	domain := fft.NewDomain(4)
+	domain := fft.NewDomain(size)
 
-	k1 := make([]fr.Element, 4)
-	for i := 0; i < 4; i++ {
+	k1 := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
 		k1[i].SetRandom()
 	}
-	k2 := make([]fr.Element, 4)
+	k2 := make([]fr.Element, size)
 	copy(k2, k1)
 
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
-	{
-		cosetCopy := make([]fr.Element, len(domain.CosetTable))
-		copy(cosetCopy, domain.CosetTable)
+	// {
+	// 	cosetCopy := make([]fr.Element, len(domain.CosetTable))
+	// 	copy(cosetCopy, domain.CosetTable)
 
-		twiddlesCoset := make([][]fr.Element, len(domain.Twiddles))
-		// copyShifter := domain.FrMultiplicativeGen
+	// 	twiddlesCoset := make([][]fr.Element, len(domain.Twiddles))
+	// 	// copyShifter := domain.FrMultiplicativeGen
 
-		for i := 0; i < len(domain.Twiddles); i++ {
-			twiddlesCoset[i] = make([]fr.Element, len(domain.Twiddles[i]))
+	// 	for i := 0; i < len(domain.Twiddles); i++ {
+	// 		twiddlesCoset[i] = make([]fr.Element, len(domain.Twiddles[i]))
 
-			cosets := make([]fr.Element, len(domain.Twiddles[i]))
-			cosets[0].SetOne()
-			cosets[1].Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i+1)))
-			for j := 2; j < len(domain.Twiddles[i]); j++ {
-				cosets[j].Mul(&cosets[j-1], &cosets[1])
-			}
+	// 		cosets := make([]fr.Element, len(domain.Twiddles[i]))
+	// 		cosets[0].SetOne()
+	// 		cosets[1].Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i+1)))
+	// 		for j := 2; j < len(domain.Twiddles[i]); j++ {
+	// 			cosets[j].Mul(&cosets[j-1], &cosets[1])
+	// 		}
 
-			for j := 0; j < len(domain.Twiddles[i]); j++ {
-				twiddlesCoset[i][j].Mul(&domain.Twiddles[i][j], &cosets[j])
-				if j == 0 {
-					twiddlesCoset[i][j] = domain.FrMultiplicativeGen
-				}
-			}
+	// 		for j := 0; j < len(domain.Twiddles[i]); j++ {
+	// 			twiddlesCoset[i][j].Mul(&domain.Twiddles[i][j], &cosets[j])
+	// 			if j == 0 {
+	// 				twiddlesCoset[i][j] = domain.FrMultiplicativeGen
+	// 			}
+	// 		}
 
-		}
+	// 	}
 
-		fftDIF64(k2, domain.CosetTable, twiddlesCoset)
-	}
+	// 	fftDIF64(k2, domain.CosetTable, twiddlesCoset)
+	// }
+	fft.KERKER(k2, domain.CosetTable, domain.Twiddles)
 
-	for i := 0; i < 64; i++ {
+	for i := 0; i < size; i++ {
 		fmt.Printf("i = %d, k1 = %v, k2 = %v\n", i, k1[i].String(), k2[i].String())
-		// assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
+		assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
 	}
-	assert.True(k1[0].Equal(&k2[0]), "i = %d", 0)
+	// check i == 11
+	assert.True(k1[5].Equal(&k2[5]))
 }
 
 // Hash version without mem copy
