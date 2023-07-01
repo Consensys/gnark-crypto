@@ -83,6 +83,7 @@ func TestSerializationSRS(t *testing.T) {
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
 	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
+	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
 	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
 	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
 }
