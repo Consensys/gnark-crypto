@@ -216,7 +216,7 @@ func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []
 				m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 			}
 		} else {
-			wgs = append(wgs, c.manager.workers.Submit(k, func(start, end int) {
+			c.manager.workers.Submit(k, func(start, end int) {
 				for j := start; j < end; j++ {
 					j0 := j << (n - i)    // bᵢ₊₁ = 0
 					j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
@@ -224,7 +224,7 @@ func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []
 					m[j1].Mul(&q[i], &m[j0])  // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
 					m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 				}
-			}, 1024))
+			}, 1024).Wait()
 		}
 
 	}
