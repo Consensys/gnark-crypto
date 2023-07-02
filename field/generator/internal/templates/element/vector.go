@@ -99,7 +99,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
 		// process the elements in parallel
 		parallel.Execute(int(sliceLen), func(start, end int) {
 			
-			var z Element
+			var z {{.ElementName}}
 			for i:=start; i < end; i++ {
 				// we have to set vector[i]
 				bstart := i*Bytes
