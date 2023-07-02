@@ -257,3 +257,31 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	return dec.BytesRead(), nil
 }
+
+// AsyncReadFrom attempts to decode a domain from Reader. It returns a channel that will be closed
+// when the precomputation is done.
+func (d *Domain) AsyncReadFrom(r io.Reader) (int64, error, chan struct{}) {
+
+	dec := curve.NewDecoder(r)
+
+	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
+
+	for _, v := range toDecode {
+		if err := dec.Decode(v); err != nil {
+			return dec.BytesRead(), err, nil
+		}
+	}
+
+	chDone := make(chan struct{})
+
+	go func() {
+		// twiddle factors
+		d.preComputeTwiddles()
+
+		// store the bit reversed coset tables if needed
+		d.reverseCosetTables()
+		close(chDone)
+	}()
+
+	return dec.BytesRead(), nil, chDone
+}

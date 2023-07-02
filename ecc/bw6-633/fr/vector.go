@@ -19,8 +19,12 @@ package fr
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"io"
 	"strings"
+	"sync/atomic"
+	"unsafe"
 )
 
 // Vector represents a slice of Element.
@@ -71,6 +75,70 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 		}
 	}
 	return n, nil
+}
+
+// AsyncReadFrom reads a vector of big endian encoded Element.
+// Length of the vector must be encoded as a uint32 on the first 4 bytes.
+// It consumes the needed bytes from the reader and returns the number of bytes read and an error if any.
+// It also returns a channel that will be closed when the validation is done.
+// The validation consist of checking that the elements are smaller than the modulus, and
+// converting them to montgomery form.
+func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
+	chErr := make(chan error, 1)
+	var buf [Bytes]byte
+	if read, err := io.ReadFull(r, buf[:4]); err != nil {
+		close(chErr)
+		return int64(read), err, chErr
+	}
+	sliceLen := binary.BigEndian.Uint32(buf[:4])
+
+	n := int64(4)
+	(*vector) = make(Vector, sliceLen)
+	if sliceLen == 0 {
+		close(chErr)
+		return n, nil, chErr
+	}
+
+	bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[0])), sliceLen*Bytes)
+	read, err := io.ReadFull(r, bSlice)
+	n += int64(read)
+	if err != nil {
+		close(chErr)
+		return n, err, chErr
+	}
+
+	go func() {
+		var cptErrors uint64
+		// process the elements in parallel
+		parallel.Execute(int(sliceLen), func(start, end int) {
+
+			var z Element
+			for i := start; i < end; i++ {
+				// we have to set vector[i]
+				bstart := i * Bytes
+				bend := bstart + Bytes
+				b := bSlice[bstart:bend]
+				z[0] = binary.BigEndian.Uint64(b[32:40])
+				z[1] = binary.BigEndian.Uint64(b[24:32])
+				z[2] = binary.BigEndian.Uint64(b[16:24])
+				z[3] = binary.BigEndian.Uint64(b[8:16])
+				z[4] = binary.BigEndian.Uint64(b[0:8])
+
+				if !z.smallerThanModulus() {
+					atomic.AddUint64(&cptErrors, 1)
+					return
+				}
+				z.toMont()
+				(*vector)[i] = z
+			}
+		})
+
+		if cptErrors > 0 {
+			chErr <- fmt.Errorf("async read: %d elements failed validation", cptErrors)
+		}
+		close(chErr)
+	}()
+	return n, nil, chErr
 }
 
 // ReadFrom implements io.ReaderFrom and reads a vector of big endian encoded Element.
