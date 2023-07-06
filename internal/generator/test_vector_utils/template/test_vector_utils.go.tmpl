@@ -3,10 +3,8 @@ import (
 	"{{.FieldPackagePath}}"
 	"{{.FieldPackagePath}}/polynomial"
 	"hash"
-	"strings"
-	"strconv"
 	"reflect"
-	"reflect"
+	{{if eq .ElementType "fr.Element"}}"strings"{{- end}}
 )
 
 func ToElement(i int64) *{{.ElementType}} {
@@ -185,15 +183,10 @@ func PolynomialSliceEquals(a []polynomial.Polynomial, b []polynomial.Polynomial)
 }
 
 func ElementToInterface(x *{{.ElementType}}) interface{} {
-	text := x.Text(10)
-	if len(text) < 10 && !strings.Contains(text, "/") {
-		if i, err := strconv.Atoi(text); err != nil {
-			panic(err.Error())
-		} else {
-			return i
-		}
+	if i := x.BigInt(nil); i != nil {
+		return i
 	}
-	return text
+	return x.Text(10)
 }
 
 func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
