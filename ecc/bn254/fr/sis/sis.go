@@ -378,11 +378,10 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] != 0 && mValues != nil {
-				mValues.Set(uint(mPos / degree))
-			}
-
 			if j == logTwoBound-1 || bitInField == fr.Bytes*8 {
+				if m[mPos][0] != 0 && mValues != nil {
+					mValues.Set(uint(mPos / degree))
+				}
 				mPos++
 			}
 		}
