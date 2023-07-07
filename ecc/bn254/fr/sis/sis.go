@@ -366,6 +366,7 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 	// each of these block (<< 64bits) are interpreted as a coefficient
 	mPos := 0
 	for fieldStart := 0; fieldStart < nbBits; {
+		word := uint64(0)
 		for bitInField := 0; bitInField < fr.Bytes*8; {
 
 			j := bitInField % logTwoBound
@@ -373,16 +374,17 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
-
-			m[mPos][0] |= uint64(bitAt(at) << j)
+			word |= uint64(bitAt(at) << j)
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not
 			if j == logTwoBound-1 || bitInField == fr.Bytes*8 {
-				if m[mPos][0] != 0 && mValues != nil {
+				m[mPos][0] = word
+				if word != 0 && mValues != nil {
 					mValues.Set(uint(mPos / degree))
 				}
 				mPos++
+				word = 0
 			}
 		}
 		fieldStart += fr.Bytes * 8
