@@ -357,9 +357,8 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 		if k >= len(buf) {
 			return 0
 		}
-		b := buf[k]
-		j := i % 8
-		return b >> (7 - j) & 1
+		//i & 7 == i % 8
+		return buf[k] >> (7 - i&7) & 1
 	}
 
 	// we process the input buffer by blocks of r.LogTwoBound bits
