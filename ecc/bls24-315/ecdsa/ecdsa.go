@@ -34,6 +34,7 @@ import (
 
 const (
 	sizeFr         = fr.Bytes
+	sizeFrBits     = fr.Bits
 	sizeFp         = fp.Bytes
 	sizePublicKey  = sizeFp
 	sizePrivateKey = sizeFr + sizePublicKey
@@ -100,7 +101,7 @@ func HashToInt(hash []byte) *big.Int {
 		hash = hash[:sizeFr]
 	}
 	ret := new(big.Int).SetBytes(hash)
-	excess := len(hash)*8 - sizeFr
+	excess := ret.BitLen() - sizeFrBits
 	if excess > 0 {
 		ret.Rsh(ret, uint(excess))
 	}
