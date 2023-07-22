@@ -19,19 +19,21 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/sis"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
 )
 
 const (
-	copyrightHolder = "ConsenSys Software Inc."
+	copyrightHolder = "Consensys Software Inc."
 	copyrightYear   = 2020
 	baseDir         = "../../"
 )
@@ -62,12 +64,6 @@ func main() {
 			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
 
-			frInfo := config.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
 
@@ -94,6 +90,10 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
+			if conf.Equal(config.BN254) {
+				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
+			}
+
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
 
@@ -108,6 +108,12 @@ func main() {
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			frInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
 
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
@@ -127,6 +133,28 @@ func main() {
 				FieldDependency:             frInfo,
 				RandomizeMissingHashEntries: false,
 			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
+			// generate eddsa on companion curves
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+
+			// generate sumcheck on fr
+			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
+
+			// generate gkr on fr
+			assertNoError(gkr.Generate(gkr.Config{
+				FieldDependency:         frInfo,
+				GenerateTests:           true,
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
+			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
+
+			// generate test vector utils on fr
+			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
+				FieldDependency:             frInfo,
+				RandomizeMissingHashEntries: false,
+			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
+			// generate iop functions
+			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 		}(conf)
 
@@ -155,7 +183,26 @@ func main() {
 	}()
 	wg.Wait()
 
+	// format the whole directory
+
+	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
+
+	cmd = exec.Command("asmfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())
+
+	//mathfmt doesn't accept directories. TODO: PR pending
+	/*cmd = exec.Command("mathfmt", "-w", baseDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	assertNoError(cmd.Run())*/
+
 	wg.Add(2)
+
 	go func() {
 		// generate test vectors for sumcheck
 		cmd := exec.Command("go", "run", "./sumcheck/test_vectors")
@@ -174,23 +221,6 @@ func main() {
 		wg.Done()
 	}()
 
-	// format the whole directory
-
-	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
-
-	cmd = exec.Command("asmfmt", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())
-
-	//mathfmt doesn't accept directories. TODO: PR pending
-	/*cmd = exec.Command("mathfmt", "-w", baseDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())*/
 	wg.Wait()
 }
 

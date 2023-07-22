@@ -21,5 +21,8 @@ func (bigIntPool) Get() *big.Int {
 }
 
 func (bigIntPool) Put(v *big.Int) {
+	if v == nil {
+		return // see https://github.com/ConsenSys/gnark-crypto/issues/316
+	}
 	_bigIntPool.Put(v)
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -50,26 +51,33 @@ func TestEncoder(t *testing.T) {
 	var inH []G2Affine
 	var inI []fp.Element
 	var inJ []fr.Element
+	var inK fr.Vector
+	var inL [][]fr.Element
+	var inM [][]uint64
 
 	// set values of inputs
-	inA = rand.Uint64()
+	inA = rand.Uint64() //#nosec G404 weak rng is fine here
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
 	inI = make([]fp.Element, 3)
 	inI[2] = inD.X
 	inJ = make([]fr.Element, 0)
+	inK = make(fr.Vector, 42)
+	inK[41].SetUint64(42)
+	inL = [][]fr.Element{inJ, inK}
+	inM = [][]uint64{{1, 2}, {4}, {}}
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -93,8 +101,11 @@ func TestEncoder(t *testing.T) {
 		var outH []G2Affine
 		var outI []fp.Element
 		var outJ []fr.Element
+		var outK fr.Vector
+		var outL [][]fr.Element
+		var outM [][]uint64
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -130,6 +141,15 @@ func TestEncoder(t *testing.T) {
 			if !inI[i].Equal(&outI[i]) {
 				t.Fatal("decode(encode(slice(elements))) failed")
 			}
+		}
+		if !reflect.DeepEqual(inK, outK) {
+			t.Fatal("decode(encode(vector)) failed")
+		}
+		if !reflect.DeepEqual(inL, outL) {
+			t.Fatal("decode(encode(slice²(elements))) failed")
+		}
+		if !reflect.DeepEqual(inM, outM) {
+			t.Fatal("decode(encode(slice²(uint64))) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
@@ -206,6 +226,26 @@ func TestIsCompressed(t *testing.T) {
 		}
 	}
 
+}
+
+func TestG1AffineInvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOfG1AffineCompressed]byte
+	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+
+	var p G1Affine
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
 }
 
 func TestG1AffineSerialization(t *testing.T) {
@@ -299,6 +339,26 @@ func TestG1AffineSerialization(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG2AffineInvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOfG2AffineCompressed]byte
+	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+
+	var p G2Affine
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
 }
 
 func TestG2AffineSerialization(t *testing.T) {
@@ -448,7 +508,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

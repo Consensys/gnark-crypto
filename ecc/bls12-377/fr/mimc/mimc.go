@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ var (
 // along with the params of the mimc function
 type digest struct {
 	h    fr.Element
-	data []byte // data to hash
+	data []fr.Element // data to hash
 }
 
 // GetConstants exposed to be used in gnark
@@ -98,23 +98,22 @@ func (d *digest) BlockSize() int {
 // If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
 // larger than fr.Modulus, this function returns an error.
 //
-// To hash arbitrary data ([]byte not representing canonical field elements) use Decompose
-// function in this package.
-func (d *digest) Write(p []byte) (n int, err error) {
-	n = len(p)
-	if n%BlockSize != 0 {
-		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
-	}
+// To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
+func (d *digest) Write(p []byte) (int, error) {
 
-	// ensure each block represents a field element in canonical reduced form
-	for i := 0; i < n; i += BlockSize {
-		if _, err = fr.BigEndian.Element((*[BlockSize]byte)(p[i : i+BlockSize])); err != nil {
+	var start int
+	for start = 0; start < len(p); start += BlockSize {
+		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
+			d.data = append(d.data, elem)
+		} else {
 			return 0, err
 		}
 	}
 
-	d.data = append(d.data, p...)
-	return
+	if start != len(p) {
+		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
+	}
+	return len(p), nil
 }
 
 // Hash hash using Miyaguchi-Preneel:
@@ -124,14 +123,14 @@ func (d *digest) checksum() fr.Element {
 	// Write guarantees len(data) % BlockSize == 0
 
 	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
-	if len(d.data) == 0 {
+	// TODO: @Tabaie, @Thomas Piellard Now sure what to make of this
+	/*if len(d.data) == 0 {
 		d.data = make([]byte, BlockSize)
-	}
+	}*/
 
-	for i := 0; i < len(d.data); i += BlockSize {
-		x, _ := fr.BigEndian.Element((*[BlockSize]byte)(d.data[i : i+BlockSize]))
-		r := d.encrypt(x)
-		d.h.Add(&r, &d.h).Add(&d.h, &x)
+	for i := range d.data {
+		r := d.encrypt(d.data[i])
+		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
 
 	return d.h
@@ -182,5 +181,14 @@ func initConstants() {
 		mimcConstants[i].SetBytes(rnd)
 		hash.Reset()
 		_, _ = hash.Write(rnd)
+	}
+}
+
+// WriteString writes a string that doesn't necessarily consist of field elements
+func (d *digest) WriteString(rawBytes []byte) {
+	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
+		panic(err)
+	} else {
+		d.data = append(d.data, elems[0])
 	}
 }

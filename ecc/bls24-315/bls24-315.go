@@ -41,7 +41,8 @@ import (
 // ID bls315 ID
 const ID = ecc.BLS24_315
 
-// bCurveCoeff b coeff of the curve Y²=X³+b
+// aCurveCoeff is the a coefficients of the curve Y²=X³+ax+b
+var aCurveCoeff fp.Element
 var bCurveCoeff fp.Element
 
 // twist
@@ -101,7 +102,7 @@ type E12 = fptower.E12
 type E24 = fptower.E24
 
 func init() {
-
+	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(1)
 	// D-twist
 	twist.B1.SetOne()
@@ -160,4 +161,9 @@ func Generators() (g1Jac G1Jac, g2Jac G2Jac, g1Aff G1Affine, g2Aff G2Affine) {
 	g1Jac = g1Gen
 	g2Jac = g2Gen
 	return
+}
+
+// CurveCoefficients returns the a, b coefficients of the curve equation.
+func CurveCoefficients() (a, b fp.Element) {
+	return aCurveCoeff, bCurveCoeff
 }

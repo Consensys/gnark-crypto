@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ func evaluateSecondPartNumReverse(lz []fr.Element, d *fft.Domain) []fr.Element {
 
 // Prove generates a proof that t1 and t2 are the same but permuted.
 // The size of t1 and t2 should be the same and a power of 2.
-func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
+func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 
 	// res
 	var proof Proof
@@ -167,11 +167,11 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	d.FFTInverse(ct2, fft.DIF)
 	fft.BitReverse(ct1)
 	fft.BitReverse(ct2)
-	proof.t1, err = kzg.Commit(ct1, srs)
+	proof.t1, err = kzg.Commit(ct1, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.t2, err = kzg.Commit(ct2, srs)
+	proof.t2, err = kzg.Commit(ct2, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -185,21 +185,21 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	// compute Z and commit it
 	cz := evaluateAccumulationPolynomialBitReversed(t1, t2, epsilon)
 	d.FFTInverse(cz, fft.DIT)
-	proof.z, err = kzg.Commit(cz, srs)
+	proof.z, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err
 	}
 	lz := make([]fr.Element, s)
 	copy(lz, cz)
-	d.FFT(lz, fft.DIF, true)
+	d.FFT(lz, fft.DIF, fft.OnCoset())
 
 	// compute the first part of the numerator
 	lt1 := make([]fr.Element, s)
 	lt2 := make([]fr.Element, s)
 	copy(lt1, ct1)
 	copy(lt2, ct2)
-	d.FFT(lt1, fft.DIF, true)
-	d.FFT(lt2, fft.DIF, true)
+	d.FFT(lt1, fft.DIF, fft.OnCoset())
+	d.FFT(lt2, fft.DIF, fft.OnCoset())
 	lsNumFirstPart := evaluateFirstPartNumReverse(lt1, lt2, lz, epsilon)
 
 	// compute second part of the numerator
@@ -222,8 +222,8 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// get the quotient and commit it
-	d.FFTInverse(lsNum, fft.DIT, true)
-	proof.q, err = kzg.Commit(lsNum, srs)
+	d.FFTInverse(lsNum, fft.DIT, fft.OnCoset())
+	proof.q, err = kzg.Commit(lsNum, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -250,7 +250,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 		},
 		eta,
 		hFunc,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -261,7 +261,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 	proof.shiftedProof, err = kzg.Open(
 		cz,
 		shiftedEta,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -273,7 +273,7 @@ func Prove(srs *kzg.SRS, t1, t2 []fr.Element) (Proof, error) {
 }
 
 // Verify verifies a permutation proof.
-func Verify(srs *kzg.SRS, proof Proof) error {
+func Verify(vk kzg.VerifyingKey, proof Proof) error {
 
 	// hash function that is used for Fiat Shamir
 	hFunc := sha256.New()
@@ -330,7 +330,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 		&proof.batchedProof,
 		eta,
 		hFunc,
-		srs,
+		vk,
 	)
 	if err != nil {
 		return err
@@ -338,7 +338,7 @@ func Verify(srs *kzg.SRS, proof Proof) error {
 
 	var shiftedEta fr.Element
 	shiftedEta.Mul(&eta, &proof.g)
-	err = kzg.Verify(&proof.z, &proof.shiftedProof, shiftedEta, srs)
+	err = kzg.Verify(&proof.z, &proof.shiftedProof, shiftedEta, vk)
 	if err != nil {
 		return err
 	}

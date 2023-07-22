@@ -68,7 +68,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	}
 
 	// return the last window size for a scalar;
-	// this last window should accomodate a carry (from the NAF decomposition)
+	// this last window should accommodate a carry (from the NAF decomposition)
 	// it can be == c if we have 1 available bit
 	// it can be > c if we have 0 available bit
 	// it can be < c if we have 2+ available bits
@@ -94,7 +94,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		// in theory, larger batch size == less inversions
 		// but if nbBuckets is small, then a large batch size will produce lots of collisions
 		// and queue ops.
-		// there is probably a cache-friendlyness factor at play here too.
+		// there is probably a cache-friendliness factor at play here too.
 		switch c {
 		case 10:
 			return 80

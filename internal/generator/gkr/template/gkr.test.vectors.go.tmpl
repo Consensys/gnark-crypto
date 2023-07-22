@@ -45,7 +45,7 @@ func getCircuit(path string) ({{$Circuit}}, error) {
 func (c CircuitInfo) toCircuit() (circuit {{$Circuit}}) {
 	circuit = make({{$Circuit}}, len(c))
 	for i := range c {
-		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Gate = Gates[c[i].Gate]
 		circuit[i].Inputs = make([]*{{$Wire}}, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -55,14 +55,9 @@ func (c CircuitInfo) toCircuit() (circuit {{$Circuit}}) {
 	return
 }
 
-var gates map[string]{{$Gate}}
-
 func init() {
-	gates = make(map[string]{{$Gate}})
-	gates["identity"] = {{$GkrPackagePrefix}}IdentityGate{}
-	gates["mul"] = mulGate{}
-	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	gates["select-input-3"] = _select(2)
+	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -126,7 +121,7 @@ func unmarshalProof(printable PrintableProof) ({{$Proof}}, error) {
 
 type TestCase struct {
 	Circuit         {{$Circuit}}
-	Hash            *test_vector_utils.ElementMap
+	Hash            hash.Hash
 	Proof           {{$Proof}}
 	FullAssignment  {{$WireAssignment}}
 	InOutAssignment {{$WireAssignment}}
@@ -134,11 +129,11 @@ type TestCase struct {
 }
 
 type TestCaseInfo struct {
-	Hash    string          `json:"hash"`
-	Circuit string          `json:"circuit"`
-	Input   [][]interface{} `json:"input"`
-	Output  [][]interface{} `json:"output"`
-	Proof   PrintableProof  `json:"proof"`
+	Hash    test_vector_utils.HashDescription `json:"hash"`
+	Circuit string                            `json:"circuit"`
+	Input   [][]interface{}                   `json:"input"`
+	Output  [][]interface{}                   `json:"output"`
+	Proof   PrintableProof                    `json:"proof"`
 }
 
 var testCases = make(map[string]*TestCase)
@@ -164,8 +159,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.ElementMap
-			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash hash.Hash
+			if _hash, err = test_vector_utils.HashFromDescription(info.Hash); err != nil {
 				return nil, err
 			}
 			var proof {{$Proof}}
@@ -239,21 +234,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
-}
-
-type mulGate struct{}
-
-func (g mulGate) Evaluate(element ...{{.ElementType}}) (result {{.ElementType}}) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (g mulGate) Degree() int {
-	return 2
 }
 
 type _select int

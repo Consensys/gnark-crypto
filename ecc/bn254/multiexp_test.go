@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,10 +58,10 @@ func TestMultiExpG1(t *testing.T) {
 
 	// sprinkle some points at infinity
 	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	// final scalar to use in double and add method (without mixer factor)
 	// n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
@@ -72,7 +72,7 @@ func TestMultiExpG1(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G1] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G1] Multi exponentiation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
 			for i := 0; i < 13; i++ {
@@ -104,7 +104,7 @@ func TestMultiExpG1(t *testing.T) {
 		cRange = []uint64{5, 14}
 	}
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var expected G1Jac
@@ -137,7 +137,7 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var samplePointsZero [nbSamples]G1Affine
@@ -173,7 +173,7 @@ func TestMultiExpG1(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G1] Multi exponentation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G1] Multi exponentiation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -195,7 +195,7 @@ func TestMultiExpG1(t *testing.T) {
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("[G1] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
+	properties.Property("[G1] Multi exponentiation (<50points) should be consistent with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g G1Jac
@@ -243,10 +243,10 @@ func TestCrossMultiExpG1(t *testing.T) {
 
 	// sprinkle some points at infinity
 	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
@@ -305,7 +305,7 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC16]
-		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunkG1Affine(p, int(16), chChunks[:])
@@ -439,10 +439,10 @@ func TestMultiExpG2(t *testing.T) {
 
 	// sprinkle some points at infinity
 	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	// final scalar to use in double and add method (without mixer factor)
 	// n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
@@ -453,7 +453,7 @@ func TestMultiExpG2(t *testing.T) {
 	scalar.Div(&scalar, new(big.Int).SetInt64(6))
 
 	// ensure a multiexp that's splitted has the same result as a non-splitted one..
-	properties.Property("[G2] Multi exponentation (cmax) should be consistent with splitted multiexp", prop.ForAll(
+	properties.Property("[G2] Multi exponentiation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G2Affine
 			for i := 0; i < 13; i++ {
@@ -483,7 +483,7 @@ func TestMultiExpG2(t *testing.T) {
 	// test only "odd" and "even" (ie windows size divide word size vs not)
 	cRange := []uint64{5, 14}
 
-	properties.Property(fmt.Sprintf("[G2] Multi exponentation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G2] Multi exponentiation (c in %v) should be consistent with sum of square", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var expected G2Jac
@@ -516,7 +516,7 @@ func TestMultiExpG2(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G2] Multi exponentation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G2] Multi exponentiation (c in %v) of points at infinity should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var samplePointsZero [nbSamples]G2Affine
@@ -552,7 +552,7 @@ func TestMultiExpG2(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property(fmt.Sprintf("[G2] Multi exponentation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
+	properties.Property(fmt.Sprintf("[G2] Multi exponentiation (c in %v) with a vector of 0s as input should output a point at infinity", cRange), prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -574,7 +574,7 @@ func TestMultiExpG2(t *testing.T) {
 
 	// note : this test is here as we expect to have a different multiExp than the above bucket method
 	// for small number of points
-	properties.Property("[G2] Multi exponentation (<50points) should be consistent with sum of square", prop.ForAll(
+	properties.Property("[G2] Multi exponentiation (<50points) should be consistent with sum of square", prop.ForAll(
 		func(mixer fr.Element) bool {
 
 			var g G2Jac
@@ -622,10 +622,10 @@ func TestCrossMultiExpG2(t *testing.T) {
 
 	// sprinkle some points at infinity
 	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
-	samplePoints[rand.Intn(nbSamples)].setInfinity()
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
@@ -682,7 +682,7 @@ func _innerMsmG2Reference(p *G2Jac, points []G2Affine, scalars []fr.Element, con
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
 		processChunk := processChunkG2Jacobian[bucketg2JacExtendedC16]
-		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n])
+		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunkG2Affine(p, int(16), chChunks[:])

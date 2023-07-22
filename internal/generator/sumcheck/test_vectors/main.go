@@ -8,12 +8,13 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
+	"hash"
 	"math/bits"
 	"os"
 	"path/filepath"
 )
 
-func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
+func runMultilin(testCaseInfo *TestCaseInfo) error {
 
 	var poly polynomial.MultiLin
 	if v, err := test_vector_utils.SliceToElementSlice(testCaseInfo.Values); err == nil {
@@ -22,14 +23,14 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return err
 	}
 
-	var mp *test_vector_utils.ElementMap
+	var hsh hash.Hash
 	var err error
-	if mp, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, testCaseInfo.Hash)); err != nil {
+	if hsh, err = test_vector_utils.HashFromDescription(testCaseInfo.Hash); err != nil {
 		return err
 	}
 
 	proof, err := sumcheck.Prove(
-		&singleMultilinClaim{poly}, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp}))
+		&singleMultilinClaim{poly}, fiatshamir.WithHash(hsh))
 	if err != nil {
 		return err
 	}
@@ -46,21 +47,21 @@ func runMultilin(dir string, testCaseInfo *TestCaseInfo) error {
 		return err
 	}
 
-	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp})); err != nil {
+	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(hsh)); err != nil {
 		return fmt.Errorf("proof rejected: %v", err)
 	}
 
 	proof.PartialSumPolys[0][0].Add(&proof.PartialSumPolys[0][0], test_vector_utils.ToElement(1))
-	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(&test_vector_utils.MapHash{Map: mp})); err == nil {
+	if err = sumcheck.Verify(singleMultilinLazyClaim{g: poly, claimedSum: claimedSum}, proof, fiatshamir.WithHash(hsh)); err == nil {
 		return fmt.Errorf("bad proof accepted")
 	}
 	return nil
 }
 
-func run(dir string, testCaseInfo *TestCaseInfo) error {
+func run(testCaseInfo *TestCaseInfo) error {
 	switch testCaseInfo.Type {
 	case "multilin":
-		return runMultilin(dir, testCaseInfo)
+		return runMultilin(testCaseInfo)
 	default:
 		return fmt.Errorf("type \"%s\" unrecognized", testCaseInfo.Type)
 	}
@@ -72,8 +73,6 @@ func runAll(relPath string) error {
 	if filename, err = filepath.Abs(relPath); err != nil {
 		return err
 	}
-
-	dir := filepath.Dir(filename)
 
 	var bytes []byte
 
@@ -88,7 +87,7 @@ func runAll(relPath string) error {
 
 	failed := false
 	for name, testCase := range testCasesInfo {
-		if err = run(dir, testCase); err != nil {
+		if err = run(testCase); err != nil {
 			fmt.Println(name, ":", err)
 			failed = true
 		}
@@ -99,10 +98,6 @@ func runAll(relPath string) error {
 	}
 
 	if bytes, err = json.MarshalIndent(testCasesInfo, "", "\t"); err != nil {
-		return err
-	}
-
-	if err = test_vector_utils.SaveUsedHashEntries(); err != nil {
 		return err
 	}
 
@@ -119,12 +114,12 @@ func main() {
 type TestCasesInfo map[string]*TestCaseInfo
 
 type TestCaseInfo struct {
-	Type        string         `json:"type"`
-	Hash        string         `json:"hash"`
-	Values      []interface{}  `json:"values"`
-	Description string         `json:"description"`
-	Proof       PrintableProof `json:"proof"`
-	ClaimedSum  interface{}    `json:"claimedSum"`
+	Type        string                            `json:"type"`
+	Hash        test_vector_utils.HashDescription `json:"hash"`
+	Values      []interface{}                     `json:"values"`
+	Description string                            `json:"description"`
+	Proof       PrintableProof                    `json:"proof"`
+	ClaimedSum  interface{}                       `json:"claimedSum"`
 }
 
 type PrintableProof struct {

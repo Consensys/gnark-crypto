@@ -21,9 +21,13 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 	chRes chan<- {{ $.TJacobianExtended }},
 	c uint64,
 	points []{{ $.TAffine }},
-	digits []uint16) {
+	digits []uint16,
+	sem chan struct{}) {
 
-
+	if sem != nil {
+		// if we are limited, wait for a token in the semaphore
+		<-sem
+	}
 
    var buckets B
    for i := 0 ; i < len(buckets); i++ {
@@ -36,7 +40,7 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 		   continue
 	   }
 
-	   // if msbWindow bit is set, we need to substract
+	   // if msbWindow bit is set, we need to subtract
 	   if digit & 1 == 0 {
 		   // add
 		   buckets[(digit>>1)-1].addMixed(&points[i])
@@ -59,6 +63,12 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 	   }
 	   total.add(&runningSum)
    }
+
+   if sem != nil {
+	// release a token to the semaphore
+	// before sending to chRes
+	sem <- struct{}{}
+}
 
    chRes <- total
 }

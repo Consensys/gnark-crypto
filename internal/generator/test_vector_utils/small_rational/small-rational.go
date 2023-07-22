@@ -371,6 +371,10 @@ func bytesToBigIntSigned(src []byte) big.Int {
 	return res
 }
 
+func (z *SmallRational) BigInt(*big.Int) *big.Int {
+	panic("not implemented")
+}
+
 func (z *SmallRational) SetBytes(b []byte) {
 	if len(b) > Bytes/2 {
 		z.numerator = bytesToBigIntSigned(b[:Bytes/2])

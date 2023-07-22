@@ -1,7 +1,10 @@
 {
 	"linear_univariate_single_claim": {
 		"type": "multilin",
-		"hash": "hash.json",
+		"hash": {
+			"type": "const",
+			"val": -1
+		},
 		"values": [
 			1,
 			3
@@ -19,7 +22,10 @@
 	},
 	"trilinear_single_claim": {
 		"type": "multilin",
-		"hash": "hash.json",
+		"hash": {
+			"type": "const",
+			"val": -1
+		},
 		"values": [
 			1,
 			2,
@@ -37,10 +43,10 @@
 					26
 				],
 				[
-					-9
+					-1
 				],
 				[
-					-14
+					-4
 				]
 			],
 			"finalEvalProof": {}

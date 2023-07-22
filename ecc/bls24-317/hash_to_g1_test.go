@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ func TestMapToCurve1(t *testing.T) {
 	properties.Property("[G1] mapping output must be on curve", prop.ForAll(
 		func(a fp.Element) bool {
 
-			g := mapToCurve1(&a)
+			g := MapToCurve1(&a)
 
 			if !isOnE1Prime(g) {
 				t.Log("Mapping output not on E' curve")
@@ -116,7 +116,7 @@ func TestMapToCurve1(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
 		var u fp.Element
 		g1CoordSetString(&u, c.u)
-		q := mapToCurve1(&u)
+		q := MapToCurve1(&u)
 		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
@@ -124,12 +124,12 @@ func TestMapToCurve1(t *testing.T) {
 	for _, c := range hashToG1Vector.cases {
 		var u fp.Element
 		g1CoordSetString(&u, c.u0)
-		q := mapToCurve1(&u)
+		q := MapToCurve1(&u)
 		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g1CoordSetString(&u, c.u1)
-		q = mapToCurve1(&u)
+		q = MapToCurve1(&u)
 		g1Isogeny(&q)
 		g1TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
@@ -196,7 +196,7 @@ func BenchmarkEncodeToG1(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := EncodeToG1(bytes, dst); err != nil {
 			b.Fail()
@@ -212,7 +212,7 @@ func BenchmarkHashToG1(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := HashToG1(bytes, dst); err != nil {
 			b.Fail()

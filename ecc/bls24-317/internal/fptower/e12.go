@@ -23,7 +23,7 @@ type E12 struct {
 	C0, C1, C2 E4
 }
 
-// Equal returns true if z equals x, fasle otherwise
+// Equal returns true if z equals x, false otherwise
 func (z *E12) Equal(x *E12) bool {
 	return z.C0.Equal(&x.C0) && z.C1.Equal(&x.C1) && z.C2.Equal(&x.C2)
 }
@@ -70,7 +70,7 @@ func (z *E12) SetRandom() (*E12, error) {
 	return z, nil
 }
 
-// IsZero returns true if the two elements are equal, fasle otherwise
+// IsZero returns true if the two elements are equal, false otherwise
 func (z *E12) IsZero() bool {
 	return z.C0.IsZero() && z.C1.IsZero() && z.C2.IsZero()
 }
@@ -289,6 +289,34 @@ func (z *E12) Conjugate(x *E12) *E12 {
 	z.C1.Conjugate(&x.C1).Neg(&z.C1)
 	z.C2.Conjugate(&x.C2)
 	return z
+}
+
+// MulBy12 multiplication by sparse element (0,b1,b2)
+func (x *E12) MulBy12(b1, b2 *E4) *E12 {
+	var t1, t2, c0, tmp, c1, c2 E4
+	t1.Mul(&x.C1, b1)
+	t2.Mul(&x.C2, b2)
+	c0.Add(&x.C1, &x.C2)
+	tmp.Add(b1, b2)
+	c0.Mul(&c0, &tmp)
+	c0.Sub(&c0, &t1)
+	c0.Sub(&c0, &t2)
+	c0.MulByNonResidue(&c0)
+	c1.Add(&x.C0, &x.C1)
+	c1.Mul(&c1, b1)
+	c1.Sub(&c1, &t1)
+	tmp.MulByNonResidue(&t2)
+	c1.Add(&c1, &tmp)
+	tmp.Add(&x.C0, &x.C2)
+	c2.Mul(b2, &tmp)
+	c2.Sub(&c2, &t2)
+	c2.Add(&c2, &t1)
+
+	x.C0 = c0
+	x.C1 = c1
+	x.C2 = c2
+
+	return x
 }
 
 // MulBy01 multiplication by sparse element (c0,c1,0)

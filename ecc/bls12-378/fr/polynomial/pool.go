@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,12 +44,12 @@ type inUseData struct {
 
 type Pool struct {
 	//lock     sync.Mutex
-	inUse    map[*fr.Element]inUseData
+	inUse    sync.Map
 	subPools []sizedPool
 }
 
 func (p *sizedPool) get(n int) *fr.Element {
-	p.stats.maake(n)
+	p.stats.make(n)
 	return p.pool.Get().(*fr.Element)
 }
 
@@ -62,7 +62,6 @@ func NewPool(maxN ...int) (pool Pool) {
 
 	sort.Ints(maxN)
 	pool = Pool{
-		inUse:    make(map[*fr.Element]inUseData),
 		subPools: make([]sizedPool, len(maxN)),
 	}
 
@@ -98,9 +97,9 @@ func (p *Pool) Make(n int) []fr.Element {
 func (p *Pool) Dump(slices ...[]fr.Element) {
 	for _, slice := range slices {
 		ptr := getDataPointer(slice)
-		if metadata, ok := p.inUse[ptr]; ok {
-			delete(p.inUse, ptr)
-			metadata.pool.put(ptr)
+		if metadata, ok := p.inUse.Load(ptr); ok {
+			p.inUse.Delete(ptr)
+			metadata.(inUseData).pool.put(ptr)
 		} else {
 			panic("attempting to dump a slice not created by the pool")
 		}
@@ -111,13 +110,13 @@ func (p *Pool) addInUse(ptr *fr.Element, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
-	if prevPcs, ok := p.inUse[ptr]; ok { // TODO: remove if unnecessary for security
-		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.allocatedFor)))
+	if prevPcs, ok := p.inUse.Load(ptr); ok { // TODO: remove if unnecessary for security
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.(inUseData).allocatedFor)))
 	}
-	p.inUse[ptr] = inUseData{
+	p.inUse.Store(ptr, inUseData{
 		allocatedFor: pcs[:n],
 		pool:         pool,
-	}
+	})
 }
 
 func printFrame(frame runtime.Frame) {
@@ -126,17 +125,18 @@ func printFrame(frame runtime.Frame) {
 
 func (p *Pool) printInUse() {
 	fmt.Println("slices never dumped allocated at:")
-	for _, pcs := range p.inUse {
+	p.inUse.Range(func(_, pcs any) bool {
 		fmt.Println("-------------------------")
 
 		var frame runtime.Frame
-		frames := runtime.CallersFrames(pcs.allocatedFor)
+		frames := runtime.CallersFrames(pcs.(inUseData).allocatedFor)
 		more := true
 		for more {
 			frame, more = frames.Next()
 			printFrame(frame)
 		}
-	}
+		return true
+	})
 }
 
 type poolStats struct {
@@ -153,7 +153,7 @@ type poolsStats struct {
 	InUse    int
 }
 
-func (s *poolStats) maake(n int) {
+func (s *poolStats) make(n int) {
 	s.Used++
 	s.InUse++
 	if n > s.GreatestNUsed {
@@ -187,11 +187,11 @@ func (p *Pool) PrintPoolStats() {
 		InUse += subPool.stats.InUse
 	}
 
-	poolsStats := poolsStats{
+	stats := poolsStats{
 		SubPools: subStats,
 		InUse:    InUse,
 	}
-	serialized, _ := json.MarshalIndent(poolsStats, "", "  ")
+	serialized, _ := json.MarshalIndent(stats, "", "  ")
 	fmt.Println(string(serialized))
 	p.printInUse()
 }

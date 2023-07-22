@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ type ProofLookupTables struct {
 // that t[:][i] contains the i-th entry of the truth table, so t[0][i] XOR t[1][i] = t[2][i].
 //
 // The fr.Vector in f and t are supposed to be of the same size constant size.
-func ProveLookupTables(srs *kzg.SRS, f, t []fr.Vector) (ProofLookupTables, error) {
+func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, error) {
 
 	// res
 	proof := ProofLookupTables{}
@@ -116,7 +116,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []fr.Vector) (ProofLookupTables, error
 		}
 		d.FFTInverse(cfs[i], fft.DIF)
 		fft.BitReverse(cfs[i])
-		proof.fs[i], err = kzg.Commit(cfs[i], srs)
+		proof.fs[i], err = kzg.Commit(cfs[i], pk)
 		if err != nil {
 			return proof, err
 		}
@@ -131,7 +131,7 @@ func ProveLookupTables(srs *kzg.SRS, f, t []fr.Vector) (ProofLookupTables, error
 		}
 		d.FFTInverse(cts[i], fft.DIF)
 		fft.BitReverse(cts[i])
-		proof.ts[i], err = kzg.Commit(cts[i], srs)
+		proof.ts[i], err = kzg.Commit(cts[i], pk)
 		if err != nil {
 			return proof, err
 		}
@@ -164,20 +164,20 @@ func ProveLookupTables(srs *kzg.SRS, f, t []fr.Vector) (ProofLookupTables, error
 	foldedtSorted := make(fr.Vector, nbColumns)
 	copy(foldedtSorted, foldedt)
 	sort.Sort(foldedtSorted)
-	proof.permutationProof, err = permutation.Prove(srs, foldedt, foldedtSorted)
+	proof.permutationProof, err = permutation.Prove(pk, foldedt, foldedtSorted)
 	if err != nil {
 		return proof, err
 	}
 
 	// call plookupVector, on foldedf[:len(foldedf)-1] to ensure that the domain size
 	// in ProveLookupVector is the same as d's
-	proof.foldedProof, err = ProveLookupVector(srs, foldedf[:len(foldedf)-1], foldedt)
+	proof.foldedProof, err = ProveLookupVector(pk, foldedf[:len(foldedf)-1], foldedt)
 
 	return proof, err
 }
 
 // VerifyLookupTables verifies that a ProofLookupTables proof is correct.
-func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
+func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 
 	// hash function used for Fiat Shamir
 	hFunc := sha256.New()
@@ -221,13 +221,13 @@ func VerifyLookupTables(srs *kzg.SRS, proof ProofLookupTables) error {
 	}
 
 	// check that the folded commitment of the ts is a permutation of proof.FoldedProof.t
-	err = permutation.Verify(srs, proof.permutationProof)
+	err = permutation.Verify(vk, proof.permutationProof)
 	if err != nil {
 		return err
 	}
 
 	// verify the inner proof
-	return VerifyLookupVector(srs, proof.foldedProof)
+	return VerifyLookupVector(vk, proof.foldedProof)
 }
 
 // TODO put that in fiat-shamir package

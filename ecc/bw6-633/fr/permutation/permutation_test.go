@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,16 +20,16 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/kzg"
 )
 
 func TestProof(t *testing.T) {
 
-	srs, err := kzg.NewSRS(64, big.NewInt(13))
-	if err != nil {
-		t.Fatal(err)
-	}
+	kzgSrs, err := kzg.NewSRS(64, big.NewInt(13))
+	assert.NoError(t, err)
 
 	a := make([]fr.Element, 8)
 	b := make([]fr.Element, 8)
@@ -43,12 +43,12 @@ func TestProof(t *testing.T) {
 
 	// correct proof
 	{
-		proof, err := Prove(srs, a, b)
+		proof, err := Prove(kzgSrs.Pk, a, b)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Verify(srs, proof)
+		err = Verify(kzgSrs.Vk, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,12 +57,12 @@ func TestProof(t *testing.T) {
 	// wrong proof
 	{
 		a[0].SetRandom()
-		proof, err := Prove(srs, a, b)
+		proof, err := Prove(kzgSrs.Pk, a, b)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Verify(srs, proof)
+		err = Verify(kzgSrs.Vk, proof)
 		if err == nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func BenchmarkProver(b *testing.B) {
 	srsSize := 1 << 15
 	polySize := 1 << 14
 
-	srs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
+	kzgSrs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
 	a := make([]fr.Element, polySize)
 	c := make([]fr.Element, polySize)
 
@@ -88,7 +88,7 @@ func BenchmarkProver(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Prove(srs, a, c)
+		Prove(kzgSrs.Pk, a, c)
 	}
 
 }

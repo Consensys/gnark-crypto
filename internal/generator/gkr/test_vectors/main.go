@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,18 +25,14 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
+	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
 )
 
 func main() {
-	if err := func() error {
-		if err := GenerateVectors(); err != nil {
-			return err
-		}
-		return test_vector_utils.SaveUsedHashEntries()
-	}(); err != nil {
+	if err := GenerateVectors(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(-1)
 	}
@@ -76,8 +72,10 @@ func run(absPath string) error {
 		return err
 	}
 
+	transcriptSetting := fiatshamir.WithHash(testCase.Hash)
+
 	var proof gkr.Proof
-	proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, testCase.transcriptSetting())
+	proof, err = gkr.Prove(testCase.Circuit, testCase.FullAssignment, transcriptSetting)
 	if err != nil {
 		return err
 	}
@@ -99,7 +97,7 @@ func run(absPath string) error {
 		return err
 	}
 
-	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting())
+	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, transcriptSetting)
 	if err != nil {
 		return err
 	}
@@ -109,7 +107,7 @@ func run(absPath string) error {
 		return err
 	}
 
-	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, testCase.transcriptSetting([]byte{0, 1}))
+	err = gkr.Verify(testCase.Circuit, testCase.InOutAssignment, proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(2, 0)))
 	if err == nil {
 		return fmt.Errorf("bad proof accepted")
 	}
@@ -133,6 +131,8 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	}
 	return res, nil
 }
+
+var Gates = gkr.Gates
 
 type WireInfo struct {
 	Gate   string `json:"gate"`
@@ -169,7 +169,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Gate = Gates[c[i].Gate]
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -179,14 +179,9 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	return
 }
 
-var gates map[string]gkr.Gate
-
 func init() {
-	gates = make(map[string]gkr.Gate)
-	gates["identity"] = gkr.IdentityGate{}
-	gates["mul"] = mulGate{}
-	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	gates["select-input-3"] = _select(2)
+	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -250,7 +245,7 @@ func unmarshalProof(printable PrintableProof) (gkr.Proof, error) {
 
 type TestCase struct {
 	Circuit         gkr.Circuit
-	Hash            *test_vector_utils.ElementMap
+	Hash            hash.Hash
 	Proof           gkr.Proof
 	FullAssignment  gkr.WireAssignment
 	InOutAssignment gkr.WireAssignment
@@ -258,11 +253,11 @@ type TestCase struct {
 }
 
 type TestCaseInfo struct {
-	Hash    string          `json:"hash"`
-	Circuit string          `json:"circuit"`
-	Input   [][]interface{} `json:"input"`
-	Output  [][]interface{} `json:"output"`
-	Proof   PrintableProof  `json:"proof"`
+	Hash    test_vector_utils.HashDescription `json:"hash"`
+	Circuit string                            `json:"circuit"`
+	Input   [][]interface{}                   `json:"input"`
+	Output  [][]interface{}                   `json:"output"`
+	Proof   PrintableProof                    `json:"proof"`
 }
 
 var testCases = make(map[string]*TestCase)
@@ -288,8 +283,8 @@ func newTestCase(path string) (*TestCase, error) {
 			if circuit, err = getCircuit(filepath.Join(dir, info.Circuit)); err != nil {
 				return nil, err
 			}
-			var _hash *test_vector_utils.ElementMap
-			if _hash, err = test_vector_utils.ElementMapFromFile(filepath.Join(dir, info.Hash)); err != nil {
+			var _hash hash.Hash
+			if _hash, err = test_vector_utils.HashFromDescription(info.Hash); err != nil {
 				return nil, err
 			}
 			var proof gkr.Proof
@@ -357,21 +352,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-func (c *TestCase) transcriptSetting(initialChallenge ...[]byte) fiatshamir.Settings {
-	return fiatshamir.WithHash(&test_vector_utils.MapHash{Map: c.Hash}, initialChallenge...)
-}
-
-type mulGate struct{}
-
-func (g mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (g mulGate) Degree() int {
-	return 2
 }
 
 type _select int

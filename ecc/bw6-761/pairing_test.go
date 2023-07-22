@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,8 +50,7 @@ func TestPairing(t *testing.T) {
 
 	properties.Property("[BW6-761] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
-			b := a
-			b = FinalExponentiation(&a)
+			b := FinalExponentiation(&a)
 			a = FinalExponentiation(&a)
 			return a.Equal(&b)
 		},

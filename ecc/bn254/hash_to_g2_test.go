@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ func TestMapToCurve2(t *testing.T) {
 	properties.Property("[G2] mapping output must be on curve", prop.ForAll(
 		func(a fptower.E2) bool {
 
-			g := mapToCurve2(&a)
+			g := MapToCurve2(&a)
 
 			if !g.IsOnCurve() {
 				t.Log("SVDW output not on curve")
@@ -76,18 +76,18 @@ func TestMapToCurve2(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u)
-		q := mapToCurve2(&u)
+		q := MapToCurve2(&u)
 		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
 	for _, c := range hashToG2Vector.cases {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u0)
-		q := mapToCurve2(&u)
+		q := MapToCurve2(&u)
 		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g2CoordSetString(&u, c.u1)
-		q = mapToCurve2(&u)
+		q = MapToCurve2(&u)
 		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
@@ -153,7 +153,7 @@ func BenchmarkEncodeToG2(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := EncodeToG2(bytes, dst); err != nil {
 			b.Fail()
@@ -169,7 +169,7 @@ func BenchmarkHashToG2(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 
-		bytes[rand.Int()%size] = byte(rand.Int())
+		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
 		if _, err := HashToG2(bytes, dst); err != nil {
 			b.Fail()

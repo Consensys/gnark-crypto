@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"bytes"
 	"io"
+	"reflect"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -40,27 +41,33 @@ func TestEncoder(t *testing.T) {
 	var inH []G2Affine
 	var inI []fp.Element
 	var inJ []fr.Element
+	var inK fr.Vector
+	var inL [][]fr.Element
+	var inM [][]uint64
 
 	// set values of inputs
-	inA = rand.Uint64()
+	inA = rand.Uint64() //#nosec G404 weak rng is fine here
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
 	inI = make([]fp.Element, 3)
 	inI[2] = inD.X
 	inJ = make([]fr.Element, 0)
-
+	inK = make(fr.Vector, 42)
+	inK[41].SetUint64(42)
+	inL =[][]fr.Element {inJ, inK}
+	inM = [][]uint64{ {1, 2}, {4}, {} }
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -85,8 +92,11 @@ func TestEncoder(t *testing.T) {
 		var outH []G2Affine
 		var outI []fp.Element
 		var outJ []fr.Element
+		var outK fr.Vector
+		var outL [][]fr.Element
+		var outM [][]uint64
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -122,6 +132,15 @@ func TestEncoder(t *testing.T) {
 			if !inI[i].Equal(&outI[i]) {
 				t.Fatal("decode(encode(slice(elements))) failed")
 			}
+		}
+		if !reflect.DeepEqual(inK, outK) {
+			t.Fatal("decode(encode(vector)) failed")
+		}
+		if !reflect.DeepEqual(inL, outL) {
+			t.Fatal("decode(encode(slice²(elements))) failed")
+		}
+		if !reflect.DeepEqual(inM, outM) {
+			t.Fatal("decode(encode(slice²(uint64))) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
@@ -206,13 +225,37 @@ func TestIsCompressed(t *testing.T) {
 }
 
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
+{{- $FpUnusedBits := .FpUnusedBits}}
 
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "FpUnusedBits" $FpUnusedBits}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "FpUnusedBits" $FpUnusedBits}}
 
 
 {{define "marshalpoint"}}
 
+
+
+{{if ge $.FpUnusedBits 3}}
+func Test{{ $.TAffine }}InvalidBitMask(t *testing.T) {
+	t.Parallel()
+	var buf [SizeOf{{ $.TAffine }}Compressed]byte
+	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+
+	var p {{ $.TAffine }}
+	buf[0] = 0b111 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b011 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+	buf[0] = 0b001 << 5
+	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
+		t.Fatal("should error on invalid bit mask")
+	}
+}
+{{- end}}
 
 
 func Test{{ $.TAffine }}Serialization(t *testing.T) {
@@ -308,8 +351,6 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 		GenFp(),
 	))
 
-
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -322,11 +363,11 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-		
+
 		if _, err := elmt.SetRandom(); err != nil {
 			panic(err)
 		}
-		
+
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
 }
@@ -335,11 +376,11 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-		
+
 		if _, err := elmt.SetRandom(); err != nil {
 			panic(err)
 		}
-		
+
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
 }
@@ -442,7 +483,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

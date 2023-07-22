@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -340,7 +340,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 			Mul(&res[_i], &numLn[i%2])
 	}
 
-	domainBig.FFTInverse(res, fft.DIT, true)
+	domainBig.FFTInverse(res, fft.DIT, fft.OnCoset())
 
 	return res
 }
@@ -349,11 +349,11 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 //
 // /!\IMPORTANT/!\
 //
-// If the table t is already commited somewhere (which is the normal workflow
+// If the table t is already committed somewhere (which is the normal workflow
 // before generating a lookup proof), the commitment needs to be done on the
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
-func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) {
+func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, error) {
 
 	// res
 	var proof ProofLookupVector
@@ -401,11 +401,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	domainSmall.FFTInverse(cf, fft.DIF)
 	fft.BitReverse(ct)
 	fft.BitReverse(cf)
-	proof.t, err = kzg.Commit(ct, srs)
+	proof.t, err = kzg.Commit(ct, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.f, err = kzg.Commit(cf, srs)
+	proof.f, err = kzg.Commit(cf, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -431,11 +431,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	fft.BitReverse(ch1)
 	fft.BitReverse(ch2)
 
-	proof.h1, err = kzg.Commit(ch1, srs)
+	proof.h1, err = kzg.Commit(ch1, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.h2, err = kzg.Commit(ch2, srs)
+	proof.h2, err = kzg.Commit(ch2, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -456,7 +456,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	copy(cz, lz)
 	domainSmall.FFTInverse(cz, fft.DIF)
 	fft.BitReverse(cz)
-	proof.z, err = kzg.Commit(cz, srs)
+	proof.z, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -476,11 +476,11 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 	copy(_lh2, ch2)
 	copy(_lt, ct)
 	copy(_lf, cf)
-	domainBig.FFT(_lz, fft.DIF, true)
-	domainBig.FFT(_lh1, fft.DIF, true)
-	domainBig.FFT(_lh2, fft.DIF, true)
-	domainBig.FFT(_lt, fft.DIF, true)
-	domainBig.FFT(_lf, fft.DIF, true)
+	domainBig.FFT(_lz, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lh1, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lh2, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lt, fft.DIF, fft.OnCoset())
+	domainBig.FFT(_lf, fft.DIF, fft.OnCoset())
 
 	// compute h
 	lh := evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf, beta, gamma, domainBig)
@@ -500,7 +500,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		return proof, err
 	}
 	ch := computeQuotientCanonical(alpha, lh, lh0, lhn, lh1h2, domainBig)
-	proof.h, err = kzg.Commit(ch, srs)
+	proof.h, err = kzg.Commit(ch, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -529,7 +529,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		},
 		nu,
 		hFunc,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -551,7 +551,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 		},
 		nu,
 		hFunc,
-		srs,
+		pk,
 	)
 	if err != nil {
 		return proof, err
@@ -561,7 +561,7 @@ func ProveLookupVector(srs *kzg.SRS, f, t fr.Vector) (ProofLookupVector, error) 
 }
 
 // VerifyLookupVector verifies that a ProofLookupVector proof is correct
-func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
+func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 
 	// hash function that is used for Fiat Shamir
 	hFunc := sha256.New()
@@ -603,7 +603,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		&proof.BatchedProof,
 		nu,
 		hFunc,
-		srs,
+		vk,
 	)
 	if err != nil {
 		return err
@@ -622,7 +622,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 		&proof.BatchedProofShifted,
 		shiftedNu,
 		hFunc,
-		srs,
+		vk,
 	)
 	if err != nil {
 		return err
@@ -673,7 +673,7 @@ func VerifyLookupVector(srs *kzg.SRS, proof ProofLookupVector) error {
 
 	lhs.Sub(&lhs, &rhs)
 
-	// check consistancy of bounds
+	// check consistency of bounds
 	var l0, ln, d1, d2 fr.Element
 	l0.Exp(nu, big.NewInt(int64(proof.size))).Sub(&l0, &one)
 	ln.Set(&l0)

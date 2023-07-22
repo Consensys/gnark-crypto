@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,19 +35,19 @@ func TestLookupVector(t *testing.T) {
 		fvector[i].Set(&lookupVector[(4*i+1)%8])
 	}
 
-	srs, err := kzg.NewSRS(64, big.NewInt(13))
+	kzgSrs, err := kzg.NewSRS(64, big.NewInt(13))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// correct proof vector
 	{
-		proof, err := ProveLookupVector(srs, fvector, lookupVector)
+		proof, err := ProveLookupVector(kzgSrs.Pk, fvector, lookupVector)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = VerifyLookupVector(srs, proof)
+		err = VerifyLookupVector(kzgSrs.Vk, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,12 +57,12 @@ func TestLookupVector(t *testing.T) {
 	{
 		fvector[0].SetRandom()
 
-		proof, err := ProveLookupVector(srs, fvector, lookupVector)
+		proof, err := ProveLookupVector(kzgSrs.Pk, fvector, lookupVector)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = VerifyLookupVector(srs, proof)
+		err = VerifyLookupVector(kzgSrs.Vk, proof)
 		if err == nil {
 			t.Fatal(err)
 		}
@@ -72,7 +72,7 @@ func TestLookupVector(t *testing.T) {
 
 func TestLookupTable(t *testing.T) {
 
-	srs, err := kzg.NewSRS(64, big.NewInt(13))
+	kzgSrs, err := kzg.NewSRS(64, big.NewInt(13))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,12 +92,12 @@ func TestLookupTable(t *testing.T) {
 
 	// correct proof
 	{
-		proof, err := ProveLookupTables(srs, fTable, lookupTable)
+		proof, err := ProveLookupTables(kzgSrs.Pk, fTable, lookupTable)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = VerifyLookupTables(srs, proof)
+		err = VerifyLookupTables(kzgSrs.Vk, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,12 +106,12 @@ func TestLookupTable(t *testing.T) {
 	// wrong proof
 	{
 		fTable[0][0].SetRandom()
-		proof, err := ProveLookupTables(srs, fTable, lookupTable)
+		proof, err := ProveLookupTables(kzgSrs.Pk, fTable, lookupTable)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = VerifyLookupTables(srs, proof)
+		err = VerifyLookupTables(kzgSrs.Vk, proof)
 		if err == nil {
 			t.Fatal(err)
 		}
@@ -124,7 +124,7 @@ func BenchmarkPlookup(b *testing.B) {
 	srsSize := 1 << 15
 	polySize := 1 << 14
 
-	srs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
+	kzgSrs, _ := kzg.NewSRS(uint64(srsSize), big.NewInt(13))
 	a := make(fr.Vector, polySize)
 	c := make(fr.Vector, polySize)
 
@@ -135,6 +135,6 @@ func BenchmarkPlookup(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ProveLookupVector(srs, a, c)
+		ProveLookupVector(kzgSrs.Pk, a, c)
 	}
 }

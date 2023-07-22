@@ -372,7 +372,8 @@ func TestElementReduce(t *testing.T) {
 	testValues := make([]Element, len(staticTestValues))
 	copy(testValues, staticTestValues)
 
-	for _, s := range testValues {
+	for i := range testValues {
+		s := testValues[i]
 		expected := s
 		reduce(&s)
 		_reduceGeneric(&expected)
@@ -756,7 +757,8 @@ func TestElementAdd(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -791,11 +793,12 @@ func TestElementAdd(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -865,7 +868,8 @@ func TestElementSub(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -900,11 +904,12 @@ func TestElementSub(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -974,7 +979,8 @@ func TestElementMul(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1028,11 +1034,12 @@ func TestElementMul(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1110,7 +1117,8 @@ func TestElementDiv(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1146,11 +1154,12 @@ func TestElementDiv(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1221,7 +1230,8 @@ func TestElementExp(t *testing.T) {
 			testValues := make([]Element, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int
 				r.BigInt(&rb)
 
@@ -1256,11 +1266,12 @@ func TestElementExp(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
@@ -1332,7 +1343,8 @@ func TestElementSquare(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1404,7 +1416,8 @@ func TestElementInverse(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1476,7 +1489,8 @@ func TestElementSqrt(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1548,7 +1562,8 @@ func TestElementDouble(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -1620,7 +1635,8 @@ func TestElementNeg(t *testing.T) {
 		testValues := make([]Element, len(staticTestValues))
 		copy(testValues, staticTestValues)
 
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c Element
@@ -2274,7 +2290,7 @@ func (z *Element) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt *big.Int)
 	}
 }
 
-// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+// bigIntMatchUint64Slice is a test helper to match big.Int words against a uint64 slice
 func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	words := aInt.Bits()
@@ -2306,7 +2322,7 @@ func TestElementInversionApproximation(t *testing.T) {
 		x.SetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
-		xZeros := mrand.Int() % Limbs
+		xZeros := mrand.Int() % Limbs //#nosec G404 weak rng is fine here
 		for j := 1; j < xZeros; j++ {
 			x[Limbs-j] = 0
 		}
@@ -2348,7 +2364,7 @@ func TestElementLinearComb(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
 		y.SetRandom()
-		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63())
+		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
 	}
 }
 
@@ -2406,13 +2422,13 @@ func TestElementBigNumWMul(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
-		w := mrand.Int63()
+		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
 	}
 }
 
 func TestElementVeryBigIntConversion(t *testing.T) {
-	xHi := mrand.Uint64()
+	xHi := mrand.Uint64() //#nosec G404 weak rng is fine here
 	var x Element
 	x.SetRandom()
 	var xInt big.Int
@@ -2680,7 +2696,7 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 
 func randomizeUpdateFactor(absLimit uint32) int64 {
 	const maxSizeLikelihood = 10
-	maxSize := mrand.Intn(maxSizeLikelihood)
+	maxSize := mrand.Intn(maxSizeLikelihood) //#nosec G404 weak rng is fine here
 
 	absLimit64 := int64(absLimit)
 	var f int64
@@ -2690,7 +2706,7 @@ func randomizeUpdateFactor(absLimit uint32) int64 {
 	case 1:
 		f = -absLimit64
 	default:
-		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64
+		f = int64(mrand.Uint64()%(2*uint64(absLimit64)+1)) - absLimit64 //#nosec G404 weak rng is fine here
 	}
 
 	if f > 1<<31 {
@@ -2715,7 +2731,7 @@ func abs64T32(f int64) uint32 {
 
 func randomizeUpdateFactors() (int64, int64) {
 	var f [2]int64
-	b := mrand.Int() % 2
+	b := mrand.Int() % 2 //#nosec G404 weak rng is fine here
 
 	f[b] = randomizeUpdateFactor(1 << 31)
 
@@ -2724,7 +2740,7 @@ func randomizeUpdateFactors() (int64, int64) {
 
 	//Patching another edge case
 	if f[0]+f[1] == -1<<31 {
-		b = mrand.Int() % 2
+		b = mrand.Int() % 2 //#nosec G404 weak rng is fine here
 		f[b]++
 	}
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/hash"
 	"github.com/consensys/gnark-crypto/field/pool"
+	"github.com/bits-and-blooms/bitset"
 )
 
 // {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
@@ -197,17 +198,6 @@ func (z *{{.ElementName}}) Div( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-// Bit returns the i'th bit, with lsb == bit 0.
-//
-// It is the responsibility of the caller to convert from Montgomery to Regular form if needed.
-func (z *{{.ElementName}}) Bit(i uint64) uint64 {
-	j := i / 64
-	if j >= {{.NbWords}} {
-		return 0
-	}
-	return uint64(z[j] >> (i % 64) & 1)
-}
-
 // Equal returns z == x; constant-time
 func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 	return z.NotEqual(x) == 0
@@ -228,7 +218,7 @@ func (z *{{.ElementName}}) IsOne() bool {
 	{{- if eq .NbWords 1}}
 	return z[0] == {{index $.One 0}}
 	{{- else}}
-	return ( {{- range $i := reverse .NbWordsIndexesNoZero }} z[{{$i}}] ^ {{index $.One $i}} | {{- end}} z[0] ^ {{index $.One 0}} ) == 0
+	return ( {{- range $i := reverse .NbWordsIndexesNoZero -}}{{if ne (index $.One $i) 0}}z[{{$i}}] ^ {{index $.One $i}} | {{else}}z[{{$i}}] | {{end}}{{- end}}z[0] ^ {{index $.One 0}} ) == 0
 	{{- end}}
 }
 
@@ -327,7 +317,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 			return nil, err
 		}
 
-		// Clear unused bits in in the most signicant byte to increase probability
+		// Clear unused bits in in the most significant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
 
@@ -575,12 +565,12 @@ func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
 		return res
 	}
 
-	zeroes := make([]bool, len(a))
+	zeroes := bitset.New(uint(len(a)))
 	accumulator := One()
 
 	for i:=0; i < len(a); i++ {
 		if a[i].IsZero() {
-			zeroes[i] = true
+			zeroes.Set(uint(i))
 			continue
 		}
 		res[i] = accumulator
@@ -590,7 +580,7 @@ func BatchInvert(a []{{.ElementName}}) []{{.ElementName}} {
 	accumulator.Inverse(&accumulator)
 
 	for i := len(a) - 1; i >= 0; i-- {
-		if zeroes[i] {
+		if zeroes.Test(uint(i)) {
 			continue
 		}
 		res[i].Mul(&res[i], &accumulator)
