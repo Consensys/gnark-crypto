@@ -101,6 +101,14 @@ func (p *Polynomial) BlindedSize() int {
 	return p.blindedSize
 }
 
+// Size returns the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.Size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
+func (p *Polynomial) Size() int {
+	return p.size
+}
+
 // SetSize sets the size of the polynomial.
 // size is the real size of the polynomial (seen as a vector).
 // For instance if len(P)=32 but P.size=8, it means that P has been
