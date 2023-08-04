@@ -101,6 +101,20 @@ func (p *Polynomial) BlindedSize() int {
 	return p.blindedSize
 }
 
+// SetSize sets the size of the polynomial.
+// size is the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
+func (p *Polynomial) SetSize(size int) {
+	p.size = size
+}
+
+// SetBlindedSize sets the blinded size of the polynomial.
+func (p *Polynomial) SetBlindedSize(size int) {
+	p.blindedSize = size
+}
+
 // Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
 // where deg Q = blindingOrder and Q is random, and n is the
 // size of q. Sets the result to p and returns it.
