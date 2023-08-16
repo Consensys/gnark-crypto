@@ -53,12 +53,10 @@ type Domain struct {
 	// we precompute these mostly to avoid the memory intensive bit reverse permutation in the groth16.Prover
 
 	// CosetTable u*<1,g,..,g^(n-1)>
-	CosetTable         []fr.Element
-	CosetTableReversed []fr.Element // optional, this is computed on demand at the creation of the domain
+	CosetTable []fr.Element
 
 	// CosetTable[i][j] = domain.Generator(i-th)SqrtInv ^ j
-	CosetTableInv         []fr.Element
-	CosetTableInvReversed []fr.Element // optional, this is computed on demand at the creation of the domain
+	CosetTableInv []fr.Element
 }
 
 // NewDomain returns a subgroup with a power of 2 cardinality
@@ -90,9 +88,6 @@ func NewDomain(m uint64, shift ...fr.Element) *Domain {
 	// twiddle factors
 	domain.preComputeTwiddles()
 
-	// store the bit reversed coset tables
-	domain.reverseCosetTables()
-
 	return domain
 }
 
@@ -116,15 +111,6 @@ func Generator(m uint64) (fr.Element, error) {
 	var generator fr.Element
 	generator.Exp(rootOfUnity, big.NewInt(int64(expo))) // order x
 	return generator, nil
-}
-
-func (d *Domain) reverseCosetTables() {
-	d.CosetTableReversed = make([]fr.Element, d.Cardinality)
-	d.CosetTableInvReversed = make([]fr.Element, d.Cardinality)
-	copy(d.CosetTableReversed, d.CosetTable)
-	copy(d.CosetTableInvReversed, d.CosetTableInv)
-	BitReverse(d.CosetTableReversed)
-	BitReverse(d.CosetTableInvReversed)
 }
 
 func (d *Domain) preComputeTwiddles() {
@@ -252,9 +238,6 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	// twiddle factors
 	d.preComputeTwiddles()
 
-	// store the bit reversed coset tables if needed
-	d.reverseCosetTables()
-
 	return dec.BytesRead(), nil
 }
 
@@ -278,8 +261,6 @@ func (d *Domain) AsyncReadFrom(r io.Reader) (int64, error, chan struct{}) {
 		// twiddle factors
 		d.preComputeTwiddles()
 
-		// store the bit reversed coset tables if needed
-		d.reverseCosetTables()
 		close(chDone)
 	}()
 
