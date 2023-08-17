@@ -1,6 +1,6 @@
 ---
-name: bug template
-about: common bug template
+name: Bug report
+about: Standard bug report template
 title: 'bug: ...'
 labels: ''
 assignees: ''
