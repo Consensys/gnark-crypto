@@ -2,8 +2,14 @@ package small_rational
 
 import (
 	"github.com/stretchr/testify/assert"
+	"math/big"
 	"testing"
 )
+
+func TestBigDivides(t *testing.T) {
+	assert.True(t, bigDivides(big.NewInt(-1), big.NewInt(4)))
+	assert.False(t, bigDivides(big.NewInt(-3), big.NewInt(4)))
+}
 
 func TestCmp(t *testing.T) {
 
