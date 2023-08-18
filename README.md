@@ -82,11 +82,11 @@ Please use the following BibTeX to cite the most recent release.
                   Arya Tabaie and
                   Gus Gutoski and
                   Ivo Kubjas},
-  title        = {ConsenSys/gnark-crypto: v0.9.0},
+  title        = {ConsenSys/gnark-crypto: v0.11.2},
   month        = jan,
   year         = 2023,
   publisher    = {Zenodo},
-  version      = {v0.9.0},
+  version      = {v0.11.2},
   doi          = {10.5281/zenodo.5815453},
   url          = {https://doi.org/10.5281/zenodo.5815453}
 }
