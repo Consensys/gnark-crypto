@@ -146,12 +146,12 @@ func BenchmarkPedersenArray(b *testing.B) {
 func BenchmarkPedersen(b *testing.B) {
 	e0, err := new(fp.Element).SetString("0x3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
 	if err != nil {
-		b.Errorf("Error occured %s", err)
+		b.Errorf("Error occurred %s", err)
 	}
 
 	e1, err := new(fp.Element).SetString("0x208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
 	if err != nil {
-		b.Errorf("Error occured %s", err)
+		b.Errorf("Error occurred %s", err)
 	}
 
 	var f fp.Element

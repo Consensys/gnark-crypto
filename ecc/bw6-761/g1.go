@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1143,7 +1143,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 					continue
 				}
 
-				// if msbWindow bit is set, we need to substract
+				// if msbWindow bit is set, we need to subtract
 				if digit&1 == 0 {
 					// add
 					p.AddMixed(&baseTableAff[(digit>>1)-1])

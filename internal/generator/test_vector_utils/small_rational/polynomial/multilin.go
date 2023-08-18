@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -173,12 +173,12 @@ func (m *MultiLin) Eq(q []small_rational.SmallRational) {
 	}
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
-	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+	for i := range q { // In the comments we use a 1-based index so q[i] = qᵢ₊₁
 		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
 		for j := 0; j < (1 << i); j++ {
 			j0 := j << (n - i)                 // bᵢ₊₁ = 0
 			j1 := j0 + 1<<(n-1-i)              // bᵢ₊₁ = 1
-			(*m)[j1].Mul(&qI, &(*m)[j0])       // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+			(*m)[j1].Mul(&q[i], &(*m)[j0])     // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
 			(*m)[j0].Sub(&(*m)[j0], &(*m)[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 		}
 	}

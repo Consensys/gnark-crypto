@@ -380,7 +380,8 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 	testValues := make([]{{.ElementName}}, len(staticTestValues))
 	copy(testValues, staticTestValues)
 
-	for _, s := range testValues {
+	for i := range testValues {
+		s := testValues[i]
 		expected := s
 		reduce(&s)
 		_reduceGeneric(&expected)
@@ -807,7 +808,8 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			testValues := make([]{{.all.ElementName}}, len(staticTestValues))
 			copy(testValues, staticTestValues)
 
-			for _, r := range testValues {
+			for i := range testValues {
+				r := testValues[i]
 				var d, e, rb big.Int 
 				r.BigInt(&rb) 
 
@@ -878,11 +880,12 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		testValues := make([]{{.all.ElementName}}, len(staticTestValues))
 		copy(testValues, staticTestValues)
 	
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
-			for _, b := range testValues {
-
+			for j := range testValues {
+				b := testValues[j]
 				var bBig, d, e big.Int 
 				b.BigInt(&bBig)
 
@@ -1009,7 +1012,8 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		testValues := make([]{{.all.ElementName}}, len(staticTestValues))
 		copy(testValues, staticTestValues)
 	
-		for _, a := range testValues {
+		for i := range testValues {
+			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c {{.all.ElementName}}
@@ -1661,7 +1665,7 @@ func (z *{{.ElementName}}) assertMatchVeryBigInt(t *testing.T, aHi uint64, aInt 
 }
 
 
-// bigIntMatchUint64Slice is a test helper to match big.Int words againt a uint64 slice
+// bigIntMatchUint64Slice is a test helper to match big.Int words against a uint64 slice
 func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	words := aInt.Bits()

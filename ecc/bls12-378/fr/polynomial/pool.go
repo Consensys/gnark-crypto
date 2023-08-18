@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ type Pool struct {
 }
 
 func (p *sizedPool) get(n int) *fr.Element {
-	p.stats.maake(n)
+	p.stats.make(n)
 	return p.pool.Get().(*fr.Element)
 }
 
@@ -153,7 +153,7 @@ type poolsStats struct {
 	InUse    int
 }
 
-func (s *poolStats) maake(n int) {
+func (s *poolStats) make(n int) {
 	s.Used++
 	s.InUse++
 	if n > s.GreatestNUsed {
@@ -187,11 +187,11 @@ func (p *Pool) PrintPoolStats() {
 		InUse += subPool.stats.InUse
 	}
 
-	poolsStats := poolsStats{
+	stats := poolsStats{
 		SubPools: subStats,
 		InUse:    InUse,
 	}
-	serialized, _ := json.MarshalIndent(poolsStats, "", "  ")
+	serialized, _ := json.MarshalIndent(stats, "", "  ")
 	fmt.Println(string(serialized))
 	p.printInUse()
 }

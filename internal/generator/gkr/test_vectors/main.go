@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,6 +132,8 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
+var Gates = gkr.Gates
+
 type WireInfo struct {
 	Gate   string `json:"gate"`
 	Inputs []int  `json:"inputs"`
@@ -167,7 +169,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Gate = Gates[c[i].Gate]
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -177,14 +179,9 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	return
 }
 
-var gates map[string]gkr.Gate
-
 func init() {
-	gates = make(map[string]gkr.Gate)
-	gates["identity"] = gkr.IdentityGate{}
-	gates["mul"] = mulGate{}
-	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	gates["select-input-3"] = _select(2)
+	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -355,17 +352,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-type mulGate struct{}
-
-func (g mulGate) Evaluate(element ...small_rational.SmallRational) (result small_rational.SmallRational) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (g mulGate) Degree() int {
-	return 2
 }
 
 type _select int

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -161,11 +161,10 @@ func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error)
 	}
 
 	// compute H
+	// h reuses memory from _p
 	_p := make([]fr.Element, len(p))
 	copy(_p, p)
 	h := dividePolyByXminusA(_p, res.ClaimedValue, point)
-
-	_p = nil // h re-use this memory
 
 	// commit to H
 	hCommit, err := Commit(h, pk)
@@ -278,7 +277,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	}()
 
 	// compute ∑ᵢγⁱfᵢ
-	// note: if we are willing to paralellize that, we could clone the poly and scale them by
+	// note: if we are willing to parallelize that, we could clone the poly and scale them by
 	// gamma n in parallel, before reducing into foldedPolynomials
 	foldedPolynomials := make([]fr.Element, largestPoly)
 	copy(foldedPolynomials, polynomials[0])
@@ -541,7 +540,7 @@ func dividePolyByXminusA(f []fr.Element, fa, a fr.Element) []fr.Element {
 	// first we compute f-f(a)
 	f[0].Sub(&f[0], &fa)
 
-	// now we use syntetic division to divide by x-a
+	// now we use synthetic division to divide by x-a
 	var t fr.Element
 	for i := len(f) - 2; i >= 0; i-- {
 		t.Mul(&f[i+1], &a)

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -182,8 +182,8 @@ func (p *PointAffine) IsOnCurve() bool {
 
 // Neg sets p to -p1 and returns it
 func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
-	p.Set(p1)
-	p.X.Neg(&p.X)
+	p.X.Neg(&p1.X)
+	p.Y = p1.Y
 	return p
 }
 
@@ -313,8 +313,9 @@ func (p *PointProj) IsZero() bool {
 // Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointProj) Neg(p1 *PointProj) *PointProj {
-	p.Set(p1)
-	p.X.Neg(&p.X)
+	p.X.Neg(&p1.X)
+	p.Y = p1.Y
+	p.Z = p1.Z
 	return p
 }
 
@@ -470,9 +471,10 @@ func (p *PointExtended) Equal(p1 *PointExtended) bool {
 // Neg negates point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointExtended) Neg(p1 *PointExtended) *PointExtended {
-	p.Set(p1)
-	p.X.Neg(&p.X)
-	p.T.Neg(&p.T)
+	p.X.Neg(&p1.X)
+	p.Y = p1.Y
+	p.Z = p1.Z
+	p.T.Neg(&p1.T)
 	return p
 }
 

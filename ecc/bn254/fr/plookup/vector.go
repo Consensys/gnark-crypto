@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -349,7 +349,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 //
 // /!\IMPORTANT/!\
 //
-// If the table t is already commited somewhere (which is the normal workflow
+// If the table t is already committed somewhere (which is the normal workflow
 // before generating a lookup proof), the commitment needs to be done on the
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
@@ -673,7 +673,7 @@ func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 
 	lhs.Sub(&lhs, &rhs)
 
-	// check consistancy of bounds
+	// check consistency of bounds
 	var l0, ln, d1, d2 fr.Element
 	l0.Exp(nu, big.NewInt(int64(proof.size))).Sub(&l0, &one)
 	ln.Set(&l0)

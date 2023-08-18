@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ func TestPolynomialAdd(t *testing.T) {
 		t.Fatal("side effect, f2 should not have been modified")
 	}
 
-	// all operands are distincts
+	// all operands are distinct
 	_f1 := f1.Clone()
 	_f1.Add(f1, f2)
 	if !_f1.Equal(expectedSum) {

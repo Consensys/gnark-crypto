@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 	var pub PublicKey
 	var priv PrivateKey
 	// The source of randomness and the secret scalar must come
-	// from 2 distincts sources. Since the scalar is the size of the
+	// from 2 distinct sources. Since the scalar is the size of the
 	// field of definition (48 bytes), the scalar must come from a
 	// different digest so there is no overlap between the source of
 	// randomness and the scalar.

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -207,7 +207,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   mulGate{},
+		Gate:   Gates["mul"],
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -337,7 +337,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   mulGate{},
+			Gate:   Gates["mul"],
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -529,7 +529,7 @@ func getCircuit(path string) (Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	circuit = make(Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = gates[c[i].Gate]
+		circuit[i].Gate = Gates[c[i].Gate]
 		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -539,14 +539,9 @@ func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	return
 }
 
-var gates map[string]Gate
-
 func init() {
-	gates = make(map[string]Gate)
-	gates["identity"] = IdentityGate{}
-	gates["mul"] = mulGate{}
-	gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	gates["select-input-3"] = _select(2)
+	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
+	Gates["select-input-3"] = _select(2)
 }
 
 type mimcCipherGate struct {
@@ -715,17 +710,6 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-type mulGate struct{}
-
-func (g mulGate) Evaluate(element ...fr.Element) (result fr.Element) {
-	result.Mul(&element[0], &element[1])
-	return
-}
-
-func (g mulGate) Degree() int {
-	return 2
 }
 
 type _select int

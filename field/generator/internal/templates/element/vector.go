@@ -6,6 +6,11 @@ import (
 	"encoding/binary"
 	"strings"
 	"bytes"
+	"runtime"
+	"unsafe"
+	"sync"
+	"sync/atomic"
+	"fmt"
 )
 
 // Vector represents a slice of {{.ElementName}}.
@@ -29,11 +34,12 @@ func (vector *Vector) MarshalBinary() (data []byte, err error) {
 	return buf.Bytes(), nil
 }
 
+
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (vector *Vector) UnmarshalBinary(data []byte) error {
 	r := bytes.NewReader(data)
 	_, err := vector.ReadFrom(r)
-    return err 
+	return err
 }
 
 // WriteTo implements io.WriterTo and writes a vector of big endian encoded {{.ElementName}}.
@@ -56,6 +62,73 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 		} 
 	}
 	return n, nil
+}
+
+// AsyncReadFrom reads a vector of big endian encoded {{.ElementName}}.
+// Length of the vector must be encoded as a uint32 on the first 4 bytes.
+// It consumes the needed bytes from the reader and returns the number of bytes read and an error if any.
+// It also returns a channel that will be closed when the validation is done.
+// The validation consist of checking that the elements are smaller than the modulus, and
+// converting them to montgomery form.
+func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
+	chErr := make(chan error, 1)
+	var buf [Bytes]byte 
+	if read, err := io.ReadFull(r, buf[:4]); err != nil {
+		close(chErr)
+        return int64(read), err, chErr
+    }
+	sliceLen := binary.BigEndian.Uint32(buf[:4])
+
+    n := int64(4)
+	(*vector) = make(Vector, sliceLen)
+	if sliceLen == 0 {
+		close(chErr)
+		return n, nil, chErr
+	}
+
+	bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[0])), sliceLen*Bytes)
+	read, err := io.ReadFull(r, bSlice)
+	n += int64(read)
+	if err != nil {
+		close(chErr)
+		return n, err, chErr
+	}
+
+
+	go func() {
+		var cptErrors uint64
+		// process the elements in parallel
+		execute(int(sliceLen), func(start, end int) {
+			
+			var z {{.ElementName}}
+			for i:=start; i < end; i++ {
+				// we have to set vector[i]
+				bstart := i*Bytes
+				bend := bstart + Bytes
+				b := bSlice[bstart:bend]
+				{{- range $i := reverse .NbWordsIndexesFull}}
+					{{- $j := mul $i 8}}
+					{{- $k := sub $.NbWords 1}}
+					{{- $k := sub $k $i}}
+					{{- $jj := add $j 8}}
+					z[{{$k}}] = binary.BigEndian.Uint64(b[{{$j}}:{{$jj}}])
+				{{- end}}
+
+				if !z.smallerThanModulus() {
+					atomic.AddUint64(&cptErrors, 1)
+					return
+				}
+				z.toMont()
+				(*vector)[i] = z
+			}
+		})
+
+		if cptErrors > 0 {
+			chErr <- fmt.Errorf("async read: %d elements failed validation", cptErrors)
+		}
+		close(chErr)
+	}()
+	return n, nil, chErr
 }
 
 // ReadFrom implements io.ReaderFrom and reads a vector of big endian encoded {{.ElementName}}.
@@ -117,5 +190,60 @@ func (vector Vector) Less(i, j int) bool {
 func (vector Vector) Swap(i, j int) {
 	vector[i], vector[j] = vector[j], vector[i]
 }
+
+
+// TODO @gbotrel make a public package out of that.
+// execute executes the work function in parallel.
+// this is copy paste from internal/parallel/parallel.go
+// as we don't want to generate code importing internal/ 
+func execute(nbIterations int, work func(int, int), maxCpus ...int) {
+
+	nbTasks := runtime.NumCPU()
+	if len(maxCpus) == 1 {
+		nbTasks = maxCpus[0]
+		if nbTasks < 1 {
+			nbTasks = 1
+		} else if nbTasks > 512 {
+			nbTasks = 512
+		}
+	}
+
+	if nbTasks == 1 {
+		// no go routines
+		work(0, nbIterations)
+		return
+	}
+
+	nbIterationsPerCpus := nbIterations / nbTasks
+
+	// more CPUs than tasks: a CPU will work on exactly one iteration
+	if nbIterationsPerCpus < 1 {
+		nbIterationsPerCpus = 1
+		nbTasks = nbIterations
+	}
+
+	var wg sync.WaitGroup
+
+	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
+	extraTasksOffset := 0
+
+	for i := 0; i < nbTasks; i++ {
+		wg.Add(1)
+		_start := i*nbIterationsPerCpus + extraTasksOffset
+		_end := _start + nbIterationsPerCpus
+		if extraTasks > 0 {
+			_end++
+			extraTasks--
+			extraTasksOffset++
+		}
+		go func() {
+			work(_start, _end)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
 
 `

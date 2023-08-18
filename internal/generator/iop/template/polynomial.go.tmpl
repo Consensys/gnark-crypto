@@ -25,7 +25,6 @@ const (
 	BitReverse
 )
 
-
 // Form describes the form of a polynomial.
 // TODO should be a regular enum?
 type Form struct {
@@ -33,18 +32,16 @@ type Form struct {
 	Layout Layout
 }
 
-
 // enum of the possible Form values for type-safe switches
 // in this package
 var (
-	canonicalRegular = Form{Canonical, Regular}
-	canonicalBitReverse = Form{Canonical, BitReverse}
-	lagrangeRegular = Form{Lagrange, Regular}
-	lagrangeBitReverse = Form{Lagrange, BitReverse}
-	lagrangeCosetRegular = Form{LagrangeCoset, Regular}
+	canonicalRegular        = Form{Canonical, Regular}
+	canonicalBitReverse     = Form{Canonical, BitReverse}
+	lagrangeRegular         = Form{Lagrange, Regular}
+	lagrangeBitReverse      = Form{Lagrange, BitReverse}
+	lagrangeCosetRegular    = Form{LagrangeCoset, Regular}
 	lagrangeCosetBitReverse = Form{LagrangeCoset, BitReverse}
 )
-
 
 // Polynomial wraps a polynomial so that it is
 // interpreted as P'(X)=P(\omega^{s}X).
@@ -62,8 +59,8 @@ type Polynomial struct {
 }
 
 // NewPolynomial returned a Polynomial from the provided coefficients in the given form.
-// A Polynomial can be seen as a "shared pointer" on a list of coefficients. 
-// It is the responsibility of the user to call the Clone method if the coefficients 
+// A Polynomial can be seen as a "shared pointer" on a list of coefficients.
+// It is the responsibility of the user to call the Clone method if the coefficients
 // shouldn't be mutated.
 func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 	return &Polynomial{
@@ -86,6 +83,27 @@ func (p *Polynomial) BlindedSize() int {
 	return p.blindedSize
 }
 
+// Size returns the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.Size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
+func (p *Polynomial) Size() int {
+	return p.size
+}
+
+// SetSize sets the size of the polynomial.
+// size is the real size of the polynomial (seen as a vector).
+// For instance if len(P)=32 but P.size=8, it means that P has been
+// extended (e.g. it is evaluated on a larger set) but P is a polynomial
+// of degree 7.
+func (p *Polynomial) SetSize(size int) {
+	p.size = size
+}
+
+// SetBlindedSize sets the blinded size of the polynomial.
+func (p *Polynomial) SetBlindedSize(size int) {
+	p.blindedSize = size
+}
 
 // Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
 // where deg Q = blindingOrder and Q is random, and n is the
@@ -124,7 +142,6 @@ func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
 	return p
 }
 
-
 // Evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
@@ -150,7 +167,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	return p.polynomial.evaluate(x)
 }
 
-// Clone returns a deep copy of p. The underlying polynomial is cloned; 
+// Clone returns a deep copy of p. The underlying polynomial is cloned;
 // see also ShallowClone to perform a ShallowClone on the underlying polynomial.
 // If capacity is provided, the new coefficient slice capacity will be set accordingly.
 func (p *Polynomial) Clone(capacity ...int) *Polynomial {
@@ -166,7 +183,6 @@ func (p *Polynomial) ShallowClone() *Polynomial {
 	return &res
 }
 
-
 // GetCoeff returns the i-th entry of p, taking the layout in account.
 func (p *Polynomial) GetCoeff(i int) fr.Element {
 
@@ -181,7 +197,6 @@ func (p *Polynomial) GetCoeff(i int) fr.Element {
 	}
 
 }
-
 
 // polynomial represents a polynomial, the vector of coefficients
 // along with the basis and the layout.
@@ -209,13 +224,12 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 	}
 	newCoeffs := make(fr.Vector, p.coefficients.Len(), c)
 	r := &polynomial{
-		coefficients:&newCoeffs,
-		Form: p.Form,
+		coefficients: &newCoeffs,
+		Form:         p.Form,
 	}
 	copy((*r.coefficients), (*p.coefficients))
 	return r
 }
-
 
 // evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
@@ -253,7 +267,6 @@ func (p *Polynomial) ToRegular() *Polynomial {
 	return p
 }
 
-
 // ToBitReverse changes the layout of p to BitReverse.
 // Leaves p unchanged if p's layout was already BitReverse.
 func (p *Polynomial) ToBitReverse() *Polynomial {
@@ -268,7 +281,7 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 // ToLagrange converts p to Lagrange form.
 // Leaves p unchanged if p was already in Lagrange form.
 func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
-	id := p.Form 
+	id := p.Form
 	p.grow(int(d.Cardinality))
 	switch id {
 	case canonicalRegular:
@@ -277,7 +290,7 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 	case canonicalBitReverse:
 		p.Layout = Regular
 		d.FFT((*p.coefficients), fft.DIT)
-	case lagrangeRegular,lagrangeBitReverse:
+	case lagrangeRegular, lagrangeBitReverse:
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
@@ -300,7 +313,7 @@ func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
 	id := p.Form
 	p.grow(int(d.Cardinality))
 	switch id {
-	case canonicalRegular,canonicalBitReverse:
+	case canonicalRegular, canonicalBitReverse:
 		return p
 	case lagrangeRegular:
 		p.Layout = BitReverse
@@ -357,14 +370,12 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 	return p
 }
 
-
-
-// WriteTo implements io.WriterTo 
+// WriteTo implements io.WriterTo
 func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
-	// encode coefficients 
+	// encode coefficients
 	n, err := p.polynomial.coefficients.WriteTo(w)
 	if err != nil {
-		return n, err 
+		return n, err
 	}
 
 	// encode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
@@ -397,7 +408,7 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	}
 	n, err := p.polynomial.coefficients.ReadFrom(r)
 	if err != nil {
-		return n, err 
+		return n, err
 	}
 
 	// decode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
@@ -418,5 +429,5 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	p.size = int(data[3])
 	p.blindedSize = int(data[4])
 
-    return n, nil 
+	return n, nil
 }

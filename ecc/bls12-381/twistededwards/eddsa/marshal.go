@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 // as a byte array of size 3*sizeFr x||y||s where
 //   - x, y are the coordinates of a point on the twisted
 //     Edwards represented in big endian
-//   - s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+//   - s=r+h(r,a,m) mod l, the Hasse bound guarantees that
 //     s is smaller than sizeFr (in particular it is supposed
 //     s is NOT blinded)
 func (sig *Signature) Bytes() []byte {
@@ -111,7 +111,7 @@ func (sig *Signature) Bytes() []byte {
 // buf is read interpreted as x||y||s where
 //   - x,y are the coordinates of a point on the twisted
 //     Edwards represented in big endian
-//   - s=r+h(r,a,m) mod l, the Hasse bound guarantess that
+//   - s=r+h(r,a,m) mod l, the Hasse bound guarantees that
 //     s is smaller than sizeFr (in particular it is supposed
 //     s is NOT blinded)
 //

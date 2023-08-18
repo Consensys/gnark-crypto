@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,14 +52,16 @@ func TestEncoder(t *testing.T) {
 	var inI []fp.Element
 	var inJ []fr.Element
 	var inK fr.Vector
+	var inL [][]fr.Element
+	var inM [][]uint64
 
 	// set values of inputs
-	inA = rand.Uint64()
+	inA = rand.Uint64() //#nosec G404 weak rng is fine here
 	inB.SetRandom()
 	inC.SetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
@@ -68,12 +70,14 @@ func TestEncoder(t *testing.T) {
 	inJ = make([]fr.Element, 0)
 	inK = make(fr.Vector, 42)
 	inK[41].SetUint64(42)
+	inL = [][]fr.Element{inJ, inK}
+	inM = [][]uint64{{1, 2}, {4}, {}}
 
 	// encode them, compressed and raw
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK}
+	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -98,8 +102,10 @@ func TestEncoder(t *testing.T) {
 		var outI []fp.Element
 		var outJ []fr.Element
 		var outK fr.Vector
+		var outL [][]fr.Element
+		var outM [][]uint64
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK}
+		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -138,6 +144,12 @@ func TestEncoder(t *testing.T) {
 		}
 		if !reflect.DeepEqual(inK, outK) {
 			t.Fatal("decode(encode(vector)) failed")
+		}
+		if !reflect.DeepEqual(inL, outL) {
+			t.Fatal("decode(encode(slice²(elements))) failed")
+		}
+		if !reflect.DeepEqual(inM, outM) {
+			t.Fatal("decode(encode(slice²(uint64))) failed")
 		}
 		if n != dec.BytesRead() {
 			t.Fatal("bytes read don't match bytes written")
@@ -466,7 +478,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

@@ -104,14 +104,14 @@ type TensorCommitment struct {
 	// same content as state, but the polynomials are displayed as a matrix
 	// and the rows are encoded.
 	// encodedState = encodeRows(M_0 || .. || M_n)
-	// where M_i is the i-th polynomial layed out as a matrix, that is
+	// where M_i is the i-th polynomial laid out as a matrix, that is
 	// M_i_jk = p_i[i*m+j] where m = \sqrt(len(p)).
 	EncodedState [][]fr.Element
 
 	// boolean telling if the commitment has already been done.
 	// The method BuildProof cannot be called before Commit(),
 	// because it would allow to build a proof before giving the commitment
-	// to a verifier, making the worklow not secure.
+	// to a verifier, making the workflow not secure.
 	isCommitted bool
 
 	// number of columns which have already been hashed (atomic)
@@ -121,7 +121,7 @@ type TensorCommitment struct {
 	NbAppendsSoFar int
 }
 
-// NewTensorCommitment retunrs a new TensorCommitment
+// NewTensorCommitment returns a new TensorCommitment
 // * ρ rate of the code ( > 1)
 // * size size of the polynomial to be committed. The size of the commitment is
 // then ρ * √(m) where m² = size
@@ -296,7 +296,7 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 		}
 	})
 
-	// records that the ccommitment has been built
+	// records that the commitment has been built
 	tc.isCommitted = true
 
 	return res, nil

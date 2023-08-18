@@ -45,13 +45,14 @@ type RSis struct {
 	A  [][]fr.Element
 	Ag [][]fr.Element
 
-	// LogTwoBound (Inifinty norm) of the vector to hash. It means that each component in m
+	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
 	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
 
 	// domain for the polynomial multiplication
-	Domain *fft.Domain
+	Domain        *fft.Domain
+	twiddleCosets []fr.Element // see fft64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -126,6 +127,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
+	if r.LogTwoBound == 8 && r.Degree == 64 {
+		// TODO @gbotrel fixme, that's dirty.
+		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
+	}
 
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
@@ -146,8 +151,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
 		}
 	})
-	// TODO @gbotrel add nbtasks here; whiile in tests it's more convenient to paralellize
-	// in tensor-commitment we may not want to do that.
 
 	return r, nil
 }
@@ -168,12 +171,20 @@ func (r *RSis) Sum(b []byte) []byte {
 		panic("buffer too large")
 	}
 
+	fastPath := r.LogTwoBound == 8 && r.Degree == 64
+
 	// clear the buffers of the instance.
 	defer r.cleanupBuffers()
 
 	m := r.bufM
 	mValues := r.bufMValues
-	limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+
+	if fastPath {
+		// fast path.
+		limbDecomposeBytes8_64(buf, m, mValues)
+	} else {
+		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+	}
 
 	// we can hash now.
 	res := r.bufRes
@@ -186,7 +197,12 @@ func (r *RSis) Sum(b []byte) []byte {
 			continue
 		}
 		k := m[i*r.Degree : (i+1)*r.Degree]
-		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		if fastPath {
+			// fast path.
+			fft64(k, r.twiddleCosets)
+		} else {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		}
 		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
@@ -253,7 +269,7 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 }
 
 // mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
-// Is assumed that pLagrangeShifted and qLagrangeShifted are of the corret sizes
+// Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
 // and that they are in evaluation form on √(g) * <g>
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
@@ -287,6 +303,9 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 func (r *RSis) CopyWithFreshBuffer() RSis {
 	res := *r
 	res.buffer = bytes.Buffer{}
+	res.bufM = make(fr.Vector, len(r.bufM))
+	res.bufMValues = bitset.New(r.bufMValues.Len())
+	res.bufRes = make(fr.Vector, len(r.bufRes))
 	return res
 }
 
@@ -303,7 +322,7 @@ func (r *RSis) cleanupBuffers() {
 
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is reprented with 64 bits and we
+// in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
 // character and and f being the least significant one) and our log norm bound is
 // 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
@@ -316,7 +335,7 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is reprented with 64 bits and we
+// in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
 // character and and f being the least significant one) and our log norm bound is
 // 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
@@ -354,11 +373,12 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
+
 			m[mPos][0] |= uint64(bitAt(at) << j)
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] > 0 && mValues != nil {
+			if m[mPos][0] != 0 && mValues != nil {
 				mValues.Set(uint(mPos / degree))
 			}
 
@@ -367,5 +387,23 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			}
 		}
 		fieldStart += fr.Bytes * 8
+	}
+}
+
+// see limbDecomposeBytes; this function is optimized for the case where
+// logTwoBound == 8 and degree == 64
+func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
+	// with logTwoBound == 8, we can actually advance byte per byte.
+	const degree = 64
+	j := 0
+
+	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
+		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
+			m[j][0] = uint64(buf[i])
+			if m[j][0] != 0 {
+				mValues.Set(uint(j / degree))
+			}
+			j++
+		}
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,8 +60,8 @@ func TestDividePolyByXminusA(t *testing.T) {
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
 	// compute f-f(a)/x-a
+	// h re-uses the memory of pol
 	h := dividePolyByXminusA(pol, evaluation, point)
-	pol = nil // h reuses this memory
 
 	if len(h) != 229 {
 		t.Fatal("inconsistent size of quotient")
@@ -83,6 +83,7 @@ func TestSerializationSRS(t *testing.T) {
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
 	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
+	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
 	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
 	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
 }
@@ -142,7 +143,7 @@ func TestVerifySinglePoint(t *testing.T) {
 	// verify the claimed valued
 	expected := eval(f, point)
 	if !proof.ClaimedValue.Equal(&expected) {
-		t.Fatal("inconsistant claimed value")
+		t.Fatal("inconsistent claimed value")
 	}
 
 	// verify correct proof

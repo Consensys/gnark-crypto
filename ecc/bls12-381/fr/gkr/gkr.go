@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -178,7 +178,7 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 		// define eq_k = aᵏ eq(x_k1, ..., x_kn, *, ..., *) where x_ki are the evaluation points
 		newEq[0].Set(&aI)
 
-		c.innerWork(c.eq, newEq, c.evaluationPoints[k])
+		c.eqAcc(c.eq, newEq, c.evaluationPoints[k])
 
 		// newEq.Eq(c.evaluationPoints[k])
 		// eqAsPoly := polynomial.Polynomial(c.eq) //just semantics
@@ -196,14 +196,12 @@ func (c *eqTimesGateEvalSumcheckClaims) Combine(combinationCoeff fr.Element) pol
 	return c.computeGJ()
 }
 
-// innerWork sets m to an eq table at q and then adds it to e
-// TODO @Tabaie find a better home for this / cleanup
-func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []fr.Element) {
+// eqAcc sets m to an eq table at q and then adds it to e
+func (c *eqTimesGateEvalSumcheckClaims) eqAcc(e, m polynomial.MultiLin, q []fr.Element) {
 	n := len(q)
 
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
-	var wgs []*sync.WaitGroup
-	for i, qI := range q { // In the comments we use a 1-based index so qI = qᵢ₊₁
+	for i := range q { // In the comments we use a 1-based index so q[i] = qᵢ₊₁
 		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
 		const threshold = 1 << 6
 		k := 1 << i
@@ -212,24 +210,21 @@ func (c *eqTimesGateEvalSumcheckClaims) innerWork(e, m polynomial.MultiLin, q []
 				j0 := j << (n - i)    // bᵢ₊₁ = 0
 				j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
 
-				m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+				m[j1].Mul(&q[i], &m[j0])  // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
 				m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 			}
 		} else {
-			wgs = append(wgs, c.manager.workers.Submit(k, func(start, end int) {
+			c.manager.workers.Submit(k, func(start, end int) {
 				for j := start; j < end; j++ {
 					j0 := j << (n - i)    // bᵢ₊₁ = 0
 					j1 := j0 + 1<<(n-1-i) // bᵢ₊₁ = 1
 
-					m[j1].Mul(&qI, &m[j0])    // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
+					m[j1].Mul(&q[i], &m[j0])  // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁
 					m[j0].Sub(&m[j0], &m[j1]) // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 0) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) (1-qᵢ₊₁)
 				}
-			}, 1024))
+			}, 1024).Wait()
 		}
 
-	}
-	for _, wg := range wgs {
-		wg.Wait()
 	}
 	c.manager.workers.Submit(len(e), func(start, end int) {
 		for i := start; i < end; i++ {
@@ -705,16 +700,6 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 	return nil
 }
 
-type IdentityGate struct{}
-
-func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
 	res := make([][]int, len(c))
@@ -870,4 +855,92 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	for i := range src {
 		src[i].BigInt(dst[i])
 	}
+}
+
+// Gates defined by name
+var Gates = map[string]Gate{
+	"identity": IdentityGate{},
+	"add":      AddGate{},
+	"sub":      SubGate{},
+	"neg":      NegGate{},
+	"mul":      MulGate(2),
+}
+
+type IdentityGate struct{}
+type AddGate struct{}
+type MulGate int
+type SubGate struct{}
+type NegGate struct{}
+
+func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
+	return input[0]
+}
+
+func (IdentityGate) Degree() int {
+	return 1
+}
+
+func (g AddGate) Evaluate(x ...fr.Element) (res fr.Element) {
+	switch len(x) {
+	case 0:
+	// set zero
+	case 1:
+		res.Set(&x[0])
+	case 2:
+		res.Add(&x[0], &x[1])
+		for i := 2; i < len(x); i++ {
+			res.Add(&res, &x[2])
+		}
+	}
+	return
+}
+
+func (g AddGate) Degree() int {
+	return 1
+}
+
+func (g MulGate) Evaluate(x ...fr.Element) (res fr.Element) {
+	if len(x) != int(g) {
+		panic("wrong input count")
+	}
+	switch len(x) {
+	case 0:
+		res.SetOne()
+	case 1:
+		res.Set(&x[0])
+	default:
+		res.Mul(&x[0], &x[1])
+		for i := 2; i < len(x); i++ {
+			res.Mul(&res, &x[2])
+		}
+	}
+	return
+}
+
+func (g MulGate) Degree() int {
+	return int(g)
+}
+
+func (g SubGate) Evaluate(element ...fr.Element) (diff fr.Element) {
+	if len(element) > 2 {
+		panic("not implemented") //TODO
+	}
+	diff.Sub(&element[0], &element[1])
+	return
+}
+
+func (g SubGate) Degree() int {
+	return 1
+}
+
+func (g NegGate) Evaluate(element ...fr.Element) (neg fr.Element) {
+	if len(element) != 1 {
+		panic("univariate gate")
+	}
+	neg.Neg(&element[0])
+	return
+}
+
+func (g NegGate) Degree() int {
+	return 1
 }

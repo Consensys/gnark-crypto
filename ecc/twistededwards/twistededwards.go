@@ -1,4 +1,4 @@
-// Package twistededwards define unique identifier for twited edwards curves implemented in gnark-crypto
+// Package twistededwards define unique identifier for twisted edwards curves implemented in gnark-crypto
 package twistededwards
 
 // ID represent a unique ID for a twisted edwards curve

@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -716,7 +716,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:])
+		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

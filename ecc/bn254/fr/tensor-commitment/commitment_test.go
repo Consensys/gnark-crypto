@@ -254,7 +254,7 @@ func TestCommitmentDummyHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// verfiy that the proof is correct
+	// verify that the proof is correct
 	err = Verify(proof, digest, l, h)
 	if err != nil {
 		t.Fatal(err)
@@ -316,7 +316,7 @@ func TestOpeningDummyHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// finish the evalutation by computing
+	// finish the evaluation by computing
 	// [linearCombination] * [hi]^t
 	var eval, tmp fr.Element
 	for i := 0; i < nbColumns; i++ {
@@ -456,7 +456,7 @@ func TestCommitmentSis(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// verfiy that the proof is correct
+		// verify that the proof is correct
 		err = Verify(proof, digest, l, hMaker())
 		if err != nil {
 			t.Fatal(err)
@@ -475,7 +475,7 @@ func TestCommitmentSis(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// verfiy that the proof is correct
+		// verify that the proof is correct
 		err = Verify(proof, digest, l, hMaker())
 		if err != nil {
 			t.Fatal(err)

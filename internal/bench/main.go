@@ -18,7 +18,7 @@ type entry struct {
 }
 
 func main() {
-	// quick and dirty helper to benchmark field elements accross branches
+	// quick and dirty helper to benchmark field elements across branches
 
 	var entries []entry
 	err := filepath.WalkDir("../../ecc", func(path string, d fs.DirEntry, err error) error {

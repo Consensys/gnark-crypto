@@ -21,10 +21,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"math/bits"
+	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/stretchr/testify/require"
@@ -38,6 +41,7 @@ var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 2, logTwoDegree: 3},
 	{logTwoBound: 4, logTwoDegree: 4},
 	{logTwoBound: 6, logTwoDegree: 5},
+	{logTwoBound: 8, logTwoDegree: 6},
 	{logTwoBound: 10, logTwoDegree: 6},
 	{logTwoBound: 16, logTwoDegree: 7},
 	{logTwoBound: 32, logTwoDegree: 8},
@@ -75,7 +79,7 @@ func TestReference(t *testing.T) {
 		assert.NoError(err)
 
 		// key generation same than in sage
-		makeKeyDeterminitic(t, sis, testCase.Params.Seed)
+		makeKeyDeterministic(t, sis, testCase.Params.Seed)
 
 		for i, in := range testCases.Inputs {
 			sis.Reset()
@@ -99,7 +103,7 @@ func TestReference(t *testing.T) {
 			if len(in) < testCase.Params.MaxNbElementsToHash {
 				sis2, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, len(in))
 				assert.NoError(err)
-				makeKeyDeterminitic(t, sis2, testCase.Params.Seed)
+				makeKeyDeterministic(t, sis2, testCase.Params.Seed)
 
 				got2, err := sis2.Hash(in)
 				assert.NoError(err)
@@ -226,7 +230,7 @@ func TestLimbDecomposition(t *testing.T) {
 	}
 }
 
-func makeKeyDeterminitic(t *testing.T, sis *RSis, _seed int64) {
+func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	t.Helper()
 	// generate the key deterministically, the same way
 	// we do in sage to generate the test vectors.
@@ -307,7 +311,7 @@ func BenchmarkSIS(b *testing.B) {
 	}
 }
 
-func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoritical float64) {
+func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoretical float64) {
 	b.Helper()
 
 	n := len(input)
@@ -343,7 +347,7 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 
 		b.ReportMetric(float64(nsPerField), "ns/field")
 
-		b.ReportMetric(theoritical, "ns/field(theory)")
+		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
 }
@@ -374,85 +378,61 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 	return result, nil
 }
 
-// Hash version without mem copy
-// // Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
-// // and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
-// //
-// // It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
-// func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
-// 	if len(v) > r.maxNbElementsToHash {
-// 		return nil, fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
-// 	}
+func TestLimbDecompositionFastPath(t *testing.T) {
+	assert := require.New(t)
 
-// 	// clear the buffers of the instance.
-// 	defer func() {
-// 		r.bufMValues.ClearAll()
-// 		for i := 0; i < len(r.bufM); i++ {
-// 			r.bufM[i].SetZero()
-// 		}
-// 	}()
+	for size := fr.Bytes; size < 5*fr.Bytes; size += fr.Bytes {
+		// Test the fast path of limbDecomposeBytes8_64
+		buf := make([]byte, size)
+		m := make([]fr.Element, size)
+		mValues := bitset.New(uint(size))
+		n := make([]fr.Element, size)
+		nValues := bitset.New(uint(size))
 
-// 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
-// 	// as a list of polynomials, whose coefficients are less than r.B bits long.
+		// Generate a random buffer
+		rand.Seed(time.Now().UnixNano()) //#nosec G404 weak rng is fine here
+		_, err := rand.Read(buf)         //#nosec G404 weak rng is fine here
+		assert.NoError(err)
 
-// 	bitAt := func(v []fr.Element, i int) uint8 {
-// 		// v --> slice of bits
-// 		// return bit at position i
-// 		const n = fr.Bytes * 8 // nb bits per element
-// 		nbBits := len(v) * n
+		limbDecomposeBytes8_64(buf, m, mValues)
+		limbDecomposeBytes(buf, n, 8, 64, nValues)
 
-// 		if i >= nbBits {
-// 			return 0
-// 		}
+		for i := 0; i < size; i++ {
+			assert.Equal(mValues.Test(uint(i)), nValues.Test(uint(i)))
+			assert.True(m[i].Equal(&n[i]))
+		}
+	}
 
-// 		eIndex := i / n
-// 		i %= n
+}
 
-// 		// we want bit i of v[eIndex]
-// 		j := i / 64
-// 		return uint8(v[eIndex][j] >> (i % 64) & 1)
+func TestUnrolledFFT(t *testing.T) {
 
-// 	}
+	var shift fr.Element
+	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
+	e := int64(1 << (28 - (6 + 1)))
+	shift.Exp(shift, big.NewInt(e))
 
-// 	// now we can construct m. The input to hash consists of the polynomials
-// 	// m[k*r.Degree:(k+1)*r.Degree]
-// 	m := r.bufM
+	const size = 64
+	assert := require.New(t)
+	domain := fft.NewDomain(size, shift)
 
-// 	// mark blocks m[i*r.Degree : (i+1)*r.Degree] != [0...0]
-// 	mValues := r.bufMValues
+	k1 := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		k1[i].SetRandom()
+	}
+	k2 := make([]fr.Element, size)
+	copy(k2, k1)
 
-// 	// we process the input buffer by blocks of r.LogTwoBound bits
-// 	// each of these block (<< 64bits) are interpreted as a coefficient
-// 	mPos := 0
-// 	nbBits := len(v) * fr.Bytes * 8
-// 	for i := 0; i < nbBits; mPos++ {
-// 		for j := 0; j < r.LogTwoBound; j++ {
-// 			// r.LogTwoBound < 64; we just use the first word of our element here,
-// 			// and set the bits from LSB to MSB.
-// 			m[mPos][0] |= uint64(bitAt(v, i) << j)
-// 			i++
-// 		}
-// 		if m[mPos][0] == 0 {
-// 			continue
-// 		}
-// 		mValues.Set(uint(mPos / r.Degree))
-// 	}
+	// default FFT
+	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
-// 	// we can hash now.
-// 	res := make(fr.Vector, r.Degree)
+	// unrolled FFT
+	twiddlesCoset := precomputeTwiddlesCoset(domain.Twiddles, domain.FrMultiplicativeGen)
+	fft64(k2, twiddlesCoset)
 
-// 	// method 1: fft
-// 	for i := 0; i < len(r.Ag); i++ {
-// 		if !mValues.Test(uint(i)) {
-// 			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-// 			// we can skip this, FFT(0) = 0
-// 			continue
-// 		}
-// 		k := m[i*r.Degree : (i+1)*r.Degree]
-// 		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-// 		mulModAcc(res, r.Ag[i], k)
-// 	}
-// 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-// 	return res, nil
-// }
+	// compare results
+	for i := 0; i < size; i++ {
+		// fmt.Printf("i = %d, k1 = %v, k2 = %v\n", i, k1[i].String(), k2[i].String())
+		assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
+	}
+}

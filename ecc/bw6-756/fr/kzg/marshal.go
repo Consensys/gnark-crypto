@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,17 @@ import (
 
 // WriteTo writes binary encoding of the ProvingKey
 func (pk *ProvingKey) WriteTo(w io.Writer) (int64, error) {
+	return pk.writeTo(w)
+}
+
+// WriteRawTo writes binary encoding of ProvingKey to w without point compression
+func (pk *ProvingKey) WriteRawTo(w io.Writer) (int64, error) {
+	return pk.writeTo(w, bw6756.RawEncoding())
+}
+
+func (pk *ProvingKey) writeTo(w io.Writer, options ...func(*bw6756.Encoder)) (int64, error) {
 	// encode the ProvingKey
-	enc := bw6756.NewEncoder(w)
+	enc := bw6756.NewEncoder(w, options...)
 	if err := enc.Encode(pk.G1); err != nil {
 		return enc.BytesWritten(), err
 	}
@@ -76,6 +85,17 @@ func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the ProvingKey
 	dec := bw6756.NewDecoder(r)
+	if err := dec.Decode(&pk.G1); err != nil {
+		return dec.BytesRead(), err
+	}
+	return dec.BytesRead(), nil
+}
+
+// UnsafeReadFrom decodes ProvingKey data from reader without checking
+// that point are in the correct subgroup.
+func (pk *ProvingKey) UnsafeReadFrom(r io.Reader) (int64, error) {
+	// decode the ProvingKey
+	dec := bw6756.NewDecoder(r, bw6756.NoSubgroupChecks())
 	if err := dec.Decode(&pk.G1); err != nil {
 		return dec.BytesRead(), err
 	}

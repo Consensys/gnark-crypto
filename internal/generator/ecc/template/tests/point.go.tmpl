@@ -840,7 +840,7 @@ func GenBigInt() gopter.Gen {
       return func(genParams *gopter.GenParameters) *gopter.GenResult {
            var s big.Int
            var b [fp.Bytes]byte
-           _, err := rand.Read(b[:])
+           _, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
            if err != nil {
                panic(err)
            }

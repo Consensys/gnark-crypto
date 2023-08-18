@@ -1,4 +1,4 @@
-// Copyright 2020 ConsenSys Software Inc.
+// Copyright 2020 Consensys Software Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"hash"
 	"reflect"
-	"strconv"
-	"strings"
 )
 
 func ToElement(i int64) *small_rational.SmallRational {
@@ -161,15 +159,10 @@ func PolynomialSliceEquals(a []polynomial.Polynomial, b []polynomial.Polynomial)
 }
 
 func ElementToInterface(x *small_rational.SmallRational) interface{} {
-	text := x.Text(10)
-	if len(text) < 10 && !strings.Contains(text, "/") {
-		if i, err := strconv.Atoi(text); err != nil {
-			panic(err.Error())
-		} else {
-			return i
-		}
+	if i := x.BigInt(nil); i != nil {
+		return i
 	}
-	return text
+	return x.Text(10)
 }
 
 func ElementSliceToInterfaceSlice(x interface{}) []interface{} {
