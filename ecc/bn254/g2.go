@@ -577,6 +577,10 @@ func (p *g2JacExtended) setInfinity() *g2JacExtended {
 	return p
 }
 
+func (p *g2JacExtended) IsZero() bool {
+	return p.ZZ.IsZero()
+}
+
 // fromJacExtended sets Q in affine coordinates
 func (p *G2Affine) fromJacExtended(Q *g2JacExtended) *G2Affine {
 	if Q.ZZ.IsZero() {

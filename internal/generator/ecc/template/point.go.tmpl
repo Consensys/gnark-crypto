@@ -1234,6 +1234,10 @@ func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	return p
 }
 
+func (p *{{ $TJacobianExtended }}) IsZero() bool {
+	return p.ZZ.IsZero()
+}
+
 // fromJacExtended sets Q in affine coordinates
 func (p *{{ $TAffine }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ $TAffine }} {
 	if Q.ZZ.IsZero() {
