@@ -118,22 +118,6 @@ func main() {
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
-			// generate sumcheck on fr
-			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
-
-			// generate gkr on fr
-			assertNoError(gkr.Generate(gkr.Config{
-				FieldDependency:         frInfo,
-				GenerateTests:           true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
-
-			// generate test vector utils on fr
-			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
-				FieldDependency:             frInfo,
-				RandomizeMissingHashEntries: false,
-			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
-
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
