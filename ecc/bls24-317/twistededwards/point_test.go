@@ -896,6 +896,10 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		var point PointAffine
 		point.ScalarMultiplication(&params.Base, &s)
 
+		if !point.IsOnCurve() {
+			b.Fatal("point should must be on curve")
+		}
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = point.IsOnCurve()
@@ -906,6 +910,10 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		var point PointAffine
 		point.ScalarMultiplication(&params.Base, &s)
 		point.X.Add(&point.X, &point.X)
+
+		if point.IsOnCurve() {
+			b.Fatal("point should not be on curve")
+		}
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
