@@ -160,8 +160,7 @@ func NewPointAffine(x, y fr.Element) PointAffine {
 
 // IsOnCurve checks if a point is on the twisted Edwards curve
 func (p *PointAffine) IsOnCurve() bool {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var lhs, rhs, tmp fr.Element
 
@@ -173,7 +172,7 @@ func (p *PointAffine) IsOnCurve() bool {
 	tmp.Mul(&p.X, &p.X).
 		Mul(&tmp, &p.Y).
 		Mul(&tmp, &p.Y).
-		Mul(&tmp, &ecurve.D)
+		Mul(&tmp, &curveParams.D)
 	rhs.SetOne().Add(&rhs, &tmp)
 
 	return lhs.Equal(&rhs)
@@ -189,8 +188,7 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var xu, yv, xv, yu, dxyuv, one, denx, deny fr.Element
 	pRes := new(PointAffine)
@@ -203,7 +201,7 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yv.Mul(&p1.Y, &p2.Y)
 	pRes.Y.Sub(&yv, &xu)
 
-	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &ecurve.D)
+	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &curveParams.D)
 	one.SetOne()
 	denx.Add(&one, &dxyuv)
 	deny.Sub(&one, &dxyuv)
@@ -329,14 +327,13 @@ func (p *PointProj) FromAffine(p1 *PointAffine) *PointProj {
 // MixedAdd adds a point in projective to a point in affine coordinates
 // cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
 func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var B, C, D, E, F, G, H, I fr.Element
 	B.Square(&p1.Z)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&ecurve.D, &C).Mul(&E, &D)
+	E.Mul(&curveParams.D, &C).Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
@@ -381,15 +378,14 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 // Add adds points in projective coordinates
 // cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
 func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var A, B, C, D, E, F, G, H, I fr.Element
 	A.Mul(&p1.Z, &p2.Z)
 	B.Square(&A)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&ecurve.D, &C).Mul(&E, &D)
+	E.Mul(&curveParams.D, &C).Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
