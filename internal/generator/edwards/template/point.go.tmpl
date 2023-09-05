@@ -472,28 +472,23 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 }
 
 // Add adds points in extended coordinates
-// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd-2
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
-	if p1.Equal(p2) {
-		p.Double(p1)
-		return p
-	}
-
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 	A.Mul(&p1.X, &p2.X)
 	B.Mul(&p1.Y, &p2.Y)
-	C.Mul(&p1.Z, &p2.T)
-	D.Mul(&p1.T, &p2.Z)
-	E.Add(&D, &C)
-	tmp.Sub(&p1.X, &p1.Y)
-	F.Add(&p2.X, &p2.Y).
-		Mul(&F, &tmp).
-		Add(&F, &B).
-		Sub(&F, &A)
-	G.Set(&A)
-	mulByA(&G)
-	G.Add(&G, &B)
-	H.Sub(&D, &C)
+	C.Mul(&p1.T, &p2.T).Mul(&C, &curveParams.D)
+	D.Mul(&p1.Z, &p2.Z)
+	tmp.Add(&p1.X, &p1.Y)
+	E.Add(&p2.X, &p2.Y).
+		Mul(&E, &tmp).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	F.Sub(&D, &C)
+	G.Add(&D, &C)
+	H.Set(&A)
+	mulByA(&H)
+	H.Sub(&B, &H)
 
 	p.X.Mul(&E, &F)
 	p.Y.Mul(&G, &H)
