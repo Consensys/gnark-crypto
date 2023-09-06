@@ -65,3 +65,8 @@ func initCurveParams() {
 func mulByA(x *fr.Element) {
 	x.Mul(x, &curveParams.A)
 }
+
+// mulByD multiplies fr.Element by curveParams.D
+func mulByD(x *fr.Element) {
+	x.Mul(x, &curveParams.D)
+}

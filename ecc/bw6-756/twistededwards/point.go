@@ -89,7 +89,8 @@ func computeX(y *fr.Element) (x fr.Element) {
 	var one, num, den fr.Element
 	one.SetOne()
 	num.Square(y)
-	den.Mul(&num, &curveParams.D)
+	den = num
+	mulByD(&den)
 	num.Sub(&one, &num)
 	den.Sub(&curveParams.A, &den)
 	x.Div(&num, &den)
@@ -172,8 +173,8 @@ func (p *PointAffine) IsOnCurve() bool {
 
 	tmp.Mul(&p.X, &p.X).
 		Mul(&tmp, &p.Y).
-		Mul(&tmp, &p.Y).
-		Mul(&tmp, &curveParams.D)
+		Mul(&tmp, &p.Y)
+	mulByD(&tmp)
 	rhs.SetOne().Add(&rhs, &tmp)
 
 	return lhs.Equal(&rhs)
@@ -202,7 +203,8 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yv.Mul(&p1.Y, &p2.Y)
 	pRes.Y.Sub(&yv, &xu)
 
-	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &curveParams.D)
+	dxyuv.Mul(&xv, &yu)
+	mulByD(&dxyuv)
 	one.SetOne()
 	denx.Add(&one, &dxyuv)
 	deny.Sub(&one, &dxyuv)
@@ -334,7 +336,9 @@ func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
 	B.Square(&p1.Z)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&curveParams.D, &C).Mul(&E, &D)
+	E = C
+	mulByD(&E)
+	E.Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
@@ -386,7 +390,9 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	B.Square(&A)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&curveParams.D, &C).Mul(&E, &D)
+	E = C
+	mulByD(&E)
+	E.Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
@@ -489,7 +495,8 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 	A.Mul(&p1.X, &p2.X)
 	B.Mul(&p1.Y, &p2.Y)
-	C.Mul(&p1.T, &p2.T).Mul(&C, &curveParams.D)
+	C.Mul(&p1.T, &p2.T)
+	mulByD(&C)
 	D.Mul(&p1.Z, &p2.Z)
 	tmp.Add(&p1.X, &p1.Y)
 	E.Add(&p2.X, &p2.Y).

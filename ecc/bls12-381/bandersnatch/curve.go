@@ -79,3 +79,8 @@ func mulByA(x *fr.Element) {
 	x.Neg(x)
 	fr.MulBy5(x)
 }
+
+// mulByD multiplies fr.Element by curveParams.D
+func mulByD(x *fr.Element) {
+	x.Mul(x, &curveParams.D)
+}
