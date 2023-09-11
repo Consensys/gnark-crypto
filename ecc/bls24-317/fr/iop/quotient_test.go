@@ -106,7 +106,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 		ToRegular()
 
 	expectedForm := Form{Layout: BitReverse, Basis: LagrangeCoset}
-	h, err := Evaluate(f, expectedForm, entries...)
+	h, err := Evaluate(f, nil, expectedForm, entries...)
 	if err != nil {
 		t.Fatal(err)
 	}
