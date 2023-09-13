@@ -29,10 +29,6 @@ func deriveLogTileSize(logN uint64) uint64 {
 	return q
 }
 
-func BitReverseCobraInPlace(buf []fr.Element) {
-	// TODO @gbotrel do a switch on the len(buf)
-	bitReverseCobraInPlace(buf)
-}
 
 func bitReverseCobraInPlace(buf []fr.Element) {
 	logN := uint64(bits.Len64(uint64(len(buf))) - 1)
@@ -86,7 +82,6 @@ func bitReverseCobraInPlace(buf []fr.Element) {
 }
 
 
-{{bitReverseCobraInPlace 8 21}}
 {{bitReverseCobraInPlace 9 21}}
 {{bitReverseCobraInPlace 9 22}}
 {{bitReverseCobraInPlace 9 23}}
@@ -113,7 +108,11 @@ func BitReverseNew(buf []fr.Element) {
 	case 1 << 27:
 		bitReverseCobraInPlace_9_27(buf)
 	default:
-		BitReverse(buf)
+		if len(buf) > 1<<27 {
+			bitReverseCobraInPlace(buf)
+		} else {
+			BitReverse(buf)
+		}
 	}
 }
 

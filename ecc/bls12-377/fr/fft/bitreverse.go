@@ -46,11 +46,6 @@ func deriveLogTileSize(logN uint64) uint64 {
 	return q
 }
 
-func BitReverseCobraInPlace(buf []fr.Element) {
-	// TODO @gbotrel do a switch on the len(buf)
-	bitReverseCobraInPlace(buf)
-}
-
 func bitReverseCobraInPlace(buf []fr.Element) {
 	logN := uint64(bits.Len64(uint64(len(buf))) - 1)
 	logTileSize := deriveLogTileSize(logN)
@@ -100,59 +95,6 @@ func bitReverseCobraInPlace(buf []fr.Element) {
 			}
 		}
 	}
-}
-
-func bitReverseCobraInPlace_8_21(buf []fr.Element) {
-	const (
-		logTileSize = uint64(8)
-		tileSize    = uint64(1) << logTileSize
-		logN        = 21
-		logBLen     = logN - 2*logTileSize
-		bShift      = logBLen + logTileSize
-		bLen        = uint64(1) << logBLen
-	)
-
-	var t [tileSize * tileSize]fr.Element
-
-	for b := uint64(0); b < bLen; b++ {
-		bRev := bits.Reverse64(b) >> (64 - logBLen)
-
-		for a := uint64(0); a < tileSize; a++ {
-			aRev := bits.Reverse64(a) >> 56
-			for c := uint64(0); c < tileSize; c++ {
-				tIdx := (aRev << logTileSize) | c
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				t[tIdx] = buf[idx]
-			}
-		}
-
-		for c := uint64(0); c < tileSize; c++ {
-			cRev := bits.Reverse64(c) >> 56
-			for aRev := uint64(0); aRev < tileSize; aRev++ {
-				a := bits.Reverse64(aRev) >> 56
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
-				if idx < idxRev {
-					tIdx := (aRev << logTileSize) | c
-					buf[idxRev], t[tIdx] = t[tIdx], buf[idxRev]
-				}
-			}
-		}
-
-		for a := uint64(0); a < tileSize; a++ {
-			aRev := bits.Reverse64(a) >> 56
-			for c := uint64(0); c < tileSize; c++ {
-				cRev := bits.Reverse64(c) >> 56
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
-				if idx < idxRev {
-					tIdx := (aRev << logTileSize) | c
-					buf[idx], t[tIdx] = t[tIdx], buf[idx]
-				}
-			}
-		}
-	}
-
 }
 
 func bitReverseCobraInPlace_9_21(buf []fr.Element) {
@@ -543,6 +485,10 @@ func BitReverseNew(buf []fr.Element) {
 	case 1 << 27:
 		bitReverseCobraInPlace_9_27(buf)
 	default:
-		BitReverse(buf)
+		if len(buf) > 1<<27 {
+			bitReverseCobraInPlace(buf)
+		} else {
+			BitReverse(buf)
+		}
 	}
 }

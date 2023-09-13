@@ -18,34 +18,22 @@ package fft
 
 import (
 	"fmt"
-	"math/bits"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 type bitReverseVariant struct {
-	name        string
-	buf         []fr.Element
-	fn          func([]fr.Element)
-	logTileSize int
-}
-
-func (b *bitReverseVariant) canHandle(inputSize int) bool {
-	if b.logTileSize == -1 {
-		return true
-	}
-	logN := uint64(bits.Len64(uint64(inputSize)) - 1)
-
-	return int(logN)-int(2*b.logTileSize) > 0
+	name string
+	buf  []fr.Element
+	fn   func([]fr.Element)
 }
 
 const maxSizeBitReverse = 1 << 23
 
 var bitReverse = []bitReverseVariant{
-	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse, logTileSize: -1},
-	{name: "CobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
-	{name: "BitReverseNew", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
+	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse},
+	{name: "BitReverseNew", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseNew},
 }
 
 func TestBitReverse(t *testing.T) {
@@ -63,26 +51,17 @@ func TestBitReverse(t *testing.T) {
 
 		// copy pol into the buffers
 		for _, data := range bitReverse {
-			if !data.canHandle(size) {
-				continue
-			}
 			copy(data.buf, pol[:size])
 		}
 
 		// compute bit reverse shuffling
 		for _, data := range bitReverse {
-			if !data.canHandle(size) {
-				continue
-			}
 			data.fn(data.buf[:size])
 		}
 
 		// all bitReverse.buf should hold the same result
 		for i := 0; i < size; i++ {
 			for j := 1; j < len(bitReverse); j++ {
-				if !bitReverse[j].canHandle(size) {
-					continue
-				}
 				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
 					t.Fatalf("bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
 				}
@@ -91,17 +70,11 @@ func TestBitReverse(t *testing.T) {
 
 		// bitReverse back should be identity
 		for _, data := range bitReverse {
-			if !data.canHandle(size) {
-				continue
-			}
 			data.fn(data.buf[:size])
 		}
 
 		for i := 0; i < size; i++ {
 			for j := 1; j < len(bitReverse); j++ {
-				if !bitReverse[j].canHandle(size) {
-					continue
-				}
 				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
 					t.Fatalf("(fn-1) bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
 				}
@@ -128,9 +101,6 @@ func BenchmarkBitReverse(b *testing.B) {
 	// benchmark for each size, each bitReverse function
 	for size := 1 << 18; size <= maxSizeBitReverse; size <<= 1 {
 		for _, data := range bitReverse {
-			if !data.canHandle(size) {
-				continue
-			}
 			b.Run(fmt.Sprintf("name=%s/size=%d", data.name, size), func(b *testing.B) {
 				b.ResetTimer()
 				for j := 0; j < b.N; j++ {
