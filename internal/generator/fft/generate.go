@@ -11,6 +11,7 @@ import (
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
 
 	conf.Package = "fft"
+
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "domain_test.go"), Templates: []string{"tests/domain.go.tmpl", "imports.go.tmpl"}},
@@ -37,8 +38,30 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 		return r[i]
 	}
+	funcs["reverseBits"] = func(x, n any) uint64 {
+		return bits.Reverse64(anyToUint64(x)) >> anyToUint64(n)
+	}
+	funcs["shl"] = func(x, n any) uint64 {
+		return anyToUint64(x) << anyToUint64(n)
+	}
+	funcs["logicalOr"] = func(x, y any) uint64 {
+		return anyToUint64(x) | anyToUint64(y)
+	}
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
 	return bgen.GenerateWithOptions(conf, conf.Package, "./fft/template/", bavardOpts, entries...)
+}
+
+func anyToUint64(x any) uint64 {
+	switch v := x.(type) {
+	case int:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case uint64:
+		return v
+	default:
+		panic("unknown type")
+	}
 }

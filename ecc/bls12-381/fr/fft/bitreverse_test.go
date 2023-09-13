@@ -18,22 +18,48 @@ package fft
 
 import (
 	"fmt"
+	"math/bits"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
 type bitReverseVariant struct {
-	name string
-	buf  []fr.Element
-	fn   func([]fr.Element)
+	name        string
+	buf         []fr.Element
+	fn          func([]fr.Element)
+	logTileSize int
+}
+
+func (b *bitReverseVariant) canHandle(inputSize int) bool {
+	if b.logTileSize == -1 {
+		return true
+	}
+	logN := uint64(bits.Len64(uint64(inputSize)) - 1)
+
+	return int(logN)-int(2*b.logTileSize) > 0
 }
 
 const maxSizeBitReverse = 1 << 23
 
 var bitReverse = []bitReverseVariant{
-	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse},
-	{name: "CobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace},
+	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse, logTileSize: -1},
+	{name: "CobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
+	// 4
+	{name: "CobraInPlace_4", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_4, logTileSize: 4},
+	{name: "CobraInPlace_4_unrolled", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_4unrolled, logTileSize: 4},
+	// 5
+	{name: "CobraInPlace_5", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_5, logTileSize: 5},
+	// 6
+	{name: "CobraInPlace_6", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_6, logTileSize: 6},
+	// 7
+	{name: "CobraInPlace_7", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_7, logTileSize: 7},
+	// 8
+	{name: "CobraInPlace_8", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_8, logTileSize: 8},
+	// 9
+	{name: "CobraInPlace_9", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_9, logTileSize: 9},
+	// 10
+	{name: "CobraInPlace_10", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_10, logTileSize: 10},
 }
 
 func TestBitReverse(t *testing.T) {
@@ -51,17 +77,26 @@ func TestBitReverse(t *testing.T) {
 
 		// copy pol into the buffers
 		for _, data := range bitReverse {
+			if !data.canHandle(size) {
+				continue
+			}
 			copy(data.buf, pol[:size])
 		}
 
 		// compute bit reverse shuffling
 		for _, data := range bitReverse {
+			if !data.canHandle(size) {
+				continue
+			}
 			data.fn(data.buf[:size])
 		}
 
 		// all bitReverse.buf should hold the same result
 		for i := 0; i < size; i++ {
 			for j := 1; j < len(bitReverse); j++ {
+				if !bitReverse[j].canHandle(size) {
+					continue
+				}
 				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
 					t.Fatalf("bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
 				}
@@ -70,11 +105,17 @@ func TestBitReverse(t *testing.T) {
 
 		// bitReverse back should be identity
 		for _, data := range bitReverse {
+			if !data.canHandle(size) {
+				continue
+			}
 			data.fn(data.buf[:size])
 		}
 
 		for i := 0; i < size; i++ {
 			for j := 1; j < len(bitReverse); j++ {
+				if !bitReverse[j].canHandle(size) {
+					continue
+				}
 				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
 					t.Fatalf("(fn-1) bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
 				}
@@ -101,6 +142,9 @@ func BenchmarkBitReverse(b *testing.B) {
 	// benchmark for each size, each bitReverse function
 	for size := 1 << 18; size <= maxSizeBitReverse; size <<= 1 {
 		for _, data := range bitReverse {
+			if !data.canHandle(size) {
+				continue
+			}
 			b.Run(fmt.Sprintf("name=%s/size=%d", data.name, size), func(b *testing.B) {
 				b.ResetTimer()
 				for j := 0; j < b.N; j++ {
