@@ -135,23 +135,22 @@ func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(buf []fr.Element) {
 	{{$tileSize := shl 1 .logTileSize}}
 	
 	for b := uint64(0); b < bLen; b++ {
-		bRev := bits.Reverse64(b) >> (64 - logBLen)
+		bRev := (bits.Reverse64(b) >> (64 - logBLen)) << logTileSize
 
 		for a := uint64(0); a < tileSize; a++ {
-			aRev := bits.Reverse64(a) >> {{$k}}
+			aRev := (bits.Reverse64(a) >> {{$k}}) << logTileSize
 			for c := uint64(0); c < tileSize; c++ {
-				tIdx := (aRev << logTileSize) | c
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				t[tIdx] = buf[idx]
+				idx := (a << bShift) | (b << logTileSize) | c
+				t[aRev | c] = buf[idx]
 			}
 		}
 
 		for c := uint64(0); c < tileSize; c++ {
-			cRev := bits.Reverse64(c) >> {{$k}}
+			cRev := (bits.Reverse64(c) >> {{$k}} << bShift) | bRev
 			for aRev := uint64(0); aRev < tileSize; aRev++ {
 				a := bits.Reverse64(aRev) >> {{$k}}
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
+				idx := (a << bShift) | (b << logTileSize) | c
+				idxRev := cRev | aRev
 				if idx < idxRev {
 					tIdx := (aRev << logTileSize) | c
 					buf[idxRev], t[tIdx] = t[tIdx], buf[idxRev]
@@ -162,9 +161,9 @@ func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(buf []fr.Element) {
 		for a := uint64(0); a < tileSize; a++ {
 			aRev := bits.Reverse64(a) >> {{$k}}
 			for c := uint64(0); c < tileSize; c++ {
-				cRev := bits.Reverse64(c) >> {{$k}}
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
+				cRev := (bits.Reverse64(c) >> {{$k}}) << bShift
+				idx := (a << bShift) | (b << logTileSize) | c
+				idxRev := cRev | bRev  | aRev
 				if idx < idxRev {
 					tIdx := (aRev << logTileSize) | c
 					buf[idx], t[tIdx] = t[tIdx], buf[idx]
