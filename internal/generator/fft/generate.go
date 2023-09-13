@@ -16,7 +16,9 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "domain_test.go"), Templates: []string{"tests/domain.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "domain.go"), Templates: []string{"domain.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "fft_test.go"), Templates: []string{"tests/fft.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(baseDir, "bitreverse_test.go"), Templates: []string{"tests/bitreverse.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "fft.go"), Templates: []string{"fft.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(baseDir, "bitreverse.go"), Templates: []string{"bitreverse.go.tmpl", "imports.go.tmpl"}},
 		{File: filepath.Join(baseDir, "options.go"), Templates: []string{"options.go.tmpl", "imports.go.tmpl"}},
 	}
 
