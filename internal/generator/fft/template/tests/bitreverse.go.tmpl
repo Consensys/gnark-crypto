@@ -29,13 +29,7 @@ const maxSizeBitReverse = 1 << 23
 var bitReverse = []bitReverseVariant{
 	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse, logTileSize: -1},
 	{name: "CobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
-	{{- range $i := iterate 4 11}}
-	// {{$i}}
-	{name: "CobraInPlace_{{$i}}", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_{{$i}}, logTileSize: {{$i}}},
-	{{- if eq $i 4}}
-	{name: "CobraInPlace_{{$i}}_unrolled", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_{{$i}}unrolled, logTileSize: {{$i}}},
-	{{- end}}
-	{{- end}}
+	{name: "BitReverseNew", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
 }
 
 func TestBitReverse(t *testing.T) {

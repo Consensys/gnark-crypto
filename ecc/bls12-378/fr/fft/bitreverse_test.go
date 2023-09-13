@@ -45,21 +45,7 @@ const maxSizeBitReverse = 1 << 23
 var bitReverse = []bitReverseVariant{
 	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse, logTileSize: -1},
 	{name: "CobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
-	// 4
-	{name: "CobraInPlace_4", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_4, logTileSize: 4},
-	{name: "CobraInPlace_4_unrolled", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_4unrolled, logTileSize: 4},
-	// 5
-	{name: "CobraInPlace_5", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_5, logTileSize: 5},
-	// 6
-	{name: "CobraInPlace_6", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_6, logTileSize: 6},
-	// 7
-	{name: "CobraInPlace_7", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_7, logTileSize: 7},
-	// 8
-	{name: "CobraInPlace_8", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_8, logTileSize: 8},
-	// 9
-	{name: "CobraInPlace_9", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_9, logTileSize: 9},
-	// 10
-	{name: "CobraInPlace_10", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace_10, logTileSize: 10},
+	{name: "BitReverseNew", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseCobraInPlace, logTileSize: -1},
 }
 
 func TestBitReverse(t *testing.T) {

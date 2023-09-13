@@ -85,90 +85,56 @@ func bitReverseCobraInPlace(buf []fr.Element) {
 	}
 }
 
-{{bitReverseCobraInPlace 4 false}}
-{{bitReverseCobraInPlace 4 true}}
 
-{{bitReverseCobraInPlace 5 false}}
-
-{{bitReverseCobraInPlace 6 false}}
-
-{{bitReverseCobraInPlace 7 false}}
-
-{{bitReverseCobraInPlace 8 false}}
-
-{{bitReverseCobraInPlace 9 false}}
-
-{{bitReverseCobraInPlace 10 false}}
+{{bitReverseCobraInPlace 8 21}}
+{{bitReverseCobraInPlace 9 21}}
+{{bitReverseCobraInPlace 9 22}}
+{{bitReverseCobraInPlace 9 23}}
+{{bitReverseCobraInPlace 9 24}}
+{{bitReverseCobraInPlace 9 25}}
+{{bitReverseCobraInPlace 9 26}}
+{{bitReverseCobraInPlace 9 27}}
 
 
+func BitReverseNew(buf []fr.Element) {
+	switch len(buf) {
+	case 1 << 21:
+		bitReverseCobraInPlace_9_21(buf)
+	case 1 << 22:
+		bitReverseCobraInPlace_9_22(buf)
+	case 1 << 23:
+		bitReverseCobraInPlace_9_23(buf)
+	case 1 << 24:
+		bitReverseCobraInPlace_9_24(buf)
+	case 1 << 25:
+		bitReverseCobraInPlace_9_25(buf)
+	case 1 << 26:
+		bitReverseCobraInPlace_9_26(buf)
+	case 1 << 27:
+		bitReverseCobraInPlace_9_27(buf)
+	default:
+		BitReverse(buf)
+	}
+}
 
 
-{{define "bitReverseCobraInPlace logTileSize unroll"}}
+{{define "bitReverseCobraInPlace logTileSize logN"}}
 
-func bitReverseCobraInPlace_{{.logTileSize}}{{- if .unroll}}unrolled{{- end}}(buf []fr.Element) {
-	const logTileSize = uint64({{.logTileSize}})
-	const tileSize = uint64(1) << logTileSize
-
-	logN := uint64(bits.Len64(uint64(len(buf))) - 1)
-	logBLen := logN - 2*logTileSize
-	bShift := logBLen + logTileSize
-	bLen := uint64(1) << logBLen
+func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(buf []fr.Element) {
+	const (
+		logTileSize = uint64({{.logTileSize}})
+		tileSize = uint64(1) << logTileSize
+		logN = {{.logN}}
+		logBLen = logN - 2*logTileSize
+		bShift = logBLen + logTileSize
+		bLen = uint64(1) << logBLen
+	)
 
 	var t [tileSize * tileSize]fr.Element
 	{{$k := sub 64  .logTileSize}}
 	{{$l := .logTileSize}}
 	{{$tileSize := shl 1 .logTileSize}}
-	{{- if .unroll }}
-
-	for b := uint64(0); b < bLen; b++ {
-
-		// for a := uint64(0); a < tileSize; a++ {
-		// 	aRev := bits.Reverse64(a) >> {{$k}}
-		// 	for c := uint64(0); c < tileSize; c++ {
-		// 		tIdx := (aRev << logTileSize) | c
-		// 		idx := (a << (bShift)) | (b << logTileSize) | c
-		// 		t[tIdx] = buf[idx]
-		// 	}
-		// }
-
-		{{- range $a := iterate 0 $tileSize}}
-			{{- $aRev := reverseBits $a $k}}
-			{{- range $c := iterate 0 $tileSize}}
-				{{- $tIdx := logicalOr (shl $aRev $l) $c}}
-					t[{{$tIdx}}] = buf[{{- if ne $a 0}}({{$a}} << bShift) |{{- end}} (b << logTileSize) {{- if ne $c 0}} | {{$c}}{{- end}}]
-			{{- end}}
-		{{- end}}
 	
-
-		bRev := bits.Reverse64(b) >> (64 - logBLen)
-
-		for c := uint64(0); c < tileSize; c++ {
-			cRev := bits.Reverse64(c) >> {{$k}}
-			for aRev := uint64(0); aRev < tileSize; aRev++ {
-				a := bits.Reverse64(aRev) >> {{$k}}
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
-				if idx < idxRev {
-					tIdx := (aRev << logTileSize) | c
-					buf[idxRev], t[tIdx] = t[tIdx], buf[idxRev]
-				}
-			}
-		}
-
-		for a := uint64(0); a < tileSize; a++ {
-			aRev := bits.Reverse64(a) >> {{$k}}
-			for c := uint64(0); c < tileSize; c++ {
-				cRev := bits.Reverse64(c) >> {{$k}}
-				idx := (a << (bShift)) | (b << logTileSize) | c
-				idxRev := (cRev << (bShift)) | (bRev << logTileSize) | aRev
-				if idx < idxRev {
-					tIdx := (aRev << logTileSize) | c
-					buf[idx], t[tIdx] = t[tIdx], buf[idx]
-				}
-			}
-		}
-	}
-	{{- else }}
 	for b := uint64(0); b < bLen; b++ {
 		bRev := bits.Reverse64(b) >> (64 - logBLen)
 
@@ -207,7 +173,6 @@ func bitReverseCobraInPlace_{{.logTileSize}}{{- if .unroll}}unrolled{{- end}}(bu
 			}
 		}
 	}
-	{{- end }}
 
 	
 }
