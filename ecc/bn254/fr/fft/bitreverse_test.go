@@ -32,8 +32,9 @@ type bitReverseVariant struct {
 const maxSizeBitReverse = 1 << 23
 
 var bitReverse = []bitReverseVariant{
-	{name: "Naive", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse},
-	{name: "BitReverseNew", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverseNew},
+	{name: "bitReverseNaive", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseNaive},
+	{name: "BitReverse", buf: make([]fr.Element, maxSizeBitReverse), fn: BitReverse},
+	{name: "bitReverseCobraInPlace", buf: make([]fr.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace},
 }
 
 func TestBitReverse(t *testing.T) {
