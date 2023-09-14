@@ -55,6 +55,7 @@ func bitReverseNaive(v []fr.Element) {
 // bitReverseCobraInPlace applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
 // This is derived from:
+//
 //   - Towards an Optimal Bit-Reversal Permutation Program
 //     Larry Carter and Kang Su Gatlin, 1998
 //     https://csaws.cs.technion.ac.il/~itai/Courses/Cache/bit.pdf
