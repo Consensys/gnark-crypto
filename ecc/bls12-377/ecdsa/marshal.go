@@ -21,6 +21,9 @@ import (
 	"io"
 )
 
+// To avoid signature malleability an exact size is needed for deserialisation
+var ErrWrongSizeBuffer = errors.New("wrong size buffer")
+
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
 // and returns a compressed representation of the point (x,y)
@@ -97,8 +100,8 @@ func (sig *Signature) Bytes() []byte {
 // It returns the number of bytes read from buf.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
-	if len(buf) < sizeSignature {
-		return n, io.ErrShortBuffer
+	if len(buf) != sizeSignature {
+		return n, ErrWrongSizeBuffer
 	}
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
 	n += sizeFr
