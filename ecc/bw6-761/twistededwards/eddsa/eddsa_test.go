@@ -18,6 +18,7 @@ package eddsa
 
 import (
 	"crypto/sha256"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/twistededwards"
 	"github.com/consensys/gnark-crypto/hash"
 )
 
@@ -54,6 +56,54 @@ func Example() {
 	}
 
 	// Output: 1. valid signature
+}
+
+func TestNonMalleability(t *testing.T) {
+
+	{
+		// buffer too big
+		bsig := make([]byte, 2*sizeFr+1)
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrWrongSize {
+			t.Fatal("should raise wrong size error")
+		}
+	}
+
+	// R overflows p_mod
+	{
+		bsig := make([]byte, 2*sizeFr)
+		frMod := fr.Modulus()
+		r := big.NewInt(1)
+		r.Add(frMod, r)
+		buf := r.Bytes()
+		for i := 0; i < sizeFr; i++ {
+			bsig[sizeFr-1-i] = buf[i]
+		}
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrRBiggerThanPMod {
+			t.Fatal("should raise error r >= p_mod")
+		}
+	}
+
+	// S overflows r_mod
+	{
+		bsig := make([]byte, 2*sizeFr)
+		o := big.NewInt(1)
+		cp := twistededwards.GetEdwardsCurve()
+		o.Add(&cp.Order, o)
+		buf := o.Bytes()
+		copy(bsig[sizeFr:], buf[:])
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrSBiggerThanRMod {
+			t.Fatal("should raise error s >= r_mod")
+		}
+	}
+
 }
 
 func TestSerialization(t *testing.T) {
