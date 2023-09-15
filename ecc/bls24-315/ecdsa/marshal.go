@@ -18,11 +18,20 @@ package ecdsa
 
 import (
 	"crypto/subtle"
+	"errors"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"io"
+	"math/big"
 )
 
 // To avoid signature malleability an exact size is needed for deserialisation
 var ErrWrongSizeBuffer = errors.New("wrong size buffer")
+
+// r_mod = relevant group size on the twisted Edwards
+var ErrSBiggerThanRMod = errors.New("s >= r_mod")
+
+// r_mod = relevant group size on the twisted Edwards
+var ErrRBiggerThanRMod = errors.New("r >= r_mod")
 
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
@@ -103,6 +112,19 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	if len(buf) != sizeSignature {
 		return n, ErrWrongSizeBuffer
 	}
+
+	// S, R < R_mod (to avoid malleability)
+	frMod := fr.Modulus()
+	var bufBigInt big.Int
+	bufBigInt.SetBytes(buf[:sizeFr])
+	if bufBigInt.Cmp(frMod) != -1 {
+		return 0, ErrRBiggerThanRMod
+	}
+	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
+	if bufBigInt.Cmp(frMod) != -1 {
+		return 0, ErrSBiggerThanRMod
+	}
+
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
 	n += sizeFr
 	subtle.ConstantTimeCopy(1, sig.S[:], buf[sizeFr:2*sizeFr])

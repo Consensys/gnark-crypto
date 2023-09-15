@@ -19,8 +19,8 @@ package eddsa
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/twistededwards"
 	"io"
 	"math/big"
 )
@@ -31,7 +31,10 @@ const mUnmask = 0x7f
 // To avoid signature malleability an exact size is needed for deserialisation
 var ErrWrongSizeBuffer = errors.New("wrong size buffer")
 
+// r_mod = relevant group size on the twisted Edwards
 var ErrSBiggerThanRMod = errors.New("s >= r_mod")
+
+// p_mod = field of def of the twisted Edwards
 var ErrRBiggerThanPMod = errors.New("r >= p_mod")
 
 // Bytes returns the binary representation of the public key
@@ -136,7 +139,8 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	}
 
 	// R < P_mod (to avoid malleability)
-	fpMod := fp.Modulus()
+	// P_mod = field of def of the twisted Edwards = Fr snark field
+	fpMod := fr.Modulus()
 	var bufBigInt big.Int
 	bufCopy := make([]byte, fr.Bytes)
 	for i := 0; i < sizeFr; i++ {
@@ -149,9 +153,10 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	}
 
 	// S < R_mod (to avoid malleability)
-	frMod := fr.Modulus()
+	// R_mod is the relevant group size of the twisted Edwards NOT the fr snark field so it's supposedly smaller
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
-	if bufBigInt.Cmp(frMod) != -1 {
+	cp := twistededwards.GetEdwardsCurve()
+	if bufBigInt.Cmp(&cp.Order) != -1 {
 		return 0, ErrSBiggerThanRMod
 	}
 
