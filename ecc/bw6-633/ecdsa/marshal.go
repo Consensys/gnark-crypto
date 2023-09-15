@@ -24,6 +24,10 @@ import (
 	"math/big"
 )
 
+var ErrWrongSize = errors.New("wrong size buffer")
+var ErrRBiggerThanRMod = errors.New("r >= r_mod")
+var ErrSBiggerThanRMod = errors.New("s >= r_mod")
+
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
 // and returns a compressed representation of the point (x,y)
@@ -104,7 +108,7 @@ func (sig *Signature) Bytes() []byte {
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {
-		return n, errors.New("wrong size buffer")
+		return n, ErrWrongSize
 	}
 
 	// S, R < R_mod (to avoid malleability)
@@ -112,11 +116,11 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	var bufBigInt big.Int
 	bufBigInt.SetBytes(buf[:sizeFr])
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, errors.New("r >= r_mod")
+		return 0, ErrRBiggerThanRMod
 	}
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, errors.New("s >= r_mod")
+		return 0, ErrSBiggerThanRMod
 	}
 
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])

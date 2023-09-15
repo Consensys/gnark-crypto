@@ -19,6 +19,8 @@ package ecdsa
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr"
+	"math/big"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -86,6 +88,52 @@ func TestRecoverPublicKey(t *testing.T) {
 		},
 	))
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestNonMalleability(t *testing.T) {
+
+	// buffer too big
+	{
+		bsig := make([]byte, 2*sizeFr+1)
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrWrongSize {
+			t.Fatal("should raise wrong size error")
+		}
+	}
+
+	// R overflows p_mod
+	{
+		bsig := make([]byte, 2*sizeFr)
+		r := big.NewInt(1)
+		frMod := fr.Modulus()
+		r.Add(r, frMod)
+		buf := r.Bytes()
+		copy(bsig, buf[:])
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrRBiggerThanRMod {
+			t.Fatal("should raise error r >= r_mod")
+		}
+	}
+
+	// S overflows p_mod
+	{
+		bsig := make([]byte, 2*sizeFr)
+		r := big.NewInt(1)
+		frMod := fr.Modulus()
+		r.Add(r, frMod)
+		buf := r.Bytes()
+		copy(bsig[sizeFr:], buf[:])
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != ErrSBiggerThanRMod {
+			t.Fatal("should raise error s >= r_mod")
+		}
+	}
+
 }
 
 // ------------------------------------------------------------
