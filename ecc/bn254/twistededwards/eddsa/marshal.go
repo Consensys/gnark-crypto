@@ -28,15 +28,6 @@ import (
 // cf point.go (ugly copy)
 const mUnmask = 0x7f
 
-// To avoid signature malleability an exact size is needed for deserialisation
-var ErrWrongSizeBuffer = errors.New("wrong size buffer")
-
-// r_mod = relevant group size on the twisted Edwards
-var ErrSBiggerThanRMod = errors.New("s >= r_mod")
-
-// p_mod = field of def of the twisted Edwards
-var ErrRBiggerThanPMod = errors.New("r >= p_mod")
-
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
 // and returns a compressed representation of the point (x,y)
@@ -135,7 +126,7 @@ func (sig *Signature) Bytes() []byte {
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {
-		return n, ErrWrongSizeBuffer
+		return n, errors.New("wrong size buffer")
 	}
 
 	// R < P_mod (to avoid malleability)
@@ -149,7 +140,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	bufCopy[0] &= mUnmask
 	bufBigInt.SetBytes(bufCopy)
 	if bufBigInt.Cmp(fpMod) != -1 {
-		return 0, ErrRBiggerThanPMod
+		return 0, errors.New("r >= p_mod")
 	}
 
 	// S < R_mod (to avoid malleability)
@@ -157,7 +148,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
 	cp := twistededwards.GetEdwardsCurve()
 	if bufBigInt.Cmp(&cp.Order) != -1 {
-		return 0, ErrSBiggerThanRMod
+		return 0, errors.New("s >= r_mod")
 	}
 
 	// deserialisation
