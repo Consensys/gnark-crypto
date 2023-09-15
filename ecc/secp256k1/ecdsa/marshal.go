@@ -26,15 +26,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 )
 
-// To avoid signature malleability an exact size is needed for deserialisation
-var ErrWrongSizeBuffer = errors.New("wrong size buffer")
-
-// r_mod = relevant group size on the twisted Edwards
-var ErrSBiggerThanRMod = errors.New("s >= r_mod")
-
-// r_mod = relevant group size on the twisted Edwards
-var ErrRBiggerThanRMod = errors.New("r >= r_mod")
-
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
 // and returns a compressed representation of the point (x,y)
@@ -137,10 +128,13 @@ func (sig *Signature) Bytes() []byte {
 // SetBytes sets sig from a buffer in binary.
 // buf is read interpreted as r||s
 // It returns the number of bytes read from buf.
+// SetBytes sets sig from a buffer in binary.
+// buf is read interpreted as r||s
+// It returns the number of bytes read from buf.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {
-		return n, ErrWrongSizeBuffer
+		return n, errors.New("wrong size buffer")
 	}
 
 	// S, R < R_mod (to avoid malleability)
@@ -148,11 +142,11 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	var bufBigInt big.Int
 	bufBigInt.SetBytes(buf[:sizeFr])
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, ErrRBiggerThanRMod
+		return 0, errors.New("r >= r_mod")
 	}
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, ErrSBiggerThanRMod
+		return 0, errors.New("s >= r_mod")
 	}
 
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
