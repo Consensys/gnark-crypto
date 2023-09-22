@@ -193,13 +193,21 @@ func (p *G1Jac) Equal(a *G1Jac) bool {
 	if p.Z.IsZero() && a.Z.IsZero() {
 		return true
 	}
-	_p := G1Affine{}
-	_p.FromJacobian(p)
 
-	_a := G1Affine{}
-	_a.FromJacobian(a)
+	var pZSquare, aZSquare fp.Element
+	pZSquare.Square(&p.Z)
+	aZSquare.Square(&a.Z)
 
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+	var lhs, rhs fp.Element
+	lhs.Mul(&p.X, &aZSquare)
+	rhs.Mul(&a.X, &pZSquare)
+	if !lhs.Equal(&rhs) {
+		return false
+	}
+	lhs.Mul(&p.Y, &aZSquare).Mul(&lhs, &a.Z)
+	rhs.Mul(&a.Y, &pZSquare).Mul(&rhs, &p.Z)
+
+	return lhs.Equal(&rhs)
 }
 
 // Neg computes -G

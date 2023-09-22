@@ -748,6 +748,52 @@ func GenBigInt() gopter.Gen {
 // ------------------------------------------------------------
 // benches
 
+func BenchmarkProjEqual(b *testing.B) {
+	params := GetEdwardsCurve()
+
+	var scalar fr.Element
+	if _, err := scalar.SetRandom(); err != nil {
+		b.Fatalf("error generating random scalar: %v", err)
+	}
+
+	var baseProj PointProj
+	baseProj.FromAffine(&params.Base)
+	var a PointProj
+	a.ScalarMultiplication(&baseProj, big.NewInt(42))
+
+	b.Run("equal", func(b *testing.B) {
+		aZScaled := a
+		aZScaled.X.Mul(&aZScaled.X, &scalar)
+		aZScaled.Y.Mul(&aZScaled.Y, &scalar)
+		aZScaled.Z.Mul(&aZScaled.Z, &scalar)
+
+		// Check the setup.
+		if !a.Equal(&aZScaled) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aZScaled)
+		}
+	})
+
+	b.Run("not equal", func(b *testing.B) {
+		var aPlus1 PointProj
+		aPlus1.Add(&aPlus1, &baseProj)
+
+		// Check the setup.
+		if a.Equal(&aPlus1) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aPlus1)
+		}
+	})
+}
+
 func BenchmarkScalarMulExtended(b *testing.B) {
 	params := GetEdwardsCurve()
 	var a PointExtended
