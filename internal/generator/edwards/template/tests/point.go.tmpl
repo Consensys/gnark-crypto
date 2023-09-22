@@ -764,7 +764,7 @@ func BenchmarkProjEqual(b *testing.B) {
 
 	b.Run("not equal", func(b *testing.B) {
 		var aPlus1 PointProj
-		aPlus1.Add(&aPlus1, &baseProj)
+		aPlus1.Add(&a, &baseProj)
 
 		// Check the setup.
 		if a.Equal(&aPlus1) {
