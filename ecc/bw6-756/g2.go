@@ -168,9 +168,14 @@ func (p *G2Jac) Set(a *G2Jac) *G2Jac {
 
 // Equal tests if two points (in Jacobian coordinates) are equal
 func (p *G2Jac) Equal(a *G2Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
+	// If one point is infinity, the other must also be infinity.
+	if p.Z.IsZero() {
+		return a.Z.IsZero()
+	}
+	// If the other point is infinity, return false since we can't
+	// the following checks would be incorrect.
+	if a.Z.IsZero() {
+		return false
 	}
 
 	var pZSquare, aZSquare fp.Element
