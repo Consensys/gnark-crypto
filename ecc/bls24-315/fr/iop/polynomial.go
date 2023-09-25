@@ -21,6 +21,7 @@ import (
 	"io"
 	"math/big"
 	"math/bits"
+	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
@@ -298,25 +299,31 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 
 // ToLagrange converts p to Lagrange form.
 // Leaves p unchanged if p was already in Lagrange form.
-func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
+func (p *Polynomial) ToLagrange(d *fft.Domain, nbTasks ...int) *Polynomial {
 	id := p.Form
 	p.grow(int(d.Cardinality))
+
+	n := runtime.NumCPU()
+	if len(nbTasks) > 0 {
+		n = nbTasks[0]
+	}
+
 	switch id {
 	case canonicalRegular:
 		p.Layout = BitReverse
-		d.FFT((*p.coefficients), fft.DIF)
+		d.FFT((*p.coefficients), fft.DIF, fft.WithNbTasks(n))
 	case canonicalBitReverse:
 		p.Layout = Regular
-		d.FFT((*p.coefficients), fft.DIT)
+		d.FFT((*p.coefficients), fft.DIT, fft.WithNbTasks(n))
 	case lagrangeRegular, lagrangeBitReverse:
 		return p
 	case lagrangeCosetRegular:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset())
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset(), fft.WithNbTasks(n))
 		d.FFT((*p.coefficients), fft.DIT)
 	case lagrangeCosetBitReverse:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset())
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset(), fft.WithNbTasks(n))
 		d.FFT((*p.coefficients), fft.DIF)
 	default:
 		panic("unknown ID")
@@ -327,24 +334,28 @@ func (p *Polynomial) ToLagrange(d *fft.Domain) *Polynomial {
 
 // ToCanonical converts p to canonical form.
 // Leaves p unchanged if p was already in Canonical form.
-func (p *Polynomial) ToCanonical(d *fft.Domain) *Polynomial {
+func (p *Polynomial) ToCanonical(d *fft.Domain, nbTasks ...int) *Polynomial {
 	id := p.Form
 	p.grow(int(d.Cardinality))
+	n := runtime.NumCPU()
+	if len(nbTasks) > 0 {
+		n = nbTasks[0]
+	}
 	switch id {
 	case canonicalRegular, canonicalBitReverse:
 		return p
 	case lagrangeRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF)
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.WithNbTasks(n))
 	case lagrangeBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT)
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.WithNbTasks(n))
 	case lagrangeCosetRegular:
 		p.Layout = BitReverse
-		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset())
+		d.FFTInverse((*p.coefficients), fft.DIF, fft.OnCoset(), fft.WithNbTasks(n))
 	case lagrangeCosetBitReverse:
 		p.Layout = Regular
-		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset())
+		d.FFTInverse((*p.coefficients), fft.DIT, fft.OnCoset(), fft.WithNbTasks(n))
 	default:
 		panic("unknown ID")
 	}
