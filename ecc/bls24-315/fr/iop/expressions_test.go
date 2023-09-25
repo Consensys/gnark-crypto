@@ -24,7 +24,7 @@ import (
 
 func TestEvaluate(t *testing.T) {
 
-	f := func(x ...fr.Element) fr.Element {
+	f := func(_ int, x ...fr.Element) fr.Element {
 		var a fr.Element
 		a.Add(&x[0], &x[1]).Add(&a, &x[2])
 		return a

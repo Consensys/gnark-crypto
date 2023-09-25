@@ -24,7 +24,7 @@ import (
 )
 
 // Expression represents a multivariate polynomial.
-type Expression func(x ...fr.Element) fr.Element
+type Expression func(i int, x ...fr.Element) fr.Element
 
 // Evaluate evaluates f on each entry of x. The returned value is
 // the vector of evaluations of e on x.
@@ -72,7 +72,7 @@ func Evaluate(f Expression, r []fr.Element, form Form, x ...*Polynomial) (*Polyn
 			for j := 0; j < m; j++ {
 				vx[j] = x[j].GetCoeff(i)
 			}
-			r[idx(i)] = f(vx...)
+			r[idx(i)] = f(i, vx...)
 		}
 	})
 
