@@ -101,6 +101,7 @@ func TestNonMalleability(t *testing.T) {
 		r.Add(r, frMod)
 		buf := r.Bytes()
 		copy(bsig[sizeFr:], buf[:])
+		big.NewInt(1).FillBytes(bsig[:sizeFr])
 
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
