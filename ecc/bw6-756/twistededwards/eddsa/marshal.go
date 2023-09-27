@@ -31,6 +31,7 @@ const mUnmask = 0x7f
 var ErrWrongSize = errors.New("wrong size buffer")
 var ErrSBiggerThanRMod = errors.New("s >= r_mod")
 var ErrRBiggerThanPMod = errors.New("r >= p_mod")
+var ErrZero = errors.New("zero value")
 
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1

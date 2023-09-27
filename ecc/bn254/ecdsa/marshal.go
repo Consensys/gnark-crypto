@@ -29,6 +29,7 @@ import (
 var ErrWrongSize = errors.New("wrong size buffer")
 var ErrRBiggerThanRMod = errors.New("r >= r_mod")
 var ErrSBiggerThanRMod = errors.New("s >= r_mod")
+var ErrZero = errors.New("zero value")
 
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1

@@ -60,18 +60,18 @@ func Example() {
 
 func TestNonMalleability(t *testing.T) {
 
-	{
-		// buffer too big
+	// buffer too big
+	t.Run("buffer_overflow", func(t *testing.T) {
 		bsig := make([]byte, 2*sizeFr+1)
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
 		if err != ErrWrongSize {
 			t.Fatal("should raise wrong size error")
 		}
-	}
+	})
 
 	// R overflows p_mod
-	{
+	t.Run("R_overflow", func(t *testing.T) {
 		bsig := make([]byte, 2*sizeFr)
 		frMod := fr.Modulus()
 		r := big.NewInt(1)
@@ -86,10 +86,10 @@ func TestNonMalleability(t *testing.T) {
 		if err != ErrRBiggerThanPMod {
 			t.Fatal("should raise error r >= p_mod")
 		}
-	}
+	})
 
 	// S overflows r_mod
-	{
+	t.Run("S_overflow", func(t *testing.T) {
 		bsig := make([]byte, 2*sizeFr)
 		o := big.NewInt(1)
 		cp := twistededwards.GetEdwardsCurve()
@@ -102,8 +102,53 @@ func TestNonMalleability(t *testing.T) {
 		if err != ErrSBiggerThanRMod {
 			t.Fatal("should raise error s >= r_mod")
 		}
-	}
+	})
 
+}
+
+func TestNoZeros(t *testing.T) {
+	t.Run("R.X=0", func(t *testing.T) {
+		// R points are 0
+		var sig Signature
+		sig.R.X.SetInt64(0)
+		sig.R.Y.SetInt64(1)
+		s := big.NewInt(1)
+		s.FillBytes(sig.S[:])
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != ErrZero {
+			t.Fatal("expected error for zero R.X")
+		}
+	})
+	t.Run("R.Y=0", func(t *testing.T) {
+		// R points are 0
+		var sig Signature
+		sig.R.X.SetInt64(1)
+		sig.R.Y.SetInt64(0)
+		s := big.NewInt(1)
+		s.FillBytes(sig.S[:])
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != ErrZero {
+			t.Fatal("expected error for zero R.Y")
+		}
+	})
+	t.Run("S=0", func(t *testing.T) {
+		// S is 0
+		var R twistededwards.PointAffine
+		cp := twistededwards.GetEdwardsCurve()
+		R.ScalarMultiplication(&cp.Base, big.NewInt(1))
+		var sig Signature
+		sig.R.Set(&R)
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != ErrZero {
+			t.Fatal("expected error for zero S")
+		}
+	})
 }
 
 func TestSerialization(t *testing.T) {
