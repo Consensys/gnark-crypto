@@ -102,9 +102,6 @@ func (sig *Signature) Bytes() []byte {
 // SetBytes sets sig from a buffer in binary.
 // buf is read interpreted as r||s
 // It returns the number of bytes read from buf.
-// SetBytes sets sig from a buffer in binary.
-// buf is read interpreted as r||s
-// It returns the number of bytes read from buf.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {
