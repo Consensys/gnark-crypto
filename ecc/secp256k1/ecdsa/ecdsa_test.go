@@ -97,7 +97,7 @@ func TestNonMalleability(t *testing.T) {
 		bsig := make([]byte, 2*sizeFr+1)
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
-		if err != ErrWrongSize {
+		if err != errWrongSize {
 			t.Fatal("should raise wrong size error")
 		}
 	})
@@ -113,7 +113,7 @@ func TestNonMalleability(t *testing.T) {
 
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
-		if err != ErrRBiggerThanRMod {
+		if err != errRBiggerThanRMod {
 			t.Fatal("should raise error r >= r_mod")
 		}
 	})
@@ -129,7 +129,7 @@ func TestNonMalleability(t *testing.T) {
 
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
-		if err != ErrSBiggerThanRMod {
+		if err != errSBiggerThanRMod {
 			t.Fatal("should raise error s >= r_mod")
 		}
 	})
@@ -145,7 +145,7 @@ func TestNoZeros(t *testing.T) {
 		bts := sig.Bytes()
 		var newSig Signature
 		_, err := newSig.SetBytes(bts)
-		if err != ErrZero {
+		if err != errZero {
 			t.Fatal("expected error for zero R")
 		}
 	})
@@ -157,7 +157,7 @@ func TestNoZeros(t *testing.T) {
 		bts := sig.Bytes()
 		var newSig Signature
 		_, err := newSig.SetBytes(bts)
-		if err != ErrZero {
+		if err != errZero {
 			t.Fatal("expected error for zero S")
 		}
 	})

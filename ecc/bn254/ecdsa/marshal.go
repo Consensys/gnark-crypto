@@ -26,10 +26,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 )
 
-var ErrWrongSize = errors.New("wrong size buffer")
-var ErrRBiggerThanRMod = errors.New("r >= r_mod")
-var ErrSBiggerThanRMod = errors.New("s >= r_mod")
-var ErrZero = errors.New("zero value")
+var errWrongSize = errors.New("wrong size buffer")
+var errRBiggerThanRMod = errors.New("r >= r_mod")
+var errSBiggerThanRMod = errors.New("s >= r_mod")
+var errZero = errors.New("zero value")
 
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
@@ -136,7 +136,7 @@ func (sig *Signature) Bytes() []byte {
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {
-		return n, ErrWrongSize
+		return n, errWrongSize
 	}
 
 	// S, R < R_mod (to avoid malleability)
@@ -145,17 +145,17 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	bufBigInt := new(big.Int)
 	bufBigInt.SetBytes(buf[:sizeFr])
 	if bufBigInt.Cmp(zero) == 0 {
-		return 0, ErrZero
+		return 0, errZero
 	}
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, ErrRBiggerThanRMod
+		return 0, errRBiggerThanRMod
 	}
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
 	if bufBigInt.Cmp(zero) == 0 {
-		return 0, ErrZero
+		return 0, errZero
 	}
 	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, ErrSBiggerThanRMod
+		return 0, errSBiggerThanRMod
 	}
 
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
