@@ -119,7 +119,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	// P_mod = field of def of the twisted Edwards = Fr snark field
 	fpMod := fr.Modulus()
 	zero := big.NewInt(0)
-	var bufBigInt big.Int
+	bufBigInt := new(big.Int)
 	bufCopy := make([]byte, fr.Bytes)
 	for i := 0; i < sizeFr; i++ {
 		bufCopy[sizeFr-1-i] = buf[i]
