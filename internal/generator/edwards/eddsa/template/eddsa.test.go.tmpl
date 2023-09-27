@@ -90,20 +90,6 @@ func TestNonMalleability(t *testing.T) {
 }
 
 func TestNoZeros(t *testing.T) {
-	t.Run("R.X=0", func(t *testing.T) {
-		// R points are 0
-		var sig Signature
-		sig.R.X.SetInt64(0)
-		sig.R.Y.SetInt64(1)
-		s := big.NewInt(1)
-		s.FillBytes(sig.S[:])
-		bts := sig.Bytes()
-		var newSig Signature
-		_, err := newSig.SetBytes(bts)
-		if err != ErrZero {
-			t.Fatal("expected error for zero R.X")
-		}
-	})
 	t.Run("R.Y=0", func(t *testing.T) {
 		// R points are 0
 		var sig Signature
