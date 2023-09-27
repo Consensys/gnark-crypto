@@ -18,6 +18,7 @@ package eddsa
 
 import (
 	"crypto/sha256"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/twistededwards"
 	"github.com/consensys/gnark-crypto/hash"
 )
 
@@ -54,6 +56,86 @@ func Example() {
 	}
 
 	// Output: 1. valid signature
+}
+
+func TestNonMalleability(t *testing.T) {
+
+	// buffer too big
+	t.Run("buffer_overflow", func(t *testing.T) {
+		bsig := make([]byte, 2*sizeFr+1)
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != errWrongSize {
+			t.Fatal("should raise wrong size error")
+		}
+	})
+
+	// R overflows p_mod
+	t.Run("R_overflow", func(t *testing.T) {
+		bsig := make([]byte, 2*sizeFr)
+		frMod := fr.Modulus()
+		r := big.NewInt(1)
+		r.Add(frMod, r)
+		buf := r.Bytes()
+		for i := 0; i < sizeFr; i++ {
+			bsig[sizeFr-1-i] = buf[i]
+		}
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != errRBiggerThanPMod {
+			t.Fatal("should raise error r >= p_mod")
+		}
+	})
+
+	// S overflows r_mod
+	t.Run("S_overflow", func(t *testing.T) {
+		bsig := make([]byte, 2*sizeFr)
+		o := big.NewInt(1)
+		cp := twistededwards.GetEdwardsCurve()
+		o.Add(&cp.Order, o)
+		buf := o.Bytes()
+		copy(bsig[sizeFr:], buf[:])
+		big.NewInt(1).FillBytes(bsig[:sizeFr])
+
+		var sig Signature
+		_, err := sig.SetBytes(bsig)
+		if err != errSBiggerThanRMod {
+			t.Fatal("should raise error s >= r_mod")
+		}
+	})
+
+}
+
+func TestNoZeros(t *testing.T) {
+	t.Run("R.Y=0", func(t *testing.T) {
+		// R points are 0
+		var sig Signature
+		sig.R.X.SetInt64(1)
+		sig.R.Y.SetInt64(0)
+		s := big.NewInt(1)
+		s.FillBytes(sig.S[:])
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != errZero {
+			t.Fatal("expected error for zero R.Y")
+		}
+	})
+	t.Run("S=0", func(t *testing.T) {
+		// S is 0
+		var R twistededwards.PointAffine
+		cp := twistededwards.GetEdwardsCurve()
+		R.ScalarMultiplication(&cp.Base, big.NewInt(1))
+		var sig Signature
+		sig.R.Set(&R)
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != errZero {
+			t.Fatal("expected error for zero S")
+		}
+	})
 }
 
 func TestSerialization(t *testing.T) {

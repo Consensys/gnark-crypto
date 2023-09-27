@@ -18,8 +18,16 @@ package ecdsa
 
 import (
 	"crypto/subtle"
+	"errors"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"io"
+	"math/big"
 )
+
+var errWrongSize = errors.New("wrong size buffer")
+var errRBiggerThanRMod = errors.New("r >= r_mod")
+var errSBiggerThanRMod = errors.New("s >= r_mod")
+var errZero = errors.New("zero value")
 
 // Bytes returns the binary representation of the public key
 // follows https://tools.ietf.org/html/rfc8032#section-3.1
@@ -97,9 +105,29 @@ func (sig *Signature) Bytes() []byte {
 // It returns the number of bytes read from buf.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
-	if len(buf) < sizeSignature {
-		return n, io.ErrShortBuffer
+	if len(buf) != sizeSignature {
+		return n, errWrongSize
 	}
+
+	// S, R < R_mod (to avoid malleability)
+	frMod := fr.Modulus()
+	zero := big.NewInt(0)
+	bufBigInt := new(big.Int)
+	bufBigInt.SetBytes(buf[:sizeFr])
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, errZero
+	}
+	if bufBigInt.Cmp(frMod) != -1 {
+		return 0, errRBiggerThanRMod
+	}
+	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, errZero
+	}
+	if bufBigInt.Cmp(frMod) != -1 {
+		return 0, errSBiggerThanRMod
+	}
+
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
 	n += sizeFr
 	subtle.ConstantTimeCopy(1, sig.S[:], buf[sizeFr:2*sizeFr])
