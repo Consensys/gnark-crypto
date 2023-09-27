@@ -137,6 +137,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	// R < P_mod (to avoid malleability)
 	// P_mod = field of def of the twisted Edwards = Fr snark field
 	fpMod := fr.Modulus()
+	zero := big.NewInt(0)
 	var bufBigInt big.Int
 	bufCopy := make([]byte, fr.Bytes)
 	for i := 0; i < sizeFr; i++ {
@@ -144,6 +145,9 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	}
 	bufCopy[0] &= mUnmask
 	bufBigInt.SetBytes(bufCopy)
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, ErrZero
+	}
 	if bufBigInt.Cmp(fpMod) != -1 {
 		return 0, ErrRBiggerThanPMod
 	}
@@ -151,6 +155,9 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	// S < R_mod (to avoid malleability)
 	// R_mod is the relevant group size of the twisted Edwards NOT the fr snark field so it's supposedly smaller
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, ErrZero
+	}
 	cp := twistededwards.GetEdwardsCurve()
 	if bufBigInt.Cmp(&cp.Order) != -1 {
 		return 0, ErrSBiggerThanRMod
