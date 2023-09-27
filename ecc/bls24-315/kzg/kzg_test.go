@@ -25,16 +25,56 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
 
 	"github.com/consensys/gnark-crypto/utils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
 var testSrs *SRS
+var bAlpha *big.Int
 
 func init() {
 	const srsSize = 230
-	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
+	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func TestSrsToLagrangeG1(t *testing.T) {
+
+	size := 64
+	srsLagrange := SrsToLagrangeG1(testSrs.Pk.G1, size)
+
+	// generate the Lagrange SRS manually and compare
+	domain := fft.NewDomain(uint64(size))
+	w := domain.Generator
+
+	var li, n, d, one, acc, alpha fr.Element
+	alpha.SetBigInt(bAlpha)
+	li.SetUint64(uint64(size)).Inverse(&li)
+	one.SetOne()
+	n.Exp(alpha, big.NewInt(int64(size))).Sub(&n, &one)
+	d.Sub(&alpha, &one)
+	li.Mul(&li, &n).Div(&li, &d)
+	expectedSrsLagrange := make([]bls24315.G1Affine, size)
+	_, _, g1Gen, _ := bls24315.Generators()
+	var s big.Int
+	acc.SetOne()
+	for i := 0; i < size; i++ {
+		li.BigInt(&s)
+		expectedSrsLagrange[i].ScalarMultiplication(&g1Gen, &s)
+
+		li.Mul(&li, &w).Mul(&li, &d)
+		acc.Mul(&acc, &w)
+		d.Sub(&alpha, &acc)
+		li.Div(&li, &d)
+	}
+
+	for i := 0; i < size; i++ {
+		if !expectedSrsLagrange[i].Equal(&srsLagrange[i]) {
+			t.Fatal("error SRS conversion")
+		}
+	}
 }
 
 func TestDividePolyByXminusA(t *testing.T) {

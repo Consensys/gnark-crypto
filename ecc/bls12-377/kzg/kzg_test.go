@@ -60,7 +60,7 @@ func TestSrsToLagrangeG1(t *testing.T) {
 	_, _, g1Gen, _ := bls12377.Generators()
 	var s big.Int
 	acc.SetOne()
-	for i:=0; i<size; i++ {
+	for i := 0; i < size; i++ {
 		li.BigInt(&s)
 		expectedSrsLagrange[i].ScalarMultiplication(&g1Gen, &s)
 
@@ -70,8 +70,8 @@ func TestSrsToLagrangeG1(t *testing.T) {
 		li.Div(&li, &d)
 	}
 
-	for i := 0; i<size; i++ {
-		if !expectedSrsLagrange[i].Equal(&srsLagrange[i]){
+	for i := 0; i < size; i++ {
+		if !expectedSrsLagrange[i].Equal(&srsLagrange[i]) {
 			t.Fatal("error SRS conversion")
 		}
 	}

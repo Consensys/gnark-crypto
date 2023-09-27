@@ -22,9 +22,9 @@ import (
 	"runtime"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
+	curve "github.com/consensys/gnark-crypto/ecc/bls12-378"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
