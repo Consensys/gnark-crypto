@@ -121,6 +121,33 @@ func TestNonMalleability(t *testing.T) {
 
 }
 
+func TestNoZeros(t *testing.T) {
+	t.Run("R=0", func(t *testing.T) {
+		// R is 0
+		var sig Signature
+		big.NewInt(0).FillBytes(sig.R[:])
+		big.NewInt(1).FillBytes(sig.S[:])
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != ErrZero {
+			t.Fatal("expected error for zero R")
+		}
+	})
+	t.Run("S=0", func(t *testing.T) {
+		// S is 0
+		var sig Signature
+		big.NewInt(1).FillBytes(sig.R[:])
+		big.NewInt(0).FillBytes(sig.S[:])
+		bts := sig.Bytes()
+		var newSig Signature
+		_, err := newSig.SetBytes(bts)
+		if err != ErrZero {
+			t.Fatal("expected error for zero S")
+		}
+	})
+}
+
 // ------------------------------------------------------------
 // benches
 
