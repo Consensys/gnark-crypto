@@ -141,12 +141,19 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 
 	// S, R < R_mod (to avoid malleability)
 	frMod := fr.Modulus()
+	zero := big.NewInt(0)
 	var bufBigInt big.Int
 	bufBigInt.SetBytes(buf[:sizeFr])
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, ErrZero
+	}
 	if bufBigInt.Cmp(frMod) != -1 {
 		return 0, ErrRBiggerThanRMod
 	}
 	bufBigInt.SetBytes(buf[sizeFr : 2*sizeFr])
+	if bufBigInt.Cmp(zero) == 0 {
+		return 0, ErrZero
+	}
 	if bufBigInt.Cmp(frMod) != -1 {
 		return 0, ErrSBiggerThanRMod
 	}
