@@ -33,9 +33,9 @@ import (
 // From the formula Lᵢ(τ) = 1/n∑_{j<n}(τ/ωⁱ)ʲ we
 // see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
 // fft on the vector consisting of the original SRS.
-func SrsToLagrangeG1(powers []curve.G1Affine, size int) []curve.G1Affine {
+func SrsToLagrangeG1(powers ProvingKey, size int) ProvingKeyLagrange {
 	coeffs := make([]curve.G1Affine, size)
-	copy(coeffs, powers[:size])
+	copy(coeffs, powers.G1[:size])
 	domain := fft.NewDomain(uint64(size))
 	numCPU := uint64(runtime.NumCPU())
 	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
@@ -51,7 +51,7 @@ func SrsToLagrangeG1(powers []curve.G1Affine, size int) []curve.G1Affine {
 			coeffs[i].ScalarMultiplication(&coeffs[i], &invBigint)
 		}
 	})
-	return coeffs
+	return ProvingKeyLagrange{G1: coeffs}
 }
 
 func SrsToLagrangeG2(powers []curve.G2Affine, size int) []curve.G2Affine {

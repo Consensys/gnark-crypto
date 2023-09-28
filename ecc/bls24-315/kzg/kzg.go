@@ -47,6 +47,11 @@ type ProvingKey struct {
 	G1 []bls24315.G1Affine // [G₁ [α]G₁ , [α²]G₁, ... ]
 }
 
+// ProvingKey in Lagrange form, useful when the vector to commit is sparse
+type ProvingKeyLagrange struct {
+	G1 []bls24315.G1Affine // [ [L₀(α)]G₁, [L₁(α)]G₁ , ... ]
+}
+
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
 	G2 [2]bls24315.G2Affine // [G₂, [α]G₂ ]

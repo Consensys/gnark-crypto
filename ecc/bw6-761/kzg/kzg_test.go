@@ -43,7 +43,7 @@ func init() {
 func TestSrsToLagrangeG1(t *testing.T) {
 
 	size := 64
-	srsLagrange := SrsToLagrangeG1(testSrs.Pk.G1, size)
+	srsLagrange := SrsToLagrangeG1(ProvingKey{testSrs.Pk.G1}, size)
 
 	// generate the Lagrange SRS manually and compare
 	domain := fft.NewDomain(uint64(size))
@@ -71,7 +71,7 @@ func TestSrsToLagrangeG1(t *testing.T) {
 	}
 
 	for i := 0; i < size; i++ {
-		if !expectedSrsLagrange[i].Equal(&srsLagrange[i]) {
+		if !expectedSrsLagrange[i].Equal(&srsLagrange.G1[i]) {
 			t.Fatal("error SRS conversion")
 		}
 	}
