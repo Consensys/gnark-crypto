@@ -59,6 +59,39 @@ func TestSrsToLagrangeG1(t *testing.T) {
 	}
 }
 
+func TestCommitLagrange(t *testing.T) {
+
+	// sample a sparse polynomial (here in Lagrange form)
+	size := 64
+	pol := make([]fr.Element, size)
+	pol[0].SetRandom()
+	for i := 0; i < size; i = i+8 {
+		pol[i].SetRandom()
+	}
+	
+	// commitment using Lagrange SRS
+	srsLagrange := SrsToLagrangeG1(testSrs.Pk, size)
+	digestLagrange, err := CommitLagrange(pol, srsLagrange)
+	if err!=nil{
+		t.Fatal(err)
+	}
+
+	// commitment using canonical SRS
+	d := fft.NewDomain(uint64(size))
+	d.FFTInverse(pol, fft.DIF)
+	fft.BitReverse(pol)
+	digestCanonical, err := Commit(pol, testSrs.Pk)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	// compare the results
+	if !digestCanonical.Equal(&digestLagrange) {
+		t.Fatal("error CommitLagrange ")
+	}
+
+}
+
 func TestDividePolyByXminusA(t *testing.T) {
 
 	const pSize = 230

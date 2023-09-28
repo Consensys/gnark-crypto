@@ -153,6 +153,41 @@ func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 	return res, nil
 }
 
+// Commit commits to a polynomial using a multi exponentiation with the SRS.
+// It is assumed that the polynomial is in Lagrange form.
+// To be used when p is sparse.
+func CommitLagrange(p []fr.Element, pk ProvingKeyLagrange, nbTasks ...int) (Digest, error) {
+
+	if len(p) == 0 || len(p) > len(pk.G1) {
+		return Digest{}, ErrInvalidPolynomialSize
+	}
+
+	var res bw6633.G1Affine
+
+	config := ecc.MultiExpConfig{}
+	if len(nbTasks) > 0 {
+		config.NbTasks = nbTasks[0]
+	}
+
+	// filter the zeroes
+	// TODO is there a better way of doing this ?
+	pFiltered := make([]fr.Element, 0, len(p))
+	keyFiltered := make([]bw6633.G1Affine, 0, len(p))
+	for i := 0; i < len(p); i++ {
+		if p[i].IsZero() {
+			continue
+		}
+		pFiltered = append(pFiltered, p[i])
+		keyFiltered = append(keyFiltered, pk.G1[i])
+	}
+
+	if _, err := res.MultiExp(keyFiltered, pFiltered, config); err != nil {
+		return Digest{}, err
+	}
+
+	return res, nil
+}
+
 // Open computes an opening proof of polynomial p at given point.
 // fft.Domain Cardinality must be larger than p.Degree()
 func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error) {
