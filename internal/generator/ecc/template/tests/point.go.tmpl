@@ -584,6 +584,51 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 }
 
+func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
+	var scalar {{ .CoordType}}
+	if _, err := scalar.SetRandom(); err != nil {
+		b.Fatalf("failed to set scalar: %s", err)
+	}
+
+	var a {{ $TJacobian }}
+	a.ScalarMultiplication(&{{.PointName}}Gen, big.NewInt(42))
+
+	b.Run("equal", func(b *testing.B) {
+		var scalarSquared {{ .CoordType}}
+		scalarSquared.Square(&scalar)
+
+		aZScaled := a
+		aZScaled.X.Mul(&aZScaled.X, &scalarSquared)
+		aZScaled.Y.Mul(&aZScaled.Y, &scalarSquared).Mul(&aZScaled.Y, &scalar)
+		aZScaled.Z.Mul(&aZScaled.Z, &scalar)
+
+		// Check the setup.
+		if !a.Equal(&aZScaled) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aZScaled)
+		}
+	})
+
+	b.Run("not equal", func(b *testing.B) {
+		var aPlus1 {{ $TJacobian }}
+		aPlus1.AddAssign(&{{.PointName}}Gen)	
+
+		// Check the setup.
+		if a.Equal(&aPlus1) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aPlus1)
+		}
+	})
+}
+
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 
 	var P, R p{{$TAffine}}C{{$c}}
