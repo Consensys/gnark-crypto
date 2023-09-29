@@ -556,12 +556,7 @@ func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	table[3].Frobenius(&x)
 
 	// split the scalar, modifies ±x, Frob(x) accordingly
-	var s [2]big.Int
-	if e.Cmp(fr.Modulus()) != -1 {
-		s = ecc.SplitScalarBig(e, &glvBasis)
-	} else {
-		s = ecc.SplitScalar(e, &glvBasis)
-	}
+	s := ecc.SplitScalar(e, &glvBasis)
 
 	if s[0].Sign() == -1 {
 		s[0].Neg(&s[0])
@@ -592,8 +587,14 @@ func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	s1 = s1.SetBigInt(&s[0]).Bits()
 	s2 = s2.SetBigInt(&s[1]).Bits()
 
+	maxBit := s1.BitLen()
+	if s2.BitLen() > maxBit {
+		maxBit = s2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
 	// loop starts from len(s1)/2 due to the bounds
-	for i := len(s1) / 2; i >= 0; i-- {
+	for i := hiWordIndex ; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
