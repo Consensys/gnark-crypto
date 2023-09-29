@@ -282,6 +282,37 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[{{ toUpper .Name }}-381] [-s]G = -[s]G", prop.ForAll(
+		func(s fr.Element) bool {
+			g := {{ toLower .PointName }}GenAff
+			var gj {{ toUpper .PointName }}Jac
+			var nbs, bs big.Int
+			s.BigInt(&bs)
+			nbs.Neg(&bs)
+
+			var res = true
+
+			// mulGLV
+			{
+				var op1, op2 {{ toUpper .PointName }}Affine
+				op1.ScalarMultiplication(&g, &bs).Neg(&op1)
+				op2.ScalarMultiplication(&g, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			// mulWindowed
+			{
+				var op1, op2 {{ toUpper .PointName }}Jac
+				op1.mulWindowed(&gj, &bs).Neg(&op1)
+				op2.mulWindowed(&gj, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			return res
+		},
+		GenFr(),
+	))
+
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b {{ .CoordType}}) bool {
 			fop1 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, a)
