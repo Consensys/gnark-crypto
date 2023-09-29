@@ -51,7 +51,6 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	{{if not (or ( or (eq .Name "bw6-761") (eq .Name "bw6-633")) (eq .Name "bw6-756") ) }}
 	properties.Property("[{{ toUpper .Name}}] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
 		func(a GT, e fr.Element, ) bool {
 
@@ -86,7 +85,6 @@ func TestPairing(t *testing.T) {
 		genA,
 		genR1,
 	))
-	{{ end }}
 
 	properties.Property("[{{ toUpper .Name}}] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
 		func(a GT) bool {

@@ -64,6 +64,41 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BW6-756] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
+		func(a GT, e fr.Element) bool {
+
+			var res bool
+
+			// exponent > r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = b.Equal(&c) && c.Equal(&d)
+			}
+
+			// exponent < r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				e.BigInt(&_e)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = res && b.Equal(&c) && c.Equal(&d)
+			}
+
+			return res
+		},
+		genA,
+		genR1,
+	))
+
 	properties.Property("[BW6-756] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
 		func(a GT) bool {
 			var b, c, d GT
