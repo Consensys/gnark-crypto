@@ -581,9 +581,9 @@ func (z *E12) ExpGLV(x E12, k *big.Int) *E12 {
 	// split the scalar, modifies ±x, Frob(x) accordingly
 	var s [2]big.Int
 	if e.Cmp(fr.Modulus()) != -1 {
-		s = ecc.SplitScalar(e, &glvBasis)
+		s = ecc.SplitScalarBig(e, &glvBasis)
 	} else {
-		s = ecc.SplitScalarSmall(e, &glvBasis)
+		s = ecc.SplitScalar(e, &glvBasis)
 	}
 
 	if s[0].Sign() == -1 {

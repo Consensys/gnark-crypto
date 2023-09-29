@@ -138,7 +138,7 @@ func PrecomputeLattice(r, lambda *big.Int, res *Lattice) {
 // ker((a,b) → a+b.λ[r]): then (u,v)=w-(s,0), and
 // u+v.λ=s[r].
 // cf https://www.iacr.org/archive/crypto2001/21390189.pdf
-func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
+func SplitScalarBig(s *big.Int, l *Lattice) [2]big.Int {
 
 	var k1, k2 big.Int
 	k1.Mul(&l.V2[1], s)
@@ -152,7 +152,7 @@ func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 	return v
 }
 
-func SplitScalarSmall(s *big.Int, l *Lattice) [2]big.Int {
+func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 
 	var k1, k2 big.Int
 	k1.Mul(s, &l.b1)
