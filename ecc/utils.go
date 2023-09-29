@@ -141,6 +141,20 @@ func PrecomputeLattice(r, lambda *big.Int, res *Lattice) {
 func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 
 	var k1, k2 big.Int
+	k1.Mul(&l.V2[1], s)
+	k2.Mul(&l.V1[1], s).Neg(&k2)
+	rounding(&k1, &l.Det, &k1)
+	rounding(&k2, &l.Det, &k2)
+
+	v := getVector(l, &k1, &k2)
+	v[0].Sub(s, &v[0])
+	v[1].Neg(&v[1])
+	return v
+}
+
+func SplitScalarSmall(s *big.Int, l *Lattice) [2]big.Int {
+
+	var k1, k2 big.Int
 	k1.Mul(s, &l.b1)
 	k2.Mul(s, &l.b2).Neg(&k2)
 	// right-shift instead of division by lattice determinant
