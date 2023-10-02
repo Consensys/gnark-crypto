@@ -247,6 +247,37 @@ func TestG1AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[BLS12-381-381] [-s]G = -[s]G", prop.ForAll(
+		func(s fr.Element) bool {
+			g := g1GenAff
+			var gj G1Jac
+			var nbs, bs big.Int
+			s.BigInt(&bs)
+			nbs.Neg(&bs)
+
+			var res = true
+
+			// mulGLV
+			{
+				var op1, op2 G1Affine
+				op1.ScalarMultiplication(&g, &bs).Neg(&op1)
+				op2.ScalarMultiplication(&g, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			// mulWindowed
+			{
+				var op1, op2 G1Jac
+				op1.mulWindowed(&gj, &bs).Neg(&op1)
+				op2.mulWindowed(&gj, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			return res
+		},
+		GenFr(),
+	))
+
 	properties.Property("[BLS12-381] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)

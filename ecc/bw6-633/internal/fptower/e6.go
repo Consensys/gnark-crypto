@@ -599,8 +599,14 @@ func (z *E6) ExpGLV(x E6, k *big.Int) *E6 {
 	s1 = s1.SetBigInt(&s[0]).Bits()
 	s2 = s2.SetBigInt(&s[1]).Bits()
 
+	maxBit := s1.BitLen()
+	if s2.BitLen() > maxBit {
+		maxBit = s2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
 	// loop starts from len(s1)/2 due to the bounds
-	for i := len(s1) / 2; i >= 0; i-- {
+	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
