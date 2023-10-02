@@ -52,6 +52,7 @@ func main() {
 			var err error
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
+
 			// generate base field
 			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
