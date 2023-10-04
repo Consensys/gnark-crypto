@@ -40,6 +40,11 @@ type g2JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
+// g2Proj point in projective coordinates
+type g2Proj struct {
+	x, y, z fp.Element
+}
+
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -106,6 +111,24 @@ func (p *G2Affine) Equal(a *G2Affine) bool {
 func (p *G2Affine) Neg(a *G2Affine) *G2Affine {
 	p.X = a.X
 	p.Y.Neg(&a.Y)
+	return p
+}
+
+// FromProjective rescale a point in Projective coord in z=1 plane
+func (p *G2Affine) FromProjective(p1 *g2Proj) *G2Affine {
+
+	var a fp.Element
+
+	if p1.z.IsZero() {
+		p.X.SetZero()
+		p.Y.SetZero()
+		return p
+	}
+
+	a.Inverse(&p1.z)
+	p.X.Mul(&p1.x, &a)
+	p.Y.Mul(&p1.y, &a)
+
 	return p
 }
 
@@ -883,6 +906,48 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
+	return p
+}
+
+// -------------------------------------------------------------------------------------------------
+// Homogenous projective
+
+// Set sets p to the provided point
+func (p *g2Proj) Set(a *g2Proj) *g2Proj {
+	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// Neg computes -G
+func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
+	p.x = a.x
+	p.y.Neg(&a.y)
+	return p
+}
+
+// FromJacobian converts a point from Jacobian to projective coordinates
+func (p *g2Proj) FromJacobian(Q *G2Jac) *g2Proj {
+	var buf fp.Element
+	buf.Square(&Q.Z)
+
+	p.x.Mul(&Q.X, &Q.Z)
+	p.y.Set(&Q.Y)
+	p.z.Mul(&Q.Z, &buf)
+
+	return p
+}
+
+// FromAffine sets p = Q, p in homogenous projective, Q in affine
+func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.z.SetZero()
+		p.x.SetOne()
+		p.y.SetOne()
+		return p
+	}
+	p.z.SetOne()
+	p.x.Set(&Q.X)
+	p.y.Set(&Q.Y)
 	return p
 }
 
