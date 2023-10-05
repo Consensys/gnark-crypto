@@ -8,9 +8,6 @@
 import (
 	"math/big"
 	"runtime"
-	{{- if eq .PointName "g1"}}
-	"sync"
-	{{- end }}
 
 	{{- if .GLV}}
 	"github.com/consensys/gnark-crypto/ecc"
@@ -24,13 +21,6 @@ import (
 	{{- end}}
 )
 
-{{- if eq .PointName "g1"}}
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
-{{- end}}
 
 // {{ $TAffine }} point in affine coordinates
 type {{ $TAffine }} struct {

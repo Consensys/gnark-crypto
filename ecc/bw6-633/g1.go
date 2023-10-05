@@ -23,14 +23,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
-	"sync"
 )
-
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
 
 // G1Affine point in affine coordinates
 type G1Affine struct {
