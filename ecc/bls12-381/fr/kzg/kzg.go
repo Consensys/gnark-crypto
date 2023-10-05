@@ -223,7 +223,8 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 // * point is the point at which the polynomials are opened.
 // * digests is the list of committed polynomials to open, need to derive the challenge using Fiat Shamir.
 // * polynomials is the list of polynomials to open, they are supposed to be of the same size.
-func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr.Element, hf hash.Hash, pk ProvingKey) (BatchOpeningProof, error) {
+// * dataTranscript extra data that might be needed to derive the challenge used for folding
+func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr.Element, hf hash.Hash, pk ProvingKey, dataTranscript ...[]byte) (BatchOpeningProof, error) {
 
 	// check for invalid sizes
 	nbDigests := len(digests)
@@ -259,7 +260,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	wg.Wait()
 
 	// derive the challenge γ, binded to the point and the commitments
-	gamma, err := deriveGamma(point, digests, res.ClaimedValues, hf)
+	gamma, err := deriveGamma(point, digests, res.ClaimedValues, hf, dataTranscript...)
 	if err != nil {
 		return BatchOpeningProof{}, err
 	}
@@ -316,8 +317,9 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 //
 // * digests list of digests on which batchOpeningProof is based
 // * batchOpeningProof opening proof of digests
+// * transcript extra data needed to derive the challenge used for folding.
 // * returns the folded version of batchOpeningProof, Digest, the folded version of digests
-func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash) (OpeningProof, Digest, error) {
+func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, dataTranscript ...[]byte) (OpeningProof, Digest, error) {
 
 	nbDigests := len(digests)
 
@@ -327,7 +329,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 	}
 
 	// derive the challenge γ, binded to the point and the commitments
-	gamma, err := deriveGamma(point, digests, batchOpeningProof.ClaimedValues, hf)
+	gamma, err := deriveGamma(point, digests, batchOpeningProof.ClaimedValues, hf, dataTranscript...)
 	if err != nil {
 		return OpeningProof{}, Digest{}, ErrInvalidNbDigests
 	}
@@ -360,10 +362,11 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 //
 // * digests list of digests on which opening proof is done
 // * batchOpeningProof proof of correct opening on the digests
-func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, vk VerifyingKey) error {
+// * dataTranscript extra data that might be needed to derive the challenge used for the folding
+func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, vk VerifyingKey, dataTranscript ...[]byte) error {
 
 	// fold the proof
-	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof, point, hf)
+	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof, point, hf, dataTranscript...)
 	if err != nil {
 		return err
 	}
@@ -506,7 +509,7 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 }
 
 // deriveGamma derives a challenge using Fiat Shamir to fold proofs.
-func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element, hf hash.Hash) (fr.Element, error) {
+func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element, hf hash.Hash, dataTranscript ...[]byte) (fr.Element, error) {
 
 	// derive the challenge gamma, binded to the point and the commitments
 	fs := fiatshamir.NewTranscript(hf, "gamma")
@@ -523,6 +526,13 @@ func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element,
 			return fr.Element{}, err
 		}
 	}
+
+	for i := 0; i < len(dataTranscript); i++ {
+		if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
+			return fr.Element{}, err
+		}
+	}
+
 	gammaByte, err := fs.ComputeChallenge("gamma")
 	if err != nil {
 		return fr.Element{}, err
