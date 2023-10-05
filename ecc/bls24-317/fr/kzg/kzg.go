@@ -526,13 +526,13 @@ func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element,
 			return fr.Element{}, err
 		}
 	}
-	if len(dataTranscript) > 0 {
-		for i := 0; i < len(dataTranscript); i++ {
-			if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
-				return fr.Element{}, err
-			}
+
+	for i := 0; i < len(dataTranscript); i++ {
+		if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
+			return fr.Element{}, err
 		}
 	}
+
 	gammaByte, err := fs.ComputeChallenge("gamma")
 	if err != nil {
 		return fr.Element{}, err
