@@ -23,14 +23,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
-	"sync"
 )
-
-var bigIntPool = sync.Pool{
-	New: func() interface{} {
-		return new(big.Int)
-	},
-}
 
 // G1Affine point in affine coordinates
 type G1Affine struct {
@@ -447,11 +440,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 	var ops [3]G1Jac
 
 	ops[0].Set(a)
-	e := s
 	if s.Sign() == -1 {
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
-		e.Neg(s)
 		ops[0].Neg(&ops[0])
 	}
 	res.Set(&g1Infinity)
