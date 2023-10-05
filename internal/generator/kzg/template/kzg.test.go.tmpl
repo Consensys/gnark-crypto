@@ -255,6 +255,13 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var salt fr.Element
+	salt.SetRandom()
+	proofExtendedTranscript, err := BatchOpenSinglePoint(f, digests, point, hf, testSrs.Pk, salt.Marshal())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// verify the claimed values
 	for i := range f {
 		expectedClaim := eval(f[i], point)
@@ -265,6 +272,12 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// verify correct proof
 	err = BatchVerifySinglePoint(digests, &proof, point, hf, testSrs.Vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify correct proof with extended transcript
+	err = BatchVerifySinglePoint(digests, &proofExtendedTranscript, point, hf, testSrs.Vk, salt.Marshal())
 	if err != nil {
 		t.Fatal(err)
 	}

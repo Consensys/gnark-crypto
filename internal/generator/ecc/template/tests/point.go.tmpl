@@ -282,6 +282,37 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[{{ toUpper .Name }}-381] [-s]G = -[s]G", prop.ForAll(
+		func(s fr.Element) bool {
+			g := {{ toLower .PointName }}GenAff
+			var gj {{ toUpper .PointName }}Jac
+			var nbs, bs big.Int
+			s.BigInt(&bs)
+			nbs.Neg(&bs)
+
+			var res = true
+
+			// mulGLV
+			{
+				var op1, op2 {{ toUpper .PointName }}Affine
+				op1.ScalarMultiplication(&g, &bs).Neg(&op1)
+				op2.ScalarMultiplication(&g, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			// mulWindowed
+			{
+				var op1, op2 {{ toUpper .PointName }}Jac
+				op1.mulWindowed(&gj, &bs).Neg(&op1)
+				op2.mulWindowed(&gj, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			return res
+		},
+		GenFr(),
+	))
+
 	properties.Property("[{{ toUpper .Name }}] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b {{ .CoordType}}) bool {
 			fop1 := fuzz{{ $TJacobian }}(&{{ toLower .PointName }}Gen, a)
@@ -582,6 +613,51 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
+}
+
+func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
+	var scalar {{ .CoordType}}
+	if _, err := scalar.SetRandom(); err != nil {
+		b.Fatalf("failed to set scalar: %s", err)
+	}
+
+	var a {{ $TJacobian }}
+	a.ScalarMultiplication(&{{.PointName}}Gen, big.NewInt(42))
+
+	b.Run("equal", func(b *testing.B) {
+		var scalarSquared {{ .CoordType}}
+		scalarSquared.Square(&scalar)
+
+		aZScaled := a
+		aZScaled.X.Mul(&aZScaled.X, &scalarSquared)
+		aZScaled.Y.Mul(&aZScaled.Y, &scalarSquared).Mul(&aZScaled.Y, &scalar)
+		aZScaled.Z.Mul(&aZScaled.Z, &scalar)
+
+		// Check the setup.
+		if !a.Equal(&aZScaled) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aZScaled)
+		}
+	})
+
+	b.Run("not equal", func(b *testing.B) {
+		var aPlus1 {{ $TJacobian }}
+		aPlus1.AddAssign(&{{.PointName}}Gen)	
+
+		// Check the setup.
+		if a.Equal(&aPlus1) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aPlus1)
+		}
+	})
 }
 
 func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {

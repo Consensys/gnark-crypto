@@ -294,13 +294,26 @@ func (p *PointProj) setInfinity() *PointProj {
 // Equal returns true if p=p1 false otherwise
 // If one point is on the affine chart Z=0 it returns false
 func (p *PointProj) Equal(p1 *PointProj) bool {
-	if p.Z.IsZero() || p1.Z.IsZero() {
+	// If one point is infinity, the other must also be infinity.
+	if p.Z.IsZero() {
+		return p1.Z.IsZero()
+	}
+	// If the other point is infinity, return false since we can't
+	// the following checks would be incorrect.
+	if p1.Z.IsZero() {
 		return false
 	}
-	var pAffine, p1Affine PointAffine
-	pAffine.FromProj(p)
-	p1Affine.FromProj(p1)
-	return pAffine.Equal(&p1Affine)
+
+	var lhs, rhs fr.Element
+	lhs.Mul(&p.X, &p1.Z)
+	rhs.Mul(&p1.X, &p.Z)
+	if !lhs.Equal(&rhs) {
+		return false
+	}
+	lhs.Mul(&p.Y, &p1.Z)
+	rhs.Mul(&p1.Y, &p.Z)
+
+	return lhs.Equal(&rhs)
 }
 
 // IsZero returns true if p=0 false otherwise

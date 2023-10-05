@@ -45,7 +45,6 @@ func TestPairing(t *testing.T) {
 	genA := GenE12()
 	genR1 := GenFr()
 	genR2 := GenFr()
-	genP := GenFp()
 
 	properties.Property("[BLS12-381] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
@@ -64,28 +63,39 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BLS12-381] Exp, CyclotomicExp and ExpGLV results must be the same in GT", prop.ForAll(
-		func(a GT, e fp.Element) bool {
-			a = FinalExponentiation(&a)
+	properties.Property("[BLS12-381] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
+		func(a GT, e fr.Element) bool {
 
-			var _e, ne big.Int
+			var res bool
 
-			k := new(big.Int).SetUint64(12)
-			e.Exp(e, k)
-			e.BigInt(&_e)
-			ne.Neg(&_e)
+			// exponent > r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = b.Equal(&c) && c.Equal(&d)
+			}
 
-			var b, c, d GT
-			b.Exp(a, &ne)
-			b.Inverse(&b)
-			c.ExpGLV(a, &ne)
-			c.Conjugate(&c)
-			d.CyclotomicExp(a, &_e)
+			// exponent < r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				e.BigInt(&_e)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = res && b.Equal(&c) && c.Equal(&d)
+			}
 
-			return b.Equal(&c) && c.Equal(&d)
+			return res
 		},
 		genA,
-		genP,
+		genR1,
 	))
 
 	properties.Property("[BLS12-381] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(

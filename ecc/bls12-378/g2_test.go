@@ -248,6 +248,37 @@ func TestG2AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[BLS12-378-381] [-s]G = -[s]G", prop.ForAll(
+		func(s fr.Element) bool {
+			g := g2GenAff
+			var gj G2Jac
+			var nbs, bs big.Int
+			s.BigInt(&bs)
+			nbs.Neg(&bs)
+
+			var res = true
+
+			// mulGLV
+			{
+				var op1, op2 G2Affine
+				op1.ScalarMultiplication(&g, &bs).Neg(&op1)
+				op2.ScalarMultiplication(&g, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			// mulWindowed
+			{
+				var op1, op2 G2Jac
+				op1.mulWindowed(&gj, &bs).Neg(&op1)
+				op2.mulWindowed(&gj, &nbs)
+				res = res && op1.Equal(&op2)
+			}
+
+			return res
+		},
+		GenFr(),
+	))
+
 	properties.Property("[BLS12-378] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
 		func(a, b fptower.E2) bool {
 			fop1 := fuzzG2Jac(&g2Gen, a)
@@ -503,6 +534,51 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 		a.IsInSubGroup()
 	}
 
+}
+
+func BenchmarkG2JacEqual(b *testing.B) {
+	var scalar fptower.E2
+	if _, err := scalar.SetRandom(); err != nil {
+		b.Fatalf("failed to set scalar: %s", err)
+	}
+
+	var a G2Jac
+	a.ScalarMultiplication(&g2Gen, big.NewInt(42))
+
+	b.Run("equal", func(b *testing.B) {
+		var scalarSquared fptower.E2
+		scalarSquared.Square(&scalar)
+
+		aZScaled := a
+		aZScaled.X.Mul(&aZScaled.X, &scalarSquared)
+		aZScaled.Y.Mul(&aZScaled.Y, &scalarSquared).Mul(&aZScaled.Y, &scalar)
+		aZScaled.Z.Mul(&aZScaled.Z, &scalar)
+
+		// Check the setup.
+		if !a.Equal(&aZScaled) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aZScaled)
+		}
+	})
+
+	b.Run("not equal", func(b *testing.B) {
+		var aPlus1 G2Jac
+		aPlus1.AddAssign(&g2Gen)
+
+		// Check the setup.
+		if a.Equal(&aPlus1) {
+			b.Fatalf("invalid test setup")
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a.Equal(&aPlus1)
+		}
+	})
 }
 
 func BenchmarkBatchAddG2Affine(b *testing.B) {

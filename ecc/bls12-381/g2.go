@@ -173,17 +173,30 @@ func (p *G2Jac) Set(a *G2Jac) *G2Jac {
 
 // Equal tests if two points (in Jacobian coordinates) are equal
 func (p *G2Jac) Equal(a *G2Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
+	// If one point is infinity, the other must also be infinity.
+	if p.Z.IsZero() {
+		return a.Z.IsZero()
 	}
-	_p := G2Affine{}
-	_p.FromJacobian(p)
+	// If the other point is infinity, return false since we can't
+	// the following checks would be incorrect.
+	if a.Z.IsZero() {
+		return false
+	}
 
-	_a := G2Affine{}
-	_a.FromJacobian(a)
+	var pZSquare, aZSquare fptower.E2
+	pZSquare.Square(&p.Z)
+	aZSquare.Square(&a.Z)
 
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+	var lhs, rhs fptower.E2
+	lhs.Mul(&p.X, &aZSquare)
+	rhs.Mul(&a.X, &pZSquare)
+	if !lhs.Equal(&rhs) {
+		return false
+	}
+	lhs.Mul(&p.Y, &aZSquare).Mul(&lhs, &a.Z)
+	rhs.Mul(&a.Y, &pZSquare).Mul(&rhs, &p.Z)
+
+	return lhs.Equal(&rhs)
 }
 
 // Neg computes -G
@@ -404,8 +417,11 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 	var res G2Jac
 	var ops [3]G2Jac
 
-	res.Set(&g2Infinity)
 	ops[0].Set(a)
+	if s.Sign() == -1 {
+		ops[0].Neg(&ops[0])
+	}
+	res.Set(&g2Infinity)
 	ops[1].Double(&ops[0])
 	ops[2].Set(&ops[0]).AddAssign(&ops[1])
 
